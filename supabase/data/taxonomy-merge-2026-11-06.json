@@ -1,0 +1,4800 @@
+[
+ {
+  "from_slug": "events_place",
+  "from_name": "Events Place",
+  "into_slug": "reception_venue",
+  "into_name": "Reception venue",
+  "filter": {
+   "name": "venue_type",
+   "value": "Events place"
+  },
+  "reason": "Couples compare all reception venues side by side; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "reception",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "function_hall",
+  "from_name": "Function Hall",
+  "into_slug": "reception_venue",
+  "into_name": "Reception venue",
+  "filter": {
+   "name": "venue_type",
+   "value": "Function hall"
+  },
+  "reason": "Couples compare all reception venues side by side; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "reception",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "garden_reception_venue",
+  "from_name": "Garden Reception Venue",
+  "into_slug": "reception_venue",
+  "into_name": "Reception venue",
+  "filter": {
+   "name": "venue_type",
+   "value": "Garden"
+  },
+  "reason": "Couples compare all reception venues side by side; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "reception",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "hotel_ballroom",
+  "from_name": "Hotel Ballroom",
+  "into_slug": "reception_venue",
+  "into_name": "Reception venue",
+  "filter": {
+   "name": "venue_type",
+   "value": "Hotel ballroom"
+  },
+  "reason": "Couples compare all reception venues side by side; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "reception",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "reception_venue",
+  "from_name": "Reception Venue",
+  "into_slug": "reception_venue",
+  "into_name": "Reception venue",
+  "filter": null,
+  "reason": "Target: every reception venue in one pool; venue type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "reception",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "resort_reception_venue",
+  "from_name": "Resort Reception Venue",
+  "into_slug": "reception_venue",
+  "into_name": "Reception venue",
+  "filter": {
+   "name": "venue_type",
+   "value": "Resort"
+  },
+  "reason": "Couples compare all reception venues side by side; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "reception",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "aglipayan_church_venue",
+  "from_name": "Aglipayan Church (IFI)",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Aglipayan"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "born_again_church_venue",
+  "from_name": "Born Again Church",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Born Again"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "buddhist_temple_venue",
+  "from_name": "Buddhist Temple",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Buddhist"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "catholic_church_venue",
+  "from_name": "Catholic Church / Chapel",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Catholic"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "ceremony_venue_booking",
+  "from_name": "Ceremony Venue",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": null,
+  "reason": "Target: one ceremony-venue pool, narrowed by the existing faith column.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "christian_church_venue",
+  "from_name": "Christian Church",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Christian"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "civil_ceremony_venue",
+  "from_name": "Civil Ceremony Venue",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Civil"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "cultural_ceremony_site",
+  "from_name": "Cultural / Ancestral Ceremony Site",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Cultural"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "gurdwara_venue",
+  "from_name": "Gurdwara",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Sikh"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "hindu_temple_venue",
+  "from_name": "Hindu Temple / Mandir",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Hindu"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "inc_kapilya_venue",
+  "from_name": "Iglesia ni Cristo Kapilya",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "INC"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "kingdom_hall_venue",
+  "from_name": "Kingdom Hall",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "JW"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "lds_temple_venue",
+  "from_name": "LDS Temple / Meetinghouse",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "LDS"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mosque_venue",
+  "from_name": "Mosque",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Muslim"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "orthodox_church_venue",
+  "from_name": "Orthodox Church",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Orthodox"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sda_church_venue",
+  "from_name": "Seventh-day Adventist Church",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "SDA"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "synagogue_venue",
+  "from_name": "Synagogue",
+  "into_slug": "ceremony_venue_booking",
+  "into_name": "Ceremony venue",
+  "filter": {
+   "name": "faith",
+   "value": "Jewish"
+  },
+  "reason": "Same thing (a place to hold the ceremony); faith column already says which kind.",
+  "group": "Venues & churches",
+  "from_category": "ceremony_venue",
+  "into_category": "reception",
+  "into_category_label": "Venues",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "aglipayan_priest",
+  "from_name": "Aglipayan Priest (IFI)",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Aglipayan"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "born_again_pastor",
+  "from_name": "Born Again / Evangelical Pastor",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Born Again"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "buddhist_monk",
+  "from_name": "Buddhist Monk / Officiant",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Buddhist"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "catholic_priest",
+  "from_name": "Catholic Priest",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Catholic"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "charismatic_pastor",
+  "from_name": "Charismatic Pastor (JIL, CCF, Victory)",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Christian"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "civil_judge",
+  "from_name": "Civil Judge",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Civil"
+  },
+  "reason": "Civil solemnizing officers are officiants with faith = Civil.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "civil_justice_of_peace",
+  "from_name": "Civil Justice of the Peace",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Civil"
+  },
+  "reason": "Civil solemnizing officers are officiants with faith = Civil.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "civil_mayor",
+  "from_name": "Civil Mayor / Vice-Mayor",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Civil"
+  },
+  "reason": "Civil solemnizing officers are officiants with faith = Civil.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "cultural_tribal_elder",
+  "from_name": "Cultural Tribal Elder",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Cultural"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "hindu_pandit",
+  "from_name": "Hindu Pandit / Priest",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Hindu"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "inc_minister",
+  "from_name": "INC Minister",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "INC"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "jewish_rabbi",
+  "from_name": "Rabbi",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Jewish"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "jw_elder",
+  "from_name": "Kingdom Hall Elder",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "JW"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "lds_officiant",
+  "from_name": "LDS Bishop / Officiant",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "LDS"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "mainline_protestant_pastor",
+  "from_name": "Mainline Protestant (Baptist, Methodist)",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Christian"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "muslim_imam",
+  "from_name": "Muslim Imam (BMA-registered)",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Muslim"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "officiant_priest_minister",
+  "from_name": "Officiant / priest / minister",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": null,
+  "reason": "Target (hidden today): one officiant pool, filtered by faith.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "orthodox_priest",
+  "from_name": "Orthodox Priest",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Orthodox"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "sda_pastor",
+  "from_name": "Adventist Pastor",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "SDA"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "sikh_granthi",
+  "from_name": "Sikh Granthi",
+  "into_slug": "officiant_priest_minister",
+  "into_name": "Officiant",
+  "filter": {
+   "name": "faith",
+   "value": "Sikh"
+  },
+  "reason": "Hidden today; one officiant pool, faith column filters it.",
+  "group": "Venues & churches",
+  "from_category": "officiants",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "cfo_seminar",
+  "from_name": "CFO Seminar Facilitator",
+  "into_slug": "pre_cana_seminar",
+  "into_name": "Pre-marriage seminar / counseling",
+  "filter": {
+   "name": "seminar_type",
+   "value": "CFO (marrying a foreigner)"
+  },
+  "reason": "CFO guidance seminar (marrying a foreigner) is a pre-marriage seminar type.",
+  "group": "Venues & churches",
+  "from_category": "counseling_seminars",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "christian_premarital_counseling",
+  "from_name": "Christian Pre-Marital Counseling",
+  "into_slug": "pre_cana_seminar",
+  "into_name": "Pre-marriage seminar / counseling",
+  "filter": {
+   "name": "faith",
+   "value": "Christian"
+  },
+  "reason": "Hidden today; all are pre-marriage seminars/counseling, faith filters.",
+  "group": "Venues & churches",
+  "from_category": "counseling_seminars",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "inc_counseling",
+  "from_name": "INC Counseling Center",
+  "into_slug": "pre_cana_seminar",
+  "into_name": "Pre-marriage seminar / counseling",
+  "filter": {
+   "name": "faith",
+   "value": "INC"
+  },
+  "reason": "Hidden today; all are pre-marriage seminars/counseling, faith filters.",
+  "group": "Venues & churches",
+  "from_category": "counseling_seminars",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "muslim_pre_wedding_counseling",
+  "from_name": "Muslim Pre-Wedding Counseling",
+  "into_slug": "pre_cana_seminar",
+  "into_name": "Pre-marriage seminar / counseling",
+  "filter": {
+   "name": "faith",
+   "value": "Muslim"
+  },
+  "reason": "Hidden today; all are pre-marriage seminars/counseling, faith filters.",
+  "group": "Venues & churches",
+  "from_category": "counseling_seminars",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "pre_cana_seminar",
+  "from_name": "Pre-Cana Seminar Facilitator",
+  "into_slug": "pre_cana_seminar",
+  "into_name": "Pre-marriage seminar / counseling",
+  "filter": {
+   "name": "faith",
+   "value": "Catholic"
+  },
+  "reason": "Target (hidden today): one pre-marriage seminar pool; faith filters it.",
+  "group": "Venues & churches",
+  "from_category": "counseling_seminars",
+  "into_category": "officiants",
+  "into_category_label": "Officiants & seminars (hidden)",
+  "setnayan_product": false,
+  "hidden_today": true
+ },
+ {
+  "from_slug": "accommodation",
+  "from_name": "Accommodation",
+  "into_slug": "accommodation",
+  "into_name": "Accommodation",
+  "filter": null,
+  "reason": "Target: one place-to-stay pool; stay type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "accommodation",
+  "into_category": "accommodation",
+  "into_category_label": "Accommodation",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "guesthouse_homestay",
+  "from_name": "Guesthouse / Homestay",
+  "into_slug": "accommodation",
+  "into_name": "Accommodation",
+  "filter": {
+   "name": "stay_type",
+   "value": "Guesthouse / homestay"
+  },
+  "reason": "Guests compare all lodging together; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "accommodation",
+  "into_category": "accommodation",
+  "into_category_label": "Accommodation",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "hotel_stay",
+  "from_name": "Hotel",
+  "into_slug": "accommodation",
+  "into_name": "Accommodation",
+  "filter": {
+   "name": "stay_type",
+   "value": "Hotel"
+  },
+  "reason": "Guests compare all lodging together; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "accommodation",
+  "into_category": "accommodation",
+  "into_category_label": "Accommodation",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "resort_stay",
+  "from_name": "Resort",
+  "into_slug": "accommodation",
+  "into_name": "Accommodation",
+  "filter": {
+   "name": "stay_type",
+   "value": "Resort"
+  },
+  "reason": "Guests compare all lodging together; type is a filter.",
+  "group": "Venues & churches",
+  "from_category": "accommodation",
+  "into_category": "accommodation",
+  "into_category_label": "Accommodation",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "vacation_rental",
+  "from_name": "Vacation Rental",
+  "into_slug": "accommodation",
+  "into_name": "Accommodation",
+  "filter": {
+   "name": "stay_type",
+   "value": "Vacation rental"
+  },
+  "reason": "Lodging like the rest; stay type filter (is_rental already true).",
+  "group": "Venues & churches",
+  "from_category": "accommodation",
+  "into_category": "accommodation",
+  "into_category_label": "Accommodation",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "day_of_coordinator",
+  "from_name": "Day-Of Coordinators",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "coverage",
+   "value": "Day-of"
+  },
+  "reason": "Same pool of coordinators; how much they cover is a filter.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "despedida_planner",
+  "from_name": "Despedida Planners",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Despedida"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "destination_wedding_specialist",
+  "from_name": "Destination Wedding Specialists",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Destination"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "gender_separated_reception_coordinator",
+  "from_name": "Gender-Separated Reception Coordinators",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Gender-separated reception"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "inc_wedding_coordinator",
+  "from_name": "INC-Compatible Wedding Coordinators",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "faith",
+   "value": "INC"
+  },
+  "reason": "Cultural/faith specialty becomes a filter tag (faith = INC).",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mahr_coordination",
+  "from_name": "Mahr Coordination Service",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Mahr"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "pamamanhikan_coordinator",
+  "from_name": "Pamamanhikan Coordinators",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Pamamanhikan"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "religious_venue_coordinator",
+  "from_name": "Tabernakulo / Mosque Coordinators",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Tabernakulo / mosque"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_concierge",
+  "from_name": "Setnayan Concierge",
+  "into_slug": "setnayan_concierge",
+  "into_name": "Setnayan Concierge",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sponsor_coordinator",
+  "from_name": "Sponsor Coordinators (ninong/ninang)",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Sponsors (ninong/ninang)"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_coordination",
+  "from_name": "Wedding coordination",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": null,
+  "reason": "Target: all coordinators/planners in one pool.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_planner_partial",
+  "from_name": "Wedding Planners (Partial / Month-of)",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "coverage",
+   "value": "Partial / month-of"
+  },
+  "reason": "Same pool of coordinators; how much they cover is a filter.",
+  "group": "Coordinators & planners",
+  "from_category": "coordinator",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "date_fengshui_consultant",
+  "from_name": "Chinese Date & Feng-shui Consultant",
+  "into_slug": "date_fengshui_consultant",
+  "into_name": "Date & feng-shui consultant",
+  "filter": {
+   "name": "faith",
+   "value": "Chinese"
+  },
+  "reason": "Kept: not a coordinator; booked on its own. Category folds into Coordinator / Planner.",
+  "group": "Coordinators & planners",
+  "from_category": "date_specialist",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "destination_wedding_travel_coordinator",
+  "from_name": "Destination Wedding Travel Coordinators",
+  "into_slug": "honeymoon_planner",
+  "into_name": "Travel agent (honeymoon & guest travel)",
+  "filter": {
+   "name": "trip_type",
+   "value": "Guest / destination travel"
+  },
+  "reason": "Same travel agencies; trip type is a filter.",
+  "group": "Coordinators & planners",
+  "from_category": "travel_honeymoon",
+  "into_category": "travel_honeymoon",
+  "into_category_label": "Travel & paperwork",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "honeymoon_planner",
+  "from_name": "Honeymoon Planners",
+  "into_slug": "honeymoon_planner",
+  "into_name": "Travel agent (honeymoon & guest travel)",
+  "filter": null,
+  "reason": "Target: travel agents do honeymoons and guest travel alike.",
+  "group": "Coordinators & planners",
+  "from_category": "travel_honeymoon",
+  "into_category": "travel_honeymoon",
+  "into_category_label": "Travel & paperwork",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "apostille_dfa_authentication",
+  "from_name": "Apostille / DFA Authentication Services",
+  "into_slug": "marriage_license_expediting",
+  "into_name": "Paperwork & permits service",
+  "filter": {
+   "name": "document",
+   "value": "Apostille / DFA"
+  },
+  "reason": "Same liaison agencies; the document is a filter.",
+  "group": "Coordinators & planners",
+  "from_category": "wedding_paperwork",
+  "into_category": "travel_honeymoon",
+  "into_category_label": "Travel & paperwork",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "marriage_license_expediting",
+  "from_name": "Marriage License Expediting Service",
+  "into_slug": "marriage_license_expediting",
+  "into_name": "Paperwork & permits service",
+  "filter": null,
+  "reason": "Target: one paperwork/liaison pool.",
+  "group": "Coordinators & planners",
+  "from_category": "wedding_paperwork",
+  "into_category": "travel_honeymoon",
+  "into_category_label": "Travel & paperwork",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "visa_wedding_logistics",
+  "from_name": "Visa-Wedding Logistics (Fil-Am couples)",
+  "into_slug": "marriage_license_expediting",
+  "into_name": "Paperwork & permits service",
+  "filter": {
+   "name": "document",
+   "value": "Visa (Fil-foreign couples)"
+  },
+  "reason": "Same liaison agencies; the document is a filter.",
+  "group": "Coordinators & planners",
+  "from_category": "wedding_paperwork",
+  "into_category": "travel_honeymoon",
+  "into_category_label": "Travel & paperwork",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_cake",
+  "from_name": "Wedding cake",
+  "into_slug": "wedding_cake",
+  "into_name": "Cake",
+  "filter": null,
+  "reason": "Kept: booked separately from catering.",
+  "group": "Catering & cake",
+  "from_category": "cake",
+  "into_category": "cake",
+  "into_category_label": "Cake",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "catering",
+  "from_name": "Catering",
+  "into_slug": "catering",
+  "into_name": "Catering",
+  "filter": null,
+  "reason": "Target: one caterer pool; cuisine/dietary are filters.",
+  "group": "Catering & cake",
+  "from_category": "catering",
+  "into_category": "catering",
+  "into_category_label": "Catering",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "chinese_lauriat_caterer",
+  "from_name": "Lauriat / Chinese Banquet Caterer",
+  "into_slug": "catering",
+  "into_name": "Catering",
+  "filter": {
+   "name": "cuisine",
+   "value": "Chinese lauriat"
+  },
+  "reason": "Caterer with a specialty; cuisine filter (is_tradition stays).",
+  "group": "Catering & cake",
+  "from_category": "catering",
+  "into_category": "catering",
+  "into_category_label": "Catering",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "halal_catering",
+  "from_name": "Halal Catering Specialists",
+  "into_slug": "catering",
+  "into_name": "Catering",
+  "filter": {
+   "name": "dietary",
+   "value": "halal"
+  },
+  "reason": "Caterer; existing dietary column = halal does the filtering.",
+  "group": "Catering & cake",
+  "from_category": "catering",
+  "into_category": "catering",
+  "into_category_label": "Catering",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "lechonero",
+  "from_name": "Lechonero (whole-pig roast specialist)",
+  "into_slug": "lechonero",
+  "into_name": "Lechon",
+  "filter": null,
+  "reason": "Kept: lechon is ordered on its own, beside the caterer.",
+  "group": "Catering & cake",
+  "from_category": "catering",
+  "into_category": "catering",
+  "into_category_label": "Catering",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "live_cooking_station",
+  "from_name": "Live Cooking Stations",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Live cooking"
+  },
+  "reason": "Station vendors = cart vendors; Stations category had one service.",
+  "group": "Catering & cake",
+  "from_category": "stations",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "crew_meal_supply",
+  "from_name": "Crew Meal Supply",
+  "into_slug": "catering",
+  "into_name": "Catering",
+  "filter": {
+   "name": "service",
+   "value": "Crew meals"
+  },
+  "reason": "Caterers supply crew meals; category had one service.",
+  "group": "Catering & cake",
+  "from_category": "crew_meals",
+  "into_category": "catering",
+  "into_category_label": "Catering",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "capiz_native_decor",
+  "from_name": "Capiz / Native Décor Specialists",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Capiz / native"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "chuppah_rental",
+  "from_name": "Chuppah Rental & Styling",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Jewish chuppah"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "decorator_general",
+  "from_name": "Decorators (general)",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": null,
+  "reason": "Exact duplicate.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "double_happiness_decor",
+  "from_name": "Double Happiness Decor",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Chinese (double happiness)"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "hacienda_heritage_decor",
+  "from_name": "Hacienda / Heritage Décor",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Hacienda / heritage"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mandap_decor",
+  "from_name": "Mandap Design & Decor",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Hindu mandap"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "maranao_okir_decor",
+  "from_name": "Maranao Okir Décor Specialists",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Maranao okir"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "stylist_decorator",
+  "from_name": "Stylist / decorator",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": null,
+  "reason": "Target: one stylist pool; style/tradition is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tea_set_styling",
+  "from_name": "Tea Ceremony Set & Styling",
+  "into_slug": "stylist_decorator",
+  "into_name": "Stylist / decorator",
+  "filter": {
+   "name": "style",
+   "value": "Chinese tea ceremony"
+  },
+  "reason": "Stylist with a style/tradition specialty; filter, not a separate pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "stylist_decorator",
+  "into_category": "stylist_decorator",
+  "into_category_label": "Stylist / Decorator",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "beach_wedding_florist",
+  "from_name": "Beach Wedding Florist",
+  "into_slug": "florals",
+  "into_name": "Florist",
+  "filter": {
+   "name": "setting",
+   "value": "Beach"
+  },
+  "reason": "Same florists; setting is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "florist",
+  "into_category": "florist",
+  "into_category_label": "Florist",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_bouquet_specialty",
+  "from_name": "Bridal Bouquets (specialty separate from florals)",
+  "into_slug": "florals",
+  "into_name": "Florist",
+  "filter": {
+   "name": "item",
+   "value": "Bouquets only"
+  },
+  "reason": "Florists make these; item is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "florist",
+  "into_category": "florist",
+  "into_category_label": "Florist",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "florals",
+  "from_name": "Florals",
+  "into_slug": "florals",
+  "into_name": "Florist",
+  "filter": null,
+  "reason": "Target: one florist pool.",
+  "group": "Styling, flowers & lights",
+  "from_category": "florist",
+  "into_category": "florist",
+  "into_category_label": "Florist",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "garden_wedding_florist",
+  "from_name": "Garden Wedding Florist",
+  "into_slug": "florals",
+  "into_name": "Florist",
+  "filter": {
+   "name": "setting",
+   "value": "Garden"
+  },
+  "reason": "Same florists; setting is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "florist",
+  "into_category": "florist",
+  "into_category_label": "Florist",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "lights_sound",
+  "from_name": "Lights & Sound (banquet)",
+  "into_slug": "lights_sound",
+  "into_name": "Lights & sound",
+  "filter": null,
+  "reason": "Target: one lights & sound pool (banquet, outdoor, rental).",
+  "group": "Styling, flowers & lights",
+  "from_category": "lights_sound",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "led_dance_floor",
+  "from_name": "LED Dance Floor",
+  "into_slug": "led_dance_floor",
+  "into_name": "LED dance floor",
+  "filter": null,
+  "reason": "Kept (category folds into Lights, sound & effects).",
+  "group": "Styling, flowers & lights",
+  "from_category": "dance_floor",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bug_repellent_station",
+  "from_name": "Bug / Mosquito Repellent Stations",
+  "into_slug": "chair_table_rental",
+  "into_name": "Event rentals (chairs, tables, tents)",
+  "filter": {
+   "name": "item",
+   "value": "Bug repellent"
+  },
+  "reason": "Same rental houses; item is a filter (is_rental already true).",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "cooling_fans_misters",
+  "from_name": "Cooling Fans / Misters Rental",
+  "into_slug": "chair_table_rental",
+  "into_name": "Event rentals (chairs, tables, tents)",
+  "filter": {
+   "name": "item",
+   "value": "Fans / misters"
+  },
+  "reason": "Same rental houses; item is a filter (is_rental already true).",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "generator_rental",
+  "from_name": "Generator Rental",
+  "into_slug": "generator_rental",
+  "into_name": "Generator rental",
+  "filter": null,
+  "reason": "Kept: power suppliers are a different pool. Category folds into Rentals & outdoor.",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mobile_restroom_rental",
+  "from_name": "Mobile Restroom Rental",
+  "into_slug": "mobile_restroom_rental",
+  "into_name": "Mobile restroom rental",
+  "filter": null,
+  "reason": "Kept: specialist pool. Category folds into Rentals & outdoor.",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "outdoor_lighting_specialist",
+  "from_name": "Outdoor Lighting Specialist (string / market lights)",
+  "into_slug": "lights_sound",
+  "into_name": "Lights & sound",
+  "filter": {
+   "name": "setting",
+   "value": "Outdoor lights"
+  },
+  "reason": "Same suppliers; outdoor is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "outdoor_sound_system",
+  "from_name": "Outdoor Sound System Specialist",
+  "into_slug": "lights_sound",
+  "into_name": "Lights & sound",
+  "filter": {
+   "name": "setting",
+   "value": "Outdoor sound"
+  },
+  "reason": "Same suppliers; outdoor is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "parasol_hat_rental",
+  "from_name": "Parasol / Hat Rental Stations",
+  "into_slug": "chair_table_rental",
+  "into_name": "Event rentals (chairs, tables, tents)",
+  "filter": {
+   "name": "item",
+   "value": "Parasols / hats"
+  },
+  "reason": "Same rental houses; item is a filter (is_rental already true).",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tent_rental",
+  "from_name": "Tent / Outdoor-Cover Rental",
+  "into_slug": "chair_table_rental",
+  "into_name": "Event rentals (chairs, tables, tents)",
+  "filter": {
+   "name": "item",
+   "value": "Tents & canopies"
+  },
+  "reason": "Same rental houses; item is a filter (is_rental already true).",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_day_weather_forecaster",
+  "from_name": "Wedding-Day Weather Forecaster (Tagaytay-specialty)",
+  "into_slug": "wedding_coordination",
+  "into_name": "Coordinator / planner",
+  "filter": {
+   "name": "specialty",
+   "value": "Weather / outdoor planning"
+  },
+  "reason": "A coordinator with a specialty; couples compare them with all coordinators.",
+  "group": "Styling, flowers & lights",
+  "from_category": "outdoor",
+  "into_category": "coordinator",
+  "into_category_label": "Coordinator / Planner",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "fireworks_pyro",
+  "from_name": "Fireworks & Pyrotechnics",
+  "into_slug": "fireworks_pyro",
+  "into_name": "Fireworks & pyrotechnics",
+  "filter": null,
+  "reason": "Kept: licensed specialty. Category folds into Lights, sound & effects.",
+  "group": "Styling, flowers & lights",
+  "from_category": "fireworks",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "led_video_wall",
+  "from_name": "LED Video Wall",
+  "into_slug": "led_video_wall",
+  "into_name": "LED wall",
+  "filter": null,
+  "reason": "Kept: compared on its own (size, pitch). Category folds into Lights, sound & effects.",
+  "group": "Styling, flowers & lights",
+  "from_category": "led_wall",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_custom_monogram",
+  "from_name": "Setnayan Custom Monogram",
+  "into_slug": "setnayan_custom_monogram",
+  "into_name": "Setnayan Custom Monogram",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Styling, flowers & lights",
+  "from_category": "digital_services",
+  "into_category": "digital_services",
+  "into_category_label": "Digital Services (Setnayan only)",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_pailaw",
+  "from_name": "Setnayan Pailaw (LED Background)",
+  "into_slug": "setnayan_pailaw",
+  "into_name": "Setnayan Pailaw (LED Background)",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Styling, flowers & lights",
+  "from_category": "digital_services",
+  "into_category": "digital_services",
+  "into_category_label": "Digital Services (Setnayan only)",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_pakanta",
+  "from_name": "Setnayan Music Maker (Custom Song)",
+  "into_slug": "setnayan_pakanta",
+  "into_name": "Setnayan Music Maker (Custom Song)",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Styling, flowers & lights",
+  "from_category": "digital_services",
+  "into_category": "digital_services",
+  "into_category_label": "Digital Services (Setnayan only)",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "chair_table_rental",
+  "from_name": "Chairs & tables",
+  "into_slug": "chair_table_rental",
+  "into_name": "Event rentals (chairs, tables, tents)",
+  "filter": {
+   "name": "is_rental",
+   "value": "true"
+  },
+  "reason": "Target: one event-rental pool; item is a filter.",
+  "group": "Styling, flowers & lights",
+  "from_category": "chairs_tents",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "event_lights_rental",
+  "from_name": "Lights rental",
+  "into_slug": "lights_sound",
+  "into_name": "Lights & sound",
+  "filter": {
+   "name": "is_rental",
+   "value": "true"
+  },
+  "reason": "Near-duplicate of Lights & Sound; existing is_rental filters.",
+  "group": "Styling, flowers & lights",
+  "from_category": "chairs_tents",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tent_canopy_rental",
+  "from_name": "Tents & canopies",
+  "into_slug": "chair_table_rental",
+  "into_name": "Event rentals (chairs, tables, tents)",
+  "filter": {
+   "name": "item",
+   "value": "Tents & canopies"
+  },
+  "reason": "Same rental houses; item is a filter (is_rental already true).",
+  "group": "Styling, flowers & lights",
+  "from_category": "chairs_tents",
+  "into_category": "chairs_tents",
+  "into_category_label": "Rentals & outdoor",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "band_live_music",
+  "from_name": "Band / live music",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": null,
+  "reason": "Target: all live music acts in one pool; act type is a filter.",
+  "group": "Hosts, music & program",
+  "from_category": "live_band",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "live_band",
+  "from_name": "Wedding Bands (full ensemble)",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Full band"
+  },
+  "reason": "Couples choosing ceremony/reception music compare these side by side.",
+  "group": "Hosts, music & program",
+  "from_category": "live_band",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "choir_string_quartet",
+  "from_name": "Choirs / String Quartets",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Choir / strings"
+  },
+  "reason": "Couples choosing ceremony/reception music compare these side by side.",
+  "group": "Hosts, music & program",
+  "from_category": "choir",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "orchestra",
+  "from_name": "Orchestra",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Orchestra"
+  },
+  "reason": "Couples choosing ceremony/reception music compare these side by side.",
+  "group": "Hosts, music & program",
+  "from_category": "orchestra",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_singer",
+  "from_name": "Wedding Singers (solo vocalists)",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Solo singer"
+  },
+  "reason": "Couples choosing ceremony/reception music compare these side by side.",
+  "group": "Hosts, music & program",
+  "from_category": "wedding_singer",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "dj",
+  "from_name": "DJs",
+  "into_slug": "dj",
+  "into_name": "DJ",
+  "filter": null,
+  "reason": "Kept: DJ is booked and compared separately from hosts and bands.",
+  "group": "Hosts, music & program",
+  "from_category": "dj",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "entourage_choreographer",
+  "from_name": "Entourage Choreographer",
+  "into_slug": "first_dance_choreographer",
+  "into_name": "Choreographer",
+  "filter": {
+   "name": "dance",
+   "value": "Entourage"
+  },
+  "reason": "Same choreographers; which dance is a filter.",
+  "group": "Hosts, music & program",
+  "from_category": "choreographer",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "first_dance_choreographer",
+  "from_name": "First Dance Choreographer",
+  "into_slug": "first_dance_choreographer",
+  "into_name": "Choreographer",
+  "filter": null,
+  "reason": "Target: one choreographer pool.",
+  "group": "Hosts, music & program",
+  "from_category": "choreographer",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "pre_cana_dance_trainer",
+  "from_name": "Pre-Cana Dance Trainer",
+  "into_slug": "first_dance_choreographer",
+  "into_name": "Choreographer",
+  "filter": {
+   "name": "dance",
+   "value": "Dance lessons"
+  },
+  "reason": "Same choreographers; which dance is a filter.",
+  "group": "Hosts, music & program",
+  "from_category": "choreographer",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "acoustic_performer",
+  "from_name": "Acoustic Performers (solo/duo)",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Acoustic solo/duo"
+  },
+  "reason": "Couples choosing ceremony/reception music compare these side by side.",
+  "group": "Hosts, music & program",
+  "from_category": "performers",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "folk_performer",
+  "from_name": "Folk Performers",
+  "into_slug": "wedding_entertainment",
+  "into_name": "Entertainment & performers",
+  "filter": {
+   "name": "act",
+   "value": "Folk dance"
+  },
+  "reason": "Entertainment acts compared together; act type is a filter.",
+  "group": "Hosts, music & program",
+  "from_category": "performers",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "kulintang_ensemble",
+  "from_name": "Kulintang Ensembles",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Kulintang"
+  },
+  "reason": "Live music act; faith = Muslim stays as a tag.",
+  "group": "Hosts, music & program",
+  "from_category": "performers",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "lion_dance_troupe",
+  "from_name": "Lion & Dragon Dance",
+  "into_slug": "wedding_entertainment",
+  "into_name": "Entertainment & performers",
+  "filter": {
+   "name": "act",
+   "value": "Lion & dragon dance"
+  },
+  "reason": "Entertainment acts compared together; act type is a filter.",
+  "group": "Hosts, music & program",
+  "from_category": "performers",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "rondalla_ensemble",
+  "from_name": "Rondalla Ensembles",
+  "into_slug": "band_live_music",
+  "into_name": "Live music",
+  "filter": {
+   "name": "act",
+   "value": "Rondalla"
+  },
+  "reason": "Couples choosing ceremony/reception music compare these side by side.",
+  "group": "Hosts, music & program",
+  "from_category": "performers",
+  "into_category": "live_band",
+  "into_category_label": "Music",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_entertainment",
+  "from_name": "Wedding Entertainment (magicians, fire dancers, etc.)",
+  "into_slug": "wedding_entertainment",
+  "into_name": "Entertainment & performers",
+  "filter": null,
+  "reason": "Target: all performers/novelty acts in one pool.",
+  "group": "Hosts, music & program",
+  "from_category": "performers",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "host_emcee",
+  "from_name": "Host / emcee",
+  "into_slug": "host_emcee",
+  "into_name": "Host / emcee",
+  "filter": null,
+  "reason": "Kept: hosts compared separately from DJs.",
+  "group": "Hosts, music & program",
+  "from_category": "host_mc",
+  "into_category": "host_mc",
+  "into_category_label": "Hosts & talent",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tea_ceremony_master",
+  "from_name": "Chinese Tea Ceremony Master",
+  "into_slug": "host_emcee",
+  "into_name": "Host / emcee",
+  "filter": {
+   "name": "specialty",
+   "value": "Chinese tea ceremony"
+  },
+  "reason": "Runs a program segment like a host; tradition tag, not its own pool.",
+  "group": "Hosts, music & program",
+  "from_category": "host_mc",
+  "into_category": "host_mc",
+  "into_category_label": "Hosts & talent",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "av_production",
+  "from_name": "AV / Production",
+  "into_slug": "lights_sound",
+  "into_name": "Lights & sound",
+  "filter": {
+   "name": "scale",
+   "value": "Full AV / production"
+  },
+  "reason": "Same supplier pool (corporate calls it AV, weddings call it lights & sound).",
+  "group": "Hosts, music & program",
+  "from_category": "av_production",
+  "into_category": "lights_sound",
+  "into_category_label": "Lights, sound & effects",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "speaker_talent",
+  "from_name": "Speakers / Talent",
+  "into_slug": "speaker_talent",
+  "into_name": "Speakers / talent",
+  "filter": null,
+  "reason": "Kept: keynote/celebrity talent differs from a host. Category folds into Hosts & talent.",
+  "group": "Hosts, music & program",
+  "from_category": "speaker_talent",
+  "into_category": "host_mc",
+  "into_category_label": "Hosts & talent",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "kids_entertainer",
+  "from_name": "Kids' Entertainer",
+  "into_slug": "wedding_entertainment",
+  "into_name": "Entertainment & performers",
+  "filter": {
+   "name": "act",
+   "value": "For kids"
+  },
+  "reason": "Entertainment acts compared together; act type is a filter.",
+  "group": "Hosts, music & program",
+  "from_category": "kids_entertainer",
+  "into_category": "performers",
+  "into_category_label": "Entertainment & dance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "boudoir_photographer",
+  "from_name": "Boudoir Photographer",
+  "into_slug": "photography",
+  "into_name": "Photographer",
+  "filter": {
+   "name": "shoot_type",
+   "value": "Boudoir"
+  },
+  "reason": "Same photographers; which shoot is a filter.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "drone",
+  "from_name": "Drone Operator",
+  "into_slug": "drone",
+  "into_name": "Drone (photo & video)",
+  "filter": null,
+  "reason": "Kept: drone pilots are hired on their own.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "drone_videographer",
+  "from_name": "Drone Videographer",
+  "into_slug": "drone",
+  "into_name": "Drone (photo & video)",
+  "filter": null,
+  "reason": "Duplicate of Drone Operator.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "engagement_photographer",
+  "from_name": "Engagement Photographer",
+  "into_slug": "photography",
+  "into_name": "Photographer",
+  "filter": {
+   "name": "shoot_type",
+   "value": "Engagement"
+  },
+  "reason": "Same photographers; which shoot is a filter.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "family_day2_photographer",
+  "from_name": "Family Day-2 / Brunch Photographer",
+  "into_slug": "photography",
+  "into_name": "Photographer",
+  "filter": {
+   "name": "shoot_type",
+   "value": "Day-2 / family"
+  },
+  "reason": "Same photographers; which shoot is a filter.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "highlight_reel_specialist",
+  "from_name": "Highlight Reel Specialist",
+  "into_slug": "videography",
+  "into_name": "Videographer",
+  "filter": {
+   "name": "deliverable",
+   "value": "Highlight reel"
+  },
+  "reason": "Videographer deliverables, not separate trades.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "photography",
+  "from_name": "Photography",
+  "into_slug": "photography",
+  "into_name": "Photographer",
+  "filter": null,
+  "reason": "Target: one photographer pool; shoot type is a filter.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "pre_nup_photographer",
+  "from_name": "Pre-Nup Photographer",
+  "into_slug": "photography",
+  "into_name": "Photographer",
+  "filter": {
+   "name": "shoot_type",
+   "value": "Pre-nup"
+  },
+  "reason": "Same photographers; which shoot is a filter.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "pre_nup_shoot_locations",
+  "from_name": "Pre-Nup Shoot Locations",
+  "into_slug": "pre_nup_shoot_locations",
+  "into_name": "Shoot location",
+  "filter": null,
+  "reason": "Kept: a place, not a photographer.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "same_day_edit",
+  "from_name": "Same-Day Edit Specialist",
+  "into_slug": "videography",
+  "into_name": "Videographer",
+  "filter": {
+   "name": "deliverable",
+   "value": "Same-day edit"
+  },
+  "reason": "Videographer deliverables, not separate trades.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_ai_edited_highlight",
+  "from_name": "Setnayan AI Edited Highlight",
+  "into_slug": "setnayan_ai_edited_highlight",
+  "into_name": "Setnayan AI Edited Highlight",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_papic",
+  "from_name": "Setnayan Papic",
+  "into_slug": "setnayan_papic",
+  "into_name": "Setnayan Papic",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_save_the_date_mp4",
+  "from_name": "Setnayan Save-the-Date Video MP4",
+  "into_slug": "setnayan_save_the_date_mp4",
+  "into_name": "Setnayan Save-the-Date Video MP4",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "studio_portrait_photographer",
+  "from_name": "Studio Portrait Photographer",
+  "into_slug": "photography",
+  "into_name": "Photographer",
+  "filter": {
+   "name": "shoot_type",
+   "value": "Studio portrait"
+  },
+  "reason": "Same photographers; which shoot is a filter.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "videography",
+  "from_name": "Videography",
+  "into_slug": "videography",
+  "into_name": "Videographer",
+  "filter": null,
+  "reason": "Kept separate from photography: different deliverable, many shoot only one.",
+  "group": "Photo & video",
+  "from_category": "photo_video",
+  "into_category": "photo_video",
+  "into_category_label": "Photo & Video",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_panood",
+  "from_name": "Setnayan Live Studio (Multi-Cam Livestream)",
+  "into_slug": "setnayan_panood",
+  "into_name": "Setnayan Live Studio (Multi-Cam Livestream)",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Photo & video",
+  "from_category": "livestream",
+  "into_category": "livestream",
+  "into_category_label": "Livestream (Setnayan only)",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_gown_custom",
+  "from_name": "Bridal gown (custom)",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": null,
+  "reason": "Target: one gown/dress pool for every woman in the event; wearer + is_rental filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_gown_rental",
+  "from_name": "Bridal Gown (Rental)",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "is_rental",
+   "value": "true"
+  },
+  "reason": "Custom vs rental pair; is_rental filters.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "filipiniana_balintawak",
+  "from_name": "Filipiniana Balintawak",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Filipiniana Balintawak"
+  },
+  "reason": "A gown style, not a separate trade.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "filipiniana_maria_clara",
+  "from_name": "Filipiniana Maria Clara",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Filipiniana Maria Clara"
+  },
+  "reason": "A gown style, not a separate trade.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "filipiniana_terno",
+  "from_name": "Filipiniana Terno",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Filipiniana terno"
+  },
+  "reason": "A gown style, not a separate trade.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "inc_modest_bridal",
+  "from_name": "Modest INC Bridal Attire",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Modest (INC)"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "maranao_wedding_attire",
+  "from_name": "Maranao Wedding Attire (malong-inspired)",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Maranao"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "muslim_modest_bridal",
+  "from_name": "Modest Muslim Bridal Attire",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Modest (Muslim)"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "qipao_cheongsam_attire",
+  "from_name": "Qipao / Cheongsam Bridal",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Qipao / cheongsam"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sari_lehenga_bridal",
+  "from_name": "Sari / Lehenga Bridal",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Sari / lehenga"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tausug_wedding_attire",
+  "from_name": "Tausug Wedding Attire (beadwork-heavy)",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Tausug"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "yakan_wedding_attire",
+  "from_name": "Yakan Textile Bridal",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "style",
+   "value": "Yakan"
+  },
+  "reason": "Cultural/faith style; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "brides_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "barong_tagalog_custom",
+  "from_name": "Barong Tagalog (Custom)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Barong"
+  },
+  "reason": "Grooms choose barong OR suit from one list; style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "barong_tagalog_rental",
+  "from_name": "Barong Tagalog (Rental)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Barong"
+  },
+  "reason": "Barong rental; style = Barong + is_rental.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "groom_suit_custom",
+  "from_name": "Wedding Suits / Tuxedos (Custom)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": null,
+  "reason": "Target: one barong/suit pool for every man in the event; style + wearer + is_rental filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "groom_suit_rental",
+  "from_name": "Wedding Suits / Tuxedos (Rental)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "is_rental",
+   "value": "true"
+  },
+  "reason": "Custom vs rental pair; is_rental filters.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "maranao_groom_attire",
+  "from_name": "Maranao Groom Attire (malong/okir)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Maranao"
+  },
+  "reason": "Cultural/faith groom attire; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "muslim_groom_attire",
+  "from_name": "Modest Muslim Groom Attire",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Modest (Muslim)"
+  },
+  "reason": "Cultural/faith groom attire; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sherwani_groom",
+  "from_name": "Sherwani / Groom Attire",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Sherwani"
+  },
+  "reason": "Cultural/faith groom attire; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tausug_groom_attire",
+  "from_name": "Tausug Groom Attire (beadwork)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Tausug"
+  },
+  "reason": "Cultural/faith groom attire; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "yakan_groom_attire",
+  "from_name": "Yakan Textile Groom Attire",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "style",
+   "value": "Yakan"
+  },
+  "reason": "Cultural/faith groom attire; faith column + style filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooms_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridesmaid_dress",
+  "from_name": "Bridesmaid Dresses",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "wearer",
+   "value": "Bridesmaid"
+  },
+  "reason": "Same dressmakers dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "womens_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "debutante_gown",
+  "from_name": "Debutante Ball Gown",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "wearer",
+   "value": "Debutante"
+  },
+  "reason": "Same dressmakers dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "womens_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "flower_girl_dress",
+  "from_name": "Flower Girl Dresses",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "wearer",
+   "value": "Flower girl"
+  },
+  "reason": "Same dressmakers dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "womens_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "junior_bridesmaid_dress",
+  "from_name": "Junior Bridesmaid Dresses",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "wearer",
+   "value": "Junior bridesmaid"
+  },
+  "reason": "Same dressmakers dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "womens_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mother_of_bride_gown",
+  "from_name": "Mother-of-Bride Gowns",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "wearer",
+   "value": "Mother"
+  },
+  "reason": "Same dressmakers dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "womens_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "ninang_attire",
+  "from_name": "Sponsor Attire — Ninang Sets",
+  "into_slug": "bridal_gown_custom",
+  "into_name": "Gowns & dresses",
+  "filter": {
+   "name": "wearer",
+   "value": "Ninang"
+  },
+  "reason": "Same dressmakers dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "womens_attire",
+  "into_category": "brides_attire",
+  "into_category_label": "Gowns & dresses",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "eighteen_roses_attire",
+  "from_name": "18 Roses / Escort Attire",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "wearer",
+   "value": "18 roses / escort"
+  },
+  "reason": "Same tailors dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "mens_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "groomsman_set",
+  "from_name": "Groomsman Sets (matched)",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "wearer",
+   "value": "Groomsmen"
+  },
+  "reason": "Same tailors dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "mens_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "junior_groomsman",
+  "from_name": "Junior Groomsman",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "wearer",
+   "value": "Junior groomsman"
+  },
+  "reason": "Same tailors dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "mens_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "ninong_attire",
+  "from_name": "Sponsor Attire — Ninong Sets",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "wearer",
+   "value": "Ninong"
+  },
+  "reason": "Same tailors dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "mens_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "ring_bearer_suit",
+  "from_name": "Ring Bearer Suits",
+  "into_slug": "groom_suit_custom",
+  "into_name": "Barong & suits",
+  "filter": {
+   "name": "wearer",
+   "value": "Ring bearer"
+  },
+  "reason": "Same tailors dress the whole entourage; wearer is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "mens_attire",
+  "into_category": "grooms_attire",
+  "into_category_label": "Barong & suits",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_hair_stylist",
+  "from_name": "Bridal Hair Stylists",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Hair only"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "hmua",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_hmua",
+  "from_name": "Bridal Makeup Artists",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": null,
+  "reason": "Target: one hair & makeup pool.",
+  "group": "Attire, hair & make-up",
+  "from_category": "hmua",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "family_mua",
+  "from_name": "Family Makeup Artists",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Family / entourage"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "hmua",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "maternity_bride_mua",
+  "from_name": "Maternity Bride MUA",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Maternity bride"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "hmua",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mature_bride_mua",
+  "from_name": "Mature Bride MUA",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Mature bride"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "hmua",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "touchup_mua",
+  "from_name": "Touch-Up Artists (day-of)",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Day-of touch-up"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "hmua",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "groom_grooming",
+  "from_name": "Groom Grooming (skincare, beard, hair)",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Groom grooming"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "grooming",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_dental",
+  "from_name": "Bridal Dental (whitening/alignment)",
+  "into_slug": "bridal_dental",
+  "into_name": "Bridal dental",
+  "filter": null,
+  "reason": "Kept: a clinic, not comparable with the others.",
+  "group": "Attire, hair & make-up",
+  "from_category": "wellness_fitness",
+  "into_category": "wellness_fitness",
+  "into_category_label": "Wellness & Fitness",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_dermatology",
+  "from_name": "Bridal Dermatology (skin prep)",
+  "into_slug": "bridal_dermatology",
+  "into_name": "Bridal dermatology",
+  "filter": null,
+  "reason": "Kept: a clinic, not comparable with the others.",
+  "group": "Attire, hair & make-up",
+  "from_category": "wellness_fitness",
+  "into_category": "wellness_fitness",
+  "into_category_label": "Wellness & Fitness",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_fitness",
+  "from_name": "Bridal Fitness Programs (pre-wedding)",
+  "into_slug": "bridal_fitness",
+  "into_name": "Fitness & diet coach",
+  "filter": null,
+  "reason": "Target: fitness + diet coaching overlap.",
+  "group": "Attire, hair & make-up",
+  "from_category": "wellness_fitness",
+  "into_category": "wellness_fitness",
+  "into_category_label": "Wellness & Fitness",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_nutritionist",
+  "from_name": "Bridal Nutritionist / Diet Coach",
+  "into_slug": "bridal_fitness",
+  "into_name": "Fitness & diet coach",
+  "filter": {
+   "name": "focus",
+   "value": "Diet / nutrition"
+  },
+  "reason": "Coaches do both; focus is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "wellness_fitness",
+  "into_category": "wellness_fitness",
+  "into_category_label": "Wellness & Fitness",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_spa",
+  "from_name": "Bridal Spa & Wellness",
+  "into_slug": "bridal_spa",
+  "into_name": "Bridal spa",
+  "filter": null,
+  "reason": "Kept: pre-wedding spa differs from on-site massage booths.",
+  "group": "Attire, hair & make-up",
+  "from_category": "wellness_fitness",
+  "into_category": "wellness_fitness",
+  "into_category_label": "Wellness & Fitness",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_headpiece",
+  "from_name": "Bridal Headpieces",
+  "into_slug": "bridal_headpiece",
+  "into_name": "Bridal accessories (veils, headpieces, garters)",
+  "filter": null,
+  "reason": "Target: one bridal-accessories pool.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_jewellery",
+  "from_name": "Bridal Jewellery",
+  "into_slug": "bridal_jewellery",
+  "into_name": "Jewellery & rings",
+  "filter": null,
+  "reason": "Target: one jeweller pool (rings + sets, buy or rent).",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_jewellery_rental",
+  "from_name": "Bridal Jewellery (Rental)",
+  "into_slug": "bridal_jewellery",
+  "into_name": "Jewellery & rings",
+  "filter": {
+   "name": "is_rental",
+   "value": "true"
+  },
+  "reason": "Custom vs rental pair; is_rental filters.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "engagement_ring",
+  "from_name": "Engagement Rings",
+  "into_slug": "bridal_jewellery",
+  "into_name": "Jewellery & rings",
+  "filter": {
+   "name": "item",
+   "value": "Engagement ring"
+  },
+  "reason": "Same jewellers; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "floral_jewellery",
+  "from_name": "Floral Jewellery",
+  "into_slug": "florals",
+  "into_name": "Florist",
+  "filter": {
+   "name": "item",
+   "value": "Floral jewellery / crowns"
+  },
+  "reason": "Florists make these; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "florist",
+  "into_category_label": "Florist",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "flower_girl_tiara",
+  "from_name": "Flower Girl Tiaras",
+  "into_slug": "bridal_headpiece",
+  "into_name": "Bridal accessories (veils, headpieces, garters)",
+  "filter": {
+   "name": "item",
+   "value": "Flower-girl tiaras"
+  },
+  "reason": "Same accessory makers; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sponsor_corsage",
+  "from_name": "Sponsor Corsages",
+  "into_slug": "florals",
+  "into_name": "Florist",
+  "filter": {
+   "name": "item",
+   "value": "Corsages"
+  },
+  "reason": "Florists make these; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "florist",
+  "into_category_label": "Florist",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_garter",
+  "from_name": "Garters",
+  "into_slug": "bridal_headpiece",
+  "into_name": "Bridal accessories (veils, headpieces, garters)",
+  "filter": {
+   "name": "item",
+   "value": "Garters"
+  },
+  "reason": "Same accessory makers; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_ring",
+  "from_name": "Wedding Bands",
+  "into_slug": "bridal_jewellery",
+  "into_name": "Jewellery & rings",
+  "filter": {
+   "name": "item",
+   "value": "Wedding bands"
+  },
+  "reason": "Same jewellers; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_veil",
+  "from_name": "Wedding Veils & Trains",
+  "into_slug": "bridal_headpiece",
+  "into_name": "Bridal accessories (veils, headpieces, garters)",
+  "filter": {
+   "name": "item",
+   "value": "Veils & trains"
+  },
+  "reason": "Same accessory makers; item is a filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "jewelleries_accessories",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "custom_made_shoes",
+  "from_name": "Custom-made shoes",
+  "into_slug": "custom_made_shoes",
+  "into_name": "Shoes",
+  "filter": null,
+  "reason": "Target: one shoe pool (custom, rental, repair).",
+  "group": "Attire, hair & make-up",
+  "from_category": "shoes_footwear",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "shoe_rental",
+  "from_name": "Shoe rental",
+  "into_slug": "custom_made_shoes",
+  "into_name": "Shoes",
+  "filter": {
+   "name": "is_rental",
+   "value": "true"
+  },
+  "reason": "Custom vs rental pair; is_rental filters (shoe_rental is not flagged is_rental today — set it).",
+  "group": "Attire, hair & make-up",
+  "from_category": "shoes_footwear",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "shoe_repair",
+  "from_name": "Shoe repair",
+  "into_slug": "custom_made_shoes",
+  "into_name": "Shoes",
+  "filter": {
+   "name": "service",
+   "value": "Repair"
+  },
+  "reason": "Too small for its own pool; service filter.",
+  "group": "Attire, hair & make-up",
+  "from_category": "shoes_footwear",
+  "into_category": "jewelleries_accessories",
+  "into_category_label": "Jewellery, accessories & shoes",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mobile_bar",
+  "from_name": "Mobile bar",
+  "into_slug": "mobile_bar",
+  "into_name": "Mobile bar",
+  "filter": null,
+  "reason": "Target: one bar pool; bar type / dietary filter. (Has 1 supplier today.)",
+  "group": "Booths, carts & bars",
+  "from_category": "mobile_bar",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "whiskey_cigar_bar",
+  "from_name": "Wine / Whiskey / Cigar Bar",
+  "into_slug": "mobile_bar",
+  "into_name": "Mobile bar",
+  "filter": {
+   "name": "bar_type",
+   "value": "Wine / whiskey / cigar"
+  },
+  "reason": "A mobile bar with a menu; filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "mobile_bar",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "coffee_booth",
+  "from_name": "Coffee booth",
+  "into_slug": "coffee_booth",
+  "into_name": "Coffee & tea booth",
+  "filter": null,
+  "reason": "Kept: coffee/tea booth is booked beside, not instead of, a bar.",
+  "group": "Booths, carts & bars",
+  "from_category": "coffee_espresso",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tea_bar",
+  "from_name": "Tea Ceremony / Tea Bar",
+  "into_slug": "coffee_booth",
+  "into_name": "Coffee & tea booth",
+  "filter": {
+   "name": "drink",
+   "value": "Tea"
+  },
+  "reason": "Same booth vendors; drink is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "coffee_espresso",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mocktail_bar",
+  "from_name": "Mocktail Bar (alcohol-free)",
+  "into_slug": "mobile_bar",
+  "into_name": "Mobile bar",
+  "filter": {
+   "name": "dietary",
+   "value": "alcohol_free"
+  },
+  "reason": "Alcohol-free bar; existing dietary column = alcohol_free filters.",
+  "group": "Booths, carts & bars",
+  "from_category": "mocktail",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mocktail_booth_mini",
+  "from_name": "Mocktail Bar (booth-scale)",
+  "into_slug": "mobile_bar",
+  "into_name": "Mobile bar",
+  "filter": {
+   "name": "dietary",
+   "value": "alcohol_free"
+  },
+  "reason": "Alcohol-free bar; existing dietary column = alcohol_free filters.",
+  "group": "Booths, carts & bars",
+  "from_category": "mocktail",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mocktail_only_caterer",
+  "from_name": "Mocktail-Only Caterers",
+  "into_slug": "mobile_bar",
+  "into_name": "Mobile bar",
+  "filter": {
+   "name": "dietary",
+   "value": "alcohol_free"
+  },
+  "reason": "Alcohol-free bar; existing dietary column = alcohol_free filters.",
+  "group": "Booths, carts & bars",
+  "from_category": "mocktail",
+  "into_category": "mobile_bar",
+  "into_category_label": "Bars & drinks",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "food_truck",
+  "from_name": "Food Trucks",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Food truck"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_truck",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "dessert_station",
+  "from_name": "Dessert Stations",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Dessert table"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "dessert",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "donut_wall_display",
+  "from_name": "Donut Wall / Display",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Donut wall"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "dessert",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "aromatherapy_station",
+  "from_name": "Aromatherapy Station",
+  "into_slug": "massage_chair_station",
+  "into_name": "Pampering station",
+  "filter": {
+   "name": "station_type",
+   "value": "Aromatherapy"
+  },
+  "reason": "Guest pampering stations compared together.",
+  "group": "Booths, carts & bars",
+  "from_category": "massage_chair",
+  "into_category": "massage_chair",
+  "into_category_label": "Pampering stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "hair_touchup_station",
+  "from_name": "Hair Touch-Up Station",
+  "into_slug": "bridal_hmua",
+  "into_name": "Hair & makeup artist",
+  "filter": {
+   "name": "specialty",
+   "value": "Guest touch-up station"
+  },
+  "reason": "Same artists; who/what is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "massage_chair",
+  "into_category": "hmua",
+  "into_category_label": "Hair, makeup & grooming",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "massage_chair_station",
+  "from_name": "Massage Chair Station",
+  "into_slug": "massage_chair_station",
+  "into_name": "Pampering station",
+  "filter": null,
+  "reason": "Target: one on-site pampering pool.",
+  "group": "Booths, carts & bars",
+  "from_category": "massage_chair",
+  "into_category": "massage_chair",
+  "into_category_label": "Pampering stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "massage_therapist",
+  "from_name": "Massage Therapist",
+  "into_slug": "massage_chair_station",
+  "into_name": "Pampering station",
+  "filter": {
+   "name": "station_type",
+   "value": "Massage therapist"
+  },
+  "reason": "Guest pampering stations compared together.",
+  "group": "Booths, carts & bars",
+  "from_category": "massage_chair",
+  "into_category": "massage_chair",
+  "into_category_label": "Pampering stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "foot_reflexology",
+  "from_name": "Foot Reflexology",
+  "into_slug": "massage_chair_station",
+  "into_name": "Pampering station",
+  "filter": {
+   "name": "station_type",
+   "value": "Foot reflexology"
+  },
+  "reason": "Guest pampering stations compared together.",
+  "group": "Booths, carts & bars",
+  "from_category": "massage_chair",
+  "into_category": "massage_chair",
+  "into_category_label": "Pampering stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "charcuterie_board",
+  "from_name": "Cheese / Charcuterie Board",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Grazing / charcuterie"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "cotton_candy_cart",
+  "from_name": "Cotton Candy Cart",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Cotton candy"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "crepe_pancake_station",
+  "from_name": "Crepe / Pancake Station",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Crepe / pancake"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "food_cart_generic",
+  "from_name": "Food Cart (Generic)",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": null,
+  "reason": "Target: every food cart, station and truck in one pool; food type filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "halo_halo_station",
+  "from_name": "Halo-Halo Station",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Halo-halo"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "ice_cream_cart",
+  "from_name": "Ice Cream Cart",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Ice cream"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mini_lechon_station",
+  "from_name": "Mini Lechon Station",
+  "into_slug": "lechonero",
+  "into_name": "Lechon",
+  "filter": {
+   "name": "format",
+   "value": "Carving station"
+  },
+  "reason": "Same lechon houses; whole pig vs carving station is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "catering",
+  "into_category_label": "Catering",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sorbetes_cart",
+  "from_name": "Sorbetes Cart",
+  "into_slug": "food_cart_generic",
+  "into_name": "Food carts & stations",
+  "filter": {
+   "name": "food_type",
+   "value": "Sorbetes"
+  },
+  "reason": "Couples pick snack carts for guests from one list; food type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "food_cart",
+  "into_category": "food_cart",
+  "into_category_label": "Food carts & stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "booth_360",
+  "from_name": "360 Booth",
+  "into_slug": "photo_booth",
+  "into_name": "Photo booth",
+  "filter": {
+   "name": "booth_type",
+   "value": "360"
+  },
+  "reason": "Same booth operators; type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "gif_booth",
+  "from_name": "GIF Booth",
+  "into_slug": "photo_booth",
+  "into_name": "Photo booth",
+  "filter": {
+   "name": "booth_type",
+   "value": "GIF"
+  },
+  "reason": "Same booth operators; type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "pabati",
+  "from_name": "Pabati",
+  "into_slug": "pabati",
+  "into_name": "Pabati",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "photo_booth",
+  "from_name": "Photo booth",
+  "into_slug": "photo_booth",
+  "into_name": "Photo booth",
+  "filter": null,
+  "reason": "Target: one photo-booth pool; booth type filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "polaroid_booth",
+  "from_name": "Polaroid / Instax Booth",
+  "into_slug": "photo_booth",
+  "into_name": "Photo booth",
+  "filter": {
+   "name": "booth_type",
+   "value": "Polaroid / Instax"
+  },
+  "reason": "Same booth operators; type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "selfie_magic_mirror",
+  "from_name": "Selfie Magic Mirror",
+  "into_slug": "photo_booth",
+  "into_name": "Photo booth",
+  "filter": {
+   "name": "booth_type",
+   "value": "Magic mirror"
+  },
+  "reason": "Same booth operators; type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "setnayan_patiktok",
+  "from_name": "Setnayan Patiktok (TikTok Booth)",
+  "into_slug": "setnayan_patiktok",
+  "into_name": "Setnayan Patiktok (TikTok Booth)",
+  "filter": null,
+  "reason": "Setnayan's own product: not in the supplier picker. No merge.",
+  "group": "Booths, carts & bars",
+  "from_category": "photo_booth",
+  "into_category": "photo_booth",
+  "into_category_label": "Photo Booth",
+  "setnayan_product": true,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "perfume_bar",
+  "from_name": "Perfume Bar (custom blend)",
+  "into_slug": "massage_chair_station",
+  "into_name": "Pampering station",
+  "filter": {
+   "name": "station_type",
+   "value": "Perfume bar"
+  },
+  "reason": "Guest pampering stations compared together.",
+  "group": "Booths, carts & bars",
+  "from_category": "perfume_bar",
+  "into_category": "massage_chair",
+  "into_category_label": "Pampering stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "arcade_retro_games",
+  "from_name": "Arcade / Retro Games",
+  "into_slug": "arcade_retro_games",
+  "into_name": "Games station",
+  "filter": null,
+  "reason": "Target: one games pool.",
+  "group": "Booths, carts & bars",
+  "from_category": "arcade_games",
+  "into_category": "arcade_games",
+  "into_category_label": "Games & fortune-telling",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "vr_ar_station",
+  "from_name": "VR / AR Experience Station",
+  "into_slug": "arcade_retro_games",
+  "into_name": "Games station",
+  "filter": {
+   "name": "game_type",
+   "value": "VR / AR"
+  },
+  "reason": "Same game-station vendors; filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "arcade_games",
+  "into_category": "arcade_games",
+  "into_category_label": "Games & fortune-telling",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "henna_tattoo_booth",
+  "from_name": "Henna / Temporary Tattoo Booth",
+  "into_slug": "henna_tattoo_booth",
+  "into_name": "Henna / mehndi artist",
+  "filter": null,
+  "reason": "Target: one henna pool; mehndi/cultural style is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "henna_tattoo",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mehndi_artist",
+  "from_name": "Mehndi Artist (bridal henna)",
+  "into_slug": "henna_tattoo_booth",
+  "into_name": "Henna / mehndi artist",
+  "filter": {
+   "name": "style",
+   "value": "Bridal mehndi"
+  },
+  "reason": "Henna artist; faith = Hindu stays as a tag.",
+  "group": "Booths, carts & bars",
+  "from_category": "henna_tattoo",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "muslim_henna_artist",
+  "from_name": "Muslim Henna Artist (cultural style)",
+  "into_slug": "henna_tattoo_booth",
+  "into_name": "Henna / mehndi artist",
+  "filter": {
+   "name": "style",
+   "value": "Muslim cultural"
+  },
+  "reason": "Henna artist; faith = Muslim stays as a tag.",
+  "group": "Booths, carts & bars",
+  "from_category": "henna_tattoo",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mini_nail_bar",
+  "from_name": "Mini Nail Bar",
+  "into_slug": "massage_chair_station",
+  "into_name": "Pampering station",
+  "filter": {
+   "name": "station_type",
+   "value": "Nail bar"
+  },
+  "reason": "Guest pampering stations compared together.",
+  "group": "Booths, carts & bars",
+  "from_category": "mini_nail_bar",
+  "into_category": "massage_chair",
+  "into_category_label": "Pampering stations",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "palmistry_reader",
+  "from_name": "Palmistry Reader",
+  "into_slug": "tarot_astrology",
+  "into_name": "Fortune reading",
+  "filter": {
+   "name": "reading",
+   "value": "Palmistry"
+  },
+  "reason": "Same novelty readers; filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "tarot_astrology_palmistry",
+  "into_category": "arcade_games",
+  "into_category_label": "Games & fortune-telling",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tarot_astrology",
+  "from_name": "Tarot / Astrology Reading",
+  "into_slug": "tarot_astrology",
+  "into_name": "Fortune reading",
+  "filter": null,
+  "reason": "Target: one fortune-reading pool.",
+  "group": "Booths, carts & bars",
+  "from_category": "tarot_astrology_palmistry",
+  "into_category": "arcade_games",
+  "into_category_label": "Games & fortune-telling",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "caricature_artist",
+  "from_name": "Caricature Artist",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": null,
+  "reason": "Target: one live-artist/personalisation pool.",
+  "group": "Booths, carts & bars",
+  "from_category": "caricature_calligraphy_painting",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "live_calligraphy",
+  "from_name": "Live Calligraphy / Name Printing",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": {
+   "name": "art_type",
+   "value": "Calligraphy"
+  },
+  "reason": "Live guest art stations compared together; art type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "caricature_calligraphy_painting",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "poetry_typewriter",
+  "from_name": "Live Poetry Typewriter",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": {
+   "name": "art_type",
+   "value": "Poetry typewriter"
+  },
+  "reason": "Live guest art stations compared together; art type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "caricature_calligraphy_painting",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "silhouette_artist",
+  "from_name": "Silhouette / Profile Artist",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": {
+   "name": "art_type",
+   "value": "Silhouette"
+  },
+  "reason": "Live guest art stations compared together; art type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "caricature_calligraphy_painting",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_portrait_painter",
+  "from_name": "Live Wedding-Portrait Painter",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": {
+   "name": "art_type",
+   "value": "Live painting"
+  },
+  "reason": "Live guest art stations compared together; art type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "caricature_calligraphy_painting",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "keychain_engraving",
+  "from_name": "Custom Keychain / Magnet Engraving",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": {
+   "name": "art_type",
+   "value": "Engraving"
+  },
+  "reason": "Live guest art stations compared together; art type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "engraving_embroidery",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "live_embroidery",
+  "from_name": "Live Embroidery (on handkerchiefs)",
+  "into_slug": "caricature_artist",
+  "into_name": "Live artist (caricature, calligraphy, engraving)",
+  "filter": {
+   "name": "art_type",
+   "value": "Embroidery"
+  },
+  "reason": "Live guest art stations compared together; art type is a filter.",
+  "group": "Booths, carts & bars",
+  "from_category": "engraving_embroidery",
+  "into_category": "caricature_calligraphy_painting",
+  "into_category_label": "Live artists & henna",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "ceremony_program",
+  "from_name": "Ceremony Programs (printed books)",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Programs"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "invitation_digital",
+  "from_name": "Wedding Invitations (Digital)",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Digital invitation"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "invitation_print",
+  "from_name": "Wedding Invitations (Print)",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": null,
+  "reason": "Target: one stationery pool, print or digital.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "menu_card",
+  "from_name": "Menu Cards",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Menu cards"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "place_card",
+  "from_name": "Place Cards",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Place cards"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "save_the_date_digital",
+  "from_name": "Save-the-Date (Digital)",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Save-the-date"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "stationery_signage",
+  "from_name": "Signage",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Signage"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wedding_cards_designer",
+  "from_name": "Wedding Cards Designer (specialty)",
+  "into_slug": "invitation_print",
+  "into_name": "Invitations & stationery",
+  "filter": {
+   "name": "item",
+   "value": "Custom design"
+  },
+  "reason": "Same stationers; item/format is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "printing",
+  "into_category": "printing",
+  "into_category_label": "Invitations & printing",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "angpao_betrothal_supplier",
+  "from_name": "Ang Pao & Betrothal Gifts",
+  "into_slug": "souvenirs_giveaways",
+  "into_name": "Souvenirs & tokens",
+  "filter": {
+   "name": "item",
+   "value": "Ang pao / betrothal (Chinese)"
+  },
+  "reason": "Same souvenir makers; item is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "souvenir_giveaways",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "godchild_token",
+  "from_name": "Inaanak / Godchild Tokens",
+  "into_slug": "souvenirs_giveaways",
+  "into_name": "Souvenirs & tokens",
+  "filter": {
+   "name": "item",
+   "value": "Inaanak tokens"
+  },
+  "reason": "Same souvenir makers; item is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "souvenir_giveaways",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "pasalubong_box",
+  "from_name": "Trousseau / Pasalubong Boxes",
+  "into_slug": "souvenirs_giveaways",
+  "into_name": "Souvenirs & tokens",
+  "filter": {
+   "name": "item",
+   "value": "Pasalubong boxes"
+  },
+  "reason": "Same souvenir makers; item is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "souvenir_giveaways",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "souvenirs_giveaways",
+  "from_name": "Souvenirs / Giveaways",
+  "into_slug": "souvenirs_giveaways",
+  "into_name": "Souvenirs & tokens",
+  "filter": null,
+  "reason": "Target: one souvenir pool.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "souvenir_giveaways",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "sponsor_token",
+  "from_name": "Sponsor Tokens",
+  "into_slug": "souvenirs_giveaways",
+  "into_name": "Souvenirs & tokens",
+  "filter": {
+   "name": "item",
+   "value": "Sponsor tokens"
+  },
+  "reason": "Same souvenir makers; item is a filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "souvenir_giveaways",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "medals_plaques",
+  "from_name": "Medals & Plaques",
+  "into_slug": "trophy_supplier",
+  "into_name": "Trophies, medals & plaques",
+  "filter": {
+   "name": "item",
+   "value": "Medals & plaques"
+  },
+  "reason": "Same award makers; filter.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "trophies_awards",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "trophy_supplier",
+  "from_name": "Trophies & Awards Supplier",
+  "into_slug": "trophy_supplier",
+  "into_name": "Trophies, medals & plaques",
+  "filter": null,
+  "reason": "Target: one awards pool.",
+  "group": "Invites, prints & souvenirs",
+  "from_category": "trophies_awards",
+  "into_category": "souvenir_giveaways",
+  "into_category_label": "Souvenirs & awards",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "bridal_boat_yacht",
+  "from_name": "Bridal Boat / Yacht (destination weddings)",
+  "into_slug": "transportation_bridal_car",
+  "into_name": "Bridal car",
+  "filter": {
+   "name": "vehicle",
+   "value": "Boat / yacht"
+  },
+  "reason": "The couple's showpiece ride, compared together.",
+  "group": "Cars & transport",
+  "from_category": "bridal_car",
+  "into_category": "bridal_car",
+  "into_category_label": "Bridal car & escort",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "horse_drawn_carriage",
+  "from_name": "Horse-Drawn Carriage",
+  "into_slug": "transportation_bridal_car",
+  "into_name": "Bridal car",
+  "filter": {
+   "name": "vehicle",
+   "value": "Horse carriage"
+  },
+  "reason": "The couple's showpiece ride, compared together.",
+  "group": "Cars & transport",
+  "from_category": "bridal_car",
+  "into_category": "bridal_car",
+  "into_category_label": "Bridal car & escort",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "transportation_bridal_car",
+  "from_name": "Transportation — bridal car",
+  "into_slug": "transportation_bridal_car",
+  "into_name": "Bridal car",
+  "filter": null,
+  "reason": "Target: one bridal-vehicle pool; vehicle type filter.",
+  "group": "Cars & transport",
+  "from_category": "bridal_car",
+  "into_category": "bridal_car",
+  "into_category_label": "Bridal car & escort",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "vintage_classic_vehicle",
+  "from_name": "Vintage / Classic Vehicle Rental",
+  "into_slug": "transportation_bridal_car",
+  "into_name": "Bridal car",
+  "filter": {
+   "name": "vehicle",
+   "value": "Vintage / classic"
+  },
+  "reason": "The couple's showpiece ride, compared together.",
+  "group": "Cars & transport",
+  "from_category": "bridal_car",
+  "into_category": "bridal_car",
+  "into_category_label": "Bridal car & escort",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "transportation_guest_shuttle",
+  "from_name": "Guest Shuttle Service",
+  "into_slug": "transportation_guest_shuttle",
+  "into_name": "Guest transport",
+  "filter": null,
+  "reason": "Target: one guest-transport pool.",
+  "group": "Cars & transport",
+  "from_category": "guest_shuttle",
+  "into_category": "guest_shuttle",
+  "into_category_label": "Guest transport",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "motorcycle_escort",
+  "from_name": "Motorcycle Escort",
+  "into_slug": "motorcycle_escort",
+  "into_name": "Motorcycle escort",
+  "filter": null,
+  "reason": "Kept: convoy escort, not a vehicle hire. Category folds into Bridal car & escort.",
+  "group": "Cars & transport",
+  "from_category": "escort",
+  "into_category": "bridal_car",
+  "into_category_label": "Bridal car & escort",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "airport_transfer",
+  "from_name": "Airport Transfer",
+  "into_slug": "transportation_guest_shuttle",
+  "into_name": "Guest transport",
+  "filter": {
+   "name": "vehicle",
+   "value": "Airport transfer"
+  },
+  "reason": "Moving guests; same transport operators.",
+  "group": "Cars & transport",
+  "from_category": "transfers_rentals",
+  "into_category": "guest_shuttle",
+  "into_category_label": "Guest transport",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "boat_ferry_charter",
+  "from_name": "Boat / Ferry Charter",
+  "into_slug": "transportation_guest_shuttle",
+  "into_name": "Guest transport",
+  "filter": {
+   "name": "vehicle",
+   "value": "Boat / ferry"
+  },
+  "reason": "Moving guests; same transport operators.",
+  "group": "Cars & transport",
+  "from_category": "transfers_rentals",
+  "into_category": "guest_shuttle",
+  "into_category_label": "Guest transport",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "motorcycle_scooter_rental",
+  "from_name": "Motorcycle / Scooter Rental",
+  "into_slug": "transportation_guest_shuttle",
+  "into_name": "Guest transport",
+  "filter": {
+   "name": "vehicle",
+   "value": "Motorcycle / scooter"
+  },
+  "reason": "Moving guests; same transport operators.",
+  "group": "Cars & transport",
+  "from_category": "transfers_rentals",
+  "into_category": "guest_shuttle",
+  "into_category_label": "Guest transport",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "private_car_charter",
+  "from_name": "Private Car Charter",
+  "into_slug": "transportation_guest_shuttle",
+  "into_name": "Guest transport",
+  "filter": {
+   "name": "vehicle",
+   "value": "Private car"
+  },
+  "reason": "Moving guests; same transport operators.",
+  "group": "Cars & transport",
+  "from_category": "transfers_rentals",
+  "into_category": "guest_shuttle",
+  "into_category_label": "Guest transport",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "van_rental",
+  "from_name": "Van Rental",
+  "into_slug": "transportation_guest_shuttle",
+  "into_name": "Guest transport",
+  "filter": {
+   "name": "vehicle",
+   "value": "Van"
+  },
+  "reason": "Moving guests; same transport operators.",
+  "group": "Cars & transport",
+  "from_category": "transfers_rentals",
+  "into_category": "guest_shuttle",
+  "into_category_label": "Guest transport",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tour_activity",
+  "from_name": "Tours & Activities",
+  "into_slug": "tour_activity",
+  "into_name": "Tours & activities",
+  "filter": null,
+  "reason": "Target: tours and guides in one pool.",
+  "group": "Guest experiences",
+  "from_category": "tour_activity",
+  "into_category": "tour_activity",
+  "into_category_label": "Tours & Activities",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "tour_guide",
+  "from_name": "Tour Guide",
+  "into_slug": "tour_activity",
+  "into_name": "Tours & activities",
+  "filter": {
+   "name": "type",
+   "value": "Tour guide"
+  },
+  "reason": "Same tour operators; filter.",
+  "group": "Guest experiences",
+  "from_category": "tour_guide",
+  "into_category": "tour_activity",
+  "into_category_label": "Tours & Activities",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "restaurant_reservation",
+  "from_name": "Restaurant (Reservation)",
+  "into_slug": "restaurant_reservation",
+  "into_name": "Restaurant (reservation)",
+  "filter": null,
+  "reason": "Kept.",
+  "group": "Dining extras",
+  "from_category": "restaurant_reservation",
+  "into_category": "restaurant_reservation",
+  "into_category_label": "Restaurant (Reservation)",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "referee_official",
+  "from_name": "Referees / Officials",
+  "into_slug": "referee_official",
+  "into_name": "Referees / officials",
+  "filter": null,
+  "reason": "Kept.",
+  "group": "Logistics & safety",
+  "from_category": "referee_official",
+  "into_category": "referee_official",
+  "into_category_label": "Referees / Officials",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "event_medic",
+  "from_name": "Medic / First-aid",
+  "into_slug": "event_medic",
+  "into_name": "Medic / first-aid",
+  "filter": null,
+  "reason": "Kept.",
+  "group": "Logistics & safety",
+  "from_category": "event_medic",
+  "into_category": "event_medic",
+  "into_category_label": "Medic / First-aid",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "event_insurance",
+  "from_name": "Event Insurance",
+  "into_slug": "event_insurance",
+  "into_name": "Insurance",
+  "filter": null,
+  "reason": "Target: one insurer pool; cover type filter.",
+  "group": "Insurance & protection",
+  "from_category": "event_insurance",
+  "into_category": "event_insurance",
+  "into_category_label": "Insurance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "personal_accident_insurance",
+  "from_name": "Personal Accident Insurance",
+  "into_slug": "event_insurance",
+  "into_name": "Insurance",
+  "filter": {
+   "name": "cover",
+   "value": "Personal accident"
+  },
+  "reason": "Same insurers/brokers; cover type is a filter.",
+  "group": "Insurance & protection",
+  "from_category": "personal_accident_insurance",
+  "into_category": "event_insurance",
+  "into_category_label": "Insurance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "travel_insurance",
+  "from_name": "Travel Insurance",
+  "into_slug": "event_insurance",
+  "into_name": "Insurance",
+  "filter": {
+   "name": "cover",
+   "value": "Travel"
+  },
+  "reason": "Same insurers/brokers; cover type is a filter.",
+  "group": "Insurance & protection",
+  "from_category": "travel_insurance",
+  "into_category": "event_insurance",
+  "into_category_label": "Insurance",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "reveal_element",
+  "from_name": "Reveal Element",
+  "into_slug": "reveal_element",
+  "into_name": "Reveal element",
+  "filter": null,
+  "reason": "Kept.",
+  "group": "Specialty",
+  "from_category": "reveal_element",
+  "into_category": "reveal_element",
+  "into_category_label": "Reveal Element",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "body_repatriation",
+  "from_name": "Body repatriation",
+  "into_slug": "body_repatriation",
+  "into_name": "Body repatriation",
+  "filter": null,
+  "reason": "Kept: specialist service.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "casket",
+  "from_name": "Casket",
+  "into_slug": "casket",
+  "into_name": "Casket & urn",
+  "filter": null,
+  "reason": "Kept separate from hearse; urn joins casket.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "embalming_preparation",
+  "from_name": "Embalming preparation",
+  "into_slug": "wake_package",
+  "into_name": "Funeral home & wake",
+  "filter": {
+   "name": "includes",
+   "value": "Embalming"
+  },
+  "reason": "Funeral homes sell these together; filter.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "funeral_chapel",
+  "from_name": "Funeral chapel",
+  "into_slug": "wake_package",
+  "into_name": "Funeral home & wake",
+  "filter": {
+   "name": "includes",
+   "value": "Chapel / viewing"
+  },
+  "reason": "Funeral homes sell these together; filter.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "hearse_funeral_transport",
+  "from_name": "Hearse funeral transport",
+  "into_slug": "hearse_funeral_transport",
+  "into_name": "Hearse",
+  "filter": null,
+  "reason": "Kept: booked separately.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "urn",
+  "from_name": "Urn",
+  "into_slug": "casket",
+  "into_name": "Casket & urn",
+  "filter": {
+   "name": "type",
+   "value": "Urn"
+  },
+  "reason": "Same funeral-supply sellers; burial vs cremation is a filter.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "wake_package",
+  "from_name": "Wake package",
+  "into_slug": "wake_package",
+  "into_name": "Funeral home & wake",
+  "filter": null,
+  "reason": "Target: the funeral home (chapel, embalming, wake) is one booking.",
+  "group": "Funeral homes & farewell",
+  "from_category": "funeral_home",
+  "into_category": "funeral_home",
+  "into_category_label": "Funeral Home",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "columbarium_niche",
+  "from_name": "Columbarium niche",
+  "into_slug": "memorial_lot",
+  "into_name": "Resting place (lot, mausoleum, niche)",
+  "filter": {
+   "name": "type",
+   "value": "Columbarium niche"
+  },
+  "reason": "Memorial parks sell all three; type is a filter.",
+  "group": "Funeral homes & farewell",
+  "from_category": "cremation",
+  "into_category": "memorial_park",
+  "into_category_label": "Cremation & memorial park",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "cremation_service",
+  "from_name": "Cremation service",
+  "into_slug": "cremation_service",
+  "into_name": "Cremation",
+  "filter": null,
+  "reason": "Kept. Category folds into Cremation & memorial park.",
+  "group": "Funeral homes & farewell",
+  "from_category": "cremation",
+  "into_category": "memorial_park",
+  "into_category_label": "Cremation & memorial park",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "interment_service",
+  "from_name": "Interment service",
+  "into_slug": "interment_service",
+  "into_name": "Interment / burial service",
+  "filter": null,
+  "reason": "Kept.",
+  "group": "Funeral homes & farewell",
+  "from_category": "memorial_park",
+  "into_category": "memorial_park",
+  "into_category_label": "Cremation & memorial park",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "mausoleum",
+  "from_name": "Mausoleum",
+  "into_slug": "memorial_lot",
+  "into_name": "Resting place (lot, mausoleum, niche)",
+  "filter": {
+   "name": "type",
+   "value": "Mausoleum"
+  },
+  "reason": "Memorial parks sell all three; type is a filter.",
+  "group": "Funeral homes & farewell",
+  "from_category": "memorial_park",
+  "into_category": "memorial_park",
+  "into_category_label": "Cremation & memorial park",
+  "setnayan_product": false,
+  "hidden_today": false
+ },
+ {
+  "from_slug": "memorial_lot",
+  "from_name": "Memorial lot",
+  "into_slug": "memorial_lot",
+  "into_name": "Resting place (lot, mausoleum, niche)",
+  "filter": null,
+  "reason": "Target: one resting-place pool sold by memorial parks.",
+  "group": "Funeral homes & farewell",
+  "from_category": "memorial_park",
+  "into_category": "memorial_park",
+  "into_category_label": "Cremation & memorial park",
+  "setnayan_product": false,
+  "hidden_today": false
+ }
+]

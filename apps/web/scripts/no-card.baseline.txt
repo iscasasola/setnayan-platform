@@ -593,9 +593,7 @@
 2 apps/web/app/vendor-dashboard/partnerships/page.tsx
 1 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx
 3 apps/web/app/vendor-dashboard/payment-options/surface.tsx
-2 apps/web/app/vendor-dashboard/performance/_components/funnel-benchmark-card.tsx
 1 apps/web/app/vendor-dashboard/performance/_components/growth-recs-card.tsx
-4 apps/web/app/vendor-dashboard/performance/_components/price-position-card.tsx
 1 apps/web/app/vendor-dashboard/performance/_components/service-scope-select-client.tsx
 3 apps/web/app/vendor-dashboard/performance/_components/verified-median-card.tsx
 1 apps/web/app/vendor-dashboard/performance/page.tsx

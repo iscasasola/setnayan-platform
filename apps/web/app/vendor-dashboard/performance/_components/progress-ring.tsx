@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { EASE_GROW, useTween } from './growth-motion';
 
 /**
- * ◯ PROGRESS RING — `CompositeRing`'s geometry (health-composite-card.tsx: round caps, −90°, the ring's own track)
+ * ◯ PROGRESS RING — `CompositeRing`'s geometry (the retired health-composite-card.tsx: round caps, −90°, the ring's own track)
  * extracted with a stroke-dashoffset sweep, 900 ms on the grow curve (Shop › Analytics, owner-approved 6 Nov 2026). One
  * ring for the badge tracker (64 px, r 26) and the health score (112 px, r 45.5 — the shipped 128-viewBox proportions).
  * `ghost` = a dashed track with no value: nothing measured yet, never a 0 % ring.

@@ -19,6 +19,16 @@ Owner-approved 6 Nov 2026 (prototype `analytics-proto/index.html`, claude.ai/art
 - **One view builder.** `growth-view.ts` words every read into what the screen draws. It is pure, so the lab and the page share it.
 - **Honest reads.** A refused read draws "Couldn’t load". It never draws a zero, an empty chart, or new-shop copy.
 - **Retired.** The 28-day reads and the "Monthly" picker; their window became 30 days / 12 months.
+- **Retired, and deleted.** These cards had nothing left mounting them: `SourceBreakdown`, `PricePositionCard`, `ConversionDealsCard`, `InquiryHandlingCard`, `CapacityCard`, `FunnelBenchmarkCard`, `HealthCompositeCard`, `MomentumCard`, `MomentumChart`, `MomentumWindowToggle`, `PerformanceControls`, `ReplyClaimCard`, `ReputationCard`, and `RoiAttributionCard`.
+  - The Ugat both-ends guard rule is "mount it or delete it", and the design replaced each one.
+  - Their honest-read pins moved to the screen that ships:
+    - `s41c` pins the §6 bench's "Couldn’t load" ahead of the empty line;
+    - `the-price-meter-is-shown` pins the view's `unread`;
+    - `the-pickers-are-one-dropdown` pins the window ▾.
+  - `root-map-waves-2-3` drops the `REPLY_SPREAD_PCT` quote, because no screen prints it now.
+  - `port-control-baseline.json` regenerated for `/vendor-dashboard` and `/vendor-dashboard/performance` only, so each removal is one line.
+- **Read errors recorded.** `lib/vendor-growth-series.ts` now logs each refused read with `[supabase-error]` before returning null, so it is no longer a silent drop.
+- **Corners.** `analytics-growing.css` routes every corner through the `--m-r-*` tokens (radius guard).
 - **Lab.** `/dev/supplier-lab?s=analytics[&shop=sample|new][&win=12][&fail=1]` draws the real screen on the prototype's fixture shops (`app/dev/supplier-lab/analytics-lab.tsx`).
 - **Guards.**
   - New: `performance/analytics-is-growing.test.ts`, `lib/analytics-growing.test.ts`, `lib/vendor-growth-series.test.ts`, plus a new count pin in `lib/shop-section-figures.test.ts`.

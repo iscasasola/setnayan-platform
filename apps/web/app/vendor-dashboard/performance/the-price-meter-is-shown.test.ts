@@ -30,7 +30,7 @@ const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const PAGE = 'app/vendor-dashboard/performance/page.tsx';
-const CARD = 'app/vendor-dashboard/performance/_components/price-position-card.tsx';
+const VIEW = 'app/vendor-dashboard/performance/_components/growth-view.ts';
 const LIB = 'lib/price-position.ts';
 const TREE = 'app/vendor-dashboard/performance/_components/analytics-growing.tsx';
 const RAIL = 'app/vendor-dashboard/performance/_components/price-rail.tsx';
@@ -67,10 +67,9 @@ test("a failed read becomes 'unreadable', and the card says so", () => {
     /safeRead<[^>]*>\(\s*fetchVendorPricePosition\(profile\),\s*\{\s*status:\s*'unreadable'\s*\}/,
     "the fetch must fall back to { status: 'unreadable' }, not to null or 'no_data'",
   );
-  const card = read(CARD);
-  assert.match(card, /result\.status === 'unreadable'/);
-  assert.match(card, /couldn&apos;t load your price position/);
-  // …and the screen that is mounted says so too: the view marks it unread, the rail and the row draw "Couldn’t load".
+  // …and the screen that ships says so (`PricePositionCard` was retired by "Analytics, growing", 6 Nov 2026):
+  // the view marks it unread from the sentinel, the rail and the row draw "Couldn’t load".
+  assert.match(read(VIEW), /unread: Boolean\(p && p\.status === 'unreadable'\)/);
   const tree = read(TREE);
   assert.match(tree, /unread=\{view\.price\.unread\}/);
   assert.match(tree, /view\.price\.unread \? 'Couldn’t load the market just now\.'/);
@@ -86,5 +85,5 @@ test('every read in fetchVendorPricePosition checks its error', () => {
 });
 
 test('no "Soon" pill on a live meter', () => {
-  assert.ok(!/>\s*Soon\s*</.test(read(CARD)), 'the meter is live — drop the Soon pill');
+  assert.ok(!/>\s*Soon\s*</.test(read(RAIL)), 'the meter is live — drop the Soon pill');
 });

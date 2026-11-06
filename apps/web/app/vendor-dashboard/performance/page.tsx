@@ -60,7 +60,6 @@ import { analyticsFigures } from '@/lib/shop-section-figures';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedMedianCard } from './_components/verified-median-card';
-import { type PricePositionUnreadable } from './_components/price-position-card';
 import { fetchVendorPricePosition, type PricePositionResult } from '@/lib/price-position';
 import {
   EMPTY_FUNNEL_BENCHMARK,
@@ -75,7 +74,7 @@ import { badgeShelf, badgeTracker, milestoneLadder, stepName, type TrackerFacts 
 import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
 import { GrowthWindowScope } from '../_components/growth-window';
 import { AnalyticsGrowing } from './_components/analytics-growing';
-import { buildGrowthView } from './_components/growth-view';
+import { buildGrowthView, type PricePositionUnreadable } from './_components/growth-view';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'How is my business doing · Supplier' };

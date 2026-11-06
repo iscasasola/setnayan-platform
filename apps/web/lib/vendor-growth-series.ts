@@ -55,7 +55,12 @@ async function instantsSince(
       .gte(col, sinceIso)
       .order(col, { ascending: true })
       .range(page * PAGE, page * PAGE + PAGE - 1);
-    if (error || !data) return null;
+    if (error) {
+      // Recorded, then null — the lanes draw "Couldn’t load", never an empty lane (ugat both-ends: no silent drop).
+      console.error(`[supabase-error] lib/vendor-growth-series.ts · from:${table}.select`, error);
+      return null;
+    }
+    if (!data) return null;
     for (const r of data as Record<string, unknown>[]) if (typeof r[col] === 'string') out.push(r[col] as string);
     if (data.length < PAGE) return out;
   }
@@ -107,7 +112,11 @@ export async function fetchUpcomingBookedDays(
     .lt('booked_date', end)
     .order('booked_date', { ascending: true })
     .range(0, PAGE * 5 - 1);
-  if (error || !data) return null;
+  if (error) {
+    console.error('[supabase-error] lib/vendor-growth-series.ts · from:vendor_schedule_pool_bookings.select', error);
+    return null;
+  }
+  if (!data) return null;
   const by = new Map<string, number>();
   for (const r of data as { booked_date?: unknown }[]) {
     if (typeof r.booked_date !== 'string') continue;

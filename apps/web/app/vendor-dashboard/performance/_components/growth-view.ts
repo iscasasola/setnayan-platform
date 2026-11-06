@@ -42,6 +42,9 @@ import type { ReputationAnalytics } from '@/lib/vendor-reputation-analytics';
 import type { DemandRadar } from '@/lib/demand-radar';
 import type { FunnelBenchmark } from '@/lib/funnel-benchmark';
 import type { PricePositionResult } from '@/lib/price-position';
+
+/** A price read that FAILED (safeRead's fallback) — never `no_data`, which would say the market is empty. */
+export type PricePositionUnreadable = { status: 'unreadable' };
 import type { VendorHealthComposite } from '@/lib/vendor-health-composite';
 
 export type Totals = { views: number; inquiries: number; quotes: number; booked: number };
@@ -193,7 +196,7 @@ export type GrowthInputs = {
   healthUnread: boolean;
   bench: FunnelBenchmark | null;
   benchUnread: boolean;
-  price: PricePositionResult | { status: 'unreadable' } | null;
+  price: PricePositionResult | PricePositionUnreadable | null;
   category: string | null;
   regionLabel: string | null;
   pro: boolean;

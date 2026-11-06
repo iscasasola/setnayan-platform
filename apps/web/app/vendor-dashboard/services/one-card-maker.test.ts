@@ -54,7 +54,7 @@ test('the retiring wizard is reached from the new-card route only, behind the fl
   const users = SOURCES.filter((p) => /<ServiceWizard\b/.test(stripComments(readFileSync(p, 'utf8'))))
     .map((p) => relative(WEB, p));
   assert.deepEqual(users, ['app/vendor-dashboard/services/new/[category]/page.tsx']);
-  const page = stripComments(readFileSync(join(WEB, users[0]), 'utf8'));
+  const page = stripComments(readFileSync(join(WEB, users[0]!), 'utf8'));
   assert.match(page, /const canvas = canvasMakerEnabled\(\);/);
   assert.ok(page.indexOf('<CanvasMaker') < page.indexOf('<ServiceWizard'), 'the wizard is no longer the fallback branch');
 });

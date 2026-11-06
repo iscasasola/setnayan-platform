@@ -49,14 +49,14 @@ const PACKS: ShopGiftPack[] = [
 test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short pack listed with "buy first"', () => {
   const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0 });
   assert.deepEqual(menu.map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
-  assert.equal(menu[0].label, 'No gift');
-  assert.equal(menu[1].label, 'Setnayan gift');
-  assert.equal(menu[2].disabledNote, undefined, 'a pack the stock covers must be pickable');
-  assert.equal(menu[3].disabledNote, 'Not enough in your stock · buy first');
+  assert.equal(menu[0]!.label, 'No gift');
+  assert.equal(menu[1]!.label, 'Setnayan gift');
+  assert.equal(menu[2]!.disabledNote, undefined, 'a pack the stock covers must be pickable');
+  assert.equal(menu[3]!.disabledNote, 'Not enough in your stock · buy first');
   // Unreadable stock is said as unreadable, never as empty.
   for (const o of giftMenu(PACKS, null).slice(2)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
   // A saved card's own pack stays pickable whatever the stock says — opening it never strands its gift.
-  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0 }, 'EVENT_PLUS')[3].disabledNote, undefined);
+  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0 }, 'EVENT_PLUS')[3]!.disabledNote, undefined);
   // Unread catalogue: only the two answers that need no catalogue.
   assert.deepEqual(giftMenu(null, null).map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN]);
 });
@@ -96,9 +96,9 @@ test('5 · one page of fields, in the prototype’s order, none of them inside M
   // The JSX attribute (` data-maker-row="…"`), never the save's `[data-maker-row="included"]` selector.
   const order = ['name', 'price', 'included', 'extras', 'gift', 'photos'].map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));
   order.forEach((at, i) => assert.ok(at > 0, `the ${['name', 'price', 'included', 'extras', 'gift', 'photos'][i]} field is gone`));
-  for (let i = 1; i < order.length; i++) assert.ok(order[i] > order[i - 1], 'the first page is out of the prototype’s order');
+  for (let i = 1; i < order.length; i++) assert.ok(order[i]! > order[i - 1]!, 'the first page is out of the prototype’s order');
   const more = src.indexOf('data-maker-more-wrap=');
-  assert.ok(more > order[order.length - 1], 'a first-page field sits inside More settings');
+  assert.ok(more > order[order.length - 1]!, 'a first-page field sits inside More settings');
   // The folds the first page took over are not drawn twice.
   for (const gone of ['data="m-price"', 'data="m-addons"', 'data="m-details"', 'data="photos"', 'data="price"', 'data="included"']) {
     assert.ok(!src.includes(gone), `${gone} is drawn again — a field must have one place`);

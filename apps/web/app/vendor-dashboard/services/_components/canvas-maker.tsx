@@ -1188,6 +1188,7 @@ export function CanvasMaker({
                     watermark
                     compressImage
                     variant="square"
+                    thumb={{ add: 'Add a cover', replace: 'Replace' }}
                     qrGuard
                     currentValue={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
                     initialDisplayUrls={initial?.mediaDisplayUrls}

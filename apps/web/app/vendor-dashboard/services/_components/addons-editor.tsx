@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { ActionButton } from '@/components/action-button';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { setServiceAddons } from '../addon-actions';
 
@@ -102,17 +103,10 @@ export function AddonsEditor({
             ))}
           </ul>
         ) : null}
-        {rows.length < 12 ? (
-          <button
-            type="button"
-            onClick={add}
-            className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            Add an extra
-          </button>
-        ) : null}
-        {rows.length > 0 ? <p className="text-[12px] text-ink/55">Swipe an extra left to remove it.</p> : null}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-addon-add="">
+          {rows.length < 12 ? <ActionButton tone="neutral" icon={Plus} label="Add an extra" onClick={add} /> : null}
+          {rows.length > 0 ? <span className="text-[12px] text-ink/55">Swipe an extra left to remove it.</span> : null}
+        </div>
       </div>
     );
   }

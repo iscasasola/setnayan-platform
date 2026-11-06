@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { ActionButton } from '@/components/action-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 
@@ -186,8 +187,8 @@ export function InclusionsEditor({
             </SwipeToDelete>
           ))}
         </FormRows>
-        <div className="flex flex-wrap items-center gap-x-3">
-          <AddRowButton onClick={add}>Add a line</AddRowButton>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-inclusion-add="">
+          <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={add} />
           <span className="text-[12px] text-ink/55">{rows.length > 0 ? 'Every line is part of the price · swipe a line left to remove it.' : 'Every line is part of the price.'}</span>
         </div>
       </div>

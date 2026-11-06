@@ -15,6 +15,7 @@ import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { SampleShopMarker } from '@/app/_components/sample-marker';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
@@ -2428,6 +2429,10 @@ export async function renderVendorBySlug({
                 ) : null}
               </>
             )}
+            {/* 🧪 SAMPLE SHOP (owner, 6 Nov 2026: "They are demo shops. The only real shop is the wedding planner.") —
+                a shop marked `is_demo` says so beside its name, in the sample event's own chip
+                (app/_components/sample-marker.tsx). Outside the cinematic branch, so a flagship's card says it too. */}
+            {isDemoVendor ? <SampleShopMarker /> : null}
             {/* "✓ Verified" — Fable E1 (FABLE_Public_Marketplace_Spec § 3.5).
                 Gated on the SAME column this route's own 404-gate uses at :769 —
                 `verification_state` — and deliberately NOT on `public_visibility`.

@@ -167,6 +167,8 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'guestLiveGallery',
     // `guestOwnShots` (2026-10-01) — null here: the sample guest shot nothing.
     'guestOwnShots',
+    // `hubFavorites` (2026-11-06) — null here: the simulated guest checked in nowhere and keeps nothing.
+    'hubFavorites',
     'kind',
     // `moreAnswers` (2026-10-20) — 0 here: the sample guest owes nothing more.
     'moreAnswers',

@@ -47,9 +47,7 @@ import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
 import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
-import { readHubDraft } from '@/lib/hub-draft-store';
 import { readOpenDateChange } from '@/lib/date-change.server';
-import { draftedEventDate } from '@/lib/suppliers-fact-sheets';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
 import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
 import { BLOCKED_LOCK_ROW, someCategoryNeedsItsServicesNamed } from '@/lib/explore-info-copy';
@@ -337,7 +335,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // every view runs it.
   after(() => sweepRipeReviewRequests(eventId, user.id));
 
-  const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange] = await Promise.all([
+  const [vendorsRead, eventCtx, photoMaps, changeLines, openDateChange] = await Promise.all([
     // MEASURED, so a refused read reaches the screen as "Couldn't load your
     // team" — never as an empty team (lib/event-vendors-read.ts).
     readEventVendorsMeasured(supabase, eventId),
@@ -372,10 +370,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // "Show the total now"). `fetchEventVendors` is shared with other surfaces,
     // so the lines are joined here rather than inside it.
     fetchChangeLinesByVendor(supabase, eventId),
-    // PR5 — the date AS THE COUPLE IS WORKING ON IT: a date saved on this page (or in the Maker) waits in the Event
-    // Hub draft until Apply (owner 2026-10-10 answer 7), and Find, Build and the line plan on it meanwhile. Unread →
-    // the live date, as the Maker does.
-    readHubDraft(supabase, eventId).catch(() => null),
     // …and a date change asked of a booked supplier shows here too (answer 10). One row when there is none.
     readOpenDateChange(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
@@ -432,12 +426,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     eventDate: ev?.event_date ?? null,
     ceremonyType: ev?.ceremony_type ?? null,
   });
-  // PR5 — the date the couple is PLANNING on: a drafted date waits for Apply (answer 7), yet the line, the bench's
-  // date fit and Build's fit line read it, so choosing a day re-runs the fit everywhere. Bookings, locks and every
-  // write keep reading the LIVE row (`ev`) — a draft never books anyone.
-  const draftedDate = draftedEventDate(ev, hubDraft);
-  const planDate = draftedDate ? draftedDate.date : (ev?.event_date ?? null);
-  const planPrecision = draftedDate ? draftedDate.precision : ((ev?.event_date_precision as string | null | undefined) ?? 'day');
+  // PR5 — the date the couple is planning on IS the event's date: a pick on this page (or in the Maker) saves to the
+  // event at once (owner 2026-11-05, "it shouldn't rely on the hub"), so the line, the bench's date fit and Build's
+  // fit line all read the live row — one date, never a drafted second one.
+  const planDate = ev?.event_date ?? null;
+  const planPrecision = (ev?.event_date_precision as string | null | undefined) ?? 'day';
   const eventDate = ev?.event_date ?? null;
   const daysUntilWedding = eventDate
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
@@ -2867,7 +2860,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         : null;
       return {
         date: suppliersDateFact(planDate, planPrecision),
-        drafted: draftedDate != null,
         // The area by its own name; an unlisted spelling is shown as typed
         // (what the Build body's Location tile already prints).
         place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),
@@ -2979,7 +2971,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             <DatePlaceLine
               eventId={eventId}
               facts={shellFacts}
-              drafted={shellFacts?.drafted ?? false}
               changeAsked={openDateChange.ok && openDateChange.view != null}
               priced={pricedPickIds}
             />

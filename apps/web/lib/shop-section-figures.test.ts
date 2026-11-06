@@ -4,7 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyticsFigures, changeWord, detailsFigures, galleryFigures, pageFigures } from './shop-section-figures';
+import { analyticsFigures, changeWord, detailsFigures, galleryFigures, pageFigures, promoteFigures } from './shop-section-figures';
 
 test('Details — verified · documents in · details done', () => {
   const f = detailsFigures({ verified: false, docsIn: 1, docsTotal: 4, done: 4, of: 6 });
@@ -27,6 +27,14 @@ test('Gallery — photos · videos · credits left; an unread wallet is "—", n
   assert.deepEqual(galleryFigures({ photos: 48, videos: 7, credits: 38 }).map((x) => x.value), ['48', '7', '38']);
   assert.equal(galleryFigures({ photos: 1, videos: 1, credits: null })[2]!.value, null);
   assert.equal(galleryFigures({ photos: 1, videos: 1, credits: null })[0]!.word, 'photo');
+});
+
+test('Promote — the gift stock, one figure; an unread stock is "—", never 0 gift credits', () => {
+  assert.deepEqual(promoteFigures({ giftCredits: 1200 }).map((x) => [x.key, x.value, x.word]), [['gifts', '1,200', 'gift credits']]);
+  assert.equal(promoteFigures({ giftCredits: 1 })[0]!.word, 'gift credit');
+  assert.equal(promoteFigures({ giftCredits: 0 })[0]!.value, '0');
+  assert.equal(promoteFigures({ giftCredits: null })[0]!.value, null);
+  assert.equal(promoteFigures({ giftCredits: 5 })[0]!.href, '/vendor-dashboard/shop/promote#gifts', 'the figure is not a door to the gifts');
 });
 
 test('Analytics — opened · asked · booked with the change against the 30 days before', () => {

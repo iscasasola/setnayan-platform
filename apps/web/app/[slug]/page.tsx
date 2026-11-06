@@ -5,6 +5,7 @@ import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.se
 import { YourScheduleCard } from './_components/your-schedule-card';
 import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
 import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
 import { guestMePath } from '@/lib/offline-copy-addresses';
 import { guestsArriveTime } from '@/lib/guests-arrive';
@@ -65,6 +66,9 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
+import { readWhoMadeTheDay } from '@/lib/who-made-the-day.server';
+import { isAfterTheDay } from '@/lib/who-made-the-day';
+import { WhoMadeTheDay } from './_components/who-made-the-day';
 import { PASS_ANCHOR, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
@@ -188,6 +192,7 @@ import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
+import { readCheckedInEvents, readOwnFavoriteKeys } from '@/lib/favorites.server';
 
 /* 🗄 THIS ROUTE IS THE LIVE RENDER — AND IT ALWAYS WAS (EV1, 2026-10-28).
 
@@ -2321,9 +2326,26 @@ async function invitationBody({
                 }
               : null;
 
+  /* ♡ FAVORITES AFTER AN EVENT (owner 2026-11-06, prototype §F): only a guest the app can place at the event — a
+     door check-in on THEIR OWN guest row — may keep the services that made the day. Read only for a signed-in viewer,
+     once the day has come, and only when there is a supplier to keep. The press re-checks all of it on the server. */
+  const hubFavorites =
+    viewerAccount && !viewerAccount.is_anonymous && eventVendorCredits.length > 0 &&
+    Boolean(event.event_date) && String(event.event_date).slice(0, 10) <= manilaToday()
+      ? await Promise.all([
+          readCheckedInEvents(admin, viewerAccount.id, [event.event_id]),
+          readOwnFavoriteKeys(admin, viewerAccount.id, eventVendorCredits.map((c) => c.vendorProfileId)),
+        ]).then(([checked, kept]) => ({
+          door: checked === null ? ('unread' as const) : checked.has(event.event_id) ? ('open' as const) : ('closed' as const),
+          kept: kept ? [...kept] : [],
+        }))
+      : null;
+
   const saveFlash =
     search.save === 'ok'
-      ? 'Saved to your account — find it in your Library for your own plans.'
+      ? 'Added to your favorites — find it in your Library for your own plans.'
+      : search.save === 'not_there'
+        ? 'Favorites open for guests who checked in at the door.'
       : search.save === 'needs_account'
         ? 'Make a free account (the box above) to save suppliers for your future plans.'
         : search.save === 'error'
@@ -2612,6 +2634,14 @@ async function invitationBody({
   const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
   const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
   const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
+  /* 🚪 "WHO MADE THE DAY?" (prototype 6 Nov § 8, door 2) — after the day only, and only for a guest the door checked in
+     with at least one delivered supplier on this event (`readWhoMadeTheDay`); otherwise absent. Read only after the
+     day, so every page before it pays nothing. Never in the Maker's canvas. */
+  const whoMadeTheDay =
+    !isEditorCanvas && isAfterTheDay(event.event_date, manilaToday())
+      ? await readWhoMadeTheDay(admin, event.event_id, guest.guest_id)
+      : null;
+  const afterDayNode = whoMadeTheDay ? <WhoMadeTheDay eventId={event.event_id} suppliers={whoMadeTheDay} /> : null;
   timer.flush();
   return wearDraft(
     <>
@@ -2652,6 +2682,7 @@ async function invitationBody({
           showClaimAccountCta: !viewerAccount,
           account,
           eventVendorCredits,
+          hubFavorites,
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
@@ -2672,7 +2703,7 @@ async function invitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab afterDay={afterDayNode} />
             )
           ) : null
         }
@@ -2708,6 +2739,7 @@ async function invitationBody({
         meSlot={guestPageTabbed ? null : meSlot}
         mePhotosHref={photosLeftThePage ? myPhotosHref : null}
         meInPage={guestPageTabbed}
+        meAfterDay={afterDayNode}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)
@@ -2718,6 +2750,21 @@ async function invitationBody({
           find-my-table) that still read the cookie recognise them too. */}
       {guestViewer.kind === 'seat' && !isEditorCanvas ? (
         <AdoptSeatSession eventId={event.event_id} />
+      ) : null}
+      {/* 🔕 QUIET SCHEDULE REFRESH (owner-approved 5 Nov, item 1) — on the Hub's other tabs the guest's saved Me copy is
+          re-rendered in the background, at most every 30 min, around event days; it draws nothing (Me shows freshness). */}
+      {ownDayViewer && meCopyPath && search.tab !== 'me' && !isEditorCanvas ? (
+        <QuietScheduleRefresh
+          viewer={ownDayViewer}
+          copies={[
+            {
+              eventKey: meCopyPath.slice(1, meCopyPath.indexOf('?')),
+              eventDate: event.event_date ?? null,
+              eventEndDate: event.event_end_date ?? null,
+              path: meCopyPath,
+            },
+          ]}
+        />
       ) : null}
       {pageFooter}
     </>

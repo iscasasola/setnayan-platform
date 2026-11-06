@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Share, Share2 } from 'lucide-react';
+import { Check, Copy, Share, Share2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button';
 import { QrActions } from '@/app/_components/qr-actions';
 import { SaveFileLink } from './save-file-link';
@@ -19,6 +19,10 @@ import { SaveFileLink } from './save-file-link';
  *   · Tap the code: it opens big, so a phone held up to a scanner reads it. Tap again or Esc closes.
  *   · Used / void: greyed, the word on it, no Share — nobody tries it twice. A problem says so with Try again; never
  *     an empty square. While a code is being made the square shimmers — nothing fake to scan.
+ *
+ *   · 📣 COPY LINK SITS BESIDE SHARE (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL": Your QR codes =
+ *     Which code ▾ · Share · Copy link · Save · Write to NFC). It was a small chip in the strip under the card; it is now
+ *     a button in the card's own row, and the strip (`hideCopy`) keeps Write to NFC only — never two Copy links.
  *
  * Not for the guest's pass (it keeps its approved round code, 2026-09-29). Neutral: it knows no screen.
  */
@@ -53,6 +57,7 @@ export function QrCard({
 }) {
   const [big, setBig] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -99,6 +104,16 @@ export function QrCard({
     }
   };
 
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setSaid('Couldn’t copy — hold the link to copy it');
+    }
+  };
+
   return (
     <div data-qr-card={data ?? ''} data-qr-state={state} className="flex flex-col items-center gap-2.5 py-1.5 text-center">
       {state === 'making' ? (
@@ -123,6 +138,10 @@ export function QrCard({
               <Share2 aria-hidden strokeWidth={1.9} />
               <span className="lbl">Share</span>
             </button>
+            <button type="button" onClick={copy} className={actionButtonClass('neutral')} aria-label={`Copy link: ${url}`} data-qr-copy="">
+              {copied ? <Check aria-hidden strokeWidth={1.9} /> : <Copy aria-hidden strokeWidth={1.9} />}
+              <span className="lbl">{copied ? 'Copied' : 'Copy link'}</span>
+            </button>
             <SaveFileLink href={dataUri} filename={filename} className={actionButtonClass('neutral')} data-qr-download="">
               {(s) => (
                 <>
@@ -137,8 +156,8 @@ export function QrCard({
               {said}
             </span>
           ) : null}
-          {/* The one strip under every link-QR — here Write to NFC · Copy link (Download is the button above). */}
-          <QrActions url={url} className="flex flex-wrap items-center justify-center gap-2" />
+          {/* The one strip under every link-QR — here Write to NFC only: Copy link and Download are the buttons above. */}
+          <QrActions url={url} hideCopy className="flex flex-wrap items-center justify-center gap-2" />
         </>
       ) : null}
       {big && mounted

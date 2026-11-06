@@ -8,6 +8,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
   buildVendorHealthComposite,
+  unmeasuredVendorHealthComposite,
   type VendorHealthInputs,
 } from '@/lib/vendor-health-composite';
 import { buildGrowthRecs, type GrowthRecStats } from '@/lib/vendor-growth-recs';
@@ -89,10 +90,17 @@ import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
 import { BusinessDoing, type DoingWindow } from './_components/business-doing';
 import { YourBadges } from './_components/your-badges';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { readShopBadgeFacts } from '@/lib/shop-badges.server';
-import { badgeShelf, type ShopBadgeFacts } from '@/lib/shop-badges';
-import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
+import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { badgeShelf, badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
+import {
+  barHeights,
+  businessSentence,
+  fromLine,
+  ratingLine,
+  replyLine,
+  unmeasuredStats,
+  type MeasuredStatsRow,
+} from '@/lib/business-doing';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'How is my business doing · Supplier' };
@@ -128,6 +136,13 @@ const EMPTY_FUNNEL_TOTALS = { views: 0, inquiries: 0, quotes: 0, booked: 0 };
  * would return on a `.error`, so one reader failing now costs one empty card,
  * never the whole cockpit.
  */
+/** The `vendor_activity_stats` columns this page selects. */
+type ActivityStatsRow = VendorHealthInputs & {
+  avg_response_minutes: number | null;
+  replied_thread_count: number | null;
+  last_active_at: string | null;
+};
+
 function safeRead<T>(p: PromiseLike<T>, fallback: T, label: string): Promise<T> {
   return Promise.resolve(p).catch((err) => {
     // eslint-disable-next-line no-console
@@ -203,14 +218,17 @@ export default async function PerformanceHome({
   // 🏅 THE SHOP'S BADGES (owner 2026-10-29: "Their badges will be on the supplier shop performance page") — every
   // tier, the upsell included. Started HERE so it rides beside Batch A (below) rather than adding a round trip; a
   // refused read is `null` → "Couldn’t load your badges" · "—", never "none" (`badgeShelf`).
-  const badgeFactsRead: Promise<ShopBadgeFacts | null> = safeRead(
-    readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id),
+  // 📣🗺 The one badge TRACKER lives here too (owner 2026-11-06 "ONE HOME FOR EVERY PROMOTE TOOL") — the tracker's facts
+  // are the badge facts plus the couples not yet asked for a review, read in the same call.
+  const badgeFactsRead: Promise<TrackerFacts | null> = safeRead(
+    readShopTrackerFacts(profile.vendor_profile_id),
     null,
     'badges',
   );
 
   if (gateOn && !canSeePerformanceTrends(tier)) {
-    const gatedShelf = badgeShelf(await badgeFactsRead);
+    const gatedFacts = await badgeFactsRead;
+    const gatedShelf = badgeShelf(gatedFacts);
     return (
       <>
         {/* Shop › Analytics (was "How it is going") — the segment stays on the upsell too, so a
@@ -219,7 +237,7 @@ export default async function PerformanceHome({
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
           <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
           <div className="mt-6">
-            <YourBadges shelf={gatedShelf} />
+            <YourBadges shelf={gatedShelf} rows={gatedFacts ? badgeTracker(gatedFacts) : null} />
           </div>
         </div>
       <VendorTierGate
@@ -256,7 +274,7 @@ export default async function PerformanceHome({
   //    monthly/daily chart series + null-service footnote counts) run in Batch B
   //    below — a second parallel batch, not a chain.
   const [
-    statsRow,
+    statsRead,
     services,
     vendorCatalog,
     funnelTotalsYear,
@@ -294,8 +312,19 @@ export default async function PerformanceHome({
         )
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle()
-        .then((r) => r.data),
-      null,
+        // 🆕 A NEW SHOP HAS NO ROW — and that is not a failure. `.then((r) => r.data)` used to fold a REFUSED
+        // read (`error` set) and a MISSING row into the same `null`, so a brand-new shop was told "Couldn’t
+        // load" (SetnaProd, 6 Nov). Keep them apart: an error → `measured: false`; no row → `row: null`.
+        .then(({ data, error }): MeasuredStatsRow<ActivityStatsRow> => {
+          if (error) {
+            logQueryError('vendor-dashboard/performance/page.tsx: vendor_activity_stats', error, {
+              vendor_profile_id: profile.vendor_profile_id,
+            });
+            return unmeasuredStats<ActivityStatsRow>();
+          }
+          return { measured: true, row: (data ?? null) as ActivityStatsRow | null };
+        }),
+      unmeasuredStats<ActivityStatsRow>(),
       'activity_stats',
     ),
     safeRead(fetchVendorServices(supabase, profile.vendor_profile_id), [], 'services'),
@@ -423,6 +452,7 @@ export default async function PerformanceHome({
       : null,
   );
   const shelf = badgeShelf(badgeFacts);
+  const badgeRows = badgeFacts ? badgeTracker(badgeFacts) : null;
 
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
@@ -446,9 +476,14 @@ export default async function PerformanceHome({
     });
   }
 
-  const health = buildVendorHealthComposite(
-    (statsRow as VendorHealthInputs | null) ?? null,
-  );
+  // The row itself — `null` for BOTH a new shop and a refused read, so every consumer below that states
+  // something about the shop's data branches on `statsRead.measured` first (refused → "Couldn’t load";
+  // no row → its new-shop empty state). Growth recs need no branch: with no row they fall back to the
+  // universal starter set, which states no figure about the shop, so it is honest either way.
+  const statsRow = statsRead.row;
+  const health = statsRead.measured
+    ? buildVendorHealthComposite((statsRow as VendorHealthInputs | null) ?? null)
+    : unmeasuredVendorHealthComposite();
   // Live partnerships, either direction — so the "link up" card stops being
   // shown to a vendor who has already built their circle. Fail-soft to 0: a
   // failed count would otherwise read as "none" and nag someone who has ten.
@@ -740,17 +775,18 @@ export default async function PerformanceHome({
 
   // The public reply-time claim, decided by the SAME function the marketplace
   // card calls — never a second copy of the floor, the sentinel, the four-hour
-  // line or the recency test. `statsRow` is null when that read failed, and
-  // the verdict's own fail-closed path then reports "nothing shown yet", which
-  // is what a couple would in fact be seeing.
-  const replyVerdict = replyTimeVerdict({
-    avgResponseMinutes: (statsRow as { avg_response_minutes?: number | null } | null)
-      ?.avg_response_minutes,
-    repliedThreadCount: (statsRow as { replied_thread_count?: number | null } | null)
-      ?.replied_thread_count,
-    lastActiveAt: (statsRow as { last_active_at?: string | null } | null)?.last_active_at,
-    now: Date.now(),
-  });
+  // line or the recency test. NO ROW (a new shop) runs through the verdict's
+  // own fail-closed path — "nothing shown yet", which is what a couple would in
+  // fact be seeing. A REFUSED read has no verdict at all (`null`): the line and
+  // the card say "Couldn’t load", never "No inquiry yet" / "0 of 3".
+  const replyVerdict = statsRead.measured
+    ? replyTimeVerdict({
+        avgResponseMinutes: statsRow?.avg_response_minutes,
+        repliedThreadCount: statsRow?.replied_thread_count,
+        lastActiveAt: statsRow?.last_active_at,
+        now: Date.now(),
+      })
+    : null;
 
   // ── HOW IS MY BUSINESS DOING (simpler supplier dashboard step 6) ─────────
   // The top block, in plain words, over the SAME reads made above — nothing new
@@ -806,13 +842,13 @@ export default async function PerformanceHome({
             bars={barHeights(bookingSeries)}
             barLabels={bookingSeries.map((p) => p.label)}
             reply={replyLine(replyVerdict)}
-            rating={ratingLine(statsRow as { review_avg_bayesian?: number | null; review_count?: number | null } | null)}
+            rating={ratingLine(statsRead)}
             more={doingMore}
           />
         </div>
         {/* 🏅 YOUR BADGES (owner 2026-10-29) — under the plain-words top, before the cards. */}
         <div className="mt-8">
-          <YourBadges shelf={shelf} />
+          <YourBadges shelf={shelf} rows={badgeRows} />
         </div>
       </div>
 

@@ -6,27 +6,36 @@ import {
   startersNotYetAdded,
   QUESTION_HINT_MAX,
   QUESTION_PROMPT_MAX,
+  type StarterQuestion,
   type VendorQuestion,
 } from '@/lib/emcee-questions';
+import { InfoTip } from '@/app/_components/info-tip';
 import { addQuestion, toggleQuestionAsked, updateQuestion } from './question-actions';
 
 /**
- * QUESTIONS FOR THE COUPLE — the host's reusable question set. (DAY-7.)
+ * QUESTIONS FOR THE COUPLE — the supplier's reusable question set. (DAY-7.)
  *
- * Spec § 8 of `Emcee_Script_System_BUILD_SPEC_2026-07-29.md`. It sits on the
- * segments page because it is the same KIND of thing — his craft, written once,
- * reused at every wedding — and a host who has written his segments is
- * standing exactly where he thinks about what he needs to ask.
+ * Spec § 8 of `Emcee_Script_System_BUILD_SPEC_2026-07-29.md` built it for the
+ * host/MC. ❓ EVERY SUPPLIER since 2026-11-04 (owner, verbatim "Yes, every
+ * supplier"; DECISION_LOG "QUESTIONS FOR THE COUPLE — EVERY SUPPLIER, NOT HOSTS
+ * ONLY"): it lives on its own page, `/vendor-dashboard/questions`, reached from
+ * the shop's tools — one place for every trade, not the host's segments page.
  *
- * The couple answers on their schedule page, under his segments; he reads the
- * answers on their Customer Card's Script tab.
+ * `starters` is the shop's trade set (`startersForTiles`, resolved through the
+ * live taxonomy by the page). The couple answers in their event — the host's
+ * set on their Schedule, every supplier's in that supplier's room
+ * (`/dashboard/[eventId]/vendors/[vendorId]/workspace`); the supplier reads the
+ * answers on that customer's card.
  */
 export async function QuestionsSection({
   supabase,
   vendorProfileId,
+  starters: tradeStarters,
 }: {
   supabase: SupabaseClient;
   vendorProfileId: string;
+  /** The shop's trade set; omitted = the host's emcee set (the original). */
+  starters?: ReadonlyArray<StarterQuestion>;
 }) {
   const { data, error } = await supabase
     .from('vendor_questions')
@@ -37,11 +46,28 @@ export async function QuestionsSection({
   if (error) {
     logQueryError('QuestionsSection.questions', error, { vendorProfileId }, 'graceful_degrade');
   }
-  const measured = !error && data !== null;
-  const all = (data ?? []) as VendorQuestion[];
+  return (
+    <QuestionsSectionBody
+      measured={!error && data !== null}
+      all={(data ?? []) as VendorQuestion[]}
+      starters={tradeStarters}
+    />
+  );
+}
+
+/** The drawing, from plain props — also what `/dev/questions-lab` renders. */
+export function QuestionsSectionBody({
+  measured,
+  all,
+  starters: tradeStarters,
+}: {
+  measured: boolean;
+  all: VendorQuestion[];
+  starters?: ReadonlyArray<StarterQuestion>;
+}) {
   const asked = askedQuestions(all);
   const retired = all.filter((q) => !q.is_asked);
-  const starters = measured ? startersNotYetAdded(all) : [];
+  const starters = measured ? startersNotYetAdded(all, tradeStarters) : [];
 
   return (
     <section id="questions" className="scroll-mt-4 space-y-4 border-t border-ink/10 pt-6">
@@ -50,12 +76,17 @@ export async function QuestionsSection({
           <MessageCircleQuestion aria-hidden className="h-5 w-5 text-gild" strokeWidth={1.7} />
           Questions for the couple
         </h2>
-        <p className="max-w-prose text-sm leading-relaxed text-ink/70">
-          What only they can tell you — how to say their names, who to call up and in what
-          order, what you must never mention. Write your questions once; every couple who
-          books you answers them on their schedule page, and you read the answers on their
-          Script tab. Their answers stay with their wedding — only your questions carry on.
-        </p>
+        {/* ⓘ Title + one short line visible; the rest inside the tip (house rule). */}
+        <InfoTip
+          label="Write them once — every couple you work with answers them."
+          labelAs="p"
+          labelClassName="max-w-prose text-sm leading-relaxed text-ink/70"
+          align="start"
+        >
+          Couples who book you answer them in their event. Before a booking, send them from the
+          chat: ＋ › Questions for the couple. You read the answers on their customer card. Their
+          answers stay with their event — only your questions carry on.
+        </InfoTip>
       </header>
 
       {!measured ? (

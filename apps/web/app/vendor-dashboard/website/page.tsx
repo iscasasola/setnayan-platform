@@ -8,6 +8,7 @@ import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-
 import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
 import { PageParts } from './_components/page-parts';
+import { ReviewReplies } from './_components/review-replies';
 import { ShopSegments } from '../shop/_components/shop-segments';
 import { pageFigures } from '@/lib/shop-section-figures';
 import { AutoReplySection } from '../shop/_components/autoreply-section';
@@ -106,6 +107,7 @@ export default async function YourPage({
           </>
         }
         autoReplyBody={vendorAutoReplyEnabled() ? <AutoReplySection vendorProfileId={d.vendorId} /> : null}
+        reviewsBody={<ReviewReplies reviews={d.replyRows} vendorName={d.businessName || 'Your business'} capped={d.replyCapped} guestReviews={d.guestReviews} />}
       />
     </section>
   );

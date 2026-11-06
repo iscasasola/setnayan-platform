@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendVendorInviteEmail } from '@/lib/email';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
@@ -316,8 +317,10 @@ export async function declineVendorInviteByToken(formData: FormData): Promise<vo
  * THE COUPLE IS TOLD WHEN THE SUPPLIER DECLINES THEIR LINK (owner 2026-10-10,
  * "4-6 do as you recommend": the couple IS told when the supplier declines or
  * never opens the link). In the app only — the type is not on the email
- * allowlist (owner 2026-10-11: no new emails). Every couple member of the
- * event, the way `vendor_joined` is fanned out. Fail-soft: the decline itself
+ * allowlist (owner 2026-10-11: no new emails). EVERY HOST of the event —
+ * owner 2026-11-06, verbatim: "all hosts get the notification" — so the
+ * coordinator is told too, not only the couple. "Host" is `HOST_MEMBER_TYPES`
+ * (host-scope.ts), never a list of our own. Fail-soft: the decline itself
  * already stands; the couple's row also says it on every visit
  * (`lib/supplier-invite-status.ts`).
  */
@@ -339,10 +342,10 @@ async function tellCoupleTheirLinkWasDeclined(
       .from('event_members')
       .select('user_id')
       .eq('event_id', eventId)
-      .eq('member_type', 'couple');
-    const coupleUserIds = (members ?? []).map((m) => m.user_id as string).filter(Boolean);
+      .in('member_type', [...HOST_MEMBER_TYPES]);
+    const hostUserIds = [...new Set((members ?? []).map((m) => m.user_id as string).filter(Boolean))];
     await Promise.all(
-      coupleUserIds.map((uid) =>
+      hostUserIds.map((uid) =>
         emitNotification({
           userId: uid,
           type: 'vendor_invite_declined',
@@ -525,28 +528,11 @@ export async function applyClaimAutoLink(args: {
         { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
       );
 
-    // 6. Flat 1-token claim burn (owner 2026-06-09 · "adding customer will cost
-    // 1 ticket to sync"). BEST-EFFORT + idempotent: the RPC shares
-    // vendor_event_unlocks with burn-on-answer, so a vendor that already
-    // unlocked this event syncs free. If the vendor can't afford the token the
-    // RPC raises INSUFFICIENT_WALLET_BALANCES and rolls its own tx back (no
-    // phantom unlock) — we SWALLOW it here so the couple's manual add is never
-    // blocked by the vendor's wallet (the link above already committed). When
-    // the RPC is absent (migration not yet applied) the .rpc call errors and is
-    // likewise swallowed — the link still stands. Couple-source only (admin-
-    // source invites have no event, handled in the outer `if (parent?.event_id)`).
-    try {
-      const { error: burnErr } = await admin.rpc('claim_unlock_vendor_event', {
-        p_vendor_profile_id: args.claimedVendorProfileId,
-        p_event_id: parent.event_id as string,
-      });
-      if (burnErr) {
-        // Insufficient balance / missing RPC / any DB error → link stands.
-        console.warn('[claim] flat token burn skipped:', burnErr.message);
-      }
-    } catch (e) {
-      console.warn('[claim] flat token burn threw (link kept):', e);
-    }
+    // (6. The flat 1-token claim burn — `claim_unlock_vendor_event` — is gone,
+    // 2026-11-05: the token wallet is RETIRED (2026-05-11), so it could only
+    // fail or spend a leftover retired token. The supplier's unlock row is
+    // written for free right after this returns, by finalize's
+    // `seatClaimedCoupleAsCustomer` → `unlock_vendor_event_free`.)
   }
 
   return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds, accessRequestId };

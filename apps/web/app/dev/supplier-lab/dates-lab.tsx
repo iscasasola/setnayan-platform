@@ -5,6 +5,9 @@
  * months from the fixtures alone (no month fetcher).
  */
 import { renderUrlQrSvg } from '@/lib/qr';
+import { DOOR_STICKER_CODES, DOOR_STICKER_SIZES, doorStickerKey } from '@/lib/door-sticker';
+import { doorStickerPdf, doorStickerSvg } from '@/lib/door-sticker-print';
+import { badgesForPrint } from '@/lib/shop-badges';
 import type { SchedulePool } from '@/lib/vendor-schedule';
 import { clockWords, dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
@@ -21,6 +24,7 @@ import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates
 import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_components/day-sheet';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
+import { PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -39,7 +43,7 @@ import {
   updateWaitlistSettings,
 } from '@/app/vendor-dashboard/calendar/actions';
 
-export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
+export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail', 'qr-page', 'qr-dates'] as const;
 export type DatesState = (typeof DATES_STATES)[number];
 
 const TODAY = '2026-10-02'; // Fri Oct 2 in Manila (the lab's NOW)
@@ -226,15 +230,71 @@ const LAB_TOASTS = {
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad' as const, retry: true },
 };
 
-export async function DatesLab({ state, toast, open, gear = false }: { state: DatesState; toast?: string; open?: string; gear?: boolean }) {
+/**
+ * `place` — 📣 `&place=promote` draws the Shortlist code as Shop › Promote draws it (2026-11-05: the shop's marketing
+ * codes moved there; `place="promote"`, Promote's own dropdown). Without it, the Customers › QR codes look.
+ */
+export async function DatesLab({
+  state,
+  toast,
+  open,
+  gear = false,
+  place = 'customers',
+}: {
+  state: DatesState;
+  toast?: string;
+  open?: string;
+  gear?: boolean;
+  place?: 'customers' | 'promote';
+}) {
   const base = `/dev/supplier-lab?s=${state}`;
   const t = toast && toast in LAB_TOASTS ? LAB_TOASTS[toast as keyof typeof LAB_TOASTS] : null;
 
   if (state.startsWith('qr')) {
-    const modeOptions = [
-      { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
-      { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
-    ];
+    // 📣 Shop › Promote's own dropdown (2026-11-05): Shortlist · Check a date · My page, each to its lab state.
+    const LAB_PROMOTE_HREF = { shortlist: '/dev/supplier-lab?s=qr&place=promote', dates: '/dev/supplier-lab?s=qr-dates', page: '/dev/supplier-lab?s=qr-page' } as const;
+    const promoteOptions = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: LAB_PROMOTE_HREF[key] }));
+    const modeOptions =
+      place === 'promote'
+        ? promoteOptions
+        : [
+            { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
+            { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
+          ];
+    if (state === 'qr-page' || state === 'qr-dates') {
+      // 🚪 The shop's two permanent codes + the door sticker under them, on fixtures: the sticker's real files (SVG +
+      // PDF, every code × size) as data: URIs, drawn by the shipped `lib/door-sticker-print.ts` with a lab shop's badges.
+      const pageUrl = 'https://www.setnayan.com/v/lumina';
+      const datesUrl = 'https://www.setnayan.com/v/lumina/dates';
+      const badges = badgesForPrint({ verified: true, completedEvents: 57, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2015, awards: [], nowYear: 2026 });
+      const files: Record<string, string> = {};
+      for (const code of DOOR_STICKER_CODES) {
+        for (const size of DOOR_STICKER_SIZES) {
+          const input = { shopName: 'Lumina Studio', url: code === 'dates' ? datesUrl : pageUrl, code, size, badges };
+          files[doorStickerKey(code, size, 'svg')] = `data:image/svg+xml;base64,${Buffer.from(doorStickerSvg(input)).toString('base64')}`;
+          files[doorStickerKey(code, size, 'pdf')] = `data:application/pdf;base64,${Buffer.from(await doorStickerPdf(input)).toString('base64')}`;
+        }
+      }
+      const url = state === 'qr-page' ? pageUrl : datesUrl;
+      const card = { url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' };
+      return (
+        <div className="min-h-screen bg-cream" data-supplier-lab={state}>
+          <QrCodes
+            mode={state === 'qr-page' ? 'page' : 'dates'}
+            place="promote"
+            backHref="/dev/supplier-lab?s=dates"
+            modeOptions={promoteOptions}
+            canShare
+            setupHref="/dev/supplier-lab?s=qr"
+            shortlist={null}
+            booked={null}
+            myPage={state === 'qr-page' ? card : null}
+            checkADate={state === 'qr-dates' ? card : null}
+            doorStickerFiles={files}
+          />
+        </div>
+      );
+    }
     const shortUrl = 'https://www.setnayan.com/vendor-invite/lumina?et=wedding';
     const lockUrl = 'https://www.setnayan.com/vendor/lock/lab-token';
     const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(state === 'qr-issued' ? lockUrl : shortUrl, 220);
@@ -243,6 +303,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
         {state === 'qr' || state === 'qr-fail' ? (
           <QrCodes
             mode="shortlist"
+            place={place}
             backHref="/dev/supplier-lab?s=dates"
             modeOptions={modeOptions}
             canShare

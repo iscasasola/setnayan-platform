@@ -531,9 +531,14 @@ async function readEventShelves(
    * the words (never remembered — it is shaped by them), and every card kept must match them. Same allow-list.
    */
   search: { query: string } | null = null,
+  me: string | null = null,
 ): Promise<EventShelves> {
   const region = search ? null : regionBySlug(viewerRegion);
-  const peopleIds = graph ? [...graph.people.keys()].slice(0, MAX_PEOPLE_IDS) : [];
+  // The viewer's OWN hosted events join the people shelf too (owner 2026-10-08)
+  // — still through the same public gate below, so only what is public lists.
+  const peopleIds = graph
+    ? [...(me ? [me] : []), ...graph.people.keys()].slice(0, MAX_PEOPLE_IDS)
+    : [];
   const pattern = search ? discoverSearchPattern(search.query) : null;
 
   const [world, inRegion, hostedByPeople] = await Promise.all([
@@ -620,6 +625,7 @@ async function readEventShelves(
     events: gated,
     hostsByEvent: hosts,
     people: graph?.people ?? new Map(),
+    viewerId: me,
     memberEventIds: graph?.memberEventIds ?? new Set(),
     viewerRegion,
     todayISO,
@@ -756,7 +762,7 @@ export async function loadDiscover(): Promise<DiscoverData> {
 
   const viewerRegion = await readViewerRegion(admin, graph.memberships).catch(() => null);
   const [shelves, peopleToFollow] = await Promise.all([
-    readEventShelves(admin, graph, viewerRegion, todayISO).catch(() => ({ ok: false }) as const),
+    readEventShelves(admin, graph, viewerRegion, todayISO, null, me).catch(() => ({ ok: false }) as const),
     readPeopleToFollow(me, graph).catch(() => UNAVAILABLE),
   ]);
 

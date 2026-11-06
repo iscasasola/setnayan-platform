@@ -13,6 +13,7 @@
  */
 import { coupleFirstNamesLine } from './typed-names';
 import { normalizeVisibility } from './event-visibility';
+import type { CoupleLook } from './service-card-view-model';
 
 /* ══════════════════════════════════════════════════════════════════════════
    🔓 OPEN — THE PAGE-PHOTO ROOM (owner question, NOT decided)
@@ -297,3 +298,16 @@ export function coupleLookRef(key: string, isPublic: boolean): string {
 
 /** Where the shop answers — its Shop › Services, at the list (`id="couple-photos"`). */
 export const SHOP_COUPLE_PHOTOS_HREF = '/vendor-dashboard/shop#couple-photos';
+
+/** One row of either card read. `verified_booking` is the database's own yes/no (derived at read, never stored). */
+export type CardLookRow = { vendor_service_id: string; share_id: string; public_key: string; credit_line: string; verified_booking?: boolean | null };
+
+/**
+ * ✓ THE "VERIFIED BOOKING" MARK COMES ONLY FROM THE DATABASE — `verified_booking === true` exactly. A missing column
+ * (an older read, a failed join) is no mark, never a guessed one.
+ */
+export function coupleLookOf(r: CardLookRow, url: string): CoupleLook {
+  return r.verified_booking === true
+    ? { id: r.share_id, url, credit: r.credit_line, verifiedBooking: true }
+    : { id: r.share_id, url, credit: r.credit_line };
+}

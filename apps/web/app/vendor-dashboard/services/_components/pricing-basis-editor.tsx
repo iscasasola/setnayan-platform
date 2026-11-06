@@ -105,7 +105,7 @@ export function PricingBasisEditor({
         <input type="hidden" name="pricing_basis" value={basis} />
         <label
           htmlFor={id}
-          className="flex h-12 items-center gap-2.5 rounded-xl border bg-raised px-3.5 focus-within:border-sn-accent"
+          className="flex h-12 items-center gap-2.5 rounded-xl border bg-raised px-3.5 focus-within:border-sn-accent" // no-card-ok: the ₱ input's own 48 px frame (a control)
           style={{ borderColor: line }}
         >
           <span aria-hidden className="border-r pr-2.5 text-[16px] text-ink/70" style={{ borderColor: line }}>₱</span>

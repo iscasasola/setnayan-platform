@@ -950,7 +950,7 @@ export function CanvasMaker({
 
       <div className="space-y-3">
         {aboutOpen ? (
-          <div role="note" data-maker-about="" className="rounded-2xl border px-4 py-3 text-[14px] leading-snug text-ink/75" style={{ borderColor: line }}>
+          <div role="note" data-maker-about="" className="sn-glass-bare rounded-2xl px-4 py-3 text-[14px] leading-snug text-ink/75">
             <b className="block text-ink">This card</b>
             Save shows it to couples as soon as it has a cover, a price and what’s included — or saves it, not shown yet,
             until it does. {isEdit ? 'Hide, copy or delete it under More settings.' : 'Hide, copy or delete it from the card later.'}
@@ -1525,7 +1525,7 @@ export function CanvasMaker({
         {/* ═══ AS COUPLES SEE IT — beside the surface from 820 px, sized to its words; a phone opens it from the pinned
             row's Preview round. The shipped face, painted from the live form. ═══ */}
         <aside data-maker-card="" className="hidden md:sticky md:top-20 md:block" aria-label="As couples see it">
-          <div className="space-y-3 rounded-2xl border p-4" style={{ borderColor: line, background: 'var(--m-paper)' }}>
+          <div className="sn-glass-bare space-y-3 rounded-2xl p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[16px] font-semibold text-ink">As couples see it</h3>
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/45">live</span>

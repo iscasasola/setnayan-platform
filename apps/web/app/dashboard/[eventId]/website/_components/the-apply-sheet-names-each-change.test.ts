@@ -8,8 +8,9 @@
  *   1. THE LIST MATCHES THE COUNT — `hubDraftChangeLines` is exactly
  *      `summarizeHubDraft(...).changeCount` lines, for a couple with Pro and
  *      without, because both walk ONE reader (`hubDraftCountedChanges`). The
- *      names (two columns) and the date (two) are one line each, as they are
- *      one in the badge.
+ *      names (three columns) are one line, as they are one in the badge — and
+ *      the date is never a line at all: it is not drafted (owner 2026-11-05,
+ *      "it shouldn't rely on the hub").
  *   2. EVERY DRAFT KIND MAPS TO A LABEL — every draftable `events` column,
  *      every widget field, every Post Event item and every fixed part's style
  *      reads as "Place · What", never blank or "undefined".
@@ -76,9 +77,8 @@ const DRAFT = mergeHubDraft(emptyHubDraft(), {
     // ✍ The names — two columns, ONE change.
     display_name: 'Ana & Miguel',
     bride_name: 'Ana',
-    // 🗓 The date — two columns, ONE change.
-    event_date: '2031-05-01',
-    event_date_precision: 'day',
+    // 🗓 A date sent by an older screen — never drafted, so never a line (owner 2026-11-05).
+    ...({ event_date: '2031-05-01', event_date_precision: 'day' } as object),
     ceremony_time: '15:00',
     site_button_style: HUB_BUTTON_STYLE_VALUES[0],
     invite_theme: INVITE_THEME_IDS[INVITE_THEME_IDS.length - 1],
@@ -98,12 +98,12 @@ test('the named list is exactly the count — with Pro and without — in one wa
   for (const ownsPro of [false, true]) {
     const summary = summarizeHubDraft(DRAFT, LIVE, ownsPro);
     const lines = hubDraftChangeLines(DRAFT, LIVE, ownsPro);
-    assert.ok(summary.changeCount >= 8, `anti-vacuity: the draft holds ${summary.changeCount} changes: ${hubDraftChangeLines(DRAFT, LIVE, ownsPro).map(text).join(" | ")}`);
+    assert.ok(summary.changeCount >= 7, `anti-vacuity: the draft holds ${summary.changeCount} changes: ${hubDraftChangeLines(DRAFT, LIVE, ownsPro).map(text).join(" | ")}`);
     assert.equal(lines.length, summary.changeCount, `ownsPro=${ownsPro}: ${lines.length} lines for a count of ${summary.changeCount}`);
     const said = lines.map(text);
     // The facts carried by several columns are ONE line each.
     assert.equal(said.filter((l) => l === 'Event Details · Event title').length, 1, 'the names are listed twice');
-    assert.equal(said.filter((l) => l === 'Event Details · Date').length, 1, 'the date is listed twice');
+    assert.equal(said.some((l) => /· Date$/.test(l)), false, 'a date is listed — it is not drafted');
     assert.ok(said.includes('Event Details · Ceremony time'), said.join(' | '));
     assert.ok(said.includes('Look · Buttons'), said.join(' | '));
     assert.ok(said.includes('Look · Theme'), said.join(' | '));

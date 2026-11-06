@@ -55,7 +55,12 @@ import { fileURLToPath } from 'node:url';
 // build; read that job before merging.
 // MERGED (2026-11-06): both +1s above landed on one tree; the real merged count measured 1228, so the ceiling stays
 // 1228 — the limit is the measured count, never the sum of the two arrows.
-export const CEILING = 1228;
+// 1228 → 1229 (2026-11-06, "Questions for the couple — every supplier", #7248; owner OK 5 Nov): two new in-place
+// actions, one per side (`messages/[threadId]/questions-actions.ts` · `sendQuestionsToEvent` for the supplier, and
+// `workspace/question-answers-actions.ts` · `saveSupplierAnswers` for the couple), less one dead export removed
+// (`studio/papic/actions.ts` · `reissuePapicSeat`). Measured on the tree merged with main after #7287: 1229. The route
+// SUM stays gated by check-vercel-route-count.mjs — read that job before merging.
+export const CEILING = 1229;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

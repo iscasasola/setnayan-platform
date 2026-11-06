@@ -1,66 +1,78 @@
 /**
- * open-shop-logo.ts — a shop logo's align + zoom, and where the logo is asked (owner, the 2026-11-06 gate walk, A2).
+ * open-shop-logo.ts — a shop logo's frame, and where the logo is asked (owner, the 2026-11-06 gate walk, A2; the
+ * frame reshaped 7 Nov, prototype v21, A3).
  *
  * Owner, verbatim: logo *"if it does not want to upload, then it has no use here"* (step 1 refused signed-out:
- * "You must be signed in to upload") and *"zoom and align"*. So:
+ * "You must be signed in to upload"), *"zoom and align"*, then (7 Nov) *"drag and pinch to zoom"* and *"change and
+ * save automatically"*. So:
  *   • the logo leaves step 1 and is asked RIGHT AFTER the shop opens, signed in, on its own screen
  *     (`OPEN_SHOP_LOGO_PATH`) — Skip lands on Today, where "Add your logo" stays a first step;
- *   • the frame is the Event Hub Maker photo's own control, reused as-is — 9-point align (`HUB_FOCAL_POINTS`) and
- *     zoom 100 / 120 / 150 (`HUB_ZOOMS`) — stored beside the logo (`vendor_profiles.logo_focal` / `logo_zoom`,
- *     migration 20271316444107), so moving the frame never needs a re-upload;
- *   • every logo surface draws through `logoFrameStyle` → `focalToObjectPosition` + zoom.
+ *   • the frame is continuous — x / y 0–100 and zoom 100–300 (`lib/picture-frame.ts`), set by dragging and pinching the
+ *     circle itself (`PictureFrameControl`), stored beside the logo (`vendor_profiles.logo_focal_x` / `logo_focal_y` /
+ *     `logo_zoom`, migration 20271316444107) so moving the frame never needs a re-upload;
+ *   • every logo surface draws through `logoFrameStyle` → `pictureFrameStyle`.
  *
- * 🔑 NO NEW CROPPER. The sets, their meaning and the object-position math are `lib/hub-canvas.ts`'s; this file only
- * reads the two columns into those types (drop, never repair — the Maker's own sanitiser rule).
+ * The keypad + "How close" menu this replaced (the Maker's 9-point `HUB_FOCAL_POINTS` + `HUB_ZOOMS`) never shipped:
+ * the migration was reshaped before it reached production.
  */
 import type { CSSProperties } from 'react';
 
 import {
-  HUB_DEFAULT_FOCAL,
-  HUB_DEFAULT_ZOOM,
-  HUB_FOCAL_POINTS,
-  HUB_ZOOMS,
-  focalToObjectPosition,
-  type HubFocalPoint,
-  type HubZoom,
-} from './hub-canvas';
+  DEFAULT_PICTURE_FRAME,
+  PICTURE_FRAME_FIELDS,
+  pictureFrameStyle,
+  readPictureFrame,
+  storedPictureFrame,
+  type PictureFrame,
+} from './picture-frame';
 
 /** The screen right after "Open my shop": "Add your logo". */
 export const OPEN_SHOP_LOGO_PATH = '/open-shop/logo';
 
 /** How a logo sits in its round frame. */
-export type LogoFrame = { focal: HubFocalPoint; zoom: HubZoom };
+export type LogoFrame = PictureFrame;
 
-export const DEFAULT_LOGO_FRAME: LogoFrame = { focal: HUB_DEFAULT_FOCAL, zoom: HUB_DEFAULT_ZOOM };
+export const DEFAULT_LOGO_FRAME: LogoFrame = DEFAULT_PICTURE_FRAME;
 
-/** The Maker's "How close" words, unchanged (`scene-background-row.tsx`). */
-export const LOGO_ZOOM_LABEL: Record<HubZoom, string> = { 100: 'As it is', 120: 'Closer', 150: 'Closest' };
+/** The form field names the logo's frame posts under — the column names, one for one (`PICTURE_FRAME_FIELDS.logo`). */
+export const LOGO_FRAME_INPUTS = PICTURE_FRAME_FIELDS.logo;
 
-const inSet = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v);
+type LogoFrameRow = { logo_focal_x?: unknown; logo_focal_y?: unknown; logo_zoom?: unknown };
 
-/** Read the two columns (or two form fields). Anything outside the closed sets is dropped to the default. */
-export function readLogoFrame(row: { logo_focal?: unknown; logo_zoom?: unknown } | null | undefined): LogoFrame {
-  const f = Number(row?.logo_focal);
-  const z = Number(row?.logo_zoom);
+/** Read the three columns (or three form fields). Anything outside its range is dropped to the default. */
+export function readLogoFrame(row: LogoFrameRow | null | undefined): LogoFrame {
+  return readPictureFrame(row?.logo_focal_x, row?.logo_focal_y, row?.logo_zoom);
+}
+
+/** Read the frame a form posted (`LOGO_FRAME_INPUTS`). */
+export function readLogoFrameFromForm(form: FormData): LogoFrame {
+  return readLogoFrame({
+    logo_focal_x: form.get(LOGO_FRAME_INPUTS.x),
+    logo_focal_y: form.get(LOGO_FRAME_INPUTS.y),
+    logo_zoom: form.get(LOGO_FRAME_INPUTS.zoom),
+  });
+}
+
+/** Does this form carry the frame control at all? (An older client posts the logo alone and keeps its frame.) */
+export function formCarriesLogoFrame(form: FormData): boolean {
+  return form.has(LOGO_FRAME_INPUTS.x) || form.has(LOGO_FRAME_INPUTS.y) || form.has(LOGO_FRAME_INPUTS.zoom);
+}
+
+/** The columns to write for a frame — NULL for a default value, so an untouched logo stores nothing. */
+export function logoFrameColumns(frame: LogoFrame): {
+  logo_focal_x: number | null;
+  logo_focal_y: number | null;
+  logo_zoom: number | null;
+} {
+  const f = storedPictureFrame(frame);
   return {
-    focal: inSet(HUB_FOCAL_POINTS, f) ? f : HUB_DEFAULT_FOCAL,
-    zoom: inSet(HUB_ZOOMS, z) ? z : HUB_DEFAULT_ZOOM,
+    logo_focal_x: f.x === DEFAULT_PICTURE_FRAME.x ? null : f.x,
+    logo_focal_y: f.y === DEFAULT_PICTURE_FRAME.y ? null : f.y,
+    logo_zoom: f.zoom === DEFAULT_PICTURE_FRAME.zoom ? null : f.zoom,
   };
 }
 
-/** The columns to write for a frame — NULL for a default, so an untouched logo stores nothing. */
-export function logoFrameColumns(frame: LogoFrame): { logo_focal: number | null; logo_zoom: number | null } {
-  return {
-    logo_focal: frame.focal === HUB_DEFAULT_FOCAL ? null : frame.focal,
-    logo_zoom: frame.zoom === HUB_DEFAULT_ZOOM ? null : frame.zoom,
-  };
-}
-
-/** The `<img>` style every logo surface uses: the Maker's object-position + the same zoom, from the same point. */
+/** The `<img>` style every logo surface uses (with `object-fit: cover`). */
 export function logoFrameStyle(frame: LogoFrame | null | undefined): CSSProperties {
-  const f = frame ?? DEFAULT_LOGO_FRAME;
-  const position = focalToObjectPosition(f.focal);
-  return f.zoom === HUB_DEFAULT_ZOOM
-    ? { objectPosition: position }
-    : { objectPosition: position, transform: `scale(${f.zoom / 100})`, transformOrigin: position };
+  return pictureFrameStyle(frame);
 }

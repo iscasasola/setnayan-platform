@@ -13,7 +13,7 @@
  *   ?as=coordinator  the For Coordinators door (step 2 opens on the coordination services)
  *   ?error=<sentence>  a server refusal, drawn under the box that owns it
  *   ?check_inbox=<email>  the check-your-email state (A1)
- *   ?screen=logo   the "Add your logo" screen (A2) · &framed=1 with a public image already in, so the align + zoom
+ *   ?screen=logo   the "Add your logo" screen (A2; its autosave answers from a stand-in that writes nothing) · &framed=1 with a public image already in, so the align + zoom
  *                  control shows (an upload needs R2, which a dummy env does not have)
  */
 import { headers } from 'next/headers';
@@ -135,6 +135,13 @@ const EVENTS = [
   { key: 'grand_opening', label: 'Grand opening', emoji: '🎀' },
 ];
 
+/** The lab's stand-in for the logo autosave: writes NOTHING and answers ok, so "Logo saved" can be seen on a dummy env. */
+async function labSaveLogo(): Promise<{ ok: true }> {
+  'use server';
+  if (process.env.NODE_ENV === 'production') throw new Error('open-shop-lab: not in production');
+  return { ok: true };
+}
+
 export default async function OpenShopLabPage({
   searchParams,
 }: {
@@ -151,7 +158,8 @@ export default async function OpenShopLabPage({
         shopName="Banawe Florals"
         storedLogoRef={q.framed === '1' ? LAB_LOGO : null}
         displayUrl={q.framed === '1' ? LAB_LOGO : null}
-        frame={q.framed === '1' ? { focal: 3, zoom: 120 } : DEFAULT_LOGO_FRAME}
+        frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
+        saveAction={labSaveLogo}
       />
     );
   }

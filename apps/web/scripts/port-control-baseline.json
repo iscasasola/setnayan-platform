@@ -13464,18 +13464,15 @@
       "destinations": [
         "/vendor-dashboard"
       ],
-      "actions": [
-        "save"
-      ],
+      "actions": [],
       "blocks": [
+        "ActionButton",
         "AddYourLogo",
         "FieldSaveResult",
         "FileUpload",
         "FirstRunBrand",
-        "Link",
         "LogoFrame",
-        "LogoFrameControl",
-        "SubmitButton"
+        "PictureFrameControl"
       ]
     },
     "/our-story": {
@@ -16787,7 +16784,6 @@
         "LockedIdentityFieldKey",
         "LockedLine",
         "LogoFrame",
-        "LogoFrameControl",
         "LogoRowControl",
         "ManpowerSurface",
         "MenuSettingsButton",
@@ -16796,6 +16792,7 @@
         "PairCard",
         "PaperSide",
         "PickMenu",
+        "PictureFrameControl",
         "Pill",
         "Pin",
         "PinFigures",

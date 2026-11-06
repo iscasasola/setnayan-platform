@@ -32,7 +32,7 @@ export default async function OpenShopLogoPage() {
   // The shop's own definer view (never the table — see app/open-shop/page.tsx). A refused read is not "no shop".
   const { data, error } = await supabase
     .from('vendor_profiles_self')
-    .select('vendor_profile_id, business_name, logo_url, logo_focal, logo_zoom')
+    .select('vendor_profile_id, business_name, logo_url, logo_focal_x, logo_focal_y, logo_zoom')
     .eq('vendor_profile_id', shop.vendorProfileId)
     .maybeSingle();
   if (error) throw new Error(`open-shop/logo: could not read your shop (${error.message})`);
@@ -40,7 +40,8 @@ export default async function OpenShopLogoPage() {
     vendor_profile_id: string;
     business_name: string | null;
     logo_url: string | null;
-    logo_focal: number | null;
+    logo_focal_x: number | null;
+    logo_focal_y: number | null;
     logo_zoom: number | null;
   } | null;
   // No named shop yet → the wizard is the next step, not this one.

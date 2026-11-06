@@ -1,6 +1,6 @@
 'use client';
 
-import { LogoFrameControl } from '@/app/_components/logo-frame-control';
+import { PictureFrameControl } from '@/app/_components/picture-frame-control';
 import { DEFAULT_LOGO_FRAME, logoFrameStyle, type LogoFrame } from '@/lib/open-shop-logo';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -624,9 +624,10 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
 }
 
 /**
- * My Shop's logo: the shipped upload, plus the SAME align + zoom control as "Add your logo" (owner 2026-11-06, A2 —
- * the Event Hub Maker photo control, `LogoFrameControl`). The frame posts with the logo (`logo_focal` / `logo_zoom`),
- * so it is moved without a re-upload.
+ * My Shop's logo: the shipped upload, plus the SAME round-photo framer as "Add your logo" (owner 7 Nov, prototype v21,
+ * A3 — drag to move, pinch to zoom, the shared `PictureFrameControl`). The frame posts with the logo
+ * (`picture="logo"` → `logo_focal_x` / `logo_focal_y` / `logo_zoom`) when the row closes, so it is moved without a
+ * re-upload.
  */
 function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: () => void }) {
   const [ref, setRef] = useState<string>(data.logo_url ?? '');
@@ -653,6 +654,8 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
           onDirty();
         }}
         onFilePicked={(file) => {
+          // A new picture starts centred — the old frame belonged to the old picture.
+          setFrame(DEFAULT_LOGO_FRAME);
           try {
             setPreview(URL.createObjectURL(file));
           } catch {
@@ -660,13 +663,16 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
           }
         }}
       />
-      <LogoFrameControl
+      <PictureFrameControl
         imageUrl={ref ? preview : null}
         frame={frame}
+        picture="logo"
         onChange={(f) => {
           setFrame(f);
           onDirty();
         }}
+        alt="Your logo, as couples see it"
+        tipTitle="The circle is what couples see"
       />
     </span>
   );

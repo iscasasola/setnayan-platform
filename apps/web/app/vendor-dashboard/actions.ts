@@ -1,6 +1,6 @@
 'use server';
 
-import { DEFAULT_LOGO_FRAME, logoFrameColumns, readLogoFrame } from '@/lib/open-shop-logo';
+import { DEFAULT_LOGO_FRAME, formCarriesLogoFrame, logoFrameColumns, readLogoFrameFromForm } from '@/lib/open-shop-logo';
 import { keepOnlyNoticedAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { randomUUID } from 'node:crypto';
@@ -421,15 +421,14 @@ export async function updateVendorProfileField(
         return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
       }
       patch = { logo_url: logoRef };
-      // 🖼 The logo's align + zoom (owner 2026-11-06, A2 — the Event Hub Maker photo control, `LogoFrameControl`),
-      // stored beside it so moving the frame never needs a re-upload. Only when the form carries the control: an
-      // older client that posts the logo alone keeps the frame it had. A removed logo takes its frame with it.
-      if (formData.has('logo_focal') || formData.has('logo_zoom') || !logoRef) {
+      // 🖼 The logo's frame (owner 7 Nov, prototype v21, A3 — drag + pinch, the shared `PhotoFrameControl`: x / y
+      // 0–100, zoom 100–300), stored beside it so moving the frame never needs a re-upload. Only when the form
+      // carries the control: an older client that posts the logo alone keeps the frame it had. A removed logo takes
+      // its frame with it.
+      if (formCarriesLogoFrame(formData) || !logoRef) {
         patch = {
           ...patch,
-          ...logoFrameColumns(
-            logoRef ? readLogoFrame({ logo_focal: formData.get('logo_focal'), logo_zoom: formData.get('logo_zoom') }) : DEFAULT_LOGO_FRAME,
-          ),
+          ...logoFrameColumns(logoRef ? readLogoFrameFromForm(formData) : DEFAULT_LOGO_FRAME),
         };
       }
       break;

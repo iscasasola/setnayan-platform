@@ -20,7 +20,7 @@ export function VendorAvatar({
   className,
   frame = null,
 }: {
-  /** The logo's align + zoom (owner 2026-11-06, A2 — `vendor_profiles.logo_focal` / `logo_zoom` via `readLogoFrame`). */
+  /** The logo's frame (owner 7 Nov, A3 — `vendor_profiles.logo_focal_x` / `logo_focal_y` / `logo_zoom` via `readLogoFrame`). */
   frame?: LogoFrame | null;
   /** Presigned/display URL of the uploaded logo, or null to fall back. */
   logoUrl: string | null;

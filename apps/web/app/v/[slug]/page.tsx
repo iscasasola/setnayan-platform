@@ -270,7 +270,8 @@ export type PublicVendorRow = {
   tagline: string | null;
   logo_url: string | null;
   /** The logo's align + zoom (owner 2026-11-06, A2) — absent on the legacy read, then drawn centred. */
-  logo_focal?: number | null;
+  logo_focal_x?: number | null;
+  logo_focal_y?: number | null;
   logo_zoom?: number | null;
   portfolio_r2_keys: string[] | null;
   // Featured videos — external URLs the vendor pasted (migration 20270518165113).
@@ -468,7 +469,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 

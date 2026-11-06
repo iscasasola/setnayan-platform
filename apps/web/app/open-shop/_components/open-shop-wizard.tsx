@@ -1347,7 +1347,7 @@ export function OpenShopWizard({
                 <button
                   type="button"
                   onClick={back}
-                  className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5"
                   style={{ borderColor: 'var(--m-line)' }}
                   aria-label="Back"
                 >
@@ -1358,7 +1358,7 @@ export function OpenShopWizard({
                 <button
                   type="button"
                   onClick={reloadKeepingDraft}
-                  className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm md:w-auto md:min-w-[220px] md:px-6"
+                  className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm"
                   style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
                   data-open-shop-reload=""
                 >
@@ -1371,20 +1371,20 @@ export function OpenShopWizard({
                   <button
                     type="button"
                     onClick={next}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm md:w-auto md:min-w-[220px] md:px-6 font-medium"
+                    className="inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
                     style={{ background: 'var(--m-paper-2)', color: 'var(--m-ink)' }}
                     data-open-shop-quiet=""
                   >
                     {step === 2 ? 'Pick a service to continue' : 'Continue'}
                   </button>
                 ) : (
-                  <button type="button" onClick={next} className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm md:w-auto md:min-w-[220px] md:px-6" data-open-shop-continue="">
+                  <button type="button" onClick={next} className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-open-shop-continue="">
                     Continue
                     <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                   </button>
                 )
               ) : (
-                <SubmitButton className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm md:w-auto md:min-w-[220px] md:px-6" pendingLabel="Opening your shop…">
+                <SubmitButton className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
                   Open my shop — free
                 </SubmitButton>
               )}

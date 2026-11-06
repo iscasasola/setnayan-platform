@@ -27,7 +27,7 @@ const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const TAKEN = read('app/open-shop/_components/taken-sign-in.tsx');
 const LOGO_SCREEN = read('app/open-shop/logo/_components/add-your-logo.tsx');
 const LOGO_PAGE = read('app/open-shop/logo/page.tsx');
-const FRAME = read('app/_components/logo-frame-control.tsx');
+const FRAME = read('app/_components/picture-frame-control.tsx');
 
 /* ── A1 · email confirm on the shop door ─────────────────────────────────────────────────────────────────────── */
 
@@ -80,40 +80,42 @@ test('A2 · the signed-out wizard has no upload; a new shop goes to "Add your lo
   assert.match(ACTIONS, /if \(!logoUrl && !existingHasLogo\) redirect\(OPEN_SHOP_LOGO_PATH\);/);
 });
 
-test('A2 · the logo screen: round preview, the Maker control, Skip → Today, saved by My Shop’s own logo save', () => {
+test('A2 · the logo screen: round preview, the shared framer, Skip → Today, saved by My Shop’s own logo save', () => {
   assert.match(LOGO_SCREEN, /Add your logo/);
   assert.match(LOGO_SCREEN, /roundPreview/);
-  assert.match(LOGO_SCREEN, /<LogoFrameControl\b/);
-  assert.match(LOGO_SCREEN, /href="\/vendor-dashboard"[\s\S]{0,300}Skip for now/);
-  assert.match(LOGO_SCREEN, /useActionState<[^>]*>\(updateVendorProfileField, null\)/);
-  assert.match(LOGO_SCREEN, /name="field" value="logo"/);
+  assert.match(LOGO_SCREEN, /<PictureFrameControl\b/);
+  assert.match(LOGO_SCREEN, /label="Skip for now" href="\/vendor-dashboard"/);
+  assert.match(LOGO_SCREEN, /saveAction = updateVendorProfileField/);
+  assert.match(LOGO_SCREEN, /useActionState<[^>]*>\(saveAction, null\)/);
+  assert.match(LOGO_SCREEN, /form\.set\('field', 'logo'\)/);
   assert.match(LOGO_PAGE, /resolveOwnedActiveShop\(supabase, user\.id\)/, 'the screen reads the same shop the save writes');
+  assert.match(LOGO_PAGE, /logo_focal_x, logo_focal_y, logo_zoom/);
 });
 
-test('A2 · the control IS the Maker’s: its sets, its keypad label, its "How close" menu', () => {
-  assert.match(FRAME, /HUB_FOCAL_POINTS\.map/);
-  assert.match(FRAME, /HUB_ZOOMS\.map/);
-  assert.match(FRAME, /aria-label=\{`Keep area \$\{f\} of 9 in frame`\}/);
-  assert.match(FRAME, /label="How close"/);
-  assert.match(FRAME, /name="logo_focal"/);
-  assert.match(FRAME, /name="logo_zoom"/);
-  const maker = read('app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx');
-  assert.match(maker, /aria-label=\{`Keep area \$\{f\} of 9 in frame`\}/, 'the Maker’s control changed — re-read this copy');
+test('A2 → A3 · the frame posts under the column names (x / y / zoom), whole numbers', () => {
+  assert.match(FRAME, /const inputNames = picture \? PICTURE_FRAME_FIELDS\[picture\] : null;/);
+  assert.match(FRAME, /name=\{inputNames\.x\}/);
+  assert.match(FRAME, /name=\{inputNames\.y\}/);
+  assert.match(FRAME, /name=\{inputNames\.zoom\}/);
+  assert.match(FRAME, /const posted = storedPictureFrame\(frame\)/);
 });
 
 test('A2 · My Shop’s logo row carries the same control, and its save writes the frame', () => {
   const row = read('app/vendor-dashboard/shop/_components/editable-row.tsx');
   assert.match(row, /<LogoRowControl data=\{data\} onDirty=\{onDirty\} \/>/);
-  assert.match(row, /<LogoFrameControl\b/);
+  assert.match(row, /<PictureFrameControl\b[\s\S]{0,200}picture="logo"/);
   const save = read('app/vendor-dashboard/actions.ts');
   const logoCase = save.slice(save.indexOf("case 'logo': {"), save.indexOf("case 'business_name': {"));
-  assert.match(logoCase, /logoFrameColumns\(/);
+  assert.match(logoCase, /formCarriesLogoFrame\(formData\)/);
+  assert.match(logoCase, /logoFrameColumns\(logoRef \? readLogoFrameFromForm\(formData\) : DEFAULT_LOGO_FRAME\)/);
 });
 
-test('A2 · the logo surfaces draw through logoFrameStyle', () => {
-  for (const f of ['app/_components/vendor-avatar.tsx', 'app/v/[slug]/page.tsx', 'app/vendor-dashboard/shop/_components/editable-row.tsx', 'app/_components/logo-frame-control.tsx']) {
+test('A2 · the logo surfaces draw through logoFrameStyle (the framer through pictureFrameStyle, the same function)', () => {
+  for (const f of ['app/_components/vendor-avatar.tsx', 'app/v/[slug]/page.tsx', 'app/vendor-dashboard/shop/_components/editable-row.tsx']) {
     assert.match(read(f), /logoFrameStyle\(/, `${f} draws the logo without its frame`);
   }
+  assert.match(FRAME, /pictureFrameStyle\(frame\)/);
+  assert.match(read('lib/open-shop-logo.ts'), /return pictureFrameStyle\(frame\);/);
   assert.match(read('app/vendor-dashboard/shop/page.tsx'), /frame=\{data\.logoFrame\}/);
 });
 

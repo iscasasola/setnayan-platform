@@ -41,7 +41,8 @@ test('2 · the Plan page neither draws, reads nor links to the gifts', () => {
 
 test('3 · the row’s gift figure is the section’s own read', () => {
   const src = read(PROMOTE);
-  assert.match(src, /const gifts = await giftsPromise;/);
+  // 2026-11-06: awaited beside Share your work (row 4) — still ONE gifts read.
+  assert.match(src, /const \[gifts, share\] = await Promise\.all\(\[giftsPromise, sharePromise\]\);/);
   assert.match(src, /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock \? gifts\.stock\.balance : null\s*\}\)\}/, 'the figure is not the section’s stock (or an unread stock is not null)');
   assert.equal([...src.matchAll(/fetchShopGiftStock/g)].length, 0, 'a second stock read beside the section’s');
 });

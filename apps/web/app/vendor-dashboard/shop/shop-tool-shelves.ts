@@ -10,8 +10,8 @@ export type ShopToolShelf = { key: string; label: string; tools: ShopTool[] };
 export const TOOLS_COUPLES_SEE: ShopTool[] = [
   { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
   { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
-  { href: '/vendor-dashboard/real-stories', label: 'Stories', sub: 'Editorial features starring your work.' },
-  { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
+  // 📣 Stories + Recaps left this shelf 2026-11-06 (owner, "ONE HOME FOR EVERY PROMOTE TOOL"): they live in Shop ›
+  // Promote › Share your work, and their old routes forward there.
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   // 🔴 ADDED 2026-08-06 — /vendor-dashboard/activities shipped 2026-07-28 with
   // NO doorway anywhere in the repo: no <Link>, no router.push, no redirect, no
@@ -19,6 +19,10 @@ export const TOOLS_COUPLES_SEE: ShopTool[] = [
   // identical sibling /vendor-dashboard/repertoire (the line above) had five.
   // A host wrote his segments into a page he could only reach by typing the URL.
   { href: '/vendor-dashboard/activities', label: 'Your segments', sub: 'The parts of the night you run — couples tick these onto their timeline.' },
+  // ❓ EVERY SUPPLIER ASKS (owner 2026-11-04, "Yes, every supplier"). The question set is authored where it always
+  // was — the `#questions` section of the segments page — and this is its own doorway for every trade, so a caterer
+  // or a photographer does not have to guess that "Your segments" holds it. `questions-for-every-supplier.test.ts`.
+  { href: '/vendor-dashboard/activities#questions', label: 'Questions for the couple', sub: 'Write them once — every couple you work with answers them in their event.' },
 ];
 
 export const TOOLS_WITH_OTHERS: ShopTool[] = [

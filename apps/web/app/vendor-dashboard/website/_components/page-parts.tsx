@@ -35,7 +35,8 @@ import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { applyVendorPageDraft } from '../../actions';
 import { setShopPublished } from '../actions';
 import { usePageDraft } from './use-page-draft';
-import { BadgeTracker, type BadgeTrackerData } from './badge-tracker';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import type { ShopBadge } from '@/lib/shop-badges';
 import type { PagePlanLine } from '../page-data';
 
 /* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
@@ -93,8 +94,8 @@ export type PageClientData = {
   addressPlan: string;
   storeShell: boolean;
   plans: PagePlanLine[];
-  /** 🏅 Awards and badges — composed by `lib/shop-badges.ts` from today's reads. */
-  badges: BadgeTrackerData & { summary: string };
+  /** 🏅 Awards and badges — the pills couples see, composed by `lib/shop-badges.ts` from today's reads. */
+  badges: { summary: string; pills: ShopBadge[] };
 };
 
 export function PageParts({
@@ -364,10 +365,20 @@ export function PageParts({
 
         <DatesRow data="page-where" lead={<RowIcon icon={MapPin} />} title="Where you work" line={d.whereLine} href="/vendor-dashboard/profile#where" />
 
-        {/* 🏅 THE TRACKER (owner 2026-10-28) — was a line that only said "they show by themselves"; now each badge in
-            the pill, where it stands, and the one action that moves it (`badge-tracker.tsx`). */}
+        {/* 🏅 THE PILLS COUPLES SEE (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL": Page keeps the badge pills
+            only; the one tracker — bars, next badge, the action that moves each — is Analytics › Your badges). */}
         <Fold anchor="badges" data="page-badges" lead={<RowIcon icon={Award} />} title="Awards and badges" line={d.badges.summary}>
-          <BadgeTracker d={d.badges} />
+          {d.badges.pills.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pb-4 pt-1" data-badge-pills="">
+              {d.badges.pills.map((b) => (
+                <ShopBadgePill key={b.key} badge={b} size="sm" />
+              ))}
+            </div>
+          ) : (
+            <p className="pb-4 pt-1 text-[13.5px] text-ink/60" data-badge-pills="none">
+              They show here by themselves as you earn them.
+            </p>
+          )}
         </Fold>
 
         <Fold

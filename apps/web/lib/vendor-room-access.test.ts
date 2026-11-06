@@ -263,8 +263,7 @@ test('every reader left on the pool read carries a stated reason', () => {
   // A leave-behind with no reason is indistinguishable from one that was missed.
   const LEFT = [
     'app/vendor-dashboard/customers/page.tsx',
-    'app/vendor-dashboard/recaps/page.tsx',
-    'app/vendor-dashboard/real-stories/page.tsx',
+    'app/vendor-dashboard/shop/promote/_components/share-your-work-data.ts',
     'app/vendor-dashboard/proposals/surface.tsx',
     'app/vendor-dashboard/services/_components/services-manager.tsx',
     'app/v/[slug]/page.tsx',
@@ -276,7 +275,9 @@ test('every reader left on the pool read carries a stated reason', () => {
   //         day are Customers › Dates now, whose every pool read states the same CAPACITY reason.
   // 8 → 7: shop/page.tsx no longer reads the pool — its only use fed the Stories and Recap number tiles, which left
   //        Shop › Services for Shop › How it is going (owner "Yes to all", 2026-10-21, item 4).
-  assert.equal(LEFT.length, 7, 'seven readers stay on the pool read — measured, not remembered');
+  // 7 → 6: the Recaps and Stories pages became forwards to Shop › Promote › Share your work (owner 2026-11-06), whose
+  //        ONE loader reads the pool once for both lists, with the same stated reason.
+  assert.equal(LEFT.length, 6, 'six readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');
     const idx = raw.indexOf('fetchVendorPoolBookings(');

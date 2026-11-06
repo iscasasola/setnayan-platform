@@ -135,11 +135,25 @@ test('v2: an event type with no marketplace is scoped onto no category', async (
   const r = await db.query<{ id: string }>(
     `SELECT id FROM public.service_categories
       WHERE tier = 2 AND status = 'active' AND applicable_event_types && $1::text[]
-        AND id = ANY ($2::text[]) -- the marketplace = v2's picker categories (Setnayan's own rows are not suppliers)
+        AND id = ANY ($2::text[]) -- the marketplace = v2's picker categories
+        -- …less a category that also shelves a Setnayan product with no list of its own (Papic, Patiktok): that product
+        -- inherits the category's list, so the claim is how a Get-together reaches Setnayan's own product, not a supplier.
+        AND NOT EXISTS (SELECT 1 FROM public.canonical_service_taxonomy c
+                         WHERE c.tile_id = service_categories.id AND c.is_setnayan
+                           AND NOT COALESCE(c.marketplace_hidden, FALSE)
+                           AND (c.applicable_event_types IS NULL OR cardinality(c.applicable_event_types) = 0))
       ORDER BY id`,
     [V2_NO_MARKETPLACE, V2_CATEGORIES.map((c) => c.tile)],
   );
-  assert.deepEqual(r.rows.map((x) => x.id), [], 'a category is still scoped to a no-marketplace event type');
+  assert.deepEqual(r.rows.map((x) => x.id), [], 'a supplier category is still scoped to a no-marketplace event type');
+  // …and no SUPPLIER service carries it either (v2 scopes none to it).
+  const svc = await db.query<{ k: string }>(
+    `SELECT canonical_service AS k FROM public.canonical_service_taxonomy
+      WHERE NOT COALESCE(is_setnayan, FALSE) AND merged_into IS NULL AND NOT COALESCE(marketplace_hidden, FALSE)
+        AND applicable_event_types && $1::text[] ORDER BY 1`,
+    [V2_NO_MARKETPLACE],
+  );
+  assert.deepEqual(svc.rows.map((x) => x.k), [], 'a supplier service is scoped to a no-marketplace event type');
 });
 
 const FLOORS: Record<string, number> = {

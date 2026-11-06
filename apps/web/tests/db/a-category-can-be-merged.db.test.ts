@@ -166,6 +166,21 @@ test('the merge moves the event holders — the cale-ice shape — collisions in
     [SRC, DST],
   );
 
+  // Two inspiration parts that the fold turns into "home = also-from" (taxonomy v2 hit both
+  // shapes: Fireworks → Lights on Cold sparks, AV → Lights on Dance-floor lighting).
+  await db.query(
+    `INSERT INTO inspiration_parts (slot_key, label_en, home_category_id)
+     VALUES ('tst_cat_part_home_src', 'home on source', $1), ('tst_cat_part_home_dst', 'home on dest', $2)
+     ON CONFLICT (slot_key) DO NOTHING`,
+    [SRC, DST],
+  );
+  await db.query(
+    `INSERT INTO inspiration_part_categories (slot_key, category_id, sort_order)
+     VALUES ('tst_cat_part_home_src', $2, 1),
+            ('tst_cat_part_home_dst', $1, 1), ('tst_cat_part_home_dst', $3, 2)`,
+    [SRC, DST, OTHER],
+  );
+
   const res = await one<{ r: { moved: Record<string, number> } }>(
     `SELECT merge_service_category($1,$2) AS r`,
     [SRC, DST],
@@ -212,6 +227,27 @@ test('the merge moves the event holders — the cale-ice shape — collisions in
     `SELECT team_first FROM event_type_profiles WHERE event_type='wedding'`,
   );
   assert.deepEqual(team.team_first, [DST, 'x_keep'], 'swapped in place, duplicate collapsed, order kept');
+
+  // ── a part's "also from" never repeats its home after the fold ──
+  const parts = await db.query<{ slot_key: string; home_category_id: string; also: string[] }>(
+    `SELECT p.slot_key, p.home_category_id,
+            ARRAY(SELECT c.category_id FROM inspiration_part_categories c
+                   WHERE c.slot_key = p.slot_key ORDER BY c.sort_order, c.category_id) AS also
+       FROM inspiration_parts p WHERE p.slot_key LIKE 'tst_cat_part_%' ORDER BY 1`,
+  );
+  // An also-from that folds onto the home is dropped; an unrelated one stays. (A part whose
+  // HOME moves is re-derived from its services by the double-write trigger — so only "the home
+  // is not repeated" is this function's claim there.)
+  assert.deepEqual(
+    parts.rows.map((r) => [r.slot_key, r.home_category_id, r.also.includes(r.home_category_id)]),
+    [
+      ['tst_cat_part_home_dst', DST, false],
+      ['tst_cat_part_home_src', DST, false],
+    ],
+    'no part lists its home as an also-from after the fold',
+  );
+  assert.deepEqual(parts.rows[0]!.also, [OTHER], 'the unrelated also-from stayed');
+  assert.ok((moved['inspiration_part_categories.collapsed_into_home'] ?? 0) >= 1, 'the collapse was counted');
 });
 
 test('the merged category is kept as a tombstone and refuses a second merge', async () => {

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { sendReviewFlagOutcomeEmail } from '@/lib/vendor-email-triggers';
+import { setGuestReviewHidden } from '@/lib/guest-reviews';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -335,4 +336,18 @@ export async function dismissReviewFlag(formData: FormData) {
 
   revalidatePath('/admin/reviews');
   redirect('/admin/reviews?flag_dismissed=1');
+}
+
+/**
+ * ⭐ Hide / show one GUEST review (owner ruling A, 6 Nov: a guest review is public at once; Setnayan can hide it from
+ * Admin › Reviews — no approval queue). Saves in place: the list re-reads with the row's new state.
+ */
+export async function setGuestReviewVisibility(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const reviewId = formData.get('review_id');
+  const hide = formData.get('hide') === '1';
+  if (typeof reviewId !== 'string' || reviewId.length === 0) throw new Error('Invalid review_id');
+  const ok = await setGuestReviewHidden(createAdminClient(), reviewId, hide, userId);
+  if (!ok) throw new Error('That guest review could not be updated.');
+  revalidatePath('/admin/reviews');
 }

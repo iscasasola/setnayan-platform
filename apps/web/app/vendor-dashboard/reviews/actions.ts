@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { submitVendorReply, flagReviewAsFake } from '@/lib/reviews';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { emitNotification } from '@/lib/notification-emit';
+import { submitGuestReviewReply } from '@/lib/guest-reviews';
 
 async function requireVendorProfile(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -93,4 +94,23 @@ export async function submitFlagAsFake(formData: FormData) {
   await flagReviewAsFake(supabase, reviewId, profile.vendor_profile_id, reason);
 
   revalidatePath('/vendor-dashboard/website');
+}
+
+/**
+ * 💬 Reply to a GUEST review (owner, 6 Nov · prototype § 9) — one public reply, final once posted, the same rule as the
+ * hosts'. Written in place on Shop › Page › Reviews and stories: no redirect, the page re-reads with the reply shown.
+ */
+export async function postGuestReviewReply(formData: FormData) {
+  const reviewId = formData.get('review_id');
+  const reply = formData.get('reply');
+  if (typeof reviewId !== 'string' || typeof reply !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const { profile } = await requireVendorProfile(supabase);
+  const posted = await submitGuestReviewReply(supabase, reviewId, reply);
+  if (!posted.ok) throw new Error(posted.message);
+
+  revalidatePath('/vendor-dashboard/website');
+  if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
 }

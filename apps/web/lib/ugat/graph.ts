@@ -2451,6 +2451,36 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * ⭐ GUEST REVIEWS (owner, 6 Nov 2026) — what a guest who was THERE saw. A separate store from J28 on purpose: the
+     * shop's overall is the hosts' (couple + co-hosts) only, and a guest review must never move it.
+     */
+    id: 'J61',
+    claims: [
+      { kind: 'table', table: 'vendor_guest_reviews' },
+      { kind: 'fk', table: 'vendor_guest_reviews', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_guest_reviews', column: 'service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'vendor_guest_reviews', column: 'capture_id', references: 'papic_guest_captures' },
+      { kind: 'unique', table: 'vendor_guest_reviews', columns: ['vendor_profile_id', 'event_id', 'guest_id'] },
+      { kind: 'column', table: 'vendor_guest_reviews', column: 'hidden_at' },
+      // The host review now names its card too ("For <card>"), the same way.
+      { kind: 'fk', table: 'vendor_reviews', column: 'service_id', references: 'vendor_services' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-GUESTS'],
+    title: 'Vendor ↔ Guest (guest review)',
+    joint: 'vendor_guest_reviews',
+    cardinality: 'One review per (vendor, event, guest) — a door check-in or a received scanner claim earns it',
+    implementedBy:
+      'vendor_guest_reviews (event_id + guest_id → guests CASCADE · service_id → vendor_services SET NULL · capture_id → papic_guest_captures SET NULL) + vendor_guest_review_stats (the guests’ own line). Read on the service role by lib/guest-reviews.ts for /v/[slug], Shop › Page › Reviews and Admin › Reviews',
+    writtenBy:
+      'ONLY vendor_guest_review_submit (SECURITY DEFINER, service role) via submitGuestReview — the QR door (/v/[slug]/guest-review) and, next, the scanner pop-up (#7291). The shop’s one reply: vendor_guest_review_reply. Hide/show: Admin › Reviews',
+    guardedBy:
+      'No INSERT/UPDATE grant to any browser role; the writer re-checks guest_checkins (or supplier_scan_claims state = received), the booking, the card and the shot · tests/db/host-and-guest-reviews.db.test.ts',
+    traps:
+      'vendor_trusted_review_stats reads vendor_reviews ONLY — keep it that way: blending guests in would let a shop with a QR at the door outrank one without, for reasons unrelated to how it plans. A hidden guest review leaves the page and the stats view but stays in the table.',
+  },
+  {
+    /**
      * 🚨 THE POOL SWITCH. `is_active` is what an operator flips to close a pool,
      * and until 2026-08-01 `acquire_schedule_pools()` filtered on it in the
      * VALIDATION loop but not in the INSERT — so a closed pool skipped every

@@ -509,11 +509,15 @@ export function categoryForTile(tile: WeddingTile): VendorCategory {
  * Accepts a plain string because callers hold tile ids from the URL / the DB;
  * an unknown tile simply returns `[]`, and the caller must treat that as "I
  * could not prove this tile is empty", never as "it is empty".
+ *
+ * Taxonomy v2 (2026-11-06): a FOLDED tile id (`ceremony_venue`, still in old URLs and rows) is
+ * answered as the row it folded into, so the guard asks about every booking now filed there.
  */
 export function categoriesForTile(tile: string): VendorCategory[] {
+  const live = liveTileOf(tile as WeddingTile);
   const out: VendorCategory[] = [];
   for (const [category, mapped] of Object.entries(CATEGORY_TO_TILE)) {
-    if (mapped === tile) out.push(category as VendorCategory);
+    if (mapped === live) out.push(category as VendorCategory);
   }
   return out;
 }

@@ -32,6 +32,8 @@ export const COORDINATOR_TRADE_SERVICES: readonly string[] = [
   'religious_venue_coordinator',
   'inc_wedding_coordinator',
   'mahr_coordination',
+  // Taxonomy v2 (2026-11-06) folded the weather / outdoor planner into Coordinator / planner.
+  'wedding_day_weather_forecaster',
   'setnayan_concierge',
 ];
 

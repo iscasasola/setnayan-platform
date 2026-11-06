@@ -31,7 +31,10 @@ test('band_dj maps to the music tiles services actually holds', () => {
   const tiles = tilesForVendorCategories(['band_dj']);
   assert.ok(tiles, 'must not be null — band_dj is mappable');
   assert.ok(tiles.includes('live_band'), 'live_band is what services[] stores');
-  assert.ok(tiles.includes('dj'), 'band_dj is a coarse alias spanning both');
+  // Taxonomy v2 (2026-11-06) folded the DJ row into Music (`live_band`), so band_dj no longer
+  // spans two live rows. A shop that still carries `dj` must keep its desk — asserted end to end
+  // below ("a booked DJ still resolves to the song desk"), which is where the defect lived.
+  assert.ok(!tiles.includes('dj'), 'dj is a folded row; the translation speaks live rows');
 });
 
 test('the other two specialization categories translate too', () => {
@@ -71,6 +74,13 @@ test('a booked live band resolves to the song desk (the prod defect)', () => {
     specializationSetForServices(services, tilesForVendorCategories(booked)),
     'song_desk',
   );
+});
+
+test('a booked DJ still resolves to the song desk after v2 folded the DJ row into Music', () => {
+  // services[] written before 2026-11-06 can say `dj`; the booking now translates to `live_band`.
+  // Without the forward this is the 2026-07-30 defect again: narrowing excludes every tile.
+  assert.equal(specializationSetForServices(['dj'], tilesForVendorCategories(['band_dj'])), 'song_desk');
+  assert.ok(familiesForServices(['dj'], tilesForVendorCategories(['band_dj'])).size > 0);
 });
 
 test('a booked coordinator resolves to floor command', () => {

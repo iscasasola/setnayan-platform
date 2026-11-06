@@ -36,7 +36,7 @@ import {
   zonesThatSuggest,
   assertOptionTilesBelongToTheirZone,
 } from '@/lib/reception-booked-suggestions';
-import { fallbackCanonicalBuckets } from '@/lib/vendor-counts';
+import { fallbackCanonicalBuckets, type CanonicalBuckets } from '@/lib/vendor-counts';
 import {
   suggestionsToShow,
   dismissKeyFor,
@@ -66,10 +66,12 @@ const REPO = join(HERE, '..');
    Real canonical service keys from lib/taxonomy.ts, not invented ones: a made-up
    service matches nothing, so every test built on one passes vacuously. */
 
+// Taxonomy v2 (2026-11-06): the `live_band` service key folded into Band / live music
+// (`band_live_music`, Act = Full band) — a band's shop now carries that key.
 const LIVE_BAND: BookedSupplier = {
   vendorId: 'vendor-band',
   name: 'The Manila Sessions',
-  services: ['live_band'],
+  services: ['band_live_music'],
 };
 /** A photographer. The brief's own named negative: their trade reaches NO
  *  reception zone, so they must produce no chip anywhere. */
@@ -377,20 +379,34 @@ test('a zone that already reflects the shop’s trade renders no chip', () => {
 });
 
 test('a shop eligible for the zone with no option in its trade renders no chip', () => {
-  // `MOODBOARD_PART_TRADES['room:program']` claims `av_production`, and no
-  // program option IS an AV company. They genuinely reach the zone — they can
-  // be asked to agree to it — and there is still nothing honest to name.
+  // Until taxonomy v2 the AV company was this case: `room:program` claimed `av_production` and no
+  // program option was an AV company. v2 (2026-11-06) folded AV production AND the dance floor into
+  // Lights, sound & effects, so that shop's row now DOES hold a program option (the floor) — the
+  // data no longer contains the case. The branch still guards a real one: the zone's reach is the
+  // fixed part → trade map, but which services an option's row holds is the LIVE taxonomy
+  // (`buckets`), which an admin edits. When the live row no longer holds the shop's service, the
+  // shop still reaches the zone and there is still nothing honest to name.
   const AV: BookedSupplier = {
     vendorId: 'v-av',
     name: 'Signal AV',
-    services: ['av_production'],
+    services: ['lights_sound'], // v2: `av_production` → `lights_sound`, Scale = Full AV / production
   };
   assert.equal(
     eligibleSuppliersForPart('room:program', [AV], fallbackInspirationParts()).length,
     1,
     'premise: an AV shop must be eligible for the program zone',
   );
-  assert.deepEqual(bookedZoneCandidates([AV], 'banquet_hall', SEED_BUCKETS, fallbackInspirationParts()), []);
+  // Today's seed: the AV shop's row holds the dance floor, so it is offered exactly that.
+  const today = bookedZoneCandidates([AV], 'banquet_hall', SEED_BUCKETS, fallbackInspirationParts());
+  assert.deepEqual(today.map((c) => [c.zone, ...c.matchedTiles]), [['program', 'dance_floor']]);
+  // The live row without that service (an admin moved it): eligible, no option — so no chip.
+  const moved: CanonicalBuckets = {
+    ...SEED_BUCKETS,
+    byTile: new Map(
+      [...SEED_BUCKETS.byTile].map(([t, svcs]) => [t, svcs.filter((c) => c !== 'lights_sound')] as const),
+    ),
+  };
+  assert.deepEqual(bookedZoneCandidates([AV], 'banquet_hall', moved, fallbackInspirationParts()), []);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -443,7 +459,7 @@ test('the suggested option is the vocabulary’s first match, not an alphabetica
   const BAND_AND_DJ: BookedSupplier = {
     vendorId: 'v-both',
     name: 'Two Left Feet',
-    services: ['live_band', 'dj'],
+    services: ['band_live_music', 'dj'], // v2: `live_band` → `band_live_music`; `dj` kept
   };
   const program = RECEPTION_PARTS.find((p) => p.id === 'program')!;
   const performers = program.attributes.find((a) => a.id === 'performers')!;
@@ -458,8 +474,10 @@ test('the suggested option is the vocabulary’s first match, not an alphabetica
   );
   const c = bookedZoneCandidates([BAND_AND_DJ], 'banquet_hall', SEED_BUCKETS, fallbackInspirationParts()).find((x) => x.zone === 'program')!;
   assert.equal(c.optionId, 'live_band', 'the pick followed the alphabet, not the vocabulary');
-  // both trades are still reported, so the "already answered" test stays honest
-  assert.deepEqual([...c.matchedTiles].sort(), ['dj', 'live_band']);
+  // both trades are still reported, so the "already answered" test stays honest. v2 (2026-11-06)
+  // folded the choir, orchestra and solo-singer rows into Music (`live_band`), so a band's shop now
+  // answers those program options too — every music option, in vocabulary order.
+  assert.deepEqual([...c.matchedTiles].sort(), ['choir', 'dj', 'live_band', 'orchestra', 'wedding_singer']);
 
   // and the plain caterer still resolves to the first catering option
   const cater = bookedZoneCandidates([CATERER], 'banquet_hall', SEED_BUCKETS, fallbackInspirationParts()).find((x) => x.zone === 'feast')!;

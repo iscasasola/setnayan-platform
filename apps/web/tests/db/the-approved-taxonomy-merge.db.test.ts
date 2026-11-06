@@ -376,6 +376,39 @@ test('a shop that held an absorbed trade is findable by the absorbed name', asyn
   assert.ok(facet.def.options.includes('Hotel ballroom'));
 });
 
+test('inspiration parts keep their owner rulings through the fold', async () => {
+  const services = async (slot: string) =>
+    (
+      await db.query<{ s: string }>(
+        `SELECT canonical_service AS s FROM inspiration_part_services WHERE slot_key=$1 ORDER BY 1`,
+        [slot],
+      )
+    ).rows.map((r) => r.s);
+  const tileOf = async (svc: string) =>
+    (await one<{ t: string }>(`SELECT tile_id AS t FROM canonical_service_taxonomy WHERE canonical_service=$1`, [svc])).t;
+  // Owner 2026-10-08: the four party boards are the women's half and the men's half (step 11).
+  for (const [slot, half] of [
+    ['bridesmaids', 'brides_attire'],
+    ['flower_girl', 'brides_attire'],
+    ['groomsmen', 'grooms_attire'],
+    ['ring_bearer', 'grooms_attire'],
+  ] as const) {
+    const svcs = await services(slot);
+    assert.ok(svcs.length > 0, `${slot} lost every service`);
+    for (const s of svcs) assert.equal(await tileOf(s), half, `${slot} reaches ${s}, which is not its half`);
+  }
+  // Entourage and Guests dress both halves and keep both.
+  for (const slot of ['entourage', 'guests']) {
+    const tiles = new Set(await Promise.all((await services(slot)).map(tileOf)));
+    assert.ok(tiles.has('brides_attire') && tiles.has('grooms_attire'), `${slot} lost a half`);
+  }
+  // MB26: a backdrop is a stylist's work. The LED wall ROW folded into Lights, sound & effects, but
+  // the part admits the kept LED-wall SERVICE, never a plain lights-and-sound shop.
+  const backdrop = await services('backdrop');
+  assert.ok(backdrop.includes('led_video_wall') && backdrop.includes('stylist_decorator'), backdrop.join(','));
+  assert.ok(!backdrop.includes('lights_sound'), 'backdrop now admits every lights-and-sound shop');
+});
+
 test('second run: nothing changes', async () => {
   const snap = async () =>
     one<{ h: string }>(

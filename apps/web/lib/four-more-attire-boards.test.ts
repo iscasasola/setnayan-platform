@@ -45,7 +45,7 @@ import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder } from './inspiration-slots';
 import { inspirationSlotsForPart } from './moodboard-render-parts';
 import { tradesForPart } from './moodboard-finalization';
-import { WEDDING_TILE_LABEL } from './taxonomy';
+import { TAXONOMY_MAP, WEDDING_TILE_LABEL } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 import { fallbackInspirationParts } from './inspiration-parts';
 
@@ -65,6 +65,11 @@ import { fallbackInspirationParts } from './inspiration-parts';
 }
 
 const FOUR = ['bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'] as const;
+/** The owner-approved taxonomy v2 (2026-11-06): every live key → the service it now lives in. */
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { live_key_map: Record<string, { service: string }> };
+const v2Home = (key: string): string => V2.live_key_map[key]!.service;
 /** 🗑 Six since 2026-10-14 (owner: "remove entourage" — DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"). */
 const SEVEN: ReadonlyArray<readonly [string, string]> = [
   ['bride', 'Bridal gown'],
@@ -159,25 +164,32 @@ const boardOrder = (markup: string) => [...markup.matchAll(/data-mood-board-atti
 
 test('1 · the four are stored slots, each on the trades that dress those people — and no children’s tile is invented', () => {
   for (const k of FOUR) assert.ok((MOODBOARD_SLOT_KEYS as readonly string[]).includes(k), `${k} is not a stored slot`);
-  assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridesmaids], ['womens_attire', 'filipiniana_barongs']);
-  assert.deepEqual([...MOODBOARD_SLOT_TRADES.groomsmen], ['mens_attire', 'filipiniana_barongs']);
-  assert.deepEqual([...MOODBOARD_SLOT_TRADES.flower_girl], ['womens_attire', 'filipiniana_barongs']);
-  assert.deepEqual([...MOODBOARD_SLOT_TRADES.ring_bearer], ['mens_attire', 'filipiniana_barongs']);
+  /* Taxonomy v2 (2026-11-06): Women's / Men's Attire and the Filipiniana & Barongs cross-view folded into Gowns &
+     dresses (`brides_attire`) and Barong & suits (`grooms_attire`); a bridesmaid's dress and a groomsman's set are
+     now WEARER values of those two services. Each board keeps exactly its own half (migration step 11). */
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridesmaids], ['brides_attire']);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.groomsmen], ['grooms_attire']);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.flower_girl], ['brides_attire']);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.ring_bearer], ['grooms_attire']);
   /* Nothing invented: every one of them is a tile the whole party's board already names. */
   for (const k of FOUR) for (const t of MOODBOARD_SLOT_TRADES[k]) {
     assert.ok(t in WEDDING_TILE_LABEL, `${k} → ${t} is not a taxonomy tile`);
     assert.ok(MOODBOARD_SLOT_TRADES.entourage.includes(t), `${k} → ${t} is not one of the entourage’s own trades`);
   }
   /* The service each board is about is really reached — and the other half's is not. */
+  /* v2: the four wearer keys are folded, so each board must reach the SERVICE its wearer now lives in. */
   const reach = (slot: string) => new Set(canonicalServicesForSlot(slot, fallbackInspirationParts()));
-  assert.ok(reach('bridesmaids').has('bridesmaid_dress') && !reach('bridesmaids').has('groomsman_set'), 'Bridesmaids does not reach bridesmaid dresses (or reaches the groomsmen’s)');
-  assert.ok(reach('groomsmen').has('groomsman_set') && !reach('groomsmen').has('bridesmaid_dress'), 'Groomsmen does not reach groomsmen’s sets (or reaches the bridesmaids’)');
-  assert.ok(reach('flower_girl').has('flower_girl_dress') && !reach('flower_girl').has('ring_bearer_suit'), 'Flower girl does not reach flower-girl dresses (or reaches the ring bearer’s)');
-  assert.ok(reach('ring_bearer').has('ring_bearer_suit') && !reach('ring_bearer').has('flower_girl_dress'), 'Ring bearer does not reach ring-bearer suits (or reaches the flower girl’s)');
+  assert.ok(reach('bridesmaids').has(v2Home('bridesmaid_dress')) && !reach('bridesmaids').has(v2Home('groomsman_set')), 'Bridesmaids does not reach bridesmaid dresses (or reaches the groomsmen’s)');
+  assert.ok(reach('groomsmen').has(v2Home('groomsman_set')) && !reach('groomsmen').has(v2Home('bridesmaid_dress')), 'Groomsmen does not reach groomsmen’s sets (or reaches the bridesmaids’)');
+  assert.ok(reach('flower_girl').has(v2Home('flower_girl_dress')) && !reach('flower_girl').has(v2Home('ring_bearer_suit')), 'Flower girl does not reach flower-girl dresses (or reaches the ring bearer’s)');
+  assert.ok(reach('ring_bearer').has(v2Home('ring_bearer_suit')) && !reach('ring_bearer').has(v2Home('flower_girl_dress')), 'Ring bearer does not reach ring-bearer suits (or reaches the flower girl’s)');
   /* 🧒 The honest answer about children's attire: no tile of its own — the two services live under the grown-ups' tiles. */
   assert.ok(!Object.keys(WEDDING_TILE_LABEL).some((t) => /child|kids?_attire|flower_girl|ring_bearer/.test(t)), 'a children’s-attire tile now exists — give Flower girl and Ring bearer that tile');
-  assert.ok(canonicalServicesForTile('womens_attire').includes('flower_girl_dress'), 'the flower girl’s dress is no longer under Women’s Attire');
-  assert.ok(canonicalServicesForTile('mens_attire').includes('ring_bearer_suit'), 'the ring bearer’s suit is no longer under Men’s Attire');
+  /* v2: Women's / Men's Attire folded into Gowns & dresses / Barong & suits — the children's keys are filed there. */
+  assert.equal(TAXONOMY_MAP.flower_girl_dress?.tile, 'brides_attire', 'the flower girl’s dress is no longer under Gowns & dresses');
+  assert.equal(TAXONOMY_MAP.ring_bearer_suit?.tile, 'grooms_attire', 'the ring bearer’s suit is no longer under Barong & suits');
+  assert.ok(canonicalServicesForTile('brides_attire').includes(v2Home('flower_girl_dress')));
+  assert.ok(canonicalServicesForTile('grooms_attire').includes(v2Home('ring_bearer_suit')));
 });
 
 /* ── 2 ─────────────────────────────────────────────────────────────────────── */
@@ -342,8 +354,10 @@ test('8 · a tailor is offered the shelf — the supplier’s side of the same s
   assert.equal(libraryPartLabel('flower_girl', fallbackInspirationParts()), 'Flower girl');
   assert.equal(libraryPartLabel('ring_bearer', fallbackInspirationParts()), 'Ring bearer');
   const shelves = (services: string[]) => uploadableSlotsForShop(services, fallbackInspirationParts()).map((s) => s.key as string);
-  const women = shelves(['bridesmaid_dress']);
-  const men = shelves(['groomsman_set']);
+  // v2 (2026-11-06): the merge rewrites a dressmaker's `bridesmaid_dress` to Gowns & dresses and a tailor's
+  // `groomsman_set` to Barong & suits, so those are the services a real shop now carries.
+  const women = shelves([v2Home('bridesmaid_dress')]);
+  const men = shelves([v2Home('groomsman_set')]);
   assert.ok(women.includes('bridesmaids') && women.includes('flower_girl'), 'a dressmaker is not offered the Bridesmaids and Flower girl shelves');
   assert.ok(!women.includes('groomsmen') && !women.includes('ring_bearer'), 'a dressmaker is offered the men’s shelves');
   assert.ok(men.includes('groomsmen') && men.includes('ring_bearer'), 'a tailor is not offered the Groomsmen and Ring bearer shelves');

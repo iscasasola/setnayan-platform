@@ -46,6 +46,7 @@
  */
 import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
 import { MUSIC_CANONICALS } from '@/lib/songs';
+import { liveTileOf, type WeddingTile } from '@/lib/taxonomy';
 import {
   isVendorDayOfStillFree,
   vendorDayOfFreeUntilIso,
@@ -270,7 +271,9 @@ export function specializationSetsForServices(
   const owned = new Set<string>();
   for (const s of services ?? []) {
     if (typeof s !== 'string') continue;
-    if (eventSet && !eventSet.has(s)) continue;
+    // Taxonomy v2 (2026-11-06): a shop's services[] can still carry a FOLDED tile key (`dj`,
+    // now inside Music / `live_band`), so it matches a booking of the row it folded into.
+    if (eventSet && !eventSet.has(s) && !eventSet.has(liveTileOf(s as WeddingTile))) continue;
     owned.add(s);
   }
   if (owned.size === 0) return [];

@@ -30,6 +30,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 const sqlFiles = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
+/** The owner-approved taxonomy v2 (2026-11-06): every live key → the service it now lives in. */
+const V2 = JSON.parse(
+  readFileSync(join(WEB, '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { live_key_map: Record<string, { service: string }> };
 
 /** The body of the LAST `CREATE OR REPLACE FUNCTION public.<name>(` in filename order. */
 function latestDefinitions(): Map<string, { file: string; body: string }> {
@@ -51,8 +55,22 @@ function latestDefinitions(): Map<string, { file: string; body: string }> {
 test('1 · the TS list is the tile, its couple categories and its leaves — nothing more, nothing less', () => {
   const expected = new Set<string>(['coordinator']);
   for (const c of VENDOR_CATEGORIES) if (tilesForVendorCategory(c).includes('coordinator' as never)) expected.add(c);
-  for (const leaf of canonicalServicesForTile('coordinator' as never)) expected.add(leaf);
+  // Taxonomy v2 (2026-11-06): the coordinator TRADE is the Coordinator / planner service and every
+  // key v2 folds into it (Day-of, Partial, Despedida, … now its specialties), plus Setnayan's own
+  // concierge. Those folded keys are hidden from the picker, so the visible-leaves read below no longer
+  // names them — the approved data does. The Date & feng-shui consultant sits on the same tile since
+  // the Date specialist row folded into it, but it is its OWN service, not this trade: putting it on
+  // the day-of gates (Run the day, the floor command) would be an access change, not a re-file.
+  for (const [key, home] of Object.entries(V2.live_key_map)) {
+    if (home.service === 'wedding_coordination' || home.service === 'setnayan_concierge') expected.add(key);
+  }
+  for (const leaf of canonicalServicesForTile('coordinator' as never)) {
+    const home = V2.live_key_map[leaf];
+    if (!home || home.service === 'wedding_coordination' || home.service === 'setnayan_concierge') expected.add(leaf);
+  }
   assert.ok(expected.has('planner_coordinator'), 'the couple category for a coordinator is no longer planner_coordinator — re-read this file');
+  assert.ok(expected.has('day_of_coordinator'), 'v2 no longer folds Day-of into the coordinator service — re-read this file');
+  assert.ok(!expected.has('date_fengshui_consultant'), 'the feng-shui consultant is not the coordinator trade');
   assert.ok(expected.size > 3, `the taxonomy yielded too few coordinator names: ${[...expected].join(', ')}`);
   assert.deepEqual([...COORDINATOR_TRADE_SERVICES].sort(), [...expected].sort());
 });

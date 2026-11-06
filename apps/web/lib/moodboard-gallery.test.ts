@@ -88,8 +88,9 @@ test('GALLERY_SLOT_KEYS is DERIVED from the map, never listed', () => {
 test('canonicalServicesForSlot derives from the tiles and de-dupes', () => {
   // `venue` names one tile — a single-tile slot resolves to exactly that
   // tile's canonicals.
+  // (v2, 2026-11-06: Ceremony venue folded into Venues — `venue` names `reception`.)
   const venue = canonicalServicesForSlot('venue', fallbackInspirationParts());
-  assert.deepEqual(venue, canonicalServicesForTile('ceremony_venue'));
+  assert.deepEqual(venue, canonicalServicesForTile('reception'));
   // `flowers` names two tiles (MB18 added `stylist_decorator`) — the slot's
   // canonicals must be the union of both, not either tile alone.
   const flowers = canonicalServicesForSlot('flowers', fallbackInspirationParts());
@@ -116,31 +117,23 @@ test('⭐ MB18 · a shop whose only service is barong_tagalog_rental may upload 
   // resolving canonicals correctly (see moodboard-gallery.ts's docblock and
   // build-sessions/MB-GALLERY-PLAN.md's 2026-09-05 correction); it was simply
   // missing from these two slots' rows.
+  // Taxonomy v2 (2026-11-06) folded barong_tagalog_rental into Barong & suits (`groom_suit_custom`, Style =
+  // Barong) and the Filipiniana & Barongs cross-view into Gowns & dresses; a barong shop now IS that service.
+  const barong = 'groom_suit_custom';
   const entourage = canonicalServicesForSlot('entourage', fallbackInspirationParts());
   const guests = canonicalServicesForSlot('guests', fallbackInspirationParts());
-  assert.ok(
-    entourage.includes('barong_tagalog_rental'),
-    'entourage must resolve barong_tagalog_rental via filipiniana_barongs',
-  );
-  assert.ok(
-    guests.includes('barong_tagalog_rental'),
-    'guests must resolve barong_tagalog_rental via filipiniana_barongs',
-  );
+  assert.ok(entourage.includes(barong), 'entourage must resolve the barong shop (Barong & suits)');
+  assert.ok(guests.includes(barong), 'guests must resolve the barong shop (Barong & suits)');
 });
 
-test('MB18 · entourage and guests each carry exactly 3 trades, filipiniana_barongs among them', () => {
+test('MB18 · entourage and guests each carry exactly 2 trades — both halves of the party', () => {
   // A COUNT per row, not a file-level match — a stray append that also duped
   // an existing tile would pass an `.includes()`-only check.
-  assert.equal(MOODBOARD_SLOT_TRADES.entourage.length, 3);
-  assert.deepEqual(
-    [...MOODBOARD_SLOT_TRADES.entourage],
-    ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  );
-  assert.equal(MOODBOARD_SLOT_TRADES.guests.length, 3);
-  assert.deepEqual(
-    [...MOODBOARD_SLOT_TRADES.guests],
-    ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  );
+  // v2 (2026-11-06): Women's Attire + Filipiniana → Gowns & dresses; Men's Attire + Barongs → Barong & suits.
+  assert.equal(MOODBOARD_SLOT_TRADES.entourage.length, 2);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.entourage], ['brides_attire', 'grooms_attire']);
+  assert.equal(MOODBOARD_SLOT_TRADES.guests.length, 2);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.guests], ['brides_attire', 'grooms_attire']);
 });
 
 test('MB18 · flowers is florist FIRST, then stylist_decorator — 2 trades, in that order', () => {
@@ -163,22 +156,22 @@ test('MB26 · overall is reception, stylist_decorator, lights_sound, coordinator
 });
 
 test('MB26 · stage admits lights_sound — a lights-and-sound shop\'s own portfolio', () => {
-  assert.equal(MOODBOARD_SLOT_TRADES.stage.length, 3);
-  assert.deepEqual(
-    [...MOODBOARD_SLOT_TRADES.stage],
-    ['stylist_decorator', 'av_production', 'lights_sound'],
-  );
+  // v2 (2026-11-06): AV production folded into Lights, sound & effects, so the row is two, not three.
+  assert.equal(MOODBOARD_SLOT_TRADES.stage.length, 2);
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.stage], ['stylist_decorator', 'lights_sound']);
 });
 
 test('MB26 · backdrop does NOT change — a backdrop is a stylist\'s work, never lights_sound\'s', () => {
   // The owner ruled `stage` admits lights-and-sound shops but `backdrop`
   // does not — a backdrop is a stylist's work. Pinned here so a future
   // "tidy-up" that copies stage's row onto backdrop goes red.
+  //
+  // v2 (2026-11-06) folded the LED wall ROW into Lights, sound & effects, so at category level the second
+  // trade is now `lights_sound`. The ruling still holds where it is enforced — the part's SERVICES: the
+  // backdrop admits `led_video_wall` (a kept service) and the stylist, never a plain lights-and-sound shop.
+  // tests/db/the-approved-taxonomy-merge.db.test.ts asserts that on the replayed database.
   assert.equal(MOODBOARD_SLOT_TRADES.backdrop.length, 2);
-  assert.deepEqual(
-    [...MOODBOARD_SLOT_TRADES.backdrop],
-    ['stylist_decorator', 'led_wall'],
-  );
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.backdrop], ['stylist_decorator', 'lights_sound']);
 });
 
 test('⭐ MB18 · non-regression pin — canonicalServicesForSlot(\'bride\') still resolves a Filipiniana/Barong canonical', () => {

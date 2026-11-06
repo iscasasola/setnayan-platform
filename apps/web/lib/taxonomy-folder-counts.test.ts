@@ -27,43 +27,32 @@ import {
 } from './taxonomy-folder-counts';
 
 /** The measured baseline — every one verified against the shipped taxonomy. */
+// TAXONOMY V2 (owner-approved 2026-11-06, DECISION_LOG "TAXONOMY V2 APPROVED") re-measured every
+// folder. These are NOT bumped to match: each equals the count of v2's picker services whose category
+// sits in that folder (supabase/data/taxonomy-v2-2026-11-06.json), and the services the merge folded
+// are now marketplace-hidden specialties — which is exactly the exclusion this file protects.
+// The one difference is `look`: v2 lists 11, the code counts 10, because v2's "Shoes"
+// (`custom_made_shoes`) is an admin-made service that exists only in production and has never had a
+// code entry. Pre-v2 history of each number is in git (`git log -p` on this file).
 const BASELINE: Record<string, number> = {
-  venue: 28,
-  // 12 → 17 on 2026-08-27. The owner opened `wedding_paperwork` (3 services)
-  // and `travel_honeymoon` (2) to the marketplace, and Paperwork & Government
-  // moved from the `venue` folder to `planning` in the same change.
-  //
-  // 🔑 THE ARITHMETIC IS THE PROOF THAT NOTHING ELSE MOVED: +5 here and `venue`
-  // UNCHANGED at 28. The three paperwork services left `venue` but were
-  // marketplace-hidden, so they were never in its count to begin with — a
-  // folder move alone would have shown as -3/+3. Seeing +5/-0 is what says the
-  // delta is exactly the five services that went on sale, and no exclusion was
-  // quietly dropped (which is the failure this baseline exists to catch).
-  planning: 17,
-  feast: 7,
-  // 26 → 29 on 2026-10-01: the three Chairs & tents rentals (chair_table_rental ·
-  // tent_canopy_rental · event_lights_rental) — new services, every other
-  // folder unchanged.
-  design: 29,
-  program: 20,
-  documentary: 12,
-  look: 54,
-  booths: 42,
-  prints: 15,
-  transport: 11,
-  experience: 2,
+  venue: 4,
+  planning: 4,
+  feast: 4,
+  design: 14,
+  program: 9,
+  documentary: 4,
+  look: 10,
+  booths: 9,
+  prints: 4,
+  transport: 3,
+  experience: 1,
   dining: 1,
-  logistics_safety: 2,
-  insurance: 3,
+  // 2 → 6: v2 adds Staff, security & registration (new category, 4 NEW services).
+  logistics_safety: 6,
+  insurance: 1,
   specialty: 1,
-  // NEW 2026-08-27 (second change that day): a wake's own trades — owner ruled
-  // yes to listing death-care suppliers. 12 services under three tiles
-  // (funeral home · cremation · memorial park).
-  //
-  // 🔑 THE ARITHMETIC AGAIN: +12 here and EVERY OTHER FOLDER UNCHANGED. These
-  // are new services, not moved ones — nothing left another folder to get here,
-  // which is what a -n/+n pair would have shown.
-  farewell: 12,
+  // v2 adds Prayers & novena (new category) here; the death-care trades folded to fewer services.
+  farewell: 8,
 };
 
 test('every folder count matches the measured baseline', () => {
@@ -83,14 +72,13 @@ test('every folder count matches the measured baseline', () => {
   );
 });
 
-test('the countable total is 256 of the 291 taxonomy entries', () => {
+test('the countable total is 83 — v2\'s 84 picker services less the prod-only Shoes', () => {
   const total = Object.values(FOLDER_SERVICE_COUNT).reduce((a, b) => a + b, 0);
   assert.equal(
     total,
-    // 236 + the 5 put on sale 2026-08-27 + the 12 farewell services added the
-    // same day = 253, + the 3 Chairs & tents rentals 2026-10-01 = 256.
-    // Re-derived from the deltas, not bumped to match.
-    256,
+    // Taxonomy v2 (2026-11-06): 84 picker services, of which `custom_made_shoes` has no code entry
+    // (admin-made in production). Re-derived from v2's own list, not bumped to match.
+    83,
     'the two exclusions (marketplaceHidden, setnayan) must both still apply',
   );
 });

@@ -31,7 +31,7 @@
  */
 
 import type { WeddingTile, WeddingFolder } from '@/lib/taxonomy';
-import { TILE_PARENT } from '@/lib/taxonomy';
+import { TILE_PARENT, liveTileOf } from '@/lib/taxonomy';
 
 /**
  * Controller families — the day-of "job shape" a vendor is doing on the floor.
@@ -144,7 +144,8 @@ export function familiesForServices(
   // vendor-specialization-gate.ts. An empty array would hide every module.
   const eventSet = eventTiles && eventTiles.length > 0 ? new Set(eventTiles) : null;
   for (const s of services ?? []) {
-    if (eventSet && !eventSet.has(s)) continue;
+    // Taxonomy v2: a folded tile key still matches a booking of the row it folded into.
+    if (eventSet && !eventSet.has(s) && !eventSet.has(liveTileOf(s as WeddingTile))) continue;
     const folder = TILE_PARENT[s as WeddingTile];
     if (folder) out.add(FOLDER_FAMILY[folder]);
   }

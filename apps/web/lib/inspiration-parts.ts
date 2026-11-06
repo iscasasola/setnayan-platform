@@ -106,15 +106,16 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN
   // tiles and nothing invented: the women's half for the bridesmaids, the men's
   // half for the groomsmen. 🧒 THERE IS NO CHILDREN'S-ATTIRE TILE in the taxonomy
-  // — a flower girl's dress is a service under Women's Attire
-  // (`flower_girl_dress`) and a ring bearer's suit one under Men's Attire
-  // (`ring_bearer_suit`) — so those two boards name the tile that holds theirs.
-  // `filipiniana_barongs` rides with all four (a barong or a Filipiniana is cut
-  // for a page boy and a flower girl too), as it does with the entourage.
-  bridesmaids: ['brides_attire', 'grooms_attire'],
-  groomsmen: ['grooms_attire', 'brides_attire'],
-  flower_girl: ['brides_attire', 'grooms_attire'],
-  ring_bearer: ['grooms_attire', 'brides_attire'],
+  // — a flower girl's dress and a ring bearer's suit are WEARER values of Gowns &
+  // dresses and Barong & suits since taxonomy v2 (2026-11-06), which also folded
+  // Women's / Men's Attire and the Filipiniana & Barongs cross-view into those two
+  // rows. So each board is ONE row: its half, Filipiniana or barong included (a
+  // Filipiniana for a flower girl, a barong for a page boy). Migration
+  // 20271320461004 step 11 keeps the other half off each board.
+  bridesmaids: ['brides_attire'],
+  groomsmen: ['grooms_attire'],
+  flower_girl: ['brides_attire'],
+  ring_bearer: ['grooms_attire'],
   parents: ['brides_attire', 'grooms_attire'],
   guests: ['brides_attire', 'grooms_attire'],
 };

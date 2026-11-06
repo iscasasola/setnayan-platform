@@ -435,7 +435,7 @@ function SecHead({ label, tip, badge }: { label: string; tip: string; badge?: st
   return (
     <div className="flex items-center gap-2 px-4 pb-1 pt-4 text-[11px] uppercase tracking-[0.08em] text-ink/60" data-prints-sec={label.split(' ·')[0]!.toLowerCase()}>
       <span className="min-w-0 truncate">{label}</span>
-      {badge ? <span className="flex-none rounded-full bg-ink/[0.06] px-2 py-0.5 text-[12px] font-medium normal-case tracking-normal text-ink/60">{badge}</span> : null}
+      {badge ? <span className="flex-none whitespace-nowrap rounded-full bg-ink/[0.06] px-[9px] py-1 text-[12px] font-medium text-ink/60">{badge}</span> : null}
       <span className="ml-auto flex-none normal-case tracking-normal">
         <InfoTip label="" ariaLabel={`About ${label}`} align="end">
           {tip}

@@ -256,11 +256,12 @@ export function groundCss(d: PrintDesign): string {
 /**
  * ⭐ REVIEWS joins the print codes (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL", a controller call
  * under the owner's "use fable to decide": *"a Reviews QR (`/v/<slug>#reviews`) joins the prints QR ▾ (For Suppliers
- * promises a printable review QR)"*). It opens the shop's own page at its reviews (`printQrUrl`). Since QR codes
- * Option B (owner 2026-11-06, *"B"*) the Promote list carries it too — the prints and the list pick from ONE list of
- * four (`PROMOTE_QR_MODES`), so a print's code is always one of the codes the list shows.
- * ⚠ Its title and caption are NOT in the prints prototype (its QR table has three rows) — "Reviews" / "Scan to read
- * our reviews" are this build's words, flagged for the owner.
+ * promises a printable review QR)"*). Since QR codes Option B (owner 2026-11-06, *"B"*) the Promote list carries it
+ * too — the prints and the list pick from ONE list of four (`PROMOTE_QR_MODES`), so a print's code is always one of
+ * the codes the list shows.
+ * ✍ IT OPENS WRITE A REVIEW (owner 2026-11-06, verbatim pick: "Write a review (Recommended)"): `/v/<slug>/review`
+ * sends a couple with a booking ready for a review to "Leave a review", everyone else to the page's reviews
+ * (`printQrUrl`, `lib/shop-review-door.ts`). Caption "Scan to review us"; the title stays "Reviews".
  */
 export type PrintQrMode = PromoteQrMode;
 
@@ -268,7 +269,7 @@ export const PRINT_QR: Readonly<Record<PrintQrMode, { t: string; sub: string; ca
   dates: { t: 'Check a date', sub: 'free', cap: 'Scan to check our dates' },
   shortlist: { t: 'Shortlist', sub: 'free', cap: 'Scan to save us' },
   page: { t: 'My page', sub: '', cap: 'Scan to see our work' },
-  reviews: { t: 'Reviews', sub: '', cap: 'Scan to read our reviews' },
+  reviews: { t: 'Reviews', sub: '', cap: 'Scan to review us' },
 };
 /** The dropdown's order — the prototype's (Check a date · Shortlist · My page), then Reviews. */
 export const PRINT_QR_ORDER: readonly PrintQrMode[] = ['dates', 'shortlist', 'page', 'reviews'];

@@ -23,7 +23,9 @@ import type { PrintQrMode } from '@/lib/supplier-prints';
  *
  * And the QR: the address of the code the supplier picked, built by the SAME helpers the Promote codes use —
  * Check a date `checkADateUrl` · Shortlist `buildVendorInviteUrl` (any event, all services) · My page `myPageUrl` ·
- * Reviews `myPageUrl` + `#reviews` (the page's own `<section id="reviews">`).
+ * Reviews `myPageUrl` + `/review` — the WRITE door (owner 2026-11-06, "Write a review"): it sends a couple with a
+ * booking ready for a review to that booking's "Leave a review", and everyone else to the page's `#reviews`
+ * (`lib/shop-review-door.ts`, route `app/v/[slug]/review/route.ts`).
  *
  * Pure. 🔒 lib/supplier-prints.test.ts
  */
@@ -92,7 +94,7 @@ export function printMemberFrom(displayName: string | null | undefined, teamLabe
 export function printQrUrl(mode: PrintQrMode, origin: string, slug: string): string {
   if (mode === 'shortlist') return buildVendorInviteUrl(slug, { eventType: null, category: null });
   if (mode === 'page') return myPageUrl(origin, slug);
-  if (mode === 'reviews') return `${myPageUrl(origin, slug)}#reviews`;
+  if (mode === 'reviews') return `${myPageUrl(origin, slug)}/review`;
   return checkADateUrl(origin, slug);
 }
 

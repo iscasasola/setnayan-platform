@@ -67,7 +67,7 @@ test('the QR choices are the shop’s own Promote codes + Reviews, Check a date 
   assert.deepEqual(
     PRINT_QR_ORDER.map((k) => PRINT_QR[k].cap),
     // the first three are the prototype's; the Reviews caption is this build's words (flagged for the owner)
-    ['Scan to check our dates', 'Scan to save us', 'Scan to see our work', 'Scan to read our reviews'],
+    ['Scan to check our dates', 'Scan to save us', 'Scan to see our work', 'Scan to review us'],
   );
 });
 

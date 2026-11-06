@@ -75,6 +75,22 @@ test('the partnerships page lists ONLY served-with shops, each a row that opens 
   assert.doesNotMatch(page, /\.from\('vendor_profiles'\)\s*\.select\('vendor_profile_id, business_name'\)\s*\.eq\('public_visibility'/);
 });
 
+test('a partner row is the house row: name + Live, one quiet line, no buttons until it is opened', () => {
+  const page = read('app/vendor-dashboard/partnerships/page.tsx');
+  const start = page.indexOf('{accepted.map((p) => {');
+  const end = page.indexOf('OUTGOING PROPOSALS', start);
+  assert.ok(start > 0 && end > start, 'the Partners list moved');
+  const rows = page.slice(start, end);
+  const foldAt = rows.indexOf('<Fold');
+  assert.ok(foldAt > 0, 'a partner row must open in place through the shared Fold');
+  assert.match(rows, /data="partner-accepted"/);
+  assert.match(rows, /line=\{`\$\{kindLabel\} · \$\{iProposed \? 'You proposed' : 'They proposed'\}`\}/);
+  // Nothing pressable before the Fold opens — the dropdown and Re-propose live INSIDE it.
+  const closed = rows.slice(0, foldAt);
+  assert.doesNotMatch(closed, /<form|<select|SubmitButton/, 'a button sits on the closed partner row again');
+  assert.ok(rows.indexOf('changePartnershipKind') > foldAt, 'Re-propose must sit inside the opened row');
+});
+
 test('proposePartnership asks the shared reader BEFORE it inserts, and words the trigger refusal', () => {
   const src = read('app/vendor-dashboard/partnerships/actions.ts');
   const fn = src.slice(src.indexOf('export async function proposePartnership'), src.indexOf('async function respondToPartnership'));

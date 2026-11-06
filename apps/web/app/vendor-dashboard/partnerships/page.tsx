@@ -229,60 +229,78 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <ul className="space-y-3">
             {accepted.map((p) => {
               const iProposed = p.recommending_vendor_id === myId;
+              const kindLabel = RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type;
               return (
-                <li key={p.id} className="m-card flex items-center gap-3 p-4">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
-                    <p className="text-xs text-ink/55">
-                      {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
-                      {' · '}
-                      {iProposed ? 'You proposed' : 'They proposed'}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
-                    Live
-                  </span>
-                  {/* RE-PROPOSE UNDER A DIFFERENT KIND. Only the vendor who
-                      made the recommendation sees this, because the claim is
-                      theirs to restate.
+                // 🤝 THE HOUSE ROW (coordinator 2026-11-06, from the 390 px proof): name + Live on one line, one quiet
+                // line under it, NO buttons on the closed row. It used to carry the kind dropdown and Re-propose
+                // beside the name, which crushed the name to one word per line on a phone. Tapping opens the row in
+                // place (the shared Fold) — same pattern as the propose list below.
+                <li key={p.id} className="m-card px-4">
+                  <Fold
+                    title={otherName(p)}
+                    titleNode={
+                      <>
+                        {otherName(p)}{' '}
+                        <span className="ml-1 inline-block rounded-full bg-success-50 px-2 py-0.5 align-middle text-[10px] font-semibold text-success-700">
+                          Live
+                        </span>
+                      </>
+                    }
+                    line={`${kindLabel} · ${iProposed ? 'You proposed' : 'They proposed'}`}
+                    wrap
+                    lead={<CheckCircle2 className="h-5 w-5 text-success-600" />}
+                    data="partner-accepted"
+                  >
+                    {/* RE-PROPOSE UNDER A DIFFERENT KIND. Only the vendor who
+                        made the recommendation sees this, because the claim is
+                        theirs to restate.
 
-                      ⚠ It withdraws and re-proposes rather than editing in
-                      place: the database FORBIDS changing an accepted
-                      partnership's terms (trg_vendor_partnerships_lock_immutable),
-                      and it is right to — the terms must not change under the
-                      partner who agreed to them. The badge therefore comes down
-                      at the withdrawal and returns only when they accept the new
-                      wording, which is the consent behaviour we wanted, enforced
-                      by the schema instead of by an action remembering to do
-                      it. */}
-                  {iProposed ? (
-                    <form action={changePartnershipKind} className="flex items-center gap-1.5">
-                      <input type="hidden" name="partnership_id" value={p.id} />
-                      <label className="sr-only" htmlFor={`kind-${p.id}`}>
-                        Change this partnership
-                      </label>
-                      <select
-                        id={`kind-${p.id}`}
-                        name="relationship_type"
-                        defaultValue={p.relationship_type}
-                        className="rounded-md border border-ink/20 bg-cream px-2 py-1.5 text-xs text-ink"
-                      >
-                        {PARTNERSHIP_KINDS.map((k) => (
-                          <option key={k} value={k}>
-                            {PARTNERSHIP_VENDOR_LABEL_SHORT[k]}
-                          </option>
-                        ))}
-                      </select>
-                      <SubmitButton
-                        pendingLabel="Sending…"
-                        title="Withdraws this partnership and sends the new wording to them to accept."
-                        className="rounded-md border border-ink/20 px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
-                      >
-                        Re-propose
-                      </SubmitButton>
-                    </form>
-                  ) : null}
+                        ⚠ It withdraws and re-proposes rather than editing in
+                        place: the database FORBIDS changing an accepted
+                        partnership's terms (trg_vendor_partnerships_lock_immutable),
+                        and it is right to — the terms must not change under the
+                        partner who agreed to them. The badge therefore comes down
+                        at the withdrawal and returns only when they accept the new
+                        wording, which is the consent behaviour we wanted, enforced
+                        by the schema instead of by an action remembering to do
+                        it. */}
+                    {iProposed ? (
+                      <form action={changePartnershipKind} className="flex flex-col gap-3 pb-4">
+                        <input type="hidden" name="partnership_id" value={p.id} />
+                        <label className="flex flex-col gap-1 text-sm" htmlFor={`kind-${p.id}`}>
+                          <span className="font-semibold text-ink">Change this partnership</span>
+                          <select
+                            id={`kind-${p.id}`}
+                            name="relationship_type"
+                            defaultValue={p.relationship_type}
+                            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                          >
+                            {PARTNERSHIP_KINDS.map((k) => (
+                              <option key={k} value={k}>
+                                {PARTNERSHIP_VENDOR_LABEL_SHORT[k]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div>
+                          <SubmitButton
+                            pendingLabel="Sending…"
+                            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+                          >
+                            Re-propose
+                          </SubmitButton>
+                          <p className="mt-2 text-xs text-ink/45">
+                            Withdraws this partnership and sends the new wording for them to accept — the
+                            badge returns once they do.
+                          </p>
+                        </div>
+                      </form>
+                    ) : (
+                      <p className="pb-4 text-sm text-ink/55">
+                        They proposed this partnership, so only they can change how it&rsquo;s described.
+                      </p>
+                    )}
+                  </Fold>
                 </li>
               );
             })}

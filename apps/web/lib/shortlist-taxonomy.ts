@@ -44,6 +44,7 @@ import {
 } from '@/lib/taxonomy';
 import { passesFaithFilter, passesEventTypeFilter } from '@/lib/taxonomy-filters';
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
+import { resolveMergedTile } from '@/lib/tile-merge-forward';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { ChatInquiryStatus } from '@/lib/chat';
@@ -164,16 +165,43 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
 export function homeTileForRow(
   row: { category: VendorCategory | string; category_key?: string | null },
   isTile?: (tile: string) => boolean,
+  /**
+   * MERGED categories (`TaxonomySnapshot.tileForward`, merge_service_category). When given:
+   *   · a key the merge MOVED onto its replacement still refines — the row's category was
+   *     the storage label of a tile that now forwards to this key (cale-ice: `misc` +
+   *     `shoes_footwear` → `misc` + `jewelleries_accessories`);
+   *   · the enum's own home tile, if it was merged away, lands on its replacement
+   *     (`religious_venue` → `ceremony_venue` → `reception`) instead of a row nobody draws.
+   * Omitted → exactly the old behaviour.
+   */
+  forwards?: Readonly<Record<string, string>>,
 ): WeddingTile | null {
   const key = typeof row.category_key === 'string' ? row.category_key.trim() : '';
   if (
     key.length > 0 &&
     (!isTile || isTile(key)) &&
-    categoryForTile(key as WeddingTile) === row.category
+    (categoryForTile(key as WeddingTile) === row.category ||
+      keyWasMergedFromCategory(key, row.category, forwards))
   ) {
     return key as WeddingTile;
   }
-  return tileForCategory(row.category as VendorCategory);
+  const home = tileForCategory(row.category as VendorCategory);
+  return home && forwards ? (resolveMergedTile(home, forwards) as WeddingTile) : home;
+}
+
+/** True when some MERGED tile whose storage label is `category` now forwards to `key`. */
+function keyWasMergedFromCategory(
+  key: string,
+  category: VendorCategory | string,
+  forwards: Readonly<Record<string, string>> | undefined,
+): boolean {
+  if (!forwards) return false;
+  for (const [from, to] of Object.entries(forwards)) {
+    if (resolveMergedTile(to, forwards) === key && categoryForTile(from as WeddingTile) === category) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -836,6 +864,7 @@ export function buildShortlistFolders(args: {
   const tileSlugMap = taxonomy?.tileSlug ?? WEDDING_TILE_SLUG;
   const tileEventTypes = taxonomy?.tileEventTypes ?? {};
   const hiddenCategories = taxonomy?.hiddenCategories ?? {};
+  const tileForward = taxonomy?.tileForward;
   const map = taxonomy?.map ?? TAXONOMY_MAP;
   const writtenHints = taxonomy?.categoryHints ?? {};
   // A category's services, by their Admin names — only for the built ⓘ line, so only when it is needed.
@@ -857,7 +886,7 @@ export function buildShortlistFolders(args: {
   const drawnTiles = new Set<string>(Object.values(tilesByParent).flat() as string[]);
   const isDrawnTile = (t: string) => drawnTiles.has(t);
   for (const v of vendorRows) {
-    const tile = homeTileForRow(v, isDrawnTile);
+    const tile = homeTileForRow(v, isDrawnTile, tileForward);
     if (!tile) continue;
     const ext = enrichmentByVendorId?.get(v.vendor_id);
     const isLocked = !!(v.status && LOCKED_STATUSES.has(v.status));
@@ -972,7 +1001,11 @@ export function buildShortlistFolders(args: {
     // The same supplier, again, in every category their package also covers —
     // queued and appended AFTER every tile's own vendors (below), so a
     // category's own candidates always lead its rail.
-    const linked = linkedTilesForRow(v, tile);
+    // A plan group's catalog tile may have been merged away — follow it, or the copy lands on
+    // a row nobody draws.
+    const linked = linkedTilesForRow(v, tile)
+      .map((t) => (tileForward ? (resolveMergedTile(t, tileForward) as WeddingTile) : t))
+      .filter((t, i, all) => t !== tile && all.indexOf(t) === i);
     if (linked.length > 0) {
       const homeLabel = tileLabelMap[tile] ?? tile;
       const copy: ShortlistVendor = {

@@ -15,6 +15,7 @@ import { TILE_KEY_HOLDERS, NOT_TILE_HOLDERS, tileHolderIds } from './tile-merge-
 import { resolveMergedTile, tileForwardMapFromRows } from './tile-merge-forward';
 import { snapshotFromRows, type CategoryRow, type MapRow } from './taxonomy-snapshot';
 import { validateVendorCategoryMapping } from './vendor-category-taxonomy';
+import { homeTileForRow } from './shortlist-taxonomy';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../..');
@@ -236,4 +237,35 @@ test('the admin delete-with-destination calls the merge, not a hand-written re-p
     'a merge must not be refused for couple links — they move with it',
   );
   assert.doesNotMatch(body, /\.update\(\{\s*tile_id:\s*dest/, 'the hand-written re-point is gone');
+});
+
+// ── 12 · THE SUPPLIERS PAGE KEEPS A MOVED SUPPLIER ON ITS ROW (cale-ice) ───
+// Measured in prod 2026-11-06: cale-ice stores `misc` + category_key for shoes,
+// men's/women's attire and coffee. Without the forward, a merged key fails the
+// "key refines the enum" check and the supplier falls to Everything else.
+test('a supplier whose category moved stays on the destination row, not Everything else', () => {
+  const forwards = {
+    shoes_footwear: 'jewelleries_accessories',
+    mens_attire: 'grooms_attire',
+    coffee_espresso: 'mobile_bar',
+    womens_attire: 'brides_attire',
+    ceremony_venue: 'reception',
+  };
+  for (const key of ['jewelleries_accessories', 'grooms_attire', 'mobile_bar', 'brides_attire']) {
+    assert.equal(homeTileForRow({ category: 'misc', category_key: key }, undefined, forwards), key, `misc/${key}`);
+    // Control: without the forward map the same row falls to the enum's own home.
+    assert.notEqual(homeTileForRow({ category: 'misc', category_key: key }), key, `control misc/${key}`);
+  }
+  // An enum whose own home tile merged away lands on the replacement.
+  assert.equal(homeTileForRow({ category: 'religious_venue' }, undefined, forwards), 'reception');
+  // A key that disagrees with the enum and was NOT merged is still ignored.
+  assert.equal(
+    homeTileForRow({ category: 'misc', category_key: 'photo_video' }, undefined, forwards),
+    homeTileForRow({ category: 'misc' }),
+  );
+});
+
+test('the Suppliers page passes the forward map to homeTileForRow', () => {
+  const src = fs.readFileSync(path.join(REPO, 'apps/web/lib/shortlist-taxonomy.ts'), 'utf8');
+  assert.match(src, /homeTileForRow\(v, isDrawnTile, tileForward\)/);
 });

@@ -48,7 +48,7 @@ export function galleryFigures(f: { photos: number; videos: number; credits: num
 
 /**
  * 📣 PROMOTE (owner 2026-11-05) — the gift stock, the ONE count Promote has: its QR codes are not counted (nothing records
- * a scan per code yet), so the row carries one figure, not three invented ones. It is `stock.balance` from the SAME read
+ * a scan per code yet), so the row carries one figure, not three invented ones. It is `stock.papic.balance` from the SAME read
  * the Your gifts section draws (`loadShopGiftsSection`), so the row and the section can never disagree; unread → "—".
  */
 export function promoteFigures(f: { giftCredits: number | null }): PinFigure[] {

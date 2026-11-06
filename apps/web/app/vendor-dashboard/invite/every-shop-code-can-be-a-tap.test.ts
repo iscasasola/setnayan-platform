@@ -63,11 +63,11 @@ test('the couple’s supplier-connect panel stays without Write to NFC (2026-10-
 test('the door piece has ONE home — Prints, reached from a code’s “Put it on…” (Option B, 2026-11-06)', () => {
   // Retargeted from “the door sticker has ONE home — Shop › Promote” (2026-11-05). Owner 2026-11-06, ONE HOME FOR EVERY
   // PROMOTE TOOL: the door print is a piece INSIDE Prints, so the cream door-sticker fold under QR codes is gone; a
-  // code's sheet hands its code to the Prints sheet's door piece instead (`putOn(key, 'door')`).
+  // code's sheet hands its code to the Prints sheet's door piece instead (`handOff(row.putOn!, 'door')`).
   const codes = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
   const list = read('app/vendor-dashboard/invite/_components/qr-code-list.tsx');
   const mounts = [...codes.matchAll(/<DoorSticker\b/g)].length + [...list.matchAll(/<DoorSticker\b/g)].length;
-  const putOnDoor = [...list.matchAll(/putOn\([^)]*'door'\)/g)].length;
+  const putOnDoor = [...list.matchAll(/handOff\(row\.putOn!, 'door'\)/g)].length;
   console.log(`door sticker mounts in QR codes: ${mounts} · “Put it on… › Door print” hand-offs: ${putOnDoor}`);
   assert.equal(mounts, 0, 'the door sticker fold is back under QR codes — the door piece lives in Prints');
   assert.equal(fs.existsSync(path.join(WEB, 'app/vendor-dashboard/invite/_components/door-sticker.tsx')), false, 'the old door-sticker fold component is back');

@@ -62,6 +62,11 @@ test('1 · Promote’s sheets end in “Put it on…” › Door print · Prints
   assert.match(list, /title="Door print"/);
   assert.match(list, /title="Prints"/);
   assert.match(src, /putOn: place === 'promote' &&/, '“Put it on…” must be Promote’s only');
+  // The hand-off waits for this sheet's own Back entry to go (useBackCloses steps back a tick after the close) — opening
+  // the Prints sheet first let that late step back shut it at once (caught in this PR's own 390 px walk).
+  const hand = list.slice(list.indexOf('const handOff'), list.indexOf('const handOff') + 900);
+  assert.match(hand, /addEventListener\('popstate', go\)/, 'the hand-off no longer waits for the QR sheet’s Back');
+  assert.ok(hand.indexOf("addEventListener('popstate'") < hand.indexOf('setOpen(null)'), 'listen before closing');
 });
 
 test('2 · one door piece — the cream door-sticker fold is gone, the door print lives in Prints', () => {

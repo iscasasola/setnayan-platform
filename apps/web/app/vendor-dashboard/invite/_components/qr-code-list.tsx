@@ -55,6 +55,26 @@ export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: 
   const titleId = useId();
   const row = rows.find((r) => r.key === open) ?? null;
 
+  /**
+   * "Put it on…": close THIS sheet, then hand the code to the Prints sheet — but only once this sheet's own Back entry
+   * is gone (`useBackCloses` steps back through it a tick after the close). Opening Prints first would let that late
+   * step back land on the Prints sheet's entry and shut it at once. A fallback timer covers a sheet that pushed none.
+   */
+  const handOff = (code: PrintQrMode, piece: 'door' | null) => {
+    if (!bridge) return;
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener('popstate', go);
+      // one more tick: the Back's own popstate listeners (the router's) run first
+      window.setTimeout(() => bridge.putOn(code, piece), 0);
+    };
+    window.addEventListener('popstate', go);
+    window.setTimeout(go, 700);
+    setOpen(null);
+  };
+
   return (
     <>
       <div data-qr-list={rows.map((r) => r.key).join(',')}>
@@ -115,19 +135,13 @@ export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: 
                   title="Door print"
                   line="We are part of Setnayan"
                   data="door"
-                  onClick={() => {
-                    bridge.putOn(row.putOn!, 'door');
-                    setOpen(null);
-                  }}
+                  onClick={() => handOff(row.putOn!, 'door')}
                 />
                 <PutOnRow
                   title="Prints"
                   line="This code on your print pieces"
                   data="prints"
-                  onClick={() => {
-                    bridge.putOn(row.putOn!, null);
-                    setOpen(null);
-                  }}
+                  onClick={() => handOff(row.putOn!, null)}
                 />
               </div>
             ) : null}

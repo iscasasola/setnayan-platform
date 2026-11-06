@@ -138,8 +138,15 @@ import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ShopReachLine, ShopReachMap } from './_components/shop-reach';
 import { ShopAddresses } from './_components/shop-addresses';
 import { PinnedReviewCard } from './_components/pinned-review-card';
-import { GuestRatingsSection } from './_components/guest-ratings-section';
-import { readPublishedGuestRatings } from '@/lib/supplier-scan.server';
+import {
+  GuestReviewsGroup,
+  GuestStarsLine,
+  ReviewForLine,
+  ReviewGroupHead,
+  type ReviewCardLink,
+} from './_components/review-groups';
+import { readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
+import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
@@ -950,8 +957,11 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  // Guests' ratings from the scanner — their own section, never merged into the couple reviews (owner 2026-11-05).
-  const guestRatingsRead = readPublishedGuestRatings(vendor.vendor_profile_id);
+  // ⭐ FROM GUESTS (owner, 6 Nov) — the guests' own reviews, read beside everything below. Three states: a refused read
+  // is SAID under the hosts' list, never turned into "no guest reviews". It never feeds the overall (option A).
+  const guestReviewsPromise: Promise<GuestReviewsRead> = readGuestReviewsForVendor(admin, vendor.vendor_profile_id, {
+    limit: 20,
+  }).catch((): GuestReviewsRead => ({ state: 'refused' }));
   const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
@@ -1391,6 +1401,21 @@ export async function renderVendorBySlug({
     }
   }
   const orderedReviews = pinReviewFirst(reviews, pinnedReviewId, pinnedOutsideWindow);
+  // 🃏 "For <card> · see the card" (prototype § 5) — only a LIVE card on this page can be linked; a review whose card
+  // is retired, or from before a review knew its card, shows no "For" line. Nothing is guessed.
+  const reviewCardsById = new Map<string, ReviewCardLink>(
+    activeServices.map((s) => [
+      s.vendor_service_id,
+      {
+        title: serviceLabel(s),
+        anchorId: cardAnchorId(s.public_id, s.vendor_service_id),
+        photoUrl: coverUrlByService.get(s.vendor_service_id) ?? null,
+      },
+    ]),
+  );
+  const guestReviews = await guestReviewsPromise;
+  const guestReviewPhotoUrls =
+    guestReviews.state === 'rows' ? await resolveGuestReviewPhotoUrls(guestReviews.rows) : new Map<string, string>();
 
   // ── SUPPLIER WEBSITE BY PLAN (owner-approved 2026-10-30) — the card column's plan pieces ─────────────────────────
   // Reach: the plan's ring (lib/vendor-tier-caps.ts serviceRadiusKm) clamping the shop's own outer ring — the SAME
@@ -3161,6 +3186,9 @@ export async function renderVendorBySlug({
           reviewStats={reviewStats}
           trustedReviewStats={trustedReviewStats}
           reviews={orderedReviews}
+          reviewCardsById={reviewCardsById}
+          guestReviews={guestReviews}
+          guestReviewPhotoUrls={guestReviewPhotoUrls}
           hasMore={hasMore}
           nextPage={reviewsPage + 1}
           /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (owner ruling
@@ -3176,8 +3204,6 @@ export async function renderVendorBySlug({
           venueEvents={venueEvents}
           hasVenueMatch={venueMatchCount > 0}
         />
-
-        <GuestRatingsSection ratings={await guestRatingsRead} businessName={displayLabel} />
 
         {showTrustedBy ? (
           <TrustedBySection
@@ -3880,6 +3906,9 @@ function ReviewsSection({
   reviewStats,
   trustedReviewStats,
   reviews,
+  reviewCardsById,
+  guestReviews,
+  guestReviewPhotoUrls,
   hasMore,
   nextPage,
   showStars,
@@ -3895,6 +3924,12 @@ function ReviewsSection({
   /** ANTI-FRAUD (2026-07-05): trusted headline average + count. */
   trustedReviewStats: TrustedReviewStatsRow;
   reviews: ReadonlyArray<ReviewWithCouple>;
+  /** The live cards a host review can name ("For <card>"). */
+  reviewCardsById: ReadonlyMap<string, ReviewCardLink>;
+  /** ⭐ From guests — its own group; never feeds the overall. */
+  guestReviews: GuestReviewsRead;
+  /** The guests' own shots, through the blur gate. */
+  guestReviewPhotoUrls: ReadonlyMap<string, string>;
   hasMore: boolean;
   nextPage: number;
   /** Phase C: Free hides the star average + per-review star rows. */
@@ -3940,8 +3975,10 @@ function ReviewsSection({
       ) : null}
 
       {showStars ? (
-        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} />
+        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} guestReviews={guestReviews} />
       ) : null}
+
+      <ReviewGroupHead>From the hosts</ReviewGroupHead>
 
       {/* ⛔ THE "UPGRADE TO UNLOCK REVIEWS" PANEL IS GONE (2026-08-09).
           It rendered whenever both caps were off — i.e. on every Free vendor —
@@ -3970,6 +4007,7 @@ function ReviewsSection({
             <li key={r.review_id}>
               <ReviewRow
                 review={r}
+                card={r.service_id ? (reviewCardsById.get(r.service_id) ?? null) : null}
                 showStars={showStars}
                 showComments={showComments}
                 vendorName={businessName}
@@ -3991,6 +4029,9 @@ function ReviewsSection({
           </Link>
         </div>
       ) : null}
+
+      {/* ⭐ FROM GUESTS (owner, 6 Nov) — their own group, after the hosts'. No guest reviews → no group at all. */}
+      <GuestReviewsGroup read={guestReviews} photoUrlByCapture={guestReviewPhotoUrls} vendorName={businessName} />
     </section>
   );
 }
@@ -3998,10 +4039,13 @@ function ReviewsSection({
 function ReviewHeroMetrics({
   stats,
   trusted,
+  guestReviews,
 }: {
   stats: ReviewStatsRow;
   /** ANTI-FRAUD (2026-07-05): headline average + count read the TRUSTED stat. */
   trusted: TrustedReviewStatsRow;
+  /** The guests' own line, UNDER the overall — it never moves it (owner, 6 Nov · option A). */
+  guestReviews: GuestReviewsRead;
 }) {
   // Headline number + count are the TRUSTED (receipt-backed, arm's-length)
   // aggregate so fake / self-dealt reviews can't inflate the public rating.
@@ -4029,10 +4073,12 @@ function ReviewHeroMetrics({
           <span className="text-3xl font-semibold text-ink">
             {hero > 0 ? formatStarRating(hero) : '—'}
           </span>
+          <span className="text-sm font-semibold text-ink">overall</span>
         </div>
         <p className="text-xs text-ink/60">
-          {formatCount(trustedCount)} review{trustedCount === 1 ? '' : 's'}
+          {formatCount(trustedCount)} review{trustedCount === 1 ? '' : 's'} across all their services
         </p>
+        <GuestStarsLine read={guestReviews} />
       </div>
       <ul className="space-y-1.5 text-xs">
         {totals.map(({ star, count }) => (
@@ -4057,11 +4103,14 @@ function ReviewHeroMetrics({
 
 function ReviewRow({
   review,
+  card,
   showStars,
   showComments,
   vendorName,
 }: {
   review: ReviewWithCouple;
+  /** The card this review is for — null when it names none (or the card is no longer live). */
+  card: ReviewCardLink | null;
   /** Phase C: hide the overall star row when the tier can't count stars. */
   showStars: boolean;
   /** Phase C: hide the comment body + axis stats + vendor reply. */
@@ -4101,6 +4150,7 @@ function ReviewRow({
           {dateLabel}
         </time>
       </header>
+      <ReviewForLine card={card} />
       {/* Phase C: comment body + per-axis stats stay gated behind showComments
           (Free + Verified hidden, Pro/Enterprise shown). */}
       {showComments ? (

@@ -210,7 +210,6 @@ stewardship_transfers.created_by_user_id                  SET NULL     nullable 
 stewardship_transfers.from_user_id                        SET NULL     nullable  -> users
 stewardship_transfers.to_user_id                          SET NULL     nullable  -> users
 supplier_scan_claims.scanned_by_user_id                   SET NULL     nullable  -> auth.users
-supplier_scan_reviews.moderated_by_user_id                SET NULL     nullable  -> auth.users
 supplier_scan_sessions.opened_by_user_id                  SET NULL     nullable  -> auth.users
 supplier_scan_settings.updated_by_user_id                 SET NULL     nullable  -> auth.users
 thread_calls.started_by_user_id                           SET NULL     nullable  -> users
@@ -246,6 +245,7 @@ vendor_event_access_grants.granted_by                     SET NULL     nullable 
 vendor_event_access_grants.grantee_user_id                CASCADE      NOT NULL  -> auth.users
 vendor_follows.follower_user_id                           CASCADE      NOT NULL  -> users
 vendor_guest_deliveries.delivered_by                      SET NULL     nullable  -> auth.users
+vendor_guest_reviews.hidden_by_user_id                    SET NULL     nullable  -> auth.users
 vendor_ig_oauth_state.initiated_by                        CASCADE      NOT NULL  -> auth.users
 vendor_image_flags.reviewed_by                            SET NULL     nullable  -> users
 vendor_invites.claimed_by_user_id                         SET NULL     nullable  -> auth.users

@@ -561,11 +561,13 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
     else if (m.media_type === 'photo') photoCount += 1;
   }
 
-  // Guest-review QR — the vendor's own public page (verified vendors only have a
-  // live public page). Encoded server-side; the fullscreen/print actions are a
-  // small client component.
+  // Guest-review QR (owner, 6 Nov · prototype § 8 Door 1) — opens THE GUEST FORM for this shop at THIS event:
+  // `/v/<slug>/guest-review?event=<id>`. The event rides the code because a shop serves many events and a guest at two
+  // of them must never be guessed wrong. Encoded server-side; the fullscreen/print actions are a small client component.
   const reviewSlug = profile.business_slug;
-  const reviewUrl = reviewSlug ? `${SITE_URL}/v/${reviewSlug}#reviews` : null;
+  const reviewUrl = reviewSlug
+    ? `${SITE_URL}/v/${reviewSlug}/guest-review?event=${encodeURIComponent(booking.eventId)}`
+    : null;
   const reviewQrSvg = reviewUrl
     ? await QRCode.toString(reviewUrl, {
         type: 'svg',

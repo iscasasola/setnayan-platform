@@ -11,8 +11,8 @@
  *   { op: 'numbers' }       "Your numbers" — number · guests · state, counts only
  *   { op: 'session_open' }  Group session — New shot: one number for everyone scanned into it
  *   { op: 'session_done' }  Group session — Done: the shot closes with its prints (default one per guest)
- *   { op: 'guest_review' }  the guest's optional "How was the Photo booth?" — rating or skip; WHO is their pass, never the request
- *   { op: 'admin_review' }  Admin › Reviews — publish or hide a guest's rating (audited; never on a public page yet)
+ *   { op: 'guest_review' }  the guest's optional "How was the Photo booth?" — a review through the ONE guest-review
+ *                           writer, or "Not now"; WHO is their pass, never the request
  *   { op: 'admin_remove' }  Admin › the event — Setnayan takes back a claim recorded in error (audited)
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route, and the repo budget
@@ -42,6 +42,7 @@ import { requireAdminAction } from '@/lib/admin/require-admin';
 import { parseGuestQrPayload } from '@/lib/checkin';
 import { readGuestSession } from '@/lib/guest-session';
 import { realNameParts, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
+import { GUEST_REVIEW_LINE_MAX, GUEST_REVIEW_REFUSAL_LINE, parseShownAs, submitGuestReview } from '@/lib/guest-reviews';
 import {
   scanRefusalWords,
   scannerChoiceToSetting,
@@ -52,6 +53,8 @@ import {
   type SupplierScanReply,
   type SupplierScanRequest,
 } from '@/lib/supplier-scan';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function supplierScan(req: SupplierScanRequest): Promise<SupplierScanReply> {
   switch (req.op) {
@@ -68,9 +71,7 @@ export async function supplierScan(req: SupplierScanRequest): Promise<SupplierSc
     case 'session_done':
       return { op: 'session_done', result: await sessionDone(req.eventId, req.coverageId, req.prints) };
     case 'guest_review':
-      return { op: 'guest_review', result: await guestReview(req.eventId, req.coverageId, req.stars, req.line) };
-    case 'admin_review':
-      return { op: 'admin_review', result: await adminReview(req.reviewId, req.state) };
+      return { op: 'guest_review', result: await guestReview(req.eventId, req.vendorProfileId, req.stars, req.line, req.shownAs) };
     case 'admin_remove':
       return { op: 'admin_remove', result: await adminRemove(req.eventId, req.kind, req.claimId) };
   }
@@ -293,54 +294,54 @@ function realGuestName(first: string | null, last: string | null): string | null
 
 /**
  * ⭐ The guest's answer. WHO is the pass this browser holds for THIS event (`readGuestSession` — the account outranks
- * the pass), never an id from the request; the database refuses unless that guest RECEIVED from that service.
+ * the pass), never an id from the request.
+ *
+ * A rating goes through the ONE guest-review writer (`submitGuestReview` → `vendor_guest_review_submit`, owner ruling
+ * 2026-11-06: one store, one writer, one "From guests" section) — it is public at once and Setnayan admin can hide it.
+ * The writer admits this guest because the shop's scanner marked their item RECEIVED. "Not now" (stars null) is not a
+ * review: it is a row in the scanner's own `supplier_scan_review_skips`, so the pop-up never asks about that shop again.
  */
 async function guestReview(
   eventId: string,
-  coverageId: number,
+  vendorProfileId: string,
   stars: number | null,
   line: string | null,
+  shownAs: string,
 ): Promise<{ ok: true; saved: boolean } | { ok: false; error: string }> {
   const session = await readGuestSession({ eventId });
   if (!session || session.event_id !== eventId) return { ok: false, error: 'Open your invitation again to answer.' };
-  if (stars !== null && (!Number.isInteger(stars) || stars < 1 || stars > 5)) return { ok: false, error: 'Pick a rating.' };
-  const words = line?.trim() ? line.trim().slice(0, 140) : null;
-  const { data, error } = await createAdminClient().rpc('supplier_scan_review_submit', {
-    p_event_id: eventId,
-    p_guest_id: session.guest_id,
-    p_coverage_id: coverageId,
-    p_stars: stars,
-    p_line: words,
-  });
-  if (error) {
-    logQueryError('supplierScan.guest_review', error, { eventId, coverageId });
-    return { ok: false, error: 'Couldn’t send just now. Try again.' };
-  }
-  return { ok: true, saved: data === 'saved' };
-}
-
-/** Admin publishes or hides a guest's rating. Published shows on the supplier's page under Guest ratings (owner 2026-11-05). */
-async function adminReview(reviewId: string, state: 'published' | 'hidden'): Promise<{ ok: boolean; error?: string }> {
-  const { userId } = await requireAdminAction();
-  if (state !== 'published' && state !== 'hidden') return { ok: false, error: 'Unknown state.' };
+  if (!UUID_RE.test(vendorProfileId)) return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE.supplier_not_on_event };
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('supplier_scan_reviews')
-    .update({ state, moderated_at: new Date().toISOString(), moderated_by_user_id: userId })
-    .eq('review_id', reviewId)
-    .select('review_id, vendor_profile_id, stars');
-  if (error || !data?.length) {
-    if (error) logQueryError('supplierScan.admin_review', error, { reviewId });
-    return { ok: false, error: 'Couldn’t save that just now.' };
+  if (stars === null) {
+    const { error } = await admin
+      .from('supplier_scan_review_skips')
+      .upsert({ event_id: eventId, guest_id: session.guest_id, vendor_profile_id: vendorProfileId }, { onConflict: 'event_id,guest_id,vendor_profile_id', ignoreDuplicates: true });
+    if (error) {
+      logQueryError('supplierScan.guest_review.skip', error, { eventId, vendorProfileId });
+      return { ok: false, error: 'Couldn’t save that just now. Try again.' };
+    }
+    return { ok: true, saved: true };
   }
-  const { error: auditError } = await admin.from('admin_audit_log').insert({
-    action: `supplier_scan_review_${state}`,
-    target_table: 'supplier_scan_reviews',
-    target_id: reviewId,
-    actor_user_id: userId,
-    metadata: data[0],
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE.bad_stars };
+  const words = line?.trim() ? line.trim() : null;
+  if (words && words.length > GUEST_REVIEW_LINE_MAX) return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE.line_too_long };
+  const res = await submitGuestReview(admin, {
+    eventId,
+    guestId: session.guest_id,
+    vendorProfileId,
+    serviceId: null,
+    stars,
+    line: words,
+    captureId: null,
+    shownAs: parseShownAs(shownAs),
   });
-  if (auditError) console.error('[supplierScan.admin_review] audit log insert failed', auditError.message);
-  revalidatePath('/admin/reviews');
-  return { ok: true };
+  if (!res.ok) {
+    // Already reviewed (here or through the door's QR) is the answer the guest wanted — the card closes either way.
+    if (res.refusal === 'already_reviewed') return { ok: true, saved: false };
+    return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE[res.refusal] };
+  }
+  // The shop page's "From guests" group and the shop's own replies list read the one store.
+  revalidatePath('/v/[slug]', 'page');
+  revalidatePath('/vendor-dashboard/website');
+  return { ok: true, saved: true };
 }

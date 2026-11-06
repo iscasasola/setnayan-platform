@@ -2488,6 +2488,36 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * ⭐ GUEST REVIEWS (owner, 6 Nov 2026) — what a guest who was THERE saw. A separate store from J28 on purpose: the
+     * shop's overall is the hosts' (couple + co-hosts) only, and a guest review must never move it.
+     */
+    id: 'J61',
+    claims: [
+      { kind: 'table', table: 'vendor_guest_reviews' },
+      { kind: 'fk', table: 'vendor_guest_reviews', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_guest_reviews', column: 'service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'vendor_guest_reviews', column: 'capture_id', references: 'papic_guest_captures' },
+      { kind: 'unique', table: 'vendor_guest_reviews', columns: ['vendor_profile_id', 'event_id', 'guest_id'] },
+      { kind: 'column', table: 'vendor_guest_reviews', column: 'hidden_at' },
+      // The host review now names its card too ("For <card>"), the same way.
+      { kind: 'fk', table: 'vendor_reviews', column: 'service_id', references: 'vendor_services' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-GUESTS'],
+    title: 'Vendor ↔ Guest (guest review)',
+    joint: 'vendor_guest_reviews',
+    cardinality: 'One review per (vendor, event, guest) — a door check-in or a received scanner claim earns it',
+    implementedBy:
+      'vendor_guest_reviews (event_id + guest_id → guests CASCADE · service_id → vendor_services SET NULL · capture_id → papic_guest_captures SET NULL) + vendor_guest_review_stats (the guests’ own line). Read on the service role by lib/guest-reviews.ts for /v/[slug], Shop › Page › Reviews and Admin › Reviews',
+    writtenBy:
+      'ONLY vendor_guest_review_submit (SECURITY DEFINER, service role) via submitGuestReview — the QR door (/v/[slug]/guest-review) and, next, the scanner pop-up (#7291). The shop’s one reply: vendor_guest_review_reply. Hide/show: Admin › Reviews',
+    guardedBy:
+      'No INSERT/UPDATE grant to any browser role; the writer re-checks guest_checkins (or supplier_scan_claims state = received), the booking, the card and the shot · tests/db/host-and-guest-reviews.db.test.ts',
+    traps:
+      'vendor_trusted_review_stats reads vendor_reviews ONLY — keep it that way: blending guests in would let a shop with a QR at the door outrank one without, for reasons unrelated to how it plans. A hidden guest review leaves the page and the stats view but stays in the table.',
+  },
+  {
+    /**
      * 🚨 THE POOL SWITCH. `is_active` is what an operator flips to close a pool,
      * and until 2026-08-01 `acquire_schedule_pools()` filtered on it in the
      * VALIDATION loop but not in the INSERT — so a closed pool skipped every
@@ -3839,11 +3869,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'supplier_scan_sessions', column: 'prints' },
       // Roaming (slice 4) is the same shot with no station — one CHECK names both.
       { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_mode_check', mentions: 'mode' },
-      // ⭐ Slice 5: a guest's optional review after "received" — its own store, admin-moderated; published ones show on the shop page apart from couple reviews.
-      { kind: 'table', table: 'supplier_scan_reviews' },
-      { kind: 'fk', table: 'supplier_scan_reviews', column: 'coverage_id', references: 'vendor_coverages' },
-      { kind: 'unique', table: 'supplier_scan_reviews', columns: ['event_id', 'coverage_id', 'guest_id'] },
-      { kind: 'check', table: 'supplier_scan_reviews', name: 'supplier_scan_reviews_rating_or_skip', mentions: 'skipped' },
+      // ⭐ Slice 5: a guest's optional review after "received" is written into the ONE guest-review store
+      // (vendor_guest_reviews, owner 2026-11-06); the scanner keeps only its "Not now" — one row per event · guest · shop.
+      { kind: 'table', table: 'supplier_scan_review_skips' },
+      { kind: 'fk', table: 'supplier_scan_review_skips', column: 'vendor_profile_id', references: 'vendor_profiles' },
     ],
     chain: 22,
     pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],
@@ -3857,7 +3886,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
     traps:
-      'Guest reviews (supplier_scan_reviews) are written ONLY by supplier_scan_review_submit, service role, with the guest id from the pass; only the ones Setnayan PUBLISHED reach the supplier’s public page, in their own section beside the couple reviews, never merged into them (owner 2026-11-05 “separate”), and never naming the guest. A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
+      'A guest’s review after “received” is NOT a scanner table: the pop-up writes through the one guest-review writer (submitGuestReview → vendor_guest_review_submit, which admits a received supplier_scan_claims row for that shop) into vendor_guest_reviews — one store, one “From guests” section, public at once, admin Hide/Show (owner 2026-11-06). The scanner keeps only supplier_scan_review_skips (“Not now”, service role). A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
   },
 ];
 

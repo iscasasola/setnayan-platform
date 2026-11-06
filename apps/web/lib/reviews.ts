@@ -68,10 +68,18 @@ export type ReviewRow = {
    * "Verified wedding" (on-platform) one.
    */
   via_vendor_import: boolean;
+  /**
+   * The service card this review is FOR (owner, 6 Nov 2026 — "the review will be aligned to the service card they
+   * have"). NULL on every review written before that day: no "For" line, nothing guessed. Optional in the type so
+   * fixtures that predate it still compile; every read selects it.
+   */
+  service_id?: string | null;
 };
 
 export type ReviewWithCouple = ReviewRow & {
   couple_display_name: string | null;
+  /** The card's NAME only — a review never shows a price (owner, 6 Nov). null = no card, or the card is gone. */
+  service_title?: string | null;
 };
 
 export type ReviewStatsRow = {
@@ -86,7 +94,7 @@ export type ReviewStatsRow = {
 };
 
 const REVIEW_COLUMNS =
-  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import';
+  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import,service_id';
 
 export type FetchReviewsOpts = {
   limit?: number;
@@ -176,10 +184,13 @@ export async function fetchReviewsForVendorWithCouple(
 ): Promise<ReviewWithCouple[]> {
   const reviews = await fetchReviewsForVendor(supabase, vendorProfileId, opts);
   if (reviews.length === 0) return [];
-  const names = await resolveCoupleDisplayNames(
-    supabase,
-    reviews.map((r) => r.event_id),
-  );
+  const [names, titles] = await Promise.all([
+    resolveCoupleDisplayNames(
+      supabase,
+      reviews.map((r) => r.event_id),
+    ),
+    resolveServiceTitles(supabase, vendorProfileId, reviews.map((r) => r.service_id ?? null)),
+  ]);
   return reviews.map((r) => ({
     ...r,
     /* A review whose celebration the couple has DELETED keeps its words and
@@ -190,7 +201,33 @@ export async function fetchReviewsForVendorWithCouple(
        Written as an explicit branch rather than a cast so the null case is a
        decision a reader can see, not a silenced compiler complaint. */
     couple_display_name: r.event_id ? (names.get(r.event_id) ?? null) : null,
+    service_title: r.service_id ? (titles.get(r.service_id) ?? null) : null,
   }));
+}
+
+/**
+ * The "For <card>" line's words — card TITLES of this shop only (a forged id from another shop resolves to nothing),
+ * and never a price column. A refused read answers an empty map: the line is simply absent, the review still shows.
+ */
+export async function resolveServiceTitles(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  serviceIds: ReadonlyArray<string | null>,
+): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(serviceIds.filter((id): id is string => !!id)));
+  if (ids.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id, title')
+    .eq('vendor_profile_id', vendorProfileId)
+    .in('vendor_service_id', ids);
+  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_services.select (titles)', error);
+  if (error) return new Map();
+  const m = new Map<string, string>();
+  for (const row of (data ?? []) as Array<{ vendor_service_id: string; title: string | null }>) {
+    if (row.title && row.title.trim().length > 0) m.set(row.vendor_service_id, row.title.trim());
+  }
+  return m;
 }
 
 /**
@@ -394,12 +431,24 @@ export async function fetchTrustedReviewStatsForMany(
   return m;
 }
 
+/**
+ * 🔒 WHO WRITES A HOST REVIEW — the couple and their co-hosts (`event_members.member_type = 'couple'`), the people
+ * who planned with the supplier. NOT a coordinator (owner, 6 Nov 2026: conflict of interest — a coordinator is a
+ * supplier on the same event). The INSERT policy says the same (`current_couple_event_ids()`); this is the app's
+ * half, so the page and the action refuse in words before the database refuses in an error.
+ */
+export function isHostReviewer(memberType: string | null | undefined): boolean {
+  return memberType === 'couple';
+}
+
 export type CreateReviewArgs = {
   vendorProfileId: string;
   eventId: string;
   coupleUserId: string;
   ratings: Record<ReviewAxis, number>;
   body: string | null;
+  /** The card this review is for — already checked to be THIS shop's by the caller. */
+  serviceId?: string | null;
 };
 
 /**
@@ -486,6 +535,7 @@ export async function createReview(
       // values, so these are advisory — couples cannot set them by tampering.
       booked_through_setnayan: bookedThroughSetnayan,
       via_vendor_import: viaVendorImport,
+      service_id: args.serviceId ?? null,
     })
     .select('review_id')
     .single();

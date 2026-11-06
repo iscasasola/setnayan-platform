@@ -16,10 +16,10 @@ import {
   rejectAppeal,
   dismissReviewFlag,
 } from './actions';
+import { readGuestReviewsForAdmin } from '@/lib/guest-reviews';
+import { GuestReviewsQueue } from './_components/guest-reviews-queue';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-import { readAdminScanReviews } from '@/lib/supplier-scan.server';
-import { GuestScanReviews } from './_components/guest-scan-reviews';
 export const metadata = { title: 'Reviews · Admin' };
 
 type AppealRow = {
@@ -107,8 +107,6 @@ type Props = {
 
 export default async function AdminReviewsPage({ searchParams }: Props) {
   await requireAdmin();
-  // ⭐ Guests' ratings from the supplier scanner — read only once the admin gate has passed (service role).
-  const guestScanReviews = await readAdminScanReviews();
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as 'pending' | 'decided' | 'all';
 
@@ -235,6 +233,8 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
   const flagReviewIds = Array.from(new Set(rawFakeFlags.map((f) => f.review_id)));
   const flagVendorIds = Array.from(new Set(rawFakeFlags.map((f) => f.reported_by_vendor_profile_id)));
 
+  // ⭐ Guest reviews (owner ruling A, 6 Nov) — public at once; hide one here. Hidden ones stay listed, marked.
+  const guestReviewsRead = readGuestReviewsForAdmin(admin, 50);
   const [flagReviewData, flagVendorData] = await Promise.all([
     flagReviewIds.length > 0
       ? admin
@@ -339,6 +339,8 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         )}
       </section>
 
+      <GuestReviewsQueue read={await guestReviewsRead} />
+
       <section className="space-y-4" aria-labelledby="self-review-appeals-heading">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-0.5">
@@ -393,27 +395,6 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               />
             ))}
           </ul>
-        )}
-      </section>
-
-      {/* ⭐ Guests' ratings from the supplier scanner (slice 5) — moderated here; Published shows on the supplier's page, in its own section. */}
-      <section className="mt-12 space-y-4" aria-labelledby="guest-scan-reviews-heading" data-admin-guest-scan-reviews="">
-        <header className="space-y-0.5">
-          <h2 id="guest-scan-reviews-heading" className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Flag aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
-            Guests&rsquo; ratings from the scanner
-          </h2>
-          <p className="text-xs text-ink/55">
-            A guest rates a supplier service after its scanner marked their item received. The supplier never sees who
-            wrote it. Published ratings show on the supplier&rsquo;s page under Guest ratings, apart from couple reviews.
-          </p>
-        </header>
-        {guestScanReviews === null ? (
-          <ReadFailed what="the guests' ratings" />
-        ) : guestScanReviews.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink/55">No guest ratings yet.</p>
-        ) : (
-          <GuestScanReviews reviews={guestScanReviews} />
         )}
       </section>
 
@@ -757,3 +738,4 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
     </div>
   );
 }
+

@@ -1,13 +1,15 @@
 /**
- * 🎟⭐ A GUEST'S OPTIONAL REVIEW AFTER "RECEIVED" — asserted against the DATABASE (migration 20271323347634; DECISION_LOG
- * 2026-09-25 "AFTER A GUEST RECEIVES A SUPPLIER'S ITEM, AN OPTIONAL REVIEW CAN POP UP ON THEIR EVENT HUB").
+ * 🎟⭐ A GUEST'S OPTIONAL REVIEW AFTER "RECEIVED" — asserted against the DATABASE (DECISION_LOG 2026-09-25 "AFTER A GUEST
+ * RECEIVES A SUPPLIER'S ITEM, AN OPTIONAL REVIEW CAN POP UP ON THEIR EVENT HUB"; owner ruling 2026-11-06: guest reviews
+ * are ONE store, ONE writer and ONE "From guests" section — the scanner's pop-up is a second door into it).
  *
- *   1 · only a guest with a RECEIVED claim for that service may review it (a supplier claim, or the souvenir row a
- *       supplier's scanner wrote) — anyone else is refused;
- *   2 · ONE per guest per service: a second answer changes nothing; a skip is an answer too (never asked twice);
- *   3 · the write is the service role's alone — a signed-in person (the supplier included) cannot call it, and
- *       nobody but Setnayan admin can read the reviews: the supplier never sees who wrote one;
- *   4 · admin moderates pending → published | hidden.
+ *   1 · the ONE writer (`vendor_guest_review_submit`, migration 20271316933967) admits a guest whose scanner claim for
+ *       THAT shop is RECEIVED — and refuses a guest the shop never served, or a shop that only received someone else;
+ *   2 · ONE per guest per shop per event, whichever door wrote it; "Not now" is the scanner's own row
+ *       (`supplier_scan_review_skips`, migration 20271323347634) — one per event · guest · shop, never a review;
+ *   3 · both writes are the service role's alone — a signed-in person (the supplier included) can call neither, and
+ *       nobody but Setnayan admin reads the skips;
+ *   4 · the scanner adds NO second review store (the old `supplier_scan_reviews` and its writer do not exist).
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -178,55 +180,105 @@ after(async () => {
 });
 
 const admin = { id: '' };
-async function submit(guest: string, cov: number, stars: number | null, line: string | null): Promise<string> {
+
+/** The one writer, as the scanner action calls it (service role · no service card · no photo · shown by name). */
+async function submit(guest: string, vendorProfileId: string, stars: number, line: string | null): Promise<string> {
   await asOwner();
   await db.exec(`SET ROLE service_role`);
   try {
-    return (await db.query<{ r: string }>(`SELECT public.supplier_scan_review_submit($1,$2,$3,$4,$5) AS r`, [F.eventId, guest, cov, stars, line])).rows[0]!.r;
+    return (
+      await db.query<{ r: string }>(`SELECT public.vendor_guest_review_submit($1,$2,$3,NULL,$4,$5,NULL,'name')::text AS r`, [
+        F.eventId,
+        guest,
+        vendorProfileId,
+        stars,
+        line,
+      ])
+    ).rows[0]!.r;
   } finally {
     await db.exec(`RESET ROLE`);
   }
 }
 
-test('1 · only a guest with a RECEIVED claim for the service may review it', async () => {
-  await scan(F.booth, F.boothCov, F.tokens[0]!);
-  await scan(F.souvenir, F.souvenirCov, F.tokens[1]!);
-  assert.equal(await submit(F.guestIds[0]!, F.boothCov, 5, 'Loved the props!'), 'saved');
-  assert.equal(await submit(F.guestIds[1]!, F.souvenirCov, 4, null), 'saved', 'the souvenir row a supplier wrote counts');
-  await assert.rejects(submit(F.guestIds[2]!, F.boothCov, 5, 'never went'), /no_received_claim/);
-  await assert.rejects(submit(F.guestIds[0]!, F.souvenirCov, 5, null), /no_received_claim/, 'a different service');
-  await assert.rejects(submit(F.guestIds[0]!, F.boothCov, 6, null), /bad_stars|already/);
-});
-
-test('2 · one per guest per service; a skip is an answer too', async () => {
-  assert.equal(await submit(F.guestIds[0]!, F.boothCov, 1, 'changed my mind'), 'already');
-  await scan(F.booth, F.boothCov, F.tokens[3]!);
-  assert.equal(await submit(F.guestIds[3]!, F.boothCov, null, 'ignored'), 'saved');
-  assert.equal(await submit(F.guestIds[3]!, F.boothCov, 5, null), 'already', 'a skip is never asked again');
+/** "Not now", as the scanner action writes it (service role; a repeat is a no-op). */
+async function skip(guest: string, vendorProfileId: string): Promise<void> {
   await asOwner();
-  const rows = await db.query<{ guest_id: string; stars: number | null; line: string | null; skipped: boolean }>(
-    `SELECT guest_id, stars, line, skipped FROM public.supplier_scan_reviews WHERE coverage_id = $1 ORDER BY created_at`,
-    [F.boothCov],
+  await db.exec(`SET ROLE service_role`);
+  try {
+    await db.query(
+      `INSERT INTO public.supplier_scan_review_skips (event_id, guest_id, vendor_profile_id) VALUES ($1,$2,$3)
+       ON CONFLICT (event_id, guest_id, vendor_profile_id) DO NOTHING`,
+      [F.eventId, guest, vendorProfileId],
+    );
+  } finally {
+    await db.exec(`RESET ROLE`);
+  }
+}
+
+const vpOf = async (uid: string): Promise<string> => {
+  await asOwner();
+  return (await db.query<{ v: string }>(`SELECT vendor_profile_id AS v FROM public.vendor_profiles WHERE user_id = $1`, [uid])).rows[0]!.v;
+};
+
+test('1 · the one writer admits a guest the shop’s scanner marked RECEIVED, and nobody else', async () => {
+  const unbookedVp = await vpOf(F.unbooked);
+  assert.equal((await scan(F.booth, F.boothCov, F.tokens[0]!)).outcome, 'claimed');
+  const id = await submit(F.guestIds[0]!, F.boothVp, 5, 'Loved the props!');
+  assert.match(id, /^[0-9a-f-]{36}$/, 'a received guest’s review was not written');
+  await asOwner();
+  const row = await db.query<{ door: string; shown_as: string; hidden_at: string | null }>(
+    `SELECT door, shown_as, hidden_at FROM public.vendor_guest_reviews WHERE review_id = $1`,
+    [id],
   );
-  assert.deepEqual(rows.rows.map((r) => [r.stars, r.line, r.skipped]), [
-    [5, 'Loved the props!', false],
-    [null, null, true],
-  ]);
+  assert.deepEqual(row.rows[0], { door: 'scan', shown_as: 'name', hidden_at: null }, 'not the scan door, or not public at once');
+  await assert.rejects(submit(F.guestIds[2]!, F.boothVp, 5, 'never went'), /not_at_event/, 'a guest the shop never served');
+  await assert.rejects(submit(F.guestIds[0]!, unbookedVp, 5, null), /not_at_event/, 'a shop that never served this guest');
 });
 
-test('3 · the write is the service role’s alone, and only admin reads', async () => {
+test('2 · one per guest per shop; "Not now" is the scanner’s own row, once', async () => {
+  await assert.rejects(submit(F.guestIds[0]!, F.boothVp, 1, 'changed my mind'), /already_reviewed/);
+  await scan(F.booth, F.boothCov, F.tokens[3]!);
+  await skip(F.guestIds[3]!, F.boothVp);
+  await skip(F.guestIds[3]!, F.boothVp);
+  await asOwner();
+  const skips = await db.query(`SELECT 1 FROM public.supplier_scan_review_skips WHERE guest_id = $1`, [F.guestIds[3]]);
+  assert.equal(skips.rows.length, 1, 'a repeated Not now wrote twice');
+  const reviews = await db.query(`SELECT 1 FROM public.vendor_guest_reviews WHERE guest_id = $1`, [F.guestIds[3]]);
+  assert.equal(reviews.rows.length, 0, 'Not now wrote a review');
+  await db.exec(`SET ROLE service_role`);
+  try {
+    await assert.rejects(
+      db.query(`INSERT INTO public.supplier_scan_review_skips (event_id, guest_id, vendor_profile_id) VALUES ($1,$2,$3)`, [
+        F.eventId,
+        F.guestIds[3],
+        F.boothVp,
+      ]),
+      /duplicate key|unique/,
+      'the ledger allowed two Not nows for one guest and shop',
+    );
+  } finally {
+    await db.exec(`RESET ROLE`);
+  }
+});
+
+test('3 · both writes are the service role’s alone, and only admin reads the skips', async () => {
   await asUser(F.booth);
   await assert.rejects(
-    db.query(`SELECT public.supplier_scan_review_submit($1,$2,$3,5,NULL)`, [F.eventId, F.guestIds[0], F.boothCov]),
+    db.query(`SELECT public.vendor_guest_review_submit($1,$2,$3,NULL,5,NULL,NULL,'name')`, [F.eventId, F.guestIds[1], F.boothVp]),
     /permission denied/,
   );
-  const seen = await db.query(`SELECT * FROM public.supplier_scan_reviews`);
-  assert.equal(seen.rows.length, 0, 'the supplier read a review row');
+  await assert.rejects(
+    db.query(`INSERT INTO public.supplier_scan_review_skips (event_id, guest_id, vendor_profile_id) VALUES ($1,$2,$3)`, [
+      F.eventId,
+      F.guestIds[1],
+      F.boothVp,
+    ]),
+    /permission denied|row-level security/,
+  );
+  assert.equal((await db.query(`SELECT * FROM public.supplier_scan_review_skips`)).rows.length, 0, 'the supplier read a skip');
   await asUser(F.couple);
-  assert.equal((await db.query(`SELECT * FROM public.supplier_scan_reviews`)).rows.length, 0, 'the couple read a review row');
-});
+  assert.equal((await db.query(`SELECT * FROM public.supplier_scan_review_skips`)).rows.length, 0, 'the couple read a skip');
 
-test('4 · admin moderates pending → published | hidden', async () => {
   await asOwner();
   admin.id = (
     await db.query<{ id: string }>(
@@ -237,8 +289,16 @@ test('4 · admin moderates pending → published | hidden', async () => {
   await db.query(`UPDATE public.users SET account_type = 'admin' WHERE user_id = $1`, [admin.id]);
   await asUser(admin.id);
   assert.equal((await db.query<{ a: boolean }>(`SELECT public.is_admin() AS a`)).rows[0]!.a, true, 'the seeded admin is not an admin');
-  const pending = await db.query(`SELECT 1 FROM public.supplier_scan_reviews WHERE state = 'pending'`);
-  assert.equal(pending.rows.length, 3, 'admin reads every review, the skip included');
-  const r = await db.query(`UPDATE public.supplier_scan_reviews SET state = 'published', moderated_at = NOW() WHERE stars = 5 RETURNING 1`);
-  assert.equal(r.rows.length, 1);
+  assert.equal((await db.query(`SELECT 1 FROM public.supplier_scan_review_skips`)).rows.length, 1, 'admin cannot read the skips');
+  await asOwner();
+});
+
+test('4 · the scanner adds no second review store', async () => {
+  await asOwner();
+  const t = await db.query<{ t: string | null; f: string | null }>(
+    `SELECT to_regclass('public.supplier_scan_reviews')::text AS t,
+            (SELECT p.proname::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public' AND p.proname = 'supplier_scan_review_submit' LIMIT 1) AS f`,
+  );
+  assert.deepEqual(t.rows[0], { t: null, f: null }, 'a second guest-review store came back');
 });

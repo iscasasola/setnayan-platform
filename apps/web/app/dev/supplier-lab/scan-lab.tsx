@@ -1,4 +1,3 @@
-import { GuestRatingsSection } from '@/app/v/[slug]/_components/guest-ratings-section';
 import { YourNumberCardView } from '@/app/[slug]/_components/your-number-card';
 import { SupplierScanList } from '@/app/dashboard/[eventId]/guests/souvenirs/_components/supplier-scan-list';
 import type { CoupleScanClaim, GuestScanNumber } from '@/lib/supplier-scan.server';
@@ -14,8 +13,8 @@ import type { CoupleScanClaim, GuestScanNumber } from '@/lib/supplier-scan.serve
  *   ?side=guest            the guest's Live: Now, then "Your number #0042 · Photo booth · Lumina Studio"
  *   ?side=guest&two=1      two numbers (a booth and the souvenir table)
  *   ?side=guest&state=ordered|ready   Ordered → Received: "Being prepared" · "Ready — claim it now" + the guest's notice
- *   ?s=scan-shop ⭐ the supplier's public page: Guest ratings, apart from couple reviews (&state=empty draws nothing)
- *   ?s=scan-guest&review=1 ⭐ slice 5 — "How was the Photo booth?" under the number (nothing is sent from the lab)
+ *   ?s=scan-guest&review=1 ⭐ slice 5 — "How was the Photo booth?" under the number (nothing is sent from the lab).
+ *                          Where the review lands — the shop page's one "From guests" group — is /dev/review-lab?s=shop.
  *   ?side=couple           the couple's souvenir table › Suppliers' scans, with names
  *   ?side=couple&state=empty|unread
  */
@@ -40,30 +39,6 @@ const CLAIMS: CoupleScanClaim[] = [
 ];
 
 export function ScanLab(q: { side?: string; two?: string; state?: string; review?: string }) {
-  if (q.side === 'shop') {
-    // ⭐ The supplier's public page — the Guest ratings section that follows the couple reviews (owner 2026-11-05).
-    return (
-      <main className="mx-auto min-h-screen w-full max-w-2xl bg-paper px-4 py-6 text-ink" data-lab="supplier-scan-shop-ratings">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Reviews</p>
-        <p className="mt-1 text-sm text-ink/60">The couple reviews draw here, unchanged.</p>
-        <GuestRatingsSection
-          businessName="Lumina Studio"
-          ratings={
-            q.state === 'empty'
-              ? { count: 0, average: 0, lines: [] }
-              : {
-                  count: 1234,
-                  average: 4.7,
-                  lines: [
-                    { reviewId: 'r1', stars: 5, line: 'Our strip came out so fast, and the props were fun.', service: 'Photo booth', at: '2026-12-18T11:40:00Z' },
-                    { reviewId: 'r2', stars: 4, line: 'Long line at 9 PM but worth it.', service: 'Photo booth', at: '2026-12-18T11:10:00Z' },
-                  ],
-                }
-          }
-        />
-      </main>
-    );
-  }
   if (q.side === 'couple') {
     const claims = q.state === 'unread' ? null : q.state === 'empty' ? [] : CLAIMS;
     return (
@@ -84,7 +59,18 @@ export function ScanLab(q: { side?: string; two?: string; state?: string; review
       </section>
       <YourNumberCardView
         numbers={q.state === 'ordered' || q.state === 'ready' ? [PRINT(q.state)] : q.two === '1' ? NUMBERS : NUMBERS.slice(0, 1)}
-        asks={q.review === '1' ? [{ coverageId: 1, service: 'Photo booth', shop: 'Lumina Studio' }] : []}
+        asks={
+          q.review === '1'
+            ? [
+                {
+                  vendorProfileId: '00000000-0000-4000-8000-000000000001',
+                  service: 'Photo booth',
+                  shop: 'Lumina Studio',
+                  names: { name: 'Ana R.', initials: 'A. R.' },
+                },
+              ]
+            : []
+        }
         eventId="lab"
         className="mt-8"
       />

@@ -277,9 +277,9 @@ export type SupplierScanRequest =
   | { op: 'ready'; eventId: string; coverageId: number; number: number }
   | { op: 'numbers'; eventId: string; coverageId: number }
   | { op: 'session_open'; eventId: string; coverageId: number }
-  // Slice 5 — the guest's optional review (their pass decides who they are, never this request) and admin's moderation.
-  | { op: 'guest_review'; eventId: string; coverageId: number; stars: number | null; line: string | null }
-  | { op: 'admin_review'; reviewId: string; state: 'published' | 'hidden' }
+  // Slice 5 — the guest's optional review of a SHOP after "received" (their pass decides who they are, never this
+  // request). It writes through the ONE guest-review writer (`submitGuestReview`, owner 2026-11-06); stars null = "Not now".
+  | { op: 'guest_review'; eventId: string; vendorProfileId: string; stars: number | null; line: string | null; shownAs: 'name' | 'initials' }
   | { op: 'session_done'; eventId: string; coverageId: number; prints: number | null }
   | { op: 'claim'; eventId: string; coverageId: number; raw: string; via: 'qr' | 'nfc' }
   | { op: 'admin_remove'; eventId: string; kind: 'scan' | 'souvenir'; claimId: string };
@@ -290,7 +290,6 @@ export type SupplierScanReply =
   | { op: 'numbers'; result: ScanNumberRow[] | null }
   | { op: 'session_open'; result: { ok: true; number: number; guests: number } | { ok: false; error: string } }
   | { op: 'guest_review'; result: { ok: true; saved: boolean } | { ok: false; error: string } }
-  | { op: 'admin_review'; result: { ok: boolean; error?: string } }
   | {
       op: 'session_done';
       result:
@@ -318,6 +317,7 @@ export const REVIEW_STAR_OPTIONS: readonly { key: string; label: string }[] = [
   { key: '1', label: '★ Poor' },
 ];
 
+/** The same ceiling as the one guest-review store (`GUEST_REVIEW_LINE_MAX`, its table CHECK). */
 export const REVIEW_LINE_MAX = 140;
 
 /** The card's question: "How was the Photo booth?" */

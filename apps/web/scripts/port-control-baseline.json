@@ -3272,6 +3272,7 @@
     },
     "/admin/disputes": {
       "files": [
+        "admin/disputes/_components/booking-fee-disputes-section.tsx",
         "admin/disputes/_components/deposit-disputes-section.tsx",
         "admin/disputes/_components/payment-disputes-section.tsx",
         "admin/disputes/_components/quote-versions-evidence.tsx",
@@ -3281,14 +3282,17 @@
       ],
       "destinations": [],
       "actions": [
+        "bookingFeeDispute",
         "resolveDispute",
         "settleDepositDispute",
         "settlePaymentDispute"
       ],
       "blocks": [
+        "BookingFeeDisputesSection",
         "ConfirmForm",
         "ConsoleTable",
         "DepositDisputesSection",
+        "DisputeNoteField",
         "DisputesTable",
         "FilterStrip",
         "HandoverEvidence",
@@ -4197,7 +4201,7 @@
     },
     "/admin/reviews": {
       "files": [
-        "admin/reviews/_components/guest-scan-reviews.tsx",
+        "admin/reviews/_components/guest-reviews-queue.tsx",
         "admin/reviews/actions.ts",
         "admin/reviews/loading.tsx",
         "admin/reviews/page.tsx"
@@ -4209,13 +4213,15 @@
         "dismissReviewFlag",
         "escalateAppeal",
         "overridePublishReview",
-        "rejectAppeal"
+        "rejectAppeal",
+        "setGuestReviewVisibility"
       ],
       "blocks": [
         "AppealCard",
         "Cell",
         "FilterChip",
-        "GuestScanReviews",
+        "GuestReviewAdminRow",
+        "GuestReviewsQueue",
         "Link",
         "PageMasthead",
         "ReadFailed",
@@ -10494,7 +10500,9 @@
     },
     "/dashboard/[eventId]/vendors/[vendorId]/review": {
       "files": [
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/coordinator-refused-state.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/review-request-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/actions.ts",
         "dashboard/[eventId]/vendors/[vendorId]/review/loading.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
@@ -10514,15 +10522,19 @@
       "blocks": [
         "AlreadyReviewedState",
         "AppealForm",
+        "BackButton",
         "ConfirmReceiptState",
+        "CoordinatorRefusedState",
         "DisputedState",
         "FormPageSkeleton",
         "Link",
         "NoLinkedProfileState",
         "NotEligibleState",
         "OnTimeBinaryInput",
+        "PickMenu",
         "RecommendVendorCard",
         "ReviewAxis",
+        "ReviewRequestCard",
         "SelfReviewBlockedState",
         "StarRatingInput",
         "SubmitButton"
@@ -10542,6 +10554,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-answers-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-questions-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-note-swipe.tsx",
@@ -10549,7 +10563,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/loading.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/package-sections.ts",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx",
-        "dashboard/[eventId]/vendors/[vendorId]/workspace/payment-plan-actions.ts"
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/payment-plan-actions.ts",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/question-answers-actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]",
@@ -10559,6 +10574,7 @@
         "/proposals/[seg]"
       ],
       "actions": [
+        "action",
         "addWorkingNoteAction",
         "coupleConfirmReceived",
         "coupleReportNonDelivery",
@@ -10569,6 +10585,7 @@
         "updateVendorCosts"
       ],
       "blocks": [
+        "AnswerField",
         "AppointmentsSection",
         "CancelBookingButton",
         "ChangeAccessLink",
@@ -10592,6 +10609,7 @@
         "HandoverItem",
         "HostServiceDetails",
         "Icon",
+        "InfoTip",
         "LaterInstallment",
         "Link",
         "ManualVenuePinResult",
@@ -10607,14 +10625,20 @@
         "RelationshipTabShell",
         "ReservationTermsAck",
         "Result",
+        "SaveAnswersState",
         "SelfAddedContactCard",
         "ServicesCoveredPicker",
         "ShotListCard",
         "SnapshotChargeLine",
         "SubmitButton",
+        "SupplierAnswersForm",
+        "SupplierQuestionsBody",
+        "SupplierQuestionsCard",
+        "SupplierQuestionsUnread",
         "SwipeToDelete",
         "SwitchTrack",
         "TrustedCircleBadge",
+        "TypedRow",
         "UndoToastHost",
         "VendorDirectPay",
         "VendorItemizationCard",
@@ -12165,6 +12189,18 @@
         "ProQuietLine"
       ]
     },
+    "/dev/questions-lab": {
+      "files": [
+        "dev/questions-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "QuestionsSectionBody",
+        "SupplierQuestionsBody",
+        "TheyToldYou"
+      ]
+    },
     "/dev/receipt-lab": {
       "files": [
         "dev/receipt-lab/page.tsx"
@@ -12177,6 +12213,33 @@
         "ReceiptSlip",
         "SaveAsPdfButton",
         "ShareReceiptButton"
+      ]
+    },
+    "/dev/review-lab": {
+      "files": [
+        "dev/review-lab/actions.ts",
+        "dev/review-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "labSendGuestReview"
+      ],
+      "blocks": [
+        "CoordinatorRefusedState",
+        "GuestReviewForm",
+        "GuestReviewHeader",
+        "GuestReviewSendState",
+        "GuestReviewThanks",
+        "GuestReviewsGroup",
+        "GuestReviewsQueue",
+        "GuestStarsLine",
+        "NotOnDoorList",
+        "ReviewForLine",
+        "ReviewGroupHead",
+        "ReviewRequestCard",
+        "S",
+        "Said",
+        "Shell"
       ]
     },
     "/dev/schedule-lab": {
@@ -12363,6 +12426,7 @@
         "ChatThreadMenu",
         "LockRequestAnswer",
         "ProposalMaker",
+        "QuestionsSendBody",
         "QuickReplies",
         "SupplierLabShell",
         "ThreadAnswerLine",
@@ -12470,7 +12534,6 @@
         "Fix",
         "FloorClock",
         "GalleryMedia",
-        "GuestRatingsSection",
         "HubDoorRow",
         "HubEventCard",
         "HubEventInfo",
@@ -14161,9 +14224,9 @@
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
-        "v/[slug]/_components/guest-ratings-section.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
+        "v/[slug]/_components/review-groups.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
@@ -14206,7 +14269,11 @@
         "DirectionsMenu",
         "EventsByKindButton",
         "FilterChip",
-        "GuestRatingsSection",
+        "GuestAtEventPill",
+        "GuestReviewItem",
+        "GuestReviewsGroup",
+        "GuestReviewsRead",
+        "GuestStarsLine",
         "HTMLDivElement",
         "Image",
         "InfoTip",
@@ -14223,6 +14290,8 @@
         "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
+        "ReviewForLine",
+        "ReviewGroupHead",
         "ReviewHeroMetrics",
         "ReviewRow",
         "ReviewWithCouple",
@@ -14242,6 +14311,7 @@
         "ShopReachMap",
         "ShopSinceLine",
         "SignInHereLink",
+        "SmallStars",
         "StarRow",
         "StartServiceInquiryResult",
         "StorytellerTile",
@@ -14310,6 +14380,35 @@
         "SignInHereLink",
         "Step",
         "SwitchRow"
+      ]
+    },
+    "/v/[slug]/guest-review": {
+      "files": [
+        "v/[slug]/guest-review/_components/guest-review-form.tsx",
+        "v/[slug]/guest-review/_components/guest-review-header.tsx",
+        "v/[slug]/guest-review/_components/guest-review-states.tsx",
+        "v/[slug]/guest-review/actions.ts",
+        "v/[slug]/guest-review/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "send",
+        "sendGuestReview"
+      ],
+      "blocks": [
+        "CouldNotLoad",
+        "GuestReviewForm",
+        "GuestReviewSendState",
+        "GuestReviewThanks",
+        "GuestShownAs",
+        "Header",
+        "Link",
+        "NotOnDoorList",
+        "PickMenu",
+        "Said",
+        "Shell",
+        "StarRatingInput",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard": {
@@ -14590,8 +14689,11 @@
       "blocks": [
         "ActivityRow",
         "Icon",
+        "InfoTip",
         "MoveButton",
-        "QuestionsSection"
+        "QuestionsSection",
+        "QuestionsSectionBody",
+        "StarterQuestion"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -14643,14 +14745,18 @@
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "bookingFeeDispute"
+      ],
       "blocks": [
         "CopyButton",
         "DetailPageSkeleton",
+        "DisputeNoteField",
         "Link",
         "PageMasthead",
         "PaymentChannelName",
-        "ShopNotice"
+        "ShopNotice",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/bookings": {
@@ -14735,6 +14841,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/couple-answers.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
@@ -14821,6 +14928,7 @@
         "ChosenRow",
         "ClientNotes",
         "Count",
+        "CoupleAnswers",
         "CoupleLogo",
         "CustomerMoneyFold",
         "DayCheckLine",
@@ -15471,7 +15579,9 @@
       "files": [
         "vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx",
         "vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/questions-send-panel.tsx",
         "vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/send-questions-button.tsx",
         "vendor-dashboard/messages/[threadId]/_components/thread-answer-line.tsx",
         "vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx",
@@ -15482,11 +15592,13 @@
         "vendor-dashboard/messages/[threadId]/page.tsx",
         "vendor-dashboard/messages/[threadId]/pax-actions.ts",
         "vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts",
-        "vendor-dashboard/messages/[threadId]/proposal-actions.ts"
+        "vendor-dashboard/messages/[threadId]/proposal-actions.ts",
+        "vendor-dashboard/messages/[threadId]/questions-actions.ts"
       ],
       "destinations": [
         "/u/[seg]",
         "/u/[seg]/c/[seg]",
+        "/vendor-dashboard/activities",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -15497,6 +15609,7 @@
       "actions": [
         "acceptInquiry",
         "acceptPaxSurcharge",
+        "action",
         "clearVendorPaymentPlan",
         "confirmVendorPayment",
         "declineInquiry",
@@ -15536,11 +15649,15 @@
         "PendingPaymentAnswer",
         "PipelinePressureLine",
         "ProposalMaker",
+        "QuestionsSendBody",
+        "QuestionsSendPanel",
         "QuickReplies",
         "QuoteSeed",
         "RailBody",
         "Resolved",
         "SendProposalCard",
+        "SendQuestionsButton",
+        "SendQuestionsState",
         "ServiceCardQuoteSeed",
         "Sheet",
         "SnapRow",
@@ -16836,6 +16953,7 @@
     },
     "/vendor-dashboard/website": {
       "files": [
+        "vendor-dashboard/website/_components/flag-reason-pick.tsx",
         "vendor-dashboard/website/_components/page-parts.tsx",
         "vendor-dashboard/website/_components/review-replies.tsx",
         "vendor-dashboard/website/_components/use-page-draft.ts",
@@ -16851,6 +16969,7 @@
         "/vendor-dashboard/subscription"
       ],
       "actions": [
+        "postGuestReviewReply",
         "postVendorReply",
         "submitFlagAsFake"
       ],
@@ -16865,9 +16984,14 @@
         "DomainManager",
         "ExistingReplySection",
         "FlagForm",
+        "FlagReasonPick",
         "Fold",
         "FormPageSkeleton",
         "FormRows",
+        "GuestAtEventPill",
+        "GuestReplies",
+        "GuestReviewsRead",
+        "HostReplies",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -16878,6 +17002,7 @@
         "PickTile",
         "PlanAsk",
         "ReplyForm",
+        "ReviewGroupHead",
         "ReviewReplies",
         "RowIcon",
         "ShopBadgePill",
@@ -16893,6 +17018,7 @@
         "ThumbRow",
         "TypedRow",
         "UndoToastHost",
+        "VendorGuestReviewCard",
         "VendorReviewCard",
         "VerifiedBookingPill",
         "VerifiedWeddingPill"

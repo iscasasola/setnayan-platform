@@ -39,7 +39,7 @@ export function YourNumberCardView({
   className = '',
 }: {
   numbers: GuestScanNumber[];
-  /** ⭐ Slice 5 — the services this guest received from and has not answered yet: "How was the Photo booth?". */
+  /** ⭐ Slice 5 — the shops this guest received from and has not reviewed or skipped yet: "How was the Photo booth?". */
   asks?: GuestReviewAsk[];
   eventId?: string;
   className?: string;
@@ -63,7 +63,7 @@ export function YourNumberCardView({
       {asks.length > 0 ? (
         <div className="mt-6 space-y-6">
           {asks.map((a) => (
-            <ScanReviewAsk key={a.coverageId} eventId={eventId} coverageId={a.coverageId} service={a.service} shop={a.shop} />
+            <ScanReviewAsk key={a.vendorProfileId} eventId={eventId} vendorProfileId={a.vendorProfileId} service={a.service} shop={a.shop} names={a.names} />
           ))}
         </div>
       ) : null}

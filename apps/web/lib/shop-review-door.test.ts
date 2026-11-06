@@ -59,7 +59,7 @@ const done = (event_id: string, vendor_id: string): ReviewBookingRow => ({
   customer_confirmed_received_at: null,
 });
 const notYet = (event_id: string, vendor_id: string): ReviewBookingRow => ({ ...done(event_id, vendor_id), status: 'booked' });
-const noRename = async () => null;
+const noRename = async (): Promise<string | null> => null;
 const REFUSED = { data: null, error: { code: '42501', message: 'permission denied for table event_vendors' } };
 
 const door = (user: SupabaseClient, admin: SupabaseClient, userId: string | null = 'u1', renamed = noRename) =>

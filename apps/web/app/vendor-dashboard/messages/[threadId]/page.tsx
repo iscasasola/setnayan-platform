@@ -128,6 +128,7 @@ import {
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { QuestionsSendPanel } from './_components/questions-send-panel';
 import { ThreadToolsSheet } from './_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
@@ -1418,6 +1419,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}
         />
+    ),
+    // ❓ Questions for the couple — every supplier (owner 2026-11-04, "Yes, every supplier"): their own set, sent
+    // into this event with one press; the couple answers in their event, the answers return to the customer card.
+    'questions-for-couple': (
+      <QuestionsSendPanel
+        supabase={supabase}
+        threadId={threadId}
+        eventId={thread.event_id}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={coupleLabel}
+      />
     ),
     'log-outcome': outcomeCapture,
   };

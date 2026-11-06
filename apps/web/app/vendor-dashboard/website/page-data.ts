@@ -17,11 +17,8 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
-import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
-import { badgeRowsWithRewards } from '@/lib/badge-rewards';
-import { badgeTracker, nextToEarnLine, shopBadges, trackerSummary } from '@/lib/shop-badges';
-import type { BadgeTrackerData } from './_components/badge-tracker';
+import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { shopBadges, trackerSummary, type ShopBadge } from '@/lib/shop-badges';
 
 /**
  * YOUR PAGE — what the page editor needs, read once (simpler supplier dashboard step 5).
@@ -74,7 +71,7 @@ export type PageData = {
   storeShell: boolean;
   plans: PagePlanLine[];
   /** 🏅 Awards and badges (`lib/shop-badges.ts`), read on every visit — nothing about a badge is stored. */
-  badges: BadgeTrackerData & { summary: string };
+  badges: { summary: string; pills: ShopBadge[] };
 };
 
 type OwnRow = Record<string, unknown> & {
@@ -207,15 +204,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   ).then((xs) => xs.filter((x): x is { key: string; url: string } => x !== null));
   const shellRead = isStoreShellRequest();
   // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
-  // 🎁 …and their rewards (owner 2026-11-05): measured, paid once if newly earned, then read — so a reward shows the
-  // moment its badge does. A failure here leaves the rows without reward lines; it never fails the page.
-  const badgesRead = readShopTrackerFacts(vendorId).then(async (facts) => ({
-    facts,
-    rewards: await readBadgeRewardTracker(createAdminClient(), vendorId, facts).catch((err) => {
-      logQueryError('VendorPage.badgeRewards', err, { vendorId });
-      return null;
-    }),
-  }));
+  // Page keeps the pills only (owner 2026-11-06) — the tracker's extra read (couples not yet asked) is Analytics'.
+  const badgesRead = readShopBadgeFacts(createAdminClient(), vendorId);
   // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
   const views30Read = (async (): Promise<number | null> => {
     const { count, error } = await supabase
@@ -230,7 +220,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     return null;
   });
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeRead, views30] = await Promise.all([
+  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30] = await Promise.all([
     ownRead,
     statsRead,
     reviewsRead,
@@ -243,8 +233,6 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     views30Read,
   ]);
 
-  const badgeFacts = badgeRead.facts;
-  const badgeRows = badgeTracker(badgeFacts);
   const microsite = micrositeFromRow(own);
   const tier = own?.tier_state ?? null;
   const services = ((profile.services ?? []) as string[]).map((key) => ({
@@ -315,8 +303,6 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     badges: {
       summary: trackerSummary(badgeFacts),
       pills: shopBadges(badgeFacts),
-      next: nextToEarnLine(badgeFacts.completedEvents),
-      rows: badgeRead.rewards ? badgeRowsWithRewards(badgeRows, badgeRead.rewards) : badgeRows,
     },
   };
 }

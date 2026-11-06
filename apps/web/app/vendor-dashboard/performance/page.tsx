@@ -89,9 +89,11 @@ import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
 import { BusinessDoing, type DoingWindow } from './_components/business-doing';
 import { YourBadges } from './_components/your-badges';
+import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { badgeShelf, badgeTracker, type TrackerFacts, type TrackerRow } from '@/lib/shop-badges';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readShopBadgeFacts } from '@/lib/shop-badges.server';
-import { badgeShelf, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
+import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
 
@@ -203,14 +205,30 @@ export default async function PerformanceHome({
   // 🏅 THE SHOP'S BADGES (owner 2026-10-29: "Their badges will be on the supplier shop performance page") — every
   // tier, the upsell included. Started HERE so it rides beside Batch A (below) rather than adding a round trip; a
   // refused read is `null` → "Couldn’t load your badges" · "—", never "none" (`badgeShelf`).
-  const badgeFactsRead: Promise<ShopBadgeFacts | null> = safeRead(
-    readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id),
+  // 📣🗺 The one badge TRACKER lives here too (owner 2026-11-06 "ONE HOME FOR EVERY PROMOTE TOOL") — the tracker's facts
+  // are the badge facts plus the couples not yet asked for a review, read in the same call.
+  const badgeFactsRead: Promise<TrackerFacts | null> = safeRead(
+    readShopTrackerFacts(profile.vendor_profile_id),
     null,
     'badges',
   );
+  // 🎁 …and each badge's reward + 4-week upgrade (owner 2026-11-05 · table approved 2026-11-06): measured, paid once
+  // if newly earned, then read — so a reward shows the moment its badge does. Chained on the facts (no extra wait
+  // beside Batch A). A failure leaves the rows without reward lines; it never fails the page.
+  const badgeRewardsRead: Promise<TrackerRewardInput | null> = badgeFactsRead.then((facts) =>
+    facts
+      ? readBadgeRewardTracker(createAdminClient(), profile.vendor_profile_id, facts).catch((err: unknown) => {
+          logQueryError('PerformancePage.badgeRewards', err, { vendorProfileId: profile.vendor_profile_id });
+          return null;
+        })
+      : null,
+  );
+  const trackerRows = (facts: TrackerFacts | null, rewards: TrackerRewardInput | null): TrackerRow[] | null =>
+    facts ? (rewards ? badgeRowsWithRewards(badgeTracker(facts), rewards) : badgeTracker(facts)) : null;
 
   if (gateOn && !canSeePerformanceTrends(tier)) {
-    const gatedShelf = badgeShelf(await badgeFactsRead);
+    const [gatedFacts, gatedRewards] = await Promise.all([badgeFactsRead, badgeRewardsRead]);
+    const gatedShelf = badgeShelf(gatedFacts);
     return (
       <>
         {/* Shop › Analytics (was "How it is going") — the segment stays on the upsell too, so a
@@ -219,7 +237,7 @@ export default async function PerformanceHome({
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
           <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
           <div className="mt-6">
-            <YourBadges shelf={gatedShelf} />
+            <YourBadges shelf={gatedShelf} rows={trackerRows(gatedFacts, gatedRewards)} />
           </div>
         </div>
       <VendorTierGate
@@ -423,6 +441,7 @@ export default async function PerformanceHome({
       : null,
   );
   const shelf = badgeShelf(badgeFacts);
+  const badgeRows = trackerRows(badgeFacts, await badgeRewardsRead);
 
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
@@ -812,7 +831,7 @@ export default async function PerformanceHome({
         </div>
         {/* 🏅 YOUR BADGES (owner 2026-10-29) — under the plain-words top, before the cards. */}
         <div className="mt-8">
-          <YourBadges shelf={shelf} />
+          <YourBadges shelf={shelf} rows={badgeRows} />
         </div>
       </div>
 

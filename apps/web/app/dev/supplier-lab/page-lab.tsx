@@ -49,9 +49,7 @@ import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
-import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
-import { badgeRowsWithRewards, rewardsOwed, type BadgeRewardFacts, type TrackerRewardInput } from '@/lib/badge-rewards';
-import { startableChoices, upgradesOwed } from '@/lib/badge-upgrades';
+import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers', 'services', 'analytics'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -482,54 +480,6 @@ export function labBadgeFacts(who: Who): TrackerFacts {
   };
 }
 
-/**
- * 🎁 The lab shop's badge rewards (owner 2026-11-05) — its lab facts run through the SAME `rewardsOwed` the grant sweep
- * runs, then read back as if granted, so the tracker's "Gave you" / "Next" lines are the real composition.
- */
-function labRewardInput(who: Who): TrackerRewardInput {
-  const f = FIX[who];
-  const tier = who === 'parish' ? 'free' : 'pro';
-  const b = LAB_BADGE_EVENTS[who];
-  const facts: BadgeRewardFacts = {
-    verified: f.verified,
-    completedEvents: b.events,
-    trustedReviews: f.reviews,
-    firstSourcedBooking: b.events > 0,
-    branchIds: [],
-    bookedCardIds: b.events > 0 ? ['lab-card-1'] : [],
-    awards: b.awards.length > 0 ? [{ type: 'top_pick', periodMonth: '2026-11-01' }] : [],
-  };
-  const granted = rewardsOwed(facts).map((o, i) => ({
-    rewardId: `lab-r${i}`,
-    key: o.key,
-    badge: o.badge,
-    kind: o.reward.kind,
-    units: o.reward.units,
-    grantedAt: `2026-11-0${1 + (i % 5)}T02:00:00Z`,
-    revokedAt: null,
-    usedAt: null,
-    usedOn: null,
-  }));
-  return {
-    facts,
-    granted,
-    names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
-    awardTypeByTitle: { "Setnayan's Top Pick": 'top_pick', 'Most Booked': 'most_booked', 'Rising Star': 'rising' },
-    periodMonth: '2026-11-01',
-    // ⏱ Badge upgrades (6 Nov) — every earned one, read back as granted and still READY (the parish is on Free).
-    tier,
-    upgrades: upgradesOwed(facts).map((o, i) => ({
-      upgradeId: `lab-u${i}`,
-      key: o.key,
-      grantedAt: `2026-11-0${1 + (i % 5)}T02:00:00Z`,
-      startable: startableChoices(o.choices, tier),
-      startedChoice: null,
-      startedAt: null,
-      endsAt: null,
-    })),
-  };
-}
-
 function pageFixture(who: Who): PageClientData {
   const f = FIX[who];
   const bf = labBadgeFacts(who);
@@ -569,7 +519,8 @@ function pageFixture(who: Who): PageClientData {
     addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
-    badges: { summary: trackerSummary(bf), pills: shopBadges(bf), next: nextToEarnLine(bf.completedEvents), rows: badgeRowsWithRewards(badgeTracker(bf), labRewardInput(who)), saveHref: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg(badgesForPrint(bf))).toString('base64')}` },
+    // Page keeps the pills only (owner 2026-11-06); the tracker is Analytics › Your badges (`?s=coord-badges`).
+    badges: { summary: trackerSummary(bf), pills: shopBadges(bf) },
   };
 }
 

@@ -50,6 +50,12 @@
  *   maps OFF,  4096, webpackBuildWorker              FATAL "JavaScript heap out of memory"
  *   maps OFF,  8192, webpackBuildWorker  ← SHIPPED   5.0-5.2   6.9-7.0  9.75-10.01 GB (two runs)
  *
+ * 2026-11-04, main 78112195, Linux 4 cores, RSS summed over the build tree
+ * (source had grown 48 → 64 MB since 2026-10-01):
+ *   as above                                        11.2 min  14.1 min 11.4 GB
+ *   + no webpack disk cache  ← SHIPPED              8.9 min   11.8 min  6.8 GB
+ * The peak was webpack WRITING its cache (lib/build-webpack-cache.ts).
+ *
  * "maps ON" = what Vercel ran: SENTRY_AUTH_TOKEN set, SENTRY_PROJECT not, so
  * Sentry built ~2,100 source maps per deploy and uploaded none
  * (lib/sentry-sourcemaps-can-upload.ts). 2026-09-07's 7168 MB heap OOM was

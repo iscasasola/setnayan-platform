@@ -12378,6 +12378,8 @@
       ],
       "destinations": [
         "/dev/supplier-chat-lab",
+        "/dev/supplier-chat-lab?m=chats",
+        "/dev/supplier-chat-lab?m=tools",
         "/dev/supplier-lab",
         "/vendor-dashboard/messages/[seg]"
       ],
@@ -12396,8 +12398,10 @@
         "ProposalMaker",
         "QuestionsSendBody",
         "QuickReplies",
+        "SupplierChats",
         "SupplierLabShell",
         "ThreadAnswerLine",
+        "ThreadArchiveToggle",
         "ThreadToolPanel",
         "ThreadToolsSheet",
         "VendorOfferService"
@@ -15497,13 +15501,21 @@
     "/vendor-dashboard/messages": {
       "files": [
         "vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx",
+        "vendor-dashboard/messages/_components/supplier-chats.tsx",
         "vendor-dashboard/messages/loading.tsx",
         "vendor-dashboard/messages/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "Icon"
+        "BackButton",
+        "ChatInbox",
+        "Icon",
+        "PageMasthead",
+        "SupplierChats",
+        "SupplierChatsRead",
+        "ThreadArchiveToggle",
+        "TimelineReadProblem"
       ]
     },
     "/vendor-dashboard/messages/[threadId]": {

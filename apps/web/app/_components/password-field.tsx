@@ -152,6 +152,7 @@ export function PasswordField({
       className={['relative block', wrapperClassName, wrapperPropsClass].filter(Boolean).join(' ')}
     >
       <input
+        // field-ok: the one password template; every password box routes through it — lib/one-password-field.test.ts
         {...input}
         id={id}
         ref={setRef}

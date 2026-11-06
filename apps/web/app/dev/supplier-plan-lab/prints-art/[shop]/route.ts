@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { renderPrint } from '@/lib/supplier-prints-svg';
-import { printQr, printShopFrom } from '@/lib/supplier-prints-shop';
-import { DEFAULT_PRINT_DESIGN, printDesign, printFilename, printPiece, printQrMode } from '@/lib/supplier-prints';
+import { printMemberFrom, printQr, printShopFrom } from '@/lib/supplier-prints-shop';
+import { DEFAULT_PRINT_DESIGN, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,8 +33,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     origin,
   });
   const save = sp.get('save') === '1';
-  const svg = renderPrint({ piece, design, shop, qr: printQr(printQrMode(sp.get('qr')), origin, slug), side: sp.get('side') === 'b' ? 'b' : 'f', for: save ? 'print' : 'screen' });
+  // PRINTS BY PURPOSE AND SIZE: the fixture's text facts (no pictures — the lab reads no storage), the sheet's
+  // `On your prints ▾` (`hide`) and the member's own card (`who=me`) — the same opts the real route hands the renderer.
+  const full = {
+    ...shop,
+    services: long ? ['Grazing tables', 'Plated dinner', 'Buffet for 200'] : ['Same-day edit film', 'Wedding photo + video', 'Live stream'],
+    since: long ? 'In business since 2014' : null,
+    area: long ? 'Serves up to 100 km around Tagaytay' : 'Tagaytay',
+    ownDomain: long ? 'casabuenaventura.ph' : null,
+  };
+  const member = piece.id === 'card' && sp.get('who') === 'me' ? printMemberFrom('Juan dela Cruz', long ? 'Head chef' : null) : null;
+  const svg = renderPrint({ piece, design, shop: full, qr: printQr(printQrMode(sp.get('qr')), origin, slug), side: sp.get('side') === 'b' ? 'b' : 'f', for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
   return new NextResponse(svg, {
-    headers: { 'content-type': 'image/svg+xml; charset=utf-8', ...(save ? { 'content-disposition': `attachment; filename="${printFilename(piece, design)}"` } : {}) },
+    headers: { 'content-type': 'image/svg+xml; charset=utf-8', ...(save ? { 'content-disposition': `attachment; filename="${printFilename(piece, design, member?.name)}"` } : {}) },
   });
 }

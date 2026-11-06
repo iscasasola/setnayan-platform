@@ -174,3 +174,8 @@ d209b39a72bf3b56fb1a108fac1b04c4e724550f:apps/web/lib/iap/products.test.ts:gener
 ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/app/dev/supplier-chat-lab/page.tsx:generic-api-key:104
 ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic-api-key:106
 ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic-api-key:52
+
+# #7297 (2026-11-05): Papic pack service codes (PAPIC_GUEST_1K / _150) in a test and a dev-lab fixture, read as a
+# keyword plus a high-entropy value. Catalogue codes, not credentials. Pinned for their introducing commits.
+80efd14f272d23d6476a2d133302382894bc52c0:apps/web/app/dev/supplier-chat-lab/page.tsx:generic-api-key:109
+80efd14f272d23d6476a2d133302382894bc52c0:apps/web/lib/shop-gifts.test.ts:generic-api-key:127

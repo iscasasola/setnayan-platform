@@ -10515,8 +10515,7 @@
         "coupleReportNonDelivery",
         "recommendVendor",
         "submitCoupleReview",
-        "submitReviewAppeal",
-        "withdrawRecommendation"
+        "submitReviewAppeal"
       ],
       "blocks": [
         "AlreadyReviewedState",

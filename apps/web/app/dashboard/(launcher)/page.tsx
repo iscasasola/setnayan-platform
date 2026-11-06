@@ -23,6 +23,10 @@ import { YearMomentsStrip } from './_components/year-moments-strip';
 import { Spotlight } from '@/app/_components/spotlight';
 import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
+import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
+import { guestMePath } from '@/lib/offline-copy-addresses';
+import { offlineSavingOpen } from '@/lib/offline-copies';
+import { QUIET_MAX_COPIES, type QuietCopy } from '@/lib/quiet-schedule-refresh';
 import { publicEventPath } from '@/lib/public-event-url';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, type EventWithRole } from '@/lib/events';
@@ -1144,8 +1148,23 @@ export default async function LauncherPage({
       )[0]
     : undefined;
 
+  // 🔕 QUIET SCHEDULE REFRESH (owner-approved 5 Nov, item 1) — Home re-renders, in the background, the saved "Your
+  // schedule" copy (Event Hub › Me) of each event this account is INVITED to that is around its day (T-3 → the day
+  // after). The worker keeps only copies this account already saved on Me; nothing is drawn here.
+  const quietNow = Date.now();
+  const quietCopies: QuietCopy[] = invitedEvents
+    .filter((e) => e.slug && offlineSavingOpen(e.event_date ?? null, quietNow, e.event_end_date ?? null))
+    .flatMap((e) => {
+      const path = guestMePath(e.slug as string);
+      return path
+        ? [{ eventKey: path.slice(1, path.indexOf('?')), eventDate: e.event_date ?? null, eventEndDate: e.event_end_date ?? null, path }]
+        : [];
+    })
+    .slice(0, QUIET_MAX_COPIES);
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+      {quietCopies.length > 0 ? <QuietScheduleRefresh viewer={user.id} copies={quietCopies} /> : null}
       {/* 🔍 ONE THUMB ROW (owner 2026-10-22): "Search events" · ＋ Create event — the top bar has no search now. */}
       <EventsThumbRow />
       {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).

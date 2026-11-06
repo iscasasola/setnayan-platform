@@ -171,10 +171,10 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
                   <input type="hidden" name="dispute_id" value={r.dispute_id} />
                   <DisputeNoteField name="Note to the supplier" empty="Optional" fieldName="note" />
                   <div className="flex flex-wrap gap-2">
-                    <SubmitButton name="decision" value="accept" pendingLabel="Saving…" className="rounded-lg bg-ink px-3 py-2 text-xs text-white">
+                    <SubmitButton name="decision" value="accept" pendingLabel="Saving…" className="button-primary">
                       Accept — waive the fee
                     </SubmitButton>
-                    <SubmitButton name="decision" value="reject" pendingLabel="Saving…" className="rounded-lg border border-ink/20 px-3 py-2 text-xs text-ink">
+                    <SubmitButton name="decision" value="reject" pendingLabel="Saving…" className="button-secondary">
                       Reject — the fee stands
                     </SubmitButton>
                   </div>

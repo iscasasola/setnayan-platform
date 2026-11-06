@@ -41,6 +41,7 @@
  *   ?s=dates-day      one day (frame 35)   ?s=dates-dayblocked  a blocked day with a hold and a waiting list
  *   ?s=qr · qr-booked · qr-issued · qr-fail   the one QR codes page (frames 10 · 40) &open=issued
  *                     &place=promote  the Shortlist code as Shop › Promote draws it (2026-11-05)
+ *   ?s=qr-page · qr-dates                    My page / Check a date + the door sticker (2026-11-05)
  *   ?s=money          Customers › Money (S-PR4): Received · To come in · meter, Next in ▾ rows, Setnayan fee rows,
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
@@ -335,7 +336,7 @@ export default async function SupplierLabPage({
     const s = q.s ?? '';
     if (/^(events|people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
     if (s === 'chat-ask') return '/vendor-dashboard/customers';
-    if (s.startsWith('qr') && q.place === 'promote') return '/vendor-dashboard/shop/promote';
+    if ((s.startsWith('qr') && q.place === 'promote') || s === 'qr-page' || s === 'qr-dates') return '/vendor-dashboard/shop/promote';
     if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
     if (s === 'page') return '/vendor-dashboard/website';

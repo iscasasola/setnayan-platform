@@ -520,7 +520,7 @@ export function ChatMessageStream({
       const { data, error } = await supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by, previous_scheduled_at',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, status, initiated_by, previous_scheduled_at, room_created_at',
         )
         .in('appointment_id', ids);
       if (cancelled) return;
@@ -537,19 +537,23 @@ export function ChatMessageStream({
           kind: AppointmentKind;
           type: string;
           custom_label: string | null;
+          location: string | null;
           scheduled_at: string | null;
           status: ChatAppointmentData['status'];
           initiated_by: ChatAppointmentData['initiated_by'];
           previous_scheduled_at: string | null;
+          room_created_at: string | null;
         }>) {
           prev[a.appointment_id] = a.previous_scheduled_at;
           next[a.appointment_id] = {
             appointment_id: a.appointment_id,
             kind: a.kind,
             label: a.custom_label?.trim() || 'Meeting',
+            location: a.location,
             scheduled_at: a.scheduled_at,
             status: a.status,
             initiated_by: a.initiated_by,
+            room_created_at: a.room_created_at,
           };
         }
         return next;

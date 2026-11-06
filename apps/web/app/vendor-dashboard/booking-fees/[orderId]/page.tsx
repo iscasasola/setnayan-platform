@@ -351,7 +351,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
             <input type="hidden" name="op" value="open" />
             <input type="hidden" name="order_id" value={order.order_id} />
             <DisputeNoteField name="What happened?" empty="Optional" fieldName="reason" />
-            <SubmitButton pendingLabel="Sending…">Dispute this fee</SubmitButton>
+            <SubmitButton pendingLabel="Sending…" className="button-secondary">Dispute this fee</SubmitButton>
           </form>
         </section>
       ) : null}

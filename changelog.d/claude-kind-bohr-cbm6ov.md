@@ -44,3 +44,8 @@ SPEC IMPACT: None to the rules — both builds implement the DECISION_LOG 2026-0
 5 Nov 2026 (for a DECISION_LOG row): found = OPENED only, never a list appearance · the supplier's alert fires at the
 couple's Approve · the Locked QR found-check waits until after the 7 Nov supplier invite · disputes built now, and the
 booking fee switched on (an owner action in Vercel — not done from this session).
+
+- **2026-11-06 · fix(disputes): the three dispute submits are buttons.** "Dispute this fee" (supplier bill) and
+  Accept / Reject (Admin › Disputes) drew as bare text — `SubmitButton` carries no look of its own and they were
+  given no class. Now `button-secondary` (the bill keeps "Send your payment" as its one primary) and the deposit
+  section's own filled / outlined pair. Caught in the 390 px check-card shots.

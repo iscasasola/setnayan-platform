@@ -55,6 +55,98 @@ export const PRINT_PIECES: readonly PrintPiece[] = [
 
 export const PRINT_PIECE_IDS = PRINT_PIECES.map((p) => p.id);
 
+/* ── PRINTS BY PURPOSE AND SIZE (owner 2026-11-06, "Yes ship it"; DECISION_LOG "PRINTS BY PURPOSE AND SIZE") ─────────
+ * Each piece carries what its size and its reading distance allow — the prototype's PIECES table (purpose · what ·
+ * carries · type), copied with the ruling's deltas: NO PRICE on any print (a printed price cannot update), no phone or
+ * email (the 2026-09-10 no-door-out-of-the-app rule). A missing fact drops its block — never a zero, never an empty box. */
+
+/** The content blocks the ONE `On your prints ▾` pick switches — the prototype's BLOCKS, minus prices. Name and QR are always on. */
+export type PrintBlock = 'logo' | 'tagline' | 'services' | 'stars' | 'badges' | 'since' | 'area' | 'photo' | 'about' | 'reach';
+
+export const PRINT_BLOCKS: ReadonlyArray<{ key: PrintBlock; label: string; from: string }> = [
+  { key: 'logo', label: 'Logo', from: 'Shop › Details' },
+  { key: 'tagline', label: 'Tagline', from: 'Shop › Details' },
+  { key: 'services', label: 'Services', from: 'Shop › Services' },
+  { key: 'stars', label: 'Stars and reviews', from: 'earned' },
+  { key: 'badges', label: 'Badges', from: 'earned' },
+  { key: 'since', label: 'In business since', from: 'Shop › Details' },
+  { key: 'area', label: 'Area served', from: 'Where you work' },
+  { key: 'photo', label: 'Photo', from: 'Shop › Portfolio' },
+  { key: 'about', label: 'About', from: 'Shop › Page' },
+  { key: 'reach', label: 'Web address', from: 'Shop › Page' },
+];
+export const PRINT_BLOCK_KEYS: readonly PrintBlock[] = PRINT_BLOCKS.map((b) => b.key);
+
+/** The `hide=` list a print is asked for with → the blocks switched OFF (unknown words ignored, in the table's order). */
+export function printHidden(raw: string | readonly string[] | null | undefined): PrintBlock[] {
+  const words = new Set((typeof raw === 'string' ? raw.split(',') : (raw ?? [])).map((w) => w.trim()));
+  return PRINT_BLOCK_KEYS.filter((k) => words.has(k));
+}
+
+/** Per piece: who reads it from how far, what it carries, and the type and QR sizes that follow (its ⓘ). */
+export type PrintPurpose = { purpose: string; what: string; carries: readonly string[]; type: string; blocks: readonly PrintBlock[] };
+
+export const PRINT_PURPOSE: Readonly<Record<PrintPieceId, PrintPurpose>> = {
+  card: {
+    purpose: 'Handed over · read in the hand (40 cm).',
+    what: 'Identity + QR. Stays minimal.',
+    carries: ['Your logo — in the monogram’s place when your shop has one', 'Name', 'One line: your tagline (else your trade line)', 'Verified seal', 'Back: your Setnayan address · stars line · 2 badge words · QR'],
+    type: 'Smallest letter 2 mm (6 pt). QR 23 mm wide — scans at 20–25 cm, in the hand.',
+    blocks: ['logo', 'tagline', 'stars', 'badges', 'reach'],
+  },
+  standee: {
+    purpose: 'On a desk or welcome table · read at arm’s length (0.8 m).',
+    what: 'Services + rating + QR.',
+    carries: ['Logo + name + tagline', 'Up to 3 services', 'Stars + review count', 'Up to 3 badges', 'QR + caption', 'Setnayan mark'],
+    type: 'Smallest letter 3 mm (≈ 9 pt); name ≥ 8 mm. QR 60 mm — scans from 60 cm; it sits mid-height, facing the chair.',
+    blocks: ['logo', 'tagline', 'services', 'stars', 'badges'],
+  },
+  door: {
+    purpose: 'On glass · read walking past (2 m).',
+    what: '“We are part of Setnayan” + QR. Kept as is.',
+    carries: ['Unchanged. More content would slow a passer-by; the page behind the QR carries the rest.'],
+    type: 'Letters ≥ 17 mm read at 2 m — the name does; the small lines are for the one who stops. QR 92 mm — scans from ~90 cm. Hang it with the QR at 1.2–1.5 m from the floor.',
+    blocks: ['stars', 'badges'],
+  },
+  table: {
+    purpose: 'Hangs on the table edge, at waist height · read walking up (2–3 m).',
+    what: 'Name, top services, rating, QR.',
+    carries: ['Logo + name + tagline', 'Up to 3 services', 'Stars + reviews', 'Up to 3 badges', 'QR + caption'],
+    type: 'Letters ≥ 25 mm read at 3 m: name 90 mm, services 45 mm. QR 40 cm — scans from 3–4 m; at waist height it is at hand height by itself.',
+    blocks: ['logo', 'tagline', 'services', 'stars', 'badges'],
+  },
+  tarp: {
+    purpose: 'On a wall · read from across a room (5 m).',
+    what: 'Name, tagline, top services, big QR.',
+    carries: ['Logo + name + tagline', 'Up to 4 services', 'Stars + reviews', 'Up to 5 badges', 'In business since · area served', 'Big QR + caption', 'Web address (your own domain, then your Setnayan address)'],
+    type: 'Letters ≥ 40 mm read at 5 m: name 120 mm, services 50 mm, meta 35 mm (readable from 4 m). QR 49 cm — scans from ~5 m. Hang it so the QR’s centre is 1.2–1.6 m from the floor.',
+    blocks: ['logo', 'tagline', 'services', 'stars', 'badges', 'since', 'area', 'reach'],
+  },
+  rollup: {
+    purpose: 'Standing beside a table · read top to bottom as people approach (3 m → 0.5 m).',
+    what: 'Photo, story, services, badges, QR at hand height.',
+    carries: ['Logo + name + tagline (read from 3 m)', 'A portfolio photo', 'About, 3 lines (read from 1 m)', 'QR at hand height', 'Up to 6 services', 'Stars + reviews', 'Up to 5 badges', 'Since · area · web address', 'Setnayan mark'],
+    type: 'Name 70 mm letters (3 m); services 20 mm (1.5 m); the About 12 mm (0.5–1 m). QR 45 cm — scans from 3–4 m. The bottom 60 cm is below reach and often behind a table: only the mark and the address live there.',
+    blocks: ['logo', 'tagline', 'services', 'stars', 'badges', 'since', 'area', 'photo', 'about', 'reach'],
+  },
+  backdrop: {
+    purpose: 'Seen from a few steps (3 m), and in photos.',
+    what: 'A big brand mark, a photo, a big QR.',
+    carries: ['Big logo + name + tagline across the top (in every photo taken in front of it)', 'A portfolio photo, one panel', 'Big QR + caption, at the side so people posing do not cover it', 'Web address', 'Stars + reviews · up to 5 badges · since · area (small, for the one who walks up)', 'No service list'],
+    type: 'Name 180 mm letters read at 10 m and in photos. QR 75 cm — scans from 6–7 m; it sits at the right edge, above the floor.',
+    blocks: ['logo', 'tagline', 'stars', 'badges', 'since', 'area', 'photo', 'reach'],
+  },
+};
+
+/** The personal calling card's ⓘ (owner 2026-11-06: "Yes") — the member's own card, the shop's back. */
+export const PERSONAL_CARD_PURPOSE: PrintPurpose = {
+  purpose: 'Handed over by you · read in the hand.',
+  what: 'Your name and role on the front; your shop’s QR on the back.',
+  carries: ['Front: your name (your account name) · your role word (Team › your label — none when it is empty) · your shop’s logo and name', 'Back: the same back as the shop’s card'],
+  type: 'Same sizes as the calling card.',
+  blocks: ['logo', 'stars', 'badges', 'reach'],
+};
+
 export function printPiece(id: string | null | undefined): PrintPiece | null {
   return PRINT_PIECES.find((p) => p.id === id) ?? null;
 }
@@ -164,10 +256,11 @@ export function groundCss(d: PrintDesign): string {
 /**
  * ⭐ REVIEWS joins the print codes (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL", a controller call
  * under the owner's "use fable to decide": *"a Reviews QR (`/v/<slug>#reviews`) joins the prints QR ▾ (For Suppliers
- * promises a printable review QR)"*). It opens the shop's own page at its reviews (`printQrUrl`). Print-only: the
- * Promote screen's code picker stays Check a date · Shortlist · My page.
- * ⚠ Its title and caption are NOT in the prototype (its QR table has three rows) — "Reviews" / "Scan to read our
- * reviews" are this build's words, flagged for the owner.
+ * promises a printable review QR)"*). Print-only: the Promote screen's code picker stays Check a date · Shortlist ·
+ * My page.
+ * ✍ IT OPENS WRITE A REVIEW (owner 2026-11-06, verbatim pick: "Write a review (Recommended)"): `/v/<slug>/review`
+ * sends a couple with a booking ready for a review to "Leave a review", everyone else to the page's reviews
+ * (`printQrUrl`, `lib/shop-review-door.ts`). Caption "Scan to review us"; the title stays "Reviews".
  */
 export type PrintQrMode = PromoteQrMode | 'reviews';
 
@@ -175,7 +268,7 @@ export const PRINT_QR: Readonly<Record<PrintQrMode, { t: string; sub: string; ca
   dates: { t: 'Check a date', sub: 'free', cap: 'Scan to check our dates' },
   shortlist: { t: 'Shortlist', sub: 'free', cap: 'Scan to save us' },
   page: { t: 'My page', sub: '', cap: 'Scan to see our work' },
-  reviews: { t: 'Reviews', sub: '', cap: 'Scan to read our reviews' },
+  reviews: { t: 'Reviews', sub: '', cap: 'Scan to review us' },
 };
 /** The dropdown's order — the prototype's (Check a date · Shortlist · My page), then Reviews. */
 export const PRINT_QR_ORDER: readonly PrintQrMode[] = ['dates', 'shortlist', 'page', 'reviews'];
@@ -316,16 +409,24 @@ export function project(h: readonly number[], x: number, y: number): [number, nu
 
 export const PRINTS_API = '/api/vendor/prints';
 
-/** `base` is the route that draws — the real one unless a /dev lab hands in its fixture route. */
-export function printHref(o: { piece: PrintPieceId; side?: PrintSide; design: string; qr: PrintQrMode; save?: boolean; base?: string }): string {
+/**
+ * `base` is the route that draws — the real one unless a /dev lab hands in its fixture route. `hide` = the blocks the
+ * `On your prints ▾` pick switched off (the picture AND the Save file honour it); `who: 'me'` = the signed-in member's
+ * own calling card (the card's front carries their name; the back is the shop's).
+ */
+export function printHref(o: { piece: PrintPieceId; side?: PrintSide; design: string; qr: PrintQrMode; save?: boolean; base?: string; hide?: readonly PrintBlock[]; who?: 'me' }): string {
   const q = new URLSearchParams({ piece: o.piece, design: o.design, qr: o.qr });
   if (o.side === 'b') q.set('side', 'b');
   if (o.save) q.set('save', '1');
+  const hidden = printHidden(o.hide ?? []);
+  if (hidden.length) q.set('hide', hidden.join(','));
+  if (o.who === 'me' && o.piece === 'card') q.set('who', 'me');
   return `${o.base ?? PRINTS_API}?${q.toString()}`;
 }
 
-/** The Save file's name: `setnayan-calling-card-ink-gold.svg`. */
-export function printFilename(piece: PrintPiece, design: PrintDesign): string {
+/** The Save file's name: `setnayan-calling-card-ink-gold.svg` — a member's own card adds their name. */
+export function printFilename(piece: PrintPiece, design: PrintDesign, who?: string | null): string {
   const slug = (s: string) => s.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `setnayan-${slug(piece.name)}-${slug(design.name)}.svg`;
+  const me = who ? slug(who) : '';
+  return `setnayan-${slug(piece.name)}${me ? `-${me}` : ''}-${slug(design.name)}.svg`;
 }

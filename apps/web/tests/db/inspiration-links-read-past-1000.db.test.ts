@@ -28,7 +28,15 @@ import { snapshotFromPartRows } from '../../lib/inspiration-parts';
 type LoadMap = typeof import('../../app/admin/categories/_components/load-map');
 type Writes = typeof import('../../app/admin/categories/_components/taxonomy-writes');
 
-const CAP = 1000;
+/*
+ * ⚖ TAXONOMY V2 (2026-11-06): the trade merge collapses duplicate links, so the replayed seed now holds 807 links —
+ * fewer than Supabase's real 1,000. The readers never depend on the number, only on there being more than one page,
+ * so the cap here is 500 (still under the link count; test 0 proves it is in force before anything else is trusted).
+ * The witness moved with the merge too: `events_place` is now the Events-place value of the Reception venue service
+ * (`reception_venue`), and the links that named it name that service.
+ */
+const CAP = 500;
+const WITNESS = 'reception_venue';
 let replay: ReplayResult;
 let db: PGlite;
 let LM: LoadMap;
@@ -90,13 +98,13 @@ test('2 · the derived categories view and the parts are read to the end too', a
   assert.equal(new Set(read.categories.map((r) => `${r.slot_key}→${r.category_id}`)).size, cats, 'a derived row repeated');
 });
 
-test('3 · the couple/supplier snapshot links Sweetheart table to Events Place (a link past row 1,000)', async () => {
+test('3 · the couple/supplier snapshot links Sweetheart table to the Events-place service (a link past the first page)', async () => {
   const want = (
     await db.query<{ canonical_service: string }>(
       `SELECT canonical_service FROM public.inspiration_part_services WHERE slot_key = 'sweetheart_table' ORDER BY sort_order, canonical_service`,
     )
   ).rows.map((r) => r.canonical_service);
-  assert.ok(want.includes('events_place'), 'the seed no longer links sweetheart_table → events_place; pick another witness');
+  assert.ok(want.includes(WITNESS), `the seed no longer links sweetheart_table → ${WITNESS}; pick another witness`);
   const read = await readInspirationPartTables(asParts(capped()));
   assert.equal(read.error, null);
   const snap = snapshotFromPartRows(read.parts, read.categories, read.services);
@@ -110,15 +118,16 @@ test('4 · Admin › Categories: every part the tables link to Events Place is i
     await db.query<{ slot_key: string }>(
       `SELECT ps.slot_key FROM public.inspiration_part_services ps
          JOIN public.inspiration_parts p ON p.slot_key = ps.slot_key
-        WHERE ps.canonical_service = 'events_place' AND p.kind = 'part' AND p.status <> 'retired' AND p.home_category_id IS NOT NULL
+        WHERE ps.canonical_service = $1 AND p.kind = 'part' AND p.status <> 'retired' AND p.home_category_id IS NOT NULL
         ORDER BY ps.slot_key`,
+      [WITNESS],
     )
   ).rows.map((r) => r.slot_key);
-  assert.ok(want.length > 2, `only ${want.length} parts link events_place — the owner's "2 old parts" would not be visible`);
+  assert.ok(want.length > 2, `only ${want.length} parts link ${WITNESS} — the owner's "2 old parts" would not be visible`);
   const cats = { groups: [], categories: [], services: [], tax: { hiddenCategories: {}, tileCoarseCategory: {} }, failed: [] };
   const map = await LM.loadMapData(capped() as never, cats as never);
   assert.equal(map.partsRead, true, 'the paged read failed');
-  const got = map.parts.filter((p) => p.services.includes('events_place')).map((p) => p.key).sort();
+  const got = map.parts.filter((p) => p.services.includes(WITNESS)).map((p) => p.key).sort();
   assert.deepEqual(got, want);
   assert.ok(got.includes('sweetheart_table') && got.includes('presidential_table'));
 });

@@ -258,19 +258,41 @@ test('a signed-in account reads every part; anon reaches nothing; nobody signed 
   }
 });
 
+/*
+ * ⚖ TAXONOMY V2 (2026-11-06, `20271320461004`): the fold retires categories this seed names (it predates them), and moves
+ * their links onto the live category. Re-applying the seed AFTER the fold therefore puts back, ON CONFLICT DO NOTHING,
+ * exactly the links to those retired categories — the seed is idempotent against its own output, not against a later
+ * migration that deliberately removed rows. So the snapshot below is every part plus every link to a LIVE category
+ * (unchanged, byte for byte, as before), and every link the re-run adds must point at a tombstoned category — one the
+ * fold forwarded. Anything else it adds or changes is still red. The added tombstone links are removed after.
+ */
 test('applied a second time, it changes no row and still holds', async () => {
+  const LIVE = `NOT EXISTS (SELECT 1 FROM public.service_categories c WHERE c.id = l.category_id AND c.merged_into_category_id IS NOT NULL)`;
   const snap = async () =>
     (
       await db.query<{ j: string }>(
         `SELECT (SELECT jsonb_agg(to_jsonb(p) - 'updated_at' - 'created_at' ORDER BY p.slot_key) FROM public.inspiration_parts p)::text
-             || (SELECT jsonb_agg(to_jsonb(l) - 'created_at' ORDER BY l.slot_key, l.category_id) FROM public.inspiration_part_categories l)::text AS j`,
+             || (SELECT jsonb_agg(to_jsonb(l) - 'created_at' ORDER BY l.slot_key, l.category_id) FROM public.inspiration_part_categories l WHERE ${LIVE})::text AS j`,
       )
     ).rows[0]!.j;
+  const tombstoneLinks = async () =>
+    (
+      await db.query<{ k: string }>(
+        `SELECT l.slot_key || '→' || l.category_id AS k FROM public.inspiration_part_categories l WHERE NOT (${LIVE}) ORDER BY 1`,
+      )
+    ).rows.map((r) => r.k);
+  assert.deepEqual(await tombstoneLinks(), [], 'after the fold, a part still links a retired category');
   await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake (admin)' WHERE slot_key = 'cake'`);
   const before = await snap();
   const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_inspiration_parts_on_the_taxonomy.sql'));
   assert.ok(file, 'the migration file is not there');
   await db.exec(readFileSync(join(MIGRATIONS_DIR, file!), 'utf8'));
   assert.equal(await snap(), before, 're-applying the seed overwrote an admin’s edit or changed a row');
+  await db.query(
+    `DELETE FROM public.inspiration_part_categories l
+      USING public.service_categories c
+      WHERE c.id = l.category_id AND c.merged_into_category_id IS NOT NULL`,
+  );
+  assert.deepEqual(await tombstoneLinks(), []);
   await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake' WHERE slot_key = 'cake'`);
 });

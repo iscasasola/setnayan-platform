@@ -13,7 +13,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
-const code = stripComments(readFileSync(join(__dirname, 'page.tsx'), 'utf8'));
+// 📣 The list lives in Shop › Promote › Share your work since 2026-11-06 (owner, "ONE HOME FOR EVERY PROMOTE TOOL");
+// this route only forwards there — so the empty state this guard keeps honest is the section's.
+const code = stripComments(readFileSync(join(__dirname, '../shop/promote/_components/share-your-work.tsx'), 'utf8'));
+const forward = stripComments(readFileSync(join(__dirname, 'page.tsx'), 'utf8'));
+
+test('the old Recaps route forwards to Promote › Share your work, and draws nothing itself', () => {
+  assert.match(forward, /redirect\('\/vendor-dashboard\/shop\/promote#share'\)/);
+  assert.doesNotMatch(forward, /loadVendorRecaps|ShareButtons|<section/);
+});
 
 test('the empty Recaps page carries no "Coming soon" tag', () => {
   assert.doesNotMatch(code, /coming soon/i);

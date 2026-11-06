@@ -197,7 +197,7 @@ test('Reset stays in the draft panel — opened by Page ▾ › Reset, never pro
 test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell line, outcome report', () => {
   const fn = body('HubDraftToolbar');
   assert.match(fn, /Apply needs Event Hub Pro/, 'the try-then-pay Pro line must still render');
-  assert.match(fn, /can be applied on the web/, 'the store-shell line must still render — no price, no pay path in the shell');
+  assert.match(fn, /waiting for Pro/, 'the store-shell line must still render — no price, no pay path, no web in the shell');
   assert.match(fn, /<ResultLine result=\{result\}\s*\/>/, 'the outcome of the last action must still be reported');
   assert.match(fn, /Reset in your draft\. Guests still see the old page until you Apply\./, "Reset's own confirmation copy must still render");
 });

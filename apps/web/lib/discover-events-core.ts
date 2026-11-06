@@ -406,3 +406,56 @@ export function selectPeopleToFollow(
     )
     .slice(0, cap);
 }
+
+/*
+  ─── 🔎 DISCOVER'S SEARCH — THE SAME CARDS, MATCHED (owner 2026-10-25) ──────
+  *"what i want is the discover being their place to see suppliers, people, and
+  their events. From their own, the the people they connected, to the rest of
+  the users of setnayan that made their event public."* — then *"so it is like
+  how youtube searches · find the user, and the videos related to the search"*.
+
+  A search reaches the two shelves' OWN rows (people you follow or are connected
+  to, then the world) through the SAME allow-list — `isDiscoverable` runs inside
+  `selectDiscoverShelves` exactly as for the feed — and keeps the cards whose
+  words match. No second visibility rule: a stranger's event that is not public
+  never becomes a row, so it can never become a match.
+*/
+
+/** How many matched cards each layer lists. The shelves' caps, doubled: a search is asked for, a shelf is a taste. */
+export const DISCOVER_SEARCH_CAPS = { people: 16, world: 24 } as const;
+
+/**
+ * The words a Discover card is matched on, as the ONE matcher (`matchesCommandQuery`) reads them — the same
+ * lowercase includes your own events are matched with, so one query finds yours and theirs alike. Its title, its
+ * address's words (`cale-ice` → "cale ice"), and the PUBLIC host name it already prints. Nothing the card does not
+ * show is ever searched.
+ */
+export function discoverCardMatchable(card: Pick<DiscoverEventCard, 'title' | 'href' | 'host'>): {
+  label: string;
+  sublabel: string;
+  kind: 'event';
+  terms: string;
+} {
+  const slug = card.href.replace(/^\//, '');
+  return {
+    label: card.title,
+    sublabel: card.host?.name ?? '',
+    kind: 'event',
+    terms: `${slug} ${slug.replace(/-/g, ' ')}`,
+  };
+}
+
+/**
+ * The typed words as ONE `ilike` pattern for the world read (display name OR address), or null when nothing
+ * searchable is left. Every run of anything that is not a letter or a digit becomes `%` — so "cale ice" finds both
+ * `cale-ice` and "Cale & Ice", and no character the filter grammar treats as syntax (`,` `(` `)` `"` `\` `*`) can
+ * ever reach it.
+ */
+export function discoverSearchPattern(typed: string): string | null {
+  const core = typed
+    .trim()
+    .slice(0, 64)
+    .replace(/[^\p{L}\p{N}]+/gu, '%')
+    .replace(/^%+|%+$/g, '');
+  return core ? `%${core}%` : null;
+}

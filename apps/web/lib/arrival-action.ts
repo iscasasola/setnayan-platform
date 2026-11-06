@@ -30,6 +30,7 @@
 
 import type { RsvpStatus } from '@/lib/guests';
 import { SITE_MENU_ANCHORS } from '@/app/[slug]/_lib/site-menu';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 
 /**
  * 🔴 THE HREFS COME FROM THE PAGE'S OWN ANCHOR MAP, NOT FROM WORDS THAT READ
@@ -43,7 +44,15 @@ import { SITE_MENU_ANCHORS } from '@/app/[slug]/_lib/site-menu';
  */
 export const PASS_ANCHOR = 'site-pass';
 
-/** The reply sheet's anchor (`RSVP_SHEET_ANCHORS` in rsvp-sheet-state.ts pins that it opens). */
+/**
+ * The reply SHEET's anchor (`RSVP_SHEET_ANCHORS` in rsvp-sheet-state.ts pins that it opens).
+ *
+ * 🚪 NO GUEST DOOR POINTS HERE ANY MORE (owner 2026-10-11, "ONE REPLY FORM"):
+ * every reply door opens the reply PAGE (`inviteReplyPath` — the one with the
+ * Terms tick and a required answer). The sheet is drawn only in the Maker's
+ * canvas, where the Maker's own "RSVP page" still opens it by this anchor
+ * (`lib/maker-made-once-pages.ts`).
+ */
 export const REPLY_SHEET_ANCHOR = 'your-details';
 
 export type ArrivalAction = {
@@ -68,6 +77,15 @@ export type ArrivalActionInput = {
   hasPass?: boolean;
   /** Where the RSVP lives on this page. */
   rsvpHref?: string;
+  /**
+   * Is the reply open on this page (`plan.rsvpShouldRender`)? FALSE — the
+   * guest's stage is the Save the Date (owner 2026-10-11, `replyAskedInStage`),
+   * or the couple switched the reply off — and no action that opens the reply
+   * is offered: not "RSVP", not the status that doubles as "change it". The day
+   * and after-the-day actions are not about the reply and are unaffected.
+   * OPTIONAL and absent = open, so every caller written before it is unchanged.
+   */
+  replyOpen?: boolean;
 };
 
 function isIsoDay(v: string | null | undefined): v is string {
@@ -113,12 +131,18 @@ export function meLeadsWithReply(input: {
  * rather than being given a second, weaker one.
  */
 export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction | null {
+  const action = arrivalActionOf(input);
+  return input.replyOpen === false && actionOpensReply(action) ? null : action;
+}
+
+function arrivalActionOf(input: ArrivalActionInput): ArrivalAction | null {
   const rsvp = input.rsvpStatus ?? null;
   if (rsvp === null) return null;
 
-  // The reply SHEET's own anchor — never `#site-me`: Me is the guest's ticket and
-  // must open on it, not under a sheet (rsvp-sheet-state.ts, walk-through 2026-10-01).
-  const rsvpHref = input.rsvpHref ?? `/${input.slug}#${REPLY_SHEET_ANCHOR}`;
+  // 🚪 THE ONE REPLY FORM (owner 2026-10-11): the reply PAGE — the Terms tick, an
+  // answer required — never a second form in a sheet over the page. (It was the
+  // sheet's anchor, `/{slug}#your-details`, from 2026-10-01.)
+  const rsvpHref = input.rsvpHref ?? inviteReplyPath(input.slug);
   const day = isIsoDay(input.eventDate) ? input.eventDate.slice(0, 10) : null;
   const today = isIsoDay(input.today) ? input.today.slice(0, 10) : null;
 

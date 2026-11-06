@@ -95,7 +95,7 @@ test('AN EXHAUSTED CELEBRATION CAN PUSH THE FIGURE UP', () => {
 
   const v = learnPointsPerGuest('wedding', withCensored, { initial: 150 });
   assert.equal(v.pointsPerGuest, 95, 'the lower bound wins when it exceeds the mean');
-  assert.match(v.reason, /raised by 1 exhausted celebration/);
+  assert.match(v.reason, /raised by 1 exhausted event/);
   assert.equal(v.censoredFloor, 95);
 });
 

@@ -22,8 +22,9 @@
 // while we were offline catch up without a page reload.
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { OpenFileLink } from '@/app/_components/open-file-link';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, Share } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -34,10 +35,22 @@ import {
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { quoteCardState } from '@/lib/quote-card-state';
+import {
+  QUOTE_VERSION_SELECT,
+  changesSincePrevious,
+  orderQuoteVersions,
+  versionsNewestFirst,
+  type QuoteVersionRow,
+} from '@/lib/quote-versions';
+import { QuoteWhatChanged } from './quote-what-changed';
+import { QuoteVersionsRow } from './quote-versions-sheet';
+import { SubmitButton } from './submit-button';
+import { respondToProposal } from '@/app/vendor-dashboard/proposals/actions';
 import type { CoupleLockTarget } from '@/lib/lock-door';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { LockAnswerForms } from './lock-answer-forms';
+import { QuoteCardLines } from './quote-card-lines';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
 import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
@@ -82,6 +95,26 @@ import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 import { formatCount } from '@/lib/format-number';
+import { pauseWhileHidden } from '@/lib/tab-return';
+import {
+  CHAT_PENDING_EVENT,
+  CHAT_SETTLED_EVENT,
+  CONFIRM_WINDOW_MS,
+  LAST_LINE_WORDS,
+  lastOwnLine,
+  runRetry,
+  settlePendings,
+  type PendingSend,
+} from '@/lib/chat-optimistic';
+import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
+import {
+  CHAT_FILE_EXPIRED_LABEL,
+  expiryDateFor,
+  expiryWarningLine,
+  isExpired,
+  showsExpiryWarning,
+} from '@/lib/chat-file-rules';
+import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -118,6 +151,22 @@ type ProposalCardData = {
 
 type Props = {
   threadId: string;
+  /**
+   * The other side's latest read of this thread (`chat_thread_reads.last_read_at`, read by the page) — "Seen" under
+   * your last message once it is at or after it (owner 2026-10-28: *"yes show seen"*). Null = unknown or never.
+   */
+  theirLastReadAt?: string | null;
+  /**
+   * Couple side: the shop team member's first name per `sender_user_id`, for a supplier message (owner 2026-10-28 —
+   * any member of the shop may reply). Only names the page may show (a revealed shop); absent → no name line.
+   */
+  senderNames?: Record<string, string>;
+  /**
+   * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
+   * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
+   * absent → no line (no day → files never expire).
+   */
+  fileExpiry?: { eventDate: string | null; endDate?: string | null; precision?: string | null } | null;
   /**
    * `dealEntryFor(...)` for this thread, from the page. The "🧾 Send a deal"
    * chip opens the amendment builder, and a Deal amends a quote — so before
@@ -306,12 +355,23 @@ export function ChatMessageStream({
   paymentProofUrl = null,
   payoutReadiness = 'unreadable',
   feeForecast = null,
+  theirLastReadAt = null,
+  senderNames = {},
+  fileExpiry = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  /** ⚡ Sent but not yet stored — painted at once, faded (`lib/chat-optimistic.ts`). */
+  const [pendings, setPendings] = useState<PendingSend[]>([]);
+  /* Remember the last messages, so the next open of this thread paints them before the server answers
+     (`lib/chat-last-known.ts`, drawn by the thread's `loading.tsx`). */
+  useEffect(() => {
+    markChatViewer(currentUserId);
+    rememberThread(threadId, messages, { viewerRole, uid: currentUserId, label: counterpartyLabel });
+  }, [threadId, messages, viewerRole, currentUserId, counterpartyLabel]);
   const [counterpartyTyping, setCounterpartyTyping] = useState(false);
 
   // Proposal cards: a message with proposal_id renders as a card. We fetch the
@@ -322,6 +382,16 @@ export function ChatMessageStream({
   // on exactly that card. This says the difference.
   const [cardsDegraded, setCardsDegraded] = useState(false);
   const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
+  /**
+   * 4 Nov 2026 · EVERY SENT VERSION of the quotes in this thread (`lib/quote-versions.ts`).
+   * NULL = UNKNOWN (not read yet, or refused): the cards then say nothing about versions —
+   * no "version N", no What changed — and behave exactly as they did before.
+   */
+  const [quoteVersionRows, setQuoteVersionRows] = useState<QuoteVersionRow[] | null>(null);
+  const quoteVersions = useMemo(
+    () => (quoteVersionRows ? orderQuoteVersions(quoteVersionRows) : null),
+    [quoteVersionRows],
+  );
 
   /**
    * Each quote message paired with the cards that quote was built from, so the
@@ -351,6 +421,35 @@ export function ChatMessageStream({
     const ids = [...new Set(messages.map((m) => m.proposal_id).filter((x): x is string => !!x))];
     if (ids.length === 0) return;
     let cancelled = false;
+    // 4 Nov 2026 · the version history of each (event, supplier) quote in the thread — the
+    // pair's sent rows, so "version N" and What changed are read from the rows themselves.
+    const pairs = [
+      ...new Map(
+        messages
+          .filter((m) => m.proposal_id)
+          .map((m) => [`${m.event_id}|${m.vendor_profile_id}`, m] as const),
+      ).values(),
+    ];
+    void (async () => {
+      const reads = await Promise.all(
+        pairs.map((m) =>
+          supabase
+            .from('vendor_proposals')
+            .select(QUOTE_VERSION_SELECT)
+            .eq('event_id', m.event_id)
+            .eq('vendor_profile_id', m.vendor_profile_id)
+            .neq('status', 'draft'),
+        ),
+      );
+      if (cancelled) return;
+      const refused = reads.find((r) => r.error || !r.data);
+      if (refused) {
+        if (refused.error) console.error('[chat] quote version read refused', refused.error);
+        setQuoteVersionRows(null);
+        return;
+      }
+      setQuoteVersionRows(reads.flatMap((r) => (r.data ?? []) as QuoteVersionRow[]));
+    })();
     void (async () => {
       // A refused read here does not show an error — the QUOTE CARD simply
       // never appears in the thread, and both the couple and the supplier are
@@ -421,7 +520,7 @@ export function ChatMessageStream({
       const { data, error } = await supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by, previous_scheduled_at',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, status, initiated_by, previous_scheduled_at, room_created_at',
         )
         .in('appointment_id', ids);
       if (cancelled) return;
@@ -438,19 +537,23 @@ export function ChatMessageStream({
           kind: AppointmentKind;
           type: string;
           custom_label: string | null;
+          location: string | null;
           scheduled_at: string | null;
           status: ChatAppointmentData['status'];
           initiated_by: ChatAppointmentData['initiated_by'];
           previous_scheduled_at: string | null;
+          room_created_at: string | null;
         }>) {
           prev[a.appointment_id] = a.previous_scheduled_at;
           next[a.appointment_id] = {
             appointment_id: a.appointment_id,
             kind: a.kind,
             label: a.custom_label?.trim() || 'Meeting',
+            location: a.location,
             scheduled_at: a.scheduled_at,
             status: a.status,
             initiated_by: a.initiated_by,
+            room_created_at: a.room_created_at,
           };
         }
         return next;
@@ -760,54 +863,60 @@ export function ChatMessageStream({
       }
     };
 
-    const channel = supabase
-      .channel(`chat-${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as ChatMessageRow;
-          setMessages((prev) => {
-            // Guard against the same INSERT echoing twice (e.g. on a
-            // reconnect that replays the buffered event).
-            if (prev.some((m) => m.message_id === row.message_id)) return prev;
-            return [...prev, row].sort((a, b) =>
-              a.created_at.localeCompare(b.created_at),
+    // 🔌 A thread left in a background tab lets its channel go after a while
+    // (`pauseWhileHidden`); coming back opens it again, and SUBSCRIBED re-reads
+    // the whole thread below — nothing is missed.
+    const stop = pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`chat-${threadId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as ChatMessageRow;
+            setMessages((prev) => {
+              // Guard against the same INSERT echoing twice (e.g. on a
+              // reconnect that replays the buffered event).
+              if (prev.some((m) => m.message_id === row.message_id)) return prev;
+              return [...prev, row].sort((a, b) =>
+                a.created_at.localeCompare(b.created_at),
+              );
+            });
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as ChatMessageRow;
+            setMessages((prev) =>
+              prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
-          });
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as ChatMessageRow;
-          setMessages((prev) =>
-            prev.map((m) => (m.message_id === row.message_id ? row : m)),
-          );
-        },
-      )
-      .subscribe((status) => {
-        // On (re)SUBSCRIBED — including reconnects after a network drop —
-        // pull a fresh batch so we backfill anything missed while offline.
-        if (status === 'SUBSCRIBED') {
-          void refetchAll();
-        }
-      });
+          },
+        )
+        .subscribe((status) => {
+          // On (re)SUBSCRIBED — including reconnects after a network drop —
+          // pull a fresh batch so we backfill anything missed while offline.
+          if (status === 'SUBSCRIBED') {
+            void refetchAll();
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
 
     return () => {
       cancelled = true;
-      void supabase.removeChannel(channel);
+      stop();
     };
   }, [supabase, threadId]);
 
@@ -818,7 +927,8 @@ export function ChatMessageStream({
     if (stickToBottomRef.current) {
       scrollToBottom('smooth');
     }
-  }, [messages, scrollToBottom]);
+    // A pending bubble, and its "Not sent · Try again", must come into view too.
+  }, [messages, pendings, scrollToBottom]);
 
   /*
     Jump pills — owner, 2026-09-18: "chatbox everything inside it, and buttons
@@ -991,6 +1101,61 @@ export function ChatMessageStream({
   }, [threadId, handleLocalTyping, handleSendClear]);
 
   // ---------------------------------------------------------------------------
+  // ⚡ OPTIMISTIC SEND — the composer's pending bubbles (lib/chat-optimistic.ts).
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const onPending = (e: Event) => {
+      const p = (e as CustomEvent<PendingSend>).detail;
+      if (!p || p.threadId !== threadId) return;
+      stickToBottomRef.current = true;
+      // 🔑 OUT OF THE FORM'S TRANSITION. The composer dispatches this from inside its form action, and React holds a
+      // state update made there until the whole action settles — measured: the "at once" bubble took ~1 s (Chromium)
+      // and >2 s (WebKit). A task of its own makes it an ordinary update, painted on the next frame.
+      window.setTimeout(() => setPendings((prev) => [...prev.filter((x) => x.tempId !== p.tempId), p]), 0);
+    };
+    const onSettled = (e: Event) => {
+      const d = (e as CustomEvent<{ tempId: string; threadId: string; ok: boolean; reason?: string }>).detail;
+      if (!d || d.threadId !== threadId) return;
+      setPendings((prev) =>
+        prev.map((x) => (x.tempId === d.tempId ? { ...x, state: d.ok ? 'sent' : 'failed', reason: d.reason } : x)),
+      );
+      if (!d.ok) return;
+      // 🔑 A RETURN IS NOT A DELIVERY: the real row must arrive. If Realtime has not brought it within the window,
+      // read the thread once; still absent → "Not sent" (an attachment the server refused returns quietly).
+      window.setTimeout(() => {
+        void (async () => {
+          let fresh: ChatMessageRow[] | null = null;
+          try {
+            fresh = await fetchMessages(supabase, threadId);
+          } catch {
+            fresh = null;
+          }
+          setPendings((prev) => {
+            const still = prev.find((x) => x.tempId === d.tempId);
+            if (!still) return prev;
+            if (fresh && settlePendings([still], fresh, viewerRole).length === 0) {
+              return prev.filter((x) => x.tempId !== d.tempId);
+            }
+            return prev.map((x) => (x.tempId === d.tempId ? { ...x, state: 'failed' } : x));
+          });
+          if (fresh) setMessages(fresh);
+        })();
+      }, CONFIRM_WINDOW_MS);
+    };
+    window.addEventListener(CHAT_PENDING_EVENT, onPending);
+    window.addEventListener(CHAT_SETTLED_EVENT, onSettled);
+    return () => {
+      window.removeEventListener(CHAT_PENDING_EVENT, onPending);
+      window.removeEventListener(CHAT_SETTLED_EVENT, onSettled);
+    };
+  }, [threadId, supabase, viewerRole]);
+
+  // A pending bubble leaves the moment its real row is in the thread.
+  useEffect(() => {
+    setPendings((prev) => (prev.length ? settlePendings(prev, messages, viewerRole) : prev));
+  }, [messages, viewerRole]);
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   // See the `flush` prop. One string, three scrollers, so the card chrome can
@@ -1011,6 +1176,18 @@ export function ChatMessageStream({
         needsYouCount={needsYouCount}
         filesCount={files.length}
       />
+      {(() => {
+        // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
+        if (!fileExpiry?.eventDate) return null;
+        const opts = { endDate: fileExpiry.endDate ?? null, precision: fileExpiry.precision ?? null };
+        if (!showsExpiryWarning(new Date(), fileExpiry.eventDate, opts)) return null;
+        const day = expiryDateFor(fileExpiry.eventDate, opts);
+        return day ? (
+          <p className="mb-1 px-1 text-[12.5px] text-ink/65" role="note" data-chat-files-expiry="">
+            {expiryWarningLine(day)}
+          </p>
+        ) : null;
+      })()}
 
       {view === 'decisions' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
@@ -1078,7 +1255,7 @@ export function ChatMessageStream({
         minimum, and `basis-0` makes that minimum count THIS FLOOR rather than
         the whole thread. Same on the Decisions and Files scrollers above.
       */
-      className={`min-h-[14rem] flex-1 basis-0 space-y-2 overflow-y-auto ${scrollerChrome}`}
+      className={`min-h-[14rem] flex-1 basis-0 space-y-0.5 overflow-y-auto ${scrollerChrome}`}
       aria-live="polite"
       aria-relevant="additions"
     >
@@ -1094,7 +1271,8 @@ export function ChatMessageStream({
           No messages yet — say hi to break the ice.
         </li>
       ) : (
-        messages.map((m) => {
+        messages.map((m, i) => {
+          const node = (() => {
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -1110,6 +1288,7 @@ export function ChatMessageStream({
               order, not floating above it.
             */
             const isLatestProposal = m.proposal_id === latestProposalId;
+            const quoteVersion = quoteVersions?.find((v) => v.proposalId === m.proposal_id) ?? null;
             const items = (card?.lineItems ?? []).filter((li) => li.label?.trim());
             /*
               S5 · WHAT THIS CARD MAY OFFER is decided ONCE, in
@@ -1127,8 +1306,17 @@ export function ChatMessageStream({
                   isLatest: isLatestProposal,
                   viewer: viewerRole,
                   handshake: lockHandshake?.state ?? null,
+                  version: quoteVersion?.version ?? null,
                 })
               : null;
+            // The live card's "What changed since version N-1" — from `quoteChanges`, the one diff.
+            const quoteDiff = isLatestProposal && quoteVersion ? changesSincePrevious(quoteVersion) : null;
+            /*
+              4 Nov 2026 · A REPLACED QUOTE IS COMPACT (approved prototype "Chat · an updated quote"):
+              "Quote · version N", the total, "Replaced by a newer quote", the date. Its lines and
+              its View quote live in "See every version" on the live card — never twice.
+            */
+            const replaced = card?.status === 'superseded';
             return (
               <li
                 key={m.message_id}
@@ -1142,9 +1330,23 @@ export function ChatMessageStream({
                       : 'border-terracotta/40 bg-terracotta/[0.06]'
                   }`}
                 >
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                    📄 Quote
-                  </p>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                      📄 Quote{quoteVersion ? ` · version ${quoteVersion.version}` : ''}
+                    </p>
+                    {quoteState?.badge ? (
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs ${
+                          quoteState.badge === 'Updated'
+                            ? 'bg-terracotta/15 text-terracotta-700'
+                            : 'bg-warn-100 text-warn-900'
+                        }`}
+                        data-quote-badge=""
+                      >
+                        {quoteState.badge}
+                      </span>
+                    ) : null}
+                  </div>
                   {card && quoteState ? (
                     <>
                       <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
@@ -1156,53 +1358,64 @@ export function ChatMessageStream({
                             Accepted · booked". When the note below already
                             opens with the status, the price line does not
                             repeat it. */}
-                        {quoteState.note?.startsWith(statusLabelOf(card.status))
-                          ? null
-                          : ` · ${statusLabelOf(card.status)}`}
+                        {replaced ? null : (
+                          <>
+                            {quoteState.note?.startsWith(statusLabelOf(card.status))
+                              ? null
+                              : ` · ${statusLabelOf(card.status)}`}
+                          </>
+                        )}
                       </p>
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
+                      ) : null}
+                      {!quoteState.history && quoteVersion?.plan ? (
+                        <p className="mt-0.5 text-xs text-ink/60">{quoteVersion.plan}</p>
                       ) : null}
                       {viewerRole === 'vendor' &&
                       isLatestProposal &&
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
-                      {items.length > 0 ? (
-                        <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
-                          {items.slice(0, 5).map((li, i) => (
-                            <li key={i} className="flex items-baseline justify-between gap-3">
-                              <span className="min-w-0 truncate">
-                                {li.label}
-                                {li.detail ? (
-                                  <span className="text-ink/45"> · {li.detail}</span>
-                                ) : null}
-                              </span>
-                              <span className="shrink-0 tabular-nums">
-                                {typeof li.amount_centavos === 'number'
-                                  ? formatCentavos(li.amount_centavos)
-                                  : 'Complimentary'}
-                              </span>
-                            </li>
-                          ))}
-                          {items.length > 5 ? (
-                            <li className="text-ink/45">
-                              + {items.length - 5} more in the full quote
-                            </li>
-                          ) : null}
-                        </ul>
+                      {/* The card's lines — one component with the supplier's "As they see it" preview. */}
+                      {replaced ? null : <QuoteCardLines items={items} />}
+                      {quoteDiff && quoteVersion?.previous ? (
+                        <QuoteWhatChanged changes={quoteDiff} sinceVersion={quoteVersion.previous.version} />
                       ) : null}
+                      {replaced ? null : (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Link
                           href={`/proposals/${card.publicId}`}
                           className={
-                            quoteState.primary.kind === 'review_accept'
+                            quoteState.primary.kind === 'review_accept' && !quoteState.offerAcceptUpdate
                               ? 'inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600'
-                              : 'inline-flex h-9 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]'
+                              : `inline-flex h-9 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]${
+                                  quoteState.offerAcceptUpdate ? ' flex-1 justify-center whitespace-nowrap !px-2' : ''
+                                }`
                           }
                         >
                           {quoteState.primary.label}
                         </Link>
+                        {/*
+                          4 Nov 2026 · "Accept the update" — the couple, the LIVE pending update only
+                          (`quoteState.offerAcceptUpdate`). The SAME `respondToProposal` the full
+                          quote's Accept posts (and `respond_vendor_proposal` still refuses anything
+                          not sent/viewed); `return_to` keeps the couple in this conversation.
+                        */}
+                        {quoteState.offerAcceptUpdate ? (
+                          <form action={respondToProposal} className="flex flex-1">
+                            <input type="hidden" name="proposal_id" value={m.proposal_id} />
+                            <input type="hidden" name="public_id" value={card.publicId} />
+                            <input type="hidden" name="response" value="accepted" />
+                            <input type="hidden" name="return_to" value={returnPathFor(m)} />
+                            <SubmitButton
+                              pendingLabel="Accepting…"
+                              className="inline-flex h-9 w-full items-center justify-center whitespace-nowrap rounded-lg bg-mulberry px-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                            >
+                              Accept the update
+                            </SubmitButton>
+                          </form>
+                        ) : null}
                         {/*
                           S5 · the couple's ONE next step on an accepted quote,
                           performed HERE (owner 2026-09-19). The same component
@@ -1230,7 +1443,6 @@ export function ChatMessageStream({
                               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
                               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
                               wrapperClassName="flex w-full flex-col items-start"
-                              source="chat_quote_card"
                             />
                           ) : (
                             <Link
@@ -1271,7 +1483,7 @@ export function ChatMessageStream({
                             href={reviseHref}
                             className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
                           >
-                            Update this quote
+                            {quoteState.reviseLabel}
                           </Link>
                         ) : null}
                         {/*
@@ -1304,6 +1516,13 @@ export function ChatMessageStream({
                           ) : null
                         ) : null}
                       </div>
+                      )}
+                      {isLatestProposal && quoteVersions && m.proposal_id ? (
+                        <QuoteVersionsRow
+                          versions={versionsNewestFirst(quoteVersions, m.proposal_id)}
+                          counterpartyLabel={counterpartyLabel}
+                        />
+                      ) : null}
                       {/*
                         THE NEXT MONEY STEP — only on the live, accepted quote
                         of a BOOKED supplier. One line from `moneyStepLine`,
@@ -1483,15 +1702,43 @@ export function ChatMessageStream({
               </li>
             );
           }
+          // 💬 MESSENGER BUBBLES (chat prototype 2026-10-28, frame B): yours right in terracotta, theirs left with a
+          // small avatar beside the LAST bubble of their run; the corners join inside a run; no frame.
+          const mine = ownsBubble(m, viewerRole);
+          const run = bubbleRun(messages, i);
+          const staffName =
+            viewerRole === 'couple' && !mine && run.first && m.sender_user_id ? senderNames[m.sender_user_id] ?? null : null;
+          const corner = mine
+            ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
+            : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
           return (
             <li
               key={m.message_id}
-              className={`flex flex-col ${ownsBubble(m, viewerRole) ? 'items-end' : 'items-start'}`}
+              className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${run.first ? 'pt-1.5' : ''}`}
+              data-chat-bubble={mine ? 'mine' : 'theirs'}
             >
+              {staffName ? (
+                <span className="mb-0.5 ml-[38px] text-[12px] text-ink/55" data-chat-staff-name="">
+                  {staffName}
+                </span>
+              ) : null}
+              <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
+              {!mine ? (
+                run.last ? (
+                  <span
+                    aria-hidden
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
+                  >
+                    {initialsOf(counterpartyLabel)}
+                  </span>
+                ) : (
+                  <span aria-hidden className="w-7 shrink-0" />
+                )
+              ) : null}
               <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                  ownsBubble(m, viewerRole)
-                    ? 'bg-terracotta text-cream'
+                className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
+                  mine
+                    ? 'bg-sn-accent text-white'
                     : 'bg-ink/[0.06] text-ink'
                 }`}
               >
@@ -1514,27 +1761,27 @@ export function ChatMessageStream({
                     owns={ownsBubble(m, viewerRole)}
                     hasBody={!!m.body}
                   />
+                ) : isExpired(m) ? (
+                  // The file went with the 90-days-after rule (C2): its name stays, and it says so.
+                  <p className={`text-[13px] ${mine ? 'text-white/85' : 'text-ink/60'}`} data-chat-file-expired="">
+                    {CHAT_FILE_EXPIRED_LABEL} · {m.attachment_name}
+                  </p>
                 ) : null}
-                <p
-                  className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
-                  }`}
-                >
-                  {/* AI-disclosure label (vendor-autoreply §2B): a bot message
-                      is NEVER presented as a human. The couple sees it under
-                      the vendor's name with an explicit AI tag; the vendor
-                      sees the same tag instead of "You" (it wasn't them).
-                      Copy is the §8 candidate string, pending owner sign-off. */}
-                  {m.is_bot
-                    ? viewerRole === 'vendor' && ownsBubble(m, viewerRole)
-                      ? '⚡ AI auto-reply'
-                      : `⚡ AI auto-reply · ${counterpartyLabel}`
-                    : ownsBubble(m, viewerRole)
-                      ? 'You'
-                      : counterpartyLabel}
-                  {' · '}
-                  {formatChatTimestamp(m.created_at)}
-                </p>
+                {/* AI-disclosure label (vendor-autoreply §2B): a bot message
+                    is NEVER presented as a human. The couple sees it under
+                    the vendor's name with an explicit AI tag; the vendor
+                    sees the same tag instead of "You" (it wasn't them).
+                    The time now sits centred between runs (Messenger), so
+                    only this label stays inside the bubble. */}
+                {m.is_bot ? (
+                  <p className={`mt-1 text-[11px] ${mine ? 'text-white/80' : 'text-ink/55'}`}>
+                    {viewerRole === 'vendor' && mine ? '⚡ AI auto-reply' : `⚡ AI auto-reply · ${counterpartyLabel}`}
+                  </p>
+                ) : null}
+                <span className="sr-only">
+                  {mine ? 'You' : counterpartyLabel} · {formatChatTimestamp(m.created_at)}
+                </span>
+              </div>
               </div>
               {/* Negotiation auto-reader (Phase 1): under the sender's OWN
                   message, if the deterministic reader flags a meeting topic,
@@ -1575,8 +1822,59 @@ export function ChatMessageStream({
               ) : null}
             </li>
           );
+          })();
+          // A centred time between runs (Messenger): first message, or a quiet gap since the one before.
+          const brk = timeBreakBefore(messages, i);
+          return (
+            <Fragment key={m.message_id}>
+              {brk ? (
+                <li aria-hidden className="pb-1 pt-3 text-center text-[12px] text-ink/50" data-chat-time="">
+                  {formatChatTimestamp(m.created_at)}
+                </li>
+              ) : null}
+              {node}
+            </Fragment>
+          );
         })
       )}
+      {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
+      {pendings.map((p) => (
+        <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
+          <div className={`max-w-[75%] rounded-2xl bg-sn-accent px-3 py-2 text-[15px] leading-snug text-white ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+            {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
+            {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
+          </div>
+        </li>
+      ))}
+      {(() => {
+        const lastStored = [...messages].reverse().find((m) => !m.proposal_id && !m.appointment_id && !m.change_order_id && !m.amendment_id && m.sender_role !== 'system') ?? null;
+        const line = lastOwnLine({ lastStored, pendings, viewerRole, theirLastReadAt });
+        if (!line) return null;
+        if (line.kind === 'failed') {
+          return (
+            <li className="flex items-center justify-end gap-2 pr-1 text-[12px] text-terracotta" data-chat-last-line="failed" role="alert">
+              <span>
+                {LAST_LINE_WORDS.failed}
+                {line.reason ? ` — ${line.reason}` : ''}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!runRetry(line.tempId)) setPendings((prev) => prev.filter((x) => x.tempId !== line.tempId));
+                }}
+                className="inline-flex min-h-11 items-center px-2 font-semibold underline underline-offset-2"
+              >
+                Try again
+              </button>
+            </li>
+          );
+        }
+        return (
+          <li className="pr-1 text-right text-[12px] text-ink/50" data-chat-last-line={line.kind}>
+            {LAST_LINE_WORDS[line.kind]}
+          </li>
+        );
+      })()}
       {counterpartyTyping ? (
         <li className="flex justify-start" data-testid="typing-indicator">
           <div className="inline-flex items-center gap-1 rounded-full bg-ink/[0.06] px-3 py-1 text-xs text-ink/60">
@@ -1622,6 +1920,13 @@ export function ChatMessageStream({
   );
 }
 
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? '';
+  const b = parts.length > 1 ? parts[parts.length - 1]![0] ?? '' : '';
+  return (a + b).toUpperCase() || '·';
+}
+
 function ownsBubble(
   m: { sender_role: ChatSenderRole },
   viewerRole: 'couple' | 'vendor',
@@ -1665,7 +1970,7 @@ function AttachmentBlock({
 
   if (isImage) {
     return (
-      <a
+      <OpenFileLink
         href={url}
         target="_blank"
         rel="noopener noreferrer"
@@ -1678,12 +1983,12 @@ function AttachmentBlock({
           loading="lazy"
           className="max-h-64 max-w-full rounded-xl object-cover"
         />
-      </a>
+      </OpenFileLink>
     );
   }
 
   return (
-    <a
+    <OpenFileLink
       href={url}
       target="_blank"
       rel="noopener noreferrer"
@@ -1705,7 +2010,7 @@ function AttachmentBlock({
           </span>
         ) : null}
       </span>
-      <Download className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-    </a>
+      <Share aria-hidden className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
+    </OpenFileLink>
   );
 }

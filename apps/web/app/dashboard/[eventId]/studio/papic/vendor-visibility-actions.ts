@@ -1,9 +1,11 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The couple takes ONE supplier's photos out of their gallery — or puts them
@@ -38,6 +40,7 @@ import { createClient } from '@/lib/supabase/server';
  * the couple could already do by hand.
  */
 export async function setVendorCapturesHidden(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   // ⚠ `vendor_id` is the PRIMARY KEY of event_vendors — verified against the
   // live schema, not assumed. `event_vendor_id` (which reads more naturally and
@@ -45,7 +48,15 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
   const vendorRowId = String(formData.get('vendor_id') ?? '').trim();
   const hidden = String(formData.get('hidden') ?? '') === '1';
 
-  const back = `/dashboard/${eventId}/studio/papic`;
+  // Where the switch was pressed: a supplier file's sheet in Memories, or the supplier's row in Event Details ›
+  // Event access (owner 2026-10-23 — the per-supplier switch left the Papic page). A fixed choice, never a free path.
+  const from = String(formData.get('back') ?? '');
+  const back =
+    from === 'memories'
+      ? `/dashboard/${eventId}/memories`
+      : from === 'details'
+        ? `/dashboard/${eventId}/details`
+        : papicHomeHref(eventId);
   if (!eventId || !vendorRowId) redirect(back);
 
   const supabase = await createClient();
@@ -63,8 +74,38 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
     .eq('vendor_id', vendorRowId)
     .eq('event_id', eventId);
 
-  if (error) redirect(`${back}?vendorMedia=error`);
+  if (error) redirect(withQuery(back, `vendorMedia=error`));
 
-  revalidatePath(back);
-  redirect(`${back}?vendorMedia=${hidden ? 'hidden' : 'shown'}`);
+  revalidatePath(hrefPath(back));
+  revalidatePath(`/dashboard/${eventId}/memories`);
+  redirect(withQuery(back, `vendorMedia=${hidden ? 'hidden' : 'shown'}`));
+}
+
+/**
+ * The SAME write, answered IN PLACE — for Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"; the switch moved there
+ * from Event Details › Event access). A save never resets the screen (owner 2026-10-26): no redirect, the sheet stays
+ * open and the switch shows what was stored. Same gate, same scoped update, same RLS-bound client as above.
+ */
+export async function setVendorCapturesHiddenHere(
+  eventId: string,
+  vendorRowId: string,
+  hidden: boolean,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await refuseLimitedHelper(eventId, 'photos');
+  if (!eventId || !vendorRowId) return { ok: false, message: 'That supplier could not be found.' };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sign in again to change this.' };
+  const { data, error } = await supabase
+    .from('event_vendors')
+    .update({ papic_captures_hidden: hidden })
+    .eq('vendor_id', vendorRowId)
+    .eq('event_id', eventId)
+    .select('vendor_id');
+  // A zero-row update is a refusal, not a save — say so.
+  if (error || !data || data.length === 0) return { ok: false, message: 'We couldn’t save that. Try again.' };
+  revalidatePath(`/dashboard/${eventId}/memories`);
+  return { ok: true };
 }

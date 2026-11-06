@@ -81,6 +81,11 @@ type Props = {
   payMethods: CoupleFacingMethod[];
   payMethodsState: CouplePayMethodsState;
   /**
+   * The Pay sheet already lists HOW TO PAY THEM from the couple's own record of a supplier they added (2026-10-29),
+   * so "isn't on Setnayan, so their payment details aren't here" would contradict the ways right above it.
+   */
+  ownWaysShown?: boolean;
+  /**
    * The first payment the accepted quote requested, in centavos — the MINIMUM
    * the deposit may be (`recordDeposit` refuses less, via
    * `decideDepositAmount`). null = no accepted quote / no schedule: the form
@@ -132,6 +137,7 @@ export function DepositReservation({
   depositDisputeNote,
   payMethods,
   payMethodsState,
+  ownWaysShown = false,
   requestedFirstPaymentCentavos = null,
   requestedFirstPaymentSentence = null,
   requestedTermsUnreadable = false,
@@ -273,7 +279,9 @@ export function DepositReservation({
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             1 · Pay {vendorName}
           </p>
-          {noMethods ? (
+          {ownWaysShown ? (
+            <p className="text-[12px] text-ink/70">Pay them one of the ways above, then record it here.</p>
+          ) : noMethods ? (
             <p role="note" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
               {noMethods}
             </p>
@@ -367,7 +375,7 @@ export function DepositReservation({
               defaultValue={minimumPhp ?? undefined}
               placeholder={minimumPhp ? undefined : 'e.g. 10000'}
               aria-describedby={minimumPhp ? 'deposit_php_min' : undefined}
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
             {minimumPhp ? (
               <p id="deposit_php_min" className="text-[11px] text-ink/55">
@@ -388,7 +396,7 @@ export function DepositReservation({
                 type="text"
                 maxLength={48}
                 placeholder="GCash / BDO / cash"
-                className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
             <div className="space-y-1">
@@ -401,7 +409,7 @@ export function DepositReservation({
                 type="text"
                 maxLength={64}
                 placeholder="Txn ref"
-                className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
           </div>
@@ -448,7 +456,7 @@ export function DepositReservation({
                 setErrorMsg(null);
               }}
               disabled={pending}
-              className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+              className="rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
             >
               Cancel
             </button>
@@ -587,7 +595,7 @@ function LaterInstallment({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream"
           >
             <CalendarCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Pay early
@@ -617,7 +625,7 @@ function LaterInstallment({
               required
               inputMode="decimal"
               defaultValue={amountCentavos !== null ? amountCentavos / 100 : undefined}
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
             <p className="text-[11px] text-ink/55">
               Paying part of it? Enter what you paid — the rest stays due.
@@ -629,14 +637,14 @@ function LaterInstallment({
               maxLength={48}
               aria-label="Method (optional)"
               placeholder="Method (GCash / BDO / cash)"
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
             <input
               name="reference"
               maxLength={64}
               aria-label="Reference (optional)"
               placeholder="Reference #"
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>
           {/* The same private receipt upload the payment log uses — logPayment
@@ -679,7 +687,7 @@ function LaterInstallment({
                 setErrorMsg(null);
               }}
               disabled={pending}
-              className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+              className="rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
             >
               Cancel
             </button>

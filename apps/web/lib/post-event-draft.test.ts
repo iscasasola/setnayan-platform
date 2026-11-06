@@ -170,7 +170,7 @@ test('order: one place at a time, in the run; fixed scenes do not move; chapters
   assert.equal(moved.sectionOrder![0], 'custom:dogs1');
 });
 
-test('a style pick is FREE, the default stores nothing, and Schedule · Gallery keep ONE home', () => {
+test('a style pick is Pro unless the recommended (2026-10-16), the default stores nothing, and Schedule · Gallery keep ONE home', () => {
   const a = arr();
   const pick = patchOf(postEventSetStyle(a, 'numbers', 'receipt', 'big-numbers'));
   assert.deepEqual(pick.sceneLooks, { numbers: { style: 'receipt' } });
@@ -178,8 +178,11 @@ test('a style pick is FREE, the default stores nothing, and Schedule · Gallery 
   assert.deepEqual(back.sceneLooks, {}, 'the default is an absence');
   assert.equal(postEventSetStyle(a, 'ch-2', 'timeline', 'one-per-screen'), null, 'Schedule’s style lives on its section');
   assert.equal(postEventSetStyle(a, 'gallery', 'mosaic', 'grid'), null, 'Gallery’s style lives on its section');
+  /* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16: *everything in Style is Pro … style cards*): a card that is not the
+     recommended one is Pro at Apply; the recommended one is an absence, and going back to it is free. */
   const items = classifyPostEventDraft(pick, LIVE_STORY);
-  assert.deepEqual(items.map((i) => [i.field, i.pro]), [['sceneLooks', false]]);
+  assert.deepEqual(items.map((i) => [i.field, i.pro]), [['sceneLooks', true]]);
+  assert.deepEqual(classifyPostEventDraft(back, { sceneLooks: { numbers: { style: 'receipt' } } }).map((i) => [i.field, i.pro]), [['sceneLooks', false]], 'going back to the recommended card is free');
 });
 
 test('words: a part’s own line, or back to the words written from the day', () => {
@@ -194,7 +197,10 @@ test('words: a part’s own line, or back to the words written from the day', ()
   assert.deepEqual(Object.keys(ch.sceneLooks!), ['chapters']);
 });
 
-test('a part’s own font is FREE at Apply — it goes live with its colour, the style and the words', () => {
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO
+   ◆"): a part's font and colour and the scene's card are Style — held at ✓ Apply for a couple without Pro, each named
+   on the sheet; the couple's words beside them still go live. */
+test('a part’s own font, colour and the scene’s card are Pro at Apply — named, held, and written with Pro', () => {
   const a = arr();
   const drafted = patchOf(
     postEventSetElements(
@@ -205,16 +211,15 @@ test('a part’s own font is FREE at Apply — it goes live with its colour, the
   );
   assert.equal(drafted.sceneLooks!.numbers!.elements?.heading?.font, 'playfair', 'a real Event Hub font is kept');
   const draft = mergeHubDraft(emptyHubDraft(), { editorial: drafted });
-  /* 🔤 2026-10-06 (owner, "EVENT DETAILS IS REBUILT": *"font on a single part is
-     FREE"*): the part's font goes live with its colour and style — nothing held. */
   const free = planHubDraftApply(draft, live(), false);
-  assert.equal(free.refused.length, 0, 'a part’s font was held as Pro');
-  assert.deepEqual(hubDraftWriteTables(free.apply), ['event_editorial']);
-  const liveLooks = arr().sceneLooks;
-  const fp = sceneLooksFreePart(liveLooks, drafted.sceneLooks!);
-  assert.equal(fp.numbers?.elements?.heading?.font, 'playfair', 'the free part dropped the (free) font');
-  assert.equal(fp.numbers?.elements?.heading?.color, '#123456');
-  assert.deepEqual(hubDraftProEffects(draft, live(), false), [], 'the Apply sheet asks for a free font');
+  assert.equal(free.refused.length, 1, 'a part’s font and colour went live for a free couple');
+  assert.equal(planHubDraftApply(draft, live(), true).refused.length, 0, 'a Pro couple’s look was held');
+  const fp = sceneLooksFreePart(arr().sceneLooks, drafted.sceneLooks!);
+  assert.equal(fp.numbers?.elements?.heading?.font, undefined, 'the free part carried the (Pro) font');
+  assert.equal(fp.numbers?.elements?.heading?.color, undefined, 'the free part carried the (Pro) colour');
+  assert.equal(fp.numbers?.style, undefined, 'the free part carried the (Pro) card');
+  const lines = hubDraftProEffects(draft, live(), false).map((e) => `${e.what} · ${e.where}`).sort();
+  assert.deepEqual(lines, ['Colour · Heading on Statistics', 'Font · Heading on Statistics', 'Receipt tally · Statistics'].sort(), 'the Apply sheet does not name the font, colour and card');
 });
 
 test('show / hide and order are FREE at Apply — a free couple’s apply', () => {

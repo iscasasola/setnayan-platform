@@ -18,12 +18,21 @@
  * Pure (no I/O): the page reads it, the guards read it.
  */
 
-/** The four groups — phone: four folds, one open at a time; desktop: all open. */
+/**
+ * The groups — phone: one fold each, one open at a time; desktop: all open.
+ *
+ * ⚖ Owner 2026-10-07 (on his phone, Event Details): *"the Event Access is not
+ * here: Host: Helper: Vendors: and toggles on what they can access?"* — People
+ * with access sat INSIDE Guests & money, under the last supplier row, where it
+ * read as part of that supplier. It is now its own fold, EVENT ACCESS, after
+ * Guests & money and before Put this away.
+ */
 export const RECORD_GROUPS = [
   { key: 'looks', title: 'How it looks' },
   { key: 'works', title: 'How it works' },
   { key: 'event', title: 'Your event' },
   { key: 'guests-money', title: 'Guests & money' },
+  { key: 'access', title: 'Event access' },
 ] as const;
 export type RecordGroupKey = (typeof RECORD_GROUPS)[number]['key'];
 
@@ -64,12 +73,11 @@ export type RecordEditorKey = keyof typeof RECORD_EDITOR_COMPONENT;
  * them) or listed in `RECORD_ROW_TOOL`.
  */
 export const RECORD_ROW_EDITOR = {
+  /* ⚙ 'guests-get-in' · 'rsvp-questions' · 'reply-by' · 'list-closes' left for Guests ⚙ (settings per menu B,
+     owner 2026-10-27) — `DETAILS_ROWS_MOVED_TO_GUESTS` (`lib/event-settings-record.ts`) forwards their addresses. */
   fonts: 'font',
   colours: 'colours',
   buttons: 'buttons',
-  'guests-get-in': 'rsvp',
-  'rsvp-questions': 'rsvp',
-  'reply-by': 'rsvp',
   'papic-answer': 'papic',
   'gifts-answer': 'gifts',
   'logo-answer': 'logo-answer',
@@ -84,8 +92,7 @@ export const RECORD_ROW_EDITOR = {
   'love-story': 'love-story',
   'special-message': 'special-message',
   estimate: 'settings',
-  'list-closes': 'settings',
-  'costs-view': 'settings',
+  /* ⚙ 'costs-view' left for Suppliers ⚙ (owner 2026-10-27) — `DETAILS_ROWS_MOVED_TO_SUPPLIERS` forwards its address. */
 } as const satisfies Record<string, RecordEditorKey>;
 export type RecordRowKey = keyof typeof RECORD_ROW_EDITOR;
 
@@ -142,9 +149,6 @@ export const RECORD_ROW_GROUP: Readonly<Record<RecordRowKey | RecordToolRowKey, 
   cover: 'looks',
   logo: 'looks',
   music: 'looks',
-  'guests-get-in': 'works',
-  'rsvp-questions': 'works',
-  'reply-by': 'works',
   'papic-answer': 'works',
   'gifts-answer': 'works',
   'logo-answer': 'works',
@@ -162,8 +166,6 @@ export const RECORD_ROW_GROUP: Readonly<Record<RecordRowKey | RecordToolRowKey, 
   'special-message': 'event',
   wears: 'event',
   estimate: 'guests-money',
-  'list-closes': 'guests-money',
-  'costs-view': 'guests-money',
 };
 
 /**

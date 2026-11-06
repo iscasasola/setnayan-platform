@@ -1,0 +1,161 @@
+/**
+ * APPEARANCE — Light · Dark, chosen by the person (dark mode PR 3, 2026-10-13).
+ *
+ * The owner's ruling (DECISION_LOG 2026-10-13, "approve all"): one setting, Appearance = Light · Dark,
+ * in account settings › Preferences, the same everywhere, per person and never per event. No
+ * "Automatic / follow the phone" (call 1). Signed-out visitors always see Light (call 4). The
+ * couple's guest pages keep the couple's design — dark never changes them (call 5). Dark appears
+ * AREA BY AREA, only on screens already swept (call 3).
+ *
+ * This file is the ONE place those rules are written. The inline <head> script that paints the class
+ * before the first frame (`app/_components/theme-bootstrap-script.ts`) and the provider that keeps it
+ * right across client navigations (`app/_components/theme-provider.tsx`) both follow `darkApplies`;
+ * `lib/appearance.test.ts` runs the inline script against the same table of cases, so the two can
+ * never disagree.
+ *
+ * NOT A 'use client' MODULE, ON PURPOSE — the root layout (a server file) reads its values.
+ *
+ * ⚠ NO IMPORTS, ON PURPOSE. The provider that reads this is in EVERY page's shared bundle (budget
+ * 206,848 B). The app's route list (`ROUTE_RESERVED_SLUGS`) is therefore passed in by the caller —
+ * the server-built <head> script embeds it, and exposes its decision as `window.__snTheme` so the
+ * provider asks the script instead of shipping the list a second time.
+ */
+
+/**
+ * 🌗 AUTOMATIC (owner 2026-10-23, verbatim: "yes add automatic" … "set it to automatic") — supersedes call 1
+ * of 2026-10-13 ("no follow the phone"). Three choices: Light · Dark · Automatic, where Automatic follows the
+ * phone / OS (`prefers-color-scheme`, live). LIGHT is the DEFAULT (owner 2026-10-23: "make light the default first"
+ * until dark covers every screen): no cookie, no choice → Light. Automatic is a choice a person makes.
+ * It still only paints on a DARK_READY route, for a signed-in person; signed out is always Light (call 4).
+ */
+export type Appearance = 'light' | 'dark' | 'auto';
+export const APPEARANCES: readonly Appearance[] = ['light', 'dark', 'auto'];
+export const DEFAULT_APPEARANCE: Appearance = 'light';
+
+export function isAppearance(value: unknown): value is Appearance {
+  return value === 'light' || value === 'dark' || value === 'auto';
+}
+
+/**
+ * The cookie the <head> script reads before paint. Written by the browser itself when the person
+ * picks (so the page changes at once and nothing is re-rendered on the server); the column
+ * `users.theme_preference` is the cross-device record.
+ */
+export const APPEARANCE_COOKIE = 'sn-theme';
+export const APPEARANCE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;
+
+/** The browser-bar colour of each look. Light is the layout's own `viewport.themeColor`, unchanged. */
+/** Keyed by what a screen PAINTS (light | dark) — Automatic is a choice, not a paint. */
+export const THEME_COLOR: Record<'light' | 'dark', string> = {
+  light: '#FBFBFA',
+  dark: '#17160F', // the approved dark page (control_templates_round2_2026-10-12)
+};
+
+/**
+ * 🚦 THE READY-LIST — route prefixes whose screens have been swept for dark.
+ *
+ * EMPTY UNTIL B2 (owner call 3, 2026-10-13). The switch itself is HIDDEN while the list is empty
+ * (owner, 2026-10-16: "Hide the Light/Dark switch until the first area is ready for dark mode") —
+ * `appearanceSwitchShown` below, so nobody can pick a Dark that changes nothing. Each area PR adds its prefix once every screen
+ * under it has been walked in dark ("/dashboard", "/vendor-dashboard", "/admin" …); the last one
+ * deletes the list. Nobody ever sees a half-dark screen. A prefix matches itself and everything
+ * below it ("/dashboard" → "/dashboard/abc/guests"), never a sibling ("/dashboardx").
+ *
+ * Every entry's first segment must be an app route — `lib/appearance.test.ts` enforces it — so a
+ * couple's slug can never be put on the list by mistake.
+ */
+export const DARK_READY: readonly string[] = [
+  // B2 (2026-10-23, dark_mode_rollout_2026-10-22): the account spokes — the first area a person sees in dark is
+  // the one holding the switch (/dashboard/profile), so a pick changes the screen it was made on. NOT
+  // "/dashboard" itself: that prefix covers the whole event tree, which opens as one with B3 (no exception list).
+  // Not "/dashboard/year" either: it is a redirect to "/dashboard#worth-planning" and paints nothing of its own.
+  // Every route below was walked signed in, at 375 px, light and dark, before it was listed (2026-10-23).
+  '/dashboard/people',
+  '/dashboard/library',
+  '/dashboard/life-flash',
+  '/dashboard/profile',
+  '/dashboard/notifications',
+  '/dashboard/create-event',
+  '/dashboard/samahan',
+  // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
+  // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+];
+
+/**
+ * 🚦 Is the Appearance row (Preferences › Light · Dark) shown? Only once an area is on the ready-list —
+ * owner 2026-10-16: "Hide the Light/Dark switch until the first area is ready for dark mode." ONE
+ * condition, read from the ready-list itself, so the first area PR that adds its prefix shows the switch
+ * with no second edit. Held by `lib/appearance.test.ts` (the switch never shows with an empty list).
+ */
+export function appearanceSwitchShown(ready: readonly string[] = DARK_READY): boolean {
+  return ready.length > 0;
+}
+
+
+/** The person's choice from `document.cookie` — `light` / `dark` / `auto`; no (or an unknown) value is the default, Light. */
+export function appearanceFromCookie(cookie: string): Appearance {
+  const m = /(?:^|;\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(cookie);
+  return m ? (m[1] as Appearance) : DEFAULT_APPEARANCE;
+}
+
+/** Does this choice mean dark, given what the phone / OS prefers right now? */
+export function choiceIsDark(choice: Appearance, prefersDark: boolean): boolean {
+  return choice === 'dark' || (choice === 'auto' && prefersDark);
+}
+
+/**
+ * Signed in = a Supabase session cookie is present (`sb-<project>-auth-token`, chunked `.0` `.1` on a
+ * long token). @supabase/ssr writes it readable by the page. No session → Light, always (call 4),
+ * even when an `sn-theme=dark` is left over from someone who signed out on this device.
+ */
+export function signedInFromCookie(cookie: string): boolean {
+  return /(?:^|;\s*)sb-[A-Za-z0-9]+-auth-token(?:\.\d+)?=/.test(cookie);
+}
+
+/** Is `pathname` under a ready-list prefix? */
+export function isDarkReady(pathname: string, ready: readonly string[] = DARK_READY): boolean {
+  return ready.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : p + '/'));
+}
+
+/**
+ * Is `pathname` one of the app's own screens? `appRoutes` = the first path segments of the app's
+ * route folders (`ROUTE_RESERVED_SLUGS`, generated from disk). Every other first segment is a
+ * couple's (or a shop's) public page under `app/[slug]`, which keeps its own design. "/" is the app.
+ */
+export function isAppRoute(pathname: string, appRoutes: ReadonlySet<string>): boolean {
+  const first = pathname.split('/')[1] ?? '';
+  return first === '' || appRoutes.has(first);
+}
+
+/**
+ * THE RULE: dark is painted only for a signed-in person whose choice means dark (Dark, or Automatic on a phone
+ * that prefers dark), on a swept app screen.
+ */
+export function darkApplies(
+  {
+    pathname,
+    cookie,
+    appRoutes,
+    prefersDark = false,
+  }: { pathname: string; cookie: string; appRoutes: ReadonlySet<string>; prefersDark?: boolean },
+  ready: readonly string[] = DARK_READY,
+): boolean {
+  return (
+    choiceIsDark(appearanceFromCookie(cookie), prefersDark) &&
+    signedInFromCookie(cookie) &&
+    isAppRoute(pathname, appRoutes) &&
+    isDarkReady(pathname, ready)
+  );
+}
+
+/** The `document.cookie` assignment that records a choice (one year, whole site). */
+export function appearanceCookieAssignment(appearance: Appearance, secure: boolean): string {
+  return (
+    `${APPEARANCE_COOKIE}=${appearance}; Path=/; Max-Age=${APPEARANCE_COOKIE_MAX_AGE_S}; SameSite=Lax` +
+    (secure ? '; Secure' : '')
+  );
+}

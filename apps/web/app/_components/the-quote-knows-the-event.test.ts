@@ -1,6 +1,7 @@
 /**
- * the-quote-knows-the-event.test.ts — step 1 of the quote carries the event
- * brief, once, built from the rail's own rows and the stage-1 facts.
+ * the-quote-knows-the-event.test.ts — the quote carries the event brief, once
+ * ("Their event", under Start from — it was step 1 until the quote became one
+ * screen on 2026-10-14), built from the rail's own rows and the stage-1 facts.
  *
  * ⚖ OWNER, 2026-09-22: *"the vendor must see the basic information we can
  * provide to them to help them build for the event."* The rule (which rows,
@@ -21,18 +22,16 @@ const maker = readFileSync(join(ROOT, 'app/_components/proposal-maker.tsx'), 'ut
 const page = readFileSync(join(ROOT, 'app/vendor-dashboard/messages/[threadId]/page.tsx'), 'utf8');
 const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
 
-test('the brief is mounted once, inside step 1 (Know the event), above the guests & hours header', () => {
+test('the brief is mounted once, under Start from ("Their event"), above the guests & hours header', () => {
+  // 2026-10-14 · the quote is ONE screen (simpler supplier dashboard step 4): step 1 became a fold under Start from.
   assert.equal(count(maker, /data-testid="quote-event-brief"/g), 1);
-  const from = maker.indexOf("<QuoteStage {...stageProps('know')}>");
-  const to = maker.indexOf('</QuoteStage>', from);
-  const step1 = maker.slice(from, to);
-  assert.match(step1, /data-testid="quote-event-brief"/);
-  assert.ok(step1.indexOf('data-testid="quote-event-brief"') < step1.indexOf('Header — seeded pax/hours'));
+  const from = maker.indexOf('<QuoteSection id="start"');
+  const to = maker.indexOf('</QuoteSection>', from);
+  const start = maker.slice(from, to);
+  assert.match(start, /data-quote-their-event=""/, 'the brief lost its "Their event" fold');
+  assert.match(start, /data-testid="quote-event-brief"/);
+  assert.ok(maker.indexOf('data-testid="quote-event-brief"') < maker.indexOf('Header — seeded pax/hours'));
   assert.equal(count(maker, /data-testid="quote-brief-withheld"/g), 1);
-});
-
-test('the folded step-1 line is the brief\'s, falling back to the couple only when there is no brief', () => {
-  assert.match(maker, /eventLine: brief\?\.eventLine \?\? \(coupleName\?\.trim\(\) \|\| null\)/);
 });
 
 test('the page builds the brief from the rail\'s rows, the AREA (never the venue), and passes it once', () => {

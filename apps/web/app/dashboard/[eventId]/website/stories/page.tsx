@@ -9,6 +9,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { eventNoun } from '@/lib/event-noun';
 import { setChapterOnMyDay } from './actions';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Stories about your day' };
 export const dynamic = 'force-dynamic';
@@ -113,7 +114,7 @@ export default async function EventStoriesPage({
   return (
     <section className="space-y-8">
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/launch`}
         className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -173,7 +174,7 @@ export default async function EventStoriesPage({
                       : `Not shown on your ${noun}. It is still on their own page.`}
                   </p>
                 </div>
-                <form action={setChapterOnMyDay}>
+                <SafeForm action={setChapterOnMyDay}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="chapter_id" value={c.chapter_id} />
                   <input type="hidden" name="include" value={on ? '0' : '1'} />
@@ -183,7 +184,7 @@ export default async function EventStoriesPage({
                   >
                     {on ? 'Take off my day' : 'Add to my day'}
                   </SubmitButton>
-                </form>
+                </SafeForm>
               </li>
             );
           })}

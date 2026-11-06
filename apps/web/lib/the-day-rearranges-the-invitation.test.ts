@@ -186,16 +186,11 @@ test('the salutation has BOTH slots wired — and the pass has none on Home', ()
   // pass slot may come back here; `passLeads` stays in the resolver, unread by
   // the page, for the day the owner wants a lead again.
   assert.ok(!/dayOfLead\.passLeads/.test(SITE_BODY), 'a pass slot is back on Home');
-  for (const [what, lead, rest] of [
-    [
-      'greeting',
-      'dayOfLead.greetingStepsBack ? greetingBlock : null',
-      'dayOfLead.greetingStepsBack ? null : greetingBlock',
-    ],
-  ] as const) {
-    assert.ok(SITE_BODY.includes(lead), `${what}: the day-of slot is mounted`);
-    assert.ok(SITE_BODY.includes(rest), `${what}: the ordinary slot is mounted`);
-  }
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place for everything"): the salutation left the Welcome; the
+     guest's name, role, date and venues are the top of Me — ONE mount, the same on every day, so there is no slot to
+     drop on the day's branch. */
+  assert.ok(!/greetingBlock|greetingStepsBack \?/.test(SITE_BODY), 'the Welcome’s salutation (and its two day slots) is back');
+  assert.equal((SITE_BODY.match(/<MeGreeting greeting=\{meGreeting\} \/>/g) ?? []).length, 1, 'the guest’s name is not mounted exactly once, on Me');
 });
 
 test('the day-of lead is not a second fixed bar, and not inside the reveal article', () => {

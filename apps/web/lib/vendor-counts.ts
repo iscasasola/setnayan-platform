@@ -3,14 +3,9 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
 import { createAdminClient } from './supabase/admin';
-import {
-  TAXONOMY_MAP,
-  TILE_PARENT,
-  FILIPINIANA_BARONG_CANONICALS,
-  type WeddingFolder,
-  type WeddingTile,
-} from './taxonomy';
+import { type WeddingFolder, type WeddingTile } from './taxonomy';
 import { getTaxonomy, type TaxonomySnapshot } from './taxonomy-db';
+import { fallbackSnapshot } from './taxonomy-snapshot';
 import type { VendorPublicVisibility } from './vendor-visibility';
 
 /**
@@ -195,74 +190,45 @@ export type VendorPreviewRow = {
   verification_state: string | null;
 };
 
-/**
- * canonical_services for a PARENT (folder), excluding marketplaceHidden
- * canonicals (officiants / paperwork never get a vendor query). Honors
- * `secondary_tiles` cross-listing at the parent granularity — a canonical
- * whose secondary tile lives under a different parent surfaces there too
- * (PH reality: hotels/accommodation bundle catering, so they appear under
- * the Feast parent as well as Venue). Cached at module load.
- */
-const CANONICAL_SERVICES_BY_FOLDER: Map<WeddingFolder, string[]> = (() => {
-  const map = new Map<WeddingFolder, string[]>();
-  for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
-    if (meta.marketplaceHidden) continue;
-    const primaryArr = map.get(meta.folder) ?? [];
-    primaryArr.push(canonical);
-    map.set(meta.folder, primaryArr);
-    if (meta.secondary_tiles) {
-      for (const secondaryTile of meta.secondary_tiles) {
-        const secondaryFolder = TILE_PARENT[secondaryTile];
-        if (secondaryFolder === meta.folder) continue;
-        const arr = map.get(secondaryFolder) ?? [];
-        if (!arr.includes(canonical)) arr.push(canonical);
-        map.set(secondaryFolder, arr);
-      }
-    }
-  }
-  return map;
-})();
+// ── THE BUCKETS: tile → services and folder → services — ONE SOURCE ─────────
+//
+// 🔑 ③0-a "one source" (corpus `prototypes/admin_taxonomy_four_levels_2026-10-26/PLAN.md` § 8.3,
+// owner 2026-10-26 "make sure everything follows. this is the foundation of all suppliers").
+//
+// Every "which services are under this category / group" question in the product is answered
+// by `deriveBuckets(snapshot)` over the TAXONOMY SNAPSHOT — the live `service_categories` +
+// `canonical_service_taxonomy` rows read by `getTaxonomy()`. Product code awaits
+// `getCanonicalBuckets()` and passes the result to `servicesInTile` / `servicesInFolder` /
+// `servicesForPlanGroup` / `rollUpCountsToTile`. So an admin who adds a category, adds a
+// service, moves a service or cross-lists one in /admin/categories is followed by every part
+// gate, the couple's category search, the onboarding fan-out and the supplier counts with no
+// deploy.
+//
+// There used to be TWO derivations: module-load IIFEs over the `TAXONOMY_MAP` const (what most
+// callers imported, sync) and this DB twin (what three callers awaited). The IIFEs are gone; the
+// const answer is now `deriveBuckets(fallbackSnapshot())` — the SAME function over the snapshot
+// `getTaxonomy()` itself falls back to, so the fallback can never drift from the reader.
+//
+// The Filipiniana & Barongs cross-view used to be a hand list force-set onto its tile here
+// (`FILIPINIANA_BARONG_CANONICALS`). It is now ordinary `secondary_tiles` rows (migration
+// `one_source_filipiniana_cross_view`), so an 11th terno or barong service an admin cross-lists
+// shows under that tile like any other cross-listing — and the tile is no longer a code-only
+// bucket nobody could edit.
 
-/**
- * canonical_services for a TILE, excluding marketplaceHidden canonicals.
- * Honors `secondary_tiles` cross-listing and the Filipiniana & Barongs
- * cross-view (the same terno/barong vendors as the four attire tiles,
- * surfaced via the tradition facet — categorized once, two discovery paths).
- * Cached at module load. Exported because the marketplace queries + counts
- * are tile-scoped in the 10-parent model.
- */
-export const CANONICAL_SERVICES_BY_TILE: Map<WeddingTile, string[]> = (() => {
-  const map = new Map<WeddingTile, string[]>();
-  for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
-    if (meta.marketplaceHidden || !meta.tile) continue;
-    const primaryArr = map.get(meta.tile) ?? [];
-    primaryArr.push(canonical);
-    map.set(meta.tile, primaryArr);
-    if (meta.secondary_tiles) {
-      for (const secondaryTile of meta.secondary_tiles) {
-        if (secondaryTile === meta.tile) continue;
-        const arr = map.get(secondaryTile) ?? [];
-        if (!arr.includes(canonical)) arr.push(canonical);
-        map.set(secondaryTile, arr);
-      }
-    }
-  }
-  // Filipiniana & Barongs cross-view (explicit list; same vendors as the
-  // attire tiles). The canonicals keep their primary attire tile too.
-  map.set('filipiniana_barongs', [...FILIPINIANA_BARONG_CANONICALS]);
-  return map;
-})();
-
-// ── DB-backed buckets (Phase 2b) ──────────────────────────────────────────
-// Same derivation as the two module-level IIFEs above, but from the live
-// taxonomy snapshot (service_categories + canonical_service_taxonomy), so a
-// vendor an admin re-maps to a different tile re-buckets WITHOUT a deploy. The
-// IIFE constants above remain the synchronous fallback for the not-yet-flipped
-// sync consumers (dashboard / actions / onboarding).
-function deriveBuckets(tax: TaxonomySnapshot): {
+/** canonical → folder / tile buckets, excluding `marketplaceHidden` services. */
+export type CanonicalBuckets = {
   byFolder: Map<WeddingFolder, string[]>;
   byTile: Map<WeddingTile, string[]>;
-} {
+};
+
+/**
+ * Bucket every marketplace-visible service under its tile and folder. Honors `secondary_tiles`
+ * cross-listing at BOTH grains — a service cross-listed onto a tile under another folder
+ * surfaces in that folder too (PH reality: hotels/accommodation bundle catering, so they appear
+ * under the food folder as well as Venue). Pure — exported so the db guard can run it on the
+ * replayed tables.
+ */
+export function deriveBuckets(tax: TaxonomySnapshot): CanonicalBuckets {
   const byFolder = new Map<WeddingFolder, string[]>();
   const byTile = new Map<WeddingTile, string[]>();
   for (const [canonical, meta] of Object.entries(tax.map)) {
@@ -291,22 +257,71 @@ function deriveBuckets(tax: TaxonomySnapshot): {
       }
     }
   }
-  // Filipiniana & Barongs cross-view (explicit list; same vendors as the attire tiles).
-  byTile.set('filipiniana_barongs' as WeddingTile, [...FILIPINIANA_BARONG_CANONICALS]);
   return { byFolder, byTile };
 }
 
 /** Live canonical→folder / canonical→tile buckets from the DB snapshot (fallback-safe). Cached per request. */
-export const getCanonicalBuckets = cache(async () => deriveBuckets(await getTaxonomy()));
+export const getCanonicalBuckets = cache(async (): Promise<CanonicalBuckets> => deriveBuckets(await getTaxonomy()));
 
-/** All marketplace-visible canonicals for a parent (read-only accessor). */
-export function canonicalServicesForFolder(folder: WeddingFolder): string[] {
-  return CANONICAL_SERVICES_BY_FOLDER.get(folder) ?? [];
+/**
+ * The marketplace-visible services under a tile — read off the buckets the caller awaited.
+ * Takes a `string`, not `WeddingTile`: a category an admin created is not in the code union and
+ * must still resolve.
+ */
+export function servicesInTile(buckets: CanonicalBuckets, tile: string): string[] {
+  return buckets.byTile.get(tile as WeddingTile) ?? [];
 }
 
-/** All marketplace-visible canonicals for a tile (read-only accessor). */
+/** The marketplace-visible services under a folder (group), cross-listings included. */
+export function servicesInFolder(buckets: CanonicalBuckets, folder: string): string[] {
+  return buckets.byFolder.get(folder as WeddingFolder) ?? [];
+}
+
+/**
+ * A planning group's services, tightest scope first: its `subcategoryHint` (one service), else
+ * its `catalogTile`, else its `catalogFolder`. The ONE copy of the ladder the Services-tab
+ * category search, the "unlock a category" inquiry, the onboarding counts and the onboarding
+ * availability gate all used to restate (four hand-kept copies, "kept in lock-step").
+ * Structural parameter so this file does not import the plan-group ladder.
+ */
+export function servicesForPlanGroup(
+  buckets: CanonicalBuckets,
+  g: { subcategoryHint?: string | null; catalogTile?: string | null; catalogFolder: string },
+): string[] {
+  if (g.subcategoryHint) return [g.subcategoryHint];
+  if (g.catalogTile) return servicesInTile(buckets, g.catalogTile);
+  return servicesInFolder(buckets, g.catalogFolder);
+}
+
+let fallbackBuckets: CanonicalBuckets | null = null;
+
+/**
+ * ⚠ The buckets per `lib/taxonomy.ts` (the snapshot `getTaxonomy()` falls back to) — for unit tests
+ * that assert on the seed, never for product code (same importer allowlist as
+ * `canonicalServicesForTile` below).
+ */
+export function fallbackCanonicalBuckets(): CanonicalBuckets {
+  fallbackBuckets ??= deriveBuckets(fallbackSnapshot());
+  return fallbackBuckets;
+}
+
+/**
+ * ⚠ THE CONST FALLBACK — the services under a tile per `lib/taxonomy.ts`, NOT per the database.
+ *
+ * Identical to the reader on a freshly seeded database and blind to every admin edit after it.
+ * Kept for exactly two kinds of caller, listed by file in `lib/one-source-buckets.test.ts`:
+ *   · the inspiration-part helpers (`lib/moodboard-gallery.ts`, `lib/moodboard-finalization.ts`),
+ *     which step ③0-b / ③a move onto the parts tables (a part will name SERVICES, so this
+ *     expansion goes away there rather than being threaded through twice);
+ *   · unit tests and dev labs, which assert on the seed.
+ * Any other product caller awaits `getCanonicalBuckets()` and calls `servicesInTile` — the
+ * guard fails a new importer.
+ *
+ * Never widened with the tile id: `taxonomy-tile-reachability.test.ts` reads `length > 0` to
+ * decide a tile is alive.
+ */
 export function canonicalServicesForTile(tile: WeddingTile): string[] {
-  return CANONICAL_SERVICES_BY_TILE.get(tile) ?? [];
+  return servicesInTile(fallbackCanonicalBuckets(), tile);
 }
 
 /**
@@ -320,9 +335,10 @@ export function canonicalServicesForTile(tile: WeddingTile): string[] {
  */
 export function rollUpCountsToTile(
   perCanonical: Map<string, VendorCount>,
+  buckets: CanonicalBuckets,
 ): Map<WeddingTile, VendorCount> {
   const out = new Map<WeddingTile, VendorCount>();
-  for (const [tile, canonicals] of CANONICAL_SERVICES_BY_TILE.entries()) {
+  for (const [tile, canonicals] of buckets.byTile.entries()) {
     let verified = 0;
     let coming_soon = 0;
     for (const c of canonicals) {

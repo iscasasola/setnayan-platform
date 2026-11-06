@@ -36,6 +36,7 @@
 
 import { bucketForVendor, OTHER_BUCKET } from './budget-truth';
 import { agreedTotalNow, type ChangeLineRow } from './agreed-total-and-its-changes';
+import { planGroupsOfCovers } from './shortlist-taxonomy';
 
 /** The columns `computeBudgetHealth` actually selects. */
 export type CommittedVendorRow = {
@@ -96,9 +97,12 @@ export function attributeCommitted(args: {
   let recoveredCount = 0;
 
   for (const v of vendors) {
-    const groups = (Array.isArray(v.covers_plan_groups) ? v.covers_plan_groups : []).filter(
-      (g): g is string => typeof g === 'string' && g.length > 0,
-    );
+    // PLAN GROUPS ONLY (2026-10-20). Since "Also covers" lists the Suppliers
+    // page's rows, the column can hold `tile:<id>` for a row no plan group opens
+    // on (Food Truck). Such a key has no budget line, so it must never become
+    // one here — not the flag-OFF `groups[0]` home, and not a zero-cost
+    // "secondary" bucket that `groupsCarryingMoney` would then draw as a line.
+    const groups = planGroupsOfCovers(v.covers_plan_groups);
 
     if (groups.length === 0) {
       // THE DEFECT. Under flag OFF this row disappears — and so does its money.

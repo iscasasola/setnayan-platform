@@ -30,6 +30,10 @@
  * unchanged; only the admin home moves.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { clearGlobalSettings } from '@/lib/global-settings-clear';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
+import { cleanForWhom } from '@/lib/create-subjects';
 
 /** Vocab keys: lowercase snake, 3–31 chars, must start with a letter. */
 export const EVENT_TYPE_KEY_RE = /^[a-z][a-z0-9_]{2,30}$/;
@@ -97,6 +101,7 @@ export async function createEventTypeCore(
     enabled: false,
   };
   const { error } = await admin.from('event_type_vocab').insert(row);
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (error) {
     if (error.code === '23505') return { ok: false, error: 'exists' };
     return { ok: false, error: error.message };
@@ -160,6 +165,9 @@ export async function updateEventTypeCore(
     .eq('event_type', key)
     .select('event_type')
     .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: 'not_found' };
 
@@ -171,6 +179,45 @@ export async function updateEventTypeCore(
     actor_user_id: actorUserId,
   });
   return { ok: true, data: { key, label } };
+}
+
+/**
+ * WHO a type can be for (`event_type_vocab.for_whom`, owner 2026-10-26) — the rule
+ * the create-event grid's "For ▾" reads. Unknown words are dropped (the column's
+ * CHECK would refuse them anyway); an empty list is allowed — the type then shows
+ * only behind "Show all event types".
+ */
+export async function setEventTypeForWhomCore(
+  admin: SupabaseClient,
+  actorUserId: string,
+  input: { key: string; forWhom: readonly unknown[] },
+): Promise<MutationResult<{ key: string; forWhom: string[] }>> {
+  const key = input.key.trim();
+  if (!EVENT_TYPE_KEY_RE.test(key)) return { ok: false, error: 'Unknown event type.' };
+  const forWhom = cleanForWhom(input.forWhom);
+  const updatedAt = new Date().toISOString();
+  const { data, error } = await admin
+    .from('event_type_vocab')
+    .update({ for_whom: forWhom, updated_at: updatedAt })
+    .eq('event_type', key)
+    .select('event_type')
+    .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
+  clearHomeShelf('eventTypes');
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: 'not_found' };
+  // The audit row is a record, not the change: a refused write is logged and the save still stands.
+  const { error: auditError } = await admin.from('admin_audit_log').insert({
+    action: 'event_types.for_whom',
+    target_table: 'event_type_vocab',
+    target_id: key,
+    after_json: { for_whom: forWhom, updated_at: updatedAt },
+    actor_user_id: actorUserId,
+  });
+  if (auditError) {
+    console.error('[supabase-error] lib/event-types-mutations.ts · setEventTypeForWhomCore audit', auditError);
+  }
+  return { ok: true, data: { key, forWhom } };
 }
 
 /**
@@ -202,6 +249,7 @@ export async function setEventTypeEnabledCore(
     .from('event_type_vocab')
     .update({ enabled: enable, updated_at: new Date().toISOString() })
     .eq('event_type', k);
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (error) return { ok: false, error: error.message };
 
   await admin.from('admin_audit_log').insert({
@@ -237,6 +285,9 @@ export async function retireEventTypeCore(
     .eq('event_type', k)
     .select('label_en')
     .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!row) return { ok: false, error: 'not_found' };
 
@@ -268,6 +319,9 @@ export async function unretireEventTypeCore(
     .eq('event_type', k)
     .select('label_en')
     .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!row) return { ok: false, error: 'not_found' };
 

@@ -5,10 +5,11 @@
  *
  * Capture-first (owner sign-off 2026-07-11): type one line and press Enter. The
  * pure grammar in `lib/guest-parse.ts` turns "Ana Cruz +1 groom vip #Barkada"
- * into a structured draft, `addSingleGuest` lands it, the field clears, focus
- * stays — so a host adds many in a row. An "Adding…" shimmer marks the in-flight
- * round-trip. The bulk-entry paths (full form · CSV import · quick-add list)
- * live in the overflow menu.
+ * into a structured draft, the field clears AT ONCE, focus stays — so a host
+ * adds many in a row — and the name is queued (`guest-add-queue.ts`): drawn
+ * now, written in order by `addSingleGuest`, its own row saying "Adding…",
+ * "Added" or why not (2026-10-19). The bulk-entry paths (full form · CSV
+ * import · quick-add list) live in the overflow menu.
  *
  * FIND MOVED OUT (Living Roster search consolidation · owner sign-off
  * 2026-07-13): the old dual-mode [Add | Find] toggle is retired. Search is no
@@ -19,18 +20,19 @@
  * for both Add and Find" P2 sign-off — the duplicate search box the owner
  * spotted was that model's failure tell.)
  *
- * Motion (the shimmer) is frozen by the global `prefers-reduced-motion` block.
  */
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, ListPlus, Plus, Upload, Users } from 'lucide-react';
-import { useToast } from '@/app/_components/toast/toast-provider';
-import { parseGuestInput } from '@/lib/guest-parse';
-import type { GuestSide } from '@/lib/guests';
-import { OpenQuickAddButton } from './quick-add-sheet';
+import { Plus, Upload, Users } from 'lucide-react';
+import type { GuestRole, GuestSide } from '@/lib/guests';
+import { useRotatingHint } from '@/lib/use-rotating-hint';
+import { AddPreviewLine } from '@/components/search-add-row';
+import { useRoleNames } from './role-names-context';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
-import { addSingleGuest } from '../inline-actions';
+import { useGuestActions } from './guest-actions-context';
+import { guestAdds, queueTypedGuest, typedGuestPreview } from './guest-add-queue';
 
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
@@ -42,6 +44,9 @@ export function CaptureBar({
   defaultSide,
   withDoors = true,
   placeholder = 'Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter',
+  initialValue = '',
+  hints,
+  offeredRoles,
 }: {
   eventId: string;
   /** The active Side lens — a new guest inherits it (prototype `:855`). */
@@ -51,27 +56,42 @@ export function CaptureBar({
   /** The add sheet says "Type a name…" and puts an example that fits THIS
    *  event under the box (`lib/quick-add-tips.ts`) — never two examples. */
   placeholder?: string;
+  /** What the Guests search box held when its ＋ Add opened the sheet (PR 4f). */
+  initialValue?: string;
+  /** 💡 Examples the empty box cycles through after its placeholder (owner 2026-11-01, `lib/use-rotating-hint.ts`). */
+  hints?: readonly string[];
+  /** The roles this event offers — "+Groomsmen" is the role only when it is one, else a group (owner 2026-11-01). */
+  offeredRoles?: readonly GuestRole[];
 }) {
-  const [value, setValue] = useState('');
-  const [pending, startTransition] = useTransition();
+  const [value, setValue] = useState(initialValue);
+  const [needs, setNeeds] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const toast = useToast();
+  const router = useRouter();
+  const { addSingleGuest } = useGuestActions();
+  const roleNames = useRoleNames();
+  useRotatingHint(inputRef, placeholder, hints);
+  /* 👁 What Enter will add, under the box before Enter (owner 2026-11-01) — the same draft `submitAdd` sends. */
+  const typed = { offeredRoles, roleNames };
+  const preview = typedGuestPreview(value, defaultSide, typed);
+  // The list re-reads ONCE when every queued name is written (guest-add-queue.ts).
+  // one-render: keep (batched) — the queued writes go `{ refresh: false }`; this is their one re-read.
+  useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
 
+  /* ⚡ ONE ENTER = ONE GUEST, AT ONCE (owner 2026-10-19: "need to enter button twice to add … adding multiple person needs
+     to be fast and easy"). The name goes on screen and into the ordered queue NOW; the box clears and keeps the focus for
+     the next name. Nothing waits on the server, and no Enter is ever refused while an earlier name is still being written
+     — that refusal (`if (pending) return`) is what dropped 8 of 10 names typed in a row.
+     🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
   const submitAdd = () => {
-    const raw = value;
-    if (!raw.trim() || pending) return;
-    const draft = parseGuestInput(raw, { defaultSide });
-    startTransition(async () => {
-      const res = await addSingleGuest(eventId, draft);
-      if (!res.ok) {
-        // Keep the text so the host can fix it (e.g. add a last name).
-        toast.error(res.error);
-        return;
-      }
-      setValue('');
-      // Keep focus to add many in a row (prototype wireCapture :945-954).
-      requestAnimationFrame(() => inputRef.current?.focus());
-    });
+    const res = queueTypedGuest(eventId, value, defaultSide, addSingleGuest, guestAdds, typed);
+    if (!res.ok) {
+      // Keep the text so the host can fix it (e.g. add a last name) — said at once, never sent to be refused.
+      if (res.error) setNeeds(res.error);
+      return;
+    }
+    setValue('');
+    setNeeds(null);
+    inputRef.current?.focus();
   };
 
   return (
@@ -97,9 +117,13 @@ export function CaptureBar({
           <input
             ref={inputRef}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setNeeds(null);
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              // A keyboard still composing a word (an IME, a phone's suggestion) owns its Enter — it finishes the word.
+              if (!e.nativeEvent.isComposing && e.key === 'Enter') {
                 e.preventDefault();
                 submitAdd();
               } else if (e.key === 'Escape') {
@@ -124,7 +148,7 @@ export function CaptureBar({
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={submitAdd}
-            disabled={pending || !value.trim()}
+            disabled={!value.trim()}
             aria-label="Add this guest"
             title="Add this guest"
             data-capture-add=""
@@ -134,17 +158,11 @@ export function CaptureBar({
           </button>
         </div>
 
-        {/* Hint / shimmer */}
+        {/* Hint — the box never waits, so there is no "Adding…" here: each name says it on its own row (just-added.tsx). */}
         <span className="hidden shrink-0 items-center sm:inline-flex">
-          {pending ? (
-            <span className="gl-adding font-mono text-[11px] text-terracotta-700">
-              Adding…
-            </span>
-          ) : (
-            <span className="rounded-md border border-ink/10 px-1.5 py-0.5 font-mono text-[11px] text-ink/45">
-              {'↵ add & keep going'}
-            </span>
-          )}
+          <span className="rounded-md border border-ink/10 px-1.5 py-0.5 font-mono text-[11px] text-ink/45">
+            {'↵ add & keep going'}
+          </span>
         </span>
 
         {/* ⚖ THE "…" MENU BECAME FOUR VISIBLE DOORS — owner 2026-09-20: *"this
@@ -177,6 +195,12 @@ export function CaptureBar({
           </div>
         ) : null}
       </div>
+      <AddPreviewLine text={needs ? null : preview} className="mt-1.5" />
+      {needs ? (
+        <p role="alert" className="mt-1.5 text-xs text-danger-700" data-capture-needs="">
+          {needs}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -209,16 +233,8 @@ export function AddDoors({ eventId, rows = false }: { eventId: string; rows?: bo
         label={door(<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'From your people')}
         className={cls}
       />
-      <OpenQuickAddButton
-        ariaLabel="Add with details"
-        label={door(<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Add with details')}
-        className={cls}
-      />
       <Link href={`/dashboard/${eventId}/guests/import`} aria-label="Import a file" title="Import a file" className={cls}>
         {door(<Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Import a file')}
-      </Link>
-      <Link href={`/dashboard/${eventId}/guests/quick`} aria-label="Paste many names" title="Paste many names" className={cls}>
-        {door(<ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Paste many names')}
       </Link>
     </>
   );

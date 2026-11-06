@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, X, Zap } from 'lucide-react';
+import { useFormStatus } from 'react-dom';
+import { Camera, Loader2, X, Zap } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { startPapicGuestPurchase, releaseGuestDedicatedShots } from '../buy/actions';
 import type { DedicatedShotsStanding, PapicGuestOffer } from '@/lib/papic-guest-buy';
 import type { BuyWait } from '@/lib/papic-buy-urgency';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * "ADD SHOTS" — the guest's doorway, on the capture screen itself.
@@ -42,7 +44,7 @@ const ERROR_COPY: Record<string, string> = {
   // Owner 2026-08-21: "no. it needs to be in a new event." Shots belong to one
   // celebration, and this one has finished — say the rule, not just "no".
   event_over:
-    'This celebration has finished, so there is nothing left to shoot. Shots are bought for one event at a time — the next one starts fresh.',
+    'This event has finished, so there is nothing left to shoot. Credits are bought for one event at a time — the next one starts fresh.',
   not_here: "We couldn't tell which camera you're holding. Reopen your QR link and try again.",
   too_fast: 'One moment — try that again in a few seconds.',
   unknown_rung: 'That option is no longer available. Pick another one.',
@@ -127,10 +129,13 @@ export function PapicBuyShell({
 
   return (
     <>
+      {/* 📱 On the full-screen camera this sits on the camera's bottom row, right — the row the camera keeps clear for it
+          (its consent toggle stops 10rem short), so nothing overlaps (owner's iPhone 2026-10-30). 44 px tall. */}
       <button
         type="button"
+        data-papic-add-credits=""
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white backdrop-blur hover:bg-black/75"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,var(--sn-safe-r))] z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/60 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-black/75"
       >
         <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Add credits
@@ -142,9 +147,10 @@ export function PapicBuyShell({
           role="dialog"
           aria-modal="true"
           aria-label="Add credits"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 focus:outline-none sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center p-0 focus:outline-none sm:items-center sm:p-4"
         >
-          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 text-ink shadow-xl sm:rounded-2xl">
+          <OverlayBackdrop onClose={close} />
+          <div className="relative max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl bg-surface p-5 text-ink shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight">Add credits</h2>
@@ -259,16 +265,37 @@ function OfferForm({
       <input type="hidden" name="service_code" value={offer.serviceCode} />
       <input type="hidden" name="return_to" value={returnTo} />
       {seatToken ? <input type="hidden" name="seat_token" value={seatToken} /> : null}
-      <button
-        type="submit"
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5"
-      >
-        <span>{offer.phrase}</span>
+      {/* Locks at the first press and names the step (2026-10-13 — a bare
+          submit let two presses race; see lib/one-press-one-order.ts for the
+          server half). The phrase stays readable while it waits. */}
+      <OfferSubmit phrase={offer.phrase} />
+    </form>
+  );
+}
+
+/** The offer's own button: pressed at once, locked until the payment page opens. */
+function OfferSubmit({ phrase }: { phrase: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5 disabled:cursor-wait disabled:border-terracotta"
+      disabled={pending}
+      aria-busy={pending}
+      data-pending={pending ? 'true' : undefined}
+    >
+      <span>{phrase}</span>
+      {pending ? (
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink/60">
+          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} />
+          Opening payment…
+        </span>
+      ) : (
         <span aria-hidden className="text-ink/40">
           &rsaquo;
         </span>
-      </button>
-    </form>
+      )}
+    </button>
   );
 }
 
@@ -310,7 +337,7 @@ function ReleaseSection({
       <p className="sn-eye">Change your mind?</p>
       <p className="text-xs text-ink/60">
         This camera holds {n(standing.dedicated)} credits — {n(standing.spent)} already shot.
-        You can give {n(standing.releasable)} of what you bought to the celebration.
+        You can give {n(standing.releasable)} of what you bought to the event.
       </p>
 
       {confirming ? (
@@ -328,7 +355,7 @@ function ReleaseSection({
                 type="submit"
                 className="rounded-lg bg-mulberry px-3 py-2 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
               >
-                Give {n(standing.releasable)} to the celebration
+                Give {n(standing.releasable)} to the event
               </button>
             </form>
             <button
@@ -346,7 +373,7 @@ function ReleaseSection({
           onClick={() => setConfirming(true)}
           className="w-full rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5"
         >
-          Give the unused {n(standing.releasable)} to the celebration
+          Give the unused {n(standing.releasable)} to the event
         </button>
       )}
     </section>

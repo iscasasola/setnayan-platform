@@ -65,6 +65,8 @@ test('(3) the Maker and Home both hand it the Background, read one way (draft, e
   assert.match(progress, /if \(draftedMain !== undefined\) return draftedMain !== null;/, 'a drafted Background does not win over live');
   assert.match(progress, /return hubMainGround\(\(data as \{ config_json\?: unknown \} \| null\)\?\.config_json\) !== null;/, 'the live Background is not read off the hero row');
   const maker = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(maker, /backgroundChosen: await readBackgroundChosen\(printAdmin, eventId, draftedMain\),/, 'the Maker does not read the Background');
+  // ⚡ 2026-10-23 (speed pass): started as soon as the draft is read, awaited where the guided facts are built.
+  assert.match(maker, /const backgroundChosenRead = startAhead\(readBackgroundChosen\(printAdmin, eventId, draftedMain\)\);/, 'the Maker does not read the Background');
+  assert.match(maker, /backgroundChosen: await backgroundChosenRead,/, 'the Maker does not hand the guide the Background it read');
   assert.match(maker, /if \(d && d\.widgets\.hero && 'main' in d\.widgets\.hero\) draftedMain = d\.widgets\.hero\.main \?\? null;/, 'the Maker ignores a drafted Background');
 });

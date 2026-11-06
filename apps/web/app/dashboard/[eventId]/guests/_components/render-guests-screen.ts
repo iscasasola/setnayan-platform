@@ -1,0 +1,128 @@
+/**
+ * render-guests-screen.ts — TEST HELPER: Guests › List drawn to static HTML (the
+ * REAL `GuestsScreen`, inside the providers its page gives it), so a guard on
+ * the counts line measures what renders, not what the source spells. The
+ * sibling of `guest-setup/render-setup.ts`.
+ */
+import React from 'react';
+import type { GuestRow } from '@/lib/guests';
+
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  /* The screen imports the shipped server actions, whose modules import `server-only`. */
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+  /* A CSS module is its class names: `styles.countsDoor` → "countsDoor". */
+  Mod._extensions['.css'] = (m: { exports: unknown }) => {
+    m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? false : String(k)) });
+  };
+}
+
+const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}, forward() {} };
+
+let n = 0;
+/** A guest already invited and silent; pass what differs. */
+export const guestRow = (over: Partial<GuestRow> = {}): GuestRow =>
+  ({
+    guest_id: `g${(n += 1)}`,
+    first_name: `G${n}`,
+    last_name: 'Test',
+    role: 'guest',
+    extra_roles: [],
+    side: 'bride',
+    rsvp_status: 'pending',
+    entry_source: 'host_seeded',
+    passed_away: false,
+    invitation_sent_at: '2026-10-01T00:00:00Z',
+    plus_one_count: 0,
+    ...over,
+  }) as unknown as GuestRow;
+
+export async function renderGuestsScreen(opts: {
+  guests: GuestRow[];
+  measured?: boolean;
+  gview?: 'list' | 'map' | 'seats' | 'march';
+  /** 🎚 Seats' mode from the address (`seat=`): absent = 2D. */
+  seat?: '3d' | 'list' | 'map' | null;
+  /** 🗂 R4 · the views the row offers (`lib/guests-views.ts`); absent → List · Map. */
+  views?: readonly ('list' | 'map' | 'seats' | 'march')[];
+  /** 🗂 R4 · what Seats / March draw (the page hands the shipped makers, streamed with it). */
+  bodies?: unknown;
+  /** ⚙ Guests settings' rows — present → the ⚙ draws (the page hands them to the couple only). */
+  setup?: unknown;
+  /** `?settings=1` — the sheet open with the page. */
+  settingsOpen?: boolean;
+  /** The "we couldn't load your groups / tables" sentence (`lib/guest-list-unread.ts`). */
+  notLoaded?: string | null;
+  /** A `?q=` from the top bar — a search opens every section with a hit. */
+  initialQuery?: string;
+  /** 📋 Draw it as the phone's last copy (`guest-list-copy.ts`). */
+  copy?: { freshness: 'updating' | 'failed'; savedAt: number } | null;
+  /** What the List shows when there is nothing to section (the page's EmptyState). */
+  empty?: unknown;
+  /** 👁 Draw it for a delegate who may only look (a limited helper, guest list not Edit). */
+  viewOnly?: boolean;
+  /** 👤 Requests to join waiting (card ① of the summary carousel). */
+  requests?: number;
+  /** 🔗 The event lets guests in with one link for everyone. */
+  oneQr?: boolean;
+  /** 📤 Each row's Share (`RowInvite`): the address, the words, and guest_id → token. Absent → no row draws Share. */
+  invite?: unknown;
+  /** ☑ `?select=to-invite` — ⚙ › Pick who's cold link: Select on, the list narrowed to To invite. */
+  initialSelect?: boolean;
+  /** 📥 The Requests page drawn in place (slice 11) and `?gshow=requests`. */
+  requestsBody?: unknown;
+  /** The couple (opens in place even with no body). Absent → only when a body is handed in. */
+  requestsInPlace?: boolean;
+  initialAsking?: boolean;
+}): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const { ToastProvider } = await import('@/app/_components/toast/toast-provider');
+  const { GuestsScreen } = await import('./guests-screen');
+  return renderToStaticMarkup(
+    React.createElement(
+      AppRouterContext.Provider,
+      { value: ROUTER as never },
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(GuestsScreen, {
+          eventId: 'e1',
+          gview: opts.gview ?? 'list',
+          seat: opts.seat ?? null,
+          guests: opts.guests,
+          measured: opts.measured ?? true,
+          notLoaded: opts.notLoaded ?? null,
+          hasSides: true,
+          groupsByGuest: {},
+          groups: [],
+          tables: [],
+          tableByGuest: {},
+          songsByGuest: {},
+          faceByGuest: {},
+          requests: opts.requests ?? 0,
+          requestsBody: (opts.requestsBody ?? null) as never,
+          requestsInPlace: opts.requestsInPlace ?? opts.requestsBody != null,
+          initialAsking: opts.initialAsking ?? false,
+          oneQr: opts.oneQr ?? false,
+          rootLabel: 'A & B',
+          initialQuery: opts.initialQuery ?? '',
+          initialSelect: opts.initialSelect ?? false,
+          setup: opts.setup ?? null,
+          settingsOpen: opts.settingsOpen ?? false,
+          empty: opts.empty ?? null,
+          copy: opts.copy ?? null,
+          viewOnly: opts.viewOnly ?? false,
+          invite: opts.invite ?? null,
+          ...(opts.views ? { views: opts.views } : {}),
+          ...(opts.bodies !== undefined ? { bodies: opts.bodies } : {}),
+        } as never),
+      ),
+    ),
+  );
+}

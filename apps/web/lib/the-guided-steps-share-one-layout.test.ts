@@ -20,7 +20,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { stripComments } from './strip-comments';
@@ -157,7 +157,8 @@ test('(3) the bar says ONE title per stage while the flow is on screen — never
   assert.match(ws, /setGuideTitle\?\.\(guideTitle\);/);
   assert.match(ws, /useEffect\(\(\) => \(\) => setGuideTitle\?\.\(null\), \[setGuideTitle\]\);/, 'the title outlives the flow');
   const shell = read(`${L}/maker-shell.tsx`);
-  assert.match(shell, /const openStageWord = \(openDoor === 'look' \|\| openDoor === 'details'\) && guideTitle \? guideTitle :/, 'the bar does not read the flow’s title');
+  /* The old bar's screen label that read it went with the old Maker (2026-10-25); the title is still handed to every panel. */
+  assert.match(shell, /\bguideTitle,\s*setGuideTitle,/, 'the shell no longer hands the flow’s title to its panels');
 });
 
 /* ── (4) one Apply; the counts list what they count ────────────────────── */
@@ -233,7 +234,8 @@ test('(5) no step’s own field brings back a Save — each drafts as it changes
 test('(6) the logo step: "Do you want a logo?" is in its sheet; the logo shows without guide lines, fitted above the sheet', () => {
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /if \(logoA\) editors\.logo = logoA\.node;/, 'the logo’s answer is not the step’s field');
-  assert.match(details, /max-lg:group-data-\[details-mode=guided\]\/ws:hidden" data-details-logo-strip=""/, 'the answer strip still shows over the logo in the flow');
+  // ✏ L1 (owner 2026-10-08, "no more asking do you want a logo?"): no answer strip over the logo at all — only the flow's step asks.
+  assert.doesNotMatch(details, /data-details-logo-strip/, 'the "Do you want a logo?" strip is back over the Logo studio');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /className="group\/ws flex h-full/, 'the workspace no longer names the group the tools dress by');
   assert.match(ws, /\{editorsBody\(false\)\}\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?\{at\?\.kind === 'step'( && !marchHere)? \? \(/, 'a step whose item draws its own tools hides its field');
@@ -276,9 +278,11 @@ test('(9) the Save the Date film follows the theme unless the couple picked its 
   assert.deepEqual(stdFilmBackground(undefined, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'auto' });
   const picked = { kind: 'plain', value: '#e8d9bd', legibility: 'auto' };
   assert.deepEqual(stdFilmBackground(picked, '#0b0a12'), resolveStdBackground(picked), 'a background the couple picked was overridden');
-  const loaders = read('app/[slug]/_lib/loaders.ts');
-  // 🎨 …the theme's paper as the Mood Board dresses it (2026-10-05, `themeColours`), Readability kept.
-  assert.match(loaders, /stdFollowsTheme\(event\.std_background\)\s*\? stdFilmBackground\(\s*event\.std_background,\s*themeColours\(/, 'the guest page does not dress an unpicked film in the theme');
+  // 🎞 RE-AIMED 2026-10-18 (Look restudy row 6): the guest film no longer resolves a background of its own — it wears
+  // the MAIN background, else the page colour as the Mood Board dresses the theme (`themeColours`), Readability kept.
+  const siteBody = read('app/[slug]/_components/site-body.tsx');
+  assert.match(siteBody, /themeColours\(sceneTheme, event\.role_palette\)\.colours\.canvas/, 'the guest page does not dress a film with no picture in the theme');
+  assert.match(siteBody, /legibility: stdFollowLegibility\(event\.std_background\)/);
 });
 
 test('(10) one count: Event Details\' number IS the Maker\'s number — totals too — and the read costs no second pass', async () => {
@@ -359,9 +363,10 @@ test('(12) opening a step is never dirty; the Mood Board steps show the board, w
   assert.match(ws, /noteStepTouch\(touchRef\.current, e,/);
   assert.match(read('lib/guided-step-touch.ts'), /if \(!e\.isTrusted\) return false;/, 'a field a tool fills itself counts as touched');
   for (const key of ['colours', 'wear'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
+  /* The old Maker's Mood Board controls (its note and downloads) were deleted with it (2026-10-25): Studio › Mood Board
+     is the one board in the Maker, and it draws neither in a step. */
   const mb = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
-  assert.match(mb, /className="contents group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-note-wrap=""/, 'the board’s note shows in the step');
-  assert.match(mb, /group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-exports=""/, 'the downloads show in the step');
+  assert.doesNotMatch(mb, /export async function MoodBoardMakerControls\(/, 'the old Maker’s Mood Board controls are back');
 });
 
 test('(13) Reply by: one date line, the date in the field, one date format', () => {
@@ -371,8 +376,10 @@ test('(13) Reply by: one date line, the date in the field, one date format', () 
   assert.ok(block.length > 50, 'anti-vacuity: the reply-by block was not found');
   assert.doesNotMatch(block, /Set your event date first|formatDay\(replyBy\.date\)/, 'the date is said twice again');
   assert.match(block, /fallback=\{replyByFallback \?\? \(replyBy\?\.isDefault \? replyBy\.date : null\)\}/);
-  assert.match(ask, /value=\{value \|\| fallback \|\| ''\}/, 'the field is empty while a date is in force');
-  assert.match(ask, /toLocaleDateString\('en-US', \{\s*day: 'numeric',\s*month: 'long',/, 'not the Maker’s one date format');
+  /* The field is the shared `ReplyBy` part (2026-10-07) — Guests › Setup mounts the same one. */
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(part, /value=\{value \|\| fallback \|\| ''\}/, 'the field is empty while a date is in force');
+  assert.match(part, /toLocaleDateString\('en-US', \{\s*day: 'numeric',\s*month: 'long',/, 'not the Maker’s one date format');
   // Both RSVP panels (Details' settings and the RSVP stage) are handed the default the field shows.
   assert.equal((read('app/dashboard/[eventId]/launch/page.tsx').match(/replyByFallback=\{resolveReplyBy\(\{ deadline: null, eventDate: printEvent\.event_date \}\)\?\.date \?\? null\}/g) ?? []).length, 2);
 });
@@ -385,7 +392,9 @@ test('(14) the March has no caption in the step; the cover has no "made once" li
 });
 
 test('(15) How guests get in: label and dropdown on ONE row', () => {
-  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">/);
+  /* The one dropdown is the shared `GuestsGetIn` part; the Maker hands it this ONE-row shape. */
+  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<GuestsGetIn[\s\S]{0,200}rowClassName="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"/);
+  assert.match(read('app/dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx'), /<section className=\{rowClassName\}[^>]*data-rsvp-setting="who-can-rsvp"/);
 });
 
 test('(16) the Schedule’s Journey · Preparation · Event Day wears the one segmented control — and each view stays a LINK', () => {
@@ -402,7 +411,7 @@ test('(16) the Schedule’s Journey · Preparation · Event Day wears the one se
 test('(17) The Day: ONE "Happening now", and "event" — never "celebration" — on the live card', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SpotlightCard } = await import('../app/[slug]/_components/spotlight-card');
-  const html = renderToStaticMarkup(React.createElement(SpotlightCard, { spotlight: { kind: 'watch_live' } as never }));
+  const html = renderToStaticMarkup(React.createElement(SpotlightCard, { spotlight: { kind: 'watch_live' } as never, replyHref: '/x/invite/reply' }));
   assert.match(html, /Watch the event live/, 'the live card says something else');
   assert.doesNotMatch(html, /celebration/);
   assert.match(read('app/[slug]/_components/site-body.tsx'), /dayOfPhase === 'live' && plan\.spotlight\?\.kind !== 'watch_live' \?/, 'the masthead pill doubles the live card again');
@@ -451,16 +460,20 @@ test('(19) Skip goes to the VERY next screen — a link step (the guests’ name
   const nav = keys.map((k) => ({ key: k, label: k, done: false }));
   const facts = { guestList: true, arrival: false, venuesLocked: { ceremony: false, reception: false }, venuesNamed: { ceremony: false, reception: false }, loveStoryMoments: 0, wear: false, replyBy: false, guests: 0 };
   const p = buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }, hubSetupRound(facts, new Set(keys)));
-  const round = p.rounds.find((r) => p.links.some((l) => l.stages.includes(r)));
+  /* 🗂 R1: the RSVP stage's three settings are link steps too (to Guests ⚙) — this holds the guests' names' stage.
+     🗂 R4: the march is a link of that stage too (to Guests › March) — Skip lands on the stage's FIRST link screen. */
+  const round = p.rounds.find((r) => p.links.some((l) => l.key === 'guests' && l.stages.includes(r)));
   assert.ok(round, 'anti-vacuity: no stage carries a link step');
   const last = stageSteps(p, round!).at(-1)!;
   const link = p.links.find((l) => l.stages.includes(round!))!;
+  assert.ok(p.links.filter((l) => l.stages.includes(round!)).some((l) => l.key === 'guests'), 'the guests’ names left the stage');
   const at = { kind: 'step', step: last.key, round: round! } as const;
   assert.deepEqual(skipScreen(p, at), { kind: 'link', link: link.key, round }, 'Skip from the last step jumps past the guests’ names');
   assert.deepEqual(nextScreen(p, at), { kind: 'link', link: link.key, round });
   assert.ok(guidedScreens(p, round!).some((sc) => sc.kind === 'link'), 'the link step is not a screen');
   const total = stageSteps(p, round!).length + p.links.filter((l) => l.stages.includes(round!)).length;
-  assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${total} of ${total}$`), 'the link step is not counted in its place');
+  const place = stageSteps(p, round!).length + 1; // the stage's first link screen comes right after its steps
+  assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${place} of ${total}$`), 'the link step is not counted in its place');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /\{plan && at\?\.kind === 'link' \? \(\s*<GuideLinkScreen/, 'the link screen is not drawn');
 });
@@ -470,7 +483,13 @@ test('(20) a control that writes live says so plainly: "Guests see this right aw
   assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
   assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
   assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
-  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  /* Two doors (preview merge 2026-10-08): on Guests › Setup — no Apply there — Reply by still writes live and says so
+     (owner 2026-10-05: it stays instant)… */
+  const replyByPart = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(replyByPart, /<HubSavesImmediately\b/, 'Reply by no longer says it writes live (owner: it stays instant)');
+  /* ⏳ …and, superseding it IN THE MAKER (owner 2026-10-08, "draft 1-3"): Reply by waits for Apply — so it must NOT say it is live. */
+  assert.doesNotMatch(read(`${L}/maker-rsvp-ask.tsx`), /<HubSavesImmediately\b/, 'a drafted Reply by says it writes live');
+  assert.match(replyByPart, /\{draft \? null : <HubSavesImmediately \/>\}/, 'the shared Reply by part says it writes live even when the Maker drafts it');
   // 🚶 The Wedding March left the live writers on 2026-10-06 (owner: *"Wait for apply"*) — it drafts, and says nothing of the kind.
   assert.doesNotMatch(read(`${L}/details-march.tsx`), /<HubSavesImmediately\b/, 'the march says it writes live, but it waits for Apply');
 });
@@ -563,10 +582,16 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.equal(T.writesLive(parentName, root), false, 'the "Guests see this right away" mark exempts a form with its own Save');
   assert.equal(T.writesLive(replyByPick, root), true);
   // Only the one instant writer opts in.
-  const optedIn = ['details-march.tsx', 'maker-rsvp-ask.tsx'].map((f) => (read(`${L}/${f}`).match(/data-writes-live=""/g) ?? []).length);
+  /* The reply-by field is the shared `ReplyBy` part (2026-10-07): ONE writer, drawn two ways — the Maker's
+     stacked field and Guests › Setup's row — so it opts in twice; the Maker's panel itself holds none. */
+  /* RE-AIMED 2026-10-09 (Guests › Setup step 3B): the part opts in in TWO shapes — the stacked field's JSX attribute, and the frame door's attrs object (`'data-writes-live': ''`,
+     only for the LIVE variant: a drafted frame, the Maker's Studio › RSVP, carries `data-reply-by-field="draft"` and NO mark — it waits for Apply). The claim is unchanged: two opt-ins
+     in the shared part, none in the march, none in the RSVP stage's own file; the regex now sees both spellings. */
+  const optedIn = [`${L}/details-march.tsx`, 'app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx', `${L}/maker-rsvp-ask.tsx`].map((f) => (read(f).match(/data-writes-live=""|'data-writes-live': ''/g) ?? []).length);
+  assert.match(read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx'), /draft \? \{[^}]*'data-reply-by-field': 'draft' \} : \{[^}]*'data-reply-by-field': 'live', 'data-writes-live': '' \}/, 'a drafted Reply by carries the live mark — or the live one lost it');
   // (The march's two controls became ONE drag maker on 2026-10-06 — and the same day it began to wait
   // for Apply (owner: *"Wait for apply"*), so it opts in no more: its drops are drafted, like every Maker edit.)
-  assert.deepEqual(optedIn, [0, 1], `the live opt-in moved: ${optedIn}`);
+  assert.deepEqual(optedIn, [0, 2, 0], `the live opt-in moved: ${optedIn}`);
 
   // The foot says which question it is asking.
   const { GuideFoot } = await import(`../${L}/details-guide`);
@@ -596,7 +621,7 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.match(pm, /id=\{listId\}\s*role="listbox"/);
 });
 
-test('(23) "Same as theme": first in the film\'s background picker and the default; one line under Theme hands the film back, into the draft', async () => {
+test('(23) the film follows: "Same as theme" is the only film value left — the film wears the main background (Look restudy row 6)', async () => {
   // The draft holds ONE value for the film's background: null, the film following the theme.
   const D = await import('./hub-draft');
   assert.ok(D.isHubDraftEventColumn('std_background'), 'the film cannot be handed back into the draft');
@@ -609,43 +634,27 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   const handBack = D.eventColumnChange('std_background', { kind: 'plain', value: '#e8d9bd' }, null);
   assert.equal(D.eventItemIsPro('std_background', null, handBack, { kind: 'plain', value: '#e8d9bd' }), false, 'following the theme is held as Pro at Apply');
 
-  // The studio: "Same as theme" is the FIRST choice, pressed when nothing of the film's own is stored.
-  const { StdBackgroundPicker } = await import('../app/dashboard/[eventId]/_components/std-background-picker');
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const noop = () => {};
-  const picker = (follows: boolean) =>
-    renderToStaticMarkup(
-      React.createElement(StdBackgroundPicker, {
-        value: { kind: 'plain', value: '#f3ece1' },
-        onChange: noop,
-        eventId: 'e',
-        onUpload: noop,
-        followsTheme: follows,
-        onFollowTheme: noop,
-        themeCanvas: '#0b0a12',
-      }),
-    );
-  const on = picker(true);
-  assert.ok(on.indexOf('Same as theme') > 0 && on.indexOf('Same as theme') < on.indexOf('Plain colour'), '"Same as theme" is not the first choice');
-  assert.match(on, /aria-pressed="true"[^>]*data-std-bg-follows-theme=""/);
-  assert.doesNotMatch(on, /aria-label="Background colour #f3ece1" aria-pressed="true"/, 'a colour of its own reads as chosen while the film follows the theme');
-  assert.match(picker(false), /aria-pressed="false"[^>]*data-std-bg-follows-theme=""/);
+  // 🎞 THE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, 2026-10-18): the studio's background picker is gone —
+  // there is no background of the film's own to pick, so every save stores "follows" with the couple's Readability,
+  // and the preview paints the MAIN background the page resolved (`stdFilmOnMain`).
+  assert.ok(!existsSync(join(WEB, 'app/dashboard/[eventId]/_components/std-background-picker.tsx')), 'the film’s own background picker is back');
   const studio = read('app/dashboard/[eventId]/studio/save-the-date/page.tsx');
-  assert.match(studio, /const stdFollows = stdFollowsTheme\(event\?\.std_background\);/, 'a new event does not start on "Same as theme"');
-  assert.match(studio, /initialFollowsTheme=\{stdFollowsThemeNow\}/);
-  assert.match(studio, /themeCanvas=\{themeCanvas\}/);
+  assert.match(studio, /stdFilmOnMain\(\{\s*still: await mainGroundStillFor\(/, 'the studio preview does not wear the main background');
   const client = read('app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx');
-  assert.match(client, /backgroundFollowsTheme: followsTheme,/, 'the studio does not save "Same as theme"');
-  assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints the veil while guests see the theme');
-  assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{[\s\S]{0,260}patch\.std_background = stdFollowTheme\(/, 'the studio cannot hand the film back to the theme');
+  assert.doesNotMatch(client, /StdBackgroundPicker|presignStdBackground/, 'the studio still offers a background of the film’s own');
+  assert.match(client, /backgroundFollowsTheme: true,/, 'the studio can store a background of the film’s own again');
+  assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints something other than what guests see');
+  assert.match(action, /if \(data\.backgroundFollowsTheme === true \|\| \(data\.background !== undefined && data\.background !== null\)\) \{\s*patch\.std_background = stdFollowTheme\(/, 'the action stores a background of the film’s own again');
+  assert.doesNotMatch(action, /export async function presignStdBackground/, 'the film-background presign door is back');
 
-  // The Look step: one line under Background, while the film keeps its own pick; a tap writes the DRAFT.
-  // ("Same as theme" until 2026-10-05 — in Look there is no theme to name any more; the film follows the Event Hub.)
-  const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
-  const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
-  assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as the Event Hub<\/button>/);
-  const picker2 = read(`${L}/film-follows-theme.tsx`);
-  assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: stdFollowTheme\(legibility\) \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft (with the film\'s Readability)');
+  // 🎞 THE LOOK'S LINE LEFT (2026-10-08, the Look restudy — plan row 1: "delete `FilmFollowsTheme` from Look"). It was one
+  // line (then a switch) under Look › Background while the film kept its own pick. The film's own background retires
+  // (restudy § 4, plan row 6); until it does, the hand-back is the studio's "Same as theme" held above — still one tap,
+  // still written. Held here: Look draws no film line, and nothing else in the Maker still imports the old one.
+  assert.ok(!existsSync(join(WEB, `${L}/film-follows-theme.tsx`)), 'the film line’s component is back');
+  for (const f of ['maker-details.tsx', 'studio-tools.tsx', 'details-look-pages.tsx']) {
+    assert.doesNotMatch(read(`${L}/${f}`), /film-follows-theme|FilmFollowsTheme|filmLine/, `${f} still draws the film line`);
+  }
 
   // 🔤 THE COUPLE'S READABILITY SURVIVES "SAME AS THEME" (review 2026-10-05).
   const B = await import('./std-backgrounds');
@@ -667,18 +676,20 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   );
   const store = read('lib/hub-draft-store.ts');
   const forget = store.slice(store.indexOf('export async function forgetDraftedEventColumn'), store.indexOf('/** Where a form\'s draft save goes back'));
-  assert.match(forget, /delete events\[column\];\s*await writeHubDraft\(supabase, eventId, \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): built inside `updateHubDraft`, on the draft as it is when the write lands. */
+  assert.match(forget, /delete events\[column\];\s*return \{ next: \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} legibility=\{theme\.filmLegibility\} \/> : null;/);
-  // 2026-10-06: the whole Look (`theme`) and its Background row each carry the film line (one mount at a time — `item=`).
-  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} item="theme" \/>,/, 'the film line is not under Look');
-  assert.match(details, /background: <LookPanel filmLine=\{filmLine\} sections=\{LOOK_ITEM_SECTIONS\.background\} item="background" \/>,/, 'the film line is not under Look › Background');
+  // 2026-10-08: the whole Look (`theme`) and its Background row are the one panel, with no film line (one mount at a time — `item=`).
+  assert.match(details, /theme: <LookPanel item="theme" \/>,/, 'the whole Look is not the one panel');
+  assert.match(details, /background: <LookPanel sections=\{LOOK_ITEM_SECTIONS\.background\} item="background" \/>,/, 'Look › Background is not the one panel on its section');
+  // 🎞 Row 6 removed the two hand-downs the film line needed (`filmOwnBackground` · `filmLegibility`): nothing reads them.
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /'std_background' in draftedEvents\s*\? draftedEvents\.std_background/, 'the line ignores the draft (it would come back after a tap)');
-  assert.match(page, /filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme\(filmBackgroundRead\),/, 'a film following the theme (with a kept Readability) is offered "Same as theme" again');
+  assert.doesNotMatch(page + details, /filmOwnBackground|filmLegibility/, 'the launch page still hands the retired film-background facts');
 });
 
 test('(24) the Invitation page\'s sign-off reads on every theme — never the light gold over a moving ground', () => {
   const shell = read('app/[slug]/_components/invitation-shell.tsx');
-  assert.match(shell, /data-shell-sign-off=""\s*className=\{`font-pahina text-lg italic \$\{\s*backdrop \? 'text-cream\/90' : 'text-terracotta-700'\s*\}`\}/, '"See you soon." is the light gold again');
+  /* 🕯 The line is drawn by `ClosingLine` since 2026-10-17 (the couple's own words) — the shell still hands it the class. */
+  assert.match(shell, /<ClosingLine [^>]*className=\{`font-pahina text-lg italic \$\{\s*backdrop \? 'text-cream\/90' : 'text-terracotta-700'\s*\}`\}/, '"See you soon." is the light gold again');
+  assert.match(read('app/[slug]/_components/closing-line.tsx'), /data-shell-sign-off=""[\s\S]{0,400}className=\{className\}/, 'the closing\'s line drops the class the shell hands it');
 });

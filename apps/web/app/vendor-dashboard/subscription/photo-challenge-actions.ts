@@ -5,8 +5,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { appendLedger } from '@/lib/ledger';
@@ -17,9 +15,7 @@ import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-f
 import {
   addonIsFreeUnderFirst5,
   fetchVendorCommittedBookingCount,
-  first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
@@ -31,7 +27,6 @@ import {
   fetchPhotoChallengeExpiry,
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
-import { formatCount } from '@/lib/format-number';
 import { isSafeNext } from '@/lib/safe-next';
 
 /**
@@ -160,7 +155,6 @@ export async function sponsorPhotoChallenge(
   // free"*. The flag still decides the PRICE BAND (below); who may buy is a
   // rule of its own, enforced unconditionally inside
   // `photoChallengePurchaseEligibility` and re-asserted by the SQL RPC.
-  const tieredPricing = isVendorAddonTieredPricingEnabled();
   const eligibility = photoChallengePurchaseEligibility({
     tier,
     verification,
@@ -207,9 +201,8 @@ export async function sponsorPhotoChallenge(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  const listPricePhp = tieredPricing
-    ? resolveVendorAddonPricePhp('papic_challenge', tier)
-    : resolveVendorPhotoChallengePricePhp(cyclePricePhp);
+  // 2026-11-04: one price for every plan, read from the catalogue row (no typed band any more).
+  const listPricePhp = resolveVendorPhotoChallengePricePhp(cyclePricePhp);
 
   // ── "Free until your 6th booking" (owner 2026-07-25, flag-dark) ────────────
   // While the vendor is inside their first 5 bookings — the same window in which
@@ -254,7 +247,7 @@ export async function sponsorPhotoChallenge(
           { userId: user.id, eventId: null, vendorProfileId },
           {
             service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-            description: `Papic Challenges (unlimited · ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days · free · first 5 bookings)`,
+            description: `Papic Challenges (unlimited · ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days · free · until your second booking)`,
             reference_code: referenceCode,
           },
         ),
@@ -295,13 +288,11 @@ export async function sponsorPhotoChallenge(
 
     revalidatePath(returnPath);
     revalidatePath('/vendor-dashboard/subscription');
-    const remaining = first5BookingsRemaining(committedBookings);
     return {
       status: 'activated',
       message:
-        `Papic Challenges is on for every celebration you're booked for — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings` +
-        (remaining > 0 ? ` (${remaining} to go)` : '') +
-        `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
+        `Papic Challenges is on for every event you're booked for — free until your second booking` +
+        `. From your second booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
     };
   }
 

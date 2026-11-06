@@ -55,6 +55,11 @@ export type SameDateHold = {
   /** The OTHER couple's `event_id`. Deduped — one couple who saved the same
    *  vendor under two categories is still one couple. */
   eventId: string;
+  /** `events.same_date_count_opt_out` of that OTHER event. ⚖ DPO ruling
+   *  2026-10-23: a couple may leave the count. An opted-out event contributes
+   *  NOTHING — not to the grouping, not to the thread read — so it can never
+   *  be counted however the caller combines the two. */
+  optedOut?: boolean;
 };
 
 /** Stable key for the "(this event, this vendor) opened a thread" set. */
@@ -74,7 +79,7 @@ export function groupHoldsByVendor(
 ): Map<string, Set<string>> {
   const byVendor = new Map<string, Set<string>>();
   for (const h of holds) {
-    if (!h.marketplaceVendorId) continue;
+    if (!h.marketplaceVendorId || h.optedOut) continue;
     const set = byVendor.get(h.marketplaceVendorId) ?? new Set<string>();
     set.add(h.eventId);
     byVendor.set(h.marketplaceVendorId, set);
@@ -87,7 +92,7 @@ export function groupHoldsByVendor(
 export function allHoldingEventIds(holds: readonly SameDateHold[]): string[] {
   const ids = new Set<string>();
   for (const h of holds) {
-    if (!h.marketplaceVendorId) continue;
+    if (!h.marketplaceVendorId || h.optedOut) continue;
     ids.add(h.eventId);
   }
   return [...ids];

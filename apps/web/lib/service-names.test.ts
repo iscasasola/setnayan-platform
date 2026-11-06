@@ -22,13 +22,13 @@ test('the owner’s five pairs, plain first', () => {
     Object.fromEntries(Object.entries(SERVICE_NAMES).map(([k, v]) => [k, `${v.plain} · ${v.brand}`])),
     {
       'setnayan-ai': 'Planner · Setnayan AI',
-      papic: 'Guest photos · Papic',
+      papic: 'Papic · Guest photos',
       'live-studio': 'Live stream · Live Watch',
       'music-maker': 'Music · Music Maker',
       patiktok: 'Video booth · Patiktok',
     },
   );
-  assert.equal(serviceNameLine('papic'), 'Guest photos · Papic');
+  assert.equal(serviceNameLine('papic'), 'Papic · Guest photos');
 });
 
 test('the service cards and the Home read the one list — no second table of names', () => {
@@ -45,8 +45,7 @@ test('the service cards and the Home read the one list — no second table of na
 });
 
 test('every surface draws the Setnayan name UNDER the plain one', () => {
-  const sheet = strip(read('app/dashboard/[eventId]/_components/more-services-sheet.tsx'));
-  assert.match(sheet, /\{s\.sub\}/, 'the More sheet drops the small line');
+  // (The More sheet left with More, owner 22 Oct 2026 — Home › Your services is the services' surface.)
   const rail = strip(read('app/dashboard/[eventId]/_components/event-rail-context.tsx'));
   assert.match(rail, /rowInner\(c\.icon, c\.label, c\.description\)/, 'the rail drops the small line');
   const nav = strip(read('app/dashboard/[eventId]/_components/customer-nav-config.ts'));

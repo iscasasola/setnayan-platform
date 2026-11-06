@@ -41,7 +41,8 @@ const PUBLIC_LINE_ACTION = '../app/vendor-dashboard/shop/public-line-actions.ts'
 const VISIBILITY_ACTION = '../app/vendor-dashboard/shop/visibility-actions.ts';
 const PUBLIC_LINE_CARD = '../app/vendor-dashboard/shop/_components/public-line-card.tsx';
 const VISIBILITY_CARD = '../app/vendor-dashboard/shop/_components/visibility-card.tsx';
-const SHOP_PAGE = '../app/vendor-dashboard/shop/page.tsx';
+// Since step 5 (2026-10-14) both cards are Your details › Contact (they were My Shop's Profile tile).
+const SHOP_PAGE = '../app/vendor-dashboard/profile/_components/details-screen.tsx';
 
 // ── parseTagline ─────────────────────────────────────────────────────────────
 

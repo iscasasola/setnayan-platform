@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
-import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { applyReferralAtSignup } from '@/lib/referral-actions';
@@ -20,6 +19,21 @@ import { isEventSignup, signupLanding, welcomeEmailKind } from '@/lib/signup-lan
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
   return value === 'vendor' ? 'vendor' : 'customer';
+}
+
+/**
+ * 🔒 A REFUSED SIGN-UP RETURNS TO THE SAME DOOR.
+ *
+ * `/signup` decides who is signing up from `?as=` alone (lib/signup-intent.ts).
+ * Every refusal below sends the visitor back to `/signup` to try again; when
+ * that redirect carried only `error` + `next`, a SUPPLIER who mistyped once (a
+ * breached password, an unticked box) came back to the COUPLE sign-up, and
+ * their retry made a couple account. So every retry path is built here, and
+ * a supplier's keeps `as=vendor`. Held by `a-refused-supplier-signup-stays-a-supplier.test.ts`.
+ */
+function signupRetryPath(error: string, next: string, accountType: 'customer' | 'vendor'): string {
+  const as = accountType === 'vendor' ? '&as=vendor' : '';
+  return `/signup?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}${as}`;
 }
 
 /**
@@ -59,12 +73,9 @@ export async function signUp(formData: FormData) {
   // explicit ?next= (deep-link/QR flows) still wins.
   const rawNext = safeNext(formData.get('next'));
   const next = accountType === 'vendor' && rawNext === '/' ? '/open-shop' : rawNext;
-  // Guest → host growth-loop attribution (no PII). Set by the guest-page CTA,
-  // carried through the form as hidden inputs. Only `ref=guest` with a present
-  // `src_event` (a public_id, text) is attributable.
+  // `ref=guest` — set by the guest-page CTA, carried through the form as a
+  // hidden input — marks a sign-up made from an invitation (below).
   const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
-  const guestHostSrcEvent = String(formData.get('src_event') ?? '').trim();
-  const isGuestHostAttributed = guestHostRef === 'guest' && guestHostSrcEvent !== '';
   // An account made FROM AN INVITATION (owner 2026-09-25): no You card, no
   // couple welcome email, straight back to the event. lib/signup-landing.ts.
   const fromEvent = accountType === 'customer' && isEventSignup({ ref: guestHostRef, next });
@@ -90,7 +101,7 @@ export async function signUp(formData: FormData) {
   const displayName = [firstName, lastName].filter(Boolean).join(' ').slice(0, 200) || null;
 
   if (!email || !password) {
-    return redirect(`/signup?error=missing&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('missing', next, accountType));
   }
   /*
     🔒 THE AGREEMENT IS A GATE, NOT A HINT — CTRL-B3 build 2.
@@ -104,20 +115,20 @@ export async function signUp(formData: FormData) {
     the state that lets everyone through.
   */
   if (!hasAgreedToTerms(formData.get(TERMS_FIELD))) {
-    return redirect(`/signup?error=terms_required&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('terms_required', next, accountType));
   }
   if (password.length < 8) {
-    return redirect(`/signup?error=password_too_short&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('password_too_short', next, accountType));
   }
   // Refuse a password already published in a breach. Only the first five
   // characters of its hash leave this process — see lib/leaked-password.ts.
   // Fails OPEN if the service is unreachable, on purpose.
   if ((await isPasswordLeaked(password)).leaked) {
-    return redirect(`/signup?error=password_leaked&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('password_leaked', next, accountType));
   }
 
   if (await isEmailBlacklisted(email)) {
-    return redirect(`/signup?error=blacklisted&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('blacklisted', next, accountType));
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -144,7 +155,7 @@ export async function signUp(formData: FormData) {
         admin = createAdminClient();
       } catch {
         return redirect(
-          `/signup?error=server_config_error&next=${encodeURIComponent(next)}`,
+          signupRetryPath('server_config_error', next, accountType),
         );
       }
       const userId = existingUser.id;
@@ -160,7 +171,7 @@ export async function signUp(formData: FormData) {
       });
       if (convertError) {
         return redirect(
-          `/signup?error=${encodeURIComponent(convertError.message)}&next=${encodeURIComponent(next)}`,
+          signupRetryPath(convertError.message, next, accountType),
         );
       }
       // Overwrite the placeholder email on the public.users row the trigger
@@ -185,13 +196,6 @@ export async function signUp(formData: FormData) {
         console.warn('[signup/convert] public.users email update failed:', profileError.message);
       }
 
-      void captureEvent({
-        distinctId: userId,
-        event: 'signup_completed',
-        properties: { account_type: 'customer', via: 'anon_convert' },
-      }).catch(() => {
-        /* telemetry never blocks */
-      });
       void sendEmail({
         to: email,
         subject: 'Your Setnayan plan is secured',
@@ -250,7 +254,7 @@ export async function signUp(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/signup?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
+      signupRetryPath(error.message, next, accountType),
     );
   }
 
@@ -425,40 +429,7 @@ export async function signUp(formData: FormData) {
   }
 
   if (autoConfirmed) {
-    // 2026-05-30 perceived-signup-lag fix — pre-fix this was
-    // `await captureEvent(...)` inside a try/catch with a comment
-    // saying "analytics is fire-and-forget; never block the signup
-    // redirect" — but the `await` blocked it for ~50-100ms anyway.
-    // Honor the documented intent by NOT awaiting: the promise
-    // continues executing in the Node server runtime background
-    // after the redirect response is sent. `.catch()` swallows
-    // any rejection so it doesn't become an unhandled-promise
-    // warning. `void` discards the returned promise so TypeScript's
-    // no-floating-promises rule stays satisfied.
     if (data.user?.id) {
-      void captureEvent({
-        distinctId: data.user.id,
-        event: 'signup_completed',
-        properties: { account_type: accountType },
-      }).catch(() => {
-        // Telemetry failure never blocks. Silent.
-      });
-      // Guest → host growth-loop north-star metric. Only fired when the signup
-      // was attributed to a guest-page CTA. Best-effort, never blocks (the
-      // existing `void … .catch` pattern above).
-      if (isGuestHostAttributed) {
-        void captureEvent({
-          distinctId: data.user.id,
-          event: 'guest_to_host_signup',
-          properties: {
-            attributed_to_event_public_id: guestHostSrcEvent,
-            ref: guestHostRef,
-          },
-        }).catch(() => {
-          // Telemetry failure never blocks. Silent.
-        });
-      }
-
       // 🔒 SIGNING UP BINDS NO SEAT (2026-09-30 — the owner's own wedding). This
       // used to run `linkGuestSessionToUser`, binding whatever guest pass this
       // browser held to the brand-new account — on a shared phone, somebody

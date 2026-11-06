@@ -63,8 +63,9 @@ test('1 · a type with no two people has no love-story scene and no Our Love Sto
   const tiles = (l: typeof birthday) => l.shown.map((t) => t.key);
   const pagesOf = (hasStory: boolean, l: typeof birthday) => makerGuestPages('rsvp', tiles(l), hasStory).map((p) => p.label);
   console.log(`  wedding: ${pagesOf(true, wedding).join(' · ')}\n  birthday: ${pagesOf(false, birthday).join(' · ')}`);
-  assert.ok(pagesOf(true, wedding).includes('Our Love Story'), 'the wedding lost its Story page');
-  assert.ok(!pagesOf(false, birthday).includes('Our Love Story'), 'a birthday’s Page ▾ still offers Our Love Story');
+  // The page's TAB word is "Story" (with a heart) since 2026-10-14; the title stays "Our Love Story".
+  assert.ok(pagesOf(true, wedding).includes('Story'), 'the wedding lost its Story page');
+  assert.ok(!pagesOf(false, birthday).includes('Story'), 'a birthday’s Page ▾ still offers the love story');
 
   // The flag reaches the shell from the profile, never a constant.
   assert.doesNotMatch(read('lib/maker-guest-pages.ts'), /hasStory: true/);
@@ -78,8 +79,9 @@ test('1 · a type with no two people has no love-story scene and no Our Love Sto
   );
   // …and the guest's own bar agrees (both site-body paths).
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /story: weddingOnly\.love_story && guestBodyRenders/);
-  assert.match(body, /story:\s*weddingOnly\.love_story &&\s*bodyRenders/);
+  /* 📜 (…or the Save the Date's film body, under which the page is always drawn — owner 2026-10-15.) */
+  assert.match(body, /story: weddingOnly\.love_story && \(guestBodyRenders \|\| plan\.body === 'save_the_date'\)/);
+  assert.match(body, /story:\s*weddingOnly\.love_story &&\s*\(bodyRenders \|\| plan\.body === 'save_the_date'\)/);
 });
 
 test('2 · the Maker’s stage blurbs name no monogram and no wedding day', () => {

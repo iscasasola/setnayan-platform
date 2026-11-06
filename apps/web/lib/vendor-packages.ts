@@ -20,7 +20,7 @@
  */
 
 import type { VendorCategory } from '@/lib/vendors';
-import { categoryForBranch } from '@/lib/vendor-branch-category';
+import { categoryForBranch, type CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { optionDeltaCentavos, pickBounds } from './package-credit';
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -152,18 +152,20 @@ export function resolveVendorCategory(
  *     with no code change** — which is precisely how the leaf map fell 194
  *     behind the database in the first place.
  *
- * `misc` remains reachable only for a service whose branch is unknown to
- * `BRANCH_TO_VENDOR_CATEGORY` — a genuinely new branch. That is not a silent
- * default: `tests/db/no-service-lands-in-misc.db.test.ts` reads the LIVE
- * taxonomy and fails the build when it happens.
+ * The branch answer is the LIVE column `service_categories.coarse_category` (③0-c), passed in
+ * as the taxonomy snapshot — so a category an admin creates and gives a coarse category files its
+ * shops there with no code change. `misc` remains reachable only for a category whose column is
+ * empty. On the seeded data that is none: `tests/db/no-service-lands-in-misc.db.test.ts` reads the
+ * replayed column and fails the build when a visible category has no value.
  */
 export function vendorCategoryForLeaf(
   canonicalService: string,
   tileId: string | null | undefined,
+  tax: CoarseCategorySource,
 ): VendorCategory {
   const fromLeaf = PACKAGE_CANONICAL_TO_VENDOR_CATEGORY[canonicalService];
   if (fromLeaf) return fromLeaf;
-  return categoryForBranch(tileId) ?? 'misc';
+  return categoryForBranch(tileId, tax) ?? 'misc';
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */

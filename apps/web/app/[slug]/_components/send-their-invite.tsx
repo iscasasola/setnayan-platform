@@ -20,6 +20,7 @@ export function SendTheirInvite({
   eventName,
   facts,
   label = 'Send their invite',
+  wide = false,
 }: {
   name: string;
   url: string;
@@ -27,6 +28,8 @@ export function SendTheirInvite({
   /** The event's words (name · type · date) — absent, the event's name alone. */
   facts?: InviteEventFacts;
   label?: string;
+  /** Under a plus-one's ticket (`TicketRow`'s `also`): the button takes the row's width, as drawn (guest_page_fixes_2_4). */
+  wide?: boolean;
 }) {
   const [said, setSaid] = useState<string | null>(null);
   async function send() {
@@ -59,7 +62,7 @@ export function SendTheirInvite({
     }
   }
   return (
-    <span className="flex flex-col items-end gap-1">
+    <span className={wide ? 'flex w-full flex-col items-stretch gap-1' : 'flex flex-col items-end gap-1'}>
       <button
         type="button"
         onClick={send}
@@ -71,7 +74,7 @@ export function SendTheirInvite({
         {label}
       </button>
       {said ? (
-        <span role="status" className="max-w-[16rem] break-all text-right text-xs text-ink/70">
+        <span role="status" className={`max-w-[16rem] break-all text-xs text-ink/70 ${wide ? 'text-left' : 'text-right'}`}>
           {said}
         </span>
       ) : null}

@@ -84,7 +84,8 @@ test('a Pro theme is held without Pro; a free one (Classic, Modern, Cyber Neon) 
 test('Apply writes the theme on its own — after the host check and the Pro gate — and counts the row', () => {
   const src = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const host = src.indexOf('await requireHostMembershipOrThrow(eventId');
-  const gate = src.indexOf('planHubDraftApply(current, live, ownsPro)');
+  // RE-AIMED 2026-10-22 (part by part): the plan is decided with what the event owns, part by part.
+  const gate = src.indexOf('planHubDraftApply(current, live, owned)');
   const peel = src.indexOf('delete eventsPatch.invite_theme;');
   const session = src.indexOf(".from('events')\n        .update(eventsPatch)");
   const write = src.indexOf('.update({ invite_theme: themeWrite })');

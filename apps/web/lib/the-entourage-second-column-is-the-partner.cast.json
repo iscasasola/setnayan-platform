@@ -1,0 +1,1332 @@
+[
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Alma",
+  "last_name": "Abaya",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 1
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "maid_of_honor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Bea",
+  "last_name": "Bacani",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 8
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "maid_of_honor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Carlo",
+  "last_name": "Cabral",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 11
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "best_man"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Dina",
+  "last_name": "Dalisay",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 3
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Emil",
+  "last_name": "Escano",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 17
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Faye",
+  "last_name": "Florido",
+  "march": [
+   {
+    "place": 2,
+    "walk_no": 22
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Gino",
+  "last_name": "Galang",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 7
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Hana",
+  "last_name": "Hizon",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 10
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ivo",
+  "last_name": "Ilagan",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 15
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Jana",
+  "last_name": "Jacinto",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 19
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Kiko",
+  "last_name": "Cabral",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 13
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Lara",
+  "last_name": "Katigbak",
+  "march": [
+   {
+    "place": 2,
+    "walk_no": 24
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Milo",
+  "last_name": "Lacson",
+  "march": [
+   {
+    "place": 2,
+    "walk_no": 28
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Nina",
+  "last_name": "Madrigal",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 26
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Oca",
+  "last_name": "Nolasco",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 21
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bridesmaid"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Pia Quin",
+  "last_name": "Ocampo",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 17
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Rina",
+  "last_name": "Paredes",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 19
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Sol",
+  "last_name": "Cabral",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 13
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Tess",
+  "last_name": "Quiambao",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 24
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ugo",
+  "last_name": "Rubio",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 26
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Vina",
+  "last_name": "Salonga",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 21
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Wes Yna Zed",
+  "last_name": "Tuazon",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 3
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Alma",
+  "last_name": "Umali",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 28
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Bea",
+  "last_name": "Vergara",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 7
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Carlo",
+  "last_name": "Yabut",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 10
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": "Jr.",
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Dina",
+  "last_name": "Zamora",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 15
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Emil",
+  "last_name": "Agbayani",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 22
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groomsman"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Faye",
+  "last_name": "Abaya",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 49
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "candle_sponsor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Gino",
+  "last_name": "Abaya",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 49
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "candle_sponsor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Hana",
+  "last_name": "Belmonte",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 50
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "veil_sponsor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ivo",
+  "last_name": "Rubio-Belmonte",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 50
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "veil_sponsor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Jana",
+  "last_name": "Cristobal-Dimaculangan",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 51
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "cord_sponsor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Kiko",
+  "last_name": "Dimaculangan",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 51
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "cord_sponsor"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Lara",
+  "last_name": "Abaya",
+  "march": null,
+  "middle_name": "M.",
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "ring_bearer"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Milo",
+  "last_name": "Abaya",
+  "march": null,
+  "middle_name": "M.",
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "bible_bearer"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Nina",
+  "last_name": "Abaya",
+  "march": null,
+  "middle_name": "M.",
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "coin_bearer"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Oca Pia",
+  "last_name": "Evangelista",
+  "march": null,
+  "middle_name": null,
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "flower_girl"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Quin Rina Sol",
+  "last_name": "Belmonte",
+  "march": null,
+  "middle_name": null,
+  "name_prefix": null,
+  "name_suffix": null,
+  "role": "flower_girl"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Tess",
+  "last_name": "Abaya",
+  "march": null,
+  "middle_name": "Medina",
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "bride"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ugo",
+  "last_name": "Fajardo",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 53
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Mr.",
+  "name_suffix": "II",
+  "role": "groom"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Vina",
+  "last_name": "Abaya",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 4
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "bride_parents"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Wes",
+  "last_name": "Abaya",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 4
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "bride_parents"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Yna",
+  "last_name": "Cabral-Fajardo",
+  "march": [
+   {
+    "place": 3,
+    "walk_no": 0
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "groom_parents"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Zed",
+  "last_name": "Fajardo",
+  "march": [
+   {
+    "place": 2,
+    "walk_no": 0
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "groom_parents"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Alma",
+  "last_name": "Cabral",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 48
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "groom_immediate_family"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Bea",
+  "last_name": "Cabral",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 48
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "groom_immediate_family"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Carlo",
+  "last_name": "Guevarra",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 23
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Dina",
+  "last_name": "Hernandez",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 25
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Emil",
+  "last_name": "Ignacio",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 27
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Faye",
+  "last_name": "Jimenez",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 29
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Senior Counsel",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Gino",
+  "last_name": "Lagman",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 31
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Hana",
+  "last_name": "Escano",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 47
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ivo",
+  "last_name": "Mercado",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 33
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Jana",
+  "last_name": "Navarro",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 43
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Kiko",
+  "last_name": "Olivares",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 45
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Lara",
+  "last_name": "Panlilio",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 18
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Assoc. Prof.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Milo",
+  "last_name": "Quisumbing",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 35
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Nina",
+  "last_name": "Recto",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 37
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Engr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Oca",
+  "last_name": "Belmonte",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 39
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Pia",
+  "last_name": "Santiago",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 41
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Quin",
+  "last_name": "Bacani",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 2
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Hon.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Rina",
+  "last_name": "Tolentino",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 14
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Judge",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Sol",
+  "last_name": "Valenzuela",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 6
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Tess",
+  "last_name": "Aquino",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 9
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Prof.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ugo",
+  "last_name": "Bautista-Ong",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 12
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Sec.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Vina",
+  "last_name": "Cordero",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 16
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Dean",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Wes",
+  "last_name": "Dela Cruz",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 20
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninong"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Yna",
+  "last_name": "Estrella",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 35
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Zed",
+  "last_name": "Feliciano",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 6
+   }
+  ],
+  "middle_name": "Medina",
+  "name_prefix": "Dr.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Alma",
+  "last_name": "Cabral-Gatchalian",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 33
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Bea Carlo",
+  "last_name": "Cabral-Hidalgo",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 23
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Dina",
+  "last_name": "Ilustre",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 12
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Rev.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Emil",
+  "last_name": "Laurel-Jimenez",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 29
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Senior Counsel",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Faye",
+  "last_name": "Hernandez",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 25
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Gino",
+  "last_name": "Montenegro",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 14
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Hana",
+  "last_name": "Recto",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 37
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Ivo Jana",
+  "last_name": "Estrella-Nepomuceno",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 39
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Kiko",
+  "last_name": "Orosa",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 31
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Lara",
+  "last_name": "Pineda",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 20
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Ms.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Milo Nina",
+  "last_name": "Roxas-Soriano",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 16
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Oca",
+  "last_name": "Trinidad",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 9
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Assoc. Prof.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Pia",
+  "last_name": "Ignacio",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 27
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Quin",
+  "last_name": "Velasco",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 18
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Rina",
+  "last_name": "Bacani",
+  "march": [
+   {
+    "place": 1,
+    "walk_no": 2
+   }
+  ],
+  "middle_name": null,
+  "name_prefix": "Mrs.",
+  "name_suffix": null,
+  "role": "principal_sponsor_ninang"
+ },
+ {
+  "display_name": null,
+  "extra_roles": [],
+  "first_name": "Sol",
+  "last_name": "Fajardo",
+  "march": [
+   {
+    "place": 0,
+    "walk_no": 5
+   }
+  ],
+  "middle_name": "M.",
+  "name_prefix": "Atty.",
+  "name_suffix": null,
+  "role": "best_woman"
+ }
+]

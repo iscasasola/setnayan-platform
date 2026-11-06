@@ -80,13 +80,13 @@ export function TourLiveWall({
 
   return (
     <section
-      aria-label="Live photo wall"
+      aria-label="Memory lane"
       className="rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-5 shadow-sm sm:p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[#8C6932]">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1B1A17]" />
-          Live from the celebration
+          Memory lane
         </p>
         {count > 0 ? (
           <p className="text-xs text-[#5F5E5A]">
@@ -97,7 +97,7 @@ export function TourLiveWall({
 
       {display.length === 0 ? (
         <p className="mx-auto mt-3 max-w-prose text-center text-sm text-[#5F5E5A]">
-          The wall is warming up &mdash; photos appear here the moment they&rsquo;re taken.
+          Memory lane is warming up &mdash; photos appear here the moment they&rsquo;re taken.
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -133,7 +133,7 @@ export function TourLiveWall({
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1B1A17] px-5 py-2.5 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <Play aria-hidden className="h-4 w-4" strokeWidth={2} />
-            {playing ? 'Photos arriving…' : 'Bring the wall to life'}
+            {playing ? 'Photos arriving…' : 'Bring Memory lane to life'}
           </button>
         </div>
       ) : done && incomingTiles.length > 0 ? (

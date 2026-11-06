@@ -33,7 +33,7 @@ import {
   themeColours,
   themeSeedPalette,
 } from '@/lib/theme-colours';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette-vars';
 import { printLookFor } from '@/lib/print-pieces';
 import {
   eventColumnChange,
@@ -119,7 +119,8 @@ test('owner: "when mood board theme palette changes, then the theme will adjust 
   // …the couple's print preview address names the event row it is drawn from (role_palette included)…
   const set = read('lib/print-set.server.ts');
   assert.match(set, /'event_id, display_name, event_type, [^']*\brole_palette\b[^']*'/, 'the print row (and so its preview hash) no longer reads the board');
-  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook \}\)/, 'the print preview hash no longer covers the event row');
+  /* `hub` (2026-10-21): a Pro print wears the Hub — its Main background and the entitlement join the hash, the row stays in it. */
+  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook(?:, hub)? \}\)/, 'the print preview hash no longer covers the event row');
   // …a drafted fill is named in the preview's draft address…
   assert.match(read('lib/ceremony-time.ts'), /PRINT_DRAFTED_KEYS = \[[\s\S]*?'role_palette'[\s\S]*?\] as const/);
   // …and the scene tiles re-copy when the canvas scope's inline colours change (the chain is compared).
@@ -331,8 +332,12 @@ test('the guest page and the prints ask the same resolver', () => {
   assert.doesNotMatch(look, /buildSitePaletteVars\(/, 'guestLookFrom builds palette vars around the resolver');
 
   const set = 'lib/print-set.server.ts';
-  const call = region(read(set), 'const look = printLookFor(', ');', set);
-  assert.match(call, /themeColours\(theme,/, 'the print set hands printLookFor the resolver’s answer');
+  /* The theme look (2026-10-21: the ground a Pro print's Hub look is laid on — `printLooksFor`, lib/print-hub-look.ts; a free
+     event prints plain white) is still the resolver's answer, and the set asks for it. */
+  assert.match(read(set), /printLooksFor\(theme, sampleGallery \? opts\.samplePalette : event\.role_palette/, 'the print set stopped asking printLooksFor');
+  const looksFile = 'lib/print-hub-look.ts';
+  const call = region(read(looksFile), 'export function printLooksFor(', '\n}\n', looksFile);
+  assert.match(call, /printLookFor\(theme, themeColours\(theme,/, 'the print set hands printLookFor the resolver’s answer');
 
   const pieces = 'lib/print-pieces.ts';
   const body = region(read(pieces), 'export function printLookFor(', '\n}\n', pieces);
@@ -409,6 +414,12 @@ const SWEEP_ALLOWED_LINES: Record<string, Record<string, string>> = {
     'const metal = oklchOfHex(theme.palette.accent);': 'tint of the theme it is handed',
     'const inks = [theme.palette.accentInk, theme.palette.lightInk, theme.palette.darkInk];': 'tint of the theme it is handed',
   },
+  // 🌗 A scene photo's Darker ↔ Lighter (2026-10-07): the veil and its words are the inks of the theme it is
+  //    handed — the same theme `sceneFrameLook` hands `sceneLegibilityVars` beside it.
+  'lib/scene-media-shade.ts': {
+    'const dark = theme.palette.darkInk;': 'shade veil of the theme it is handed',
+    'const light = theme.palette.lightInk;': 'shade words of the theme it is handed',
+  },
   'lib/ombre.ts': { "'--color-ink-on-plate': hexChannels(theme.palette.ink),": 'ombré legibility of the theme it is handed' },
   'lib/hub-buttons.ts': {
     "?? (house ? HOUSE_PAPER : theme.palette.canvas);": 'buttons measured on the theme it is handed, when no layer painted a paper',
@@ -468,7 +479,11 @@ test('the measurers are handed the dressed theme at every picture call site', ()
   const panel = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
   assert.match(panel, /const theme = useMemo\(\(\) => \(\{ \.\.\.INVITE_THEMES\[themeId\], palette: colours \}\), \[themeId, colours\]\);/);
   assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /colours=\{themeColours\(mainThemeId, \(drafted as \{ role_palette\?: unknown \}\)\.role_palette\)\.colours\}/);
-  assert.match(read('lib/event-poster.server.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  // ⚡ 2026-10-11 — the poster's composing moved to `eventPosterGiven`
+  // (`lib/event-poster-given.ts`), which `resolveEventPoster` calls; the dressed
+  // theme is handed to the measurer there, for both of its callers.
+  assert.match(read('lib/event-poster-given.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  assert.match(read('lib/event-poster.server.ts'), /return eventPosterGiven\(event, heroSrc, \{/);
   assert.match(read('lib/event-poster.ts'), /const theme = input\.colours \? \{ \.\.\.own, palette: input\.colours \} : own;/);
   assert.match(read('app/[slug]/_lib/theme-ground.ts'), /hubLegibility\(input\.colours \? \{ \.\.\.t, palette: input\.colours \} : t, \{ kind: 'theme' \}\)/);
   assert.match(read('app/[slug]/_components/host-draft-look.tsx'), /resolveThemeGround\(look\.theme, \{ ownColours: Boolean\(look\.vars\), colours: look\.colours \}\)/);
@@ -487,7 +502,8 @@ test('the measurers are handed the dressed theme at every picture call site', ()
 test('every scope that sets the ornament gild also sets the WORDS gild — a nested scope never inherits a stale one', () => {
   const sets = (src: string) => [...src.matchAll(/'--color-gild':\s*([^,\n]+)/g)].length;
   const setsText = (src: string) => [...src.matchAll(/'--color-gild-text':\s*([^,\n]+)/g)].length;
-  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette.ts']) {
+  // `buildSitePaletteVars` (the gild scope) moved from `lib/site-palette.ts` to `lib/site-palette-vars.ts` (2026-10-10), so the file to scan is the new one.
+  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette-vars.ts']) {
     const src = read(f);
     assert.ok(sets(src) > 0, `${f} no longer sets --color-gild — this check went vacuous`);
     assert.equal(setsText(src), sets(src), `${f}: a scope sets --color-gild without --color-gild-text`);

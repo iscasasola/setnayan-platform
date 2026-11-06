@@ -233,7 +233,8 @@ test('every e-gift write counts its rows before reporting success', () => {
 
 test('🔑 the withheld sentence fires for a QR-ONLY method', () => {
   const src = stripComments(
-    readFileSync(join(process.cwd(), 'app/[slug]/pabuya/page.tsx'), 'utf8'),
+    /* 🏠 (2026-10-14) the rule left the page for its one pure home, shared with the Welcome page's E-Gifts. */
+    readFileSync(join(process.cwd(), 'app/[slug]/pabuya/_lib/gift-cards.ts'), 'utf8'),
   );
   /*
     saveEgiftMethod refuses a row only when BOTH handle and QR are absent, so a

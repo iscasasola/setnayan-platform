@@ -2,9 +2,16 @@
  * create-subjects.ts — WHO the event is for, asked BEFORE what kind it is.
  *
  * Sixteen type tiles is a wall; the same sixteen sorted around one named person
- * is a short, obvious list. So the create flow asks "Para kanino ito?" first and
- * uses the answer to sort the grid — a pet has no debut, a six-year-old has no
- * wedding.
+ * is a short, obvious list. So the grid is sorted around WHO the event is for —
+ * a pet has no debut, a six-year-old has no wedding.
+ *
+ * 🔁 NO LONGER A STEP OF ITS OWN (owner 2026-10-22, "Yes to all" — Host 3
+ * option B, prototype journey_fixes_2026-10-22.html). "Para kanino ito?" asked
+ * first, a whole screen, before the real question. Now the grid opens FIRST,
+ * sorted for the account holder (`openingSubject`), and the who becomes a
+ * "For · You ▾" dropdown above it ONLY when there is a real choice — a loved
+ * one on file (`forMenuSubjects`). With none, nothing is drawn: "someone else"
+ * was always the grid's own "show all event types".
  *
  * ⚠ SORTED, NEVER LOCKED. Everything this module "hides" flows into the picker's
  * ALREADY-SHIPPED `hiddenTypeKeys` prop, whose "show all event types" expander
@@ -53,7 +60,17 @@ export type CreateSubjectKind =
   | 'business'
   | 'item'
   | 'other'
-  | 'unspecified';
+  | 'unspecified'
+  /** "Someone who passed away" (owner 2026-10-26: "wake is if your declared
+   *  passed away. so the event you can only make is anniversary or wake/funeral").
+   *  Nobody on file — the name is asked downstream, as for "someone else". */
+  | 'memorial'
+  /** One of the account's own GROUPS (People › Groups — a samahan this person
+   *  organizes). Owner 2026-10-28, DECISION_LOG "EVENT TYPES MUST BE SPECIFIC":
+   *  picking it makes the event belong to that group (`events.community_id`, the
+   *  shipped samahan create path) and narrows the tiles to the types a group may
+   *  hold (`event_type_profiles.event_class = 'community_eligible'`). */
+  | 'group';
 
 export type CreateSubject = {
   /** 'self' · 'unspecified' · else the alaga's `dependent_id`. */
@@ -70,10 +87,117 @@ export type CreateSubject = {
    */
   birthDate: string | null;
   sex: 'female' | 'male' | null;
+  /**
+   * Only on the generic "A business" row (`BUSINESS_SUBJECT_ID`): the account's
+   * own shop name when it has one — the honoree a business event is filled in
+   * with. NULL = no shop → the business name is asked downstream.
+   */
+  shopName?: string | null;
+  /** Only on a GROUP row: the `communities.community_id` the event will belong to. */
+  communityId?: string;
+  /** Only on a GROUP row: how many people are in it, when that count was read. */
+  memberCount?: number | null;
 };
 
 export const SELF_SUBJECT_ID = 'self';
 export const UNSPECIFIED_SUBJECT_ID = 'unspecified';
+export const MEMORIAL_SUBJECT_ID = 'memorial';
+/** The generic "A business" row — NOT a `dependents` record (that row's id is a uuid). */
+export const BUSINESS_SUBJECT_ID = 'business';
+/** A group row's id is this prefix + its `community_id` — never a bare uuid, so it cannot collide with an alaga. */
+export const GROUP_SUBJECT_PREFIX = 'group:';
+
+/**
+ * ── WHO A TYPE CAN BE FOR (owner 2026-10-26) ────────────────────────────────
+ *
+ * Owner, verbatim: *"if i click for you, and it i don't have a debut, it should
+ * not show. same concept to the christening, wake, and whatever is not needed for
+ * that person … If it is for a business, only business related events or whatever
+ * applies. For someone else, shows everything."* · *"wake is if your declared
+ * passed away. so the event you can only make is anniversary or wake/funeral."*
+ *
+ * 🔑 ONE SOURCE: the rule is DATA — `event_type_vocab.for_whom`, admin-edited on
+ * Admin › Categories › Event types — carried on each `EventTypeRow.forWhom`. This
+ * module only maps the "For ▾" answer to one of its four words and compares. No
+ * event-type key is named here for this rule.
+ */
+export const FOR_WHOM_MODES = ['self', 'someone', 'memorial', 'business'] as const;
+export type ForWhomMode = (typeof FOR_WHOM_MODES)[number];
+
+/** The four words as Admin › Event types prints them ("Who it's for"). */
+export const FOR_WHOM_LABELS: Readonly<Record<ForWhomMode, string>> = {
+  self: 'For you',
+  someone: 'Someone else',
+  memorial: 'Someone who passed away',
+  business: 'A business',
+};
+
+/** Keep only known words, in their canonical order, once each. */
+export function cleanForWhom(values: readonly unknown[]): ForWhomMode[] {
+  return FOR_WHOM_MODES.filter((m) => values.includes(m));
+}
+
+/** The rule word a "For ▾" answer reads. A pet / a car / "something you care
+ *  for" is "someone" (living, not you); the person-only fold below still applies. */
+export function forWhomModeOf(subject: CreateSubject): ForWhomMode {
+  switch (subject.kind) {
+    case 'self':
+      return 'self';
+    case 'memorial':
+      return 'memorial';
+    case 'business':
+      return 'business';
+    default:
+      return 'someone';
+  }
+}
+
+/**
+ * The type keys the DB rule folds away for this answer. A type whose `forWhom` is
+ * unknown (NULL — the fallback roster, a row read before the column existed) is
+ * never folded: unknown fails OPEN. No subject (samahan, the QR fast-lane) folds
+ * nothing.
+ */
+export function forWhomHiddenTypes(
+  types: ReadonlyArray<{ key: string; forWhom?: readonly string[] | null }>,
+  subject: CreateSubject | null,
+): string[] {
+  if (!subject) return [];
+  // A GROUP is not one of the four words — what a group may hold is its own rule
+  // (`groupHiddenTypes`, the event class), so the for_whom rule folds nothing here.
+  if (subject.kind === 'group') return [];
+  const mode = forWhomModeOf(subject);
+  return types
+    .filter((t) => Array.isArray(t.forWhom) && !t.forWhom.includes(mode))
+    .map((t) => t.key);
+}
+
+/**
+ * What a GROUP may not hold (owner 2026-10-28: "groups … narrows the tiles to
+ * group-suitable types"). `groupTypeKeys` = the types whose profile is
+ * `community_eligible` — the SAME rule the shipped `?samahan=` page filters by and
+ * the create action re-checks (`samahan_invalid_type`). Every other type is folded.
+ * Not a group, or no list handed in → folds nothing (unknown fails open; the server
+ * still refuses a personal type for a group).
+ */
+export function groupHiddenTypes(
+  types: ReadonlyArray<{ key: string }>,
+  subject: CreateSubject | null,
+  groupTypeKeys: readonly string[] | null | undefined,
+): string[] {
+  if (!subject || subject.kind !== 'group' || !groupTypeKeys) return [];
+  return types.filter((t) => !groupTypeKeys.includes(t.key)).map((t) => t.key);
+}
+
+/**
+ * "Show all event types" — the doorway under the grid — is drawn for a person, never
+ * for a business or a group (owner 2026-10-28: "business types only"; a group may
+ * never own a personal milestone, owner lock 2026-07-15). "Can't find yours? Ask us
+ * to add it" is their way out instead.
+ */
+export function subjectMayShowAll(subject: CreateSubject | null): boolean {
+  return !subject || (subject.kind !== 'business' && subject.kind !== 'group');
+}
 
 /**
  * Life types that belong to a PERSON and cannot belong to a pet, a business or
@@ -107,7 +231,12 @@ export function hiddenTypesForSubject(
 
   // "Someone else" is by definition unmeasured — an unnamed person tells us
   // nothing, so we sort nothing.
-  if (subject.kind === 'unspecified') return [];
+  if (subject.kind === 'unspecified' || subject.kind === 'memorial') return [];
+  // A group has no milestone ladder; its own rule (`groupHiddenTypes`) is the whole answer.
+  if (subject.kind === 'group') return [];
+  // The generic "A business" row: the DB rule (`forWhomHiddenTypes`) is the whole
+  // answer for it — nothing to measure.
+  if (subject.id === BUSINESS_SUBJECT_ID) return [];
 
   // A pet / a business / a car has no milestone ladder — only the generic
   // celebrations apply. Derived from "not a person" rather than a list of kinds:
@@ -163,6 +292,9 @@ export function gridHiddenTypes(
   if (!subject || !todayISO || subject.kind === 'unspecified') {
     return [...accountHidden];
   }
+  // "Someone who passed away" has no milestone ladder to measure; the DB rule
+  // alone decides what shows for it.
+  if (subject.kind === 'memorial' || subject.kind === 'group') return [];
   // "You" with no saved birthday measures nothing of its own, so the household
   // reading stays authoritative — exactly the shipped behaviour, and the path
   // every account with a blank profile birthday still takes.
@@ -183,7 +315,10 @@ export function gridHiddenTypes(
  */
 export function subjectHonoreeLabel(subject: CreateSubject | null): string {
   if (!subject) return '';
-  if (subject.kind === 'self' || subject.kind === 'unspecified') return '';
+  if (subject.kind === 'self' || subject.kind === 'unspecified' || subject.kind === 'memorial' || subject.kind === 'group') return '';
+  // The generic business row is filled with the account's OWN shop name (owner
+  // 2026-10-26: "If it is for a business …") — or asked, when there is none.
+  if (subject.id === BUSINESS_SUBJECT_ID) return (subject.shopName ?? '').trim().slice(0, 80);
   return subject.name.trim().slice(0, 80);
 }
 
@@ -204,7 +339,9 @@ export function subjectHonoreeLabel(subject: CreateSubject | null): string {
  */
 export function subjectHonoreeDependentId(subject: CreateSubject | null): string | null {
   if (!subject) return null;
-  if (subject.kind === 'self' || subject.kind === 'unspecified') return null;
+  if (subject.kind === 'self' || subject.kind === 'unspecified' || subject.kind === 'memorial' || subject.kind === 'group') return null;
+  // The generic business row is not a `dependents` record — its id is a word.
+  if (subject.id === BUSINESS_SUBJECT_ID) return null;
   return subject.id || null;
 }
 
@@ -311,7 +448,7 @@ export function buildSelfSubject(
     id: SELF_SUBJECT_ID,
     kind: 'self',
     name: name || 'You',
-    subtitle: 'Your own celebration',
+    subtitle: 'Your own event',
     birthDate,
     sex,
   };
@@ -327,4 +464,145 @@ export function buildUnspecifiedSubject(): CreateSubject {
     birthDate: null,
     sex: null,
   };
+}
+
+/** "Someone who passed away" — the only answer that offers a wake (the DB rule). */
+export function buildMemorialSubject(): CreateSubject {
+  return {
+    id: MEMORIAL_SUBJECT_ID,
+    kind: 'memorial',
+    name: 'Someone who passed away',
+    subtitle: 'A wake, or remembering them',
+    birthDate: null,
+    sex: null,
+  };
+}
+
+/**
+ * The generic "A business" row. `shopName` = the account's own shop, when it has
+ * one: the event is then filled in under it, never asked.
+ */
+export function buildBusinessSubject(shopName?: string | null): CreateSubject {
+  const shop = (shopName ?? '').trim().slice(0, 80) || null;
+  return {
+    id: BUSINESS_SUBJECT_ID,
+    kind: 'business',
+    name: shop ?? 'A business',
+    subtitle: 'Business events only',
+    birthDate: null,
+    sex: null,
+    shopName: shop,
+  };
+}
+
+/** One of the account's groups (`fetchUserCommunities`, organizer rows only — only an organizer may plan its events). */
+export function buildGroupSubject(group: { communityId: string; name: string; memberCount?: number | null }): CreateSubject {
+  const n = typeof group.memberCount === 'number' && group.memberCount > 0 ? group.memberCount : null;
+  return {
+    id: `${GROUP_SUBJECT_PREFIX}${group.communityId}`,
+    kind: 'group',
+    name: group.name.trim().slice(0, 80) || 'Your group',
+    subtitle: n ? `Group · ${n} ${n === 1 ? 'member' : 'members'}` : 'Group',
+    birthDate: null,
+    sex: null,
+    communityId: group.communityId,
+    memberCount: n,
+  };
+}
+
+/**
+ * The whole "For ▾" roster, in its order: You · every loved one on file ·
+ * Someone else · your groups · A business · Someone who passed away.
+ *
+ * "A business" is drawn ONCE: when a shop's business alaga is already on file
+ * (lib/business-alaga.ts) it IS the business row — a second, generic one would be
+ * the same shop twice.
+ */
+export function buildCreateRoster(
+  self: CreateSubject,
+  alaga: readonly CreateSubject[],
+  shopName?: string | null,
+  groups: readonly CreateSubject[] = [],
+): CreateSubject[] {
+  const businessAlaga = alaga.filter((s) => s.kind === 'business');
+  return [
+    self,
+    ...alaga.filter((s) => s.kind !== 'business'),
+    buildUnspecifiedSubject(),
+    // 👥 YOUR GROUPS (owner 2026-10-28) — the account's REAL groups, between the people and the business.
+    ...groups.filter((s) => s.kind === 'group'),
+    // A shop's business alaga IS the business row; the generic one is drawn only without it.
+    ...(businessAlaga.length > 0 ? businessAlaga : [buildBusinessSubject(shopName)]),
+    buildMemorialSubject(),
+  ];
+}
+
+/**
+ * The heading a row sits under in the open "For ▾" list (prototype
+ * who_is_it_for_2026-10-28 frame A): no heading for You / your loved ones / Someone
+ * else · "Your groups" · "Your business" · and a plain divider ('') before "Someone
+ * who passed away".
+ */
+export function forMenuGroup(subject: CreateSubject): string | undefined {
+  if (subject.kind === 'group') return 'Your groups';
+  if (subject.kind === 'business') return 'Your business';
+  if (subject.kind === 'memorial') return '';
+  return undefined;
+}
+
+/**
+ * The subject the type grid OPENS on (owner 2026-10-22, Host 3 option B): "You" — the grid first, sorted for the
+ * account holder. No "You" in the roster (no roster at all: samahan, a QR fast-lane, signed out) → null, and the
+ * grid is exactly the household reading it always was.
+ */
+export function openingSubject(subjects: readonly CreateSubject[] | null | undefined): CreateSubject | null {
+  return (subjects ?? []).find((s) => s.kind === 'self') ?? null;
+}
+
+/**
+ * The "For · You ▾" dropdown's rows — or null, which means DRAW NOTHING. A dropdown appears exactly when the old
+ * step had more than its two fixed rows: a loved one on file. "You" and "Someone else" alone are not a choice the
+ * grid needs ("someone else" is its "show all event types").
+ */
+export function forMenuSubjects(subjects: readonly CreateSubject[] | null | undefined): CreateSubject[] | null {
+  const all = [...(subjects ?? [])];
+  // 🔁 ALWAYS A CHOICE NOW (owner 2026-10-26): "For you" folds what cannot be
+  // yours, so "Someone else" / "A business" / "Someone who passed away" are real
+  // answers whether or not a loved one is on file. Only a roster with nothing but
+  // "You" in it (or none at all) draws nothing.
+  return all.some((s) => s.kind !== 'self') ? all : null;
+}
+
+/** A row's words in the dropdown: the account holder is "You" (the prototype's row), everyone else their name. */
+export function forMenuLabel(subject: CreateSubject): string {
+  return subject.kind === 'self' ? 'You' : subject.name;
+}
+
+/**
+ * The celebrant name "For you" fills in (owner 2026-10-26: "if it is for you, the
+ * name of the celebrant should automatically be me"). The account's own display
+ * name; '' when it has none — never an email local-part. Shown and carried as the
+ * celebrant's NAME only: the cap's key (`subjectHonoreeLabel`) stays '' for "You".
+ */
+export function selfCelebrantName(subject: CreateSubject | null): string {
+  if (!subject || subject.kind !== 'self') return '';
+  return subject.name === 'You' ? '' : subject.name.trim().slice(0, 80);
+}
+
+/** The line under a row: "Your own event" · the shipped "Loved one · …" · "Show me everything". */
+export function forMenuHint(subject: CreateSubject): string {
+  if (subject.kind === 'unspecified') return 'A living person — every event';
+  if (subject.kind === 'business') return 'Business events only';
+  return subject.subtitle;
+}
+
+/** The line under the CLOSED "For ▾" row — a group says where the event will show (prototype frame B). */
+export function forTriggerHint(subject: CreateSubject): string {
+  if (subject.kind === 'group') return 'Group · members see it in the group';
+  return forMenuHint(subject);
+}
+
+/** The `community_id` a picked subject makes the event belong to — a group row only. */
+export function subjectCommunityId(subject: CreateSubject | null): string | undefined {
+  return subject?.kind === 'group' && subject.communityId ? subject.communityId : undefined;
 }

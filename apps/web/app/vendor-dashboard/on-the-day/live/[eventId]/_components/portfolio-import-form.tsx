@@ -49,6 +49,7 @@ export function PortfolioImportForm({
             : 'Could not import that photo. Please try again.',
         );
       } else {
+        // one-render: keep (fetch) — it follows a `fetch()` upload; no server action answered with a render.
         router.refresh();
       }
     } catch {

@@ -1,0 +1,400 @@
+'use client';
+
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal, useFormStatus } from 'react-dom';
+import Link from 'next/link';
+import { Check, ChevronRight } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { Explain } from '@/app/_components/explain';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { Chips } from '@/app/_components/chips';
+import { Fold } from '@/app/_components/fold';
+import { FactRow, FORM_PICK_CLASS, FormRow, FormRows, SwitchRow, TypedRow, usePillWidth } from '@/app/_components/form-row';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { INVITED_TO_BLOCKS, INVITED_TO_LABELS, defaultInvitedToForRole, type GuestRole, type InvitedToBlock } from '@/lib/guests';
+import type {
+  CardBoxProps,
+  CardDoorProps,
+  CardFieldProps,
+  CardFoldProps,
+  CardGroupProps,
+  CardInvitedToProps,
+  CardLockedProps,
+  CardFactProps,
+  CardPickProps,
+  CardRolesProps,
+  CardSubmitProps,
+  CardTitleProps,
+  CardTipProps,
+  CardToggleProps,
+} from './guest-card-kit';
+import { useAutosaveOutcome } from './guest-card-autosave';
+import { isPlainSentence } from './plain-refusal';
+import { TitlePicker } from './title-picker';
+import { splitPickText, useSplitPick, withMainMark } from './card-fields';
+import { ROLE_DONE_NOTE } from '@/lib/guest-group-role-pick';
+import { GuestGroupPicker, type OwnGroup } from './guest-group-picker';
+
+/**
+ * guest-card-rows.tsx — THE GUEST CARD'S LEAF CONTROLS, DRAWN BY THE APP'S TEMPLATES (step 4B, 2026-10-09).
+ *
+ * The card (`guest-card-body.tsx`) is ONE list of fields; this is the kit the Guests pages hand it so each leaf is a Form row —
+ * `TypedRow` (a typed fact), `SwitchRow` (on / off), a `FormRow` around the house dropdown (a pick), `Chips` (several of a few), a
+ * `Fold`, a `FactRow` (a fact it cannot change) — one hairline list per fold, the pills of a list one width. NOT imported by
+ * `GuestCardBody` or anything it reaches (the Maker draws the card in its first load, where none of these templates are): the
+ * pages import `guest-card-template-kit.ts`. Held by `the-guest-card-adds-no-first-load-weight.test.ts`.
+ *
+ * 🔑 THE CARD IS LIVE. Its autosave posts the WHOLE FORM to `updateGuest` (quiet=1), so every control here keeps the NAME it had and
+ * posts the VALUE it posted — `the-card-posts-the-same-form.test.ts` renders both kits over twelve states and holds the FormData
+ * equal. A template row keeps its answer in React state and posts nothing by itself, so each one is given a `fieldName`
+ * (`form-row.tsx`, `chips.tsx`) or, for the dropdowns, the hidden input `FormPick` always used (`data-form-pick`, controlled by
+ * state, `sn-restore` for the Undo). The form hears a change ONCE, from the tap or the keep — typing in an open field is not the
+ * answer yet — so the autosave fires no more often than before.
+ */
+
+const KEEP = () => ({ ok: true as const });
+const NUMBERS_ONLY = (text: string) => (/^-?\d*$/.test(text) ? null : 'Numbers only.');
+
+/** A typed fact. Saved by the card's autosave, so `onKeep` has nothing to do — keeping tells the form (`fieldName`). */
+export function CardField({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false, about, maxLength }: CardFieldProps) {
+  return (
+    <TypedRow
+      name={label}
+      fieldName={id}
+      value={defaultValue}
+      onKeep={KEEP}
+      required={required}
+      long={long}
+      /* ✍ A long answer is a box you can see (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`, the Notes
+         group): its name above, the words in a multi-line box — never a one-line pill beside a squeezed name. */
+      boxed={long}
+      placeholder={placeholder}
+      empty={placeholder ?? 'Add'}
+      /* A stored answer longer than the box allows is never cut by opening the row. */
+      maxLength={Math.max(maxLength ?? (long ? 2000 : 240), defaultValue.length)}
+      inputMode={type === 'tel' ? 'tel' : type === 'number' ? 'numeric' : undefined}
+      check={type === 'number' ? NUMBERS_ONLY : null}
+      about={about ? { words: about } : null}
+      data={`card-${id}`}
+      attrs={{ 'data-card-field': id }}
+    />
+  );
+}
+
+/** On / off. The switch keeps its state here; the checkbox under it (`fieldName`) is what the form reads. */
+export function CardToggle({ name, defaultChecked, label, note, form }: CardToggleProps) {
+  const [on, setOn] = useState(defaultChecked);
+  // A fresh value from the server (a save landed, the row was edited elsewhere) moves the switch — and tells the form nothing.
+  useEffect(() => setOn(defaultChecked), [defaultChecked]);
+  return <SwitchRow name={label} about={{ words: note }} on={on} onChange={setOn} fieldName={name} formId={form} data={`card-${name}`} attrs={{ 'data-card-field': name }} />;
+}
+
+/** 🚪 One line with one door — the row's name, its fact, and the one place it is changed ("Papic is off · Turn on ›"). */
+export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
+  return (
+    <FormRow name={label} line={value} data={data} attrs={{ 'data-card-door': data }}>
+      {/* No `href` — this viewer cannot press it — no door: the line alone, never a button that refuses. */}
+      {href ? (
+        <Link href={href} className={actionButtonClass('brand', { extra: 'min-h-10' })}>
+          {action}
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+      ) : null}
+    </FormRow>
+  );
+}
+
+/** One row of the card: closed with a one-line summary, open its fields as ONE list of rows. */
+/**
+ * ONE GROUP OF THE CARD as the approved prototype draws it (`guest_card_groups_and_papic_2026-10-23.html`, frame 2): the title at
+ * the left, its summary at the right cut with "…" (never a second line), a hairline under every row but the last, the row inset
+ * from the card's edge by the prototype's 2 px.
+ */
+export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, tip, children }: CardFoldProps) {
+  return (
+    <Fold title={summary}
+      summary={value ?? emptyValue ?? '—'}
+      summaryEnd
+      danger={danger}
+      tip={tip}
+      defaultOpen={open}
+      className={`px-0.5 ${last ? '' : 'border-b border-ink/10'}`}
+      data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}
+    >
+      <FormRows data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}>{children}</FormRows>
+    </Fold>
+  );
+}
+
+/**
+ * A choice (one, or several with ticks): the house dropdown in a Form row, with the ONE hidden input `FormPick` always carried —
+ * CONTROLLED by state (never `defaultValue`: on a hidden input React re-applies the default on every render and would post the
+ * server's old answer — owner's live iPhone test 2026-10-02), `data-form-pick` so the Undo finds it, `sn-restore` so the Undo
+ * reaches the screen, and `input` + `change` raised on a pick because a hidden input raises neither by itself.
+ */
+export function CardPick({ name, label, value, options, multi = false, emptyText = 'None', about, unlisted, form }: CardPickProps) {
+  const [current, setCurrent] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+  const width = usePillWidth();
+  useEffect(() => {
+    setCurrent(value);
+    if (ref.current) ref.current.value = value;
+  }, [value]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reread = () => setCurrent(el.value);
+    el.addEventListener('sn-restore', reread);
+    return () => el.removeEventListener('sn-restore', reread);
+  }, []);
+  const picked = multi ? current.split(',').filter(Boolean) : undefined;
+  const pick = (key: string) => {
+    let next = key;
+    if (multi) {
+      const set = new Set(picked);
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+      // In the list's own order, so the posted value does not depend on tap order.
+      next = options.map((o) => o.key).filter((k) => set.has(k)).join(',');
+    }
+    if (next === current) return;
+    setCurrent(next);
+    const el = ref.current;
+    if (!el) return;
+    el.value = next;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const multiText = picked
+    ? options
+        .filter((o) => picked.includes(o.key))
+        .map((o) => o.label)
+        .join(', ') || emptyText
+    : undefined;
+  return (
+    <FormRow name={label} about={about ? { words: about } : null} data={`card-${name}`} attrs={{ 'data-card-field': name }}>
+      <PickMenu label={label} value={multi ? null : current} options={options} onPick={pick} picked={picked} buttonText={multiText ?? (unlisted && current === unlisted.key ? unlisted.text : undefined)} className={`${FORM_PICK_CLASS} ${width}`} />
+      <input ref={ref} type="hidden" id={name} name={name} value={current} form={form} data-form-pick="" />
+    </FormRow>
+  );
+}
+
+/**
+ * 👥 The ONE Group dropdown, as a Form row (owner 2026-10-20; prototype A1–A6): the pill on the row, the list IN FLOW under
+ * it (`GuestGroupPicker` — standard one-of, own groups several, ＋ New group…, ✎ rename / 🗑 delete in place). Posts the two
+ * hidden inputs the two old rows posted — `group_category`, and `group_ids` while the own groups could be read.
+ */
+export function CardGroup({ eventId, label, std, standard, own, ownPicked, side }: CardGroupProps) {
+  const width = usePillWidth();
+  const [list, setList] = useState<OwnGroup[] | null>(own ? [...own] : null);
+  const fromServer = JSON.stringify(own);
+  useEffect(() => {
+    setList(own ? [...own] : null);
+    // `own` is read through `fromServer`, its stable key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromServer]);
+  const stdKeys = standard.map((o) => o.key);
+  const { picked, pick, inputs } = useSplitPick('group', ['group_category', own ? 'group_ids' : null], [std, ...ownPicked].join(','), stdKeys, (list ?? []).map((g) => g.groupId));
+  return (
+    <GuestGroupPicker
+      eventId={eventId}
+      label={label}
+      picked={picked}
+      onPick={pick}
+      standard={standard}
+      groups={list}
+      onGroupsChange={setList}
+      side={side}
+      sideField={side === undefined ? undefined : 'side'}
+      className={`${FORM_PICK_CLASS} ${width}`}
+      layout={(button, panel) => (
+        <FormRow name={label} data="card-group_category" attrs={{ 'data-card-field': 'group_category' }} below={panel}>
+          {button}
+          {inputs}
+        </FormRow>
+      )}
+    />
+  );
+}
+
+/**
+ * 🎭 The ONE Role dropdown, as a Form row (owner 2026-10-20; prototype A7): the shipped checkmark PickMenu with the
+ * honour-pair headings, several ticked, the first marked "main". Posts `role` (the main one — "Invited to" snaps to it) and
+ * `extra_roles` (the rest), as the Role and "Also serves as" rows did.
+ */
+export function CardRoles({ label, value, options, solo, about }: CardRolesProps) {
+  const width = usePillWidth();
+  const { picked, pick, inputs } = useSplitPick('role', ['role', 'extra_roles'], value, solo, options.map((o) => o.key));
+  return (
+    <FormRow name={label} about={about ? { words: about } : null} data="card-role" attrs={{ 'data-card-field': 'role' }}>
+      <PickMenu
+        label={label}
+        value={null}
+        options={withMainMark(options, picked[0])}
+        onPick={pick}
+        picked={picked}
+        buttonText={splitPickText('role', picked, options) || 'Guest'}
+        doneNote={ROLE_DONE_NOTE}
+        className={`${FORM_PICK_CLASS} ${width}`}
+      />
+      {inputs}
+    </FormRow>
+  );
+}
+
+/** 🪪 The Title, as a Form row: the house dropdown whose pick carries woman or man, with "Other title…" (`TitlePicker`). */
+export function CardTitle({ label, value, current, unlisted, narrow = false }: CardTitleProps) {
+  const width = usePillWidth();
+  return (
+    <FormRow name={label} data="card-name_title" attrs={{ 'data-card-field': 'name_title' }}>
+      <TitlePicker label={label} value={value} current={current} unlisted={unlisted} narrowTo={narrow ? current : undefined} className={`${FORM_PICK_CLASS} ${width}`} />
+    </FormRow>
+  );
+}
+
+/** "Invited to": the parts of the day as chips, snapping to the role's usual set when the Role changes (as it always did). */
+export function CardInvitedTo({ roleSelectId, initialRole, initialBlocks }: CardInvitedToProps) {
+  const [blocks, setBlocks] = useState<InvitedToBlock[]>(() => (initialBlocks as InvitedToBlock[] | undefined) ?? defaultInvitedToForRole(initialRole as GuestRole));
+  // A fresh set from the server (a save landed, the row was edited elsewhere) moves the chips — and tells the form nothing.
+  const fromServer = (initialBlocks ?? []).join(',');
+  useEffect(() => {
+    if (initialBlocks) setBlocks(initialBlocks as InvitedToBlock[]);
+    // `initialBlocks` is read through `fromServer`, its stable key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromServer]);
+  useEffect(() => {
+    const role = document.getElementById(roleSelectId) as HTMLInputElement | null;
+    if (!role) return;
+    const snap = () => setBlocks(defaultInvitedToForRole(role.value as GuestRole));
+    role.addEventListener('change', snap);
+    return () => role.removeEventListener('change', snap);
+  }, [roleSelectId]);
+  return (
+    <FormRow
+      name="Invited to"
+      data="card-invited-to"
+      attrs={{ 'data-card-field': 'invited_to' }}
+      below={
+        <div className="pb-3 pt-0.5">
+          <Chips<InvitedToBlock>
+            label="Invited to"
+            data="invited-to"
+            options={INVITED_TO_BLOCKS.map((b) => ({ key: b, label: INVITED_TO_LABELS[b] }))}
+            value={blocks}
+            onToggle={(block, next) => setBlocks((prev) => (next ? (prev.includes(block) ? prev : [...prev, block]) : prev.filter((b) => b !== block)))}
+            fieldName={(block) => `invited_${block}`}
+          />
+        </div>
+      }
+    />
+  );
+}
+
+/** A fact the host cannot change here — said once, with where it is decided; nothing to tap. */
+export function CardLocked({ label, value, note }: CardLockedProps) {
+  return <FactRow name={label} value={value} where={note} data="card-locked" attrs={{ 'data-card-field': 'role' }} />;
+}
+
+/** 🪪 A fact read from elsewhere — the same quiet FactRow, named for its own field (`data-card-field`). */
+export function CardFact({ field, label, value, where }: CardFactProps) {
+  return <FactRow name={label} value={value} where={where} data="card-fact" attrs={{ 'data-card-field': field }} />;
+}
+
+/** The top list of the card (the name and the mobile): ONE list of the app's Form rows. */
+export function CardList({ children }: CardBoxProps) {
+  return <FormRows data="card-name">{children}</FormRows>;
+}
+
+/** Fields that sat side by side are rows of the same list. */
+export function CardCols({ children }: CardBoxProps): ReactNode {
+  return <>{children}</>;
+}
+
+/** A submit button of one of the card's own small forms: the ONE button (`ActionButton`'s class on the form-status `SubmitButton`). */
+export function CardSubmit({ main = false, pendingLabel, ariaLabel, children }: CardSubmitProps) {
+  return (
+    <SubmitButton className={actionButtonClass(main ? 'brand' : 'neutral', { main, extra: 'w-full min-h-11' })} aria-label={ariaLabel} pendingLabel={pendingLabel}>
+      {children}
+    </SubmitButton>
+  );
+}
+
+/** A heading with its explanation behind the approved ⓘ (a centred "Got it" pop-up on a phone). */
+export function CardTip({ label, children }: CardTipProps) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Explain title={label}>{children}</Explain>
+    </span>
+  );
+}
+
+/**
+ * The save line, drawn for the templated card: "Saving…" while a save is in flight, "Saved" for a moment once it LANDED, and
+ * "Couldn’t save." with a real button — Try again — when it did not (kept until the next save lands). The facts are the
+ * autosave's own (`useAutosaveOutcome`); a failed save is never drawn as a saved one.
+ */
+export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
+  const { pending } = useFormStatus();
+  const { outcome, retry } = useAutosaveOutcome();
+  const [shown, setShown] = useState(false);
+  /** Typed or picked since the last landed save (or since the card opened) — nothing unsent may read as "Saved". */
+  const [edited, setEdited] = useState(false);
+  const seen = useRef(0);
+  const anchor = useRef<HTMLSpanElement>(null);
+  /* ✓ SAVED, UP BY THE REPLY (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): the card draws a slot
+     beside the reply pills (`<form id>-saved`); the line is drawn there while this stays in the form's tree (the form's
+     pending state is read from HERE). No slot (the Maker) → drawn where it always was. */
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const form = anchor.current?.closest('form');
+    if (!form) return;
+    setSlot(form.id ? document.getElementById(`${form.id}-saved`) : null);
+    const heard = () => setEdited(true);
+    form.addEventListener('input', heard);
+    form.addEventListener('change', heard);
+    return () => {
+      form.removeEventListener('input', heard);
+      form.removeEventListener('change', heard);
+    };
+  }, []);
+  /* The action's own sentence for a refusal, when it has one: a code the card knows, or words plainly written for a person. The
+     database's words (a returned `error.message`) are never printed — there is just "Couldn’t save." and Try again. */
+  const why = outcome.kind === 'failed' ? outcome.why : undefined;
+  const said = why ? (copy?.[why] ?? (isPlainSentence(why) ? why : null)) : null;
+  useEffect(() => {
+    if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
+    seen.current = outcome.n;
+    // Landed: "Saved" stays until the next change (the prototype's resting line), never before the answer.
+    setShown(true);
+    setEdited(false);
+  }, [outcome]);
+  useEffect(() => {
+    if (edited) setShown(false);
+  }, [edited]);
+  const line = (
+    <span role={outcome.kind === 'failed' && !pending ? 'alert' : 'status'} aria-live="polite" data-autosave-line="" className="inline-flex min-h-[1.25rem] flex-wrap items-center justify-end gap-x-2 text-xs text-ink/55">
+      {pending ? (
+        'Saving…'
+      ) : outcome.kind === 'failed' ? (
+        <>
+          <span className="font-semibold text-danger-700">Couldn’t save.</span>
+          {said ? <span data-autosave-why="" className="text-danger-700">{said}</span> : null}
+          <ActionButton tone="danger" label="Try again" icon={Check} onClick={retry} data-testid="autosave-retry" />
+        </>
+      ) : (outcome.kind === 'saved' && shown) || (outcome.kind === 'idle' && !edited) ? (
+        /* At rest — the card as the server last saved it, nothing changed since — or a save that LANDED. */
+        <>
+          <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
+          <span className="text-success-800">Saved</span>
+        </>
+      ) : null}
+    </span>
+  );
+  return (
+    <span ref={anchor} className="contents" data-autosave-anchor="">
+      {slot ? createPortal(line, slot) : line}
+    </span>
+  );
+}
+

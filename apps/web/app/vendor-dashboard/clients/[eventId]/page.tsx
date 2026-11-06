@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { customerLandingHref, SUPPLIER_CHATS_HREF } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { redirect } from 'next/navigation';
@@ -22,7 +24,6 @@ import {
   MessageSquarePlus,
   PackageCheck,
   Palette,
-  Phone,
   ScrollText,
   Sparkles,
   UserRound,
@@ -34,6 +35,9 @@ import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { readEventsYouRun } from '@/lib/events-you-run.server';
+import { OpenTheirEvent } from './_components/open-their-event';
+import { Badge } from '@/app/_components/badge';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
@@ -42,8 +46,7 @@ import { boothStudioEnabled } from '@/lib/booth-studio-flag';
 import { sanitizeBoothStudioContent, type BoothStudioContent } from '@/lib/booth-studio';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
 import { BoothEventSection } from './_components/booth-event-section';
-import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
-import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
+import { deriveCallTime } from '@/lib/vendor-timeline';
 import {
   fetchVendorThreads,
   fetchReturningClientFlags,
@@ -54,7 +57,10 @@ import {
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
-import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
+import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
+import { SupplierCountTile } from './_components/supplier-count-tile';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -71,6 +77,7 @@ import {
   type CustomerCardTab,
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
+import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
 // same component, same action, same host-side answering screen.
@@ -80,10 +87,10 @@ import {
   fetchMyPendingAsk,
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
-import { COORDINATOR_TILE } from '@/lib/day-requests';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
-import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { redactBriefForStage, reconcileStageWithPayload } from '@/lib/event-access-stage';
 import { EventLockedByFee } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
@@ -108,9 +115,15 @@ import {
   vendorWithdrawChangeOrder,
   vendorAgreeToLock,
   vendorDeclineLock,
+  vendorWaitlistTheAsk,
 } from './actions';
-import { lockRequestFuseLabel } from '@/lib/lock-request-state';
+import { readDayCheck } from '@/lib/day-check.server';
+import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
+import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { CustomerMoneyFold } from './_components/customer-money-fold';
 import { BookingMoneySummary } from './_components/booking-money-summary';
 import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -187,15 +200,22 @@ import {
   type FeeDisclosure,
   type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
-import {
-  BookingFeeBills,
-  BookingFeeNotice,
-  WaivedFeeRows,
-} from '@/app/_components/booking-fee-notice';
+import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
+import { VENUE_CATEGORIES, supplierOwnWhere, whereChaptersFrom, type OwnBooking } from '@/lib/supplier-where';
+import { readTradeChapters, suggestedChapters } from '@/lib/trade-chapters';
+import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierContactRow, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
+import { TASK_COLUMNS } from '@/lib/schedule-chapters';
+import { SupplierSchedule } from './_components/supplier-schedule';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/offline-copies';
+import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
+import { askedOfYou, directionOf } from '@/lib/schedule-ask';
+import type { ComponentProps } from 'react';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -393,8 +413,26 @@ type LiveBlock = {
   start_at: string | null;
   end_at: string | null;
   location: string | null;
-  run_state?: 'upcoming' | 'live' | 'done' | null;
+  run_state?: 'upcoming' | 'live' | 'done' | 'skipped' | null;
   actual_start_at?: string | null;
+  // 📖 Chapters (Step 4b): a top-level block is a chapter, a child its moment — never `notes` (couple-private).
+  parent_block_id?: string | null;
+  spot?: string | null;
+  time_tba?: boolean | null;
+  /** ⏭ An untimed moment's anchor — "right after the one above" (migration 20271302727358). */
+  follows_block_id?: string | null;
+  sort_order?: number | null;
+  /** 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692). */
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
+  is_optional?: boolean | null;
+  responsible_vendor_ids?: string[] | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  /** 🏛 Venue hours (migration 20271307658341): the setup / pack-up window and the venue booking that holds them. */
+  ingress_minutes_before?: number | null;
+  egress_minutes_after?: number | null;
+  hours_vendor_id?: string | null;
 };
 
 type HandoverRow = {
@@ -410,12 +448,28 @@ type HandoverRow = {
 type SuggestionRow = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
+  /** 📍 A Where request (migration 20271308641275): their booking and the chapters asked. */
+  where_vendor_id?: string | null;
+  proposed_block_ids?: string[] | null;
   /** For a 'remove', the moment's label as it was when asked — the block may be gone. */
   proposed_label: string | null;
+  proposed_start_at: string | null;
+  proposed_end_at: string | null;
+  /** + My moment: the chapter it goes into (Step 4b). */
+  proposed_parent_block_id: string | null;
+  proposed_crew: string[] | null;
   note: string;
-  status: 'open' | 'accepted' | 'declined';
+  /** 'withdrawn' = Take back (Step 4b). */
+  status: 'open' | 'accepted' | 'declined' | 'withdrawn';
+  /** Went straight in under the host's Auto-agree — no person decided (Step 4b). */
+  auto_agreed?: boolean | null;
   created_at: string;
+  /** 🔁 'to_supplier' = a host's or the coordinator's ask OF this supplier (D2) — theirs to answer, not their request. */
+  direction?: string | null;
+  suggested_by_name?: string | null;
+  asked_as?: string | null;
+  answer_note?: string | null;
 };
 
 type VendorChangeOrderRow = {
@@ -476,15 +530,27 @@ type Props = {
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
+    /** A refused note write (`noteSaved`, actions.ts) — said in the notes list. */
+    note?: string;
     /** vendorMarkServiceComplete's outcome — see VendorCompletionCard. */
     completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
     ask?: string;
+    /** `vendorAgreeToLock` / `vendorDeclineLock` answered from THIS card
+     *  (`return_to`) — the sentence is said where the supplier pressed. */
+    lock_agree?: string;
+    /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
+    fee?: string;
+    lock_decline?: string;
+    /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
+    taken?: string;
+    free?: string;
+    competing?: string;
   }>;
 };
 
 const HANDOVER_KIND_LABEL: Record<'gallery_link' | 'file' | 'note' | 'signoff', string> = {
-  gallery_link: 'Gallery link',
+  gallery_link: 'Album link',
   file: 'Sample / proof',
   note: 'Note',
   signoff: 'All delivered',
@@ -501,6 +567,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+  // 🗂 Does this person RUN this couple's event as their coordinator, live? (owner "approved", 2026-10-28) — the
+  // layout's cache()d read of their own seats, started now and read at the header, so it adds no trip. Fails closed.
+  const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));
 
   // Stage gate + aggregation live inside the SECURITY DEFINER RPC. An error
   // means the vendor is neither booked nor holds an accepted inquiry on this
@@ -571,7 +640,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // below this point renders only when `isBooked`, and the RPC re-checks both
   // regardless — this decides what to DRAW, never what is permitted.
   const isBookedCoordinator =
-    isBooked && ((profile as { services?: string[] | null }).services ?? []).includes(COORDINATOR_TILE);
+    isBooked && isCoordinatorTrade((profile as { services?: string[] | null }).services);
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────
@@ -615,14 +684,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     { data: cocktailEdit },
     { data: posterRow },
     { data: liveBlocks },
-    { data: mySuggestions },
+    { data: mySuggestions, error: mySuggestionsError },
     returningFlags,
+    myTasksRes,
+    myMarksRes,
+    myScheduleFacts,
+    myContactsRes,
+    headcountRule,
+    headcountNames,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
         .from('event_vendors')
         .select(
-          'vendor_id, source, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
+          'vendor_id, source, status, lock_request_state, lock_declined_at, lock_decline_reason, lock_request_expires_at, lock_request_cancelled_at, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
         )
         .eq('event_id', eventId)
         .eq('marketplace_vendor_id', profile.vendor_profile_id)
@@ -653,29 +728,66 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
+      // ⏰ EVERY block, Time-TBA chapters included (owner 2026-11-02, "TEN OWNER YESES" item 4: a TBA chapter shows
+      // suppliers "Time TBA", never hidden) — their Schedule view (Step 4b) keeps it; the timeline, run of show and
+      // call time below are fenced in code (`timedBlocks`), since a TBA chapter's stored 00:00 is only its day and is
+      // never drawn as 12:00 AM. The chapter fields — never `notes`, which stay couple-side.
       supabase
         .from('event_schedule_blocks')
-        .select('block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at')
+        .select(
+          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, follows_block_id, sort_order, time_shape, time_or_minutes, is_optional, responsible_vendor_ids, created_at, updated_at, ingress_minutes_before, egress_minutes_after, hours_vendor_id',
+        )
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
         .order('sort_order', { ascending: true }),
       supabase
         .from('event_schedule_suggestions')
-        .select('suggestion_id, block_id, kind, proposed_label, note, status, created_at')
+        .select(
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id, proposed_ingress_minutes, proposed_egress_minutes, where_vendor_id, proposed_block_ids',
+        )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(60),
       // Returning-client signal (Relationship Workspace · Details tab, PR 5).
       // SAME source as the vendor inbox pending badge — the SECURITY DEFINER
       // RPC that can see the couple's OTHER-event bookings (vendor RLS can't).
       // Graceful-degrades to an empty Map pre-migration, so the marker simply
       // doesn't render until 20261201000000 lands.
       fetchReturningClientFlags(supabase, profile.vendor_profile_id, [eventId]),
+      // 🤝 THE SUPPLIER'S PART OF THE SCHEDULE (Step 4b) — their crews on moments (RLS: a booked supplier reads the
+      // event's tasks), their Seen / Confirm marks (own rows), and the host's Auto-agree + the event day + every
+      // booking row of theirs (admin, scoped to this org on this event — a supplier has no read on events' settings
+      // or event_vendors). Each read's failure is said on the view, never drawn as "none".
+      supabase.from('event_schedule_tasks').select(TASK_COLUMNS).eq('event_id', eventId),
+      supabase
+        .from('event_supplier_schedule_marks')
+        .select(SCHEDULE_MARK_COLUMNS)
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
+      Promise.all([
+        admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
+        admin
+          .from('event_vendors')
+          .select('vendor_id, category, status, vendor_name')
+          .eq('event_id', eventId)
+          .eq('marketplace_vendor_id', profile.vendor_profile_id)
+          .is('archived_at', null),
+      ]),
+      // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
+      // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
+      supabase.from('event_schedule_task_contacts').select('task_id, block_id, name, phone').eq('event_id', eventId),
+      // 🧮 WHO THEY COUNT (owner 2026-11-04) — a per-head booked supplier's count and its why, NUMBERS only
+      // (`get_vendor_headcount_rule`). Null for a flat-priced service: the Headcount card then draws what it always did.
+      isBooked && feeUnlocked ? readVendorHeadcountRule(supabase, eventId) : Promise.resolve(null),
+      // …and the rule in the couple's words ("Only Bride's Crew") — admin-read like the event row above (a supplier has no
+      // read on `events`), behind the same booking gate. A failed read is the usual words, logged (`loadRoleNames`).
+      isBooked && feeUnlocked ? loadRoleNames(admin, eventId, 'vendorClientCard.roleNames') : Promise.resolve(null),
     ]),
   );
 
-  const completionRow = (evRow ?? null) as {
+  const completionRow = (evRow ?? null) as ({
     vendor_id: string | null;
     source: string | null;
     completion_status: string | null;
@@ -686,7 +798,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     deposit_declined_at: string | null;
     deposit_decline_reason: string | null;
     deposit_proof_url: string | null;
-  } | null;
+  } & SupplierAskRow) | null;
+  // 🔒 THE LAST ASK, WHEN IT CLOSED WITHOUT A BOOKING (pair P2, owner
+  // 2026-10-10: "ask, agree, decline, lapse, withdraw all show on both pages in
+  // the same words"). While it is open the panel below answers it; once the
+  // supplier said no, the 48 hours ran out or the couple took it back, the card
+  // says so — the sentence the couple's Build and Find read for this same row
+  // (`lib/booking-ask-words.ts`). Before this the card simply went back to
+  // "In conversation", as if nobody had ever asked.
+  const askOutcome =
+    isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
+  // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
+  const lockNotice =
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), halls: lockAgreeHalls(search.taken, search.free) }) ??
+    lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
   // value, which the couple's session can write (a `https://wa.me/…` there
@@ -738,17 +863,24 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
   // sentence that belongs beside the Agree button, and nowhere else on this
   // page is a decision being made about money.
-  const feeForecast: FeeDisclosure | null = lockRequest?.event_vendor_id
-    ? await forecastForBooking(admin, {
-        vendorProfileId: profile.vendor_profile_id,
-        eventVendorId: lockRequest.event_vendor_id,
-      })
-    : null;
+  // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
+  const [feeForecast, dayCheck]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null] = lockRequest?.event_vendor_id
+    ? await Promise.all([
+        forecastForBooking(admin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockRequest.event_vendor_id,
+        }),
+        readDayCheck(supabase, lockRequest.event_vendor_id),
+      ])
+    : [null, null];
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
-  const clientFeeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
-    () => FEE_BILLS_UNREADABLE,
-  );
+  // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
+  const [clientFeeBillsRead, feeEnforced] = await Promise.all([
+    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
+    resolveFeeEnforcement(),
+  ]);
   const clientFeeBills: DueFeeBill[] =
     clientFeeBillsRead === FEE_BILLS_UNREADABLE
       ? []
@@ -980,7 +1112,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // read them through the SAME admin-gated fetchers the chat thread uses
   // (ownership proven inside via event_vendors.marketplace_vendor_id === us).
   // NO RLS weakening, NO new SECURITY DEFINER — reuse only.
-  let planSteps: ReturnType<typeof computePlanRollup> | null = null;
   let planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null = null;
   let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
   // Full per-booking plan list — retained (beyond the single matched row) so the
@@ -1028,7 +1159,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
       plans.find((p) => p.eventVendorId === eventVendorId) ?? plans[0] ?? null;
-    if (planStepRows?.steps) planSteps = computePlanRollup(planStepRows.steps);
     pendingPayments = pending;
   }
   // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
@@ -1170,8 +1300,142 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     author_label: n.author_user_id === user.id ? 'You' : authorLabels.get(n.author_user_id) ?? null,
   }));
 
-  const allBlocks = (liveBlocks ?? []) as LiveBlock[];
-  const suggestions = (mySuggestions ?? []) as SuggestionRow[];
+  const everyBlock = (liveBlocks ?? []) as LiveBlock[];
+  // The timeline, run of show and call time: blocks with a clock only — a Time-TBA chapter (and every moment in it)
+  // has no clock to draw or call from. Their Schedule view below keeps it, "Time TBA".
+  const allBlocks = blocksWithAClock(everyBlock);
+  // 🔁 One read, two directions (D2, migration 20271303655108): what THIS supplier asked the host (`to_host` — every
+  // reader below, as before) and what a host or the coordinator asked of THEM (`to_supplier` — "Asked of you").
+  const mineBothWays = (mySuggestions ?? []) as SuggestionRow[];
+  const suggestions = mineBothWays.filter((r) => directionOf(r) === 'to_host');
+  const askedOfThem = mySuggestionsError
+    ? null
+    : askedOfYou(mineBothWays.filter((r) => directionOf(r) === 'to_supplier')).map((r) => ({
+        suggestion_id: r.suggestion_id,
+        block_id: r.block_id,
+        vendor_profile_id: profile.vendor_profile_id,
+        suggested_by_name: r.suggested_by_name ?? null,
+        asked_as: r.asked_as ?? null,
+        proposed_start_at: r.proposed_start_at,
+        proposed_end_at: r.proposed_end_at,
+        note: r.note,
+        status: r.status,
+        answer_note: r.answer_note ?? null,
+        created_at: r.created_at,
+        // 📍 A host's Where ask (migration 20271308641275) — the chapters they ask this supplier to serve.
+        kind: r.kind,
+        proposed_block_ids: r.proposed_block_ids ?? null,
+      }));
+
+  // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
+  const [factsEvent, factsBookings] = myScheduleFacts;
+  const myBookingIds = ((factsBookings.data ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
+  if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
+  const supplierDay = liveBlocks
+    ? buildSupplierDay({
+        blocks: everyBlock.map((b) => ({
+          block_id: b.block_id,
+          parent_block_id: b.parent_block_id ?? null,
+          label: b.label,
+          start_at: b.start_at,
+          end_at: b.end_at,
+          location: b.location,
+          spot: b.spot ?? null,
+          time_tba: b.time_tba === true,
+          follows_block_id: b.follows_block_id ?? null,
+          sort_order: b.sort_order ?? 0,
+          time_shape: b.time_shape ?? 'at',
+          time_or_minutes: b.time_or_minutes ?? null,
+          is_optional: b.is_optional === true,
+          responsible_vendor_ids: b.responsible_vendor_ids ?? [],
+          created_at: b.created_at ?? null,
+          updated_at: b.updated_at ?? null,
+          ingress_minutes_before: b.ingress_minutes_before ?? null,
+          egress_minutes_after: b.egress_minutes_after ?? null,
+          hours_vendor_id: b.hours_vendor_id ?? null,
+        })),
+        myBookingIds,
+        // 🏛 Their VENUE bookings — a venue sets the hours of the chapters it is booked to.
+        venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
+          .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
+          .map((b) => b.vendor_id),
+        tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
+        requests: suggestions,
+        contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
+      })
+    : null;
+  /* 📍 WHERE — the chapters they serve, picked by them as a request (owner 2026-11-04, migration 20271308641275). Their
+     trade's usual chapters (`service_categories.default_chapters`) prefill an empty pick — read only when one is empty. */
+  const myBookings: OwnBooking[] = ((factsBookings.data ?? []) as { vendor_id: string; category: string | null; status: string | null; vendor_name: string | null }[]).map(
+    (b) => ({ vendorId: b.vendor_id, category: b.category, status: b.status, label: b.vendor_name }),
+  );
+  const whereChapters = whereChaptersFrom(
+    everyBlock.map((b) => ({
+      block_id: b.block_id,
+      parent_block_id: b.parent_block_id ?? null,
+      label: b.label,
+      start_at: b.start_at,
+      location: b.location,
+      responsible_vendor_ids: b.responsible_vendor_ids ?? [],
+      block_type: b.block_type,
+      time_tba: b.time_tba === true,
+    })),
+  );
+  let ownWhere = liveBlocks && !factsBookings.error ? supplierOwnWhere({ bookings: myBookings, chapters: whereChapters, requests: suggestions }) : null;
+  if (ownWhere?.some((w) => w.draft.length === 0)) {
+    const trade = await readTradeChapters(admin);
+    if (trade.ok) {
+      ownWhere = supplierOwnWhere({
+        bookings: myBookings,
+        chapters: whereChapters,
+        requests: suggestions,
+        tradeDefault: (category) => suggestedChapters(whereChapters, trade.byCategory.get(category ?? '')),
+      });
+    }
+  }
+  const scheduleMarks = myMarksRes.error
+    ? null
+    : {
+        seenAt: (myMarksRes.data as { seen_at: string | null } | null)?.seen_at ?? null,
+        confirmedAt: (myMarksRes.data as { confirmed_at: string | null } | null)?.confirmed_at ?? null,
+        // 🔒 CHANGE LOCK (audit D7): their part is locked — the host's changes are refused until they unlock.
+        lockedAt: (myMarksRes.data as { locked_at: string | null } | null)?.locked_at ?? null,
+      };
+  const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
+  // 🚗 ONE CREW, TWO EVENTS (slice 5, owner 2026-11-04): their crews' moments here, against the same crews on their
+  // other events that day. Only when this event's crews were read — an unread crew list is never "no clash".
+  const timedHere = new Map(blocksWithAClock(everyBlock).map((b) => [b.block_id, b]));
+  const crewHere = myTasksRes.error
+    ? []
+    : ((myTasksRes.data ?? []) as Array<SupplierTaskRow & { call_at: string | null }>).flatMap((t) => {
+        const b = timedHere.get(t.block_id);
+        const startIso = t.call_at ?? b?.start_at ?? null;
+        return b && t.crew && t.vendor_id && myBookingIds.includes(t.vendor_id) && startIso
+          ? [{ blockId: t.block_id, crew: t.crew, startIso, endIso: b.end_at ?? null }]
+          : [];
+      });
+  const crewElsewhere = myTasksRes.error || factsEvent.error
+    ? null
+    : await readCrewElsewhere({
+        admin,
+        supabase,
+        vendorProfileId: profile.vendor_profile_id,
+        eventId,
+        eventDate: factsRow?.event_date ?? null,
+        here: crewHere,
+      });
+  const supplierPart = {
+    day: supplierDay,
+    autoAgree: factsRow?.supplier_requests_auto_agree === true,
+    marks: scheduleMarks,
+    changed: supplierDay ? changedSinceSeen(supplierDay.stamps, scheduleMarks?.seenAt ?? null) : false,
+    finalWeek: inFinalWeek(factsRow?.event_date ?? null, manilaToday()),
+    tasksRead: !myTasksRes.error,
+    answered: suggestions.filter((r) => r.status !== 'open').slice(0, 6),
+    asked: askedOfThem,
+    where: ownWhere,
+    elsewhere: crewElsewhere,
+  };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link
   // that only ever lands on a locked screen is a dead end, not an invitation.
@@ -1187,7 +1451,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   );
   const posterDisplayUrl = posterRef ? await displayUrlForStoredAsset(posterRef) : null;
 
-  const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
 
   const runOfShowBlocks: RunOfShowBlock[] = allBlocks
     .filter((b) => b.start_at)
@@ -1201,37 +1464,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       actual_start_at: b.actual_start_at ?? null,
     }));
 
-  const relevance = new Map(
-    allBlocks.map((b) => [b.block_id, blockRelevance(b, brief.booked_categories)]),
-  );
-  // Coordinator P2 — explicit responsible-party tags override the category
-  // heuristic: a row the couple tagged to THIS vendor is always 'primary'
-  // ("Your slot" + included in "My slots only"). Best-effort fetch — before
-  // migration 20270825042743 (or with zero tags) the map is empty and the
-  // lens behaves exactly as today. Full-timeline read stays per locked D2.
-  //
-  // The SAME tags decide which moments are this supplier's OWN (owner
-  // 2026-10-03): those it may ask to change or remove; on every other moment
-  // it may only suggest. The category heuristic never makes a moment "own" —
-  // only a tag does, which is also the only thing the database's rule reads
-  // (`current_vendor_owns_schedule_block`, 20271263061583).
-  const ownBlockIds = new Set<string>();
-  if (eventVendorId && allBlocks.length > 0) {
-    const rosMeta = await fetchBlockRosMeta(supabase, eventId);
-    if (rosMeta.size > 0) {
-      for (const b of allBlocks) {
-        if (isBlockTaggedToVendor(rosMeta, b.block_id, eventVendorId)) {
-          relevance.set(b.block_id, 'primary');
-          ownBlockIds.add(b.block_id);
-        }
-      }
-    }
-  }
-  const mineOnly = search.lens === 'mine';
-  const mineCount = allBlocks.filter((b) => relevance.get(b.block_id) !== 'context').length;
-  const blocks = mineOnly
-    ? allBlocks.filter((b) => relevance.get(b.block_id) !== 'context')
-    : allBlocks;
+  // The old "Full timeline / My slots only" lens and its per-moment forms moved into the Schedule view (Step 4b):
+  // which moments are this supplier's own is read there from `responsible_vendor_ids`, the column the database's
+  // own-items rule reads (`current_vendor_owns_schedule_block`, 20271263061583).
   const callTime = deriveCallTime(allBlocks, brief.booked_categories);
   const callTimeAlreadyRequested = suggestions.some(
     (s) => s.kind === 'new' && s.note.startsWith('Suggested call time'),
@@ -1303,6 +1538,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // "This couple" only when there is genuinely no name. The brief names the
   // couple at every stage (20271235469220); a blank string is not a name.
   const eventName = coupleNameOrFallback(brief.event.display_name);
+  // "Open their event" + the seat pill (Coordinator · Co-host) — only with a LIVE seat on THIS event (`seatRunsTheEvent`).
+  const runThisEvent = (await eventsYouRunP).events.find((e) => e.eventId === eventId) ?? null;
+  const runsThisEvent = runThisEvent !== null;
   const metaBits = [
     fmtShortDate(brief.event.event_date) || null,
     brief.event.venue_name ?? brief.event.region ?? null,
@@ -1409,7 +1647,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id, room_created_at',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -1450,10 +1688,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ------------------------------------------------------------------------
   const backLink = (
     <Link
-      href="/vendor-dashboard/clients"
+      href="/vendor-dashboard/customers"
       className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
     >
-      <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
+      <ArrowLeft aria-hidden className="h-4 w-4" /> Customers
     </Link>
   );
 
@@ -1476,13 +1714,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             them a request they could read and not answer. A decision with a
             seven-day fuse may not be reachable from exactly one screen. Same two
             server actions, no second state machine. */}
+        {lockNotice ? <LockAnswerLine notice={lockNotice} /> : null}
         {lockRequest ? (
           <LockRequestAnswer
             eventVendorId={lockRequest.event_vendor_id}
             expiresAt={lockRequest.expires_at}
             payoutReadiness={payoutReadiness}
             feeForecast={feeForecast}
+            returnTo={`/vendor-dashboard/clients/${eventId}`}
+            agreeLock={vendorAgreeToLock}
+            declineLock={vendorDeclineLock}
+            dayCheck={dayCheck}
+            waitlistAsk={vendorWaitlistTheAsk}
           />
+        ) : askOutcome ? (
+          <BookingAskOutcomeLine outcome={askOutcome} />
         ) : isBooked && !depositAcked ? (
           <PayoutMethodNudge readiness={payoutReadiness} context="client" />
         ) : null}
@@ -1490,10 +1736,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             the ask panel: by the time a fee exists the ask has been answered. */}
         <BookingFeeBills
           bills={clientFeeBills}
-          copyFor={(b) => feeDueCopy(b, manilaToday())}
+          copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
         />
         <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {runsThisEvent ? (
+            <Badge tone="quiet" data="coordinator">{runThisEvent?.seatWord ?? 'Coordinator'}</Badge>
+          ) : null}
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
           >
@@ -1532,6 +1781,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const actionRow = (
     <div className="mt-3 flex flex-wrap gap-2">
+      {runsThisEvent ? <OpenTheirEvent eventId={eventId} /> : null}
       {threadId ? (
         <Link
           href={`/vendor-dashboard/messages/${threadId}`}
@@ -1541,7 +1791,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </Link>
       ) : null}
       <Link
-        href="/vendor-dashboard/proposals"
+        href={customerLandingHref('proposals')}
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
@@ -1549,7 +1799,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <Link
         href={
           hasContract
-            ? '/vendor-dashboard/contracts'
+            ? customerLandingHref('contracts')
             : `/vendor-dashboard/contracts/new?event=${eventId}`
         }
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
@@ -1621,6 +1871,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     <OverviewTab
       eventId={eventId}
       brief={brief}
+      headcountRule={headcountRule}
+      headcountNames={headcountNames}
       threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
@@ -1700,9 +1952,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const quoteNode = (
     <QuoteTab
+      eventId={eventId}
       proposals={proposals}
       isBooked={isBooked}
-      planRollup={planSteps}
       planStepRows={planStepRows}
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
@@ -1727,24 +1979,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
 
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — this supplier's (a Host/MC's) own day, kept on their phone for the venue
+     (`lib/offline-copies.ts`). The version is what this tab draws of the day; a read that failed is `unread`, which is
+     never kept over the older copy. */
+  const scheduleCopyPath = supplierSchedulePath(eventId);
+  const scheduleCopyVersion = supplierDay ? copyVersionOf([supplierDay, runOfShowBlocks, callTime]) : OFFLINE_COPY_UNREAD;
   const scheduleNode = (
     <>
+      {scheduleCopyPath ? (
+        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={factsRow?.event_date ?? null} path={scheduleCopyPath} version={scheduleCopyVersion} className="mb-3" />
+      ) : null}
       <ScheduleTab
         eventId={eventId}
         preAgreement={preAgreement}
         brief={brief}
         allBlocks={allBlocks}
-        blocks={blocks}
-        relevance={relevance}
-        ownBlockIds={ownBlockIds}
-        mineOnly={mineOnly}
-        mineCount={mineCount}
         runOfShowBlocks={runOfShowBlocks}
         canAdvance={isBookedCoordinator}
         callTime={callTime}
         callTimeAlreadyRequested={callTimeAlreadyRequested}
-        suggestions={suggestions}
-        blockLabel={blockLabel}
+        supplierPart={supplierPart}
         handovers={handovers}
         handoversMeasured={handoversMeasured}
         eventVendorId={eventVendorId}
@@ -1792,6 +2046,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
+  // ❓ WHAT THEY TOLD YOU — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"). The host reads the
+  // couple's answers inside the Script tab above; every other trade reads them here, on Details (flag-on) / the
+  // overview (flag-off). One place per role: never both — a supplier holding the Script tab reads them there.
+  // Fee-gated like the Script tab: the answers are the couple's own words, so they open with the event.
+  const coupleAnswersNode =
+    !showScript && feeUnlocked ? (
+      <CoupleAnswers
+        supabase={supabase}
+        eventId={eventId}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={eventName}
+      />
+    ) : null;
+
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
   const activityNode = (
@@ -1804,7 +2072,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
     </>
   );
 
@@ -1855,6 +2123,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
+            {tab === 'overview' ? coupleAnswersNode : null}
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? gated(filesNode) : null}
             {tab === 'schedule' ? gated(scheduleNode) : null}
@@ -1940,7 +2209,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages',
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF,
       node: null,
     },
     {
@@ -2000,6 +2269,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : null}
           {/* The brief, from the REDACTED payload at every locked stage. */}
           {overviewNode}
+          {coupleAnswersNode}
           {feeUnlocked ? activityNode : null}
         </div>
       ),
@@ -2058,7 +2328,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages'}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
@@ -2083,6 +2353,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <div>
           {backLink}
           {identityBlock}
+          {/* 🗂 The coordinator's door (owner 2026-10-28) — this shell has no action row, so it stands alone here. */}
+          {runsThisEvent ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <OpenTheirEvent eventId={eventId} />
+            </div>
+          ) : null}
           {/* No action row. Its six buttons were the FIRST of the two nav rows
               the owner saw above the conversation; every one of them now has a
               home in the thread's frame (New quote · Log payment · Call are
@@ -2257,19 +2533,12 @@ function ReturningMarkerAndActions({
             <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
           </Link>
         ) : null}
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}#thread-call`}
-            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
-          >
-            <Phone aria-hidden className="h-3.5 w-3.5" /> Call
-          </Link>
-        ) : null}
+        {/* 📵 "Call" (→ the chat's call panel) is gone with the panel — owner 2026-10-28, "remove both voice and video call". */}
         <Link
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
         >
@@ -2298,6 +2567,10 @@ function ReturningMarkerAndActions({
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
+  headcountRule: SupplierHeadcount | null;
+  /** The couple's words for roles, for the rule's line. */
+  headcountNames: RoleNames | null;
   threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
@@ -2363,6 +2636,8 @@ function OverviewTab(props: {
     eventId,
     depositReturnTo,
     brief,
+    headcountRule,
+    headcountNames,
     threadId,
     returningFlag,
     isBooked,
@@ -2468,7 +2743,11 @@ function OverviewTab(props: {
           <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
             <Users aria-hidden className="h-4 w-4 text-terracotta" /> Headcount
           </h2>
-          {brief.pax.invited > 0 ? (
+          {/* 🧮 WHO THEY COUNT (owner 2026-11-04, the approved prototype's "Supplier · their count"): a per-head service
+              reads ITS number — the couple's rule and ticks applied — with the why in the ⓘ. Numbers only, never names. */}
+          {headcountRule ? (
+            <SupplierCountTile count={headcountRule} names={headcountNames} />
+          ) : brief.pax.invited > 0 ? (
             <>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
                 {brief.pax.attending}
@@ -2969,9 +3248,9 @@ function OverviewTab(props: {
 // QUOTE & PAYMENTS TAB
 // ===========================================================================
 function QuoteTab(props: {
+  eventId: string;
   proposals: ProposalRow[];
   isBooked: boolean;
-  planRollup: ReturnType<typeof computePlanRollup> | null;
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
   /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
@@ -2987,9 +3266,9 @@ function QuoteTab(props: {
   askPanel: React.ReactNode;
 }) {
   const {
+    eventId,
     proposals,
     isBooked,
-    planRollup,
     planStepRows,
     pendingPayments,
     ledgerMoney,
@@ -3046,7 +3325,7 @@ function QuoteTab(props: {
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
@@ -3064,70 +3343,21 @@ function QuoteTab(props: {
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment schedule
             appears once they book you and pay a first payment.
           </p>
-        ) : steps && steps.length > 0 && planRollup ? (
+        ) : (
           <>
-            <div className="mb-3 flex items-center justify-between text-xs text-ink/55">
-              <span>
-                <span className="font-semibold text-ink">{fmtPeso(planRollup.received)}</span>{' '}
-                received of {fmtPeso(planRollup.total)}
-              </span>
-              <span>{planRollup.percentReceived}%</span>
-            </div>
-            <div className="mb-4 h-2 overflow-hidden rounded-full bg-ink/10">
-              <div
-                className="h-full rounded-full bg-success-600"
-                style={{ width: `${Math.min(100, planRollup.percentReceived)}%` }}
-              />
-            </div>
-            <ul className="space-y-2">
-              {steps.map((s) => (
-                <li
-                  key={s.seq}
-                  className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-                >
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                      s.state === 'paid'
-                        ? 'border-success-600 bg-success-600 text-white'
-                        : 'border-ink/20 bg-white'
-                    }`}
-                  >
-                    {s.state === 'paid' ? <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} /> : null}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">
-                      {s.label} · {fmtPeso(s.amount_php)}
-                    </p>
-                    {s.due_date ? (
-                      <p className="text-xs text-ink/55">Due {fmtShortDate(s.due_date)}</p>
-                    ) : null}
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                      s.state === 'paid'
-                        ? 'bg-success-100 text-success-900'
-                        : s.state === 'pending'
-                          ? 'bg-warn-100 text-warn-900'
-                          : 'bg-ink/5 text-ink/60'
-                    }`}
-                  >
-                    {s.state === 'paid' ? 'Paid' : s.state === 'pending' ? 'Pending' : 'Open'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {planRollup.next ? (
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-terracotta/25 bg-terracotta/[0.06] px-3 py-2.5 text-sm text-ink/70">
-                <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta" />
-                <span>
-                  Next expected: <span className="font-semibold text-ink">{planRollup.next.label}</span>{' '}
-                  · {fmtPeso(planRollup.next.amountPhp)}
-                  {planRollup.next.dueDate ? ` · due ${fmtShortDate(planRollup.next.dueDate)}` : ''}
-                </span>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-success-700">All payments settled.</p>
-            )}
+            {/* Suppliers Pair 3 (2026-10-13): the Money fold — Paid · Due, the
+                instalments as kind 26 rows, and each payment the couple logged
+                answered HERE (Confirm received · Not received), not in chat. */}
+            <CustomerMoneyFold
+              eventId={eventId}
+              steps={steps}
+              clearedAt={planStepRows?.clearedAt ?? null}
+              pending={pendingPayments}
+              ledgerMoney={ledgerMoney}
+              ledgerUnreadable={ledgerUnreadable}
+              threadId={threadId}
+              unreadableNote={<LedgerUnreadableNote />}
+            />
             {planStepRows?.reservationAcknowledgedAt ? (
               <p className="mt-2 text-xs text-ink/45">
                 Protected by your reservation policy · acknowledged{' '}
@@ -3135,44 +3365,7 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
-        ) : ledgerUnreadable ? (
-          <LedgerUnreadableNote />
-        ) : ledgerMoney.rows.length > 0 ? (
-          <BookingMoneySummary money={ledgerMoney} />
-        ) : (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No formal payment schedule
-            on this booking yet.
-          </p>
         )}
-
-        {/* Pending couple-logged payments awaiting confirmation. */}
-        {pendingPayments.length > 0 ? (
-          <div className="mt-3 rounded-xl border border-warn-300/50 bg-warn-50 px-3 py-2.5">
-            <p className="text-xs font-semibold text-warn-900">
-              {pendingPayments.length} payment{pendingPayments.length === 1 ? '' : 's'} awaiting your
-              confirmation
-            </p>
-            <ul className="mt-1.5 space-y-1 text-xs text-warn-900/85">
-              {pendingPayments.map((pp) => (
-                <li key={pp.paymentId}>
-                  {fmtPeso(pp.amountPhp)}
-                  {pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · logged{' '}
-                  {fmtShortDate(pp.paidAt)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}`}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream"
-          >
-            <Wallet aria-hidden className="h-3.5 w-3.5" /> Log &amp; confirm payments in chat
-          </Link>
-        ) : null}
       </div>
 
       {/* Ask for a payment — directly under the balance it is about. */}
@@ -3284,7 +3477,7 @@ function FilesTab(props: {
 
       {isBooked ? (
         <p className="text-xs text-ink/45">
-          Deliver galleries and proofs from the Schedule tab&rsquo;s handover panel — the couple
+          Deliver albums and proofs from the Schedule tab&rsquo;s handover panel — the couple
           confirms receipt there.
         </p>
       ) : null}
@@ -3307,12 +3500,6 @@ function ScheduleTab(props: {
   preAgreement: boolean;
   brief: Brief;
   allBlocks: LiveBlock[];
-  blocks: LiveBlock[];
-  relevance: Map<string, ReturnType<typeof blockRelevance>>;
-  /** Moments tagged to this supplier's booking — the ones it may ask to change or remove. */
-  ownBlockIds: Set<string>;
-  mineOnly: boolean;
-  mineCount: number;
   runOfShowBlocks: RunOfShowBlock[];
   /**
    * The booked COORDINATOR, and nobody else on the supplier side. Was a
@@ -3323,8 +3510,8 @@ function ScheduleTab(props: {
   canAdvance: boolean;
   callTime: ReturnType<typeof deriveCallTime>;
   callTimeAlreadyRequested: boolean;
-  suggestions: SuggestionRow[];
-  blockLabel: Map<string, string>;
+  /** 🤝 The supplier's part of the schedule (Step 4b) — their Schedule view's data, read once by the page. */
+  supplierPart: Omit<ComponentProps<typeof SupplierSchedule>, 'eventId' | 'lab'>;
   handovers: HandoverRow[];
   /** false = the handover read was refused, so "none delivered" is not a fact. */
   handoversMeasured: boolean;
@@ -3338,17 +3525,11 @@ function ScheduleTab(props: {
     eventId,
     preAgreement,
     allBlocks,
-    blocks,
-    relevance,
-    ownBlockIds,
-    mineOnly,
-    mineCount,
     runOfShowBlocks,
     canAdvance,
     callTime,
     callTimeAlreadyRequested,
-    suggestions,
-    blockLabel,
+    supplierPart,
     handovers,
     handoversMeasured,
     eventVendorId,
@@ -3398,29 +3579,14 @@ function ScheduleTab(props: {
             <CalendarDays aria-hidden className="h-4 w-4 text-terracotta" /> Day-of timeline
           </h2>
           <div className="flex flex-wrap items-center gap-3">
-            {allBlocks.length > 0 && mineCount > 0 && mineCount < allBlocks.length ? (
-              <span className="inline-flex overflow-hidden rounded-full border border-ink/15 text-xs font-medium">
-                <Link
-                  href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-                  className={`px-3 py-1 ${!mineOnly ? 'bg-ink text-cream' : 'bg-white text-ink/60 hover:text-ink'}`}
-                >
-                  Full timeline
-                </Link>
-                <Link
-                  href={`/vendor-dashboard/clients/${eventId}?tab=schedule&lens=mine`}
-                  className={`px-3 py-1 ${mineOnly ? 'bg-ink text-cream' : 'bg-white text-ink/60 hover:text-ink'}`}
-                >
-                  My slots only
-                </Link>
-              </span>
-            ) : null}
             {allBlocks.length > 0 ? (
-              <a
-                href={`/vendor-dashboard/clients/${eventId}/calendar.ics${mineOnly ? '?mine=1' : ''}`}
+              <SaveFileLink
+                href={`/vendor-dashboard/clients/${eventId}/calendar.ics`}
+                filename={`schedule-${eventId}.ics`}
                 className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline"
               >
                 <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
-              </a>
+              </SaveFileLink>
             ) : null}
           </div>
         </div>
@@ -3446,7 +3612,9 @@ function ScheduleTab(props: {
                 your couple.
               </span>
             </p>
-            <form action={suggestScheduleChange} className="mt-2">
+            {/* The one door also answers the Schedule view's sheets in words (`quiet=1`); this form never sends that, so it
+                redirects as before — the cast says only that. */}
+            <form action={suggestScheduleChange as (fd: FormData) => Promise<void>} className="mt-2">
               <input type="hidden" name="event_id" value={eventId} />
               <input
                 type="hidden"
@@ -3489,195 +3657,16 @@ function ScheduleTab(props: {
           </p>
         ) : null}
 
-        {allBlocks.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">
-            The couple hasn&rsquo;t built their event-day timeline yet.
-          </p>
-        ) : blocks.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">
-            No blocks match your booked categories yet —{' '}
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              className="text-mulberry underline"
-            >
-              see the full timeline
-            </Link>
-            .
-          </p>
-        ) : (
-          <ol className="mt-3 divide-y divide-ink/10">
-            {blocks.map((b) => (
-              <li
-                key={b.block_id}
-                className={`py-2.5 pl-3 ${
-                  relevance.get(b.block_id) === 'primary'
-                    ? 'border-l-2 border-terracotta'
-                    : relevance.get(b.block_id) === 'supporting'
-                      ? 'border-l-2 border-ink/20'
-                      : 'border-l-2 border-transparent opacity-60'
-                }`}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <span className="w-36 shrink-0 text-sm font-medium tabular-nums text-ink/70">
-                    {fmtTime(b.start_at) ?? 'Time TBD'}
-                    {fmtTime(b.end_at) ? ` – ${fmtTime(b.end_at)}` : ''}
-                  </span>
-                  <span className="text-sm font-medium">{b.label}</span>
-                  {relevance.get(b.block_id) === 'primary' ? (
-                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta-700">
-                      Your slot
-                    </span>
-                  ) : null}
-                  {b.location ? <span className="text-xs text-ink/55">{b.location}</span> : null}
-                </div>
-                {/*
-                  OWN vs EVERYONE ELSE'S (owner 2026-10-03, "SUPPLIERS WRITE
-                  THEIR OWN PART OF THE SCHEDULE"). A moment tagged to this
-                  supplier's booking may be asked to change (name · time ·
-                  place) or to come off; any other moment only takes a
-                  suggestion in words. Every ask is still a request the couple
-                  or their coordinator approves. The database holds the same
-                  line (schedule_suggestions_vendor_insert), so this split is
-                  the screen saying what is true, not the rule itself.
-                */}
-                {ownBlockIds.has(b.block_id) ? (
-                  <details className="mt-1 pl-0 sm:pl-40">
-                    <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
-                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Change or remove
-                    </summary>
-                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="block_id" value={b.block_id} />
-                      <input
-                        type="text"
-                        name="proposed_label"
-                        maxLength={120}
-                        placeholder={`New name (now “${b.label}”)`}
-                        className={shopInputClass}
-                      />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input type="datetime-local" name="proposed_start_at" aria-label="New start" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-                        <span className="text-xs text-ink/45">to</span>
-                        <input type="datetime-local" name="proposed_end_at" aria-label="New end" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-                      </div>
-                      <input
-                        type="text"
-                        name="proposed_location"
-                        maxLength={200}
-                        placeholder="New place (optional)"
-                        className={shopInputClass}
-                      />
-                      <textarea
-                        name="note"
-                        required
-                        maxLength={1000}
-                        rows={2}
-                        placeholder="What changes, and why"
-                        className={shopInputClass}
-                      />
-                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-                        Send request
-                      </SubmitButton>
-                    </form>
-                    <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2 border-t border-ink/10 pt-3">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="block_id" value={b.block_id} />
-                      <input type="hidden" name="request" value="remove" />
-                      <textarea
-                        name="note"
-                        required
-                        maxLength={1000}
-                        rows={2}
-                        placeholder="Why this should come off the schedule"
-                        className={shopInputClass}
-                      />
-                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 hover:bg-danger-100">
-                        Ask to remove
-                      </SubmitButton>
-                    </form>
-                  </details>
-                ) : (
-                  <details className="mt-1 pl-0 sm:pl-40">
-                    <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
-                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Suggest a change
-                    </summary>
-                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="block_id" value={b.block_id} />
-                      <textarea
-                        name="note"
-                        required
-                        maxLength={1000}
-                        rows={2}
-                        placeholder={`e.g. "We need ingress 2 hours before ${b.label}."`}
-                        className={shopInputClass}
-                      />
-                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-                        Send suggestion
-                      </SubmitButton>
-                    </form>
-                  </details>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-
-        <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-3">
-          <summary className="cursor-pointer text-sm font-semibold">Suggest a new timeline entry</summary>
-          <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="text" name="proposed_label" required maxLength={120} placeholder="e.g. Booth setup / ingress" className={shopInputClass} />
-            <textarea name="note" required maxLength={1000} rows={2} placeholder="Why this slot matters" className={shopInputClass} />
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-              <span className="text-xs text-ink/45">to</span>
-              <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-            </div>
-            <input type="text" name="proposed_location" maxLength={200} placeholder="Location (optional)" className={shopInputClass} />
-            <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-              Send suggestion
-            </SubmitButton>
-          </form>
-        </details>
-
-        {suggestions.length > 0 ? (
-          <div className="mt-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your requests</p>
-            <ul className="mt-1.5 space-y-1">
-              {suggestions.map((s) => {
-                // Still open, but the moment it was about is gone (the couple
-                // took it off themselves) — nobody is going to answer it, so
-                // it must not read as waiting.
-                const moot = s.status === 'open' && s.kind !== 'new' && !s.block_id;
-                return (
-                <li key={s.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-medium ${
-                      s.status === 'accepted'
-                        ? 'bg-success-100 text-success-900'
-                        : s.status === 'declined' || moot
-                          ? 'bg-ink/5 text-ink/50'
-                          : 'bg-warn-100 text-warn-900'
-                    }`}
-                  >
-                    {moot ? 'moment removed' : s.status}
-                  </span>
-                  <span className="text-ink/70">
-                    {s.kind === 'remove'
-                      ? `Remove ${blockLabel.get(s.block_id ?? '') ?? s.proposed_label ?? 'a block'} — `
-                      : s.kind === 'adjust'
-                        ? `${blockLabel.get(s.block_id ?? '') ?? 'a block'} — `
-                        : 'New entry — '}
-                    {s.note.slice(0, 80)}
-                    {s.note.length > 80 ? '…' : ''}
-                  </span>
-                </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : null}
+        {/*
+          🤝 THE SUPPLIER'S PART OF THE SCHEDULE (owner 2026-11-01, "SUPPLIERS GIVE THEIR PART FROM THEIR SCHEDULE
+          VIEW"). The 3 Oct forms that sat here under every moment — Change or remove · Suggest a change · Suggest a new
+          timeline entry · Your requests — MOVED into the one view: their chapters, their moments (theirs open, the
+          rest greyed), + My moment · My times · Suggest in the thumb row, Waiting for the host · Take back, Seen and
+          Confirm my times. Not a second copy: the forms are gone from here.
+        */}
+        <div className="mt-4">
+          <SupplierSchedule eventId={eventId} {...supplierPart} />
+        </div>
 
         {/* Delivery handover (Wave 4). */}
         <div className="mt-5 border-t border-ink/10 pt-4">
@@ -3685,7 +3674,7 @@ function ScheduleTab(props: {
             <PackageCheck aria-hidden className="h-4 w-4 text-terracotta" /> Deliver the handover
           </h3>
           <p className="mt-1 text-xs text-ink/55">
-            Send the couple their finished work — a gallery link, a sample/proof image, or a closing
+            Send the couple their finished work — an album link, a sample/proof image, or a closing
             note. They confirm receipt, which marks your booking delivered.
           </p>
 
@@ -3697,7 +3686,7 @@ function ScheduleTab(props: {
           {search.handover && search.handover !== 'sent' ? (
             <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
               {search.handover === 'badurl'
-                ? 'That gallery link needs to start with http(s)://.'
+                ? 'That album link needs to start with http(s)://.'
                 : search.handover === 'nofile'
                   ? 'Choose an image to upload.'
                   : search.handover === 'empty'
@@ -3711,14 +3700,14 @@ function ScheduleTab(props: {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
-                <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share a gallery link
+                <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
               <form action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
-                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding gallery" className={shopInputClass} />
+                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
                 <input type="url" name="payload" required placeholder="https://…" className={shopInputClass} />
-                <p className="text-[11px] text-ink/45">Big galleries stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
+                <p className="text-[11px] text-ink/45">Big albums stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send link
                 </SubmitButton>
@@ -3734,7 +3723,7 @@ function ScheduleTab(props: {
                 <input type="hidden" name="kind" value="file" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
                 <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic" required className="text-xs" />
-                <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share a gallery link instead.</p>
+                <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share an album link instead.</p>
                 <SubmitButton pendingLabel="Uploading…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Upload
                 </SubmitButton>
@@ -3991,101 +3980,6 @@ function ScheduleTab(props: {
           )}
         </ShopCard>
       ) : null}
-    </div>
-  );
-}
-
-/**
- * The supplier's answer, on the client card itself (PR-H slice B).
- *
- * 🔑 A SECOND PLACE TO ANSWER, NOT A SECOND ANSWER. Both buttons post to the
- * SAME two server actions the Overview feed's card uses, which post to the same
- * two DEFINER RPCs. Nothing about the state machine lives here — this file
- * decides where the control appears and nothing else. If the decline reason ever
- * changes shape, it changes in one place.
- *
- * ⚠ THE FORM CARRIES ONLY `vendor_id`. The actions read `event_id` off the
- * envelope the RPC returns from the row it authorized, never off the form — the
- * confused-deputy rule those actions carry in their own docblock.
- */
-function LockRequestAnswer({
-  eventVendorId,
-  expiresAt,
-  payoutReadiness,
-  feeForecast,
-}: {
-  eventVendorId: string;
-  expiresAt: string | null;
-  /** S19 — asked HERE because agreeing makes the deposit the couple's next step. */
-  payoutReadiness: PayoutReadiness;
-  /**
-   * What agreeing will cost them, named BEFORE the button. `null` when the fee
-   * system is dark or this booking carries none — silence, never a "₱0".
-   */
-  feeForecast: FeeDisclosure | null;
-}) {
-  // Server-rendered, so "now" is the render instant. The deadline is the one the
-  // DATABASE stamped and the sweep enforces — never a window recomputed here.
-  const left = lockRequestFuseLabel(expiresAt, new Date());
-  const fuse =
-    left === null
-      ? 'They are waiting on your answer.'
-      : left === 'closing now'
-        ? 'Closing now — once it does, the request is gone and they will look elsewhere.'
-        : `${left} — after that the request closes and they will look elsewhere.`;
-  return (
-    <div
-      className="mt-3 rounded-2xl border p-4"
-      style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
-    >
-      <p className="text-sm font-semibold text-ink">They want to book you</p>
-      <p className="mt-0.5 text-sm text-ink/60">{fuse}</p>
-      {/* Saying WHY the page is thin is part of the answer. Without this the
-          supplier reads the locked rows below as a broken page rather than as
-          the deal: the venue address and the run-of-show arrive with the yes. */}
-      <p className="mt-2 text-sm text-ink/55">
-        You are seeing the area, the date and the headcount. The exact venue and the
-        day-of run-of-show open the moment you agree.
-      </p>
-      <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
-      {/* ⚠ ABOVE THE BUTTON, NOT BELOW IT. A fee named after the press is a
-          receipt, not a disclosure. */}
-      <BookingFeeNotice disclosure={feeForecast} />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={vendorAgreeToLock}>
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Agree to this booking
-          </SubmitButton>
-        </form>
-      </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Can&rsquo;t take this booking?
-        </summary>
-        <form action={vendorDeclineLock} className="mt-2 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
-        </form>
-      </details>
     </div>
   );
 }

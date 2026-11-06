@@ -57,6 +57,15 @@ export type VeilLook = {
   liftPk: number; // hold forward peak
   hold: number; // tap-pinch radius
   stretch: number; // soft strain envelope
+  /** 🧵 The couple's Fold ▾ (owner 2026-10-17, *"fold coverage"*): the valance the LIFTED drape hangs at. The house
+   *  value is the Event Hub drape's own 15 (~18 % of the cover, measured); a couple's Light / Full override it. */
+  drape: number;
+  /** 🧵 Weave ▾ (*"veil thread count"*): how sheer the tulle reads — its weave's density and opacity. 50 = the locked
+   *  weave, exactly (12 px threads at 5.5 %, a 14 % ground); lower is finer and sheerer, higher denser. */
+  weave: number;
+  /** 🌬 Wind ▾ (*"wind speed/randomness"*): gusts — the sway quickens and comes in uneven bursts. 0 = the locked,
+   *  even sway, exactly. */
+  gust: number;
 };
 
 export type RevealFeatures = {
@@ -137,6 +146,9 @@ export const DEFAULT_VEIL_LOOK: VeilLook = {
   liftPk: 70,
   hold: 22,
   stretch: 15,
+  drape: 15,
+  weave: 50,
+  gust: 0,
 };
 
 /** LOCKED rigid-effect defaults (spec §7 — butterfly size 20 · petal size 22). */
@@ -221,6 +233,9 @@ function mergeLook(raw: unknown): VeilLook {
     liftPk: clamp(r.liftPk, d.liftPk, 0, 100),
     hold: clamp(r.hold, d.hold, 0, 100),
     stretch: clamp(r.stretch, d.stretch, 0, 100),
+    drape: clamp(r.drape, d.drape, 0, 70),
+    weave: clamp(r.weave, d.weave, 0, 100),
+    gust: clamp(r.gust, d.gust, 0, 100),
   };
 }
 

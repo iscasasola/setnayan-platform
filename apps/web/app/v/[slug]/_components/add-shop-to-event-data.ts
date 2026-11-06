@@ -83,6 +83,21 @@ export function shopEventHref(slug: string, eventId: string): string {
  * signed-out visitor sees, which works for everybody. A throw here would blank a
  * public shop page.
  */
+/** The same choices without a shop to link back to — the marketplace card's "Save to…" (owner 2026-11-06). */
+export type HostEventChoice = Omit<AddToEventOption, 'href'>;
+
+export const resolveHostEventChoices = cache(
+  async (): Promise<{ signedIn: false } | { signedIn: true; options: HostEventChoice[]; emptyReason: string | null }> => {
+    const state = await resolveAddShopToEvent('');
+    if (!state.signedIn) return state;
+    return {
+      signedIn: true,
+      options: state.options.map(({ href: _href, ...rest }) => rest),
+      emptyReason: state.emptyReason,
+    };
+  },
+);
+
 export const resolveAddShopToEvent = cache(
   async (slug: string): Promise<AddShopToEventState> => {
     const signedOut = { signedIn: false } as const;
@@ -130,7 +145,7 @@ export const resolveAddShopToEvent = cache(
         options: result.pickable.map((e) => ({
           eventId: e.eventId,
           title: e.title,
-          kindWord: e.profile?.terminology?.eventWord ?? 'celebration',
+          kindWord: e.profile?.terminology?.eventWord ?? 'event',
           dateISO: e.eventDate,
           href: shopEventHref(slug, e.eventId),
         })),

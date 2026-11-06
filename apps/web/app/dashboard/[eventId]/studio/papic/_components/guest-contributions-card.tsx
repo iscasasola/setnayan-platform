@@ -68,7 +68,7 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
           Guests chipped in
         </p>
         <p className="text-sm text-ink/70">
-          People at your event bought extra shots. Nothing here needs anything from
+          People at your event bought extra credits. Nothing here needs anything from
           you — the credits land the moment we confirm their payment.
         </p>
       </div>
@@ -76,7 +76,7 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
         {rows.map((r) => (
           <li key={r.orderId} className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-ink/80">
-              {r.who} added {r.points.toLocaleString('en-PH')} shots{' '}
+              {r.who} added {r.points.toLocaleString('en-PH')} credits{' '}
               {r.kind === 'one_reload' ? 'to their camera' : 'to the shared pool'}
             </span>
             <span

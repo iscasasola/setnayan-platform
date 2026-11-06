@@ -163,7 +163,7 @@ export function QuickAddList({ eventId }: Props) {
                     }
                   }}
                   onBlur={(e) => commitEdit(i, e.currentTarget.value)}
-                  className="flex-1 rounded-md border border-success-300 bg-white px-2 py-1 text-sm font-medium text-ink focus:border-success-600 focus:outline-none focus:ring-2 focus:ring-success-200"
+                  className="flex-1 rounded-md border border-success-300 bg-white dark:bg-raised px-2 py-1 text-sm font-medium text-ink focus:border-success-600 focus:outline-none focus:ring-2 focus:ring-success-200"
                   aria-label={`Edit guest ${i + 1}`}
                 />
               ) : (

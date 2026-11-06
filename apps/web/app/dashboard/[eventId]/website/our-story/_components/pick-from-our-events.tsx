@@ -5,6 +5,7 @@ import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * PICK FROM OUR EVENTS — "From what Setnayan already holds" (prototype § pick).
@@ -98,7 +99,7 @@ export function PickFromOurEvents({
           <LoveStoryProLine storeShell={storeShell} href={proHref} price={proPrice} />
         ) : null
       ) : withPhotos.length > 0 && moments.length > 0 ? (
-        <form action={action} className="mt-5 space-y-4">
+        <SafeForm action={action} className="mt-5 space-y-4">
           <HubDraftField />
           <InMakerReturnTo />
           <input type="hidden" name="intent" value="pick" />
@@ -129,7 +130,7 @@ export function PickFromOurEvents({
           <SubmitButton pendingLabel="Adding…" className="button-primary">
             Use these
           </SubmitButton>
-        </form>
+        </SafeForm>
       ) : null}
       <p className="mt-4 text-[12px] text-[color:var(--ls-muted)]">
         Photos from a Papic booth join here once each event says its photos may be shared.

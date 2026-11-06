@@ -52,7 +52,7 @@ export function WallModeControl({
           because a PickMenu key is a string; it maps back to null. */}
       <div className="flex items-center gap-2">
         <PickMenu
-          label="Wall mode"
+          label="Memory lane mode"
           value={override ?? 'auto'}
           dataAttr="data-wall-mode"
           options={CHOICES.map((choice) => ({

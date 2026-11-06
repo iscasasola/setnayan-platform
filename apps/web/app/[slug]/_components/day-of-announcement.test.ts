@@ -36,10 +36,14 @@ import { announcementStage } from '@/lib/coordinator-broadcasts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CARD = readFileSync(join(HERE, 'day-of-announcement.tsx'), 'utf8');
 const SITE = readFileSync(join(HERE, 'site-body.tsx'), 'utf8');
-const LOADERS = readFileSync(join(HERE, '..', '_lib', 'loaders.ts'), 'utf8');
 /** The announcement moved to the layout on 2026-09-22 — it is the only node
  *  that wraps all twelve guest pages. See the layout's own docblock. */
 const LAYOUT = readFileSync(join(HERE, '..', 'layout.tsx'), 'utf8');
+/** 🗄 EV1 (2026-10-28): the guests-only gate and the read moved to the route the card asks — the layout reads no
+ *  viewer any more, so the Event Hub under it can be served from the cache. */
+const ROUTE = readFileSync(join(HERE, '..', 'announcement', 'route.ts'), 'utf8');
+const READ = readFileSync(join(HERE, '..', '_lib', 'latest-announcement.server.ts'), 'utf8');
+const STAGE = readFileSync(join(HERE, '..', '_lib', 'announcement-stage.ts'), 'utf8');
 
 test('announcement · GUESTS only — a stranger with the link never sees it', () => {
   /*
@@ -54,26 +58,23 @@ test('announcement · GUESTS only — a stranger with the link never sees it', (
     layout has no guest tree to hide inside, so the gate must now be ASKED FOR,
     and this test is what stops it being dropped.
   */
+  /*
+    🗄 AND MOVED AGAIN, 2026-10-28 (EV1): the layout asking it made EVERY guest page render per request — the Event
+    Hub included, on the one day it must not fall over. The card now asks `GET /{slug}/announcement`, and THAT route
+    holds the gate. Same ruling, asserted where it now lives.
+  */
   assert.ok(LAYOUT.includes('<DayOfAnnouncement'), 'the announcement is not rendered at all');
-  assert.match(
-    LAYOUT,
-    /readGuestSession\(\)/,
-    'the layout must read the guest session — without it the coordinator\u2019s words go to anyone with the link',
-  );
-  assert.match(
-    LAYOUT,
-    /session\?\.event_id === event\.event_id/,
-    'the session must be for THIS event — one wedding\u2019s guest must not read another\u2019s announcements',
-  );
-  // And the render must actually be behind that verdict, not merely near it.
-  const gateAt = LAYOUT.indexOf('isThisEventsGuest');
-  const renderAt = LAYOUT.indexOf('<DayOfAnnouncement');
-  assert.ok(gateAt > 0 && gateAt < renderAt, 'the guest gate must precede the render');
-  assert.match(
-    LAYOUT,
-    /broadcast = isThisEventsGuest/,
-    'the broadcast must be NULL for a non-guest, not merely hidden by CSS',
-  );
+  assert.doesNotMatch(LAYOUT, /readGuestSession\(|cookies\(\)/, 'the layout reads the viewer again — the hub cannot be cached');
+  assert.match(CARD, /fetch\(`\/\$\{encodeURIComponent\(slug\)\}\/announcement`\)/, 'the card must ask the gated route');
+  // The gate: this event's pass (signature + its QR still current), or a signed-in viewer readGuestSession admits.
+  assert.match(READ, /verified\.payload\.event_id !== eventId/, 'the pass must be for THIS event');
+  assert.match(READ, /session\?\.event_id === eventId/, 'a signed-in viewer must hold THIS event’s pass too');
+  assert.match(READ, /guestSessionTokenStillCurrent\(guest_id, qr_token\)/, 'a rotated QR must stop reading the words');
+  // And the words are read only behind that verdict — a non-guest gets NO words, not hidden ones.
+  const gateAt = ROUTE.indexOf('holdsThisEventsCurrentPass(event.event_id)');
+  const readAt = ROUTE.indexOf('latestAnnouncementFor(event.event_id)');
+  assert.ok(gateAt > 0 && gateAt < readAt, 'the guest gate must precede the read');
+  assert.match(ROUTE, /return NextResponse\.json\(\{ body: null \}, \{ headers: NOT_HELD \}\);\n\s*const latest/, 'a non-guest must get null, never the words');
 
   // ⛔ AND IT MUST NOT HAVE BEEN LEFT BEHIND IN site-body TOO. Two mounts would
   // double it on the landing page, and the second copy would not carry the gate.
@@ -93,15 +94,14 @@ test('announcement · before the day, a sent announcement SHOWS (owner 2026-09-2
   assert.equal(announcementStage('live', false), 'live');
   assert.equal(announcementStage('live', true), 'live', 'the live window outranks the calendar');
 
-  // And the wiring carries it: the loader takes the STAGE, not a live flag, and
-  // the only stage it refuses is 'after'. A re-added `if (!isLive)` is exactly
-  // the regression this test exists to catch.
-  assert.match(LOADERS, /export const loadDayOfBroadcast = cache\(/);
-  assert.match(LOADERS, /stage: AnnouncementStage,/);
-  assert.match(LOADERS, /if \(stage === 'after'\) return null;/);
-  assert.doesNotMatch(LOADERS, /if \(!isLive\) return null;/, 'the day-of-only gate is back');
-  assert.match(LAYOUT, /stage = announcementStage\(phase, ended\)/, 'the layout must resolve the stage');
-  assert.match(LAYOUT, /loadDayOfBroadcast\(createAdminClient\(\), event\.event_id, stage\)/);
+  // And the wiring carries it: one rule decides the stage (`announcementStageOf`) for the layout that mounts the card
+  // and the route that answers it; the only stage refused is 'after'. A re-added `if (!isLive)` is exactly the
+  // regression this test exists to catch.
+  assert.match(STAGE, /return announcementStage\(phase, ended\);/, 'the stage rule must resolve the stage');
+  assert.match(LAYOUT, /stage = announcementStageOf\(event\);/, 'the layout must resolve the stage');
+  assert.match(LAYOUT, /\{eventId && stage !== 'after' \? \(/, 'the card mounts until the event is over');
+  assert.match(ROUTE, /if \(stage === 'after'\) return NextResponse\.json\(\{ body: null \}/, 'the route must refuse only after');
+  assert.doesNotMatch(STAGE + ROUTE, /if \(!isLive\)/, 'the day-of-only gate is back');
   // The calm variant is asked for before the day; the day-of look on the day.
   assert.match(LAYOUT, /stage=\{stage === 'live' \? 'live' : 'before'\}/);
   assert.match(CARD, /stage\?: 'before' \| 'live';/, 'the card must accept the stage');
@@ -113,15 +113,15 @@ test('announcement · once the event is over it comes down — nothing stale sur
   // passed in the venue's calendar), never a second definition.
   assert.equal(announcementStage('post', true), 'after');
   assert.equal(announcementStage('inactive', true), 'after', 'a month after: hidden');
-  assert.match(LAYOUT, /isFinishedEvent\(/, 'the layout must ask the board\u2019s own "is it over"');
-  assert.match(LAYOUT, /calendarDayInZone\(venueTz\)/, 'and ask it in the VENUE\u2019s calendar, not the server\u2019s');
+  assert.match(STAGE, /isFinishedEvent\(/, 'the stage rule must ask the board\u2019s own "is it over"');
+  assert.match(STAGE, /calendarDayInZone\(venueTz\)/, 'and ask it in the VENUE\u2019s calendar, not the server\u2019s');
 });
 
 test('announcement · one message, never a feed', () => {
   // A guest gets the latest only. A scrollback of operational chatter is the
   // coordinator's business and would compete with the couple's own words.
-  assert.match(LOADERS, /\.order\('created_at', \{ ascending: false \}\)/);
-  assert.match(LOADERS, /\.limit\(1\)/);
+  assert.match(READ, /fetchLatestBroadcasts\(createAdminClient\(\), eventId, 1\)/, 'one message, the latest');
+  assert.match(READ, /const latest = items\[0\];/);
 });
 
 test('announcement · not dismissible, and announced politely', () => {
@@ -162,9 +162,9 @@ test('announcement · not dismissible, and announced politely', () => {
   );
   assert.match(
     code,
-    /const \[text, setText\] = useState\(body\)/,
-    'The one permitted state is the announcement text itself, seeded from the ' +
-      'server render.',
+    /const \[text, setText\] = useState<string \| null>\(body\)/,
+    'The one permitted state is the announcement text itself, as the route ' +
+      'last answered it (EV1: no longer server-rendered — the layout reads no viewer).',
   );
   // role=status + polite: announced without seizing focus. `alert` would
   // interrupt whatever the guest is reading, and this is not an error.

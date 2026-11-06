@@ -59,6 +59,7 @@ export function FontPick({
   name,
   dataAttr,
   className,
+  sample,
 }: {
   eventId: string;
   /** What the control is, for a screen reader ("Font", "Typeface"). */
@@ -73,6 +74,8 @@ export function FontPick({
   name?: string;
   dataAttr?: string;
   className?: string;
+  /** 🔤 A line of the event's own words, drawn under every face IN that face — the look before the pick (owner 2026-10-14). */
+  sample?: string | null;
 }) {
   const maker = useMaker();
   const [recent, setRecent] = useState<HubFontKey[]>([]);
@@ -93,7 +96,7 @@ export function FontPick({
         dataAttr={dataAttr}
         value={picked ?? HUB_FONT_LEAD}
         stickyGroups
-        options={hubFontPickOptions({ recent, inUse: maker?.lookPages?.fontsInUse ?? [], lead })}
+        options={hubFontPickOptions({ recent, inUse: maker?.lookPages?.fontsInUse ?? [], lead, sample })}
         onPick={(k) => {
           const key = sanitizeHubFontKey(k);
           setPicked(key);

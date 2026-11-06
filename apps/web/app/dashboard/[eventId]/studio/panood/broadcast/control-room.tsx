@@ -19,12 +19,13 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { GO_LIVE_CONFIRM } from '@/lib/live-studio-go-live-confirm';
 import {
   setProgramSource,
   setLive,
   fireMoment,
   setScreenSource,
-  markHighlight,
   type ControlActionResult,
 } from './actions';
 import type { PanoodMomentRow } from '@/lib/panood-moments';
@@ -34,6 +35,7 @@ import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats-pure';
 import { SetnayanOverlay } from './_components/setnayan-overlay';
 import { consoleFitHeight } from '@/lib/panood-console-fit';
+import { BREAKPOINTS } from '@/lib/use-responsive';
 import {
   resolveConsoleLayout,
   deviceLayout,
@@ -99,7 +101,7 @@ type PanoodScreenRow = {
  */
 
 const WALL_SOURCES = [
-  { key: 'photos', label: 'Photo wall', Icon: Images },
+  { key: 'photos', label: 'Memory lane', Icon: Images },
   { key: 'live_bg', label: 'Live background', Icon: Sparkles },
 ] as const;
 
@@ -146,6 +148,7 @@ export function PanoodControlRoom({
   watermark: WatermarkDecision;
 }) {
   const toast = useToast();
+  const { confirm, dialog } = useConfirm();
   const [isPending, startTransition] = useTransition();
 
   // Optimistic local echo of the control plane — flips instantly on tap, then
@@ -231,9 +234,10 @@ export function PanoodControlRoom({
         consoleFitHeight({
           consoleTop: el.getBoundingClientRect().top,
           viewportHeight: window.innerHeight,
-          // The bottom nav is `lg:hidden` — VIEWPORT-driven, not layout-driven. The two can
+          // The bottom nav is `tab:hidden` in the event tree (701, owner 2026-10-19 —
+          // `BottomDock boundary="tab"`) — VIEWPORT-driven, not layout-driven. The two can
           // disagree (a laptop in Compact still has no bottom nav).
-          bottomNavVisible: !window.matchMedia('(min-width: 1024px)').matches,
+          bottomNavVisible: !window.matchMedia(`(min-width: ${BREAKPOINTS.tab}px)`).matches,
           safeAreaBottom: Number.parseFloat(safeRaw) || 0,
         }),
       );
@@ -471,23 +475,15 @@ export function PanoodControlRoom({
     );
   }
 
-  function handleToggleLive(): void {
+  // Owner 2026-11-05 (item 11): going on air asks once first (lib/live-studio-go-live-confirm.ts); ending never asks.
+  async function handleToggleLive(): Promise<void> {
     const next = !live;
+    if (next && !(await confirm(GO_LIVE_CONFIRM))) return;
     setLiveLocal(next); // optimistic
     run(
       () => setLive(eventId, next),
       () => setLiveLocal(!next),
     );
-  }
-
-  function handleMark(): void {
-    run(async () => {
-      const res = await markHighlight(eventId);
-      if ('ok' in res) {
-        toast.success('Highlight marked');
-      }
-      return res;
-    });
   }
 
   const programLabel = labelForSource(program, cameras);
@@ -501,6 +497,7 @@ export function PanoodControlRoom({
       className="flex flex-col gap-3 overflow-hidden"
       style={fitHeight ? { height: `${fitHeight}px` } : undefined}
     >
+      {dialog}
       {/* ── STATUS STRIP · 44px ────────────────────────────────────────────────────────────
           Everything the page header used to spend ~150px saying, in one row that is also useful
           during a show. 44px and not 32 because `globals.css` puts `min-height:44px` on every
@@ -638,8 +635,7 @@ export function PanoodControlRoom({
         <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain">
           <GoLivePanel
             live={live}
-            onToggle={handleToggleLive}
-            onMark={handleMark}
+            onToggle={() => void handleToggleLive()}
             disabled={isPending}
           />
           <ScreensManager
@@ -742,7 +738,8 @@ export function PanoodControlRoom({
         {/* Bottom tabs */}
         <nav
           aria-label="Control sections"
-          className="sticky bottom-[5.5rem] z-10 grid grid-cols-3 gap-1 rounded-full border border-ink/10 bg-cream/95 p-1 shadow-sm backdrop-blur"
+          data-glass-row="control-room-tabs"
+          className="sn-glass-row sticky bottom-[5.5rem] z-10 grid grid-cols-3 gap-1 rounded-full p-1"
         >
           {(
             [
@@ -1310,12 +1307,10 @@ function MomentDirector({
 function GoLivePanel({
   live,
   onToggle,
-  onMark,
   disabled,
 }: {
   live: boolean;
   onToggle: () => void;
-  onMark: () => void;
   disabled: boolean;
 }) {
   return (
@@ -1337,19 +1332,6 @@ function GoLivePanel({
         <Radio aria-hidden className="h-4 w-4" strokeWidth={2.25} />
         {live ? 'End broadcast' : 'Go live'}
       </button>
-      <button
-        type="button"
-        onClick={onMark}
-        disabled={disabled}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-ink/15 bg-cream px-4 py-3 text-sm font-medium text-ink hover:border-terracotta/40 disabled:opacity-60"
-      >
-        <Star aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        Mark highlight
-      </button>
-      <p className="text-[11px] text-ink/55">
-        Mark a beat (vows, first kiss, first dance) and AI Highlight reels pull it
-        first. Highlight saving lands with the streaming rollout.
-      </p>
     </section>
   );
 }

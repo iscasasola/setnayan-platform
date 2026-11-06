@@ -366,10 +366,12 @@ test('the shop’s OWN dashboard reads its contact details through vendor_profil
   }
   assert.match(src, /\.from\(SELF_SOURCE\)\s*\.select\(FULL_VENDOR_PROFILE_SELECT\)/, 'the FULL projection is not read from SELF_SOURCE');
   assert.match(src, /\.from\(SELF_SOURCE\)\s*\.select\(LEGACY_VENDOR_PROFILE_SELECT\)/, 'the LEGACY fallback is not read from SELF_SOURCE');
-  const page = stripComments(fs.readFileSync(path.join(APP_ROOT, 'app', 'vendor-dashboard', 'shop', 'page.tsx'), 'utf8'));
-  assert.match(page, /fetchOwnVendorProfile\(/, 'My Shop no longer loads the shop through fetchOwnVendorProfile');
-  assert.match(page, /contact_phone:\s*profile\.contact_phone/, 'My Shop no longer shows the shop its phone');
-  assert.match(page, /contact_email:\s*profile\.contact_email/, 'My Shop no longer shows the shop its email');
+  // Since step 5 (2026-10-14) the contact fields are Your details › Contact (they were My Shop's Profile tile).
+  const route = stripComments(fs.readFileSync(path.join(APP_ROOT, 'app', 'vendor-dashboard', 'profile', 'page.tsx'), 'utf8'));
+  assert.match(route, /fetchOwnVendorProfile\(/, 'Your details no longer loads the shop through fetchOwnVendorProfile');
+  const page = stripComments(fs.readFileSync(path.join(APP_ROOT, 'app', 'vendor-dashboard', 'profile', 'details-data.ts'), 'utf8'));
+  assert.match(page, /contact_phone:\s*profile\.contact_phone/, 'Your details no longer shows the shop its phone');
+  assert.match(page, /contact_email:\s*profile\.contact_email/, 'Your details no longer shows the shop its email');
 });
 
 test('no later migration hands either column (or the whole table) back to a browser role', () => {

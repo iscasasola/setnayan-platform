@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { resolveGuestSessionSecret } from '@/lib/guest-session';
+import { guestSessionVerifyMaterials, resolveGuestSessionSecret } from '@/lib/guest-session';
 
 /**
  * apps/web/lib/live-screen-session.ts
@@ -58,22 +58,26 @@ export async function signLiveScreenToken(claim: LiveScreenClaim): Promise<strin
 /** Signature + shape only. Never sufficient on its own — see the file docblock. */
 export async function verifyLiveScreenToken(token: string | undefined | null): Promise<LiveScreenClaim | null> {
   if (!token) return null;
-  const secret = secretOrNull();
-  if (!secret) return null;
-  try {
-    const { payload } = await jwtVerify(token, secret, { audience: AUDIENCE });
-    if (
-      typeof payload.screen_id !== 'number' ||
-      !Number.isInteger(payload.screen_id) ||
-      typeof payload.event_id !== 'string' ||
-      typeof payload.paired_at !== 'string'
-    ) {
-      return null;
+  if (!secretOrNull()) return null;
+  // The signer, then — while a dedicated key is new — the legacy seal, so setting
+  // GUEST_SESSION_SECRET never unpairs a screen (lib/guest-session.ts).
+  for (const material of guestSessionVerifyMaterials()) {
+    try {
+      const { payload } = await jwtVerify(token, new TextEncoder().encode(material), { audience: AUDIENCE });
+      if (
+        typeof payload.screen_id !== 'number' ||
+        !Number.isInteger(payload.screen_id) ||
+        typeof payload.event_id !== 'string' ||
+        typeof payload.paired_at !== 'string'
+      ) {
+        return null;
+      }
+      return { screen_id: payload.screen_id, event_id: payload.event_id, paired_at: payload.paired_at };
+    } catch {
+      // not this seal — try the next
     }
-    return { screen_id: payload.screen_id, event_id: payload.event_id, paired_at: payload.paired_at };
-  } catch {
-    return null;
   }
+  return null;
 }
 
 /**

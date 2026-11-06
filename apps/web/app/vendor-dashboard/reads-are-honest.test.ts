@@ -17,7 +17,7 @@
  *   production sheet . "No portion rules yet" → to a caterer, on the day
  *
  * ── What this file pins, and why it is only the render layer ───────────────
- * The 16 files below RENDER. An absence in them becomes a claim on screen, so
+ * The 15 files below RENDER (16 until S-PR2 retired clients/surface.tsx). An absence in them becomes a claim on screen, so
  * the error has to be bound and, where it changes what is stated, said.
  *
  * ⚠ `actions.ts` FILES ARE DELIBERATELY OUT OF SCOPE. There an absence DENIES —
@@ -44,14 +44,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  */
 const RENDER_FILES = [
   'activities/page.tsx',
-  'calendar/surface.tsx',
-  'clients/surface.tsx',
+  // (calendar/surface.tsx — retired by S-PR3; its reads moved into customers/page.tsx's Dates, listed below)
+  // (clients/surface.tsx — retired by S-PR2; its reads moved into customers/page.tsx, listed below)
   'clients/[eventId]/page.tsx',
   'clients/[eventId]/production-sheet/page.tsx',
   'contracts/surface.tsx',
   'customers/page.tsx',
-  'earnings/surface.tsx',
-  'locked-qr/page.tsx',
+  // (earnings/surface.tsx — retired by S-PR4; its reads moved into Customers › Money, listed here)
+  'customers/_components/money-segment.tsx',
+  // (locked-qr/page.tsx — a redirect since S-PR3; its ledger read moved into the one QR codes page)
+  'invite/page.tsx',
   'manpower/surface.tsx',
   'on-the-day/page.tsx',
   'packages/page.tsx',
@@ -107,14 +109,15 @@ test('the screens that state an absence carry a measured flag, not just a log li
   // must gate that claim on whether the read actually happened.
   const mustGate = [
     'packages/page.tsx',
-    'locked-qr/page.tsx',
+    // The QR codes page measures the ledger; its Issued fold (the component it hands the rows to) says the refusal.
+    'invite/page.tsx+invite/_components/qr-codes.tsx',
     'partnerships/page.tsx',
     'activities/page.tsx',
     'clients/[eventId]/production-sheet/page.tsx',
     'website/page.tsx',
   ];
   const missing = mustGate.filter((rel) => {
-    const src = read(rel);
+    const src = rel.split('+').map(read).join('\n');
     return !/Measured|measured/.test(src) || !/We couldn/.test(src);
   });
   assert.deepEqual(
@@ -129,13 +132,14 @@ test('the screens that state an absence carry a measured flag, not just a log li
 test('a refused read never renders as a money figure or a headcount of zero', () => {
   // The two places a zero is worst: the supplier's payout totals, and the live
   // headcount on the screen they open at the venue on the day.
-  const earnings = read('earnings/surface.tsx');
+  // S-PR4: the old Earnings page is Customers › Money — the reads in `money-segment.tsx`, the drawing in `money-view.tsx`.
+  const earnings = read('customers/_components/money-segment.tsx');
+  const moneyView = read('customers/_components/money-view.tsx');
   assert.match(
     earnings,
     /payoutsMeasured\s*\?/,
-    'Payout totals must be computed only when the payouts were actually read; ' +
-      'formatCentavosPhp(null) renders an em-dash, and ₱0 is a claim that ' +
-      'nothing is owed.',
+    'Payout records must be drawn only when the payouts were actually read; ' +
+      'an unread list is said, and ₱0 is a claim that nothing is owed.',
   );
   assert.doesNotMatch(
     earnings,
@@ -148,19 +152,19 @@ test('a refused read never renders as a money figure or a headcount of zero', ()
   // and the ledger said "No confirmed payments yet." to a supplier who had been
   // paid ₱5,350, and this guard stayed green through all of it. A silent empty
   // is the failure it was written to catch, so it must be named here too.
-  // The rule itself is EXECUTED in `lib/the-earnings-page-never-invents-a-zero.test.ts`;
-  // these two lines only hold the page to the module that decides it.
+  // The rule itself is EXECUTED in `lib/the-earnings-page-never-invents-a-zero.test.ts`
+  // and `lib/vendor-money.test.ts`; these lines only hold the page to the modules that decide it.
   assert.match(
     earnings,
-    /value=\{formatPhp\(view\.ytdPhp\)\}/,
-    'The year-to-date figure must come from `earningsView`, whose `ytdPhp` is ' +
-      'null — an em-dash — when the ledger was not read. A raw total prints ₱0.',
+    /year = moneyYear\(earningsView\(earningsRead\), today\)/,
+    'The year figure must come from `earningsView` through `moneyYear`, which is ' +
+      'null — "Couldn’t load" — when the ledger was not read. A raw total prints ₱0.',
   );
   assert.match(
-    earnings,
-    /\{view\.ledger === 'unreadable' \? \(/,
+    moneyView,
+    /\) : year === null \? \([\s\S]{0,200}Couldn&rsquo;t load your year[\s\S]{0,400}year\.months\.length === 0 \? \(/,
     'An unread ledger and a shop nobody has paid rendered the same empty box. ' +
-      'The list must branch on the read, not on the row count.',
+      'The year must branch on the read before it branches on the count.',
   );
 
   const dayOf = read('on-the-day/page.tsx');

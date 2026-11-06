@@ -25,7 +25,7 @@ export function GetTickets({ url }: { url: string | null }) {
         <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Get tickets
       </a>
-      <p className="mt-1.5 text-center text-xs text-ink/55">
+      <p className="mt-1.5 text-center text-xs text-ink/70">
         Tickets are sold by the organizer, on their own page.
       </p>
     </div>

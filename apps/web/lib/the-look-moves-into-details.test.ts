@@ -65,11 +65,12 @@ const MB = 'app/dashboard/[eventId]/studio/mood-board';
 
 /* ── (1) the Look ─────────────────────────────────────────────────────── */
 
-test('(1) the Look is Background · Colours · Font · Music · Mood Board · Logo · Cover page · Reveal, in the owner’s order', () => {
+test('(1) the Look is Background · Elements · Music · Mood Board · Logo · Cover page · Reveal, in the owner’s order', () => {
   /* 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): the Look's own sections are rows;
      `theme` (the whole panel) stays an item, hidden — the guided Look step's. */
   const look = DETAILS_ITEM_GROUPS.find((g) => g.group === 'look')!;
-  assert.deepEqual([...look.keys], ['background', 'colours', 'font', 'music', 'mood-board', 'logo', 'hero', 'reveal']);
+  /* Three Look sections since the 2026-10-08 restudy (it was Background · Colours · Font · Music) — `LOOK_SECTIONS`. */
+  assert.deepEqual([...look.keys], ['background', 'elements', 'music', 'mood-board', 'logo', 'hero', 'reveal']);
   assert.deepEqual([...LOOK_ITEM_KEYS], ['mood-board', 'logo', 'hero', 'reveal']);
   assert.equal(DETAILS_ITEM_KEYS[0], 'background', 'Background is the first item and the cold open');
   assert.ok(DETAILS_ITEM_GROUPS.find((g) => g.group === 'elsewhere')?.keys.includes('theme'), 'the whole Look is no longer addressable');
@@ -156,9 +157,8 @@ test('(2) a door that still says "open the Hero" opens Details — the shell tur
     assert.match(html, /data-maker-page="details"/, `${key}: Details did not open`);
     assert.match(html, /data-stub="details-page"/, `${key}: Details' page is not drawn`);
     assert.doesNotMatch(html, new RegExp(`data-maker-page="${key}"`), `${key}: still opened as a page of its own`);
-    // ONE door since 2026-10-06 ("EVENT DETAILS IS REBUILT"): Event Details, highlighted — no Look chip.
-    assert.match(html, /data-maker-tool="details"[^>]*aria-pressed="true"/, `${key}: Event Details is not the highlighted door`);
-    assert.doesNotMatch(html, /data-maker-tool="look"/, `${key}: the Look chip came back`);
+    // The old bar's doors (Look · Event Details) went with the old Maker (2026-10-25): Studio is the way in.
+    assert.doesNotMatch(html, /data-maker-tool="(details|look)"/, `${key}: an old bar door came back`);
   }
   // Every door goes through that one turn: the context's `select`, the address and the tab's memory.
   const shell = read(`${L}/maker-shell.tsx`);
@@ -253,10 +253,12 @@ const LOOK = {
 test('(4) Details draws the Logo studio as the body, the Hero and Reveal pages with their controls on the right', async () => {
   assert.match(await paintLook('body', 'logo', LOOK), /data-details-look="logo"[\s\S]*data-stub="logo-studio"/);
   const hero = await paintLook('body', 'hero', LOOK);
-  assert.match(hero, /src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"/, 'the Hero page is the hero alone, on the host canvas');
+  // (The frame itself is mounted by the client — `buffered-canvas-frame.tsx`, "NO IFRAME IN THE SERVER'S HTML" —
+  // so the server's HTML names the page on the frame's box.)
+  assert.match(hero, /data-canvas-src="\/ana-ben\?phase=rsvp&amp;editor=1&amp;only=hero"/, 'the Hero page is the hero alone, on the host canvas');
   assert.match(await paintLook('editor', 'hero', LOOK), /data-stub="hero-controls"/);
   const reveal = await paintLook('body', 'reveal', LOOK);
-  assert.match(reveal, /src="\/ana-ben\?phase=rsvp&amp;preview=draft"/, 'the Reveal plays on its first chosen stage');
+  assert.match(reveal, /data-canvas-src="\/ana-ben\?phase=rsvp&amp;preview=draft"/, 'the Reveal plays on its first chosen stage');
   assert.match(reveal, /data-maker-page-switch=""/, 'with two chosen stages the page offers both');
   assert.match(await paintLook('editor', 'reveal', LOOK), /data-stub="reveal-controls"/);
 });
@@ -277,8 +279,8 @@ test('(4) a page that has not arrived SAYS so — never an empty column', async 
 
 test('(4) Details wires each Look item: its body, its editor, and the Mood Board note opens the item in place', () => {
   const details = read(`${L}/maker-details.tsx`);
-  // 🗂 The logo answer ("Do you want a logo?", 2026-10-02) sits above the studio — the studio is still the body.
-  assert.match(details, /bodies\.logo = logoA \? \([\s\S]{0,500}<DetailsLookBody item="logo" \/>[\s\S]{0,40}\) : \(\s*<DetailsLookBody item="logo" \/>/);
+  // ✏ The Logo studio IS the body — no "Do you want a logo?" over it (L1, owner 2026-10-08: "this is direct edit already").
+  assert.match(details, /bodies\.logo = <DetailsLookBody item="logo" \/>/);
   assert.match(details, /bodies\.hero = <DetailsLookBody item="hero" \/>/);
   assert.match(details, /bodies\.reveal = <DetailsLookBody item="reveal" \/>/);
   // 🗂 …and the event-photo answer above the Hero's own controls.
@@ -297,8 +299,9 @@ test('(4) Details wires each Look item: its body, its editor, and the Mood Board
 
 test('(5) the Mood Board is ONE component — Details draws it, and its old page lands the couple there', () => {
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerBody eventId=\{eventId\} \/>/, 'Details does not stream the board');
-  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerControls eventId=\{eventId\} \/>/, 'Details does not stream the board’s controls');
+  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardStudioBody eventId=\{eventId\} \/>/, 'Details does not stream the board');
+  /* Studio › Mood Board carries its tools inside it — the old Maker's right column went with it (2026-10-25). */
+  assert.match(launch, /moodBoardControls: null,/);
   const page = read(`${MB}/page.tsx`);
   assert.match(page, /if \(makerHasWork\(memberType, websiteOn\)\) redirect\(detailsItemHref\(eventId, 'mood-board'\)\);/);
   // Everyone else keeps the page: its return draws the board (beside the save notice, #6321).
@@ -313,7 +316,7 @@ test('(5) the Mood Board is ONE component — Details draws it, and its old page
 
 test('(5) inside the Maker the board keeps the Maker’s rules — and its supplier side is untouched', () => {
   const ed = read(`${MB}/_components/mood-board-editor.tsx`);
-  const maker = ed.slice(ed.indexOf('export async function MoodBoardMakerBody('));
+  const maker = ed.slice(ed.indexOf('export async function MoodBoardStudioBody('));
   assert.ok(maker.length > 200, 'anti-vacuity: the Maker views were not found');
   // No masthead, no "Back to", no fixed bar and no link out in the Maker's views.
   assert.doesNotMatch(maker, /PageMasthead|Back to|<Link\b|\bfixed\b/);
@@ -338,7 +341,7 @@ test('(6) a birthday and a wake get the whole Look — and Page ▾ names the sa
   const { makerPageMenu } = await import(`../${L}/maker-bar`);
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const look = detailsNavigatorKeys(ctx(p), ALL).find((g) => g.group === 'look');
-    assert.deepEqual(look?.keys, ['background', 'colours', 'font', 'music', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
+    assert.deepEqual(look?.keys, ['background', 'elements', 'music', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
   }
   assert.equal(ctx(WAKE_PROFILE).solemn, true, 'the wake fixture is not the solemn register');
   // Page ▾ (the Maker in 4) names the stages in their ONE vocabulary
@@ -433,23 +436,15 @@ test('(7) Reveal: the openings are the navigator, the rest the right column — 
   assert.match(rv, /\[data-details-look="reveal"\] iframe/);
 });
 
-test('(7) Mood Board: its parts in the navigator, the picked part in the middle, its controls on the right', () => {
+test('(7) Mood Board: one board in the Maker — Studio › Mood Board; the old three-part board is gone', () => {
   const ed = read(`${MB}/_components/mood-board-editor.tsx`);
-  const body = ed.slice(ed.indexOf('export async function MoodBoardMakerBody('), ed.indexOf('export async function MoodBoardMakerControls('));
-  const controls = ed.slice(ed.indexOf('export async function MoodBoardMakerControls('));
+  /* The old Maker drew the board in three parts (navigator · middle · right column). It was deleted with the old Maker
+     (owner 2026-10-25, "delete that old event hub maker"); Studio › Mood Board & Dress Code is the board. */
+  assert.doesNotMatch(ed, /export async function MoodBoardMaker(Body|Controls)\(/, 'the old Maker’s three-part board is back');
+  assert.match(ed, /export async function MoodBoardStudioBody\(/);
   const parts = read(`${MB}/_components/mood-board-parts.tsx`);
-  for (const p of ['theme', 'inspiration', 'palette', 'reception', 'colours', 'make-it-real', 'share']) {
-    assert.match(parts, new RegExp(`key: '${p}'`), `${p} is not a part in the navigator`);
-    assert.match(body, new RegExp(`<MoodPart part="${p}">`), `${p} has no middle`);
-  }
-  // One provider around theme → palette, so the main colours still derive the palette live.
-  assert.equal((body.match(/<PaletteBoardProvider \{\.\.\.provider\}>/g) ?? []).length, 1);
-  // The right column: each part's own controls — the sign-offs beside the palette and the room, sharing.
-  assert.match(controls, /<MoodPart part="palette">\{parts\.peopleAgreed\}<\/MoodPart>/);
-  assert.match(controls, /<MoodPart part="reception">\{parts\.roomAgreed\}<\/MoodPart>/);
-  assert.match(controls, /<MoodPart part="share">\{parts\.shareButton\}<\/MoodPart>/);
-  // Parts stay mounted — hidden, never unmounted — so nothing typed is lost by switching.
-  assert.match(parts, /hidden=\{on !== part\} className=\{on === part \? 'block' : 'hidden'\}/);
-  // "Make it real" is sold nowhere it is not offered.
-  assert.match(read(`${L}/maker-details.tsx`), /<MoodBoardPieces makeItReal=\{!theme\.storeShell\} \/>/);
+  assert.doesNotMatch(parts, /export function MoodPart(Note)?\(/, 'the old three-part board’s pieces are back');
+  // "Make it real" (paid renders) was retired 2026-10-26 — the navigator lists no such part.
+  assert.match(read(`${L}/maker-details.tsx`), /<MoodBoardPieces \/>/);
+  assert.doesNotMatch(parts, /make-it-real/, 'the retired "Make it real" part is back in the navigator');
 });

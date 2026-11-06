@@ -62,7 +62,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
   );
 
   const shell =
-    'rounded-2xl border border-ink/10 bg-white p-4 shadow-sm transition-colors sm:p-5';
+    'rounded-2xl border border-ink/10 bg-white dark:bg-raised p-4 shadow-sm transition-colors sm:p-5';
 
   // With a public profile: the identity block links to the profile, and a
   // dedicated "Contact" link deep-links to the same profile with ?src=favorites

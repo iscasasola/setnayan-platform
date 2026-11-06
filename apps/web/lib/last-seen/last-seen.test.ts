@@ -119,7 +119,7 @@ test('1 · a kept page renders at once from the phone, then the fresh render rep
   release('3 on your list — Ana Cruz replied');
   const full = await run.done;
   assert.match(shell, /Maria Santos/, 'the shell paints the kept roster at once');
-  assert.match(shell, /Updating…/, 'under the "Updating…" mark');
+  assert.match(shell, /Showing your last copy · updating…/, 'under the "Showing your last copy · updating…" mark');
   assert.doesNotMatch(shell, /Ana Cruz/, 'before the fresh data exists');
   assert.match(full, /3 on your list — Ana Cruz replied/, 'then the fresh render arrives and takes its place');
   assert.match(shell, /inert/, 'and the kept copy can never be tapped as if it were live');
@@ -171,7 +171,9 @@ test('2 · money is never kept — a peso figure or a data-money part never reac
 
   // The money parts of the five pages carry the marker the snapshot drops.
   const marked: [string, RegExp][] = [
-    ['app/dashboard/[eventId]/_components/home-first-screen.tsx', /data-home-money\s*\n[^>]*data-money=""/],
+    // Home's Budget widget, both versions (owner-approved 2026-10-24: the money tile became the Budget widget).
+    ['app/dashboard/[eventId]/_components/home-tile.tsx', /data-money=\{model\.key === 'budget' \? '' : undefined\}/],
+    ['app/dashboard/[eventId]/_components/home-control-row.tsx', /data-money=\{k === 'budget' \? '' : undefined\}/],
     ['app/dashboard/[eventId]/_components/event-dashboard.tsx', /key="budget"[\s\S]{0,200}?data-money=""/],
     ['app/dashboard/[eventId]/_components/event-dashboard.tsx', /data-money=\{group\.id === 'pay'/],
     ['app/dashboard/[eventId]/details/page.tsx', /data-money=\{k === 'budget' \|\| k === 'purchases'/],
@@ -279,13 +281,15 @@ test('5 · a refresh that does not come says so — old data is never passed off
   const failed = renderToStaticMarkup(
     React.createElement(LastSeenView, { html: ROSTER, savedAt: Date.UTC(2026, 9, 1, 7, 42), phase: 'failed' }),
   );
-  assert.match(failed, /Couldn(’|&#x27;|')t refresh|Couldn&rsquo;t refresh/);
+  assert.match(failed, /Couldn(’|&#x27;|')t update — showing your last copy/);
   assert.match(failed, /may be out of date/);
   assert.match(failed, /Try again/);
-  assert.doesNotMatch(failed, /Updating…/);
+  assert.doesNotMatch(failed, /updating…/);
 
   // A failed READ is never kept as last-seen: each page passes its honest-read flag.
-  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<LastSeenCapture page="guests" fresh=\{guestsMeasured\}>/);
+  // (The Guest list keeps its ROWS, not a picture — `keepHtml={false}`; its own screen keeps the data, gated
+  // on the same measured read: guests/a-failed-refresh-shows-the-last-copy-as-old.test.ts.)
+  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<LastSeenCapture page="guests" fresh=\{guestsMeasured\} keepHtml=\{false\} showMark=\{false\}>/);
   assert.match(read('app/dashboard/[eventId]/page.tsx'), /<LastSeenCapture page="home" fresh=\{guestsMeasured\}>/);
   assert.match(read('app/dashboard/[eventId]/details/page.tsx'), /<LastSeenCapture page="details" fresh=\{lastSeenFresh\}>/);
 });

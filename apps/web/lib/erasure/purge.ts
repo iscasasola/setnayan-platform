@@ -43,6 +43,7 @@
  */
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { distinctGuestIds, distinctPersonIds } from '@/lib/account-erasure';
+import { GIFT_SHOT_FIELDS } from '@/lib/wish-list';
 import {
   CLOSED_SHOP_SLUG_ENTITY_TYPE,
   closedShopSlugHeldUntil,
@@ -67,6 +68,7 @@ import {
 } from '@/lib/erasure/coverage';
 import {
   chatAttachmentScope,
+  giftShotScope,
   guestSelfieScope,
   paperworkScope,
   profilePhotoScope,
@@ -74,6 +76,7 @@ import {
   vendorIdentityUploadScope,
   vendorLogoScope,
   type CleanupScope,
+  couplePhotoLookScope,
 } from '@/lib/cleanup-delete-scope';
 import {
   PROVENANCE_ROW_CEILING,
@@ -81,6 +84,9 @@ import {
   chatAttachmentIsSubjectsOwn,
   type ChatAttachmentRow,
 } from '@/lib/erasure/chat-attachment-provenance';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { coupleLookRef } from '@/lib/couple-photo-share';
+import type { AppleRevokeOutcome } from '@/lib/apple-sign-in';
 
 export type ErasureAdminClient = ReturnType<typeof createAdminClient>;
 
@@ -122,9 +128,66 @@ export type ErasureIo = {
   revokeAllSessions(
     userId: string,
   ): Promise<{ ok: true; sessionsRevoked: number } | { ok: false; error: string }>;
+  /**
+   * Revoke the person's Sign in with Apple grant at Apple (App Store 5.1.1(v)),
+   * using the token held at sign-in (`apple_sign_in_tokens`). MUST NOT THROW and
+   * MUST NOT delete the row — the OWN_ROW_DELETES loop does that afterwards.
+   * Required, not optional: an adapter that forgets it fails to compile instead
+   * of quietly skipping the revoke. Production: lib/apple-sign-in-store.ts.
+   */
+  revokeAppleSignIn(userId: string): Promise<AppleRevokeOutcome>;
   /** Injectable clock — lets the tests assert exact tombstone values. */
   now?: () => Date;
 };
+
+/**
+ * Write what the Apple revoke came to. EVERY outcome but "this account never
+ * used Apple" leaves a row, because 5.1.1(v) is an obligation and the audit is
+ * the only place anyone will look for whether it was met:
+ *   • revoked         → `apple_sign_in_revoked` (the obligation is met)
+ *   • no_token_held   → `erasure_step_failed` — an Apple-linked account we had
+ *                        no token for (signed in before tokens were held, or the
+ *                        hold failed). Nothing could be revoked; say so.
+ *   • not_configured  → `erasure_step_failed`, naming the missing env (never a value)
+ *   • failed          → `erasure_step_failed`, with Apple's error code / HTTP status
+ * A failure never stops the erasure — the next step runs regardless.
+ */
+export async function recordAppleRevoke(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  outcome: AppleRevokeOutcome,
+): Promise<void> {
+  if (outcome.status === 'not_apple_linked') return;
+  if (outcome.status === 'revoked') {
+    const { error } = await admin.from('admin_audit_log').insert({
+      action: 'apple_sign_in_revoked',
+      target_id: targetUserId,
+      actor_user_id: actorUserId,
+      metadata: { stage: 'apple-sign-in-revoke', outcome: outcome.status, client: outcome.client },
+    });
+    if (error) console.error('[eraseUserAccount] apple revoke audit write failed', error.message);
+    return;
+  }
+  const auditFail = makeAuditFail(
+    admin,
+    targetUserId,
+    actorUserId,
+    'eraseUserAccount',
+    'erasure_step_failed',
+  );
+  const message =
+    outcome.status === 'no_token_held'
+      ? 'Apple-linked account, but no Apple token was held — the Sign in with Apple grant could not be revoked'
+      : outcome.status === 'not_configured'
+        ? `Apple revoke not configured — missing ${outcome.missing.join(', ')}`
+        : `Apple revoke failed — ${outcome.reason}`;
+  await auditFail('apple-sign-in-revoke', message, {
+    outcome: outcome.status,
+    ...('client' in outcome && outcome.client ? { client: outcome.client } : {}),
+    ...(outcome.status === 'failed' && outcome.httpStatus ? { http_status: outcome.httpStatus } : {}),
+  });
+}
 
 /**
  * Build the per-purge recorder for data erasure DELIBERATELY LEFT BEHIND.
@@ -1142,6 +1205,75 @@ export async function purgeSamahanStories(
 }
 
 /**
+ * RA 10173 right-to-erasure — 📸 A COUPLE'S PHOTOS ON SUPPLIERS' SERVICE CARDS (#7089).
+ *
+ * Two sides, two different answers:
+ *   · Shares the subject SENT (`shared_by_user_id`) — their consent and credit for their own photo. Each share's
+ *     FROZEN COPY (`couple-looks/<share_id>/…`, in the bucket its audience put it) is deleted through the cleanup
+ *     executor, scoped to that share's folder; then the row goes (also a SUBJECT_ROW_DELETES entry — the generic
+ *     loop then no-ops). The row goes only once its copy is gone: a surviving row is the retry handle.
+ *   · Shares sent TO the subject's shop — the COUPLE's, not the subject's. Withdrawn (off the card at once) and
+ *     their copy deleted, never erased: the couple keeps their record of what they shared and can see it ended.
+ * Best-effort per step, audit-logged, never thrown — same contract as every purge here.
+ */
+export async function purgeCouplePhotoShares(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  io: ErasureIo,
+  vendorProfileId: string | null,
+): Promise<void> {
+  const auditFail = makeAuditFail(
+    admin,
+    targetUserId,
+    actorUserId,
+    'purgeCouplePhotoShares',
+    'erasure_step_failed',
+    { kind: 'couple_photo_shares' },
+  );
+  const dropCopy = async (r: { share_id: string; public_key?: string | null; audience?: string | null }): Promise<boolean> => {
+    if (typeof r.public_key !== 'string' || r.public_key.length === 0) return true;
+    try {
+      await io.deleteStoredAsset(coupleLookRef(r.public_key, r.audience === 'public'), couplePhotoLookScope(r.share_id));
+      return true;
+    } catch (e) {
+      await auditFail('couple-photo-copy-delete', e instanceof Error ? e.message : String(e));
+      return false;
+    }
+  };
+
+  const { data: sent, error: sentErr } = await admin
+    .from('couple_photo_shares')
+    .select('share_id, public_key, audience')
+    .eq('shared_by_user_id', targetUserId);
+  if (sentErr) await auditFail('couple-photo-shares-lookup', sentErr.message);
+  for (const row of (sent ?? []) as Array<{ share_id: string; public_key?: string | null; audience?: string | null }>) {
+    if (!(await dropCopy(row))) continue;
+    const { error: delErr } = await admin.from('couple_photo_shares').delete().eq('share_id', row.share_id);
+    if (delErr) await auditFail('couple-photo-shares-row-delete', delErr.message);
+  }
+
+  if (!vendorProfileId) return;
+  const { data: received, error: recvErr } = await admin
+    .from('couple_photo_shares')
+    .select('share_id, public_key, audience')
+    .eq('vendor_profile_id', vendorProfileId)
+    .in('state', ['waiting', 'approved']);
+  if (recvErr) await auditFail('couple-photo-shares-received-lookup', recvErr.message);
+  for (const row of (received ?? []) as Array<{ share_id: string; public_key?: string | null; audience?: string | null }>) {
+    const { error: wErr } = await admin
+      .from('couple_photo_shares')
+      .update({ state: 'withdrawn', withdrawn_at: new Date().toISOString(), public_key: null })
+      .eq('share_id', row.share_id);
+    if (wErr) {
+      await auditFail('couple-photo-shares-received-withdraw', wErr.message);
+      continue;
+    }
+    await dropCopy(row);
+  }
+}
+
+/**
  * RA 10173 right-to-erasure — the subject's PER-EVENT guest-side BIOMETRICS.
  *
  * The guest-face-enrolment table has NO user FK: a row holds the biometric
@@ -1242,6 +1374,70 @@ export async function purgeUserGuestBiometrics(
     ...personLinkedGuests,
   ]);
   if (guestIds.length === 0) return;
+
+  // ── THE GIFT SCREENSHOTS THIS SUBJECT SHOWED A HOST (E-Gifts wish list, 2026-10-08) ──
+  // A guest who says "I sent it" may attach a screenshot of their OWN bank or
+  // e-wallet app. That picture is the subject's financial personal data and it
+  // is theirs alone — so it goes: the object out of the private bucket, then
+  // the pointer to it. NOT biometric; it rides this step only because the
+  // subject's guest identities are resolved here (`event_gift_records` has no
+  // user column — a record is keyed to a GUEST).
+  //
+  // ⚖ DEFERRED ON PURPOSE (lib/erasure/coverage-guardrail · PARTIALLY_PURGED):
+  // the giver's name, the amount and their words stay. That row is also the
+  // HOST's list of who gave what — the same own-vs-shared line already drawn
+  // for `guests` (the host's record of their invitee survives the invitee).
+  //
+  // Self-contained: a failure here is audited and the biometric steps below
+  // still run. The pointer is nulled ONLY for objects storage accepted — a
+  // nulled key over a surviving object would orphan the file out of the reach
+  // of the event's own media sweep.
+  {
+    const { data: shots, error: gsErr } = await admin
+      .from('event_gift_records')
+      .select(GIFT_SHOT_FIELDS)
+      .in('giver_guest_id', guestIds)
+      .not('screenshot_r2_key', 'is', null);
+    if (gsErr) {
+      await auditFail('gift-shot-lookup', gsErr.message);
+    } else {
+      const gone: string[] = [];
+      for (const row of shots ?? []) {
+        const rec = row as {
+          gift_record_id?: string | null;
+          event_id?: string | null;
+          giver_guest_id?: string | null;
+          screenshot_r2_key?: string | null;
+        };
+        const ref = rec.screenshot_r2_key;
+        if (typeof ref !== 'string' || ref.length === 0 || !rec.gift_record_id) continue;
+        try {
+          // 🔒 Held to this guest's own gift-shots/<event>/<guest>/ folder.
+          await io.deleteStoredAsset(ref, giftShotScope(rec.event_id, rec.giver_guest_id));
+          gone.push(rec.gift_record_id);
+        } catch (e) {
+          await auditFail('gift-shot-r2-delete', e instanceof Error ? e.message : String(e));
+        }
+      }
+      if (gone.length > 0) {
+        const { error: gnErr } = await admin
+          .from('event_gift_records')
+          .update({ screenshot_r2_key: null })
+          .in('gift_record_id', gone)
+          .in('giver_guest_id', guestIds);
+        if (gnErr) await auditFail('gift-shot-key-null', gnErr.message);
+      }
+    }
+  }
+
+  // ── WHEN THIS SUBJECT LAST OPENED AN EVENT HUB (Who's here, 2026-10-29) ──
+  // One timestamp per guest row, a day at most — the subject's own, so it goes whole. It rides this step because the
+  // subject's guest identities are resolved here (`hub_guest_views` has no user column). Self-contained: a failure is
+  // audited and the steps below still run.
+  {
+    const { error: hvErr } = await admin.from('hub_guest_views').delete().in('guest_id', guestIds);
+    if (hvErr) await auditFail('hub-guest-views-delete', hvErr.message);
+  }
 
   // Pull enrolment asset refs (ALL rows, incl. superseded/revoked — every selfie
   // this subject ever enrolled for these events must go) before deleting.
@@ -1449,11 +1645,25 @@ export async function eraseUserAccount(
       updated_at: nowIso,
     })
     .eq('user_id', targetUserId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('people');
   if (pErr) await auditFail('users-anonymize', pErr.message);
 
   // 2. Kill live sessions so the lockout is immediate on every device.
   const revoked = await io.revokeAllSessions(targetUserId);
   if (!revoked.ok) await auditFail('session-revoke', revoked.error);
+
+  // 2b. Revoke the Sign in with Apple grant at Apple (App Store 5.1.1(v)) —
+  //     BEFORE step 4, whose OWN_ROW_DELETES loop deletes the held token row.
+  //     Best-effort and recorded either way (recordAppleRevoke); a throw from
+  //     the adapter is an outcome too, never a stopped erasure.
+  let apple: AppleRevokeOutcome;
+  try {
+    apple = await io.revokeAppleSignIn(targetUserId);
+  } catch {
+    apple = { status: 'failed', reason: 'adapter_threw' };
+  }
+  await recordAppleRevoke(admin, targetUserId, actorUserId, apple);
 
   // 3. Scrub the auth.users email (frees the original + removes email PII) AND
   //    the GoTrue user_metadata. The metadata is a SECOND COPY of the subject's
@@ -1487,6 +1697,8 @@ export async function eraseUserAccount(
   // BEFORE purgeUserOwnedRecords: the generic SUBJECT_ROW_DELETES loop there
   // deletes the story rows, and the rows are the only thing naming the files.
   await purgeSamahanStories(admin, targetUserId, actorUserId, io);
+  // 📸 Before the generic subject-row deletes: a share's copy is named by nothing but its row.
+  await purgeCouplePhotoShares(admin, targetUserId, actorUserId, io, preVendorRow?.vendor_profile_id ?? null);
   await purgeUserOwnedRecords(admin, targetUserId, actorUserId, { originalEmail, now });
   await purgeUserGuestBiometrics(admin, targetUserId, actorUserId, io, now);
 

@@ -215,12 +215,9 @@ export async function fetchLibraryEditorials(
           'photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, photo_type, moderation_state',
         )
         .in('photo_id', heroPhotoIds)
-        // Public-safe: never surface a moderation-withheld capture as a thumb.
-        .not(
-          'moderation_state',
-          'in',
-          '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-        );
+        // Public-safe: only a capture the screen PASSED becomes a thumb
+        // (relay 2026-10-23 — 'unscreened' is not safe, only unseen).
+        .eq('moderation_state', 'clean');
       for (const r of (data ?? []) as Array<{
         photo_id: string | null;
         r2_object_key: string | null;

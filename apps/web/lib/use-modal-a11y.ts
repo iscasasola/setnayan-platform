@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, type RefObject } from 'react';
+import { isolateOverlay, lockPageScroll, unlockPageScroll } from './overlay-lock';
 
 /**
  * useModalA11y — the single shared focus-management hook for modal dialogs,
@@ -62,21 +63,9 @@ export function anyModalOpen(): boolean {
   return modalStack.length > 0;
 }
 
-// Reference-counted body-scroll lock so nested modals don't unlock the page
-// when an inner one closes while an outer one is still open.
-let scrollLockCount = 0;
-let savedBodyOverflow = '';
-function lockBodyScroll(): void {
-  if (scrollLockCount === 0) {
-    savedBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-  }
-  scrollLockCount += 1;
-}
-function unlockBodyScroll(): void {
-  scrollLockCount = Math.max(0, scrollLockCount - 1);
-  if (scrollLockCount === 0) document.body.style.overflow = savedBodyOverflow;
-}
+// 🔒 The scroll lock and the isolation live in `lib/overlay-lock.ts` (owner 2026-10-25: "back should not move and will
+// not be scrollable or tappable until pop up is gone"). `overflow: hidden` alone — what this file did until then — let
+// iOS scroll the page, and the dimmed backdrop with it, under every sheet.
 
 export function useModalA11y<T extends HTMLElement = HTMLElement>({
   open,
@@ -180,7 +169,12 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
     // Capture phase so we intercept Tab before any inner handler.
     document.addEventListener('keydown', onKeyDown, true);
 
-    if (lockScroll) lockBodyScroll();
+    /* A modal pop-up holds the page still (iOS-safe) and makes everything behind it inert — only the top one is live. */
+    let restorePage: (() => void) | null = null;
+    if (lockScroll) {
+      lockPageScroll();
+      restorePage = isolateOverlay(container);
+    }
 
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
@@ -190,11 +184,14 @@ export function useModalA11y<T extends HTMLElement = HTMLElement>({
       const wasTopmost = modalStack[modalStack.length - 1] === id;
       const idx = modalStack.lastIndexOf(id);
       if (idx !== -1) modalStack.splice(idx, 1);
-      if (lockScroll) unlockBodyScroll();
+      if (lockScroll) {
+        restorePage?.();
+        unlockPageScroll();
+      }
       if (wasTopmost) {
         const prev = previouslyFocused.current;
         if (prev && prev.isConnected) {
-          prev.focus();
+          prev.focus({ preventScroll: true });
         } else {
           // The trigger is gone (unmounted/hidden while the modal was open).
           // Land on the main landmark instead of stranding focus on <body>.

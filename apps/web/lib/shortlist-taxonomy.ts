@@ -48,6 +48,9 @@ import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-state';
+import { categoryInfoText } from '@/lib/explore-info-copy';
+import { folderInfoText } from '@/lib/category-hints';
+import type { DateFit } from './calendar-truth';
 
 /** The `event_vendors.status` values that mean "this booking is committed". */
 export const LOCKED_VENDOR_STATUSES: readonly string[] = [
@@ -132,6 +135,88 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
 }
 
 /**
+ * THE ROW A SUPPLIER IS DRAWN UNDER — its "home" on the Suppliers page.
+ * (owner 2026-10-20: *"Move to another category"* → "okay")
+ *
+ * 🔑 `event_vendors.category` IS AN ENUM THAT CANNOT NAME MOST ROWS. Of the 80
+ * rows the page can draw, 48 have no enum label of their own — Food Truck,
+ * Food Cart, Dessert, DJ … all store `misc` (or a coarse neighbour) through
+ * `categoryForTile`, and `tileForCategory('misc')` is Everything else. So
+ * "move Dunkin' Donuts to Food Truck" cannot be said in `category` alone: it
+ * would land straight back under Everything else.
+ *
+ * The finer word already has a column: `event_vendors.category_key`, the
+ * taxonomy-keyed TEXT (FK → `service_categories.id`) added for exactly this
+ * ("a freshly-promoted tile the rigid vendor_category enum can't store",
+ * 20260815000000) and never read until now. A move writes it; this reads it.
+ *
+ * ⚖ THE KEY ONLY EVER REFINES, NEVER CONTRADICTS. It is taken as the home only
+ * when `categoryForTile(key)` is the row's own `category` — i.e. the key names a
+ * row the enum stores under that very label. A key that disagrees with the
+ * category (written by an older path, or the category moved since) is ignored,
+ * so the money (`bucketForVendor`, keyed on `category`) and the drawing can
+ * never point at two different places. `isTile`, when given, also refuses a key
+ * the taxonomy does not draw — a pick must never vanish from the page.
+ *
+ * Measured 2026-10-20: zero live production rows carried a `category_key`, so
+ * reading it moves no existing card.
+ */
+export function homeTileForRow(
+  row: { category: VendorCategory | string; category_key?: string | null },
+  isTile?: (tile: string) => boolean,
+): WeddingTile | null {
+  const key = typeof row.category_key === 'string' ? row.category_key.trim() : '';
+  if (
+    key.length > 0 &&
+    (!isTile || isTile(key)) &&
+    categoryForTile(key as WeddingTile) === row.category
+  ) {
+    return key as WeddingTile;
+  }
+  return tileForCategory(row.category as VendorCategory);
+}
+
+/**
+ * WHAT A SUPPLIER FILED UNDER A ROW STORES — the inverse of `homeTileForRow`.
+ * (owner 2026-10-20: *"We want them to be designated to their category"*)
+ *
+ *   · `category` — `categoryForTile(tile)`, the enum label Budget
+ *     (`bucketForVendor`), supplier access and the claim link key on;
+ *   · `category_key` — the row itself when that enum label alone would draw the
+ *     card somewhere else (Food Truck stores `misc`, which draws as Everything
+ *     else), else null — so a row the enum CAN name is stored byte-for-byte as
+ *     it always was.
+ *
+ * `homeTileForRow(storageForRow(t)) === t` for every row: the add
+ * (`addManualSupplier`, `attachMarketplaceVendorToCategory`) and the move
+ * (`planSupplierMove`) both write this, and the page reads it back.
+ */
+export function storageForRow(tile: string): { category: VendorCategory; category_key: string | null } {
+  const category = categoryForTile(tile as WeddingTile);
+  return { category, category_key: tileForCategory(category) === tile ? null : tile };
+}
+
+/**
+ * The `category_key` an ADD may write, from what the add posted: the row it was
+ * opened from (`tile`) and the enum `category`. Null — today's behaviour — when
+ * there is no row, the row is not one the page draws (`isTile`), or the row
+ * does not store under that `category` (the key only ever refines, never
+ * contradicts: `homeTileForRow` would ignore it anyway, and the money and the
+ * drawing must never point at two places).
+ */
+export function categoryKeyForAdd(
+  category: unknown,
+  tile: unknown,
+  isTile: (tile: string) => boolean,
+): string | null {
+  if (typeof category !== 'string' || typeof tile !== 'string') return null;
+  const t = tile.trim();
+  if (t.length === 0 || !isTile(t)) return null;
+  const stored = storageForRow(t);
+  return stored.category === category ? stored.category_key : null;
+}
+
+/**
  * The bench tile a PLAN GROUP id opens on — the group's `catalogTile`, else the
  * tile its first category bridges to (Attire / Band-DJ-Performer / Logistics
  * span several tiles and carry no `catalogTile`). Null for an id that is not a
@@ -146,6 +231,90 @@ export function tileForPlanGroup(groupId: string): WeddingTile | null {
   return first ? tileForCategory(first) : null;
 }
 
+/* ── "ALSO COVERS" SPEAKS THE SUPPLIERS PAGE'S OWN ROWS (owner 2026-10-20) ────
+ *
+ * Owner, verbatim, on a Dunkin' card filed under Everything else: *"how do i
+ * connect the dunkin donuts to a food truck category?"* … *"we already have
+ * that food truck category"* … *"we do not have the categories synced
+ * properly"*. He was right: the card's "Also covers" dropdown listed the ~30
+ * PLAN GROUPS (`wedding-plan-groups.ts`) while the Suppliers page draws its
+ * rows from the TAXONOMY TILES (`buildShortlistFolders` — `service_categories`
+ * tier 2: Food Truck, Food Cart, Massage Chair, …). Two lists for one question,
+ * and every tile no plan group names (Food Truck among them) was unreachable.
+ *
+ * ONE LIST NOW: the dropdown offers the tiles `buildShortlistFolders` emits —
+ * the same names, folders and order as the Suppliers page — and a ticked one
+ * is stored as a COVER KEY that `linkedTilesForRow` turns straight back into
+ * that tile. Guard: `also-covers-is-the-suppliers-rows.test.ts`.
+ *
+ * ⚖ THE STORED VOCABULARY STAYS COMPATIBLE — no migration. The column
+ * `event_vendors.covers_plan_groups` already holds plan-group ids, and the
+ * Budget readers (`bucketForVendor`, `attributeCommitted`, the vendors page's
+ * category-satisfaction) read it AS plan groups. So a tile is stored as:
+ *   · the plan-group id whose tile it IS, when one exists (Cake → `cake`,
+ *     Photo Booth → `photobooth`) — byte-for-byte what the old picker wrote,
+ *     so every budget reader keeps its meaning;
+ *   · otherwise `tile:<tile id>` (Food Truck → `tile:food_truck`). NOT the bare
+ *     tile id: a plan-group id can also be a tile id the group does NOT open on
+ *     — `accommodation` the group opens on Reception, while Accommodation is a
+ *     row of its own (the guard lists every such id, so a new one is seen) — and
+ *     a bare id would be read back as the wrong row. The prefix cannot collide
+ *     with any plan-group id, and every plan-group reader drops it via
+ *     `planGroupsOfCovers` — a tile no plan group names has no budget line, so
+ *     the money stays on the card's own row, exactly as before.
+ */
+
+/** Marks a cover key that names a Suppliers-page row (tile) no plan group opens on. */
+export const COVER_TILE_PREFIX = 'tile:';
+
+const PLAN_GROUP_IDS = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+
+/** The FIRST plan group (PLAN_GROUPS order) that opens on exactly this tile, or null. */
+export function planGroupForTile(tile: string): string | null {
+  for (const g of PLAN_GROUPS) {
+    if (tileForPlanGroup(g.id) === tile) return g.id as string;
+  }
+  return null;
+}
+
+/** What "Also covers" stores for a ticked Suppliers-page row. See the block above. */
+export function coverKeyForTile(tile: string): string {
+  return planGroupForTile(tile) ?? `${COVER_TILE_PREFIX}${tile}`;
+}
+
+/** The Suppliers-page row a stored cover key draws the card under, or null. */
+export function tileForCover(key: string): WeddingTile | null {
+  if (typeof key !== 'string' || key.length === 0) return null;
+  if (key.startsWith(COVER_TILE_PREFIX)) {
+    const t = key.slice(COVER_TILE_PREFIX.length);
+    return t.length > 0 ? (t as WeddingTile) : null;
+  }
+  return tileForPlanGroup(key);
+}
+
+/** The plan group a stored cover key means for the Budget readers, or null. */
+export function planGroupForCover(key: string): string | null {
+  if (typeof key !== 'string' || key.length === 0) return null;
+  if (PLAN_GROUP_IDS.has(key)) return key;
+  if (key.startsWith(COVER_TILE_PREFIX)) return planGroupForTile(key.slice(COVER_TILE_PREFIX.length));
+  return null;
+}
+
+/**
+ * A row's cover keys as PLAN GROUPS — the only vocabulary the Budget readers
+ * speak. Order kept, de-duplicated; a key with no plan group is dropped (it is
+ * a Suppliers-page row only, and carries no money). Every reader that treats
+ * `covers_plan_groups` as plan groups goes through this, never the raw array.
+ */
+export function planGroupsOfCovers(keys: readonly unknown[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const k of Array.isArray(keys) ? keys : []) {
+    const g = typeof k === 'string' ? planGroupForCover(k) : null;
+    if (g && !out.includes(g)) out.push(g);
+  }
+  return out;
+}
+
 /**
  * Every OTHER tile a supplier row also covers, in the order the couple chose
  * them, de-duplicated, never including the row's own tile. Pure; the one
@@ -155,21 +324,73 @@ export function tileForPlanGroup(groupId: string): WeddingTile | null {
  * (`budget/cost-actions.ts`), which bridges back to its home tile — that is why
  * the home tile is excluded here rather than assumed absent.
  */
-export function linkedTilesForRow(row: {
-  category: VendorCategory;
-  covers_plan_groups?: readonly string[] | null;
-}): WeddingTile[] {
+export function linkedTilesForRow(
+  row: {
+    category: VendorCategory;
+    category_key?: string | null;
+    covers_plan_groups?: readonly string[] | null;
+  },
+  /** The row's home as the caller drew it (`homeTileForRow`); omitted → derived here. */
+  homeTile?: WeddingTile | null,
+): WeddingTile[] {
   const covers = Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [];
   if (covers.length === 0) return [];
-  const home = tileForCategory(row.category);
+  const home = homeTile !== undefined ? homeTile : homeTileForRow(row);
   const out: WeddingTile[] = [];
   for (const id of covers) {
     if (typeof id !== 'string') continue;
-    const t = tileForPlanGroup(id);
+    const t = tileForCover(id);
     if (!t || t === home || out.includes(t)) continue;
     out.push(t);
   }
   return out;
+}
+
+/**
+ * A row's stored cover keys, read as SUPPLIERS-PAGE ROWS: tile → the keys
+ * already stored for it (kept byte-for-byte — a legacy `music_entertainment`
+ * and `live_band` both draw under Live Band, and both stay), plus the keys that
+ * name no row (kept and still submitted). The card's own row is dropped: it is
+ * implied by the row's category and the column means "ALSO covers".
+ */
+export function coversByRow(
+  stored: readonly unknown[] | null | undefined,
+  ownTile: string | null,
+): { byTile: Map<string, string[]>; unplaced: string[] } {
+  const byTile = new Map<string, string[]>();
+  const unplaced: string[] = [];
+  for (const key of Array.isArray(stored) ? stored : []) {
+    if (typeof key !== 'string' || key.length === 0) continue;
+    const tile = tileForCover(key);
+    if (!tile) {
+      if (!unplaced.includes(key)) unplaced.push(key);
+      continue;
+    }
+    if (tile === ownTile) continue;
+    const keys = byTile.get(tile) ?? [];
+    if (!keys.includes(key)) keys.push(key);
+    byTile.set(tile, keys);
+  }
+  return { byTile, unplaced };
+}
+
+/** One "Also covers" option: a Suppliers-page row, and the key that stores it. */
+export type CoverOption = { key: string; tile: string; label: string };
+/** The dropdown's list — the Suppliers page's folders, in the page's order. */
+export type CoverCatalogFolder = { folder: string; label: string; options: CoverOption[] };
+
+/**
+ * The "Also covers" list FROM the Suppliers page's own folders — every row the
+ * page can draw (its rows and its "＋ Add to your event" pool alike), with the
+ * page's labels, folders and order. Pure, so the page, the card sheet and the
+ * workspace editor cannot each build their own.
+ */
+export function coverCatalogFromFolders(folders: readonly ShortlistFolder[]): CoverCatalogFolder[] {
+  return folders.map((f) => ({
+    folder: f.folder as string,
+    label: f.label,
+    options: f.tiles.map((t) => ({ key: coverKeyForTile(t.tile), tile: t.tile as string, label: t.label })),
+  }));
 }
 
 /**
@@ -310,6 +531,9 @@ export type ShortlistVendor = {
    *  (and hides when unsure), the ranking needs "how far?" — 2 km and 19 km were
    *  the same answer before (Explore_Replan §13.4 finding 3). */
   distanceKm: number | null;
+  /** The same, measured from the CEREMONY venue's pin — read only by Find's "Nearest to ceremony" (owner 2026-10-30).
+   *  Absent / null = no ceremony pin or no supplier pin → NEUTRAL. */
+  ceremonyDistanceKm?: number | null;
   /** COMPOSITE-RANKING input · budget fit in [0,1] — the vendor's "starts at"
    *  scored against this category's allocated share of the couple's budget. The
    *  continuous twin of the `budgetFit` 'fits'/'over' badge. NULL = no budget set
@@ -350,7 +574,7 @@ export type ShortlistVendor = {
    *  run — bench off) → the badge is hidden. Locked picks never carry it (they're
    *  already committed for this event). Fail-open: a calendar flake reads 'free',
    *  never a false 'booked' (mirrors reach's no-false-out-of-range rule). */
-  dateFit: 'free' | 'booked' | null;
+  dateFit: DateFit | null;
   /** ── Three-action card (Explore Replan slice D · spec §12.1) ─────────────
    *  `event_vendors.marketplace_vendor_id` — the linked marketplace profile, or
    *  NULL for an off-platform pick. This is the ONLY gate on the inquiry
@@ -474,6 +698,9 @@ export type ShortlistTile = {
    *  (events.style_preferences.interested_categories). Drives the "Your plan"
    *  strip + the "In your plan" marker on the Shortlist. */
   planned: boolean;
+  /** The row's ⓘ text — ALWAYS an answer, never blank (owner 2026-10-31: "I added a category shoes but there is
+   *  not (i)"). Resolved here from Admin's own data by `categoryInfoText`; the row draws it with no branch. */
+  hint: string;
 };
 
 /** One folder section: its sticky head + the tiles under it. */
@@ -486,6 +713,8 @@ export type ShortlistFolder = {
   pickCount: number;
   /** Tiles in this folder that are in the couple's onboarding plan. */
   plannedCount: number;
+  /** The folder's ⓘ text — always an answer (`folderInfoText`), like a tile's. */
+  hint: string;
 };
 
 /** Does any canonical service under `tile` pass the couple's faith filter?
@@ -527,11 +756,11 @@ export function buildShortlistFolders(args: {
    *  basis ≤ remaining. Null → no budget badge anywhere (calm by default). */
   totalBudgetPhp?: number | null;
   /** Per-vendor date-availability fit for the event's COMMITTED (day-precision)
-   *  date (2026-07-09 · fast-follow to reach+budget). vendor_id → 'free' | 'booked'.
+   *  date (2026-07-09 · fast-follow to reach+budget). vendor_id → DateFit.
    *  Computed once, batched, upstream (page.tsx) via the same calendar path the
    *  Compare tab uses. Absent / no committed date → no date badges. Locked picks
    *  are skipped here (they're already committed for this event). */
-  dateFitByVendorId?: ReadonlyMap<string, 'free' | 'booked'>;
+  dateFitByVendorId?: ReadonlyMap<string, DateFit>;
   /** Per-vendor same-date INQUIRY count for the "In demand right now" lens.
    *  vendor_id → n. Resolved upstream (page.tsx) from `event_vendors` holds
    *  narrowed to events that also opened a `chat_threads` row, then floored at
@@ -556,6 +785,10 @@ export function buildShortlistFolders(args: {
    *  reddens the moment it does, and taking it as a parameter is what lets one
    *  test process drive both worlds. Default `false` = today's production. */
   lockHandshakeEnabled?: boolean;
+  /** canonical_service → its Admin name (`canonical_service_schemas.display_name_en`, `readServiceLabels`). Feeds
+   *  the built ⓘ line ("Shoes covers: …") of a category with no written or old hint. Absent → that line names no
+   *  services ("Shoes: suppliers for this category.") — the ⓘ is still drawn. */
+  serviceLabels?: Readonly<Record<string, string>>;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -572,6 +805,7 @@ export function buildShortlistFolders(args: {
     freeDaysLineByVendorId,
     freeDaysByVendorId,
     lockHandshakeEnabled = false,
+    serviceLabels,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -603,12 +837,27 @@ export function buildShortlistFolders(args: {
   const tileEventTypes = taxonomy?.tileEventTypes ?? {};
   const hiddenCategories = taxonomy?.hiddenCategories ?? {};
   const map = taxonomy?.map ?? TAXONOMY_MAP;
+  const writtenHints = taxonomy?.categoryHints ?? {};
+  // A category's services, by their Admin names — only for the built ⓘ line, so only when it is needed.
+  const serviceNamesOf = (tile: string): string[] =>
+    serviceLabels
+      ? Object.entries(map)
+          .filter(([, e]) => e.tile === tile && !e.marketplaceHidden)
+          .map(([key]) => serviceLabels[key] ?? '')
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+      : [];
 
   // Bucket considered vendors by tile (exhaustive bridge → never dropped).
   const byTile = new Map<WeddingTile, ShortlistVendor[]>();
   const linkedByTile: Array<[WeddingTile, ShortlistVendor]> = [];
+  // The rows this page can draw — a moved supplier's `category_key` is its home
+  // only when it names one of them (`homeTileForRow`), so a stale key can never
+  // file a pick under a row that is not drawn.
+  const drawnTiles = new Set<string>(Object.values(tilesByParent).flat() as string[]);
+  const isDrawnTile = (t: string) => drawnTiles.has(t);
   for (const v of vendorRows) {
-    const tile = tileForCategory(v.category);
+    const tile = homeTileForRow(v, isDrawnTile);
     if (!tile) continue;
     const ext = enrichmentByVendorId?.get(v.vendor_id);
     const isLocked = !!(v.status && LOCKED_STATUSES.has(v.status));
@@ -673,6 +922,7 @@ export function buildShortlistFolders(args: {
       // costs no extra query and is what lets "Best fit" call the real scorer
       // instead of three binary flags. Absent → null → the scorer's NEUTRAL.
       distanceKm: ext?.distance_km ?? null,
+      ceremonyDistanceKm: ext?.ceremony_distance_km ?? null,
       budgetFitRatio: ext?.budget_fit_ratio ?? null,
       faithMatch: ext?.faith_match ?? null,
       // Lens inputs. Both are pure ADDITIONS to the ranking vocabulary and are
@@ -722,7 +972,7 @@ export function buildShortlistFolders(args: {
     // The same supplier, again, in every category their package also covers —
     // queued and appended AFTER every tile's own vendors (below), so a
     // category's own candidates always lead its rail.
-    const linked = linkedTilesForRow(v);
+    const linked = linkedTilesForRow(v, tile);
     if (linked.length > 0) {
       const homeLabel = tileLabelMap[tile] ?? tile;
       const copy: ShortlistVendor = {
@@ -784,24 +1034,28 @@ export function buildShortlistFolders(args: {
       const planned = plannedTiles?.has(tile) ?? false;
       if (planned) plannedCount += 1;
       const slug = tileSlugMap[tile] ?? tile;
+      const label = tileLabelMap[tile] ?? tile;
       tiles.push({
         tile,
-        label: tileLabelMap[tile] ?? tile,
+        label,
         slug,
         vendors,
         exploreHref: `/explore?tile=${encodeURIComponent(slug)}`,
         category: categoryForTile(tile),
         planned,
+        hint: categoryInfoText({ tile, label, written: writtenHints[tile], serviceLabels: serviceNamesOf(tile) }),
       });
     }
     if (tiles.length === 0) continue;
+    const folderLabel = folderLabelMap[folder] ?? folder;
     folders.push({
       folder,
-      label: folderLabelMap[folder] ?? folder,
+      label: folderLabel,
       slug: folderSlugMap[folder] ?? folder,
       tiles,
       pickCount,
       plannedCount,
+      hint: folderInfoText({ folder, label: folderLabel, written: writtenHints[folder], categoryLabels: tiles.map((t) => t.label) }),
     });
   }
   return folders;

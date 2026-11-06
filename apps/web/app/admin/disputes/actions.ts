@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
 import { recordedDepositPhp } from '@/lib/paid-to-vendor';
+import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -311,6 +312,18 @@ export async function settleDepositDispute(formData: FormData) {
   }
 
   /*
+    💸 "THE PAYMENT STANDS" ACKNOWLEDGES THE DEPOSIT, SO IT RUNS THE SAME
+    EFFECTS AS EVERY OTHER DOOR (audit 2026-10-12, C5). The RPC stamps
+    `deposit_acknowledged_at` inside SQL and nothing else ran — the fee was made
+    and the schedule reserved only when that supplier next happened to open
+    their dashboard (the catch-up). Fail-soft by contract: the effects never
+    throw, and the settlement has already committed.
+  */
+  if (outcome === 'payment_stands') {
+    await runDepositAcknowledgedEffects(admin, { eventVendorId, door: 'dispute_settle' });
+  }
+
+  /*
     BOTH parties hear the outcome. `dispute_resolved` is an existing type that
     is already on the email allowlist and — measured 2026-08-28 — had ZERO emit
     sites, so this is a type finally getting a handle rather than a new one
@@ -502,3 +515,4 @@ export async function settlePaymentDispute(formData: FormData) {
   if (eventId) revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`);
   redirect('/admin/disputes?settled=ok');
 }
+

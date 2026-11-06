@@ -45,6 +45,7 @@ import {
 import { formatPhp } from '@/lib/php';
 import { COUPLE_COMMISSION_PROMISE } from '@/lib/commission-promise';
 import { formatCount } from '@/lib/format-number';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -132,7 +133,7 @@ export async function landingMetadata(params: LandingParams): Promise<Metadata> 
     // 🔑 THE GATE. Below it, the page is for the person who lands here — not
     // for Google. `follow` stays on so the links it carries still count.
     robots: { index: isIndexable(cards), follow: true },
-    openGraph: { title: `${title} · Setnayan`, description, url: path, type: 'website', siteName: 'Setnayan' },
+    openGraph: { title: `${title} · Setnayan`, description, url: path, type: 'website', siteName: 'Setnayan', images: BRAND_OG_IMAGES },
   };
 }
 

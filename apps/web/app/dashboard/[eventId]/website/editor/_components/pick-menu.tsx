@@ -4,7 +4,7 @@ import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type K
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
-import { PickSheetContext, fontRowClass, groupHeadClass, pickButtonClass, pickOpensAsSheet, pickOptionClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
+import { PickOffRow, PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, pickViewport, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -21,9 +21,13 @@ export function PickMenu({
   compact = false,
   stickyGroups = false,
   grid,
+  doneNote,
+  head,
+  trigger,
+  menuMinWidth,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
-  useOneOpen(open, setOpen);
+  const oo = useOneOpen(open, setOpen);
   const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -34,12 +38,12 @@ export function PickMenu({
   const asSheet = pickOpensAsSheet(Boolean(sheet), typeof window === 'undefined' ? 1e4 : window.innerWidth);
 
   const place = () => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
+    const b = btnRef.current;
+    if (!b) return;
     const next = placePickList({
-      button: r,
+      button: b.getBoundingClientRect(), minWidth: menuMinWidth,
       listHeight: listRef.current?.scrollHeight ?? 0,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport: pickViewport(b, listRef.current),
     });
     setAt((prev) =>
       prev &&
@@ -75,18 +79,19 @@ export function PickMenu({
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.stopPropagation();
         setOpen(false);
         btnRef.current?.focus();
       }
     };
     const onMove = () => place();
     window.addEventListener('pointerdown', onDown, true);
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     window.addEventListener('resize', onMove);
     window.addEventListener('scroll', onMove, true);
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('resize', onMove);
       window.removeEventListener('scroll', onMove, true);
     };
@@ -106,6 +111,7 @@ export function PickMenu({
   };
   const rows = (
     <>
+      {head}
       {pickRuns(options).map((run, ri) =>
         run.group === null ? (
           run.options.map(renderOption)
@@ -135,7 +141,7 @@ export function PickMenu({
             }}
             className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
           >
-            <span>Tick as many as apply.</span>
+            <span>{doneNote ?? 'Tick as many as apply.'}</span>
             <span className="font-semibold text-ink">Done ✓</span>
           </button>
         </li>
@@ -154,14 +160,18 @@ export function PickMenu({
         aria-controls={open ? listId : undefined}
         {...(dataAttr ? { [dataAttr]: '' } : {})}
         onClick={() => setOpen((o) => !o)}
-        className={`${pickButtonClass(compact)} ${className}`}
+        className={trigger ? className : `${pickButtonClass(compact)} ${className}`}
       >
-        {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
-        {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}
-        <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
-          {buttonText ?? current?.label ?? label}
-        </span>
-        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+        {trigger ?? (
+          <>
+            {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
+            {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}
+            <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
+              {buttonText ?? current?.label ?? label}
+            </span>
+            <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
+          </>
+        )}
       </button>
       {open && at && !asSheet
         ? createPortal(
@@ -175,7 +185,7 @@ export function PickMenu({
               style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
               data-pick-side={at.side}
               data-pick-grid={grid || undefined}
-              className="sn-glass-bare z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
+              className="bg-surface z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
             >
               {rows}
             </ul>,
@@ -196,19 +206,22 @@ export function PickMenu({
   );
 
   function renderOption(o: PickOption) {
+    const plain = pickInHub(btnRef.current);
+    if (o.disabledNote) return <PickOffRow key={o.key} o={o} oo={oo} />;
+    const chosen = !picked && o.key === value;
+    const face = o.fontFamily ? { fontFamily: o.fontFamily } : undefined;
     return (
       <li key={o.key} role="none" className={fontRowClass(o.fontFamily)}>
         <button
           type="button"
           role="option"
           aria-selected={isOn(o.key)}
-          disabled={Boolean(o.disabledNote)}
           data-pick-option={o.key}
           onClick={() => {
             if (!picked) setOpen(false);
             onPick(o.key);
           }}
-          className={pickOptionClass(Boolean(o.hint || o.preview), !picked && o.key === value)}
+          className={pickOptionClass(Boolean(o.hint || o.preview), chosen, plain)}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
           {o.thumb ? (
@@ -219,31 +232,25 @@ export function PickMenu({
           {o.preview ? <span aria-hidden className="shrink-0">{o.preview}</span> : null}
           {o.hint ? (
             <span className="min-w-0">
-              <span className="block font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+              <span className="block font-semibold" style={face}>
                 {o.label}
               </span>
-              <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span>
+              <span className="block text-[12px] font-medium leading-snug opacity-75" style={face}>{o.hint}</span>
             </span>
           ) : (
-            <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+            <span className="font-semibold" style={face}>
               {o.label}
             </span>
           )}
           {o.dot ? <span className="text-[12px] font-medium opacity-70">· {o.dotNote ?? 'live today'}</span> : null}
-          {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
           {o.trail ? (
-            <span
-              data-pick-trail={o.trail.tone}
-              className={`ml-auto shrink-0 pl-3 text-[13px] font-semibold ${
-                o.key === value ? 'opacity-80' : o.trail.tone === 'ok' ? 'text-success-700' : o.trail.tone === 'left' ? 'text-terracotta-700' : 'text-ink/50'
-              }`}
-            >
+            <span data-pick-trail={o.trail.tone} className={pickTrailClass(o.trail.tone, plain && o.key === value)}>
               <span aria-hidden>{o.trail.text}</span>
               {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
             </span>
           ) : null}
-          {picked && picked.includes(o.key) ? (
-            <span aria-hidden className="ml-auto shrink-0 pl-3 text-[14px] font-semibold text-success-700">
+          {(picked ? picked.includes(o.key) : chosen && !plain) ? (
+            <span aria-hidden data-pick-tick="" className={pickTickClass(plain, Boolean(o.trail))}>
               ✓
             </span>
           ) : null}

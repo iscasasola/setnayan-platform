@@ -29,26 +29,15 @@ function stripComments(src: string): string {
 }
 
 test('the card face renders the MEASURED length, not the placeholder word', () => {
+  // Since the simpler maker (2026-10-14) the card on top is the shipped ServiceCardFace, which draws no clip; the
+  // measured length rides on the Photos row's line instead — still through clipPillLabel, still never "▶ clip".
   const raw = stripComments(readFileSync(CANVAS, 'utf8'));
   assert.equal(
-    [...raw.matchAll(/▶ \{clipPillLabel\(clipSeconds\)\}/g)].length,
+    [...raw.matchAll(/▶ \$\{clipPillLabel\(clipSeconds\)\}/g)].length,
     1,
-    'the visible pill must render the measured length through clipPillLabel',
+    'the Photos row must say the measured length through clipPillLabel',
   );
-  // The old hardcoded pill is the defect itself. `clipPillLabel` still returns
-  // the word 'clip' when the duration is unreadable — that fallback belongs in
-  // the helper, where it is tested, and nowhere else.
-  assert.doesNotMatch(
-    raw,
-    /▶ clip\b/,
-    'a hardcoded "▶ clip" is the placeholder this fix removed',
-  );
-  // The screen-reader line must not disagree with what is on screen.
-  assert.equal(
-    [...raw.matchAll(/clipPillLabel\(clipSeconds\)/g)].length,
-    2,
-    'the visible pill AND its sr-only twin both speak the measured length',
-  );
+  assert.doesNotMatch(raw, /▶ clip\b/, 'a hardcoded "▶ clip" is the placeholder this fix removed');
 });
 
 test('the picker actually hands the measurement over', () => {

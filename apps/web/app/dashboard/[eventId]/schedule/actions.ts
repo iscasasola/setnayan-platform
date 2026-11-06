@@ -9,6 +9,16 @@ import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
+// ⏭ Where a moment "right after the one above" goes (4 additions (1), migration 20271302727358).
+import { rightAfterPlace } from '@/lib/moment-follow.server';
+import { isOrMinutes, isTimeShape, type TimeShape } from '@/lib/time-shape';
+// 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
+import { partBefore, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
+// 🔒 CHANGE LOCK (audit D7): a change to a LOCKED supplier's part is refused here, in words, before any write — and by
+// the database's `*_part_lock` triggers (20271303409352) whatever door it comes through.
+import { refuseLockedPart } from '@/lib/supplier-part-lock.server';
+import { patchTouchesPart } from '@/lib/supplier-part-lock';
 import {
   SCHEDULE_BLOCK_TYPES,
   buildScheduleSeed,
@@ -19,7 +29,10 @@ import {
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { buildEmceeScript } from '@/lib/emcee-script';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
-import { computeRetimePatches } from '@/lib/schedule-ros';
+import { APPROVE_ALL_MAX, computeRetimePatches } from '@/lib/schedule-ros';
+// ✅ The ONE accept path — Approve, Approve all and Auto-agree all run it (moved to lib in Step 4b).
+import { NOTHING_CHANGED, decideSuggestion } from '@/lib/schedule-suggestion-decide.server';
+import type { ScheduleRequestAnswer } from '@/lib/schedule-request-answer';
 import {
   FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
@@ -38,6 +51,12 @@ import {
 } from '@/lib/schedule-travel';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
+import { refuseLimitedHelper } from '@/lib/host-gate';
+import { userHostsEvent } from '@/lib/events';
+import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
+import { runMomentOp } from '@/lib/schedule-chapters.server';
+import { askSupplierToChange } from '@/lib/schedule-ask.server';
+import { runMomentMarch } from './moment-march-step';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 
@@ -66,6 +85,27 @@ async function isEventCoordinator(
   return !!data;
 }
 
+/**
+ * 👁 ONLY THE HOSTS AND THE COORDINATOR SHOW A MOMENT TO GUESTS (owner 2026-10-29, answering "Who can show schedule
+ * items to guests?": *"coordinator and host/s of the event"*; DECISION_LOG "SUPPLIERS › BOOKED = TEAM · BUDGET ·
+ * SCHEDULE"). "Host" is the ONE definition every host check reads — `userHostsEvent`: the couple, and an accepted
+ * primary host role, the external coordinator among them. A helper who may edit the day still edits it; a moment
+ * they add starts hidden from guests, and turning one ON for guests is refused in words. A refused check is a no.
+ */
+const ONLY_HOSTS_SHOW_GUESTS = 'Only the hosts and the coordinator can show a moment to guests.';
+
+async function mayShowToGuests(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  eventId: string,
+): Promise<boolean> {
+  try {
+    return await userHostsEvent(supabase, userId, eventId);
+  } catch {
+    return false;
+  }
+}
+
 /** events.event_type for an RLS-visible event; null when unreadable. */
 async function fetchEventType(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -83,6 +123,21 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
   return t.length > 0 ? t : null;
+}
+
+/**
+ * 🕑 How a moment's clock is meant (4 additions (2), migration 20271303051692): `time_shape` 'at' · 'about' · 'or', and
+ * on 'or' the second time as `time_or_minutes` after the start (1–240). Null when nothing was posted; an unknown word
+ * or a second time out of range is refused here, and again by the column's CHECK.
+ */
+function timeShapeFrom(formData: FormData): { time_shape: TimeShape; time_or_minutes: number | null } | null {
+  const raw = formData.get('time_shape');
+  if (raw === null) return null;
+  if (!isTimeShape(raw)) throw new Error('Invalid time');
+  if (raw !== 'or') return { time_shape: raw, time_or_minutes: null };
+  const n = Number(formData.get('time_or_minutes'));
+  if (!isOrMinutes(n)) throw new Error('The second time must be after the first, and within 4 hours of it.');
+  return { time_shape: 'or', time_or_minutes: n };
 }
 
 function parseDatetimeLocal(raw: FormDataEntryValue | null): string | null {
@@ -105,13 +160,19 @@ function parseDatetimeLocal(raw: FormDataEntryValue | null): string | null {
  * paths are revalidated exactly as before. The flag touches cache freshness
  * only — who may write what is still RLS's.
  */
+/** A block's id as the database makes it — the only shape `createScheduleBlock` takes one in. */
+const BLOCK_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 function revalidateScheduleUnlessMaker(eventId: string, formData: FormData): void {
   if (makerQuietWrite(formData)) return;
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);
+  // Booked › Schedule draws the same page at /vendors?part=schedule.
+  revalidatePath(`/dashboard/${eventId}/vendors`);
 }
 
 export async function createScheduleBlock(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const label = formData.get('label');
   const blockTypeRaw = formData.get('block_type');
@@ -185,9 +246,45 @@ export async function createScheduleBlock(formData: FormData) {
     end_at: endIso,
     location: nullIfBlank(formData.get('location')),
     notes: nullIfBlank(formData.get('notes')),
-    is_public: formData.get('is_public') === 'on',
+    // 👁 Shown to guests only by a host or the coordinator — anyone else's new moment starts hidden.
+    is_public: formData.get('is_public') === 'on' && (await mayShowToGuests(supabase, user.id, eventId)),
     parent_block_id: parentBlockId,
   };
+  // 📖 A CHAPTER WITH NO TIME YET (owner 2026-11-01, "Time TBA", migration 20271300482585): `start_at` carries its DAY
+  // at 00:00 and `time_tba` says the clock is not known. Only a chapter may be TBA, it has no end, and it is never
+  // shown to guests — so a reader that does not know the flag can never put a guessed midnight on the Event Hub.
+  // 🕑 "ABOUT 3:15" OR "2:15/2:30" (owner 2026-11-02, 4 additions (2); migration 20271303051692): how the clock is
+  // meant. `start_at` stays the earliest time written; the second time of an 'or' is minutes after it.
+  const shape = timeShapeFrom(formData);
+  if (shape) Object.assign(insertRow, shape);
+  // ⏭ A MOMENT "RIGHT AFTER THE ONE ABOVE" (owner 2026-11-02, 4 additions (1); migration 20271302727358): the same
+  // flag on a moment means no clock of its own. Its `start_at` becomes the start of the moment it follows — an order
+  // key, never a guessed time — and the database moves it with that moment.
+  if (formData.get('time_tba') === '1') {
+    insertRow.time_tba = true;
+    insertRow.end_at = null;
+    insertRow.is_public = false;
+    if (parentBlockId) {
+      const place = await rightAfterPlace(supabase, {
+        eventId,
+        blockId: null,
+        parentBlockId,
+        followsRaw: formData.get('follows_block_id'),
+      });
+      if (place) {
+        insertRow.start_at = place.start_at;
+        insertRow.follows_block_id = place.follows_block_id;
+      }
+    }
+  }
+  // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
+  // no render follows a quiet write, so the id cannot come back in one. Taken ONLY from a quiet Maker write and
+  // only when it is a uuid; the column's own default names every other row. An id already in use is refused by
+  // the primary key — an insert can never overwrite a row.
+  const blockIdRaw = formData.get('block_id');
+  if (makerQuietWrite(formData) && typeof blockIdRaw === 'string' && BLOCK_ID_SHAPE.test(blockIdRaw)) {
+    insertRow.block_id = blockIdRaw;
+  }
   // Coordinator P1 prep-then-release: an external coordinator may create a block
   // STAGED (coordinator_only, hidden from the couple until released). Gated by
   // the flag + coordinator role; flag-off / couple / family → couple_visible
@@ -200,11 +297,12 @@ export async function createScheduleBlock(formData: FormData) {
   const { error } = await supabase.from('event_schedule_blocks').insert(insertRow);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  revalidatePath(`/dashboard/${eventId}`);
+  // From the Maker's Studio (quiet) nothing is revalidated — no whole render of the Maker per added moment.
+  revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 export async function deleteScheduleBlock(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
   if (typeof eventId !== 'string' || typeof blockId !== 'string') {
@@ -217,19 +315,28 @@ export async function deleteScheduleBlock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 🔔 Read who is on it (and on its children, which cascade) BEFORE it is gone — afterwards nothing names them.
+  const part = await partBefore(supabase, eventId, [blockId], { withChildren: true });
+  await refuseLockedPart(supabase, part, { kind: 'delete' });
+
   // ON DELETE CASCADE on parent_block_id self-FK means deleting a parent
   // automatically removes all its child parts · no app-layer cleanup needed.
-  const { error } = await supabase
+  const { data: gone, error } = await supabase
     .from('event_schedule_blocks')
     .delete()
     .eq('block_id', blockId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('block_id');
   if (error) throw new Error(error.message);
+  // RLS answers a refused DELETE with zero rows and no error — said, never "deleted" (a chapter's Delete shows it).
+  if (!gone || gone.length === 0) throw new Error(NOTHING_CHANGED);
+  await tellPartSuppliers(supabase, part, user.id);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
 
 export async function toggleBlockVisibility(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
   const desiredRaw = formData.get('desired');
@@ -247,6 +354,8 @@ export async function toggleBlockVisibility(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // 👁 Hiding a moment is anyone's who may edit the day; SHOWING one to guests is the hosts' and the coordinator's.
+  if (desired && !(await mayShowToGuests(supabase, user.id, eventId))) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
 
   const { error } = await supabase
     .from('event_schedule_blocks')
@@ -265,6 +374,7 @@ export async function toggleBlockVisibility(formData: FormData) {
  * this (the couple can't see staged blocks to begin with). Flag-gated.
  */
 export async function setBlockPrepVisibility(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   if (!(await isCoordinatorPrepReleaseEnabled())) {
     throw new Error('Prep-then-release is not enabled.');
   }
@@ -325,6 +435,7 @@ export async function setBlockPrepVisibility(formData: FormData) {
  * of fields they edit.
  */
 export async function updateScheduleBlock(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
 
@@ -338,6 +449,31 @@ export async function updateScheduleBlock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 📖 THE MOMENT SHEET'S TASKS AND ITS DELETE COUNT (Step 3b, owner 2026-11-01 §3c) — an intent branch on this door,
+  // not a new exported action (the server-action budget is at its ceiling). `block_id` is the moment (a task's) or
+  // the chapter (the Papic count). RLS decides every write; each one answers in words and reads back what it changed.
+  const momentOp = formData.get('moment_op');
+  if (momentOp !== null) {
+    if (!isMomentOp(momentOp)) throw new Error('Invalid input');
+    // 🔔 A crew line, a supplier ticked on or off, a march: the moment's suppliers (before AND after) are told once.
+    // A crew line or a march changes the moment in a way its fields cannot show (`touched`); ticking a supplier on or
+    // off is seen by the before/after supplier lists themselves.
+    const writes = momentOp !== 'papic_count';
+    const part = writes ? await partBefore(supabase, eventId, [blockId], { touched: momentOp !== 'for_set' }) : null;
+    // 🚶 "This is a march" (migration 20271301571290): the moment names a march, or a new one is made for it.
+    // 🗓 "Ask a supplier to change their times" (D2, owner 2026-11-02): the database decides who may ask.
+    const answer =
+      momentOp === 'ask_supplier'
+        ? await askSupplierToChange(supabase, user.id, eventId, blockId, formData)
+        : momentOp === 'march_set' || momentOp === 'march_new'
+          ? await runMomentMarch(supabase, momentOp, eventId, blockId, formData)
+          : await runMomentOp(supabase, momentOp, blockId, formData, user.id);
+    // 🔄 A task or a march that saved refreshes every page that reads the day (a read — the Papic count — does not).
+    if (answer.ok && part) await tellPartSuppliers(supabase, part, user.id);
+    if (answer.ok && momentOp !== 'papic_count') revalidateScheduleUnlessMaker(eventId, formData);
+    return answer;
+  }
+
   type Patch = {
     label?: string;
     start_at?: string;
@@ -347,6 +483,20 @@ export async function updateScheduleBlock(formData: FormData) {
     notes?: string | null;
     block_type?: ScheduleBlockType;
     audience?: string | null;
+    spot?: string | null;
+    ingress_minutes_before?: number | null;
+    egress_minutes_after?: number | null;
+    call_lead_minutes?: number;
+    on_invitation?: boolean;
+    photo_who?: string;
+    photo_when?: string;
+    is_optional?: boolean;
+    travel_from?: string | null;
+    travel_to?: string | null;
+    time_tba?: boolean;
+    follows_block_id?: string | null;
+    time_shape?: TimeShape;
+    time_or_minutes?: number | null;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
@@ -399,6 +549,17 @@ export async function updateScheduleBlock(formData: FormData) {
   const visibilityRaw = formData.get('is_public');
   if (visibilityRaw !== null) {
     patch.is_public = visibilityRaw === 'true' || visibilityRaw === 'on';
+    // 👁 A save that would SHOW a hidden moment to guests is the hosts' and the coordinator's. A save that only keeps
+    // a moment as it is (the inspector sends its switch with every save) is anyone's who may edit the day.
+    if (patch.is_public === true && !(await mayShowToGuests(supabase, user.id, eventId))) {
+      const { data: was } = await supabase
+        .from('event_schedule_blocks')
+        .select('is_public')
+        .eq('block_id', blockId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if ((was as { is_public?: boolean } | null)?.is_public !== true) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
+    }
   }
 
   const locationRaw = formData.get('location');
@@ -409,6 +570,96 @@ export async function updateScheduleBlock(formData: FormData) {
   const notesRaw = formData.get('notes');
   if (notesRaw !== null) {
     patch.notes = nullIfBlank(notesRaw);
+  }
+
+  // 📖 A CHAPTER'S AND A MOMENT'S OWN FIELDS (owner 2026-11-01, migration 20271300072429 — the Chapters row of Home ›
+  // Event Settings saves each one as it is kept). Each is read only when posted; an unknown word is refused here and
+  // again by the column's CHECK.
+  const spotRaw = formData.get('spot');
+  if (spotRaw !== null) {
+    const spot = nullIfBlank(spotRaw);
+    if (spot && spot.length > 120) throw new Error('Keep the exact spot under 120 letters');
+    patch.spot = spot;
+  }
+  for (const [field, max] of [['ingress_minutes_before', 1440], ['egress_minutes_after', 2880]] as const) {
+    const raw = formData.get(field);
+    if (raw === null) continue;
+    if (typeof raw === 'string' && raw.trim() === '') {
+      patch[field] = null; // blank = no ingress / no egress (owner: "not placing a time means no ingress")
+      continue;
+    }
+    const n = typeof raw === 'string' ? Number(raw) : NaN;
+    if (!Number.isInteger(n) || n < 0 || n > max) throw new Error('Invalid ingress or egress time');
+    patch[field] = n;
+  }
+  const leadRaw = formData.get('call_lead_minutes');
+  if (leadRaw !== null) {
+    const n = typeof leadRaw === 'string' ? Number(leadRaw) : NaN;
+    if (!isCallLead(n)) throw new Error('Invalid call time');
+    patch.call_lead_minutes = n;
+  }
+  const whoRaw = formData.get('photo_who');
+  if (whoRaw !== null) {
+    if (!isPhotoWho(whoRaw)) throw new Error('Invalid photo setting');
+    patch.photo_who = whoRaw;
+  }
+  const whenRaw = formData.get('photo_when');
+  if (whenRaw !== null) {
+    if (!isPhotoWhen(whenRaw)) throw new Error('Invalid photo setting');
+    patch.photo_when = whenRaw;
+  }
+  const optionalRaw = formData.get('is_optional');
+  if (optionalRaw !== null) patch.is_optional = optionalRaw === 'true' || optionalRaw === 'on';
+  const travelToRaw = formData.get('travel_to');
+  if (travelToRaw !== null) {
+    patch.travel_to = nullIfBlank(travelToRaw);
+    patch.travel_from = patch.travel_to ? nullIfBlank(formData.get('travel_from')) : null;
+  }
+  const inviteRaw = formData.get('on_invitation');
+  if (inviteRaw !== null) {
+    patch.on_invitation = inviteRaw === 'true' || inviteRaw === 'on';
+    // 👁 Putting a chapter ON the invitation reaches guests (Step 5) — the hosts' and the coordinator's call, the same
+    // rule as showing a moment to guests. Keeping it as it is, or taking it off, is anyone's who may edit the day.
+    if (patch.on_invitation === true && !(await mayShowToGuests(supabase, user.id, eventId))) {
+      const { data: was } = await supabase
+        .from('event_schedule_blocks')
+        .select('on_invitation')
+        .eq('block_id', blockId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if ((was as { on_invitation?: boolean } | null)?.on_invitation !== true) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
+    }
+  }
+
+  // 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692) — read only when posted.
+  const shapePatch = timeShapeFrom(formData);
+  if (shapePatch) Object.assign(patch, shapePatch);
+
+  // 📖 TIME TBA (migration 20271300482585): a chapter whose time is not known keeps its day in `start_at` (00:00) and
+  // has no end, no ingress, no egress and no guests (the database refuses the rest). Posting a real time clears it.
+  const tbaRaw = formData.get('time_tba');
+  if (tbaRaw !== null) {
+    patch.time_tba = tbaRaw === '1' || tbaRaw === 'true';
+    if (patch.time_tba) {
+      patch.end_at = null;
+      patch.is_public = false;
+      // No clock, so nothing to be "about" and no second time (the database refuses a shape on a TBA row).
+      patch.time_shape = 'at';
+      patch.time_or_minutes = null;
+      // ⏭ A MOMENT goes "right after the one above" (migration 20271302727358): it takes that moment's start as its
+      // order key; a chapter keeps its day as before and drops its ingress and egress.
+      const place = await rightAfterPlace(supabase, { eventId, blockId, parentBlockId: null, followsRaw: formData.get('follows_block_id') });
+      if (place) {
+        patch.start_at = place.start_at;
+        patch.follows_block_id = place.follows_block_id;
+      } else {
+        patch.ingress_minutes_before = null;
+        patch.egress_minutes_after = null;
+      }
+    } else {
+      // A time of its own: it follows nothing any more (the database refuses an anchor on a timed row).
+      patch.follows_block_id = null;
+    }
   }
 
   // Travel double-book guard on retime (ai-travel-scheduling): moving a TOUR
@@ -446,12 +697,35 @@ export async function updateScheduleBlock(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  // 📖 MOVING A CHAPTER MOVES ITS MOMENTS (plan §3 "Time moves"): with `with_moments`, a new start on a top-level block
+  // shifts the chapter AND every moment in it by the same amount, in one statement under the caller's own RLS
+  // (`move_schedule_chapter`, migration 20271300072429). Its ingress and egress are minutes from the start, so they
+  // come along. A move that reached no row is said, never a quiet "saved".
+  const withMoments = formData.get('with_moments') === '1' && patch.start_at !== undefined;
+  // 🔔 One save, one notice per supplier: the moment — and, on a chapter move, every moment in it — read BEFORE.
+  const part = await partBefore(supabase, eventId, [blockId], { withChildren: withMoments });
+  // 🔒 A chapter move carries every moment in it; a field save meets the lock only if it really moves the part.
+  await refuseLockedPart(supabase, part, { kind: 'fields' }, withMoments ? part.before : part.before.filter((m) => patchTouchesPart(m, patch)));
+  if (withMoments) {
+    const { data: moved, error: moveError } = await supabase.rpc('move_schedule_chapter', {
+      p_block_id: blockId,
+      p_start_at: patch.start_at,
+    });
+    if (moveError) throw new Error(moveError.message);
+    if (typeof moved !== 'number' || moved < 1) throw new Error(NOTHING_CHANGED);
+    delete patch.start_at;
+  }
+
+  const { data: changed, error } = await supabase
     .from('event_schedule_blocks')
     .update(patch)
     .eq('block_id', blockId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('block_id');
   if (error) throw new Error(error.message);
+  // RLS answers a refused UPDATE with zero rows and no error — said, never "saved" (a chapter's row says "didn't save").
+  if (!changed || changed.length === 0) throw new Error(NOTHING_CHANGED);
+  await tellPartSuppliers(supabase, part, user.id);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -469,6 +743,7 @@ export async function updateScheduleBlock(formData: FormData) {
  * END statement via supabase.rpc.
  */
 export async function reorderScheduleBlocks(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const orderedIdsRaw = formData.get('ordered_block_ids');
 
@@ -588,7 +863,22 @@ export async function generateEmceeScript(
  * sides: the suggestion UPDATE policy + the block write policies admit the
  * couple and delegates holding schedule edit, nobody else.
  */
-export async function resolveScheduleSuggestion(formData: FormData) {
+/**
+ * Approve, Noted or Decline ONE suggestion — the Requests sheet's door (the path: `decideSuggestion`).
+ * 🔁 SAVES IN PLACE (audit 2026-11-02 #15): it ANSWERS (`ScheduleRequestAnswer`) and never redirects — a redirect closed
+ * the sheet after every press and sent a refusal to the error page. Held by `the-requests-sheet-saves-in-place.test.ts`.
+ */
+export async function resolveScheduleSuggestion(formData: FormData): Promise<ScheduleRequestAnswer> {
+  // ✅ Approve all rides this one action (decision=accept_all) — no new export: every exported action is a Vercel
+  // route, and that budget is full (`scripts/lint-server-action-budget.mjs`).
+  if (formData.get('decision') === 'accept_all') return approveAllScheduleSuggestions(formData);
+  // 🤝 Auto-agree (Event Details › Event access) rides this action too — the same budget reason. It still throws on a
+  // refusal (its row catches that and says so).
+  if (formData.get('decision') === 'auto_agree') {
+    await setSupplierAutoAgree(formData);
+    return { ok: true };
+  }
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const suggestionId = formData.get('suggestion_id');
   const decision = formData.get('decision');
@@ -606,145 +896,91 @@ export async function resolveScheduleSuggestion(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: suggestion } = await supabase
-    .from('event_schedule_suggestions')
-    .select(
-      'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, status, vendor_profile_id',
-    )
-    .eq('suggestion_id', suggestionId)
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (!suggestion || suggestion.status !== 'open') {
-    redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+  try {
+    await decideSuggestion(supabase, user.id, eventId, suggestionId, decision);
+  } catch (e) {
+    console.error('[resolveScheduleSuggestion] refused', e instanceof Error ? e.message : e, { event_id: eventId });
+    return { ok: false, error: requestRefusalWords(e, decision) };
   }
+  // Already answered elsewhere (another host, Auto-agree) — the list is refreshed so it leaves the sheet; nothing failed.
+  revalidateScheduleUnlessMaker(eventId, formData);
+  return { ok: true };
+}
 
-  // The status flip, done AFTER the change it answers lands — so a refused
-  // write never leaves a request reading 'accepted' over an unchanged
-  // schedule. (A 'remove' survives its own block: the FK is ON DELETE SET NULL
-  // since 20271263061583, so the row is still there to flip.)
-  const flip = async () => {
-    const { error: resolveError } = await supabase
-      .from('event_schedule_suggestions')
-      .update({
-        status: decision === 'accept' ? 'accepted' : 'declined',
-        resolved_by_user_id: user.id,
-        resolved_at: new Date().toISOString(),
-      })
-      .eq('suggestion_id', suggestionId)
-      .eq('event_id', eventId)
-      .eq('status', 'open');
-    if (resolveError) throw new Error(resolveError.message);
-  };
+/** A refusal in words the host can act on — the door's own sentence when it wrote one, else what did not happen. */
+function requestRefusalWords(e: unknown, decision: 'accept' | 'decline'): string {
+  const said = e instanceof Error ? e.message.trim() : '';
+  if (said && said.length <= 200 && !/violates|duplicate key|syntax|relation|column|permission denied|PGRST/i.test(said)) return said;
+  return decision === 'accept'
+    ? 'That change wasn’t approved — nothing on your schedule moved. Try again.'
+    : 'That wasn’t declined — try again.';
+}
 
-  if (decision === 'accept') {
-    if (suggestion.kind === 'adjust' && suggestion.block_id) {
-      const patch: Record<string, string> = {};
-      if (suggestion.proposed_start_at) patch.start_at = suggestion.proposed_start_at;
-      if (suggestion.proposed_end_at) patch.end_at = suggestion.proposed_end_at;
-      if (suggestion.proposed_location) patch.location = suggestion.proposed_location;
-      if (suggestion.proposed_label) patch.label = suggestion.proposed_label;
-      if (Object.keys(patch).length > 0) {
-        const { error } = await supabase
-          .from('event_schedule_blocks')
-          .update(patch)
-          .eq('block_id', suggestion.block_id)
-          .eq('event_id', eventId);
-        if (error) throw new Error(error.message);
-      }
-      await flip();
-    } else if (suggestion.kind === 'new') {
-      /*
-        THE ITEM A SUPPLIER ADDS IS THAT SUPPLIER'S (owner 2026-10-03). It lands
-        tagged to their booking — `responsible_vendor_ids`, the column the
-        "Your slot" / "My slots only" lens and the own-items rule both read — so
-        they can later ask to change or remove it. Before this it landed with
-        an empty tag and became nobody's.
-        Admin read, scoped by this event and the supplier on the request the
-        caller just read under RLS: a coordinator holding The Day = Edit may
-        have Suppliers set Off, and must still be able to approve.
-      */
-      const { data: bookings } = await createAdminClient()
-        .from('event_vendors')
-        .select('vendor_id')
-        .eq('event_id', eventId)
-        .eq('marketplace_vendor_id', suggestion.vendor_profile_id)
-        .is('archived_at', null);
-      const tags = ((bookings ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
-      // Lands as a PRIVATE draft — the couple decides when guests see it.
-      const { error } = await supabase.from('event_schedule_blocks').insert({
-        event_id: eventId,
-        label: (suggestion.proposed_label ?? 'Supplier-requested moment').slice(0, 120),
-        block_type: 'custom',
-        start_at: suggestion.proposed_start_at,
-        end_at: suggestion.proposed_end_at,
-        location: suggestion.proposed_location,
-        notes: suggestion.note,
-        is_public: false,
-        responsible_vendor_ids: tags,
-      });
-      if (error) throw new Error(error.message);
-      await flip();
-    } else if (suggestion.kind === 'remove') {
-      if (suggestion.block_id) {
-        const { error } = await supabase
-          .from('event_schedule_blocks')
-          .delete()
-          .eq('block_id', suggestion.block_id)
-          .eq('event_id', eventId);
-        if (error) throw new Error(error.message);
-      }
-      await flip();
-    } else {
-      await flip();
-    }
-  } else {
-    await flip();
-  }
+/**
+ * ✅ APPROVE ALL (owner 2026-11-01: *"also have an approve all"*; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §6b) — every
+ * supplier change the host was SHOWN (the ids the sheet posts, never "whatever is open now": a change that arrived after
+ * they looked is not approved unseen), through the one accept path above. A suggestion in words is left for Noted.
+ * Each supplier approved is told in-app, as with one Approve. Reached through `resolveScheduleSuggestion`
+ * (decision=accept_all). A refused one does not stop the rest; the count of
+ * refused ones is said, never the look of success.
+ */
+async function approveAllScheduleSuggestions(formData: FormData): Promise<ScheduleRequestAnswer> {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
+  const eventId = formData.get('event_id');
+  const ids = [...new Set(formData.getAll('suggestion_id').filter((v): v is string => typeof v === 'string' && v.length > 0))];
+  if (typeof eventId !== 'string' || ids.length === 0 || ids.length > APPROVE_ALL_MAX) throw new Error('Invalid input');
 
-  // Notify the suggesting vendor of the couple's decision (best-effort — the
-  // suggestion is already resolved; a failed notify must not roll it back).
-  // The status flip lives on the couple's table; the vendor has no read-push,
-  // so without this the vendor never learns their proposal was accepted or
-  // declined. Resolve the vendor's user_id via the admin client.
-  if (suggestion.vendor_profile_id) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  let refused = 0;
+  for (const id of ids) {
     try {
-      const admin = createAdminClient();
-      const [vendorRes, eventRes] = await Promise.all([
-        admin
-          .from('vendor_profiles')
-          .select('user_id')
-          .eq('vendor_profile_id', suggestion.vendor_profile_id)
-          .maybeSingle(),
-        admin
-          .from('events')
-          .select('display_name')
-          .eq('event_id', eventId)
-          .maybeSingle(),
-      ]);
-      if (vendorRes.data?.user_id) {
-        const eventName = eventRes.data?.display_name?.trim() || 'the couple';
-        const accepted = decision === 'accept';
-        await emitNotification({
-          userId: vendorRes.data.user_id,
-          type: 'schedule_suggestion',
-          title: accepted
-            ? `${eventName} accepted your timeline suggestion`
-            : `${eventName} declined your timeline suggestion`,
-          body: accepted
-            ? suggestion.kind === 'remove'
-              ? 'That moment is off their schedule.'
-              : 'Your proposed change is now on their schedule.'
-            : 'Your proposed change was not applied.',
-          relatedUrl: `/vendor-dashboard/clients/${eventId}`,
-        });
-      }
+      await decideSuggestion(supabase, user.id, eventId, id, 'accept', true);
     } catch (e) {
-      console.error('[resolveScheduleSuggestion] vendor notify failed:', e);
+      refused += 1;
+      console.error('[approveAllScheduleSuggestions] one change was refused', e instanceof Error ? e.message : e, { event_id: eventId });
     }
   }
+  revalidateScheduleUnlessMaker(eventId, formData);
+  if (refused > 0) {
+    return {
+      ok: false,
+      error: `${refused} of ${ids.length} change${ids.length === 1 ? '' : 's'} could not be approved — the rest are on your schedule. Try those again.`,
+    };
+  }
+  return { ok: true };
+}
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+/**
+ * 🤝 AUTO-AGREE — the host's one setting for supplier changes (3 Oct; ruled 1 Nov: starts Off). Only a host of the event
+ * (`userHostsEvent`: the couple, an accepted primary host) sets it; the write is the service role's, after that check,
+ * and is read back, so a refused one throws instead of looking saved. No redirect: the dropdown stays.
+ * Reached through `resolveScheduleSuggestion` (decision=auto_agree).
+ */
+async function setSupplierAutoAgree(formData: FormData): Promise<void> {
+  const eventId = formData.get('event_id');
+  const on = formData.get('auto_agree');
+  if (typeof eventId !== 'string' || (on !== '1' && on !== '0')) throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  if (!(await mayShowToGuests(supabase, user.id, eventId))) throw new Error('Only a host of the event can change this.');
+  // `events` carries no UPDATE grant for this column (its SELECT is a column allowlist): the service role writes it,
+  // only after the host check above — the shape of `same_date_count_opt_out` (20271285020592).
+  const { data, error } = await createAdminClient()
+    .from('events')
+    .update({ supplier_requests_auto_agree: on === '1' })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('Nothing changed — this account cannot change the event.');
+  revalidatePath(`/dashboard/${eventId}/details`);
 }
 
 // ─────────────────  Coordinator P2 · filtered run-of-show  ─────────────────
@@ -766,6 +1002,7 @@ export async function resolveScheduleSuggestion(formData: FormData) {
  * vendor registry so a row can never reference another event's vendor.
  */
 export async function setBlockResponsibleParty(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
   if (typeof eventId !== 'string' || typeof blockId !== 'string') {
@@ -799,7 +1036,11 @@ export async function setBlockResponsibleParty(formData: FormData) {
     vendorIds = [...new Set(requestedVendorIds)].filter((id) => valid.has(id));
   }
 
-  const { error } = await supabase
+  // 🔔 Before AND after: a supplier taken off is told as surely as one put on.
+  const part = await partBefore(supabase, eventId, [blockId]);
+  // 🔒 Putting a locked supplier on, or taking them off, is their part; another supplier's presence is not.
+  await refuseLockedPart(supabase, part, { kind: 'vendors', after: vendorIds });
+  const { data: changed, error } = await supabase
     .from('event_schedule_blocks')
     .update({
       responsible_party: responsibleParty,
@@ -807,8 +1048,12 @@ export async function setBlockResponsibleParty(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('block_id', blockId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('block_id');
   if (error) throw new Error(error.message);
+  // An UPDATE that RLS filtered to nothing raises no error — read back what changed, so a refusal is not "saved".
+  if (!changed?.length) throw new Error(NOTHING_CHANGED);
+  await tellPartSuppliers(supabase, part, user.id);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -825,6 +1070,7 @@ export async function setBlockResponsibleParty(formData: FormData) {
  * (~50 rows max) and each write re-checked by RLS.
  */
 export async function bulkRetimeScheduleBlocks(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const fromBlockId = formData.get('from_block_id');
   const toBlockIdRaw = formData.get('to_block_id');
@@ -851,16 +1097,56 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   // RLS-scoped read — rows only come back if the caller can see this event.
   const blocks = await fetchScheduleBlocks(supabase, eventId);
   const patches = computeRetimePatches(blocks, fromBlockId, deltaMinutes, toBlockId);
-  if (patches.length === 0) return;
+  // Nothing this caller can see to move is not a shift — the sheet must not close as if the day moved.
+  if (patches.length === 0) throw new Error(NOTHING_CHANGED);
 
-  const now = new Date().toISOString();
-  for (const patch of patches) {
-    const { error } = await supabase
-      .from('event_schedule_blocks')
-      .update({ start_at: patch.start_at, end_at: patch.end_at, updated_at: now })
-      .eq('block_id', patch.block_id)
-      .eq('event_id', eventId);
-    if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
+  // 🔔 A drag of one moment (or a span) tells the suppliers on what moved — once each. Running late (`shift_notice`)
+  // already tells EVERY booked supplier the day moved, so it is not told twice.
+  const shiftNotice = formData.get('shift_notice') === '1';
+  const part = await partBefore(supabase, eventId, patches.map((p) => p.block_id));
+
+  if (shiftNotice) {
+    /* 🏃 RUNNING LATE MOVES A LOCKED SUPPLIER'S MOMENTS (owner, DECISION_LOG 2026-11-03 (2): *"A host's RUNNING-LATE
+       shift moves a supplier's moments even when that supplier has locked their times; the supplier still gets the
+       notice."*). So no lock check here — the ONE door the database lets past a lock, and only for a pure shift of
+       exactly these minutes (migration 20271303571970). All or nothing: a refused row undoes the whole shift. */
+    const { data: moved, error } = await supabase.rpc('running_late_shift_schedule', {
+      p_event_id: eventId,
+      p_block_ids: patches.map((p) => p.block_id),
+      p_minutes: deltaMinutes,
+    });
+    if (error) throw new Error(error.code === 'P0002' ? NOTHING_CHANGED : `Retime failed: ${error.message}`);
+    if (moved !== patches.length) throw new Error(NOTHING_CHANGED);
+  } else {
+    // 🔒 A drag of one moment (or a span) is a host edit like any other: a locked supplier's clock is theirs.
+    await refuseLockedPart(supabase, part, { kind: 'fields' });
+    const now = new Date().toISOString();
+    for (const patch of patches) {
+      const { data: changed, error } = await supabase
+        .from('event_schedule_blocks')
+        .update({ start_at: patch.start_at, end_at: patch.end_at, updated_at: now })
+        .eq('block_id', patch.block_id)
+        .eq('event_id', eventId)
+        .select('block_id');
+      if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
+      // RLS answers a refused UPDATE with zero rows and no error: read it back, never a quiet "moved".
+      if (!changed?.length) throw new Error(NOTHING_CHANGED);
+    }
+  }
+
+  /* ⏱ A SHIFT OF THE DAY TELLS EVERY BOOKED SUPPLIER — once, after every block landed (owner 2026-10-23). Only the
+     Running-late sheet sends `shift_notice`: a drag of one moment rides this same action and is not a shift of the
+     day. Best-effort — the shift is written; a failed notice never undoes it. */
+  if (!shiftNotice) await tellPartSuppliers(supabase, part, user.id);
+  if (formData.get('shift_notice') === '1') {
+    const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
+    await notifyScheduleShifted({
+      eventId,
+      deltaMinutes,
+      fromStartAt: anchor?.start_at ?? null,
+      fromLabel: anchor?.label ?? null,
+      actorUserId: user.id,
+    });
   }
 
   revalidateScheduleUnlessMaker(eventId, formData);
@@ -874,6 +1160,7 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
  * schedule-'edit' coordinator can load one; nobody else can.
  */
 export async function loadScheduleTemplate(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const templateId = formData.get('template_id');
   if (typeof eventId !== 'string' || typeof templateId !== 'string') {
@@ -909,7 +1196,12 @@ export async function loadScheduleTemplate(formData: FormData) {
     .eq('event_id', eventId)
     .limit(1);
   if (existingErr) throw new Error(existingErr.message);
-  if (existing && existing.length > 0) return;
+  // Never over rows that exist — but a screen still offering templates is stale (someone else added a moment):
+  // redraw it, so the host sees the schedule that is there instead of a press that did nothing.
+  if (existing && existing.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/schedule`);
+    return;
+  }
 
   const eventDate = (ev?.event_date as string | null | undefined) ?? null;
   if (template.id === FAITH_TEMPLATE_ID) {

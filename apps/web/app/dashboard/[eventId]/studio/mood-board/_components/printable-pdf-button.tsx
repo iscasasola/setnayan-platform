@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { saveFileToDevice } from '@/lib/save-to-device';
 import { Printer } from 'lucide-react';
 
 function safeFile(name: string): string {
@@ -26,8 +27,35 @@ export function PrintablePdfButton({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  // 📥 The PDF is SAVED through the device, never a bare blob `<a download>` click: the app's web view has no
+  // Downloads folder and saved nothing (owner 2026-10-27). `saveFileToDevice` = the share sheet on a phone, a download
+  // on a computer. A PDF that outlives the tap ('expired') is kept and the button says "Tap to save"; a failed save
+  // says so — never the look of success.
+  const [held, setHeld] = useState<File | null>(null);
+
+  async function hand(file: File) {
+    const result = await saveFileToDevice(file);
+    if (result === 'expired') {
+      setHeld(file);
+      return;
+    }
+    setHeld(null);
+    if (result === 'failed') {
+      setError('The PDF could not be saved — please try again.');
+      return;
+    }
+    if (result === 'dismissed') return;
+    setDone(true);
+    setTimeout(() => setDone(false), 3000);
+  }
+
   async function download() {
     if (busy) return;
+    if (held) {
+      setError(null);
+      await hand(held);
+      return;
+    }
     setBusy(true);
     setError(null);
     setDone(false);
@@ -39,18 +67,7 @@ export function PrintablePdfButton({
       }
       if (!res.ok) throw new Error(`status ${res.status}`);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = safeFile(eventName ?? '');
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Defer the revoke: iOS Safari and some in-app webviews read the blob
-      // asynchronously, so revoking on the next tick silently aborts the save.
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setDone(true);
-      setTimeout(() => setDone(false), 3000);
+      await hand(new File([blob], safeFile(eventName ?? ''), { type: blob.type || 'application/pdf' }));
     } catch {
       setError('Could not generate the PDF — please try again.');
     } finally {
@@ -75,6 +92,8 @@ export function PrintablePdfButton({
             />
             Preparing your PDF…
           </>
+        ) : held ? (
+          <>Tap to save</>
         ) : done ? (
           <>
             <svg

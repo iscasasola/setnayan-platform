@@ -26,12 +26,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import {
-  asVendorTier,
-  entryTierAllowance,
-  tierCaps,
-} from '@/lib/vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, entryTierAllowance } from '@/lib/vendor-tier-caps';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { asDayPart, asRepeatRule, blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, type DayPart } from '@/lib/not-available';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   notifyWaitlistForFreedDate,
@@ -45,27 +42,15 @@ function str(formData: FormData, key: string): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
-/** Clamp a requested daily capacity to the vendor's tier ceiling + the SQL
- *  CHECK max (50). Shared by updatePoolCapacity + the Named Calendars actions. */
-async function clampCapacityToTier(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-  raw: number,
-): Promise<number> {
-  let tier: string | null = null;
-  try {
-    const { data } = await supabase
-      .from('vendor_profiles')
-      .select('tier_state')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    tier = (data as { tier_state?: string } | null)?.tier_state ?? null;
-  } catch {
-    tier = null;
-  }
-  const slotsCap = tierCaps(asVendorTier(tier)).slotsPerDay;
-  const ceiling = Number.isFinite(slotsCap) ? Math.max(1, slotsCap) : 50;
-  return Math.min(Math.min(raw, ceiling), 50);
+/**
+ * Clamp a requested daily capacity to the database's ceiling ({@link DAILY_CAPACITY_MAX}). Shared by
+ * updatePoolCapacity + the Named Calendars actions.
+ *
+ * ⚖ NO PLAN LIMIT (owner 2026-10-23, "plans price reach, not income"): the supplier's own number governs, on every
+ * plan. This used to clamp to the plan's `slotsPerDay` (Free 0 · Verified/Solo 1 · Pro 3 · Enterprise 8).
+ */
+function clampDailyCapacity(raw: number): number {
+  return Math.min(raw, DAILY_CAPACITY_MAX);
 }
 
 /** Filter host-supplied service ids down to the ones this vendor actually owns
@@ -112,7 +97,7 @@ async function requireVendor() {
   return { supabase, profile };
 }
 
-function backToCalendar(formData: FormData, notice: string): never {
+function backToCalendar(formData: FormData, notice: string, block: string | null = null): never {
   const month = str(formData, 'return_month');
   const pool = str(formData, 'return_pool');
   const returnTo = str(formData, 'return_to');
@@ -129,6 +114,50 @@ function backToCalendar(formData: FormData, notice: string): never {
     }
   }
 
+  // S-PR3 · Customers › Dates holds every calendar tool now (the month, the
+  // day, Block days · Waitlist · Capacity). An action fired there comes back to
+  // Dates — to the day it was fired from when it names one — where the outcome
+  // is said by the toast. `open` names the fold the form lived in, so it is the
+  // one open on return.
+  if (returnTo === 'dates') {
+    // ⚙ 2026-10-28 (owner "okay" on `supplier_in_place_2026-10-28`): How many a day, the halls and the schedules moved
+    // into Customers ⚙. A save made there comes back to the view the ⚙ was opened on WITH THE ⚙ STILL OPEN
+    // (`gear=1`), the answer said inside the sheet (`gnotice`) — never a fold that is no longer on Dates.
+    if (str(formData, 'return_fold') === 'capacity') {
+      const seg = str(formData, 'return_seg');
+      const params = new URLSearchParams();
+      if (seg === 'dates' || seg === 'money') params.set('seg', seg);
+      // Events (`people` until 2026-10-30 — a ⚙ already open in a browser may still post it) is the hub itself.
+      else if (seg !== 'events' && seg !== 'people') params.set('seg', 'dates');
+      if (/^\d{4}-\d{2}$/.test(month) && params.get('seg') === 'dates') params.set('m', month);
+      params.set('gear', '1');
+      params.set('gnotice', notice);
+      redirect(`/vendor-dashboard/customers?${params.toString()}`);
+    }
+    const params = new URLSearchParams({ seg: 'dates' });
+    if (/^\d{4}-\d{2}$/.test(month)) params.set('m', month);
+    const day = str(formData, 'return_date');
+    if (DATE_RE.test(day)) params.set('day', day);
+    const fold = str(formData, 'return_fold');
+    if (/^(block|waitlist|capacity)$/.test(fold)) params.set('open', fold);
+    params.set('notice', notice);
+    redirect(`/vendor-dashboard/customers?${params.toString()}`);
+  }
+
+  // S-PR2 · Customers › Events holds the outside clients now (the Clients
+  // page is retired). Their Add and Remove come back to Events, at the list,
+  // where the outcome is said. `clients` is kept for a form already open in a
+  // browser when this shipped — its stub forwards to the same place; `people`
+  // likewise (the view's name until 2026-10-30, "Customers are events").
+  if (returnTo === 'events' || returnTo === 'people') {
+    // Events is the hub itself — no `seg` (the old `?seg=people` would only be forwarded again).
+    const params = new URLSearchParams({ notice });
+    // 🔑 The new outside booking, so Events opens ITS row with "Send their code" right there (owner 2026-10-28:
+    // the one-time code is "also offered right after Add outside booking").
+    if (block) params.set('block', block);
+    redirect(`/vendor-dashboard/customers?${params.toString()}${block ? '#outside' : '#customers'}`);
+  }
+
   const back = returnTo === 'clients' ? 'clients' : 'calendar';
   const params = new URLSearchParams();
   if (month) params.set('m', month);
@@ -140,18 +169,42 @@ function backToCalendar(formData: FormData, notice: string): never {
 function revalidateScheduleSurfaces() {
   revalidatePath('/vendor-dashboard/calendar');
   revalidatePath('/vendor-dashboard/clients');
+  // Customers › Dates and People draw every schedule fact now (S-PR3).
+  revalidatePath('/vendor-dashboard/customers');
 }
 
-/** Manual closure block — pool-scoped or org-wide ('org'). */
+/**
+ * "Not available" — a manual closure, pool-scoped or org-wide ('org').
+ *
+ * 2026-10-14 (owner ✅ "APPROVE": repeating blocks + hour ranges): two more fields from the sheet —
+ *   repeat_rule  once · weekly (every weekday of `start_date`) · weekend · daily. For a repeat, `end_date` (when later
+ *                than `start_date`) is the series' LAST day (`repeat_until`); empty = no end. The row's own range is its
+ *                first occurrence, so a reader that knows nothing of repeats still sees day one.
+ *   day_part     all_day · morning · afternoon · evening — written into the row's times too (06:00–12:00 …), so the
+ *                stored range says which hours; `day_part` is what every gate reads (`lib/not-available.ts`).
+ */
 export async function addManualBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  /*
+    🧰 IN PLACE (owner 2026-10-28 — Today's setup step 6, "Days you can't take", a save never resets the screen): the
+    same row, but the answer is the call's own — success returns, a refusal THROWS (the row says it did not save) —
+    and nothing redirects, so Today stays exactly where it is while the re-read rail ticks the step. One action, two
+    callers: a second exported action would be one more Vercel route (`lint-server-action-budget`).
+  */
+  const inPlace = str(formData, 'return_to') === 'inplace';
+  const fail = (notice: string): never => {
+    if (inPlace) throw new Error(notice);
+    return backToCalendar(formData, notice);
+  };
 
   const label = str(formData, 'label') || 'Unavailable';
   const scope = str(formData, 'scope'); // 'org' | pool_id
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;
+  const repeat = asRepeatRule(str(formData, 'repeat_rule'));
+  const dayPart = asDayPart(str(formData, 'day_part'));
   if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate) || endDate < startDate) {
-    backToCalendar(formData, 'bad_dates');
+    fail('bad_dates');
   }
 
   let poolId: string | null = null;
@@ -164,26 +217,57 @@ export async function addManualBlock(formData: FormData): Promise<void> {
       .eq('pool_id', scope)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    if (!pool) backToCalendar(formData, 'bad_pool');
+    if (!pool) fail('bad_pool');
     poolId = scope;
   }
 
-  // Day-grain PH civil time: 00:00 → 23:30 (30-min granularity CHECK; 23:30
-  // keeps the ::date overlap on the same civil day — see migration comment).
-  const { error } = await supabase.from('vendor_calendar_blocks').insert({
-    vendor_profile_id: profile.vendor_profile_id,
-    pool_id: poolId,
-    blocked_at: `${startDate}T00:00:00+08:00`,
-    blocked_until: `${endDate}T23:30:00+08:00`,
-    block_label: label.slice(0, 120),
-    block_source: 'manual',
-    is_private: true,
-  });
-  if (error) backToCalendar(formData, 'save_failed');
+  const { error } = await insertManualBlock(supabase, profile.vendor_profile_id, { poolId, startDate, endDate, label, repeat, dayPart });
+  if (error) fail('save_failed');
 
   revalidateScheduleSurfaces();
+  if (inPlace) {
+    revalidatePath('/vendor-dashboard');
+    return;
+  }
   backToCalendar(formData, 'block_added');
 }
+
+/**
+ * ONE manual block written — the insert `addManualBlock` makes, shared with Today's setup step so the two can never
+ * write a different row for the same "I can't take this day".
+ *
+ * Day-grain PH civil time. All day: 00:00 → 23:30 (30-min granularity CHECK; 23:30 keeps the ::date overlap on the
+ * same civil day). A part of the day: its hours (evening ends 23:30, the last half-hour the CHECK allows).
+ */
+async function insertManualBlock(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  b: { poolId: string | null; startDate: string; endDate: string; label: string; repeat: ReturnType<typeof asRepeatRule>; dayPart: ReturnType<typeof asDayPart> },
+) {
+  const [fromHm, toHm] = DAY_PART_STORED[b.dayPart];
+  const repeats = b.repeat !== 'once';
+  const lastDay = repeats ? b.startDate : b.endDate;
+  return supabase.from('vendor_calendar_blocks').insert({
+    vendor_profile_id: vendorProfileId,
+    pool_id: b.poolId,
+    blocked_at: `${b.startDate}T${fromHm}:00+08:00`,
+    blocked_until: `${lastDay}T${toHm}:00+08:00`,
+    block_label: b.label.slice(0, 120),
+    block_source: 'manual',
+    is_private: true,
+    repeat_rule: b.repeat,
+    repeat_until: repeats && b.endDate > b.startDate ? b.endDate : null,
+    day_part: b.dayPart,
+  });
+}
+
+/** The stored hours of each part of the day (PH civil time; the table allows :00/:30 only). */
+const DAY_PART_STORED: Readonly<Record<DayPart, readonly [string, string]>> = {
+  all_day: ['00:00', '23:30'],
+  morning: ['06:00', '12:00'],
+  afternoon: ['12:00', '18:00'],
+  evening: ['18:00', '23:30'],
+};
 
 /**
  * Import an off-app client: a named external_client block via the
@@ -193,7 +277,10 @@ export async function addManualBlock(formData: FormData): Promise<void> {
 export async function importExternalClient(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
 
-  const poolId = str(formData, 'pool_id');
+  // A venue's booking from outside may hold SEVERAL halls (owner 2026-10-14 🏛, "Which halls") — one row per hall,
+  // each the same shipped RPC (one pool each, by CHECK).
+  const hallIds = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))].slice(0, 12);
+  const poolId = hallIds[0] ?? str(formData, 'pool_id');
   const clientName = str(formData, 'client_name');
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;
@@ -203,6 +290,8 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     backToCalendar(formData, 'bad_dates');
   }
 
+  // A booking from outside has a TIME (2026-10-14, "Add a booking from outside" WITH a time). Optional; "HH:MM".
+  const time = str(formData, 'client_time');
   const { data, error } = await supabase.rpc('import_external_client', {
     p_vendor_profile_id: profile.vendor_profile_id,
     p_pool_id: poolId,
@@ -211,6 +300,7 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     p_client_note: str(formData, 'client_note') || null,
     p_start_date: startDate,
     p_end_date: endDate,
+    p_client_time: /^\d{2}:\d{2}$/.test(time) ? time : null,
   });
   if (error) {
     // Import is free now — the RPC no longer burns tokens, so there's no
@@ -221,9 +311,23 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   if (status !== 'ok') {
     backToCalendar(formData, 'save_failed');
   }
+  for (const hallId of hallIds.slice(1)) {
+    const more = await supabase.rpc('import_external_client', {
+      p_vendor_profile_id: profile.vendor_profile_id,
+      p_pool_id: hallId,
+      p_client_name: clientName,
+      p_client_contact: str(formData, 'client_contact') || null,
+      p_client_note: str(formData, 'client_note') || null,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_client_time: /^\d{2}:\d{2}$/.test(time) ? time : null,
+    });
+    if (more.error || (more.data as { status?: string } | null)?.status !== 'ok') backToCalendar(formData, 'save_failed');
+  }
 
   revalidateScheduleSurfaces();
-  backToCalendar(formData, 'client_imported');
+  const newBlock = (data as { block_id?: string } | null)?.block_id ?? null;
+  backToCalendar(formData, 'client_imported', typeof newBlock === 'string' ? newBlock : null);
 }
 
 /** PH civil date (YYYY-MM-DD) of a stored timestamptz (blocks are written in
@@ -245,13 +349,23 @@ function phDate(iso: string): string {
  *  notify there too (a no-waiter date is a cheap no-op). */
 export async function removeBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  /*
+    🧰 IN PLACE (owner 2026-10-28 — Customers › Dates' "You can take bookings" switch under the picked day; a save
+    never resets the screen): the same delete, but the answer is the call's own — success returns, a refusal THROWS —
+    and nothing redirects, so the month and the picked day stay. `addManualBlock`'s twin; one action, two callers.
+  */
+  const inPlace = str(formData, 'return_to') === 'inplace';
+  const fail = (notice: string): never => {
+    if (inPlace) throw new Error(notice);
+    return backToCalendar(formData, notice);
+  };
   const blockId = str(formData, 'block_id');
-  if (!blockId) backToCalendar(formData, 'save_failed');
+  if (!blockId) fail('save_failed');
 
   // Snapshot the freed date range before the row disappears.
   const { data: blockRow } = await supabase
     .from('vendor_calendar_blocks')
-    .select('blocked_at, blocked_until')
+    .select(`blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .eq('block_id', blockId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
@@ -262,21 +376,28 @@ export async function removeBlock(formData: FormData): Promise<void> {
     .eq('block_id', blockId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .in('block_source', ['manual', 'external_client']);
-  if (error) backToCalendar(formData, 'save_failed');
+  if (error) fail('save_failed');
 
-  const range = blockRow as { blocked_at: string; blocked_until: string } | null;
+  const range = blockRow as { blocked_at: string; blocked_until: string; repeat_rule?: string; repeat_until?: string | null; day_part?: string } | null;
   if (range) {
     const vendorProfileId = profile.vendor_profile_id;
+    // The days the block really closed (`lib/not-available.ts`): a one-off's range, or a repeat's days up to its end —
+    // a year ahead at most for one with no end. A part of a day freed no date (the day was open all along).
+    const shape = notAvailableShapeOf(range);
     const startDate = phDate(range.blocked_at);
-    const endDate = phDate(range.blocked_until);
+    const today = phDate(new Date().toISOString());
+    const endDate =
+      shape.repeat === 'once' ? phDate(range.blocked_until) : (shape.repeatUntil ?? `${Number(today.slice(0, 4)) + 1}${today.slice(4)}`);
+    const freed = (d: string) => blockClosesDay(shape, d);
     after(() =>
-      notifyWaitlistForFreedRange(vendorProfileId, startDate, endDate).catch((e) => {
+      notifyWaitlistForFreedRange(vendorProfileId, startDate, endDate, freed).catch((e) => {
         console.error('[waitlist] auto-notify on block removal failed:', String(e));
       }),
     );
   }
 
   revalidateScheduleSurfaces();
+  if (inPlace) return;
   backToCalendar(formData, 'block_removed');
 }
 
@@ -563,8 +684,7 @@ export async function setCalendarDayState(formData: FormData): Promise<void> {
   backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
 
-/** Pool daily capacity — clamped to the tier's slotsPerDay ceiling (the
- *  pool grain inherits the #2 daily-capacity tier convention). */
+/** Pool daily capacity — the supplier's own number, clamped only to the database's 50 (no plan limit, 2026-10-23). */
 export async function updatePoolCapacity(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const poolId = str(formData, 'pool_id');
@@ -573,7 +693,7 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
     backToCalendar(formData, 'bad_capacity');
   }
 
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw);
+  const capacity = clampDailyCapacity(raw);
 
   const { error } = await supabase
     .from('vendor_schedule_pools')
@@ -679,7 +799,13 @@ export async function createCalendar(formData: FormData): Promise<void> {
   if (!name) backToCalendar(formData, 'bad_name');
   const raw = Number(str(formData, 'capacity'));
   if (!Number.isInteger(raw) || raw < 1) backToCalendar(formData, 'bad_capacity');
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw);
+  // A venue's HALL (owner 2026-10-14 🏛): its guest capacity, and no plan clamp on its per-day number.
+  const isHall = str(formData, 'is_hall') === 'on';
+  const guests = (key: string) => {
+    const n = Number(str(formData, key));
+    return isHall && Number.isInteger(n) && n >= 1 && n <= 100000 ? n : null;
+  };
+  const capacity = clampDailyCapacity(raw);
   const services = await ownedServiceIds(
     supabase,
     profile.vendor_profile_id,
@@ -694,6 +820,9 @@ export async function createCalendar(formData: FormData): Promise<void> {
       pool_label: name.slice(0, 80), // legacy-label fallback
       is_vendor_created: true,
       daily_booking_capacity: capacity,
+      is_hall: isHall,
+      seated_capacity: guests('seated_capacity'),
+      standing_capacity: guests('standing_capacity'),
     })
     .select('pool_id')
     .single();
@@ -715,6 +844,7 @@ export async function createCalendar(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
+  if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_created');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_created');
 }
 
@@ -732,27 +862,41 @@ export async function editCalendar(formData: FormData): Promise<void> {
   if (!name) backToCalendar(formData, 'bad_name');
   const raw = Number(str(formData, 'capacity'));
   if (!Number.isInteger(raw) || raw < 1) backToCalendar(formData, 'bad_capacity');
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw);
 
-  // Ownership check — a clean notice instead of an RLS throw.
+  // Ownership check — a clean notice instead of an RLS throw. It also says whether this schedule is a hall.
   const { data: pool } = await supabase
     .from('vendor_schedule_pools')
-    .select('pool_id')
+    .select('pool_id, is_hall')
     .eq('pool_id', poolId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (!pool) backToCalendar(formData, 'bad_pool');
+  const capacity = clampDailyCapacity(raw);
 
+  // A hall's guests (2026-10-14 🏛) — only a hall carries them (the table's CHECK); blank = not said.
+  const isHall = (pool as { is_hall?: boolean } | null)?.is_hall === true;
+  const guestsOf = (key: string) => {
+    const n = Number(str(formData, key));
+    return Number.isInteger(n) && n >= 1 && n <= 100000 ? n : null;
+  };
   const { error: upErr } = await supabase
     .from('vendor_schedule_pools')
     .update({
       calendar_name: name.slice(0, 80),
       daily_booking_capacity: capacity,
+      ...(isHall && formData.has('seated_capacity') ? { seated_capacity: guestsOf('seated_capacity'), standing_capacity: guestsOf('standing_capacity') } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('pool_id', poolId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (upErr) backToCalendar(formData, 'save_failed');
+
+  // The hall sheet says nothing about services — a hall's cards are said on each card ("Uses"), so its save must
+  // never read as "no services on this schedule" and empty the membership.
+  if (isHall && str(formData, 'is_hall') === 'on') {
+    revalidateScheduleSurfaces();
+    backToCalendar(formData, 'calendar_saved');
+  }
 
   // Reconcile membership via a set-diff (positive .in only — no fragile negation).
   const desired = await ownedServiceIds(
@@ -796,5 +940,50 @@ export async function editCalendar(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
+  if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_saved');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_saved');
+}
+
+/**
+ * Which halls a card USES (owner 2026-10-14 🏛, DECISION_LOG: "a card uses one or more halls"; LIFTS the 2026-06-20
+ * one-card-one-schedule lock for halls). Replaces the card's hall links with the halls ticked (`pool_ids`); none =
+ * the card goes back to its one schedule. The database refuses a hall or card that is not this shop's own
+ * (`trg_guard_vendor_service_hall`); this filters forged ids first so the answer is a notice, not a throw.
+ * The halls UI arrives with the Fable "Venue with halls" moment; the write is here so the data side is whole.
+ */
+export async function setServiceHalls(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const [serviceId] = await ownedServiceIds(supabase, profile.vendor_profile_id, [str(formData, 'vendor_service_id')]);
+  if (!serviceId) backToCalendar(formData, 'save_failed');
+  const asked = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))];
+  let halls: string[] = [];
+  if (asked.length > 0) {
+    const { data } = await supabase
+      .from('vendor_schedule_pools')
+      .select('pool_id')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .eq('is_hall', true)
+      .in('pool_id', asked);
+    halls = ((data ?? []) as { pool_id: string }[]).map((r) => r.pool_id);
+    if (halls.length !== asked.length) backToCalendar(formData, 'bad_pool');
+  }
+  const { error: delErr } = await supabase
+    .from('vendor_service_halls')
+    .delete()
+    .eq('vendor_service_id', serviceId)
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (delErr) backToCalendar(formData, 'save_failed');
+  if (halls.length > 0) {
+    const { error } = await supabase
+      .from('vendor_service_halls')
+      .insert(halls.map((pool_id) => ({ vendor_service_id: serviceId, pool_id, vendor_profile_id: profile.vendor_profile_id })));
+    if (error) backToCalendar(formData, 'save_failed');
+  }
+  revalidateScheduleSurfaces();
+  // From a card in the Shop ("Uses"), back to the Shop; from Dates, back to Dates.
+  if (str(formData, 'return_to') === 'shop') {
+    revalidatePath('/vendor-dashboard/shop');
+    redirect('/vendor-dashboard/shop?saved=1');
+  }
+  backToCalendar(formData, 'calendar_saved');
 }

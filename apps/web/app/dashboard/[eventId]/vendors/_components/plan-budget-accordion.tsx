@@ -65,6 +65,7 @@ import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
 import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
   formatPesoCompact,
+  usuallyBookedAheadLine,
   type PlanBudgetModel,
   type AccordionFolder,
   type AccordionChild,
@@ -74,6 +75,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { eventNoun } from '@/lib/event-noun';
 import { formatCount } from '@/lib/format-number';
+import { budgetPageHref } from '@/lib/pillar-parts';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
@@ -530,9 +532,9 @@ const PBA_CSS = `
    flips it (and the sheet) automatically; the rest are the hardcoded
    light/white values that don't ride a token. ───────── */
 html.dark .pbacc{
-  --paper:#1B1A17; --ink:#FBFBFA; --ink-soft:#B6B9BE;
+  --paper:#1E1C15; --ink:#FBFBFA; --ink-soft:#B3AEA3;
   --line:rgba(251,251,250,.16); --line-soft:rgba(251,251,250,.1);
-  --card:#2A2E36; --gold:#CBA766; --gold-deep:#A9834B;
+  --card:#232019; --gold:#CBA766; --gold-deep:#A9834B;
 }
 /* bar is now a light surface → flip its muted white text + hairline + accents */
 html.dark .pbacc .topbar{border-bottom-color:rgba(30,26,18,.1)}
@@ -555,7 +557,7 @@ html.dark .pbacc .cat-head.active .nm,
 html.dark .pbacc .empty-child .en,
 html.dark .pbacc .istep-n,
 html.dark .pbacc .cmpbtn,
-html.dark .pbacc .cmprow-price td{color:#C99DB0}
+html.dark .pbacc .cmprow-price td{color:#E5794E}
 
 /* ===== Guidance layer (owner 2026-06-04) — make the populated cover DIRECTIVE
    and teach the loop in the rails. (1) .intro-next = action-first "do this next"
@@ -592,7 +594,7 @@ html.dark .pbacc .intro-next .nx-k,
 html.dark .pbacc .intro-next.calm .nx-ico,
 html.dark .pbacc .intro-next .nx-go,
 html.dark .pbacc .intro-loop .lp-n,
-html.dark .pbacc .pba-coach .pc-b{color:#C99DB0}
+html.dark .pbacc .pba-coach .pc-b{color:#E5794E}
 html.dark .pbacc .pba-coach{background:rgba(169,131,75,.14);border-color:rgba(169,131,75,.45)}
 html.dark .pbacc .lockhint{background:rgba(169,131,75,.14)}
 .pbacc .review-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--mulberry);background:rgba(149,53,83,.08);border-radius: var(--m-r-sm);padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
@@ -629,7 +631,7 @@ html.dark .pbacc .invite-cta:hover,.pbacc .invite-cta:focus{background:rgba(169,
 .pbacc .svc-cta.soon{color:rgba(255,255,255,.72)}
 /* Digital Services synthetic rail header — same row as .child-name. */
 .pbacc .ds-tag{color:var(--mulberry)}
-html.dark .pbacc .ds-tag{color:#C99DB0}
+html.dark .pbacc .ds-tag{color:#E5794E}
 
 /* ---- Tools & extras strip (inside the end-spacer, above the recap) ----
    Couple tools that aren't category services (Orders / Playlist / QR / Indoor
@@ -642,12 +644,12 @@ html.dark .pbacc .ds-tag{color:#C99DB0}
 .pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius: var(--m-r-md);border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
 .pbacc .tool:hover{border-color:rgba(30, 26, 18,.35)}
 .pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(30, 26, 18,.08);color:var(--mulberry)}
-html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
+html.dark .pbacc .tool-ico{color:#E5794E;background:rgba(229,121,78,.14)}
 .pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
 .pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 .pbacc .tool-cta{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
 .pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(30, 26, 18,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
-html.dark .pbacc .tools-all{color:#C99DB0}
+html.dark .pbacc .tools-all{color:#E5794E}
 .pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
 .pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}
 
@@ -1144,7 +1146,6 @@ function ChildRail({
   // Its post-save step (2026-06-11) offers the quick price (opens the
   // Add-to-build gate) + the claim-invite link; locking later also
   // auto-creates the invite via finalizeVendor.
-  const router = useRouter();
   const [manualOpen, setManualOpen] = useState(false);
   // The single vendor pinned to the build for this category (if any) — passed to
   // every OTHER card so "Add to build" knows to open the Replace/Add-both popup.
@@ -1185,6 +1186,7 @@ function ChildRail({
           ) : null}
           {child.personalizationEnabled ? (
             <DeadlineChip
+              groupId={child.groupId}
               status={child.timelineStatus}
               daysLeft={child.daysLeft}
               lockedCount={child.picks.filter(isLocked).length}
@@ -1233,7 +1235,7 @@ function ChildRail({
           {child.label}: <strong>{formatPhpRounded(child.planned.php)}</strong>
           {child.planned.source === 'saved' ? '' : ' from your budget split'}
           {' · '}
-          <Link href={`/dashboard/${eventId}/vendors?part=budget#budget-allocate`}>Adjust</Link>
+          <Link href={budgetPageHref(eventId)}>Adjust</Link>
         </p>
       ) : null}
 
@@ -1352,7 +1354,6 @@ function ChildRail({
           onClose={() => setManualOpen(false)}
           onCreated={() => {
             setManualOpen(false);
-            router.refresh();
           }}
         />
       ) : null}
@@ -1407,16 +1408,19 @@ function DependencyNudge({
 // 'due_soon'; warns clearly once 'overdue'. Reads timelineStatus so the chip,
 // the cover's "What to lock next" row, and the model stay one source of truth.
 function DeadlineChip({
+  groupId,
   status,
   daysLeft,
   lockedCount,
   multiPick,
 }: {
+  /** The plan group the chip speaks for (the kind line names its lead). */
+  groupId: PlanGroupId;
   status: AccordionChild['timelineStatus'];
   daysLeft: number | null;
   /** How many picks in this group are locked — drives the multi-pick copy. */
   lockedCount?: number;
-  /** True for groups outside HARD_SINGLE_PICK_GROUPS: one lock is the floor,
+  /** True for groups that are not One per event (the category switch): one lock is the floor,
       not the ceiling (owner 2026-07-27 — e.g. a 2nd caterer / photo booth). */
   multiPick?: boolean;
 }) {
@@ -1431,7 +1435,9 @@ function DeadlineChip({
     return <span className="chip locked">✓ Booked</span>;
   }
   if (status === 'overdue' && daysLeft !== null) {
-    return <span className="chip over">⚠ {Math.abs(daysLeft)}d overdue</span>;
+    // Owner 2026-10-12 (approval 12): the kind line, in the quiet gold chip —
+    // never a red "⚠ Nd overdue" that grows by one a day.
+    return <span className="chip soon">{usuallyBookedAheadLine(groupId)}</span>;
   }
   if (status === 'due_soon' && daysLeft !== null) {
     return <span className="chip soon">{daysLeft}d left</span>;
@@ -1808,11 +1814,12 @@ function VendorCardAtom({
           yet. Before this, that CTA only surfaced if the couple happened to
           open the vendor's workspace page; 44 of 45 booked suppliers in prod
           never got invited this way (DECISION_LOG.md 2026-08-30). This is a
-          LINK, not a duplicate write path — it sends the couple to the exact
-          section (#invite-vendor) that already does the invite. */}
+          LINK, not a duplicate write path — it opens the supplier's own row on
+          Booked › Team (`?team=`), where the claim link's ONE door is (2026-11-02,
+          `ClaimDoor` in booked-row.tsx). */}
       {locked && pick.needs_setnayan_invite && (
         <Link
-          href={`/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace#invite-vendor`}
+          href={`/dashboard/${eventId}/vendors?tab=budget&team=${pick.vendor_id}`}
           className="invite-cta"
           onClick={(e) => e.stopPropagation()}
         >
@@ -1929,7 +1936,7 @@ function InAppServiceCard({
       <div className="svc-top">
         <span className="svc-badge">✦ Setnayan</span>
         {soon ? (
-          <span className="svc-pill">Coming soon</span>
+          <span className="svc-pill" data-coming-soon>Coming soon</span>
         ) : addon.status === 'web_v1' ? (
           <span className="svc-pill">Web V1</span>
         ) : null}
@@ -1946,7 +1953,10 @@ function InAppServiceCard({
   );
 
   return (
-    <div className={`card svc${soon ? ' soon' : ''}${opening ? ' opening' : ''}`}>
+    <div
+      className={`card svc${soon ? ' soon' : ''}${opening ? ' opening' : ''}`}
+      data-coming-soon={soon ? '' : undefined}
+    >
       {soon ? (
         <div className="v" aria-label={`${addon.label} — coming soon`}>
           {inner}

@@ -123,7 +123,9 @@ const CONSOLE_PAGE = join(
   '[eventId]',
   'studio',
   'papic',
-  'page.tsx',
+  '_components',
+  // The Papic page's confirmations moved with its card to Home (2026-10-26) — said here now.
+  'papic-outcome-banners.tsx',
 );
 const MIGRATIONS = join(REPO, 'supabase', 'migrations');
 
@@ -244,7 +246,7 @@ test('the summary line does not promise a reservation either', () => {
 test('the console page\'s own confirmations do not promise a reservation either', () => {
   const src = consolePage();
   for (const b of BANNED) {
-    assert.doesNotMatch(src, b.pattern, `studio/papic/page.tsx: ${b.why}`);
+    assert.doesNotMatch(src, b.pattern, `papic-outcome-banners.tsx: ${b.why}`);
   }
 });
 

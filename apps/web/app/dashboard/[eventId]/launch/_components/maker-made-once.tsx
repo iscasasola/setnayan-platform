@@ -1,5 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { cache } from 'react';
+import { cache, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent, type HubDraft } from '@/lib/hub-draft';
@@ -13,11 +13,13 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { fetchRevealConfig } from '@/lib/reveal-config';
-import { REVEAL_NONE } from '@/lib/reveal-access';
+import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { makerLogoOpening } from '@/lib/maker-logo-opening';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { veilColorFromPalette } from '@/lib/site-palette';
+import { mainColoursOf } from '@/lib/main-colours';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
@@ -36,6 +38,7 @@ import { MakerHeroDesignPicker } from './maker-hero-design';
 import { MiniTour } from '@/app/_components/mini-tour';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * THE MADE-ONCE GROUP — Logo · Hero · Reveal (Event Hub Maker Phase 6).
@@ -132,12 +135,27 @@ export async function MakerHeroPanel({
   eventId,
   ownsPro,
   storeShell,
+  proShell = storeShell,
   heroCanvas = {},
   liveHeroCanvas = {},
+  coverScene = null,
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /**
+   * 🍎 The store shell FOR PRO TRYING only (the editor's `proShell`): false where Apple sells Pro at Apply, so a Pro
+   * control is tried in the draft as on the web. Defaults to `storeShell` — the store shell's rule before In-App
+   * Purchase. Prices, pitches and tours keep `storeShell`.
+   */
+  proShell?: boolean;
+  /**
+   * 🖼 THE SECOND DOOR TO THE COVER SCENE'S BACKGROUND (owner-approved 2026-10-15, "Hero folded in"): the SAME rows
+   * the toolbar draws for the Cover Scene (`stage-panel/cover-words-background.tsx`, through the lazy
+   * `SceneBackgroundRow` door), handed in by the page. Two doors, one value — its Upload pick IS the hero photo, so
+   * the old photo picker is that adapter's Upload source and is not drawn a second time here.
+   */
+  coverScene?: ReactNode;
   /**
    * 🎴 The hero row's canvas, draft over live, and the live one — the Design
    * dropdown reads its design off it and writes the whole canvas back
@@ -171,8 +189,8 @@ export async function MakerHeroPanel({
   // ▶ The poster's logo plays as it will for guests (owner 2026-09-29).
   const markPlays = await logoPlaysFor(eventId, markSvg);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
-  const canUpload = ownsPro || !storeShell;
-  const photoMark = makerProMark({ owns: ownsPro, storeShell });
+  const canUpload = ownsPro || !proShell;
+  const photoMark = makerProMark({ owns: ownsPro, storeShell: proShell });
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
@@ -207,8 +225,14 @@ export async function MakerHeroPanel({
         </div>
       </div>
 
-      {canUpload ? (
-        <form action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
+      {/* 🖼 Two doors, one value: the Cover Scene's own rows when the page hands them in; the hero photo's form only
+          where it does not (a surface without the Maker's draft action). Never both. */}
+      {coverScene ? (
+        <div data-same-field="cover_scene" className="flex flex-col gap-2">
+          {coverScene}
+        </div>
+      ) : canUpload ? (
+        <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
           {photoMark ? (
             <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" />
           ) : null}
@@ -234,11 +258,11 @@ export async function MakerHeroPanel({
           />
           {/* ✍ The uploaded photo drafts itself (owner 2026-10-05: no Save in a step) — ◆ above says it is Pro. */}
           <DraftsAsYouGo />
-        </form>
+        </SafeForm>
       ) : null}
 
       {hero.kind === 'photo' ? (
-        <form action={removeHeroPhoto}>
+        <SafeForm action={removeHeroPhoto}>
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="return_to" value={returnTo} />
@@ -248,7 +272,7 @@ export async function MakerHeroPanel({
           >
             Use the invitation card instead
           </button>
-        </form>
+        </SafeForm>
       ) : null}
     </section>
   );
@@ -262,11 +286,14 @@ export async function MakerRevealPanel({
   eventId,
   ownsPro,
   storeShell,
+  proShell = storeShell,
   part = 'all',
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /** 🍎 The store shell FOR PRO TRYING only — see `MakerHeroPanel`. Defaults to `storeShell`. */
+  proShell?: boolean;
   /** Which part of the picker (Details: the openings in the navigator, the rest on the right). */
   part?: 'all' | 'options' | 'settings';
 }) {
@@ -283,6 +310,20 @@ export async function MakerRevealPanel({
     blurb: t.blurb,
   }));
   const current = typeof m.drafted.std_reveal_template === 'string' ? m.drafted.std_reveal_template : null;
+  /* 🎭 WHAT PLAYS WHEN NOTHING IS CHOSEN — asked of the guest page's OWN rule (`revealAllowedFor`,
+     the one `RevealMount` asks), never re-stated here. The theme's opening is only where it
+     STARTS: an opening the Reveal Studio has switched off does not play — the house default (or
+     the first opening still on) plays instead — so the panel must not ring, or name as "your
+     theme's opening", a card that is not on its own strip. (Seen 2026-10-08: Cyber Neon's
+     opening is "Two-flap top", switched off in the Reveal Studio; the strip offered Sheer veil
+     alone, yet the panel was told the default was Two-flap top.) */
+  const playsByDefault = revealAllowedFor({
+    ownsPro: true,
+    chosenTemplate: themeOpening === REVEAL_NONE ? null : themeOpening,
+    adminDefault: config?.defaultTemplate ?? null,
+    isStaffPreview: false,
+    allowed: config?.templates ?? null,
+  });
   return (
     <MakerRevealPicker
       eventId={eventId}
@@ -292,16 +333,17 @@ export async function MakerRevealPanel({
       /* What plays when nothing is chosen — the guest page's own rule
          (`site-body.tsx`): the theme's opening, or for Classic the Reveal
          Studio's house default (`revealAllowedFor`: chosen ?? admin default ?? four-flap). */
-      defaultOpening={themeOpening === REVEAL_NONE ? (config?.defaultTemplate ?? 'four-flap') : themeOpening}
-      defaultIsTheme={themeOpening !== REVEAL_NONE}
+      defaultOpening={playsByDefault}
+      defaultIsTheme={themeOpening !== REVEAL_NONE && playsByDefault === themeOpening}
       dressing={materials?.name ?? null}
       openings={
         /* 🔒 Store shell, not owning Pro: every opening is a Pro control, so it
-           is HIDDEN — the panel offers "No reveal" alone. */
-        storeShell && !ownsPro ? [] : openings
+           is HIDDEN — the panel offers "No reveal" alone. 🍎 Unless Apple sells Pro at Apply (`proShell` false):
+           then every opening is TRIED, ◆-marked, as on the web. */
+        proShell && !ownsPro ? [] : openings
       }
       ownsPro={ownsPro}
-      storeShell={storeShell}
+      storeShell={proShell}
       stdWindowDays={STD_THRESHOLD_DAYS}
       stages={resolveRevealStages(m.drafted.reveal_stages)}
       stagesDrafted={
@@ -315,6 +357,10 @@ export async function MakerRevealPanel({
       /* Where each fine-tune slider rests until the couple moves it — the
          Reveal Studio's house look, read once above. */
       tuneHouse={revealTuneHouse(config)}
+      /* 🎨 The veil's colour rows open the one picker on the five main colours (owner 2026-10-08). */
+      mainColours={mainColoursOf(m.drafted.role_palette, theme)}
+      /* 🧵 The veil's colour while none is chosen — the guest page's own (`revealVeilColor`: the Mood Board's, else ivory). */
+      veilShown={veilColorFromPalette(sanitizeRolePalette(m.drafted.role_palette))}
       part={part}
     />
   );
@@ -347,7 +393,16 @@ export async function readMakerLogoFonts(eventId: string): Promise<string[]> {
   return makerLogoOpening(m.drafted).layers.flatMap((l) => (l.kind === 'text' && l.font ? [l.font] : []));
 }
 
-export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId: string; storeShell?: boolean }) {
+export async function MakerLogoPanel({
+  eventId,
+  storeShell = false,
+  proShell = storeShell,
+}: {
+  eventId: string;
+  storeShell?: boolean;
+  /** 🍎 The store shell FOR PRO TRYING only — see `MakerHeroPanel`. Defaults to `storeShell`. */
+  proShell?: boolean;
+}) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="logo" />;
   /* 🛑 The couple's own logo and initials, never a sample (owner 2026-09-27):
@@ -367,7 +422,7 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
     <MakerLogoDoor
       eventId={eventId}
       opening={opening}
-      motionMark={makerProMark({ owns: ownsMotion, storeShell })}
+      motionMark={makerProMark({ owns: ownsMotion, storeShell: proShell })}
       mainColours={mainColours}
     />
   );

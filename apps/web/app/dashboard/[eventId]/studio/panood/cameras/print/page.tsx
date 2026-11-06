@@ -142,7 +142,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
   );
   const waiting = sheet.waiting;
 
-  const eventName = (event.display_name as string | null) ?? 'the celebration';
+  const eventName = (event.display_name as string | null) ?? 'the event';
 
   return (
     <>

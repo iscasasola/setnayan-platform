@@ -247,7 +247,9 @@ test('the row names the category the couple tapped', () => {
   assert.equal(inlineMoreHeading('Reception'), 'More in Reception');
   assert.equal(inlineMoreSearchPlaceholder('Reception'), 'Search reception…');
   assert.equal(inlineMoreSaveLabel('Reception'), 'Save to Reception');
-  assert.equal(inlineMoreSavedNote('Reception'), "Saved to Reception — it's in the row above.");
+  // No "it's in the row above": the save answers in place and the card above
+  // arrives with the bench's one owed refresh (2026-10-12), so it would lie.
+  assert.equal(inlineMoreSavedNote('Reception'), 'Saved to Reception.');
 });
 
 test('"See all" says what it opens, for a reader who cannot see the arrow', () => {

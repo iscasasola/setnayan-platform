@@ -24,41 +24,16 @@
 
 /** `[shots, pesos]`, cheapest first. */
 export const PAPIC_LADDER_EXPECTED: readonly (readonly [number, number])[] = [
-  // ⚠ THESE ARE PRODUCTION'S PRICES, AND THEY DID NOT GET HERE BY MIGRATION.
-  // The admin pricing screen writes STRAIGHT to the catalog, so prod was
-  // repriced repeatedly with nothing in `supabase/migrations` behind it and the
-  // seed drifted into an older, internally-consistent ladder (100 → ₱50,
-  // 50,000 → ₱11,200). Invisible until something new was added: migration
-  // 20271182141904 adds a 100,000 rung at ₱24,000, which is ₱0.24 a credit —
-  // correct against prod's ₱0.30 at 50,000, and a RISE against the stale seed's
-  // ₱0.224. The guard below would have failed on a price that is right.
-  //
-  // ⇒ That migration realigns all sixteen to what production already holds (a
-  //   no-op there, a repair here) and this fixture follows it. Do not "correct"
-  //   these back: they are a snapshot of a table the screen can move again
-  //   tomorrow, and the catalog is the source of truth, never this file.
-  [100, 70],
-  [200, 140],
-  [300, 210],
-  [400, 280],
-  [500, 350],
-  [1_000, 700],
-  [2_000, 1_400],
-  [3_000, 1_680],
-  [4_000, 2_240],
-  [5_000, 2_800],
-  [6_000, 3_360],
-  [7_000, 3_920],
-  [10_000, 4_500],
-  [20_000, 7_200],
-  [30_000, 10_800],
-  [50_000, 15_000],
-  // ⚖ 100,000 — owner 2026-08-29: *"place an editable row like 50,000 and make
-  // the value 24000 php."* An ANCHOR, not a computed rung: computed it would
-  // have inherited 50,000's rate and cost ₱30,000, exactly two lots of 50,000,
-  // which is the trap that got 40,000 removed. At ₱0.24 a credit it is a real
-  // saving and the ladder's never-rises rule still holds.
-  [100_000, 24_000],
+  // ⚖ OWNER 2026-11-03 (DECISION_LOG "PAPIC IS THREE PACKS"): *"we want 3000
+  // credits at 990"* · *"490 @ 1000 credits / 90 @ 150 credits"* · *"lets just
+  // have those prices"*. Seeded by migration
+  // `*_papic_is_three_packs_and_no_signup_price.sql`; every other rung is off
+  // sale (deactivated, never deleted). Was seventeen rungs, ₱95 → ₱31,625.
+  // ⚖ OWNER 2026-11-04 (DECISION_LOG "FINAL PRICE SHEET — ONE PRICE, APPLE AND WEBSITE"): Papic 150 ₱99 ·
+  // Papic 1000 ₱499 · Papic 3000 ₱999 (migration *_the_final_price_sheet.sql). Was ₱90 / ₱490 / ₱990.
+  [150, 99],
+  [1_000, 499],
+  [3_000, 999],
 ] as const;
 
 /** The regular rate the whole ladder is discounted against: ₱1 buys one shot. */

@@ -105,9 +105,9 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
       impact: 'high',
       impactLabel: IMPACT_LABEL.high,
       ctaLabel: 'Add photos',
-      // Straight to the gallery — `/vendor-dashboard/profile` redirects to My
-      // Shop with every panel shut (manage-tiles-hash.ts).
-      ctaHref: '/vendor-dashboard/shop#gallery-media',
+      // Straight to Your collections › Add photos (step 5, 2026-10-14) — the
+      // gallery editors' home, opened by its anchor.
+      ctaHref: '/vendor-dashboard/collections#gallery-media',
       weight: !hasStats ? 60 : 100 - completeness,
     });
   }
@@ -125,7 +125,7 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
       impact: 'medium',
       impactLabel: IMPACT_LABEL.medium,
       ctaLabel: 'See reviews',
-      ctaHref: '/vendor-dashboard/reviews',
+      ctaHref: '/vendor-dashboard/website#reviews',
       weight: (5 - Math.min(reviewCount, 5)) * 8 + 10,
     });
   }

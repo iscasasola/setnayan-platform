@@ -33,6 +33,7 @@ import { randomBytes } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type RegenerateInviteQrResult =
   | { ok: true }
@@ -62,6 +63,8 @@ async function assertCouple(eventId: string) {
 export async function regenerateInviteQr(
   eventId: string,
 ): Promise<RegenerateInviteQrResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertCouple(eventId);
   } catch {

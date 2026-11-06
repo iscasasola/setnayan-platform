@@ -162,7 +162,7 @@ function recapCaption(coupleNames: string, slug: string | null): string {
     ? `\n\nRelive the day → https://www.setnayan.com/${slug}/recap`
     : '';
   return (
-    `The day, in their own words. ✨ ${who}'s celebration is now a living memory on Setnayan — ` +
+    `The day, in their own words. ✨ ${who}'s event is now a living memory on Setnayan — ` +
     `photos, voices, and every moment worth keeping. Set na 'yan.${link}\n\n#Setnayan #SetNaYan`
   );
 }

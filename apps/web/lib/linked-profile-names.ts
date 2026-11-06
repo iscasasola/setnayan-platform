@@ -3,6 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { askedOnce, LINKED_GUEST_MEMBERS } from '@/lib/request-once';
 import { FORMAL_NAME_FIELDS, profileFormalName, type FormalName } from '@/lib/formal-name';
 
 /**
@@ -36,12 +37,16 @@ export async function accountNamesByGuest(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Record<string, LinkedProfileName>> {
-  const { data: members, error: memberErr } = await supabase
-    .from('event_members')
-    .select('guest_id, user_id')
-    .eq('event_id', eventId)
-    .not('guest_id', 'is', null)
-    .not('user_id', 'is', null);
+  // 👥 ONE READ PER RENDER: `accountPhotoRefsByGuest` (lib/guest-account-photos.ts) asks this same
+  // question of the same client — `askedOnce` hands both the one answer (lib/request-once.ts).
+  const { data: members, error: memberErr } = await askedOnce(supabase, LINKED_GUEST_MEMBERS, [eventId], async () =>
+    supabase
+      .from('event_members')
+      .select('guest_id, user_id')
+      .eq('event_id', eventId)
+      .not('guest_id', 'is', null)
+      .not('user_id', 'is', null),
+  );
   if (memberErr) {
     // Degrades to the row's own name — what every screen showed before this.
     logQueryError('linked-profile-names: event_members', memberErr, { eventId }, 'graceful_degrade');

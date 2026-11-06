@@ -316,7 +316,8 @@ test('reversal knows a bill can be the thing that granted Setnayan AI', () => {
   const tail = activation.slice(activation.indexOf('const grantsAi ='));
   assert.match(
     tail.slice(0, 1200),
-    /basketItems\.some\(\(i\) => i\.serviceCode === 'SETNAYAN_AI'\)/,
+    // 2026-11-04: a basket line of Event Plus / Event Pro grants Setnayan AI too, so it reverses it too.
+    /basketItems\.some\(\(i\) => i\.serviceCode === 'SETNAYAN_AI' \|\| AI_INCLUDED_PLAN_SKUS\.includes\(i\.serviceCode\)\)/,
     'a refunded basket would keep Setnayan AI switched on',
   );
 });
@@ -378,8 +379,11 @@ test('an Event Hub Pro line on the bill is what ownership finds', async () => {
   }
 });
 
-test('the Pro row the card and the mint price from: ₱5,000 regular, ₱3,000 at sign-up', async () => {
-  // Owner 2026-09-25: "make it 5000 with 40% off becoming 3000 on onboarding."
+test('the Pro row the card and the mint price from: ₱5,690 regular, no sign-up override', async () => {
+  // Owner 2026-11-04 (FINAL PRICE SHEET): Event Pro ₱5,690, one price on the website and in the app.
+  // Owner 2026-10-28 ("THE ONE PRICE — APP STORE = WEBSITE"): ₱6,590, the App Store price; the row's own
+  // sign-up override is cleared, so the house 40% dial prices it (setupPricePhp → ₱3,954).
+  // Was — owner 2026-09-25: "make it 5000 with 40% off becoming 3000 on onboarding."
   // Migration 20271247699024. The sign-up price is the row's OWN
   // onboarding_price_php — the per-SKU override every sign-up reader already
   // honours — so neither Papic's nor Setnayan AI's family discount moves.
@@ -392,7 +396,7 @@ test('the Pro row the card and the mint price from: ₱5,000 regular, ₱3,000 a
        FROM public.platform_retail_catalog_v2 WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
   assert.equal(r.rows.length, 1);
-  assert.equal(Number(r.rows[0]!.retail_price_php), 5000);
-  assert.equal(Number(r.rows[0]!.onboarding_price_php), 3000);
+  assert.equal(Number(r.rows[0]!.retail_price_php), 5690);
+  assert.equal(r.rows[0]!.onboarding_price_php, null);
   assert.equal(r.rows[0]!.is_active, true);
 });

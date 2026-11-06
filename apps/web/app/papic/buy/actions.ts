@@ -2,12 +2,14 @@
 
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
+import { keepFirstTwin } from '@/lib/one-press-one-order';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
-import { rateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
+import { joinDoorIdent } from '@/lib/join-door-throttle';
 import { mintPapicReferenceCode } from '@/lib/papic-cameras';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchPapicOneTiers, papicOneOrderRow } from '@/lib/papic-one';
@@ -245,10 +247,11 @@ export async function startPapicGuestPurchase(formData: FormData) {
 
   // Flood backstop keyed on the CREDENTIAL, not on an IP or a form value, so
   // one camera cannot mint orders faster than a person can plausibly buy.
-  // Best-effort by contract (in-memory, per-instance); the one-open-order rule
-  // below is the durable half.
-  const rlKey = buyer!.kind === 'seat' ? `papic-buy:seat:${buyer!.seatId}` : `papic-buy:guest:${buyer!.guestId}`;
-  if (!rateLimit(rlKey, 10, 60_000).ok) backTo(returnTo, 'too_fast');
+  // 📶 DURABLE NOW (event-day L1·8) — `enforceRateLimit` (in-memory L1 +
+  // Postgres L2, fails open on a database fault), same 10 a minute; the
+  // one-open-order rule below is still the other half.
+  const rlKey = buyer!.kind === 'seat' ? `seat:${buyer!.seatId}` : `guest:${buyer!.guestId}`;
+  if (!(await enforceRateLimit('papic_buy', rlKey, { limit: 10, windowSecs: 60 })).ok) backTo(returnTo, 'too_fast');
 
   const admin = createAdminClient();
 
@@ -385,13 +388,33 @@ export async function startPapicGuestPurchase(formData: FormData) {
       platform: 'web',
     },
   );
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
+  const moneyWriter = createMoneyWriterClient();
+  const { data: order, error: orderErr } = await moneyWriter
     .from('orders')
     .insert(orderRow)
     .select('order_id')
     .maybeSingle();
   if (orderErr || !order) backTo(returnTo, 'order_failed');
   const orderId = String(order!.order_id);
+
+  // ONE PRESS, ONE BILL (2026-10-13). The one-open-order rule above catches a
+  // second press that arrives after the first; two that arrive TOGETHER both
+  // pass it. The later order cancels itself here — before any guest or camera
+  // row is written against it — and its buyer lands on the earlier bill.
+  // See lib/one-press-one-order.ts.
+  const kept = await keepFirstTwin(
+    admin,
+    moneyWriter,
+    {
+      eventId: buyer!.eventId,
+      userId: accountId!,
+      serviceKey: rung.serviceCode,
+      amountPhp: pricePhp,
+      description: guestOrderDescription(rung),
+    },
+    { orderId, referenceCode },
+  );
+  if (!kept.keptMine) redirect(payPath(kept.reference));
 
   /** The order must not survive as a charge nobody can fulfil. */
   const abandon = async (code: string): Promise<never> => {
@@ -436,7 +459,7 @@ export async function startPapicGuestPurchase(formData: FormData) {
   // are told, not asked). Refresh it so the line appears without them reloading.
   // Post-mint and best-effort: the buyer's redirect must not wait on it, and a
   // stale card is a cosmetic miss, not a lost order.
-  revalidatePath(`/dashboard/${buyer!.eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${buyer!.eventId}`);
 
   // THE ONE PAYMENT PAGE (owner 2026-08-21). Now that the buyer must have an
   // account, `orders_owner_read` admits them on `user_id = auth.uid()` and the
@@ -464,7 +487,9 @@ export async function submitPapicGuestPayment(formData: FormData) {
     redirect(`/papic/order/${encodeURIComponent(token)}?pay_error=${code}`);
 
   if (!papicGuestBuyEnabled()) back('unavailable');
-  if (!rateLimit(`papic-pay:${token}`, 8, 60_000).ok) back('too_fast');
+  // 📶 Durable (event-day L1·8) — same 8 a minute per order link. The link's
+  // token is a credential, so the limiter stores a salted hash of it, never it.
+  if (!(await enforceRateLimit('papic_pay', joinDoorIdent('papic-pay', token), { limit: 8, windowSecs: 60 })).ok) back('too_fast');
 
   const admin = createAdminClient();
   const { data: guestOrder } = await admin
@@ -658,6 +683,6 @@ export async function releaseGuestDedicatedShots(formData: FormData) {
   const moved = Number(data ?? 0);
   if (!(moved > 0)) backTo(returnTo, 'nothing_to_release');
 
-  revalidatePath(`/dashboard/${buyer.eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${buyer.eventId}`);
   redirect(`${safeReturnTo(returnTo)}?papic_release=${moved}`);
 }

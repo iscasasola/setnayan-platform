@@ -15,6 +15,7 @@
  * their cap and change log.
  */
 import { useEffect, useState } from 'react';
+import { TypedRow } from '@/app/_components/form-row';
 import { checkAccountName, type AccountNameCheck } from '../actions';
 
 export function AccountNameField({ suggested }: { suggested: string }) {
@@ -74,43 +75,43 @@ export function AccountNameField({ suggested }: { suggested: string }) {
     }
   })();
 
+  /* ✍ THE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it). It posts as `slug`, exactly as the raw
+     box did; what is typed is cleaned to the handle's letters as it is kept, and checked as it is typed (`onType`). */
+  const clean = (t: string) => t.toLowerCase().replace(/[^a-z0-9-]/g, '');
   return (
-    <div className="hr-si-field">
-      <label htmlFor="hr-you-slug" className="hr-si-label">
-        Account name
-      </label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <span aria-hidden style={{ color: 'var(--hr-grey)' }}>
-          @
-        </span>
-        <input
-          id="hr-you-slug"
-          name="slug"
-          value={value}
-          onChange={(e) => {
-            setTouched(true);
-            setValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+    <TypedRow
+      name="Account name"
+      value={value}
+      maxLength={32}
+      autoCapitalize="off"
+      empty="@your-handle"
+      clean={clean}
+      fieldName="slug"
+      onType={(t) => {
+        setTouched(true);
+        setValue(clean(t));
+      }}
+      onKeep={(t) => {
+        setTouched(true);
+        setValue(t);
+      }}
+      data="you-slug"
+      pillAttrs={{ 'data-you-slug': '' }}
+      below={
+        <span
+          id="hr-you-slug-verdict"
+          role={verdict.tone === 'no' ? 'alert' : 'status'}
+          data-tone={verdict.tone}
+          className="hr-si-hint"
+          style={{
+            display: 'block',
+            paddingBottom: 10,
+            color: verdict.tone === 'ok' ? '#2F6B35' : verdict.tone === 'no' ? '#8A3418' : 'var(--hr-grey)',
           }}
-          maxLength={32}
-          autoComplete="username"
-          placeholder="your-handle"
-          className="hr-si-input"
-          style={{ flex: 1 }}
-          aria-describedby="hr-you-slug-verdict"
-        />
-      </div>
-      <span
-        id="hr-you-slug-verdict"
-        role={verdict.tone === 'no' ? 'alert' : 'status'}
-        data-tone={verdict.tone}
-        className="hr-si-hint"
-        style={{
-          color:
-            verdict.tone === 'ok' ? '#2F6B35' : verdict.tone === 'no' ? '#8A3418' : 'var(--hr-grey)',
-        }}
-      >
-        {verdict.text}
-      </span>
-    </div>
+        >
+          {verdict.text}
+        </span>
+      }
+    />
   );
 }

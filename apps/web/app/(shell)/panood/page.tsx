@@ -28,7 +28,6 @@ import Link from 'next/link';
 import { studioApp, studioDescription } from '@/lib/studio-apps';
 import { DoorwayPage, DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
-import { PanoodFilm } from './_panood-film';
 
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
@@ -123,7 +122,7 @@ const FAQ = [
     // only inside the YouTube answer further down, which is not where somebody deciding
     // whether this product fits them will look.
     q: 'What do I need on the day?',
-    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the celebration, running free streaming software (OBS) next to the Live Watch control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
+    a: 'Your guests’ phones are the cameras — they join by scanning your QR, with nothing to install. You will also need one Windows or Mac laptop at the venue, running free streaming software (OBS) next to the Live Watch control room: that laptop is what actually sends the picture to YouTube. A phone or tablet on its own cannot do it, and neither can a web browser. Most couples hand the laptop to a friend or a coordinator, not a paid crew.',
   },
   {
     // 🎵 SECOND, immediately after the laptop, because it is the same KIND of fact —
@@ -257,7 +256,7 @@ export default function PanoodLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Presence, not just a link', lede: 'A live stream shouldn’t feel like homework. Live Watch lives where your guests already are — your wedding.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start planning free, and add Live Watch when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
+      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating and Event Hub. Start planning free, and add Live Watch when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
       // Kept deliberately, and kept AFTER the questions: this is the
       // YouTube-API-Services disclosure an OAuth reviewer looks for. The 2026-06-29
@@ -273,27 +272,17 @@ export default function PanoodLandingPage() {
         </p>
       }
     >
-      {/* ── THE CONTROL ROOM, RUNNING ────────────────────────────────────────
-          Same rule as `/papic`'s film: not a mock-up, a recording of the same
-          control panel the live demo renders, so it can never drift from the
-          product. Scoped to exactly what that recording can show — cutting
-          between two camera feeds on the shipped controller — not the guest's
-          Event Hub view, which this film does not capture. */}
-      <section className="mx-auto mt-16 max-w-2xl" aria-label="The Live Watch control room">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
-          The control room itself
-        </p>
-        <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
-          This is what turning it on looks like.
-        </h2>
-        <div className="mt-5 flex flex-wrap items-center gap-5">
-          <PanoodFilm />
-          <p className={`max-w-xs text-sm ${DOORWAY_TONE.muted}`}>
-            Two phones become cameras the moment they scan a code. From here you cut between them —{' '}
-            <span className="font-medium text-[var(--m-ink)]">this is the same control panel your wedding uses.</span>
-          </p>
-        </div>
-      </section>
+      {/* ── THE CONTROL ROOM FILM — OMITTED UNTIL IT IS RECORDED ──────────────
+          This page used to carry a "This is what turning it on looks like."
+          section around a recording of the control room
+          (`/add-ons/demo/panood.mp4` + `.jpg`). That recording was never made,
+          so the live page showed a heading over an empty gap and two 404s
+          (quality sweep 2026-10-13, item 2). The film is the owner's to record —
+          it is not fabricated, and the generic card illustration is NOT the
+          control room, so it does not stand in. When the two files are committed,
+          bring the section back from git history (`_panood-film.tsx`); the guard
+          `app/_components/marketing/spotlights-are-real.test.ts` refuses any page that references a demo
+          file that is not in `public/`. */}
       <SpotlightSection
         productName="Live Watch"
         heading="What turning it on gives you"

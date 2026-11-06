@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { EncryptJWT, jwtDecrypt } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -29,6 +29,48 @@ import type { FindableRow } from '@/lib/find-me';
 
 export const FIND_ME_COOKIE = 'sn_find_me';
 const FIND_ME_MAX_AGE_SECS = 15 * 60;
+
+/**
+ * 📶 THIS PHONE, FOR THE BUDGETS (event-day L1·5 — see lib/find-me.ts). A random
+ * id in an httpOnly cookie, SIGNED so nobody can pick another phone's id and
+ * spend its budget. It identifies nothing and opens nothing: it is only the key
+ * the per-phone limits are counted under. Kept a day — longer than any arrival.
+ */
+export const FIND_DEVICE_COOKIE = 'sn_find_device';
+const FIND_DEVICE_MAX_AGE_SECS = 24 * 60 * 60;
+const DEVICE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function deviceMac(id: string): string | null {
+  const r = resolveGuestSessionSecret();
+  if (!r.ok) return null;
+  return createHmac('sha256', `setnayan-find-device:${r.material}`).update(id).digest('base64url');
+}
+
+/**
+ * This phone's id — read from its signed cookie, or minted and set now. Null
+ * only when no secret is configured (then the per-connection budget is the
+ * only one, at the per-phone numbers: the old behaviour, fail-tight).
+ */
+export async function findDeviceId(): Promise<string | null> {
+  const jar = await cookies();
+  const raw = jar.get(FIND_DEVICE_COOKIE)?.value ?? '';
+  const [id, mac] = raw.split('.');
+  if (id && mac && DEVICE_ID.test(id)) {
+    const want = deviceMac(id);
+    if (want && want.length === mac.length && timingSafeEqual(Buffer.from(want), Buffer.from(mac))) return id;
+  }
+  const fresh = randomUUID();
+  const sig = deviceMac(fresh);
+  if (!sig) return null;
+  jar.set(FIND_DEVICE_COOKIE, `${fresh}.${sig}`, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: FIND_DEVICE_MAX_AGE_SECS,
+  });
+  return fresh;
+}
 
 export type FindState = {
   eventId: string;
@@ -163,9 +205,12 @@ export async function loadFindableRows(
  * OPEN on a database hiccup (lib/with-rate-limit.ts, by design) — the per-
  * instance L1 still counts then.
  */
-async function spend(bucket: string, ident: string, limit: number, windowSecs: number): Promise<boolean> {
+/** The limiter's shape — `enforceRateLimit`, or a test's in-memory one. */
+export type FindLimiter = (bucket: string, ident: string, opts: { limit: number; windowSecs: number }) => Promise<{ ok: boolean }>;
+
+async function spend(bucket: string, ident: string, limit: number, windowSecs: number, limiter: FindLimiter = enforceRateLimit): Promise<boolean> {
   try {
-    const r = await enforceRateLimit(bucket, ident, { limit, windowSecs });
+    const r = await limiter(bucket, ident, { limit, windowSecs });
     return r.ok === true;
   } catch (e) {
     console.error(`[find-me] limiter threw on ${bucket} — failing closed`, e);
@@ -173,30 +218,56 @@ async function spend(bucket: string, ident: string, limit: number, windowSecs: n
   }
 }
 
-/** One name look-up from this connection on this event. No IP readable → allowed (see join-door-throttle). */
-export async function spendNameLookup(eventId: string, h: Headers, limit: number, windowSecs: number): Promise<boolean> {
+export type FindBudgets = {
+  /** Per phone (the signed device cookie). */
+  device: number;
+  /** Per connection — sized for a whole venue on one Wi-Fi address. */
+  venue: number;
+  windowSecs: number;
+};
+
+/**
+ * One name look-up from this PHONE and this CONNECTION on this event — both
+ * budgets are spent, both must allow it. No IP readable → only the phone's
+ * (see join-door-throttle). No phone id (no secret) → the connection is held to
+ * the PHONE's number, exactly the budget this door had before.
+ */
+export async function spendNameLookup(
+  eventId: string,
+  h: Headers,
+  device: string | null,
+  limits: FindBudgets,
+  limiter?: FindLimiter,
+): Promise<boolean> {
   const ip = readJoinDoorIp(h);
-  if (!ip) return true;
-  return spend('guest_find_me_name', joinDoorIdent(eventId, ip), limit, windowSecs);
+  const [byDevice, byIp] = await Promise.all([
+    device ? spend('guest_find_me_name_device', `${eventId}:${device}`, limits.device, limits.windowSecs, limiter) : Promise.resolve(true),
+    ip ? spend('guest_find_me_name', joinDoorIdent(eventId, ip), device ? limits.venue : limits.device, limits.windowSecs, limiter) : Promise.resolve(true),
+  ]);
+  return byDevice && byIp;
 }
 
 /**
- * One last-4 try: spends BOTH the connection's budget on this event and the
- * matched guest's own budget (every connection together — a botnet guessing
- * one guest's digits still gets 5 tries). Either one out → false.
+ * One last-4 try: spends THIS PHONE's budget, the CONNECTION's budget on this
+ * event (sized for a venue — see lib/find-me.ts), and the matched guest's own
+ * budget (every connection together — a botnet guessing one guest's digits
+ * still gets 5 tries). Any one out → false.
  */
 export async function spendDigitsTry(
   eventId: string,
   guestId: string,
   h: Headers,
-  limits: { ip: number; row: number; windowSecs: number },
+  device: string | null,
+  limits: FindBudgets & { row: number },
+  limiter?: FindLimiter,
 ): Promise<boolean> {
   const ip = readJoinDoorIp(h);
-  const [byIp, byRow] = await Promise.all([
-    ip ? spend('guest_find_me_digits_ip', joinDoorIdent(eventId, ip), limits.ip, limits.windowSecs) : Promise.resolve(true),
-    spend('guest_find_me_digits_row', `${eventId}:${guestId}`, limits.row, limits.windowSecs),
+  const [byDevice, byIp, byRow] = await Promise.all([
+    device ? spend('guest_find_me_digits_device', `${eventId}:${device}`, limits.device, limits.windowSecs, limiter) : Promise.resolve(true),
+    ip ? spend('guest_find_me_digits_ip', joinDoorIdent(eventId, ip), device ? limits.venue : limits.device, limits.windowSecs, limiter) : Promise.resolve(true),
+    spend('guest_find_me_digits_row', `${eventId}:${guestId}`, limits.row, limits.windowSecs, limiter),
   ]);
-  return byIp && byRow;
+  return byDevice && byIp && byRow;
 }
 
 /** The attempt log line — never a digit, never a name. */

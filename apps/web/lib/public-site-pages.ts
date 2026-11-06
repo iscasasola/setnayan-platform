@@ -54,14 +54,14 @@ export const PUBLIC_SITE_PAGES: PublicSitePage[] = [
   {
     key: 'event',
     name: PUBLIC_STAGE_LABELS.event,
-    blurb: 'The live page on the day — schedule, each guest’s seat, the photo wall, and the livestream.',
+    blurb: 'The live page on the day — schedule, each guest’s seat, Memory lane, and the livestream.',
     phaseParam: 'event',
     Icon: Radio,
   },
   {
     key: 'editorial',
     name: PUBLIC_STAGE_LABELS.editorial,
-    blurb: 'The after-story — your gallery and recap, kept for the guests who were there.',
+    blurb: 'The after-story — your Memories and recap, kept for the guests who were there.',
     phaseParam: 'editorial',
     Icon: Newspaper,
   },

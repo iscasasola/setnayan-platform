@@ -50,6 +50,12 @@
  *   maps OFF,  4096, webpackBuildWorker              FATAL "JavaScript heap out of memory"
  *   maps OFF,  8192, webpackBuildWorker  ← SHIPPED   5.0-5.2   6.9-7.0  9.75-10.01 GB (two runs)
  *
+ * 2026-11-04, main 78112195, Linux 4 cores, RSS summed over the build tree
+ * (source had grown 48 → 64 MB since 2026-10-01):
+ *   as above                                        11.2 min  14.1 min 11.4 GB
+ *   + no webpack disk cache  ← SHIPPED              8.9 min   11.8 min  6.8 GB
+ * The peak was webpack WRITING its cache (lib/build-webpack-cache.ts).
+ *
  * "maps ON" = what Vercel ran: SENTRY_AUTH_TOKEN set, SENTRY_PROJECT not, so
  * Sentry built ~2,100 source maps per deploy and uploaded none
  * (lib/sentry-sourcemaps-can-upload.ts). 2026-09-07's 7168 MB heap OOM was
@@ -201,6 +207,16 @@ test('typecheck keeps its own ceiling — it is a separate process', () => {
   // Not the same floor: tsc's high-water mark is unrelated to webpack's, and
   // this repo cannot typecheck at all without a raised ceiling. Assert only
   // that the flag is still there, so a cleanup cannot silently drop it.
+  //
+  // RAISED 7168 → 10240 MB on 2026-10-11. The joined release branch
+  // (rd/morning-batch, PR #6475 @ 7a5a1c52b) passed `tsc` locally at 8192 and
+  // died in CI at 7168 with V8's "Ineffective mark-compacts near heap limit …
+  // JavaScript heap out of memory" (exit 134, run 38151308204) — the tree had
+  // crept past the ceiling, not gained a type error. The CI runner is
+  // ubuntu-latest on a public repo (16 GB), so 10240 leaves the machine room.
+  // This is a ceiling, not a cure: the next step is to stop typechecking the
+  // whole app in one process. Re-measure with `/usr/bin/time -l` before
+  // raising it again.
   assert.match(
     pkg.scripts?.typecheck ?? '',
     /--max-old-space-size=\d+/,

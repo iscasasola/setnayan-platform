@@ -138,7 +138,7 @@ export const HUB_FONTS: readonly HubFont[] = [
   { key: 'playfairsc', label: 'Playfair SC', family: 'Playfair Display SC', note: 'Editorial small capitals', group: 'Serif', cssVar: '--font-hub-playfairsc', fallback: SERIF },
   { key: 'bodoni', label: 'Bodoni Moda', family: 'Bodoni Moda', note: 'Fashion-house contrast', group: 'Serif', cssVar: '--font-hub-bodoni', fallback: SERIF },
   { key: 'prata', label: 'Prata', family: 'Prata', note: 'Regency elegance', group: 'Serif', cssVar: '--font-hub-prata', fallback: SERIF },
-  { key: 'instrument', label: 'Instrument Serif', family: 'Instrument Serif', note: 'Slim, gallery modern', group: 'Serif', cssVar: '--font-hub-instrument', fallback: SERIF },
+  { key: 'instrument', label: 'Instrument Serif', family: 'Instrument Serif', note: 'Slim, museum modern', group: 'Serif', cssVar: '--font-hub-instrument', fallback: SERIF },
   { key: 'cardo', label: 'Cardo', family: 'Cardo', note: 'Old-world book face', group: 'Serif', cssVar: '--font-hub-cardo', fallback: SERIF },
   { key: 'gilda', label: 'Gilda Display', family: 'Gilda Display', note: 'Soft, airy display serif', group: 'Serif', cssVar: '--font-hub-gilda', fallback: SERIF },
   { key: 'cinzeldeco', label: 'Cinzel Decorative', family: 'Cinzel Decorative', note: 'Capitals with flourishes', group: 'Display', cssVar: '--font-hub-cinzeldeco', fallback: SERIF },

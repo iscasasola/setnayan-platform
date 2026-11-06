@@ -74,3 +74,18 @@ export function listablePublicly(v: EventVisibility): boolean {
 export function requiresInvitedAccount(v: EventVisibility): boolean {
   return v === 'invited_accounts';
 }
+
+/**
+ * "WHO CAN VIEW" — the three words the couple picks from (moved here from the Maker's Studio tools, 2026-10-23, so
+ * Home's Event Hub card names the same state with the same words; nothing was reworded).
+ */
+export const WHO_CAN_VIEW = [
+  { key: 'private', label: 'Private', hint: 'Only your hosts and your guests.' },
+  { key: 'unlisted', label: 'Unlisted', hint: 'Anyone with the link — not listed publicly.' },
+  { key: 'public', label: 'Public', hint: 'Anyone can find and open it. Turns on “Accept” — people can ask to join.' },
+] as const;
+
+/** The word for a stored visibility — the Maker's own fallback ("Private") for anything it does not offer. */
+export function whoCanViewLabel(raw: string | null | undefined): string {
+  return WHO_CAN_VIEW.find((w) => w.key === raw)?.label ?? 'Private';
+}

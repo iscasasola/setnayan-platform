@@ -28,6 +28,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { vendorCategoryForLeaf, resolveVendorCategory } from '@/lib/vendor-packages';
+import { fallbackSnapshot } from '@/lib/taxonomy-snapshot';
+
+/** The seeded taxonomy — `service_categories.coarse_category` as migrated (③0-c). */
+const SEED_TAXONOMY = fallbackSnapshot();
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const action = stripComments(
@@ -46,7 +50,7 @@ test('the tile ids production actually stores resolve to a real category', () =>
     ['florist', 'florist'],
   ] as const) {
     assert.equal(
-      vendorCategoryForLeaf(tile, tile),
+      vendorCategoryForLeaf(tile, tile, SEED_TAXONOMY),
       expected,
       `${tile} no longer resolves to a real category — a shop saved under it ` +
         'becomes invisible on its own bench row',
@@ -57,7 +61,7 @@ test('the tile ids production actually stores resolve to a real category', () =>
 test('the shortlist save uses the resolver that covers every leaf', () => {
   assert.match(
     action,
-    /vendorCategoryForLeaf\(s, s\)/,
+    /vendorCategoryForLeaf\(s, s, tax\)/,
     'coerceCategory went back to a leaf-only resolver; 194 of 246 live leaves ' +
       'land in misc there, and its own docblock says not to use it this way',
   );
@@ -71,12 +75,12 @@ test('the shortlist save uses the resolver that covers every leaf', () => {
 test('a correctly-stored canonical leaf is unaffected', () => {
   // The leaf arm is tried first, so shops stored the right way keep their
   // precise category rather than being coarsened to a branch.
-  assert.equal(vendorCategoryForLeaf('host_emcee', 'host_mc'), 'host_emcee');
+  assert.equal(vendorCategoryForLeaf('host_emcee', 'host_mc', SEED_TAXONOMY), 'host_emcee');
   assert.equal(resolveVendorCategory('host_emcee'), 'host_emcee');
 });
 
 test('an unknown value still degrades to misc rather than guessing', () => {
   // Widening the resolver must not make it invent a category for a string
   // nobody has ever defined.
-  assert.equal(vendorCategoryForLeaf('not_a_real_service', 'not_a_real_tile'), 'misc');
+  assert.equal(vendorCategoryForLeaf('not_a_real_service', 'not_a_real_tile', SEED_TAXONOMY), 'misc');
 });

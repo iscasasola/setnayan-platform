@@ -87,7 +87,6 @@ const SENSITIVE_COLUMNS = [
   'radar_enabled',
   'spotlight_homepage_enabled',
   'referral_program_enabled',
-  'free_tier_booking_cap_enabled',
   'vendor_addon_tiered_pricing_enabled',
   // Ops cron timestamps
   'lead_hold_sweep_last_run_at',

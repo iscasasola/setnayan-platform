@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useSceneWordsBox } from './canvas-words';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * TextPanel — the inline edit panel for the editor's text settings
@@ -68,7 +69,7 @@ export function TextPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewKey]);
   return (
-    <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
+    <SafeForm action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
       {/* Into the draft — both writers it posts to have a door. */}
       <HubDraftField />
       <input type="hidden" name="event_id" value={eventId} />
@@ -97,7 +98,7 @@ export function TextPanel({
       />
       {hint ? <p className="mt-1 text-[0.7rem] text-ink/45">{hint}</p> : null}
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 

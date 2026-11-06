@@ -18,11 +18,11 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'h2',
-        text: 'Start with full galleries, not highlight reels',
+        text: 'Start with full weddings, not highlight reels',
       },
       {
         type: 'p',
-        text: 'A feed shows you a photographer at their best — the five frames out of two thousand that made the cut. That is not what you are buying. You are buying the whole day, including the unflattering light at noon, the cramped ceremony aisle, the reception in a dim ballroom. Ask every shortlisted team for one or two complete weddings, start to finish. Consistency across an entire gallery tells you far more than a perfect grid.',
+        text: 'A feed shows you a photographer at their best — the five frames out of two thousand that made the cut. That is not what you are buying. You are buying the whole day, including the unflattering light at noon, the cramped ceremony aisle, the reception in a dim ballroom. Ask every shortlisted team for one or two complete weddings, start to finish. Consistency across an entire wedding tells you far more than a perfect grid.',
       },
       {
         type: 'ul',
@@ -30,12 +30,12 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
           'Do the photos look good in mixed and difficult light, not just golden hour?',
           'Are faces sharp and skin tones natural, or heavily filtered the same way every time?',
           'Do you see real, unposed emotion — laughing lolas, crying ninangs — or only stiff portraits?',
-          'Would you be happy if your wedding looked exactly like this gallery?',
+          'Would you be happy if your wedding looked exactly like this one?',
         ],
       },
       {
         type: 'p',
-        text: 'As you look, match the style to the wedding you actually want, because there is no best style — only the one that fits you. Bright and airy editing flatters garden and beach weddings; rich, moody tones suit grand church ceremonies and evening receptions. A documentary shooter will quietly catch the in-between moments without interrupting them; a more directed photographer will pose you beautifully but may slow the day down to do it. Decide which of those matters more to you before you fall for a portfolio, because a photographer rarely changes their core style for one client — what you see in their gallery is, honestly, what you will get. The goal is to find someone whose natural way of seeing already matches the wedding in your head, so neither of you is fighting the other on the day.',
+        text: 'As you look, match the style to the wedding you actually want, because there is no best style — only the one that fits you. Bright and airy editing flatters garden and beach weddings; rich, moody tones suit grand church ceremonies and evening receptions. A documentary shooter will quietly catch the in-between moments without interrupting them; a more directed photographer will pose you beautifully but may slow the day down to do it. Decide which of those matters more to you before you fall for a portfolio, because a photographer rarely changes their core style for one client — what you see in their Portfolio is, honestly, what you will get. The goal is to find someone whose natural way of seeing already matches the wedding in your head, so neither of you is fighting the other on the day.',
       },
       {
         type: 'quote',
@@ -64,7 +64,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Numbers and portfolios only take you so far; the final test is a conversation. Your photographer will be at your shoulder for the most emotional hours of your life — during the first look, the vows, the parents dance. If their presence makes you tense, it will quietly show in every frame. A short call or coffee tells you whether they actually listen, whether they stay calm under pressure, and whether the person who charms you in messages is the same person who will turn up to shoot the day. Trust that read; it is every bit as important as the portfolio. So take your time with the shortlist, compare full galleries rather than feeds, and get every inclusion in writing before any deposit changes hands. The right photographer is not the cheapest or the most followed — it is the one whose pictures make you feel something, who fits your budget honestly, and beside whom you would happily spend twelve long hours on the most important day of your life.',
+        text: 'Numbers and portfolios only take you so far; the final test is a conversation. Your photographer will be at your shoulder for the most emotional hours of your life — during the first look, the vows, the parents dance. If their presence makes you tense, it will quietly show in every frame. A short call or coffee tells you whether they actually listen, whether they stay calm under pressure, and whether the person who charms you in messages is the same person who will turn up to shoot the day. Trust that read; it is every bit as important as the portfolio. So take your time with the shortlist, compare full weddings rather than feeds, and get every inclusion in writing before any deposit changes hands. The right photographer is not the cheapest or the most followed — it is the one whose pictures make you feel something, who fits your budget honestly, and beside whom you would happily spend twelve long hours on the most important day of your life.',
       },
       {
         type: 'cta',
@@ -164,7 +164,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'ul',
         items: [
-          'Can I see one or two complete wedding galleries, not just highlights?',
+          'Can I see one or two complete weddings, not just highlights?',
           'Will you personally shoot my wedding, or will an associate cover it?',
           'How many weddings do you book on the same day or weekend?',
           'How would you describe your style, and how much do you direct versus observe?',
@@ -448,7 +448,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     coverAlt: 'a wedding photographer capturing a couple in soft natural light',
     title: 'Albums, raw files, highlights: wedding photo deliverables explained',
     excerpt:
-      'Edited files, raw images, albums, online galleries — what your photographer owes you, and what to confirm.',
+      'Edited files, raw images, printed albums, online albums — what your photographer owes you, and what to confirm.',
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-12',
@@ -480,7 +480,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A full wedding day commonly yields a few hundred final edited images, though the number varies widely by photographer and hours of coverage. These usually arrive through an online gallery or a cloud download link, sometimes alongside a USB drive. Watch the fine print on how long that gallery or link stays live — some expire in a matter of months, and you do not want to lose access before you have downloaded and backed up everything.',
+        text: 'A full wedding day commonly yields a few hundred final edited images, though the number varies widely by photographer and hours of coverage. These usually arrive through an online album or a cloud download link, sometimes alongside a USB drive. Watch the fine print on how long that album or link stays live — some expire in a matter of months, and you do not want to lose access before you have downloaded and backed up everything.',
       },
       {
         type: 'quote',
@@ -505,7 +505,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Before you compare two quotes on price, line them up by deliverables column by column: edited image count, raw access, delivery method, gallery lifespan, and album specification. Once you do that honest side-by-side, the cheaper-looking package sometimes turns out to be the smaller one all along, while the pricier quote was quietly including far more. Get every one of these points written into the contract rather than agreed by chat, and you will never be ambushed months later by what does — or does not — arrive in your hands.',
+        text: 'Before you compare two quotes on price, line them up by deliverables column by column: edited image count, raw access, delivery method, how long the online album stays up, and album specification. Once you do that honest side-by-side, the cheaper-looking package sometimes turns out to be the smaller one all along, while the pricier quote was quietly including far more. Get every one of these points written into the contract rather than agreed by chat, and you will never be ambushed months later by what does — or does not — arrive in your hands.',
       },
       {
         type: 'cta',

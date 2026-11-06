@@ -9,6 +9,8 @@ import {
   type TimelineBlock,
   type VendorActivity,
 } from '@/lib/vendor-activities';
+import { refuseLimitedHelper } from '@/lib/host-gate';
+import { userHostsEvent } from '@/lib/events';
 
 /**
  * The couple's side of the emcee's catalogue: pick segments, then drop the
@@ -41,6 +43,7 @@ async function client() {
  *  couple deletes the block itself, so we never silently remove a moment they
  *  may have already retimed. */
 export async function toggleActivityPick(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = String(formData.get('event_id') ?? '');
   const activityId = String(formData.get('activity_id') ?? '');
   const picked = String(formData.get('picked') ?? '') === 'true';
@@ -79,6 +82,7 @@ export async function toggleActivityPick(formData: FormData) {
  * so a second run is a no-op rather than a duplicate.
  */
 export async function applyActivityPicks(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = String(formData.get('event_id') ?? '');
   if (!eventId) redirect('/dashboard');
   const supabase = await client();
@@ -117,6 +121,12 @@ export async function applyActivityPicks(formData: FormData) {
   const fallbackStart = eventDate ? `${eventDate}T18:00:00Z` : new Date().toISOString();
 
   const plan = planPicksOntoTimeline({ picks, catalogue, timeline, fallbackStart });
+  // 👁 Only the hosts and the coordinator show a moment to guests (owner 2026-10-29) — anyone else's placed picks
+  // start hidden, as a moment they add on the rail does (`schedule/actions.ts`). A refused check is a no.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const showToGuests = user ? await userHostsEvent(supabase, user.id, eventId).catch(() => false) : false;
   if (plan.blocks.length === 0) {
     redirect(`${scheduleHref(eventId)}#emcee-picks`);
   }
@@ -135,7 +145,7 @@ export async function applyActivityPicks(formData: FormData) {
         start_at: b.start_at,
         end_at: b.end_at,
         sort_order: b.sort_order,
-        is_public: true,
+        is_public: showToGuests,
       })
       .select('block_id')
       .maybeSingle();

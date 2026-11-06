@@ -1,4 +1,8 @@
 import { Suspense } from 'react';
+import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { spreadForDisplay } from '@/lib/table-order';
+import { seatPlacedBy } from '@/lib/seat-why';
 import { seatDayHasCome } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
@@ -9,7 +13,7 @@ import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveRoleSetForEvent, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
-  fetchGuestsByEvent,
+  fetchGuestsByEventMeasured,
   fetchGuestGroupsByEvent,
   fetchGroupMembershipsByEvent,
   guestDisplayName,
@@ -28,10 +32,11 @@ import {
 import { fetchBookedVendorsForBooths } from '@/lib/vendors';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { isChineseWedding } from '@/lib/chinese-wedding';
-import { MiniTour } from '@/app/_components/mini-tour';
-import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
-import { detailsDoorHref } from '@/lib/maker-details-items';
-import { SIDE_ORDER } from '@/lib/guests';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
+import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER } from '@/lib/guests';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleLabels } from '@/lib/details-your-event';
 import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_components/seating-editor';
 /* ⚡ The editor loads when the Seat plan is opened — never with the Maker (`seating-lazy.tsx`). */
@@ -39,7 +44,9 @@ import { SeatingEditor } from './_components/seating-lazy';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
+import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import SeatingLabPage from './lab/page';
+import { SeatPlanInGuests } from './_components/seat-plan-in-guests';
 
 export const metadata = { title: 'Seating chart' };
 
@@ -50,14 +57,22 @@ type Props = {
    * (the launch page renders this page there, like the Schedule). `seat` —
    * Details' view of the plan: `3d` streams the 3D lab into the middle part,
    * `list` opens on the List, `map` opens the Guests' map (the Indoor Blueprint).
+   * `host=guests` — drawn by Guests › Seats (R4, `guests/page.tsx`): the same Details shell, the columns Guests' own.
    */
-  searchParams: Promise<{ view?: string; maker?: string; seat?: string }>;
+  searchParams: Promise<{ view?: string; maker?: string; seat?: string; host?: string }>;
 };
 
 export default async function SeatingPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { view: viewParam, maker: makerParam, seat: seatParam } = await searchParams;
-  const inMaker = makerParam === '1';
+  const { view: viewParam, maker: makerParam, seat: seatParam, host: hostParam } = await searchParams;
+  const inGuests = hostParam === 'guests';
+  const inMaker = makerParam === '1' || inGuests;
+  /* 🗂 R4 · THE SEAT PLAN'S HOME IS GUESTS › SEATS (owner 2026-10-27/28, DECISION_LOG "GUESTS = LIST · MAP · SEATS ·
+     MARCH"; "all mapping will be kept"). This address — bookmarks, a print's link, the day-of card, a coordinator's
+     habit — lands there for everyone, carrying its List view, decided by the address alone before any read. Guests ›
+     Seats draws this same page (`host=guests`), so nothing here is lost; the seat rules below still decide who sees it.
+     🔒 lib/r4-seats-march-forwards.test.ts */
+  if (!inMaker) redirect(guestsViewHref(eventId, 'seats', { seat: viewParam === 'list' ? 'list' : null }));
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   // 🪑 THE WRITER HALF OF THE SEAT-ROOM GATE (owner 2026-08-28, "only its own
@@ -75,15 +90,6 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
   const supabase = await createClient();
-  // 📦 THE SEAT PLAN MOVED INTO DETAILS (owner 2026-09-28, DECISION_LOG "THE
-  // SEAT PLAN MOVES INTO DETAILS AND WEARS THE THREE COLUMNS"): for the couple
-  // of an event with an Event Hub this address lands on Details › Your event ›
-  // Seat plan (carrying the List view). A coordinator — or a type with no Event
-  // Hub — keeps this page exactly as it was (`detailsIsTheDoor`, the launch
-  // page's own rule).
-  if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
-    redirect(detailsDoorHref(eventId, 'seating', { seat: viewParam === 'list' ? 'list' : undefined }));
-  }
 
   // A delegate the host never shared the guest list with reads ZERO guest rows
   // — an RLS refusal and an empty event are the same value — so without this
@@ -100,11 +106,11 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return <NotSharedWithYou title="Seating chart" thing="seat plan" />;
   }
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames] =
+  const [tables, assignments, guestsRead, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
-      fetchGuestsByEvent(supabase, eventId),
+      fetchGuestsByEventMeasured(supabase, eventId),
       fetchGuestGroupsByEvent(supabase, eventId),
       fetchGroupMembershipsByEvent(supabase, eventId),
       fetchFloorPlan(supabase, eventId),
@@ -112,7 +118,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency')
+        .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -126,7 +132,31 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       // The couple's own role words — the Auto Arrange "sit together" toggles
       // name each role set the way they do ("Bride's Crew & Groom's Crew").
       loadRoleNames(supabase, eventId, 'SeatingPage.roleNames'),
+      // 🧊 The 3D Plan's "Made an avatar" fact (behind ⓘ in the Seats ⋯ menu) — the retired /plan3d page's own count,
+      // a head-only count in the same round trip. A refusal is "—", never 0 (`withAvatar: null` below).
+      supabase
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .neq('entry_source', REQUEST_ENTRY_SOURCE)
+        .eq(PASSED_AWAY, false)
+        .is(REPRESENTED_BY, null)
+        .not('avatar_config', 'is', null),
     ]);
+  // 🔌 A refused guest read is never an empty room to seat (reads-are-honest, 2026-11-02 audit #14).
+  if (!guestsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your guest list" />
+      </section>
+    );
+  }
+  /* 🪑 SEATS FOLLOW THE INVITATION (owner 2026-11-02): a guest taken off every seated chapter ("after party only") is
+     not offered a seat. That read refused → everyone is offered, as before (the arranging actions stop instead). */
+  const noSeat = await readNoSeatGuestIds(supabase, eventId);
+  const guests = noSeat && noSeat.size > 0 ? guestsRead.rows.filter((g) => !noSeat.has(g.guest_id)) : guestsRead.rows;
+  if (avatarCount.error) logQueryError('SeatingPage.avatars', avatarCount.error, { event_id: eventId }, 'graceful_degrade');
+  const eventFacts = eventRow.data as { slug?: string | null; timezone?: string | null } | null;
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
   // 🪑 From the event's day guests always see their seats (lib/guests-may-see-seats.ts);
   // the switch's words say so.
@@ -180,6 +210,9 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       seated_table_id: seat?.table_id ?? null,
       seat_number: seat?.seat_number ?? null,
       seat_locked: seat?.locked ?? false,
+      // 🪑 Who placed it (lib/seat-why.ts) — null = not recorded, and the seat then says nothing.
+      seat_placed_by: seatPlacedBy(seat?.placed_by),
+      seat_placed_at: seat?.placed_at ?? null,
       role: g.role,
       group_category: g.group_category,
       meal_preference: g.meal_preference,
@@ -207,6 +240,14 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   const adjacencyEnabled =
     (eventRow.data as { seating_group_adjacency?: boolean | null } | null)
       ?.seating_group_adjacency ?? true;
+  // 🏷 "Show supplier suggestions in 3D" — the ghost booths' one switch, in the seat settings since the room became
+  // view-only (owner 2026-10-30). Read only while the flag is on; a refused read draws no switch (never a false Off).
+  let ghostBoothsEnabled: boolean | undefined;
+  if (PLAN3D_BOOTH_ADS_ENABLED) {
+    const gb = await supabase.from('event_floor_plan').select('ghost_booths_enabled').eq('event_id', eventId).maybeSingle();
+    if (gb.error) logQueryError('SeatingPage.ghostBooths', gb.error, { event_id: eventId }, 'graceful_degrade');
+    else ghostBoothsEnabled = (gb.data?.ghost_booths_enabled as boolean | null | undefined) ?? true;
+  }
   const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
   const totalSeats = tables.reduce(
     (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
@@ -214,18 +255,15 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   );
   const seatShortfall = Math.max(0, nonDeclinedCount - totalSeats);
 
-  // ONE editor element, drawn by the standalone page and by Details alike —
-  // the props are never listed twice.
-  const editorFor = (
-    initialView: 'plan' | 'list',
-    details: SeatingDetailsShell | null = null,
-  ) => (
+  // ONE editor element — the props are never listed twice.
+  const editorFor = (initialView: 'plan' | 'list', details: SeatingDetailsShell) => (
     <SeatingEditor
       eventId={eventId}
       roleSetKey={roleSet.key}
       roleSeatingLabels={roleSeatingLabels(roleNames)}
       chineseTradition={chineseTradition}
-      tables={tables}
+      /* 🪑 Two tables stored on one spot are drawn apart (display only — lib/table-order.ts › spreadForDisplay). */
+      tables={spreadForDisplay(tables)}
       guests={seatingGuests}
       groups={groups}
       floorPlan={floorPlan}
@@ -244,6 +282,12 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       constraints={constraints}
       eventDate={eventDate}
       seatDayHasCome={seatsDayHasCome}
+      plan3d={{
+        slug: eventFacts?.slug ?? null,
+        timezone: eventFacts?.timezone ?? null,
+        eventMeasured: !eventRow.error,
+        withAvatar: avatarCount.error ? null : avatarCount.count ?? 0,
+      }}
       genderSeparationNote={genderSeparationNote}
       seatShortfall={seatShortfall}
       nonDeclinedCount={nonDeclinedCount}
@@ -254,6 +298,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       toSeatReserved={toSeatCount}
       setSeatingAutoplace={setSeatingAutoplace}
       setSeatingGroupAdjacency={setSeatingGroupAdjacency}
+      ghostBoothsEnabled={ghostBoothsEnabled}
       initialView={initialView}
       details={details}
       me={{
@@ -267,43 +312,46 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     />
   );
 
-  // 🪑 Details › Seat plan: the SAME editor, its shell re-split into the Maker's
-  // three parts. The sides are the event type's own words (only where it has
+  // 🪑 Details › Seat plan: the SAME editor, its shell re-split into three
+  // parts. The sides are the event type's own words (only where it has
   // two named people — else the seated are listed by group); 3D is the lab
-  // page, streamed in only while it is the view.
-  if (inMaker) {
-    const people = peopleLabels(seatingProfile.terminology.personA, seatingProfile.terminology.personB);
-    const sideWord = (side: 'bride' | 'groom' | 'both') =>
-      side === 'both' ? 'Both sides' : `${people![side === 'bride' ? 0 : 1]}'s side`;
-    const sides = people ? SIDE_ORDER.map((side) => ({ side, label: sideWord(side) })) : null;
-    const lab =
-      seatParam === '3d' && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? (
-        <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening the 3D room…</p>}>
-          <SeatingLabPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
-        </Suspense>
-      ) : null;
+  // page, streamed in only while it is the view. (Since R4 there is no
+  // standalone shell: every couple and every coordinator opens the plan in
+  // Guests › Seats, and the Maker's old item forwards there.)
+  const people = peopleLabels(seatingProfile.terminology.personA, seatingProfile.terminology.personB);
+  const sideWord = (side: 'bride' | 'groom' | 'both') =>
+    side === 'both' ? 'Both sides' : `${people![side === 'bride' ? 0 : 1]}'s side`;
+  const sides = people ? SIDE_ORDER.map((side) => ({ side, label: sideWord(side) })) : null;
+  /* 🗂 R4: in Guests › Seats the 3D room is ALWAYS streamed with the page and opened in place (a client switch, no new
+     request); its code loads only when it is first opened (`SeatingLabLoader`'s own dynamic import). */
+  const lab =
+    (inGuests || seatParam === '3d') && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? (
+      <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening the 3D room…</p>}>
+        <SeatingLabPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
+      </Suspense>
+    ) : null;
+  const editor = editorFor(seatParam === 'list' ? 'list' : 'plan', {
+    lab,
+    sides,
+    part: seatParam === 'map' ? 'map' : null,
+    host: inGuests ? 'guests' : 'maker',
+    open3d: seatParam === '3d',
+  });
+  /* 🗂 R4: Guests › Seats holds the columns the Maker held — the same editor, drawn whole. */
+  if (inGuests) {
     return (
-      <div data-seat-plan-details="" className="flex min-h-0 flex-1 flex-col">
-        {editorFor(seatParam === 'list' ? 'list' : 'plan', { lab, sides, part: seatParam === 'map' ? 'map' : null })}
-        <MiniTour tourKey="customer_seat_plan_v1" />
-      </div>
+      <SeatPlanInGuests seat={parseSeatView(seatParam)}>
+        {editor}
+        {/* 🔦 First visit only — the spotlight, after the host journey (the page's own, as on the old address). */}
+        <Spotlight tourKey={HOST_PAGE_TOURS.seatPlan} after={HOST_PAGE_TOURS_AFTER} replay="page" />
+      </SeatPlanInGuests>
     );
   }
-
   return (
-    <>
-      {/* Heading kept screen-reader-only for a11y/SEO. The whole editor is now a
-          fixed 100dvh frame (scroll-less council verdict 2026-07-15): the
-          reserved→seated stats, the two seating policies, the walkthrough link,
-          and the day-of / walima / capacity banners all moved INTO the editor's
-          command bar + banner slot. This wrapper bleeds the shell content
-          padding so the frame fills the viewport with no document scroll. */}
-      <h1 className="sr-only">Seating chart</h1>
-      <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8">
-        {editorFor(viewParam === 'list' ? 'list' : 'plan')}
-      </div>
-
-      <MiniTour tourKey="customer_seat_plan_v1" />
-    </>
+    <div data-seat-plan-details="" className="flex min-h-0 flex-1 flex-col">
+      {editor}
+      {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.seatPlan} after={MAKER_INNER_TOURS_AFTER} inMaker />
+    </div>
   );
 }

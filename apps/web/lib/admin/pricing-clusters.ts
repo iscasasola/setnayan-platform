@@ -43,7 +43,7 @@ export function clusterForRetail(serviceCode: string): PriceCluster {
   const c = serviceCode.toUpperCase();
   if (c.startsWith('PAPIC')) return 'Papic';
   if (c.startsWith('SETNAYAN_AI')) return 'Setnayan AI';
-  if (c === 'COUPLE_WEBSITE_PRO' || c === 'CUSTOM_QR_GUEST' || c === 'SEATING_3D') {
+  if (c === 'COUPLE_WEBSITE_PRO' || c.startsWith('COUPLE_HUB_PART_') || c === 'CUSTOM_QR_GUEST' || c === 'SEATING_3D') {
     return 'The celebration page';
   }
   if (

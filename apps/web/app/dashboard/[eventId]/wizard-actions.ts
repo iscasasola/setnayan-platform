@@ -53,6 +53,9 @@
 // (event name, primary flag, etc.) from silent staleness — the flag is
 // harmless when an action doesn't touch layout data, and load-bearing
 // when it does.
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { revalidatePath } from 'next/cache';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { redirect } from 'next/navigation';
@@ -70,11 +73,11 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import {
-  isMoodboardSlotKey,
-  isMoodboardSlotPosition,
-  MOODBOARD_SLOT_POSITIONS,
-} from '@/lib/moodboard-slots';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
+import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
+import { isInspirationPartKey } from '@/lib/inspiration-parts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import {
   parseWizardState,
   WIZARD_TASKS,
@@ -277,6 +280,15 @@ async function completeSetWeddingDateTask(
 
   const priorDate = (priorRow as { event_date?: string | null }).event_date ?? null;
   const dateChanged = Boolean(priorDate) && priorDate !== isoDate;
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts).
+  const floorRefusal = eventDateFloorRefusal({
+    date: isoDate,
+    precision: 'day',
+    prior: priorDate ? { date: priorDate, precision: 'day' } : null,
+    exempt: await eventDateFloorExempt(supabase, { eventId: eventIdRaw }),
+  });
+  if (floorRefusal) throw new Error(floorRefusal);
 
   // Vendor-lock gate · same rule as lockEventDate. Once 1+ confirmed
   // vendors exist on the event the date cannot be moved without support.
@@ -499,6 +511,10 @@ async function completeVendorPickFromMarketplace(
   // finalizeVendor. The DB trigger is the hard guard; this friendly throw keeps
   // the wizard from producing a raw 23514. Admin read (verification_state is not
   // public-readable for non-verified profiles).
+  // 🚪 DOOR 3 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The trigger is the backstop.
+  if (!(await areBookingsOpen())) {
+    throw new Error(BOOKINGS_CLOSED_COUPLE_MESSAGE);
+  }
   if (!(await isMarketplaceVendorBookable(createAdminClient(), marketplaceVendorIdRaw))) {
     throw new Error(
       "This supplier is completing verification and can't be booked just yet. You'll be able to book them once they're verified.",
@@ -533,6 +549,10 @@ async function completeVendorPickFromMarketplace(
       category,
       status: handshakeAsk ? 'considering' : 'contracted',
       marketplace_vendor_id: marketplaceVendorIdRaw,
+      // The wizard's own recommendation — Setnayan showed this shop (booking-fee
+      // audit B6, owner "APPROVE ALL" 2026-10-12): it was stamped nothing, so a
+      // recommended shop booked without a chat was waived forever.
+      source: 'host_marketplace_search',
       ...(handshakeAsk
         ? {
             lock_request_state: 'pending',
@@ -745,6 +765,7 @@ async function markTaskDone(formData: FormData): Promise<void> {
 
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
+import { moodBoardPhotoChangeRefusal, refuseLimitedHelper } from '@/lib/host-gate';
 
 export type SearchVendorsArgs = {
   eventId: string;
@@ -927,6 +948,11 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   palette?: string[];
   message?: string;
 }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  // 🖼 The hosts, and whoever they set to Mood Board Edit (owner 2026-10-30) — said in words, never an empty success.
+  // ⏱ For anyone but an owner this also opens the change the owners are told about and may Undo for 24 hours.
+  const photosRefusal = await moodBoardPhotoChangeRefusal(formData.get('event_id'), 'upload', formData.get('slot_key'));
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');
@@ -936,7 +962,7 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
     return { status: 'error', message: 'event_id required' };
   }
-  if (!isMoodboardSlotKey(slotKeyRaw)) {
+  if (!isInspirationPartKey(await getInspirationParts(), slotKeyRaw)) {
     return { status: 'error', message: 'slot_key invalid' };
   }
   const slotPosition = Number(slotPositionRaw);
@@ -1039,29 +1065,19 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   // to the Palette slot, run the Canvas-API palette extractor on it and
   // save the 6-color result to events.role_palette."
   if (slotKeyRaw === 'palette') {
-    const { data: priorRow } = await supabase
-      .from('events')
-      .select('role_palette')
-      .eq('event_id', eventIdRaw)
-      .maybeSingle();
-    const priorPalette =
-      priorRow &&
-      typeof priorRow.role_palette === 'object' &&
-      priorRow.role_palette !== null
-        ? (priorRow.role_palette as Record<string, unknown>)
-        : {};
-    const nextPalette = {
-      ...priorPalette,
-      wizard_default: {
-        colors: palette,
-        name: null,
-        picked_at: new Date().toISOString(),
+    /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): the board's colour sets live in this same
+       column — the other host's painted roles must survive this write, so it is a compare-and-set on the value as read
+       (`updateJsonColumn`): a palette that moved in between is read again and built on again. Best-effort, as before. */
+    await updateJsonColumn<Record<string, unknown> | null>(supabase as unknown as JsonColumnClient, { table: 'events', row: { event_id: eventIdRaw }, column: 'role_palette', what: 'The palette' }, (prior) => ({
+      next: {
+        ...(prior && typeof prior === 'object' ? prior : {}),
+        wizard_default: {
+          colors: palette,
+          name: null,
+          picked_at: new Date().toISOString(),
+        },
       },
-    };
-    await supabase
-      .from('events')
-      .update({ role_palette: nextPalette })
-      .eq('event_id', eventIdRaw);
+    })).catch((e: unknown) => console.error('[wizard] the palette slot could not be written:', e instanceof Error ? e.message : e));
   }
 
   // Auto-promote wizard task to in-flight on first upload across any slot.
@@ -1105,6 +1121,11 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
   status: 'ok' | 'error';
   message?: string;
 }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  // 🖼 The hosts, and whoever they set to Mood Board Edit (owner 2026-10-30) — said in words, never an empty success.
+  // ⏱ For anyone but an owner this also opens the change the owners are told about and may Undo for 24 hours.
+  const photosRefusal = await moodBoardPhotoChangeRefusal(formData.get('event_id'), 'remove', formData.get('slot_key'));
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');
@@ -1112,7 +1133,7 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
   if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
     return { status: 'error', message: 'event_id required' };
   }
-  if (!isMoodboardSlotKey(slotKeyRaw)) {
+  if (!isInspirationPartKey(await getInspirationParts(), slotKeyRaw)) {
     return { status: 'error', message: 'slot_key invalid' };
   }
   const slotPosition = Number(slotPositionRaw);
@@ -1145,23 +1166,13 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
       .limit(1)
       .maybeSingle();
     if (!stillActive) {
-      const { data: priorRow } = await supabase
-        .from('events')
-        .select('role_palette')
-        .eq('event_id', eventIdRaw)
-        .maybeSingle();
-      if (
-        priorRow &&
-        typeof priorRow.role_palette === 'object' &&
-        priorRow.role_palette !== null
-      ) {
-        const next = { ...(priorRow.role_palette as Record<string, unknown>) };
+      // 👥 The same compare-and-set — taking `wizard_default` out never writes back a palette another host just painted.
+      await updateJsonColumn<Record<string, unknown> | null>(supabase as unknown as JsonColumnClient, { table: 'events', row: { event_id: eventIdRaw }, column: 'role_palette', what: 'The palette' }, (prior) => {
+        if (!prior || typeof prior !== 'object' || !('wizard_default' in prior)) return null;
+        const next = { ...prior };
         delete next.wizard_default;
-        await supabase
-          .from('events')
-          .update({ role_palette: next })
-          .eq('event_id', eventIdRaw);
-      }
+        return { next };
+      }).catch((e: unknown) => console.error('[wizard] the palette slot could not be cleared:', e instanceof Error ? e.message : e));
     }
   }
 

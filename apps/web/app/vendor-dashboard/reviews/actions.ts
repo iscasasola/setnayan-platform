@@ -71,7 +71,8 @@ export async function postVendorReply(formData: FormData) {
     console.error('[vendor-reviews] reply notify failed:', e);
   }
 
-  revalidatePath('/vendor-dashboard/reviews');
+  // 💬 Replies are written in place on Shop › Page › Reviews and stories (owner 2026-11-06) — `/reviews` only forwards.
+  revalidatePath('/vendor-dashboard/website');
   if (answeredOnTheDesk) revalidatePath('/vendor-dashboard');
 }
 
@@ -83,7 +84,7 @@ export async function postVendorReply(formData: FormData) {
 export async function submitFlagAsFake(formData: FormData) {
   const reviewId = formData.get('review_id');
   const reason = formData.get('reason');
-  if (typeof reviewId !== 'string' || typeof reason !== 'string') {
+  if (typeof reviewId !== 'string' || typeof reason !== 'string' || !reason.trim()) {
     throw new Error('Invalid input');
   }
 
@@ -91,5 +92,5 @@ export async function submitFlagAsFake(formData: FormData) {
   const { profile } = await requireVendorProfile(supabase);
   await flagReviewAsFake(supabase, reviewId, profile.vendor_profile_id, reason);
 
-  revalidatePath('/vendor-dashboard/reviews');
+  revalidatePath('/vendor-dashboard/website');
 }

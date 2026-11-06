@@ -1,6 +1,7 @@
 import type { RoomLink } from '../_lib/room-links';
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import { loadEventShell, loadGuestLook } from '../_lib/loaders';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -10,6 +11,9 @@ import { eventWordsFromProfile } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { readGuestViewerForEvent } from '@/lib/guest-one-path.server';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
+import { readGuestBooths } from '@/lib/booth-card-from-row';
+import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
+import type { Lab3DBooth } from '@/lib/seating-3d';
 import type { EventTableRow } from '@/lib/seating';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
@@ -19,6 +23,7 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { LiveRefresher } from '@/app/_components/live-refresher';
+import { pulseBaseline } from '@/lib/event-pulse.server';
 import {
   checkedInClock,
   findSeatMode,
@@ -34,6 +39,11 @@ import { SeatBackLink } from './_components/seat-back-link';
 import { findSeatBackHref } from './_lib/back-to-the-invitation';
 import { YourSeat, type Tablemate } from './_components/your-seat';
 import type { DoorPassData } from './_components/door-pass';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
+import { ticketName } from '@/lib/name-style';
+import { loadNameStyle } from '@/lib/name-style.server';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { companionNames, type CompanionSeatRow } from '@/lib/extra-seats';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -103,6 +113,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   }
 
   const admin = createAdminClient();
+  // 🧯 When this render BEGAN — the pulse baseline is compared against it (live-day polling).
+  const renderedAt = new Date().toISOString();
   const names = event.display_name?.trim() || words.theHost;
 
   // 🪑 The seat gate — ONE rule (`guestsMaySeeSeatsFor`, owner 2026-09-30:
@@ -110,6 +122,9 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   // the event's day, or earlier only if the couple turned on "Show guests their
   // seats early". A failed read goes to the error boundary, never "not yet".
   const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
+  // 👁 The couple hid "Find your seat" on the stage the event is at ("What guests see"): a guest who kept this address
+  // goes back to the event's page — the exit this page already takes above. One reading: `_lib/part-door.server.ts`.
+  if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
 
   const [viewer, look] = await Promise.all([
     readGuestViewerForEvent(event.event_id),
@@ -135,6 +150,20 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
     if (error) throw new Error(`find-seat: could not read the tables: ${error.message}`);
     tables = (data ?? []) as EventTableRow[];
   }
+  /* 🪑 How the couple chose guests see their seat (owner 2026-11-01) and 🏪 the booked suppliers' booths — both read only
+     once the seat gate opened the room, like the tables. An unread choice is today's (Both); an unread booth list draws
+     no booths — neither ever hides the seat itself. */
+  let seatView: GuestSeatView = 'both';
+  let booths: Lab3DBooth[] = [];
+  if (published) {
+    const [viewRow, boothRows] = await Promise.all([
+      admin.from('event_floor_plan').select('guest_seat_view').eq('event_id', event.event_id).maybeSingle(),
+      readGuestBooths(admin, event.event_id).catch(() => [] as Lab3DBooth[]),
+    ]);
+    if (viewRow.error) console.error('[supabase-error] find-seat: event_floor_plan.guest_seat_view (showing Both)', viewRow.error);
+    seatView = parseGuestSeatView((viewRow.data as { guest_seat_view?: unknown } | null)?.guest_seat_view);
+    booths = boothRows;
+  }
 
   // ── B · THE OPEN LINK ────────────────────────────────────────────────────
   if (viewer.kind === 'anonymous') {
@@ -157,9 +186,10 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
             eventDate={event.event_date as string | null}
             tables={tables}
             entrance={entrance}
+            pulse={await pulseBaseline(slug, null, renderedAt)}
           />
         ) : (
-          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} backHref={backHref} occasion={words.occasion} />
+          <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
         )}
       </SeatFrame>
     );
@@ -167,10 +197,10 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
 
   // ── A · SOMEBODY WE KNOW ─────────────────────────────────────────────────
   const guestId = viewer.session.guest_id;
-  const [{ data: guest, error: guestErr }, { data: assignment, error: assignmentErr }] = await Promise.all([
+  const [{ data: guest, error: guestErr }, { data: assignment, error: assignmentErr }, { data: seatRows, error: seatRowsErr }] = await Promise.all([
     admin
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name, qr_token, plus_one_allowed, plus_one_name')
+      .select('guest_id, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, qr_token, plus_one_allowed, plus_one_name')
       .eq('event_id', event.event_id)
       .eq('guest_id', guestId)
       .is('deleted_at', null)
@@ -181,10 +211,19 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       .eq('event_id', event.event_id)
       .eq('guest_id', guestId)
       .maybeSingle(),
+    // 🪑 Who they bring is their seat ROWS — every one (lib/extra-seats.ts `companionNames`), never the one-name mirror.
+    admin
+      .from('guests')
+      .select('guest_id, plus_one_of_guest_id, first_name, last_name, plus_one_name_confirmed_at, rsvp_status, created_at')
+      .eq('event_id', event.event_id)
+      .eq('plus_one_of_guest_id', guestId)
+      .is('deleted_at', null),
   ]);
   // 🔴 A failed read is not "you are not seated" — throw, never draw A4 over it.
   if (guestErr) throw new Error(`find-seat: could not read the guest: ${guestErr.message}`);
   if (assignmentErr) throw new Error(`find-seat: could not read the seat: ${assignmentErr.message}`);
+  // 🪑 Who they bring, refused: logged, and the pass leaves its party line off (below) — never a guessed party.
+  if (seatRowsErr) logQueryError('find-seat.seats', seatRowsErr, { event_id: event.event_id }, 'graceful_degrade');
   if (!guest) redirect(`/${slug}`); // removed from the list since the key was issued
 
   const firstName = guest.first_name?.trim() || 'there';
@@ -252,17 +291,22 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       }),
     ]);
     const checkedIn = (checkin?.checked_in_at as string | null) ?? null;
-    const plusOne = guest.plus_one_allowed && guest.plus_one_name?.trim() ? guest.plus_one_name.trim() : null;
-    const plusOneParts = plusOne ? plusOne.split(/\s+/) : [];
+    /* 🪑 "party of N" counts EVERY named seat who is coming (2026-10-22: a guest bringing two printed "party of 2" with
+       one name, from the one-name mirror). A refused read omits the line — never a guessed party. */
+    const companions = seatRowsErr ? [] : companionNames(guest, (seatRows ?? []) as unknown as CompanionSeatRow[]);
+    const companionWords = companions.map((n) => {
+      const parts = n.split(/\s+/);
+      return publicDisplayName(parts[0] ?? n, parts.slice(1).join(' ') || null);
+    });
     pass = {
       names,
       dateLabel: event.event_date ? formatEventDate(event.event_date) : null,
       tableLabel: table.table_label,
-      guestName:
-        guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || firstName,
-      partyLine: plusOne
-        ? `party of 2 · ${publicDisplayName(plusOneParts[0] ?? plusOne, plusOneParts.slice(1).join(' ') || null)}`
-        : null,
+      /* 🪪 A PASS PRINTS THE FULL NAME, in the event's Name style — the same rule as the Digital and Printed ticket
+         (`ticketName`). "Shown as" never replaces it (owner 2026-10-20, DECISION_LOG "THE INVITATION PRINTS A GUEST'S
+         FULL NAME — SHOWN AS NEVER REPLACES IT"). */
+      guestName: ticketName(guest, await loadNameStyle(admin, event.event_id, 'find-seat')),
+      partyLine: companions.length > 0 ? `party of ${companions.length + 1} · ${companionWords.join(', ')}` : null,
       qrSvg,
       seal: resolveMonogram(event).text,
       checkedInAt: checkedInClock(checkedIn, venueTz),
@@ -293,61 +337,67 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       {/* A reseat on the day shows without a reload (PR 5); and a guest seated
           while the page sits open in a tab sees it when they come back to it —
           "No need to check back — this updates by itself" (A4) is a promise. */}
-      <LiveRefresher eventDate={event.event_date as string | null} />
-      <RefreshOnReturn />
-      <YourSeat
-        firstName={firstName}
-        names={names}
-        occasionLine={occasionLine}
-        dayOf={dayOf}
-        doorsOpenLabel={doorsOpenLabel}
-        published={published}
-        tables={tables}
-        entrance={entrance}
-        table={table ? { table_id: table.table_id, table_label: table.table_label, capacity: table.capacity ?? null } : null}
-        mates={mates}
-        seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
-        venueHref={venueHref}
-        inviteHref={backHref}
+      <LiveRefresher
+        eventDate={event.event_date as string | null}
         slug={slug}
-        plural={words.twoPeople}
-        pass={pass}
+        pulse={await pulseBaseline(slug, null, renderedAt)}
       />
+      <RefreshOnReturn />
+      {/* 🪑 ONE WAITING STATE, FOR EVERY VIEWER (owner 2026-10-11; the tester's walk as a named guest): before seats
+          are shown, a guest on the list read "You're on the list… No need to check back — this updates by itself"
+          here while the other two seat pages said to come back on the day. Now this page draws the same state a
+          stranger gets (`NotPostedYet` → `SeatsShowOnTheDay`). `YourSeat` is for once seats are shown — where "not
+          seated yet · this updates by itself" is true. */}
+      {published ? (
+        <YourSeat
+          firstName={firstName}
+          names={names}
+          occasionLine={occasionLine}
+          dayOf={dayOf}
+          doorsOpenLabel={doorsOpenLabel}
+          published={published}
+          tables={tables}
+          entrance={entrance}
+          table={table ? { table_id: table.table_id, table_label: table.table_label, capacity: table.capacity ?? null } : null}
+          mates={mates}
+          seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
+          venueHref={venueHref}
+          inviteHref={backHref}
+          slug={slug}
+          plural={words.twoPeople}
+          pass={pass}
+          seatView={seatView}
+          booths={booths}
+        />
+      ) : (
+        <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
+      )}
     </SeatFrame>
   );
 }
 
-/** B5 · nothing published yet — in the theme, no field at all. Nothing to count, nothing to leak. */
+/** B5 · nothing published yet — in the theme, no field at all. Nothing to count, nothing to leak.
+ *  The title and the one sentence are the three seat pages' own (`SeatsShowOnTheDay`, owner 2026-10-11). */
 function NotPostedYet({
-  names,
-  plural,
   slug,
   backHref,
-  occasion,
+  eventDate,
 }: {
-  names: string;
-  /** Two people at the centre (a wedding) — "Indalecio & Claire haven't"; otherwise the plan is the subject. */
-  plural: boolean;
+  /** The event's day, or null while it has none — the shared line then says so. */
+  eventDate: string | null;
   slug: string;
   backHref: string;
-  occasion: string;
 }) {
   return (
     <div className="lg:mx-auto lg:max-w-md">
       <section className="px-6 pt-3 text-center">
         <p className="m-0 text-[0.72rem] uppercase tracking-[0.22em] text-terracotta-700">Find your seat</p>
         <p className="m-0 mt-1 font-serif text-[2.4rem] italic leading-none text-terracotta-700">soon</p>
-        <h1 className="m-0 mt-0.5 font-serif text-[2rem] font-medium leading-[1.12] text-ink">Your seat shows on the day</h1>
-        <p className="mt-2.5 text-[0.84rem] leading-relaxed text-ink/75">
-          {plural
-            ? `${names}’s seating plan opens here on the day.`
-            : `The seating plan for this ${occasion} opens here on the day.`}{' '}
-          Come back to this link then and you&rsquo;ll find your table.
-        </p>
+        <SeatsShowOnTheDay eventDate={eventDate} className="mt-0.5" />
       </section>
       <Lace className="my-4" />
       <RoomPlaceholder veil="The room is still being arranged" />
-      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
+      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 flex min-h-[44px] items-center justify-center text-sm text-terracotta-700 underline underline-offset-[3px]">
         Back to the invitation
       </SeatBackLink>
     </div>

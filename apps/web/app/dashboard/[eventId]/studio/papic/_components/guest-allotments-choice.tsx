@@ -1,3 +1,4 @@
+import { PapicStayForm } from './papic-stay-form';
 // 🔒 THE READ BELOW IS SERVER-SIDE ONLY, AND IT IS ALREADY ENFORCED — this line
 // is defence in depth, not the thing that creates the property.
 //
@@ -34,6 +35,7 @@ import {
   allotmentRowState,
   suggestedAllotment,
   splitTheRest,
+  allotmentRowValue,
   summariseAllotments,
   guestMinimumVerdict,
   summariseMinimum,
@@ -43,6 +45,8 @@ import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../action
 import { SettingRow } from './setting-row';
 import { GuestAllotmentPicker } from './guest-allotment-picker';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -77,9 +81,19 @@ import { formatCount } from '@/lib/format-number';
 export async function GuestAllotmentsChoice({
   eventId,
   variant = 'card',
+  eventWide = false,
+  returnTo = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /**
+   * 👥 THE EVENT-WIDE LIMIT ONLY (owner ruling 2026-10-24: "the event-wide 'Each guest, at most ___' moves INTO the Home
+   * Papic card's settings; guest cards override per person"): the switch, everyone's number, the least anybody gets
+   * and the release — and NOT the named list, which is each guest card's own Papic group (#6854).
+   */
+  eventWide?: boolean;
+  /** 🏠 'home' inside Home's Papic card — a save lands back on Home. */
+  returnTo?: 'home' | null;
 }) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -254,9 +268,10 @@ export async function GuestAllotmentsChoice({
       </p>
 
       {/* The switch — two explicit buttons, never a flip. */}
-      <form action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
+      <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
         {/* ⚠ CARRY BOTH NUMBERS THROUGH EVERY FORM. `setGuestAllotments` writes
             all three fields on one UPDATE, so a form that posts only its own box
             silently clears the other — the switch would wipe the minimum. */}
@@ -266,13 +281,13 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
           </>
         ) : null}
-        <SubmitButton className={enabled ? 'sn-btn-secondary' : 'sn-btn-primary'}>
+        <SubmitButton className={enabled ? 'ab ab-neutral inline-flex min-h-11 items-center justify-center' : 'ab ab-brand ab-main inline-flex min-h-11 items-center justify-center'}>
           {enabled ? 'Turn this off' : 'Turn this on'}
         </SubmitButton>
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
           {enabled ? 'On' : 'Off'}
         </span>
-      </form>
+      </PapicStayForm>
 
       {/* ⚖ "DON'T MAKE IT JUMP" (owner 2026-09-22). This block used to be
           `{enabled ? … : null}` — switching the limits OFF deleted every control
@@ -303,9 +318,10 @@ export async function GuestAllotmentsChoice({
           </p>
 
           {/* Everyone else. Blank is not zero — it means "work it out for me". */}
-          <form action={setGuestAllotments} className="space-y-2">
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <label className="block text-sm font-medium text-ink">
               Everyone you have not named
             </label>
@@ -320,7 +336,7 @@ export async function GuestAllotmentsChoice({
                 placeholder={enabled ? String(split.perHead) : 'No limit'}
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
-              <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+              <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Save</SubmitButton>
             </div>
             {/* A TYPED NUMBER IS "AT MOST" (migration 20271221350945): the
                 database holds it to the equal share, exactly as `splitTheRest`
@@ -328,7 +344,7 @@ export async function GuestAllotmentsChoice({
                 no idea why their number was not the one that applied. */}
             {everyoneElse !== null && everyoneElse > split.perHead ? (
               <p className="text-xs text-terracotta">
-                Your celebration holds enough for {formatCount(split.perHead)} credits each right now, so that is
+                Your event holds enough for {formatCount(split.perHead)} credits each right now, so that is
                 what each guest gets. Add credits and it rises on its own, up to your {everyoneElse}.
               </p>
             ) : null}
@@ -340,7 +356,7 @@ export async function GuestAllotmentsChoice({
                 ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
                 : null}
             </p>
-          </form>
+          </PapicStayForm>
 
           {/* ══ THE LEAST ANYBODY GETS ═══════════════════════════════════════
               🔑 EVERY OTHER NUMBER ON THIS SHEET IS A CEILING. Until now
@@ -357,9 +373,10 @@ export async function GuestAllotmentsChoice({
               once, discovered one at a time at the party. The shortfall is
               NAMED, because "add 4,000 credits" is something a couple can do
               and "that will not work" is not. */}
-          <form action={setGuestAllotments} className="space-y-2">
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
             <label className="block text-sm font-medium text-ink">
               The least anybody gets
@@ -374,7 +391,7 @@ export async function GuestAllotmentsChoice({
                 placeholder="No minimum"
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
-              <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+              <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Save</SubmitButton>
             </div>
             {minimumLine ? (
               <p
@@ -393,9 +410,19 @@ export async function GuestAllotmentsChoice({
                 ? ` It cannot be more than the ${everyoneElse} you set above.`
                 : ''}
             </p>
-          </form>
+          </PapicStayForm>
 
           {/* NAMING GUESTS — the real new control. */}
+          {eventWide ? (
+            <Link
+              href={`/dashboard/${eventId}/guests`}
+              className="flex min-h-11 items-center justify-between gap-3 text-[14px] text-ink/70"
+              data-allotment-guest-cards=""
+            >
+              <span>Someone gets their own number on their guest card</span>
+              <span aria-hidden>›</span>
+            </Link>
+          ) : (
           <div className="space-y-2">
             <p className="text-sm font-medium text-ink">Give someone their own number</p>
             {/* ⚖ THE COUPLE DOES NOT ADD GUESTS HERE (owner, 2026-09-22, asked
@@ -454,38 +481,125 @@ export async function GuestAllotmentsChoice({
               not use is not held for her: it stays in the pot and anybody may take it.
             </p>
           </div>
+          )}
 
           {/* THE RELEASE. */}
-          <form action={releaseTheRest} className="space-y-2 border-t border-ink/10 pt-4">
+          <PapicStayForm door="releaseTheRest" action={releaseTheRest} className="space-y-2 border-t border-ink/10 pt-4">
             <input type="hidden" name="event_id" value={eventId} />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <p className="text-sm font-medium text-ink">Open the rest to everyone</p>
             <p className="text-xs text-ink/55">
               {releasedAt
                 ? 'Already open — every limit is lifted and the whole pot is anyone’s.'
-                : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your celebration too.'}
+                : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your event too.'}
             </p>
             {releasedAt ? null : (
-              <SubmitButton className="sn-btn-secondary">Open the rest to everyone</SubmitButton>
+              <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Open the rest to everyone</SubmitButton>
             )}
-          </form>
+          </PapicStayForm>
         </>
       </div>
     </div>
   );
 
-  const value = !enabled
-    ? 'Off'
-    : split.overCommitted
-      ? 'Over'
-      : `${split.perHead} each`;
+  // 🏷 Says WHICH number it is — the couple's own limit or an equal share (`allotmentRowValue`).
+  const value = allotmentRowValue({
+    enabled,
+    split,
+    shareEach: splitTheRest({ ...inputs, everyoneElse: null }).perHead,
+    everyoneElse,
+  });
+
+  if (eventWide) {
+    // 📷 IN THE PAPIC CARD, INLINE (owner 2026-10-24, the approved sketch): "Credits per guest" and its switch, then
+    // "Each guest, at most" and "The least anybody gets", each a box saved on its own — the same three fields of the
+    // same action, every form carrying the others (`setGuestAllotments` writes all three on one UPDATE). Off, the boxes
+    // stay and go quiet (they never jump). Each guest's own number is on their guest card.
+    const carry = (
+      <>
+        <input type="hidden" name="event_id" value={eventId} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+      </>
+    );
+    return (
+      <div className="flex flex-col gap-1 py-2" data-papic-setting="credits-per-guest">
+        <div className="flex items-center gap-3">
+          <span className="min-w-0 flex-1">
+            <InfoTip label="Credits per guest" labelClassName="text-[15px] font-semibold text-ink" align="start">
+              Off, every guest draws from the one pot until it runs out. On, each guest may take up to the number below —
+              an equal share of what is left when you leave it blank. A guest&rsquo;s own number is on their guest card.
+              Every credit still comes out of the one pot, first come first served.
+            </InfoTip>
+            <span className="block text-[12.5px] text-ink/60">{value}</span>
+          </span>
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="shrink-0">
+            {carry}
+            <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+            {enabled ? (
+              <>
+                <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+                <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+              </>
+            ) : null}
+            <button type="submit" role="switch" aria-checked={enabled} aria-label="Credits per guest" className={SWITCH_BUTTON}>
+              <SwitchTrack on={enabled} />
+            </button>
+          </PapicStayForm>
+        </div>
+        <div inert={!enabled} aria-hidden={!enabled} className={`flex flex-col transition-opacity ${enabled ? '' : 'opacity-45'}`}>
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-at-most="">
+            {carry}
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+            <label className="min-w-0 flex-1 text-[14px] text-ink">
+              Each guest, at most
+              <span className="block text-[12.5px] text-ink/55">Blank = an equal share of what is left</span>
+            </label>
+            <input
+              type="number"
+              name="everyone_else"
+              min={1}
+              step={1}
+              defaultValue={enabled ? (everyoneElse ?? '') : ''}
+              placeholder={enabled ? String(split.perHead) : '—'}
+              aria-label="Each guest, at most"
+              className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
+            />
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
+          </PapicStayForm>
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-least="">
+            {carry}
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <label className="min-w-0 flex-1 text-[14px] text-ink">
+              The least anybody gets
+              <span className="block text-[12.5px] text-ink/55">Blank = no minimum</span>
+            </label>
+            <input
+              type="number"
+              name="minimum_each"
+              min={1}
+              step={1}
+              defaultValue={enabled ? (floorPoints ?? '') : ''}
+              placeholder="—"
+              aria-label="The least anybody gets"
+              className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
+            />
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
+          </PapicStayForm>
+          {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/60">{minimumLine}</p> : null}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === 'row') {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="How many credits each guest gets"
+        label={eventWide ? 'Each guest, at most' : 'Each guest'}
         value={value}
-        sheetTitle="How many credits each guest gets"
+        sheetTitle="Credits for each guest"
       >
         {control}
       </SettingRow>
@@ -522,9 +636,9 @@ function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="How many credits each guest gets"
+        label="Each guest"
         value="Couldn’t load"
-        sheetTitle="How many credits each guest gets"
+        sheetTitle="Credits for each guest"
       >
         {body}
       </SettingRow>

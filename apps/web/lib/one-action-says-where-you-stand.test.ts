@@ -12,10 +12,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PASS_ANCHOR, resolveArrivalAction } from './arrival-action';
 import { manilaToday } from './std-views';
+
+const WEB = join(__dirname, '..');
 
 const BASE = { slug: 'cale-ice', eventDate: '2026-12-18' };
 
@@ -33,13 +35,14 @@ test('a guest who answered is TOLD, not asked again', () => {
   // ONE control (owner 2026-10-03): the status label opens the reply sheet
   // itself — no "Change" beside it pointing at the same place.
   assert.equal(Object.hasOwn(going ?? {}, 'secondary'), false, 'a second control to the same sheet is back');
-  assert.match(going?.href ?? '', /#your-details$/, 'and the status itself is how they change it');
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+  assert.match(going?.href ?? '', /\/invite\/reply$/, 'and the status itself is how they change it');
   assert.doesNotMatch(going?.label ?? '', /RSVP/, 'the label is the status, not the verb');
 
   const no = resolveArrivalAction({ ...BASE, rsvpStatus: 'declined', today: '2026-09-20' });
   assert.match(no?.label ?? '', /can’t make it/);
   assert.equal(Object.hasOwn(no ?? {}, 'secondary'), false);
-  assert.match(no?.href ?? '', /#your-details$/);
+  assert.match(no?.href ?? '', /\/invite\/reply$/);
 });
 
 test('"maybe" still owes an answer, and says why it is asking', () => {
@@ -136,13 +139,15 @@ test('EVERY href the action can produce resolves to an id the page renders', () 
   for (const m of menu.matchAll(/:\s*'(site-[a-z-]+)'/g)) anchors.add(m[1]!);
   anchors.add(PASS_ANCHOR);
   assert.ok(anchors.size >= 5, `precondition: found the anchor map (${[...anchors].join(',')})`);
-  // The reply sheet's own id (rsvp-sheet.tsx) — the RSVP / Change label's target since 2026-10-01.
-  anchors.add('your-details');
+  // The RSVP / Change label goes to the reply PAGE since 2026-10-11 (the one reply form) — a route, not an anchor.
+  const replyPage = '/cale-ice/invite/reply';
+  assert.ok(existsSync(join(WEB, 'app/[slug]/invite/reply/page.tsx')), 'the reply page is gone — the RSVP label leads nowhere');
 
   for (const c of cases) {
     const action = resolveArrivalAction({ slug: 'cale-ice', eventDate: '2026-12-18', ...c });
     assert.ok(action, `a case produced no action: ${JSON.stringify(c)}`);
     for (const href of [action.href]) {
+      if (href === replyPage) continue;
       const hash = href.split('#')[1];
       assert.ok(hash, `${href} has a target`);
       assert.ok(anchors.has(hash), `#${hash} is a real anchor, not an invented one`);

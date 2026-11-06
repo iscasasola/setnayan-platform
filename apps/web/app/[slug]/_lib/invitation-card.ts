@@ -79,6 +79,29 @@ export function invitationCard(input: {
   };
 }
 
+/**
+ * 🔗 THE LINK DOWN NAMES ONLY WHAT IT OPENS — for THIS viewer.
+ *
+ * The card's link has always read "the day, the place, the story ↓". Measured
+ * on the live sample event as a stranger (2026-10-11): it opens Details, which
+ * for that visitor held the date, the programme, the dress code and the
+ * entourage — no venue (withheld from a stranger on purpose) and no story. The
+ * page withheld the place and the link went on promising it.
+ *
+ * So the words follow what the page it opens actually draws for the viewer:
+ * the place only when a venue is on it, the story only when there is one to
+ * land on. Everything there → the words the card has always worn, byte for byte
+ * (`HUB_LINK_DEFAULT_WORDS`). The couple's OWN words for the link (the `link`
+ * part, Studio) are theirs and are never rewritten — `site-body.tsx` hands this
+ * to `card.hubLabel`, which `PahinaMasthead` draws only when they wrote none.
+ */
+export function hubLinkWords(holds: { place: boolean; story: boolean }): string {
+  if (holds.place && holds.story) return HUB_LINK_DEFAULT_WORDS;
+  if (holds.place) return 'the day, the place';
+  if (holds.story) return 'the day, the story';
+  return 'the day, the details';
+}
+
 /** "Guests arrive 2:30 PM" — the first moment's title and its time; null with no time. */
 export function firstMomentLine(
   startAt: string | null | undefined,

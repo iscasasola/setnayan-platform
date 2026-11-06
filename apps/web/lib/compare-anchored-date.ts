@@ -21,10 +21,11 @@
  *
  * ── NO NEW QUERY ────────────────────────────────────────────────────────────
  * `dateFit` is the map `page.tsx` already builds for the bench's date badge via
- * the batched `getBatchVendorAvailableDays`, under exactly the same
+ * the ONE calendar-truth read (`lib/calendar-truth.server.ts`), under exactly the same
  * day-precision condition. This regroups it by plan column; it reads no
  * calendars of its own.
  */
+import type { DateFit } from './calendar-truth';
 
 /** One column's verdict. `checkedCount === 0` ⇒ nothing to say, render a dash. */
 export type AnchoredDateColumn = {
@@ -61,7 +62,7 @@ export function anchoredDateByColumn({
   nameOf,
 }: {
   columns: ReadonlyArray<AnchoredDateColumnInput>;
-  dateFit: ReadonlyMap<string, 'free' | 'booked'>;
+  dateFit: ReadonlyMap<string, DateFit>;
   nameOf: (vendorId: string) => string;
 }): Record<string, AnchoredDateColumn> {
   const byColumn: Record<string, AnchoredDateColumn> = {};
@@ -72,7 +73,8 @@ export function anchoredDateByColumn({
     for (const p of col.picks) {
       if (!p.vendorId || seen.has(p.vendorId)) continue;
       const fit = dateFit.get(p.vendorId);
-      if (!fit) continue; // rule 1 — no signal, no claim
+      // rule 1 — no signal, no claim; a calendar the supplier never set is no signal either (P5, "Not set")
+      if (!fit || fit === 'not_set') continue;
       seen.add(p.vendorId); // rule 2 — one calendar per vendor
       checkedCount += 1;
       if (fit === 'booked') bookedNames.push(nameOf(p.vendorId));

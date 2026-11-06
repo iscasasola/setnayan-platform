@@ -128,6 +128,9 @@ const CONVERTED = [
   // read and the page turns the throw into `rows: null` + `readError`, so a
   // rejected query says "couldn't read", never "nobody is comped".
   'gifts/page.tsx',
+  // /admin/gifts › Supplier gifts (2026-11-04) — the gift ledger + live quote holds; readers answer null on a refused
+  // read and the page turns that into `rows: null` + `readError`.
+  'gifts/_components/shop-gifts-ledger.tsx',
   // The judgement queues + the money desks, 2026-08-17.
   // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
   // /admin/approvals' pending list are <ul>s of cards; their <table> is the audit
@@ -171,6 +174,8 @@ const CONVERTED = [
   'app-performance/_surfaces/intelligence-surface.tsx',
   'app-performance/_surfaces/operations-surface.tsx',
   'app-performance/_surfaces/seo-surface.tsx',
+  'app-performance/_surfaces/slow-loads-surface.tsx',
+  'app-performance/_surfaces/visits-view.tsx',
   // ── Lane D · the last ten top-level pages (2026-08-17) ──────────────────
   'account-deletions/page.tsx',
   'completions/page.tsx',
@@ -188,6 +193,10 @@ const CONVERTED = [
   'events/[eventId]/page.tsx',
   // The per-supplier admin page, 2026-10-01 — its newest payouts.
   'vendors/[vendorProfileId]/page.tsx',
+  // /admin/hub-music, 2026-10-08 — the Event Hub music list. Born on the
+  // archetype: its reader hands a refused read back as its own answer, and the
+  // table is told "not measured" (`rows={readError ? null : visible}`).
+  'hub-music/hub-music-manager.tsx',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════

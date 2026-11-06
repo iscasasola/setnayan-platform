@@ -68,6 +68,18 @@ export type SeatingLock = {
   notifyLost: () => void;
 };
 
+/**
+ * Is this surface DECIDED view-only — a peer holds the lock (or held it and went quiet)?
+ *
+ * 🔂 The live refresh (`useSeatingLiveRefresh`) listens only then. It used to listen on `!canEdit`, which is also true
+ * for the first moment of EVERY open (`idle`, then `acquiring`, before the lock answers) — so every open of the plan
+ * joined a Realtime channel and left it again one round-trip later, when the lock came back `editing`. The editor
+ * itself never needs it (it is the one writer); a co-planner who lands view-only still gets every change live.
+ */
+export function lockSaysViewOnly(status: SeatingLockStatus): boolean {
+  return status === 'view_only' || status === 'stale_takeover_available';
+}
+
 type AcquireEnvelope = {
   status?: string;
   lock_id?: string;

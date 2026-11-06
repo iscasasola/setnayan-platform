@@ -36,9 +36,9 @@ export const HIDDEN_BY_THE_COUPLE = 'Hidden by the couple';
 
 /**
  * The record's sections, in the order the page draws them, each inside one of
- * the four groups (`RECORD_GROUPS`, `lib/event-details-record.ts` — owner
+ * the groups (`RECORD_GROUPS`, `lib/event-details-record.ts` — owner
  * 2026-10-04, "FOUR FIXES BEFORE BUILD" (2): How it looks · How it works · Your
- * event · Guests & money). `key` is what the page marks each section with;
+ * event · Guests & money; and, owner 2026-10-07, Event access — its own fold). `key` is what the page marks each section with;
  * `group` is the fold it sits in. Put this away stays last, outside the folds.
  */
 export const EVENT_DETAILS_SECTIONS = [
@@ -53,9 +53,9 @@ export const EVENT_DETAILS_SECTIONS = [
   { key: 'guests', title: 'Guests', group: 'guests-money' },
   { key: 'budget', title: 'Budget', group: 'guests-money' },
   { key: 'suppliers', title: 'Your suppliers', group: 'guests-money' },
-  { key: 'access', title: 'People with access', group: 'guests-money' },
   { key: 'services', title: 'Services', group: 'guests-money' },
   { key: 'purchases', title: 'Purchases', group: 'guests-money' },
+  { key: 'access', title: 'People with access', group: 'access' },
   { key: 'put-away', title: 'Put this away', group: null },
 ] as const;
 export type EventDetailsSectionKey = (typeof EVENT_DETAILS_SECTIONS)[number]['key'];

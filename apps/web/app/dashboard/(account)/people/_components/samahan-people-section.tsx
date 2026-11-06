@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { UsersRound } from 'lucide-react';
+import { Plus, UsersRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -8,6 +8,9 @@ import { fetchUserCommunities, fetchSamahanSecondDegree } from '@/lib/communitie
 import { SubmitButton } from '@/app/_components/submit-button';
 import { proposeSamahanConnection } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { readPeopleGroupRows } from '@/lib/people-group-rows';
+import type { GroupChatRow } from '@/lib/people-group-rows-shape';
+import { GroupChatRows } from './group-chat-rows';
 
 /**
  * Samahan on the People page (owner degree model 2026-07-17): the GROUPS you
@@ -19,10 +22,14 @@ import { formatCount } from '@/lib/format-number';
  */
 export async function SamahanPeopleSection({
   heading = true,
+  listed = true,
 }: {
   /** False in the Samahan VIEW, where the page's picker already names it
    *  (owner 2026-09-28, People redesign). The coming-soon preview keeps it. */
   heading?: boolean;
+  /** False in the Groups VIEW (owner 2026-10-28): its rows are the chat rows (`PeopleGroupsView`) under the pinned
+   *  row, whose ＋ New is the view's one way to make a group — this section then draws only the second degree. */
+  listed?: boolean;
 } = {}) {
   const supabase = await createClient();
   const {
@@ -52,7 +59,7 @@ export async function SamahanPeopleSection({
         </header>
       ) : null}
 
-      {active.length > 0 ? (
+      {!listed ? null : active.length > 0 ? (
         <ul className="mb-4 space-y-2.5">
           {active.map((c) => (
             <li key={c.community_id}>
@@ -91,7 +98,7 @@ export async function SamahanPeopleSection({
             {secondDegree.map((p) => (
               <li
                 key={p.member_row_id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 py-1 pl-3 pr-1.5 text-xs text-ink/70"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 dark:bg-raised py-1 pl-3 pr-1.5 text-xs text-ink/70"
               >
                 <span>{p.display_name}</span>
                 <span className="text-ink/40">· {p.via.join(', ')}</span>
@@ -176,4 +183,66 @@ async function fetchKnownConnectionUserIds(
     if (r.claimed_by_user_id) known.add(r.claimed_by_user_id);
   }
   return known;
+}
+
+/** One group in the People list's Groups section — a chat row since 2026-10-28 (`group-chat-rows.tsx`). */
+export type GroupsFoldRow = GroupChatRow;
+
+/**
+ * GROUPS ON THE PEOPLE LIST (owner 2026-10-25, "finding groups is so hard";
+ * prototypes/groups_on_people_2026-10-25): a folded section of the main list, after Loved ones and drawn the same
+ * way — "New group" at its head, then one row per group, each opening the group page. Since 2026-10-28 ("Group rows
+ * read like chats", prototype user_dash_2026-10-28 B) the rows are `GroupChatRows`: story ring · last message · time ·
+ * next event. Presentational — the server section below reads, `/dev/people-lab` hands in fixtures.
+ */
+export function GroupsFoldList({
+  groups,
+  unreadable = false,
+  activityUnreadable = false,
+}: {
+  groups: readonly GroupsFoldRow[];
+  unreadable?: boolean;
+  activityUnreadable?: boolean;
+}) {
+  return (
+    <div className="pb-3" data-people-groups="">
+      <div className="mb-2 mt-1" data-groups-door="">
+        <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center gap-2 text-sm">
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          New group
+        </Link>
+      </div>
+      {groups.length === 0 ? (
+        <p className="py-2 text-sm text-ink/60">
+          {unreadable
+            ? 'We couldn’t load your groups just now. Nothing is lost — refresh in a moment.'
+            : 'No group yet — name it whatever your group calls itself.'}
+        </p>
+      ) : (
+        <GroupChatRows rows={groups} activityUnreadable={activityUnreadable} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Groups section's reader — `readPeopleGroupRows`, ONE batched read for every row (lib/people-group-rows.ts).
+ * `fetchUserCommunities` returns `[]` when refused, which is the same `[]` as "no groups" — so the roster's own count
+ * (`counts.samahan`, null when ITS read was refused) decides the sentence: a list that came back empty while the count
+ * says otherwise is said as a failure, never as "No group yet".
+ */
+export async function GroupsFoldSection({ expected }: { expected: number | null }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const read = await readPeopleGroupRows(supabase, createAdminClient(), user.id);
+  return (
+    <GroupsFoldList
+      groups={read.rows}
+      unreadable={read.rows.length === 0 && expected !== 0}
+      activityUnreadable={read.activityUnreadable}
+    />
+  );
 }

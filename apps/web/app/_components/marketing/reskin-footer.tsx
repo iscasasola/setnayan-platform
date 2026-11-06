@@ -23,7 +23,6 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
-import { openConsentManager } from '@/lib/cookie-consent';
 import { pinFooter } from './footer-pin';
 
 function reduceMotion() {
@@ -100,9 +99,6 @@ export function ReskinFooter() {
           <Link href="/refunds">Refunds &amp; cancellations</Link>
           <Link href="/cookies">Cookie policy</Link>
           <Link href="/acceptable-use">Acceptable use</Link>
-          <button type="button" className="hr-foot-linkbtn" onClick={() => openConsentManager()}>
-            Cookie settings
-          </button>
         </nav>
       </div>
 
@@ -120,8 +116,7 @@ export function ReskinFooter() {
 /**
  * One delegated handler per column instead of an onClick on every <Link>:
  * pins the footer for any real anchor navigation inside the column. The
- * "Cookie settings" button and the mailto: link are not internal navigations,
- * so they don't pin.
+ * mailto: link is not an internal navigation, so it doesn't pin.
  */
 function onFooterLinkClick(e: React.MouseEvent) {
   const a = (e.target as HTMLElement).closest('a');

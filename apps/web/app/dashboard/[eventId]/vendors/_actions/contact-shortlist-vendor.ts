@@ -18,17 +18,22 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sendChatMessageCore } from '@/lib/chat-send';
+import { NUDGE_MESSAGE } from '@/lib/supplier-card-verbs';
 import {
   startServiceInquiry,
   type StartServiceInquiryResult,
 } from '@/app/v/[slug]/inquiry-actions';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type ContactShortlistVendorResult =
   | StartServiceInquiryResult
   /** The shortlisted vendor is off-platform / manually added — no marketplace
    *  profile to open a thread against. The caller only shows the affordance for
    *  marketplace-connected picks, so this is a belt-and-suspenders guard. */
-  | { status: 'not_marketplace' };
+  | { status: 'not_marketplace' }
+  /** The follow-up was posted in the existing conversation (`nudgeThreadId`). */
+  | { status: 'nudged' };
 
 /**
  * Anchor an inquiry on a concrete ACTIVE service for a marketplace vendor:
@@ -68,11 +73,28 @@ async function resolveActiveServiceForVendor(
   return { vendorServiceId: chosen.vendor_service_id, categoryKey: chosen.category };
 }
 
+/** `event_vendors.source` values that mean the SUPPLIER brought this couple — never Setnayan-sourced. */
+const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+function rowWasBroughtBySupplier(source: unknown): boolean {
+  return typeof source === 'string' && SUPPLIER_BROUGHT_SOURCES.has(source);
+}
+
 export async function contactShortlistVendor(input: {
   eventId: string;
   /** event_vendors.vendor_id — the couple's shortlist row for this vendor. */
   vendorId: string;
+  /**
+   * NUDGE (owner 2026-10-07, the Suppliers card's "Nudge"): the couple has
+   * already asked this supplier — post the one follow-up line in THAT
+   * conversation instead of starting an inquiry. It rides this action rather
+   * than a new export (the route ceiling), and it goes through
+   * `sendChatMessageCore`, so every rule a typed message obeys holds here too:
+   * before the supplier accepts, the couple gets the inquiry plus ONE
+   * follow-up, and a second nudge is refused in the core's own words.
+   */
+  nudgeThreadId?: string;
 }): Promise<ContactShortlistVendorResult> {
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const vendorId = String(input.vendorId ?? '').trim();
   if (!eventId || !vendorId) {
@@ -89,9 +111,25 @@ export async function contactShortlistVendor(input: {
   // call (only a row the couple can read passes) AND yields the marketplace
   // vendor + the service they were considering. A row the user can't read (not
   // their event) simply resolves to null → not_marketplace, never a leak.
+  const nudgeThreadId = String(input.nudgeThreadId ?? '').trim();
+  if (nudgeThreadId) {
+    // The conversation must be THIS event's — RLS scopes the read to threads
+    // the caller belongs to, and the core re-checks membership before it posts.
+    const { data: thread } = await supabase
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('thread_id', nudgeThreadId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!thread) return { status: 'error', message: 'That conversation could not be found.' };
+    const sent = await sendChatMessageCore(supabase, { threadId: nudgeThreadId, body: NUDGE_MESSAGE });
+    // A refusal is the core's own sentence — never reported as sent.
+    return sent.ok ? { status: 'nudged' } : { status: 'error', message: sent.message };
+  }
+
   const { data: row } = await supabase
     .from('event_vendors')
-    .select('marketplace_vendor_id, service_id, category')
+    .select('marketplace_vendor_id, service_id, category, source')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -124,8 +162,12 @@ export async function contactShortlistVendor(input: {
       (row?.category ? String(row.category) : null) ?? resolved.categoryKey ?? null,
     alsoServiceIds: [],
     // Inquiry-source taxonomy (owner 2026-07-17) — this inquiry originated from
-    // the couple's shortlist/build workspace.
-    inquirySource: 'shortlist',
+    // the couple's shortlist/build workspace. EXCEPT a shop the SUPPLIER brought
+    // onto the list (their invite, their Locked QR, a reused booking): asking it
+    // from the shortlist is not Setnayan showing the couple that shop, so the
+    // thread keeps no source and stays an import (booking-fee audit B3, owner
+    // "APPROVE ALL" 2026-10-12 — it used to turn billable on the first tap).
+    inquirySource: rowWasBroughtBySupplier(row?.source) ? null : 'shortlist',
   });
 }
 
@@ -148,6 +190,7 @@ export async function contactVendorProfile(input: {
   eventId: string;
   vendorProfileId: string;
 }): Promise<StartServiceInquiryResult> {
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   if (!eventId || !vendorProfileId) {

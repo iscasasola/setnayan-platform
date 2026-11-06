@@ -1,7 +1,7 @@
 /**
  * lib/maker-part-groups.ts — ＋ THE PARTS A PAGE CAN TAKE, GROUPED THE WAY
  * GUESTS MEET THEM; ↕ WHERE A DRAGGED PART LANDS; 🗑 WHAT TAKING ONE OFF DOES.
- * The new Maker's Stages side, behind `makerStagesStudioEnabled`.
+ * The new Maker's Stages side, behind `stagesStudio`, the one Maker since 2026-10-25.
  *
  * Owner, 2026-10-06, verbatim: *"yes"* (to: add the undrawn Post Event scenes as
  * ＋ parts) · *"they can also drag up and down and reposition elements"*. Plan
@@ -25,14 +25,16 @@
  * "After the event" lists them by their SHIPPED names (`lib/post-event-scenes.ts`
  * `POST_EVENT_SCENE_NAMES`) — The Road to the Day · Watch Live · Papic Challenge ·
  * Supplier Stories · Live Photo Wall · What They Said · Before & After · Song ·
- * What comes next. "Photos of you" on Post Event IS the shipped **Were you
- * there?** (the same scene, `you`). Held by `maker-part-groups.test.ts`.
+ * What comes next. **Were you there?** (scene `you`) is a part of its own (`you`)
+ * since 2026-10-10 — it was The Day's "Photos of you" wearing another name on Post
+ * Event, so the two could not differ (Were you there? has ONE look; Photos of you
+ * has three). Held by `maker-part-groups.test.ts`.
  *
  * Pure. No I/O, no React.
  */
 import { CUSTOM_SECTION_TYPES } from './custom-sections';
 import { formatCount } from './format-number';
-import { MAKER_PARTS, makerPartsOnPage, type MakerPartKey, type MakerStageKey } from './maker-parts';
+import { MAKER_PARTS, makerCanvasKeyOf, makerPartsOnPage, type MakerPartKey, type MakerStageKey } from './maker-parts';
 import { swapsForDrop } from './maker-scene-list';
 import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 import { postEventMove, type PostEventArrangement, type PostEventDraft } from './post-event-draft';
@@ -48,16 +50,27 @@ export type MakerPartGroup = { label: string; parts: readonly MakerPartKey[] };
  * once, by its shipped name.
  */
 export const MAKER_PART_GROUPS: readonly MakerPartGroup[] = [
-  { label: 'Words', parts: ['ename', 'names', 'opening', 'greeting', 'message', 'bring'] },
-  { label: 'When & where', parts: ['date', 'place', 'countdown', 'schedule', 'venue'] },
-  { label: 'Your story', parts: ['story', 'march', 'dress'] },
+  { label: 'Words', parts: ['ename', 'names', 'opening', 'greeting', 'message'] },
+  { label: 'When & where', parts: ['date', 'place', 'countdown'] },
+  /* 🗂 ONE GROUPING WITH "WHAT GUESTS SEE" (owner's run 2026-10-11: ＋ filed Dress code under "Your story" while the
+     table files it under "The details"). The table's group, its name and its order (`GROUPS`, lib/guests-see-build.ts:
+     Schedule · Map · Dress code · What to bring) — a couple looking for a part finds it under the same head in both.
+     The prototype's `PART_GROUPS` had these four spread over Words / When & where / Your story. */
+  { label: 'The details', parts: ['schedule', 'venue', 'dress', 'bring'] },
+  { label: 'Your story', parts: ['story', 'march'] },
   { label: 'For each guest', parts: ['myrole', 'mywear', 'myarrive', 'myguests'] },
   { label: 'Replies', parts: ['rsvpcard', 'rsvp', 'yesnote', 'nonote', 'pass', 'seats'] },
   { label: 'Notes & news', parts: ['reminders', 'announce'] },
   { label: 'Gifts & photos', parts: ['gifts', 'camera', 'gallery', 'myphotos'] },
   {
     label: 'After the event',
-    parts: ['numbers', 'wishes', 'road', 'watchlive', 'challenge', 'supstories', 'wall', 'said', 'beforeafter', 'song', 'next'],
+    /* …and, after the owner's nine, the rest of Post Event's own scenes (2026-10-10: a tap on one named no part — an
+       empty Edit). Listed here so ＋ can bring one back after "Shown to guests" is switched off; a stage that does not
+       draw them is never offered them (`makerPartOffers` `pathOf`). Each by its shipped name (`MAKER_PARTS`). */
+    parts: [
+      ...['numbers', 'wishes', 'road', 'watchlive', 'challenge', 'supstories', 'wall', 'said', 'beforeafter', 'song', 'next'] as const,
+      ...['cover', 'chapters', 'pegallery', 'videos', 'you', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered'] as const,
+    ],
   },
   { label: 'Brand', parts: ['logo', 'reveal'] },
 ];
@@ -75,13 +88,9 @@ export const MAKER_POST_EVENT_ADDED: Readonly<Partial<Record<MakerPartKey, strin
   next: 'next',
 };
 
-/** On Post Event, "Photos of you" is the shipped Were you there? (scene `you`). */
-const POST_EVENT_YOU: MakerPartKey = 'myphotos';
-
 /** The shipped Post Event scene a part is on that stage — null when it is not one. */
 export function makerPostEventSceneOf(stage: MakerStageKey, key: MakerPartKey): string | null {
   if (stage !== 'editorial') return null;
-  if (key === POST_EVENT_YOU) return 'you';
   const own = MAKER_POST_EVENT_ADDED[key];
   if (own) return own;
   const c = MAKER_PARTS[key].canvas;
@@ -102,6 +111,8 @@ export function makerPartLabelOn(stage: MakerStageKey, key: MakerPartKey): strin
 
 /** The part a canvas key is ON THIS STAGE (the first that names it) — a tap on a part the page's default list does not name. */
 export function makerPartOfCanvas(stage: MakerStageKey, canvas: string): MakerPartKey | null {
+  /* 🧭 A region's own key (`f:story`) names the part it holds (`makerCanvasKeyOf`). */
+  canvas = makerCanvasKeyOf(canvas);
   for (const k of Object.keys(MAKER_PARTS) as MakerPartKey[]) {
     if (makerPartCanvasOn(stage, k) === canvas && !MAKER_PARTS[k].el) return k;
   }
@@ -121,17 +132,33 @@ export function makerPartOfCanvas(stage: MakerStageKey, canvas: string): MakerPa
  */
 export type MakerPartAddPath = { kind: 'add' } | { kind: 'waiting'; note: string } | null;
 
-export type MakerPartOffer = { key: MakerPartKey; label: string; path: Exclude<MakerPartAddPath, null> };
+export type MakerPartOffer = {
+  key: MakerPartKey;
+  label: string;
+  path: Exclude<MakerPartAddPath, null>;
+  /** 📄 The page that will draw it, when that is NOT the page on show — its key, and the name its tab shows ("Details"). */
+  onPage: { key: string; label: string } | null;
+};
 
 /**
- * ＋ THE SHEET'S LIST: the parts NOT already on this page (`present` = the
- * canvas keys the page drew), grouped, each with how it is added. Empty groups
- * are left out. A part is listed once, in its first group.
+ * ＋ THE SHEET'S LIST: the parts NOT already on this STAGE (`present` = the
+ * canvas keys the stage's pages drew), grouped, each with how it is added. Empty
+ * groups are left out. A part is listed once, in its first group.
+ *
+ * 📄 THE LIST IS THE STAGE'S, WHICHEVER PAGE ＋ WAS PRESSED ON (owner 2026-10-11, on Welcome with the Map and the
+ * Dress code hidden: *"does not show the scenes to add"*). A part another page draws is still offered — and says so
+ * (`onPage`), so the row never promises a place the part will not go. `pageOf` changes that one field and nothing
+ * else: which parts are offered does not depend on the page (held by `lib/one-press-is-one-undo-step.test.ts`).
  */
 export function makerPartOffers(input: {
   stage: MakerStageKey;
   present: ReadonlySet<string>;
   pathOf: (key: MakerPartKey, canvas: string) => MakerPartAddPath;
+  /**
+   * 📄 On a stage drawn as tabs: the OTHER page this canvas key is filed on — null when it is the page on show.
+   * Absent (a stage that is one page): every part is this page's.
+   */
+  pageOf?: (canvas: string) => { key: string; label: string } | null;
 }): Array<{ label: string; parts: MakerPartOffer[] }> {
   const seen = new Set<MakerPartKey>();
   const out: Array<{ label: string; parts: MakerPartOffer[] }> = [];
@@ -144,7 +171,7 @@ export function makerPartOffers(input: {
       const path = input.pathOf(key, canvas);
       if (!path) continue;
       seen.add(key);
-      parts.push({ key, label: makerPartLabelOn(input.stage, key), path });
+      parts.push({ key, label: makerPartLabelOn(input.stage, key), path, onPage: input.pageOf?.(canvas) ?? null });
     }
     if (parts.length) out.push({ label: g.label, parts });
   }
@@ -180,8 +207,11 @@ export function makerPartsWithAdded(input: {
   page: string | null;
   pages: readonly string[];
   drawn: readonly string[];
+  /** 🧭 The page each drawn key sits on, as a tabbed canvas FILED it (`filedOnCanvas`, `lib/maker-stage-filing.ts`) —
+   *  the canvas is the truth for a part no page's list names. Absent / a key it lacks: the neighbour rule below. */
+  filed?: Readonly<Record<string, string>>;
 }): MakerPartKey[] {
-  const { stage, page, pages, drawn } = input;
+  const { stage, page, pages, drawn, filed } = input;
   if (!page) return [];
   const present = new Set(drawn);
   const own = makerPartsOnPage(stage, page).filter((k) => {
@@ -203,7 +233,7 @@ export function makerPartsWithAdded(input: {
     if (!part || own.includes(part) || added.includes(part)) return;
     const before = drawn.slice(0, i).reverse().find((x) => pageOfKey.has(x));
     const after = drawn.slice(i + 1).find((x) => pageOfKey.has(x));
-    const home = pageOfKey.get((before ?? after)!) ?? null;
+    const home = filed?.[c] ?? pageOfKey.get((before ?? after)!) ?? null;
     if (home === page) added.push(part);
   });
   /* Each added part sits where it is drawn: after the page's part drawn before it. */

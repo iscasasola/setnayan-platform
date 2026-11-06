@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { displayServiceLabel } from '@/lib/vendors';
 import type { VendorServiceRow } from '@/lib/vendor-services';
 import { buildPerformanceHref, type MomentumParam } from './perf-links';
@@ -11,11 +10,9 @@ import { ServiceScopeSelectClient } from './service-scope-select-client';
  * cards sit ABOVE this control, so they are visibly outside its scope; the
  * funnel below it says in words that its other stages are shop-wide.
  *
- * FORM factor (owner: 44px targets, no horizontal scroll thrash):
- *   • ≤4 active services → accessible pill tablist (role=tablist/tab +
- *     aria-selected), server-rendered <Link>s (no client JS).
- *   • ≥5 active services → a native <select> (client wrapper) so the control
- *     stays compact instead of wrapping into many rows.
+ * FORM (owner 2026-10-30 "ONE SELECTOR FOR EVERY PAGE"; house rule "every
+ * choice is one dropdown"): ONE shared PickMenu at every count, 44px tall.
+ * It was a pill tablist (≤4 services) and a native <select> (5+).
  *
  * The page only renders this when there are 2+ active services (showSelector);
  * a single/zero-service vendor never sees it. Every option/link preserves the
@@ -81,73 +78,13 @@ export function ServiceScopeSelector({
   /** Active momentum window — preserved across every option. */
   momentum: MomentumParam;
 }) {
-  const options = buildScopeOptions(activeServices);
-  const usePills = activeServices.length <= 4;
-
-  if (!usePills) {
-    // Native select for 5+ services. Prepend the All-services option.
-    const selectOptions = [
-      { value: '', label: 'All services' },
-      ...options.map((o) => ({ value: o.id, label: o.label })),
-    ];
-    return (
-      <div className="pt-1">
-        <ServiceScopeSelectClient
-          activeServiceId={activeServiceId}
-          momentum={momentum}
-          options={selectOptions}
-        />
-      </div>
-    );
-  }
-
-  // Pill tablist for ≤4 services.
+  const options = [
+    { key: '', label: 'All services', href: buildPerformanceHref({ service: null, momentum }) },
+    ...buildScopeOptions(activeServices).map((o) => ({ key: o.id, label: o.label, href: buildPerformanceHref({ service: o.id, momentum }) })),
+  ];
   return (
-    <div
-      role="tablist"
-      aria-label="Filter performance by service"
-      className="flex flex-wrap gap-2 pt-1"
-    >
-      <ScopePill
-        label="All services"
-        href={buildPerformanceHref({ service: null, momentum })}
-        active={activeServiceId === null}
-      />
-      {options.map((o) => (
-        <ScopePill
-          key={o.id}
-          label={o.label}
-          href={buildPerformanceHref({ service: o.id, momentum })}
-          active={activeServiceId === o.id}
-        />
-      ))}
+    <div className="pt-1">
+      <ServiceScopeSelectClient value={activeServiceId ?? ''} options={options} />
     </div>
-  );
-}
-
-function ScopePill({
-  label,
-  href,
-  active,
-}: {
-  label: string;
-  href: string;
-  active: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      scroll={false}
-      role="tab"
-      aria-selected={active}
-      className="inline-flex min-h-[44px] items-center rounded-full border px-4 text-sm font-medium transition-colors"
-      style={
-        active
-          ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-          : { background: 'var(--m-paper)', color: 'var(--m-slate)', borderColor: 'var(--m-line)' }
-      }
-    >
-      {label}
-    </Link>
   );
 }

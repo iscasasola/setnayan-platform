@@ -37,7 +37,13 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROUTE = resolve(HERE, '..');
-const PAGE = readFileSync(join(ROUTE, 'page.tsx'), 'utf8');
+/*
+  📷 THE PAPIC PAGE IS GONE (owner 2026-10-26: "place that on home and remove that page"). Its banners moved, unchanged,
+  to `papic-outcome-banners.tsx`, and every save lands on Home › Today with the card open (`papicHomeHref`), where Home
+  hands its query to them. So `PAGE` is the banners file, and `HOME` is the page whose searchParams must carry each key.
+*/
+const PAGE = readFileSync(join(ROUTE, '_components', 'papic-outcome-banners.tsx'), 'utf8');
+const HOME = readFileSync(resolve(ROUTE, '..', '..', 'page.tsx'), 'utf8');
 
 /**
  * Strip comments — this guard must never pass on the prose describing the bug.
@@ -89,8 +95,9 @@ function keysFromSource(src: string, targetsThisPage: boolean): string[] {
   // Stopping at the closing backtick/quote instead is safe in the same
   // direction the old class was: it can only under-match, never over-match.
   const keys = new Set<string>();
-  const patterns = [/\/studio\/papic\?([^`'"]*)/g];
-  if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"]*)/g);
+  // 📷 Since 2026-10-26 the outcomes ride `papicHomeHref(eventId, `…`)` (and `withQuery(back, `…`)` where `back` is it).
+  const patterns = [/\/studio\/papic\?([^`'"]*)/g, /papicHomeHref\(eventId, `([^`]*)`/g];
+  if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"]*)/g, /withQuery\(back, `([^`]*)`/g);
   for (const m of patterns.flatMap((re) => [...src.matchAll(re)])) {
     for (const kv of m[1]!.split('&')) {
       const key = kv.split('=')[0]?.trim();
@@ -106,7 +113,7 @@ function outcomeKeys(): string[] {
   for (const name of readdirSync(ROUTE)) {
     if (!name.endsWith('actions.ts')) continue;
     const src = codeOnly(readFileSync(join(ROUTE, name), 'utf8'));
-    const targetsThisPage = /const back = `\/dashboard\/\$\{eventId\}\/studio\/papic`/.test(src);
+    const targetsThisPage = /const back = papicHomeHref\(eventId\)/.test(src);
     for (const k of keysFromSource(src, targetsThisPage)) keys.add(k);
   }
   return [...keys].sort();
@@ -126,6 +133,8 @@ const KEYS = outcomeKeys();
  * passed in and never shown — the exact defect the two tests below exist for.
  *   • connectedAccount — words inside another banner
  *   • eventId — the route's own id, always present, never an outcome
+ *   • appleIap — WHO reads (the iPhone app where Apple sells, 2026-10-21): it trims the web-price words of two
+ *     banners and is the request's own gate, never a param a redirect sends
  *
  * 🗑 SHRANK 2026-09-20. `papicRef` · `papicAmount` · `papicOrder` were the
  * three words inside the "Order received" banner, and that banner is gone: the
@@ -134,7 +143,7 @@ const KEYS = outcomeKeys();
  * subject — kept, it would silence the two tests below for a prop that could
  * come back as a real trigger.
  */
-const DETAIL_ONLY_PROPS = ['connectedAccount', 'eventId'];
+const DETAIL_ONLY_PROPS = ['connectedAccount', 'eventId', 'appleIap'];
 
 /** The `<StatusBanners … />` call site, and the component's bail-out condition. */
 function bannerCallSite(): string {
@@ -165,8 +174,12 @@ test('the scan finds the outcomes (a guard reading nothing passes everything)', 
   // banner, and the four Papic buys now redirect to /pay/<reference> instead of
   // coming back here to describe a payment page. Check `git log` for the mint
   // before believing any future drop is as innocent as this one.
+  //
+  // ⬇ 17 → 16 on 2026-10-26, the same kind of lowering: `uploads_ready` is DELETED, not missed. Its only minter,
+  // `claimUploadsCamera` (a form + redirect), is gone — + Add photos is one press now (`startAddingPhotos` answers on
+  // the sheet, never in the address; owner: "the turn on is not working as well fix it").
   assert.ok(
-    KEYS.length >= 17,
+    KEYS.length >= 16,
     `expected this route's redirect outcomes, found ${KEYS.length}: ${KEYS.join(', ')}`,
   );
   for (const known of ['style_set', 'style_error', 'faceTagging', 'guestCameras']) {
@@ -202,9 +215,17 @@ test('the scan still reads PAST a line break (the blindness that cost three outc
   );
 });
 
-test('🚨 every outcome arrives — it is in the page’s searchParams type', () => {
-  const type = region('searchParams: Promise<{', '}>;');
-  const missing = KEYS.filter((k) => !new RegExp(`\\b${k}\\?:`).test(type));
+test('🚨 every outcome arrives — Home’s searchParams carry it (its own type, or the banners’ key list)', () => {
+  // The type's own shape, not its line breaks: since 2026-10-30 (Home's ⚙ `?settings=1&row=` and the Date Finder's
+  // `?date=find`) it is written over several lines (`Promise<\n {…} & PapicOutcomes\n >`).
+  const at = HOME.search(/searchParams\?: Promise<\s*\{/);
+  assert.ok(at > 0, 'Home’s searchParams type moved');
+  const end = HOME.indexOf('PapicOutcomes', at);
+  assert.ok(end > at, 'Home’s searchParams no longer take the Papic outcomes');
+  const type = HOME.slice(at, end + 'PapicOutcomes'.length);
+  assert.match(type, /& PapicOutcomes/, 'Home’s searchParams no longer take the Papic outcomes');
+  const list = region('export const PAPIC_OUTCOME_KEYS = [', '] as const;');
+  const missing = KEYS.filter((k) => !new RegExp(`\\b${k}\\?:`).test(type) && !list.includes(`'${k}'`));
   assert.deepEqual(
     missing,
     [],
@@ -224,9 +245,10 @@ test('🚨 every outcome is CONSUMED — passed to something that can show it', 
   // OWN body further down, so deleting the page's `guestCameras={guestCameras}`
   // prop still passed: the component's internal `{guestCameras ? …}` satisfied
   // the search. The guard was reading the wrong half of the wiring.
-  const pageRender = region('return (', 'function StatusBanners');
+  const pageRender = region('export function PapicOutcomeBanners', 'function StatusBanners');
   const camel = (k: string) => k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-  const dropped = KEYS.filter((k) => !new RegExp(`\\b${camel(k)}\\b`).test(pageRender));
+  // Handed to the banners (`search.<key>` → its prop), or read by Home itself (`papic_pool_error` → the buy sheet).
+  const dropped = KEYS.filter((k) => !new RegExp(`\\b${camel(k)}\\b`).test(pageRender) && !new RegExp(`search\\.${k}\\b`).test(HOME));
   assert.deepEqual(
     dropped,
     [],
@@ -246,9 +268,12 @@ test('the detail-only exemption list is exactly what it claims', () => {
   // not a quiet way to make a red run green.
   assert.deepEqual(
     [...DETAIL_ONLY_PROPS].sort(),
-    ['connectedAccount', 'eventId'],
+    ['appleIap', 'connectedAccount', 'eventId'],
     'the exemption list changed — every entry must be a prop that DETAILS a banner, never one that triggers it',
   );
+  // 🍎 `appleIap` (2026-10-21) is the request's own gate (`getIapGate().iap`) — never a param any redirect here sends.
+  assert.ok(![...KEYS].includes('appleIap'), 'appleIap arrives as a URL outcome — it is a trigger, not a detail');
+  assert.match(HOME, /<PapicOutcomeBanners eventId=\{eventId\} search=\{search\} appleIap=\{iap\} \/>/, 'Home does not hand the banners the gate');
 });
 
 test('🚨 nothing handed to the banner dies at the bail-out', () => {

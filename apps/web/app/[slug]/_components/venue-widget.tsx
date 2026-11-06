@@ -1,11 +1,11 @@
 import type { CSSProperties } from 'react';
-import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
-import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue } from '@/lib/event-venues';
+import { VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 import type { ScheduleBlockRow } from '@/lib/print-pieces';
-import { PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venueStopTimes } from './venue-styles';
+import { ParishDrawingFigure, PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venuePicture, venueStopTimes } from './venue-styles';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
@@ -118,8 +118,9 @@ function legacyVenues(event: EventRow): EventVenue[] {
 }
 
 /**
- * 🔆 THE DIRECTIONS CHIPS STAND ON THE PLATE (owner 2026-09-30, "I cannot see the
- * venues properly"). `NavLinksRow` paints its chips `bg-cream` — the PAGE ground —
+ * 🔆 THE DIRECTIONS STAND ON THE PLATE (owner 2026-09-30, "I cannot see the
+ * venues properly"). The directions (`NavLinksRow`'s chips then, `DirectionsMenu`'s ▾ since 2026-10-21) paint
+ * `bg-cream` — the PAGE ground —
  * with the PLATE's ink. Wherever the page and the plate differ in lightness (a
  * dark background under a light mood-board plate, a light background under a
  * dark theme's plate) that pair measured 1.0–1.1 : 1. Re-grounding `--color-cream`
@@ -131,6 +132,10 @@ const VENUE_CHIP_GROUND = { '--color-cream': 'var(--color-paper-deep)' } as CSSP
 
 function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventRow; ownMap: boolean }) {
   const hasCoords = venue.latitude != null && venue.longitude != null;
+  // ⛪ The parish's drawing (`lib/parish-drawings.ts`), when the couple PICKED
+  // it, takes the photo's place: drawn on the plate, above the name — one
+  // picture per card. Never on its own (owner 2026-10-16).
+  const { drawing, photoUrl } = venuePicture(venue);
   return (
     <div data-venue-role={venue.role}>
       {/* 🏛📷 THE VENUE'S PHOTO (owner 2026-09-30): the booked supplier's own
@@ -139,11 +144,11 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
           a picture of the place tells a guest no more than its name, which they
           already read. With no photo there is NO band — the old tinted gradient
           read as a picture that failed to load. */}
-      {venue.photoUrl ? (
+      {photoUrl ? (
         <figure className="relative aspect-[16/9] overflow-hidden border border-b-0 border-ink/10 bg-ink/5" data-venue-photo="">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={venue.photoUrl}
+            src={photoUrl}
             alt={venue.name ? `${venue.name}` : 'The venue'}
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover"
@@ -161,9 +166,11 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
           // say "the venue" rather than the component's vendor-shaped default.
           label={venue.name ?? 'the venue'}
           flush
+          deferUntilNear
         />
       ) : null}
       <div className="pahina-plate space-y-3" style={VENUE_CHIP_GROUND}>
+        {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
         {/* The label is words a guest reads, so it takes the plate's ink — the
             gild is a decor metal and measured 1.76 : 1 here (cale-ice, 2026-09-30). */}
         <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/80">
@@ -189,19 +196,14 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
         {venue.address ? (
           <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p>
         ) : null}
-        {/* ⚠ THE DIRECTIONS ROW GOES WITH THE ADDRESS. `NavLinksRow` falls back
+        {/* ⚠ THE DIRECTIONS GO WITH THE ADDRESS. `DirectionsMenu` falls back
             to a maps search when there is no pin, so leaving it mounted for a
             withheld venue would hand out a search for the venue by name — the
-            withheld fact, one tap later. */}
-        {event.venue_withheld ? null : (
-          <NavLinksRow
-            latitude={venue.latitude ?? null}
-            longitude={venue.longitude ?? null}
-            addressFallback={venueSearchQuery(venue)}
-            label="Get directions"
-            compact
-          />
-        )}
+            withheld fact, one tap later.
+            ▾ ONE DROPDOWN, NOT THREE CHIPS (controller ruling 2026-10-21 from the owner's "any set of choices is a
+            dropdown"): Google Maps · Waze · Apple Maps are the styled cards' own `DirectionsMenu`, reused — it was
+            three side-by-side chips here, 26 px tall (the Hub button walk). */}
+        {event.venue_withheld ? null : <DirectionsMenu venue={venue} />}
       </div>
     </div>
   );

@@ -90,6 +90,8 @@ import type { BottomNavItem, BottomNavMenu, NavBadgeTone } from './types';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
+import { useKeyboardRide } from '@/lib/keyboard-ride';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -108,20 +110,33 @@ type AccordionProps = {
 
 type Props = FlatProps | AccordionProps;
 
-function matchesPath(pathname: string, item: BottomNavItem): boolean {
-  // Exact-only extras first (activeMatchAlsoExact) — lets a merged hub tab
-  // combine an exact landing (`/admin`) with prefix umbrellas without
-  // flipping every match to exact via activeMatchExact.
+/**
+ * Which bar tab a URL lights — EXPORTED (2026-10-21, the supplier bar Today ·
+ * Customers · Shop · Hub) so a test can ask the bar's OWN rule which tab a route lights,
+ * instead of re-typing the rule beside it — a second copy of a matcher is how a
+ * guard agrees with itself while the bar disagrees. Nothing about how it matches
+ * changed. ⚠ It stays IN this file on purpose: a module of its own is another
+ * entry in the Maker's shared first load, which sat AT its gzip ceiling on
+ * 2026-10-21 (507.0 of 507.0 KB on #6747; main itself measured 507.1 —
+ * `scripts/check-bundle-size.mjs`).
+ *
+ * Exact-only extras first (`activeMatchAlsoExact`) — lets a merged hub tab
+ * combine an exact landing (`/admin`) with prefix umbrellas without flipping
+ * every match to exact via `activeMatchExact`. A prefix matches itself or
+ * itself + '/', so `/budgets` never mis-matches `/budget`.
+ */
+export function bottomNavItemMatches(
+  pathname: string,
+  item: Pick<BottomNavItem, 'activeMatch' | 'activeMatchExact' | 'activeMatchAlsoExact'>,
+): boolean {
   if (item.activeMatchAlsoExact?.some((p) => pathname === p)) return true;
-  const matches = Array.isArray(item.activeMatch)
-    ? item.activeMatch
-    : [item.activeMatch];
+  const matches = Array.isArray(item.activeMatch) ? item.activeMatch : [item.activeMatch];
   return item.activeMatchExact
     ? matches.some((prefix) => pathname === prefix)
-    : matches.some(
-        (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
-      );
+    : matches.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
 }
+
+const matchesPath = bottomNavItemMatches;
 
 function useIsActive(pathname: string) {
   return useCallback(
@@ -714,17 +729,49 @@ export function useInBottomDock(): boolean {
  * turns into the page's bottom padding (`[data-shell-main]`), so the last row
  * of content always clears the dock whether or not a strip is up.
  *
- * 🔒 The fill is the bar's locked frosted paper (`rgba(248, 246, 240, 0.92)`,
- * NAV-9 — the white press light reads against it). It moved from the pill to
+ * 🔒 The fill is the bar's locked frosted paper (`--sn-dock-bg`, which is
+ * `rgba(248, 246, 240, 0.92)` in light — NAV-9, the white press light reads
+ * against it; `lint-bottom-nav.mjs` pins that light value in globals.css).
+ * 🌗 It is a TOKEN so dark has a pair (dark B1, 2026-10-23): painted inline,
+ * the bar stayed light under html.dark and its labels read 1.15:1. It moved from the pill to
  * the dock so the strip and the bar are one surface. No border: depth (blur +
  * shadow) separates chrome from page (house style 2026-09-24).
  *
  * The view-transition name `sn-bottomnav` sits on THIS box (globals.css), so
  * the strip rides above the sliding page with the bar instead of vanishing
  * under it for 320ms on every tab press.
+ *
+ * ↔ AND IT SLIDES WHEN THE BAR CHANGES SET (owner 2026-10-22: account → Shop,
+ * the account icons leave left and the shop's enter from the right; account →
+ * an event, the reverse way). The listener is fetched AFTER mount with a plain
+ * `import()` — never `next/dynamic`, whose loadable runtime once put the Maker
+ * over its ceiling (customer-bottom-nav.tsx) — so it is in no first load.
+ * `bar-set-slide.tsx` has the whole story; `lib/bar-set.ts` the direction map.
  */
-export function BottomDock({ children }: { children: ReactNode }) {
+type Slide = typeof import('./bar-set-slide').BarSetSlide;
+export function BottomDock({
+  children,
+  boundary = 'lg',
+}: {
+  children: ReactNode;
+  /**
+   * Where the phone dock stops being drawn — the same answer the shell gives
+   * (`shell-boundary.tsx`). `'tab'` (701) is the couple's event tree only
+   * (owner 2026-10-19); every other doorway keeps the shipped `lg`.
+   */
+  boundary?: ShellBoundary;
+}) {
   const dockRef = useRef<HTMLDivElement>(null);
+  const [SetSlide, setSetSlide] = useState<Slide | null>(null);
+  useEffect(() => {
+    void import('./bar-set-slide').then((m) => setSetSlide(() => m.BarSetSlide));
+  }, []);
+  /* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): the
+     dock listens to the one keyboard reading (`lib/keyboard-ride.ts`) — listening is what publishes
+     `html[data-keyboard="open"]`, under which the bar slides away and cannot be focused (globals.css) — on every page
+     that has a bar, whatever field took the focus. Its clearance (`--sn-bottomdock-h`) stays ITS OWN height; a row
+     that stood on it stands on the keyboard through `--sn-ride-h` instead. */
+  useKeyboardRide();
   useEffect(() => {
     const el = dockRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -749,16 +796,21 @@ export function BottomDock({ children }: { children: ReactNode }) {
       <div
         ref={dockRef}
         data-bottom-dock
-        className="fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur lg:hidden"
+        className={
+          boundary === 'tab'
+            ? 'fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur tab:hidden'
+            : 'fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur lg:hidden'
+        }
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
-          background: 'rgba(248, 246, 240, 0.92)', // --m-paper-2 @ 92% alpha
+          background: 'var(--sn-dock-bg)', // the frosted paper @ 92% — dark pair in globals.css
           // Cast UPWARD: the page is above the dock, not below it.
           boxShadow: '0 -10px 30px -14px rgba(30, 34, 41, 0.28)',
         }}
       >
         {children}
       </div>
+      {SetSlide ? <SetSlide /> : null}
     </BottomDockContext.Provider>
   );
 }
@@ -846,7 +898,7 @@ function TravelPill({ index, colW }: { index: number; colW: number }) {
           marginInline: 'auto',
           width: 'min(52px, calc(100% - 8px))',
           borderRadius: 'var(--m-r-full)',
-          background: 'rgba(30, 34, 41, 0.15)', // --m-ink @ 15% — bolder so the active tab reads at a glance
+          background: 'var(--sn-dock-pill)', // ink @ 15% — bolder so the active tab reads at a glance
         }}
       />
     </span>
@@ -888,7 +940,7 @@ function PressFlash({
           width: 'min(64px, calc(100% - 2px))',
           height: 90,
           borderRadius: 'var(--m-r-full)',
-          background: 'rgba(255, 255, 255, 0.95)',
+          background: 'var(--sn-dock-press)', // white @ 95% in light; a softer bloom in dark
           filter: 'blur(12px)',
           opacity: 0,
           transform: 'translate(-50%, -50%)',
@@ -896,6 +948,11 @@ function PressFlash({
       />
     </span>
   );
+}
+
+/** 🔦 A tab's spotlight anchor: `tab-` + the last path segment (`/dashboard/<id>/guests` → `tab-guests`). */
+function tabTourToken(href: string): string {
+  return 'tab-' + (href.split(/[?#]/)[0]!.split('/').filter(Boolean).pop() ?? '');
 }
 
 /* ── flat-path tab cell (unchanged) ────────────────────────────────────── */
@@ -925,6 +982,7 @@ function BottomNavTab({
         href={item.href}
         aria-current={active ? 'page' : undefined}
         aria-haspopup={item.onSelect ? 'dialog' : undefined}
+        data-tour={tabTourToken(item.href)}
         onClick={
           item.onSelect
             ? (e) => {

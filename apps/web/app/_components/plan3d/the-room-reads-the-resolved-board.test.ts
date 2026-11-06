@@ -176,6 +176,43 @@ test("an explicit room-dressing override still wins — which is also MB12's fre
   assert.equal(p.ambient, '#0B0C10');
 });
 
+/* 🎨 THE PALETTE'S OTHER PARTS REACH THE ROOM (owner 2026-10-19, DECISION_LOG "PALETTE + INSPIRATION AS ONE LIST": "yes all
+   circles" — and these colours feed the 3D Plan). Stage · Walls · Ceiling · Tunnel · Ribbons & candles · Cake: the couple's
+   own colour for each reaches the room where it draws that part, and an UNSET part reaches nothing — so every seeded
+   board's room is the object it always was (the gates above stay byte-identical). The bouquets have no 3D object. */
+const PART_KEYS = [
+  ['stage', 'stage'],
+  ['walls', 'walls'],
+  ['ceiling', 'ceiling'],
+  ['tunnel', 'tunnel'],
+  ['ribbons_candles', 'candles'],
+  ['cake', 'cake'],
+] as const;
+test('the Palette’s other parts reach the room only when the couple sets them', () => {
+  for (const reception of SEEDED.slice(0, 400)) {
+    for (const style of STYLES) {
+      const p = resolveRoomPalette({ reception, palette_style: style } as RolePalette) as Record<string, unknown>;
+      for (const [, k] of PART_KEYS) assert.equal(k in p, false, `an unset ${k} reached the room`);
+    }
+  }
+  const room_dressing = { stage: '#0A0B01', walls: '#0A0B02', ceiling: '#0A0B03', tunnel: '#0A0B04', ribbons_candles: '#0A0B05', cake: '#0A0B06' };
+  for (const style of STYLES) {
+    for (const rp of [{ room_dressing }, { reception: ['#A10001', '#A20002', '#A30003', '#A40004', '#A50005'], palette_style: style, room_dressing }]) {
+      const p = resolveRoomPalette(rp as RolePalette) as Record<string, unknown>;
+      for (const [field, k] of PART_KEYS) assert.equal(p[k], room_dressing[field], `${field} did not reach the room as ${k}`);
+    }
+  }
+  /* …and the room DRAWS each where it draws that part: the stage slab on all three surfaces, the shell, the decor's
+     drapes · wall treatments · photo wall · entrance (walls), the hung lights (ceiling), the tunnel, the candles, the cake. */
+  for (const f of SURFACES) assert.match(stripComments(readFileSync(join(APP, f), 'utf8')), /color=\{palette\.stage \?\? palette\.accent\}/, `${f}: the stage slab ignores the couple’s Stage`);
+  const decor = stripComments(readFileSync(join(APP, '_components/plan3d/venue-decor.tsx'), 'utf8'));
+  for (const [piece, p] of [['Chandeliers', 'ceilingP'], ['StringLights', 'ceilingP'], ['Lanterns', 'ceilingP'], ['DrapedBackdrop', 'wallsP'], ['WallTreatment', 'wallsP'], ['PhotoWall', 'wallsP'], ['EntranceArch', 'tunnelP'], ['ColdSparkTunnel', 'tunnelP'], ['Centerpieces', 'candleP']] as const) {
+    assert.match(decor, new RegExp(`<${piece}\\b[^>]*palette=\\{${p}\\}`), `${piece} is not handed the couple’s part colour`);
+  }
+  assert.match(decor, /const palette = given\.walls \? \{ \.\.\.given, wall: given\.walls \} : given;/, 'the shell ignores the couple’s Walls');
+  assert.match(stripComments(readFileSync(join(APP, '_components/plan3d/venue-objects.tsx'), 'utf8')), /color=\{palette\.cake \?\? '#f7f2ea'\}/, 'the cake ignores the couple’s Cake');
+});
+
 /* ══ 2 · THE DIFF REPORT — WHAT ACTUALLY CHANGED, COUNTED ═════════════════ */
 
 const DRESSED_FIELDS = ['table', 'ambient', 'chairs', 'florals'] as const;
@@ -545,7 +582,10 @@ test('all three surfaces resolve their materials through resolveRoomPalette', ()
 });
 
 test('all three surfaces dress their people from the palette section 02 shows', () => {
-  for (const rel of SURFACES) {
+  /* The couple lab's people are dressed by its PAGE (`seating/lab/page.tsx` resolves every guest's attire colour) — the
+     room component's own display palette fed only the old Build panel's concept illustration, gone since the room
+     became view-only (owner 2026-10-30). So for the lab it is the page that must read the display palette. */
+  for (const rel of SURFACES.map((f) => f.replace('_components/seating-lab-3d.tsx', 'page.tsx'))) {
     const src = stripComments(readFileSync(join(APP, rel), 'utf8'));
     assert.match(
       src,
@@ -564,9 +604,9 @@ test('the raw palette never reaches the attire chain in the couple lab or the gu
   const lab = stripComments(
     readFileSync(join(APP, 'dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx'), 'utf8'),
   );
-  assert.match(lab, /bride: hudDisplayPalette\.bride\?\.\[0\]/);
-  assert.match(lab, /guestPalette: hudDisplayPalette\.guest \?\? \[\]/);
+  // The view-only room draws no concept illustration (owner 2026-10-30); it must still never dress anyone raw.
   assert.doesNotMatch(lab, /guestPalette: rolePalette\.guest/);
+  assert.doesNotMatch(lab, /resolveAttirePaletteColor\([^)]*rolePalette/);
 
   const walk = stripComments(readFileSync(join(APP, '[slug]/venue/_components/guest-venue-3d.tsx'), 'utf8'));
   assert.match(walk, /guestAttireColor\(attirePalette,/);

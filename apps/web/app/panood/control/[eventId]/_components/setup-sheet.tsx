@@ -118,7 +118,7 @@ export function SetupSheet({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <Sheet open={open} onClose={close} labelledById="lsc-setup-heading" title="Setup" wide>
+    <Sheet open={open} onClose={close} labelledById="lsc-setup-heading" title="Setup" wide backCloses={false}>
       {/* The accessible name is the <Sheet> header's own "Setup" label, which
           already carries `id="lsc-setup-heading"` — do NOT render a second
           element with that id here. */}

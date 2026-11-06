@@ -3,7 +3,7 @@
  *   fix 11 — the empty Guest list carries ONE button, "Add a guest", the same
  *            sheet the header + opens;
  *   fix 21 — the add doors say what they do in plain words:
- *            From your people · Add with details · Import a file · Paste many names.
+ *            From your people · Import a file (owner 2026-10-27: search is the add).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,7 +33,7 @@ test('the empty list: one line, one button, and it opens the header + sheet', ()
 test('the add doors speak plainly', () => {
   const capture = strip(read('_components/capture-bar.tsx'));
   const doors = capture.slice(capture.indexOf('export function AddDoors'));
-  for (const words of ['From your people', 'Add with details', 'Import a file', 'Paste many names']) {
+  for (const words of ['From your people', 'Import a file']) {
     assert.ok(doors.includes(`'${words}'`), `the add doors lost "${words}"`);
   }
   for (const old of ['Full add form', 'Import CSV', 'Quick add list', 'Import guests from a file']) {

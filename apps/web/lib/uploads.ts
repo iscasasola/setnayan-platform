@@ -11,7 +11,9 @@ import {
   R2_BUCKETS,
   type R2BucketKey,
   type R2BucketName,
+  isR2Configured,
   publicUrlFor,
+  r2StableMediaGet,
   requireR2Client,
 } from '@/lib/r2';
 
@@ -281,12 +283,35 @@ export async function presignDisplayUrl(
   key: string,
   ttlSeconds = 60 * 60 * 24,
 ): Promise<string> {
+  // 📸 The public media bucket: one address per signing window + Cache-Control, so a browser keeps the file
+  // (`r2StableMediaGet`). Every PRIVATE bucket keeps exactly what it had: a fresh SDK signature, the caller's TTL.
+  if (bucket === R2_BUCKETS.media) return r2StableMediaGet(key, ttlSeconds);
   const client = requireR2Client();
   return await getSignedUrl(
     client,
     new GetObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn: ttlSeconds },
   );
+}
+
+/**
+ * 📸 `displayUrlForStoredAsset`, synchronously — for the paths that resolve a guest page's media without awaiting
+ * (the theme ground a guest layout wears, `resolveThemeGround`). Same fence (`publicBucketServeRef`: the public media
+ * bucket only, legacy URLs verbatim), and the SAME address the async signer hands out for that ref, because both go
+ * through `r2StableMediaGet`.
+ *
+ * Signed on the bucket's own host, never the `pub-….r2.dev` development host, which Cloudflare rate-limits and some
+ * networks block (#6691: the cover vanished on a guest's laptop for exactly that). Only where R2 has no credentials
+ * at all (the lab) does it fall back to the public address, so a lab page still draws something.
+ */
+export function stableDisplayUrlForStoredAsset(value: string | null | undefined): string | null {
+  const servable = publicBucketServeRef(value);
+  if (!servable) return null;
+  const ref = parseStoredAsset(servable);
+  if (!ref) return null;
+  if (ref.kind === 'legacy_url') return ref.url;
+  if (!isR2Configured()) return publicUrlForStoredAsset(servable);
+  return r2StableMediaGet(ref.key);
 }
 
 /**

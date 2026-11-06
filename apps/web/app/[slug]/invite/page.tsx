@@ -44,7 +44,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config, std_invitation_launch_date`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -114,11 +114,16 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
 
   // Resolve the event's current join token server-side (it never appears in the
   // branded URL). Honors revoked_at / expires_at so rotation still closes the link.
-  const { data: tokenRow } = await admin
+  const { data: tokenRow, error: tokenError } = await admin
     .from('event_join_tokens')
     .select('token, revoked_at, expires_at')
     .eq('event_id', event.event_id)
     .maybeSingle();
+  // 🔌 A refused token read is not a revoked link — the same rule as the event read above (reads-are-honest,
+  // 2026-11-02 audit #13): "This invite link isn't valid" sends a guest back to the couple for a link that works.
+  if (tokenError) {
+    throw new Error(`invite: could not read the join link for "${slug}": ${tokenError.message}`);
+  }
 
   const token = tokenRow?.token as string | undefined;
   const tokenValid =
@@ -150,6 +155,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
       profile: await resolveProfile(event.event_type as string),
       eventDate: event.event_date as string | null,
       eventEndDate: (event.event_end_date as string | null) ?? null,
+      invitationLaunchDate: (event.std_invitation_launch_date as string | null) ?? null,
       venueTz: eventTimezoneFromCoords(
         event.venue_latitude as number | null,
         event.venue_longitude as number | null,

@@ -20,6 +20,11 @@
  *   • `ninong` → 'principal_sponsor_ninong'; `ninang` → '..._ninang'
  *   • `sponsor`                              → roleHint 'principal_sponsor_ninong'
  *                                              (owner 2026-09-15; see below)
+ *   • `+Word` naming a role THIS EVENT OFFERS → roleHint (owner 2026-11-01:
+ *     "Mr. Roman Atkinson +2 +Groomsmen" → Mr. · Roman Atkinson · +2 ·
+ *     Groomsman). Singular or plural, any casing, its label or the couple's own
+ *     word for it (`roleWordFor`). A `+Word` that names no offered role is a
+ *     GROUP, exactly like `#Word` — never a name word.
  *   • everything else                       → a name word (word[0]=first, rest=last)
  *
  * The parser is deliberately schema-DUMB: it returns `roleHint` as a GuestRole
@@ -33,8 +38,9 @@
  * original casing.
  */
 
-import type { GuestRole, GuestSide } from './guests';
+import { ROLE_LABELS, type GuestGroupCategory, type GuestRole, type GuestSide } from './guests';
 import { parsePersonName } from './person-name-parse';
+import type { RoleNames } from './role-names';
 
 /** The structured draft a single Add-mode line parses into. */
 export type ParsedGuestDraft = {
@@ -57,11 +63,93 @@ export type ParsedGuestDraft = {
   /** A role candidate from `vip` / `sponsor|ninong|ninang`; null otherwise.
    *  NOT validated against the event's role set — the caller does that. */
   roleHint: GuestRole | null;
+  /** The add card's standard group (Family · Friends · …) — set by the caller, never by the parser. Absent = 'other'. */
+  groupCategory?: GuestGroupCategory | null;
 };
 
 const SIDE_TOKENS = new Set<GuestSide>(['bride', 'groom', 'both']);
 const SPONSOR_TOKENS = new Set(['sponsor', 'ninong', 'ninang']);
 const PLUS_RE = /^\+(\d+)$/;
+/** `+Word` — a role word or, when it names no offered role, a group. Starts with a letter so `+1` stays plus-ones. */
+const PLUS_WORD_RE = /^\+(\p{L}[\p{L}\p{N}'’_-]*)$/u;
+
+/** "Groom's Crew" → "groomscrew": letters and digits only, lower case — how a typed `+Word` and a role's words meet. */
+function compact(s: string): string {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/**
+ * The words a role answers to, in two tiers. FIRST its own name — the label, the label without its "(…)", its key, and
+ * the couple's own word for it ("Bride's Crew"); THEN the parts — each "(…)" and each "a / b" half ("Ninong",
+ * "Lector", "Officiant"). A part only counts when no role's own name matched, so "+Officiant" is the Officiant even
+ * on an event that also offers "Imam / Qadi (Officiant)".
+ */
+function wordsForRole(role: GuestRole, names: RoleNames | null | undefined): [own: string[], parts: string[]] {
+  const label = ROLE_LABELS[role] ?? role;
+  const bare = label.replace(/\(.*?\)/g, '');
+  const own = new Set<string>([compact(label), compact(role), compact(bare)]);
+  const mine = names?.[role];
+  if (mine?.one) own.add(compact(mine.one));
+  if (mine?.many) own.add(compact(mine.many));
+  const parts = new Set<string>();
+  for (const m of label.matchAll(/\(([^)]*)\)/g)) parts.add(compact(m[1] ?? ''));
+  for (const half of bare.split('/')) parts.add(compact(half));
+  own.delete('');
+  parts.delete('');
+  return [[...own], [...parts]];
+}
+
+/** "groomsmen" → groomsman, "bridesmaids" → bridesmaid, "ninongs" → ninong: the singular a plural word may stand for. */
+function singulars(w: string): string[] {
+  const out = [w];
+  if (w.endsWith('men')) out.push(`${w.slice(0, -3)}man`);
+  if (w.endsWith('ies')) out.push(`${w.slice(0, -3)}y`);
+  if (w.endsWith('es')) out.push(w.slice(0, -2));
+  if (w.endsWith('s')) out.push(w.slice(0, -1));
+  return out;
+}
+
+/**
+ * The offered role a `+Word` names, or null. A word that could mean TWO offered roles ("+PrincipalSponsor" is both
+ * the Ninong and the Ninang) names neither — the parser never guesses between two roles.
+ */
+export function roleWordFor(
+  word: string,
+  offeredRoles: readonly GuestRole[],
+  names?: RoleNames | null,
+): GuestRole | null {
+  const typed = compact(word);
+  if (!typed) return null;
+  const tiers = [new Map<string, Set<GuestRole>>(), new Map<string, Set<GuestRole>>()];
+  for (const role of offeredRoles) {
+    wordsForRole(role, names).forEach((words, tier) => {
+      for (const w of words) {
+        const set = tiers[tier]!.get(w) ?? new Set<GuestRole>();
+        set.add(role);
+        tiers[tier]!.set(w, set);
+      }
+    });
+  }
+  for (const index of tiers) {
+    for (const cand of singulars(typed)) {
+      const hit = index.get(cand);
+      if (hit?.size === 1) return [...hit][0]!;
+      if (hit) return sponsorWord(typed, offeredRoles);
+    }
+  }
+  return sponsorWord(typed, offeredRoles);
+}
+
+/** "+Sponsor" / "+PrincipalSponsors" — the same call as the bare `sponsor` word below (owner 2026-09-15: a sponsor is
+ *  the NINONG, a Ninang one dropdown away), when the event offers the Ninong. */
+function sponsorWord(typed: string, offeredRoles: readonly GuestRole[]): GuestRole | null {
+  const isSponsor = singulars(typed).some((w) => w === 'sponsor' || w === 'principalsponsor');
+  return isSponsor && offeredRoles.includes('principal_sponsor_ninong') ? 'principal_sponsor_ninong' : null;
+}
+
+/** Every role a draft can be given — used when a caller does not say which roles its event offers (the server still
+ *  validates the hint against the event's set, `runAddSingleGuest`). */
+const ALL_ROLES = Object.keys(ROLE_LABELS) as GuestRole[];
 
 /**
  * Parse a raw capture-bar line into a structured guest draft.
@@ -74,7 +162,17 @@ const PLUS_RE = /^\+(\d+)$/;
  */
 export function parseGuestInput(
   raw: string,
-  { defaultSide = 'both' }: { defaultSide?: GuestSide } = {},
+  {
+    defaultSide = 'both',
+    offeredRoles = ALL_ROLES,
+    roleNames = null,
+  }: {
+    defaultSide?: GuestSide;
+    /** The roles THIS event offers — a `+Word` is a role only when it names one of these; otherwise it is a group. */
+    offeredRoles?: readonly GuestRole[];
+    /** The couple's own role words (`events.role_names`), so "+GroomsCrew" reads as the role they renamed. */
+    roleNames?: RoleNames | null;
+  } = {},
 ): ParsedGuestDraft {
   const str = (raw ?? '').trim();
 
@@ -104,6 +202,17 @@ export function parseGuestInput(
         // (`guests.plus_one_count`), so the number typed is the number saved.
         const n = Number.parseInt(plusMatch[1] ?? '', 10);
         plusOnes = Number.isFinite(n) ? Math.min(4, Math.max(0, n)) : 0;
+        continue;
+      }
+
+      // ⚖ Owner 2026-11-01: "+Groomsmen" is the ROLE when this event offers it; any other `+Word` is a group, like
+      // `#Word`. Digits never reach here (`+2` is plus-ones above).
+      const plusWord = w.match(PLUS_WORD_RE);
+      if (plusWord) {
+        const word = plusWord[1] ?? '';
+        const role = roleWordFor(word, offeredRoles, roleNames);
+        if (role) roleHint = role;
+        else if (!groups.includes(word)) groups.push(word);
         continue;
       }
 

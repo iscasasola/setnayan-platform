@@ -10,6 +10,8 @@ import {
   sortMoments,
   loveStoryScenes,
   mayAddMoment,
+  momentHasBothVoices,
+  momentReadLine,
   type LoveStoryMoment,
 } from '@/lib/love-story-moments';
 import { AddMomentLabel, MomentSheet } from './moment-sheet';
@@ -19,7 +21,8 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
-import { MomentOrderCards } from './moment-order-cards';
+import { MomentOrderCards } from './moment-order-cards-lazy';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -56,6 +59,11 @@ export type LoveStoryBookProps = {
   /** 💎 Pro is usable because it is being TRIED (no Event Hub Pro yet) — Apply asks. */
   tryingPro?: boolean;
   storeShell: boolean;
+  /**
+   * 🍎 The iPhone app where Apple sells Pro at Apply (`getIapGate().iap`): Pro is TRIED there as on the web, so the
+   * ◆ mark says so — never a price or a link (those keep `storeShell`). Absent = false.
+   */
+  appleIap?: boolean;
   proHref: string;
   proPrice: string | null;
   /** `?pro=` from a refused write — the line is drawn at the top. */
@@ -63,6 +71,8 @@ export type LoveStoryBookProps = {
   /** Is the Love Story section itself off the Event Hub (widget mode hidden)? */
   sectionHidden: boolean;
   mediaUrls: Readonly<Record<string, string>>;
+  /** Photos that were picked from ANOTHER event: ref → that event's name ('' when it could not be read). */
+  photoFrom?: Readonly<Record<string, string>>;
   action: (formData: FormData) => void | Promise<void>;
   /** The "Pick from our events" block, drawn by the page (it reads other events). */
   pickSlot: React.ReactNode;
@@ -74,7 +84,7 @@ export type LoveStoryBookProps = {
    */
   inMaker?: boolean;
   /**
-   * 🧭 The new Maker's Studio (`makerStagesStudioEnabled`): the moments as cards
+   * 🧭 The new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25): the moments as cards
    * on top — photo · year · title · first line · grip — dragged into the
    * couple's own order (`MomentOrderCards`, owner 2026-10-06/07).
    */
@@ -126,7 +136,20 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
   );
   let chapterNo = 0;
 
+  /* ✋ STUDIO (the new Maker, `stagesStudio`, the one Maker since 2026-10-25) — the prototype's screen IS the cards:
+     one band per moment, opened in place, dragged into the couple's own order, + Add a moment. */
   return (
+    <>
+    {p.studio ? (
+    <MomentOrderCards
+      action={p.action}
+      moments={sortMoments(p.moments)}
+      mediaUrls={p.mediaUrls}
+      photoFrom={p.photoFrom}
+      sheet={sheetProps}
+      add={canAdd ? { can: true } : { can: false, line: proLine }}
+    />
+    ) : (
     <div className="-mx-4 bg-[color:var(--ls-canvas)] px-4 pb-24 text-[color:var(--ls-ink)] sm:-mx-6 sm:px-6 lg:rounded-md">
       {/* ── THE BAR ── */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--ls-rule)] py-4">
@@ -200,22 +223,16 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <div role="status" data-love-story-refused={p.refused} className="mx-auto mt-6 max-w-md">
             <p className="text-[14px]">
               {p.refused === 'photos'
-                ? 'Your words are free — photos come with Event Hub Pro.'
+                ? p.storeShell
+                  ? /* 🍎 The iPhone app names no paid extra (lib/store-shell.ts). */
+                    'Your words are free. Photos are not included in the app.'
+                  : 'Your words are free — photos come with Event Hub Pro.'
                 : `Your first ${FREE_MOMENT_CAP} stories are free.`}
             </p>
             <div className="flex justify-center">{proLine}</div>
           </div>
         ) : null}
       </section>
-
-      {/* ✋ STUDIO — the moments as cards, dragged into the couple's own order. */}
-      {p.studio ? (
-        <MomentOrderCards
-          moments={sortMoments(p.moments)}
-          mediaUrls={p.mediaUrls}
-          action={p.action}
-        />
-      ) : null}
 
       {/* ── YEARS STRIP (phone / tablet) ── */}
       <nav aria-label="Chapters" className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto bg-[color:var(--ls-canvas)] px-4 py-2 lg:hidden">
@@ -290,10 +307,12 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                           </p>
                           {m.title ? <h3 data-moment-title-shown="" className="mt-2 font-pahina text-2xl font-medium">{m.title}</h3> : null}
                           <p className="mt-2 max-w-prose whitespace-pre-line font-pahina text-2xl font-light leading-snug">
-                            {m.line}
+                            {/* 🗣 Only the voices that wrote, named; none, the line told together (owner 2026-10-17). */}
+                            {momentReadLine(m, sheetProps.partners)}
                           </p>
                           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--ls-muted)]">
-                            {m.added_by ? <span>Added by {m.added_by}</span> : null}
+                            {/* "Added by" hides once both voices are written — the names say who wrote what. */}
+                            {m.added_by && !momentHasBothVoices(m) ? <span>Added by {m.added_by}</span> : null}
                             {(m.media ?? []).length === 0 ? <span>words only</span> : null}
                             {m.hidden ? <span>Off the Event Hub</span> : null}
                             <MomentSheet
@@ -307,7 +326,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               }
                               triggerClassName="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5"
                             />
-                            <form action={p.action}>
+                            <SafeForm action={p.action}>
                               <HubDraftField />
                               <InMakerReturnTo />
                               <input type="hidden" name="intent" value="arrange" />
@@ -321,8 +340,8 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                                 )}
                                 {m.hidden ? 'Show on the Event Hub' : 'Keep off the Event Hub'}
                               </button>
-                            </form>
-                            <form action={p.action}>
+                            </SafeForm>
+                            <SafeForm action={p.action}>
                               <HubDraftField />
                               <InMakerReturnTo />
                               <input type="hidden" name="intent" value="delete" />
@@ -330,7 +349,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               <button type="submit" className="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5">
                                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Remove
                               </button>
-                            </form>
+                            </SafeForm>
                           </div>
                         </article>
                       </li>
@@ -343,7 +362,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
             <p className="text-[14px] text-[color:var(--ls-muted)]">
-              {p.tryingPro ? (
+              {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
                   {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
                   <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" />
@@ -412,5 +431,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
       </div>
 
     </div>
+    )}
+    </>
   );
 }

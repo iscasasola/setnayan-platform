@@ -24,14 +24,20 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
-import { materializeAreas, withArea } from '@/lib/delegate-areas';
+import { COORDINATOR_AREAS, materializeAreas, withArea } from '@/lib/delegate-areas';
 import {
   DELEGATE_AREAS,
   PERMISSION_TEMPLATES,
   type DelegateArea,
   type ModeratorPermissions,
 } from '@/lib/event-moderators';
+import { limitedHelperRefusal } from '@/lib/host-gate';
+import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
+import { emitNotification } from '@/lib/notification-emit';
+import { foundYouLeadNotice, readFoundYou } from '@/lib/found-you';
+import { claimAnswerNotice } from '@/lib/claim-access-wait';
 
 export type AnswerResult = { ok: boolean; error?: string };
 
@@ -55,6 +61,8 @@ export async function answerAccessRequest(
   requestId: string,
   verdicts: Record<string, AreaVerdict>,
 ): Promise<AnswerResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -63,7 +71,7 @@ export async function answerAccessRequest(
 
   const { data: reqRow, error: reqErr } = await supabase
     .from('event_access_requests')
-    .select('request_id, requester_user_id, requested_areas, status')
+    .select('request_id, requester_user_id, requested_areas, status, kind')
     .eq('request_id', requestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -73,8 +81,17 @@ export async function answerAccessRequest(
     requester_user_id: string;
     requested_areas: string[];
     status: string;
+    kind?: string | null;
   };
   if (req.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
+  // A supplier who joined from the couple's link is ONE Approve / Decline, not
+  // line by line: `verdicts.access` carries it to `answerClaimAccess` below.
+  // (The same exported action, not a second one — the server-action budget.)
+  if (req.kind === 'claim') {
+    const v = verdicts.access;
+    if (v !== 'granted' && v !== 'declined') return { ok: false, error: 'Choose Approve or Decline.' };
+    return answerClaimAccess(eventId, requestId, v === 'granted');
+  }
 
   // Only areas that were actually ASKED for can be answered — a host cannot
   // hand over something the coordinator never requested through this door.
@@ -164,5 +181,124 @@ export async function answerAccessRequest(
 
   revalidatePath(`/dashboard/${eventId}/access-requests`);
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  return { ok: true };
+}
+
+/**
+ * 🤝 A SUPPLIER WHO JOINED FROM THE COUPLE'S LINK — Approve or Decline (owner
+ * 2026-10-20: *"access to the event is automatic but has an approval. it should
+ * proceed to that approval giving access once they sync."*).
+ *
+ * ONE answer, not line by line: what a supplier opens is set by their category
+ * (DECISION_LOG 2026-10-07 — a coordinator is "Same access as you", every other
+ * booked supplier "is defined depending on the category they provide"), so
+ * there are no lines to choose.
+ *
+ * The couple's own session reads the ask first — `event_access_requests_host_read`
+ * is couple-scoped, so a row that comes back IS the couple's — then the grant
+ * runs in ONE transaction on the server (`answer_claim_access_request`, service
+ * role), which checks the couple again and checks a real claim stands behind the
+ * ask. Approve: the bond to the shop (merge-aware), booked-if-paid, a
+ * coordinator's host-level seat. Decline: the answer, nothing else.
+ */
+async function answerClaimAccess(
+  eventId: string,
+  requestId: string,
+  approve: boolean,
+): Promise<AnswerResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const { data: row, error: readErr } = await supabase
+    .from('event_access_requests')
+    .select('request_id, status, kind, requester_user_id')
+    .eq('request_id', requestId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr || !row) return { ok: false, error: 'Could not find that request.' };
+  const ask = row as { status: string; kind: string | null; requester_user_id: string | null };
+  if (ask.kind !== 'claim') return { ok: false, error: 'Could not find that request.' };
+  if (ask.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
+
+  const admin = createAdminClient();
+  const { data: answer, error } = await admin.rpc('answer_claim_access_request', {
+    p_request_id: requestId,
+    p_decided_by: user.id,
+    p_approve: approve,
+    // The grant every coordinator seat is created with (hosts/actions.ts
+    // `inviteHost`): the external-planner template + COORDINATOR_AREAS.
+    p_coordinator_permissions: {
+      ...PERMISSION_TEMPLATES.wedding_planner_external,
+      areas: { ...COORDINATOR_AREAS },
+    },
+  });
+  if (error) {
+    console.error('[supabase-error] access-requests/actions.ts · answer_claim_access_request', error.message, {
+      event_id: eventId,
+    });
+    return {
+      ok: false,
+      error: approve
+        ? 'We could not let them in just now. Nothing has changed. Please try again.'
+        : 'We could not record that just now. Please try again.',
+    };
+  }
+
+  // 💸 THE APPROVAL BOOKED THEM, SO IT MAKES THE FEE (supplier gate audit G4, 2026-11-02). Approve books the
+  // couple's hand-added row (when it carried a payment) and links the shop — and no door made a charge for it, so
+  // with "no charge" locking a booked shop, the supplier the couple had just let in found the event locked. The
+  // ordinary rules decide the charge (`booking_fee_open_lock_charge`): a supplier the couple brought is
+  // `waived_import`, nothing owed. Fail-soft: the approval is committed; the supplier's catch-up re-makes it.
+  const result = (answer ?? {}) as { granted?: boolean; booked?: boolean; booking_vendor_id?: string | null };
+  if (approve && result.granted && result.booked && result.booking_vendor_id) {
+    try {
+      await mintBookingFeeForBooking(admin, { eventVendorId: result.booking_vendor_id, door: 'claim_approved' });
+    } catch (e) {
+      console.error('[access-requests] claim approval fee mint failed:', e);
+    }
+  }
+
+  // 📣 TELL THE SUPPLIER THE ANSWER (audit G3). They were told at the claim that the couple must approve
+  // (`/vendor-dashboard` "Waiting for … to let you in"); nothing told them when the couple did. In-app only —
+  // `claim_access_answered` is not on EMAIL_ENABLED_TYPES (owner: no new emails without his word).
+  if (ask.requester_user_id) {
+    type EventFacts = { display_name?: string | null; event_type?: string | null; event_date?: string | null };
+    let ev: EventFacts | null = null;
+    try {
+      const read = await admin.from('events').select('display_name, event_type, event_date').eq('event_id', eventId).maybeSingle();
+      ev = (read.data as EventFacts | null) ?? null;
+      const notice = claimAnswerNotice({ approved: approve, eventId, eventName: ev?.display_name ?? null });
+      await emitNotification({ userId: ask.requester_user_id, type: 'claim_access_answered', eventId, ...notice });
+    } catch (e) {
+      console.error('[access-requests] claim answer notice failed:', e);
+    }
+
+    // 🕵️ FOUND-YOU LEAD ALERT (DECISION_LOG 2026-07-27 "CLAIM-SYNC is the authoritative checkpoint"). The Approve
+    // above ran the found-check (`found_you_check_at_claim`) right after the bond: the couple had already opened
+    // this shop on Setnayan before typing it in by hand. The supplier is told when and how often — data-minimal,
+    // IN-APP ONLY (`found_you_lead` is not on EMAIL_ENABLED_TYPES). A supplier with no account before the record
+    // is never found, so it is never sent one. The couple is not told anything about a fee (owner 2026-10-12).
+    const found = approve && result.granted ? readFoundYou((answer as { found_you?: unknown } | null)?.found_you) : { found: false as const };
+    if (found.found) {
+      try {
+        const lead = foundYouLeadNotice({
+          eventId,
+          eventName: ev?.display_name ?? null,
+          eventType: ev?.event_type ?? null,
+          eventDate: ev?.event_date ?? null,
+          firstFoundAt: found.firstFoundAt,
+          viewCount: found.viewCount,
+        });
+        await emitNotification({ userId: ask.requester_user_id, type: 'found_you_lead', eventId, ...lead });
+      } catch (e) {
+        console.error('[access-requests] found-you lead alert failed:', e);
+      }
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
   return { ok: true };
 }

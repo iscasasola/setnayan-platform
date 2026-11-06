@@ -26,6 +26,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Same rule as ci.yml: a newer push to the SAME pull request cancels the older
+# run (its result can never gate anything). Every other event — a push to main,
+# a manual dispatch — gets a group of its own and always runs to the end.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('lighthouse-pr-{0}', github.event.pull_request.number) || format('lighthouse-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lighthouse:
     runs-on: ubuntu-latest

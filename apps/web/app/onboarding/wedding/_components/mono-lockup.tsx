@@ -14,6 +14,8 @@
      framed   — both initials inside an ornate gold filigree frame
      infinity — two capitals joined by a gold ∞ that links them                  */
 
+import { joinCoupleNames } from '@/lib/typed-names';
+
 export type MonoStyle = 'bar' | 'script' | 'duo' | 'framed' | 'infinity';
 export type MonoDesign = { style: MonoStyle; font: string; frame?: string };
 
@@ -32,7 +34,7 @@ type Props = {
 export function MonoLockup({ design, bi, gi, brideName, groomName, pop }: Props) {
   const a = bi || '·';
   const b = gi || '·';
-  const names = [brideName.trim(), groomName.trim()].filter(Boolean).join(' & ');
+  const names = joinCoupleNames(brideName, groomName); // the one composition (`lib/typed-names.ts`)
   const popStyle = pop ? { transform: 'scale(1.04)' } : undefined;
   const label = names || `${bi}${gi}` || 'Your monogram';
   const Names = names ? <div className="mt-names">{names}</div> : null;

@@ -20,6 +20,7 @@ import {
 } from '@/lib/calendar-links';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
 import { SaveTheDateFilm, type StdLockup } from './save-the-date-film';
@@ -45,6 +46,12 @@ type Props = {
   // Couple's love story (events.love_story) — shown here as a one-line teaser
   // (the full story lives on the RSVP + Event paths). Absent → nothing renders.
   loveStory?: unknown;
+  /**
+   * 👁 The plain (non-film) view draws a countdown of its own, whatever the
+   * Countdown scene's row says. `false` when the couple hid the Countdown on the
+   * Save the Date (`lib/what-guests-see.ts`); absent = drawn, as it always was.
+   */
+  countdown?: boolean;
   /**
    * When true, render the couple's name + date here. The anonymous path has
    * no hero for text-only events, so it asks the STD view to carry it. The
@@ -105,6 +112,7 @@ export function SaveTheDateView({
   receptionCity,
   publicId,
   loveStory,
+  countdown = true,
   showTextHero,
   film = false,
   monogramText,
@@ -200,25 +208,25 @@ export function SaveTheDateView({
     <section className="space-y-8 text-center">
       {showTextHero ? (
         <div className="space-y-3">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
             Save the date
           </p>
           <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
             {displayName}
           </h1>
           {dateIso ? (
-            <p className="text-base text-ink/60">
+            <p className="text-base text-ink/70">
               {[formatEventDate(dateIso), venueName].filter(Boolean).join(' · ')}
             </p>
           ) : null}
         </div>
       ) : (
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
           Save the date
         </p>
       )}
 
-      {dateIso ? <CountdownWidget targetIso={dateIso} /> : null}
+      {dateIso && countdown ? <CountdownWidget targetIso={dateIso} /> : null}
 
       {gcalUrl || ics ? (
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -233,20 +241,20 @@ export function SaveTheDateView({
             </a>
           ) : null}
           {ics ? (
-            <a
+            <SaveFileLink
               href={icsDataHref(ics)}
-              download={`${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`}
-              className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
+              filename={`${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               Apple / Outlook (.ics)
-            </a>
+            </SaveFileLink>
           ) : null}
         </div>
       ) : null}
 
       <OurStory loveStory={loveStory} variant="teaser" />
 
-      <p className="mx-auto max-w-prose text-sm text-ink/60">
+      <p className="mx-auto max-w-prose text-sm text-ink/70">
         Full invitation to follow. We can&rsquo;t wait to celebrate with you.
       </p>
     </section>

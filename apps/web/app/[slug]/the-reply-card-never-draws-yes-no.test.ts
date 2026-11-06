@@ -15,8 +15,9 @@
  *      the sheet, once;
  *   3. the words of each state; "Reply by" only for a date the host set;
  *   4. on the day and after, no card — the page's action keeps its own words;
- *   5. site-body mounts it under the names and at the top of Me, behind the
- *      guest-side switch, and the Welcome action is still mounted once.
+ *   5. site-body mounts it under the names and on Me, for every guest (no
+ *      guest-side switch since 2026-10-26), and the Welcome action is still
+ *      mounted once.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,7 +54,8 @@ test('1–2 · one control into the reply sheet, and never a Yes / No button, in
     const { html } = await cardFor(s);
     assert.ok(html, `${s}: no card`);
     assert.equal(controls(html).length, 1, `${s}: ${controls(html).length} controls in the card`);
-    assert.match(html, /href="\/ana-ben#your-details"/, `${s}: the card does not open the reply sheet`);
+    // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+    assert.match(html, /href="\/ana-ben\/invite\/reply"/, `${s}: the card does not open the reply page`);
     assert.doesNotMatch(html, YES_NO, `${s}: the card draws a Yes / No answer`);
     assert.doesNotMatch(html, /<form|type="radio"|<button/, `${s}: the card is a form`);
   }
@@ -80,12 +82,18 @@ test('4 · on the day and after, there is no card — the action keeps its own w
   assert.equal((await cardFor('attending', '2026-12-19')).card, null, 'a card after the day');
 });
 
-test('5 · mounted under the names and at the top of Me, behind the switch; the Welcome action stays one mount', () => {
+test('5 · the card: the Welcome’s on a page that is one scroll; Me’s ONE Reply at Me’s foot', () => {
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place for everything"): the card is built once from the page's
+     own action behind the reply's own gate (`replyCard`) — 🧭 and since 2026-10-26 no guest-side switch stands in front of
+     it (owner: every guest gets the new guest side, DECISION_LOG "EVERY GUEST GETS THE NEW GUEST SIDE"); Me's one Reply (`meReplyCard`, `MeReply`) is every guest's and stands at Me's FOOT,
+     after the ticket and the rest of Me — no card at the top of Me any more. THE PROPERTY IS UNCHANGED: the card draws no
+     Yes / No (the tests above). */
   const body = stripComments(readFileSync(join(__dirname, '_components/site-body.tsx'), 'utf8'));
-  assert.match(body, /guestStages && pageStage === 'rsvp' && plan\.rsvpShouldRender && !isMakerCanvas\s*\?\s*replyCardOf\(/, 'the card is not behind the guest-side switch and the sheet’s own gate');
-  assert.match(body, /\{replyCard \? \(\s*<ReplyCardRow card=\{replyCard\}[^]*?\) : \(\s*<ArrivalActionRow/, 'the card does not stand in the Welcome action’s place');
+  assert.match(body, /const replyCard =\s*pageStage === 'rsvp' && plan\.rsvpShouldRender && !isMakerCanvas\s*\?\s*replyCardOf\(/, 'the card is not behind the reply’s own gate');
+  assert.match(body, /\{replyCard && tabs\.on \? \([\s\S]*?\) : replyCard \? \(\s*<ReplyCardRow card=\{replyCard\}[^]*?\) : \(\s*<ArrivalActionRow/, 'the card does not stand in the Welcome action’s place');
   assert.equal(body.split('<ArrivalActionRow').length - 1, 1, 'the Welcome action is mounted more than once');
   const me = body.slice(body.lastIndexOf('data-me-stage'));
-  const card = me.search(/\{replyCard && replyCard\.kind !== 'ask' \? <ReplyCardRow card=\{replyCard\} \/> : null\}/);
-  assert.ok(card >= 0 && card < me.indexOf('meSection'), 'the card is not at the top of Me (before the ticket and the rest of Me)');
+  assert.doesNotMatch(me, /<ReplyCardRow\b/, 'a card is back at the top of Me — a second Reply');
+  const reply = me.indexOf('<MeReply');
+  assert.ok(reply > me.indexOf('meSection'), 'Me’s one Reply is not at Me’s foot (after the ticket and the rest of Me)');
 });

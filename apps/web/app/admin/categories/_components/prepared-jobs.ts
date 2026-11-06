@@ -219,6 +219,7 @@ export const PREPARED_TAXONOMY_JOBS: ReadonlyMap<string, PreparedJobSpec> = new 
       { field: 'emoji', kind: 'text', label: 'Emoji' },
       { field: 'description', kind: 'text', label: 'Tagline', multiline: true },
       { field: 'sort_order', kind: 'text', label: 'Sort order', hint: 'A number' },
+      { field: 'request_id', kind: 'text', label: 'From a host’s ask', hint: 'Optional — the ask it answers' },
     ],
   }),
 

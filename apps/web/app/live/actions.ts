@@ -4,7 +4,8 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clientIp } from '@/lib/client-ip';
-import { rateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
+import { joinDoorIdent } from '@/lib/join-door-throttle';
 import { normalizePairCode, pairCodeUsable, canUseVenueScreens } from '@/lib/live-screens';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import {
@@ -36,12 +37,20 @@ import {
  */
 
 const ATTEMPTS_PER_WINDOW = 10;
-const WINDOW_MS = 10 * 60 * 1000;
+const WINDOW_SECS = 10 * 60;
 
 export async function pairLiveScreen(formData: FormData): Promise<void> {
   const h = await headers();
   const ip = clientIp(h) ?? 'unknown';
-  if (!rateLimit(`live-screen-pair:${ip}`, ATTEMPTS_PER_WINDOW, WINDOW_MS).ok) {
+  // 📶 DURABLE (event-day L1·8): the in-memory limiter counted per warm
+  // instance, so a guesser spread over instances got 10 tries EACH. Same 10 per
+  // 10 minutes per address (a salted hash — never the raw IP), now counted for
+  // real. Pairing is a host's few presses, not the room's.
+  const gate = await enforceRateLimit('live_screen_pair', joinDoorIdent('live-screen', ip), {
+    limit: ATTEMPTS_PER_WINDOW,
+    windowSecs: WINDOW_SECS,
+  });
+  if (!gate.ok) {
     redirect('/live?error=slow');
   }
 

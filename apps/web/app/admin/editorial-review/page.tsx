@@ -42,8 +42,8 @@ export default async function EditorialReviewPage() {
       <div>
         <PageMasthead title="Editorial review" />
         <p className="text-sm text-ink/70">
-          Editorials are scanned for vulgarity (OpenAI Moderation) and grammar (LanguageTool)
-          before the couple sees their draft. Resolve red flags here, then unlock.
+          Editorials are scanned for vulgarity (OpenAI Moderation) before the
+          couple sees their draft. Resolve red flags here, then unlock.
         </p>
       </div>
 

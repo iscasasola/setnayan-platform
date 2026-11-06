@@ -547,7 +547,9 @@ test('the event dashboard is still shut to non-members, before it reads anything
   // This is WHY the production defect was a 404 and not a disclosure. It must
   // keep being true on its own: the guard above is about not sending people to
   // a dead end, never about being the thing that protects the couple.
-  assert.match(LAYOUT, /from\('event_members'\)/);
+  // The membership read is the render's ONE (2026-10-20, lib/event-membership-once.ts): the gate awaits it.
+  assert.match(LAYOUT, /=\s*await eventMemberTypeOnce\(supabase, eventId, user\.id\);/);
+  assert.match(readFileSync(join(process.cwd(), 'lib', 'event-membership-once.ts'), 'utf8'), /\.from\('event_members'\)\s*\.select\('member_type'\)/);
   assert.match(LAYOUT, /from\('event_moderators'\)/);
   assert.match(LAYOUT, /notFound\(\)/);
 
@@ -586,4 +588,7 @@ test('the event dashboard is still shut to non-members, before it reads anything
     gate < eventRead,
     'the event is read BEFORE membership is refused — a dead end would become a leak',
   );
+  // …and the layout opens the one event-row read (lib/event-row-once.ts) only after the refusal too.
+  const opened = LAYOUT.indexOf('openDashboardEventRow(');
+  assert.ok(opened > gate, 'the layout opens the event row BEFORE membership is refused');
 });

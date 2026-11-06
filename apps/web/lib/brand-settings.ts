@@ -60,40 +60,50 @@ const FALLBACK: BrandSettings = {
 const SELECT =
   'brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version';
 
+/*
+  ⛔ A REFUSED READ IS NEVER REMEMBERED (the house rule, `lib/global-settings-cache.ts`). This loader
+  used to RETURN the fallback from inside `unstable_cache` when the read failed — and the data cache
+  then kept the gold defaults for an HOUR: one database hiccup and every page's icons, and the
+  admin-uploaded favicon, were the defaults until the next revalidation. Now the failure THROWS
+  inside the cache (nothing is stored, a stale entry keeps serving), and `getBrandSettings` falls to
+  FALLBACK for this request only. Stability sweep 2026-10-15.
+*/
 const loadBrandSettings = unstable_cache(
   async (): Promise<BrandSettings> => {
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from('platform_settings')
-        .select(SELECT)
-        .eq('id', 1)
-        .maybeSingle();
-      if (error) {
-        logQueryError('brand-settings: platform_settings', error);
-        return FALLBACK;
-      }
-      if (!data) return FALLBACK;
-      const r = data as Record<string, unknown>;
-      return {
-        masterUrl: (r.brand_icon_master_url as string | null) ?? null,
-        faviconIcoUrl: (r.brand_favicon_ico_url as string | null) ?? null,
-        appleTouchUrl: (r.brand_apple_touch_url as string | null) ?? null,
-        png512Url: (r.brand_icon_png_512_url as string | null) ?? null,
-        svgUrl: (r.brand_icon_svg_url as string | null) ?? null,
-        version:
-          typeof r.brand_icon_version === 'number' ? r.brand_icon_version : 0,
-      };
-    } catch {
-      return FALLBACK;
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('platform_settings')
+      .select(SELECT)
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      logQueryError('brand-settings: platform_settings', error);
+      throw new Error(`brand-settings: platform_settings unread — ${error.message}`);
     }
+    if (!data) return FALLBACK;
+    const r = data as Record<string, unknown>;
+    return {
+      masterUrl: (r.brand_icon_master_url as string | null) ?? null,
+      faviconIcoUrl: (r.brand_favicon_ico_url as string | null) ?? null,
+      appleTouchUrl: (r.brand_apple_touch_url as string | null) ?? null,
+      png512Url: (r.brand_icon_png_512_url as string | null) ?? null,
+      svgUrl: (r.brand_icon_svg_url as string | null) ?? null,
+      version:
+        typeof r.brand_icon_version === 'number' ? r.brand_icon_version : 0,
+    };
   },
   ['brand-settings-v1'],
   { tags: [BRAND_SETTINGS_TAG], revalidate: 3600 },
 );
 
-/** Per-request memoized read of the admin brand-icon settings. */
-export const getBrandSettings = cache(loadBrandSettings);
+/** Per-request memoized read of the admin brand-icon settings — FALLBACK for this request when unread. */
+export const getBrandSettings = cache(async (): Promise<BrandSettings> => {
+  try {
+    return await loadBrandSettings();
+  } catch {
+    return FALLBACK;
+  }
+});
 
 /** Append the icon version as a cache-buster so browsers re-fetch on change. */
 export function withBrandVersion(url: string, version: number): string {

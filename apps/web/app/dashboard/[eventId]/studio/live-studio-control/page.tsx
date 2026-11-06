@@ -286,7 +286,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         ],
         settings,
         introCopy:
-          'Live Watch streams your celebration live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Watch per event; set up your cameras right after.',
+          'Live Watch streams your event live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Watch per event; set up your cameras right after.',
         // ⏳ THE LEAD-TIME NOTICE, prominent and above the price — not in the footnote
         // below it. Manual payment reconciliation runs to a 24-hour SLA, and a wedding
         // cannot wait for it: an unlock bought the night before may still be
@@ -326,7 +326,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
               onChange: setYoutubeLiveReadyAck,
             },
         footnote:
-          'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
+          'Apply-then-pay flow · we confirm price before payment · no refunds: if you cannot use it, its value becomes Papic credits for this event. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
         }}
       />
     </div>
@@ -413,7 +413,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         }}
         description={{
           paragraphs: [
-            'A celebration happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Watch lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
+            'An event happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Watch lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
             `You set it up in the controller (${priceLabel}, one price per event): name each camera, group them by venue, mark a default, and cut between them live on the day. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. Guests who want to wander can pick their own view; everyone else follows your directed Main Stage.`,
             'Live Watch merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream stays free; Live Watch is the multi-camera upgrade.',
           ],

@@ -35,6 +35,7 @@ import {
   type ColourChangeRow,
   type ColourDomain,
 } from '@/lib/colour-access';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 type Result = { status: string };
 
@@ -158,16 +159,9 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
                     no_lane: 'This trade has no colour lane on your board.',
                   })
                 }
-                className={`relative h-[25px] w-11 flex-none rounded-full transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
-                  isOn ? 'bg-success-600' : 'bg-ink/15'
-                }`}
+                className={SWITCH_BUTTON}
               >
-                <span
-                  aria-hidden
-                  className={`absolute top-[2.5px] h-5 w-5 rounded-full bg-cream shadow transition-transform ${
-                    isOn ? 'left-[2.5px] translate-x-[19px]' : 'left-[2.5px]'
-                  }`}
-                />
+                <SwitchTrack on={isOn} />
               </button>
             </div>
           ) : null}
@@ -295,7 +289,7 @@ export function ColourChangeRowView({
           type="button"
           disabled={busy}
           onClick={onReject}
-          className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md bg-danger-100 px-2.5 py-1.5 text-xs font-semibold text-danger-700 transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md bg-danger-100 px-2.5 py-1.5 text-xs font-semibold text-danger-700 dark:text-danger-800 transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {busy ? 'Rejecting…' : 'Reject'}

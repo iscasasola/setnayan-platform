@@ -137,7 +137,7 @@ export default async function GuestColumnsQueuePage({
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/launch`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} /> Back to your page

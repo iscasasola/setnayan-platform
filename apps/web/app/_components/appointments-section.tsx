@@ -9,13 +9,14 @@
 // prop that flips the copy + which proposals the viewer may answer.
 //
 // It renders:
-//   • the SCHEDULER — mode (In-person / Video / Voice), a category-aware Type
+//   • the SCHEDULER — mode (In-person / Virtual), a category-aware Type
 //     row (presets for the vendor's category) + a persistent "Custom" chip that
-//     reveals a free-text name, location (in-person), date/time, duration, note
+//     reveals a free-text name, location (in-person) or Via + link (virtual),
+//     date/time, duration, note
 //     → proposeAppointment.
 //   • the LIST — one card per appointment with a status chip; in-person carries
-//     location + Directions + Add-to-calendar, video/voice carry Join (deep-
-//     links to the relationship thread). A proposal made by the OTHER side
+//     location + Directions + Add-to-calendar; a Virtual meeting carries a Join
+//     that hands off to the proposer's own app (never an in-app call). A proposal made by the OTHER side
 //     shows Confirm / Propose-new / Decline; your own pending proposal shows a
 //     waiting note + Cancel.
 //
@@ -31,26 +32,29 @@ import {
   CheckCircle2,
   Clock3,
   MapPin,
-  MessageSquare,
   Plus,
   Video,
-  Phone,
   Users as UsersIcon,
   X,
 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { AppointmentJoinButton } from '@/app/_components/appointment-join';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { AppointmentJoin } from '@/app/_components/appointment-join';
+import { VirtualMeetingFields } from '@/app/_components/virtual-meeting-fields';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { parseVirtualLocation, virtualSummary } from '@/lib/virtual-meeting';
 import {
-  APPOINTMENT_KIND_LABEL,
   APPOINTMENT_STATUS_META,
-  type AppointmentKind,
+  MEETING_MODES,
+  MEETING_MODE_LABEL,
+  meetingModeOf,
+  type MeetingMode,
   type AppointmentTypePreset,
   type AppointmentView,
 } from '@/lib/appointments';
 import {
   proposeAppointment,
   respondAppointment,
-  cancelAppointment,
 } from '@/app/_components/appointments-actions';
 
 type Role = 'vendor' | 'couple';
@@ -61,18 +65,18 @@ type Props = {
   vendorProfileId: string;
   returnPath: string;
   threadId: string | null;
-  /** The viewer's auth uid — needed to key the live P2P "Join" call. */
+  /** The viewer's auth uid. */
   currentUserId: string;
   counterpartyName: string;
   presets: AppointmentTypePreset[];
   appointments: AppointmentView[];
 };
 
-const KIND_ICON: Record<AppointmentKind, typeof Video> = {
+const MODE_ICON: Record<MeetingMode, typeof Video> = {
   in_person: MapPin,
-  video: Video,
-  voice: Phone,
+  virtual: Video,
 };
+const MODE_OPTIONS = MEETING_MODES.map((m) => ({ key: m, label: MEETING_MODE_LABEL[m] }));
 
 function formatWhen(iso: string | null): string {
   if (!iso) return 'Time to be set';
@@ -116,7 +120,7 @@ function Scheduler({
   presets,
 }: Pick<Props, 'eventId' | 'vendorProfileId' | 'returnPath' | 'threadId' | 'presets'>) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<AppointmentKind>('in_person');
+  const [mode, setMode] = useState<MeetingMode>('in_person');
   const [selectedType, setSelectedType] = useState<string>('');
   const [customName, setCustomName] = useState('');
   const [duration, setDuration] = useState<number>(60);
@@ -124,11 +128,13 @@ function Scheduler({
   const isCustom = selectedType === 'custom';
   const selectedPreset = presets.find((p) => p.type === selectedType) ?? null;
   const label = isCustom ? customName.trim() : selectedPreset?.label ?? '';
-  const disabled = selectedType === '' || (isCustom && customName.trim().length === 0);
+  const disabled =
+    selectedType === '' ||
+    (isCustom && customName.trim().length === 0);
 
   function pickPreset(p: AppointmentTypePreset) {
     setSelectedType(p.type);
-    setMode(p.default_mode);
+    setMode(meetingModeOf(p.default_mode));
     setDuration(p.default_duration_min);
   }
 
@@ -154,26 +160,16 @@ function Scheduler({
       <input type="hidden" name="type" value={selectedType} />
       <input type="hidden" name="label" value={label} />
 
-      {/* Mode */}
+      {/* Mode — In-person or Virtual, one dropdown. */}
       <div>
         <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink/55">Mode</p>
-        <div className="flex flex-wrap gap-1.5">
-          {(['in_person', 'video', 'voice'] as AppointmentKind[]).map((k) => {
-            const Icon = KIND_ICON[k];
-            return (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setMode(k)}
-                className={`${chipBase} ${mode === k ? chipOn : chipOff}`}
-                aria-pressed={mode === k}
-              >
-                <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                {APPOINTMENT_KIND_LABEL[k]}
-              </button>
-            );
-          })}
-        </div>
+        <PickMenu
+          label="In-person or virtual"
+          value={mode}
+          options={MODE_OPTIONS}
+          dataAttr="data-meeting-mode"
+          onPick={(k) => setMode(k as MeetingMode)}
+        />
       </div>
 
       {/* Type — category presets + persistent Custom */}
@@ -230,7 +226,11 @@ function Scheduler({
             className="w-full rounded-lg border border-ink/15 bg-cream/50 px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
           />
         </div>
-      ) : null}
+      ) : (
+        <VirtualMeetingFields
+          labelClassName="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-ink/55"
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -303,34 +303,24 @@ function AppointmentCard({
   eventId,
   vendorProfileId,
   returnPath,
-  threadId,
-  currentUserId,
-  counterpartyName,
 }: {
   a: AppointmentView;
   role: Role;
   eventId: string;
   vendorProfileId: string;
   returnPath: string;
-  threadId: string | null;
-  currentUserId: string;
-  counterpartyName: string;
 }) {
   const [proposingNew, setProposingNew] = useState(false);
 
   const status = APPOINTMENT_STATUS_META[a.status];
-  const Icon = KIND_ICON[a.kind];
+  const mode = meetingModeOf(a.kind);
+  const Icon = MODE_ICON[mode];
   const iMadeIt = a.initiated_by === role;
   const canRespond = a.status === 'proposed' && a.initiated_by !== null && a.initiated_by !== role;
   const isActive = a.status === 'proposed' || a.status === 'confirmed';
-  const isOnline = a.kind === 'video' || a.kind === 'voice';
+  const isOnline = mode === 'virtual';
   // Universal .ics download for a confirmed, timed appointment.
   const icsHref = a.status === 'confirmed' && a.scheduled_at ? appointmentIcsHref(a) : null;
-  // The room the live "Join" call keys on: the appointment's own thread when set,
-  // else the section's resolved (event, vendor) relationship thread.
-  const joinThreadId = a.thread_id ?? threadId;
-  const joinOpen =
-    !a.scheduled_at || Date.now() >= new Date(a.scheduled_at).getTime() - 10 * 60_000;
 
   // Shared hidden fields for every action form on this card.
   const hidden = (
@@ -352,7 +342,7 @@ function AppointmentCard({
             <span className="truncate">{a.label}</span>
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink/60">
-            <span>{APPOINTMENT_KIND_LABEL[a.kind]}</span>
+            <span>{isOnline ? virtualSummary(parseVirtualLocation(a.location)) : MEETING_MODE_LABEL.in_person}</span>
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1">
               <Clock3 aria-hidden className="h-3 w-3" /> {formatWhen(a.scheduled_at)}
@@ -372,7 +362,7 @@ function AppointmentCard({
         </span>
       </div>
 
-      {a.location ? (
+      {a.location && !isOnline ? (
         <p className="mt-2 flex items-center gap-1 text-[11px] text-ink/65">
           <MapPin aria-hidden className="h-3 w-3 shrink-0" /> <span className="truncate">{a.location}</span>
         </p>
@@ -382,22 +372,18 @@ function AppointmentCard({
       {/* Affordances — Join (online) / Directions + Add-to-calendar (in-person). */}
       {isActive ? (
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          {a.status === 'confirmed' && isOnline ? (
-            joinOpen && joinThreadId ? (
-              <AppointmentJoinButton
-                threadId={joinThreadId}
-                currentUserId={currentUserId}
-                kind={a.kind === 'video' ? 'video' : 'voice'}
-                counterpartyLabel={counterpartyName}
-              />
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-ink/45">
-                <MessageSquare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                {joinThreadId ? 'Join opens near start' : 'Join via chat'}
-              </span>
-            )
+          {isOnline ? (
+            <AppointmentJoin
+              appointmentId={a.appointment_id}
+              location={a.location}
+              scheduledAt={a.scheduled_at}
+              confirmed={a.status === 'confirmed'}
+              isProposer={iMadeIt}
+              roomCreatedAt={a.room_created_at ?? null}
+              returnPath={returnPath}
+            />
           ) : null}
-          {a.location ? (
+          {a.location && !isOnline ? (
             <a
               href={directionsUrl(a.location)}
               target="_blank"
@@ -408,12 +394,14 @@ function AppointmentCard({
             </a>
           ) : null}
           {icsHref ? (
-            <a
+            // 📥 Saved, never shown in place — the app's web view renders an .ics with no way back (owner 2026-10-27).
+            <SaveFileLink
               href={icsHref}
+              filename="setnayan-appointment.ics"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink/70 hover:border-terracotta/40"
             >
               <CalendarPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Add to calendar
-            </a>
+            </SaveFileLink>
           ) : null}
         </div>
       ) : null}
@@ -489,8 +477,9 @@ function AppointmentCard({
       {a.status === 'proposed' && iMadeIt ? (
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-2.5">
           <span className="text-[11px] text-ink/55">Waiting for the other side to confirm.</span>
-          <form action={cancelAppointment}>
+          <form action={respondAppointment}>
             {hidden}
+            <input type="hidden" name="decision" value="cancel" />
             <SubmitButton
               pendingLabel="Cancelling…"
               overlay={false}
@@ -505,8 +494,9 @@ function AppointmentCard({
       {/* Confirmed — allow either side to cancel. */}
       {a.status === 'confirmed' ? (
         <div className="mt-2 flex justify-end">
-          <form action={cancelAppointment}>
+          <form action={respondAppointment}>
             {hidden}
+            <input type="hidden" name="decision" value="cancel" />
             <SubmitButton
               pendingLabel="Cancelling…"
               overlay={false}
@@ -559,7 +549,7 @@ export function AppointmentsSection({
 
       <p className="flex items-center gap-1.5 text-[11px] text-ink/55">
         <UsersIcon aria-hidden className="h-3 w-3" />
-        Meetings with {counterpartyName} — in-person or online. Either side can propose; the other
+        Meetings with {counterpartyName} — in-person or virtual. Either side can propose; the other
         confirms.
       </p>
 
@@ -577,9 +567,6 @@ export function AppointmentsSection({
               eventId={eventId}
               vendorProfileId={vendorProfileId}
               returnPath={returnPath}
-              threadId={threadId}
-              currentUserId={currentUserId}
-              counterpartyName={counterpartyName}
             />
           ))}
         </ul>

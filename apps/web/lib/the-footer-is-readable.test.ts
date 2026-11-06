@@ -87,7 +87,7 @@ test('every footer text role clears 4.5:1 on the footer’s own ground', () => {
   const roles: Array<[string, string]> = [
     ['.hr-foot-tag', 'the tagline (13px)'],
     ['.hr-foot-col h3', 'column headings (11px/500)'],
-    ['.hr-foot-linkbtn {', 'the nav links and buttons (13.5px)'],
+    ['.hr-foot-col a {', 'the nav links (13.5px)'],
     ['.hr-foot-base {', 'the base line — “Data Protection Officer ·” (12px)'],
     ['.hr-foot-base a', 'the DPO email address (12px)'],
     ['.hr-foot-word', 'the wordmark (20px serif)'],

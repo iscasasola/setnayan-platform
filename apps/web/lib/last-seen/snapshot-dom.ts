@@ -71,6 +71,30 @@ function maskMoneyText(root: Element): boolean {
   return true;
 }
 
+type Sized = { getBoundingClientRect(): { width: number; height: number } };
+type Sizable = { setAttribute(name: string, value: string): void; style: { width: string; height: string } };
+
+/**
+ * 🖼 A KEPT PICTURE IS THE SIZE IT WAS SHOWN (owner 2026-10-16: *"i see big pictures of the profile photo …
+ * a layer that is not fixed before everything loads"*). A snapshot is painted on the loading screen of
+ * whatever page the host came from, where the page's own stylesheet (the one that made a face 40 px) may not
+ * have loaded — so every image in the copy carries the size it had on screen, as attributes AND inline style.
+ * `shown` and `kept` are the same images in the same order (the live root and its deep clone).
+ */
+export function freezePictureSizes(shown: ArrayLike<Sized>, kept: ArrayLike<Sizable>): void {
+  const n = Math.min(shown.length, kept.length);
+  for (let i = 0; i < n; i += 1) {
+    const r = shown[i]!.getBoundingClientRect();
+    const w = Math.round(r.width);
+    const h = Math.round(r.height);
+    const img = kept[i]!;
+    img.setAttribute('width', String(w));
+    img.setAttribute('height', String(h));
+    img.style.width = `${w}px`;
+    img.style.height = `${h}px`;
+  }
+}
+
 /** The page's rendered content, cleaned for keeping — or null if it may not be kept. */
 export function snapshotFromRoot(root: Element): string | null {
   // Still streaming in — a later capture takes it once it has settled.
@@ -80,6 +104,11 @@ export function snapshotFromRoot(root: Element): string | null {
   // 2026-10-02). The capture runs again once the gesture is over.
   if (root.querySelector('[data-last-seen-hold]')) return null;
   const clone = root.cloneNode(true) as Element;
+  // Before anything is removed, while the clone's images still line up one-to-one with the live ones.
+  freezePictureSizes(
+    root.querySelectorAll('img') as unknown as ArrayLike<Sized>,
+    clone.querySelectorAll('img') as unknown as ArrayLike<Sizable>,
+  );
   clone.querySelectorAll(DROP).forEach((el) => el.remove());
   for (const el of Array.from(clone.querySelectorAll('*'))) {
     for (const attr of Array.from(el.attributes)) {

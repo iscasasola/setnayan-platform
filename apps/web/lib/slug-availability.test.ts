@@ -247,17 +247,18 @@ function shippedBody(file: string, fnName: string): string {
 }
 
 test('the couple’s rename form still asks the availability question', () => {
-  const body = shippedBody('app/dashboard/[eventId]/invitation/actions.ts', 'updateEventSlug');
+  /* RE-AIMED 2026-10-22: the rename lives in the ONE rename (`lib/event-slug-rename.server.ts`), which the form and the
+     Maker's ✓ Apply both call — the check is asked there, and the form shows its refusal. */
+  const form = shippedBody('app/dashboard/[eventId]/invitation/actions.ts', 'updateEventSlug');
+  assert.match(form, /const renamed = await renameEventSlug\(supabase, eventId, requested, /, 'the form no longer renames through the one rename');
+  assert.match(form, /slug_error=\$\{encodeURIComponent\(renamed\.reason\)\}/, 'the refusal is computed but never shown');
+  const body = shippedBody('lib/event-slug-rename.server.ts', 'renameEventSlug');
   assert.match(
     body,
     /findSlugConflict\(\s*admin\s*,\s*requested\s*,\s*\{\s*eventId\s*\}/,
     'updateEventSlug stopped running the shared availability check — a wedding could take one of our own page names, a shop address, a person’s handle, or a retired address that still forwards printed invitations',
   );
-  assert.match(
-    body,
-    /slug_error=\$\{encodeURIComponent\(conflict\)\}/,
-    'the refusal is computed but never shown — a guard that refuses in silence is indistinguishable from one that passed',
-  );
+  assert.match(body, /if \(conflict\) return \{ ok: false, reason: conflict \};/, 'the conflict is found and dropped');
 });
 
 test('the live availability endpoint refuses a still-forwarding address', () => {

@@ -24,7 +24,8 @@ import {
 
 /**
  * Vendor "Connect Instagram" card. Three states:
- *   • NOT configured (Meta App env unset) → "Coming soon" placeholder.
+ *   • NOT configured (Meta App env unset) → renders NOTHING (2026-11-05; it
+ *     used to show a "Coming soon" card, which read as an unfinished product).
  *   • Configured + NOT connected           → Connect button (→ OAuth start).
  *   • Connected                            → username, Sync now, last-synced
  *     time, synced-media grid with per-item show/hide toggles, Disconnect.
@@ -42,6 +43,9 @@ export function InstagramConnectCard({
   media: VendorIgMediaRow[];
   flash: { kind: 'ok' | 'error'; message: string } | null;
 }) {
+  // Not configured → nothing to connect, so nothing is shown.
+  if (!configured) return null;
+
   return (
     <section className="mt-10 space-y-4">
       <div className="space-y-1">
@@ -70,9 +74,7 @@ export function InstagramConnectCard({
         </div>
       ) : null}
 
-      {!configured ? (
-        <ComingSoon />
-      ) : !connection ? (
+      {!connection ? (
         <NotConnected />
       ) : (
         <Connected connection={connection} media={media} />
@@ -92,25 +94,6 @@ function CardShell({ children }: { children: React.ReactNode }) {
     >
       {children}
     </div>
-  );
-}
-
-function ComingSoon() {
-  return (
-    <CardShell>
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink/50">
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </span>
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-ink">Coming soon</p>
-          <p className="text-sm text-ink/60">
-            Instagram sync requires a Business or Creator Instagram account and
-            is being finished by the Setnayan team. Check back soon.
-          </p>
-        </div>
-      </div>
-    </CardShell>
   );
 }
 

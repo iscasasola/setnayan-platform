@@ -57,6 +57,8 @@ const TOUCHES_WITHOUT_CREATING: Record<string, string> = {
   'app/[slug]/_lib/loaders.ts':
     'READS — the first-arrival greeting, the only reader of the trail in the product',
   'lib/erasure/coverage.ts': 'DECLARES — RA 10173 erasure, which columns are nulled',
+  'lib/read-limit.ts':
+    'NAMES — the table\'s name in a list of reads a guest page may leave out when they do not answer in time; no query',
   'lib/erasure/purge.ts': 'REDACTS — RA 10173 erasure, nulls the scanner identity + device trail',
 };
 

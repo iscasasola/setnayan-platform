@@ -647,3 +647,66 @@ export function nudgePlan(eventISO: string, lead: LeadTime): NudgePlan | null {
   const begin = addDays(addMonths(event, -Math.round(lead.beginMonths)), -shiftDays);
   return { headsUpISO: toISO(headsUp), beginISO: toISO(begin), tier: lead.tier };
 }
+
+// ── ONE PICKED DATE IS THE DATE (owner 2026-10-08) ──────────────────────────
+
+/**
+ * Types whose date the host simply TYPES IN — `fixed_date` + `input` in
+ * `ANCHOR_BY_TYPE`. Only the authored map counts: an unknown type that falls
+ * back to `FALLBACK_ANCHOR` is NOT included, and a wedding (`none` · `output`,
+ * its date is set by booking a venue in Suppliers) never is.
+ */
+export function isFixedDateInputType(eventType: string | null | undefined): boolean {
+  if (!eventType) return false;
+  const a = ANCHOR_BY_TYPE[eventType];
+  return Boolean(a && a.kind === 'fixed_date' && a.dateModel === 'input');
+}
+
+/**
+ * The single date a host picked for a fixed-date type — or null.
+ *
+ * 🔑 One pick for a type whose date is an input IS the date: it belongs in
+ * `event_date` (day precision), not in a one-entry `date_candidates` list that
+ * every screen keyed on `event_date` ignores. Two or more picks are a real
+ * choice still to make, and keep the candidate flow (the date-selection lock).
+ */
+export function singlePickedDate(
+  eventType: string | null | undefined,
+  candidates: readonly (string | null | undefined)[] | null | undefined,
+): string | null {
+  if (!isFixedDateInputType(eventType) || !Array.isArray(candidates)) return null;
+  const picks = candidates.filter((c): c is string => typeof c === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c));
+  return picks.length === 1 && candidates.length === 1 ? picks[0]! : null;
+}
+
+/**
+ * The reader half, for events created before the write was fixed: the stored
+ * `event_date`, else the one picked date of a fixed-date type. Same answer the
+ * write now stores, so an old event reads exactly like a new one.
+ */
+export function readEventDate(row: {
+  event_type?: string | null;
+  event_date?: string | null;
+  date_candidates?: readonly (string | null | undefined)[] | null;
+}): string | null {
+  return row.event_date ?? singlePickedDate(row.event_type, row.date_candidates);
+}
+
+/**
+ * The row, read as the fixed write would have stored it: when `event_date` is
+ * null and the one picked date of a fixed-date type stands in, `event_date`
+ * carries it at day precision. Any other row is returned untouched (same
+ * object), so a wedding or an event with a real date reads byte-identically.
+ * No backfill — the stored row is not changed.
+ */
+export function withPickedDate<
+  T extends {
+    event_type?: string | null;
+    event_date?: string | null;
+    date_candidates?: readonly (string | null | undefined)[] | null;
+  },
+>(row: T): T {
+  if (row.event_date) return row;
+  const picked = singlePickedDate(row.event_type, row.date_candidates);
+  return picked ? { ...row, event_date: picked, event_date_precision: 'day' } : row;
+}

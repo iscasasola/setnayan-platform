@@ -23,6 +23,8 @@ import {
   type TaxonomyPhase,
   type TaxonomyEntry,
 } from './taxonomy';
+import { BRANCH_TO_VENDOR_CATEGORY } from './vendor-branch-category';
+import type { VendorCategory } from './vendors';
 
 /**
  * Plain, fully-serializable mirror of the taxonomy constants — safe to pass
@@ -63,6 +65,20 @@ export type TaxonomySnapshot = {
    * them. Sparse — only true entries stored. Empty on the fallback path.
    */
   hiddenCategories: Record<string, true>;
+  /**
+   * tier-2 category id → the coarse `vendor_category` a shop filed under it is stored with
+   * (`service_categories.coarse_category`, ③0-c). Sparse — a category with no value is absent,
+   * and the resolver then answers `misc`. The fallback copies `BRANCH_TO_VENDOR_CATEGORY`, the
+   * map the column was seeded from.
+   */
+  tileCoarseCategory: Record<string, VendorCategory>;
+  /**
+   * category id (group OR category) → the ⓘ text the owner wrote on Admin › Categories
+   * (`service_categories.hint_en`, owner 2026-10-31: "add a place for me to write an (i)"). Sparse — only
+   * written, non-blank ids. Empty on the fallback path. Resolve through `categoryInfoText` /
+   * `folderInfoText` (lib/category-hints.ts), never read raw: an unwritten id still has an ⓘ.
+   */
+  categoryHints?: Record<string, string>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
@@ -79,6 +95,10 @@ export type CategoryRow = {
   icon_name: string | null;
   sample_photo_r2_key: string | null;
   marketplace_hidden: boolean;
+  /** `vendor_category` enum label, or null. Absent on a pre-③0-c read. */
+  coarse_category?: string | null;
+  /** The ⓘ text (`service_categories.hint_en`). Absent on a read made before the column. */
+  hint_en?: string | null;
 };
 
 export type MapRow = {
@@ -121,6 +141,8 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     hiddenCategories: Object.fromEntries(
       [...ADMIN_ONLY_TILES].map((t) => [t, true as const]),
     ) as Record<string, true>,
+    tileCoarseCategory: { ...BRANCH_TO_VENDOR_CATEGORY },
+    categoryHints: {}, // the constant has no admin-written ⓘ — the fallback chain answers instead
     map: { ...TAXONOMY_MAP },
   };
 }
@@ -140,10 +162,13 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   const categoryIcons: Record<string, string | null> = {};
   const categoryPhotos: Record<string, string | null> = {};
   const hiddenCategories: Record<string, true> = {};
+  const categoryHints: Record<string, string> = {};
   for (const c of cats) {
     categoryIcons[c.id] = c.icon_name ?? null;
     categoryPhotos[c.id] = c.sample_photo_r2_key ?? null;
     if (c.marketplace_hidden) hiddenCategories[c.id] = true;
+    const hint = (c.hint_en ?? '').trim();
+    if (hint) categoryHints[c.id] = hint;
   }
 
   const folderLabel: Record<string, string> = {};
@@ -160,6 +185,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   const tileSlug: Record<string, string> = {};
   const tilesByParent: Record<string, WeddingTile[]> = {};
   const tileEventTypes: Record<string, string[] | null> = {};
+  const tileCoarseCategory: Record<string, VendorCategory> = {};
   for (const p of parents) tilesByParent[p.id] = [];
   for (const t of tiles) {
     if (t.parent_id) {
@@ -172,6 +198,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
       t.applicable_event_types && t.applicable_event_types.length > 0
         ? t.applicable_event_types
         : null; // null = universal (serves all events)
+    if (t.coarse_category) tileCoarseCategory[t.id] = t.coarse_category as VendorCategory;
   }
 
   const map: Record<string, TaxonomyEntry> = {};
@@ -209,6 +236,8 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     categoryIcons,
     categoryPhotos,
     hiddenCategories,
+    tileCoarseCategory,
+    categoryHints,
     map,
   };
 }

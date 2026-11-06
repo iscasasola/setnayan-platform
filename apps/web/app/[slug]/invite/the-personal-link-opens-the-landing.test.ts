@@ -50,6 +50,8 @@ import { ticketShowsTable } from '@/lib/guests-may-see-seats';
 const APP = join(__dirname, '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
 const ENTER = read('[slug]/invite/enter/page.tsx');
+/** The note after a reply — the page's two blocks, in their own component since 2026-10-10 (`rsvp-note-lines.tsx`). */
+const NOTE_LINES = read('[slug]/_components/rsvp-note-lines.tsx');
 const REDEEM = read('[slug]/redeem/route.ts');
 const ACTIONS = read('[slug]/actions.ts');
 const PAGE = read('[slug]/page.tsx');
@@ -62,12 +64,16 @@ test('A · the personal link lands on the landing page; the reply returns to it'
   // (Since 2026-10-04 the landing address also carries a short-lived re-entry
   // code — lib/guest-reentry.test.ts — so its URL is built one line earlier.)
   assert.match(tail, /^return NextResponse\.redirect\(landing\);/, 'the personal link no longer ends on the landing page');
-  assert.match(REDEEM, /const landing = new URL\(inviteEnterPath\(event\.slug\), url\.origin\);/, 'the landing is not built from the database slug');
+  // 💌 Since 2026-10-19 the landing is the INVITATION itself (`/{slug}`) whenever a reply is asked, and this
+  // page only while the Event Hub is the Save the Date (N05) — `personalLinkLandingPath`, held by
+  // app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts. Still from the DATABASE slug.
+  assert.match(REDEEM, /const landing = new URL\(personalLinkLandingPath\(event\.slug, /, 'the landing is not built from the database slug');
   // The reply's save sends the guest back to the same page.
   assert.match(ACTIONS, /redirect\(`\$\{inviteEnterPath\(ev\.slug\)\}\?rsvp=\$\{outcome\}`\)/, 'the reply no longer returns to the landing page');
-  // "Open the invitation" before a reply passes the reply gate — on the exact mark only.
+  // "Open the invitation" before a reply opens it — and since 2026-10-19 the Event Hub never sends a key to the
+  // reply page at all (the cover's own Reply button does), so the mark needs no exemption of its own.
   assert.equal(openBeforeReplyHref('ana-miguel'), '/ana-miguel?from=landing');
-  assert.match(PAGE, /const openedFromLanding = search\[LANDING_OPEN_PARAM\] === LANDING_OPEN_VALUE;/);
+  assert.doesNotMatch(PAGE, /redirect\(inviteReplyPath\(/, 'the Event Hub bounces a key to the reply page again');
   assert.match(ENTER, /href=\{openBeforeReplyHref\(home\)\}/, 'the unreplied guest’s "Open the invitation" is gated back to the form');
 });
 
@@ -142,8 +148,11 @@ test('E · the seat shows only from 00:00 Manila on the event date', () => {
   ], 'a table was named before the day');
   // Frame 6 — on the day, two lines: the door, then the table.
   assert.deepEqual(howToUseLines({ seatDay: true, dateLabel: 'March 13', table: 'Table 7' }), ['Show this at the door.', 'Find Table 7 in the reception.']);
-  // The page reads the seat only on the day.
-  assert.match(ENTER, /const ownSeat = canvas \|\| !seatDay \? null : /, 'the landing page reads a seat before the day');
+  // The page reads the seat only on the day (the read leaves with the body's others — 2026-10-12 — and is asked
+  // only then; the seat is taken only from that read).
+  assert.match(ENTER, /const ticketSeatsAhead = canvas \|\| !seatDay \? null : startAhead\(readTicketSeats\(/, 'the landing page reads a seat before the day');
+  assert.equal(ENTER.split('readTicketSeats(').length - 1, 1, 'the seat is read a second way');
+  assert.match(ENTER, /const ownSeat = ticketSeatsAhead \? /, 'the seat shown is not the one read on the day');
 });
 
 // ═══ F · the pop-up, once per version ═══════════════════════════════════════
@@ -219,7 +228,7 @@ test('H · the couple’s message: their words, the name exactly as given, no li
   const ours = landingMessage({ ...facts, formalName: 'Mr. Manuel Cortez Casasola', reply: 'unreplied' });
   assert.equal(
     ours,
-    'Hi Mr. Manuel Cortez Casasola! 💌 You’re invited to Ana & Miguel’s wedding on Saturday, March 13, 2027. Please reply below — your ticket is ready once you do.',
+    'Hi Mr. Manuel Cortez Casasola! 💌 You’re invited to Ana & Miguel’s wedding on Saturday, March 13, 2027, and it simply wouldn’t be the same without you. Please reply below — your ticket is ready once you do.',
   );
   const theirs = landingMessage({
     ...facts,
@@ -229,18 +238,24 @@ test('H · the couple’s message: their words, the name exactly as given, no li
   });
   assert.equal(theirs, 'Mabuhay Mr. Manuel Cortez Casasola! Join us for Ana & Miguel’s wedding.', 'the couple’s own words were not used, or the ask stayed after a reply');
   assert.doesNotMatch(theirs, /\{link\}|https?:/, 'the landing message carries a link');
-  assert.match(ENTER, /formalName: guestFullName\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
+  assert.match(ENTER, /formalName: guestNameAsGiven\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
 });
 
 // ═══ I · the approved Fable look ════════════════════════════════════════════
 
 test('I · the Fable frames: the couple as the brand line, the ✓ pill, "We’ll miss you.", the bar above the page, the day’s words', async () => {
   // Frames 3 · 4 — the headings when the couple wrote none of their own.
-  assert.equal(landingHeadline('attending'), 'You replied — see you there');
+  // 🪑 2026-10-25 (RSVP seats-first, owner decision 5): "You're on the list." is the after-Send default — was Fable
+  // frame 3's "You replied — see you there". A couple's own "After they submit" heading still replaces it.
+  assert.equal(landingHeadline('attending'), 'You’re on the list.');
   assert.equal(landingHeadline('declined'), 'We’ll miss you.');
   assert.match(ENTER, /const ownHeadline = landingHeadline\(status, words\.solemn\);/);
-  assert.match(ENTER, /data-landing-done=""/, 'the "✓ You replied" pill is gone');
-  assert.match(ENTER, /\{ownMessage \?\? LANDING_WORDS\.missedSub\}/, 'the No card lost "Thank you for letting us know."');
+  /* 🔁 RE-AIMED 2026-10-10: the note after a reply is drawn from a list of its lines now (the Maker's RSVP stage
+     adds, orders and groups them), so its two blocks moved from the page into the note's own component — unchanged,
+     and held to the byte by `invite/enter/the-note-after-a-reply-is-todays-page.test.ts`. The page draws THAT. */
+  assert.match(ENTER, /<RsvpNoteLines\b/, 'the page no longer draws the note after a reply');
+  assert.match(NOTE_LINES, /data-landing-done=""/, 'the "✓ You replied" pill is gone');
+  assert.match(NOTE_LINES, /\{ownMessage \?\? LANDING_WORDS\.missedSub\}/, 'the No card lost "Thank you for letting us know."');
   // Frame 1 — "Please reply by …", the same date the reply page shows: only a
   // host-set date still ahead (guestReplyBy, controller 2026-09-30).
   assert.match(ENTER, /guestReplyBy\(\{/);

@@ -119,6 +119,9 @@ export function SceneArrangeTab({
   removeForm,
   alignRow = null,
 }: {
+  /** 🧭 Its place on the stage (1-based) and how many — read by the new Maker's Arrange (`stage-panel/parts.tsx`). */
+  at?: number;
+  of?: number;
   mode: 'auto' | 'shown' | 'hidden';
   isVisible: boolean;
   hasContent: boolean;

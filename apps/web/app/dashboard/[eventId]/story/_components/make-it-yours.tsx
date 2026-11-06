@@ -16,7 +16,7 @@
  * hairlines: [ − size + ] | [ A colour ▾ ] [ A background ] | [ turn left · turn right ] | [ remove ];
  * the round handle on a computer (resize + turn, straight within 5°, kept on the sheet by its
  * TURNED box) — on a phone the handle and the words' × give way to the toolbar, which is also the
- * keyboard's route; moments: + New and ✎ as an inline field, row × with Undo, the grip with a
+ * keyboard's route; moments: + New and ✎ as an inline field, the row's swipe with Undo, the grip with a
  * mouse or a finger, Alt+Arrow; named sets. ⛔ NO STICKERS (owner, for now).
  *
  * ── THE RULES THIS FILE KEEPS, EACH ONE A DEFECT A REAL BROWSER FOUND IN THE PROTOTYPE ─────────
@@ -107,6 +107,8 @@ import {
 import { saveArrangement } from '../arrangement-actions';
 import type { MakeItYoursInput } from '../_lib/load-make-it-yours';
 import s from './make-it-yours.module.css';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
 
@@ -1601,10 +1603,11 @@ export function MakeItYours({
             </button>
           </div>
           <div className={s.modewrap}>
-            <div className={s.seg} role="group" aria-label="How moments are made">
+            <div className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${s.modeseg}`} role="group" aria-label="How moments are made">
+              <PillThumb />
               <button
                 type="button"
-                className={cx(auto && s.on)}
+                className={pillSegClass(auto)}
                 aria-pressed={auto}
                 aria-disabled={!hasSchedule}
                 onClick={onAutomatic}
@@ -1614,7 +1617,7 @@ export function MakeItYours({
               <button
                 ref={chooseRef}
                 type="button"
-                className={cx(!auto && s.on)}
+                className={pillSegClass(!auto)}
                 aria-pressed={!auto}
                 aria-disabled={false}
                 onClick={onChoose}
@@ -1646,7 +1649,12 @@ export function MakeItYours({
               const n = photoCount(m);
               const time = input.momentTimes[m.id] || (m.source === 'host' ? 'added by you' : '');
               const name = m.name ?? 'A moment';
-              return (
+              /* 👈 A MOMENT'S DELETE IS ITS SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW —
+                 NO VISIBLE ✕ ON ROWS"): the row's × left it; swipe left on a phone, the hover trash on a computer (in
+                 the Tab order). The same `onRemoveMoment` and its Undo. Not offered where the × was hidden (Automatic,
+                 or the last moment) — no swipe at all there, never a dead Remove. The grip keeps its drag: a touch on
+                 it never starts the swipe. */
+              const row = (
                 <div
                   key={m.id}
                   role="listitem"
@@ -1658,6 +1666,7 @@ export function MakeItYours({
                     aria-hidden="true"
                     title="Drag to reorder"
                     onPointerDown={(e) => onGripDown(e, m.id)}
+                    onTouchStart={(e) => e.stopPropagation()}
                   >
                     ⋮⋮
                   </span>
@@ -1678,25 +1687,20 @@ export function MakeItYours({
                       {n}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    data-cx={m.id}
-                    className={s.cx}
-                    aria-label={`Remove ${name}`}
-                    hidden={!canRemoveMoment}
-                    onClick={(e) => onRemoveMoment(m.id, e.detail === 0)}
-                  >
-                    {/*
-                      ST-11 — the glyph is wrapped so the BUTTON can be the 44px
-                      target while the drawn circle stays 28/36px. Without the
-                      span the hover circle grows with the button, which is the
-                      decoration growing instead of the target.
-                    */}
-                    <span className={s.cxDot} aria-hidden>
-                      ×
-                    </span>
-                  </button>
                 </div>
+              );
+              if (!canRemoveMoment) return row;
+              return (
+                <SwipeToDelete
+                  key={m.id}
+                  label={`Remove ${name}`}
+                  word="Remove"
+                  onDelete={() => onRemoveMoment(m.id, !!listRef.current?.contains(document.activeElement))}
+                  radiusClass=""
+                  surfaceClass={s.chapGround}
+                >
+                  {row}
+                </SwipeToDelete>
               );
             })}
           </div>

@@ -12,6 +12,7 @@ import {
   SELF_REVIEW_SIGNALS,
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Open a vendor_disputes row so the demotion cron has input (cross-account QA,
@@ -169,6 +170,7 @@ function parseOnTimeRating(raw: FormDataEntryValue | null): number {
  * with a clean redirect for non-members instead of bubbling an RLS error.
  */
 export async function submitCoupleReview(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const eventVendorId = formData.get('event_vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');
@@ -273,7 +275,8 @@ export async function submitCoupleReview(formData: FormData) {
         type: 'review_received',
         title: `New ${ratings.overall}-star review`,
         body: `${eventDisplay} left you a ${ratings.overall}-star review. Open your Reviews page to read it and post a one-time public reply.`,
-        relatedUrl: '/vendor-dashboard/reviews',
+        relatedUrl: '/vendor-dashboard/website#reviews',
+        eventId,
       });
     }
   } catch (e) {
@@ -335,6 +338,7 @@ export async function submitCoupleReview(formData: FormData) {
  * believe the related-account block is a false positive.
  */
 export async function submitReviewAppeal(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const eventVendorId = formData.get('event_vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');
@@ -415,6 +419,7 @@ export async function submitReviewAppeal(formData: FormData) {
  * and are idempotent. Scope stays tight to genuine members of THIS event.
  */
 export async function coupleConfirmReceived(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -485,6 +490,7 @@ export async function coupleConfirmReceived(formData: FormData) {
           title: `${coupleName} confirmed your service`,
           body: `${coupleName} confirmed they received everything — add a moment to their story.`,
           relatedUrl: `/vendor-dashboard/clients/${eventId}/editorial-media`,
+          eventId,
         });
       }
     } catch (e) {
@@ -521,6 +527,7 @@ export async function coupleConfirmReceived(formData: FormData) {
  * is idempotent (can't dispute an already-confirmed delivery).
  */
 export async function coupleReportNonDelivery(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -578,6 +585,7 @@ export async function coupleReportNonDelivery(formData: FormData) {
  * key so re-submitting edits the one-line endorsement instead of erroring.
  */
 export async function recommendVendor(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');
@@ -639,7 +647,8 @@ export async function recommendVendor(formData: FormData) {
         type: 'review_received',
         title: 'A couple recommended you',
         body: `${eventDisplay} added you to their recommended suppliers. It now shows on your marketplace profile and their event page.`,
-        relatedUrl: '/vendor-dashboard/reviews',
+        relatedUrl: '/vendor-dashboard/website#reviews',
+        eventId,
       });
     }
   } catch (e) {
@@ -656,6 +665,7 @@ export async function recommendVendor(formData: FormData) {
 
 /** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. */
 export async function withdrawRecommendation(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');

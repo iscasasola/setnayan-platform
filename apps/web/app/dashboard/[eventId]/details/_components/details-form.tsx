@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { updateEventMatchCriteria } from '../../actions';
 import { REGION_OPTIONS, FEEL_OPTIONS, sanitizeName } from '@/lib/match-criteria';
 import { resolveRegion } from '@/lib/region-source';
 import { useSaveLoader } from '@/components/sd-loader';
+import { MERGE_BASE_FIELD, formFieldsOf } from '@/lib/event-details-merge';
 
 /**
  * DetailsForm — edits the governance-free basics on the Personalization page:
@@ -126,10 +127,9 @@ export function DetailsForm({
   const selectClass =
     'w-full rounded-xl border border-ink/15 bg-paper px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setSaved(false);
+  /** The form as posted, from these values (one spelling for the save and for what it started from). */
+  type Shown = { brideFirst: string; brideLast: string; groomFirst: string; groomLast: string; region: string; feel: string; budget: string; cadence: string; celebrantShape: string; baziConsent: boolean; partnerABirthDate: string; partnerABirthTime: string; partnerBBirthDate: string; partnerBBirthTime: string };
+  function formOf({ brideFirst, brideLast, groomFirst, groomLast, region, feel, budget, cadence, celebrantShape, baziConsent, partnerABirthDate, partnerABirthTime, partnerBBirthDate, partnerBBirthTime }: Shown): FormData {
     const fd = new FormData();
     fd.set('event_id', eventId);
     if (showNames) {
@@ -170,12 +170,37 @@ export function DetailsForm({
       fd.set('partner_b_birth_date', partnerBBirthDate);
       fd.set('partner_b_birth_time', partnerBBirthTime);
     }
+    return fd;
+  }
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/event-details-merge.ts`): every save says what this
+     form started from (what it last saved), so only the fields changed HERE are written — the other host's region,
+     feel or budget, changed meanwhile, stands. */
+  const [startedFrom] = useState(() =>
+    formFieldsOf(
+      formOf({
+      brideFirst: initialBrideFirst, brideLast: initialBrideLast, groomFirst: initialGroomFirst, groomLast: initialGroomLast,
+      region: resolveRegion(initialRegion)?.slug ?? '', feel: initialFeel, budget: initialBudgetPesos, cadence: initialCadence,
+      celebrantShape: initialCelebrantShape, baziConsent: baziHasConsent, partnerABirthDate: initialPartnerABirthDate,
+      partnerABirthTime: initialPartnerABirthTime, partnerBBirthDate: initialPartnerBBirthDate, partnerBBirthTime: initialPartnerBBirthTime,
+      }),
+    ),
+  );
+  const savedFields = useRef(startedFrom);
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    const fd = formOf({ brideFirst, brideLast, groomFirst, groomLast, region, feel, budget, cadence, celebrantShape, baziConsent, partnerABirthDate, partnerABirthTime, partnerBBirthDate, partnerBBirthTime });
+    const sending = formFieldsOf(fd);
+    fd.set(MERGE_BASE_FIELD, JSON.stringify(savedFields.current));
     startTransition(async () => {
       const res = await save.run(() => updateEventMatchCriteria(fd), {
         steps: ['Saving your details'],
         hint: 'Saving',
       });
       if (res.ok) {
+        savedFields.current = sending;
         setSaved(true);
       } else {
         setError(res.message);

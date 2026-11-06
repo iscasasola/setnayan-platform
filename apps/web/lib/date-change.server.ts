@@ -1,11 +1,11 @@
 import 'server-only';
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { datePickClash } from '@/lib/date-clash.server';
 import { eventDatePrecisionOf, type EventDatePrecision } from '@/lib/events';
-import { emptyHubDraft, mergeHubDraft } from '@/lib/hub-draft';
-import { readHubDraft, writeHubDraft } from '@/lib/hub-draft-store';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -31,8 +31,11 @@ import {
  *     date finder and Compare read; never a second availability check.
  *   · WHO IS TOLD — `emitNotification` + its email allowlist (the four
  *     `date_change_*` / `date_moved` types — two halves of one mechanism).
- *   · WHERE THE DATE GOES — the couple's Event Hub DRAFT; it goes live only
- *     through Apply (the Maker rule), which asks `dateApplyClearance`.
+ *   · WHERE THE DATE GOES — straight to the event (owner 2026-11-05, *"it
+ *     shouldn't rely on the hub."*): once every supplier answered, the couple
+ *     uses it from Home through the one date door (`updateEventDate`), which
+ *     asks `dateApplyClearance` and closes the request (`afterDateApplied`).
+ *     Nothing here writes the date — a supplier's answer never moves it.
  *   · THE MONEY — never computed: an unlock with money logged opens the admin
  *     case in SQL with the booking's own terms on it; here the admins are told.
  *
@@ -41,7 +44,6 @@ import {
  */
 
 type Client = SupabaseClient;
-type DraftClient = Parameters<typeof writeHubDraft>[0];
 
 const SUPPLIER_DESK = '/vendor-dashboard#today-all';
 
@@ -151,42 +153,6 @@ async function safely(what: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-/* ── the draft ────────────────────────────────────────────────────────────── */
-
-/**
- * EVERY SUPPLIER ANSWERED → THE NEW DATE ENTERS THE DRAFT (the Maker rule: it
- * goes live only through Apply). Written with whichever client the caller has —
- * the couple's own session, or the admin client when the last answer came from
- * a supplier (whose session cannot reach the couple's draft).
- */
-export async function enterReadyDateIntoDraft(
-  client: Client,
-  eventId: string,
-  date: { date: string; precision: EventDatePrecision },
-): Promise<void> {
-  const draftClient = client as unknown as DraftClient;
-  const current = (await readHubDraft(draftClient, eventId)) ?? emptyHubDraft();
-  await writeHubDraft(
-    draftClient,
-    eventId,
-    mergeHubDraft(current, { events: { event_date: date.date, event_date_precision: date.precision } }),
-  );
-}
-
-/** Withdraw puts the drafted date back to live — only if the draft holds the asked date. */
-async function takeAskedDateOutOfDraft(client: Client, eventId: string, asked: string): Promise<void> {
-  const draftClient = client as unknown as DraftClient;
-  const current = await readHubDraft(draftClient, eventId);
-  if (!current || current.events.event_date !== asked) return;
-  const { data: live } = await client.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
-  const row = (live ?? {}) as { event_date?: string | null; event_date_precision?: string | null };
-  await writeHubDraft(
-    draftClient,
-    eventId,
-    mergeHubDraft(current, { events: { event_date: row.event_date ?? null, event_date_precision: row.event_date_precision ?? null } }),
-  );
-}
-
 /* ── the couple ───────────────────────────────────────────────────────────── */
 
 export type DateChangeResult = { ok: true; message: string } | { ok: false; error: string };
@@ -210,6 +176,15 @@ export async function askDateChange({
   const admin = createAdminClient();
   const { data: liveRow } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
   const live = (liveRow ?? {}) as { event_date?: string | null; event_date_precision?: string | null };
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): suppliers
+  // are never asked to move to a day the event may not take.
+  const floor = eventDateFloorRefusal({
+    date,
+    precision,
+    prior: { date: live.event_date ?? null, precision: live.event_date_precision },
+    exempt: await eventDateFloorExempt(supabase as unknown as SupabaseClient, { eventId }),
+  });
+  if (floor) return { ok: false, error: floor };
   let clash;
   try {
     clash = await datePickClash({
@@ -296,7 +271,6 @@ export async function settleDateChange({
   const who = await eventName(admin, eventId).catch(() => 'The couple');
 
   if (action === 'withdraw') {
-    await safely('withdraw draft', () => takeAskedDateOutOfDraft(supabase, eventId, view.proposedDate));
     await safely('withdraw notice', async () => {
       const still = view.suppliers.filter((s) => s.answer === 'asked' || s.answer === 'moved');
       const users = await supplierUserIds(admin, still.map((s) => s.vendorProfileId));
@@ -338,10 +312,7 @@ export async function settleDateChange({
     const dropped = view.suppliers.find((s) => s.vendorProfileId === env.vendor_profile_id);
     for (const id of dropped?.eventVendorIds ?? []) await notifyWaitlistIfBookingReleased(id);
   });
-  if (env.ready) {
-    await safely('drop → draft', () => enterReadyDateIntoDraft(supabase, eventId, { date: view.proposedDate, precision: view.proposedPrecision }));
-    return { ok: true, message: 'Released. Every supplier has answered — your new date is in your draft. Apply it in your Event Hub.' };
-  }
+  if (env.ready) return { ok: true, message: `Released. Every supplier has answered — use ${dateChangeWhen(view.proposedDate, view.proposedPrecision)} on Home.` };
   return { ok: true, message: 'Released. The others are still deciding.' };
 }
 
@@ -350,7 +321,8 @@ export async function settleDateChange({
 /**
  * Move to <date> · Unlock my service. The database decides who may answer and
  * releases the booking; this tells the couple (and, with money logged, the
- * admins), and when the last supplier answered puts the date in the draft.
+ * admins). When the last supplier answered, the couple is told the new date is
+ * theirs to use — it saves from Home, by the couple (never by a supplier's press).
  */
 export async function answerDateChange({
   supabase,
@@ -381,13 +353,6 @@ export async function answerDateChange({
   const req = (reqRow ?? null) as { proposed_date: string; proposed_precision: string } | null;
   const when = req ? dateChangeWhen(req.proposed_date, eventDatePrecisionOf(req.proposed_precision) ?? 'day') : 'the new date';
 
-  let readyInDraft = false;
-  if (env.ready && req) {
-    await safely('answer → draft', async () => {
-      await enterReadyDateIntoDraft(admin, eventId, { date: req.proposed_date, precision: eventDatePrecisionOf(req.proposed_precision) ?? 'day' });
-      readyInDraft = true;
-    });
-  }
   const money = (env.money_flag_ids ?? []).length > 0;
   await safely('answer notice', async () => {
     for (const userId of await coupleUserIds(admin, eventId)) {
@@ -399,13 +364,9 @@ export async function answerDateChange({
           answer === 'unlocked'
             ? money
               ? 'They are no longer booked. Money was logged with them, so the payment is settled by the cancellation terms on your booking — Setnayan support has the case.'
-              : 'They are no longer booked for your celebration.'
+              : 'They are no longer booked for your event.'
             : 'They confirmed they can do the new date.',
-          env.ready
-            ? readyInDraft
-              ? 'Every supplier has answered — your new date is in your draft. Apply it in your Event Hub.'
-              : 'Every supplier has answered — pick the date again in your Event Hub and Apply it.'
-            : 'Others are still deciding.',
+          env.ready ? `Every supplier has answered — use ${when} on Home and it saves at once.` : 'Others are still deciding.',
         ].join(' '),
         relatedUrl: `/dashboard/${eventId}`,
       });
@@ -423,10 +384,10 @@ export async function answerDateChange({
 /* ── the pick ─────────────────────────────────────────────────────────────── */
 
 /**
- * The Maker's pick refuses a clashing date (#6241) — UNLESS every supplier it
+ * The date pick refuses a clashing date (#6241) — UNLESS every supplier it
  * clashes with already answered Move on the open request for exactly this
- * date (the couple re-picking it after an Undo, say). Null = the pick may go
- * to the draft; otherwise the clash as it was.
+ * date (the couple using it from Home once everyone answered). Null = the pick
+ * may be saved; otherwise the clash as it was.
  */
 export async function clashStillOpen<T extends { clash: Array<{ vendorId: string }> }>(
   supabase: Client,
@@ -442,11 +403,11 @@ export async function clashStillOpen<T extends { clash: Array<{ vendorId: string
   return dateMoveClearance({ clashing: clash.clash.map((c) => c.vendorId), moved }).cleared ? null : clash;
 }
 
-/* ── Apply ────────────────────────────────────────────────────────────────── */
+/* ── the save ─────────────────────────────────────────────────────────────── */
 
 /**
- * 🗓 MAY THIS DRAFTED DATE GO LIVE OVER BOOKED SUPPLIERS? Asked by Apply when
- * `eventDateRefusal` would say `locked`. FAIL-CLOSED: an unread supplier list or
+ * 🗓 MAY THIS DATE GO LIVE OVER BOOKED SUPPLIERS? Asked by the one date door
+ * (`updateEventDate`) when `eventDateRefusal` would say `locked`. FAIL-CLOSED: an unread supplier list or
  * calendar is `{ ok: false }`, never "everyone is free".
  *
  * Cleared when no booked supplier's calendar clashes (Q8 — a fitting date needs
@@ -488,7 +449,7 @@ export async function dateApplyClearance({
 }
 
 /**
- * A NEW DATE WENT LIVE THROUGH APPLY: the request (if any) closes as applied,
+ * A NEW DATE WENT LIVE (`updateEventDate`): the request (if any) closes as applied,
  * and EVERY booked supplier gets the plain notice "The date moved to <date>" —
  * no decision (Q8). Their held day already moved with it in the database
  * (`events_booked_dates_follow_the_event`).
@@ -532,7 +493,7 @@ export async function afterDateApplied({
         userId,
         type: 'date_moved',
         title: dateMovedNotice(next.date, next.precision),
-        body: `${who} moved their celebration to ${dateChangeWhen(next.date, next.precision)}. Your calendar moved with it.`,
+        body: `${who} moved their event to ${dateChangeWhen(next.date, next.precision)}. Your calendar moved with it.`,
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
         eventId,
       });

@@ -755,10 +755,23 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   // count them twice on save. Same call the workspace Costing editor makes. A
   // self-added supplier has no account to raise a change order, so the two are
   // equal today; the distinction is what keeps it right if that changes.
+  // 📦 2026-10-10: the payment-plan half moved, whole, into
+  // lib/booking-payment-plan.server.ts (next entry) so the supplier's yes can
+  // run the same code. One of each needle went with it; this file keeps the
+  // downpayment read.
   'app/dashboard/[eventId]/vendors/actions.ts': {
-    what: 'lock — the downpayment and the payment plan amounts',
-    needles: [[AGREED_NOW, 2], [EMBED, 2], [/const totalCostPhp = agreedTotalNow\(/, 2]],
-    column: 19,
+    what: 'lock — the downpayment amount',
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const totalCostPhp = agreedTotalNow\(/, 1]],
+    // 17 since 2026-10-12: `updateSelfAddedSupplier` reads the record sheet's typed
+    // `total_cost_php` FORM FIELD for the fee-leak price check — a price the couple
+    // just typed, never a stored agreed total, so it is not one to route through
+    // agreedTotalNow.
+    column: 17,
+  },
+  'lib/booking-payment-plan.server.ts': {
+    what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const totalCostPhp = agreedTotalNow\(planRow\?\.total_cost_php \?\? null, planRow\?\.change_lines\)/, 1]],
+    column: 3,
   },
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',
@@ -830,16 +843,38 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     // hands on are checked through its own entry below, `readEventVendorsMeasured`.
     // `lib/date-clash.server.ts` reads only each supplier's status and calendar (is a BOOKED
     // supplier free that day) — never a price: availability only, owner 2026-10-01.
-    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
+    // `vendors/_actions/fact-sheet.ts` (PR5's date sheet) reads names, statuses and categories for Help me choose and
+    // the booked-supplier names — never a price.
+    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/vendors/_actions/fact-sheet.ts', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
   },
   readEventVendorsMeasured: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   // Find a supplier (P3) calls it with `vendorRows: []` — only to learn which
   // categories this event type books. No pick, so no agreed total to print.
   buildShortlistFolders: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
-    readsNoPrice: ['app/dashboard/[eventId]/vendors/categories/page.tsx'],
+    // `/dev/suppliers-lab` draws the real Find body on FIXTURE rows — no event,
+    // no database, 404 in production. No couple's agreed total is on it.
+    // `lib/cover-catalog.server.ts` (2026-10-20) keeps only the folders' row NAMES for the card's
+    // "Also covers" dropdown — it selects no price column and returns no vendor; `/dev/add-your-own-lab`
+    // builds the same list from no rows at all (no event, no database, 404 in production).
+    // `lib/supplier-find-read.ts` (2026-10-21) is the Find page's list read, moved so the Suppliers page's
+    // bottom search draws the same list: categories, booked-or-not and a supplier COUNT — never a price.
+    // `lib/add-own-categories.server.ts` (2026-10-24) is "What they do" for the add walk opened from Discover's
+    // empty search: built from NO vendor rows, it returns category rows only — no vendor, no price.
+    readsNoPrice: [
+      'app/dev/add-your-own-lab/page.tsx',
+      'app/dev/suppliers-lab/page.tsx',
+      'lib/add-own-categories.server.ts',
+      'lib/cover-catalog.server.ts',
+      'lib/supplier-find-read.ts',
+    ],
   },
-  buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
+  buildPlanBudgetModel: {
+    folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
+    // `/dev/swipe-rows-lab/suppliers` draws the real Your team on two FIXTURE candidates priced NULL (`./fixtures`) —
+    // no event, no database, 404 in production — so it prints no price at all.
+    readsNoPrice: ['app/dev/swipe-rows-lab/suppliers/page.tsx'],
+  },
   bucketVendorsByGroup: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'lib/vendors-plan-budget.ts'],
     readsNoPrice: ['lib/setnayan-ai-cockpit.ts', 'lib/todays-one-thing.ts'],
@@ -848,8 +883,20 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 
 /** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
+  'app/dev/suppliers-lab/fixtures.ts':
+    'FIXTURE rows for /dev/suppliers-lab (no event, no database, 404 in production) — typed in the lab, never read from event_vendors',
+  'app/dev/suppliers-lab/booked-fixtures.ts':
+    'FIXTURE rows for the Booked body of /dev/suppliers-lab, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
+  'app/dev/add-your-own-lab/lab-client.tsx':
+    'NOT A READ — the lab’s stand-in save reads the price the sheet POSTED (its own form field), to check the plan against it the way the real save does; no table is queried and the lab 404s in production',
+  'app/dev/swipe-rows-lab/suppliers/fixtures.ts':
+    'FIXTURE rows for /dev/swipe-rows-lab/suppliers (no event, no database, 404 in production) — priced NULL, so the lab prints no price; never read from event_vendors',
+  'app/dev/budget-lab/fixture.ts':
+    'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/_components/record-card-folds.tsx':
+    'WRITES the HEADLINE price of a supplier the couple added (the record card, 2026-10-29) — its field starts from `loadSelfAddedSupplier`’s headline on purpose (pre-filling the agreed total would fold change lines into the headline on save), and the closed fold only echoes what is typed in that field; no table is queried here',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':
     'WRITES the price the couple agreed with a supplier they added themselves (there is nobody to quote it) — the input starts EMPTY and the control unmounts once a price exists, so it never shows a total back',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx':

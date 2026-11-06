@@ -165,8 +165,9 @@ export function PackageEditor({
       const res = await savePackage({ ...draft, packageId });
       if (res.status === 'ok') {
         setSaved(true);
+        // ⚡ `savePackage` revalidates (and clears the router cache): its answer redraws this page, and a new package's
+        // replace reads a fresh one — no refresh after it.
         if (!packageId) router.replace(`/vendor-dashboard/packages/${res.packageId}`);
-        router.refresh();
         return;
       }
       if (res.status === 'frozen') {
@@ -200,8 +201,8 @@ export function PackageEditor({
     setServerError(null);
     start(async () => {
       const res = await setPackageActive(packageId, !isActive);
-      if (res.status === 'ok') router.refresh();
-      else if (res.status === 'invalid')
+      if (res.status === 'ok') return;
+      if (res.status === 'invalid')
         setServerError('Fix the notes below before publishing.');
       else setServerError('That change could not be saved.');
     });

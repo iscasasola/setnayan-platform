@@ -168,13 +168,14 @@ test('nav · suppliers get no camera — Papic is a guest product', () => {
   }
 });
 
-test('nav · NAMING LOCK: the photo slot is "Gallery", never "Photos"', () => {
+test('nav · NAMING LOCK: the photo slot is "Memories", never "Photos" or "Gallery"', () => {
   // site-menu.ts carries the owner rename. A prototype used "Photos" and would
   // have shipped the wrong word.
   const s = at({ viewer: { kind: 'guest' }, phase: 'after' });
   const g = s.find((x) => x.key === 'gallery');
-  assert.equal(g?.label, 'Gallery');
+  assert.equal(g?.label, 'Memories');
   assert.ok(!s.some((x) => x.label === 'Photos'));
+  assert.ok(!s.some((x) => /galler/i.test(x.label)), 'owner 2026-10-23: no "Gallery" anywhere');
 });
 
 test('nav · every label is one word — a wrapped label tilts the whole bar', () => {
@@ -246,7 +247,9 @@ test('the Invitation bar for a guest is ALWAYS the four — Home · Details · S
     destinations: { camera: '/papic/guest' },
     stageSlots: STAGE_BAR.rsvp.slots,
   } as Partial<NavInput>;
-  assert.deepEqual(keys(at(base)), ['home', 'details', 'story', 'me']);
+  // 📷 Papic off: the four. Papic on adds the Camera (owner 2026-10-30) — still no RSVP tab.
+  assert.deepEqual(keys(at({ ...base, hostAllowsCamera: false })), ['home', 'details', 'story', 'me']);
+  assert.deepEqual(keys(at(base)), ['home', 'details', 'story', 'camera', 'me']);
   assert.ok(!(STAGE_BAR.rsvp.slots as readonly string[]).includes('rsvp'), 'the stage still lists an RSVP slot');
   for (const stage of Object.keys(STAGE_BAR) as Array<keyof typeof STAGE_BAR>) {
     assert.ok(!(STAGE_BAR[stage].slots as readonly string[]).includes('rsvp'), `${stage} offers an RSVP tab`);
@@ -259,4 +262,49 @@ test('a guest, couple and vendor keep their own in-page Me slot', () => {
     assert.equal(me?.state, 'live');
     assert.ok(me?.href.startsWith('#'), `${viewer.kind}'s Me should stay an in-page anchor`);
   }
+});
+
+test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots" before the day — and nothing more', () => {
+  // ⚖ Owner, picker: *"Only their own shots."* With "Let guests shoot now" on
+  // (`papic_guest_capture_early`) and the camera gate open, the guest's bar
+  // also shows Gallery; it holds THEIR OWN captures. Off → the four, unchanged.
+  const inv = {
+    viewer: { kind: 'guest' },
+    phase: 'before',
+    hasStory: true,
+    destinations: { camera: '/papic/guest' },
+    stageSlots: STAGE_BAR.rsvp.slots,
+  } as Partial<NavInput>;
+  // 📷 Early off AND Papic off: the four (with Papic on the Camera joins — owner 2026-10-30, pinned in
+  // `papic-on-camera-every-stage.test.ts`; early shooting adds Memories on top).
+  assert.deepEqual(keys(at({ ...inv, hostAllowsCamera: false })), ['home', 'details', 'story', 'me'], 'early off: the Invitation keeps its four');
+  // …and (owner 2026-10-14, on #6529) the Camera too — SIX, once: Welcome · Details · Story · Camera · Gallery · Me.
+  assert.deepEqual(keys(at({ ...inv, earlyOwnShots: true })), ['home', 'details', 'story', 'camera', 'gallery', 'me']);
+  const c = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'camera');
+  assert.equal(c?.state, 'live');
+  assert.equal(c?.href, '/papic/guest', 'the Camera tab goes where the Gallery\'s "Take your first photo" goes');
+  assert.ok(!keys(at({ ...inv, hostAllowsCamera: false })).includes('camera'), 'early off, Papic off: no Camera before the day');
+  const g = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'gallery');
+  assert.equal(g?.state, 'live');
+  assert.equal(g?.label, 'Memories', 'NAMING LOCK — never "Photos"');
+  // Save the Date too (the other before-the-day stage).
+  assert.deepEqual(
+    keys(at({ ...inv, stageSlots: STAGE_BAR.save_the_date.slots, earlyOwnShots: true })),
+    ['home', 'story', 'camera', 'gallery', 'me'],
+  );
+  // 🔒 A stranger, a supplier and the couple: unchanged by the switch.
+  for (const viewer of [{ kind: 'public' as const }, { kind: 'vendor' as const, kits: [] as VendorKit[] }, { kind: 'couple' as const }]) {
+    assert.deepEqual(
+      keys(at({ ...inv, viewer, earlyOwnShots: true })),
+      keys(at({ ...inv, viewer, earlyOwnShots: false })),
+      `${viewer.kind}: early shooting changed this bar — it is an invited guest's own shots only`,
+    );
+  }
+  // …and it never reaches the day's or the recap's rules: those keep "public chapter or nothing".
+  for (const phase of ['day', 'after'] as const) {
+    assert.ok(!keys(at({ viewer: { kind: 'guest' }, phase, anyChapterPublic: false, earlyOwnShots: true })).includes('gallery'));
+  }
+  // Six is this rule's alone — and Me is never pushed off the end.
+  const open = at({ ...inv, stageSlots: undefined, earlyOwnShots: true });
+  assert.deepEqual(keys(open), ['home', 'details', 'story', 'camera', 'gallery', 'me']);
 });

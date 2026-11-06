@@ -1,4 +1,5 @@
 import type { GuestOwnShots } from '@/lib/guest-live-gallery';
+import { YourShotTile } from './your-shot-tile';
 
 /**
  * 📸 THE GALLERY'S "YOUR SHOTS" — and the door to everyone's, only when shared.
@@ -29,6 +30,7 @@ export function YourShotsGallery({
   qrToken,
   cameraOn,
   everyoneHref,
+  cameraHref = null,
 }: {
   shots: GuestOwnShots | null;
   /** The guest's own key — the Save link's credential. Null: the tiles do not link. */
@@ -37,6 +39,12 @@ export function YourShotsGallery({
   cameraOn: boolean;
   /** The shared gallery, when the couple shares it; null hides the door. */
   everyoneHref: string | null;
+  /**
+   * 🖼 The Camera, for the empty state's invitation (owner 2026-10-14: a guest
+   * with no shots yet sees a line inviting them to take one, never an empty
+   * wall). Null: the line alone.
+   */
+  cameraHref?: string | null;
 }) {
   const everyone = everyoneHref ? (
     <a
@@ -45,7 +53,7 @@ export function YourShotsGallery({
       className="sn-glass-bare flex min-h-[44px] items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium text-ink"
     >
       <span>Everyone&rsquo;s photos</span>
-      <span aria-hidden className="text-ink/40">
+      <span aria-hidden className="text-ink/70">
         &rarr;
       </span>
     </a>
@@ -54,7 +62,7 @@ export function YourShotsGallery({
   if (shots === null) {
     return (
       <section aria-label="Your shots" data-your-shots="" className="space-y-3">
-        <p className="sn-eye text-ink/55">Your shots</p>
+        <p className="sn-eye text-ink/70">Your shots</p>
         <p className="text-sm text-ink/65">We couldn&rsquo;t load your shots just now. Refresh the page to try again.</p>
         {everyone}
       </section>
@@ -64,8 +72,17 @@ export function YourShotsGallery({
     if (!cameraOn) return everyone;
     return (
       <section aria-label="Your shots" data-your-shots="" className="space-y-3">
-        <p className="sn-eye text-ink/55">Your shots</p>
+        <p className="sn-eye text-ink/70">Your shots</p>
         <p className="text-sm text-ink/65">Photos you take with the Camera land here.</p>
+        {cameraHref ? (
+          <a
+            data-your-shots-camera=""
+            href={cameraHref}
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center"
+          >
+            <span className="lbl">Take your first photo</span>
+          </a>
+        ) : null}
         {everyone}
       </section>
     );
@@ -73,24 +90,18 @@ export function YourShotsGallery({
   return (
     <section aria-label="Your shots" data-your-shots="" className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="sn-eye text-ink/55">Your shots</p>
-        <p className="text-sm text-ink/60">{shots.total.toLocaleString('en-PH')}</p>
+        <p className="sn-eye text-ink/70">Your shots</p>
+        <p className="text-sm text-ink/70">{shots.total.toLocaleString('en-PH')}</p>
       </div>
       <ul className="grid grid-cols-3 gap-1.5">
         {shots.shots.map((s) => (
           <li key={s.id} className="aspect-square overflow-hidden rounded-lg bg-ink/5">
             {qrToken ? (
-              <a
-                href={`/papic/me/${encodeURIComponent(qrToken)}/photo?id=${encodeURIComponent(s.id)}&src=guest`}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open full size to save"
-                className="block h-full w-full"
-              >
-                {/* Presigned URL — raw <img> (the optimizer would cache the expiry). */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-              </a>
+              <YourShotTile
+                id={s.id}
+                previewUrl={s.url}
+                saveUrl={`/papic/me/${encodeURIComponent(qrToken)}/photo?id=${encodeURIComponent(s.id)}&src=guest`}
+              />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={s.url} alt="" loading="lazy" className="h-full w-full object-cover" />

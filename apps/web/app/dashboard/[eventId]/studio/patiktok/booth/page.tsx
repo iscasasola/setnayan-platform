@@ -19,6 +19,7 @@ import {
 } from '@/lib/patiktok';
 import {
   patiktokBoothCookieName,
+  patiktokBoothLegacyCookieName,
   resolveBoothTemplates,
 } from '@/lib/patiktok-booth-templates';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -114,9 +115,11 @@ export default async function PatiktokBoothDashboard({
     );
   }
   const submissionsMeasured = !submissionsCountError && submissionsCount !== null;
-  const submissions = submissionsCount ?? 0;
-  const remaining = Math.max(0, PATIKTOK_VIDEO_SOFT_CAP - submissions);
-  const overCap = submissions >= PATIKTOK_VIDEO_SOFT_CAP;
+  // 🔴 A REFUSED COUNT IS NOT A QUIET BOOTH. Unread, there is no figure, no "N left" and no cap — the strip says it
+  // could not count (`CapacityStrip`'s `measured`), never "0 / 40 · 40 left before soft cap".
+  const submissions = submissionsMeasured ? submissionsCount : null;
+  const remaining = submissions === null ? null : Math.max(0, PATIKTOK_VIDEO_SOFT_CAP - submissions);
+  const overCap = submissions !== null && submissions >= PATIKTOK_VIDEO_SOFT_CAP;
 
   // Guest + table lists power the booth tag sheet (pick-from-list / scan place
   // card / scan table QR). Resolved server-side, client-side matched by token.
@@ -180,7 +183,7 @@ export default async function PatiktokBoothDashboard({
   const { primary: primaryTemplate, backup: backupTemplate } = resolveBoothTemplates({
     primaryParam: primary,
     backupParam: backup,
-    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null,
+    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? jar.get(patiktokBoothLegacyCookieName(eventId))?.value ?? null,
   });
 
   return (
@@ -190,7 +193,7 @@ export default async function PatiktokBoothDashboard({
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Patiktok gallery
+        Back to Patiktok Memories
       </Link>
 
       <PageMasthead
@@ -217,6 +220,7 @@ export default async function PatiktokBoothDashboard({
       ) : null}
 
       <CapacityStrip
+        measured={submissionsMeasured}
         submissions={submissions}
         remaining={remaining}
         overCap={overCap}
@@ -243,51 +247,67 @@ export default async function PatiktokBoothDashboard({
 }
 
 function CapacityStrip({
+  measured,
   submissions,
   remaining,
   overCap,
 }: {
-  submissions: number;
-  remaining: number;
+  /** Did the last-24-h count answer? `false` → the strip says it could not count: no figure, no "N left", no pill. */
+  measured: boolean;
+  submissions: number | null;
+  remaining: number | null;
   overCap: boolean;
 }) {
+  const counted = measured && submissions !== null && remaining !== null;
   return (
     <section
       className={`space-y-3 p-5 ${
-        overCap
+        counted && overCap
           ? 'rounded-2xl border border-warn-300/70 bg-warn-50/80'
           : 'sn-tile'
       }`}
+      data-booth-capacity={counted ? 'counted' : 'unread'}
     >
-      <div className="flex items-center justify-between gap-3">
+      {counted ? (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="sn-eye">
+              Day&rsquo;s capture count (last 24 h)
+            </p>
+            <p className="mt-1 inline-flex items-baseline gap-2">
+              <span className="text-3xl font-semibold tracking-tight">
+                {formatCount(submissions)}
+              </span>
+              <span className="font-mono text-xs text-ink/55">
+                / {formatCount(PATIKTOK_VIDEO_SOFT_CAP)}
+              </span>
+            </p>
+          </div>
+          <span
+            className={
+              overCap
+                ? 'inline-flex items-center gap-1.5 rounded-full bg-warn-200/60 px-2.5 py-1 text-[11px] font-medium text-warn-900'
+                : 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900'
+            }
+          >
+            {overCap ? (
+              <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            ) : (
+              <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+            {overCap ? 'Past the soft cap' : `${formatCount(remaining)} left before soft cap`}
+          </span>
+        </div>
+      ) : (
         <div>
           <p className="sn-eye">
             Day&rsquo;s capture count (last 24 h)
           </p>
-          <p className="mt-1 inline-flex items-baseline gap-2">
-            <span className="text-3xl font-semibold tracking-tight">
-              {submissions}
-            </span>
-            <span className="font-mono text-xs text-ink/55">
-              / {formatCount(PATIKTOK_VIDEO_SOFT_CAP)}
-            </span>
+          <p className="mt-1 text-sm text-ink/70" role="status">
+            Couldn&rsquo;t read today&rsquo;s count. Refresh to try again.
           </p>
         </div>
-        <span
-          className={
-            overCap
-              ? 'inline-flex items-center gap-1.5 rounded-full bg-warn-200/60 px-2.5 py-1 text-[11px] font-medium text-warn-900'
-              : 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900'
-          }
-        >
-          {overCap ? (
-            <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          ) : (
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          )}
-          {overCap ? 'Past the soft cap' : `${remaining} left before soft cap`}
-        </span>
-      </div>
+      )}
 
       <p className="text-[11px] text-ink/55">
         The {PATIKTOK_VIDEO_SOFT_CAP}-video soft cap is calibrated to ~20%

@@ -26,6 +26,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /** One display-safe vendor row. Money/rating are display fields; no PII, no
  *  contact, no ids beyond the opaque vendor key (unused on the client). */
@@ -204,7 +205,7 @@ export function TourShortlist({
         <span className="flex items-center gap-2 text-sm text-[#5F5E5A]">
           <Gem className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} aria-hidden />
           {aiOn
-            ? `Setnayan AI ranked ${formatCount(vendorCount)} vendors by fit`
+            ? `Setnayan AI ranked ${formatCount(vendorCount)} suppliers by fit`
             : 'Setnayan AI is off — showing a plain search'}
         </span>
         <button
@@ -213,15 +214,9 @@ export function TourShortlist({
           aria-checked={aiOn}
           aria-label="Toggle Setnayan AI"
           onClick={() => setAiOn((v) => !v)}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-            aiOn ? 'bg-[#8C6932]' : 'bg-[#1B1A17]/20'
-          }`}
+          className={SWITCH_BUTTON}
         >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-              aiOn ? 'translate-x-[22px]' : 'translate-x-0.5'
-            }`}
-          />
+          <SwitchTrack on={aiOn} />
         </button>
       </section>
 
@@ -243,7 +238,7 @@ export function TourShortlist({
               </div>
             ) : (
               <p className="mt-3 rounded-xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-5 text-sm text-[var(--m-slate-2)]">
-                No sample vendors seeded in this category yet.
+                No sample suppliers in this category yet.
               </p>
             )}
           </section>

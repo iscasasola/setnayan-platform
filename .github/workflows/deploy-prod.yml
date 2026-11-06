@@ -23,6 +23,13 @@ name: deploy-prod
 # (apps/web/vercel.json → "git.deploymentEnabled.main": false — JSON takes no
 # comments, so this is its note). Schema is therefore always ahead of code.
 #
+# 2026-10-08: the same `git.deploymentEnabled` map also turns Vercel's git builds OFF
+# for every branch except `preview/*` (`"**": false`, `"*": false`, `"preview/*": true`) —
+# a builder branch used to start a build machine only for the Ignored Build Step to
+# cancel it ~16 s later, dozens of times a day (Build CPU Minutes were ~98% of the bill).
+# This workflow's deploy hook is unaffected: it has deployed `main` with
+# `"main": false` since the hook was introduced.
+#
 # ── The prerequisite, and why it took two tries ──
 # The first attempt (#3916) turned Vercel's auto-deploy off while push-triggered
 # workflows were SILENTLY SUPPRESSED, so nothing deployed at all for three
@@ -159,7 +166,9 @@ jobs:
   migrate-then-deploy:
     name: apply migrations → deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 20, not 15: room for the read-only snapshot refresh (capped at 6 min) after
+    # the deploy, so a slow refresh can never time the deploy job out.
+    timeout-minutes: 20
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -256,6 +265,7 @@ jobs:
           fi
 
       - name: Apply pending migrations (db push) — BEFORE deploy
+        id: push
         if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.any == 'true'
         run: supabase db push --include-all --yes
 
@@ -276,6 +286,49 @@ jobs:
           git tag -f deployed-prod "$GITHUB_SHA"
           git push -f origin refs/tags/deployed-prod
           echo "deployed-prod → $GITHUB_SHA"
+
+      # ─── REFRESH THE PROD SCHEMA SNAPSHOT (2026-11-04) ─────────────────
+      # WHY: `apps/web/tests/db/schema-drift.db.test.ts` compares the migrations
+      # to a COMMITTED copy of prod's schema (supabase/security/prod-schema.snapshot.txt)
+      # and fails once that copy is more than 40 migrations behind the repo. Only
+      # a human with prod access refreshed it, so it drifted until the ceiling
+      # tripped — and then EVERY PR adding a migration went red at once (5 PRs on
+      # 5 Nov, cleared by the owner by hand in #7272).
+      #
+      # This job already holds the prod credential and has just run `db push`, so
+      # prod's schema is exactly what main declares. Reading it here keeps the
+      # snapshot at most one publish behind, and the ceiling stays a real alarm
+      # (it now fires only if THIS step keeps failing).
+      #
+      # 🔑 READ-ONLY. The generator runs two SELECTs through the already-linked
+      # project (`supabase db query --linked`, as migration-drift-monitor.yml
+      # does); no URL is built or printed. If the file changed, the script opens
+      # or updates ONE PR from `bot/prod-schema-snapshot` (snapshot + changelog
+      # fragment only) with auto-merge armed — pushed with AUTOMERGE_PAT, because
+      # a PR pushed with GITHUB_TOKEN fires no CI and could never merge. It never
+      # force-pushes: an open PR gets `main` merged in plus a new commit.
+      #
+      # 🔑 IT NEVER FAILS THE DEPLOY. It runs only AFTER the hook and the marker,
+      # the script turns every error into a ::warning:: and exits 0, and
+      # continue-on-error + its own timeout cover anything else (a hung query,
+      # npx). A missed refresh is retried on the next publish.
+      #
+      # ⛔ Never "fix" a red freshness check by raising LEDGER_GAP_CEILING; a red
+      # check on the bot PR itself is telling the truth about production.
+      - name: Setup Node (snapshot refresh)
+        if: ${{ !cancelled() && steps.push.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Refresh the prod schema snapshot (read-only; never fails the deploy)
+        if: ${{ !cancelled() && steps.push.outcome == 'success' }}
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          BOT_PUSH_TOKEN: ${{ secrets.AUTOMERGE_PAT }}
+        run: bash scripts/refresh-prod-schema-snapshot.sh
 
       - name: Show migration history
         if: always() && steps.gate.outputs.enabled == 'true'

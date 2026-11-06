@@ -10,6 +10,8 @@
  * control makes.
  */
 
+import { buildKeyOf } from './suppliers-build';
+
 /** Max stored title length — trims runaway input; matches a comfy column header. */
 export const MAX_BUILD_TITLE_LEN = 60;
 
@@ -124,17 +126,51 @@ export function sortSavedBuilds<T extends NamedBuildRow>(rows: ReadonlyArray<T>)
  */
 export type SaveAsPlan =
   | { mode: 'create'; title: string | null }
-  | { mode: 'overwrite'; buildId: string; title: string | null };
+  | { mode: 'overwrite'; buildId: string; title: string | null }
+  // TWIN DETECTION (owner 2026-10-07: *"check if the services they pick already
+  // is exactly from a similar build"*). Nothing is written for either:
+  //   twin       these exact suppliers are already saved as ANOTHER build;
+  //   unchanged  the build being overwritten already holds exactly these
+  //              suppliers under exactly this name.
+  | { mode: 'twin'; buildId: string; twinTitle: string }
+  | { mode: 'unchanged'; buildId: string; twinTitle: string };
+
+/** The slice of a saved pick the twin compare reads (`lib/suppliers-build.ts`). */
+type TwinPick = { groupId?: string | null; vendorId?: string | null; vendorName?: string | null };
 
 export function planSaveAs(args: {
   rawName: unknown;
   overwriteBuildId: string | null;
-  existing: ReadonlyArray<NamedBuildRow>;
+  existing: ReadonlyArray<NamedBuildRow & { picks?: ReadonlyArray<TwinPick> | null }>;
+  /**
+   * The suppliers being saved. Given → a save that would make a TWIN of a
+   * saved build is refused (see `SaveAsPlan`). Absent → the name-only rules
+   * below, exactly as before (every older caller).
+   */
+  picks?: ReadonlyArray<TwinPick> | null;
 }): SaveAsPlan {
   const title = normalizeBuildTitle(args.rawName);
   const target = args.overwriteBuildId
     ? args.existing.find((r) => r.build_id === args.overwriteBuildId)
     : undefined;
+
+  // The SAME pure compare the Build body draws "same as …" with — one rule for
+  // what the screen says and what the save does. An empty build is nobody's twin.
+  const key = args.picks ? buildKeyOf(args.picks) : '';
+  if (key !== '') {
+    const ordered = sortSavedBuilds(args.existing);
+    const titleOf = (row: NamedBuildRow) => displayBuildTitle(row, ordered.indexOf(row as (typeof ordered)[number]));
+    const twin = ordered.find((r) => buildKeyOf(r.picks) === key);
+    if (twin && twin.build_id !== target?.build_id) {
+      return { mode: 'twin', buildId: twin.build_id, twinTitle: titleOf(twin) };
+    }
+    // The build being overwritten already holds these suppliers: only a NEW
+    // name is a change (the shipped rename-by-overwrite stays possible).
+    if (twin && target && normalizeBuildTitle(target.title) === title) {
+      return { mode: 'unchanged', buildId: target.build_id, twinTitle: titleOf(target) };
+    }
+  }
+
   if (target) return { mode: 'overwrite', buildId: target.build_id, title };
 
   // No explicit target: a name that already exists overwrites its own build.

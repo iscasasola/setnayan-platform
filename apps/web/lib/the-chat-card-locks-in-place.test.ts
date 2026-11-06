@@ -43,6 +43,7 @@ const COUPLE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const SUPPLIER = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const OVERVIEW = 'app/vendor-dashboard/page.tsx';
 const ANSWER = 'app/_components/lock-answer-forms.tsx';
+const DECLINE_FIELDS = read('app/_components/decline-reason-fields.tsx');
 const ACTIONS = 'app/vendor-dashboard/clients/[eventId]/actions.ts';
 
 const stream = read(STREAM);
@@ -95,11 +96,12 @@ test('couple · the card grows no lock of its own — no action import, no form,
 });
 
 test('couple · a lock request can never render as nothing', () => {
-  // 'lock_requested' is named, says so, and re-reads the page (the chat mount
-  // is not revalidated by finalizeVendor's own revalidatePath).
+  // 'lock_requested' is named and says so. The page the button sits on (the chat mount too) is re-read by
+  // finalizeVendor's OWN answer: any revalidation in an action renders the page it was pressed on (Next 15
+  // `pathWasRevalidated`, measured 2026-10-20) — so no refresh follows it (`lib/a-save-renders-once.test.ts`).
   assert.equal(count(lock, /case 'lock_requested':/g), 1, 'the ask falls through the switch again');
   assert.equal(count(lock, /Booking requested — waiting for \{state\.vendorName\} to agree\./g), 1, 'the ask has no visible state');
-  assert.ok(count(lock, /router\.refresh\(\)/g) >= 2, 'a success no longer re-reads the page the button sits on');
+  assert.equal(count(lock, /router\.refresh\(\)/g), 0, 'a success re-reads the page a second time after finalizeVendor already did');
   // Any status the switch does not name is a compile error AND a visible error.
   assert.match(lock, /default: \{\s*const unhandled: never = result;\s*setState\(\{\s*kind: 'error'/, 'an unnamed result renders nothing');
   // The failure line the card shows is the button's own alert.
@@ -127,7 +129,9 @@ test('supplier · the card mounts the answer, gated on the rule, fed the SAME tw
   // The supplier's thread hands in exactly the Overview's actions, from their one module.
   assert.equal(count(supplier, /agreeLock: vendorAgreeToLock,/g), 1);
   assert.equal(count(supplier, /declineLock: vendorDeclineLock,/g), 1);
-  assert.equal(count(supplier, /import \{ vendorAgreeToLock, vendorDeclineLock \} from '\.\.\/\.\.\/clients\/\[eventId\]\/actions';/g), 1);
+  // The day check (2026-11-04, `lib/day-check.ts`) adds the full day's "Waiting list" from the SAME module — never a
+  // wrapper of its own. The line stays exact so a fourth name is a reviewed change.
+  assert.equal(count(supplier, /import \{ vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk \} from '\.\.\/\.\.\/clients\/\[eventId\]\/actions';/g), 1);
   /*
     ⚠ WAS `=== 1`, AND THE NUMBER WAS NEVER THE POINT. The Overview mounts two
     feeds since 2026-09-22 ("Needs your answer" + "Nothing to answer"), so the
@@ -138,15 +142,24 @@ test('supplier · the card mounts the answer, gated on the rule, fed the SAME tw
     least one. That survives any number of feeds AND catches the thing a bare
     `>= 1` would miss — one correct binding beside one wrong one.
   */
-  const overviewAgreeBindings = overview.match(/agreeLock=\{[^}]*\}/g) ?? [];
+  // 🧩 Since the simpler Today (2026-10-14) the Overview hands its answers to the one drawing (`SupplierTodayScreen`)
+  // as an `actions` object (`agreeLock: vendorAgreeToLock,`), and the drawing binds only what it is handed
+  // (`agreeLock={actions.agreeLock}` on the Next card, `{...actions}` on the rows). Both halves are asserted.
+  const overviewAgreeBindings = overview.match(/agreeLock(?:=\{[^}]*\}|: [A-Za-z.]+,)/g) ?? [];
   assert.ok(
     overviewAgreeBindings.length >= 1,
     'the Overview stopped posting the same action — no agreeLock binding at all',
   );
   assert.deepEqual(
     [...new Set(overviewAgreeBindings)],
-    ['agreeLock={vendorAgreeToLock}'],
+    ['agreeLock: vendorAgreeToLock,'],
     `the Overview posts an agree action the chat card does not: ${[...new Set(overviewAgreeBindings)].join(' · ')}`,
+  );
+  const screen = read('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.deepEqual(
+    [...new Set(screen.match(/agreeLock=\{[^}]*\}/g) ?? [])],
+    ['agreeLock={actions.agreeLock}'],
+    'the Today drawing binds an agree action it was not handed',
   );
   // Exactly one definition of each answer.
   const defs = (name: string) => count(actions, new RegExp(`export async function ${name}\\(`, 'g'));
@@ -160,13 +173,17 @@ test('supplier · both forms post only the row id and the way home — the same 
   assert.equal(count(answer, /name="vendor_id" value=\{eventVendorId\}/g), 2);
   assert.equal(count(answer, /name="return_to" value=\{returnTo\}/g), 2);
   assert.equal(count(answer, /name="event_id"/g), 0, 'an answer form posts event_id — the confused-deputy rule');
-  assert.equal(count(answer, /name="reason"/g), 1, 'the decline lost its reason');
+  // The reason is ONE field still — now composed by `DeclineReasonFields` (Why ▾ + an optional line, step 4).
+  assert.equal(count(answer, /<DeclineReasonFields \/>/g), 1, 'the decline lost its reason');
+  assert.equal(count(DECLINE_FIELDS, /name="reason"/g), 1, 'the reason fields no longer post the one `reason` the action reads');
   assert.equal(count(card, /returnTo=\{`\/vendor-dashboard\/messages\/\$\{threadId\}`\}/g), 1);
 });
 
 test('supplier · the answer lands back in the thread, and the thread says what happened', () => {
-  assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 2);
-  assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}`\);/g), 1);
+  // Agree, Turn it down, and (2026-11-04) the full day's "Waiting list" — all three land back where they were tapped.
+  assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 3);
+  // Batch 5 (audit F9): the redirect also carries `&fee=held` when the couple's news waits on the fee.
+  assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}\$\{feeHeld\}`\);/g), 1);
   assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_decline=\$\{flag\}`\);/g), 1);
   assert.equal(count(actions, /redirect\(`\/vendor-dashboard\?lock_(agree|decline)=/g), 0, 'an answer is hard-wired to the Overview again');
   // The thread page reads both and renders the sentence, a refusal as an alert.

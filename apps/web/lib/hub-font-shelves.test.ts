@@ -157,7 +157,9 @@ test('4 · the wiring: the page computes In use from the canvas’s own data; th
   assert.match(page, /const elementCanvases = \{[\s\S]*?postEventElementScope\(key\)[\s\S]*?\n  \};/, 'and Post Event’s scenes, so a part styled there is In use too');
   assert.match(call, /siteFontKey: \(drafted as/, 'the typeface, drafted over live');
   assert.match(call, /INVITE_THEMES\[currentThemeId/, 'the theme being edited');
-  assert.match(call, /logoFonts: await readMakerLogoFonts\(eventId\)/, 'the logo’s layers');
+  // ⚡ 2026-10-23 (speed pass): started with the editor's other event-only reads, awaited here — still the logo's own read.
+  assert.match(call, /logoFonts: await logoFontsRead,/, 'the logo’s layers');
+  assert.match(page, /const logoFontsRead = startAhead\(readMakerLogoFonts\(eventId\)\);/, 'the logo’s layers, read for this event');
   const shell = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
   assert.match(shell, /fontsInUse: elementEditing\?\.fontsInUse \?\? \[\]/, 'the work area registers it for the whole Maker');
   const pickSrc = read('app/dashboard/[eventId]/website/editor/_components/font-pick.tsx');

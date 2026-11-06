@@ -59,6 +59,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/studio`, MORE],
   // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
   [`/dashboard/${EID}/website/dress-code`, `/dashboard/${EID}/studio/mood-board`],
+  // 📷 THE PAPIC PAGE (owner 2026-10-26: "place that on home and remove that page") — its card is on Home › Today.
+  [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}?papic=open#papic`],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -84,6 +86,7 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/suite/page.tsx',
   'dashboard/[eventId]/studio/page.tsx',
   'dashboard/[eventId]/website/dress-code/page.tsx',
+  'dashboard/[eventId]/studio/papic/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {
@@ -99,8 +102,10 @@ test('a trailing slash still forwards; a child path or a live path does not', ()
   assert.equal(legacyRedirectTarget(`/dashboard/${EID}/design/extra`), null);
   // live neighbours that merely share a word with a retired path
   for (const live of [
-    // The product pages under /studio are live — only the index retired (d1).
-    `/dashboard/${EID}/studio/papic`,
+    // The product pages under /studio are live — only the index retired (d1). (Papic's page itself retired
+    // 2026-10-26 — its children stay pages.)
+    `/dashboard/${EID}/studio/papic/crew`,
+    `/dashboard/${EID}/studio/papic/challenges`,
     `/dashboard/${EID}/studio/about/papic`,
     `/dashboard/${EID}/galleries`,
     `/dashboard/${EID}/launch`, // the controller — NOT website/launch
@@ -180,16 +185,16 @@ test('d1 · the More menu address opens the menu', () => {
   assert.ok(asksForMoreServices(new URL(MORE, 'https://x').search), 'the forward does not open the More menu');
 });
 
-test('d1 · both menus open on the address: the rail row and the phone sheet', () => {
-  const rail = read('app/dashboard/[eventId]/_components/event-rail-context.tsx');
-  assert.match(rail, /asksForMoreServices\(search\)\) setOpen\(true\)/, 'the rail does not open More Services on its address');
+test('d1 · the services address lands on Home — no More to open (owner 22 Oct 2026, "Yes remove more")', () => {
+  // The services live on Home › Your services; `studioHubHref` is Home, and the phone bar opens no sheet.
+  assert.equal(studioHubHref('EVT').split('?')[0], '/dashboard/EVT');
   const bar = read('app/dashboard/[eventId]/_components/customer-bottom-nav.tsx');
-  assert.match(bar, /hasServices && asksForMoreServices\(search\)\) openMore\(\)/, 'the phone does not open the More sheet on its address');
+  assert.doesNotMatch(bar, /asksForMoreServices|more-services-sheet|openMore/, 'the phone bar opens a More sheet again');
 });
 
 test('d1 · nothing hand-types the old hub address — every door goes through studioHubHref', () => {
   const files = [
-    'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
+    // (finished-event-summary.tsx left this list 22 Oct 2026: its services card scrolls to Your services on the same page.)
     'app/dashboard/[eventId]/alaala/page.tsx',
     'app/dashboard/[eventId]/launch/page.tsx',
     'app/dashboard/[eventId]/live/page.tsx',

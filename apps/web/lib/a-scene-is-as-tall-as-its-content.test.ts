@@ -45,14 +45,17 @@ function rules(): { selector: string; decls: Declaration[]; rule: Rule }[] {
 /** The last compound of a selector — the element the rule styles. */
 const subject = (sel: string) => sel.split(/\s*[>~+]\s*|\s+/).filter(Boolean).pop() ?? '';
 
-/* A SCENE WRAPPER: the page's scenes, a run, a scene of any kind. */
-const WRAPPER = /\.hub-(scenes|run|arun|scene|scroll|scrub|auto)(?![\w-])/;
-/* A SCENE'S FRAME: what a pinned / stacked scene shows — its direct child. */
-const FRAME = /\.hub-(scrub|auto)(?![\w-])[^\s>~+]*\s*>\s*(\*|\.hub-canvas|section)(?![\w-])[^\s>~+]*$/;
+/* 🔁 RE-AIMED 2026-10-09 (the cleanup that removed the stacked Scrub run — `.hub-run` / `.hub-scrub` / `.hub-sp`).
+   A SCENE WRAPPER: the page's scenes, an Auto run, a scene of any kind — and the boxes a Scrub hand-over nests its
+   scenes in (`hub-scenes.tsx` `flow`: cell › stage › the scene, then `after` › `below`), so this guard SEES the new
+   wrappers instead of going quiet about them. */
+const WRAPPER = /\.hub-(scenes|arun|scene|scroll|auto|cell|stage|after|below)(?![\w-])/;
+/* A SCENE'S FRAME: what a stacked (Auto) scene shows — its direct child. */
+const FRAME = /\.hub-auto(?![\w-])[^\s>~+]*\s*>\s*(\*|\.hub-canvas|section)(?![\w-])[^\s>~+]*$/;
 
 const isWrapper = (sel: string) => !sel.includes('::') && WRAPPER.test(subject(sel));
 const isFrame = (sel: string) => !sel.includes('::') && FRAME.test(sel);
-const VIEWPORT = /\b\d*\.?\d+(s|d|l)?v(h|b|max|min)\b|var\(--hub-step\)/;
+const VIEWPORT = /\b\d*\.?\d+(s|d|l)?v(h|b|max|min)\b/;
 const SIZE = /^(min-)?(height|block-size)$/;
 
 test('📏 no scene wrapper or frame forces a viewport-height minimum', () => {
@@ -73,14 +76,19 @@ test('📏 no scene wrapper or frame forces a viewport-height minimum', () => {
   assert.deepEqual(bad, [], 'a scene is as tall as its content — never padded to the screen');
 });
 
-test('📏 a Scrub frame pins at its own height: sticky, never sized, never centred in a band', () => {
+/* 🔁 RE-AIMED 2026-10-09 (the cleanup). This held the stacked run's pinned FRAME (`.hub-scrub > *`, sticky, with a
+   viewport-sized `::after` track on its slot). The owner's rule it protects has not moved — a Scrub scene is as tall
+   as its content, never a full-screen band — but what holds a scene now is the hand-over's STAGE, standing still
+   while an invisible length under it (the cell's `::after`, sized by the engine) is scrolled past. */
+test('📏 a held Scrub scene is as tall as its content: the stage stands still, nothing is sized, the hold is an invisible length', () => {
   const all = rules();
-  const frames = all.filter((r) => isFrame(r.selector) && /\.hub-scrub/.test(r.selector));
-  assert.ok(frames.some((r) => r.decls.some((d) => d.prop === 'position' && d.value === 'sticky')), 'the frame is what pins');
+  const stage = all.find((r) => r.selector === '.hub-scenes[data-hub-scrub-on] .hub-stage');
+  assert.ok(stage?.decls.some((d) => d.prop === 'position' && d.value === 'sticky'), 'the stage is what stands still');
   const bad: string[] = [];
+  let looked = 0;
   for (const { selector, decls } of all) {
-    const scrubBox = isFrame(selector) ? /\.hub-scrub/.test(selector) : /\.hub-scrub(?![\w-])/.test(subject(selector)) && !selector.includes('::');
-    if (!scrubBox) continue;
+    if (selector.includes('::') || !/\.hub-(cell|stage|after|below|scene)(?![\w-])/.test(subject(selector))) continue;
+    looked += 1;
     for (const d of decls) {
       if (SIZE.test(d.prop)) bad.push(`${selector} { ${d.prop}: ${d.value} }`);
       if (/^flex(-grow)?$/.test(d.prop) && !/^(none|0|0 0 \S+)$/.test(d.value)) bad.push(`${selector} { ${d.prop}: ${d.value} }`);
@@ -89,16 +97,21 @@ test('📏 a Scrub frame pins at its own height: sticky, never sized, never cent
       if (d.prop === 'display' && /flex/.test(d.value)) bad.push(`${selector} { ${d.prop}: ${d.value} }`);
     }
   }
-  assert.deepEqual(bad, [], 'the frame follows its content');
-  // The slot's track is the only viewport-sized thing, and it is invisible.
-  const track = all.find((r) => /\.hub-scrub::after$/.test(r.selector));
-  assert.ok(track, 'the slot carries its track as an ::after');
-  assert.ok(track.decls.some((d) => d.prop === 'content'), 'an empty pseudo-element — nothing to see');
+  assert.ok(looked >= 8, `anti-vacuity: the scene and hand-over rules were found (${looked})`);
+  assert.deepEqual(bad, [], 'a scene and its hand-over boxes follow their content');
+  // The hold is the only added length, and it is invisible: an empty pseudo-element sized by the engine, 0 without it.
+  const track = all.find((r) => r.selector === '.hub-scenes[data-hub-scrub-on] .hub-cell::after');
+  assert.ok(track, 'the cell carries its hold as an ::after');
+  assert.ok(track.decls.some((d) => d.prop === 'content' && d.value === "''"), 'an empty pseudo-element — nothing to see');
+  assert.equal(track.decls.find((d) => d.prop === 'height')?.value, 'var(--hub-len, 0px)');
+  // …and the stacked run is not half-back.
+  assert.deepEqual(all.filter((r) => /\.hub-(run|scrub|sp)(?![\w-])/.test(r.selector)).map((r) => r.selector), []);
 });
 
 test('↕ the gap between consecutive scenes is ONE rhythm — no stacked margins, no screen-sized padding', () => {
   // The rhythm is what the plain page uses between two sections.
-  const rhythm = rules().find((r) => r.selector === '.hub-run > .hub-scene ~ .hub-scene');
+  /* 🔁 RE-AIMED 2026-10-09 (the cleanup): the stacked run's own rule is gone; the same rhythm is the hand-over nest's. */
+  const rhythm = rules().find((r) => r.selector === '.hub-stage > .hub-after');
   assert.ok(rhythm, 'the fallback rhythm exists');
   const R = rhythm.decls.find((d) => d.prop === 'margin-top')?.value;
   assert.equal(R, '1rem');
@@ -109,6 +122,14 @@ test('↕ the gap between consecutive scenes is ONE rhythm — no stacked margin
     /* The wrappers, plus the "every unit after the progress mark" rule, which
        spaces runs and scroll scenes alike. */
     if (!isWrapper(selector) && !/^\.hub-scenes > \.hub-prog ~/.test(selector)) continue;
+    /* 🔁 2026-10-09 (commit 8c): ONE length here is not a gap between scenes — the page's END, after the last scene, on a
+       page with a Scrub hand-over and only once the engine has armed (`--hub-end`: what it takes for the last row
+       and the last hand-over to complete on a tall window; 0 on most pages). Named exactly, never a pattern. */
+    if (selector === '.hub-scenes[data-hub-scrub-on]' && decls.length === 1 && decls[0]!.prop === 'padding-bottom' && decls[0]!.value === 'var(--hub-end, 0px)') continue;
+    /* 🔁 2026-10-09 (the cleanup — the nest's boxes are wrappers this guard now sees): ONE more length is not a gap
+       either — the pull that draws an arrival IN THE SAME PLACE as the scene it follows (`--hub-up`, negative, set by
+       the engine; the 1rem rhythm without it). Named exactly, never a pattern. */
+    if (selector === '.hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after' && decls.length === 1 && decls[0]!.prop === 'margin-top' && decls[0]!.value === 'var(--hub-up, 1rem)') continue;
     for (const d of decls) {
       if (!/^(margin|padding)(-block)?(-top|-bottom|-start|-end)?$/.test(d.prop)) continue;
       if (/^(margin|padding)$/.test(d.prop) && d.value.split(/\s+/).length > 1) {
@@ -142,7 +163,8 @@ async function render(transitions: (string | undefined)[], scrubAllowed: boolean
     config_json: t ? { canvas: { transition: t } } : null,
   }));
   const kids = widgets.map((w) => React.createElement('section', { key: w.widget_id }, w.widget_id));
-  return renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed }, kids));
+  /* 🌑 2026-10-09: through the lab's door — "Scrub out" ships dark (`lib/scrub-out-offered.ts`), and this is about the page WHEN it is drawn. */
+  return renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed, scrubOut: true }, kids));
 }
 
 /** Every plan of `n` sections over the transition set (plus "unset"). */

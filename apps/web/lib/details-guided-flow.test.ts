@@ -44,6 +44,7 @@ import {
   parseGuideParam,
   progressLabel,
   skipScreen,
+  stageLinks,
   stageSteps,
   startScreen,
   stepStateOf,
@@ -90,11 +91,19 @@ test('(1) each stage walks its own facts, in the approved order; Post Event is n
   const plan = fresh();
   assert.deepEqual(plan.rounds, ['save_the_date', 'rsvp-stage', 'rsvp', 'event'], 'the stages walked are not the four (Post Event fills itself)');
   assert.deepEqual(keysOf(plan, 'save_the_date'), ['names', 'date', 'theme', 'logo', 'hero', 'love-story']);
-  assert.deepEqual(keysOf(plan, 'rsvp-stage'), ['who', 'rsvp', 'reply-by'], 'the RSVP stage is not its three settings');
+  /* 🗂 R1 (owner 2026-10-28, "RSVP moves into the Guests ⚙ sheet"): the RSVP stage's three settings are LINKS to Guests ⚙
+     now — no screen over the Maker's RSVP item — counted with the stage as before. */
+  assert.deepEqual(keysOf(plan, 'rsvp-stage'), [], 'the RSVP stage still walks a Maker screen for a setting that moved');
+  assert.deepEqual(stageLinks(plan, 'rsvp-stage').map((l) => [l.key, l.guests]), [['who', 'get-in'], ['rsvp', 'asks'], ['reply-by', 'reply-by']], 'the RSVP stage is not its three settings, each a door to its Guests ⚙ row');
   assert.deepEqual(keysOf(plan, 'rsvp'), [
-    'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'march', 'colours', 'message',
+    'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'colours', 'message',
   ]);
-  assert.deepEqual(keysOf(plan, 'event'), ['names', 'date', 'theme', 'logo', 'hero', 'venues', 'schedule', 'parents', 'march']);
+  assert.deepEqual(keysOf(plan, 'event'), ['names', 'date', 'theme', 'logo', 'hero', 'venues', 'schedule', 'parents']);
+  /* 🗂 R4 (owner 2026-10-27/28): the march is Guests › March — a LINK step of the stages that show it (a door to the
+     view), counted with them as before, never a screen over the Maker's march item. */
+  for (const st of ['rsvp', 'event'] as const) {
+    assert.deepEqual(stageLinks(plan, st).filter((l) => l.view).map((l) => [l.key, l.view]), [['march', 'march']], `${st}: the march is not its door to Guests › March`);
+  }
   assert.deepEqual(keysOf(plan, 'editorial'), []);
   const screens = guidedScreens(plan, 'save_the_date').map((s) => (s.kind === 'step' ? s.step : s.kind));
   assert.deepEqual(screens, ['before', 'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'ready'], 'a stage is not Before · steps · Ready');
@@ -103,15 +112,13 @@ test('(1) each stage walks its own facts, in the approved order; Post Event is n
   assert.deepEqual(by.colours, ['mood-board']);
   assert.deepEqual(by.hero, ['hero']);
   assert.deepEqual(by.message, ['special-message']);
-  // RSVP's three settings are ONE item, each its own section (`RSVP_PIECES`).
-  for (const [k, piece] of [['who', 'who'], ['rsvp', 'questions'], ['reply-by', 'reply-by']] as const) {
-    assert.deepEqual(by[k], ['rsvp']);
-    assert.equal(plan.steps.find((s) => s.key === k)!.piece, piece, `${k} does not open on its own section`);
-  }
+  // RSVP's three settings open no Maker item any more (R1) — never a step over `rsvp`.
+  for (const k of ['who', 'rsvp', 'reply-by'] as const) assert.equal(by[k], undefined, `${k} is a Maker step again`);
+  assert.equal(plan.steps.some((s) => s.items.includes('rsvp')), false, 'a guided step still opens the Maker’s RSVP item');
   // The march's name is its item's (the event type writes it) — never typed here.
-  assert.equal(plan.steps.find((s) => s.key === 'march')!.title, 'Wedding March');
+  assert.equal(plan.links.find((s) => s.key === 'march')!.title, 'Wedding March');
   assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'save_the_date' }), 'Save the Date · 3 of 6');
-  assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'rsvp' }), 'Invitation · 3 of 12', 'a shared step counts in the stage being walked');
+  assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'rsvp' }), 'Invitation · 3 of 12', 'a shared step counts in the stage being walked (the march, a link since R4, still counts)');
   assert.equal(progressLabel(plan, { kind: 'ready', round: 'rsvp' }), 'Invitation · Apply', 'a Ready screen with steps left says "done"');
   assert.equal(progressLabel(plan, { kind: 'stages' }), 'Which stage?');
 });
@@ -125,8 +132,8 @@ test('(2) a step’s state is its items’ own done — done · left · a look-o
   assert.equal(stepStateOf([undefined]), 'check', 'nothing to fill is a look-over, never "done" or "left"');
   assert.equal(stepStateOf([true, undefined]), 'done');
   const plan = fresh();
-  assert.equal(plan.steps.find((s) => s.key === 'rsvp')!.state, 'check');
-  assert.equal(plan.steps.find((s) => s.key === 'who')!.state, 'check', 'without the setup’s facts, how guests get in makes no claim');
+  assert.equal(plan.links.find((s) => s.key === 'rsvp')!.state, 'check');
+  assert.equal(plan.links.find((s) => s.key === 'who')!.state, 'check', 'without the setup’s facts, how guests get in makes no claim');
   assert.equal(plan.steps.find((s) => s.key === 'names')!.state, 'left');
   assert.deepEqual(plan.steps.find((s) => s.key === 'names')!.left, ['names'], 'the step does not open on what is still left');
 });
@@ -138,14 +145,19 @@ test('(2) a step whose item this event lacks is not in the plan — a birthday, 
   );
   const keys = birthday.steps.map((s) => s.key);
   for (const k of ['names', 'march', 'love-story'] as const) assert.ok(!keys.includes(k), `a birthday is asked for ${k}`);
+  assert.ok(!birthday.links.some((l) => l.key === 'march'), 'a birthday is sent to a march');
   assert.equal(birthday.steps.find((s) => s.key === 'parents')!.shows, 'Optional — who guests reply to.', 'a birthday is told about parents');
-  assert.ok(!fresh().steps.some((s) => s.key === 'seat-plan'), 'the Seat plan step shows before its item exists');
+  assert.ok(!fresh().links.some((s) => s.key === 'seat-plan'), 'the Seat plan step shows before its item exists');
   const withSeat = buildGuidedPlan(
     [...items(WEDDING_ITEMS, () => false), { key: SEAT_PLAN_STEP_ITEMS[0] as DetailsItemKey, label: 'Seat plan', done: false }],
     WORDS,
   );
-  assert.deepEqual(stageSteps(withSeat, 'event').map((s) => s.key).slice(-1), ['seat-plan'], 'The Day does not end on the Seat plan');
-  assert.deepEqual(withSeat.steps.find((s) => s.key === 'seat-plan')!.stages, ['event'], 'the Seat plan shows on another stage');
+  /* 🗂 R4: the Seat plan is Guests › Seats — The Day's door to it (a link step), counted with The Day, never a screen. */
+  assert.ok(!withSeat.steps.some((s) => s.key === 'seat-plan'), 'the Seat plan is a Maker screen again');
+  const seat = withSeat.links.find((s) => s.key === 'seat-plan')!;
+  assert.equal(seat.view, 'seats', 'the Seat plan is not a door to Guests › Seats');
+  assert.deepEqual(seat.stages, ['event'], 'the Seat plan shows on another stage');
+  assert.equal(seat.state, 'left');
 });
 
 test('(2) tripwire: every seat item Details gains is known to the Seat plan step', () => {
@@ -185,7 +197,7 @@ test('(3) Next goes to the next UNFINISHED step of the stage, never over a look-
   assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'names', round: STD }), { kind: 'step', step: 'logo', round: STD }, 'Next did not skip the done date and theme');
   assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'love-story', round: STD }), { kind: 'ready', round: STD }, 'the stage does not end on its Ready');
   // The RSVP stage: three look-overs — Next stops at each.
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'who', round: 'rsvp-stage' }), { kind: 'step', step: 'rsvp', round: 'rsvp-stage' }, 'Next skipped a look-over');
+  assert.deepEqual(nextScreen(plan, { kind: 'link', link: 'who', round: 'rsvp-stage' }), { kind: 'link', link: 'rsvp', round: 'rsvp-stage' }, 'Next skipped a look-over');
   // From a Ready screen: back to the stages — never on into another stage by itself.
   assert.deepEqual(nextScreen(plan, { kind: 'ready', round: STD }), { kind: 'stages' });
   assert.equal(nextScreen(plan, { kind: 'stages' }), null, 'the picker has a Next — a stage is picked, not walked into');
@@ -296,15 +308,21 @@ test('(5) "done" for the pages that decide early is the navigator rows’ own fu
 
 test('(5) the Maker opens on What’s left only for an unfinished event with no place named', () => {
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  const at = page.indexOf('const opensOnGuide =');
-  assert.ok(at > 0, 'anti-vacuity: opensOnGuide not found');
+  /* ⚡ Since 2026-10-23 "unfinished" arrives with the tools behind the Maker (`lib/maker-late.ts`): the address half
+     of the rule is read at once (`addressNamesNoPlace`), the facts half in the tools' lane, which runs only with work. */
+  const at = page.indexOf('const addressNamesNoPlace =');
+  assert.ok(at > 0, 'anti-vacuity: addressNamesNoPlace not found');
   const rule = page.slice(at, page.indexOf(';', at));
-  for (const needed of ['hasWork', 'detailsUnfinished', '!rawTool', 'search.scene', 'search.open', 'search.stage', 'search.pin']) {
+  for (const needed of ['!rawTool', 'search.scene', 'search.open', 'search.stage', 'search.pin']) {
     assert.ok(rule.includes(needed), `the Maker opens on the flow without checking ${needed}`);
   }
-  assert.match(page, /opensOnGuide=\{opensOnGuide && guideAddress === null\}/, 'the tab’s own last place no longer wins over the default');
+  assert.match(page, /const late: Promise<MakerLate> \| null = hasWork\b/, 'the Maker opens on the flow without checking hasWork');
+  /* 🖨 R8: the Prints page (the same page drawing Prints alone) never opens the guided flow. */
+  assert.match(page, /opensOnGuide: !printsPage && addressNamesNoPlace && detailsUnfinished && guideAddress === null,/, 'the tab’s own last place no longer wins over the default');
   const shell = read(`${L}/maker-shell.tsx`);
   assert.match(shell, /if \(openedOnGuide\.current && saved && 'selection' in saved\) \{/);
+  /* …and when it lands later: the tab's own last place, or a press already made, still wins. */
+  assert.match(shell, /if \(!lateOpensOnGuide \|\| touched\.current \|\| rememberedPlace\.current \|\| addressNamed\.current\) return;/);
 });
 
 /* ── (6) the workspace, and the one Apply ──────────────────────────────── */

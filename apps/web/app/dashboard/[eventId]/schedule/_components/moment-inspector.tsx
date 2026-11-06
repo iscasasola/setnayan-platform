@@ -16,7 +16,11 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowUpDown, Send, Trash2, X } from 'lucide-react';
+import { ArrowUpDown, Check, Send, Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { SheetFoot } from './schedule-sheet';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import {
@@ -29,7 +33,9 @@ import {
   toDatetimeLocal,
   wallDateKey,
 } from '@/lib/schedule-rail';
-import type { DayMoment, DayRequest, DaySupplier } from './day-types';
+import { supplierOnItem, type DayMoment, type DayRequest, type DaySupplier } from './day-types';
+import { lockedShopOnMoments } from '@/lib/supplier-part-lock';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { formatBlockTime, formatBlockTimeRange } from '@/lib/schedule';
 import { DETAILS_PIECE_LABEL_EVENT } from '../../launch/_components/details-piece';
 import { CARRIED, momentLatestWrite, postMomentToCanvas } from './schedule-live';
@@ -59,6 +65,9 @@ export function MomentInspector({
   onRevert,
   onConfirm,
   live = false,
+  inSheet = false,
+  askDelete = 0,
+  onGone,
 }: {
   eventId: string;
   eventType: string | null;
@@ -84,6 +93,21 @@ export function MomentInspector({
    * are one save after the pause. Off on the standalone Schedule page.
    */
   live?: boolean;
+  /**
+   * 🗂 Drawn inside the Schedule's ONE pop-up (`schedule-sheet.tsx`, owner 2026-10-31 *"the pop up. design
+   * template."*): the sheet names it (title + what it is about), so this head steps aside, and Delete and Done stand
+   * in the sheet's foot — the thumb zone — beside each other. Every field and every write is the same.
+   */
+  inSheet?: boolean;
+  /** 👈 Opened by the row's swipe (owner 2026-11-03): open at the delete's warning, not at the fields. A count, so a
+   *  second swipe on the same moment asks again after a Keep (0 = not asked). */
+  askDelete?: number;
+  /**
+   * ↩ The day hides / shows a moment (`day-rail.tsx`'s gone set). Given, a confirmed delete waits out the Undo window
+   * (`deleteWithUndo`): the moment leaves the day at once, Undo brings it back with nothing written, a refusal brings it
+   * back and says so. Not given: the delete is written at once, as before.
+   */
+  onGone?: (id: string, gone: boolean) => void;
 }) {
   const {
     createScheduleBlock,
@@ -94,11 +118,23 @@ export function MomentInspector({
     updateScheduleBlock,
   } = useDayActions();
   const [save, setSave] = useState<SaveState>('idle');
-  /* 🧭 For ▾ is drawn only in the new Maker's Studio (`makerStagesStudioEnabled`). */
+  /* 🧭 For ▾ is drawn only in the new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25). */
   const studio = useMaker()?.stagesStudio === true;
   const audience = readScheduleAudience(m.audience ?? null);
   const [, startTransition] = useTransition();
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(askDelete > 0 && canEdit);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!(askDelete > 0 && canEdit)) return;
+    setConfirmDelete(true);
+    /* The warning sits at the editor's foot: bring it into view, so the swipe lands on it. */
+    const frame = requestAnimationFrame(() =>
+      rootRef.current?.querySelector('[data-moment-delete-ask]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [askDelete, canEdit]);
+  /** Parts deleted by their swipe, waiting out the Undo window. */
+  const [goneParts, setGoneParts] = useState<ReadonlySet<string>>(() => new Set());
   const [party, setParty] = useState(m.responsible_party ?? '');
   const [partLabel, setPartLabel] = useState('');
   const dateKey = wallDateKey(m.start_at);
@@ -107,6 +143,8 @@ export function MomentInspector({
 
   /** What did not save, in the couple's words — said, and put back. */
   const [failed, setFailed] = useState<string | null>(null);
+  /** 🔒 The refused change met a supplier's lock (audit D7) — the calm line, not "try again". */
+  const [lockedBy, setLockedBy] = useState<string | null>(null);
   const labelBox = useRef<HTMLInputElement>(null);
   const locationBox = useRef<HTMLInputElement>(null);
   const notesBox = useRef<HTMLTextAreaElement>(null);
@@ -126,6 +164,7 @@ export function MomentInspector({
   ) {
     setSave('saving');
     setFailed(null);
+    setLockedBy(null);
     startTransition(async () => {
       try {
         const out = await action();
@@ -137,8 +176,28 @@ export function MomentInspector({
       } catch {
         onRevert(ids);
         setFailed(what);
+        setLockedBy(lockedShopOnMoments([m.block_id], [m], suppliers));
         setSave('error');
       }
+    });
+  }
+
+  /** The confirmed Delete — the warning above already said what goes with it (parts · tasks · Papic). */
+  function removeMoment() {
+    const id = m.block_id;
+    const write = () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: id }));
+    if (!onGone) return run([id], write, onDeleted);
+    deleteWithUndo({
+      label: `“${m.label}” deleted`,
+      hide: () => {
+        onGone(id, true);
+        onDeleted();
+      },
+      restore: () => onGone(id, false),
+      commit: async () => {
+        await write();
+      },
+      failed: `Couldn’t delete “${m.label}”. It’s back — try again.`,
     });
   }
 
@@ -257,11 +316,11 @@ export function MomentInspector({
   const readOnly = !canEdit;
 
   return (
-    <div className="px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur">
+    <div className={inSheet ? '' : 'px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur'} data-moment-inspector={inSheet ? 'sheet' : 'panel'} ref={rootRef}>
       {/* 🪜 In the Maker's guided flow the step's sheet IS this moment's frame —
           one header row (step ▾ · Peek · ×) — so this row of its own steps aside
           there (owner 2026-10-05: one layout for every step). */}
-      <div className="flex min-h-11 items-center gap-2 group-data-[details-mode=guided]/ws:hidden" data-moment-head="">
+      <div hidden={inSheet} className="flex min-h-11 items-center gap-2 [&[hidden]]:hidden group-data-[details-mode=guided]/ws:hidden" data-moment-head="">
         <span className="flex-1">
           <Eyebrow>{readOnly ? 'Moment · view only' : 'Moment'}</Eyebrow>
         </span>
@@ -275,6 +334,7 @@ export function MomentInspector({
         </button>
       </div>
 
+      {inSheet ? <Eyebrow>Name</Eyebrow> : null}
       <input
         type="text"
         ref={labelBox}
@@ -312,7 +372,7 @@ export function MomentInspector({
       </div>
 
       {/* 👥 FOR ▾ — who this moment is for (owner 2026-10-06/07, the new Maker's
-          Studio › Schedule only — `makerStagesStudioEnabled`). A role's moment is
+          Studio › Schedule only — `stagesStudio`, the one Maker since 2026-10-25). A role's moment is
           its Arrive by; the guests' schedule shows only the Everyone moments. */}
       {studio ? (
         <div className="mt-4" data-moment-for="">
@@ -405,7 +465,7 @@ export function MomentInspector({
           when it is ready.
         </p>
       ) : (
-        <div className="mt-1.5">
+        <div className="mt-1.5" data-switch-band="">
           <Switch
             on={m.is_public}
             onChange={setPublic}
@@ -451,8 +511,9 @@ export function MomentInspector({
                       <li
                         key={s.vendor_id}
                         className="inline-flex min-h-9 items-center gap-1 rounded-full bg-ink pl-3 pr-1.5 text-xs text-cream"
+                        data-moment-supplier={s.standing ?? ''}
                       >
-                        {s.vendor_name}
+                        {supplierOnItem(s)}
                         {readOnly ? (
                           <span className="w-1.5" />
                         ) : (
@@ -481,7 +542,7 @@ export function MomentInspector({
                   dataAttr="data-moment-tag-supplier"
                   options={suppliers
                     .filter((s) => !m.responsible_vendor_ids.includes(s.vendor_id))
-                    .map((s) => ({ key: s.vendor_id, label: s.vendor_name }))}
+                    .map((s) => ({ key: s.vendor_id, label: supplierOnItem(s) }))}
                   onPick={(id) => saveResponsible(party, [...m.responsible_vendor_ids, id])}
                 />
               ) : null}
@@ -497,31 +558,48 @@ export function MomentInspector({
             <Tip>Parts sit inside this moment and move with it. They show under the moment for guests and in the emcee script.</Tip>
           </div>
           <ul className="mt-1">
-            {parts.map((p) => {
+            {parts.filter((p) => !goneParts.has(p.block_id)).map((p) => {
               const ps = spanOf(p.start_at, p.end_at);
-              return (
-                <li key={p.block_id} className="flex items-center justify-between gap-2 border-b border-ink/[0.06] py-2 text-[13.5px]">
+              const line = (
+                <div className="flex min-h-11 items-center justify-between gap-2 border-b border-ink/[0.06] py-2 text-[13.5px]">
                   <span className="min-w-0 truncate">{p.label}</span>
-                  <span className="flex items-center gap-1">
-                    <span className="font-mono text-xs text-ink/55">
-                      {p.end_at ? formatClockRange(ps.startMin, ps.endMin) : formatClock(ps.startMin)}
-                    </span>
-                    {canEdit ? (
-                      <button
-                        type="button"
-                        aria-label={`Remove the part ${p.label}`}
-                        onClick={() =>
-                          run([], () =>
-                            deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id })),
-                          )
-                        }
-                        className="sn-dot-btn grid h-8 w-8 place-items-center rounded-md text-ink/40 hover:bg-ink/[0.06] hover:text-danger-700"
-                      >
-                        <X aria-hidden className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
+                  <span className="font-mono text-xs text-ink/55">
+                    {p.end_at ? formatClockRange(ps.startMin, ps.endMin) : formatClock(ps.startMin)}
                   </span>
-                </li>
+                </div>
+              );
+              if (!canEdit) return <li key={p.block_id}>{line}</li>;
+              /* 👈 A part's Delete is its swipe (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW") — it was a
+                 small ✕ on the line. Same write; it waits out the Undo window (`deleteWithUndo`). The line is 44 px tall so the
+                 revealed Delete's icon and word fit. */
+              return (
+                <SwipeToDelete
+                  key={p.block_id}
+                  as="li"
+                  label={`Delete the part ${p.label}`}
+                  radiusClass=""
+                  /* Cream on a phone (the sheet's ground); a computer never shows the Delete behind it, and there the
+                     panel is translucent white — so the front adds no band of its own. */
+                  surfaceClass="bg-cream [@media(hover:hover)_and_(pointer:fine)]:bg-transparent"
+                  onDelete={() =>
+                    deleteWithUndo({
+                      label: `“${p.label}” deleted`,
+                      hide: () => setGoneParts((g) => new Set(g).add(p.block_id)),
+                      restore: () =>
+                        setGoneParts((g) => {
+                          const next = new Set(g);
+                          next.delete(p.block_id);
+                          return next;
+                        }),
+                      commit: async () => {
+                        await deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id }));
+                      },
+                      failed: `Couldn’t delete “${p.label}”. It’s back — try again.`,
+                    })
+                  }
+                >
+                  {line}
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -612,38 +690,34 @@ export function MomentInspector({
               <ArrowUpDown aria-hidden className="h-3.5 w-3.5" /> Shift everything after
             </button>
           ) : null}
-          {confirmDelete ? (
-            <span className="ml-auto flex items-center gap-1">
+          {inSheet ? null : confirmDelete ? (
+              <span className="ml-auto flex items-center gap-1" data-moment-delete-ask="">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="h-10 rounded-full px-3 text-[13px] font-semibold text-ink/70"
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeMoment()
+                  }
+                  className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-white"
+                >
+                  {parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
+                </button>
+              </span>
+            ) : (
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="h-10 rounded-full px-3 text-[13px] font-semibold text-ink/70"
+                onClick={() => setConfirmDelete(true)}
+                className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-danger-700 hover:bg-danger-700/10"
               >
-                Keep
+                <Trash2 aria-hidden className="h-3.5 w-3.5" /> Delete
               </button>
-              <button
-                type="button"
-                onClick={() =>
-                  run(
-                    [m.block_id],
-                    () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id })),
-                    onDeleted,
-                  )
-                }
-                className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-white"
-              >
-                {parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-danger-700 hover:bg-danger-700/10"
-            >
-              <Trash2 aria-hidden className="h-3.5 w-3.5" /> Delete
-            </button>
-          )}
+            )}
         </div>
       ) : null}
 
@@ -654,7 +728,7 @@ export function MomentInspector({
             'Saving…'
           ) : save === 'error' ? (
             <span className="font-medium text-danger-700">
-              {failed ?? 'That change'} did not save, so it is back as it was. Try again.
+              {lockedBy ? lockedLine(lockedBy) : `${failed ?? 'That change'} did not save, so it is back as it was. Try again.`}
             </span>
           ) : save === 'saved' ? (
             <>
@@ -664,6 +738,36 @@ export function MomentInspector({
             'Every change saves as you make it'
           )}
         </p>
+      ) : null}
+
+      {/* 🗂 The sheet's two answers, in the thumb zone (frame 19b: Delete it · Save). Every change has already saved as
+          it was made, so the main answer says what it does — Done; Delete asks once, in the same place. */}
+      {inSheet ? (
+        <SheetFoot>
+          {canEdit && confirmDelete ? (
+            <>
+              <ActionButton tone="neutral" icon={X} label="Keep" onClick={() => setConfirmDelete(false)} />
+              <ActionButton
+                tone="danger"
+                main
+                icon={Trash2}
+                label={parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
+                onClick={() =>
+                  removeMoment()
+                }
+              />
+            </>
+          ) : (
+            <>
+              {canEdit ? (
+                <ActionButton tone="danger" icon={Trash2} label="Delete it" onClick={() => setConfirmDelete(true)} />
+              ) : (
+                <span aria-hidden />
+              )}
+              <ActionButton tone="brand" main icon={Check} label="Done" onClick={onClose} />
+            </>
+          )}
+        </SheetFoot>
       ) : null}
     </div>
   );

@@ -1,0 +1,216 @@
+{
+  "install": {
+    "ops": [
+      "open setnayan-v4",
+      "addAll setnayan-v4 4"
+    ],
+    "skipWaiting": 1
+  },
+  "activate": {
+    "ops": [
+      "keys",
+      "delete-cache setnayan-v1",
+      "delete-cache setnayan-images-v1",
+      "delete-cache unrelated-cache",
+      "open setnayan-static-immutable-v1",
+      "match setnayan-static-immutable-v1 /__setnayan-sw/immutable-index.json miss",
+      "open setnayan-static-immutable-v1"
+    ],
+    "claims": 1,
+    "left": [
+      "setnayan-static-immutable-v1",
+      "setnayan-v4"
+    ]
+  },
+  "requests": [
+    {
+      "label": "hashed chunk",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/chunks/main-app-9041524f5488b3f7.js #1",
+      "ops": [
+        "open setnayan-static-immutable-v1",
+        "match setnayan-static-immutable-v1 /_next/static/chunks/main-app-9041524f5488b3f7.js miss",
+        "put setnayan-static-immutable-v1 /_next/static/chunks/main-app-9041524f5488b3f7.js",
+        "open setnayan-static-immutable-v1",
+        "open setnayan-static-immutable-v1",
+        "put setnayan-static-immutable-v1 /__setnayan-sw/immutable-index.json"
+      ]
+    },
+    {
+      "label": "hashed chunk again",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/chunks/main-app-9041524f5488b3f7.js #1",
+      "ops": [
+        "open setnayan-static-immutable-v1",
+        "match setnayan-static-immutable-v1 /_next/static/chunks/main-app-9041524f5488b3f7.js hit"
+      ]
+    },
+    {
+      "label": "unhashed script",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/abc123/_buildManifest.js #1",
+      "ops": [
+        "open setnayan-static-v4",
+        "match setnayan-static-v4 /_next/static/abc123/_buildManifest.js miss",
+        "put setnayan-static-v4 /_next/static/abc123/_buildManifest.js",
+        "open setnayan-static-v4"
+      ]
+    },
+    {
+      "label": "unhashed script again",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/abc123/_buildManifest.js #1",
+      "ops": [
+        "open setnayan-static-v4",
+        "match setnayan-static-v4 /_next/static/abc123/_buildManifest.js hit",
+        "put setnayan-static-v4 /_next/static/abc123/_buildManifest.js",
+        "open setnayan-static-v4"
+      ]
+    },
+    {
+      "label": "dev-style script",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/chunks/app/page.js #1",
+      "ops": [
+        "open setnayan-static-v4",
+        "match setnayan-static-v4 /_next/static/chunks/app/page.js?v=1 miss",
+        "put setnayan-static-v4 /_next/static/chunks/app/page.js?v=1",
+        "open setnayan-static-v4"
+      ]
+    },
+    {
+      "label": "dev-style script again",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/chunks/app/page.js #1",
+      "ops": [
+        "open setnayan-static-v4",
+        "match setnayan-static-v4 /_next/static/chunks/app/page.js?v=1 hit",
+        "put setnayan-static-v4 /_next/static/chunks/app/page.js?v=1",
+        "open setnayan-static-v4"
+      ]
+    },
+    {
+      "label": "stylesheet",
+      "responded": true,
+      "status": 200,
+      "body": "/_next/static/css/app/layout.css #1",
+      "ops": [
+        "open setnayan-static-v4",
+        "match setnayan-static-v4 /_next/static/css/app/layout.css miss",
+        "put setnayan-static-v4 /_next/static/css/app/layout.css",
+        "open setnayan-static-v4"
+      ]
+    },
+    {
+      "label": "image",
+      "responded": true,
+      "status": 200,
+      "body": "/icons/a.png #1",
+      "ops": [
+        "open setnayan-images-v4",
+        "match setnayan-images-v4 /icons/a.png miss",
+        "put setnayan-images-v4 /icons/a.png",
+        "open setnayan-images-v4"
+      ]
+    },
+    {
+      "label": "image again",
+      "responded": true,
+      "status": 200,
+      "body": "/icons/a.png #1",
+      "ops": [
+        "open setnayan-images-v4",
+        "match setnayan-images-v4 /icons/a.png hit"
+      ]
+    },
+    {
+      "label": "font",
+      "responded": true,
+      "status": 200,
+      "body": "/fonts/x.woff2 #1",
+      "ops": [
+        "open setnayan-fonts-v4",
+        "match setnayan-fonts-v4 /fonts/x.woff2 miss",
+        "put setnayan-fonts-v4 /fonts/x.woff2",
+        "open setnayan-fonts-v4"
+      ]
+    },
+    {
+      "label": "app navigation",
+      "responded": false,
+      "status": null,
+      "body": null,
+      "ops": []
+    },
+    {
+      "label": "guest navigation",
+      "responded": true,
+      "status": 200,
+      "body": "/maria-and-jose #1",
+      "ops": [
+        "open setnayan-dayof-v4",
+        "put setnayan-dayof-v4 /maria-and-jose",
+        "open setnayan-dayof-v4"
+      ]
+    },
+    {
+      "label": "api",
+      "responded": false,
+      "status": null,
+      "body": null,
+      "ops": []
+    },
+    {
+      "label": "auth",
+      "responded": false,
+      "status": null,
+      "body": null,
+      "ops": []
+    },
+    {
+      "label": "post",
+      "responded": false,
+      "status": null,
+      "body": null,
+      "ops": []
+    },
+    {
+      "label": "other origin",
+      "responded": false,
+      "status": null,
+      "body": null,
+      "ops": []
+    }
+  ],
+  "preload": {
+    "ops": [
+      "open setnayan-images-v4",
+      "put setnayan-images-v4 /icons/b.png",
+      "put setnayan-images-v4 /icons/c.png",
+      "open setnayan-images-v4"
+    ],
+    "cached": [
+      "/icons/a.png",
+      "/icons/b.png",
+      "/icons/c.png"
+    ]
+  },
+  "bust": {
+    "ops": [
+      "keys",
+      "delete-cache setnayan-static-immutable-v1",
+      "delete-cache setnayan-v4",
+      "delete-cache setnayan-static-v4",
+      "delete-cache setnayan-images-v4",
+      "delete-cache setnayan-fonts-v4",
+      "delete-cache setnayan-dayof-v4"
+    ],
+    "left": []
+  }
+}

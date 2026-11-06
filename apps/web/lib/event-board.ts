@@ -178,7 +178,7 @@ export function eventAlbumHref(event: {
   member_type: EventWithRole['member_type'];
 }): string | null {
   const stance = eventStance(event.member_type);
-  if (stance === 'organiser') return `/dashboard/${event.event_id}/studio/papic`;
+  if (stance === 'organiser') return `/dashboard/${event.event_id}/memories`; // the album is Memories (the Papic page is gone)
   // ⚠ A HELPER GETS NO ALBUM LINK, deliberately — not an oversight. The Papic
   // studio is the host's album tool and nobody has decided a Limited helper
   // belongs in it; the card's own door (the dashboard) is where they go.

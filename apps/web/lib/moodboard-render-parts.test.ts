@@ -32,12 +32,10 @@ import {
   RENDER_PART_ID_PATTERN,
   WHOLE_LOOK_PART_ID,
   attirePaletteKeys,
-  creditsForPart,
   inspirationSlotsForPart,
   isRenderPartId,
   renderPartById,
   renderPartsInGroup,
-  type MoodboardRenderConfig,
 } from './moodboard-render-parts';
 import { RECEPTION_PARTS } from './reception-scene';
 import { PALETTE_LIMITS, PALETTE_ORDER, isWeddingPartyFineKey } from './mood-board';
@@ -115,7 +113,7 @@ test('labels are the SOURCE labels, not re-typed', () => {
 
 /* ── identity ────────────────────────────────────────────────────────────── */
 
-test('part ids are unique and match the shape event_renders.part_id enforces', () => {
+test('part ids are unique and match the part-id shape (RENDER_PART_ID_PATTERN)', () => {
   const ids = RENDER_PARTS.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, 'duplicate part id');
   for (const id of ids) {
@@ -190,13 +188,18 @@ test('no inspiration slot both feeds a room/people part AND becomes a place of i
     );
   }
   // …and every slot is accounted for exactly once: place, alias, or one of the
-  // explicit non-parts (the two cards of step 4c, 2026-10-07, are inspiration
-  // cards only — never a render part). An unclassified slot is a compile error in
-  // SLOT_ROLE; this proves the runtime agrees with the type.
+  // explicit non-parts (the two cards of step 4c, 2026-10-07, and the four
+  // attire boards of 2026-10-08 are inspiration boards only — never a render
+  // part). An unclassified slot is a compile error in SLOT_ROLE; this proves the
+  // runtime agrees with the type.
   const places = new Set(renderPartsInGroup('places').map((p) => p.sourceKey));
+  const boardsOnly: readonly string[] = ['bridal_bouquet', 'centrepieces', 'chairs', 'ribbons_candles', 'lights', 'entourage_bouquets', 'flower_accents', 'bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'];
+  for (const slot of boardsOnly) {
+    assert.ok(!places.has(slot) && !aliased.has(slot), `inspiration board "${slot}" became a render part`);
+  }
   for (const slot of MOODBOARD_SLOT_KEYS) {
     const classified =
-      places.has(slot) || aliased.has(slot) || slot === 'overall' || slot === 'palette' || slot === 'bridal_bouquet' || slot === 'centrepieces';
+      places.has(slot) || aliased.has(slot) || slot === 'overall' || slot === 'palette' || boardsOnly.includes(slot);
     assert.ok(classified, `inspiration slot "${slot}" is not classified anywhere`);
   }
 });
@@ -212,27 +215,6 @@ test('a part knows which inspiration uploads condition it', () => {
   // not to an error.
   assert.deepEqual(inspirationSlotsForPart('people:officiants'), []);
   assert.deepEqual(inspirationSlotsForPart('nope:nope'), []);
-});
-
-/* ── credits come from the config row, never from this module ───────────── */
-
-test('the whole look costs the whole-look figure; every part costs the part figure', () => {
-  const config: MoodboardRenderConfig = {
-    creditsPerPart: 1,
-    creditsWholeLook: 5,
-    creditsPerPack: 50,
-    packServiceCode: 'MOODBOARD_RENDER_PACK',
-    maxNoteChars: 500,
-    isActive: true,
-  };
-  assert.equal(creditsForPart(WHOLE_LOOK_PART_ID, config), 5);
-  assert.equal(creditsForPart('room:ceiling', config), 1);
-
-  // The figures are the CONFIG's, not constants in the module — an owner who
-  // moves them must move every price with them.
-  const moved: MoodboardRenderConfig = { ...config, creditsPerPart: 2, creditsWholeLook: 8 };
-  assert.equal(creditsForPart('room:ceiling', moved), 2);
-  assert.equal(creditsForPart(WHOLE_LOOK_PART_ID, moved), 8);
 });
 
 test('no peso figure is encoded anywhere in the registry', () => {

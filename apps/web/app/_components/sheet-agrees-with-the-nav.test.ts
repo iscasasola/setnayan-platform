@@ -40,55 +40,82 @@ const strip = (s: string) =>
 const SHEET_CODE = strip(SHEET);
 const NAV_CODE = strip(NAV);
 
-/** The breakpoint at which the phone bottom bar stops being drawn. */
-function navPhoneCeiling(): string {
-  const m = /\b(sm|md|lg|xl|2xl):hidden\b/.exec(NAV_CODE);
-  const bp = m?.[1];
+/**
+ * 📱→🖥 SINCE 2026-10-19 THE ANSWER IS PER SURFACE (owner, DECISION_LOG
+ * "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)"): the dock and the
+ * sheet each carry ONE complete geometry per shell boundary — `lg` (every tree)
+ * and `tab` (the couple's event tree, 701) — chosen by the SAME prop
+ * (`BottomDock boundary` / `useShellBoundary()`). So agreement is now: the set
+ * of lines the dock hides at equals the set of lines the sheet docks at, and
+ * each of the sheet's sets flips at exactly one of them.
+ */
+const BP = '(sm|tab|md|lg|xl|2xl)';
+
+/** The breakpoints at which the phone bottom bar stops being drawn. */
+function navPhoneCeilings(): string[] {
+  const found = [...new Set([...NAV_CODE.matchAll(new RegExp(`\\b${BP}:hidden\\b`, 'g'))].map((m) => m[1]!))].sort();
   assert.ok(
-    bp,
+    found.length > 0,
     'the bottom nav no longer hides at a breakpoint — this guard has lost the side it measures against',
   );
-  return bp;
+  return found;
 }
 
-/** The breakpoint at which the sheet stops being a bottom sheet. */
+/** The sheet's geometry sets — one per boundary, as `SHEET_AT` declares them. */
+function sheetSets(): { name: string; body: string }[] {
+  const at = /const SHEET_AT[^=]*=\s*{([\s\S]*?)\n};/.exec(SHEET_CODE)?.[1];
+  assert.ok(at, 'sheet.tsx no longer declares its geometries in one `SHEET_AT` table — re-point this guard rather than deleting it');
+  const sets = [...at.matchAll(/\n {2}(\w+): {([\s\S]*?)\n {2}},/g)].map((m) => ({ name: m[1]!, body: m[2]! }));
+  assert.ok(sets.length >= 1, 'SHEET_AT holds no geometry');
+  return sets;
+}
+
+/** The breakpoint at which ONE geometry stops being a bottom sheet. */
+function dockPointOf(body: string): string {
+  const m = new RegExp(`\\b${BP}:justify-end\\b`).exec(body);
+  assert.ok(m?.[1], 'a sheet geometry no longer docks with a `:justify-end`');
+  return m[1];
+}
+
+/** The default geometry's dock point (the shipped `lg`) — what the fold rules below agree with. */
 function sheetDockPoint(): string {
-  // The dock is expressed as `<bp>:justify-end` on the positioning wrapper —
-  // that is the single line that turns a bottom sheet into a side drawer.
-  const m = /\b(sm|md|lg|xl|2xl):justify-end\b/.exec(SHEET_CODE);
-  const bp = m?.[1];
-  assert.ok(
-    bp,
-    'the sheet no longer docks with a `:justify-end` — if the layout was rewritten, re-point this guard rather than deleting it',
-  );
-  return bp;
+  const lg = sheetSets().find((s) => s.name === 'lg');
+  assert.ok(lg, 'SHEET_AT lost its default `lg` geometry');
+  return dockPointOf(lg.body);
 }
 
-test('🚨 the sheet docks exactly where the phone navigation gives up', () => {
-  const nav = navPhoneCeiling();
-  const sheet = sheetDockPoint();
-  assert.equal(
+test('🚨 the sheet docks exactly where the phone navigation gives up — on every surface', () => {
+  const nav = navPhoneCeilings();
+  const sets = sheetSets();
+  for (const { name, body } of sets) {
+    assert.equal(dockPointOf(body), name, `the "${name}" sheet docks at another surface's line`);
+  }
+  const sheet = sets.map((s) => s.name).sort();
+  assert.deepEqual(
     sheet,
     nav,
-    `the sheet becomes a desktop drawer at "${sheet}:" while the phone bottom bar is still drawn until "${nav}:". ` +
-      'Between those two widths a person sees phone chrome and a desktop side drawer at once — ' +
+    `the sheet docks at [${sheet.join(', ')}] while the phone bottom bar is hidden at [${nav.join(', ')}]. ` +
+      'On a surface where those differ a person sees phone chrome and a desktop side drawer at once — ' +
       'which is exactly what the owner was shown on 2026-08-28.',
   );
+  /* Both are chosen by the surface's boundary, never by something else. */
+  assert.match(SHEET_CODE, /SHEET_AT\[useShellBoundary\(\)\]/, 'the sheet no longer reads the surface boundary');
+  assert.match(NAV_CODE, /boundary === 'tab'\s*\?\s*'[^']*tab:hidden'\s*:\s*'[^']*lg:hidden'/, 'the dock no longer reads the surface boundary');
 });
 
-test('🚨 every desktop-only rule in the sheet uses that same breakpoint', () => {
+test('🚨 every desktop-only rule in a sheet geometry uses that geometry\'s one breakpoint', () => {
   // The height, the corners, the shadow and BOTH widths must flip together with
-  // the dock. One left behind at `sm:` gives a bottom sheet with a drawer's
-  // rounded left corners, or a drawer 22rem wide that never stopped being full
-  // width — half-transformed, which reads as broken rather than as a choice.
-  const dock = sheetDockPoint();
-  const others = [...SHEET_CODE.matchAll(/\b(sm|md|lg|xl|2xl):[a-z[]/g)].map((m) => m[1]);
-  const strays = [...new Set(others)].filter((bp) => bp !== dock);
-  assert.deepEqual(
-    strays,
-    [],
-    `the sheet mixes breakpoints — ${strays.join(', ')} alongside ${dock}. Every desktop rule must flip together.`,
-  );
+  // the dock. One left behind gives a bottom sheet with a drawer's rounded left
+  // corners, or a drawer that never stopped being full width — half-transformed,
+  // which reads as broken rather than as a choice.
+  for (const { name, body } of sheetSets()) {
+    const others = [...body.matchAll(new RegExp(`\\b${BP}:[a-z[]`, 'g'))].map((m) => m[1]);
+    const strays = [...new Set(others)].filter((bp) => bp !== name);
+    assert.deepEqual(strays, [], `the "${name}" sheet mixes breakpoints — ${strays.join(', ')}. Every desktop rule must flip together.`);
+  }
+  /* …and nothing outside the table sneaks a breakpoint class in. */
+  const outside = SHEET_CODE.replace(/const SHEET_AT[^=]*=\s*{[\s\S]*?\n};/, '');
+  assert.doesNotMatch(outside, new RegExp(`\\b${BP}:[a-z[]`), 'sheet.tsx carries a breakpoint class outside SHEET_AT');
 });
 
 test('the wide drawer is still wider than the narrow one', () => {

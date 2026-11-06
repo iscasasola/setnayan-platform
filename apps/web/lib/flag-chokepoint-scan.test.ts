@@ -72,19 +72,27 @@ type FlagSpec = {
 
 const FLAGS: FlagSpec[] = [
   {
-    // 🧭 The new Event Hub Maker, "Stages | Studio" (owner 2026-10-06; plan
-    // EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 1). Registered
-    // the day it shipped dark. Also on for an internal viewer — handed in.
-    env: 'NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED',
-    helper: 'lib/maker-stages-studio-flag.ts',
-    fn: 'makerStagesStudioEnabled',
-    // The ONE place it is decided; the shell is handed the boolean.
-    // …and the guest side (plan PR 6): the one helper the guest page and the
-    // camera page ask, for the event's host instead of the viewer.
-    gates: ['app/dashboard/[eventId]/launch/page.tsx', 'lib/guest-stages-on.ts'],
-    // Take the decision as a prop / input, never ask it themselves.
-    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx', 'lib/studio-tiles.ts'],
-    locals: ['stagesStudio'],
+    // 🍎 Apple In-App Purchase in the iPhone app (owner 2026-10-18, DECISION_LOG
+    // "IN-APP PURCHASE — THE FIVE DECISIONS"). Registered the day it shipped dark.
+    // ONE of three conditions — the store shell and the StoreKit build's UA token
+    // are the others — so the gate itself is the pure `iapAvailable`, handed the
+    // flag; the server wrapper (getIapGate) is the one asker.
+    env: 'NEXT_PUBLIC_APPLE_IAP_ENABLED',
+    helper: 'lib/apple-iap-flag.ts',
+    fn: 'isAppleIapEnabled',
+    gates: ['lib/request-platform.ts'],
+    pureCores: ['lib/iap/iap-gate.ts'],
+    locals: ['appleIap'],
+  },
+  {
+    // 🖥 The guest's Event Hub on a desktop — the approved system sheet (DL 2026-10-15). Dark for guests while it is
+    // checked; on for an internal viewer. The guest page asks once and writes the desk <style> or not.
+    env: 'NEXT_PUBLIC_GUEST_HUB_DESKTOP_ENABLED',
+    helper: 'lib/guest-hub-desktop-flag.ts',
+    fn: 'guestHubDesktopEnabled',
+    gates: ['app/[slug]/page.tsx'],
+    pureCores: [],
+    locals: ['guestDesk'],
   },
   {
     env: 'NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED',
@@ -137,11 +145,13 @@ const FLAGS: FlagSpec[] = [
       // the flag flips (measured: ₱80,000 apart on prod event `044f7e64…`).
       // (Now through `lib/budget-live-read.ts`, the one helper the lens and Home's first screen share.)
       'lib/budget-live-read.ts',
-      // BA2 — the Realtime refetch behind that same /budget card. The server
-      // render and this action are TWO WRITERS of one number; if this one stops
-      // asking the flag, the card silently reverts to the legacy total (which
-      // includes unconfirmed vendors' quotes) on the first payment event.
-      'app/dashboard/[eventId]/budget/actions.ts',
+      // ⤷ 2026-10-08 (Budget B1): `budget/actions.ts` LEFT this list because the
+      // thing it gated is gone — `getBudgetLiveSummary`, the Realtime refetch
+      // that was the SECOND writer of the /budget card, was deleted with that
+      // card. A Realtime change now re-runs the page's own server render
+      // (`router.refresh()`), so the page above is the ONLY writer and the
+      // only gate. `money-wears-the-ledger-face.test.ts` holds that the action
+      // does not come back.
     ],
     pureCores: [
       // Take `enabled` as a parameter, so their suites drive BOTH states in one

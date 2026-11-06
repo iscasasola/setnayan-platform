@@ -30,10 +30,16 @@
 // Only the couple, in the Maker's canvas and its whole-stage preview, meets the
 // scene's placeholder — its own layout, with the line that says what fills it.
 
+import { HUB_SCENE_FX_ATTR } from '@/lib/element-style';
+import { HubSceneFx } from '../hub-scene-fx';
 import type { ReactElement, ReactNode } from 'react';
 import type { DayChapter } from './data';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
 import { postEventElementScope } from '@/lib/post-event-styles';
+import { GlimpseRail } from '../glimpse-rail';
+
+/** Glimpse in the flow draws this many photos. */
+export const GLIMPSE_PREVIEW_MAX = 12;
 
 export type PeWords = Partial<Record<'label' | 'heading' | 'body', string>>;
 
@@ -42,7 +48,7 @@ const say = (words: PeWords, part: keyof PeWords, fallback: string): string => w
 
 const EYEBROW = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700';
 const EYEBROW_ON_PHOTO = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-cream/90';
-const MICRO = 'font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/60';
+const MICRO = 'font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/70';
 
 const fmt = (n: number) => n.toLocaleString('en-PH');
 
@@ -55,6 +61,7 @@ export function PostEventSceneFrame({
   scene,
   style,
   css,
+  fx = null,
   id,
   className = '',
   children,
@@ -63,6 +70,8 @@ export function PostEventSceneFrame({
   style: PostEventStyleId;
   /** `hubElementSceneCss(postEventElementScope(scene), elements)` — null when none. */
   css: string | null;
+  /** ✨ `hubSceneFxAttr(elements)` — its parts' Word by word · Spread · Glow, cut by `HubSceneFx`; null when none. */
+  fx?: string | null;
   id?: string;
   className?: string;
   children: ReactNode;
@@ -77,11 +86,12 @@ export function PostEventSceneFrame({
       >
         {children}
       </section>
-      {css ? (
-        <style hidden data-hub-els={postEventElementScope(scene)}>
-          {css}
+      {css || fx ? (
+        <style hidden data-hub-els={postEventElementScope(scene)} {...(fx ? { [HUB_SCENE_FX_ATTR]: fx } : {})}>
+          {css ?? ''}
         </style>
       ) : null}
+      {fx ? <HubSceneFx scope={postEventElementScope(scene)} /> : null}
     </>
   );
 }
@@ -166,7 +176,7 @@ export function FrontPageScene({
       <div className="flex flex-col pb-6">
         <div className="flex items-baseline justify-between border-b border-terracotta/50 pb-2 pt-2">
           <span className="font-mono text-xl font-semibold uppercase tracking-[0.2em] text-ink">Setnayan</span>
-          <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/60">{f.edition}</span>
+          <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">{f.edition}</span>
         </div>
         <div className="relative -mx-4 mt-4 h-[330px] overflow-hidden sm:-mx-6 sm:h-[420px]">
           <Photo url={f.heroPhotoUrl} alt={`${f.names} — the cover`} />
@@ -344,7 +354,7 @@ export function StatisticsScene({
               <span className="font-serif text-[2.1rem] font-semibold leading-none">one day</span>
             </li>
           </ul>
-          <span className="mt-3.5 block text-center text-xs tracking-[0.06em] text-ink/60">THANK YOU FOR COMING · PLEASE COME AGAIN</span>
+          <span className="mt-3.5 block text-center text-xs tracking-[0.06em] text-ink/70">THANK YOU FOR COMING · PLEASE COME AGAIN</span>
         </div>
       </div>
     );
@@ -362,7 +372,7 @@ export function StatisticsScene({
             <div className="grid grid-cols-[1fr_auto] items-end gap-2.5">
               <span className={MICRO}>Invited → said yes</span>
               <span className="font-serif text-[2.1rem] leading-none text-ink">
-                {fmt(f.saidYes)} <span className="text-lg text-ink/60">/ {fmt(f.invited)}</span>
+                {fmt(f.saidYes)} <span className="text-lg text-ink/70">/ {fmt(f.invited)}</span>
               </span>
               <span className="relative col-span-2 block h-1.5 overflow-hidden rounded-full bg-ink/10">
                 <span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-terracotta/60 to-terracotta" style={{ width: `${Math.min(100, came)}%` }} />
@@ -475,7 +485,7 @@ export function ScheduleScene({
               <li key={c.leadId ?? i} className="grid grid-cols-[78px_1fr] gap-x-3.5 py-3">
                 <span className="text-right font-serif text-2xl leading-none text-terracotta-700">
                   {clock ? clock.t : '—'}
-                  {clock ? <span className="mt-1 block font-mono text-xs tracking-[0.18em] text-ink/60">{clock.ap}</span> : null}
+                  {clock ? <span className="mt-1 block font-mono text-xs tracking-[0.18em] text-ink/70">{clock.ap}</span> : null}
                 </span>
                 <div className="min-w-0">
                   <h3 className="m-0 font-serif text-[1.4rem] leading-tight text-ink">{chapterName(c, i)}</h3>
@@ -546,7 +556,7 @@ export function ScheduleScene({
                 {clock ? (
                   <span className="absolute -top-4 left-1/2 -translate-x-1/2 font-serif text-sm font-semibold text-terracotta-700">{clock.t}</span>
                 ) : null}
-                <span className="absolute left-1/2 top-[56px] w-24 -translate-x-1/2 truncate text-center font-mono text-xs uppercase tracking-[0.1em] text-ink/60">
+                <span className="absolute left-1/2 top-[56px] w-24 -translate-x-1/2 truncate text-center font-mono text-xs uppercase tracking-[0.1em] text-ink/70">
                   {chapterName(c, i)}
                 </span>
               </span>
@@ -655,6 +665,18 @@ export function GalleryPreview({
               <Photo url={u} alt={i === 0 ? `${names} — a moment from the day` : ''} />
             </span>
           ))}
+        </span>
+      </div>
+    );
+  }
+  if (style === 'glimpse') {
+    /* Glimpse — the Save the Date's rail, the SAME component, in its preview form (nothing in it to press: the whole
+       preview is the open-up's button). Bleeds to the screen edges like the film strip so the neighbours peek. */
+    return (
+      <div>
+        {head}
+        <span className="-mx-5 mt-3.5 block sm:-mx-10">
+          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — Memories`} />
         </span>
       </div>
     );

@@ -15,7 +15,10 @@ import AuthenticationServices
  *   signInWithApple({ nonce })      → the system Sign in with Apple sheet.
  *       `nonce` is the SHA-256 of a random value the web keeps; Apple puts it in
  *       the identity token and Supabase checks it (`signInWithIdToken`).
- *       Resolves { identityToken, givenName?, familyName? }.
+ *       Resolves { identityToken, authorizationCode?, givenName?, familyName? }.
+ *       The authorization code (valid five minutes, single use) goes to the web
+ *       side's server, which trades it for the refresh token account deletion
+ *       must revoke at Apple (App Store 5.1.1(v); apps/web/lib/apple-sign-in-store.ts).
  *
  *   openAuthSession({ url, callbackScheme }) → ASWebAuthenticationSession: the
  *       provider page in the SYSTEM browser (Safari's own cookies, so a Google
@@ -146,6 +149,12 @@ extension SetnayanAuthPlugin: ASAuthorizationControllerDelegate {
             return
         }
         var result: [String: Any] = ["identityToken": identityToken]
+        // The only thing a native sign-in yields that can become a revocable
+        // refresh token. Handed back to the page that asked, nowhere else.
+        if let codeData = credential.authorizationCode,
+           let code = String(data: codeData, encoding: .utf8) {
+            result["authorizationCode"] = code
+        }
         // Apple gives the name only on the FIRST authorization, and never in the token.
         if let given = credential.fullName?.givenName { result["givenName"] = given }
         if let family = credential.fullName?.familyName { result["familyName"] = family }

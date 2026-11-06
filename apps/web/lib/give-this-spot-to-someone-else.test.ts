@@ -51,7 +51,7 @@ test('a NEW KEY FIRST, as the couple — and its failure stops everything', () =
 test('the spot is kept, the old person is cleared', () => {
   const b = body('giveSpotToSomeoneElse');
   const upd = b.slice(b.indexOf('.update({'), b.indexOf('})', b.indexOf('.update({')));
-  for (const gone of ['person_id: null', 'email: null', 'mobile: null', 'photo_url: null', 'dietary_restrictions: null', 'guest_note: null']) {
+  for (const gone of ['person_id: null', 'email: null', 'mobile: null', 'photo_url: null', 'dietary_restrictions: null', 'guest_note: null', 'host_note_for_guest: null']) {
     assert.ok(upd.includes(gone), `${gone} — the old person's ${gone.split(':')[0]} stays on the new person's spot`);
   }
   for (const kept of ['plus_one_count', 'side', 'role', 'rsvp_status', 'deleted_at', 'table', 'seat']) {
@@ -67,7 +67,10 @@ test('"Take this seat back" rotates as the couple too (a service-role call is re
 });
 
 test('the card offers the swap only to a guest who has not replied', () => {
-  assert.match(CARD, /guest\.rsvp_status === 'pending' \? \(\s*<form action=\{releaseAction\}[^>]*data-give-spot=""/);
-  assert.match(CARD, /name="swap_name"/);
-  assert.match(CARD, /Give the spot/);
+  // 🔁 One line since 2026-11-02 (`guest-seat-doors.tsx`): Give opens its name field on a tap, only while not replied.
+  assert.match(CARD, /<GuestSeatDoors name=\{name\} canGive=\{guest\.rsvp_status === 'pending'\} releaseAction=\{releaseAction\} \/>/);
+  const DOORS = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/guest-seat-doors.tsx'), 'utf8'));
+  assert.match(DOORS, /\{canGive && giving \? \(\s*<form action=\{releaseAction\}[^>]*data-give-spot=""/);
+  assert.match(DOORS, /name="swap_name"/);
+  assert.match(DOORS, /required/);
 });

@@ -134,7 +134,7 @@ export async function linkCelebration(formData: FormData): Promise<ActionResult>
   const clusterId = formData.get('event_cluster_id');
   const eventId = formData.get('event_id');
   if (!isUuid(clusterId)) return { ok: false, error: 'That group could not be found.' };
-  if (!isUuid(eventId)) return { ok: false, error: 'Pick a celebration to add.' };
+  if (!isUuid(eventId)) return { ok: false, error: 'Pick an event to add.' };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -146,19 +146,19 @@ export async function linkCelebration(formData: FormData): Promise<ActionResult>
     // 7a's UNIQUE (event_id): at most one cluster per celebration. Say that in
     // words rather than handing over a constraint name.
     if (error.code === '23505') {
-      return { ok: false, error: 'That celebration is already in a group.' };
+      return { ok: false, error: 'That event is already in a group.' };
     }
     // A refused INSERT under RLS DOES raise (42501) — unlike a refused read.
     if (error.code === '42501') {
       return {
         ok: false,
-        error: 'You can only add your own celebrations, to your own groups.',
+        error: 'You can only add your own events, to your own groups.',
       };
     }
     return { ok: false, error: error.message };
   }
   if ((data ?? []).length === 0) {
-    return { ok: false, error: 'That celebration could not be added.' };
+    return { ok: false, error: 'That event could not be added.' };
   }
 
   revalidateCluster(clusterId);
@@ -221,7 +221,7 @@ export async function setClusterAnchor(formData: FormData): Promise<ActionResult
       ok: false,
       error:
         (cleared ?? []).length > 0
-          ? 'That celebration is not in this group — the previous anchor was cleared.'
+          ? 'That event is not in this group — the previous anchor was cleared.'
           : 'Only your own groups can be changed.',
     };
   }
@@ -248,7 +248,7 @@ export async function unlinkCelebration(formData: FormData): Promise<ActionResul
   const clusterId = formData.get('event_cluster_id');
   const eventId = formData.get('event_id');
   if (!isUuid(clusterId)) return { ok: false, error: 'That group could not be found.' };
-  if (!isUuid(eventId)) return { ok: false, error: 'Pick a celebration to remove.' };
+  if (!isUuid(eventId)) return { ok: false, error: 'Pick an event to remove.' };
 
   const supabase = await createClient();
   const { data, error } = await supabase

@@ -1,0 +1,160 @@
+'use client';
+
+import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { FEEL_OFF, partFeel, partSpeedOf } from '@/lib/animate-feel';
+import { BLOCK_LOOKS_MESSAGE, BLOCK_LOOKS_PREF_KEY, blockLooksWith, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
+import { HUB_EL_DURING_LABEL, sanitizeHubElementMotion, type HubElementMotion } from '@/lib/element-style';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { makerSave } from '@/lib/maker-refresh';
+import { motionFxOn, type MotionFx } from '@/lib/motion-effects';
+import { hubDraftAction } from '../../../website/hub-draft-actions';
+import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
+import { useMaker } from '../maker-context';
+import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../maker-part-ops';
+import { StageAnimate } from './stage-animate';
+
+/** Delay's three, in seconds — the cover line's own steps (`element-sheet.tsx` `PART_DELAY_S`). */
+const DELAY_S = { none: 0, short: 0.3, long: 0.8 } as const;
+const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
+
+/**
+ * THE ONE DRAFT DOOR, AS THE WORK AREA LENDS IT (`maker-part-ops.ts`, the door every other toolbar write goes through):
+ * on a real event it IS `hubDraftAction`, so what a block's Animate posts is unchanged; on the Maker lab it is the
+ * lab's stand-in, so it can be tried there (it could not: the server action sent the lab to the sign-in page — seen
+ * 2026-10-10). No work area to ask: the action itself.
+ */
+function draftDoor(): ElementDraftAction {
+  let got: MakerPartRaw | null = null;
+  window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (raw: MakerPartRaw) => (got = raw) }));
+  return (got as MakerPartRaw | null)?.elementEditing?.draftAction ?? hubDraftAction;
+}
+/** The canvas on screen redraws the blocks' looks from what it is sent, read strictly there (`editor-bridge.tsx`). */
+const showOnCanvas = (looks: unknown) =>
+  document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentWindow?.postMessage({ source: 'setnayan-editor', t: BLOCK_LOOKS_MESSAGE, looks }, window.location.origin);
+
+/**
+ * ✨ ANIMATE FOR A FIXED BLOCK — the Wedding March, The details, E-Gifts, Happening now (owner 2026-10-09: Animate
+ * for every element; `lib/block-looks.ts`).
+ *
+ * The toolbar's own Animate with every phase — Build in · Action · Build out, Movement, Plays, Delay — wired exactly
+ * as a cover line's is (`element-sheet.tsx`), because it IS that motion: the same stored shape, the same closed-set
+ * reader, the same rules on the page. Only where it is kept differs: `events.style_preferences.block_looks`,
+ * through the Maker's one draft door — on the canvas at the tap, in the draft behind it, live on Apply.
+ * No Leaves ◆: a block is not a scene and hands over to nothing.
+ */
+export function BlockAnimateRows({ block }: { block: BlockLookBlock }) {
+  const { eventId, prefs, pending, error, saveWhole } = useBlockLooksDraft();
+  const motion: HubElementMotion = readBlockLooks(prefs)[block]?.motion ?? {};
+
+  const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) => {
+    if (!eventId) return;
+    const next: Record<string, unknown> = { ...motion };
+    if (value === null) delete next[part];
+    else next[part] = value;
+    saveWhole(blockLooksWith(prefs, block, sanitizeHubElementMotion(next)));
+  };
+
+  return (
+    <div className="contents" data-block-animate={block}>
+      <StageAnimate
+        pending={pending}
+        error={error}
+        move={{
+          in: { value: partFeel(motion.speed), onPick: (f) => moveTo('speed', partSpeedOf(f)), off: motionFxOn(motion.in) ? null : FEEL_OFF.noEffect },
+          out: {
+            value: partFeel(motion.outSpeed),
+            onPick: (f) => moveTo('outSpeed', partSpeedOf(f)),
+            off: motion.timeline !== 'scroll' ? FEEL_OFF.arrival : !motionFxOn(motion.out) ? FEEL_OFF.noEffect : null,
+          },
+        }}
+        plays={{ value: motion.timeline === 'scroll' ? 'scroll' : 'arrival', onPick: (d) => moveTo('timeline', d === 'scroll' ? 'scroll' : null) }}
+        inFx={motion.in ?? null}
+        outFx={motion.out ?? null}
+        onIn={(fx) => moveTo('in', fx)}
+        onOut={(fx) => {
+          /* A Build out plays as guests scroll on — choosing one makes the block follow the scroll (one save). */
+          if (!eventId) return;
+          if (fx && motion.timeline !== 'scroll') {
+            const looks = blockLooksWith(prefs, block, sanitizeHubElementMotion({ ...motion, timeline: 'scroll', out: fx }));
+            return saveWhole(looks);
+          }
+          moveTo('out', fx);
+        }}
+        delay={
+          motionFxOn(motion.in) && motion.timeline !== 'scroll'
+            ? {
+                value: DELAY_S[motion.delay ?? 'none'],
+                steps: Object.values(DELAY_S),
+                onPick: (sec) => {
+                  const v = (Object.keys(DELAY_S) as Array<keyof typeof DELAY_S>).find((k) => DELAY_S[k] === sec) ?? 'none';
+                  moveTo('delay', v === 'none' ? null : v);
+                },
+              }
+            : null
+        }
+        does={{
+          value: motion.during ?? 'still',
+          options: (['still', 'drift'] as const).map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
+          onPick: (v) => moveTo('during', v === 'still' ? null : v),
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * 🧱 THE BLOCKS' LOOKS AS THE TOOLBAR HOLDS THEM — the stored value (live with the draft laid on) and its ONE save,
+ * for a block's Animate (above) and its Background (`block-background.tsx`): on the canvas at the tap, in the draft
+ * behind it through the work area's draft door, live on Apply; put back, with one plain line, when a save is refused.
+ */
+export function useBlockLooksDraft() {
+  const maker = useMaker();
+  const router = useRouter();
+  const eventId = maker?.eventId ?? null;
+  /* The stored value, live with the draft laid on — carried whole, so another block's look and any key this build
+     does not know stay as they are. */
+  const savedKey = JSON.stringify(maker?.lookPages?.blocks ?? {});
+  const [prefs, setPrefs] = useState<Record<string, unknown>>(() => ({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }));
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  useEffect(() => setPrefs({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }), [savedKey]);
+  /** One save of a whole next value (Build out + "follow the scroll" together). */
+  function saveWhole(looks: Record<string, unknown>) {
+    /* 🤫 A tap that changes nothing (the choice already worn) is no save and no ↺ step. */
+    if (!eventId || JSON.stringify(looks) === JSON.stringify(prefs[BLOCK_LOOKS_PREF_KEY] ?? {})) return;
+    const was = prefs;
+    setPrefs({ [BLOCK_LOOKS_PREF_KEY]: looks });
+    setError(null);
+    showOnCanvas(looks);
+    start(async () => {
+      const back = (words: string) => {
+        setPrefs(was);
+        showOnCanvas(was[BLOCK_LOOKS_PREF_KEY]);
+        setError(words);
+      };
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } } }));
+        /* 👥 …with the looks this tap was built on (owner 2026-10-18, two hosts never overwrite): another host's look on
+           another block, saved meanwhile, is kept — and shown here (the toolbar says so once, `makerSave`). */
+        fd.set(MERGE_BASE_FIELD, JSON.stringify({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: was[BLOCK_LOOKS_PREF_KEY] ?? {} } } }));
+        const door = draftDoor();
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
+        const r = await makerSave(() => door(eventId, fd), () => router.refresh());
+        if (!r.ok) back(r.error);
+        else {
+          const merged = (r.elsewhere?.merged.events?.style_preferences as Record<string, unknown> | undefined)?.[BLOCK_LOOKS_PREF_KEY];
+          if (merged !== undefined) {
+            setPrefs({ [BLOCK_LOOKS_PREF_KEY]: merged });
+            showOnCanvas(merged);
+          }
+        }
+      } catch {
+        back('That change could not be saved. Please try again — nothing was lost.');
+      }
+    });
+  }
+  return { eventId, prefs, pending, error, saveWhole };
+}

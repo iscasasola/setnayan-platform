@@ -27,7 +27,9 @@ import {
 } from './types';
 
 const DB_NAME = 'setnayan_offline';
-const DB_VERSION = 1;
+// 2 (EV3, 2026-10-28): the `checkin_queue` store joins. The upgrade below only CREATES a store that is missing, so a
+// phone on version 1 keeps every queued item it holds.
+const DB_VERSION = 2;
 
 /**
  * Per-service store name. `${service}_queue` keeps each queue's IDB

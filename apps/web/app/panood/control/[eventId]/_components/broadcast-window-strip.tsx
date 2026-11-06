@@ -71,7 +71,7 @@ export function BroadcastWindowStrip({
         <Strip compact={compact} tone="warn" Icon={AlertCircle} title={`This stream has passed ${YOUTUBE_ARCHIVE_HOURS} hours.`}>
           YouTube saves only the first {YOUTUBE_ARCHIVE_HOURS} hours of a stream as a replay —
           anything from here may not appear in the recording at all. It is still going out
-          live to everyone watching. For a celebration that runs over more than one day, stop
+          live to everyone watching. For an event that runs over more than one day, stop
           and start a fresh broadcast for each one rather than leaving a single stream up.
         </Strip>
       ) : (

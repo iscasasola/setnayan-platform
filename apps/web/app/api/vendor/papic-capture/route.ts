@@ -1,8 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
-import { classifyImageBytes, decideNsfw } from '@/lib/nsfw-screen';
+import { isR2Configured } from '@/lib/r2';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import {
@@ -12,37 +11,229 @@ import {
 } from '@/lib/vendor-papic-grants';
 import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { readClientCaptureId, CLIENT_CAPTURE_ID_FIELD } from '@/lib/papic-client-capture-id';
+import {
+  discardPromoted,
+  dropStagingObjects,
+  newAttemptTag,
+  eventKeepsFullRes,
+  loadUploadedTiers,
+  promoteTier,
+  readCaptureIntents,
+  screenTierBytes,
+  settleCaptureIntents,
+  signCaptureTierPut,
+  type IntentRow,
+} from '@/lib/papic-upload-intents.server';
+import { isCaptureTier, refHoldsTier, type CaptureTier } from '@/lib/papic-upload/tiers';
+import { judgedShotInstant } from '@/lib/papic-upload/shot-time';
+import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
+import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 
 // POST /api/vendor/papic-capture
 //
 // The vendor ON-THE-DAY Papic capture lane (owner-locked 2026-07-18). A signed-in
 // vendor working a booked event shoots photos (and, on Ltd/Unli, ≤10s clips) into
-// their OWN capture lane (public.vendor_papic_captures). Whole capture is done
-// server-side (mirrors the guest route): validate → enforce the tier's
-// capture-point budget → PUT to R2 with the service-role client → insert the row
+// their OWN capture lane (public.vendor_papic_captures). validate → enforce the
+// tier's capture-point budget → the phone PUTs straight to R2 → insert the row
 // under the vendor's RLS client (the insert policy is the hard booked/own-profile
-// gate) → NSFW-screen in the background.
+// gate) → NSFW-screen.
+//
+// ── 🚫 NO FILE BYTES COME THROUGH HERE (2026-10-23) ─────────────────────────
+// This lane took the photo as a multipart POST and PUT it to R2 itself — the
+// same shape that answered 413 FUNCTION_PAYLOAD_TOO_LARGE on the guest lane in
+// production (Vercel refuses request bodies over 4.5 MB before our code runs;
+// a supplier's clip was allowed up to 25 MB). It now takes a small JSON body
+// with three ops, exactly like /api/papic/guest-capture:
+//   sign   — check the gate, the window, the consent and the budget, then mint
+//            one presigned PUT for one piece of one shot (lib/papic-upload/).
+//   record — the shot's first piece landed: check it, write the row ONCE per
+//            shutter (client_capture_id, migration 20271285508020), screen it.
+//   attach — a later piece (tile + display, the original) landed: check it,
+//            SCREEN it, then write its key.
 //
 // ⚠️ THIS SURFACE IS LIVE. It is gated by isVendorPapicCaptureEnabled() (the
 // admin Data Privacy control `vendor_papic_capture`), and that control has been
 // **ACTIVE IN PRODUCTION SINCE 2026-07-16 04:51 UTC**, approved by the owner.
-// This comment used to say "default OFF … this route 403s", and six weeks of
-// planning read it and believed the lane was shut. A privacy control's state
-// lives in the DATABASE; a comment describing it is a claim with an expiry date.
-// Geo is never stored; the 10s clip cap is a product lock; NSFW is always-on.
+// A privacy control's state lives in the DATABASE; a comment describing it is
+// a claim with an expiry date. Geo is never stored; the 10s clip cap is a
+// product lock; NSFW is always-on.
 //
-// ⏱ AND THE LANE NOW CLOSES WITH THE CELEBRATION — owner 2026-08-28: *"they get
+// ⏱ AND THE LANE CLOSES WITH THE CELEBRATION — owner 2026-08-28: *"they get
 // to use it until event day."* See THE WINDOW below.
 
 export const runtime = 'nodejs';
 
-const MAX_PHOTO_BYTES = 12_000_000; // 12 MB — a phone JPEG is well under this
-const MAX_CLIP_BYTES = 25_000_000; // ~25 MB — a short 1080p phone clip
-// 10-SECOND CLIP CAP — owner override 2026-07-22 · §0. Mirrors the guest route
-// (app/api/papic/guest-capture MAX_CLIP_MS); the DB CHECK on vendor_papic_captures
-// was relaxed to 10000 in the same PR so a real 6–10s vendor clip records.
+// 10-SECOND CLIP CAP — owner override 2026-07-22 · §0. Mirrors the guest route;
+// the DB CHECK on vendor_papic_captures was relaxed to 10000 in the same PR.
 const MAX_CLIP_MS = 10000;
-const MAX_POSTER_BYTES = 5_000_000;
+const MAX_JSON_BYTES = 16_000;
+
+type Admin = ReturnType<typeof createAdminClient>;
+type Body = Record<string, unknown>;
+const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(body, { status });
+
+type VendorRow = {
+  capture_id: string;
+  media_type: string | null;
+  r2_object_key: string | null;
+  poster_r2_key: string | null;
+  display_r2_key: string | null;
+  tile_r2_key: string | null;
+  thumb_r2_key: string | null;
+};
+
+// ── THE WINDOW ────────────────────────────────────────────────────────────
+// Owner 2026-08-28: *"they get to use it until event day."* A supplier's
+// camera documents their own work, so it is open through the celebration and
+// shut once the celebration is over.
+//
+// 🔑 IT REUSES THE ONE RESOLVER RATHER THAN DEFINING "OVER" A SECOND TIME.
+// `getMenuLifecyclePhase` already answers it for the whole product — 06:00 in
+// the VENUE's clock on the day after `COALESCE(event_end_date, event_date)`,
+// or the moment the host presses "Close out the day".
+//
+// ⚠ FAILS OPEN, deliberately. An unreadable event, a missing date or an
+// unrecognised timezone leaves the phase at 'plan' and the lane open.
+// 🕐 Judged by the SHUTTER, not arrival (review 2026-10-23, blocker 1).
+async function eventOver(admin: Admin, eventId: string, shotAtMs: number): Promise<boolean> {
+  const { data: eventRow, error: eventErr } = await admin
+    .from('events')
+    .select('event_date, event_end_date, timezone, cleared_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (eventErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:events.select(window)', eventErr);
+  const ev = eventRow as {
+    event_date: string | null;
+    event_end_date: string | null;
+    timezone: string | null;
+    cleared_at: string | null;
+  } | null;
+  if (!ev) return false;
+  const phase = getMenuLifecyclePhase(
+    ev.event_date,
+    ev.cleared_at,
+    ev.timezone ?? undefined,
+    shotAtMs,
+    ev.event_end_date,
+  );
+  return phase === 'after';
+}
+
+// Tier + capture-points enforcement (service-role reads — the tier must be
+// authoritative). Each tier's point budget is the ceiling (photo=1, clip=7).
+// ⚠ THE CREDITS THEY HOLD ARE PART OF THE ALLOWANCE — owner 2026-09-05: an
+// unread ledger is `null`, which grants nothing.
+async function budgetRefusal(
+  admin: Admin,
+  vendorProfileId: string,
+  eventId: string,
+  mediaType: 'photo' | 'clip',
+): Promise<NextResponse | null> {
+  const [tier, spent, creditsGranted] = await Promise.all([
+    deriveVendorPapicTier(admin, vendorProfileId, eventId),
+    fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
+    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
+  ]);
+  const check = canCapture(tier, spent, mediaType, creditsGranted);
+  if (!check.ok) {
+    return json(
+      { error: check.reason, tier, pointsSpent: spent },
+      check.reason === 'video_not_allowed' ? 403 : 409,
+    );
+  }
+  return null;
+}
+
+// The tier's OPEN upload — a settled intent is never promoted twice (review
+// 2026-10-23, major 3: a late re-PUT after record lands in staging, nowhere else).
+const intentFor = (intents: readonly IntentRow[], tier: CaptureTier) =>
+  intents.find((i) => i.tier === tier && i.settled_at === null);
+type Loaded = Awaited<ReturnType<typeof loadUploadedTiers>>['loaded'][number];
+
+async function loadOrRedo(
+  intents: readonly IntentRow[],
+  tiers: readonly CaptureTier[],
+): Promise<{ ok: true; byTier: Map<CaptureTier, Loaded> } | { ok: false; res: NextResponse }> {
+  const missing = tiers.filter((t) => !intentFor(intents, t));
+  if (missing.length > 0) return { ok: false, res: json({ error: 'object_missing', missing }, 409) };
+  const { loaded, redo } = await loadUploadedTiers(tiers.map((t) => intentFor(intents, t)!));
+  if (redo.length > 0) return { ok: false, res: json({ error: 'object_rejected', missing: redo }, 409) };
+  return { ok: true, byTier: new Map(loaded.map((l) => [l.intent.tier, l])) };
+}
+
+async function promoteAll(admin: Admin, byTier: Map<CaptureTier, Loaded>): Promise<Map<CaptureTier, string> | null> {
+  try {
+    // One attempt tag per call: its copies are its OWN keys (review major 3).
+    const attempt = newAttemptTag();
+    const out = new Map<CaptureTier, string>();
+    for (const [tier, loaded] of byTier) out.set(tier, await promoteTier(admin, loaded, attempt));
+    return out;
+  } catch (err) {
+    console.error('[papic-upload] vendor promote failed', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ── THE COUPLE'S COPY GOES OUT BEFORE THE ORIGINAL CAN GO AWAY ────────────
+// 🔑 THE INVERSE COMES FIRST. Compression is destructive: after the retention
+// window the full-res original is deleted and the web copy becomes the
+// photograph. Drive is the ONLY way a couple keeps originals, so the sweep
+// refuses to drop anything whose key is not confirmed in the couple's Drive
+// copy (`isDriveDeferred`). A supplier's captures land in the COUPLE'S gallery,
+// so they belong in the couple's hand-off like any other photograph in it.
+// Best-effort: a hand-off that fails leaves the key unconfirmed, which makes the
+// sweep DEFER rather than drop. Handed off ONCE, with the final full copy.
+async function handOffToDrive(eventId: string, captureId: string, ref: string, isClip: boolean): Promise<void> {
+  try {
+    // 🧼 Only a shot the screen PASSED (and nobody took down) leaves for Drive.
+    const { data: row } = await createAdminClient()
+      .from('vendor_papic_captures')
+      .select('nsfw_checked, hidden_at')
+      .eq('capture_id', captureId)
+      .maybeSingle();
+    const r = row as { nsfw_checked?: boolean; hidden_at?: string | null } | null;
+    if (r?.nsfw_checked !== true || r.hidden_at) return;
+    const { enqueueDriveCopy, runDriveCopyBatch } = await import('@/lib/drive-copy');
+    await enqueueDriveCopy({
+      eventId,
+      artifactType: 'papic',
+      files: [
+        {
+          r2ObjectKey: ref,
+          fileName: ref.split('/').pop() || (isClip ? 'capture.mp4' : 'capture.jpg'),
+          mimeType: isClip ? 'video/mp4' : 'image/jpeg',
+          sourceTable: 'vendor_papic_captures',
+          sourceRef: captureId,
+        },
+      ],
+    });
+    after(() => runDriveCopyBatch({ eventId }).catch(() => {}));
+  } catch {
+    // best-effort — an unconfirmed key makes the sweep defer, never drop.
+  }
+}
+
+/** The screen's verdict on a still, written the way this lane always wrote it. */
+async function writeVerdict(admin: Admin, captureId: string, bytes: Uint8Array | null, ref: string, eventId: string) {
+  // A capture only surfaces once nsfw_checked=TRUE; a block also soft-hides it.
+  // Fail-open: a classifier error leaves nsfw_checked=false (excluded), never
+  // surfacing an unscreened photo. The clean verdict only records that the
+  // screen RAN — the takedown switch is not its to move (TD-1, 2026-09-14).
+  if (!bytes) return;
+  const verdict = await screenTierBytes({ subjectTable: 'vendor_papic_captures', ref, eventId, bytes });
+  if (verdict === 'error') return;
+  const patch: { nsfw_checked: true; hidden_at?: string } = { nsfw_checked: true };
+  if (verdict === 'nsfw_blocked') patch.hidden_at = new Date().toISOString();
+  const { error } = await admin
+    .from('vendor_papic_captures')
+    .update(patch)
+    .eq('capture_id', captureId)
+    .eq('nsfw_checked', false);
+  // Unwritten verdict = the capture stays hidden (nsfw_checked false) and attach
+  // re-screens it — the safe direction — but it is said out loud.
+  if (error) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(verdict)', error);
+}
 
 export async function POST(req: Request) {
   // 1. Auth — the vendor is a signed-in Supabase user.
@@ -59,357 +250,387 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'disabled' }, { status: 403 });
   }
 
-  let form: FormData;
+  // 🚫 JSON ONLY — see the header.
+  if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
+    return json({ error: 'bytes_not_accepted' }, 415);
+  }
+  let body: Body;
   try {
-    form = await req.formData();
+    const raw = await req.text();
+    if (raw.length > MAX_JSON_BYTES) return json({ error: 'bad_request' }, 413);
+    body = JSON.parse(raw) as Body;
+    if (!body || typeof body !== 'object') throw new Error('shape');
   } catch {
-    return NextResponse.json({ error: 'bad_request' }, { status: 400 });
+    return json({ error: 'bad_request' }, 400);
   }
 
-  const eventId = typeof form.get('event_id') === 'string' ? String(form.get('event_id')).trim() : '';
-  if (!eventId) {
-    return NextResponse.json({ error: 'no_event' }, { status: 400 });
-  }
-
-  const mediaType = form.get('media_type') === 'clip' ? 'clip' : 'photo';
+  const eventId = typeof body.event_id === 'string' ? body.event_id.trim() : '';
+  if (!eventId) return json({ error: 'no_event' }, 400);
+  const clientCaptureId = readClientCaptureId(body[CLIENT_CAPTURE_ID_FIELD]);
+  if (!clientCaptureId) return json({ error: 'bad_request' }, 400);
+  const mediaType = body.media_type === 'clip' ? 'clip' : 'photo';
   const isClip = mediaType === 'clip';
 
-  const file = form.get('file');
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'no_file' }, { status: 400 });
-  }
-  if (isClip) {
-    if (!file.type.startsWith('video/')) {
-      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-    }
-    if (file.size > MAX_CLIP_BYTES) {
-      return NextResponse.json({ error: 'too_large' }, { status: 413 });
-    }
-  } else {
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      return NextResponse.json({ error: 'too_large' }, { status: 413 });
-    }
-  }
-
   // 3. Guest-consent attestation (RA 10173). The controller's consent gate sends
-  // consent='1'; absent → refuse. The lawful basis is recorded on the row; the
-  // DPO/NPC ruling (which gates go-live) governs which basis is valid.
-  if (form.get('consent') !== '1') {
-    return NextResponse.json({ error: 'consent_required' }, { status: 403 });
+  // consent=true; absent → refuse. The lawful basis is recorded on the row.
+  if (body.consent !== true) {
+    return json({ error: 'consent_required' }, 403);
   }
-
   if (!isR2Configured()) {
-    return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
+    return json({ error: 'uploads_unavailable' }, 503);
   }
 
   // 4. Resolve the vendor profile the caller owns/admins.
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) {
-    return NextResponse.json({ error: 'no_vendor' }, { status: 403 });
-  }
+  if (!profile) return json({ error: 'no_vendor' }, 403);
   const vendorProfileId = profile.vendor_profile_id;
 
-  // Clip extras: client-stamped duration (≤10s) + the poster frame (the NSFW proxy
-  // — nsfwjs is image-only, we never classify the video bytes).
-  let durationMs: number | null = null;
-  let posterBytes: Uint8Array | undefined;
-  if (isClip) {
-    const durRaw = form.get('duration_ms');
-    if (typeof durRaw === 'string' && durRaw.length > 0) {
-      const parsed = Number.parseInt(durRaw, 10);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        if (parsed > MAX_CLIP_MS) {
-          return NextResponse.json({ error: 'too_long' }, { status: 400 });
+  const admin = createAdminClient();
+  const { data: priorRow, error: priorErr } = await admin
+    .from('vendor_papic_captures')
+    .select('capture_id, media_type, r2_object_key, poster_r2_key, display_r2_key, tile_r2_key, thumb_r2_key')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('client_capture_id', clientCaptureId)
+    .maybeSingle();
+  if (priorErr) {
+    console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.select(client_capture_id)', priorErr);
+    return json({ error: 'record_failed' }, 503);
+  }
+  const prior = (priorRow as VendorRow | null) ?? null;
+  const op = body.op;
+  // 🔒 The shot's own supplier (review 2026-10-23, blocker 2): a shared phone
+  // now signed in as another supplier answers `other_owner`; the shot waits.
+  if (!ownerTagMatches(body.owner_tag, 'vendor', vendorProfileId, eventId)) {
+    return json({ error: 'other_owner' }, 409);
+  }
+  const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
+
+  // ── sign ──────────────────────────────────────────────────────────────────
+  if (op === 'sign') {
+    const tier = body.tier;
+    // A supplier's clip has no web copy here (vendor_papic_captures carries no
+    // clip_web column): poster + the clip itself.
+    const allowed: CaptureTier[] = isClip ? ['poster', 'clip_raw'] : ['thumb', 'tile', 'display', 'original'];
+    if (!isCaptureTier(tier) || !allowed.includes(tier)) return json({ error: 'bad_tier' }, 400);
+    if (prior) {
+      if (tier === 'thumb' || tier === 'poster' || tier === 'clip_raw') return json({ status: 'ok', already: true });
+      if ((tier === 'tile' && prior.tile_r2_key) || (tier === 'display' && prior.display_r2_key)) {
+        return json({ status: 'ok', already: true });
+      }
+      if (tier === 'original') {
+        if (refHoldsTier(prior.r2_object_key, 'original')) return json({ status: 'ok', already: true });
+        if (!(await eventKeepsFullRes(admin, eventId))) return json({ error: 'full_not_wanted' }, 409);
+      }
+    } else {
+      if (tier === 'tile' || tier === 'display') return json({ error: 'not_recorded_yet' }, 409);
+      // A supplier may only upload toward an event they are BOOKED on — the
+      // same set the insert policy checks at record. Asked here too so an
+      // unbooked caller cannot fill storage with uploads that will never record.
+      // Fails OPEN on a read error: the insert policy is still the hard gate.
+      {
+        const { data: booked, error: bookedErr } = await supabase.rpc('current_vendor_booked_event_ids');
+        if (bookedErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · rpc:current_vendor_booked_event_ids', bookedErr);
+        // SETOF uuid: PostgREST answers a list of scalars; read either shape.
+        const ids = Array.isArray(booked)
+          ? (booked as unknown[]).map((x) => (typeof x === 'string' ? x : Object.values((x ?? {}) as object)[0]))
+          : null;
+        if (!bookedErr && ids && !ids.includes(eventId)) {
+          return json({ error: 'not_allowed' }, 403);
         }
-        durationMs = parsed;
+      }
+      if (await eventOver(admin, eventId, shotAtMs)) return json({ error: 'event_over' }, 403);
+      const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
+      if (refused) return refused;
+    }
+    const signed = await signCaptureTierPut(admin, {
+      lane: 'vendor',
+      eventId,
+      ownerId: vendorProfileId,
+      clientCaptureId,
+      tier,
+      contentType: typeof body.content_type === 'string' ? body.content_type : '',
+      sizeBytes: typeof body.size_bytes === 'number' ? body.size_bytes : NaN,
+    });
+    if (!signed.ok) {
+      return json({ error: signed.error }, signed.error === 'sign_failed' ? 503 : signed.error === 'too_large' ? 413 : 400);
+    }
+    return json({ status: 'ok', uploadUrl: signed.uploadUrl, expiresIn: signed.expiresInSeconds });
+  }
+
+  // ── record ────────────────────────────────────────────────────────────────
+  if (op === 'record') {
+    // 🧹 Keep the upload sweep moving from the camera itself (at most hourly).
+    after(() => maybeRunPapicUploadSweep());
+    if (prior) {
+      // 🔁 THIS SHUTTER ALREADY LANDED — answer with the first row, count nothing.
+      return json({
+        status: 'ok',
+        duplicate: true,
+        captureId: prior.capture_id,
+        wantFull: await eventKeepsFullRes(admin, eventId),
+      });
+    }
+    if (await eventOver(admin, eventId, shotAtMs)) return json({ error: 'event_over' }, 403);
+    const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
+    if (refused) return refused;
+
+    let durationMs: number | null = null;
+    if (isClip) {
+      const n = Number(body.duration_ms);
+      if (Number.isFinite(n) && n > 0) {
+        if (n > MAX_CLIP_MS) return json({ error: 'too_long' }, 400);
+        durationMs = Math.round(n);
       }
     }
-    const posterFile = form.get('poster');
-    if (
-      posterFile instanceof File &&
-      posterFile.type.startsWith('image/') &&
-      posterFile.size > 0 &&
-      posterFile.size <= MAX_POSTER_BYTES
-    ) {
-      posterBytes = new Uint8Array(await posterFile.arrayBuffer());
-    }
-  }
+    const deviceModel = typeof body.device_model === 'string' ? body.device_model.slice(0, 120) : null;
 
-  const deviceModel =
-    typeof form.get('device_model') === 'string'
-      ? String(form.get('device_model')).slice(0, 120)
-      : null;
+    const intents = await readCaptureIntents(admin, vendorProfileId, clientCaptureId);
+    if (!intents) return json({ error: 'record_failed' }, 503);
+    const photoFirst: CaptureTier = intentFor(intents, 'thumb') ? 'thumb' : 'original';
+    const needed: CaptureTier[] = isClip ? ['poster', 'clip_raw'] : [photoFirst];
+    const checked = await loadOrRedo(intents, needed);
+    if (!checked.ok) return checked.res;
+    const finals = await promoteAll(admin, checked.byTier);
+    if (!finals) return json({ error: 'record_failed' }, 503);
+    const r2Ref = finals.get(isClip ? 'clip_raw' : photoFirst)!;
+    const posterRef = isClip ? finals.get('poster')! : null;
 
-  // 5. Tier + capture-points enforcement (service-role reads — provenance is
-  // RLS-scoped to owner/admin, and the tier must be authoritative). Each tier's
-  // point budget is the ceiling (photo=1, clip=7); free Lite is 50 pts + video.
-  const admin = createAdminClient();
-  // ⚠ THE CREDITS THEY HOLD ARE PART OF THE ALLOWANCE — owner 2026-09-05,
-  // *"base it all from the supplier's shots per event"*: 5% of the booking fee
-  // paid (cap 1,000, no floor) plus any ₱500 packs (100 credits since
-  // 2026-09-06), summed from the
-  // supplier's ledger (vendor_papic_portfolio_credit_grants, written on admin
-  // payment approval). Until 2026-09-05 this read the booking fee itself at
-  // ₱5/point; the owner said *"replace it."* The credits can only ever RAISE
-  // the number (see `allowancePointsFor`), and an unread ledger is `null`,
-  // which grants nothing — never a zero that would look like "they hold none".
-  // ── THE WINDOW ────────────────────────────────────────────────────────────
-  // Owner 2026-08-28: *"they get to use it until event day."* A supplier's
-  // camera documents their own work, so it is open through the celebration and
-  // shut once the celebration is over.
-  //
-  // 🔑 IT REUSES THE ONE RESOLVER RATHER THAN DEFINING "OVER" A SECOND TIME.
-  // `getMenuLifecyclePhase` already answers it for the whole product — 06:00 in
-  // the VENUE's clock on the day after `COALESCE(event_end_date, event_date)`,
-  // or the moment the host presses "Close out the day". Six hours rather than
-  // midnight because a Filipino reception runs past twelve; the last day rather
-  // than the first because a festival's middle days are not "after". Every one
-  // of those was argued out where that function lives, and re-deriving them
-  // here is exactly the second opinion this codebase keeps paying for.
-  //
-  // ⚠ FAILS OPEN, deliberately. An unreadable event, a missing date or an
-  // unrecognised timezone leaves the phase at 'plan' and the lane open — a
-  // transient read failure must not silently stop a supplier capturing on the
-  // one day they are standing at the venue. What closes this lane is a date we
-  // could actually read.
-  const { data: eventRow } = await admin
-    .from('events')
-    .select('event_date, event_end_date, timezone, cleared_at')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const ev = eventRow as {
-    event_date: string | null;
-    event_end_date: string | null;
-    timezone: string | null;
-    cleared_at: string | null;
-  } | null;
-  if (ev) {
-    const phase = getMenuLifecyclePhase(
-      ev.event_date,
-      ev.cleared_at,
-      ev.timezone ?? undefined,
-      undefined,
-      ev.event_end_date,
-    );
-    if (phase === 'after') {
-      return NextResponse.json({ error: 'event_over' }, { status: 403 });
-    }
-  }
-
-  const [tier, spent, creditsGranted] = await Promise.all([
-    deriveVendorPapicTier(admin, vendorProfileId, eventId),
-    fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
-    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
-  ]);
-  const check = canCapture(tier, spent, mediaType, creditsGranted);
-  if (!check.ok) {
-    return NextResponse.json(
-      { error: check.reason, tier, pointsSpent: spent },
-      { status: check.reason === 'video_not_allowed' ? 403 : 409 },
-    );
-  }
-
-  // 6. Upload to R2 (service-role client; the key prefix is server-derived so the
-  // caller can never write outside their own vendor+event space).
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const stamp = Date.now();
-  const base = `papic/vendor-${vendorProfileId}/event-${eventId}/cap-${stamp}`;
-  const key = isClip ? `${base}.mp4` : `${base}.jpg`;
-  try {
-    await r2Upload({
-      bucket: R2_BUCKETS.media,
-      key,
-      body: bytes,
-      contentType: isClip ? 'video/mp4' : 'image/jpeg',
-    });
-  } catch {
-    return NextResponse.json({ error: 'upload_failed' }, { status: 502 });
-  }
-  const r2Ref = `r2://${R2_BUCKETS.media}/${key}`;
-
-  let posterRef: string | null = null;
-  if (isClip && posterBytes) {
-    try {
-      const posterKey = `${base}-poster.jpg`;
-      await r2Upload({
-        bucket: R2_BUCKETS.media,
-        key: posterKey,
-        body: posterBytes,
-        contentType: 'image/jpeg',
-      });
-      posterRef = `r2://${R2_BUCKETS.media}/${posterKey}`;
-    } catch {
-      // Poster upload failed → drop the bytes so the NSFW screen also skips (a
-      // clip with no persisted poster must NOT get nsfw_checked=true and surface
-      // as a posterless/blank tile — it stays unscreened, excluded).
-      posterBytes = undefined;
-    }
-  }
-
-  // 7. Record the capture under the vendor's RLS client. The insert policy
-  // (vendor_papic_captures_vendor_insert) is the authoritative gate: it requires
-  // event_id IN current_vendor_booked_event_ids() AND the caller's own vendor
-  // profile — so an unbooked event or a non-owner is rejected here (42501).
-  const { data: inserted, error: insErr } = await supabase
-    .from('vendor_papic_captures')
-    .insert({
-      vendor_profile_id: vendorProfileId,
-      event_id: eventId,
-      r2_object_key: r2Ref,
-      poster_r2_key: posterRef,
-      media_type: mediaType,
-      clip_duration_ms: isClip ? durationMs : null,
-      device_model: deviceModel,
-      consent_basis: 'event_consent',
-      nsfw_checked: false,
-    })
-    .select('capture_id')
-    .maybeSingle();
-  if (insErr || !inserted) {
-    // RLS rejection (not booked / not your profile) → 403; anything else → 500.
-    const rls = insErr?.code === '42501';
-    return NextResponse.json(
-      { error: rls ? 'not_allowed' : 'record_failed' },
-      { status: rls ? 403 : 500 },
-    );
-  }
-  const captureId = (inserted as { capture_id: string }).capture_id;
-
-  // 8. Always-on NSFW screen in the BACKGROUND so the shutter stays instant. We
-  // hold the image bytes (photo) or poster bytes (clip) in memory — no R2 read.
-  // A capture only surfaces once nsfw_checked=TRUE; a block also soft-hides it.
-  // Fail-open: any classifier error leaves nsfw_checked=false (excluded), never
-  // surfacing an unscreened photo.
-  const proxyBytes = isClip ? posterBytes : bytes;
-  after(async () => {
-    if (!proxyBytes) return; // posterless clip → stays unscreened, excluded
-    try {
-      const decision = decideNsfw(await classifyImageBytes(proxyBytes));
-      /*
-        🔴 THE CLEAN BRANCH USED TO WRITE `hidden_at: null`, AND THAT WRITE
-        COULD ONLY EVER UNDO A TAKEDOWN. The insert above never sets
-        `hidden_at` (the column defaults NULL), so clearing it here was a
-        no-op in every case EXCEPT the one that matters: a guest's takedown
-        landing on a capture whose background screen has not finished yet
-        would be silently reversed a moment later, with the photograph back in
-        the supplier's strip and in the couple's gallery and nothing anywhere
-        saying so. A clean verdict now only records that the screen RAN; the
-        takedown switch is not its to move (TD-1, 2026-09-14).
-      */
-      const verdict: { nsfw_checked: true; hidden_at?: string } = { nsfw_checked: true };
-      if (decision === 'nsfw_blocked') verdict.hidden_at = new Date().toISOString();
-      await admin
+    // 7. Record the capture under the vendor's RLS client. The insert policy
+    // (vendor_papic_captures_vendor_insert) is the authoritative gate: it requires
+    // event_id IN current_vendor_booked_event_ids() AND the caller's own vendor
+    // profile — so an unbooked event or a non-owner is rejected here (42501).
+    const { data: inserted, error: insErr } = await supabase
+      .from('vendor_papic_captures')
+      .insert({
+        vendor_profile_id: vendorProfileId,
+        event_id: eventId,
+        r2_object_key: r2Ref,
+        poster_r2_key: posterRef,
+        media_type: mediaType,
+        clip_duration_ms: isClip ? durationMs : null,
+        device_model: deviceModel,
+        consent_basis: 'event_consent',
+        nsfw_checked: false,
+        client_capture_id: clientCaptureId,
+      })
+      .select('capture_id')
+      .maybeSingle();
+    if (insErr?.code === '23505') {
+      // The same shutter raced past the read above: the first row stands.
+      // The first row points at ITS copies; this attempt's are nobody's.
+      await discardPromoted(admin, needed.map((t) => intentFor(intents, t)!), finals);
+      const { data: again, error: againErr } = await admin
         .from('vendor_papic_captures')
-        .update(verdict)
-        .eq('capture_id', captureId)
-        .eq('nsfw_checked', false);
-    } catch {
-      // fail-open — the healing sweep / re-screen can retry
+        .select('capture_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('client_capture_id', clientCaptureId)
+        .maybeSingle();
+      if (againErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.select(duplicate)', againErr);
+      return json({ status: 'ok', duplicate: true, captureId: again?.capture_id ?? null, wantFull: await eventKeepsFullRes(admin, eventId) });
     }
-  });
+    if (insErr || !inserted) {
+      // RLS rejection (not booked / not your profile) → 403; anything else → 500.
+      const rls = insErr?.code === '42501';
+      if (rls) {
+        // A DEFINITE refusal — the policy wrote nothing: this attempt's copies go.
+        await discardPromoted(admin, needed.map((t) => intentFor(intents, t)!), finals);
+      }
+      // ⚠ Anything else is UNCLEAR (review 2026-10-24, major 3): the row may have
+      // committed with its reply lost. The copies stay; the retry answers
+      // `duplicate`, and only a copy no row names is ever removed.
+      return json({ error: rls ? 'not_allowed' : 'record_failed' }, rls ? 403 : 500);
+    }
+    const captureId = (inserted as { capture_id: string }).capture_id;
+    const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
+    const { error: firstPieceErr } = await admin
+      .from('vendor_papic_captures')
+      .update(
+        isClip
+          ? { display_r2_key: posterRef, display_bytes: sizeOf('poster') }
+          : photoFirst === 'thumb'
+            ? { thumb_r2_key: r2Ref, thumb_bytes: sizeOf('thumb') }
+            : { orig_bytes: sizeOf('original') },
+      )
+      .eq('capture_id', captureId);
+    if (firstPieceErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(first piece)', firstPieceErr);
+    await settleCaptureIntents(admin, needed.map((t) => intentFor(intents, t)!.r2_ref));
+    await dropStagingObjects(needed.map((t) => intentFor(intents, t)!));
 
-  // ── THE COUPLE'S COPY GOES OUT BEFORE THE ORIGINAL CAN GO AWAY ────────────
-  //
-  // 🔑 THE INVERSE COMES FIRST. Compression is destructive: after the retention
-  // window the full-res original is deleted and the web copy becomes the
-  // photograph. Drive is the ONLY way a couple keeps originals, so the sweep
-  // refuses to drop anything whose key is not confirmed in the couple's Drive
-  // copy (`isDriveDeferred`) — and NOTHING was enqueueing a supplier's captures.
-  //
-  // Without this, wiring the sweep would have been inert on precisely the events
-  // where it matters: on a Drive-connected celebration a supplier's photograph
-  // would defer forever, never dropped, the bill never falling. On an
-  // unconnected one it would drop with no copy anywhere. Both wrong, in opposite
-  // directions.
-  //
-  // A supplier's captures land in the COUPLE'S gallery, so they belong in the
-  // couple's hand-off like any other photograph in it. Same helper, same
-  // artifact type, same per-key dedup — no second copy path.
-  //
-  // Best-effort: a hand-off that fails leaves the key unconfirmed, which makes
-  // the sweep DEFER rather than drop. The failure mode is a kept original.
-  try {
-    const { enqueueDriveCopy, runDriveCopyBatch } = await import('@/lib/drive-copy');
-    await enqueueDriveCopy({
-      eventId,
-      artifactType: 'papic',
-      files: [
-        {
-          r2ObjectKey: key,
-          fileName: key.split('/').pop() || (isClip ? 'capture.webm' : 'capture.jpg'),
-          mimeType: isClip ? 'video/webm' : 'image/jpeg',
-          sourceTable: 'vendor_papic_captures',
-          sourceRef: captureId,
-        },
-      ],
-    });
-    after(() => runDriveCopyBatch({ eventId }).catch(() => {}));
-  } catch {
-    // best-effort — an unconfirmed key makes the sweep defer, never drop.
-  }
+    // 8. Always-on NSFW screen, BEFORE answering now that this call is off the
+    // shutter (the phone's queue makes it). The photo's thumbnail, or a clip's
+    // poster — never the video bytes.
+    const proxy = checked.byTier.get(isClip ? 'poster' : photoFirst);
+    await writeVerdict(admin, captureId, proxy?.bytes ?? null, proxy?.intent.r2_ref ?? r2Ref, eventId);
 
-  // ── THE COMPRESSED WEB COPY (owner 2026-08-24: "compress it as well") ──────
-  //
-  // A supplier's photographs now get the SAME three AVIF sizes every other
-  // photograph on the platform gets, from the SAME shared generator — a second
-  // compression pipeline is the last thing this needs. The 1280px `display`
-  // copy is what REPLACES the full-res original once the retention window
-  // passes, so without it a supplier's originals sat at full size forever,
-  // outside the model the public privacy notice describes.
-  //
-  // 🔑 WHY IT IS A SEPARATE after() HOOK AND NOT FOLDED INTO THE ONE ABOVE:
-  // that one returns early on a posterless clip (`if (!proxyBytes) return`)
-  // because there is nothing to SCREEN. A photo always has bytes, and folding
-  // these together would tie compression to a screening precondition it does
-  // not share. Two hooks, two reasons, neither able to skip the other.
-  //
-  // Best-effort by contract, like both existing call sites: the generator wraps
-  // every path and returns nulls rather than throwing. A failure leaves
-  // `display_r2_key` NULL, the row is then never a drop candidate, and the
-  // original is simply kept. The failure mode is a bigger bill, never a lost
-  // photograph.
-  //
-  // ⛔ A CLIP'S VIDEO IS NOT TRANSCODED HERE, and cannot be: Vercel has no
-  // ffmpeg, and the couple-side web copy is made by the GUEST'S OWN BROWSER and
-  // uploaded as a finished file. What DOES happen for a clip is the still —
-  // `generateClipThumb` derives tile + thumb from the poster and points
-  // `display_r2_key` at the poster itself, so the gallery side compresses even
-  // though the video keeps its original.
-  after(async () => {
-    try {
-      const { generatePhotoDerivatives, generateClipThumb } = await import(
-        '@/lib/papic-derivatives'
-      );
-      if (isClip) {
-        if (posterRef) {
-          await generateClipThumb(
-            posterRef,
+    // ── THE COMPRESSED WEB COPY (owner 2026-08-24: "compress it as well") ──────
+    // The phone now makes the display/tile/thumbnail itself (attach, below). The
+    // SAME shared generator stays the FALLBACK — a clip's still, and a photo that
+    // arrived with its original only. Best-effort by contract: a failure leaves
+    // `display_r2_key` NULL, the row is never a drop candidate, and the original
+    // is simply kept.
+    after(async () => {
+      try {
+        const { generatePhotoDerivatives, generateClipThumb } = await import(
+          '@/lib/papic-derivatives'
+        );
+        if (isClip) {
+          if (posterRef) {
+            await generateClipThumb(
+              posterRef,
+              'vendor_papic_captures',
+              'capture_id',
+              captureId,
+            );
+          }
+        } else if (photoFirst === 'original') {
+          await generatePhotoDerivatives(
+            r2Ref,
             'vendor_papic_captures',
             'capture_id',
             captureId,
           );
         }
-      } else {
-        await generatePhotoDerivatives(
-          r2Ref,
-          'vendor_papic_captures',
-          'capture_id',
-          captureId,
-        );
+      } catch {
+        // Best-effort: no web copy means the original is kept, never dropped.
       }
-    } catch {
-      // Best-effort: no web copy means the original is kept, never dropped.
-    }
-  });
+    });
+    const wantFull = await eventKeepsFullRes(admin, eventId);
+    if (isClip || photoFirst === 'original') await handOffToDrive(eventId, captureId, r2Ref, isClip);
 
-  return NextResponse.json({
-    status: 'ok',
-    captureId,
-    tier,
-    mediaType,
-    points: pointsForMedia(mediaType),
-  });
+    return json({
+      status: 'ok',
+      captureId,
+      mediaType,
+      points: pointsForMedia(mediaType),
+      wantFull,
+    });
+  }
+
+  // ── attach ────────────────────────────────────────────────────────────────
+  if (op === 'attach') {
+    if (!prior) return json({ error: 'not_recorded_yet' }, 409);
+    if (prior.media_type === 'clip') return json({ error: 'bad_tier' }, 400);
+    const asked = Array.isArray(body.tiers) ? (body.tiers as unknown[]).filter(isCaptureTier) : [];
+    const wanted = asked.filter((t): t is CaptureTier => t === 'tile' || t === 'display' || t === 'original');
+    if (wanted.length === 0) return json({ error: 'bad_tier' }, 400);
+    // A piece the row ALREADY has is never written again (review minor 8).
+    const has = (t: CaptureTier) =>
+      t === 'tile' ? !!prior.tile_r2_key : t === 'display' ? !!prior.display_r2_key : refHoldsTier(prior.r2_object_key, t);
+    const tiers = wanted.filter((t) => !has(t));
+    if (tiers.length === 0) return json({ status: 'ok', already: true });
+    // The record's own screen must have RUN before more of this shot is accepted
+    // (a classifier outage leaves nsfw_checked false — hidden from the couple);
+    // the phone's retry of this call is what heals it.
+    {
+      const { data: v } = await admin
+        .from('vendor_papic_captures')
+        .select('nsfw_checked, hidden_at')
+        .eq('capture_id', prior.capture_id)
+        .maybeSingle();
+      const verdictRow = v as { nsfw_checked?: boolean; hidden_at?: string | null } | null;
+      if (verdictRow?.hidden_at) return json({ status: 'ok', blocked: true });
+      if (verdictRow?.nsfw_checked !== true && prior.r2_object_key) {
+        const { readCaptureObject } = await import('@/lib/papic-upload-intents.server');
+        const bytes = await readCaptureObject(prior.r2_object_key);
+        await writeVerdict(admin, prior.capture_id, bytes, prior.r2_object_key, eventId);
+        const { data: v2 } = await admin
+          .from('vendor_papic_captures')
+          .select('nsfw_checked, hidden_at')
+          .eq('capture_id', prior.capture_id)
+          .maybeSingle();
+        const after2 = v2 as { nsfw_checked?: boolean; hidden_at?: string | null } | null;
+        if (after2?.nsfw_checked !== true) return json({ error: 'screen_unavailable' }, 503);
+        if (after2.hidden_at) return json({ status: 'ok', blocked: true });
+      }
+    }
+    const intents = await readCaptureIntents(admin, vendorProfileId, clientCaptureId);
+    if (!intents) return json({ error: 'attach_failed' }, 503);
+    const checked = await loadOrRedo(intents, tiers);
+    if (!checked.ok) return checked.res;
+
+    // 🧼 SCREEN EVERY STILL BEFORE ITS KEY IS WRITTEN — a display copy or an
+    // original is a different file from the thumbnail the record screened.
+    for (const tier of tiers) {
+      const loaded = checked.byTier.get(tier)!;
+      const verdict = await screenTierBytes({
+        subjectTable: 'vendor_papic_captures',
+        ref: loaded.intent.r2_ref,
+        eventId,
+        bytes: loaded.bytes!,
+      });
+      if (verdict === 'error') return json({ error: 'screen_unavailable' }, 503);
+      if (verdict === 'nsfw_blocked') {
+        const { error: blockErr } = await admin
+          .from('vendor_papic_captures')
+          .update({ nsfw_checked: true, hidden_at: new Date().toISOString() })
+          .eq('capture_id', prior.capture_id);
+        if (blockErr) {
+          console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(blocked)', blockErr);
+          return json({ error: 'persist_failed' }, 500);
+        }
+        await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
+        return json({ status: 'ok', blocked: true });
+      }
+    }
+    const finals = await promoteAll(admin, checked.byTier);
+    if (!finals) return json({ error: 'attach_failed' }, 503);
+    const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
+    const patch: Record<string, unknown> = {};
+    if (tiers.includes('tile')) {
+      patch.tile_r2_key = finals.get('tile');
+      patch.tile_bytes = sizeOf('tile');
+    }
+    if (tiers.includes('display')) {
+      patch.display_r2_key = finals.get('display');
+      patch.display_bytes = sizeOf('display');
+      if (!prior.r2_object_key || prior.r2_object_key === prior.thumb_r2_key) {
+        patch.r2_object_key = finals.get('display');
+      }
+    }
+    if (tiers.includes('original')) {
+      patch.r2_object_key = finals.get('original');
+      patch.orig_bytes = sizeOf('original');
+    }
+    // Compare-and-set on what this call read; a concurrent attach that got
+    // there first wins and this attempt's own copies are discarded.
+    let cas = admin
+      .from('vendor_papic_captures')
+      .update(patch)
+      .eq('capture_id', prior.capture_id)
+      .eq('vendor_profile_id', vendorProfileId);
+    cas = prior.r2_object_key ? cas.eq('r2_object_key', prior.r2_object_key) : cas.is('r2_object_key', null);
+    if (tiers.includes('tile')) cas = cas.is('tile_r2_key', null);
+    if (tiers.includes('display')) cas = cas.is('display_r2_key', null);
+    const { data: updated, error: updErr } = await cas.select('capture_id');
+    if (updErr) {
+      console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(attach)', updErr);
+      // ⚠ UNCLEAR (review 2026-10-24, major 3): the update may have committed.
+      // The copies stay; the retry answers `already`, and only a copy no row
+      // names is ever removed (deleteFinalIfUnreferenced).
+      return json({ error: 'persist_failed' }, 500);
+    }
+    if (!updated || updated.length === 0) {
+      await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
+      return json({ status: 'ok', already: true });
+    }
+    await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
+    await dropStagingObjects(tiers.map((t) => intentFor(intents, t)!));
+    const wantFull = await eventKeepsFullRes(admin, eventId);
+    if (tiers.includes('display') && !tiers.includes('tile') && !prior.tile_r2_key) {
+      const displayRef = finals.get('display')!;
+      after(async () => {
+        try {
+          const { generateTileDerivative } = await import('@/lib/papic-derivatives');
+          await generateTileDerivative(displayRef, 'vendor_papic_captures', 'capture_id', prior.capture_id);
+        } catch {
+          // best-effort
+        }
+      });
+    }
+    if (tiers.includes('display') && !wantFull) await handOffToDrive(eventId, prior.capture_id, finals.get('display')!, false);
+    if (tiers.includes('original')) await handOffToDrive(eventId, prior.capture_id, finals.get('original')!, false);
+    return json({ status: 'ok' });
+  }
+
+  return json({ error: 'bad_request' }, 400);
 }

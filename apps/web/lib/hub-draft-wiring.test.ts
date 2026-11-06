@@ -47,12 +47,14 @@ test('the draft action file exports exactly ONE server action', () => {
 
 test('apply asks the Pro gate before its first live write, and the store shell never counts as Pro', () => {
   const body = fn(read(ACTIONS), 'hubDraftAction');
-  const gate = body.search(/\blookProAllows\s*\(/);
+  /* RE-AIMED 2026-10-22 (part by part): the gate is what the event owns, PART BY PART (`hubOwnershipForWrite`, the same
+     admin-client read `lookProAllows` makes) — each drafted item is asked for its own parts. */
+  const gate = body.search(/\bhubOwnershipForWrite\s*\(/);
   const firstUpdate = body.search(/\.update\s*\(/);
-  assert.ok(gate > 0, 'apply must ask lookProAllows');
+  assert.ok(gate > 0, 'apply must ask what the event owns');
   assert.ok(firstUpdate > gate, 'a live .update( comes before the Pro gate');
-  assert.match(body, /storeShell\s*\?\s*false\s*:\s*await\s+lookProAllows\(/, 'in the store shell a Pro key must never apply');
-  assert.match(body, /planHubDraftApply\(\s*current,\s*live,\s*ownsPro\s*\)/, 'the plan must be decided with the measured ownsPro');
+  assert.match(body, /storeShell\s*\?\s*NO_HUB_PARTS\s*:\s*await\s+hubOwnershipForWrite\(/, 'in the store shell a Pro key must never apply');
+  assert.match(body, /planHubDraftApply\(\s*current,\s*live,\s*owned\s*\)/, 'the plan must be decided with the measured ownership');
 });
 
 const DRAFTABLE: Array<[file: string, name: string, divert: RegExp]> = [
@@ -84,7 +86,8 @@ test('every draftable writer diverts to the draft before its first live write', 
   for (const [file, name, divert] of DRAFTABLE) {
     const body = fn(read(file), name);
     const d = body.search(divert);
-    const u = body.search(/\.update\s*\(/);
+    // RE-AIMED 2026-10-18 (round 3): a live section write is now `writeWidgetConfig(` — still a live write.
+    const u = body.search(/\.update\s*\(|writeWidgetConfig\(/);
     assert.ok(d > 0, `${name} has no draft door`);
     assert.ok(u > d, `${name} writes live before it can divert to the draft`);
     assert.match(body, /isHubDraftWrite\(formData\)/, `${name} must decide by the form's draft field`);
@@ -178,7 +181,12 @@ test('Apply re-checks every slot picture is the couple\'s own, not only the back
   /* The background (and a clip's still) may also be the scene's own upload
      folder (`sceneIsOwn`, 2026-09-28 "Upload media"); a slot picture is held to
      the couple's pictures, as before. */
-  assert.match(body, /\[drafted\?\.media, drafted\?\.poster\]/);
+  /* …and the Cover Scene's own clip and still (`canvas.ground`, 2026-10-16) are held to the same rule. */
+  assert.match(body, /\[drafted\?\.media, drafted\?\.poster, cover\?\.media, cover\?\.poster\]/);
   assert.match(body, /\(drafted\?\.slots \?\? \[\]\)\.map\(\(s\) => s\.media\)/);
-  assert.match(body, /ground\.some\(\(r\) => !sceneIsOwn\(r\)\) \|\| slotRefs\.some\(\(r\) => !ownRefs\.has\(r\)\)/);
+  /* 🖼 RE-AIMED 2026-10-18 (owner: a scene of their own's photos on the phone, "just make them work"): the phone's slot
+     picker uploads into THIS event's scene folder, so a slot is held to the couple's pictures OR that folder — never the
+     ready-made library, never another event's (`own-scene-photos-work-on-the-phone.test.ts` P5). */
+  assert.match(body, /const slotIsOwn = \(ref: string\) => ownRefs\.has\(ref\) \|\| ref\.startsWith\(ownScenePrefix\);/);
+  assert.match(body, /ground\.some\(\(r\) => !sceneIsOwn\(r\)\) \|\| slotRefs\.some\(\(r\) => !slotIsOwn\(r\)\)/);
 });

@@ -74,8 +74,9 @@ test('the side panel never holds a transform, and keeps its aria-modal promise',
   assert.match(code, /className="sn-side-panel\b/);
 });
 
-test('on a phone a `sheet` panel rises from the bottom; from 768px it is the right-hand panel', () => {
-  const phone = CSS.match(/@media \(max-width: 767\.98px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
+test('on a phone a `sheet` panel rises from the bottom; from 701px it is the right-hand panel', () => {
+  // The phone/tablet line moved 768 → 701 with the 440 token (owner 2026-10-19, couple dashboard desktop + tablet).
+  const phone = CSS.match(/@media \(max-width: 700\.98px\)\s*\{(\s*\.sn-side-panel[\s\S]*?)\n\}/)?.[1] ?? '';
   assert.match(phone, /\.sn-side-panel\[data-phone='sheet'\]\s*\{[^}]*left:\s*0;[^}]*animation-name:\s*sn-sheet-rise/);
   assert.match(phone, /\[data-phone='sheet'\]\[data-closing='true'\]\s*\{\s*translate:\s*0 34px/);
   assert.match(CSS, /@keyframes sn-sheet-rise\s*\{/);

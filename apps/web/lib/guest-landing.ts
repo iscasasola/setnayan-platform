@@ -27,6 +27,7 @@
  * component) imports the pop-up rule from here.
  */
 import { isInAppWebview } from '@/lib/guest-one-path';
+import { deviceOs } from '@/lib/apple-device';
 import { defaultInviteTemplate, formatInviteDate, inviteEventPhrase, sanitizeInviteTemplate, type InviteEventFacts } from '@/lib/guest-invite-message';
 
 /** The landing page, top to bottom (the prototype's frame 1 and frame 3).
@@ -52,14 +53,18 @@ export const LANDING_WORDS = {
   /** Frame 1b — the thin bar of ours inside Messenger / Instagram / Facebook. */
   inAppSafari: 'Open in Safari to save your ticket',
   inAppChrome: 'Open in Chrome to save your ticket',
-  replied: 'You replied — see you there',
+  /** Under the faint ticket before a reply (owner 2026-10-11) — why it is faint. */
+  ticketWaiting: 'Your ticket — ready once you reply.',
+  /** 🪑 After a Yes when the couple wrote no heading of their own (owner 2026-10-25, RSVP seats-first decision 5:
+   *  "You're on the list." is the new default — a couple's own "After they submit" words still replace it). */
+  replied: 'You’re on the list.',
   repliedSolemn: 'You replied — thank you',
 } as const;
 
 /**
  * The heading after a reply when the couple wrote none of their own (the
- * Maker's RSVP stage, "After they submit" / "When they decline"): the Fable
- * frames' own words — "You replied — see you there" (frame 3) and "We'll miss
+ * Maker's RSVP stage, "After they submit" / "When they decline"): "You're on the
+ * list." (owner 2026-10-25; was the Fable frame 3's "You replied — see you there") and "We'll miss
  * you." (frame 4). `thankYouWords` puts the couple's words in their place.
  */
 export function landingHeadline(status: string, solemn = false): string {
@@ -104,6 +109,21 @@ export function landingTicketOf(input: {
   return 'faded';
 }
 
+/**
+ * 🎟 THE TICKET ALREADY SAYS WHOSE EVENT THIS IS (owner 2026-10-26, verbatim: *"since the ticket has the logo already
+ * and Event Name, Just start with your on the list"*). After a Yes, with the full ticket drawn below, the door's top —
+ * the couple's mark and their names (and their invitation line under the names) — is not drawn: the page STARTS with
+ * "You're on the list." (or the couple's own heading), then the ticket. The names stay as the page's heading for a
+ * screen reader only.
+ *
+ * Only where the ticket that repeats them IS drawn: after a No there is no ticket (`landingTicketOf` → none), so "We'll
+ * miss you." keeps the mark and the names — without them that page would not say whose event it is. Before a reply,
+ * and for a seat with no ticket, the top stands as it was. Held by `the-thank-you-starts-with-its-heading.test.ts`.
+ */
+export function landingTopStandsDown(input: { reply: LandingReply; ticket: LandingTicket }): boolean {
+  return input.reply === 'yes' && input.ticket === 'full';
+}
+
 /** The small link at the foot once they replied — "Change my reply", or after a No "Changed your plans?". */
 export function changeReplyWords(reply: LandingReply): string | null {
   if (reply === 'yes') return LANDING_WORDS.changeReply;
@@ -130,21 +150,28 @@ export function landingMessage(input: InviteEventFacts & {
   /** `guestFullName` — the name as the couple entered it. */
   formalName: string | null | undefined;
   reply: LandingReply;
+  /**
+   * FALSE while no reply is asked for yet (the guest's stage is the Save the
+   * Date — `replyIsAsked`, lib/invite-destination.ts): the message is the
+   * couple's words alone, with no "Please reply below…" on the end.
+   */
+  askToReply?: boolean;
   now?: Date;
 }): string {
   const template = sanitizeInviteTemplate(input.template) ?? defaultInviteTemplate({ solemn: input.solemn });
-  const first =
-    template
-      .split(/\n\s*\n/)
-      .map((p) => p.trim())
-      .find((p) => p && !/\{link\}/i.test(p)) ?? '';
+  // The opening = every paragraph BEFORE the one that carries the link (ours is "Hi {name}! 💌" + "You’re invited…",
+  // approved 2026-10-30), joined into one line; a couple's one-paragraph opening reads exactly as before.
+  const paras = template.split(/\n\s*\n/).map((p) => p.trim());
+  const linkAt = paras.findIndex((p) => /\{link\}/i.test(p));
+  const before = (linkAt >= 0 ? paras.slice(0, linkAt) : paras.slice(0, 1)).filter(Boolean);
+  const first = before.join(' ').replace(/\s*\n\s*/g, ' ');
   const name = (input.formalName ?? '').replace(/\s+/g, ' ').trim();
   const date = formatInviteDate(input.eventDate, input.datePrecision, input.now);
   let t = first;
   if (!name) t = t.replace(/[ \t]*\{name\}/gi, '');
   if (!date) t = t.replace(/[ \t]+on[ \t]+\{date\}/gi, '').replace(/[ \t]*\{date\}/gi, '');
   const filled = t
-    .replace(/\{(name|event|date|link)\}/gi, (_m, key: string) => {
+    .replace(/\{(name|event|date|link|hosts)\}/gi, (_m, key: string) => {
       const k = key.toLowerCase();
       if (k === 'name') return name;
       if (k === 'event') return inviteEventPhrase(input, 'hosts');
@@ -153,9 +180,38 @@ export function landingMessage(input: InviteEventFacts & {
     })
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
-  if (input.reply !== 'unreplied') return filled;
+  if (input.reply !== 'unreplied' || input.askToReply === false) return filled;
   const ask = input.solemn ? 'Please reply below.' : 'Please reply below — your ticket is ready once you do.';
   return filled ? `${filled} ${ask}` : ask;
+}
+
+// ─── When and where ─────────────────────────────────────────────────────────
+
+/**
+ * THE ONE LINE OF WHEN AND WHERE above the landing's button (owner 2026-10-11:
+ * a guest was asked to reply without being told when or where).
+ *
+ * The shape is the reply door's own line (`joinDoorMeta`: "Friday, December
+ * 18, 2026 · Seda Vertis North") — the page hands in that module's `when`, so
+ * a date the hosts set only to a month or a year is said only that far, and a
+ * date nobody set is not said. The TIME is the Schedule's Ceremony block as
+ * guests are shown it, and only beside a real day — a time with no day says
+ * nothing. Whatever is missing is left out whole: never a separator with
+ * nothing after it, and with nothing set, no line at all (null).
+ */
+export function landingWhenWhere(input: {
+  /** `joinDoorMeta({ …, venue_name: null })` — the date as far as it is decided. */
+  when: string | null | undefined;
+  /** The date is a real day (`event_date_precision === 'day'`). */
+  realDay: boolean;
+  /** "2:30 PM" — the ceremony's start as guests see it; null when there is none. */
+  time: string | null | undefined;
+  place: string | null | undefined;
+}): string | null {
+  const when = (input.when ?? '').trim();
+  const time = when && input.realDay ? (input.time ?? '').trim() : '';
+  const place = (input.place ?? '').trim();
+  return [when, time, place].filter(Boolean).join(' · ') || null;
 }
 
 // ─── How to use it ──────────────────────────────────────────────────────────
@@ -270,12 +326,25 @@ export type InAppHandoff =
   | { kind: 'android'; href: string }
   | { kind: 'ios'; safariHref: string; appHref: string };
 
-const ANDROID = /Android/i;
-const APPLE = /iPhone|iPad|iPod/i;
 
 export function inAppHandoff(userAgent: string | null | undefined, personalLink: string): InAppHandoff {
   const ua = userAgent ?? '';
-  if (!isInAppWebview(ua)) return { kind: 'none' };
+  const os = deviceOs(ua);
+  return inAppHandoffFor(
+    { inApp: isInAppWebview(ua), os: os === 'android' ? 'android' : os === 'iphone' || os === 'ipad' ? 'ios' : 'other' },
+    personalLink,
+  );
+}
+
+/**
+ * `inAppHandoff` from the two facts it reads off the user agent — so the cached Event Hub (`lib/hub-view-key.ts`
+ * `HubUaFacts`, carried in its address) decides exactly as the live render does, without the request.
+ */
+export function inAppHandoffFor(
+  facts: { inApp: boolean; os: 'ios' | 'android' | 'other' },
+  personalLink: string,
+): InAppHandoff {
+  if (!facts.inApp) return { kind: 'none' };
   let url: URL;
   try {
     url = new URL(personalLink);
@@ -284,13 +353,13 @@ export function inAppHandoff(userAgent: string | null | undefined, personalLink:
   }
   if (url.protocol !== 'https:') return { kind: 'none' };
   const rest = `${url.host}${url.pathname}${url.search}`;
-  if (ANDROID.test(ua)) {
+  if (facts.os === 'android') {
     return {
       kind: 'android',
       href: `intent://${rest}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url.toString())};end`,
     };
   }
-  if (APPLE.test(ua)) {
+  if (facts.os === 'ios') {
     return {
       kind: 'ios',
       safariHref: `x-safari-${url.toString()}`,

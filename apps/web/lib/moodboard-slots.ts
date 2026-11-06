@@ -12,11 +12,11 @@
  *
  * wizard-actions.ts now imports from here, so there is still one list.
  *
- * ⚠ THE DATABASE HOLDS THE SAME ALLOWLIST as a CHECK constraint
- * (`event_inspiration_assets_slot_key_check`, last widened by
- * `20271198640000_moodboard_inspiration_slot_cake.sql`). That pair predates
- * this file and is NOT collapsed here — a CHECK cannot read TypeScript. They
- * agree today; widen both together, and the DB is the one that fails loudly.
+ * 🧩 SINCE STEP ② (PLAN `admin_inspiration_groups_2026-10-25`) THIS LIST IS THE FALLBACK SEED ONLY. The
+ * parts live in `public.inspiration_parts` (seeded from this list, migration 20271287668170), the board's
+ * CHECK `event_inspiration_assets_slot_key_check_v3` is replaced by an FK into that table, and validators
+ * ask `getInspirationParts()` (`isInspirationPartKey`). The union type stays: the code that still keys a
+ * Record by slot (render parts, the fallback's names) needs it to be a compile error.
  */
 
 // Types only — erased at compile time, so this module keeps its zero VALUE
@@ -24,8 +24,8 @@
 import type { WeddingTile } from './taxonomy';
 
 /**
- * 20 named slots. Grouped in the UI as Location feel (11) · Palette (1) ·
- * Dress codes (6) — see `_components/inspiration-board.tsx`.
+ * 29 named slots. Grouped in the UI as Venue & feel (18) · Palette (1) ·
+ * Dress codes (10) — see `_components/inspiration-board.tsx`.
  *
  * ⚠ `venue` is NOT renamed to `ceremony_venue`. Real rows carry that key from
  * onboarding Card 15 (migration 20260627000000) and a rename orphans every one.
@@ -45,12 +45,28 @@ export const MOODBOARD_SLOT_KEYS = [
   // slots made 2026-10-07, migration 20271265788160 — both DB gates widened).
   'bridal_bouquet',
   'centrepieces',
+  // 🎨🖼 Every Palette part has its own photos (owner 2026-10-19, DECISION_LOG "PALETTE + INSPIRATION AS ONE LIST";
+  // migration 20271278232574 — both DB gates widened): Chairs · Ribbons & candles · Lights · Entourage bouquets ·
+  // the florist's Accents.
+  'chairs',
+  'ribbons_candles',
+  'lights',
+  'entourage_bouquets',
+  'flower_accents',
   'overall',
   'palette',
   'groom',
   'bride',
   'principal_sponsor',
   'entourage',
+  // 👗 The four attire boards of their own (owner 2026-10-08: "Inspiration can go
+  // more. Bridal Gown, Groom's Suit, Groomsmen, Bridesmaid, Flowergirl, Ring
+  // Bearer"; migration 20271266380994 — both DB gates widened). `entourage`
+  // STAYS: real rows carry it, and it is the whole party's board.
+  'bridesmaids',
+  'groomsmen',
+  'flower_girl',
+  'ring_bearer',
   'parents',
   'guests',
 ] as const;

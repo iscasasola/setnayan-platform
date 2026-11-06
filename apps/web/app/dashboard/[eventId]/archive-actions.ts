@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * archive-actions.ts — putting a celebration away, and taking it back out.
@@ -67,12 +69,13 @@ export type ArchiveResult =
  * through this couple-facing action.
  */
 export async function setEventArchived(formData: FormData): Promise<ArchiveResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = String(formData.get('event_id') ?? '').trim();
   // The desired STATE is posted, never a toggle. A toggle computed from a stale
   // page archives an event the moment two tabs disagree.
   const archived = String(formData.get('archived') ?? '') === '1';
   if (!eventId) {
-    return { ok: false, code: 'not_found', message: 'Which celebration?' };
+    return { ok: false, code: 'not_found', message: 'Which event?' };
   }
 
   const supabase = await createClient();
@@ -107,7 +110,7 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     return {
       ok: false,
       code: 'unauthorized',
-      message: 'Only a host of this celebration can put it away.',
+      message: 'Only a host of this event can put it away.',
     };
   }
 
@@ -147,6 +150,8 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     .update({ archived, updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
     .select('event_id, archived');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
 
   if (error) {
     console.error('[archive] update failed', error);
@@ -166,7 +171,7 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     return {
       ok: false,
       code: 'not_found',
-      message: 'We couldn’t find that celebration.',
+      message: 'We couldn’t find that event.',
     };
   }
 

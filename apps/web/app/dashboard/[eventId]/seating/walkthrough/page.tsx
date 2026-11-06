@@ -1,7 +1,7 @@
-import Link from 'next/link';
+import { BackButton } from '@/app/_components/back-button';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Video } from 'lucide-react';
+import { Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
@@ -87,12 +87,8 @@ export default async function WalkthroughPage({ params }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-5 px-1 py-2">
-      <Link
-        href={`/dashboard/${eventId}/seating`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to seating
-      </Link>
+      {/* 🗂 R4: back to Guests › Seats — from the map (`lib/page-home.ts`). */}
+      <BackButton route="/dashboard/[eventId]/seating/walkthrough" params={{ eventId }} />
 
       {walkthroughPartlyRefused ? (
         <ReadRefusedNotice partial what="your zones or your tables" />

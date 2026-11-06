@@ -46,7 +46,8 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAUNCHER_PAGE = join(HERE, '../app/dashboard/(launcher)/page.tsx');
-const CHECKLIST_PAGE = join(HERE, '../app/dashboard/[eventId]/checklist/page.tsx');
+const SCHEDULE_PAGE = join(HERE, '../app/dashboard/[eventId]/schedule/page.tsx');
+const PREPARATION_LIB = join(HERE, './preparation.ts');
 const EVENTS_LIB = join(HERE, './events.ts');
 
 // ── 1 · The ladder ───────────────────────────────────────────────────────────
@@ -184,64 +185,26 @@ for (const t of WEDDING_TYPES) {
 // A behaviour test on the helper alone cannot see a surface that forgot to call
 // it. These read the shipped sources.
 
-test('the launcher card resolves the anchor through the shared helper', () => {
-  const src = readFileSync(LAUNCHER_PAGE, 'utf8');
-  assert.match(
-    src,
-    /checklistAnchorDateFor,?\n/,
-    'launcher must import checklistAnchorDateFor from @/lib/checklist',
-  );
-  assert.match(
-    src,
-    /const anchorDate = checklistAnchorDateFor\(e\)/,
-    'launcher must resolve the anchor from the whole event row',
-  );
+// ✅ Since the Checklist merged into Planning Stage (owner 2026-11-01) the anchor is resolved in ONE place — the one
+// list's task source (`lib/preparation.ts` · `taskItemsFrom`) — and every surface hands it the event's date fields.
+
+test('the one list resolves the anchor through the shared helper, and dates from it', () => {
+  const src = readFileSync(PREPARATION_LIB, 'utf8');
+  assert.match(src, /const anchor = checklistAnchorDateFor\(\{/, 'the one list must resolve its anchor through the helper');
+  assert.match(src, /checklistRunwayFor\(rows, anchor, opts\.event\.created_at \?\? null\)/, 'the runway is measured to the resolved anchor');
+  assert.match(src, /dueDateForItem\(anchor, r\.due_offset_days, runway\)/, 'a task is dated from the resolved anchor');
+  assert.doesNotMatch(src, /dueDateForItem\(\s*(opts\.)?event\.event_date/, 'never from event_date alone');
 });
 
-test('the launcher feeds the ANCHOR — not e.event_date — to the due-date math', () => {
+test('the launcher hands the one list its row’s whole date ladder — not e.event_date alone', () => {
   const src = readFileSync(LAUNCHER_PAGE, 'utf8');
-  // The exact regression: `e.event_date` as the first argument silently yields
-  // "0 overdue" for every non-wedding event whose date isn't locked yet.
-  assert.doesNotMatch(
-    src,
-    /dueDateForItem\(\s*e\.event_date/,
-    'dueDateForItem must be called with the resolved anchor',
-  );
-  assert.doesNotMatch(
-    src,
-    /checklistRunwayFor\([^)]*e\.event_date/,
-    'checklistRunwayFor must measure the runway to the resolved anchor',
-  );
-  assert.match(src, /dueDateForItem\(anchorDate, i\.due_offset_days, runway\)/);
-  assert.match(src, /checklistRunwayFor\(items, anchorDate, e\.created_at \?\? null\)/);
-});
-
-test('the checklist page resolves the anchor through the same helper', () => {
-  const src = readFileSync(CHECKLIST_PAGE, 'utf8');
-  assert.match(src, /checklistAnchorDateFor,?\n/, 'page must import the helper');
-  assert.match(
-    src,
-    /const eventDate = checklistAnchorDateFor\(\{/,
-    'page must resolve its anchor through the helper, not inline',
-  );
-  // The inline ladder is gone — if it comes back, the two can drift again.
-  assert.doesNotMatch(
-    src,
-    /const isWeddingLike =/,
-    'the wedding gate belongs to checklistAnchorDateFor now, not to the page',
-  );
-  // Multiline-tolerant since the call gained a sixth argument (the "has this
-  // already happened" answer, 2026-08-23) and no longer fits one line. What
-  // this pins is unchanged: the RESOLVED anchor is argument two.
-  assert.match(
-    src,
-    /groupChecklistByPhase\(\s*rows,\s*eventDate,\s*now,\s*eventType,\s*eventCreatedAt,/,
-    'the page must render from the resolved anchor',
-  );
+  for (const col of ['event_type', 'event_date', 'date_candidates', 'date_window_start', 'created_at']) {
+    assert.match(src, new RegExp(`${col}: e\\.${col} \\?\\? null`), `the launcher must pass ${col}`);
+  }
 });
 
 test('both call sites are handed the same four columns', () => {
-  const pageSrc = readFileSync(CHECKLIST_PAGE, 'utf8');
+  const pageSrc = readFileSync(SCHEDULE_PAGE, 'utf8');
   const eventsSrc = readFileSync(EVENTS_LIB, 'utf8');
   // The helper reads these; a surface that does not SELECT one silently
   // resolves a shorter ladder. `event_type` decides the wedding gate, so its
@@ -249,8 +212,8 @@ test('both call sites are handed the same four columns', () => {
   // change must never produce.
   for (const col of ['event_date', 'event_type', 'date_candidates', 'date_window_start']) {
     assert.ok(
-      new RegExp(`\\b${col}\\b`).test(pageSrc.split('const rows =')[0]!),
-      `checklist page must select ${col}`,
+      new RegExp(`\\b${col}\\b`).test(pageSrc.split('const agenda = await fetchPreparationAgenda(')[0]!),
+      `Planning Stage (the schedule page) must select ${col}`,
     );
     assert.ok(
       new RegExp(`\\b${col}\\b`).test(eventsSrc),

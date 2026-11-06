@@ -16,7 +16,11 @@
  *   1. the thank-you shows THEIR Digital ticket — the route's own PNG, only when
  *      `passCardEligibility` says they have one (accepted and coming);
  *   2. each NAMED plus-one keeps Send and their own Save — on Me; a blank seat
- *      keeps "Add name"; "Save all tickets" saves every card;
+ *      keeps "Add name"; "Save all tickets" saves every card. 🎫 MOVED ON PURPOSE
+ *      (owner 2026-10-21, "Yes to all" on guest_page_fixes_2_4, fix 4): the
+ *      plus-one is the shipped TicketRow — their ticket, their name, ONE Send —
+ *      and their own Save lives INSIDE the opened ticket (the sheet), not in
+ *      the row. Still theirs, still free; one place;
  *   3. "Copy my link" still hands over their OWN link, in the frame-A words
  *      (the component that remains for the in-app hand-off and requests);
  *   4. the thank-you has no "Not now", and no Save except to finish a Terms
@@ -53,7 +57,9 @@ test('1 · the landing page draws their Digital ticket only when they have one, 
   assert.ok(at > -1, 'the ticket section moved — re-point this guard');
   const block = ENTER.slice(at, ENTER.indexOf('data-landing="how"', at));
   assert.match(block, /<TicketPicture src=\{PASS_CARD_ROUTE\}/, 'the ticket is no longer the route’s own picture');
-  assert.match(block, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE\]\}/, 'the ticket lost its Save');
+  // 🎟 Their own card FIRST, then each +1 ticket they hold — "Save all tickets" (owner 2026-10-25, RSVP seats-first:
+  // the after-Send pass step of scenarios B · C). With no +1 ticket the list is their own card alone, as before.
+  assert.match(block, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE, \.\.\.plusOneCardHrefs\]\}/, 'the ticket lost its Save');
   assert.match(block, /Your \{PASS_CARD_WORDS\.digitalTicket\}/);
   assert.match(block, /<InviteQrPanel\b/, 'a guest with no ticket lost their QR');
   // ✂ ONE PLACE EACH (2026-10-03): no plus-one tickets, no Copy my link here.
@@ -75,7 +81,13 @@ test('2 · each NAMED plus-one keeps Send and their own Save (on Me); a blank se
     }),
   );
   assert.match(html, /Ben Reyes[\s\S]*>Send their invite</, 'Ben has no Send');
-  assert.match(html, /Save Ben’s/, 'Ben’s own ticket has no Save');
+  // 🎫 Ben's row is his ticket (TicketRow), which opens big — and his own Save is in there, not in the row.
+  assert.match(html, /data-ticket-row=""/, 'Ben is not drawn as his ticket');
+  assert.match(html, /aria-label="Ben’s ticket — Show this at the door" aria-haspopup="dialog" data-ticket-show=""/, 'Ben’s ticket does not open');
+  assert.doesNotMatch(html, /Save Ben’s/, 'Ben’s Save is back in the row — it lives in his opened ticket (one place)');
+  const SHOW = read('[slug]/_components/ticket-show.tsx');
+  assert.match(SHOW, /<GuestSheet\b[\s\S]*<SavePassCardButton hrefs=\{\[href\]\} label=\{saveLabel\} \/>[\s\S]*<\/GuestSheet>/, 'the opened ticket lost its Save');
+  assert.match(read('[slug]/_components/your-guests.tsx'), /saveLabel: PASS_CARD_WORDS\.saveOf\(first\)/, 'the Save inside is not "Save <name>’s ticket"');
   assert.match(html, /\+2 · TBA/);
   assert.match(html, />Add their name</, 'a blank seat lost "Add name"');
   assert.match(html, /data-save-pass-card="2"/, 'Save all does not save both tickets');
@@ -98,8 +110,30 @@ test('3 · "Copy my link" hands over their own link, in the frame-A words', asyn
   assert.match(src, /Link copied — paste it anywhere you’ll find it again\./);
 });
 
-test('4 · no "Not now", and Save on the thank-you only to finish a Terms refusal', () => {
+test('4 · no "Not now"; ONE save widget — with the ticket\'s keep actions after a Yes, and to finish a Terms refusal', () => {
   // "Not now" went 2026-09-30: "Open the invitation" above it is the way in.
   assert.doesNotMatch(ENTER, />\s*Not now\s*</);
-  assert.match(ENTER, /search\.keep === 'terms' \? \(\s*<SaveToAccount[\s\S]*?termsMissing[\s\S]*?carries="your name, mobile, meal and your guests come along"/);
+  // 🔁 2026-10-25 (owner: "create a proper widget to link this event to your account" · "but we are supposed to have
+  // that with the save to wallet, correct?"): the widget is back after a Yes, and still finishes a Terms refusal.
+  assert.match(
+    ENTER,
+    /const saveNode = saveShows \? \(\s*<SaveToAccount[\s\S]*?termsMissing=\{search\.keep === 'terms'\}[\s\S]*?carries=\{search\.keep === 'terms' \? 'your name, mobile, meal and your guests come along' : null\}/,
+  );
+  assert.match(ENTER, /const saveShows =\s*!canvas && account\.kind !== 'host_viewing' && \(nothingToSave \|\| search\.keep === 'terms' \|\| status === 'attending'\);/);
+  // 🔢 ONE OFFER PER PAGE (owner: "there is already a save to my account"): one SaveToAccount mount, drawn in ONE of two
+  // places that exclude each other — under Save · Wallet when the full ticket is drawn, else after the ticket's place.
+  assert.equal(ENTER.split('<SaveToAccount').length - 1, 1, 'the thank-you mounts two save offers');
+  assert.equal(ENTER.split('{saveNode ?').length - 1, 1, 'the save widget is placed twice inside the ticket');
+  assert.match(ENTER, /\{ticket === 'full' \? null : saveNode\}/, 'the fallback place is not exclusive of the ticket’s');
+});
+
+test('4b · the ticket\'s keep actions are ONE group: ticket → Save → Add to Apple Wallet → Keep offer → the +1 list', () => {
+  const full = ENTER.slice(ENTER.indexOf("{ticket === 'full' ? ("), ENTER.indexOf("ticket === 'faded' ? ("));
+  const at = (needle: string) => {
+    const i = full.indexOf(needle);
+    assert.ok(i > -1, `the full ticket section lost ${needle}`);
+    return i;
+  };
+  const order = ['<TicketPicture', 'data-rsvp-line="save"', 'data-landing-wallet-slot', 'data-landing-keep-slot', '<PlusOneSeatList'].map(at);
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the keep group is out of order (ticket → Save → Wallet → Keep → +1)');
 });

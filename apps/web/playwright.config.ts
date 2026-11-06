@@ -23,7 +23,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // GitHub Actions reporter on CI for inline annotations; HTML for local
   // so the dev can open the trace + screenshots after a failed run.
-  reporter: process.env.CI ? 'github' : 'html',
+  // When CI also sets PLAYWRIGHT_JSON_OUTPUT_FILE (.github/workflows/e2e.yml),
+  // the JSON reporter writes every test's duration there, so the run can name
+  // its slowest files instead of a session guessing at them from dot output.
+  reporter: process.env.CI ? (process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? [['github'], ['json']] : 'github') : 'html',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
     headless: true,

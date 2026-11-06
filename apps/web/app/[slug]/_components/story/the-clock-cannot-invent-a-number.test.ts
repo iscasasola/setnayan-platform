@@ -162,6 +162,9 @@ const CLIENT_IMPORTS_ALLOWED = [
   // This file's own header says it — the needle, the readout and the entry
   // being read are one fact, and splitting them is how they end up disagreeing.
   /^@\/lib\/story-reader-position$/,
+  // THE ONE BACKDROP (owner 2026-10-25: every pop-up darkens + blurs the same way and holds the page still). A
+  // <button> with house classes — no fetch, no client, no route — and the test below proves it imports nothing.
+  /^@\/app\/_components\/overlay-backdrop$/,
 ];
 
 test('THE DIAL’S CLIENT HALF HAS NO PATH TO A COUNT', () => {
@@ -426,4 +429,19 @@ test('A WRITTEN MINUTE NEVER LOSES THE INSTANT THAT PLACES IT', () => {
       `a day chapter is built without atIso near \`time: ${m[1]!.slice(0, 40)}\``,
     );
   }
+});
+
+test('the backdrop on the allowlist reaches nothing but React and the scrim’s own constants', () => {
+  /* Since the one scrim (owner 2026-10-29) it imports React (a layout effect: the fade-out and the one-blur rule) and
+     `lib/scrim.ts` (a selector string and a number parser) — and THAT file imports nothing at all. No fetch, no
+     client, no route, by construction. */
+  const imports = (rel: string) =>
+    [...readFileSync(resolve(HERE, rel), 'utf8').matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]!);
+  const backdrop = imports('../../../_components/overlay-backdrop.tsx');
+  assert.deepEqual(
+    backdrop,
+    ['react', '@/lib/scrim'],
+    `overlay-backdrop.tsx imports ${backdrop.join(', ')}. It is on story-clock's allowlist BECAUSE it reaches nothing.`,
+  );
+  assert.deepEqual(imports('../../../../lib/scrim.ts'), [], 'lib/scrim.ts imports something — the backdrop now reaches it');
 });

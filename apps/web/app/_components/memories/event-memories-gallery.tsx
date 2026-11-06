@@ -1,0 +1,750 @@
+'use client';
+
+/**
+ * event-memories-gallery.tsx — THIS EVENT'S MEMORIES: the event bar's fifth tab (owner 2026-10-23, "Yes", on
+ * `prototypes/event_bar_memories_tab_2026-10-23.html` frames 3–4, which copy the gallery of
+ * `prototypes/papic_controller_one_page_2026-10-23.html` — "Gallery, revised").
+ *
+ *   · NO FRAME, EDGE TO EDGE (owner: *"gallery shouldn't be inside a frame. maximize width"*): square tiles with
+ *     1.5 px gaps; the house gutter only where words sit.
+ *   · THE COLUMNS FOLLOW THE ZOOM, LIKE APPLE PHOTOS: phone 3 ↔ 5 ↔ 7 ↔ 1 by pinch, desktop 6 · 9 · 12 · 16 with
+ *     − / + (and a trackpad pinch) — ONE step per gesture (`use-grid-pinch.ts`), remembered on this device.
+ *   · TOP ROW: Albums ▾ (All · Papic · Challenges · Event Hub · Suppliers · Your uploads — `lib/event-memories.ts`)
+ *     · Chapter ▾ (Memories by chapter, owner 2026-11-01: "All chapters", ONLY the chapters this viewer may see — the
+ *     server's list — and Unsorted; `lib/memories-chapters.ts`) · the album's count · "Needs a look N" (the filter, lit
+ *     when on) · ⚙ Gallery settings (a sheet).
+ *   · CHALLENGES: grouped by challenge in the board's order, each headed "title · count"; a supplier's challenge
+ *     names its supplier in the ⓘ. In All, a challenge frame wears a small tag.
+ *   · A TAP opens the photo itself in the shared viewer template (`MemoriesPhotoViewer` → `PhotoViewer`, owner
+ *     2026-10-30: "like how we open inspiration photos but with the buttons for memories") — Share · Tag · Add to
+ *     Chapter · Hide · Delete, each only for whom it was already theirs; Report and Stop this guest shooting in its ⋯;
+ *     ‹ › and a swipe walk the photos in the order the grid draws them. An Event Hub file is shown and shared, never
+ *     managed here ("Used on your Event Hub").
+ *   · THE KEEPSAKE ROW (owner 2026-10-31, "Build both"; hosts only): Magazine · Recap · Flash · Thank You, directly
+ *     under the top row — `keepsakes`, drawn by the server (`memories-keepsake-row.tsx`).
+ *   · THE THUMB ROW: the shared `ThumbRow` — "Search memories" (who took it, the challenge, the Hub's place) and
+ *     + Add photos. ＋ THE ADD CELL (owner 2026-10-31; hosts only) is the grid's first tile in All and Your uploads —
+ *     a SECOND DOOR TO THE SAME UPLOADER: both call `openAdding`, and both open the ONE Add photos sheet below.
+ *
+ * The page's own tokens throughout (light and the app's dark). A refused read says so, never an empty gallery.
+ */
+
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { Minus, Play, Plus } from 'lucide-react';
+import { ThumbRow } from '@/components/thumb-row';
+import { ActionButton } from '@/components/action-button';
+import { Sheet } from '@/app/_components/sheet';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SwitchTrack } from '@/app/_components/switch-track';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { MemoriesPhotoViewer } from './memories-photo-viewer';
+import { ALL_CHAPTERS, chapterFilterOptions, inChapterFilter, validFilter, type MemoriesChapter as ChapterOption } from '@/lib/memories-chapters';
+import type { PhotoTagState } from '@/lib/memories-photo-tags';
+import {
+  MEMORIES_ALBUMS,
+  albumCountWords,
+  challengeGroups,
+  inAlbum,
+  isMemoriesAlbum,
+  needsALook,
+  type MemoriesAlbumKey,
+  type MemoriesChallenge,
+  type MemoriesItem,
+} from '@/lib/event-memories';
+import { formatCount } from '@/lib/format-number';
+import {
+  DESK_FROM_PX,
+  ZOOM_KEY_DESK,
+  ZOOM_KEY_PHONE,
+  defaultFor,
+  isDense,
+  readColumns,
+  stepColumns,
+  stepsFor,
+  type ZoomScale,
+} from '@/lib/gallery-zoom';
+import { useGridPinch } from './use-grid-pinch';
+
+/** "Follow the moments in order" — a way of LOOKING, remembered on this device like the zoom (no shared state). */
+const MOMENTS_KEY = 'sn-memories-moments';
+const ALBUM_KEY = 'sn-memories-album';
+/** The picked chapter — per event (a chapter id means nothing on another event), remembered on this device. */
+const CHAPTER_KEY = 'sn-memories-chapter:';
+
+function useScale(): ZoomScale {
+  const [scale, setScale] = useState<ZoomScale>('phone');
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${DESK_FROM_PX}px)`);
+    const on = () => setScale(mq.matches ? 'desk' : 'phone');
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return scale;
+}
+
+function readLocal(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeLocal(key: string, v: string) {
+  try {
+    window.localStorage.setItem(key, v);
+  } catch {
+    /* per-viewer convenience only */
+  }
+}
+
+/** The remembered column count for this scale — localStorage may be refused (a private window); then the default. */
+function useColumns(scale: ZoomScale): [number, (next: number) => void] {
+  const key = scale === 'desk' ? ZOOM_KEY_DESK : ZOOM_KEY_PHONE;
+  const [cols, setCols] = useState<number>(() => defaultFor(scale));
+  useEffect(() => setCols(readColumns(readLocal(key), scale)), [key, scale]);
+  const setTo = useCallback(
+    (next: number) => {
+      setCols(next);
+      writeLocal(key, String(next));
+    },
+    [key],
+  );
+  return [cols, setTo];
+}
+
+export type MemoriesChapter = { key: string; label: string; time: string | null; photoIds: string[] };
+export type MemoriesSupplier = { vendorProfileId: string; vendorRowId: string; name: string; hidden: boolean };
+
+export function EventMemoriesGallery({
+  eventId,
+  items,
+  host,
+  challenges = [],
+  chapters = null,
+  chapterList = [],
+  totals,
+  footLine,
+  cappedLine,
+  emptyLine,
+  unreadable,
+  refusedParts = [],
+  timeZone,
+  settings = null,
+  addPhotos = null,
+  addCell = null,
+  keepsakes = null,
+  blockedGuests = [],
+  suppliers = [],
+  canTag = false,
+  tagFixture = null,
+}: {
+  eventId: string;
+  items: MemoriesItem[];
+  /** The couple — the albums' moderation, ⚙ and + Add photos are theirs. */
+  host: boolean;
+  challenges?: MemoriesChallenge[];
+  /** The day's moments, from the run of show — null when there is no schedule to follow. */
+  chapters?: MemoriesChapter[] | null;
+  /** 📸 The event's chapters as the SERVER answered for this viewer (`papic_memories_chapters`) — only what they may see
+   *  is `listed`; the dropdown never offers anything else. */
+  chapterList?: ChapterOption[];
+  /** Measured counts beyond what the page holds (`All`, `Papic`) — null when not measured. */
+  totals: { all: number | null; papic: number | null };
+  footLine: string | null;
+  cappedLine: string | null;
+  emptyLine: string;
+  /** The photo read was refused — say so, never "nothing yet". */
+  unreadable: boolean;
+  /** Albums whose own read was refused ('hub' · 'challenges') — said in that album, not as an empty one. */
+  refusedParts?: MemoriesAlbumKey[];
+  timeZone: string | null;
+  /** ⚙ Gallery settings — the shipped controls, drawn by the server (Who sees what · Photo wall · Drive · Keep full-res);
+   *  for the event's coordinator, Who sees what alone (owner 2026-10-30). Non-null opens the ⚙ even when `host` is false. */
+  settings?: ReactNode;
+  /** + Add photos — the shipped uploader (or its "Turn this on"), drawn by the server. Null = no door. */
+  addPhotos?: ReactNode;
+  /** ＋ The Add cell's words (`addCellWords`) — the grid's first tile opens the SAME sheet as the thumb row. Null = no cell. */
+  addCell?: { line: string; tip: string } | null;
+  /** The keepsake row (Magazine · Recap · Flash · Thank You), drawn by the server — the host's. */
+  keepsakes?: ReactNode;
+  blockedGuests?: string[];
+  suppliers?: MemoriesSupplier[];
+  /** Tag in the viewer — the server's `memoriesManagerRole` answer (hosts + the coordinator); re-checked on every write. */
+  canTag?: boolean;
+  /** /dev lab only — the Tag list on fixture names. */
+  tagFixture?: PhotoTagState | null;
+}) {
+  const scale = useScale();
+  const [cols, setCols] = useColumns(scale);
+  const dense = isDense(cols);
+  /** The open photo, by id — so a hide or a delete that lands while it is open keeps the viewer on its place. */
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+  const [album, setAlbumState] = useState<MemoriesAlbumKey>('all');
+  const [chapterPick, setChapterPickState] = useState<string>(ALL_CHAPTERS);
+  const [needsLook, setNeedsLook] = useState(false);
+  const [moments, setMomentsState] = useState(false);
+  const [gearOpen, setGearOpen] = useState(false);
+  /* ＋ THE ONE ADD-PHOTOS HANDLER — the thumb row's ＋ and the grid's Add cell both call it, and both open the one sheet
+     (`the-keepsakes-are-a-row.test.ts`). */
+  const [adding, setAdding] = useState(false);
+  const openAdding = useCallback(() => setAdding(true), []);
+
+  useEffect(() => {
+    const a = readLocal(ALBUM_KEY);
+    if (isMemoriesAlbum(a)) setAlbumState(a);
+    setMomentsState(readLocal(MOMENTS_KEY) === '1');
+    setChapterPickState(readLocal(CHAPTER_KEY + eventId) ?? ALL_CHAPTERS);
+  }, [eventId]);
+  const setChapterPick = (k: string) => {
+    setChapterPickState(k);
+    writeLocal(CHAPTER_KEY + eventId, k);
+  };
+  const setAlbum = (a: MemoriesAlbumKey) => {
+    setAlbumState(a);
+    writeLocal(ALBUM_KEY, a);
+  };
+  const setMoments = (on: boolean) => {
+    setMomentsState(on);
+    writeLocal(MOMENTS_KEY, on ? '1' : '0');
+  };
+
+  const challengeById = useMemo(() => new Map(challenges.map((c) => [c.id, c])), [challenges]);
+  const challengeOf = (it: MemoriesItem) => (it.challengeId ? challengeById.get(it.challengeId) ?? null : null);
+
+  // 🔽 CHAPTER ▾ — only the chapters the server listed for this viewer, plus Unsorted (`chapterFilterOptions`). A
+  // remembered chapter that is no longer offered falls back to All chapters, never to an empty grid.
+  const chapterOptions = useMemo(() => chapterFilterOptions(chapterList, items), [chapterList, items]);
+  const chapter = validFilter(chapterPick, chapterOptions);
+  const inThisAlbum = useMemo(
+    () => items.filter((it) => inAlbum({ source: it.memSource, challengeId: it.challengeId }, album) && inChapterFilter(it, chapter)),
+    [items, album, chapter],
+  );
+  const needsCount = host ? inThisAlbum.filter(needsALook).length : 0;
+  const shown = useMemo(() => {
+    const words = q.trim().toLowerCase();
+    return inThisAlbum.filter((it) => {
+      if (needsLook && !needsALook(it)) return false;
+      if (!words) return true;
+      const hay = [it.capturedBy, it.hubUse, it.challengeId ? challengeById.get(it.challengeId)?.title : null]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(words);
+    });
+  }, [inThisAlbum, needsLook, q, challengeById]);
+
+  // ── PINCH (phone) and ⌃ + WHEEL (desktop): ONE step per gesture, the grid scaling live in between ──────────
+  const gridRef = useRef<HTMLDivElement>(null);
+  const stepFrom = useCallback((c: number, dir: 1 | -1) => stepColumns(c, dir, scale), [scale]);
+  const { snap } = useGridPinch({ gridRef, cols, stepFrom, setCols });
+
+  const steps = stepsFor(scale);
+  const zoomWords =
+    scale === 'desk' ? '+ / − change the columns' : 'Pinch to change the columns — 3 · 5 · 7, or one large';
+
+  // The count is the album's: measured where it can be (All · Papic), what the page holds otherwise.
+  const albumRefused = refusedParts.includes(album);
+  const countN =
+    chapter !== ALL_CHAPTERS
+      ? inThisAlbum.length
+      : album === 'all' && totals.all !== null
+        ? totals.all
+        : album === 'papic' && totals.papic !== null
+          ? totals.papic
+          : inThisAlbum.length;
+  const countLine = unreadable || albumRefused ? null : albumCountWords(countN, album, formatCount);
+
+  const tile = (it: MemoriesItem, tagged: boolean) => (
+    <Tile
+      key={it.id}
+      item={it}
+      dense={dense}
+      large={cols === 1}
+      roomy={cols <= 3}
+      challengeTag={tagged && it.challengeId ? challengeOf(it)?.title ?? null : null}
+      onOpen={() => setViewingId(it.id)}
+    />
+  );
+  const gridClass = 'grid gap-[1.5px] [grid-template-columns:repeat(var(--mem-cols),minmax(0,1fr))]';
+  /* ＋ THE ADD CELL — the host's, where an added photo lands (All · Your uploads), and not while a search or the
+     Needs-a-look filter narrows the grid (the cell is not a result). */
+  const addTile =
+    host && addPhotos && addCell && !q.trim() && !needsLook && (album === 'all' || album === 'uploads') ? (
+      <AddCell key="add-cell" words={addCell} dense={dense} roomy={cols <= 3} onAdd={openAdding} />
+    ) : null;
+
+  let body: ReactNode;
+  let viewOrder: MemoriesItem[] = shown;
+  if (unreadable || albumRefused) {
+    body = (
+      <p role="status" className="px-4 py-10 text-center text-[14px] text-ink/65" data-memories-unreadable="">
+        We couldn’t load your photos just now. Nothing has changed — refresh to see them.
+      </p>
+    );
+  } else if (shown.length === 0) {
+    body = (
+      <>
+        {addTile ? <div className={gridClass}>{addTile}</div> : null}
+        <p className="px-4 py-10 text-center text-[14px] text-ink/60" data-memories-empty="">
+          {q.trim()
+            ? `Nothing here matches “${q.trim()}”.`
+            : needsLook
+              ? 'Nothing needs a look.'
+              : chapter !== ALL_CHAPTERS
+                ? 'Nothing for you in this chapter yet.'
+                : album === 'all'
+                  ? emptyLine
+                  : 'Nothing in this album yet.'}
+        </p>
+      </>
+    );
+  } else if (album === 'challenges') {
+    const groups = challengeGroups(shown, challenges);
+    viewOrder = groups.flatMap((g) => g.items);
+    body = groups.map(({ challenge, items: list }) => (
+      <section key={challenge.id} data-memories-challenge={challenge.id}>
+        <MomentHead
+          label={`${challenge.title} · ${formatCount(list.length)}`}
+          tip={challenge.supplier ? `Added by ${challenge.supplier}, a supplier you booked.` : null}
+        />
+        <div className={gridClass}>{list.map((it) => tile(it, false))}</div>
+      </section>
+    ));
+  } else if (moments && chapters && chapters.length > 1 && !needsLook && (album === 'all' || album === 'papic')) {
+    const byId = new Map(shown.map((it) => [it.id, it]));
+    const used = new Set<string>();
+    const groups = chapters.flatMap((c) => {
+      const list = c.photoIds.map((id) => byId.get(id)).filter((x): x is MemoriesItem => Boolean(x));
+      list.forEach((x) => used.add(x.id));
+      return list.length ? [{ c, list }] : [];
+    });
+    const rest = shown.filter((it) => !used.has(it.id));
+    viewOrder = [...groups.flatMap((g) => g.list), ...rest];
+    body = (
+      <>
+        {groups.map(({ c, list }, gi) => (
+          <section key={c.key} data-memories-moment={c.key}>
+            <MomentHead label={c.label} time={c.time} />
+            <div className={gridClass}>
+              {gi === 0 ? addTile : null}
+              {list.map((it) => tile(it, album === 'all'))}
+            </div>
+          </section>
+        ))}
+        {rest.length ? (
+          <section data-memories-moment="rest">
+            <MomentHead label="More" />
+            <div className={gridClass}>{rest.map((it) => tile(it, album === 'all'))}</div>
+          </section>
+        ) : null}
+      </>
+    );
+  } else {
+    body = (
+      <div className={gridClass}>
+        {addTile}
+        {shown.map((it) => tile(it, album === 'all'))}
+      </div>
+    );
+  }
+
+  // ‹ › walk the photos in the order the grid DRAWS them (grouped by moment or challenge when it is) — openable ones only.
+  const order = viewOrder.filter((it) => Boolean(it.viewUrl ?? it.largeUrl ?? it.url));
+  const viewingAt = viewingId ? order.findIndex((it) => it.id === viewingId) : -1;
+  const albumLabel = MEMORIES_ALBUMS.find((a) => a.key === album)?.label ?? null;
+
+  const albumOptions = MEMORIES_ALBUMS.map((a) => ({ key: a.key, label: a.label }));
+
+  return (
+    <section data-event-memories="" data-memories-columns={cols} data-memories-album={album} className="pb-24">
+      <h1 className="sr-only">Memories</h1>
+
+      {/* TOP ROW — Albums ▾ · the count · Needs a look · (− / + on a desktop) · ⚙. */}
+      <div className="flex min-h-[48px] items-center gap-2 pb-2.5" data-memories-top="" data-first-row="">
+        <span data-memories-albums="" data-tour="memories-albums" className="shrink-0">
+          <PickMenu label="Albums" value={album} options={albumOptions} onPick={(k) => isMemoriesAlbum(k) && setAlbum(k)} compact />
+        </span>
+        {chapterOptions.length > 1 ? (
+          <span data-memories-chapters="" data-tour="memories-chapters" className="min-w-0 shrink">
+            <PickMenu label="Chapter" value={chapter} options={chapterOptions} onPick={setChapterPick} compact dataAttr="data-memories-chapter-pick" />
+          </span>
+        ) : null}
+        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="">
+          {unreadable || albumRefused ? 'couldn’t load' : <span className="font-medium text-ink">{countLine}</span>}
+          {host && (needsCount > 0 || needsLook) ? (
+            <>
+              {' · '}
+              <button
+                type="button"
+                aria-pressed={needsLook}
+                onClick={() => setNeedsLook((v) => !v)}
+                data-memories-needs-look=""
+                className={`font-medium text-terracotta ${needsLook ? 'rounded-full bg-terracotta/10 px-2 py-0.5' : 'border-b border-dashed border-terracotta/60'}`}
+              >
+                Needs a look {formatCount(needsCount)}
+              </button>
+            </>
+          ) : null}
+        </p>
+        {scale === 'desk' ? (
+          <span className="inline-flex gap-1.5" data-memories-zoom="">
+            <ActionButton tone="neutral" iconOnly icon={Minus} label="Fewer columns" disabled={cols === steps[0]} onClick={() => snap(-1)} />
+            <ActionButton tone="neutral" iconOnly icon={Plus} label="More columns" disabled={cols === steps[steps.length - 1]} onClick={() => snap(1)} />
+          </span>
+        ) : null}
+        {host || settings ? (
+          // ⚙ THE MENU'S SETTINGS — the shared door (`menu-settings-button.tsx`); Memories was its template. A host's
+          // always; the event's coordinator's too when the server drew them the Memories rules (owner 2026-10-30).
+          <MenuSettingsButton menu="memories" open={gearOpen} onOpenChange={setGearOpen} tour="memories-settings">
+            <div className="divide-y divide-ink/10 px-4 pb-4" data-memories-settings="">
+              {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={moments}
+                onClick={() => setMoments(!moments)}
+                disabled={!chapters || chapters.length < 2}
+                className="flex min-h-[56px] w-full items-center justify-between gap-3 py-2 text-left disabled:opacity-60"
+                data-memories-moments=""
+              >
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-medium text-ink">Follow the moments in order</span>
+                  <span className="block text-[12.5px] text-ink/60">
+                    {!chapters || chapters.length < 2
+                      ? 'Needs your schedule'
+                      : moments
+                        ? 'On · grouped by your schedule'
+                        : 'Off · one stream, newest first'}
+                  </span>
+                </span>
+                <SwitchTrack on={moments} />
+              </button>
+              {settings}
+            </div>
+          </MenuSettingsButton>
+        ) : null}
+      </div>
+      {/* THE KEEPSAKE ROW — directly under the top row, the host's (the server draws it inside its host branch too). */}
+      {host ? keepsakes : null}
+      {needsLook ? (
+        <p className="pb-1.5 text-[13px] text-ink/60">Only photos to review — screened or reported. Tap one to approve, hide, report or stop that guest shooting.</p>
+      ) : null}
+
+      {/* EDGE TO EDGE: the grid cancels the event layout's gutter (px-4 · sm:px-6 · lg:px-8). One wrapper carries the
+          zoom (`--mem-cols`) so every group under it — moments, challenges — scales and snaps as one. */}
+      <div
+        ref={gridRef}
+        data-memories-grid=""
+        data-tour="memories-grid"
+        className="-mx-4 touch-pan-y sm:-mx-6 lg:-mx-8"
+        style={{ ['--mem-cols' as string]: String(cols) }}
+        // 📌 Where a search's results draw (or "Nothing here matches") — pinned under the chrome (lib/search-pin.ts).
+        data-search-results=""
+      >
+        {body}
+      </div>
+
+      <p className="pt-2.5 text-[12px] text-ink/55" data-memories-foot="">
+        {zoomWords} · remembered on this device{footLine ? ` · ${footLine}` : ''}
+      </p>
+      {cappedLine ? (
+        <p className="pt-1 text-[12px] text-ink/55" data-memories-capped="">
+          {cappedLine}
+        </p>
+      ) : null}
+
+      {/* The row steps aside while a sheet is up — the sheet owns the thumb zone then. */}
+      <MemoriesThumbRow
+        q={q}
+        onSearch={setQ}
+        addPhotos={host ? addPhotos : null}
+        adding={adding}
+        onAdd={openAdding}
+        onAddClose={() => setAdding(false)}
+        away={Boolean(viewingId || gearOpen)}
+      />
+
+      {viewingAt >= 0 ? (
+        <MemoriesPhotoViewer
+          eventId={eventId}
+          items={order}
+          at={viewingAt}
+          onMove={(to) => setViewingId(order[to]?.id ?? null)}
+          onClose={() => setViewingId(null)}
+          host={host}
+          canTag={canTag}
+          chapterList={chapterList}
+          album={albumLabel}
+          challengeOf={challengeOf}
+          blockedGuests={blockedGuests}
+          suppliers={suppliers}
+          timeZone={timeZone}
+          tagFixture={tagFixture}
+        />
+      ) : null}
+
+    </section>
+  );
+}
+
+/** A sticky moment / challenge heading over the full-width grid. */
+function MomentHead({ label, time = null, tip = null }: { label: string; time?: string | null; tip?: string | null }) {
+  return (
+    <div className="sticky top-14 z-[3] flex items-baseline justify-between gap-3 bg-paper/90 px-4 pb-1.5 pt-2.5 backdrop-blur sm:px-6 lg:px-8" data-memories-head="">
+      {tip ? (
+        <InfoTip label={label} labelClassName="text-[15px] font-semibold text-ink" align="start">
+          {tip}
+        </InfoTip>
+      ) : (
+        <span className="min-w-0 truncate text-[15px] font-semibold text-ink">{label}</span>
+      )}
+      {time ? <span className="shrink-0 font-mono text-[10.5px] tracking-[0.1em] text-ink/55">{time}</span> : null}
+    </div>
+  );
+}
+
+function Tile({
+  item,
+  dense,
+  large,
+  roomy,
+  challengeTag,
+  onOpen,
+}: {
+  item: MemoriesItem;
+  dense: boolean;
+  large: boolean;
+  roomy: boolean;
+  challengeTag: string | null;
+  onOpen: () => void;
+}) {
+  const who = item.memSource === 'hub' ? item.hubUse : item.capturedBy ?? null;
+  const src = large ? (item.largeUrl ?? item.url) : item.url;
+  const screened = item.look === 'screened';
+  const mark =
+    item.memSource === 'hub'
+      ? { text: 'Event Hub', cls: 'bg-[rgba(184,150,62,0.92)] text-[#17160F]' }
+      : screened
+        ? { text: 'Screened', cls: 'bg-[rgba(229,121,78,0.9)] text-white' }
+        : item.look === 'reported'
+          ? { text: 'Reported', cls: 'bg-black/55 text-white' }
+          : item.look === 'hidden'
+            ? { text: 'Hidden', cls: 'bg-black/55 text-white' }
+            : challengeTag
+              ? { text: 'Challenge', cls: 'bg-black/55 text-white' }
+              : null;
+  const label =
+    item.memSource === 'hub'
+      ? `${item.hubUse ?? 'A file'} — used on your Event Hub`
+      : `${item.kind === 'clip' ? 'Clip' : 'Photo'}${who ? ` from ${who}` : ''}${challengeTag ? ` — challenge: ${challengeTag}` : ''}`;
+  return (
+    <button
+      type="button"
+      onClick={src ? onOpen : undefined}
+      disabled={!src}
+      aria-label={src ? label : `${label} · processing`}
+      data-memories-tile=""
+      data-memories-look={item.look}
+      className={`relative block aspect-square w-full overflow-hidden bg-ink/[0.06] p-0 ${item.look === 'hidden' ? 'opacity-40 grayscale' : ''}`}
+    >
+      {/* 🗜 The small copy — the tile copy only one-across, where 320 px falls apart. Never an original. */}
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className={`absolute inset-0 h-full w-full object-cover ${screened ? 'blur-[10px]' : ''}`}
+        />
+      ) : (
+        // No compressed copy yet — the original is never shown in its place, and a blank square reads as broken.
+        <span
+          data-tile-processing=""
+          className={`absolute inset-0 flex items-center justify-center text-center text-ink/50 ${dense ? 'text-[0px]' : roomy ? 'text-[11px]' : 'text-[9.5px]'}`}
+        >
+          Processing
+        </span>
+      )}
+      {mark ? (
+        dense ? (
+          <span aria-hidden className={`absolute left-[3px] top-[3px] h-2 w-2 rounded-full ${mark.cls}`} />
+        ) : (
+          <span
+            aria-hidden
+            data-memories-mark={mark.text}
+            className={`absolute left-1 top-1 inline-flex h-4 max-w-[calc(100%-8px)] items-center overflow-hidden whitespace-nowrap rounded-full px-[5px] font-mono text-[8.5px] uppercase tracking-[0.08em] ${mark.cls}`}
+          >
+            {mark.text}
+          </span>
+        )
+      ) : null}
+      {item.kind === 'clip' ? (
+        <span
+          aria-hidden
+          data-tile-clip=""
+          className={`absolute inline-flex items-center justify-center rounded-full bg-black/55 text-white ${dense ? 'right-1 top-1 h-3.5 w-3.5' : 'right-1.5 top-1.5 h-[22px] w-[22px]'}`}
+        >
+          <Play className={dense ? 'h-2 w-2 fill-current' : 'h-3 w-3 fill-current'} strokeWidth={0} />
+        </span>
+      ) : null}
+      {who && !dense ? (
+        <span
+          aria-hidden
+          className={`absolute bottom-[3px] right-1 max-w-[calc(100%-8px)] truncate text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)] ${roomy ? 'text-[11px]' : 'text-[9.5px]'}`}
+        >
+          {who}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+/**
+ * ＋ THE ADD CELL — the grid's first tile, the size of a photo (owner 2026-10-31, "Build both"). "+", "Add photo" and
+ * one short line (`addCellWords` — priced by the presign gate's own function); the rest in its ⓘ, which sits beside
+ * the press, never inside it (a button inside a button is not a button). A press is `onAdd` — the thumb row's handler.
+ * At the densest zoom the cell is a "+" alone, like the photos lose their words there.
+ */
+function AddCell({
+  words,
+  dense,
+  roomy,
+  onAdd,
+}: {
+  words: { line: string; tip: string };
+  dense: boolean;
+  roomy: boolean;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="relative aspect-square w-full" data-memories-add-cell="">
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-haspopup="dialog"
+        aria-label={`Add photo — ${words.line}`}
+        data-testid="memories-add-cell"
+        className="sn-press inline-flex h-full min-h-11 w-full min-w-11 flex-col items-center justify-center gap-1 bg-ink/[0.05] p-1 text-center text-ink hover:bg-ink/[0.08]"
+      >
+        <Plus aria-hidden className={dense ? 'h-4 w-4' : 'h-6 w-6 text-terracotta'} strokeWidth={2} />
+        {dense ? null : (
+          <>
+            <span className={`font-medium leading-tight ${roomy ? 'text-[13px]' : 'text-[11px]'}`}>Add photo</span>
+            <span className={`leading-tight text-ink/60 ${roomy ? 'text-[11.5px]' : 'text-[9.5px]'}`} data-memories-add-cell-line="">
+              {words.line}
+            </span>
+          </>
+        )}
+      </button>
+      {dense ? null : (
+        <span className="absolute right-1 top-1">
+          <InfoTip label="" ariaLabel="About adding a photo" align="end">
+            {words.tip}
+          </InfoTip>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 🔼 DRAWN INTO <body> — every sheet this gallery opens (the photo's, ⚙ settings, + Add photos). The event layout's
+ * `<main>` (`.sn-vt-page`) carries a `view-transition-name`, which makes it the containing block for `position: fixed`
+ * and a stacking context: a Sheet left inside it is placed against the page (under the top bar, running a full screen
+ * below that) and layered under the bar. At <body>, `fixed` is the screen and the Sheet's z-50 clears the bar's z-30 —
+ * the same pattern as `PapicBuySheet` and the thumb row below. Mounted on the client only (no `document` on the server);
+ * the Sheet inside renders on the pass that has its host, so its focus trap binds to a dialog that exists.
+ */
+function OnBody({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setHost(document.body), []);
+  return host ? createPortal(children, host) : null;
+}
+
+/**
+ * The one thumb row, drawn into <body> (the dashboard's page wrapper captures `position: fixed`), above the dock —
+ * the Find row's seat (`find-thumb-row.tsx`). "Search memories" narrows on the device; ＋ Add photos is the one
+ * upload door (the shipped uploader, in a sheet).
+ */
+function MemoriesThumbRow({
+  q,
+  onSearch,
+  addPhotos,
+  adding,
+  onAdd,
+  onAddClose,
+  away = false,
+}: {
+  q: string;
+  onSearch: (v: string) => void;
+  addPhotos: ReactNode;
+  /** The ONE Add photos sheet is open — the gallery's state, so the Add cell opens the same sheet. */
+  adding: boolean;
+  /** The ONE handler (`openAdding`) — the ＋ here and the grid's Add cell both call it. */
+  onAdd: () => void;
+  onAddClose: () => void;
+  /** A sheet is up: slide out of the thumb zone. */
+  away?: boolean;
+}) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [up, setUp] = useState(false);
+  const heading = useId();
+  useEffect(() => {
+    setHost(document.body);
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setUp(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, []);
+  if (!host) return null;
+  return (
+    <>
+      {createPortal(
+        <div
+          data-memories-thumb=""
+          data-on={up && !away && !adding ? 'true' : 'false'}
+          inert={!up || away || adding}
+          className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-ride-h,var(--sn-bottomdock-h,64px))] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform duration-300 ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${
+            up && !away && !adding ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
+          }`}
+        >
+          <ThumbRow
+            name="memories-event"
+            field={{
+              placeholder: 'Search memories',
+              label: 'Search memories — by who took them, a challenge, a place on your Event Hub',
+              tour: 'memories-search',
+              input: { value: q, onChange: (e) => onSearch(e.target.value), 'data-memories-search': '' },
+            }}
+            action={addPhotos ? { icon: Plus, label: 'Add photos', onClick: onAdd, testId: 'memories-add-photos', tour: 'memories-add' } : null}
+          />
+        </div>,
+        host,
+      )}
+      {/* 🔼 INTO <body>, like the row above it (owner 2026-10-25, live: "adding photos on event memories is not fixed" —
+          the sheet ran behind the event bar and off the screen). Inside the page, `.sn-vt-page` is the containing block
+          for `fixed`, so the sheet started under the top bar, ran a full screen-height from there and sat at the page's
+          z-level under the bar. `the-add-photos-sheet-clears-the-bar.test.ts`. */}
+      {adding && addPhotos ? (
+        <OnBody>
+        <Sheet open onClose={onAddClose} labelledById={heading} title="Add photos" wide>
+          <h2 id={heading} className="sr-only">
+            Add photos
+          </h2>
+          <div className="px-4 pb-4 pt-3">{addPhotos}</div>
+        </Sheet>
+        </OnBody>
+      ) : null}
+    </>
+  );
+}

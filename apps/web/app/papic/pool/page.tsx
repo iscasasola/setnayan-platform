@@ -48,13 +48,9 @@ export default async function PapicPoolPage() {
         title="Open your invitation first."
         sub="Scan your personal QR or open your invite link, then come back here to browse everyone's photos."
       >
-        {/* 🚪 A DEAD END STILL HAS A WAY OUT (2026-09-30). This screen ended at
-            the sentence — nothing to press, only the browser's back button.
-            With no session there is no guest to send back to, so the way out
-            is the same fallback /papic/guest uses for a bare visit. */}
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
+        {/* 🧭 No back here (lib/page-home.ts, owner 2026-10-28, superseding the 2026-09-30 "Back to
+            Setnayan" fallback): a guest page goes back to ITS event's hub, never the marketing front
+            page — and with no session this screen knows no event to go back to. */}
       </DoorShell>
     );
   }
@@ -90,12 +86,12 @@ export default async function PapicPoolPage() {
             "— the whole gallery". One of the two was the other one, and this is
             a page a guest meets once, on a phone, at a party. */}
         <h1 className="text-2xl font-semibold tracking-tight">
-          {(ev.display_name as string | null) ?? 'The event'} — the whole gallery
+          {(ev.display_name as string | null) ?? 'The event'} — all Memories
         </h1>
         <p className="mt-2 text-sm text-ink/65">
           Every photo and clip the crew and guests have captured so far. Spot
           yourself? Tap <span className="font-medium text-ink/80">I&rsquo;m in this</span>{' '}
-          and the photo joins <span className="font-medium text-ink/80">your</span> gallery
+          and the photo joins <span className="font-medium text-ink/80">your</span> Memories
           and download.
         </p>
         {/* Chapters (owner 2026-08-02: "split by x months away. to x days away").

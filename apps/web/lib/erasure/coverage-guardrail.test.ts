@@ -131,7 +131,17 @@ const PURGED: ReadonlySet<string> = new Set([
  */
 const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   'guest_face_enrollments', // keyed by (event_id, guest_id)
+  // Keyed by giver_guest_id — a guest's "I sent it" (E-Gifts wish list,
+  // 2026-10-08). No user column at all, so the detector cannot see it; erasure
+  // reaches it through the subject's guest ids and removes the screenshot.
+  'event_gift_records',
+  // Keyed by guest_id — when a guest last opened the Event Hub with their own pass (Who's here, 2026-10-29). No user
+  // column, so the detector cannot see it; erasure deletes it through the subject's guest ids.
+  'hub_guest_views',
   'vendor_push_tokens', // keyed by vendor_profile_id
+  // Keyed by (vendor_profile_id, event_id) — the shop's crew QR (2026-10-29). Its one person column is `created_by`
+  // (the issuing admin, nulled as an actor stamp in AUTHOR_UUID_NULLS), which the `*_user_id` detector cannot see.
+  'vendor_crew_codes',
   // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
   // the reviewing staff member, which the detector correctly treats as a staff
   // actor and skips. So the table holding vendors' government IDs / DTI / BIR
@@ -143,6 +153,20 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // until 2026-09-18, when the table was DROPPED (migration 20271234094457) and
   // its OWN_ROW_DELETES_BY_EMAIL rule removed with it. G7 measures PURGED minus
   // in-scope, so the pin had to leave in the same change.
+  // Event Hub music (2026-10-08). Its one user column is `created_by` →
+  // auth.users: the admin who uploaded a track. Neither a `*_user_id` name nor
+  // an inline FK to public.users, so the detector cannot see it; the stamp is
+  // nulled all the same (AUTHOR_UUID_NULLS).
+  'hub_music_tracks',
+  // The SHOP wallet (2026-10-23, option A) — keyed by vendor_profile_id; its one
+  // user column is `created_by` (no FK), the actor who pressed a spend. Same
+  // blind spot as hub_music_tracks; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_papic_wallet_entries',
+  // Supplier gifts (2026-11-05) — the shop's gift purchases and its gift-stock ledger, keyed by vendor_profile_id;
+  // the one user column of each is `created_by` (no FK), the actor who pressed Buy or caused the entry. Same blind
+  // spot as the wallet; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_gift_purchases',
+  'shop_gift_stock_entries',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',
@@ -222,6 +246,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── lawful retention: financial + BIR records ──
   orders: 'Financial record retained under the BIR/bookkeeping basis (0026). The personal data on it is the transaction, not the profile.',
   payments: 'Financial record — retained with the order it settles.',
+  // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
+  app_store_purchases:
+    'Financial record — the Apple half of an order (its transaction id, environment and the price Apple charged), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Apple’s own refund notifications. No profile data: user_id is the buyer, the rest is the transaction.',
   receipts: 'BIR Official Receipt. issued_to_name/email/tin are the statutory content of the document; erasing them destroys the receipt.',
   order_refunds: 'Reconciliation decision attached to a retained financial record.',
   supplies_orders: 'Purchase record; delivery_address is part of the fulfilment evidence.',
@@ -286,6 +313,13 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // parser cannot see a DROP — same reason as calendar_feed_tokens above.
   vendor_release_history:
     'Table DROPPED 2026-09-18 — writers never shipped, 0 rows in prod ever. Nothing left to erase.',
+  // ⚠ TABLES DROPPED 2026-10-26 (migration 20271289858095, owner-approved) — the
+  // retired Mood Board render schema. Their two SET NULL rules were removed from
+  // coverage.ts in the same change (a rule against a dropped table records an
+  // erasure FAILURE). Listed only because the parser cannot see a DROP.
+  event_renders: 'Table DROPPED 2026-10-26 — the retired Mood Board renders; 0 rows in prod. Nothing left to erase.',
+  event_render_share_consent:
+    'Table DROPPED 2026-10-26 — the retired renders\u2019 share consent; its one row (the owner\u2019s own) was erased with owner approval. Nothing left to erase.',
   // Same parser limit. Their purge rules left coverage.ts in the same change.
   event_delegates:
     'Table DROPPED 2026-09-18 (S37) — superseded by event_moderators, no writer ever, 0 rows. Nothing left to erase.',
@@ -358,6 +392,8 @@ const PARTIALLY_PURGED: Record<string, string> = {
 
   events:
     'PURGED: birth/consent data, the photo-delivery account + credential, and the wizard_state personal payload. DEFERRED: bride/groom names, venue, and ~20 jointly-authored jsonb blobs (love_story, our_photos, std_media, reception_design …) — the shared-record DPO question.',
+  event_gift_records:
+    'PURGED: the screenshot the subject attached to "I sent it" — the object in the private bucket and the pointer to it (their own bank or e-wallet screen: financial personal data, theirs alone). DEFERRED: giver_name, amount_php and message — the row is also the HOST’s list of who gave what and what they wrote with it, the same own-vs-shared line already drawn for `guests`. Open for the DPO/owner: whether the words a guest wrote with a gift should go with the account too.',
   guests:
     'PURGED: the subject’s face enrolments, the R2 selfies behind them, and their selfie display photo. DEFERRED: first/last name, email, mobile, address on the same rows — that row is also the host’s record of their invitee.',
   chat_messages:
@@ -609,6 +645,8 @@ test('G9 · every table where the own-vs-shared line runs THROUGH it is document
     'event_paperwork',
     'oauth_grants',
     'vendor_verification_applications',
+    // Added 2026-10-08 — the screenshot goes, the host's list of gifts stays.
+    'event_gift_records',
   ];
   const undocumented = partialByDesign.filter((t) => !(t in PARTIALLY_PURGED));
   assert.deepEqual(

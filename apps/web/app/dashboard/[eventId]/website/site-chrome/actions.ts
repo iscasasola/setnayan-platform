@@ -19,12 +19,13 @@ import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { parseClientRef, eventMediaPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { refChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
+import { publishedHubMusicRef } from '@/lib/hub-music-server';
 
 /**
  * 🔴 SEC-1: a client-supplied ref, pinned to THIS event's own media folder.
@@ -56,6 +57,7 @@ export async function updateSiteChrome(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   await requireHostMembership(eventId);
 
   // Omit-when-untouched (council §1.4 hardening): only write a column when the
@@ -97,6 +99,19 @@ export async function updateSiteChrome(
       events.site_bg_music_r2_key = musicRef;
       events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on' && Boolean(musicRef);
     }
+    /* 🎵 OUR MUSIC (owner 2026-10-08) — a pick from the list an admin uploads.
+       The form names a TRACK, never a file: the reference is looked up here,
+       through the couple's own client, and only a PUBLISHED track has one. A
+       pick that no longer resolves writes no song (the one in place stays);
+       `bg_music_keep` is the same panel flipping the switch on a song it is not
+       changing. Either way the switch is written. */
+    if (formData.has('bg_music_track') || formData.has('bg_music_keep')) {
+      const ourRef = formData.has('bg_music_track')
+        ? await publishedHubMusicRef(supabase, formData.get('bg_music_track'))
+        : null;
+      if (ourRef) events.site_bg_music_r2_key = ourRef;
+      events.site_bg_music_enabled = formData.get('bg_music_enabled') === 'on';
+    }
     if (formData.has('hero_video_url')) {
       events.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'), eventId);
     }
@@ -108,7 +123,8 @@ export async function updateSiteChrome(
     // Checkbox: present only when checked. Music can't be enabled without a track.
     const enabledRequested = formData.get('bg_music_enabled') === 'on';
     const musicChange = refChange(stored?.site_bg_music_r2_key as string | null | undefined, musicRef);
-    if (await lookProAllows(eventId, musicChange)) {
+    // 💎 Your own song is the Music part's (owner 2026-10-22, gate 7).
+    if (await lookProAllows(eventId, musicChange, 'music')) {
       update.site_bg_music_r2_key = musicRef;
       update.site_bg_music_source = musicRef ? 'upload' : null;
       update.site_bg_music_enabled = enabledRequested && Boolean(musicRef);
@@ -125,7 +141,8 @@ export async function updateSiteChrome(
       stored?.landing_page_hero_video_r2_key as string | null | undefined,
       videoRef,
     );
-    if (await lookProAllows(eventId, videoChange)) {
+    // 💎 Your own film at the top of the Hub is the Reveal part's (owner 2026-10-22, gate 5a).
+    if (await lookProAllows(eventId, videoChange, 'reveal')) {
       update.landing_page_hero_video_r2_key = videoRef;
     } else {
       refused = true;

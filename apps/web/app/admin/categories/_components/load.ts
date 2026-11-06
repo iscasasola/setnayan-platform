@@ -77,7 +77,7 @@ export async function loadVocab(admin: Admin, opts: { readiness: boolean }): Pro
   const [etRes, faithRes, readiness] = await Promise.all([
     admin
       .from('event_type_vocab')
-      .select('event_type, label_en, emoji, description, sort_order, status, enabled, onboarding_href, hero_photo_url')
+      .select('event_type, label_en, emoji, description, sort_order, status, enabled, onboarding_href, hero_photo_url, for_whom')
       .order('sort_order', { ascending: true })
       .order('event_type', { ascending: true }),
     admin
@@ -101,6 +101,7 @@ export async function loadVocab(admin: Admin, opts: { readiness: boolean }): Pro
       enabled: boolean | null;
       onboarding_href: string | null;
       hero_photo_url: string | null;
+      for_whom: string[] | null;
     }>
   ).map((r) => ({
     key: r.event_type,
@@ -112,6 +113,7 @@ export async function loadVocab(admin: Admin, opts: { readiness: boolean }): Pro
     enabled: r.enabled === true,
     onboardingHref: r.onboarding_href,
     heroPhotoUrl: r.hero_photo_url,
+    forWhom: Array.isArray(r.for_whom) ? r.for_whom : null,
   }));
 
   const readinessBy = new Map(readiness.map((r) => [r.ceremonyType, r]));
@@ -186,7 +188,7 @@ type SchemaRow = {
  */
 export async function loadCategories(admin: Admin, openTileId: string | null): Promise<CategoriesData> {
   const failed: string[] = [];
-  const [tax, schemasRes, extraRes, reqRes, deadlinesRes, aliasRes, leafCountRes] = await Promise.all([
+  const [tax, schemasRes, extraRes, reqRes, deadlinesRes, aliasRes, leafCountRes, oneRes] = await Promise.all([
     getTaxonomy(),
     admin
       .from('canonical_service_schemas')
@@ -209,6 +211,8 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
       .order('phrase', { ascending: true })
       .limit(2000),
     admin.from('onboarding_refinements').select('tile_id'),
+    // ONE PER EVENT (owner 2026-10-29) — its own read: an unreadable switch says so on the panel (null), never "off".
+    admin.from('service_categories').select('id, one_per_event, default_chapters').eq('tier', 2),
   ]);
   if (tax.source === 'fallback') failed.push('the category tree');
   noteFailure(failed, 'services', schemasRes.error);
@@ -217,6 +221,13 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
   noteFailure(failed, 'deadlines', deadlinesRes.error);
   noteFailure(failed, 'search words', aliasRes.error);
   noteFailure(failed, 'what couples choose', leafCountRes.error);
+  const onePerEvent = oneRes.error
+    ? null
+    : new Map(((oneRes.data ?? []) as Array<{ id: string; one_per_event: boolean | null }>).map((r) => [r.id, r.one_per_event === true]));
+  // 📖 Usual chapters (2026-11-04) — the same read; unreadable → null, said on the panel, never "none".
+  const usualChapters = oneRes.error
+    ? null
+    : new Map(((oneRes.data ?? []) as Array<{ id: string; default_chapters: string[] | null }>).map((r) => [r.id, r.default_chapters ?? []]));
 
   const extra = new Map(
     ((extraRes.data ?? []) as Array<{ canonical_service: string; applicable_event_types: string[] | null; merged_into: string | null }>).map(
@@ -310,6 +321,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
     label: tax.folderLabel[id] ?? id,
     short: tax.folderShortLabel[id] ?? tax.folderLabel[id] ?? id,
     iconName: tax.categoryIcons[id] ?? null,
+    hint: tax.categoryHints?.[id] ?? null,
   }));
 
   const categories: Category[] = await Promise.all(
@@ -329,6 +341,9 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
         serviceCount: serviceCount.get(id) ?? 0,
         faithCount: faithCount.get(id) ?? 0,
         refinementCount: refinementCount.get(id) ?? 0,
+        onePerEvent: onePerEvent ? onePerEvent.get(id) ?? false : null,
+        defaultChapters: usualChapters ? usualChapters.get(id) ?? [] : null,
+        hint: tax.categoryHints?.[id] ?? null,
       };
     }),
   );

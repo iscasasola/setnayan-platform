@@ -1,6 +1,6 @@
 import { test } from 'node:test';
-import { rosterDoors } from './roster-doors';
 import { DETAILS_ITEM_GROUPS, detailsItemHref } from './maker-details-items';
+import { makerItemMovedToViewHref } from './guests-views';
 import { yourEventItems, yourEventLabel } from './details-your-event';
 import { stripComments } from './strip-comments';
 import assert from 'node:assert/strict';
@@ -133,36 +133,22 @@ test('a pair may not span two printed groups — the two never share a line', ()
   }
 });
 
-// ── the roster keeps both rows and every column ────────────────────────────
+// ── the roster keeps both rows ────────────────────────────────────────────
 
 const ROSTER = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'),
   'utf8',
 );
-const COLUMNS_SRC = readFileSync(join(process.cwd(), 'lib', 'roster-columns.ts'), 'utf8');
 
-test('⚖ the roster never collapses a pair, and removes no column', () => {
+test('⚖ the roster never collapses a pair', () => {
   /*
     RSVP, meal, seat and contact are facts about a PERSON — a ninang can decline
     while her ninong attends — so the roster shows two rows and every column.
     Collapsing there would be the one change this ruling forbids.
+    (2026-10-09: the column-vocabulary and table-header halves of this test
+    pinned the retired GuestListMultiselect and went with it; the list is now
+    `guests-screen.tsx`.)
   */
-  const head = ROSTER.slice(ROSTER.indexOf('<thead'), ROSTER.indexOf('</thead>'));
-  // 🪤 A COLUMN IS A HEADER CELL HOWEVER IT IS SPELLED. Since #5793 six of the
-  // eight render through `<ArrangeTh>` (the header became the arrangement
-  // control), so counting literal `<th` tags reported "down to 2 columns" while
-  // all eight were on screen — this assertion went red on a merge, not on a
-  // removal. Matched at a tag boundary so `<ArrangeThing` could not count.
-  // ⤷ 2026-09-30, the full-width list: after ☐ and Name the header draws one
-  // cell per SLOT, and every column stays one a slot can show — so "removes no
-  // column" is now: the whole vocabulary is still offered, and the header draws
-  // a cell for every slot.
-  assert.match(head, /desk\.columns\.map\(/, 'the header no longer draws a cell per slot');
-  const vocab = /export const ROSTER_COLUMNS = \[([\s\S]*?)\] as const/.exec(COLUMNS_SRC)?.[1] ?? '';
-  const columns = (vocab.match(/'[a-z]+'/g) ?? []).length;
-  assert.ok(columns >= 8, `the roster is down to ${columns} columns`);
-  for (const c of ['rsvp', 'seat', 'contact']) assert.ok(vocab.includes(`'${c}'`), `the ${c} column is gone`);
-
   // Rows are emitted per GUEST, never per pair: no mount is conditioned on a
   // partner, and nothing skips a row because somebody else already showed it.
   assert.ok(
@@ -222,8 +208,9 @@ test('🔑 the arranging is reachable WITHOUT knowing to filter first — every 
     exist. The maker draws EVERY section the march has — nothing filters it.
   */
   assert.match(stripComments(MARCH_LOAD), /return groups\s*\.map\(\(g, gi\) => \(\{/, 'the march maker draws only some sections');
-  // The one filter drops a section left EMPTY (everyone in it is drawn elsewhere) — never a role or a view.
-  assert.deepEqual([...stripComments(MARCH_LOAD).matchAll(/\.filter\(\(sec\) => ([^)]*)\)/g)].map((m) => m[1]), ['sec.rows.length > 0']);
+  // The one filter drops a section left EMPTY (everyone in it is drawn elsewhere) — never a role or a view; 🏷 the
+  // couple's own group stays even empty (owner 2026-10-29 — a group just made holds nobody yet).
+  assert.deepEqual([...stripComments(MARCH_LOAD).matchAll(/\.filter\(\(sec\) => ([^)]*)\)/g)].map((m) => m[1]), ['sec.rows.length > 0 || isOwnMarchGroup(sec.key']);
   assert.match(stripComments(MAKER), /\{shown\.map\(\(sec\) => \{/, 'the maker no longer draws every section it is handed');
   assert.doesNotMatch(stripComments(MAKER), /shown\.filter\(/, 'the maker filters the sections it is handed');
 });
@@ -306,8 +293,9 @@ test('⛔ the drag path posts NAMES, and touches no chair', () => {
 //    "THE GUEST LIST KEEPS PEOPLE…" (owner 2026-09-29): the march's one home is
 //    the Maker's Details › Your event, in the three parts. ────────────────────
 
+// ⤷ Maker PR 4f: the List · Mind map switcher is the screen's List · Map · Setup.
 const SWITCHER = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'view-switcher.tsx'),
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'),
   'utf8',
 );
 const PAGE = readFileSync(
@@ -338,9 +326,13 @@ test('🔑 there is a LABELLED way in — the march is an item of Details › St
   assert.ok(group?.keys.includes('march'), 'Details › Story & plans has no march');
   assert.equal(yourEventLabel('march', WEDDING_KIND), 'Wedding March', 'the item has no readable label');
   assert.equal(detailsItemHref('E', 'march'), '/dashboard/E/launch?tool=details&item=march');
-  // An old Guest list link lands on it.
-  assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(detailsItemHref\(eventId, 'march'\)\);/);
-  assert.ok(!rosterDoors({ eventId: 'E', view: 'list', finished: false, hasJoinLink: true }).tabs.some((d) => /walk|march/i.test(d.key)));
+  // 🗂 R4 (owner 2026-10-27/28): the march's home is Guests › March — its Maker address and the old Guest list links
+  // land there (lib/r4-seats-march-forwards.test.ts holds every door); the Guest list's view row offers it.
+  assert.equal(makerItemMovedToViewHref('E', 'march'), '/dashboard/E/guests?gview=march');
+  assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(guestsViewHref\(eventId, 'march'\)\);/);
+  // 🎚 2026-10-30: the row is ONE ▾ on every view — March is one of its choices where the event has it (lib/guests-views.ts).
+  assert.match(stripComments(SWITCHER), /\.\.\.\(tops\.includes\('march'\) \? \[\{ key: 'march'/);
+  assert.match(stripComments(SWITCHER), /const tops = GUESTS_TOPS\.filter\(\(t\) => t === 'guests' \|\| guestsViews\.includes\(t\)\);/);
 });
 
 test('🚶 the Wedding March is ONE item whose page is the drag maker — never a list of its names (owner 2026-10-06)', () => {
@@ -355,7 +347,10 @@ test('🚶 the Wedding March is ONE item whose page is the drag maker — never 
   }
   const PARTS = stripComments(readFileSync(join(LAUNCH, 'details-your-event-parts.tsx'), 'utf8'));
   assert.doesNotMatch(PARTS, /march:\s*<MarchPieces|\bMarchPieces\b/, 'the navigator lists the march’s lines again');
-  assert.match(PARTS, /march: \(\s*<MarchMaker\s+eventId=\{eventId\}\s+sections=\{input\.march\.sections\}/, 'the item’s page is not the maker');
+  // 🗂 R4: the maker is drawn whole by Guests › March (and the dev lab); the Maker's item is its door.
+  assert.match(PARTS, /march: input\.march\.lab \? \(\s*<MarchMaker\s+eventId=\{eventId\}\s+sections=\{input\.march\.sections\}/, 'the lab’s item page is not the maker');
+  const GM = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-march.tsx'), 'utf8'));
+  assert.match(GM, /<MarchMaker\s+eventId=\{eventId\}\s+sections=\{shown\.sections\}/, 'Guests › March is not the maker');
   // No toolbar, no buttons, no ↑↓ in the maker — a drag of a name is the only edit.
   // (The keyboard's ↑ / ↓ keys move a HELD name — they are keys, not drawn arrows.)
   assert.doesNotMatch(MARCH_UI, /<ArrowUp|<ArrowDown|Walk earlier|Walk later|PickMenu|<button[^>]*>\s*(Move|Swap|Pair|Add)\b/);
@@ -377,7 +372,9 @@ test('⚖ a move keeps you where you made it', () => {
     assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
   }
   // (Since 2026-10-06 a drop is DRAFTED — owner: *"Wait for apply"* — through the same one refresh.)
-  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? Promise\.resolve\(LAB_SAVED\) : draftStep\(eventId, patch\)/);
+  /* RE-AIMED 2026-10-09: the lab's save moved into `labStep()` (it lands, or with ?refuse=1 throws database words the toast turns into its own sentence) — and the
+     refusal of either door is caught in ONE place (`the-march-wears-the-templates.test.ts`). The drop still goes through `makerSave`, one refresh per burst. */
+  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? labStep\(\) : draftStep\(eventId, patch\)\)\.catch/);
   assert.match(MARCH_UI, /lab \? LAB_NO_RENDER : requestMakerRefresh,\s*\);/);
 });
 
@@ -402,7 +399,7 @@ test('🔑 a celebration with no processional is not offered one', () => {
   // ⚖ And never back in the List · Mind map switcher (owner 2026-09-21: "wedding march is repeated?").
   const switcherCode = stripComments(SWITCHER);
   assert.ok(
-    !/Wedding March/.test(switcherCode) && !/key: 'walk'/.test(switcherCode),
+    !/Wedding March/.test(switcherCode) && !/seg\('walk'/.test(switcherCode),
     'Wedding March is back in the List · Mind map switcher',
   );
 });

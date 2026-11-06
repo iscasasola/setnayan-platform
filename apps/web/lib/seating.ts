@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { parseGuestSeatView, type GuestSeatView } from './guest-seat-view';
+import { compareTables, sortTables } from './table-order';
+import { rosterRoleRank } from './role-groups';
+import type { GuestRole } from './guests';
 import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibility';
 import { isVendor3dBoothActive } from './vendor-3d-booth-pricing';
 import { boothBrandedAtEvent, fetchEventBrandedBoothVendorIds } from './vendor-3d-booth-event-pricing';
@@ -120,6 +124,10 @@ export type EventTableRow = {
   // print as ONE named table under link_group_label. Seating math stays per-table.
   link_group_id?: string | null;
   link_group_label?: string | null;
+  // 🪑 VIP table (owner 2026-11-02, "VIP Table/s will be identified"): the host marks it in the table's own settings;
+  // auto arrange seats role holders here first, role first then group. Optional so render-only literals need not set
+  // it; fetchTables always returns a boolean.
+  is_vip?: boolean;
 };
 
 export type SeatAssignmentRow = {
@@ -131,6 +139,9 @@ export type SeatAssignmentRow = {
   // never moves. Optional on the type so pre-migration reads + render-only
   // literals don't need it; fetchAssignments coalesces to false.
   locked?: boolean;
+  /** 🪑 Who placed this seat — 'couple' · 'auto' · null = not recorded (lib/seat-why.ts, owner 2026-10-29). */
+  placed_by?: string | null;
+  placed_at?: string | null;
 };
 
 // Read-time coordinate/capacity healing (Sync verdict § 4 + render-crash guard
@@ -163,16 +174,18 @@ export async function fetchTables(
   const { data, error } = await supabase
     .from('event_tables')
     .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label',
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label,is_vip',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchTables failed: ${error.message}`);
+  // 🪑 ONE ORDER (owner 2026-11-01, lib/table-order.ts): the label read naturally first, then sort_order — so tied or
+  // shuffled sort_orders never reorder the List, the prints or the auto arrange.
   // Defensive defaults so the editor + PDF work even before the rotation/
   // removed-seats migration is applied (the columns just read as 0 / []), plus
   // read-time coord/capacity healing so a malformed row degrades, never crashes.
-  return (data ?? []).map((t) => {
+  return sortTables((data ?? []).map((t) => {
     const r = t as EventTableRow;
     return {
       ...r,
@@ -185,8 +198,9 @@ export async function fetchTables(
       qr_published_at: r.qr_published_at ?? null,
       link_group_id: r.link_group_id ?? null,
       link_group_label: r.link_group_label ?? null,
+      is_vip: r.is_vip === true,
     };
-  });
+  }));
 }
 
 export async function fetchAssignments(
@@ -195,7 +209,7 @@ export async function fetchAssignments(
 ): Promise<SeatAssignmentRow[]> {
   const { data, error } = await supabase
     .from('event_seat_assignments')
-    .select('assignment_id,table_id,guest_id,seat_number,locked')
+    .select('assignment_id,table_id,guest_id,seat_number,locked,placed_by,placed_at')
     .eq('event_id', eventId);
   if (error) throw new Error(`fetchAssignments failed: ${error.message}`);
   // Coalesce locked → false so a pre-migration read never yields undefined.
@@ -233,17 +247,30 @@ export async function fetchSeatingConstraints(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<KeepApartRule[]> {
+  return (await fetchSeatingConstraintsMeasured(supabase, eventId)).rules;
+}
+
+/**
+ * The same rules, and WHETHER THE READ HAPPENED. `measured: false` = refused or never answered: `rules` is `[]`
+ * because nobody knows, not because the couple set none. A page may draw the plain form (no rules shown); anything
+ * that SEATS people from them asks this — two guests kept apart must not be seated together because a read blipped.
+ */
+export async function fetchSeatingConstraintsMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ rules: KeepApartRule[]; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_seating_constraints')
     .select('guest_a_id,guest_b_id')
     .eq('event_id', eventId)
     .eq('kind', 'keep_apart');
   if (error) console.error('[supabase-error] lib/seating.ts · from:event_seating_constraints.select', error);
-  if (error) return [];
-  return (data ?? []).map((r) => {
+  if (error) return { rules: [], measured: false };
+  const rules = (data ?? []).map((r) => {
     const row = r as { guest_a_id: string; guest_b_id: string };
     return { guest_a_id: row.guest_a_id, guest_b_id: row.guest_b_id };
   });
+  return { rules, measured: true };
 }
 
 // Per-event floor-plan markers (stage + single entrance door). All coords are
@@ -301,10 +328,15 @@ export type FloorPlanRow = {
   // Auto-seat per-role choice (owner 2026-09-30): role set → 'together' |
   // 'group'. {} = every set sits together (the owner's default).
   role_seating: RoleSeating;
+  // 🪑 Where the +1s of VIP guests sit (owner 2026-11-02, "FINAL SEATING PRECEDENCE"): 'beside' (default) = beside
+  // them at the VIP table · 'nearest' = all of them together at the table(s) nearest the VIP tables.
+  vip_plus_ones: VipPlusOneSeating;
   // Host choice for guest PHOTOS in the public 3D venue walk (owner 2026-07-03):
   // 'table' (default) = own tablemates only · 'all' = every seated face · 'none'
   // = no photos. Photos are always token-gated in the RPC; this sets the reach.
   venue_photo_visibility: 'table' | 'all' | 'none';
+  /** 🪑 How a guest sees their seat — 2D map · 3D walk · Both (owner 2026-11-01, lib/guest-seat-view.ts). */
+  guest_seat_view: GuestSeatView;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -341,17 +373,32 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   published_at: null,
   priority_order: null,
   role_seating: {},
+  vip_plus_ones: 'beside',
   venue_photo_visibility: 'table',
+  guest_seat_view: 'both',
 };
 
 export async function fetchFloorPlan(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FloorPlanRow> {
+  return (await fetchFloorPlanMeasured(supabase, eventId)).plan;
+}
+
+/**
+ * The floor plan, and WHETHER THE READ HAPPENED. `measured: false` = refused or never answered: `plan` is the
+ * DEFAULT plan because nobody knows where the couple put the stage — not because they left it there. A caller that
+ * ranks, suggests or states anything from the stage's position asks this; the plain form above cannot tell a real
+ * default from an unread one. (No row yet is an ANSWER: `measured: true`, the defaults.) Never throws.
+ */
+export async function fetchFloorPlanMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ plan: FloorPlanRow; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,venue_photo_visibility',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,vip_plus_ones,venue_photo_visibility,guest_seat_view',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -359,12 +406,12 @@ export async function fetchFloorPlan(
   // the defaults so the seating page never crashes on the floor-plan read.
   if (error) {
     console.error('[supabase-error] seating: event_floor_plan (using defaults)', error, { eventId });
-    return { ...DEFAULT_FLOOR_PLAN };
+    return { plan: { ...DEFAULT_FLOOR_PLAN }, measured: false };
   }
-  if (!data) return { ...DEFAULT_FLOOR_PLAN };
+  if (!data) return { plan: { ...DEFAULT_FLOOR_PLAN }, measured: true };
   const D = DEFAULT_FLOOR_PLAN;
   const num = (v: unknown, fb: number) => (v === null || v === undefined ? fb : Number(v));
-  return {
+  const plan: FloorPlanRow = {
     stage_x: num(data.stage_x, D.stage_x),
     stage_y: num(data.stage_y, D.stage_y),
     stage_w: num(data.stage_w, D.stage_w),
@@ -409,11 +456,14 @@ export async function fetchFloorPlan(
     published_at: (data as { published_at?: string | null }).published_at ?? null,
     priority_order: parsePriorityOrder((data as { priority_order?: unknown }).priority_order),
     role_seating: parseRoleSeating((data as { role_seating?: unknown }).role_seating),
+    vip_plus_ones: parseVipPlusOneSeating((data as { vip_plus_ones?: unknown }).vip_plus_ones),
     venue_photo_visibility: ((): 'table' | 'all' | 'none' => {
       const v = (data as { venue_photo_visibility?: unknown }).venue_photo_visibility;
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
     })(),
+    guest_seat_view: parseGuestSeatView((data as { guest_seat_view?: unknown }).guest_seat_view),
   };
+  return { plan, measured: true };
 }
 
 // Real-world footprint WIDTH (metres) of each table type including its ring of
@@ -968,6 +1018,62 @@ function tablePoint(t: EventTableRow, index: number, total: number): { x: number
   };
 }
 
+/**
+ * 🪑 The first RUN of `n` free chairs side by side around a table of `capacity` (chairs wrap: the last sits beside the
+ * first), lowest start first — or null when no run that long is free. `taken` holds occupied and removed chairs.
+ * 🔒 lib/tables-keep-one-order-and-never-stack.test.ts
+ */
+export function consecutiveRun(taken: ReadonlySet<number>, capacity: number, n: number): number[] | null {
+  if (n <= 0 || n > capacity) return null;
+  for (let s = 0; s < capacity; s++) {
+    const run = Array.from({ length: n }, (_, k) => (s + k) % capacity);
+    if (run.every((c) => !taken.has(c))) return run;
+  }
+  return null;
+}
+
+/** 🪑 Where the +1s of VIP guests sit — the host's ONE pick in Seats settings (owner 2026-11-02, "FINAL SEATING PRECEDENCE"). */
+export type VipPlusOneSeating = 'beside' | 'nearest';
+export const VIP_PLUS_ONE_OPTIONS: ReadonlyArray<{ key: VipPlusOneSeating; label: string }> = [
+  { key: 'beside', label: 'Beside them at the VIP table' },
+  { key: 'nearest', label: 'At the nearest table to the VIP' },
+];
+/** A stored value is read, never repaired: anything but 'nearest' is the default, 'beside'. */
+export function parseVipPlusOneSeating(raw: unknown): VipPlusOneSeating {
+  return raw === 'nearest' ? 'nearest' : 'beside';
+}
+
+/**
+ * 🪑 What auto arrange could NOT do as the rules say — SHOWN to the host, never done silently (owner 2026-11-02:
+ * "a set that cannot fit is shown, never split silently").
+ *   · 'no_room'  — these guests got no chair at all;
+ *   · 'split'    — a group (or a guest and their +1s) that fits one table landed on more than one;
+ *   · 'vip_full' — role holders the VIP tables had no room for; they sit with their group instead.
+ */
+export type AutoSeatCannotFit = { kind: 'no_room' | 'split' | 'vip_full'; guestIds: string[]; tableIds: string[] };
+export type AutoSeatOptions = {
+  /** Where the +1s of VIP guests sit. Omitted = 'beside'. */
+  vipPlusOnes?: VipPlusOneSeating;
+  /** Filled with every rule auto arrange could not keep (the caller shows it). */
+  cannotFit?: AutoSeatCannotFit[];
+};
+
+/** One line for the host naming what did not fit — '' when everything did. `nameOf` resolves a guest's name. */
+export function cannotFitWords(list: readonly AutoSeatCannotFit[], nameOf: (guestId: string) => string): string {
+  const who = (ids: string[]) => {
+    const first = nameOf(ids[0] ?? '') || 'A guest';
+    return ids.length > 1 ? `${first} +${formatCount(ids.length - 1)}` : first;
+  };
+  const parts = list.map((c) =>
+    c.kind === 'no_room'
+      ? `no chair for ${who(c.guestIds)}`
+      : c.kind === 'split'
+        ? `${who(c.guestIds)} split across ${formatCount(c.tableIds.length)} tables`
+        : `VIP tables full — ${who(c.guestIds)} sit with their group`,
+  );
+  return parts.length > 0 ? `Didn’t fit: ${parts.join(' · ')}` : '';
+}
+
 export function computeAutoSeat(
   tables: EventTableRow[],
   guests: AutoSeatGuest[],
@@ -987,8 +1093,12 @@ export function computeAutoSeat(
   // Owner 2026-09-30: per role set, 'together' (default) or 'group'. null =
   // every set sits together — the owner's rule.
   roleSeating: RoleSeating | null = null,
+  // Owner 2026-11-02 (FINAL SEATING PRECEDENCE): the VIP +1 pick, and where to say what could not fit.
+  opts: AutoSeatOptions = {},
 ): AutoSeatRow[] {
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id));
+  const report = opts.cannotFit;
+  const vipPlusOnes: VipPlusOneSeating = opts.vipPlusOnes ?? 'beside';
 
   // Per-table occupancy: which seat numbers are taken + a live free count.
   // Deleted chairs (removed_seats) are pre-marked occupied so auto-seat never
@@ -1040,8 +1150,17 @@ export function computeAutoSeat(
   // through. Guests already seated (by hand or a prior
   // run) are never moved; a unit whose members are already seated somewhere
   // grows from THAT table instead.
+  //
+  // 🪑 FINAL SEATING PRECEDENCE (owner 2026-11-02): when the host has marked VIP tables, role holders are seated at
+  // them FIRST — role first (the Guests list's role order), then group — and only then does the rest above run
+  // (a role holder the VIP tables had no room for sits with their GROUP, and is shown). Inside every unit, everyone
+  // with a role sits first, together, in role order; +1s stay beside whoever brought them.
   const rank = resolvePriorityRank(priorityOrder);
   const nameKey = (g: AutoSeatGuest) => `${g.last_name} ${g.first_name}`.toLowerCase();
+  const hasRole = (g: AutoSeatGuest) => g.role !== 'guest' && !roleSet.coupleRoles.has(g.role);
+  const roleOrder = (g: AutoSeatGuest) => (hasRole(g) ? rosterRoleRank(g.role as GuestRole) : Number.MAX_SAFE_INTEGER);
+  /** Role holders first, in role order; then everyone else; each by name. */
+  const byRoleThenName = (a: AutoSeatGuest, b: AutoSeatGuest) => roleOrder(a) - roleOrder(b) || nameKey(a).localeCompare(nameKey(b));
   const eligibleIds = new Set(eligible.map((g) => g.guest_id));
   const byId = new Map(guests.map((g) => [g.guest_id, g] as const));
   const baseKeyOf = (g: AutoSeatGuest): string => {
@@ -1071,17 +1190,170 @@ export function computeAutoSeat(
       primaries.push(g);
     }
   }
+
+  const tableOfGuest = new Map(assignments.map((a) => [a.guest_id, a.table_id] as const));
+  const stageIndex = new Map(pool.map((t, i) => [t.table_id, i] as const));
+  const pointById = new Map<string, { x: number; y: number }>();
+  tables.forEach((t, i) => pointById.set(t.table_id, tablePoint(t, i, tables.length)));
+  const dist2 = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  };
+  const free = (t: EventTableRow) => freeCount.get(t.table_id) ?? 0;
+  // The first tables (in `order`) with room, until they seat `size`.
+  const cover = (order: EventTableRow[], size: number): EventTableRow[] => {
+    const out: EventTableRow[] = [];
+    let room = 0;
+    for (const t of order) {
+      if (room >= size) break;
+      if (free(t) <= 0) continue;
+      out.push(t);
+      room += free(t);
+    }
+    return out;
+  };
+  const around = (anchor: EventTableRow, byDistance: boolean): EventTableRow[] => {
+    if (!byDistance) return [anchor, ...pool.filter((t) => t !== anchor)];
+    const ap = pointById.get(anchor.table_id)!;
+    return pool
+      .slice()
+      .sort(
+        (a, b) =>
+          (a === anchor ? -1 : 0) - (b === anchor ? -1 : 0) ||
+          dist2(pointById.get(a.table_id)!, ap) - dist2(pointById.get(b.table_id)!, ap) ||
+          stageIndex.get(a.table_id)! - stageIndex.get(b.table_id)!,
+      );
+  };
+  const largestTable = pool.reduce((m, t) => Math.max(m, effectiveCapacity(t.capacity, t.removed_seats)), 0);
+
+  const result: AutoSeatRow[] = [];
+  const seatedIds = new Set<string>();
+  const seatAt = (g: AutoSeatGuest, table: EventTableRow, at?: number) => {
+    const occ = occupied.get(table.table_id)!;
+    let seat = at !== undefined && !occ.has(at) ? at : 0;
+    if (at === undefined || occ.has(at)) while (occ.has(seat)) seat++;
+    occ.add(seat);
+    freeCount.set(table.table_id, free(table) - 1);
+    result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
+    seatedIds.add(g.guest_id);
+  };
+  const runAt = (t: EventTableRow, n: number) => (n > 1 ? consecutiveRun(occupied.get(t.table_id)!, sanitizeCapacity(t.capacity), n) : null);
+  /**
+   * Seat one chunk (a guest + their +1s) at the first table of `cluster` with a RUN of chairs for all of it, else the
+   * first with room for all of it, else (only when `spill`) wherever there is a chair. Returns the tables used ([] =
+   * nobody seated).
+   */
+  const seatChunk = (chunk: AutoSeatGuest[], cluster: EventTableRow[], spill: boolean): string[] => {
+    // A chunk (guest + plus-ones + pair) shares a table whenever one has room.
+    const home = cluster.find((t) => free(t) >= chunk.length && (chunk.length === 1 || runAt(t, chunk.length) !== null)) ?? cluster.find((t) => free(t) >= chunk.length);
+    /* 🪑 BESIDE EACH OTHER (owner 2026-11-01, *"makes sure that they get to sit beside each other"*): a chunk takes a RUN
+       of consecutive chairs around the table (`consecutiveRun`), never the scattered lowest-free ones a half-full
+       table would hand out. No run that long → the lowest free chairs, as before. */
+    const run = home ? runAt(home, chunk.length) : null;
+    if (home && run) {
+      chunk.forEach((g, k) => seatAt(g, home, run[k]));
+      return [home.table_id];
+    }
+    if (home) {
+      chunk.forEach((g) => seatAt(g, home));
+      return [home.table_id];
+    }
+    if (!spill) return [];
+    const used = new Set<string>();
+    for (const g of chunk) {
+      const t = cluster.find((x) => free(x) > 0) ?? (cluster[0] ? around(cluster[0], true).find((x) => free(x) > 0) : undefined);
+      if (!t) break;
+      seatAt(g, t);
+      used.add(t.table_id);
+    }
+    return [...used];
+  };
+  const isSeated = (g: AutoSeatGuest) => seatedIds.has(g.guest_id);
+
+  // ── 🪑 VIP TABLES FIRST: ROLE FIRST, THEN GROUP (owner 2026-11-02, "VIP should always be role first then group").
+  // Who: every eligible role holder, except a role set the couple switched to "Sit with their group". Order: the
+  // Guests list's role order, then group, then name — so each role sits together. A role holder's +1s follow the
+  // host's pick: beside them here ('beside'), or ALL together at the table(s) nearest the VIP tables ('nearest').
+  const vipTables = pool.filter((t) => t.is_vip === true);
+  const vipDone = new Set<string>(); // seated at a VIP table, or a VIP +1 placed below — out of the unit flow
+  const vipOverflow = new Set<string>(); // role holders the VIP tables had no room for → their group
+  const awayChunks: AutoSeatGuest[][] = []; // 'nearest': every VIP guest's +1s, seated together below
+  if (vipTables.length > 0) {
+    const isVipGuest = (g: AutoSeatGuest) => {
+      if (!hasRole(g) || keyOf.get(g.guest_id)?.startsWith('beside:')) return false;
+      const set = roleSeatingSetOf(g.role);
+      return !set || roleSeatingChoice(roleSeating, set) === 'together';
+    };
+    const vipGuests = primaries
+      .filter(isVipGuest)
+      .sort(
+        (a, b) =>
+          roleOrder(a) - roleOrder(b) ||
+          (a.group_id ?? '￿').localeCompare(b.group_id ?? '￿') ||
+          nameKey(a).localeCompare(nameKey(b)),
+      );
+    for (const g of vipGuests) {
+      const ones = plusOnesBy.get(g.guest_id) ?? [];
+      // 'nearest' sends the +1s away — except a +1 who holds a role of their own, who is a VIP guest too.
+      const away = vipPlusOnes === 'nearest' ? ones.filter((x) => !hasRole(x)) : [];
+      const chunk = [g, ...ones.filter((x) => !away.includes(x))];
+      if (seatChunk(chunk, vipTables, false).length === 0) {
+        vipOverflow.add(g.guest_id);
+        continue;
+      }
+      chunk.forEach((x) => vipDone.add(x.guest_id));
+      if (away.length > 0) {
+        awayChunks.push(away);
+        away.forEach((x) => vipDone.add(x.guest_id));
+      }
+    }
+    // A +1 whose VIP guest was seated at a VIP table on an earlier run joins the others ('nearest').
+    if (vipPlusOnes === 'nearest') {
+      const vipIds = new Set(vipTables.map((t) => t.table_id));
+      for (const g of primaries) {
+        const k = keyOf.get(g.guest_id) ?? '';
+        if (k.startsWith('beside:') && vipIds.has(tableOfGuest.get(k.slice(7)) ?? '')) {
+          awayChunks.push([g]);
+          vipDone.add(g.guest_id);
+        }
+      }
+    }
+    if (vipOverflow.size > 0) report?.push({ kind: 'vip_full', guestIds: [...vipOverflow], tableIds: vipTables.map((t) => t.table_id) });
+  }
+  // 'nearest': ALL VIP +1s together — the non-VIP tables nearest any VIP table (2D distance, ties → the natural
+  // table order), as few as hold them.
+  if (awayChunks.length > 0) {
+    const vipPts = vipTables.map((t) => pointById.get(t.table_id)!);
+    const toVip = (t: EventTableRow) => Math.min(...vipPts.map((p) => dist2(pointById.get(t.table_id)!, p)));
+    const near = pool.filter((t) => t.is_vip !== true).sort((a, b) => toVip(a) - toVip(b) || compareTables(a, b));
+    const size = awayChunks.reduce((n, c) => n + c.length, 0);
+    const cluster = cover(near, size);
+    const used = new Set<string>();
+    for (const chunk of awayChunks) seatChunk(chunk, cluster, true).forEach((id) => used.add(id));
+    const all = awayChunks.flat();
+    const unseated = all.filter((g) => !isSeated(g));
+    if (unseated.length > 0) report?.push({ kind: 'no_room', guestIds: unseated.map((g) => g.guest_id), tableIds: [] });
+    if (used.size > 1 && size <= largestTable) report?.push({ kind: 'split', guestIds: all.map((g) => g.guest_id), tableIds: [...used] });
+  }
+
+  // A role holder the VIP tables could not take sits with their GROUP (everyone else: group first).
+  const unitKeyOf = (g: AutoSeatGuest): string =>
+    vipOverflow.has(g.guest_id) ? (g.group_id ? `group:${g.group_id}` : `solo:${g.guest_id}`) : keyOf.get(g.guest_id)!;
   type Unit = { key: string; chunks: AutoSeatGuest[][]; size: number; rank: number; setOrder: number; name: string };
   const unitMembers = new Map<string, AutoSeatGuest[]>();
   for (const g of primaries) {
-    const k = keyOf.get(g.guest_id)!;
+    if (vipDone.has(g.guest_id)) continue;
+    const k = unitKeyOf(g);
     const arr = unitMembers.get(k) ?? [];
     arr.push(g);
     unitMembers.set(k, arr);
   }
   const units: Unit[] = [];
   for (const [key, members] of unitMembers) {
-    members.sort((a, b) => nameKey(a).localeCompare(nameKey(b)));
+    // 🪑 ROLES CLUSTERED INSIDE THE GROUP (owner 2026-11-02, "all with roles must be clustered together as well in
+    // that group"): role holders first, in role order, so they take consecutive chairs; then everyone else by name.
+    members.sort(byRoleThenName);
     // Chunks = what must share a table: a guest + their plus-ones.
     const done = new Set<string>();
     const chunks: AutoSeatGuest[][] = [];
@@ -1108,7 +1380,6 @@ export function computeAutoSeat(
   units.sort((a, b) => a.rank - b.rank || a.setOrder - b.setOrder || a.name.localeCompare(b.name));
 
   // Where each unit's already-seated members sit — the table it grows from.
-  const tableOfGuest = new Map(assignments.map((a) => [a.guest_id, a.table_id] as const));
   const seatedCountByKey = new Map<string, Map<string, number>>();
   for (const a of assignments) {
     const g = byId.get(a.guest_id);
@@ -1118,7 +1389,6 @@ export function computeAutoSeat(
     m.set(a.table_id, (m.get(a.table_id) ?? 0) + 1);
     seatedCountByKey.set(k, m);
   }
-  const stageIndex = new Map(pool.map((t, i) => [t.table_id, i] as const));
   const anchorFor = (key: string): EventTableRow | undefined => {
     if (key.startsWith('beside:')) {
       const tid = tableOfGuest.get(key.slice(7));
@@ -1139,38 +1409,6 @@ export function computeAutoSeat(
   // neighbours by floor distance (ties → stage order). With the couple's
   // adjacency opt-out, a GROUP spills in plain stage order instead; a role set
   // always stays in one neighbourhood (the owner's "never scattered").
-  const pointById = new Map<string, { x: number; y: number }>();
-  tables.forEach((t, i) => pointById.set(t.table_id, tablePoint(t, i, tables.length)));
-  const dist2 = (a: { x: number; y: number }, b: { x: number; y: number }) => {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return dx * dx + dy * dy;
-  };
-  const free = (t: EventTableRow) => freeCount.get(t.table_id) ?? 0;
-  const around = (anchor: EventTableRow, byDistance: boolean): EventTableRow[] => {
-    if (!byDistance) return [anchor, ...pool.filter((t) => t !== anchor)];
-    const ap = pointById.get(anchor.table_id)!;
-    return pool
-      .slice()
-      .sort(
-        (a, b) =>
-          (a === anchor ? -1 : 0) - (b === anchor ? -1 : 0) ||
-          dist2(pointById.get(a.table_id)!, ap) - dist2(pointById.get(b.table_id)!, ap) ||
-          stageIndex.get(a.table_id)! - stageIndex.get(b.table_id)!,
-      );
-  };
-  // The first tables (in `order`) with room, until they seat `size`.
-  const cover = (order: EventTableRow[], size: number): EventTableRow[] => {
-    const out: EventTableRow[] = [];
-    let room = 0;
-    for (const t of order) {
-      if (room >= size) break;
-      if (free(t) <= 0) continue;
-      out.push(t);
-      room += free(t);
-    }
-    return out;
-  };
   const tablesFor = (unit: Unit): EventTableRow[] => {
     const byDistance = unit.key.startsWith('role:') || unit.key.startsWith('beside:') || groupAdjacency;
     const anchor = anchorFor(unit.key);
@@ -1190,27 +1428,26 @@ export function computeAutoSeat(
     return best;
   };
 
-  const result: AutoSeatRow[] = [];
-  const seatAt = (g: AutoSeatGuest, table: EventTableRow) => {
-    const occ = occupied.get(table.table_id)!;
-    let seat = 0;
-    while (occ.has(seat)) seat++;
-    occ.add(seat);
-    freeCount.set(table.table_id, free(table) - 1);
-    result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
-  };
   for (const unit of units) {
+    const members = unit.chunks.flat();
     const cluster = tablesFor(unit);
-    if (cluster.length === 0) break; // room is full — the rest stay unseated
-    for (const chunk of unit.chunks) {
-      // A chunk (guest + plus-ones + pair) shares a table whenever one has room.
-      const home = cluster.find((t) => free(t) >= chunk.length);
-      for (const g of chunk) {
-        const t = home ?? cluster.find((x) => free(x) > 0) ?? around(cluster[0]!, true).find((x) => free(x) > 0);
-        if (!t) break;
-        seatAt(g, t);
-      }
+    // Room is full — the rest stay unseated, and are SHOWN.
+    if (cluster.length === 0) {
+      report?.push({ kind: 'no_room', guestIds: members.map((g) => g.guest_id), tableIds: [] });
+      continue;
     }
+    const used = new Set<string>();
+    for (const chunk of unit.chunks) {
+      const at = seatChunk(chunk, cluster, true);
+      at.forEach((id) => used.add(id));
+      // A guest and their +1s on two tables is a split — shown.
+      if (at.length > 1) report?.push({ kind: 'split', guestIds: chunk.map((g) => g.guest_id), tableIds: at });
+    }
+    const unseated = members.filter((g) => !isSeated(g));
+    if (unseated.length > 0) report?.push({ kind: 'no_room', guestIds: unseated.map((g) => g.guest_id), tableIds: [] });
+    // A group that fits one table but landed on more — shown (a group bigger than any table takes neighbours, as ruled).
+    else if (used.size > 1 && unit.size <= largestTable && !unit.key.startsWith('solo:') && !unit.key.startsWith('beside:'))
+      report?.push({ kind: 'split', guestIds: members.map((g) => g.guest_id), tableIds: [...used] });
   }
   return result;
 }
@@ -1251,6 +1488,8 @@ export type SolveInput = {
   groupAdjacency?: boolean;
   // Owner 2026-09-30: per-role "sit together" / "sit with their group".
   roleSeating?: RoleSeating | null;
+  // Owner 2026-11-02: the VIP +1 pick + where to say what could not fit (threaded to the warm start).
+  autoSeat?: AutoSeatOptions;
 };
 
 export type SolveResult = {
@@ -1278,7 +1517,7 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
   } = input;
 
   // Warm start (priority + stage aware; ignores constraints). No rules → done.
-  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet, groupAdjacency, roleSeating);
+  const warm = computeAutoSeat(tables, guests, assignments, stage, priorityOrder, roleSet, groupAdjacency, roleSeating, input.autoSeat);
   const totalRules = constraints.length;
   if (totalRules === 0) {
     return { assignments: warm, violations: [], satisfiedCount: 0, totalRules: 0 };
@@ -1538,6 +1777,8 @@ export type ReconcileInput = {
   groupAdjacency?: boolean;
   /** Owner 2026-09-30: per-role "sit together" / "sit with their group". */
   roleSeating?: RoleSeating | null;
+  /** Owner 2026-11-02: where the +1s of VIP guests sit. Omitted = 'beside'. */
+  vipPlusOnes?: VipPlusOneSeating;
 };
 
 export type ReconcileResult = {
@@ -1586,8 +1827,9 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
           roleSet,
           groupAdjacency,
           roleSeating,
+          autoSeat: { vipPlusOnes: input.vipPlusOnes },
         }).assignments
-      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating);
+      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating, { vipPlusOnes: input.vipPlusOnes });
 
   const placedIds = new Set(placed.map((r) => r.guest_id));
   const takenSeat = new Set(placed.map((r) => `${r.table_id}#${r.seat_number}`));

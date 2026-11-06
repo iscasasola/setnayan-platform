@@ -1,16 +1,15 @@
 import Link from 'next/link';
-import { DressCodeFields } from '../../../studio/mood-board/_components/dress-code-fields';
-import { IncDressCodeStarterNote } from '../../../studio/mood-board/_components/inc-dress-code-starter-note';
 import type { LoveStoryBlob } from '../../our-story/_components/story-fields';
 import { LoveStoryChaptersPanel } from '../../our-story/_components/love-story-chapters-panel';
 import { WordsReturnTo } from '../../our-story/_components/words-return-to';
-import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moments-editor';
-import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
+/* ⚡ The lazy stand-in (`details-lazy.tsx`, the `maker-details` chunk) — the SAME component, loaded on first use. */
+import { PhotoMomentsEditor } from '../../../launch/_components/details-lazy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Authoring panels for the unified editor (PR-8) — the last multi-field
@@ -23,50 +22,13 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  * read every field on each save, so a partial hand-written form would silently
  * wipe the lists it didn't post. Sharing the fields makes that impossible and
  * keeps the panel and the page from drifting.
+ *
+ * ⚡ `DressCodePanel` moved to `dress-code-panel.tsx` (2026-10-21, Maker headroom): a client module the Maker
+ * reaches through its lazy stand-in (`launch/_components/details-lazy.tsx`), so the dress-code form leaves
+ * the Maker's first load — it draws only when the Dress code row opens.
  */
 
 const PANEL = 'border-t border-dashed border-ink/10 bg-cream/40 p-3';
-
-export function DressCodePanel({
-  action,
-  eventId,
-  config,
-  eventNoun,
-  eventRoles = [],
-  incStarter = false,
-}: {
-  action: (formData: FormData) => void | Promise<void>;
-  eventId: string;
-  config: DressCodeConfig;
-  eventNoun: string;
-  /** `config` holds the INC starter guidance, not a saved answer (`incDressCodeStarter`). */
-  incStarter?: boolean;
-  /** The roles on this event's guest list — so each role's outfit is set right here. */
-  eventRoles?: React.ComponentProps<typeof DressCodeFields>['eventRoles'];
-}) {
-  return (
-    <form action={action} className={PANEL}>
-      <HubDraftField />
-      <input
-        type="hidden"
-        name="return_to"
-        value={`/dashboard/${eventId}/website/editor?open=dress-code`}
-      />
-      {incStarter ? (
-        <div className="mb-3">
-          <IncDressCodeStarterNote />
-        </div>
-      ) : null}
-      <DressCodeFields config={config} eventNoun={eventNoun} eventRoles={eventRoles} compact />
-      <SubmitButton
-        pendingLabel="Saving…"
-        className="mt-3 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"
-      >
-        Save
-      </SubmitButton>
-    </form>
-  );
-}
 
 /**
  * Photo moments — the client editor owns its own form + submit (it manages a
@@ -109,7 +71,7 @@ export function StoryPanel({
      Maker Phase 7); a tap here opens one there. The words below still feed the
      invitation's story paragraph. */
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubDraftField />
       <WordsReturnTo eventId={eventId} />
       <LoveStoryChaptersPanel story={story} ownsPro={ownsPro} />
@@ -119,7 +81,7 @@ export function StoryPanel({
       >
         Save your answers
       </SubmitButton>
-    </form>
+    </SafeForm>
   );
 }
 

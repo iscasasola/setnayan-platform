@@ -1,0 +1,21 @@
+-- 20271286935967 · drop the unread Papic camera points probe
+--
+-- Papic sells credits only (rd/papic-sells-only-credits): the camera tiers and
+-- the per-camera seat cards came off the host's Papic screens, and with them the
+-- last caller of papic_camera_points_remaining — the "shots left" line on each
+-- seat card on /studio/papic/crew. The both-ends guard
+-- (tests/db/ugat-both-ends.db.test.ts) then ranked it `rpc-no-caller`: no app
+-- literal, and no SQL body, policy, trigger, view, default or CHECK names it.
+--
+-- It was display only. The one capture gate is papic_reserve_capture_split,
+-- recorded by papic_record_seat_capture / papic_record_guest_capture; the upload
+-- presign reads papic_event_points_remaining_for_seat. Neither reads this probe.
+-- Dropping it also takes one function off the anon EXECUTE surface
+-- (it was granted to anon by 20270821110100).
+--
+-- NOT touched: papic_seat_dedicated_points, papic_event_points_remaining_for_seat,
+-- papic_reserve_capture_split and the usage tables they read.
+--
+-- Not CASCADE: an unexpected dependant fails the push loudly.
+
+DROP FUNCTION IF EXISTS public.papic_camera_points_remaining(uuid);

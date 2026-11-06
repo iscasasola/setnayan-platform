@@ -44,8 +44,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { readSchema } from './migration-schema';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readDeclaredViews, readSchema } from './migration-schema';
 import { stripComments } from '../strip-comments';
 import {
   extractAllSelectConstants,
@@ -121,26 +123,11 @@ const KNOWN_PHANTOM_CEILING = 2;
  * about views, or admitting a real phantom table — say which, in the commit.
  */
 const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
-  bottleneck_signals_current: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  identity_clusters: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  vendor_fraud_scores: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  vendor_full_completed_events_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  vendor_public_completed_events_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  vendor_review_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  vendor_trusted_review_stats: 'matview in prod; readSchema() parses CREATE TABLE only.',
-  events_host: 'view in prod; readSchema() parses CREATE TABLE only.',
-  vendor_market_stats: 'view in prod; readSchema() parses CREATE TABLE only.',
-  vendor_profiles_self:
-    'view created by migration 20271217955839; readSchema() parses CREATE TABLE only — the ' +
-    'same blind spot as events_host directly above, which is the view this one is modelled on. ' +
-    'WHICH OF THE TWO IT IS, said explicitly because this list demands it: a PARSER GAP, not a ' +
-    'phantom relation. Teaching readSchema() about CREATE VIEW would still not resolve it — the ' +
-    'projection is computed from information_schema inside a DO block, precisely so a column ' +
-    'cannot silently drop out of it. What guards it instead is stronger than this scanner would ' +
-    'be: post-condition 6 of that migration REFUSES TO APPLY unless the view projects every ' +
-    'column of vendor_profiles, and tests/db/a-shop-tax-identity-is-not-public.db.test.ts reads ' +
-    'real values back through it as the shop, as a teammate, and as a stranger (who must get ' +
-    'zero rows).',
+  /* 2026-10-26: the ten views and matviews that sat here (events_host, vendor_market_stats, vendor_profiles_self and the
+     seven stats/fraud matviews) are GONE — `readDeclaredViews()` (./migration-schema) now reads every CREATE [OR REPLACE]
+     [MATERIALIZED] VIEW the migrations declare, so T11 resolves them by name. Their COLUMNS are still not guarded
+     (the column scanner's limit 4); only "does the relation exist" is. Triggered by ③a's
+     `inspiration_part_categories_derived`, which a reader selects. */
   reel_music_tracks:
     'ordinary TABLE in prod (relkind=r) that readSchema() does not pick up — a real ' +
     'parser gap, not a phantom. Worth closing; it is not a drive-by.',
@@ -159,15 +146,21 @@ const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
  * The alternative was leaving eleven identity columns readable by every
  * signed-in account. The entry's own note says why teaching the parser about
  * views would not have avoided it, and names the two guards that do cover it.
+ *
+ * 12 → 2 on 2026-10-26: `readDeclaredViews()` taught T11 every view and matview a migration declares (T11b proves the
+ * forms it reads), so the ten view entries were deleted — including `vendor_profiles_self`, whose name the parser now
+ * sees even though its projection is still built in a DO block (its own two guards still cover the columns).
  */
-const KNOWN_UNRESOLVED_CEILING = 12;
+const KNOWN_UNRESOLVED_CEILING = 2;
 
 /** Relations named by a `.from()` that the migration schema cannot resolve. */
 function unresolvedTables(): Map<string, string[]> {
   const schema = readSchema();
+  // A relation a migration declares as a VIEW exists too (`readDeclaredViews`, names only — its columns stay unguarded).
+  const views = readDeclaredViews();
   const out = new Map<string, string[]>();
   for (const site of scanSelectSites()) {
-    if (schema.get(site.table)) continue;
+    if (schema.get(site.table) || views.has(site.table)) continue;
     const at = `${site.file}:${site.line}`;
     const prior = out.get(site.table);
     if (prior) prior.push(at);
@@ -401,6 +394,30 @@ test('T11 · no .from() names a relation the migrations never declared', () => {
       '  Fix the table name. If it is a view or matview that genuinely exists in\n' +
       '  prod, add it to KNOWN_UNRESOLVED_TABLES with proof and raise the ceiling.',
   );
+});
+
+test('T11b · readDeclaredViews sees every form a migration writes a view in — and drops what a later DROP removes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'views-'));
+  try {
+    writeFileSync(
+      join(dir, '0001_a.sql'),
+      [
+        '-- CREATE VIEW public.prose_only AS SELECT 1;',
+        'CREATE OR REPLACE VIEW public.with_options',
+        'WITH (security_invoker = true) AS',
+        '  SELECT 1 AS x;',
+        'CREATE MATERIALIZED VIEW IF NOT EXISTS bare_matview AS SELECT 1;',
+        'create view "public"."quoted_view" as select 1;',
+        'CREATE VIEW public.dropped_later AS SELECT 1;',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, '0002_b.sql'), 'DROP VIEW IF EXISTS public.dropped_later;\n');
+    assert.deepEqual([...readDeclaredViews(dir)].sort(), ['bare_matview', 'quoted_view', 'with_options']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  /* …and on the real migrations: ③a's view, written WITH (security_invoker = true). */
+  assert.ok(readDeclaredViews().has('inspiration_part_categories_derived'), 'the parser misses the parts view');
 });
 
 test('T12 · no KNOWN_UNRESOLVED_TABLES entry has gone stale, and the list may only shrink', () => {

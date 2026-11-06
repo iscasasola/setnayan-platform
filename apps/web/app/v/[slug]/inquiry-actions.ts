@@ -675,8 +675,11 @@ export async function startServiceInquiry(input: {
       const cardKind = ownedById.get(initialServiceId) ?? null;
       if (cardKind) {
         let tileForKind: string | null = null;
+        // The same snapshot answers the coarse category (③0-c: `service_categories.coarse_category`).
+        // `getTaxonomy()` never throws — it falls back to the code snapshot.
+        const tax = await getTaxonomy();
         try {
-          tileForKind = (await getTaxonomy()).map[cardKind]?.tile ?? null;
+          tileForKind = tax.map[cardKind]?.tile ?? null;
         } catch {
           tileForKind = null;
         }
@@ -690,8 +693,8 @@ export async function startServiceInquiry(input: {
           (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Supplier';
         const { error: insertError } = await supabase.from('event_vendors').insert({
           event_id: eventId,
-          category: eventVendorCategoryForCardKind(cardKind, tileForKind),
-          category_key: eventVendorCategoryKeyForCardKind(cardKind, tileForKind),
+          category: eventVendorCategoryForCardKind(cardKind, tileForKind, tax),
+          category_key: eventVendorCategoryKeyForCardKind(cardKind, tileForKind, tax),
           vendor_name: vendorNameForRow,
           status: 'considering',
           marketplace_vendor_id: vendorProfileId,

@@ -221,7 +221,7 @@ test('⚖ two consents about one photo stay two', () => {
   const line = toggle.slice(at, toggle.indexOf('`}', at));
   console.log(`  toggle help: ${line.slice(line.indexOf('·')).slice(0, 72)}…`);
   assert.match(line, /profile photo/i, 'the public-profile toggle does not mention the photo');
-  assert.match(line, /celebrations/i, 'it must still say what it always said');
+  assert.match(line, /events you’ve made public/i, 'it must still say what it always said ("celebrations" → "events", house word 2026-10-04)');
 });
 
 test('🖼 the poster reads the hub hero through the SIGNER, never the raw column', () => {

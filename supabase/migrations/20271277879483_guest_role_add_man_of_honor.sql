@@ -1,0 +1,34 @@
+-- guest_role_add_man_of_honor
+-- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
+-- existing migration.
+--
+-- WHY. Owner, verbatim 2026-10-19 (DECISION_LOG "A MAN OF HONOR"): *"we give
+-- them a choice maid/matron/man of honor. so they can have male/female version
+-- like bestman and best woman"* — and, the same night, *"so maid/matron of honor
+-- can have the same character. both female. but also want a man of honor
+-- option"*.
+--
+-- The groom's honour attendant already had a man's and a woman's word
+-- (`best_man` / `best_woman`, 20271253806528); the bride's had two women's
+-- (`maid_of_honor` / `matron_of_honor`). A bride whose closest friend is a man
+-- had to list him as "Maid of Honor".
+--
+-- `man_of_honor` is the ALTERNATIVE beside the maid and the matron, never a
+-- replacement: the bride's side (group Bridesmaids / the couple's renamed
+-- crew), the same place in the march (the bride's column of the honour line),
+-- the same Mood Board colour slot (palette key `maid_of_honor`), the same
+-- seating tier. He is dressed by the honour row's FOR MEN column — the best
+-- man's list (apps/web/lib/attire-designs.ts). Not exclusive: a couple may
+-- have a maid, a matron and a man of honor (owner 2026-09-14: "they can do as
+-- much as they want").
+--
+-- ⚠ NO BEGIN/COMMIT, AND NOTHING ELSE IN THIS FILE. A newly-added enum value
+-- cannot be referenced in the transaction that adds it — the same pattern as
+-- 20271253806528_guest_role_add_best_woman.sql. Additive and idempotent; no
+-- backfill (nobody holds it yet). RLS is untouched: the `guests` policies are
+-- row-level and never read the role.
+--
+-- Enum sort order = creation order, so this sorts last. Display order comes from
+-- ROLE_IMPORTANCE in apps/web/lib/role-groups.ts, never from the enum.
+
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'man_of_honor';

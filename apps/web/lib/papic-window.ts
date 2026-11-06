@@ -11,7 +11,7 @@
  *
  * ⚠ The window is NOT a price input. Papic is FLAT per camera (2026-07-22 naming
  * lock · migration 20270830568357): the charge is `cameras × rate`, no per-day
- * multiplier — matching /pricing (_papic-estimator.tsx). `days` (the calendar-
+ * multiplier — matching /pricing's former estimator (_papic-estimator.tsx, deleted 2026-10-25). `days` (the calendar-
  * inclusive span, ≥ 1) is surfaced for the seat window + labels only. The old
  * `cameras × rate/day × DAYS` bill engine was retired with the flat rename.
  *
@@ -501,4 +501,35 @@ export function formatCaptureCloseLabel(closeIso: string | null | undefined): st
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(t));
+}
+
+/**
+ * A Manila calendar day IN WORDS, the way a person says it: "Saturday,
+ * 12 December" — the year added only when it is not this (Manila) year.
+ *
+ * 📸 Owner 2026-10-13 (DECISION_LOG 📸 PAPIC TEST RESULTS): "guest dates in
+ * words" — "switches on Saturday, 12 December", on the venue's clock. The
+ * couple's "On from …" reads the same words, so the two can never disagree.
+ * null on an empty/unparseable input; the caller says something date-less.
+ */
+export function formatPapicDayInWords(
+  value: string | null | undefined,
+  nowMs: number = Date.now(),
+): string | null {
+  const d = manilaDate(value);
+  if (!isValidDateStr(d)) return null;
+  const at = new Date(`${d}T12:00:00${PAPIC_TZ_OFFSET}`);
+  const thisYear = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric' }).format(new Date(nowMs));
+  // Built from parts: the en-GB pattern drops its comma when the year is left
+  // out ("Saturday 12 December"), and the owner's words carry one.
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Manila',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).formatToParts(at);
+  const part = (t: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === t)?.value ?? '';
+  const year = part('year');
+  return `${part('weekday')}, ${part('day')} ${part('month')}${year === thisYear ? '' : ` ${year}`}`;
 }

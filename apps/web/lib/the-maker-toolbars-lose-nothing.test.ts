@@ -19,8 +19,12 @@
  *   · the question's buttons never say "Apply" (that word is the publish button);
  *   · Dawn is not a per-scene background (answer 1);
  *   · Size is − / + only — no S · M · L · XL and no number (answer 3);
- *   · the Colour panel is ONE panel: a pop-over from `lg`, a sheet section
- *     below it (answer 7).
+ *   · the Colour panel is ONE panel (answer 7) — and since 2026-10-08 it is THE
+ *     one colour picker, the Mood Board's sheet (owner: *"we already have a
+ *     design for the color palettes and how to pick colors on the moodboard.
+ *     apply that same concept on the background and on any other color rules
+ *     parts"* · *"restudy is good"*, `BACKGROUND_RESTUDY_2026-10-08_fable.md`
+ *     § 6 row 4): the well is its trigger, on every width.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,12 +47,16 @@ const HOME = {
   draftBar: 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
   background: `${EDITOR}/scene-background-row.tsx`,
   colour: `${EDITOR}/colour-well.tsx`,
+  picker: 'app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx',
   scene: `${EDITOR}/scene-inspector.tsx`,
   /* A scene's Animate tab moved to its own lazily-loaded module (Stages PR 2) — the rows, not lost. */
   sceneAnimate: `${EDITOR}/scene-animate-tab.tsx`,
   part: `${EDITOR}/part-inspector.tsx`,
   sheet: `${EDITOR}/element-sheet.tsx`,
   shell: `${EDITOR}/editor-shell.tsx`,
+  /* 🖨 R8 (owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints MOVED out of the Maker — Home's line opens its own page. */
+  printsHome: 'app/dashboard/[eventId]/_components/home-prints-line.tsx',
+  printsPage: 'app/dashboard/[eventId]/prints/page.tsx',
 } as const;
 
 /** [today's control, its new home, what the home must still say]. */
@@ -61,17 +69,22 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // → 2026-10-04 (PR-0, owner: ⋯ → 👁 Preview; "apply icon · undo icon · exit
   // icon"): ⋯'s rows moved to 👁 Preview (how the page is seen) and Page ▾ (the
   // rest, `makerPageActions`) — re-pointed again, still not dropped.
-  ['✕ Exit (now ‹, a 44 px icon)', 'topBar', ['data-maker-tool="exit"', 'aria-label="Exit"']],
-  ['▤ Show / hide the scenes (👁 Preview › Scenes)', 'topBar', ['data-maker-tool-row="scenes"', '>Scenes<', 'setNavOpen((o) => !o)']],
+  // 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)", call 1): ✕ Exit is DROPPED — its home is the app's own
+  // nav, which now stays on screen around the Maker (the shell sits in its room); Home is the ✕'s old door.
+  ['✕ Exit → the app’s nav (top bar · rail · bottom nav), kept on screen', 'topBar', ['MAKER_IN_THE_APP_CSS', 'useTheAppsRoom(shellRef)']],
+  ['…and "Your Event Hub" (who can view · the QR) → the pinned row’s ⚙', 'topBar', ['<HubSettingsGear', 'onOpenChange={setMoreOpen}']],
+  // ▤ Show / hide the scenes (👁 Preview › Scenes) — the OLD desktop's scenes column; deleted with the old Maker
+  //   (owner 2026-10-25). The desktop's parts column lists the page's parts (`maker-desk.tsx`, `DeskParts`).
   ['▶ Play this scene · Preview the whole stage (👁 Preview)', 'topBar', ['Play this scene', 'MAKER_PLAY_SCENE_EVENT', '<PreviewStageLink']],
   ['…the Preview link itself', 'play', ['Preview the whole']],
   // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): drawn from
   // the work area's registration ON A STAGE only (owner: *"it should only show on stages."*).
   ['＋ Add a scene (Page ▾, end of the stage)', 'topBar', ["stageAdd?.kind === 'ready'", 'stageAdd.open()', 'makerAddShowsOn(selection) ? addScene : null']],
   ['…its row', 'pageMenu', ["label: '＋ Add a scene'"]],
-  ['Stage row + "● Invitation ▾" → Page ▾ (the stages and their pages, one picker)', 'topBar', ['label="Page"', 'makerPageMenu({', 'onPick={pickPage}']],
+  ['Stage row + "● Invitation ▾" → Page ▾ → Stages ▾ (the stages and their pages, one picker — 2026-10-25)', 'topBar', ['<StudioSideSwitch', 'makerPageMenu({', 'onStage={pickPage}']],
   // View ▾ (Desktop · Phone · Both) → 👁 Preview's Phone / Desktop row + its Both row (1024 px and wider).
-  ['Desktop · Phone · Both', 'topBar', ['data-maker-tool-row="view"', 'makerViewToggle(shownDevice)', "o.key === 'both'"]],
+  // "Both" (phone and desktop side by side) went with the old desktop Maker (owner 2026-10-25; desk answer 1 had dropped it).
+  ['Desktop · Phone', 'topBar', ['data-maker-tool-row="view"', 'makerViewToggle(shownDevice)']],
   // ⊞ "Snap grid" was a switched-off row carrying only a note (`MAKER_SNAP_NOTE`) —
   // no control. It went with the bar's other explainers (2026-10-02, "no explainer captions").
   ['ⓘ About the Maker (Page ▾ › Your Event Hub)', 'topBar', ["act === 'about'", 'setTour(true)']],
@@ -89,9 +102,13 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['↺ Restore (Page ▾ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', "act === 'restore'"]],
   ['…its row', 'pageMenu', ["label: 'Restore what guests see'"]],
   ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],
-  ['Details (now "Event Details") and Prints (Page ▾) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
-  ['…Prints\' row', 'pageMenu', ['label: MAKER_PRINTS_LABEL']],
-  ['Look — the Look part of Details', 'topBar', ['MAKER_LOOK_LABEL', 'pressDoor(door)']],
+  ['Details (now "Event Details") — the door into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL']],
+  // 🖨 MOVED, NOT LOST (R8, 2026-10-27): Page ▾ › Prints and Settings › Prints left the Maker. Prints is its own page —
+  // the same Maker page drawing Prints alone — opened from Home's Prints line; a print opened in the Maker forwards there.
+  ['Prints (Page ▾ / Settings) — MOVED to its own page, opened from Home', 'printsHome', ['printsPageHref(eventId)', 'PRINTS_PAGE_LABEL']],
+  ['…the page: the shipped Maker page, drawing Prints alone', 'printsPage', ['<LaunchHubPage', '[PRINTS_PAGE_SURFACE]: true']],
+  ['…a print opened in the Maker lands there', 'topBar', ['usePrintsForward(eventId, { hasWork, printsPage, detailsItem })']],
+  ['Look — the Look part of Details (Studio › Look; the old bar door went 2026-10-25)', 'topBar', ['MAKER_LOOK_LABEL', "pressDoor('look')"]],
   // ── Scene inspector ──
   ['Background: No background · Full colour · Opaque glass · Frosted glass · Photo · Snippet', 'background', ["'No background'", "'Plain'", "'Opaque'", "'Frosted'", "'Upload media'", "kind: 'snippet'"]],
   ['Colour picked in a row below the chips', 'background', ['<ColourWell']],
@@ -116,7 +133,13 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Motion: Comes in (Fade · Move · Size · Blur · Speed · Delay) · During · Goes out · When it plays', 'part', ['<MotionFxRows end="in"', '<MotionSpeedRow', 'HUB_EL_DELAY', 'HUB_EL_DURING_WORDS', '<MotionFxRows end="out"', 'HUB_EL_TIMELINE']],
   ['▶ Play', 'part', ['Preview']],
   ['Resets: font · colour · motion · element', 'part', ['Use the Event Hub style', 'Move with the scene']],
-  ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
+  // 🎨 2026-10-08 (one picker): the well's own panel is retired — its theme colours are the sheet's "Your Mood
+  // Board" shelf, then what goes with them, the sixteen swatches and Custom. The device's "Saved colours" went
+  // with the panel (the owner's one picker has no such shelf) — `every-studio-colour-opens-the-one-picker.test.ts`.
+  // 📱 2026-10-17 (owner, verbatim: "Just have the Moodboard and Recently Used 5 colors"): the sheet fits one phone
+  // screen — "Goes with your Mood Board" and the sixteen swatches left it; the colours just picked there are "Recently used".
+  ['Theme colours → the one picker (Your Mood Board · Recently used · Custom)', 'colour', ['<ColourPickerSheet', 'palette={palette}', 'readsOn={readsOn}']],
+  ['…its shelves', 'picker', ['>Your Mood Board<', '>Recently used<', '>Custom<']],
   // 💎 2026-09-28: the Pro mark moved off the title onto the only Pro rows.
   ['Title: the part’s name', 'sheet', ['<PartPicker', 'HUB_ELEMENT_LABEL[target.el]']],
   ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],
@@ -126,11 +149,13 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['The sheet’s sections — Text · Motion · Arrange', 'sheet', ['PART_TABS', 'data-element-sections', '<ISeg key={t.key} tone="wine"', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
   // ── The wiring: every tab is mounted in the Maker, and #6048's words stay ──
   ['Scene tabs mounted: Format · Animate · Arrange · Content', 'shell', ['<InspectorTabs tabs={tabs}', '<SceneBackgroundRow', '<SceneAnimateTab', '<SceneArrangeTab', '<SceneLayoutRow', '<SceneParts']],
-  ['Transition folded into Animate (an old address opens Animate)', 'shell', ["asked === 'transition' ? 'animate' : asked", "tab: 'animate' })"]],
+  // ✏️ 2026-10-19: the fold moved into `makerWorkAreaTab` (`lib/maker-edit-owns-content.ts`, which also keeps Content
+  // out of the new Maker's Style); `edit-owns-content.test.ts` drives it: 'transition' → 'animate'.
+  ['Transition folded into Animate (an old address opens Animate)', 'shell', ['makerWorkAreaTab(asked, ss)', "tab: 'animate' })"]],
   ['#6048: the Content box + "Change it everywhere / Just this scene" + the Details chip', 'shell', ['<DetailsBoundField', 'contentBound', 'CanvasWordsContext.Provider']],
   ['Background choices preview on the canvas before their save', 'shell', ['postToCanvas(message)']],
   ['The part sheet’s Part ▾ and the scene it is on', 'shell', ['parts={', 'onPart={', 'sceneLabel={']],
-  ['⚡ Every choice on the canvas first (#6046)', 'sheet', ['onPreview?.(elementPreview(target.key, target.el, before, next))', 'onPreviewColour={previewColour}']],
+  ['⚡ Every choice on the canvas first (#6046)', 'sheet', ['onPreview?.(elementPreview(target.key, target.el, before, next))', "onPick={(hex) => choose('color', hex)}"]],
 ];
 
 test('every control from the "Today → New" strip still has its home', () => {
@@ -189,8 +214,7 @@ test('size is − / + only: no S · M · L · XL, no number; the stepper stops a
         choose: () => {},
         chooseAlign: () => {},
         resetText: () => {},
-        themeColours: ['#1b1a17'],
-        usedColours: [],
+        board: ['#1b1a17'],
         shownColour: '#1b1a17',
         contrast: null,
         eventId: 'e',
@@ -207,11 +231,16 @@ test('size is − / + only: no S · M · L · XL, no number; the stepper stops a
   assert.doesNotMatch(btn(mid, 'down'), / disabled=""/);
 });
 
-test('the Colour panel is ONE panel — a pop-over from lg, a section of the sheet below it', () => {
+test('the Colour panel is ONE panel — the one colour picker, opened by the well (2026-10-08)', () => {
+  /* Answer 7 was "a pop-over from lg, a section of the sheet below it" — ONE panel drawn once. The owner's
+     2026-10-08 ruling made it the Mood Board's sheet everywhere, so "one" now means: the well draws no panel
+     of its own and mounts the picker exactly once. */
   const colour = src(HOME.colour);
-  const panel = /data-colour-panel=""\s+className="([^"]+)"/.exec(colour)?.[1] ?? '';
-  assert.ok(panel, 'found the panel');
-  assert.match(panel, /\blg:absolute\b/, 'floats from lg (desktop)');
-  assert.doesNotMatch(panel.replace(/lg:\S+/g, ''), /\babsolute\b|\bfixed\b/, 'in the flow below lg (the phone sheet)');
-  assert.equal((colour.match(/data-colour-panel=/g) ?? []).length, 1, 'drawn once');
+  assert.doesNotMatch(colour, /data-colour-panel=/, 'the well draws a panel of its own again');
+  assert.equal((colour.match(/<ColourPickerSheet\b/g) ?? []).length, 1, 'the picker is mounted once');
+  assert.match(colour, /\{open \? <ColourSheet \{\.\.\.sheet\} onClose=\{\(\) => setOpen\(false\)\} \/> : null\}/, 'the well opens the picker, and closing it closes the well');
+  /* On a phone it is the Maker's one bottom sheet; on a wider screen the same body in a centred panel. */
+  const picker = src(HOME.picker);
+  assert.match(picker, /if \(sheet && pickOpensAsSheet\(true, wide\)\) return <>\{sheet\(\{ label, onClose, children \}\)\}<\/>;/);
+  assert.match(picker, /createPortal\(/);
 });

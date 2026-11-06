@@ -8,6 +8,8 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import {
   ACCEPTED_QUOTE_SELECT,
@@ -19,9 +21,16 @@ import {
 } from '@/lib/accepted-quote-terms';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { readCoverCatalog, type CoverCatalogRead } from '@/lib/cover-catalog.server';
+import { categoryKeyForAdd, homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { hasClaimAsk } from '@/lib/move-supplier-category.server';
+import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -35,14 +44,13 @@ import {
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
-import {
-  HARD_SINGLE_PICK_GROUPS,
-  planGroupForCategory,
-} from '@/lib/wedding-plan-groups';
+import { planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { isOnePerEventGroup, readOnePerEventGroups } from '@/lib/one-per-event';
 import { releaseForcedDate } from '@/lib/release-forced-date';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -71,8 +79,6 @@ import {
 } from '@/lib/schedule-pools';
 import {
   centavosToPhp,
-  computePlanInstances,
-  defaultPaymentScheduleRows,
   downpaymentPolicyFromRows,
   isProtectedPolicy,
   pctOfTotalPhp,
@@ -84,6 +90,16 @@ import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.ser
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { tellSupplierLockRequestWithdrawn } from '@/lib/lock-request-notices.server';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { closingCopy } from '@/lib/thread-closing-copy';
+import { freezePaymentPlanAtBooking } from '@/lib/booking-payment-plan.server';
+import {
+  changeOrderAnsweredNotice,
+  changeOrderProposedNotice,
+  type ChangeOrderForNotice,
+} from '@/lib/change-order-notice';
+import { readChangeOrderJustRaised } from '@/lib/change-order-notice.server';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import { computeLockImpact, type LockImpact } from '@/lib/lock-impact';
@@ -105,16 +121,27 @@ import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock'
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
+import { addOwnContactError } from '@/lib/add-your-own';
+import { stampManualLeakMatch } from '@/lib/manual-add-leak.server';
+import { supplierSharePayload } from '@/lib/supplier-share.server';
+import type { SupplierSharePayload } from '@/lib/supplier-share';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
-  lockMayOverwritePlan,
+  PLAN_PRESENT_FIELD,
+  onLockAnchorIso,
+  partialSaveSentence,
+  planInstanceSeqs,
   planInstancesToRows,
-  redateOnLockInstalments,
+  planSaveStep,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
-import { geocodeAddressWithCity } from '@/lib/geo';
+import { lastPlanReplot } from '@/lib/plan-replot';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
+import type { PayWayView } from '@/lib/self-added-pay-ways';
+import { geocodeAddressWithCity } from '@/lib/geo';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -163,6 +190,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
 // ============================================================================
 
 export async function updateVendorCosts(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -432,6 +460,8 @@ async function updateVendorStatus(formData: FormData) {
         email: prevRow.contact_email,
         displayLabel: prevRow.vendor_name ?? null,
         invitedByUserId: user.id,
+        // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
+        shopProfileId: prevRow.marketplace_vendor_id ?? null,
       });
     } catch {
       // best-effort — never block the booking-status write on the auto-invite.
@@ -440,9 +470,12 @@ async function updateVendorStatus(formData: FormData) {
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
-  // on the couple's tray + send a Resend email asking them to leave a
-  // review. Failure to emit must never roll back the status change itself,
-  // so emitNotification swallows errors internally.
+  // on the couple's tray asking them to leave a review.
+  // ⚠ "+ send a Resend email" was written here for months. There is no such
+  // email: `review_request` is not on the email allowlist and is declared
+  // app-only (lib/couple-supplier-notices.ts; owner 2026-10-11, "we manage
+  // without emails"). Failure to emit must never roll back the status change
+  // itself, so emitNotification swallows errors internally.
   if (
     status === 'delivered'
     && prev?.status !== 'delivered'
@@ -470,6 +503,7 @@ async function updateVendorStatus(formData: FormData) {
 }
 
 export async function deleteVendor(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -487,7 +521,7 @@ export async function deleteVendor(formData: FormData) {
   // and the status for the booked-row guard below.
   const { data: removing } = await supabase
     .from('event_vendors')
-    .select('category, status')
+    .select('category, status, marketplace_vendor_id, lock_request_state')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -524,6 +558,53 @@ export async function deleteVendor(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  // 🔴 THE ROW JUST DELETED MAY HAVE CARRIED A BOOKING REQUEST THE SUPPLIER WAS
+  // ASKED TO ANSWER. Deleting it takes the request away exactly as Withdraw
+  // does — the answer card disappears from their Today — and until 2026-10-10
+  // this door told them nothing. Read off the row BEFORE the delete (it is
+  // gone now); a row already booked is not a pending ask whatever marker it
+  // carries. Best-effort: the removal is done and a notice must not undo it.
+  const removed = (removing ?? null) as {
+    status?: VendorStatus;
+    marketplace_vendor_id?: string | null;
+    lock_request_state?: string | null;
+  } | null;
+  // The ONE derivation of "is a request still waiting" (lib/lock-request-state.ts)
+  // — never the raw column. `true`, not the flag: this asks what the ROW says,
+  // exactly as the expiry sweep does, because a request written while the
+  // handshake was on is still on the supplier's Today if the flag goes off.
+  const tookAnAskAway =
+    lockRequestStateOf(
+      { status: removed?.status ?? null, lock_request_state: removed?.lock_request_state ?? null },
+      true,
+    ) === 'requested';
+  if (tookAnAskAway && removed?.marketplace_vendor_id) {
+    try {
+      await tellSupplierLockRequestWithdrawn(createAdminClient(), {
+        eventId,
+        marketplaceVendorId: removed.marketplace_vendor_id,
+      });
+    } catch (e) {
+      console.error(
+        `[deleteVendor] withdrawn-request notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+  }
+  /*
+    ⛔ NOT TOLD, AND IT SHOULD BE: a supplier removed while a CONVERSATION is
+    still open (no booking request, just a thread). No notification type says
+    "the couple set you aside" — `inquiry_displaced` means the thread was
+    released because they booked someone else, and this thread is NOT released:
+    it stays open and the supplier can still answer and quote. Saying it needs
+    a new enum value, i.e. a migration, which was not written on 2026-10-10:
+
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_removed';
+
+    Until then the supplier's Today keeps showing "Reply to a new inquiry" for
+    a couple who removed them.
+  */
+
   // Re-anchor "ground 0" if a RECEPTION venue pick was just removed — the
   // distance chips for every other vendor fall back to the next reception
   // (or leave the existing anchor untouched if none has resolvable coords,
@@ -539,6 +620,10 @@ export async function deleteVendor(formData: FormData) {
   // confirmed, and the date has not already gone out to guests.
   await releaseForcedDate(supabase, { eventId, vendorId });
 
+  // A card that already took itself off the page (`answer_in_place`) must not
+  // be answered with a whole-page render — see `lib/answer-in-place.ts`; it
+  // pays one refresh later, for every press, when the couple leaves Find.
+  if (answersInPlace(formData)) return;
   // Revalidate both surfaces so an incompatible-pick Remove on the event
   // home (PR B 2026-05-22) clears the chip without a hard refresh, and
   // the vendor tracker stays in sync.
@@ -555,11 +640,10 @@ export async function deleteVendor(formData: FormData) {
 // hard-single conflict / error states without the "thrown error → page-fault"
 // UX that synchronous form actions produce.
 //
-// Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules + the
-// HARD_SINGLE_PICK_GROUPS set in lib/wedding-plan-groups.ts. As of the 22-card
-// grid expansion (2026-05-22), the hard-single set covers: ceremony_venue +
-// reception_venue + officiant + coordinator + host_mc + led_background — each
-// allows only ONE locked vendor at a time. If the host tries to lock a second
+// Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules. Which
+// groups allow only ONE locked vendor at a time is the category's "One per
+// event" switch (`service_categories.one_per_event`, owner 2026-10-29 — read
+// through lib/one-per-event.ts; LED is multi since that ruling). If the host tries to lock a second
 // vendor in one of those groups, the action returns 'hard_single_conflict'
 // with the existing locked vendor's info; the UI then offers a Switch flow
 // that (a) reverts the existing locked vendor to 'considering' and
@@ -589,7 +673,14 @@ export type LockMilestone = {
 };
 
 export type FinalizeVendorResult =
-  | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
+  | {
+      status: 'ok';
+      vendorId: string;
+      lockedStatus: string;
+      milestone: LockMilestone;
+      /** The category is One per event (`service_categories.one_per_event`) — the client asks "add another?" only when not. */
+      onePerEvent: boolean;
+    }
   // PR-H: the press was an ASK, not a booking. The supplier now has 48 HOURS to
   // agree or decline; nothing downstream has fired and no money is owed. Only
   // reachable with NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED on AND a marketplace
@@ -716,6 +807,8 @@ export type FinalizeVendorResult =
   // Off-platform / manual vendors carry no verification concept and never hit
   // this. Grandfathered: already-locked rows return 'already_locked' first.
   | { status: 'vendor_not_verified'; vendorId: string; vendorName: string }
+  /** 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 2). */
+  | { status: 'bookings_closed'; vendorId: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -927,6 +1020,7 @@ async function resolveLockImpact(args: {
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const overrideExistingRaw = formData.get('override_existing');
@@ -1023,6 +1117,8 @@ export async function finalizeVendor(
   // The read uses the admin client (public RLS on vendor_profiles is
   // verified-only; the couple already proved they own this booking above).
   if (targetVendor.marketplace_vendor_id) {
+    // 🚪 DOOR 2 · BOOKINGS CLOSED (owner 2026-11-02). A closed platform books nobody; the trigger is the backstop.
+    if (!(await areBookingsOpen())) return { status: 'bookings_closed', vendorId };
     const bookable = await isMarketplaceVendorBookable(
       createAdminClient(),
       targetVendor.marketplace_vendor_id,
@@ -1099,7 +1195,13 @@ export async function finalizeVendor(
   // write. The two write paths below convert a lost-the-race 23505 into the
   // same modal.
   const groupId = planGroupForCategory(targetCategory);
-  const isHardSingle = !!(groupId && HARD_SINGLE_PICK_GROUPS.has(groupId));
+  // ONE PER EVENT is read, not listed (owner 2026-10-29). A refused read must not lock as if "none" were one per
+  // event — say so and stop; the database guard would refuse a second booking anyway.
+  const onePerEvent = await readOnePerEventGroups(supabase);
+  if (!onePerEvent.ok) {
+    return { status: 'error', message: 'Couldn’t check this category just now — try booking again.' };
+  }
+  const isHardSingle = isOnePerEventGroup(groupId, onePerEvent.groups);
   const groupCategories: VendorCategory[] = isHardSingle
     ? VENDOR_CATEGORIES.filter((c) => planGroupForCategory(c) === groupId)
     : [];
@@ -1226,13 +1328,17 @@ export async function finalizeVendor(
       .eq('event_id', eventId)
       .maybeSingle();
     const existingDate = (dateRow as { event_date?: string | null } | null)?.event_date ?? null;
-    const candidates = Array.isArray(
-      (dateRow as { date_candidates?: unknown } | null)?.date_candidates,
-    )
-      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
-          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
-        )
-      : [];
+    // 💍 A candidate before December 19, 2026 is not a date this event may take (owner
+    // 2026-11-01, lib/event-date-floor.ts) — dropped before narrowing, so no lock ever
+    // writes it. The founders' events keep every candidate.
+    const candidates = await candidatesOnOrAfterFirstEventDay(
+      Array.isArray((dateRow as { date_candidates?: unknown } | null)?.date_candidates)
+        ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+            (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+          )
+        : [],
+      () => eventDateFloorExempt(supabase, { eventId }),
+    );
 
     if (!existingDate && candidates.length > 0) {
       // Profile ids of vendors that constrain the date: already-locked
@@ -1658,6 +1764,11 @@ export async function finalizeVendor(
             currentLimit: 0,
             existingHoldCount: 0,
           };
+        case 'blocked':
+          // 2026-10-14: the chosen time meets the supplier's "Not available"
+          // hours that day (e.g. every Sunday morning) — the same couple-facing
+          // words as a closed date (never who / why), so they pick another time.
+        // falls through
         case 'locked':
           // PHASE 5 gapfix: the vendor has a hard hold on this date — same
           // couple-facing outcome as a closure (never who / why / which state).
@@ -1975,7 +2086,30 @@ export async function finalizeVendor(
   // a supplier answering on day 6 inherits a downpayment dated six days
   // before they said yes, frozen.
   //
-  // They belong to the agreement, and they run from vendorAgreeToLock.
+  // They belong to the agreement.
+  //
+  // ⚠ THIS BLOCK ENDED "…and they run from vendorAgreeToLock." UNTIL 2026-10-10
+  // NONE OF THEM DID. `vendorAgreeToLock` called the `vendor_agree_to_lock` RPC,
+  // stamped the gift, narrowed the date and told the couple "they said yes" —
+  // and that was all, so a booking made through the handshake had no frozen
+  // payment plan and no "your payment info is ready".
+  //
+  // ✅ THE PAYMENT PLAN AND ITS NOTICE NOW DO: both callers go through
+  // `freezePaymentPlanAtBooking` (lib/booking-payment-plan.server.ts).
+  //
+  // ⛔ STILL NOT RUN AT THE YES, each for a stated reason:
+  //   · the reservation-terms evidence (`snapshotPolicyAcknowledgement`, below):
+  //     its input is the policy text the couple acknowledged AT THE ASK, and
+  //     nothing stores that between the ask and the yes;
+  //   · the rival sweep, the displacement, the category auto-complete and the
+  //     lock-proposal auto-resolve: not traced past this file's TypeScript.
+  // Bookings made before this change can be counted with
+  //   select count(*) from event_vendors ev
+  //    where ev.lock_request_state = 'agreed'
+  //      and ev.marketplace_vendor_id is not null
+  //      and ev.event_vendor_package_id is null
+  //      and not exists (select 1 from event_vendor_payment_plan p
+  //                       where p.event_vendor_id = ev.vendor_id);
   // ══════════════════════════════════════════════════════════════════════
   if (handshakeAsk) {
     const requestedAt = new Date();
@@ -2012,6 +2146,7 @@ export async function finalizeVendor(
           title: `${who} wants to book you`,
           body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
+          eventId,
         });
       }
     } catch (e) {
@@ -2132,6 +2267,7 @@ export async function finalizeVendor(
           relatedUrl: threadId
             ? `/vendor-dashboard/messages/${threadId}`
             : '/vendor-dashboard/bookings',
+          eventId,
         });
       }
     } catch (e) {
@@ -2172,183 +2308,22 @@ export async function finalizeVendor(
   try {
     const planAdmin = createAdminClient();
 
-    // Pull the booking total + event date for the resolution inputs.
-    const [{ data: evRow, error: evRowErr }, { data: eventRow }] = await Promise.all([
-      planAdmin
-        .from('event_vendors')
-        // Plan amounts are shares of the agreed total NOW (changes included).
-        .select(`total_cost_php, ${CHANGE_LINES_EMBED}`)
-        .eq('event_id', eventId)
-        .eq('vendor_id', vendorId)
-        .maybeSingle(),
-      planAdmin
-        .from('events')
-        .select('event_date')
-        .eq('event_id', eventId)
-        .maybeSingle(),
-    ]);
-    if (evRowErr) {
-      console.error('[lockVendor] payment-plan booking total read failed:', evRowErr.message);
-    }
-    const planRow = evRow as
-      | { total_cost_php: number | null; change_lines?: ChangeLineRow[] | null }
-      | null;
-    const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
-    const eventDateIso =
-      (eventRow as { event_date: string | null } | null)?.event_date ?? null;
-    // A self-added supplier's lock day is the day the couple clicked, in
-    // Manila — a 7am lock is not "yesterday". The marketplace path keeps its
-    // existing UTC day; changing it is a separate decision.
-    const lockDateIso = targetVendor.marketplace_vendor_id
-      ? new Date().toISOString().slice(0, 10)
-      : manilaTodayIso();
-
-    // Read the booked service's schedule template (seq-ordered). Off-platform /
-    // serviceless bookings → no rows → empty plan (direct-pay fallback).
-    let scheduleRows: PaymentScheduleItemRow[] = [];
-    if (targetVendor.service_id) {
-      const { data: rows } = await planAdmin
-        .from('vendor_service_payment_schedules')
-        .select('*')
-        .eq('vendor_service_id', targetVendor.service_id)
-        .order('seq', { ascending: true });
-      scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
-    }
-
-    // Default-seed: a marketplace vendor with a known total but NO configured
-    // schedule would otherwise hand the couple an empty plan / silent "pay
-    // directly". Seed a 50/50 ESTIMATED plan instead (flagged below) so the
-    // couple always sees a downpayment + balance they can confirm. Skipped when
-    // there's no total to estimate against — an empty plan is the honest state.
-    const seededDefault = scheduleRows.length === 0 && totalCostPhp != null;
-    if (seededDefault) {
-      scheduleRows = defaultPaymentScheduleRows();
-    }
-
-    const instances = computePlanInstances({
-      scheduleRows,
-      totalCostPhp,
-      lockDateIso,
-      eventDateIso,
+    // 🔑 ONE FUNCTION, TWO CALLERS (lib/booking-payment-plan.server.ts). This is
+    // the DIRECT path: the couple's press made the booking, so the plan is
+    // frozen now and the person who pressed is told. With the handshake on,
+    // this line is never reached — the function returned at the ask above — and
+    // `vendorAgreeToLock` calls the same function when the supplier says yes.
+    await freezePaymentPlanAtBooking(planAdmin, {
+      eventId,
+      vendorId,
+      booking: {
+        vendor_name: (targetVendor.vendor_name as string | null) ?? null,
+        marketplace_vendor_id: (targetVendor.marketplace_vendor_id as string | null) ?? null,
+        service_id: (targetVendor.service_id as string | null) ?? null,
+      },
+      tellUserId: user.id,
+      tag: 'finalizeVendor',
     });
-
-    // ── 🔒 THE COUPLE'S OWN PLAN SURVIVES THE LOCK (2026-09-21) ────────────
-    // This snapshot was written when only a marketplace supplier could have a
-    // plan, and its upsert below REPLACED whatever was there. Since 2026-09-20
-    // a couple can author a plan for a supplier they added — and locking that
-    // supplier found no service schedule, seeded a generic 50/50 ESTIMATE, and
-    // overwrote the plan the couple had typed. `lockMayOverwritePlan`
-    // (lib/self-added-payment-plan.ts, executed by its test) holds the rule.
-    //
-    // ⚠ AN UNREADABLE PLAN IS NOT AN ABSENT ONE. If this read fails, a
-    // self-added supplier's plan is LEFT ALONE rather than overwritten blind —
-    // the couple's typed plan is the only copy, and a generic estimate is
-    // recoverable while their plan is not. A marketplace booking keeps the
-    // existing refresh behaviour, since its truth is the supplier's schedule.
-    const onPlatformBooking = Boolean(targetVendor.marketplace_vendor_id);
-    const { data: existingPlan, error: existingPlanErr } = await planAdmin
-      .from('event_vendor_payment_plan')
-      .select('instances_json, is_default_seeded')
-      .eq('event_id', eventId)
-      .eq('event_vendor_id', vendorId)
-      .maybeSingle();
-    if (existingPlanErr) {
-      // Recorded, not just branched on: `ugat-both-ends.db.test.ts` refuses a
-      // money read whose error selects a branch that leaves no trace. The plan
-      // is still protected below — this line is so someone can see it happened.
-      console.error(
-        `[finalizeVendor] could not read the existing payment plan for vendor_id=${vendorId} event_id=${eventId} — ${
-          onPlatformBooking ? 'refreshing it from the supplier schedule' : 'leaving the couple’s plan untouched'
-        }:`,
-        existingPlanErr.message,
-      );
-    }
-    const keepCouplePlan = existingPlanErr
-      ? !onPlatformBooking
-      : !lockMayOverwritePlan({
-          onPlatform: onPlatformBooking,
-          existingInstances: Array.isArray(
-            (existingPlan as { instances_json?: unknown } | null)?.instances_json,
-          )
-            ? ((existingPlan as { instances_json: unknown[] }).instances_json)
-            : null,
-          existingIsDefaultSeeded:
-            (existingPlan as { is_default_seeded?: boolean } | null)?.is_default_seeded === true,
-        });
-
-    // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
-    // Skipped entirely when the couple's own plan must survive (see above); the
-    // "your payment info is ready" notice below still fires, because it is.
-    //
-    // 📅 THE LOCK DAY (owner 2026-09-21: "on the date you clicked on lock").
-    // For a supplier the couple added themselves, TODAY is the day their
-    // "N days after lock" instalments count from. It is stamped on the plan
-    // (`on_lock_anchor_date`) so later edits read it back instead of sliding,
-    // and the couple's kept plan is re-dated to it — until now those rows were
-    // anchored on the day the supplier was added. Only "after lock" dates move
-    // (`redateOnLockInstalments`, executed by its test).
-    const stampLockDay = !onPlatformBooking;
-    const { error: planErr } = keepCouplePlan
-      ? await planAdmin
-          .from('event_vendor_payment_plan')
-          .update(
-            existingPlanErr
-              ? // Unreadable plan: record the day, touch nothing else.
-                { on_lock_anchor_date: lockDateIso }
-              : {
-                  on_lock_anchor_date: lockDateIso,
-                  instances_json: redateOnLockInstalments(
-                    (existingPlan as { instances_json?: unknown } | null)?.instances_json,
-                    lockDateIso,
-                  ),
-                  updated_at: new Date().toISOString(),
-                },
-          )
-          .eq('event_id', eventId)
-          .eq('event_vendor_id', vendorId)
-      : await planAdmin
-      .from('event_vendor_payment_plan')
-      .upsert(
-        {
-          event_id: eventId,
-          event_vendor_id: vendorId,
-          instances_json: instances,
-          // Flag an estimated 50/50 fallback so the couple's workspace can label
-          // it "estimated — confirm with your vendor". Always written, so a
-          // re-lock after the vendor sets a real schedule flips this back false.
-          is_default_seeded: seededDefault,
-          // #15 (money bug-hunt): a re-lock re-snapshots the instances, so the
-          // plan must start UNCLEARED — otherwise a previously-cleared plan keeps
-          // cleared_at and a freshly-recomputed (possibly larger) balance shows
-          // as fully settled. planAdmin is service_role, so this bypasses the
-          // cleared_at write-guard. The couple re-confirms via the gated path.
-          cleared_at: null,
-          cleared_by: null,
-          ...(stampLockDay ? { on_lock_anchor_date: lockDateIso } : {}),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'event_id,event_vendor_id' },
-      );
-    if (planErr) {
-      console.error(
-        `[finalizeVendor] payment-plan snapshot upsert failed for vendor_id=${vendorId} event_id=${eventId}:`,
-        planErr.message,
-      );
-    } else {
-      // Tell the COUPLE (the acting host) their payment info is ready. Deep-link
-      // to the per-vendor workspace Payments section.
-      await emitNotification({
-        userId: user.id,
-        type: 'payment_info_sent',
-        title: 'Your payment info is ready',
-        body: seededDefault
-          ? `Your booking with ${targetVendor.vendor_name as string} is confirmed. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your supplier.`
-          : instances.length > 0
-            ? `Your booking is confirmed. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
-            : `Your booking with ${targetVendor.vendor_name as string} is confirmed. Open the workspace to see how to pay them directly.`,
-        relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
-      });
-    }
 
     // No-Show Downpayment Protection — freeze the acknowledged reservation
     // policy into immutable evidence. reservationSnapshot is non-null only when
@@ -2453,6 +2428,25 @@ export async function finalizeVendor(
   // two entertainers) excludes no one. Best-effort + fail-soft: the lock already
   // succeeded, so a displacement/notify hiccup never rolls it back. Gated behind
   // the payment-gated-lock flag so it ships dormant until the owner flips it.
+  //
+  // ⚠ THE MOMENT THIS RUNS IS NOT THE MOMENT THE RULINGS NAME (read 2026-10-11;
+  // NOT changed — it is the owner's to settle).
+  //   · THE CODE releases the rivals HERE: the couple's press on the DIRECT
+  //     path, status → contracted, before the supplier has accepted any money.
+  //     Under the lock handshake `finalizeVendor` returns above this block and
+  //     nothing releases anybody — not `vendorAgreeToLock`, not
+  //     `vendor_agree_to_lock`, and no database trigger writes 'displaced'.
+  //   · THE RULINGS release them at PAYMENT-VERIFIED, i.e. when the supplier
+  //     accepts the payment (`vendorAcknowledgeDeposit` / `confirmVendorPayment`
+  //     → `runDepositAcknowledgedEffects`, status → deposit_paid):
+  //     "removals execute only on Payment-Verified", "the cascade fires on
+  //     deposit_paid (the real lock), never on the mere request"
+  //     (Customer_Vendor_Marketplace_Architecture_2026-06-04 §3, §5a, §10);
+  //     "locking applies only once the vendor accepts the payment"
+  //     (DECISION_LOG 2026-07-27).
+  // Moving it is more than a move: the thread write below is the COUPLE's RLS
+  // write and `refund_displaced_inquiry_unlock` is couple-scoped
+  // (current_couple_event_ids), while Payment-Verified is the SUPPLIER's action.
   // ----------------------------------------------------------------------
   if (isPaymentGatedLockEnabled() && isHardSingle) {
     try {
@@ -2561,6 +2555,18 @@ export async function finalizeVendor(
                 .filter((v) => !!v.user_id)
                 .map((v) => [v.vendor_profile_id, v.user_id as string]),
             );
+            // 🗣 THE OWNER'S APPROVED SENTENCE, READ FROM ITS ONE HOME — never
+            // retyped (2026-09-22, "the sentences are fine, keep them"). The
+            // thread this notice opens closes with the same words, so the tray
+            // and the conversation cannot disagree.
+            // The old body ended "We’ll let you know if it reopens." Nothing
+            // does: `revertVendorToConsidering` puts a displaced thread back
+            // without a word to anybody, and the "date reopened — still
+            // interested?" prompt ruled on 2026-06-12 is not built. A promise
+            // the app does not keep is removed, not reworded.
+            const released = closingCopy({ inquiry_status: 'displaced' }, 'vendor', {
+              counterpartyLabel: '',
+            }).sentence;
             for (const t of openThreads) {
               const uid = userByVpid.get(t.vendor_profile_id);
               if (!uid) continue;
@@ -2568,8 +2574,9 @@ export async function finalizeVendor(
                 userId: uid,
                 type: 'inquiry_displaced',
                 title: 'An inquiry was released',
-                body: 'The couple booked another supplier for this service, so your inquiry has been released. We’ll let you know if it reopens.',
+                body: released,
                 relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+                eventId,
               });
             }
           }
@@ -2819,6 +2826,7 @@ export async function finalizeVendor(
               title: 'First payment submitted — please confirm',
               body: `A couple submitted their first payment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
               relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+              eventId,
             });
           }
         }
@@ -2882,7 +2890,7 @@ export async function finalizeVendor(
   // remaining caller disappears.
   // ----------------------------------------------------------------------
 
-  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
+  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone, onePerEvent: isHardSingle };
 }
 
 // ============================================================================
@@ -3012,25 +3020,12 @@ export async function withdrawVendorLockRequest(
     } | null;
     vendorName = row?.vendor_name ?? vendorName;
     if (row?.marketplace_vendor_id && eventId) {
-      const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
-        admin
-          .from('vendor_profiles')
-          .select('user_id')
-          .eq('vendor_profile_id', row.marketplace_vendor_id)
-          .maybeSingle(),
-        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
-      ]);
-      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
-      const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
-      if (vendorUserId) {
-        await emitNotification({
-          userId: vendorUserId,
-          type: 'lock_request_withdrawn',
-          title: `${who} took their booking request back`,
-          body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
-          relatedUrl: '/vendor-dashboard',
-        });
-      }
+      // The words live in ONE place: ✕ Remove on a card with a pending request
+      // takes the request away too, and has to say the same sentence.
+      await tellSupplierLockRequestWithdrawn(admin, {
+        eventId,
+        marketplaceVendorId: row.marketplace_vendor_id,
+      });
     }
   } catch (e) {
     console.error(
@@ -3049,6 +3044,7 @@ export async function withdrawVendorLockRequest(
 export async function revertVendorToConsidering(
   formData: FormData,
 ): Promise<RevertVendorResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -3100,7 +3096,9 @@ export async function revertVendorToConsidering(
         .delete()
         .eq('event_id', eventId)
         .eq('plan_group_id', revertGroup)
-        .eq('decision', 'complete');
+        .eq('decision', 'complete')
+        // Absent is the goal: RLS's DELETE and SELECT doors are the same here (current_event_ids).
+        .setHeader(ABSENT_IS_FINE_HEADER, '1');
     }
   }
 
@@ -3204,10 +3202,16 @@ export async function revertVendorToConsidering(
     typeof revertedCategory === 'string' && isValidCategory(revertedCategory)
       ? planGroupForCategory(revertedCategory)
       : null;
+  const revertOnePerEvent = revertGroupId ? await readOnePerEventGroups(supabase) : null;
+  if (revertOnePerEvent && !revertOnePerEvent.ok) {
+    // eslint-disable-next-line no-console
+    console.warn(`[revertVendorToConsidering] One per event unreadable — revive skipped for event_id=${eventId} vendor_id=${vendorId}`);
+  }
   if (
     isPaymentGatedLockEnabled() &&
     revertGroupId &&
-    HARD_SINGLE_PICK_GROUPS.has(revertGroupId)
+    revertOnePerEvent?.ok &&
+    isOnePerEventGroup(revertGroupId, revertOnePerEvent.groups)
   ) {
     try {
       const revertGroupCategories = VENDOR_CATEGORIES.filter(
@@ -3353,6 +3357,19 @@ function readStringField(
   return { ok: true, value: trimmed };
 }
 
+/** A contact field that may be left empty: '' → null; too long → refused. */
+function readOptionalContact(
+  formData: FormData,
+  key: string,
+  maxLen: number,
+): { ok: true; value: string | null } | { ok: false; message: string } {
+  const raw = formData.get(key);
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (trimmed.length === 0) return { ok: true, value: null };
+  if (trimmed.length > maxLen) return { ok: false, message: `${key} must be ${maxLen} chars or fewer` };
+  return { ok: true, value: trimmed };
+}
+
 /**
  * Creates a manual vendor row for an event with the 4 owner-directive
  * fields (business_name, contact_person, contact_number, optional photo).
@@ -3377,9 +3394,29 @@ async function createManualVendor(
 
   const businessName = readStringField(formData, 'business_name', 128);
   if (!businessName.ok) return { status: 'error', message: businessName.message };
-  const contactPerson = readStringField(formData, 'contact_person', 128);
+  // ── WHO THEY TALK TO, OR THEIR MOBILE — ONE IS ENOUGH IN THE WALK ──────────
+  // The four-step "Add your own" walk (owner-approved 2026-10-10, step 3) asks
+  // for either, and says so (`addOwnContactError`). The table has allowed either
+  // to be empty since 20271259075750 ("NULL = not given yet"); this form had
+  // not. The walk opts in with `contact_either`; the eight-field sheet sends no
+  // such field and still requires both, exactly as before. A missing one is
+  // stored as NULL — never a typed placeholder.
+  const contactEither = formData.get('contact_either') === '1';
+  const contactPersonRaw = readOptionalContact(formData, 'contact_person', 128);
+  const contactNumberRaw = readOptionalContact(formData, 'contact_number', 32);
+  if (contactEither) {
+    if (!contactPersonRaw.ok) return { status: 'error', message: contactPersonRaw.message };
+    if (!contactNumberRaw.ok) return { status: 'error', message: contactNumberRaw.message };
+    const refusal = addOwnContactError(contactPersonRaw.value ?? '', contactNumberRaw.value ?? '');
+    if (refusal) return { status: 'error', message: refusal };
+  }
+  const contactPerson = contactEither
+    ? { ok: true as const, value: contactPersonRaw.ok ? contactPersonRaw.value : null }
+    : readStringField(formData, 'contact_person', 128);
   if (!contactPerson.ok) return { status: 'error', message: contactPerson.message };
-  const contactNumber = readStringField(formData, 'contact_number', 32);
+  const contactNumber = contactEither
+    ? { ok: true as const, value: contactNumberRaw.ok ? contactNumberRaw.value : null }
+    : readStringField(formData, 'contact_number', 32);
   if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
 
   // 🔑 THE ADDRESS GATE RUNS SERVER-SIDE TOO, not only in the modal (owner
@@ -3449,8 +3486,11 @@ async function createManualVendor(
     return { status: 'error', message: error?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  // The walk draws its own answer (`answer_in_place`) — no whole-page render rides back.
+  if (!answersInPlace(formData)) {
+    revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+    revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  }
   return { status: 'ok', manualVendorId: inserted.manual_vendor_id };
 }
 
@@ -3503,6 +3543,22 @@ async function deleteManualVendor(
     revalidatePath(`/dashboard/${eventIdForRevalidate}/vendors`, 'layout');
   }
   return { status: 'ok' };
+}
+
+/**
+ * THE ROW AN ADD CAME FROM (owner 2026-10-20: *"We want them to be designated
+ * to their category"*). An add opened from a Suppliers-page row posts that row
+ * as `category_key`; this keeps it only when it is a row the page draws AND it
+ * refines the posted enum `category` (`categoryKeyForAdd`). Food Truck stores
+ * `misc`; without the key its card would be drawn under Everything else.
+ * Anything else — no row, the top-level Everything else row, an unknown or
+ * contradicting key — answers null, and the add writes what it always wrote.
+ */
+async function categoryKeyFromAdd(formData: FormData, category: string): Promise<string | null> {
+  const raw = formData.get('category_key');
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const known = (await getTaxonomy()).tileLabel as Record<string, string>;
+  return categoryKeyForAdd(category, raw, (t) => typeof known[t] === 'string');
 }
 
 /**
@@ -3572,11 +3628,14 @@ async function attachManualVendorToCategory(
     return { status: 'error', message: 'Manual supplier belongs to a different event' };
   }
 
+  // The row it was added from, when the enum cannot name it (Food Truck).
+  const categoryKey = await categoryKeyFromAdd(formData, categoryRaw);
   const { data: inserted, error: insertErr } = await supabase
     .from('event_vendors')
     .insert({
       event_id: eventIdRaw,
       category: categoryRaw,
+      ...(categoryKey ? { category_key: categoryKey } : {}),
       vendor_name: manualVendor.business_name,
       manual_vendor_id: manualVendorIdRaw,
       status: 'considering',
@@ -3590,8 +3649,11 @@ async function attachManualVendorToCategory(
     return { status: 'error', message: insertErr?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  // The walk draws its own answer (`answer_in_place`) — no whole-page render rides back.
+  if (!answersInPlace(formData)) {
+    revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+    revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  }
   return {
     status: 'ok',
     eventVendorId: inserted.vendor_id,
@@ -3610,13 +3672,26 @@ async function attachManualVendorToCategory(
 // ============================================================================
 
 export type ManualVendorInviteResult =
-  | { ok: true; url: string; qrSvg: string }
+  | {
+      ok: true;
+      url: string;
+      qrSvg: string;
+      /**
+       * 📨 Asked for with `withShare` (the self-added supplier's Share, DECISION_LOG 2026-10-30): the approved message
+       * and their digital card, built from this link (`supplierSharePayload`). Null = their details could not be read.
+       */
+      share?: SupplierSharePayload | null;
+    }
   | { ok: false; error: string };
 
 export async function createManualVendorInvite(input: {
   eventId: string;
   vendorId: string;
+  /** Also hand back the Share's message and card — ONE request for the Share, no new action or route. */
+  withShare?: boolean;
 }): Promise<ManualVendorInviteResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (
     !input ||
     typeof input.eventId !== 'string' ||
@@ -3668,6 +3743,10 @@ export async function createManualVendorInvite(input: {
   // manually will create a QR code for the vendor to log in from"). Rendered
   // server-side (the `qrcode` lib is server-only); the client just paints it.
   const url = buildClaimUrl(invite.claim_token);
+  if (input.withShare) {
+    // The Share needs the message and the card, not the QR picture.
+    return { ok: true, url, qrSvg: '', share: await supplierSharePayload(supabase, input.eventId, input.vendorId, url) };
+  }
   return { ok: true, url, qrSvg: await renderUrlQrSvg(url) };
 }
 
@@ -3728,6 +3807,11 @@ export type MarketplaceVendorSuggestion = {
   /** TRUE iff `categories` includes the current card's category. Drives
    *  the amber "Pick them anyway?" chip in the UI. */
   serves_current_category: boolean;
+  /** 🕵️ FOUND-YOU (2026-11-05): when THIS couple first opened this shop on
+   *  Setnayan for this event (`event_vendor_found.first_found_at`), else null.
+   *  Drives the add walk's "You found them on Setnayan" nudge. Optional so the
+   *  lab's fixtures and the older sheet need not carry it. */
+  found_on?: string | null;
 };
 
 export type SearchMarketplaceVendorsResult =
@@ -3866,6 +3950,25 @@ export async function searchMarketplaceVendorsByName(
     }
   }
 
+  // Step 3b — 🕵️ FOUND-YOU (DECISION_LOG 2026-07-27; built 2026-11-05): which
+  // of these shops THIS couple already opened on Setnayan for this event. ONE
+  // read, under the COUPLE'S session — `event_vendor_found` is couple-only by
+  // RLS, so the read is also the ownership check. Only on a name search (≥ 2
+  // letters, debounced), never on a scroll. A failed read just shows no nudge:
+  // the nudge is a courtesy, the claim check is what counts.
+  const foundOn = new Map<string, string>();
+  {
+    const { data: foundRows, error: foundErr } = await supabase
+      .from('event_vendor_found')
+      .select('vendor_profile_id, first_found_at')
+      .eq('event_id', eventId)
+      .in('vendor_profile_id', candidateIds);
+    if (foundErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/actions.ts · from:event_vendor_found.select', foundErr);
+    for (const r of (foundRows ?? []) as { vendor_profile_id: string; first_found_at: string }[]) {
+      foundOn.set(r.vendor_profile_id, r.first_found_at);
+    }
+  }
+
   // Step 4 — presign logos so the dropdown rows render with the vendor's
   // actual brand mark instead of initials. r2:// refs need a signed GET
   // URL with 24h TTL; legacy http(s) URLs pass through unchanged.
@@ -3885,6 +3988,7 @@ export async function searchMarketplaceVendorsByName(
         serves_current_category: cats.includes(
           currentCategory as VendorCategory,
         ),
+        found_on: foundOn.get(p.vendor_profile_id) ?? null,
       } satisfies MarketplaceVendorSuggestion;
     }),
   );
@@ -3893,6 +3997,9 @@ export async function searchMarketplaceVendorsByName(
   // Surfaces the most directly-relevant matches at the top of the
   // dropdown so the host's eye lands on them first.
   presigned.sort((a, b) => {
+    // A shop the couple already found here first — it is most likely who they mean.
+    if (a.found_on && !b.found_on) return -1;
+    if (!a.found_on && b.found_on) return 1;
     if (a.serves_current_category && !b.serves_current_category) return -1;
     if (!a.serves_current_category && b.serves_current_category) return 1;
     return a.business_name.localeCompare(b.business_name);
@@ -3944,6 +4051,7 @@ export type AttachMarketplaceVendorResult =
 export async function attachMarketplaceVendorToCategory(
   formData: FormData,
 ): Promise<AttachMarketplaceVendorResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventIdRaw = formData.get('event_id');
   const marketplaceVendorIdRaw = formData.get('marketplace_vendor_id');
   const categoryRaw = formData.get('category');
@@ -4036,6 +4144,9 @@ export async function attachMarketplaceVendorToCategory(
     marketplace_vendor_id: marketplaceVendorIdRaw,
     source: 'host_marketplace_search',
   };
+  // Asked from a row the enum cannot name (Food Truck) — the card is drawn there.
+  const categoryKey = await categoryKeyFromAdd(formData, categoryRaw);
+  if (categoryKey) insertPayload.category_key = categoryKey;
   if (serviceId) {
     insertPayload.service_id = serviceId;
   }
@@ -4218,6 +4329,7 @@ const DOWNPAID_STATUSES = new Set<VendorStatus>([
 export async function cancelBookingAsHost(
   formData: FormData,
 ): Promise<CancelBookingAsHostResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventIdRaw = formData.get('event_id');
   const vendorIdRaw = formData.get('vendor_id');
 
@@ -4411,6 +4523,14 @@ export async function cancelBookingAsHost(
   // the cancellation also lands in the vendor's notification tray, not just
   // their inbox. emitNotification resolves the recipient email + prefixes
   // the app URL internally, so the manual users-table lookup is gone.
+  //
+  // ⚠ THAT PARAGRAPH IS FALSE ABOUT THE EMAIL. `booking_cancelled` was never
+  // added to the email allowlist, so the "consolidation" REMOVED the supplier's
+  // direct email and kept only the tray row. That is how it stays: owner
+  // 2026-10-11, "we manage without emails" — the type is declared app-only in
+  // lib/couple-supplier-notices.ts and the guard fails if it is emailed.
+  // `eventId` records which event the notice belongs to (the link is a
+  // supplier-side path the emitter cannot read one out of).
   if (vendorPrimaryUserId) {
     const formattedDate = (() => {
       if (!eventDateIso) return null;
@@ -4436,6 +4556,7 @@ export async function cancelBookingAsHost(
         title: `${hostDisplay} cancelled their booking with you`,
         body: `${hostDisplay} cancelled their booking with you for ${eventDisplay}${dateClause}. This happened before any payment was made — your soft hold has been released and the date is open on your calendar again.`,
         relatedUrl: deepLinkPath,
+        eventId: eventIdRaw,
       });
     } catch (e) {
       // Silent — the cancel itself succeeded. Log for ops visibility.
@@ -4496,6 +4617,7 @@ export async function cancelBookingAsHost(
 export async function recordDeposit(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -4567,6 +4689,12 @@ export async function recordDeposit(
     deposit_recorded_at: string | null;
     contact_email: string | null;
   };
+
+  // ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; 2026-10-12 #1; audit C6).
+  // This used to record a payment — and hold the supplier's date — before the
+  // supplier had said any yes. Server-side, so no screen can skip it.
+  const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
+  if (notYet) return { status: 'error', message: notYet };
 
   // THE REQUESTED FIRST PAYMENT IS THE MINIMUM (owner, 2026-09-19: "it should
   // follow the amount requested and that means that is the minimum"). The
@@ -4833,6 +4961,7 @@ export async function recordDeposit(
         title: 'Payment recorded — please confirm',
         body: 'A couple recorded a payment for your booking and the date is held. Open the client to confirm you received it.',
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        eventId,
       });
     }
   }
@@ -4905,6 +5034,7 @@ function buildMethodLabel(m: CoupleFacingMethod): string {
 export async function acknowledgeHandover(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'already' | 'not_ackable' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const handoverId = formData.get('handover_id');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -4994,6 +5124,7 @@ export async function acknowledgeHandover(
 export async function raiseChangeOrder(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -5039,6 +5170,12 @@ export async function raiseChangeOrder(
     marketplace_vendor_id: string | null;
   };
 
+  // ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; audit F2). A change order is
+  // money against a BOOKED supplier — its own docblock says so — and nothing
+  // checked that it was one.
+  const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
+  if (notYet) return { status: 'error', message: notYet };
+
   const { error: insertErr } = await supabase.from('vendor_change_orders').insert({
     event_vendor_id: vendorId,
     event_id: eventId,
@@ -5062,12 +5199,25 @@ export async function raiseChangeOrder(
       .maybeSingle();
     const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
     if (vendorUserId) {
+      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it
+      // has its own label and names its figure; `schedule_suggestion` carried
+      // it before. In-app only (owner 2026-10-11). The figure is read back off
+      // the row, never taken from the form.
+      const notice = changeOrderProposedNotice({
+        from: 'couple',
+        row: await readChangeOrderJustRaised(createAdminClient(), {
+          eventVendorId: vendorId,
+          raisedByUserId: user.id,
+        }),
+        typedTitle: title,
+      });
       await emitNotification({
         userId: vendorUserId,
-        type: 'schedule_suggestion',
-        title: 'A couple proposed a change order',
-        body: `${title.slice(0, 80)} — open the client to accept or decline.`,
+        type: 'change_order_proposed',
+        title: notice.title,
+        body: notice.body,
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        eventId,
       });
     }
   }
@@ -5088,6 +5238,7 @@ export async function raiseChangeOrder(
 export async function respondChangeOrder(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const changeOrderId = formData.get('change_order_id');
@@ -5121,11 +5272,10 @@ export async function respondChangeOrder(
   if (env.status === 'ok') {
     const { data: co } = await supabase
       .from('vendor_change_orders')
-      .select('vendor_profile_id, title')
+      .select('vendor_profile_id, title, delta_amount_php')
       .eq('change_order_id', changeOrderId)
       .maybeSingle();
     const vendorProfileId = (co as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
-    const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
     if (vendorProfileId) {
       const { data: vp } = await createAdminClient()
         .from('vendor_profiles')
@@ -5134,12 +5284,18 @@ export async function respondChangeOrder(
         .maybeSingle();
       const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
       if (vendorUserId) {
+        const notice = changeOrderAnsweredNotice({
+          by: 'couple',
+          decision,
+          row: (co as ChangeOrderForNotice | null) ?? null,
+        });
         await emitNotification({
           userId: vendorUserId,
-          type: 'schedule_suggestion',
-          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
-          body: `The couple ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          type: 'change_order_answered',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+          eventId,
         });
       }
     }
@@ -5158,6 +5314,7 @@ export async function respondChangeOrder(
 export async function withdrawChangeOrder(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const changeOrderId = formData.get('change_order_id');
@@ -5195,6 +5352,7 @@ export async function withdrawChangeOrder(
 export async function dismissVendorLockProposal(
   formData: FormData,
 ): Promise<{ ok: boolean }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const proposalIdRaw = formData.get('proposal_id');
   if (typeof eventId !== 'string' || typeof proposalIdRaw !== 'string') {
@@ -5268,13 +5426,21 @@ export async function dismissVendorLockProposal(
 // ============================================================================
 
 export type AddManualSupplierResult =
-  | { status: 'ok'; eventVendorId: string; manualVendorId: string; warning?: string }
+  | {
+      status: 'ok';
+      eventVendorId: string;
+      manualVendorId: string;
+      warning?: string;
+      /** Their claim link, when the call asked for it (`with_link=1`). `null` = it could not be made. */
+      invite?: SupplierInviteView;
+    }
   | { status: 'not_signed_in' }
   | { status: 'error'; message: string };
 
 export async function addManualSupplier(
   formData: FormData,
 ): Promise<AddManualSupplierResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const category = formData.get('category');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -5294,6 +5460,10 @@ export async function addManualSupplier(
   attachFd.set('event_id', eventId);
   attachFd.set('manual_vendor_id', created.manualVendorId);
   attachFd.set('category', category);
+  // The Suppliers-page row the add was opened from (validated in the attach).
+  const rowKey = formData.get('category_key');
+  if (typeof rowKey === 'string' && rowKey.length > 0) attachFd.set('category_key', rowKey);
+  if (answersInPlace(formData)) attachFd.set(ANSWER_IN_PLACE_FIELD, '1');
   const attached = await attachManualVendorToCategory(attachFd);
   if (attached.status !== 'ok') return attached;
 
@@ -5353,7 +5523,7 @@ export async function addManualSupplier(
       const planFd = new FormData();
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', eventVendorId);
-      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days', 'plan_seq']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
@@ -5367,12 +5537,50 @@ export async function addManualSupplier(
     }
   }
 
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  // 6 · THE FEE-LEAK CHECK, inside the same call (build status 2026-10-08 C.3 —
+  //     no second request). A name, or a price within the owner's 10 %, that
+  //     matches a quote this event already received in the category stamps the
+  //     record with that shop (`lib/manual-add-leak.server.ts`). "Not them?"
+  //     (`name_dismissed`) turns the name half off — owner 2026-10-12: a
+  //     dismissed match does not count. Never seen by the couple and never an
+  //     error to them (owner 2026-10-12: couples are not told about the fee).
+  {
+    const supabase = await createClient();
+    const typedName = formData.get('business_name');
+    await stampManualLeakMatch(supabase, createAdminClient(), {
+      eventId,
+      manualVendorId: created.manualVendorId,
+      category,
+      typedName: typeof typedName === 'string' ? typedName : '',
+      typedPricePhp: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null,
+      nameDismissed: formData.get('name_dismissed') === '1',
+    });
+  }
 
-  if (warnings.length === 0) return ok();
-  return ok(
-    `Added — but we could not save ${warnings.join(' and ')}. Open their page to finish.`,
+  // 7 · THEIR LINK, ALWAYS, in the same press. Owner 2026-10-30, verbatim: *"no need to wait to create link. create an
+  //     automatic link"* — a supplier the couple adds has their claim link from the moment they exist, nobody presses
+  //     anything. `createManualVendorInvite` is the shipped, idempotent writer (one live link per supplier, the
+  //     `vendor_invites_live_unique` index); a link that could not be made is not a failed add — the record card makes
+  //     it the first time it opens, and says so in place if it still cannot. `with_link` now only decides whether the
+  //     link rides back on this answer (the walk's step 4 and the add sheet's saved step draw it at once).
+  let invite: SupplierInviteView | undefined;
+  {
+    const link = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
+    if (formData.get('with_link') === '1') invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
+  }
+
+  // The walk draws its own answer (`answer_in_place`) and refreshes once,
+  // behind the link step — so no whole-page render rides back on this call.
+  if (!answersInPlace(formData)) {
+    revalidatePath(`/dashboard/${eventId}`, 'layout');
+    revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  }
+
+  const withLink = (r: AddManualSupplierResult): AddManualSupplierResult =>
+    r.status === 'ok' && invite !== undefined ? { ...r, invite } : r;
+  if (warnings.length === 0) return withLink(ok());
+  return withLink(
+    ok(`Added — but we could not save ${warnings.join(' and ')}. Open their page to finish.`),
   );
 }
 
@@ -5424,6 +5632,17 @@ export async function locateAddressPin(query: string): Promise<AddressPinResult>
 //   · readSupplierInvite     — READ-ONLY lookup of an existing claim link.
 // ============================================================================
 
+/**
+ * The card sheet's "Also covers" list — the Suppliers page's own rows for this
+ * event (`readCoverCatalog`: the same `buildShortlistFolders` call the page
+ * draws them with). READ-ONLY; owner 2026-10-20, "we do not have the
+ * categories synced properly". `{ ok: false }` is said in the sheet, never
+ * shown as an empty list.
+ */
+export async function loadCoverCatalog(eventId: string): Promise<CoverCatalogRead> {
+  return readCoverCatalog(eventId);
+}
+
 export type SelfAddedSupplierPrefill = {
   vendorId: string;
   category: string;
@@ -5433,10 +5652,31 @@ export type SelfAddedSupplierPrefill = {
   address: string;
   pin: { lat: number; lng: number } | null;
   covers: string[];
+  /** The row the card is drawn under (`homeTileForRow`) — finer than `category` for a moved supplier. */
+  homeTile?: string | null;
+  /** They claimed the couple's link and wait for Approve (#6709). */
+  claimAsk?: boolean;
   inclusions: string;
   /** The HEADLINE price the couple edits — see the note where it is read. */
   price: string;
   planRows: EditablePlanRow[];
+  /** A plan row EXISTS — so an empty `planRows` means "saved with no payments",
+   *  not "no plan yet" (which opens on the 50/50 starter). */
+  planSaved?: boolean;
+  /**
+   * THE RECORD CARD'S DATED ROWS (2026-10-29). What "after you book" counts from and the event date — so each stored
+   * rule opens as the day it falls on, and a typed day posts back as the rule that lands on it
+   * (`lib/record-card-plan.ts`). Absent (an older caller) → the card draws the plan as it is and can still save it.
+   */
+  planDates?: { lockIso: string; eventIso: string | null };
+  /** Each plan row's stored `seq`, in `planRows` order — posted back so a payment stays on its instalment. */
+  planSeqs?: Array<number | null>;
+  /** Instalments with a payment logged against them that was not refused — the card keeps them as they are. */
+  settledSeqs?: number[];
+  /** The newest plan a price change replaced (`replot_history`) — "Price changed ₱A → ₱B · plan updated". */
+  lastReplot?: { fromPhp: number; toPhp: number; at: string } | null;
+  /** How to pay them. `null` = the read was refused — said on the card, never drawn as "none added". */
+  payWays?: PayWayView[] | null;
 };
 
 export type LoadSelfAddedSupplierResult =
@@ -5461,7 +5701,7 @@ export async function loadSelfAddedSupplier(
   const { data: ev, error: evErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, manual_vendor_id, marketplace_vendor_id',
+      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
@@ -5475,6 +5715,7 @@ export async function loadSelfAddedSupplier(
     total_cost_php: number | string | null;
     host_inclusions: string[] | null;
     covers_plan_groups: string[] | null;
+    category_key: string | null;
     manual_vendor_id: string | null;
     marketplace_vendor_id: string | null;
   };
@@ -5484,7 +5725,7 @@ export async function loadSelfAddedSupplier(
     return { status: 'error', message: 'This supplier is on Setnayan now — open their page instead.' };
   }
 
-  const [manualRes, planRes] = await Promise.all([
+  const [manualRes, planRes, claimAsk, eventRes, paidRes, waysRes] = await Promise.all([
     row.manual_vendor_id
       ? supabase
           .from('event_manual_vendors')
@@ -5495,15 +5736,34 @@ export async function loadSelfAddedSupplier(
       : Promise.resolve({ data: null, error: null }),
     supabase
       .from('event_vendor_payment_plan')
-      .select('instances_json')
+      .select('instances_json, is_default_seeded, on_lock_anchor_date, replot_history')
       .eq('event_id', eventId)
       .eq('event_vendor_id', vendorId)
       .maybeSingle(),
+    hasClaimAsk(supabase, eventId, vendorId),
+    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    // Settled instalments — a payment logged against the seq, not refused (the re-plot's own reading).
+    supabase
+      .from('event_vendor_payments')
+      .select('schedule_instance_seq')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .not('schedule_instance_seq', 'is', null)
+      .is('payment_refused_at', null),
+    readPayWaysForRecord(supabase, eventId, row.manual_vendor_id),
   ]);
   // A refused read is not an empty supplier: pre-filling blanks over a real
   // contact card would invite the couple to "save" their data away.
   if (manualRes.error) return { status: 'error', message: manualRes.error.message };
   if (planRes.error) return { status: 'error', message: planRes.error.message };
+  // A refused read of the payments would draw a paid instalment as editable — refuse the open instead.
+  if (paidRes.error) return { status: 'error', message: paidRes.error.message };
+  const planRow = (planRes.data ?? null) as {
+    instances_json?: unknown;
+    is_default_seeded?: boolean | null;
+    on_lock_anchor_date?: string | null;
+    replot_history?: unknown;
+  } | null;
   const m = (manualRes.data ?? null) as {
     business_name: string | null;
     contact_person: string | null;
@@ -5538,9 +5798,28 @@ export async function loadSelfAddedSupplier(
       address: m?.address ?? '',
       pin: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
       covers: Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [],
+      homeTile: homeTileForRow({ category: row.category ?? '', category_key: row.category_key }),
+      claimAsk,
       inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
       price,
-      planRows: planInstancesToRows((planRes.data as { instances_json?: unknown } | null)?.instances_json),
+      // The lock's own 50/50 estimate comes back as its rule (on lock · 14 days
+      // before), not as two blank-dated rows every later save would refuse.
+      planRows: planInstancesToRows(planRow?.instances_json, { defaultSeeded: planRow?.is_default_seeded === true }),
+      planSaved: planRes.data != null,
+      planDates: {
+        lockIso: onLockAnchorIso(planRow?.on_lock_anchor_date, manilaTodayIso()),
+        eventIso: eventRes.error ? null : ((eventRes.data as { event_date: string | null } | null)?.event_date ?? null) || null,
+      },
+      planSeqs: planInstanceSeqs(planRow?.instances_json),
+      settledSeqs: [
+        ...new Set(
+          ((paidRes.data ?? []) as Array<{ schedule_instance_seq: number | null }>)
+            .map((p) => p.schedule_instance_seq)
+            .filter((n): n is number => typeof n === 'number'),
+        ),
+      ],
+      lastReplot: lastPlanReplot(planRow?.replot_history),
+      payWays: waysRes.status === 'ok' ? waysRes.ways : null,
     },
   };
 }
@@ -5566,6 +5845,7 @@ export type UpdateSelfAddedSupplierResult =
 export async function updateSelfAddedSupplier(
   formData: FormData,
 ): Promise<UpdateSelfAddedSupplierResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || !eventId || typeof vendorId !== 'string' || !vendorId) {
@@ -5586,7 +5866,8 @@ export async function updateSelfAddedSupplier(
     return { status: 'error', message: msg || 'Could not save their details.' };
   }
 
-  const warnings: string[] = [];
+  /** What did not save, and — when it has one the couple can act on — why. */
+  const warnings: Array<{ what: string; why?: string }> = [];
 
   // 2 · The booking's own name, which is what the bench card prints.
   const name = formData.get('business_name');
@@ -5597,7 +5878,7 @@ export async function updateSelfAddedSupplier(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .is('marketplace_vendor_id', null);
-    if (error) warnings.push('the name on your suppliers list');
+    if (error) warnings.push({ what: 'the name on your suppliers list' });
   }
 
   // 3 · Price — price-only, so nothing else on the row moves.
@@ -5610,7 +5891,37 @@ export async function updateSelfAddedSupplier(
     costFd.set('price_only', '1');
     await updateVendorCosts(costFd);
   } catch {
-    warnings.push('the price');
+    warnings.push({ what: 'the price' });
+  }
+
+  // 3b · THE PRICE CHECK (owner 2026-10-10: "10% allowance +-"). The record
+  //      sheet is where the couple types the price they agreed; a price within
+  //      the tolerance of a quote this event already received in the category
+  //      stamps the record with that shop. Name half off: a renamed record is not
+  //      the couple saying who they meant. Silent to the couple, never an error.
+  {
+    const p = formData.get('total_cost_php');
+    const priced = typeof p === 'string' ? Number(p.replace(/,/g, '')) : NaN;
+    if (Number.isFinite(priced) && priced > 0) {
+      const { data: rec } = await supabase
+        .from('event_vendors')
+        .select('manual_vendor_id, category, vendor_name')
+        .eq('event_id', eventId)
+        .eq('vendor_id', vendorId)
+        .is('marketplace_vendor_id', null)
+        .maybeSingle();
+      const r = rec as { manual_vendor_id: string | null; category: string | null; vendor_name: string | null } | null;
+      if (r?.manual_vendor_id && r.category) {
+        await stampManualLeakMatch(supabase, createAdminClient(), {
+          eventId,
+          manualVendorId: r.manual_vendor_id,
+          category: r.category,
+          typedName: r.vendor_name ?? '',
+          typedPricePhp: priced,
+          nameDismissed: true,
+        });
+      }
+    }
   }
 
   // 4 · Services covered + inclusions.
@@ -5625,35 +5936,48 @@ export async function updateSelfAddedSupplier(
     }
     await updateHostServiceDetails(detailsFd);
   } catch {
-    warnings.push('what they cover');
+    warnings.push({ what: 'what they cover' });
   }
 
-  // 5 · The payment plan, when the sheet sent one.
-  const hasPlanRows = formData
-    .getAll('plan_label')
-    .some((l) => typeof l === 'string' && l.trim().length > 0);
-  if (hasPlanRows) {
+  // 5 · The payment plan — saved as typed, INCLUDING typed down to none.
+  //     🔴 A plan whose payments were all removed used to skip this step and
+  //     report "saved" while the OLD plan stayed (and came back on the next
+  //     open). `planSaveStep` tells an untouched form from an emptied one by
+  //     the editor's own presence; `saveSelfAddedPaymentPlan` writes the
+  //     emptied plan as no payments.
+  //     ⚖ AFTER the price (step 3): the plan is checked against the price
+  //     typed in this same save, never the one it replaces.
+  const planStep = planSaveStep({
+    editorPresent: formData.get(PLAN_PRESENT_FIELD) === '1',
+    postedLabels: formData.getAll('plan_label'),
+    postedValues: formData.getAll('plan_value'),
+  });
+  if (planStep !== 'skip') {
     try {
       const planFd = new FormData();
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', vendorId);
-      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+      planFd.set(PLAN_PRESENT_FIELD, '1');
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days', 'plan_seq']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
     } catch (e) {
       // The plan's own refusal ("₱60,000 of ₱80,000") is the only sentence
-      // that says what to fix, so it is passed through, not summarised.
+      // that says what to fix, so it is passed through as the WHY, after
+      // naming what did not save.
       const msg = e instanceof Error ? e.message : '';
-      warnings.push(msg && !msg.startsWith('An error occurred') ? msg : 'the payment plan');
+      warnings.push({
+        what: 'the payment plan',
+        ...(msg && !msg.startsWith('An error occurred') ? { why: msg } : {}),
+      });
     }
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return warnings.length === 0
-    ? { status: 'ok' }
-    : { status: 'ok', warning: `Saved — except ${warnings.join(' and ')}.` };
+  const warning = partialSaveSentence(warnings);
+  return warning ? { status: 'ok', warning } : { status: 'ok' };
 }
 
 export type SupplierInviteView = { url: string; qrSvg: string } | null;

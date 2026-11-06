@@ -407,6 +407,6 @@ export function papicGuestOrderRow(input: {
 export function guestOrderDescription(rung: PapicGuestRung): string {
   const shots = rung.points.toLocaleString('en-PH');
   return rung.kind === 'pool_topup'
-    ? `Papic — guest top-up, ${shots} shots into the event's shared pot`
+    ? `Papic — guest top-up, ${shots} credits into the event's shared pot`
     : `Papic — guest reload, ${shots} credits for one camera`;
 }

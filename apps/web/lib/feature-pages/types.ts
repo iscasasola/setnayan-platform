@@ -28,11 +28,17 @@ export const FEATURE_SLUGS = [
   'seat-plan',
   '3d-plan',
   'schedule',
+  'date-picker',
   'mood-board',
   'marketplace',
   'compare',
+  'suppliers',
   'setnayan-ai',
   'event-hub',
+  'dress-code',
+  'wedding-march',
+  'e-gifts',
+  'prints',
   'logo-maker',
   'music-maker',
   'groups',
@@ -71,7 +77,9 @@ export type FeatureExtraIconName =
   | 'handshake'
   | 'receipt'
   | 'subscription'
-  | 'challenge';
+  | 'challenge'
+  | 'printer'
+  | 'shirt';
 
 export type FeatureIconName = EventMenuIconName | FeatureExtraIconName;
 
@@ -98,9 +106,14 @@ export type FeaturePrice =
       inactiveRowsArePrices?: true;
     };
 
-/** A REAL picture already on disk. Open it before naming it (see `_spotlights.tsx`). */
+/**
+ * A REAL picture already on disk. Open it before naming it (see `_spotlights.tsx`).
+ * `/feature-shots/*.jpg` are 375 px phone captures of the shipped screens, drawn
+ * by the dev labs on fixture data (never a real couple's event), saved as
+ * 460×972 frames like the product stills.
+ */
 export type FeatureShot = {
-  src: `/add-ons/demo/stills/${string}.jpg` | `/demo/${string}`;
+  src: `/add-ons/demo/stills/${string}.jpg` | `/demo/${string}` | `/feature-shots/${string}.jpg`;
   alt: Bi<string>;
 };
 

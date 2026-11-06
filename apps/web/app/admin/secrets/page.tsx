@@ -177,7 +177,7 @@ export default async function AdminSecretsPage({
   return (
     <section className="space-y-6">
       <Link
-        href="/admin/more"
+        href="/admin/ugat"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to admin

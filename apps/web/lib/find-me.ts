@@ -39,15 +39,37 @@ import type { FormalName } from '@/lib/formal-name';
 
 /** Wrong-digit budget per matched guest (every IP together) — owner example, "5 tries / 15 min". */
 export const FIND_ME_ROW_LIMIT = 5;
-/**
- * Wrong-digit budget per event per connection. A little wider than the row's:
- * a reception is often ONE shared Wi-Fi address, and running out here only
- * sends a real guest to the couple's Link (never a lock-out).
+/*
+ * 📶 THE BUDGETS ARE PER PHONE FIRST, AND THE CONNECTION'S IS SIZED FOR A VENUE
+ * (event-day L1·5, 2026-10-18). Until today every budget below was per event ×
+ * per IP: 20 name look-ups and 10 digit tries in 15 minutes. A reception is ONE
+ * Wi-Fi address — every phone in the room shares it — so the 21st guest to type
+ * their name at the door was silently shown the ask-to-join form instead of
+ * "We found you!", and the 11th digit try sent a real guest to the couple's Link.
+ *
+ * Now each budget is spent TWICE, and both must allow it:
+ *   · PER PHONE — a random id in a signed, httpOnly cookie (`sn_find_device`,
+ *     lib/find-me.server.ts). The old per-connection numbers, unchanged: no
+ *     person types their name 20 times or misses their own last-4 ten times.
+ *   · PER CONNECTION — the same IP budget as before, raised to what a whole
+ *     venue needs in one arrival rush: ~250 guests at the door in 15 minutes,
+ *     a couple of name tries each (500), and the share of them found with a
+ *     mobile who type the digits once or twice (250).
+ * Scraping protection stays: a script that throws its cookie away gets a fresh
+ * phone budget, so the CONNECTION budget is what bounds it — 500 exact-name
+ * guesses per 15 minutes per address, each answering only "found" or not —
+ * and the per-GUEST budget (5) still bounds guessing any one person's digits
+ * from every address together.
  */
-export const FIND_ME_IP_LIMIT = 10;
-/** Name look-ups per event per connection before the door stops looking (it then just shows the form). */
+/** Name look-ups per event per PHONE before the door stops looking (it then just shows the form). */
 export const FIND_ME_NAME_LIMIT = 20;
-/** One window for all three budgets — 15 minutes. */
+/** Wrong-digit budget per event per PHONE. Running out only sends a real guest to the couple's Link. */
+export const FIND_ME_DIGITS_LIMIT = 10;
+/** Name look-ups per event per CONNECTION — a whole venue on one Wi-Fi address. */
+export const FIND_ME_VENUE_NAME_LIMIT = 500;
+/** Digit tries per event per CONNECTION — a whole venue on one Wi-Fi address. */
+export const FIND_ME_VENUE_DIGITS_LIMIT = 250;
+/** One window for every budget — 15 minutes. */
 export const FIND_ME_WINDOW_SECS = 15 * 60;
 
 /** The parts of a name that are compared. Prefix is never compared ("Mr." vs "Atty." is not identity). */

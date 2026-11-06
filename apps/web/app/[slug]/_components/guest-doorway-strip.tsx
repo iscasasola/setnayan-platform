@@ -1,4 +1,5 @@
 import { giftIsMoneyDance, type EventWords } from '../_lib/event-words';
+import { wishDoorLine } from '@/lib/wish-list-guest';
 import Link from 'next/link';
 import { ArrowRight, Gift, Heart, Radio } from 'lucide-react';
 
@@ -50,6 +51,7 @@ export function GuestDoorwayStrip({
   dateLabel,
   words,
   tabAttrs = {},
+  wishes = 0,
 }: {
   /** The event type's own words. */
   words: EventWords;
@@ -59,6 +61,8 @@ export function GuestDoorwayStrip({
   tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
   /** `/[slug]/pabuya`, or null → do not draw. */
   pabuya: string | null;
+  /** 🎁 Open wishes behind the gift door (`resolveGuestDoorways(...).wishes`) — 0: the door says nothing of a list. */
+  wishes?: number;
   /** `/[slug]/venue` — `resolveGuestDoorways(...).venueWalk` on The Day, null
    *  on every other stage or when the seat rule keeps the room shut. */
   venueWalk?: string | null;
@@ -75,7 +79,7 @@ export function GuestDoorwayStrip({
       className="mx-auto mt-6 w-full max-w-3xl space-y-3 px-4"
       aria-label="More for guests"
     >
-      {pabuya ? <GiftDoorCard href={pabuya} words={words} /> : null}
+      {pabuya ? <GiftDoorCard href={pabuya} words={words} wishes={wishes} /> : null}
 
       {venueWalk ? (
         /* A quiet line, not a card — one main action per page (#6308). */
@@ -117,40 +121,73 @@ export function GuestDoorwayStrip({
   );
 }
 
-/** The E-Gifts door — one card, drawn here at the foot or on the Invitation's Welcome page, never both. */
-function GiftDoorCard({ href, words }: { href: string; words: EventWords }) {
+/**
+ * The E-Gifts door — one card, drawn here at the foot of a page that does not carry E-Gifts itself. On the Welcome
+ * page E-Gifts is the content, not this door (owner 2026-10-14) — the door stands there only when that content could
+ * not be read, so a guest is never shown nothing where a gift page is.
+ */
+export function GiftDoorCard({ href, words, wishes = 0 }: { href: string; words: EventWords; wishes?: number }) {
   return (
     <DoorCard
       href={href}
+      /* 🎁 The door says what is new behind it (owner 2026-10-08, wish list frame 12): one line
+         while a wish is still open. Not on a solemn page — "things they'd love" is a
+         celebration's sentence, and no quiet one has been written. */
+      extra={words.solemn ? null : wishDoorLine(wishes)}
       icon={words.solemn ? <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
       title="E-Gifts"
-      detail={
-        // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
-        // a graduation's guest read it on this card. giftIsMoneyDance decides;
-        // every other celebratory type gets the plain line; the wake keeps its own.
-        words.solemn
-          ? `A gift of sympathy — straight to ${words.theOrganizer}.`
-          : giftIsMoneyDance(words)
-            ? `The digital money dance — straight to ${words.theOrganizer}.`
-            : `Send E-Gifts straight to ${words.theOrganizer}.`
-      }
+      detail={giftDoorLine(words)}
     />
   );
 }
 
+/** E-Gifts' one sentence — the door's, and the line under E-Gifts on the Welcome page. */
+export function giftDoorLine(words: EventWords): string {
+  // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
+  // a graduation's guest read it on this card. giftIsMoneyDance decides;
+  // every other celebratory type gets the plain line; the wake keeps its own.
+  return words.solemn
+    ? `A gift of sympathy — straight to ${words.theOrganizer}.`
+    : giftIsMoneyDance(words)
+      ? `The digital money dance — straight to ${words.theOrganizer}.`
+      : `Send E-Gifts straight to ${words.theOrganizer}.`;
+}
+
 /**
  * 🏠 E-GIFTS ON THE WELCOME PAGE (owner 2026-09-30: *"also E-Gifts should
- * already show"*). The same door the strip draws, under its own eyebrow, for the
- * Invitation's Welcome page (`lib/invitation-welcome.ts`). `href` is
- * `resolveGuestDoorways(...).pabuya` — null means no card, never an empty one.
+ * already show"*; 2026-10-14: *"the e-gifts is only a button that opens the rest
+ * of egift. can't we just have it there instead of a button?"*). Under its own
+ * eyebrow, the E-Gifts CONTENT itself — `children`, the gift page's own body
+ * (`WelcomeGiftsContent` → `GiftPageBody`, from the one reader `loadGiftPage`).
+ *
+ * `href` is `resolveGuestDoorways(...).pabuya` — the caller draws this block only
+ * when it is non-null (the page behind it would let this viewer in), so null
+ * means no block, never an empty one. With no `children` (the content could not
+ * be read) the door stands in its place: a guest is never shown nothing where a
+ * gift page is.
  */
-export function WelcomeGifts({ href, words }: { href: string; words: EventWords }) {
+export function WelcomeGifts({
+  href,
+  words,
+  look = null,
+  wishes = 0,
+  children = null,
+}: {
+  href: string;
+  words: EventWords;
+  look?: string | null;
+  /** 🎁 Open wishes on the couple's wish list — the door's one extra line, when the door is what stands. */
+  wishes?: number;
+  /** The E-Gifts content (`WelcomeGiftsContent`) — absent: the door. */
+  children?: React.ReactNode;
+}) {
   return (
-    <section className="space-y-3" data-welcome-gifts="">
+    /* 🎨 Its own style when the couple picked one (`lib/scene-styles-parts.ts`) — absent, as shipped. */
+    <section className="space-y-3" data-welcome-gifts="" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>
-      <GiftDoorCard href={href} words={words} />
+      {children ?? <GiftDoorCard href={href} words={words} wishes={wishes} />}
     </section>
   );
 }
@@ -161,27 +198,36 @@ function DoorCard({
   icon,
   title,
   detail,
+  extra = null,
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   detail: string;
+  /** One more line under the detail, in the event's main colour — null draws nothing. */
+  extra?: string | null;
 }) {
   return (
     <Link
       href={href}
       className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream px-4 py-3.5 transition-colors hover:border-terracotta"
+      data-gift-door=""
     >
       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-ink">{title}</span>
-        <span className="mt-0.5 block text-sm text-ink/60">{detail}</span>
+        <span className="mt-0.5 block text-sm text-ink/70">{detail}</span>
+        {extra ? (
+          <span data-door-extra="" className="mt-0.5 block text-[13px] font-semibold text-mulberry">
+            {extra}
+          </span>
+        ) : null}
       </span>
       <ArrowRight
         aria-hidden
-        className="h-4 w-4 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5"
+        className="h-4 w-4 shrink-0 text-ink/70 transition-transform group-hover:translate-x-0.5"
         strokeWidth={2}
       />
     </Link>

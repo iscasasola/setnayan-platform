@@ -49,8 +49,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parseStoredAsset } from '@/lib/uploads';
-import { r2GetBytes } from '@/lib/r2';
-import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
+import { R2_BUCKETS, r2GetBytes } from '@/lib/r2';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import {
   getEditorialEligibility,
@@ -66,14 +65,22 @@ import {
 import {
   backCatalogueQuotaVerdict,
   slotUploadVerdict,
-  GALLERY_SLOT_LABEL,
+  libraryUploadVerdict,
+  libraryPartLabel,
   RIGHTS_WARRANTY_VERSION,
   type GalleryUploadMode,
 } from '@/lib/moodboard-gallery-upload';
 import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { fetchShopLogoBytes, readShopOwnPhotoBytes } from '@/lib/shop-own-photos.server';
+import { autoColourRanges } from '@/lib/extract-palette.server';
+import { verifyCardForPart } from '@/lib/inspiration-card-link.server';
+import { isFromAlbumPageRef } from '@/lib/put-photo-on-my-page';
+import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
+import { bucketForPrefix } from '@/lib/bucket-routing';
 
 const BUCKET = 'moodboard-library';
 
@@ -164,6 +171,48 @@ async function countBackCatalogue(
 }
 
 /**
+ * 🔗🖼 POOL PHOTOS OFFERED FROM A MOOD BOARD SUGGESTION, in one category (owner 2026-10-30, "CONNECTED FOUR WAYS").
+ *
+ * A suggestion's pool copy carries the event it was suggested on (`source_event_id`) — so `countBackCatalogue`,
+ * correctly, does not see it. But the photo itself is the shop's OWN archive photo (a file off its phone or a photo
+ * off its own page / cards — never an event-album photo, see `importSuggestionToGallery`), offered on an event; it was
+ * not delivered there. Left uncounted, every suggestion would be a door around the per-category quota. So the quota
+ * is back-catalogue + these, and a failed read is `null` (fail CLOSED), exactly as above.
+ */
+async function countSuggestionPool(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  slot: string,
+): Promise<number | null> {
+  const { count, error } = await admin
+    .from('moodboard_library_assets')
+    .select('asset_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('asset_type', SUPPLIER_GALLERY_ASSET_TYPE)
+    .eq('asset_subtype', slot)
+    .not('source_suggestion_id', 'is', null)
+    .is('retired_at', null);
+  if (error) {
+    logQueryError('moodboardLibrary.countSuggestionPool', error, { vendorProfileId, slot });
+    return null;
+  }
+  return count ?? 0;
+}
+
+/** The quota's USED side: back-catalogue + suggestion pool copies. `null` when either could not be read. */
+async function countQuotaUsed(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  slot: string,
+): Promise<number | null> {
+  const [backCatalogue, fromSuggestions] = await Promise.all([
+    countBackCatalogue(admin, vendorProfileId, slot),
+    countSuggestionPool(admin, vendorProfileId, slot),
+  ]);
+  return backCatalogue === null || fromSuggestions === null ? null : backCatalogue + fromSuggestions;
+}
+
+/**
  * Watermark → screen → store → hash. The single place bytes become a library
  * asset, shared by the file upload and the editorial import so neither can
  * skip a step the other runs.
@@ -183,8 +232,12 @@ async function storeScreenedAsset(args: {
     label: string;
     source: string;
     source_event_id: string | null;
+    /** 🔗 The shop's own service card this photo belongs to — ALREADY checked by `verifyCardForPart`. */
+    vendor_service_id?: string | null;
+    /** 🔗 The Mood Board suggestion this pool copy was offered from (`importSuggestionToGallery` only). */
+    source_suggestion_id?: string | null;
   };
-}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   // ⚠ THE SHOP IS STAMPED ON GALLERY ROWS ONLY, AND THAT IS NOT AN OVERSIGHT.
   // MB10's shape CHECK REQUIRES `vendor_profile_id` on a 'supplier_gallery'
   // row — it is the credit the couple reads. The three Setnayan-template types
@@ -275,6 +328,30 @@ async function storeScreenedAsset(args: {
     throw new Error(`db insert failed: ${insErr.message}`);
   }
 
+  // 2b · 🌱🖼 THE PHOTO'S OWN COLOURS, TAGGED FOR IT (2026-10-19). The couple's gallery needs sampled colours to
+  //     save a photo onto a board, and suppliers do not tag them — an approved photo with none was invisible. Read
+  //     from the ORIGINAL pixels (the mark is not the photo's colour) by the shipped extractor's own bucketing,
+  //     labelled "Auto" so a person adjusting them in the tagger can tell. Best-effort: a failed read or write leaves
+  //     the photo untagged, which the gallery still shows (`shapeGalleryPage`) and the pick reads at save time.
+  let colorRanges: ColorRangeMap = {};
+  if (isGalleryRow) {
+    colorRanges = await autoColourRanges(args.bytes);
+    const rangeRows = Object.values(colorRanges).map((r) => ({
+      asset_id: row.asset_id as string,
+      slot_id: r.slotId,
+      sampled_hex: r.sampledHex,
+      tolerance_de: r.toleranceDe,
+      region_label: r.regionLabel ?? null,
+    }));
+    if (rangeRows.length > 0) {
+      const { error: rangeErr } = await admin.from('moodboard_asset_color_ranges').insert(rangeRows);
+      if (rangeErr) {
+        logQueryError('moodboardLibrary.autoColourRanges', rangeErr, { assetId: row.asset_id }, 'graceful_degrade');
+        colorRanges = {};
+      }
+    }
+  }
+
   // 3 · THE THEFT SCAN, on the bytes we actually stored. Best-effort by
   //     contract (it swallows its own failures) — an un-hashed image is
   //     re-attempted by the admin "Rescan all" backfill, and a hashing hiccup
@@ -286,39 +363,83 @@ async function storeScreenedAsset(args: {
     bytesByRef: { [storagePath]: marked.bytes },
   });
 
-  return { assetId: row.asset_id as string, textScreen: screen.textScreen };
+  return { assetId: row.asset_id as string, textScreen: screen.textScreen, colorRanges };
 }
 
-/** The shop's own logo bytes, or null when it has no logo on file. */
+/** The shop's own logo bytes, or null when it has no logo on file (`fetchShopLogoBytes`, shared with event suggestions). */
 async function fetchLogoBytes(logoUrl: string | null): Promise<Uint8Array | null> {
-  const parsed = parseStoredAsset(logoUrl);
-  if (!parsed) return null;
+  return fetchShopLogoBytes(logoUrl);
+}
+
+/**
+ * The bytes of one of the shop's OWN photos (its page gallery or a service card), for the library's "From your
+ * shop's photos". 🛑 The ref must be in the list `shopOwnPhotoRefs` reads NOW, under the supplier's own session — a
+ * ref the browser made up (another shop's key, any URL) is refused before anything is fetched. A list that could not
+ * be read refuses too: we cannot prove the photo is theirs.
+ */
+async function readShopOwnPhoto(
+  profile: VendorProfileRow,
+  ref: string,
+): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  return readShopOwnPhotoBytes(await createClient(), profile, ref);
+}
+
+/**
+ * The upload's answer. 🔑 A REFUSAL IS RETURNED, NEVER THROWN (2026-11-05).
+ * A server action that throws has its message REPLACED in a production build
+ * ("An error occurred in the Server Components render…"), so every sentence
+ * below written for the supplier — wrong trade, quota full, confirm the rights,
+ * the screen's own reason — reached them in dev and never in production.
+ */
+export type UploadStylistAssetResult =
+  | { ok: true; assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }
+  | { ok: false; error: string };
+
+/** Internal storage/DB faults are not the supplier's to read; every gate's own sentence is. */
+const UPLOAD_FAULT_PREFIXES = ['upload failed:', 'db insert failed:'];
+function uploadRefusal(err: unknown): { ok: false; error: string } {
+  const message = err instanceof Error ? err.message : '';
+  if (!message || UPLOAD_FAULT_PREFIXES.some((p) => message.startsWith(p))) {
+    console.error('[moodboard-library] uploadStylistAsset failed', err);
+    return { ok: false, error: 'We couldn’t save that photo just now — please try again in a moment.' };
+  }
+  return { ok: false, error: message };
+}
+
+export async function uploadStylistAsset(formData: FormData): Promise<UploadStylistAssetResult> {
   try {
-    if (parsed.kind === 'r2') {
-      const { bytes } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
-      return bytes;
-    }
-    return await safeFetchImageBytes(parsed.url);
-  } catch {
-    // No logo we can read → the own-logo check is SKIPPED, never guessed at.
-    return null;
+    return { ok: true, ...(await uploadStylistAssetOrThrow(formData)) };
+  } catch (err) {
+    return uploadRefusal(err);
   }
 }
 
-export async function uploadStylistAsset(
+/** The upload itself — every gate THROWS its sentence; `uploadStylistAsset` above turns that into a result. */
+async function uploadStylistAssetOrThrow(
   formData: FormData,
-): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
-  const file = formData.get('file') as File | null;
+  const picked = formData.get('file');
+  const file = picked instanceof File && picked.size > 0 ? picked : null;
+  // 🌱🖼 OR ONE OF THE SHOP'S OWN PHOTOS (owner 2026-10-19, "add from the shop's own gallery photos as well as
+  // upload"): the same form, the same gates below, only the bytes come from the shop's page / service cards instead
+  // of the supplier's machine. The ref is checked against the shop's OWN list, read here — never trusted as sent.
+  const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
   const label = String(formData.get('label') ?? '').trim();
   const assetType = String(formData.get('assetType') ?? '');
   const assetSubtype = String(formData.get('assetSubtype') ?? '').trim() || null;
   const rightsWarranted = String(formData.get('rightsWarranted') ?? '') === '1';
+  // 🔗 "Which of your services is this?" (owner 2026-10-30) — optional; re-checked against the shop's OWN cards below.
+  const requestedCard = String(formData.get('vendorServiceId') ?? '').trim() || null;
 
-  if (!file) throw new Error('file required');
+  if (!file && !shopPhotoRef) throw new Error('Pick a photo — a file, or one from your shop.');
+  if (file && shopPhotoRef) throw new Error('Pick one photo at a time.');
   if (!label) throw new Error('label required');
+  if (shopPhotoRef && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) {
+    throw new Error('Photos from your shop go to the couples’ inspiration library.');
+  }
 
   const isGallery = assetType === SUPPLIER_GALLERY_ASSET_TYPE;
   if (!isGallery && !(LEGACY_ASSET_TYPES as readonly string[]).includes(assetType)) {
@@ -337,47 +458,63 @@ export async function uploadStylistAsset(
     );
   }
 
+  let vendorServiceId: string | null = null;
   if (isGallery) {
-    const slot = slotUploadVerdict(assetSubtype ?? '', profile.services);
+    const parts = await getInspirationParts();
+    const slot = libraryUploadVerdict(assetSubtype ?? '', profile.services, parts);
     if (!slot.allowed) throw new Error(slot.message);
+
+    // 🔗 THE CARD MUST BE ONE OF THIS SHOP'S LIVE CARDS WHOSE SERVICE LINKS THIS PART — read here, never trusted.
+    const card = await verifyCardForPart(admin, {
+      vendorProfileId: profile.vendor_profile_id,
+      slotKey: slot.slotKey,
+      requested: requestedCard,
+      parts,
+    });
+    if (!card.ok) throw new Error(card.message);
+    vendorServiceId = card.vendorServiceId;
 
     const tier = await fetchShopTier(admin, profile.vendor_profile_id);
     const mode: GalleryUploadMode = 'back_catalogue';
-    const used = await countBackCatalogue(admin, profile.vendor_profile_id, slot.slotKey);
+    const used = await countQuotaUsed(admin, profile.vendor_profile_id, slot.slotKey);
     if (used === null) {
       // Fail CLOSED: we cannot prove this upload is inside the cap, so we do not
       // allow it. Passing 0 here would have read as "none used" and lifted the
       // cap entirely.
       throw new Error(
-        "We couldn't check your gallery allowance just now — please try that upload again in a moment.",
+        "We couldn't check your Inspiration allowance just now — please try that upload again in a moment.",
       );
     }
     const quota = backCatalogueQuotaVerdict({
       mode,
       cap: tierCaps(tier).galleryBackCatalogPhotosPerCategory,
       backCatalogueUsed: used,
-      categoryLabel: GALLERY_SLOT_LABEL[slot.slotKey] ?? 'that category',
+      categoryLabel: libraryPartLabel(slot.slotKey, parts) ?? 'that category',
     });
     if (!quota.allowed) throw new Error(quota.message);
   }
 
-  const arrayBuffer = await file.arrayBuffer();
+  const photo = file
+    ? { bytes: new Uint8Array(await file.arrayBuffer()), contentType: file.type || null }
+    : await readShopOwnPhoto(profile, shopPhotoRef!);
   const result = await storeScreenedAsset({
     admin,
     userId,
     profile,
-    bytes: new Uint8Array(arrayBuffer),
-    contentType: file.type || null,
+    bytes: photo.bytes,
+    contentType: photo.contentType,
     row: {
       asset_type: assetType,
       asset_subtype: assetSubtype,
       label,
       source: 'stylist_upload',
-      // A file picked off the shop's own machine is BACK-CATALOGUE by
-      // definition — there is no celebration attached to it. The event-linked
+      // A file picked off the shop's own machine — or a photo off its own page
+      // or service cards — is BACK-CATALOGUE by definition: there is no
+      // celebration attached to it. The event-linked
       // route is `importEditorialMediaToGallery` below, which can prove the
       // link instead of taking the vendor's word for it.
       source_event_id: null,
+      vendor_service_id: vendorServiceId,
     },
   });
 
@@ -492,11 +629,10 @@ function importLabel(mediaId: string, caption: string | null): string {
   return trimmed ? trimmed.slice(0, 80) : `Day-of photo ${mediaId.slice(0, 8)}`;
 }
 
-export async function importEditorialMediaToGallery(input: {
-  mediaId: string;
-  slotKey: string;
-  rightsWarranted: boolean;
-}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+export async function importEditorialMediaToGallery(input: ImportToGalleryInput): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
+  // 🔗 THE OTHER EVENT-LINKED SOURCE (owner 2026-10-30): a Mood Board suggestion offered to the pool. Its own door,
+  // with its own proofs — the editorial gates below are about editorial media and do not apply to it.
+  if ('suggestionId' in input) return importSuggestionToGallery(input);
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
@@ -506,8 +642,16 @@ export async function importEditorialMediaToGallery(input: {
     );
   }
 
-  const slot = slotUploadVerdict(input.slotKey, profile.services);
+  const parts = await getInspirationParts();
+  const slot = libraryUploadVerdict(input.slotKey, profile.services, parts);
   if (!slot.allowed) throw new Error(slot.message);
+  const card = await verifyCardForPart(admin, {
+    vendorProfileId: profile.vendor_profile_id,
+    slotKey: slot.slotKey,
+    requested: input.vendorServiceId,
+    parts,
+  });
+  if (!card.ok) throw new Error(card.message);
 
   const { data: media } = await admin
     .from('editorial_vendor_media')
@@ -524,7 +668,7 @@ export async function importEditorialMediaToGallery(input: {
   if (row.vendor_profile_id !== profile.vendor_profile_id) {
     throw new Error('That photo belongs to another shop.');
   }
-  if (row.media_type !== 'photo') throw new Error('Only photos can join the gallery.');
+  if (row.media_type !== 'photo') throw new Error('Only photos can join Inspiration.');
   if (row.moderation_state !== 'clean') {
     throw new Error('That photo has not cleared review yet.');
   }
@@ -538,7 +682,7 @@ export async function importEditorialMediaToGallery(input: {
   const eligibility = await getEditorialEligibility(admin, row.event_id, profile.vendor_profile_id);
   if (!eligibility.eligible) {
     throw new Error(
-      'You’re no longer the couple’s recommended supplier on that celebration, so its photos can’t be added.',
+      'You’re no longer the couple’s recommended supplier on that event, so its photos can’t be added.',
     );
   }
 
@@ -566,11 +710,168 @@ export async function importEditorialMediaToGallery(input: {
       // and the DB CHECK `moodboard_library_assets_editorial_import_has_event`
       // refuses an import that arrives without it.
       source_event_id: row.event_id,
+      vendor_service_id: card.vendorServiceId,
     },
   });
 
   revalidatePath('/vendor-dashboard/moodboard-library');
   return result;
+}
+
+/** The two event-linked sources: an editorial photo, or a Mood Board suggestion (2026-10-30). */
+export type ImportToGalleryInput =
+  | { mediaId: string; slotKey: string; rightsWarranted: boolean; vendorServiceId?: string | null }
+  | {
+      suggestionId: string;
+      rightsWarranted: boolean;
+      /** The card the supplier picked on the suggestion sheet; else the suggestion's own. */
+      vendorServiceId?: string | null;
+      /** The shop photo the suggestion was made from, when it was one (`shopPhotoRef`) — an album copy never travels. */
+      sourceRef?: string | null;
+    };
+
+/** The pool states a suggestion may be offered from: still waiting, or answered by the couple either way. */
+const POOLABLE_SUGGESTION_STATES = ['waiting', 'kept', 'declined'] as const;
+
+/* Not exported: a 'use server' file may export async functions only. */
+const SUGGESTION_POOL_REFUSAL = {
+  album:
+    'Photos from an event album stay with that event — they aren’t offered to the inspiration library.',
+  notBooked: 'You’re no longer booked on that event, so its suggestion can’t go to the inspiration library.',
+  gone: 'That suggestion is no longer available.',
+  already: 'That photo is already in your inspiration library.',
+} as const;
+
+/*
+ * 🔗🖼 A MOOD BOARD SUGGESTION, OFFERED TO THE POOL (owner 2026-10-30, "CONNECTED FOUR WAYS" item 4: "A Mood Board
+ * suggestion the couple DECLINED may still go to the pool (the supplier's own work; the couple only declined it for
+ * their board)").
+ *
+ * Every proof is re-made here, on rows the server reads — never taken from the sheet:
+ *   · the suggestion is THIS shop's (vendor_profile_id), and still has its booking (event_vendor_id — SET NULL when the
+ *     booking is deleted): the supplier really was on the event;
+ *   · it reached the couple (waiting / kept / declined) — so it passed the shipped content screen on the way;
+ *   · 🛑 it is not an event-album photo (#7022, 2026-10-28 privacy rule). `shopOwnPhotoRefs` already keeps album copies
+ *     out of the suggestion picker; this refuses one by its ref as well, so the rule holds at the door that matters;
+ *   · its part is one this shop's trades fill (slotUploadVerdict), its card is the shop's own (verifyCardForPart);
+ *   · the per-category quota (countQuotaUsed — suggestion copies count, see countSuggestionPool);
+ *   · the bytes are the ones the COUPLE was shown, read back from where the suggestion stored them;
+ * then the SAME storeScreenedAsset every upload takes: rights warranty · screen · watermark · store · theft scan. The
+ * row lands with approved_at NULL — PENDING, for Setnayan's admin to approve as today. It joins the public pool only
+ * after that approval (the public read policy is approved-and-not-retired).
+ */
+async function importSuggestionToGallery(
+  input: Extract<ImportToGalleryInput, { suggestionId: string }>,
+): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
+  const { userId, profile } = await requireLibraryAccess();
+  const admin = createAdminClient();
+
+  if (!input.rightsWarranted) {
+    throw new Error(
+      'Please confirm you hold the rights to publish this photo before adding it.',
+    );
+  }
+  if (input.sourceRef && isFromAlbumPageRef(input.sourceRef)) {
+    throw new Error(SUGGESTION_POOL_REFUSAL.album);
+  }
+
+  const { data: found, error: readErr } = await admin
+    .from('event_inspiration_suggestions')
+    .select('suggestion_id, event_id, event_vendor_id, vendor_profile_id, slot_key, state, image_url, r2_key, vendor_service_id')
+    .eq('suggestion_id', input.suggestionId)
+    .maybeSingle();
+  if (readErr) {
+    logQueryError('moodboardLibrary.importSuggestion.read', readErr, { suggestionId: input.suggestionId });
+    throw new Error('We couldn’t read that suggestion just now — please try again in a moment.');
+  }
+  const sugg = found as {
+    suggestion_id: string;
+    event_id: string;
+    event_vendor_id: string | null;
+    vendor_profile_id: string | null;
+    slot_key: string;
+    state: string;
+    image_url: string | null;
+    r2_key: string | null;
+    vendor_service_id: string | null;
+  } | null;
+  if (!sugg || !sugg.image_url) throw new Error(SUGGESTION_POOL_REFUSAL.gone);
+  if (sugg.vendor_profile_id !== profile.vendor_profile_id) throw new Error('That photo belongs to another shop.');
+  if (!(POOLABLE_SUGGESTION_STATES as readonly string[]).includes(sugg.state)) throw new Error(SUGGESTION_POOL_REFUSAL.gone);
+  if (!sugg.event_vendor_id) throw new Error(SUGGESTION_POOL_REFUSAL.notBooked);
+
+  const { count: already, error: dupErr } = await admin
+    .from('moodboard_library_assets')
+    .select('asset_id', { count: 'exact', head: true })
+    .eq('source_suggestion_id', sugg.suggestion_id);
+  if (dupErr) {
+    logQueryError('moodboardLibrary.importSuggestion.dup', dupErr, { suggestionId: sugg.suggestion_id });
+    throw new Error('We couldn’t check your inspiration library just now — please try again in a moment.');
+  }
+  if ((already ?? 0) > 0) throw new Error(SUGGESTION_POOL_REFUSAL.already);
+
+  const parts = await getInspirationParts();
+  const slot = slotUploadVerdict(sugg.slot_key, profile.services, parts);
+  if (!slot.allowed) throw new Error(slot.message);
+  const card = await verifyCardForPart(admin, {
+    vendorProfileId: profile.vendor_profile_id,
+    slotKey: slot.slotKey,
+    requested: input.vendorServiceId ?? sugg.vendor_service_id,
+    parts,
+  });
+  if (!card.ok) throw new Error(card.message);
+
+  const used = await countQuotaUsed(admin, profile.vendor_profile_id, slot.slotKey);
+  if (used === null) {
+    throw new Error(
+      "We couldn't check your Inspiration allowance just now — please try again in a moment.",
+    );
+  }
+  const quota = backCatalogueQuotaVerdict({
+    mode: 'back_catalogue',
+    cap: tierCaps(await fetchShopTier(admin, profile.vendor_profile_id)).galleryBackCatalogPhotosPerCategory,
+    backCatalogueUsed: used,
+    categoryLabel: libraryPartLabel(slot.slotKey, parts) ?? 'that category',
+  });
+  if (!quota.allowed) throw new Error(quota.message);
+
+  const photo = await readSuggestionBytes(sugg.r2_key, sugg.image_url);
+  const result = await storeScreenedAsset({
+    admin,
+    userId,
+    profile,
+    bytes: photo,
+    contentType: null,
+    row: {
+      asset_type: SUPPLIER_GALLERY_ASSET_TYPE,
+      asset_subtype: slot.slotKey,
+      label: `${libraryPartLabel(slot.slotKey, parts) ?? 'Inspiration'} · suggested to a couple`,
+      source: 'stylist_upload',
+      // EVENT-LINKED: the event it was suggested on (the "event" of the four links). Never read by a couple —
+      // source_event_id stays revoked from anon/authenticated (MB11).
+      source_event_id: sugg.event_id,
+      vendor_service_id: card.vendorServiceId,
+      source_suggestion_id: sugg.suggestion_id,
+    },
+  });
+
+  revalidatePath('/vendor-dashboard/moodboard-library');
+  return result;
+}
+
+/** The suggestion's stored bytes — R2 by key when it is there, else its public URL (the dev fallback store). */
+async function readSuggestionBytes(r2Key: string | null, imageUrl: string): Promise<Uint8Array> {
+  if (r2Key) {
+    try {
+      const { bytes } = await r2GetBytes({ bucket: R2_BUCKETS[bucketForPrefix(r2Key)], key: r2Key });
+      return bytes;
+    } catch {
+      /* fall through to the public copy */
+    }
+  }
+  const bytes = await safeFetchImageBytes(imageUrl);
+  if (!bytes) throw new Error('That photo could not be opened.');
+  return bytes;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

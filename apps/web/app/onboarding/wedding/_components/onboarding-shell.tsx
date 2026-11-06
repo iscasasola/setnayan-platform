@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 
 /**
@@ -40,6 +41,9 @@ import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ChevronLeft, X } from 'lucide-react';
+import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
 // Layered ON TOP of the prototype CSS — see onboarding-desktop.css header.
@@ -53,7 +57,9 @@ import {
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
-import { ANY_OAUTH_ENABLED, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { OAuthTermsLine } from '@/app/_components/auth/oauth-terms-line';
+import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { signUp } from '@/app/signup/actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
@@ -115,6 +121,7 @@ import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/coupl
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
+import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
 import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
@@ -334,7 +341,7 @@ const BUNDLE_ASSET = (key: string) => `/onboarding/bundle/${key}.webp`;
 const KIND_PHOTO: Record<OnboardingKind, { img: string; cap: string }> = {
   religious: { img: 'wed_catholic', cap: 'A faith ceremony' },
   civil: { img: 'wed_civil', cap: 'A city-hall ceremony' },
-  mixed: { img: 'wed_mixed', cap: 'A blended celebration' },
+  mixed: { img: 'wed_mixed', cap: 'A blended event' },
 };
 
 /* Faith → hero photo + caption (prototype setFaithPhoto, religious mode).
@@ -396,7 +403,7 @@ const PAXTIERS = [
   { max: 80, t: 't2', tag: 'Warm & intimate', line: 'Family and close friends, in a room where you can greet everyone.' },
   { max: 200, t: 't3', tag: 'The classic size', line: 'The most-loved Filipino wedding — full, lively, complete.' },
   { max: 400, t: 't4', tag: 'Grand', line: 'Extended family and the whole barkada — a big, joyful day.' },
-  { max: 1e9, t: 't5', tag: 'A grand fiesta', line: 'A community-scale celebration — the whole town, it feels like.' },
+  { max: 1e9, t: 't5', tag: 'A grand fiesta', line: 'A community-scale event — the whole town, it feels like.' },
 ];
 const paxTierFor = (n: number) => PAXTIERS.find((x) => n <= x.max) ?? PAXTIERS[PAXTIERS.length - 1]!;
 
@@ -467,7 +474,7 @@ const PICK_GROUPS_FALLBACK: PickGroup[] = [
 const BASIC_CATS = ['ceremony', 'catering', 'coordinator', 'photo_video'] as const;
 const BASIC_SET = new Set<string>(BASIC_CATS);
 const PICK_INFO: Record<string, { d: string }> = {
-  reception: { d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
+  reception: { d: 'Where your event happens — the dinner, the program, and the dancing.' },
   ceremony: { d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
   coordinator: { d: 'Runs your timeline and suppliers so you can just enjoy the day.' },
   catering: { d: 'Food and service for your guests — buffet, plated, or family-style.' },
@@ -477,7 +484,7 @@ const PICK_INFO: Record<string, { d: string }> = {
   florist: { d: 'Bouquets, centerpieces, and floral styling throughout.' },
   lights_sound: { d: 'Lighting design and the sound system for the day.' },
   dance_floor: { d: 'A proper dance floor for the first dance and the party.' },
-  outdoor: { d: 'Tents, draping, and setup for an outdoor celebration.' },
+  outdoor: { d: 'Tents, draping, and setup for an outdoor event.' },
   fireworks: { d: 'A fireworks or pyro send-off for the big moment.' },
   led_wall: { d: 'An LED video wall for visuals, the live feed, and your monogram.' },
   live_band: { d: 'A live band to play your reception.' },
@@ -885,12 +892,12 @@ function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Music Maker · your song', panood: 'Live Watch livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Music Maker · your song', panood: 'Live Watch livestream', live_background: 'Live Background', live_photowall: 'Memory lane', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
-  papic_guest: "One shared pool of credits that every guest's phone can spend from — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
+  papic_guest: "One shared pool of credits that every guest's phone can spend from — their candids land in your Memories live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
   papic_seats: "A camera of its own for the friend who always sees the moment first — its own QR, its own shots that nobody else can spend. Add as many as you like, reload any of them whenever one runs low.",
   animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
@@ -898,7 +905,7 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
   panood: "Livestream your day to family abroad — multi-camera, broadcast quality, so Lolo in California feels like he was in the front row.",
   live_background: "An LED stage backdrop with your palette and monogram — your story on the wall, instead of generic venue draping.",
-  live_photowall: "A live photo wall at the venue — the night writes itself, guest pictures appearing on the wall minutes after each moment.",
+  live_photowall: "Memory lane at the venue — the night writes itself, guest pictures appearing on it minutes after each moment.",
   indoor_blueprint: "A venue floor map — guests find their seats in seconds. Zero confused tito wandering around looking for table 7.",
   high_res: "Full-quality archive of all your originals, stored safely. Free with Setnayan — yours to keep, no subscription fees.",
 };
@@ -932,7 +939,9 @@ const groupDigits = (raw: string) => {
 // live_background dropped 2026-07-22: Live Background is bundle-only (folded into
 // Monogram PRO = animated_monogram), so it is no longer a standalone onboarding
 // pick (its SKU is is_active=false → the card would otherwise render as ₱0).
-const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'guest_stories', 'thank_you', 'live_photowall'];
+// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Hub Pro's Logo & QR
+// part (is_active=false → the card would otherwise render as ₱0), and onboarding keeps ONE Pro offer (Full Pro).
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'panood', 'papic_guest', 'pakanta', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
 // first picked one of these, else falls back to the Services tab (owner 2026-06-06).
@@ -1043,9 +1052,7 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
    apostrophes ("D'Souza"); strips everything else live as the couple types. */
-function sanitizeName(raw: string): string {
-  return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
-}
+/* …the ONE rule, `sanitizeName` in lib/typed-names.ts (imported above; this file's copy was identical). */
 
 /* Everything a couple gets free — the LIST only (owner tracker d12, 2026-10-02:
    *"keep the list, drop the ₱ and hours total … this is not a real measurement."*).
@@ -1134,7 +1141,10 @@ export function OnboardingShell({
   storeShell = false,
   setupView = null,
   setupSteps = NO_SETUP_STEPS,
+  dateExempt = false,
 }: {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026. */
+  dateExempt?: boolean;
   authed: boolean;
   resume: boolean;
   /** Date-anchor model: the user's profile religion (already validated against
@@ -1506,6 +1516,10 @@ export function OnboardingShell({
   const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks, setupSteps, storeShell), [state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell, setupSteps]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
+  // 🚪 The first screen is the first index of the sequence, whatever screen that is today
+  // (`w_names` on the approved flow). Its top-left control is the way OUT, not a step back.
+  const onFirstScreen = stepClamped === 0;
+  const exit = onboardingExit(authed);
   // 🧭 The approved wedding flow is on once the engine resolved cards for the wedding.
   const approvedFlow = setupSteps.length > 0;
   // "n of N" counts the question cards only (the account gate and the services step are not questions).
@@ -1634,16 +1648,22 @@ export function OnboardingShell({
      Pattern: keep exactly ONE sentinel history entry on top of the stack while the
      shell is mounted. Each Back press pops the sentinel → we step the flow back one
      screen (go(-1), which already handles the refine / style sub-steps) and re-arm a
-     fresh sentinel so the NEXT Back is caught too. On the first screen (welcome) we
+     fresh sentinel so the NEXT Back is caught too. On the first screen (step 0) we
      let the pop through so the couple leaves onboarding cleanly. Forward navigation
      stays pure state (no pushState), so the sentinel always sits on top. The on-screen
      "‹" button is unchanged — it still calls go(-1) directly and already works. */
   const goRef = useRef(go);
   goRef.current = go;
-  // canGoBack mirrors the on-screen "‹" hide rule (hidden only on welcome): Back is a
-  // step-back on every screen except the first, where it exits onboarding.
+  // canGoBack mirrors the on-screen "‹" rule: Back is a step-back on every screen except
+  // the first, where it exits onboarding.
+  // 🚪 "THE FIRST SCREEN" IS STEP 0, NEVER A SCREEN ID (owner 2026-10-26, "doesn't have a
+  // cancel"). This used to read `activeId !== 'welcome'` — but 'welcome' is in
+  // REMOVED_SCREENS and is never in the approved list either, so it is NEVER active: the
+  // "exit on the first screen" branch was dead, the "‹" on the real first screen
+  // (`w_names`) called go(-1) and clamped to 0 (a button that did nothing), and the
+  // hardware/browser Back on that screen re-armed the sentinel forever — no way out at all.
   const canGoBackRef = useRef(false);
-  canGoBackRef.current = activeId !== 'welcome';
+  canGoBackRef.current = !onFirstScreen;
   // Flipped true the instant the final commit→dashboard navigation begins, so a
   // popstate fired during teardown is ignored (never re-steps the flow as we leave).
   const exitingOnbRef = useRef(false);
@@ -2052,7 +2072,7 @@ export function OnboardingShell({
   };
 
   /* Couple display name for screens 13 (congrats) + 14 (Your Plan) — prototype [data-couple-name]. */
-  const coupleDisplay = [state.brideFirstName.trim(), state.groomFirstName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
+  const coupleDisplay = joinCoupleNames(state.brideFirstName, state.groomFirstName) || 'Maria & Juan'; // the one composition
 
   /* BYO vendor send — name required → accumulate into state.byoVendors (persisted
      to the draft + the commit payload), confirm truthfully, relabel the add button. */
@@ -2867,6 +2887,12 @@ export function OnboardingShell({
           setCommitError('Please create your account to save your plan.');
           goToId('account');
         }
+      } else if (res.error === 'event_date_before_first_event') {
+        // 💍 No event before December 19, 2026 (lib/event-date-floor.ts): back to the date,
+        // with the owner's words.
+        setFinishing(false);
+        setCommitError(EVENT_DATE_FLOOR_MESSAGE);
+        goToId('date');
       } else if (res.error === 'wedding_exists') {
         // Wedding cardinality (owner-locked 2026-07-12, wired into this commit
         // path 2026-07-17): one wedding in planning at a time — same rule the
@@ -2946,15 +2972,31 @@ export function OnboardingShell({
         {/* top — brand + progress */}
         <div className="top">
           <div className="brandrow">
-            <button
-              className="btn-back"
-              type="button"
-              onClick={() => go(-1)}
-              aria-label="Back"
-              style={{ display: activeId === 'welcome' ? 'none' : 'inline-flex' }}
-            >
-              {'‹'}
-            </button>
+            {/* 🚪 First screen: ✕ leaves (back to the event-type picker — a misclicked type is
+                one tap from the right one); every later screen: ‹ steps back. Same slot, so the
+                brand never moves. `replace` + exitingOnbRef: leaving never re-steps the flow. */}
+            {onFirstScreen ? (
+              <Link
+                className="btn-back btn-ring btn-exit"
+                href={exit.href}
+                replace
+                aria-label={exit.label}
+                data-onboarding-exit=""
+                onClick={() => {
+                  exitingOnbRef.current = true;
+                }}
+              >
+                <span className="btn-ring-face" aria-hidden>
+                  <X size={16} strokeWidth={2} />
+                </span>
+              </Link>
+            ) : (
+              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back">
+                <span className="btn-ring-face" aria-hidden>
+                  <ChevronLeft size={16} strokeWidth={2} />
+                </span>
+              </button>
+            )}
             <span className="brandlock">
               <svg className="blmark-img" viewBox="0 0 5333.3335 5333.3335" role="img" aria-label="Setnayan">
                 <path
@@ -3125,7 +3167,7 @@ export function OnboardingShell({
             <div className="tapzone">
               {faithView.mode === 'civil' ? null : (
                 <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
-                  {FAITH_CHIPS.map((c) => {
+                  {FAITH_CHIPS.map((c, _i, all) => {
                     // Gate on the launch status when we have it (admin
                     // /admin/wedding-types); fall back to the built-in soon
                     // flag if the status read was unavailable.
@@ -3139,6 +3181,13 @@ export function OnboardingShell({
                         className={`chip${sel(picked)}${soon ? ' is-soon' : ''}${picked ? ' sn-bounce' : ''}`}
                         onClick={soon ? undefined : () => selectFaith(c.value)}
                         aria-disabled={soon || undefined}
+                        // A not-yet faith is a "soon" chip: hidden inside the
+                        // app before first paint (lib/store-shell.ts COMING_SOON_ATTR)
+                        // — unless NO faith is pickable (a failed status read), when
+                        // hiding them all would leave the step with nothing on it.
+                        data-coming-soon={
+                          soon && all.some((x) => (activeFaiths ? activeFaiths.includes(x.value) : !x.soon)) ? '' : undefined
+                        }
                       >
                         {c.label}
                         {soon && <span className="soon">soon</span>}
@@ -3568,6 +3617,7 @@ export function OnboardingShell({
               centred column in a wide sheet). Mobile (<1024) unaffected. */}
           <section className={`screen onb-twopane${activeId === 'date' ? ' active' : ''}`} id="screen-date">
             <DateCalendar
+              dateExempt={dateExempt}
               mode={state.dateMode}
               candidates={state.dateCandidates}
               windowStart={state.windowStart}
@@ -3589,6 +3639,7 @@ export function OnboardingShell({
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more */}
           <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
+              storeShell={storeShell}
               value={state.places}
               onChange={(places) =>
                 patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })
@@ -4091,7 +4142,8 @@ export function OnboardingShell({
                 Google refuses OAuth in an embedded WebView. */}
             {!storeShell ? (
               <div className="stack">
-                <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" verb={SIGNUP_OAUTH_VERB} />
+                <OAuthButtonRow next={RESUME_NEXT} withAccountType defaultAccountType="customer" />
+                {ANY_OAUTH_ENABLED ? <OAuthTermsLine /> : null}
               </div>
             ) : null}
             {ANY_OAUTH_ENABLED && !storeShell ? (
@@ -4129,7 +4181,16 @@ export function OnboardingShell({
                 placeholder="your@email.com"
                 style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
               />
+              {/* A TYPED Google address takes the Google button's own door, the
+                  same row as above (owner 2026-10-18); the password part folds. */}
+              <GoogleAddressDoor
+                enabled={!storeShell}
+                next={RESUME_NEXT}
+                accountType="customer"
+                withTerms
+              />
               <input
+                data-password-only=""
                 className="field"
                 name="password"
                 type="password"
@@ -4145,7 +4206,7 @@ export function OnboardingShell({
                   refused every submission and bounced the couple to
                   /signup?error=terms_required to retype everything. Never a
                   hidden field: consent posted for someone is not consent. */}
-              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, textAlign: 'left' }}>
+              <label data-password-only="" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, textAlign: 'left' }}>
                 <input name={TERMS_FIELD} type="checkbox" required style={{ marginTop: 3 }} />
                 <span>
                   I agree to the <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}><u>Terms</u></a>{' '}
@@ -4155,11 +4216,11 @@ export function OnboardingShell({
               {/* "Stay signed in" — defaults CHECKED, exactly as on /signup; `signUp`
                   downgrades the session to browser-only when it is unticked. Without
                   this field the login only lasted until the browser closed. */}
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, textAlign: 'left' }}>
+              <label data-password-only="" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, textAlign: 'left' }}>
                 <input name="remember" type="checkbox" defaultChecked />
                 <span>Stay signed in</span>
               </label>
-              <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
+              <SubmitButton className="byo-send" pendingLabel="Creating account…" data-password-only="">Create account</SubmitButton>
             </form>
             <div className="ghost" style={{ marginTop: 4 }}>
               <a href={`/login?next=${encodeURIComponent(RESUME_NEXT)}`} style={{ color: 'inherit' }}>
@@ -4365,8 +4426,9 @@ export function OnboardingShell({
                    mount whose commit ignores them. */
                 selection={servicesSelection}
                 onSelectionChange={setServicesStepSelection}
-                /* The approved wedding recommends its nearest pack for the guest estimate. */
-                guests={approvedFlow ? state.pax : null}
+                /* The approved wedding gets the − [pack] + / Add Papic picker. No guest-count
+                   recommendation (owner 2026-10-15) — each pack states its own estimate. */
+                packPicker={approvedFlow}
               />
             </section>
           ) : null}
@@ -4640,7 +4702,7 @@ export function OnboardingShell({
         </div>
 
         {/* BYO vendor — bottom-sheet popup (prototype #byoSheet/#byoBackdrop · vendor_invites auto-connect, CLAUDE.md 2026-05-19) */}
-        <div className={`sheet-backdrop${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
+        <div className={`sheet-backdrop sn-popup-dark${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
         <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own supplier">
           <div className="sheet-handle" />
           <div className="sheet-h">Add your own supplier</div>

@@ -55,7 +55,7 @@ export const SIDE_DOT: Record<Side, string> = {
   both: 'bg-warn-300',
 };
 
-// Filled swatch for a picker option (chip-editors Side chooser) — a touch
+// Filled swatch for a picker option (the Side chooser) — a touch
 // deeper than the facet dot so it reads as a control.
 export const SIDE_SWATCH: Record<Side, string> = {
   bride: 'bg-warn-500',

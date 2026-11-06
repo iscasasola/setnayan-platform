@@ -70,7 +70,7 @@ export default function GoogleAccessPage() {
           you use the feature that needs them, and either can be disconnected at
           any time. Nothing on Setnayan requires you to connect Google — a couple
           who never connects anything still plans their whole wedding, keeps
-          their gallery, and runs their event page.
+          their Memories, and runs their event page.
         </p>
         <ul className="ml-5 list-disc space-y-1">
           <li>

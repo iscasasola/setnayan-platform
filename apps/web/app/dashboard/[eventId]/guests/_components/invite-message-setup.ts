@@ -3,6 +3,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { parsePrintDetails } from '@/lib/print-pieces';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * EVERYTHING A "SEND INVITE" NEEDS THAT IS NOT THE GUEST — read once per page.
@@ -33,11 +34,14 @@ export async function loadInviteSetup(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<InviteSetup> {
-  const { data, error } = await supabase
-    .from('events')
-    .select('display_name, event_type, event_date, event_date_precision, slug, print_details')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the dashboard's one read of the row, when this render opened it (lib/event-row-once.ts).
+  const { data, error } = await eventRowOnce(supabase, eventId, 'display_name, event_type, event_date, event_date_precision, slug, print_details', () =>
+    supabase
+      .from('events')
+      .select('display_name, event_type, event_date, event_date_precision, slug, print_details')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
   if (error) {
     logQueryError('loadInviteSetup (events)', error, { event_id: eventId }, 'graceful_degrade');
   }

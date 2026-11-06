@@ -9,6 +9,8 @@
  * atomically, via the vendor_claim_locked_qr() RPC when the couple scans.
  */
 
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { redirect } from 'next/navigation';
 import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
@@ -18,7 +20,10 @@ import { fetchVendorServices } from '@/lib/vendor-services';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
+import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
   // Tolerate thousands separators — the generator submits clean numbers, but a
@@ -29,8 +34,11 @@ function toAmount(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-function fail(reason: string): never {
-  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}`);
+/** A code made for one outside booking (Customers › People, "Send their code") keeps naming it through a refusal. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function failTo(reason: string, blockId: string | null): never {
+  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}${blockId ? `&block=${blockId}` : ''}`);
 }
 
 /** Parse a hidden JSON-array field into a clean string[] (empty on any junk). */
@@ -58,6 +66,13 @@ function parseStringArray(v: FormDataEntryValue | null): string[] {
 */
 
 export async function issueLockedQr(formData: FormData): Promise<void> {
+  // The outside booking this code is for (Customers › People › "Send their code"), when it came from one. The
+  // database refuses a booking that is not this shop's own outside booking (trigger
+  // `vendor_locked_qr_block_is_own_outside`); here it is only shape-checked and carried through every refusal.
+  const rawBlock = String(formData.get('block_id') ?? '').trim();
+  const blockId = UUID_RE.test(rawBlock) ? rawBlock : null;
+  // Typed on the NAME (not only the arrow) so a call narrows like the old function did — TS needs that for `never`.
+  const fail: (reason: string) => never = (reason) => failTo(reason, blockId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -67,6 +82,15 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+
+  // 🚪 DOOR 7a · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). A Locked QR IS a booking the moment it
+  // is scanned, so none is made while bookings are closed — a code that can only fail at the couple's scan helps nobody.
+  if (!(await areBookingsOpen())) fail('bookings_closed');
+
+  // ✅ A LOCKED QR NEEDS A VERIFIED SHOP (supplier gate audit G8, 2026-11-02). The couple's scan books the shop, and
+  // the database refuses to book an unverified one (`enforce_booking_requires_verified_vendor`) — so a code issued
+  // here only failed later, at the couple's scan, with a generic error. Refused here instead, with what to do.
+  if (!(await isMarketplaceVendorBookable(supabase, vendorProfileId))) fail('not_verified');
 
   // Service picker is the vendor's own leaf offerings (vendor_services,
   // DB-driven, MULTI-select). Each ref is a vendor_service_id, or a
@@ -117,13 +141,35 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       ? rawDate
       : null;
   if (!eventDate) fail('event_date');
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — this code
+  // becomes the couple's event date when they scan it.
+  if (eventDateFloorRefusal({ date: eventDate, exempt: await eventDateFloorExempt(supabase) })) {
+    fail('event_date_before_first_event');
+  }
 
   // Owner rule #4 (2026-07): a Locked QR is the PRIMARY booking of its date, so
   // it cannot be issued for a date the vendor is no longer free on (already
   // booked -> auto-blocked, or manually blocked). Reuse the exact availability
   // source couples see; fail-open on a query error (matches getVendorAvailableDays).
+  //
+  // 🔑 ONE EXCEPTION, AND IT IS THE SAME BOOKING: a code made for an outside booking (`block_id`) on a day that booking
+  // already holds. That day reads "taken" precisely BECAUSE of this customer's own outside booking — refusing would make
+  // "Send their code" impossible on the one date it exists for. Any other date still goes through the check.
+  let ownOutsideDay = false;
+  if (blockId) {
+    const { data: held } = await supabase
+      .from('vendor_calendar_blocks')
+      .select(`blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
+      .eq('block_id', blockId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('block_source', 'external_client')
+      .maybeSingle();
+    if (!held) fail('issue');
+    // The ONE rule for "is this day inside that block" (`lib/not-available.ts`) — never a hand-made range check.
+    ownOutsideDay = blockOnDay(notAvailableShapeOf(held as { blocked_at: string; blocked_until: string }), eventDate as string);
+  }
   const bookDate = new Date(`${eventDate}T00:00:00`);
-  const freeDays = await getVendorAvailableDays(
+  const freeDays = ownOutsideDay ? null : await getVendorAvailableDays(
     supabase,
     vendorProfileId,
     bookDate,
@@ -214,11 +260,12 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       proof_r2_key: proofRef,
       remembrance_r2_key: remembranceRef,
       source_contract_id: sourceContractId,
+      block_id: blockId,
     })
     .select('token')
     .single();
 
   if (error || !inserted) fail('issue');
 
-  redirect(`/vendor-dashboard/invite?mode=locked&issued=${inserted.token}`);
+  redirect(`/vendor-dashboard/invite?mode=locked&issued=${inserted.token}${blockId ? `&block=${blockId}` : ''}`);
 }

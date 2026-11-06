@@ -40,6 +40,7 @@ import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
 import { SaveVendorButton } from './_components/save-vendor-button';
+import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
 // 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
 // Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
 // non-focused catalog + vendor-grid render branches in favor of IconTileFolderStrip
@@ -53,7 +54,14 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // its own `FolderTab` type (structurally identical, per the comment above),
 // so the type import now points there instead.
 import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
-import { countLiveShops } from '@/lib/live-shops';
+import { countLiveShops, LIVE_SHOP_GATE } from '@/lib/live-shops';
+import {
+  shopsStillSettingUp,
+  unfilteredEmptyGridCopy,
+  type ShopStillSettingUp,
+} from '@/lib/explore-empty-grid';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
@@ -148,6 +156,7 @@ import {
 } from '@/lib/explore-event-type-scope';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -382,6 +391,7 @@ export const metadata = {
     'Setnayan suppliers',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
       'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
@@ -391,9 +401,12 @@ export const metadata = {
     type: 'website',
   },
   // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) · twitter
-  // card so social shares of /vendors render with the 1200×630 layout-level
-  // /brand/og-card.webp (Bucket 2 PR #607) instead of a 144×144 thumbnail.
+  // card so social shares render the 1200×630 /brand/og-card.webp instead of a
+  // 144×144 thumbnail. ⚠ The card must be NAMED here: a page's own `twitter` /
+  // `openGraph` object replaces the layout's whole object (shallow merge), so
+  // "layout-level" left this page with no picture at all until 2026-10-23.
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
@@ -629,7 +642,7 @@ function CompareShortlistBanner({ compareHref }: { compareHref: string | null })
         <p className="text-sm text-ink/80">
           <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
           <span className="text-ink/70">
-            Put two saved vendors side by side — location, rating, services, faith fit.
+            Put two saved suppliers side by side — location, rating, services, faith fit.
           </span>
         </p>
         <Link
@@ -1826,6 +1839,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
           browseMode={browseMode}
+          emptyLineHidden={hidesEmptyShelfInApp(await isStoreShellRequest(), liveShopCount)}
         />
       </>
     );
@@ -2277,6 +2291,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // save it twice or conclude they lost it. Unlike the card enrichment below,
   // this is a false statement about something the person themselves did.
   let viewerStateFailed = false;
+  // 🗂 "Save to which event?" (owner 2026-11-06): with 2+ events of their own still ahead, the card's Save asks.
+  // The rows and their filter are the shop page's picker (`resolveAddShopToEvent`), untouched.
+  const saveChoices: HostEventChoice[] = user
+    ? await resolveHostEventChoices().then((c) => (c.signedIn && c.options.length >= 2 ? c.options : []))
+    : [];
   const [followedSet, savedSet] = await Promise.all([
     (async (): Promise<Set<string>> => {
       if (!user || visibleIds.length === 0) return new Set<string>();
@@ -2337,6 +2356,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       };
   let availability: AvailabilityState = { kind: 'none' };
   let visible = rows;
+
+  /*
+    🏪 LIVE SHOPS THE GRID LEAVES OUT (live walk 2026-11-01). B2 above keeps a
+    shop with no active service off the grid — correctly, a card there is a dead
+    end — but the landing then said "No suppliers have published" under its own
+    "The first shops" heading, while the front door showed the very shop. Read
+    only when the unfiltered landing's grid came back EMPTY and the live count
+    says a shop exists: one read of at most 8 rows, under the one live gate, so
+    the empty grid names the same shops (and links) the front door does. A
+    failed read names none — the line above it still says only what was
+    measured. See lib/explore-empty-grid.ts.
+  */
+  let stillSettingUp: ShopStillSettingUp[] = [];
+  if (isLandingView && rows.length === 0 && (liveShopCount ?? 0) > 0) {
+    const { data: liveRows, error: liveRowsError } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name, business_slug')
+      .match(LIVE_SHOP_GATE)
+      .order('business_name')
+      .limit(8);
+    if (liveRowsError) {
+      console.error('[supabase-error] app/(shell)/explore/page.tsx · live shops still setting up', liveRowsError);
+    } else {
+      stillSettingUp = shopsStillSettingUp(liveRows ?? [], inquirableVendorIds);
+    }
+  }
   if (coupleEventId && coupleEventDate && coupleEventDatePrecision) {
     const window = computeCandidateWindow(coupleEventDate, coupleEventDatePrecision);
     if (window) {
@@ -3634,7 +3679,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   strokeWidth={1.75}
                 />
                 <span>
-                  Showing vendors with{' '}
+                  Showing suppliers with{' '}
                   <span className="font-medium text-ink">off-season savings</span>{' '}
                   — a live off-peak deal.
                 </span>
@@ -3643,7 +3688,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 href={buildHref(filters, { offSeason: false, page: 1 })}
                 className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
               >
-                Show all vendors
+                Show all suppliers
               </Link>
             </div>
           ) : (
@@ -3673,11 +3718,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 strokeWidth={1.75}
               />
               <span>
-                Showing vendors who serve{' '}
+                Showing suppliers who serve{' '}
                 <span className="font-medium text-ink">
                   {FAITH_KEY_TO_LABEL[filters.faithFilter]}
                 </span>{' '}
-                celebrations.
+                events.
               </span>
             </p>
             <Link
@@ -3693,6 +3738,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           <EmptyState
             filters={filters}
             broadenedCount={broadenedCount}
+            stillSettingUp={stillSettingUp}
             eventTypeLabel={
               filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
             }
@@ -3708,7 +3754,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             only to satisfy a type. Same call shape the vendor's own card list
             uses, so all three surfaces draw the identical card.
           */
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
             {serviceCards.map((c) => (
               <li key={c.row.vendor_service_id}>
                 {/*
@@ -3759,7 +3805,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             ))}
           </ul>
           ) : (
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
             {visible.map((v) => {
               /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
                  It hid a Free vendor's stars and count (the card rendered
@@ -3800,6 +3846,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
+                    saveEvents={saveChoices}
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
@@ -4075,6 +4122,7 @@ function ReadsResults({ hits, query }: { hits: ReadHit[]; query: string }) {
 function EmptyState({
   filters,
   broadenedCount,
+  stillSettingUp,
   eventTypeLabel,
 }: {
   filters: {
@@ -4092,6 +4140,8 @@ function EmptyState({
     focusedMode: boolean;
   };
   broadenedCount: number | null;
+  /** Live shops with no active service yet — named on the unfiltered empty grid (lib/explore-empty-grid.ts). */
+  stillSettingUp: ShopStillSettingUp[];
   /** Couple-facing label for filters.eventType (DB vocab; null when unset). */
   eventTypeLabel: string | null;
 }) {
@@ -4119,14 +4169,14 @@ function EmptyState({
           No live off-season offers match your search yet.
         </p>
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-          Vendors run off-peak deals for their quieter months. Check back as the
-          season shifts, or browse every vendor below.
+          Suppliers run off-peak deals for their quieter months. Check back as the
+          season shifts, or browse every supplier below.
         </p>
         <Link
           href={buildHref(filters, { offSeason: false, page: 1 })}
           className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-800"
         >
-          Show all vendors
+          Show all suppliers
         </Link>
       </div>
     );
@@ -4192,23 +4242,23 @@ function EmptyState({
     const label = eventTypeLabel ?? filters.eventType;
     return (
       <div className="mt-8 rounded-2xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] p-10 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        <p data-coming-soon className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
           Coming soon
         </p>
         <p className="mt-3 text-base font-medium text-ink">
-          {label} vendors are being recruited for Setnayan.
+          {label} suppliers are being recruited for Setnayan.
         </p>
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
           Setnayan launches each event-type marketplace once enough verified
-          vendors are onboarded. Wedding vendors are live now — other event
-          types open as their vendor pools mature.
+          suppliers are onboarded. Wedding suppliers are live now — other event
+          types open as their supplier pools mature.
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
           href={browseAllVendorsHref(filters.focusedMode)}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
-          Or browse all vendors instead →
+          Or browse all suppliers instead →
         </Link>
       </div>
     );
@@ -4216,18 +4266,31 @@ function EmptyState({
 
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+      {/* 🔴 THE UNFILTERED LINES COME FROM `unfilteredEmptyGridCopy`. They said "No suppliers have published
+          their Setnayan profile yet." — never measured: the grid lists shops WITH an active service (B2), so an
+          empty grid proves only that no service is listed, and on 2026-11-01 a live shop (SetnaProd, on the front
+          door and at /setnaprod) sat right behind that sentence. lib/explore-empty-grid.ts. */}
       <p className="text-base font-medium text-ink/75">
-        {hasFilter
-          ? 'No suppliers match exactly.'
-          : 'No suppliers have published their Setnayan profile yet.'}
+        {hasFilter ? 'No suppliers match exactly.' : unfilteredEmptyGridCopy(stillSettingUp.length).line}
       </p>
       <p className="mt-1 text-sm text-ink/55">
         {hasFilter
           ? showAllAvailable
             ? `We have ${formatCount(broadenedCount)} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
             : 'Try widening your search or clearing one filter at a time.'
-          : 'Check back soon — suppliers are landing every week.'}
+          : unfilteredEmptyGridCopy(stillSettingUp.length).sub}
       </p>
+      {!hasFilter && stillSettingUp.length > 0 ? (
+        <ul className="mt-4 flex flex-wrap justify-center gap-2" data-still-setting-up="">
+          {stillSettingUp.map((shop) => (
+            <li key={shop.href}>
+              <Link href={shop.href} className="button-secondary inline-flex h-10 px-4">
+                {shop.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {hasFilter ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {showAllAvailable ? (
@@ -4262,7 +4325,7 @@ function EmptyState({
             here.
           </p>
           <p className="mt-1 text-xs text-ink/60">
-            Setnayan is onboarding {outreachLabel} vendors now. Listing is free
+            Setnayan is onboarding {outreachLabel} suppliers now. Listing is free
             to start, and you choose this category in 90 seconds.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -4446,6 +4509,7 @@ async function CatalogView({
   focusedMode,
   faithFilter,
   browseMode,
+  emptyLineHidden,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: {
@@ -4504,6 +4568,11 @@ async function CatalogView({
    *  "Browse all categories" link render. True for explicit browse/context
    *  visits (?browse=1 / folder / tile / from=plan). */
   browseMode: boolean;
+  /** 📱 Inside the App Store / Play Store shell the "no supplier has opened a
+   *  shop yet" line is hidden (owner, DECISION_LOG 2026-10-19 (2)); the search
+   *  hero and "Browse all categories" stay, so the page is never empty. One
+   *  live shop and this view is not rendered at all. Web: always false. */
+  emptyLineHidden: boolean;
 }) {
   // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
   // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
@@ -4971,17 +5040,19 @@ async function CatalogView({
           joins"). One plain line for the couple, one door for the supplier —
           the same /open-shop door the front door's invite card uses.
         */}
-        <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
-          <p className="text-base font-medium text-ink/80">
-            No supplier has opened a shop yet — new shops show up here the day they open.
-          </p>
-          <p className="mt-2 text-sm text-ink/60">
-            Are you a supplier?{' '}
-            <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
-              Open your shop &rarr;
-            </Link>
-          </p>
-        </div>
+        {emptyLineHidden ? null : (
+          <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
+            <p className="text-base font-medium text-ink/80">
+              No supplier has opened a shop yet — new shops show up here the day they open.
+            </p>
+            <p className="mt-2 text-sm text-ink/60">
+              Are you a supplier?{' '}
+              <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+                Open your shop &rarr;
+              </Link>
+            </p>
+          </div>
+        )}
 
         {/* 2026-06-14 search-first — owner "we just want a search bar". The
             curated browse catalog below the hero (icon strip + venue pickers +
@@ -5151,7 +5222,7 @@ function VenueFilterBanner({
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
       <p className="text-sm text-ink/80">
-        Showing vendors who work with{' '}
+        Showing suppliers who work with{' '}
         <span className="font-medium text-terracotta-700">{shortLabel}</span>{' '}
         venues — your wedding&rsquo;s picked setting (
         <span className="font-mono text-xs text-ink/60">{longLabel}</span>).

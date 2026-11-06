@@ -81,7 +81,7 @@ test('sanity: the sections the owner named by number render only their title', (
     ['entourage-section.tsx', 'The entourage'],
     ['rsvp-widget.tsx', 'Reply'],
     ['our-story.tsx', 'Our story'],
-    ['our-photos-widget.tsx', 'Our photos'],
+    ['our-photos-widget.tsx', 'Memories'],
     ['empty-states.tsx', 'The details'],
   ];
   for (const [file, title] of cases) {

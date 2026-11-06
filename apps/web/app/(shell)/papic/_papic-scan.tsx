@@ -107,7 +107,7 @@ export function PapicScan() {
   if (failed) {
     return (
       <p className="rounded-2xl border border-[var(--m-line)] px-5 py-6 text-sm text-[var(--m-slate-2)]">
-        The live codes could not be created just now. Nothing is wrong with your celebration —
+        The live codes could not be created just now. Nothing is wrong with your event —
         this is only the demo on this page.
       </p>
     );
@@ -175,7 +175,7 @@ export function PapicScan() {
           <p className="mt-2.5 text-xs text-[var(--m-slate-2)]">
             {remaining !== null && remaining > 0
               ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left — the demo caps this, not Papic.`
-              : 'That is the demo roll. A real celebration puts no limit on how many phones shoot.'}
+              : 'That is the demo roll. A real event puts no limit on how many phones shoot.'}
           </p>
         </>
       ) : (

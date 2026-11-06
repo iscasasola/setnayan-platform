@@ -30,6 +30,7 @@ import {
 } from './vendor-availability';
 import { displayServiceLabel, type EventVendorRow, type VendorStatus } from './vendors';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
+import { dateFitOf, type CalendarTruth } from './calendar-truth';
 
 export type MatrixVendorState = 'open' | 'booked' | 'unknown';
 
@@ -163,7 +164,16 @@ export async function buildScheduleMatrix(
     picks: SchedulePick[];
   },
   /** A caller that DECIDES on the answer throws on an unread calendar (`getBatchVendorAvailableDays`). */
-  opts: { failClosed?: boolean } = {},
+  opts: {
+    failClosed?: boolean;
+    /**
+     * P5 CALENDAR TRUTH (`lib/calendar-truth.ts`), read by the caller over these columns: a day is "booked" where the
+     * LOCK would refuse it (not where a block happens to sit), and a supplier with no calendar is "unknown" ("confirm
+     * directly") — never "open". The Suppliers page's Help me choose passes it; without it the matrix reads blocks,
+     * as it always has.
+     */
+    truth?: (columns: readonly string[], profileIds: readonly string[]) => Promise<ReadonlyMap<string, CalendarTruth> | null>;
+  } = {},
 ): Promise<ScheduleMatrix> {
   const { admin, eventDate, precision, picks } = args;
 
@@ -180,9 +190,12 @@ export async function buildScheduleMatrix(
   const columns = candidateColumns(window.start, window.end, exact);
 
   const profileIds = [...new Set(marketplacePicks.map((p) => p.marketplaceVendorId as string))];
-  const availByProfile = profileIds.length
-    ? await getBatchVendorAvailableDays(admin, profileIds, window.start, window.end, opts)
-    : new Map<string, Set<string>>();
+  const truth = opts.truth && profileIds.length ? await opts.truth(columns, profileIds) : null;
+  if (opts.truth && profileIds.length && !truth) throw new Error('The suppliers’ calendars could not be read.');
+  const availByProfile =
+    truth || !profileIds.length
+      ? new Map<string, Set<string>>()
+      : await getBatchVendorAvailableDays(admin, profileIds, window.start, window.end, opts);
 
   // Group picks by category, top pick (lowest rank) first.
   const byCategory = new Map<string, SchedulePick[]>();
@@ -201,6 +214,9 @@ export async function buildScheduleMatrix(
         let state: MatrixVendorState;
         if (!p.marketplaceVendorId) {
           state = 'unknown';
+        } else if (truth) {
+          const fit = dateFitOf(truth.get(p.marketplaceVendorId), dateKey);
+          state = fit === 'booked' ? 'booked' : fit === 'free' ? 'open' : 'unknown';
         } else {
           const avail = availByProfile.get(p.marketplaceVendorId);
           state = avail ? (avail.has(dateKey) ? 'open' : 'booked') : 'open';

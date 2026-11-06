@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
 import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from './guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from './guests';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -32,7 +33,7 @@ async function liveHeadcount(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 A request counts for nothing until Keep or Link (lib/guests.ts).
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null);
   if (basis === 'invited') {
     q = q.neq('rsvp_status', 'declined');
   } else if (basis === 'attending_plus_maybe') {
@@ -69,11 +70,15 @@ export async function readFinalizeState(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FinalizeState> {
-  const { data: ev } = await supabase
-    .from('events')
-    .select('estimated_pax, headcount_basis, guest_count_locked_at, final_pax')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the dashboard's one read of the row when this render opened it (lib/event-row-once.ts);
+  // in an action — outside a render — always this read, as before.
+  const { data: ev } = await eventRowOnce(supabase, eventId, 'estimated_pax, headcount_basis, guest_count_locked_at, final_pax', () =>
+    supabase
+      .from('events')
+      .select('estimated_pax, headcount_basis, guest_count_locked_at, final_pax')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
 
   const estimatedPax: number | null = ev?.estimated_pax ?? null;
   const basis = (ev?.headcount_basis ?? 'attending') as HeadcountBasis;
@@ -89,7 +94,7 @@ export async function readFinalizeState(
  * session and scoped by `user_id` explicitly, so RLS is defence in depth and
  * never the fence (an admin's RLS reaches every event).
  */
-async function callerHostsEvent(
+export async function callerHostsEvent(
   supabase: SupabaseClient,
   eventId: string,
   userId: string,
@@ -159,7 +164,11 @@ export async function finalizeGuestList(
 /**
  * The host reopens a finalized list. Clears the stamp AND the frozen count, so
  * adds, RSVP changes and guest replies work again and the live count resumes.
- * Same fence as `finalizeGuestList`.
+ * Same fence as `finalizeGuestList`: a HOST (`couple` member — the couple and
+ * co-hosts) only, checked here on the server before anything is written —
+ * never a supplier, the coordinator or a helper (owner 2026-10-07: *"the host
+ * of the event not the supplier and coordinator always have the power to
+ * unfinalize it as needed"*).
  */
 export async function reopenGuestList(
   supabase: SupabaseClient,
@@ -177,6 +186,7 @@ export async function reopenGuestList(
   if (upErr) return { ok: false, error: 'Couldn’t reopen just now — nothing was changed.' };
   return { ok: true, state: await readFinalizeState(admin, eventId) };
 }
+
 
 /**
  * True when the guest list is finalized — planning edits (add / RSVP / remove)

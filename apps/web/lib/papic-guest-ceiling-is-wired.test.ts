@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { drainGuestCaptureWith, type GuestPostResult } from './offline/service-handlers/papic-drain';
+import { classifyAnswer } from './papic-upload/schedule';
 import { papicCaptureCost, PAPIC_POINTS_PER_SNIPPET } from './papic-cameras';
 
 const ROUTE = readFileSync(
@@ -47,62 +47,43 @@ test('the route hands the RPC the cost it already computed — not a literal, no
   assert.equal(papicCaptureCost('photo'), 1);
 });
 
-test('🪤 the deploy-window rung exists — the migration and Vercel race, and a clip must not degrade', () => {
-  // Both fire on a push to main. For the minutes where this code is live and
-  // 20271184624871 is not, the 7-arg call 42883s; without a 6-arg rung it would
-  // fall to shapes that cannot carry media_type, recording every clip of that
-  // window as a photo.
-  //
-  // 🕐 THE LADDER GAINED AN 8-ARG TOP RUNG (20271214644139, `p_captured_at`),
-  // and the descent below it is UNCHANGED — this list is widened by exactly one
-  // entry at the front, not loosened. The new rung is load-bearing for a reason
-  // that outlives the deploy race: without it, a 42883 on the 8-arg call is
-  // caught by the NEXT rung's own /function .*papic_record_guest_capture/ arm
-  // and falls straight to the 6-arg shape, which cannot carry media_type —
-  // silently recording every clip of that window as a photo, which is the exact
-  // degradation this test was written to prevent. It must descend 8 → 7 first.
-  //
-  // (The race itself is now closed on this pipeline: deploy-prod.yml applies
-  // migrations BEFORE it triggers the Vercel deploy hook, and its gate step
-  // printed "✅ Configured" on the 2026-09-08 main runs. The ladder is kept
-  // because the one-shape-at-a-time descent is what stops the degradation
-  // above, not because the window is still open.)
-  const rungs = [...ROUTE.matchAll(/admin\.rpc\('papic_record_guest_capture', \{([^}]*)\}/gs)]
-    // 🪤 `[a-z0-9_]`, not `[a-z_]` — `p_r2_object_key` and `p_poster_r2_key`
-    // carry a DIGIT, so the obvious character class silently counted 5 and 4.
+test('🪤 one call carries every argument the record needs — no ladder that could degrade a clip', () => {
+  // ⏭ THE LADDER IS GONE, AND THAT IS THE FIX (20271276810836). The route used
+  // to descend 9 → 8 → 7 → 6 → 3 → 2 argument-shapes of papic_record_guest_capture
+  // so a deploy race could not record every clip as a photo. It now makes ONE
+  // call — papic_record_guest_capture_and_spend, which books the points and
+  // writes the row in one transaction — and deploy-prod applies migrations
+  // BEFORE the code goes live (the seat path's measured reasoning, which ships
+  // with no ladder either). What this test still holds is the property the
+  // ladder existed for: the call carries media_type, the length, the poster,
+  // the cost, the shutter minute and the shutter id, every time.
+  const calls = [...ROUTE.matchAll(/admin\.rpc\('papic_record_guest_capture_and_spend', \{([^}]*)\}/gs)];
+  assert.equal(calls.length, 1, 'exactly one call books and records');
+  const args = ((calls[0]?.[1] ?? '').match(/p_[a-z0-9_]+(?=:)/g) ?? []).sort();
+  assert.deepEqual(args, [
+    'p_captured_at', 'p_client_capture_id', 'p_consent_to_public', 'p_duration_ms',
+    'p_guest_id', 'p_media_type', 'p_points_cost', 'p_poster_r2_key', 'p_r2_object_key',
+  ]);
+  // The only papic_record_guest_capture call left is the early answer to a
+  // shutter that already landed (`p_guest_id` + `p_client_capture_id`), asked
+  // before any upload or booking — it writes nothing and spends nothing.
+  const record = [...ROUTE.matchAll(/admin\.rpc\('papic_record_guest_capture', \{([^}]*)\}/gs)]
     .map((m) => ((m[1] ?? '').match(/p_[a-z0-9_]+:/g) ?? []).length);
-  assert.deepEqual(
-    rungs,
-    [8, 7, 6, 3, 2],
-    'the ladder must descend one argument-shape at a time, 8 → 7 → 6 → 3 → 2',
-  );
+  assert.deepEqual(record, [2], 'a direct record call writes a row with no points booked');
 });
 
-const payload = () => ({
-  mode: 'guest' as const,
-  media_type: 'photo' as const,
-  content_type: 'image/jpeg',
-  filename: 'p.jpg',
-  bytes: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
-  captured_at_ms: 1,
-});
-
-test('🚨 a ceiling refusal on a DRAINED shot is kept and surfaced — never dropped, never a false success', async () => {
+test('🚨 a ceiling refusal on a QUEUED shot is kept and surfaced — never dropped, never a false success', () => {
   // ⚖ THE DECISION §7d DEMANDED BE MADE EXPLICITLY. Terminal would throw away a
   // photograph the guest watched themselves take. Unregistered would retry it
-  // ~50 times and let the 7-day TTL evict it in silence while the screen said
-  // it was saved. So it is registered as retryable, with the pool, because a
-  // ceiling can be LIFTED exactly as a pot can be topped up.
-  const post = async (): Promise<GuestPostResult> => ({
-    ok: false,
-    status: 409,
-    body: { status: 'quota_exhausted', reason: 'guest_spend_ceiling' } as {
-      status?: string; error?: string;
-    },
+  // forever while the screen said it was saved. So it is a CREDITS refusal,
+  // with the pool, because a ceiling can be LIFTED exactly as a pot can be
+  // topped up — the save-first uploader keeps the shot on the phone and the
+  // chip says "Credits ran out · N not sent" (lib/papic-upload/schedule.ts).
+  const verdict = classifyAnswer(409, { status: 'quota_exhausted', reason: 'guest_spend_ceiling' } as {
+    status?: string;
   });
-  const result = await drainGuestCaptureWith(post, payload());
-  assert.deepEqual(result, { ok: false, error: 'camera_points_exhausted' });
-  assert.notEqual(result.ok, true, 'ok:true is the DEQUEUE signal — it would discard the shot');
+  assert.deepEqual(verdict, { verdict: 'credits', error: 'quota_exhausted' });
+  assert.equal(classifyAnswer(409, { status: 'camera_points_exhausted' }).verdict, 'credits');
 });
 
 test('the refusal carries a reason, so the guest’s screen can stop inheriting the pot’s copy', () => {

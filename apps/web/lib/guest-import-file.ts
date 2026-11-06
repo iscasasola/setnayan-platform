@@ -15,14 +15,17 @@
 import { parseCsv, type CsvRow } from './csv';
 import { normalizeGuestName } from './guest-name';
 import { parsePersonName } from './person-name-parse';
+import { takeGenderMark, type TitleGender } from './guest-title';
 import { norm } from './guest-dedupe';
 import { parsePhPhone } from './ph-phone';
 import { formatCount } from './format-number';
 import type { RoleNames } from './role-names';
 import { SIDELESS_SIDE } from './guest-side-question';
 import {
+  A_PLUS_ONE_BRINGS_NO_ONE,
   GROUP_CATEGORY_LABELS,
   guestRoleLabel,
+  isAPlusOne,
   plusOnesFromCsv,
   type GuestGroupCategory,
   type GuestRole,
@@ -129,8 +132,11 @@ export function readGuestFile(text: string): CsvRow[] {
   const rows = parseCsv(lines.slice(headingLineIndex(lines)).join('\n'));
   return rows.map((row) => {
     const out: CsvRow = {};
-    for (const [k, v] of Object.entries(row)) {
+    for (const [k, raw] of Object.entries(row)) {
       const key = canonicalHeader(k);
+      // A cell our own download wrote as text ("'+1 555…", "'-") — the apostrophe that kept Excel from
+      // running it as a formula is not part of the value (`lib/guest-export-file.ts` csvCell).
+      const v = raw.replace(/^'(?=[=+\-@])/, '');
       // First non-empty wins if two headers land on one key.
       if (!(key in out) || (!out[key] && v)) out[key] = v;
     }
@@ -193,6 +199,8 @@ export type GuestImportRecord = {
   first_name: string;
   last_name: string;
   name_prefix: string | null;
+  /** Woman / man from a "(Woman)" / "(Man)" the file wrote with the title ("Atty. (Woman)") — lib/guest-title.ts. */
+  gender?: TitleGender | null;
   middle_name: string | null;
   name_suffix: string | null;
   side: GuestSide;
@@ -212,6 +220,7 @@ export type ExistingGuest = {
   first_name: string;
   last_name: string;
   name_prefix: string | null;
+  gender?: string | null;
   middle_name: string | null;
   name_suffix: string | null;
   side: GuestSide;
@@ -219,6 +228,8 @@ export type ExistingGuest = {
   role: GuestRole;
   mobile: string | null;
   plus_one_count: number | null;
+  /** Set ⇒ this guest IS a +1 (`isAPlusOne`) — a file may never give them a +1 of their own (owner 2026-10-21). */
+  plus_one_of_guest_id?: string | null;
 };
 
 export type ImportRowStatus = 'new' | 'changed' | 'same' | 'look';
@@ -317,8 +328,18 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
     let name_prefix: string | null = cell('name_prefix') || null;
     let middle_name: string | null = normalizeGuestName(row.middle_name) || null;
     let name_suffix: string | null = cell('name_suffix') || null;
+    // 🪪 "(Woman)" / "(Man)" with the title — "Atty. (Woman)" — is the file's mark for the title's gender (owner
+    // 2026-10-17), taken out so it never prints: the title cell, or a whole name in the first/last cells.
+    let gender: TitleGender | null = null;
+    if (name_prefix) {
+      const m = takeGenderMark(name_prefix);
+      name_prefix = m.text || null;
+      gender = m.gender;
+    }
     if (!('middle_name' in row) && !('name_prefix' in row) && !('name_suffix' in row)) {
-      const parts = parsePersonName(`${rawFirst} ${rawLast}`.trim());
+      const marked = takeGenderMark(`${rawFirst} ${rawLast}`.trim());
+      gender = gender ?? marked.gender;
+      const parts = parsePersonName(marked.text);
       first_name = parts.firstName || rawFirst;
       last_name = parts.lastName || rawLast;
       name_prefix = parts.prefix || null;
@@ -415,6 +436,7 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
           first_name,
           last_name,
           name_prefix,
+          ...(gender ? { gender } : {}),
           middle_name,
           name_suffix,
           side,
@@ -446,12 +468,17 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
       changes.push('name');
     }
     if (name_prefix) diff('name_prefix', name_prefix, match.name_prefix, 'prefix');
+    if (gender) diff('gender', gender, match.gender, 'woman or man');
     if (middle_name) diff('middle_name', middle_name, match.middle_name, 'middle name');
     if (name_suffix) diff('name_suffix', name_suffix, match.name_suffix, 'suffix');
     if (ctx.hasSides && has('side')) diff('side', side, match.side, SIDE_LABEL[side].toLowerCase());
     if (has('group')) diff('group_category', group_category, match.group_category, 'group');
     if (has('role')) diff('role', role, match.role, 'role');
     if (mobile && mobileKey(mobile) !== mobileKey(match.mobile)) diff('mobile', mobile, match.mobile, 'mobile');
+    // 🚫 A +1 cannot have their own +1 (owner 2026-10-21): the row is shown for a look, never written.
+    if (plusGiven && plus_one_count > 0 && isAPlusOne(match)) {
+      return look(`${A_PLUS_ONE_BRINGS_NO_ONE} ${displayName(match)} is one — leave their extra seats blank.`);
+    }
     if (plusGiven && plus_one_count !== (match.plus_one_count ?? 0)) {
       patch.plus_one_count = plus_one_count;
       patch.plus_one_allowed = plus_one_count > 0;

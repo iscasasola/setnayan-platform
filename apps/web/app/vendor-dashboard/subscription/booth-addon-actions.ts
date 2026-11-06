@@ -18,18 +18,13 @@ import {
   resolveVendor3dBoothPricePhp,
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
   addonIsFreeUnderFirst5,
   fetchVendorCommittedBookingCount,
-  first5BookingsRemaining,
   nonStackingFreeExpiry,
 } from '@/lib/vendor-addon-first5-free';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
-import { formatCount } from '@/lib/format-number';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -154,10 +149,9 @@ export async function activateVendor3dBooth(
   // tiered-PRICING switch decided who may buy. The owner turned that switch on
   // the same day, which opened the 3D Booth to free shops as a side effect of a
   // price change. A floor a pricing flag can lift is not a floor.
-  const tieredPricing = isVendorAddonTieredPricingEnabled();
   if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
     return err(
-      '3D Booth comes with a paid plan — Solo, Pro, Enterprise or Custom. Move up to add it.',
+      '3D Booth comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.',
     );
   }
   if (verification !== 'verified') {
@@ -193,9 +187,8 @@ export async function activateVendor3dBooth(
   // instead of the flat catalog row — since 2026-09-05 both say ₱3,000 (bands
   // equal), so this branch selects a SOURCE, not a price; the free first cycle
   // and every other rule below are unchanged.
-  const cyclePricePhp = tieredPricing
-    ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
-    : catalogCyclePricePhp;
+  // 2026-11-04: one price for every plan, read from the catalogue row (no typed band any more).
+  const cyclePricePhp = catalogCyclePricePhp;
 
   /** The standing renewal price for THIS vendor — what a cycle costs once any
    *  free grant is spent. Used in copy so no message hardcodes ₱1,500. */
@@ -297,7 +290,7 @@ export async function activateVendor3dBooth(
           {
             service_key: VENDOR_3D_BOOTH_SKU_CODE,
             description: first5Free
-            ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
+            ? '3D Booth — Branded Virtual Booth (free · until your second booking)'
             : '3D Booth — Branded Virtual Booth (first cycle · free)',
             reference_code: referenceCode,
             // Stamp the order's window so the renewal-reminder job nudges the vendor
@@ -331,7 +324,7 @@ export async function activateVendor3dBooth(
     return {
       status: 'activated',
       message: first5Free
-        ? `Your 3D Booth is on — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings (${first5BookingsRemaining(committedBookings)} to go). From your ${FREE_BOOKING_LIMIT + 1}th booking it's ${peso(renewalPricePhp)} / 28 days.`
+        ? `Your 3D Booth is on — free until your second booking. From your second booking it's ${peso(renewalPricePhp)} / 28 days.`
         : `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }

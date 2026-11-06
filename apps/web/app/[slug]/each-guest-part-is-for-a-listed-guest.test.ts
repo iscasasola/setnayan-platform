@@ -9,12 +9,13 @@
  *
  * One test per part — Your role · What to wear · Arrive by · Coming with you —
  * each RENDERED (the gate `guestMePartsShown` → `GuestMeParts`):
- *   ✔ a guest on the list, How guests get in = List only · Guests reply, whose
+ *   ✔ a guest on the list, How guests get in = Only my list · They reply, whose
  *     row carries the fact → the part is drawn, under its own heading;
  *   ✘ a visitor on the plain address (no guest row), a request still waiting,
- *     an approved request (Accept · Guests reply), an open-QR guest (Open · One
- *     QR for everyone), the switch off, and a listed guest WITHOUT the fact →
- *     not drawn.
+ *     an approved request (My list + requests · They reply), an open-QR guest (Open · One
+ *     QR for everyone), and a listed guest WITHOUT the fact → not drawn.
+ *     (No "switch off" case any more: every guest gets these parts — owner
+ *     2026-10-26, DECISION_LOG "EVERY GUEST GETS THE NEW GUEST SIDE".)
  *
  * 🪤 `globalThis.React` before the dynamic imports, `server-only` stubbed — the
  * two traps `each-guest-page-has-one-main-action.test.ts` names.
@@ -36,18 +37,18 @@ import React from 'react';
 const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 const BOARD = { principal_sponsors: ['#C9A24B', '#F4E9DC'], touched_roles: ['principal_sponsors'] };
 /** A ninang the couple dressed and gave a call time. */
-const DRESSED = { roles: { principal_sponsor_ninang: { style: 'long_gown', callTime: '14:00' } } };
+/* The sponsors' row as the Studio stores it — her Wear is the women's, her call time the row's (2026-10-17). */
+const DRESSED = { groups: { principal_sponsors: { style: 'barong_tagalog', callTime: '14:00' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } };
 
-type Reader = { label: string; getIn: 'list' | 'requests' | 'personal' | 'one_qr' | 'one_qr_approve'; reader: { kind: 'guest'; entrySource?: string | null } | { kind: 'visitor' }; on?: boolean };
+type Reader = { label: string; getIn: 'list' | 'requests' | 'personal' | 'one_qr' | 'one_qr_approve'; reader: { kind: 'guest'; entrySource?: string | null } | { kind: 'visitor' } };
 const LISTED: Reader = { label: 'a listed guest', getIn: 'list', reader: { kind: 'guest', entrySource: 'host_seeded' } };
 const NOT_FOR_THEM: Reader[] = [
   { label: 'a visitor on the plain address', getIn: 'list', reader: { kind: 'visitor' } },
   { label: 'a request still waiting', getIn: 'list', reader: { kind: 'guest', entrySource: 'self_added_unlisted' } },
-  { label: 'an approved request (Accept · Guests reply)', getIn: 'requests', reader: { kind: 'guest', entrySource: 'host_seeded' } },
-  { label: 'an open-QR guest (Open · One QR for everyone)', getIn: 'one_qr', reader: { kind: 'guest', entrySource: 'host_seeded' } },
+  { label: 'an approved request (My list + requests · They reply)', getIn: 'requests', reader: { kind: 'guest', entrySource: 'host_seeded' } },
+  { label: 'an open-QR guest (Open · Anyone with the link)', getIn: 'one_qr', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { label: 'a guest let in by one QR, approved', getIn: 'one_qr_approve', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { label: 'a guest with their own QR, no reply', getIn: 'personal', reader: { kind: 'guest', entrySource: 'host_seeded' } },
-  { ...LISTED, label: 'the switch off', on: false },
 ];
 
 type Row = { role: string; dress: unknown; comingWith: string[] };
@@ -58,7 +59,6 @@ async function draw(who: Reader, row: Row): Promise<string> {
   const { guestMeFacts, guestMePartsShown, readerIsListed } = await import('@/lib/guest-me-parts');
   const { GuestMeParts } = await import('./_components/guest-me-parts');
   const parts = guestMePartsShown({
-    on: who.on ?? true,
     getIn: who.getIn,
     listed: readerIsListed(who.reader),
     facts: guestMeFacts({ role: row.role as never, dressCodeConfig: row.dress, rolePalette: BOARD, comingWith: row.comingWith }),
@@ -72,7 +72,9 @@ async function draw(who: Reader, row: Row): Promise<string> {
         ceremonyType: null,
         genderSeparation: null,
         guestRole: row.role as never,
-        march: null,
+        /* (2026-10-24, the Me redraw: Me's first part is "Your place" — where they walk; the role is said once, at the
+           top of Me. A ninang in the march walks 5th.) */
+        march: row.role === 'guest' ? null : { position: 5, total: 9, partner: null, after: 'Carlos Reyes and Nena Reyes' },
         rolePalette: BOARD,
       },
       comingWith: row.comingWith,
@@ -97,8 +99,10 @@ async function holds(key: 'role' | 'wear' | 'arrive' | 'guests', heading: string
   assert.equal(partOf(await draw(LISTED, without), key), '', `${heading}: drawn for a listed guest whose row does not carry it`);
 }
 
-test('Your role — a listed guest with a role; never a plain "guest"', async () => {
-  await holds('role', 'Your role', /Ninang|Principal Sponsor/, { ...WITH_FACTS, role: 'guest' });
+test('Your place — a listed guest with a role in the march; never a plain "guest"', async () => {
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw): the part says WHERE they walk ("Your place"); their role itself is
+  // Me's top line (`MeGreeting`), said once.
+  await holds('role', 'Your place', /You walk 5th/, { ...WITH_FACTS, role: 'guest' });
 });
 
 test('What to wear — the outfit the couple set for that role; never a default style', async () => {
@@ -109,7 +113,7 @@ test('What to wear — the outfit the couple set for that role; never a default 
 });
 
 test('Arrive by — the call time the couple set for that role', async () => {
-  await holds('arrive', 'Arrive by', /2:00 PM/, { ...WITH_FACTS, dress: { roles: { principal_sponsor_ninang: { style: 'long_gown' } } } });
+  await holds('arrive', 'Arrive by', /2:00 PM/, { ...WITH_FACTS, dress: { groups: { principal_sponsors: { style: 'barong_tagalog' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } } });
 });
 
 test('Coming with you — the named companions on their seats', async () => {

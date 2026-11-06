@@ -1,11 +1,14 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
+import { onTheCachedHub } from '@/lib/hub-request';
 import {
   VIEW_AS_FREE_COOKIE,
   proAsViewed,
   viewAsFreeCookieOn,
   viewAsFreeHonoured,
 } from '@/lib/view-as-free';
+import { internalAnswerFrom } from '@/lib/internal-viewer-read';
+import { NO_HUB_PARTS, type HubOwnership } from '@/lib/hub-parts';
 
 /**
  * apps/web/lib/view-as-free.server.ts
@@ -41,15 +44,24 @@ import {
  * request `cookies()` throws, which reads as OFF.
  */
 
-/** Is the viewer an internal (§10a) account? Cached per request. */
-export const viewerIsInternal = cache(async (): Promise<boolean> => {
+/**
+ * The read behind `viewerIsInternal`, with a FAILED read kept apart from "no".
+ *
+ * 🧯 2026-10-08 (production incident): while PostgREST was refusing
+ * connections this read timed out, "not internal" came back, and the Maker's
+ * gate — then on for an internal viewer — drew the OLD Maker for the owner.
+ * ✅ 2026-10-25: the Maker no longer asks this read at all — there is one Maker
+ * (`lib/there-is-one-maker.test.ts`). The view switch still treats a failure as
+ * "off" (it then shows the real page).
+ */
+const viewerInternalRead = cache(async (): Promise<{ read: boolean; internal: boolean }> => {
   const [{ getCurrentUser }, { createClient }, { logQueryError }] = await Promise.all([
     import('@/lib/auth'),
     import('@/lib/supabase/server'),
     import('@/lib/supabase/error-detect'),
   ]);
   const user = await getCurrentUser().catch(() => null);
-  if (!user) return false;
+  if (!user) return { read: true, internal: false };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('users')
@@ -60,12 +72,16 @@ export const viewerIsInternal = cache(async (): Promise<boolean> => {
     // Not internal on a failed read: the switch then does nothing, which shows
     // the real (Pro) page — never the other way round.
     logQueryError('viewAsFree.viewerIsInternal', error, { user_id: user.id }, 'graceful_degrade');
-    return false;
   }
-  return (data as { is_internal?: boolean | null } | null)?.is_internal === true;
+  return internalAnswerFrom({ data, error });
 });
 
+/** Is the viewer an internal (§10a) account? Cached per request. */
+export const viewerIsInternal = cache(async (): Promise<boolean> => (await viewerInternalRead()).internal);
+
 async function readCookie(): Promise<string | null> {
+  // 🗄 The cached Event Hub never carries the switch (the middleware keeps that cookie live) — lib/hub-request.ts.
+  if (onTheCachedHub()) return null;
   try {
     return (await cookies()).get(VIEW_AS_FREE_COOKIE)?.value ?? null;
   } catch {
@@ -99,4 +115,14 @@ export async function viewAsFreeSwitch(): Promise<{ offered: boolean; on: boolea
 export async function asViewed(real: boolean | Promise<boolean>): Promise<boolean> {
   const [pro, free] = await Promise.all([real, viewingAsFreeCouple()]);
   return proAsViewed(pro, free);
+}
+
+/**
+ * 💎 `asViewed` for what an event holds PART BY PART (owner 2026-10-22): a viewer
+ * looking "as a free couple" is shown no part at all — the same switch, the same
+ * render-only rule (it never reaches a write).
+ */
+export async function asViewedOwnership(real: HubOwnership | Promise<HubOwnership>): Promise<HubOwnership> {
+  const [own, free] = await Promise.all([real, viewingAsFreeCouple()]);
+  return proAsViewed(true, free) ? own : NO_HUB_PARTS;
 }

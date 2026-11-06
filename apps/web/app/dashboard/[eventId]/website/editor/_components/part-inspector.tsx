@@ -8,9 +8,9 @@ import { HUB_FONT_FACES, hubFontBoldWeight } from '@/lib/hub-fonts';
 import { FontPick } from './font-pick';
 import {
   HUB_EL_DELAY,
+  HUB_EL_DURING_WORDS,
   HUB_EL_DELAY_LABEL,
   HUB_EL_DURING_LABEL,
-  HUB_EL_DURING_WORDS,
   HUB_EL_TIMELINE,
   HUB_EL_TIMELINE_LABEL,
   HUB_ELEMENT_ALIGNS,
@@ -111,18 +111,18 @@ export function PartTextTab({
   choose,
   chooseAlign,
   resetText,
-  themeColours,
-  usedColours,
+  board,
+  slots = false,
+  readsOn,
   shownColour,
   contrast,
   eventId,
-  onPreviewColour,
   fontMark = null,
   hideFont = false,
   threeControls = false,
 }: {
   /**
-   * 🔤 THE NEW MAKER'S TEXT TOOL (`makerStagesStudioEnabled`): exactly Font ·
+   * 🔤 THE NEW MAKER'S TEXT TOOL (`stagesStudio`, the one Maker since 2026-10-25): exactly Font ·
    * Colour · Size (`MAKER_PART_TEXT_TOOLS`, `lib/maker-parts.ts`) — owner
    * 2026-10-06 *"no"* to Weight, Bold/Italic/Underline, line and letter
    * spacing (DECISION_LOG "TEXT STYLING STAYS THREE CONTROLS"). The words are
@@ -144,13 +144,16 @@ export function PartTextTab({
   choose: (field: Exclude<HubElementField, 'motion'>, value: HubElementChoiceValue) => void;
   chooseAlign: (value: HubElementAlign | null) => void;
   resetText: () => void;
-  themeColours: readonly string[];
-  usedColours: readonly string[];
+  /** The event's Mood Board colours, the five first — the one picker's "Your Mood Board" shelf. */
+  board: readonly string[];
+  /** `board` IS the five in slot order — the picker names them Dominant … Accent 2. */
+  slots?: boolean;
+  /** The ground these words sit on — the picker's AA line, and readable suggestions first. */
+  readsOn?: string | null;
   /** The colour the words wear now (the theme's), for the well while none is chosen. */
   shownColour: string;
   contrast: { ratio: number; ok: boolean } | null;
   eventId: string;
-  onPreviewColour?: (hex: string) => void;
 }) {
   const fields = HUB_ELEMENT_FIELDS[el];
   const has = (f: HubElementField) =>
@@ -228,7 +231,7 @@ export function PartTextTab({
           />
           {has('weight') || has('italic') || has('underline') ? (
             <span className="ml-auto">
-              <ISegmented label="Bold, italic, underline" grow={false}>
+              <ISegmented label="Bold, italic, underline" grow={false} slide={false}>
                 {has('weight') && bold ? (
                   <ISeg
                     on={style.weight === bold}
@@ -263,11 +266,9 @@ export function PartTextTab({
               value={face.color ?? null}
               shown={shownColour}
               what={`the ${HUB_ELEMENT_LABEL[el].toLowerCase()}`}
-              themeColours={themeColours}
-              usedColours={usedColours}
-              savedKey={`sn-maker-colours:${eventId}`}
-              alpha
-              onPreview={onPreviewColour}
+              palette={board}
+              slots={slots}
+              readsOn={readsOn}
               onPick={(hex) => choose('color', hex)}
               data="element"
             />
@@ -505,7 +506,7 @@ export function PartAnimateTab({
   buildWords = false,
 }: {
   /**
-   * 🎬 The new Maker (`makerStagesStudioEnabled`) names the three steps as the
+   * 🎬 The new Maker (`stagesStudio`, the one Maker since 2026-10-25) names the three steps as the
    * owner did — Build in · Action · Build out (`MAKER_PART_ANIMATE_STEPS`). The
    * rows under each are the same.
    */
@@ -563,7 +564,8 @@ export function PartAnimateTab({
             label="While on screen"
             dataAttr="data-motion-during"
             value={motion.during ?? 'still'}
-            options={HUB_EL_DURING_WORDS.map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] }))}
+            /* The old inspector knows no part here, so it offers the two every part takes; Shimmer is the new Maker's (a text part's Action ▾). */
+            options={HUB_EL_DURING_WORDS.filter((v) => v !== 'shimmer').map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] }))}
             onPick={(v) => moveTo('during', v === 'still' ? null : v)}
             className={row}
           />

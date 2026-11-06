@@ -1,12 +1,15 @@
 import type { EventWords } from '../_lib/event-words';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
-import { SubmitButton } from '@/app/_components/submit-button';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
-import { plusOneSeats } from '@/lib/guests';
+import { guestRoleLabel, isAPlusOne, plusOneSeats } from '@/lib/guests';
+import { holdsARole, roleOfRecord, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
+import { RsvpCantPick, RsvpChapterList } from './rsvp-chapters';
+import { chapterAnswers, type InvitationChapter, type StoredChapterReply } from '@/lib/invitation-chapters';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
+import { rsvpFormWord, type RsvpFormWordKey } from '@/lib/rsvp-form-words';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { SelfieNoThanksConfirm } from './selfie-no-thanks-confirm';
 import {
@@ -19,13 +22,18 @@ import {
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
-import { TERMS_FIELD } from '@/lib/terms-agreement';
+import { TermsTick } from './terms-tick';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
+import { ReplyForm, ReplySubmit } from './reply-form';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
-import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
-import Link from 'next/link';
+import { RSVP_ANSWER_CLASS, RSVP_ANSWERS_ROW_CLASS, RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader, rsvpAnswerHook, type RsvpAnswerStyle } from './rsvp-styles';
+import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RSVP_STEP_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
+import { RSVP_SCREEN_LINES, RSVP_WEARS_ATTR, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import { formatCount } from '@/lib/format-number';
+import { RsvpNameCorrection } from './rsvp-name-correction';
+import { RsvpSeats, rsvpYouName } from './rsvp-seats';
+import { plusOneNameSlots } from '@/lib/extra-seats';
 
 /**
  * MAKES THE MOBILE BOX REQUIRED WHILE "ATTENDING" IS PICKED. Inline and
@@ -35,6 +43,9 @@ import { formatCount } from '@/lib/format-number';
  * script absent (a client-side navigation does not run inline scripts) the
  * server-side refusal in `submitRsvp` is the backstop.
  */
+/** The reply card's own lines in the page's own order — what the card draws when the couple arranged nothing. */
+const FORM_OWN_LINES: readonly RsvpLayoutItem[] = RSVP_SCREEN_LINES.rsvp.map((line) => ({ line, added: null }));
+
 const MOBILE_REQUIRED_JS =
   "(function(){var s=document.currentScript,f=s&&s.closest('form'),m=f&&f.querySelector('#contact_mobile');if(!m)return;function y(){var r=f.querySelector('input[name=\"rsvp_status\"][value=\"attending\"]');m.required=!!(r&&r.checked)}f.addEventListener('change',y);y()})()";
 
@@ -57,7 +68,29 @@ export function RsvpWidget({
   previewEveryQuestion = false,
   answerWords = null,
   sceneStyle = null,
+  lines = null,
+  pictures,
+  chapters = null,
+  chapterReplies = null,
 }: {
+  /**
+   * ✉ THE INVITATION'S CHAPTERS (owner 2026-11-01, plan §3 "RSVP depends on chapters", Step 5) — read by the page
+   * (`readInvitationChapters`). Given: the card names them (time, and the venue or "Venue TBA") above the answer, and
+   * "I can't make it" asks which (two or more). `null`/empty: the card as it always was — one answer to the invitation.
+   */
+  chapters?: readonly InvitationChapter[] | null;
+  /** This guest's own answers per chapter (`readGuestChapterReplies`); `null` = none read. */
+  chapterReplies?: readonly StoredChapterReply[] | null;
+  /**
+   * 🧱 THE CARD'S LINES IN THE COUPLE'S ORDER, with the lines they added and their groups (the Maker's RSVP stage —
+   * ＋, drag, Group; `rsvpScreenLayout(readRsvpLook(config), 'rsvp')`, `lib/rsvp-look.ts`). `null` — a couple who
+   * arranged nothing, and every card that is not the invitation's reply page — draws the card exactly as it was
+   * before this prop existed, byte for byte (`the-reply-card-is-todays-page.test.ts`). The reply card's own style
+   * only: The question and The ticket do not name their lines.
+   */
+  lines?: readonly RsvpLayoutItem[] | null;
+  /** 🖼 The picture lines' files, signed by the page (`signRsvpPictures`) — absent: no picture is drawn for a guest. */
+  pictures?: Readonly<Record<string, string>>;
   /**
    * 📝 The couple's own YES / NO wording (the RSVP stage, owner 2026-09-30 —
    * `rsvp_ask_config.words`, `readRsvpWords`). DISPLAY ONLY: the radios still
@@ -195,6 +228,17 @@ export function RsvpWidget({
 }) {
   const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
   const onDoor = Boolean(doorAction);
+  /* ✉ By chapter: each chapter's answer, and whether this guest is coming to only SOME — then the card reopens on
+     "I can't make it" with those still ticked, so an unrelated Save (a phone number) can never turn a partial answer
+     into a yes to everything. */
+  const inviteChapters = chapters ?? [];
+  const answersByChapter = chapterAnswers(inviteChapters, chapterReplies, guest.rsvp_status);
+  const comingToSome =
+    guest.rsvp_status === 'attending' &&
+    [...answersByChapter.values()].some((a) => a === 'no') &&
+    [...answersByChapter.values()].some((a) => a === 'yes');
+  const shownAnswer = comingToSome ? 'declined' : guest.rsvp_status;
+  const chapterList = inviteChapters.length > 0 ? <RsvpChapterList chapters={inviteChapters} answers={answersByChapter} /> : null;
 
   // The answer is on record and only details are missing → ask ONLY those.
   if (gate && gate.missing.length > 0 && !gate.missing.includes('attending') && !replyLocked) {
@@ -233,7 +277,8 @@ export function RsvpWidget({
   const askMealOrDietary = askMeal || askDietary;
   // With the plus-ones' own "Meal preference" just above, the guest's own box
   // says whose it is (prototype rsvp_plus_ones_2026-09-29.html, frame A).
-  const bringsPlusOnes = askPlusOnes && guest.plus_one_allowed && !replyLocked;
+  // 🚫 A +1's own reply never offers a +1 of their own (owner 2026-10-21) — `isAPlusOne`.
+  const bringsPlusOnes = askPlusOnes && !isAPlusOne(guest) && guest.plus_one_allowed && !replyLocked;
   // The key gate found no number on record and the couple asks for one — the
   // page cannot be left without it (owner 2026-09-26: "filled first until they
   // are all answered").
@@ -250,6 +295,33 @@ export function RsvpWidget({
   // Not on the Maker's canvas (nobody answers there), not on a closed list.
   const mobileRequiredOnYes = askMobile && !replyLocked && !previewEveryQuestion;
   const requireMobile = askMobile && Boolean(gate?.missing.includes('mobile'));
+  /* 🪑 THE SEATS STEP'S NUMBER — N = 1 + the extra seats (owner 2026-10-25: "We reserved two seats for you").
+     The extra seats are the +1 step's own boxes when the seat list read (a named seat is never dropped, even past
+     the couple's number — `plusOneNameSlots`), else the couple's number from the guest's OWN row, which a failed
+     seat read does not touch (scenario E: the Seats step stays true). */
+  const seatsGiven = guest.plus_one_allowed ? plusOneSeats(guest) : 0;
+  const seatSlots = seatsGiven > 0 && guest.plus_one_seats ? plusOneNameSlots(seatsGiven, guest.plus_one_seats, guest.plus_one_name) : null;
+  const seatsHeld = 1 + (seatSlots ? seatSlots.length : seatsGiven);
+  /* 🧯 THE SEAT LIST DID NOT READ (scenario E, decision 7): the +1 step says so, claims no count and offers its one
+     box — never "a seat for one more" to a guest who has more. Not on the Maker's sample, which reads no seats. */
+  const seatListUnread = bringsPlusOnes && !previewEveryQuestion && guest.plus_one_seats === undefined && seatsGiven > 1;
+  /* The Seats and You steps open the YES path. A closed list has no radio to reveal them by, so there they are drawn
+     outright for a guest on record as coming, and not at all otherwise. */
+  const yesSteps = !replyLocked || guest.rsvp_status === 'attending';
+  const yesReveal = replyLocked || revealAll ? '' : 'attending-reveal ';
+  /* The decline arm of the contact boxes — never on the Maker's sample (it shows the YES path), and on a closed list
+     only for a guest not on record as coming. */
+  const declineArm = !revealAll && (!replyLocked || guest.rsvp_status !== 'attending');
+  const declineReveal = replyLocked ? '' : 'declined-reveal ';
+  const cantPick =
+    replyLocked || inviteChapters.length < 2 ? null : (
+      <RsvpCantPick
+        chapters={inviteChapters}
+        answers={answersByChapter}
+        className={revealAll ? '' : 'declined-reveal '}
+        questionClassName={questionClass(oneAtATime)}
+      />
+    );
 
   const mobileField = (
     <>
@@ -269,24 +341,56 @@ export function RsvpWidget({
       ) : null}
     </>
   );
-  // The contact boxes, declared ONCE so the folded and unfolded arms can never
-  // drift apart. Both arms render them, so both POST them.
+  const knownNickname = guest.display_name ?? profileDetails?.displayName ?? '';
+  // The contact boxes, declared ONCE per arm so the folded and unfolded decline arms can never drift apart. Both
+  // render them, so both POST them.
   //
   // 📵 NO EMAIL BOX (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR
   // AND THE LINK DO EVERYTHING": *"No email. Either use the qr and link only"*).
   // Nothing emails a guest any more, so the reply does not collect an address
   // it would never use — and `submitRsvp` no longer reads one. Mobile stays, and
   // only when the couple switched it on.
-  const contactFields = (
+  //
+  // 🪑 TWO HOMES FOR THE SAME TWO ANSWERS (owner 2026-10-25, RSVP seats-first, "all as recommended"). On a YES they
+  // are the You step, right after the Seats step: the name shown read-only, then "What should we call you?", then
+  // Mobile — in the prototype's order (`youFields`). On a NO they stay exactly where they were, after the note
+  // (decision 3, "Decline path unchanged" — `contactFields`). Both arms are drawn and the card's CSS shows the one
+  // the answer picked; the decline arm posts `declined_contact_*` so the two can never collide, and `submitRsvp`
+  // reads the arm the answer names. Same columns, same writes.
+  const youFields = (
     <>
+      <Field
+        id="contact_display_name"
+        label="What should we call you? (optional)"
+        defaultValue={knownNickname}
+        placeholder={guest.first_name}
+      />
       {askMobile ? (
         // 🗳 Wrapped only on the Maker's canvas (to show / hide on its switch).
         previewEveryQuestion ? <div {...canvasAsk('mobile')}>{mobileField}</div> : mobileField
       ) : null}
+    </>
+  );
+  /* The decline arm's names: `declined_contact_*` while the You step is in the form too (`DECLINED_CONTACT_FIELDS`,
+     read back by `adoptDeclinedContactArm`); the plain names when it is the ONLY contact step — a closed list for a
+     guest not on record as coming, which draws no You step and posts no answer to pick an arm by. */
+  const declinedPrefix = yesSteps ? 'declined_' : '';
+  const contactFields = (
+    <>
+      {askMobile ? (
+        <Field
+          id={`${declinedPrefix}contact_mobile`}
+          label="Mobile"
+          type="tel"
+          autoComplete="tel"
+          defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+          placeholder="+63 …"
+        />
+      ) : null}
       <Field
-        id="contact_display_name"
+        id={`${declinedPrefix}contact_display_name`}
         label="What should we call you? (optional)"
-        defaultValue={guest.display_name ?? profileDetails?.displayName ?? ''}
+        defaultValue={knownNickname}
         placeholder={guest.first_name}
       />
     </>
@@ -314,31 +418,37 @@ export function RsvpWidget({
   // "Want to be tagged in the photos?" — defaulted from the guest's stored
   // answer, never pre-set otherwise (a default would be an answer nobody gave).
   const taggingWish = guest.face_tagging_wanted ?? null;
+  /* 🎨 The scene's style — only the header and the answers' look change. */
+  const answerStyle: RsvpAnswerStyle = sceneStyle === 'question' || sceneStyle === 'ticket' ? sceneStyle : 'reply-card';
+  /* 🔘 SCREEN 2 WEARS SCREEN 1 (owner's live walk, 2026-10-12: the tagging question's answers were grey filled italic
+     pills under the card's white outlined ones). Its two answers are the card's own answer — the style's ONE class
+     (`RSVP_ANSWER_CLASS`), the Look › Buttons hook, and the couple's own look for their Yes and No lines
+     (`data-rsvp-wears`, `lib/rsvp-look.ts`; the reply card's only — the other two styles name no lines) — never a pill of
+     its own. */
   const tagQuestion = (
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
-        <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
-        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
-        {(
-          [
-            { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
-            { key: 'no', label: FACE_TAGGING_NO, on: taggingWish === false },
-          ] as const
-        ).map((option) => (
-          <label
-            key={option.key}
-            className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
-          >
-            <input
-              type="radio"
-              name={FACE_TAGGING_FIELD}
-              value={option.key}
-              defaultChecked={option.on}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        ))}
+        <legend className={RSVP_STEP_QUESTION_CLASS}>{FACE_TAGGING_QUESTION}</legend>
+        <p className="pb-1 text-xs text-ink/70">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
+        <div className={RSVP_ANSWERS_ROW_CLASS[answerStyle]}>
+          {(
+            [
+              { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true, wears: 'yes' },
+              { key: 'no', label: FACE_TAGGING_NO, on: taggingWish === false, wears: 'no' },
+            ] as const
+          ).map((option) => (
+            <label key={option.key} {...rsvpAnswerHook(answerStyle)} {...(answerStyle === 'reply-card' ? { [RSVP_WEARS_ATTR]: option.wears } : null)} className={RSVP_ANSWER_CLASS[answerStyle]}>
+              <input
+                type="radio"
+                name={FACE_TAGGING_FIELD}
+                value={option.key}
+                defaultChecked={option.on}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
         {/* 🗑 One confirm before a "No" deletes a selfie already given (owner
             2026-09-29, OWNER ANSWERS (3)) — only for a guest who has one. */}
         {guest.photo_source === 'selfie' ? <SelfieNoThanksConfirm /> : null}
@@ -346,9 +456,20 @@ export function RsvpWidget({
       {/* 📵 No camera on a reply card: the selfie waits for the day. */}
     </>
   );
-  /* 🎨 The scene's style — only the header and the answers' look change. */
-  const answerStyle = sceneStyle === 'question' || sceneStyle === 'ticket' ? sceneStyle : 'reply-card';
+
   const admitCount = 1 + (guest.plus_one_allowed ? plusOneSeats(guest) : 0);
+  /* 🧍 The proxy, said on the reply (`lib/guest-proxy.ts`) — the role in the event's usual words. */
+  const standIn = guest.stand_in?.standingInFor
+    ? standingInWords(guest.stand_in.standingInFor.name, guestRoleLabel(roleOfRecord(guest.stand_in.standingInFor)))
+    : guest.stand_in?.representedBy
+      ? standsInForYouWords(guest.stand_in.representedBy.name)
+      : null;
+  const offerStandIn =
+    !replyLocked &&
+    !guest.stand_in?.representedBy &&
+    !guest.stand_in?.standingInFor &&
+    !guest.plus_one_of_guest_id &&
+    holdsARole({ role: guest.role, extra_roles: guest.extra_roles ?? [] });
   // The celebratory labels are the spec's reply-card wording and stay
   // byte-identical. A wake cannot ask anyone to "joyfully accept" — its labels
   // answer the only question a mourner is being asked. ONE list, drawn by every
@@ -364,12 +485,101 @@ export function RsvpWidget({
       ] as const);
   // 📝 The couple's own YES / NO words (the RSVP stage) — every style says them.
   const answerShown = answerOptions.map((o) => ({ ...o, label: answerWords?.[o.key] ?? o.label }));
+  /** One of the card's own three lines, named for the Maker's canvas: its key, and the card's words for it. */
+  const formWordAttrs = (key: RsvpFormWordKey) => ({ 'data-rsvp-word': rsvpWordBridgeKey(key), 'data-rsvp-default': rsvpFormWord(null, key, words.solemn) });
+  /* 🧱 THE CARD'S LINES ARE A LIST (owner's ruling 2026-10-09 — ＋, drag, Group). Untouched, the list is the page's
+     own: Eyebrow · Question · Yes · No.
+     ♿ THE QUESTION NAMES THE GROUP OF ANSWERS, WHEREVER IT STANDS. While Eyebrow then Question LEAD the card they
+     are its `<legend>`, exactly as before. Once the couple put anything else first (or grouped one of them), a
+     legend could no longer hold them — a legend must be the fieldset's first child — so the fieldset is named by
+     the same two lines through `aria-labelledby` instead: a screen reader hears the same name either way. */
+  const formItems = lines ?? FORM_OWN_LINES;
+  const [first, second] = formItems;
+  const led = Boolean(first && second && !rsvpLayoutIsGroup(first) && !rsvpLayoutIsGroup(second) && first.line === 'eyebrow' && second.line === 'question');
+
+  /* 🔌 `ReplyForm` IS THE CARD'S `<form>` — the same element and attributes, with the press caught: a send that
+     fails (offline, 5xx, a throw) or does not answer in time leaves this form mounted with everything typed and
+     says so under the button, instead of the error screen that unmounted it. Without script it is the plain form
+     post it always was. `reply-form.tsx` · `lib/reply-send.ts`. */
+  /* 🧍 The two proxy pieces (owner 2026-10-27) and the two slots they ride — built here so each rides an EXISTING slot. */
+  const proxyBanner = standIn ? (
+        <p
+          className="rounded-xl bg-gild/10 px-4 py-3 text-sm leading-snug text-ink"
+          data-rsvp-stand-in={guest.stand_in?.standingInFor ? 'proxy' : 'holder'}
+        >
+          {standIn}
+          {guest.stand_in?.representedBy ? (
+            <span className="mt-1 block text-xs text-ink/70">No reply is needed from you. If you can come after all, reply below — your hosts will decide.</span>
+          ) : null}
+        </p>
+      ) : null;
+  const placeFacts = guest.rsvp_status === 'attending' ? (
+        <InvitationFacts fold={oneAtATime}>
+          <p className="flex items-center gap-2.5 text-sm text-ink/80">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
+            {words.solemn
+              ? 'Your place is noted — thank you for being with the family.'
+              : 'Your place is reserved — we can’t wait to celebrate with you.'}
+          </p>
+          {/* No pitch on a solemn page: "Planning your own celebration? Start
+              free" under a wake RSVP is the defect class itself. */}
+          {onDoor || !hostPitch ? null : words.solemn ? null : (
+            <GuestToHostCta
+              surface="rsvp_confirmation"
+              eventId={eventId}
+              eventPublicId={eventPublicId}
+              headline="Planning your own event?"
+              sub="Start free on Setnayan — no card needed."
+            />
+          )}
+        </InvitationFacts>
+      ) : null;
+  const standInAsk = offerStandIn ? (
+        <div data-rsvp-step className={`${declineReveal}space-y-1.5`} data-rsvp-stand-in-ask="">
+          <label htmlFor="stand_in_name" className={questionClass(oneAtATime)}>
+            I can’t come — someone will stand in for me
+          </label>
+          <p className="text-xs text-ink/70">
+            Optional. Type their name and {words.theOrganizer} will give them your seat and your role’s dress code and call time.
+          </p>
+          <input
+            id="stand_in_name"
+            name="stand_in_name"
+            type="text"
+            autoComplete="off"
+            autoCapitalize="words"
+            maxLength={120}
+            defaultValue={guest.proxy_named_by_guest ?? ''}
+            placeholder="Their first and last name"
+            className="input-field w-full"
+          />
+        </div>
+      ) : null;
+  const declineDetails = !declineArm ? null : detailsAlreadyKnown ? (
+        <details data-rsvp-step className={declineReveal || undefined}>
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">
+            <span className="min-w-0">
+              <span className="block font-medium text-ink">Your details are filled in</span>
+              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
+            </span>
+            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
+          </summary>
+          <div className="space-y-4 pt-2">{contactFields}</div>
+        </details>
+      ) : (
+        <div data-rsvp-step className={`${declineReveal}space-y-1.5`}>
+          <span className={questionClass(oneAtATime)}>
+            How {words.theOrganizer} can reach you
+          </span>
+          {contactFields}
+        </div>
+      );
 
   return (
-    <form action={action} className="rsvp-form space-y-6">
+    <ReplyForm action={action} className="rsvp-form space-y-6">
       {/* FIRST in the form: the one-question progress sits above everything
           the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
-      {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} /> : oneAtATime ? <RsvpOneAtATime /> : null}
+      {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} hint={answerWords?.hint} /> : oneAtATime ? <RsvpOneAtATime hint={answerWords?.hint} /> : null}
       {flash ? (
         <p
           role={flash.tone === 'error' ? 'alert' : 'status'}
@@ -386,7 +596,7 @@ export function RsvpWidget({
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
       {replyLocked ? null : (
-        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}.rsvp-form .attend-mark{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attend-mark{display:inline}`}</style>
+        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}.rsvp-form .attend-mark{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attend-mark{display:inline}.rsvp-form .declined-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="declined"]:checked) .declined-reveal{display:block}`}</style>
       )}
 
       {/* On the invite arrival's Reply door the door IS the card — its eyebrow,
@@ -434,27 +644,24 @@ export function RsvpWidget({
       {/* Seat reservation: confirming attendance holds the guest's place (the
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
-      {guest.rsvp_status === 'attending' ? (
-        <InvitationFacts fold={oneAtATime}>
-          <p className="flex items-center gap-2.5 text-sm text-ink/80">
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
-            {words.solemn
-              ? 'Your place is noted — thank you for being with the family.'
-              : 'Your place is reserved — we can’t wait to celebrate with you.'}
-          </p>
-          {/* No pitch on a solemn page: "Planning your own celebration? Start
-              free" under a wake RSVP is the defect class itself. */}
-          {onDoor || !hostPitch ? null : words.solemn ? null : (
-            <GuestToHostCta
-              surface="rsvp_confirmation"
-              eventId={eventId}
-              eventPublicId={eventPublicId}
-              headline="Planning your own event?"
-              sub="Start free on Setnayan — no card needed."
-            />
-          )}
-        </InvitationFacts>
-      ) : null}
+      {/* 🧍‍♀️➡️🧍 THE PROXY ON THE REPLY (owner 2026-10-27) rides THIS slot, so a card with no proxy keeps every React id it
+          had (`the-reply-card-is-todays-page`): a proxy reads whom they stand in for; the role holder, who stands in. */}
+      {/* ✉ WHAT THE GUEST IS ANSWERING — the invitation's chapters (Step 5) ride the same slot, so a card without
+          chapters keeps every byte and React id it had (`the-reply-card-is-todays-page`). */}
+      {proxyBanner ? (
+        <>
+          {proxyBanner}
+          {placeFacts}
+          {chapterList}
+        </>
+      ) : chapterList ? (
+        <>
+          {placeFacts}
+          {chapterList}
+        </>
+      ) : (
+        placeFacts
+      )}
 
       {/* TWO quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
@@ -474,57 +681,124 @@ export function RsvpWidget({
             sceneStyle={answerStyle}
             legend={words.solemn ? 'Will you be with us?' : 'Will you be there?'}
             options={answerShown}
-            current={guest.rsvp_status}
+            current={shownAnswer}
             required={termsOnSend || guest.rsvp_status === 'maybe'}
             legendShown={onDoor}
           />
         ) : (
-        <fieldset data-rsvp-step className="space-y-2">
-          {/* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
-              "Your reply" over "Will you celebrate with us?". */}
-          <legend className="mb-3">
-            <span className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
-            <span className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">
-              {words.solemn ? 'Will you be with us?' : 'Will you celebrate with us?'}
-            </span>
-          </legend>
-          {answerOptions.map((option) => (
-            <label
-              key={option.key}
-              /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
-              data-rsvp-answer=""
-              className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
-            >
-              <input
-                type="radio"
-                name="rsvp_status"
-                value={option.key}
-                defaultChecked={guest.rsvp_status === option.key}
-                required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
-                className="sr-only"
-              />
-              {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
-              <span data-rsvp-word={rsvpWordBridgeKey(option.key)}>
-                {answerWords?.[option.key] ?? option.label}
+        <fieldset data-rsvp-step className="space-y-2" aria-labelledby={led ? undefined : `${FORM_LINE_ID.eyebrow} ${FORM_LINE_ID.question}`}>
+          {(() => {
+            /* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
+               "Your reply" over "Will you join us?". */
+            /* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
+               every line is its own part. For a guest it is only a name — it draws nothing. */
+            /* 📝 …and its WORDS: the couple's own (`answerWords`), else the card's — the same two lines as before
+               (`lib/rsvp-form-words.ts`). `data-rsvp-word` / `-default` let the Maker's canvas show them as typed. */
+            const eyebrow = (
+              <span data-rsvp-line="eyebrow" {...formWordAttrs('eyebrow')} id={led ? undefined : FORM_LINE_ID.eyebrow} className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">
+                {rsvpFormWord(answerWords, 'eyebrow', words.solemn)}
               </span>
-            </label>
-          ))}
+            );
+            /* Out of the legend the question keeps the room the legend gave it below (`pb-3`), and no longer steps
+               down from an eyebrow that may not be above it. */
+            const question = (
+              <span data-rsvp-line="question" {...formWordAttrs('question')} id={led ? undefined : FORM_LINE_ID.question} className={led ? RSVP_FORM_QUESTION_CLASS.led : RSVP_FORM_QUESTION_CLASS.out}>
+                {rsvpFormWord(answerWords, 'question', words.solemn)}
+              </span>
+            );
+            /* 🔒 THE TWO ANSWERS ARE DRAWN FROM `answerOptions` — the list of answers, never the couple's order: an
+               order names WHERE each stands and cannot name one away (`rsvpScreenOrder` puts back a line it left out). */
+            const answer = (option: (typeof answerOptions)[number]) => (
+              <label
+                /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
+                data-rsvp-line={option.key === 'attending' ? 'yes' : option.key === 'declined' ? 'no' : undefined}
+                data-rsvp-answer=""
+                className={RSVP_ANSWER_CLASS['reply-card']}
+              >
+                <input
+                  type="radio"
+                  name="rsvp_status"
+                  value={option.key}
+                  defaultChecked={shownAnswer === option.key}
+                  required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
+                  className="sr-only"
+                />
+                {/* 📝 The couple's words for YES / NO (the value posted is unchanged). */}
+                <span data-rsvp-word={rsvpWordBridgeKey(option.key)}>
+                  {answerWords?.[option.key] ?? option.label}
+                </span>
+              </label>
+            );
+            return (
+              <>
+                {led ? (
+                  <legend className="mb-3">
+                    {eyebrow}
+                    {question}
+                  </legend>
+                ) : null}
+                <RsvpLines
+                  items={led ? formItems.slice(2) : formItems}
+                  own={{ eyebrow, question, yes: answer(answerOptions[0]), no: answer(answerOptions[1]) }}
+                  canvas={previewEveryQuestion}
+                  pictures={pictures}
+                />
+              </>
+            );
+          })()}
         </fieldset>
         )
       )}
 
-      {/* ⚠ THE QUESTION IS REVEALED BY `:has(rsvp_status=attending:checked)`.
-          With the answer locked there IS no radio, so that selector can never
-          match — locked + attending renders it outright. ⚖ ONE QUESTION, NO
-          CAMERA (owner 2026-09-30): "Yes, tag me" is stored, and the selfie is
-          asked on the day, only while the event's Papic is open. */}
-      {!askTagging ? null : replyLocked ? (
-        guest.rsvp_status === 'attending' ? (
-          <div className="space-y-6">{tagQuestion}</div>
-        ) : null
-      ) : (
-        <div className="selfie-reveal space-y-6">{tagQuestion}</div>
-      )}
+      {/* ── 🪑 SEATS, THEN YOU (owner 2026-10-25, verbatim: *"We reserved one seat for you · We reserved two seats for
+          you · Then a screen where they confirm their name and their nickname and contact number then their plus
+          seat"*; approved prototype `rsvp_seats_2026-10-25`, "all as recommended"). After "Joyfully accepts" the
+          guest is told how many seats are theirs, then sees who they are on the list — the name READ-ONLY, with
+          "Wrong name? Tell the couple" (decision 1: it always works, and writes only `guests.guest_note`) — then
+          their nickname and mobile, then (below) the +1 names, then the tagging question (decision 2) and the rest.
+          🔒 THE NAME STAYS HOST-ONLY (2026-08-01, `seedBindAllowed`): the link may be printed on a poster, and a
+          stranger who can rename a seat-holder is the harm that rule closed. Shown, never posted. */}
+      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's FIRST step, right after the answer (two or
+          more chapters only), riding the Seats slot so a card without chapters keeps every byte and id it had. */}
+      {cantPick ? (
+        <>
+          {cantPick}
+          {yesSteps ? (
+        <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
+          <RsvpSeats
+            seats={seatsHeld}
+            youLabel={(guest.display_name ?? '').trim() || guest.first_name}
+            extraNames={seatSlots ? seatSlots.map((slot) => slot.name) : []}
+            namesNext={bringsPlusOnes}
+            organizer={words.theOrganizer}
+            question={oneAtATime}
+          />
+        </div>
+          ) : null}
+        </>
+      ) : yesSteps ? (
+        <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
+          <RsvpSeats
+            seats={seatsHeld}
+            youLabel={(guest.display_name ?? '').trim() || guest.first_name}
+            extraNames={seatSlots ? seatSlots.map((slot) => slot.name) : []}
+            namesNext={bringsPlusOnes}
+            organizer={words.theOrganizer}
+            question={oneAtATime}
+          />
+        </div>
+      ) : null}
+      {yesSteps ? (
+        <div data-rsvp-step data-rsvp-you className={`${yesReveal}space-y-4`}>
+          <div className="space-y-1">
+            <p className={questionClass(oneAtATime)} data-rsvp-you-name="">
+              You’re {rsvpYouName(guest)}
+            </p>
+            <RsvpNameCorrection theOrganizer={words.theOrganizer} />
+          </div>
+          {youFields}
+        </div>
+      ) : null}
 
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────
           The card could not ask this before, and the reason was not a missing
@@ -545,10 +819,12 @@ export function RsvpWidget({
           per-guest `plus_one_allowed` above — turning it off hides the name
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
-      {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
-        <div id="plus-ones" data-rsvp-step {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
-          {/* One short set per seat + one "Filling in for ▾" switcher
-              (owner 2026-09-29) — its own file, so this card only mounts it. */}
+      {bringsPlusOnes ? (
+        /* 🪑 ONE SCREEN PER +1 (owner 2026-10-25, "one at a time"): this wrapper is no longer a step — each seat
+           inside it is (`RsvpPlusOnes`), so the dots count every +1 and Back walks them in turn. */
+        <div id="plus-ones" {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
+          {/* One screen per seat — name, "They're coming", meal, dietary (owner 2026-10-25) — its own file, so this
+              card only mounts it. */}
           <RsvpPlusOnes
             count={plusOneSeats(guest)}
             seats={guest.plus_one_seats}
@@ -557,10 +833,24 @@ export function RsvpWidget({
             askMeal={askMeal}
             askDietary={askDietary}
             question={oneAtATime}
-            youName={oneAtATime ? null : guest.display_name || `${guest.first_name} ${guest.last_name}`.trim()}
+            fallback={seatListUnread}
           />
         </div>
       ) : null}
+
+      {/* 🏷 AFTER THE SEAT STEPS (owner 2026-10-25, decision 2 — it was second, before the seats). */}
+      {/* ⚠ THE QUESTION IS REVEALED BY `:has(rsvp_status=attending:checked)`.
+          With the answer locked there IS no radio, so that selector can never
+          match — locked + attending renders it outright. ⚖ ONE QUESTION, NO
+          CAMERA (owner 2026-09-30): "Yes, tag me" is stored, and the selfie is
+          asked on the day, only while the event's Papic is open. */}
+      {!askTagging ? null : replyLocked ? (
+        guest.rsvp_status === 'attending' ? (
+          <div className="space-y-6">{tagQuestion}</div>
+        ) : null
+      ) : (
+        <div className="selfie-reveal space-y-6">{tagQuestion}</div>
+      )}
 
       {/* ── MEAL + DIETARY: ONLY FOR SOMEBODY WHO IS COMING ──────────────────
           Owner, 2026-09-11, walking the Reply door: a decline must not go on to
@@ -698,24 +988,19 @@ export function RsvpWidget({
           else, and the host never saw it. Everything folded away is listed on
           the line, and the inputs still POST: <details> hides, it does not
           disable. */}
-      {detailsAlreadyKnown ? (
-        <details data-rsvp-step>
-          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">
-            <span className="min-w-0">
-              <span className="block font-medium text-ink">Your details are filled in</span>
-              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
-            </span>
-            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
-          </summary>
-          <div className="space-y-4 pt-2">{contactFields}</div>
-        </details>
+      {/* 🪑 THE DECLINE ARM (owner 2026-10-25, decision 3 — "Decline path unchanged"): a guest who says No meets
+          these boxes here, after the note, exactly as before. On a Yes the same answers are the You step above. */}
+      {/* 🧍 "I CAN'T COME — SOMEONE WILL STAND IN FOR ME" (owner 2026-10-27: "a role holder can answer … and name them").
+          Only for a guest who HOLDS A ROLE and is not already represented, on the decline arm: a name, typed — a guest
+          cannot pick from the hosts' list, so the hosts confirm it on their card. `submitRsvp` stores it
+          (`proxy_named_by_guest`) only with a decline, and the database refuses it for a guest with no role. */}
+      {standInAsk ? (
+        <>
+          {standInAsk}
+          {declineDetails}
+        </>
       ) : (
-        <div data-rsvp-step className="space-y-1.5">
-          <span className={questionClass(oneAtATime)}>
-            How {words.theOrganizer} can reach you
-          </span>
-          {contactFields}
-        </div>
+        declineDetails
       )}
 
       <div data-rsvp-step className="space-y-5">
@@ -729,13 +1014,13 @@ export function RsvpWidget({
            guest meets a BLANK "8 of 9" (owner, 2026-09-28). Pinned by
            the-rsvp-page-follows-the-maker.test.ts § 9. */
         <div className="space-y-5">
-          <TermsTick />
-          <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
+          <RsvpTermsTick />
+          <ReplySubmit className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send my reply
-          </SubmitButton>
+          </ReplySubmit>
         </div>
       ) : (
-      <SubmitButton
+      <ReplySubmit
         className="button-primary min-h-[44px] w-full sm:w-auto"
         pendingLabel={replyLocked ? 'Saving details…' : 'Saving RSVP…'}
       >
@@ -744,42 +1029,26 @@ export function RsvpWidget({
         ) : (
           'Save RSVP'
         )}
-      </SubmitButton>
+      </ReplySubmit>
       )}
       </div>
-    </form>
+    </ReplyForm>
   );
 }
 
 /**
  * THE TERMS TICK on the RSVP page (owner 2026-09-27) — the `/signup` clickwrap
  * (lib/terms-agreement.ts): one name (`TERMS_FIELD`), never pre-ticked, and
- * required. A guest who later taps "Not now" on Save has still agreed.
+ * required. A guest who later taps "Not now" on Save has still agreed. The line
+ * itself is `terms-tick.tsx` — the Me tab's "Save to my account" shows the same one.
  */
-function TermsTick() {
+function RsvpTermsTick() {
   return (
-    <label htmlFor="rsvp_terms" className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
-      <input
-        id="rsvp_terms"
-        name={TERMS_FIELD}
-        type="checkbox"
-        required
-        className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
-      />
-      <span>
-        I agree to the{' '}
-        <Link href="/terms" className="font-medium text-link underline underline-offset-2">
-          Terms
-        </Link>{' '}
-        and the{' '}
-        <Link href="/privacy" className="font-medium text-link underline underline-offset-2">
-          Privacy Notice
-        </Link>
-        <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/60">
-          Required
-        </span>
+    <TermsTick id="rsvp_terms">
+      <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/70">
+        Required
       </span>
-    </label>
+    </TermsTick>
   );
 }
 
@@ -843,7 +1112,7 @@ function RsvpFocusForm({
   );
   return (
     <>
-      <form action={action} className="rsvp-form space-y-6" data-rsvp-focus>
+      <ReplyForm action={action} className="rsvp-form space-y-6" data-rsvp-focus>
         {oneAtATime ? <RsvpOneAtATime /> : null}
         {flash ? (
           <p
@@ -912,23 +1181,23 @@ function RsvpFocusForm({
           </div>
         ) : null}
         <div data-rsvp-step className="space-y-5">
-          <TermsTick />
-          <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
+          <RsvpTermsTick />
+          <ReplySubmit className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send
-          </SubmitButton>
+          </ReplySubmit>
         </div>
-      </form>
+      </ReplyForm>
       {guest.rsvp_status === 'attending' ? (
-        <form action={action} className="mt-3 text-center" data-rsvp-decline>
+        <ReplyForm action={action} className="mt-3 text-center" data-rsvp-decline>
           {carried(true)}
-          <SubmitButton
+          <ReplySubmit
             overlay={false}
             className="min-h-[44px] text-sm text-ink/70 underline-offset-4 hover:underline"
             pendingLabel="Saving…"
           >
             Not coming after all?
-          </SubmitButton>
-        </form>
+          </ReplySubmit>
+        </ReplyForm>
       ) : null}
     </>
   );
@@ -950,7 +1219,7 @@ function LockedAnswer({ status }: { status: GuestRow['rsvp_status'] }) {
           : 'No reply was received from you.';
   return (
     <div>
-      <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
+      <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
         Replies are closed
       </p>
       <p className="mt-2 text-sm leading-relaxed text-ink/70">
@@ -967,9 +1236,9 @@ function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
   // gild-ruled, the rest are ink. Status labels themselves are unchanged.
   const tone: Record<GuestRow['rsvp_status'], string> = {
     attending: 'border-gild text-gild',
-    pending: 'border-ink/20 text-ink/55',
-    declined: 'border-ink/25 text-ink/60',
-    maybe: 'border-ink/20 text-ink/60',
+    pending: 'border-ink/20 text-ink/70',
+    declined: 'border-ink/25 text-ink/70',
+    maybe: 'border-ink/20 text-ink/70',
   };
   const label =
     status === 'attending'
@@ -1090,7 +1359,7 @@ function Select({
  * there?". Off, it is the scrolling form's small label, unchanged.
  */
 function questionClass(question: boolean): string {
-  return question ? 'block font-serif text-xl leading-snug text-ink' : 'block text-sm font-medium text-ink';
+  return question ? RSVP_STEP_QUESTION_CLASS : 'block text-sm font-medium text-ink';
 }
 
 /**

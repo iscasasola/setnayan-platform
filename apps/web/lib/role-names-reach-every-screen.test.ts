@@ -123,7 +123,7 @@ test('the guest’s own "You are …" line and the dress-code rows say the word'
   assert.equal(mine?.roleLabel, "Bride's Crew");
   assert.equal(resolveGuestDressCode({ role: 'bridesmaid', roles: {}, palette })?.roleLabel, 'Bridesmaid');
   const stored = sanitizeRolePalette({ bridesmaids: ['#aa3355'] });
-  const everyone = dressCodeForEveryone({ stored, board: resolveDisplayPalette(stored), roles: {}, groups: {}, names: CREW });
+  const everyone = dressCodeForEveryone({ config: null, stored, board: resolveDisplayPalette(stored), names: CREW });
   assert.ok(everyone.rows.some((r) => r.label === "Bride's Crew"), JSON.stringify(everyone.rows));
   assert.equal(roleGroupLabel('bridesmaids', CREW), "Bride's Crew");
   assert.equal(roleGroupLabel('bridesmaids', {}), ROLE_GROUP_LABELS.bridesmaids);
@@ -145,15 +145,15 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['lib/guests.ts', 'There’s already a', 'singleton messages — same'],
   ['lib/guests.ts', '?? ROLE_LABELS[role];', 'the fallback inside guestRoleLabel itself'],
   ['lib/emcee-script.ts', '?? ROLE_LABELS[role])', 'the fallback for several, after the couple’s `many`'],
-  ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'is the foundation of the event', 'bride/groom lock — not renamable'],
-  ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'the event is theirs', 'bride/groom RSVP lock — not renamable'],
-  ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'const usual = ROLE_LABELS[role]', 'the rename box names the USUAL word it is renaming'],
   // ⤷ 2026-10-03: the guest search moved out of guests/page.tsx into its ONE matcher.
   ['lib/guest-search.ts', 'out.push(ROLE_LABELS[r], guestRoleLabel(r, names),', 'search matches the usual word AND theirs'],
   ['lib/guest-search.ts', 'out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));', 'search matches the usual group heading AND theirs'],
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
-  ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', ': ROLE_GROUP_LABELS[grp];', 'the same SORT KEY on the client — the heading is re-said by sectionHeadingInTheirWords'],
-  ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', "label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],", 'the honoree heading — bride/groom/celebrant, never renamed'],
+  // 🏷 2026-10-29 (R4 slice 4): the List header's Rename — the usual word is the box's "empty = the usual word", beside theirs.
+  ['app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx', 'usual: ROLE_GROUP_LABELS[', 'the header rename’s usual word, beside the couple’s (`roleNameMany`)'],
+  // 💡 2026-11-01 (type-ahead hints): a typed "+Groomsmen" is read against the usual word AND the couple's (`wordsForRole`).
+  ['lib/guest-parse.ts', 'const label = ROLE_LABELS[role] ?? role;', 'the add box READS the usual word as well as theirs — nothing is shown'],
+  ['lib/quick-add-tips.ts', 'const label = ROLE_LABELS[role];', 'an example’s +Word is the couple’s word first (`mine ??`), the usual one only when they kept it'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {
@@ -163,7 +163,10 @@ test('every screen that shows a role word is handed the couple’s words', () =>
   })
     .split('\n')
     .filter((f) => f && !/\.test\.tsx?$/.test(f));
-  assert.ok(files.length > 20, `the sweep found only ${files.length} files — has the grep broken?`);
+  /* A floor for a BROKEN grep (zero, a handful), not a census: 21 → 20 on 2026-10-17 when the march's words moved
+     into `marchLineWords` (lib/entourage.ts, which this sweep skips) and `entourage-styles.tsx` stopped calling
+     `roleLabel` — a real file leaving, not the grep failing. */
+  assert.ok(files.length > 15, `the sweep found only ${files.length} files — has the grep broken?`);
 
   const used = new Set<string>();
   const offenders: string[] = [];
@@ -216,5 +219,7 @@ test('every page that draws the guest list’s client pieces mounts the words fo
   assert.equal((body.match(/roleNames=\{roleNames\}/g) ?? []).length, 2, 'both widget dispatchers get the words');
   const loaders = readFileSync(join(APP, 'app/[slug]/_lib/loaders.ts'), 'utf8');
   // The words are buildEntourage's third argument (the Name style, owner 2026-09-30, may follow).
-  assert.match(loaders, /await loadEntourageSectionOrder\(admin, eventId\),\n\s*await loadEventRoleNames\(admin, eventId\),\n/, 'the invitation’s entourage is built with the words');
+  // 2026-10-12: the two reads are STARTED together above and awaited here, in the same places.
+  assert.match(loaders, /const roleNamesAhead = printsLiveMarch \? startAhead\(loadEventRoleNames\(admin, eventId\)\) : null;/);
+  assert.match(loaders, /await sectionOrderAhead,\n\s*await \(roleNamesAhead \?\? loadEventRoleNames\(admin, eventId\)\),\n/, 'the invitation’s entourage is built with the words');
 });

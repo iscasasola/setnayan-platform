@@ -40,7 +40,7 @@
  * components are handed its answers as props rather than importing it.
  */
 import { HUB_THEMES, INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
-import { buildSitePaletteVars, moodBoardSiteColours } from '@/lib/site-palette';
+import { buildSitePaletteVars, moodBoardSiteColours } from '@/lib/site-palette-vars';
 import { channels, hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { compositeOver, contrastRatio, relativeLuminance } from '@/lib/hub-legibility';
 import { PALETTE_ORDER, sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
@@ -76,7 +76,7 @@ export function themeSeedPalettes(): Record<string, RolePalette> {
 }
 
 /** The colour half of a theme's generated page block (`globals.css` "THE TEN THEMES ON THE PAGE"). */
-function themeBlockVars(t: InviteTheme): Record<string, string> {
+export function themeBlockVars(t: InviteTheme): Record<string, string> {
   const p = t.palette;
   const k = hubThemePageTokens(t);
   return {
@@ -154,8 +154,13 @@ export function themeColours(themeId: InviteThemeId, palette: unknown): ThemeCol
   return { source: 'palette', colours: boardColours(vars, worn) };
 }
 
-/** A couple's own board, as hexes in the theme palette's shape — read from the page's own vars. */
-function boardColours(vars: Record<string, string>, worn: InviteTheme): ThemePaletteColours {
+/**
+ * A couple's own board, as hexes in the theme palette's shape — read from the page's own vars.
+ * 🖨 Also THE PAGE'S COLOURS AS PAINTED: handed the guest page's final bag (`guestLookFrom(…).vars` — the board,
+ * the couple's own page colour, the blend, the re-measured words) it answers the paper and inks that page wears, so
+ * a print reads the Hub's colours from the Hub's own resolver (`lib/print-hub-look.ts`), never a second derivation.
+ */
+export function boardColours(vars: Record<string, string>, worn: InviteTheme): ThemePaletteColours {
   const canvas = hexOf(vars['--color-cream'], worn.palette.canvas);
   const ink = hexOf(vars['--color-ink'], worn.palette.ink);
   const accent = hexOf(vars['--color-terracotta'], worn.palette.accent);

@@ -44,16 +44,20 @@ test('Kwento is free for every event', () => {
   asked to place the boundary exactly: the Thank-You film stays paid. Papic
   FEATURES are free; Papic SHOTS are the product.
 
+  ⚠ MOVED 2026-10-26 by the owner himself: *"let us remove thank you from the
+  inapp purchase"* → *"make it free for now"*. The film left this list and joined
+  FREE_FOR_ALL_SKUS (its own test: thank-you-video-is-free.test.ts). The SHOTS
+  line stands.
+
   This is the assertion that stops a future "make Papic free" sweep from taking
   the revenue with it.
 */
-test('the shot ladder and the produced film are NOT free', () => {
+test('the shot ladder is NOT free', () => {
   for (const paid of [
     'PAPIC_GUEST_100',
     'PAPIC_GUEST',
     'PAPIC_GUEST_10K',
     'PAPIC_GUEST_20K',
-    'PAPIC_ADDON_THANK_YOU',
   ]) {
     assert.ok(!FREE_FOR_ALL_SKUS.has(paid), `${paid} is what Papic SELLS`);
   }
@@ -120,7 +124,7 @@ test('llms.txt stops requiring a price and stops printing one', () => {
     reason. A "neighbour" has to be something that is NOT part of the change.
   */
   assert.match(body, /^\s*'PAKANTA',/m);
-  assert.match(body, /^\s*'SETNAYAN_AI',/m);
+  assert.match(body, /^\s*'EVENT_PLUS',/m); // was SETNAYAN_AI until 2026-11-04, when it left the list (off sale on its own)
   /*
     🪤 STRIPPED, because the fix QUOTES the call it removed. On raw source this
     assertion failed on its own first run and reported the defect it had just
@@ -201,11 +205,14 @@ test('Editorial authoring is free, and it does not take the watermark with it', 
   // `eventCoupleWebsiteProActive` reads COUPLE_WEBSITE_PRO. One helper reading
   // both would make the free key unlock the paid perks.
   const gates = code('lib/couple-website-pro.ts');
+  /* RE-AIMED 2026-10-22 (part by part): the watermark gate is "everything" — Full Pro (the UMBRELLA key, `FULL_PRO_SKU`
+     = COUPLE_WEBSITE_PRO) or the parts' cap — read through the one resolver. */
   assert.match(
     gates,
-    /export async function eventCoupleWebsiteProActive[\s\S]*?COUPLE_WEBSITE_PRO_SERVICE_KEY/,
+    /export async function eventCoupleWebsiteProActive[\s\S]*?eventHubOwnership\(supabase, eventId, 'active'\)\)\.full/,
     'the watermark gate must still read the UMBRELLA key.',
   );
+  assert.match(gates, /eventSkuActive\(supabase, eventId, FULL_PRO_SKU\)/, 'everything no longer starts from the UMBRELLA key');
   /*
     🪤 SLICED TO THE FUNCTION BODY, NOT A CHARACTER WINDOW. The first version of
     this looked 400 characters past the signature and went RED on correct code:

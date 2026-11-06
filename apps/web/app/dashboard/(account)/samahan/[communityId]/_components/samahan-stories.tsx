@@ -8,6 +8,7 @@ import {
   Clapperboard,
   Loader2,
   Play,
+  Plus,
   RefreshCw,
   Trash2,
   Volume2,
@@ -17,6 +18,10 @@ import { compressVideoForWeb } from '@/lib/video-compress';
 import { orderTheDay } from '@/lib/samahan-reel';
 import type { SamahanStory } from '@/lib/samahan-stories';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { InfoTip } from '@/app/_components/info-tip';
 
 // Samahan Stories strip (Setlog concept, owner 2026-08-24): raw short clips,
 // one per member per hour, gone in 24 hours.
@@ -110,6 +115,8 @@ export function SamahanStories({
   const [message, setMessage] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const cameraDialogRef = useRef<HTMLDivElement>(null);
+  const playerDialogRef = useRef<HTMLDivElement>(null);
 
   // THE DAY PLAYS THROUGH. The strip is newest-first (what is new), but a day
   // is watched FORWARDS, so the film runs oldest → newest: tapping any clip
@@ -236,6 +243,10 @@ export function SamahanStories({
   // Stop the camera when the component unmounts with the sheet open.
   useEffect(() => closeCamera, [closeCamera]);
 
+  // The shared pop-up contract: the page behind is held still and inert, Tab stays inside, Escape closes.
+  useModalA11y({ open: cameraOpen, onClose: closeCamera, containerRef: cameraDialogRef });
+  useModalA11y({ open: playing !== null, onClose: () => setPlayingId(null), containerRef: playerDialogRef });
+
   // Re-attach the stream once the overlay's <video> has actually mounted —
   // getUserMedia can resolve before React commits the sheet, leaving
   // previewRef null at assignment time.
@@ -287,6 +298,17 @@ export function SamahanStories({
     [facing],
   );
 
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo or
+  // a dead track takes the story camera, reopen the same facing through
+  // openCamera (it stops the old tracks and shows the shipped starting state).
+  // Held while a take is recording or posting — a reopen never posts a story.
+  useCameraThatComesBack({
+    streamRef,
+    live: cameraOpen && cameraReady,
+    restart: () => void openCamera(),
+    holdWhile: recording || busy !== 'idle',
+  });
+
   const grabPoster = useCallback(async (): Promise<Blob | null> => {
     const video = previewRef.current;
     if (!video || video.videoWidth === 0) return null;
@@ -320,6 +342,7 @@ export function SamahanStories({
           setMessage(ERROR_COPY[json?.error ?? ''] ?? 'That didn’t go up. Try again.');
           return;
         }
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/samahan/story; no server action answered with a render.
         router.refresh();
       } catch {
         setMessage('That didn’t go up. Try again.');
@@ -441,6 +464,7 @@ export function SamahanStories({
           const next = gone >= 0 ? reel[gone + 1] : undefined;
           setPlayingId(next ? next.story_id : null);
         }
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/samahan/story; no server action answered with a render.
         router.refresh();
       }
     } finally {
@@ -449,34 +473,133 @@ export function SamahanStories({
   }
 
   return (
+    // THE RING ROW (prototypes/group_samahan_2026-10-25, "Stories = the same clips, as a RING ROW with Add yours
+    // first"). Title + one short line; the cap and the 24-hour promise sit in the ⓘ. Every control the strip had is
+    // here: the camera ("Add yours", first), "Play the day", each clip, and "Take it down" under your own.
     <section aria-label="Stories">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">This hour, right now</h2>
-          <p className="text-xs text-ink/60">
-            Three raw seconds from each of you — one an hour, gone after 24.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void openCamera()}
-          disabled={busy !== 'idle' || myHourUsed}
-          className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white disabled:opacity-50"
-        >
-          {busy !== 'idle' ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Clapperboard className="h-3.5 w-3.5" aria-hidden />
-          )}
-          {busy === 'compressing'
-            ? 'Shrinking…'
-            : busy === 'posting'
-              ? 'Posting…'
-              : myHourUsed
-                ? 'Yours is up'
-                : 'Record your 3 seconds'}
-        </button>
+      <div className="flex min-h-11 items-center gap-2">
+        <InfoTip label="Stories" labelAs="h2" labelClassName="text-[17px] font-semibold text-ink" align="start">
+          Three raw seconds from each of you — one an hour, gone after 24. Tap a ring to watch from there to now. Your
+          own clip you can take down any time.
+        </InfoTip>
+        <span className="flex-1" />
+        {reel.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => goTo(0)}
+            className="-mr-1.5 inline-flex min-h-11 items-center gap-1 rounded-md px-1.5 text-[13px] font-semibold text-[color:var(--m-nav-active)]"
+          >
+            <Play className="h-3.5 w-3.5" aria-hidden /> Play the day
+          </button>
+        ) : null}
       </div>
+      <p className="mb-2 text-[13px] text-ink/60">
+        {reel.length > 1
+          ? `This hour, right now — ${formatCount(reel.length)} clips, one after another.`
+          : 'This hour, right now.'}
+      </p>
+      {message ? <p className="mb-2 text-xs text-mulberry-700">{message}</p> : null}
+
+      <ul className="flex gap-3 overflow-x-auto pb-2" role="list" data-story-rings="">
+        <li className="w-16 flex-none text-center">
+          <button
+            type="button"
+            onClick={() => void openCamera()}
+            disabled={busy !== 'idle' || myHourUsed}
+            aria-label={myHourUsed ? 'Yours is up' : 'Record your 3 seconds'}
+            className="relative mx-auto block h-[58px] w-[58px] rounded-full border-[1.5px] border-dashed border-ink/30 disabled:opacity-50"
+          >
+            <span className="flex h-full w-full items-center justify-center rounded-full bg-ink/5 text-ink">
+              {busy !== 'idle' ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              ) : (
+                <Clapperboard className="h-[22px] w-[22px]" aria-hidden strokeWidth={1.75} />
+              )}
+            </span>
+            <span
+              aria-hidden
+              className="absolute -bottom-0.5 -right-0.5 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-cream bg-mulberry text-white dark:text-cream"
+            >
+              <Plus className="h-3 w-3" strokeWidth={2.4} />
+            </span>
+          </button>
+          <span className="mt-1 block truncate text-[11px] font-medium text-ink">
+            {busy === 'compressing'
+              ? 'Shrinking…'
+              : busy === 'posting'
+                ? 'Posting…'
+                : myHourUsed
+                  ? 'Yours is up'
+                  : 'Add yours'}
+          </span>
+          <span className="block text-[10px] text-ink/50">3 seconds</span>
+        </li>
+          {stories.map((s) => (
+            <li key={s.story_id} className="w-16 flex-none text-center">
+              <button
+                type="button"
+                onClick={() => setPlayingId(s.story_id)}
+                className="mx-auto block h-[58px] w-[58px] rounded-full bg-gold p-[3px]"
+                aria-label={`Play ${s.author_name}’s story`}
+              >
+                <span className="block h-full w-full overflow-hidden rounded-full border-2 border-cream bg-ink/5">
+                  {s.poster_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL; the optimizer would re-transform per render
+                    <img src={s.poster_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-ink/30">
+                      <Clapperboard className="h-5 w-5" aria-hidden />
+                    </span>
+                  )}
+                </span>
+              </button>
+              <p className="mt-1 truncate text-[11px] font-medium text-ink/80">
+                {s.is_self ? 'You' : s.author_name}
+              </p>
+              <p className="text-[10px] text-ink/50">{hoursLeft(s.expires_at)}</p>
+              {/* 🔑 TAKING YOUR OWN CLIP DOWN IS NOT ON A THREE-SECOND TIMER.
+                  It used to live ONLY inside the player, which looped and waited
+                  — then the film learned to advance, and the button began
+                  dismissing itself after three seconds, landing you on somebody
+                  else's clip with no delete control at all. Regret is not a
+                  race. Here it sits still, under your own ring. */}
+              {s.is_self ? (
+                armedForRemoval === s.story_id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArmedForRemoval(null);
+                      void onRemove(s.story_id);
+                    }}
+                    disabled={removing === s.story_id}
+                    className="inline-flex min-h-8 items-center gap-1 text-[10px] font-medium text-danger-700 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3 w-3" aria-hidden /> Yes, remove it
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setArmedForRemoval(s.story_id)}
+                    className="inline-flex min-h-8 items-center gap-1 text-[10px] text-ink/55 hover:text-ink"
+                  >
+                    <Trash2 className="h-3 w-3" aria-hidden /> Take it down
+                  </button>
+                )
+              ) : null}
+            </li>
+          ))}
+      </ul>
+
+      {unreadable && stories.length === 0 ? (
+        <p className="text-xs text-terracotta-700">
+          We couldn&rsquo;t load today&rsquo;s stories just now. Refresh to try again.
+        </p>
+      ) : stories.length === 0 ? (
+        <p className="text-xs text-ink/55">
+          Nothing yet this day. Record three seconds of whatever is in front of you.
+        </p>
+      ) : null}
+      {/* The camera's fallback picker (no camera API, or refused) — drawn after the rings, never pressed directly. */}
       <input
         ref={fallbackInputRef}
         type="file"
@@ -488,99 +611,15 @@ export function SamahanStories({
           if (f) void onPick(f);
         }}
       />
-      {message ? <p className="mt-2 text-xs text-mulberry-700">{message}</p> : null}
-
-      {unreadable && stories.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4 text-xs text-terracotta-700">
-          We couldn&rsquo;t load today&rsquo;s stories just now. Refresh to try again.
-        </p>
-      ) : stories.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/55">
-          Nothing yet this day. Record three seconds of whatever is in front of you.
-        </p>
-      ) : (
-        <>
-          {reel.length > 1 ? (
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => goTo(0)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-white"
-              >
-                <Play className="h-3.5 w-3.5" aria-hidden /> Play the day
-              </button>
-              <span className="text-[11px] text-ink/55">
-                {formatCount(reel.length)} clips, one after another
-              </span>
-            </div>
-          ) : null}
-          <ul className="mt-4 flex gap-3 overflow-x-auto pb-2" role="list">
-          {stories.map((s) => (
-            <li key={s.story_id} className="w-24 flex-none">
-              <button
-                type="button"
-                onClick={() => setPlayingId(s.story_id)}
-                className="block w-full overflow-hidden rounded-xl border border-ink/10 bg-ink/5"
-                aria-label={`Play ${s.author_name}’s story`}
-              >
-                {s.poster_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL; the optimizer would re-transform per render
-                  <img
-                    src={s.poster_url}
-                    alt=""
-                    className="aspect-[3/4] w-full object-cover"
-                  />
-                ) : (
-                  <span className="flex aspect-[3/4] w-full items-center justify-center text-ink/30">
-                    <Clapperboard className="h-6 w-6" aria-hidden />
-                  </span>
-                )}
-              </button>
-              <p className="mt-1 truncate text-[11px] font-medium text-ink/80">
-                {s.is_self ? 'You' : s.author_name}
-              </p>
-              <p className="text-[10px] text-ink/50">{hoursLeft(s.expires_at)}</p>
-              {/* 🔑 TAKING YOUR OWN CLIP DOWN IS NOT ON A THREE-SECOND TIMER.
-                  It used to live ONLY inside the player, which looped and waited
-                  — then the film learned to advance, and the button began
-                  dismissing itself after three seconds, landing you on somebody
-                  else's clip with no delete control at all. Regret is not a
-                  race. Here it sits still, under your own thumbnail. */}
-              {s.is_self ? (
-                armedForRemoval === s.story_id ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setArmedForRemoval(null);
-                      void onRemove(s.story_id);
-                    }}
-                    disabled={removing === s.story_id}
-                    className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-danger-700 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3 w-3" aria-hidden /> Yes, remove it
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setArmedForRemoval(s.story_id)}
-                    className="mt-1 inline-flex items-center gap-1 text-[10px] text-ink/55 hover:text-ink"
-                  >
-                    <Trash2 className="h-3 w-3" aria-hidden /> Take it down
-                  </button>
-                )
-              ) : null}
-            </li>
-          ))}
-          </ul>
-        </>
-      )}
 
       {cameraOpen ? (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink/95 p-4"
+          ref={cameraDialogRef}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4"
           role="dialog"
           aria-label="Record your 3 seconds"
         >
+          <OverlayBackdrop onClose={closeCamera} />
           <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-black">
             <video
               ref={previewRef}
@@ -603,7 +642,7 @@ export function SamahanStories({
               </div>
             ) : null}
           </div>
-          <div className="mt-4 flex w-full max-w-sm items-center justify-between">
+          <div className="relative mt-4 flex w-full max-w-sm items-center justify-between">
             <button
               type="button"
               onClick={closeCamera}
@@ -635,7 +674,7 @@ export function SamahanStories({
               <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Flip
             </button>
           </div>
-          <p className="mt-3 text-xs text-white/60">
+          <p className="relative mt-3 text-xs text-white/60">
             {recording
               ? `${Math.max(0, Math.ceil((RECORD_MS - recElapsed) / 1000))}s`
               : 'It records three seconds and stops by itself.'}
@@ -645,10 +684,12 @@ export function SamahanStories({
 
       {playing ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/90 p-4"
+          ref={playerDialogRef}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           role="dialog"
           aria-label={`${playing.author_name}’s story`}
         >
+          <OverlayBackdrop onClose={() => setPlayingId(null)} />
           <div className="relative w-full max-w-sm">
             {/* One clip at a time, each played ONCE — `loop` is what used to stop
                 the day ever reaching its end. `key` remounts the element so a

@@ -8,8 +8,9 @@
  * phone was pushed off screen entirely.
  *
  * The panels now mount ONCE, closed, above the message stream
- * (`VENDOR_THREAD_PANELS`), and the customer rail's right column is a list of
- * LAUNCHERS that open them (`VENDOR_THREAD_TOOLS`).
+ * (`VENDOR_THREAD_PANELS`), and ONE list of LAUNCHERS opens them
+ * (`VENDOR_THREAD_TOOLS`) — since 2026-10-14 the ＋ Tools sheet beside the
+ * message field (it was the customer rail's right column).
  *
  * 🔑 THE TWO LISTS ARE HERE TOGETHER ON PURPOSE. A launcher naming a panel that
  * does not exist is silent — it scrolls to nothing and reads as a button that
@@ -18,10 +19,10 @@
  * they-name.test.ts` fails when a launcher names something the page does not
  * render, and when a panel no launcher can reach.
  *
- * 🔑 THE RAIL RENDERS TWICE — a desktop column and a mobile sheet. That is why
- * only the cheap launchers live in it: putting the panels inside would mount
- * `ProposalMaker` and `SendProposalCard` twice and duplicate every form and
- * every anchor id on the page.
+ * 🔑 THE SHEET HOLDS ONLY LAUNCHERS. It mounts and unmounts with every open,
+ * so putting the panels inside would remount `ProposalMaker` (losing what the
+ * supplier typed) and duplicate every form and anchor id. The panels mount ONCE
+ * in the frame's tray; a sheet row closes the sheet and reveals one.
  */
 
 import type { ThreadStage } from './vendor-thread-stage';
@@ -51,7 +52,18 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
     */
     id: 'build-quote',
     label: 'Send a quote',
-    hint: 'Line by line, or from a saved template',
+    hint: 'From your card, a saved quote or blank',
+  },
+  {
+    /*
+      THE COUPLE'S BOOKING ASK, ANSWERED IN THE CONVERSATION (simpler supplier dashboard step 4, 2026-10-14 —
+      prototype `SHEETS.tools` "Answer their booking ask"). Its body is the customer card's shipped panel
+      (`LockRequestAnswer`): the fee forecast ABOVE Agree, Agree = `vendorAgreeToLock`, Turn it down with a reason.
+      Mounted only while an ask is open — the page skips a panel whose body is null, and the tool is listed only then.
+    */
+    id: 'booking-ask',
+    label: 'Answer their booking ask',
+    hint: 'Agree · or turn it down',
   },
   {
     id: 'offer-service',
@@ -59,14 +71,20 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
     hint: 'Your other cards, not yet on this thread',
   },
   {
-    id: 'thread-call',
-    label: 'Voice or video call',
-    hint: 'Free, one to one',
-  },
-  {
     id: 'deal-or-meeting',
     label: 'Deal or meeting',
     hint: 'Propose a schedule or a handshake',
+  },
+  {
+    /*
+      ❓ QUESTIONS FOR THE COUPLE — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"; prototype
+      `Supplier Four-Tab Dashboard` › chat ＋ › "Their event · for your service"). The panel shows the supplier's own
+      set and SENDS it into this event: the couple answers in their event, the answers come back to this customer's
+      card. Body: `QuestionsSendPanel` (thread page `toolNodes`).
+    */
+    id: 'questions-for-couple',
+    label: 'Questions for the couple',
+    hint: 'Your question set · they answer in their event',
   },
   {
     // ⚠ NOT "How did this inquiry end?" as a standing panel. It asked how a
@@ -85,18 +103,16 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
  *   • `pending-payments`     — the empty scroll anchor above the couple's
  *                              logged-payment confirm cards. Not a disclosure;
  *                              a plain scroll still does the right thing.
- *   • `thread-call-{voice,video}` — the two Start buttons INSIDE the
- *                              `thread-call` panel. Revealing one opens the
- *                              panel around it and focuses that button, which
- *                              is how "Voice call" and "Video call" can be two
- *                              entries in the list without two call machines.
- *                              The ids exist only when the thread page passes
- *                              `buttonIdPrefix="thread-call"` to the launcher.
+ *
+ * 📵 NO CALLS IN THE CHAT (owner 2026-10-28, verbatim: *"remove both voice and video call"*). The `thread-call` panel
+ * and its `thread-call-{voice,video}` anchors are gone from both lists; the call server code
+ * (`app/_actions/thread-call-actions.ts`, `app/_components/thread-call-room.tsx`, `lib/thread-calls-gate.ts`) is left
+ * in place, unused by the chat, for the owner to decide on. `lib/the-chat-has-no-calls.test.ts` holds it.
  */
 export const VENDOR_THREAD_IN_PAGE_ANCHORS: readonly string[] = [
   'pending-payments',
-  'thread-call-voice',
-  'thread-call-video',
+  // The guest-count surcharge cards (Apply / Hold price) — a band inside the pinned area, not a disclosure.
+  'guest-count',
 ] as const;
 
 /**
@@ -133,36 +149,71 @@ export const THREAD_STAGE_HAS_AGREEMENT: Record<ThreadStage, boolean> = {
 
 export type VendorThreadToolIcon =
   | 'quote'
-  | 'proposal'
+  | 'answer'
   | 'payment'
+  | 'confirm'
   | 'schedule'
+  | 'file'
   | 'offer'
-  | 'voice'
-  | 'video'
   | 'deal'
-  | 'outcome';
+  | 'guests'
+  | 'outcome'
+  | 'problem'
+  | 'questions';
+
+/**
+ * THE GROUPS OF THE SUPPLIER'S ＋ SHEET (owner-approved chat prototype 2026-10-28, frame D:
+ * `prototypes/chat_messenger_2026-10-28/index.html` — Money · Plan · Talk & files · Just you). Every tool names its
+ * group; the sheet draws a quiet heading where the group changes, in this order.
+ */
+export const THREAD_TOOL_GROUPS = [
+  { key: 'money', label: 'Money' },
+  { key: 'plan', label: 'Plan' },
+  // ❓ 2026-11-04 — the prototype's "Their event · for your service" group. ONE row approved for build (Questions for
+  // the couple); the prototype's other rows in this group are NOT approved and are not here.
+  { key: 'event', label: 'Their event · for your service' },
+  { key: 'talk', label: 'Talk & files' },
+  { key: 'you', label: 'Just you' },
+] as const;
+export type ThreadToolGroup = (typeof THREAD_TOOL_GROUPS)[number]['key'];
 
 type ToolBase = {
   key: string;
   label: string;
+  /** Which heading of the ＋ sheet it sits under (`THREAD_TOOL_GROUPS`). */
+  group: ThreadToolGroup;
+  /**
+   * The grey half-sentence under the label in the ＋ Tools sheet (prototype `SHEETS.tools`: "From your card or
+   * blank", "GCash · bank", "Private to you"…). Says what the tool is for, never how it works.
+   */
+  line: string;
   icon: VendorThreadToolIcon;
   /** The one the supplier is most likely here to do. Exactly one. */
   primary?: true;
   /**
-   * Present when what this opens is shut until the couple agrees. The rail
-   * renders the tool GREYED AND UNPRESSABLE with this sentence beneath it —
-   * never hidden, and never left looking live. The sentence lives here, in the
-   * one list that names the tools, so the rail cannot say something different
-   * from what the destination will.
+   * Present when what this opens is shut until the couple agrees. The sheet renders the tool GREYED AND UNPRESSABLE
+   * with this sentence beneath it — never hidden, and never left looking live. The sentence lives here, in the one
+   * list that names the tools, so the sheet cannot say something different from what the destination will.
    */
   shutUntilAgreement?: { reason: string };
+  /**
+   * Present when the tool answers something the couple sent, and there may be nothing to answer: a payment to
+   * confirm, a guest-count change to re-price. Shut with this sentence while there is none (the page says which —
+   * `VendorThreadToolsState`). Same rule as above: hide nothing, say why.
+   */
+  shutWhenNothing?: { reason: string; counts: 'paymentsToConfirm' | 'guestCountChanges' };
+  /**
+   * Listed ONLY while the couple's booking ask is open. Not a shut tool: with no ask there is no question, and a
+   * greyed "Answer their booking ask" would read as a missed message.
+   */
+  onlyWhileAsked?: true;
 };
 
 /**
  * Opens something already on this page.
  *
  * `reveal` is an ORDERED list of candidates and the first one present wins,
- * because the finer target is not always rendered. "Video call" aims at the
+ * because the finer target is not always rendered. "Call them" aims at the
  * Start button inside the call panel — and that button does not exist for a
  * shop whose plan has calling locked, where the panel shows an upgrade nudge
  * instead. Falling back to the panel means the supplier still reaches the
@@ -171,6 +222,7 @@ type ToolBase = {
 export type VendorThreadRevealTool = ToolBase & {
   reveal: readonly string[];
   link?: never;
+  attach?: never;
 };
 
 /**
@@ -180,51 +232,167 @@ export type VendorThreadRevealTool = ToolBase & {
  * reads a route's own files for the destinations it offers, so a href composed
  * in this shared module makes the route read as having LOST that destination —
  * and the tempting fix, regenerating the baseline, would record a removal that
- * never happened. The rail holds the literal; this list holds the key, and the
+ * never happened. The sheet holds the literal; this list holds the key, and the
  * guard fails if the two stop lining up.
  */
 export type VendorThreadLinkTool = ToolBase & {
   reveal?: never;
   link: VendorThreadLinkTarget;
+  attach?: never;
+};
+
+/**
+ * Opens the composer's own file picker — the shipped attach (`ChatSendForm`'s `attachment` input), so a photo, a PDF
+ * or the contract travels as an ordinary message with every limit and the compression it already has.
+ */
+export type VendorThreadAttachTool = ToolBase & {
+  reveal?: never;
+  link?: never;
+  attach: true;
 };
 
 /** Every off-screen destination a tool may name. */
-export type VendorThreadLinkTarget = 'client-schedule';
+export type VendorThreadLinkTarget = 'client-schedule' | 'client-payments' | 'disputes';
 
-export type VendorThreadTool = VendorThreadRevealTool | VendorThreadLinkTool;
+export type VendorThreadTool = VendorThreadRevealTool | VendorThreadLinkTool | VendorThreadAttachTool;
 
 /**
- * The rail's list, in the order the owner approved on the prototype
- * (`prototypes/supplier_inbox_2026-09-08.html` · "Tools").
+ * THE ＋ TOOLS SHEET — every tool the conversation has, in ONE list, in the order the owner approved on the
+ * simpler-dashboard prototype (`prototypes/supplier_easy_dashboard_2026-10-14_fable.html` · `SHEETS.tools`; DECISION_LOG
+ * 2026-10-14 ✅ APPROVE, and 🧰 "Report a problem joins the chat's ＋ tools — its own page stays").
  *
- * ⚖ "Voice call" and "Video call" are two entries because they are two
- * decisions to a supplier working out whether to be on camera — the owner's
- * note on the prototype. They open the SAME panel and focus different buttons;
- * neither one dials. Nothing in this list starts a call, sends money or sends a
- * message: a launcher opens a tool, the tool is where the act happens.
+ * 2026-10-14 · it replaces the two scattered doors it grew out of: the customer rail's "Tools" column (the 2026-09-08
+ * list of launchers) and the composer's 🧾 / 📞 icons. Nothing it opens moved: each row opens the SAME panel or page,
+ * which posts the SAME server action it always did.
+ *
+ * 2026-10-28 · grouped Money · Plan · Talk & files · Just you (chat prototype frame D), "Call them" removed, and the
+ * file row is the ONE "Share a file". Nothing in this list sends money or sends a message: a row opens a tool, the
+ * tool is where the act happens.
  */
 export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
+  // ── Money ──
   {
-    // The ONE quote launcher (SUP-H) — the template shortcut lives inside the
-    // panel it opens, so there is no second entry for the same job.
+    // The ONE quote launcher (SUP-H) — start from a card, a saved quote or blank lives inside the panel it opens.
     key: 'build-quote',
+    group: 'money',
     label: 'Send a quote',
+    line: 'From your card, a saved quote or blank',
     icon: 'quote',
     reveal: ['build-quote'],
     primary: true,
   },
-  { key: 'log-payment', label: 'Log payment', icon: 'payment', reveal: ['pending-payments'] },
+  {
+    key: 'booking-ask',
+    group: 'money',
+    label: 'Answer their booking ask',
+    line: 'Agree · or turn it down',
+    icon: 'answer',
+    reveal: ['booking-ask'],
+    onlyWhileAsked: true,
+  },
+  {
+    // The ask lives on the customer card (`PaymentAsksPanel` → `vendorAskForPayment`), which refuses before a
+    // booking (RLS: a confirmed booking only) — so the row says so first.
+    key: 'ask-payment',
+    group: 'money',
+    label: 'Ask for a payment',
+    line: 'GCash · bank · the amount and when',
+    icon: 'payment',
+    link: 'client-payments',
+    shutUntilAgreement: { reason: 'Opens once they book you' },
+  },
+  {
+    // The couple's logged payments wait in the pinned band (`confirmVendorPayment` / `refuseVendorPayment`).
+    key: 'log-payment',
+    group: 'money',
+    label: 'Confirm a payment they sent',
+    line: 'Received · or not received',
+    icon: 'confirm',
+    reveal: ['pending-payments'],
+    shutWhenNothing: { reason: 'No payment from them to confirm yet', counts: 'paymentsToConfirm' },
+  },
+  // ── Plan ──
+  { key: 'deal-or-meeting', group: 'plan', label: 'Propose a date or meeting', line: 'Tasting · ocular · a deal', icon: 'deal', reveal: ['deal-or-meeting'] },
   {
     key: 'propose-schedule',
-    label: 'Propose schedule',
+    group: 'plan',
+    label: 'Your call time',
+    line: 'Your part of their day · they tap OK',
     icon: 'schedule',
     link: 'client-schedule',
     // The destination's own words, so the two cannot drift apart.
     shutUntilAgreement: { reason: 'Opens once they book you' },
   },
-  { key: 'offer-service', label: 'Offer another service', icon: 'offer', reveal: ['offer-service'] },
-  { key: 'voice-call', label: 'Voice call', icon: 'voice', reveal: ['thread-call-voice', 'thread-call'] },
-  { key: 'video-call', label: 'Video call', icon: 'video', reveal: ['thread-call-video', 'thread-call'] },
-  { key: 'deal-or-meeting', label: 'Deal or meeting', icon: 'deal', reveal: ['deal-or-meeting'] },
-  { key: 'log-outcome', label: 'Log the outcome', icon: 'outcome', reveal: ['log-outcome'] },
+  {
+    // The surcharge cards (`acceptPaxSurcharge` / `declinePaxSurcharge`) appear when the couple's count moved.
+    key: 'guest-count',
+    group: 'plan',
+    label: 'Guest count changed',
+    line: 'Re-price · or hold your price',
+    icon: 'guests',
+    reveal: ['guest-count'],
+    shutWhenNothing: { reason: 'Their count has not changed since your quote', counts: 'guestCountChanges' },
+  },
+  { key: 'offer-service', group: 'plan', label: 'Offer another service', line: 'Your other cards', icon: 'offer', reveal: ['offer-service'] },
+  // ── Their event · for your service ──
+  // ❓ Every supplier (owner 2026-11-04). DECISION_LOG: the set is sent "into a booked event" — so, like the other
+  // tools that open their event, it is shut (never hidden) with the reason until they book you.
+  {
+    key: 'questions-for-couple',
+    group: 'event',
+    label: 'Questions for the couple',
+    line: 'Your question set · they answer in their event',
+    icon: 'questions',
+    reveal: ['questions-for-couple'],
+    shutUntilAgreement: { reason: 'Opens once they book you' },
+  },
+  // ── Talk & files ──
+  // ONE Share a file (owner 2026-10-28, verbatim: *"Share a file can be file, photo or video"*) — the composer's own
+  // picker, so a photo, a video, a PDF or the contract travels as an ordinary message through the shipped upload.
+  { key: 'share-file', group: 'talk', label: 'Share a file', line: 'File · photo · video · the contract', icon: 'file', attach: true },
+  // 📵 "Call them" was here — removed (owner 2026-10-28, "remove both voice and video call").
+  // ── Just you ──
+  { key: 'log-outcome', group: 'you', label: 'Mark won or lost', line: 'Private to you', icon: 'outcome', reveal: ['log-outcome'] },
+  {
+    // The shipped disputes page — owner 2026-10-14: it joins these tools, its own page stays.
+    key: 'report-problem',
+    group: 'you',
+    label: 'Report a problem',
+    line: 'This couple or this booking',
+    icon: 'problem',
+    link: 'disputes',
+  },
 ] as const;
+
+/**
+ * WHAT THE PAGE KNOWS THAT DECIDES A ROW — read on the server, handed to the sheet. Each is a fact the page already
+ * has in hand (no extra read): the stage, the open ask, the pending payments, the guest-count proposals.
+ */
+export type VendorThreadToolsState = {
+  hasAgreement: boolean;
+  askOpen: boolean;
+  paymentsToConfirm: number;
+  guestCountChanges: number;
+};
+
+export type VendorThreadToolRow =
+  | { tool: VendorThreadTool; shut: null }
+  | { tool: VendorThreadTool; shut: { reason: string } };
+
+/** The sheet's rows, in order: hidden only for an ask that is not open; shut (never hidden) with the reason. */
+export function vendorThreadToolRows(state: VendorThreadToolsState): VendorThreadToolRow[] {
+  const rows: VendorThreadToolRow[] = [];
+  for (const tool of VENDOR_THREAD_TOOLS) {
+    if (tool.onlyWhileAsked && !state.askOpen) continue;
+    if (tool.shutUntilAgreement && !state.hasAgreement) {
+      rows.push({ tool, shut: tool.shutUntilAgreement });
+      continue;
+    }
+    if (tool.shutWhenNothing && state[tool.shutWhenNothing.counts] === 0) {
+      rows.push({ tool, shut: { reason: tool.shutWhenNothing.reason } });
+      continue;
+    }
+    rows.push({ tool, shut: null });
+  }
+  return rows;
+}

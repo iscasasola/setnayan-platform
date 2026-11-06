@@ -4,3 +4,10 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
+app/(shell)/cookies/page.tsx "15 minutes · 1 day"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/cookies/page.tsx "2 minutes to 1 day, or until the browser closes"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/cookies/page.tsx "30 days · 1 day"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/cookies/page.tsx "30 days"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/cookies/page.tsx "30 minutes · 30 days"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/cookies/page.tsx "60 days"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/cookies/page.tsx "90 days"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read

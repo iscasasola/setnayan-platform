@@ -11,6 +11,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { pinBuildPickRow, removeBuildPickRow } from '@/lib/build-pick-write';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type BuildPickResult = { ok: true } | { ok: false; error: string };
 
@@ -29,7 +30,12 @@ export async function setBuildPick(input: {
   eventId: string;
   planGroupId: string;
   vendorId: string;
+  /** The card drew the answer itself — skip the revalidate that would ship a
+   *  whole render of the page back (`lib/answer-in-place.ts`). */
+  answerInPlace?: boolean;
 }): Promise<BuildPickResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -47,7 +53,7 @@ export async function setBuildPick(input: {
     now: new Date().toISOString(),
   });
   if (errMsg) return { ok: false, error: errMsg };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  if (!input.answerInPlace) revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }
 
@@ -61,7 +67,12 @@ export async function removeBuildPick(input: {
   eventId: string;
   planGroupId: string;
   vendorId: string;
+  /** The card drew the answer itself — skip the revalidate that would ship a
+   *  whole render of the page back (`lib/answer-in-place.ts`). */
+  answerInPlace?: boolean;
 }): Promise<BuildPickResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -74,7 +85,7 @@ export async function removeBuildPick(input: {
     vendorId: input.vendorId,
   });
   if (errMsg) return { ok: false, error: errMsg };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  if (!input.answerInPlace) revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }
 
@@ -101,6 +112,8 @@ export async function applyBuildToWorking(input: {
   picks: { planGroupId: string; vendorId: string }[];
   lockedPlanGroupIds?: string[];
 }): Promise<BuildPickResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -180,6 +193,8 @@ export async function applyBuildToWorking(input: {
  *  individually. Surfaced on the Plans panel by
  *  Explore_Replan_BUILD_SPEC_2026-07-27 §8.3. */
 export async function clearBuildPicks(input: { eventId: string }): Promise<BuildPickResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },

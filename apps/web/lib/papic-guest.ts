@@ -4,6 +4,8 @@ import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitle
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
 import { papicIsOn } from '@/lib/event-answers';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
+import { eventRowOnce } from '@/lib/event-row-once';
+import { askedOnce } from '@/lib/request-once';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -124,10 +126,41 @@ export async function eventPapicGuestAccess(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicGuestAccess> {
+  /* ONE ANSWER PER RENDER (2026-10-12, `lib/request-once.ts`). One guest view
+     asks this three times — the page's camera slot, the guest's own camera,
+     the face-tagging gate — and each asking sent the pool RPC and the switch
+     read again. Same asker, same event, same question: asked once. Outside a
+     render (an action, the capture route) nothing is remembered — every gate
+     still reads every time, exactly as before. */
+  return (await eventPapicGuestAccessWhy(supabase, eventId)).access;
+}
+
+/**
+ * The same answer, and WHY it is 'off' (owner 2026-10-23, the guest card's "Papic is off · Turn on ›"): `answeredNo` is
+ * the host's own "Photos from your guests? — No" (`papic_on = false`, Event Details) — the switch they press to turn it
+ * back on — as against an event with no Papic yet (no pass, no pool), whose door is the Papic page. ONE read: the same
+ * remembered answer `eventPapicGuestAccess` gives (`lib/request-once.ts`), so asking why sends nothing more.
+ */
+export type PapicGuestAccessWhy = { access: PapicGuestAccess; answeredNo: boolean };
+
+export async function eventPapicGuestAccessWhy(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicGuestAccessWhy> {
+  return askedOnce(supabase, 'papic-guest-access', [eventId], () => readPapicGuestAccess(supabase, eventId));
+}
+
+async function readPapicGuestAccess(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicGuestAccessWhy> {
   const [owned, pool, papicSwitch] = await Promise.all([
     Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
     readEventPoolStatus(supabase, eventId).catch(() => ({ ok: false, status: null })),
-    supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    // The row the render already holds answers this (`lib/event-row-once.ts`); else the read as it always was.
+    eventRowOnce(supabase, eventId, 'papic_on', () =>
+      supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    ),
   ]);
   // 🗂 THE HOST SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
   // DETAILS"): "Photos from your guests? — No" (`papic_on = false`, changed in
@@ -135,11 +168,11 @@ export async function eventPapicGuestAccess(
   // Only an explicit No: an unread switch makes no claim and the purchase and
   // the pool decide, exactly as before.
   if (!papicSwitch.error && papicSwitch.data && !papicIsOn((papicSwitch.data as { papic_on?: unknown }).papic_on)) {
-    return 'off';
+    return { access: 'off', answeredNo: true };
   }
-  if (owned.some(Boolean)) return 'on';
-  if (!pool.ok) return 'unknown';
-  return pool.status?.applies === true ? 'on' : 'off';
+  if (owned.some(Boolean)) return { access: 'on', answeredNo: false };
+  if (!pool.ok) return { access: 'unknown', answeredNo: false };
+  return { access: pool.status?.applies === true ? 'on' : 'off', answeredNo: false };
 }
 
 /**
@@ -244,6 +277,8 @@ export type GuestQuota = {
    * `fetchEventPoolStatus` directly and is untouched by this.
    */
   poolLow: boolean;
+  /** The shared pot is already at zero — told at camera-open (owner 2026-10-13). A boolean, never a figure (PRIV-1). */
+  poolEmpty: boolean;
   /**
    * The number on her counter is a SPONSOR'S share — two or three of the equal
    * shares, not one (migration 20271220526938). Only when the couple's ceiling
@@ -416,6 +451,10 @@ export async function fetchGuestQuota(
   // is available right here and is deliberately not published: every caller of
   // this function renders to a guest, and the pot's balance is the couple's.
   const poolLow = poolApplies && poolRead.status.soft;
+  // 📸 …and whether it is already EMPTY (owner 2026-10-13): told at camera-open,
+  // so no guest takes a photo the pot cannot pay for. A state, never a figure;
+  // an unread pool is not "empty" (it fails open, like `poolUnknown`).
+  const poolEmpty = poolApplies && poolRead.ok && poolRead.status.remainingPoints <= 0;
 
   // ⚠ CREDITS, NOT ROWS — same reasoning as the RPC's own SUM(points_cost):
   // a ten-second clip costs up to 8. `used` (row count) only equals credits
@@ -507,6 +546,7 @@ export async function fetchGuestQuota(
     unlimited,
     capApplies,
     poolLow,
+    poolEmpty,
     // The ceiling is the couple's (not the platform's 150, not lifted by a
     // release) and she takes more than one share of it.
     sponsorShare: capApplies && guestCeiling !== null && (shareWeight ?? 1) > 1,

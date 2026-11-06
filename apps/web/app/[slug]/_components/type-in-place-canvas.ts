@@ -38,6 +38,7 @@
  * Only in the Maker's canvas: it is reached from `EditorBridge`, which a guest
  * page never mounts.
  */
+import { splitCoupleNames } from '@/lib/split-names';
 import type { CanvasBringUp } from './canvas-bring-up';
 import {
   HUB_TYPE_PARTS,
@@ -50,6 +51,7 @@ import {
 } from '@/lib/hub-part-words';
 import type { HubElementKey } from '@/lib/element-style';
 import { findMakerSection } from './maker-section-find';
+import { keepReactChildren } from './react-children-keep';
 
 export type TypeRect = { top: number; left: number; width: number; height: number };
 
@@ -75,6 +77,44 @@ export function readSceneTypeWords(raw: unknown): SceneTypeWords[] {
     out.push({ key: m.key, field: m.field, text: m.text });
   }
   return out;
+}
+
+/**
+ * ✍ AN EMPTY SCENE OF THEIR OWN'S HEADING AND WORDS (owner 2026-10-17, on a "Your own section" just added: *"i cannot
+ * edit this"*). Its placeholder (`MakerEmptyScene`) draws no words, so Edit's Heading and Words rows had nothing on the
+ * page to show while being typed. The placeholder carries the scene's guest look hidden (`makerWordsLook`: the
+ * eyebrow · the words); the field's part in it is returned — null for any other scene or field.
+ */
+export function ownLookPart(section: Element, field: string): HTMLElement | null {
+  const look = section.querySelector<HTMLElement>('[data-maker-look]');
+  const empty = '[data-maker-empty^="custom_"]';
+  if (!look || !(section.matches(empty) || section.querySelector(empty))) return null;
+  /* The template's heading and words (`scene-template.tsx`), else the plain scene's eyebrow and words. */
+  if (field === 'title') return look.querySelector<HTMLElement>('.hub-tpl-h') ?? look.querySelector<HTMLElement>('.pahina-eyebrow');
+  if (field === 'body') return look.querySelector<HTMLElement>('.hub-tpl-p') ?? look.querySelector<HTMLElement>('p:not(.pahina-eyebrow)');
+  return null;
+}
+
+/** Lay `text` into the empty scene's look, show the look (and only the parts with words) in place of its prompt. */
+export function showOwnLookWords(section: Element, field: string, text: string): boolean {
+  const part = ownLookPart(section, field);
+  if (!part) return false;
+  setPartWords(part, text);
+  const look = section.querySelector<HTMLElement>('[data-maker-look]')!;
+  const parts = [ownLookPart(section, 'title'), ownLookPart(section, 'body')].filter((p): p is HTMLElement => p !== null);
+  const written = (p: HTMLElement) => {
+    const t = (p.textContent ?? '').trim();
+    return t.length > 0 && t !== '\u2026';
+  };
+  for (const p of parts) p.style.display = written(p) ? '' : 'none';
+  const blank = !parts.some(written);
+  look.hidden = blank;
+  look.style.display = blank ? 'none' : '';
+  section.querySelectorAll<HTMLElement>('[data-maker-empty-prompt]').forEach((p) => {
+    p.hidden = !blank;
+    p.style.display = blank ? '' : 'none';
+  });
+  return true;
 }
 
 /** ✍ A scene's part the Maker offered to type in (`markSceneWords`) — the field its words are. */
@@ -176,14 +216,117 @@ export function partWords(part: HTMLElement): string {
 
 /** Put the part's words back, or new ones in (a Wording ▾ or Format ▾ pick, a refused save). */
 export function setPartWords(part: HTMLElement, text: string): void {
-  const people = peopleOf(part);
-  if (people.length > 1) {
-    const [first = '', ...rest] = text.split(/\s*&\s*/);
-    people[0]!.textContent = first;
-    people[1]!.textContent = rest.join(' & ');
-    return;
+  if (layNames(part, text)) return;
+  const target = peopleOf(part)[0] ?? typeTargetOf(part);
+  /* React's own nodes, noted before they are replaced — put back before its next redraw (`react-children-keep.ts`) */
+  keepReactChildren(target);
+  target.textContent = text;
+}
+
+/* ── the names, drawn as the page draws them ─────────────────────────────────────────────────────────────────── */
+
+const kids = (part: HTMLElement) => Array.from(part.children) as HTMLElement[];
+const personAt = (part: HTMLElement, i: 0 | 1) => kids(part).find((c) => c.getAttribute('data-el-person') === String(i)) ?? null;
+const joinerIn = (part: HTMLElement) => kids(part).find((c) => c.getAttribute('data-el') === 'joiner') ?? null;
+/** The masthead's holder for the second name's two elements (`data-el-names-two` — never shown, Maker only). */
+const twoNamesOf = (part: HTMLElement) => kids(part).find((c) => c.hasAttribute('data-el-names-two')) ?? null;
+
+/** The joiner and the second line a cover put away for one name — the SAME elements come back (their look with them). */
+const PUT_AWAY = new WeakMap<HTMLElement, { joiner: HTMLElement | null; second: HTMLElement }>();
+
+/** The holder keeps its two elements' stamps under away names, so no reader of the page's parts finds them there. */
+const AWAY_STAMPS = [['data-el-away', 'data-el'], ['data-el-person-away', 'data-el-person']] as const;
+
+/** A new joiner and second line, as the masthead draws them for this design — copies of the holder's, by their real names. */
+function freshPair(holder: HTMLElement | null): { joiner: HTMLElement | null; second: HTMLElement } | null {
+  if (!holder) return null;
+  const made = Array.from(holder.children).map((c) => {
+    const copy = c.cloneNode(true) as HTMLElement;
+    for (const [awayName, name] of AWAY_STAMPS) {
+      const v = copy.getAttribute(awayName);
+      if (v === null) continue;
+      copy.removeAttribute(awayName);
+      copy.setAttribute(name, v);
+    }
+    return copy;
+  });
+  const second = made.find((c) => c.getAttribute('data-el-person') === '1');
+  return second ? { joiner: made.find((c) => c.getAttribute('data-el') === 'joiner') ?? null, second } : null;
+}
+
+/**
+ * ✍ THE NAMES ON THE CANVAS ARE THE NAMES THE PAGE WOULD DRAW — for the line typed, at once (owner 2026-10-11).
+ *
+ * Twice the canvas drew a name line its own way. One name typed into a two-name cover left the joiner standing over
+ * nothing ("TEsting Event / and / (blank)"). Then two names typed into a cover drawn for ONE were a single plain line
+ * ("Bolognese &" / "Pasta" — "it did not make the secondary font"): the page had no joiner and no second line to
+ * write into. And "Ana and Ben" kept the old joiner's word.
+ *
+ * So the line is split by the page's own rule (`splitCoupleNames`) and laid out with the page's own elements:
+ *   · one name  → the first person's line alone; the joiner and the second line are taken OFF the page (kept, to come
+ *                 back as they were), exactly as the masthead draws no joiner without a second name;
+ *   · two names → first · joiner · second; when the cover was drawn for one name they are copies of the pair the
+ *                 masthead itself drew for the canvas (`data-el-names-two`), so the joiner is the masthead's
+ *                 element, in its own face;
+ *   · the joiner's WORD is the page's: the couple's own when they chose one, else what the line gives — "and", or
+ *     "&" as this cover writes it (`data-amp`: the card says "and").
+ * Returns false for a part that is not the names of two people (one person at the centre: one line, as typed).
+ *
+ * Held for every design × cover by `lib/a-joiner-never-stands-over-nothing.test.ts`: the canvas after each line
+ * equals the server's render of that line. ⚠ A joiner word the couple chose that IS the automatic one cannot be told
+ * from it here, and is treated as automatic. Letters styled one by one (`data-el-run`) are plain until the next
+ * render, as before.
+ */
+export function layNames(part: HTMLElement, text: string): boolean {
+  const first = personAt(part, 0);
+  const holder = twoNamesOf(part);
+  let second = personAt(part, 1);
+  if (!first || (!second && !holder && !PUT_AWAY.has(part))) return false;
+  const names = splitCoupleNames(text, true);
+  let joiner = joinerIn(part);
+  /* every node this rewrites or moves is React's — noted first (`react-children-keep.ts`) */
+  for (const el of [first, second, joiner, second?.parentElement, joiner?.parentElement, first.parentElement]) keepReactChildren(el);
+  if (!names.second) {
+    first.textContent = names.first;
+    if (second) {
+      PUT_AWAY.set(part, { joiner, second });
+      joiner?.remove();
+      second.remove();
+    }
+    return true;
   }
-  (people[0] ?? typeTargetOf(part)).textContent = text;
+  if (!second) {
+    const pair = PUT_AWAY.get(part) ?? freshPair(holder);
+    if (!pair) return false;
+    PUT_AWAY.delete(part);
+    ({ joiner, second } = pair);
+    if (joiner) first.after(joiner, second);
+    else first.after(second);
+  }
+  first.textContent = names.first;
+  second.textContent = names.second;
+  if (joiner) {
+    const auto = names.joiner === '&' ? (holder?.getAttribute('data-amp') ?? '&') : (names.joiner ?? '');
+    /* The couple's own word is one that is not the automatic word this joiner was last drawn with. */
+    const said = words(joiner);
+    const own = said !== '' && said !== (joiner.getAttribute('data-el-word') ?? '') ? said : null;
+    joiner.textContent = own ?? auto;
+    joiner.setAttribute('data-el-word', auto);
+  }
+  return true;
+}
+
+/**
+ * 🔗 TYPED ON THE PAGE ITSELF (a caret in one person's line): when the typing ends, the names are laid out as the
+ * page would draw what they now say — a second name erased leaves no joiner behind; two names typed into one line
+ * become two. Names that already read one per line are not touched (their joiner keeps the word it was drawn with).
+ */
+export function tidyNames(part: HTMLElement): void {
+  const said = kids(part).filter((c) => c.hasAttribute('data-el-person')).map(words);
+  if (said.length === 0) return;
+  const named = said.filter(Boolean);
+  const asDrawn = named.length === said.length && said.every((w) => splitCoupleNames(w, true).second === null);
+  if (!asDrawn) layNames(part, named.join(' & '));
 }
 
 function rectOf(el: HTMLElement): TypeRect {
@@ -266,6 +409,8 @@ export function createCanvasTyping(
     const s = session;
     if (!s) return;
     if (cancel) setPartWords(s.part, s.before);
+    /* 🔗 Typed on the page itself: a second name typed away leaves no joiner behind (`tidyNames`). */
+    else if (s.el === 'names') tidyNames(s.part);
     send('end', cancel ? { cancel: true } : {});
     s.off();
     s.target.removeAttribute('contenteditable');
@@ -312,6 +457,7 @@ export function createCanvasTyping(
         });
       };
       if (caret) {
+        keepReactChildren(target);
         target.setAttribute('contenteditable', 'plaintext-only');
         if (target.contentEditable !== 'plaintext-only') target.setAttribute('contenteditable', 'true');
         target.addEventListener('input', onInput);
@@ -371,6 +517,12 @@ export function createCanvasTyping(
           : field
             ? (section?.querySelector<HTMLElement>(`[data-el-field="${field}"]`) ?? null)
             : (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null);
+      /* ✍ A scene of their own with no words yet draws none to type over: its words go into its hidden look instead,
+         which steps in for the placeholder (`ownLookPart`). */
+      if (!part && field && section) {
+        showOwnLookWords(section, field, text);
+        return;
+      }
       if (!part) return;
       setPartWords(part, text);
       if (session && session.part === part && session.target === doc.activeElement) {

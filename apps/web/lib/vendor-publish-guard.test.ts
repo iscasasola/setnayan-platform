@@ -86,11 +86,6 @@ const ADMIN_PREFIX = `app${'/'}admin/`;
  */
 const ALLOWED_WRITES: ReadonlyMap<string, string> = new Map([
   [
-    'app/vendor/claim/[token]/finalize/page.tsx',
-    'INSERT of a brand-new profile row: a creation default, not a form value. ' +
-      'A shop that has just been claimed is unpublished until an admin says otherwise.',
-  ],
-  [
     'lib/erasure/coverage.ts',
     'VENDOR_PROFILE_PII_SCRUB — account erasure. Taking an erased shop off the ' +
       'marketplace is the whole intent, and the value is a constant, not a submission.',

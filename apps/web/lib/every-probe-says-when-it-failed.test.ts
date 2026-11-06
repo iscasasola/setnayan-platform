@@ -26,7 +26,11 @@ const WEB = join(import.meta.dirname, '..');
 /** The files this rule covers. Adding one is a deliberate act. */
 const WATCHED = [
   'app/vendor-dashboard/shop/page.tsx',
-  'app/vendor-dashboard/shop/_components/website-editor.tsx',
+  // Step 5 (2026-10-14): My Shop's door-1 reads moved to the three screens that draw them — and the rule went with
+  // them. (`website-editor.tsx` was the fourth file here; its controls are Your page's parts now, which read nothing.)
+  'app/vendor-dashboard/profile/details-data.ts',
+  'app/vendor-dashboard/website/page-data.ts',
+  'app/vendor-dashboard/collections/collections-data.ts',
   // `as const` so WATCHED[0] is a known string rather than `string | undefined`.
   // Proving it in the type, not asserting it away with `!`.
 ] as const;
@@ -86,10 +90,11 @@ test('the rule tells a logged probe from a silent one', () => {
 test('the rule finds every probe, not just the silent ones', () => {
   // A count, not a set: if `probeSites` silently stopped matching a form, the
   // silent list would shrink to [] and read as a clean page.
-  const src = readFileSync(join(WEB, WATCHED[0]), 'utf8');
+  // Summed over the watched files: step 5 split My Shop's probes across four loaders.
+  const n = WATCHED.reduce((a, rel) => a + probeSites(readFileSync(join(WEB, rel), 'utf8')).length, 0);
   assert.ok(
-    probeSites(src).length >= 10,
-    `found only ${probeSites(src).length} probes in ${WATCHED[0]} — the rule has stopped matching, which would look exactly like a fixed page`,
+    n >= 10,
+    `found only ${n} probes in the watched loaders — the rule has stopped matching, which would look exactly like a fixed page`,
   );
 });
 
@@ -138,7 +143,8 @@ test('the guard is measured against the tree it was written for', () => {
     rule. A guard that quietly implies otherwise is worse than no guard.
   */
   const src = readFileSync(join(WEB, WATCHED[0]), 'utf8');
-  assert.ok(probeSites(src).length >= 10, 'try/catch matching has stopped working');
+  const n = WATCHED.reduce((a, rel) => a + probeSites(readFileSync(join(WEB, rel), 'utf8')).length, 0);
+  assert.ok(n >= 10, 'try/catch matching has stopped working');
   assert.ok(
     // \b on BOTH sides: a bare /SoftReadLog/ also matches `SoftReadLogX`, so a
     // sabotage that renamed the import sailed through this very assertion.

@@ -240,7 +240,9 @@ test('6 · the Apple sheet mints the marker AFTER the sign-in and puts it on the
 
   const src = stripComments(readFileSync(join(WEB, 'lib/native-oauth.ts'), 'utf8'));
   const signIn = src.indexOf('signInWithIdToken(');
-  const mint = src.indexOf('issueNativeLandingMarker()');
+  // `issueNativeLandingMarker(` with or without its argument (the sheet's Apple
+  // authorization code rides on the same call — native-marker-action.ts).
+  const mint = src.indexOf('issueNativeLandingMarker(');
   const land = src.indexOf('nativeSessionLandingPath(next, accountType, marker)');
   assert.ok(signIn > -1 && mint > signIn && land > mint, 'the marker is not minted after the sign-in and carried to the landing');
 

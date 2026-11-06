@@ -35,6 +35,7 @@ export function ScreenStage({ loaded }: { loaded: Extract<LoadedScreen, { state:
   }, [loaded]);
 
   useEffect(() => {
+    // one-render: keep (realtime) — the live screen polls; nothing is pressed on it.
     const t = window.setInterval(() => router.refresh(), LIVE_SCREEN_POLL_MS);
     return () => window.clearInterval(t);
   }, [router]);

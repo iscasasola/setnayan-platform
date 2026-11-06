@@ -80,3 +80,28 @@ export function sanitizeMagicTraveller(value: unknown): MagicTraveller | null {
  * default for anybody.
  */
 export const MAGIC_DEFAULT: MagicTraveller | null = null;
+
+/* ══ ✈ ITS HOME: STAGES › LOGO › ANIMATE › ACTION (Look restudy row 9) ══════════════════════════════════════════
+   Owner-approved 2026-10-08 (DECISION_LOG "APPROVED — THE LOOK RESTUDY", BACKGROUND_RESTUDY_2026-10-08_fable.md
+   § 1b · § 3.2 · § 6 row 9): Magic Move "moves one part on scroll; it is not a colour and not a stage transition",
+   so it leaves Look and becomes the Logo's own Action — "Travels to the bar", beside Still · Drift, where a part's
+   motion already lives. Pro stays (◆, tried free, named at Apply).
+
+   🔑 ONE FACT, ONE HOME. The Action writes the SAME column the Look row wrote — `events.site_magic_traveller` —
+   through the draft. No second copy on the canvas: the guest page's reader (`site-body.tsx`) and the traveller's
+   script are unchanged, so every event that already travels keeps travelling. */
+
+/** The Logo's Action key for the journey — never stored on the canvas (the column holds it). */
+export const LOGO_TRAVELS_ACTION = 'travels' as const;
+/** Its name in Action ▾. */
+export const LOGO_TRAVELS_LABEL = 'Travels to the bar';
+
+/** Is "Travels to the bar" offered here? The cover's logo only — the one place the traveller starts from. */
+export function logoTravelsOffered(target: { key: string; el: string }): boolean {
+  return target.key === 'f:hero' && target.el === 'mark';
+}
+
+/** What one pick of the Logo's Action writes to `events.site_magic_traveller`: the mark, or nothing (`null` clears). */
+export function logoTravelWrite(action: string): MagicTraveller | null {
+  return action === LOGO_TRAVELS_ACTION ? 'mark' : null;
+}

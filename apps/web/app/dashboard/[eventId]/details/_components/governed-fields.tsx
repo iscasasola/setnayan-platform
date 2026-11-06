@@ -1,8 +1,8 @@
 'use client';
 
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
 import {
   setEventCeremonyType,
@@ -110,6 +110,8 @@ const CEREMONY_VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
   }));
 
 type Props = {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
   eventId: string;
   confirmedVendorCount: number;
   ceremony: string | null;
@@ -138,11 +140,12 @@ type Props = {
    *  send the couple to another page for "more date options". */
   embedded?: boolean;
   /**
-   * ✍ THE MAKER'S DATE IS A DRAFT (owner 2026-10-01, "wait for apply"): where
-   * given, the date row saves through this — after the SAME booked-supplier
-   * preview — instead of `updateEventDate`, and the caller draws the screen
-   * again (no `router.refresh()` here). Resolves null when saved, else the
-   * reason. Omitted = the Personalization page's live save, unchanged.
+   * 🗓 THE MAKER'S OWN DATE SAVE: where given, the date row saves through this —
+   * after the SAME booked-supplier preview — so the caller can show who a
+   * clashing date belongs to. It calls the same live door (`updateEventDate`):
+   * the date is never a draft (owner 2026-11-05, "it shouldn't rely on the
+   * hub"). Resolves null when saved, else the reason. Omitted = this row calls
+   * `updateEventDate` itself.
    */
   saveDate?: (value: string) => Promise<string | null>;
   /**
@@ -173,6 +176,10 @@ type Props = {
  */
 type EditableField = ConflictField | 'ceremony_venue';
 
+/** 📵 What a row says when its request never answered (no signal, a 5xx) — the row stays open with the value in it. */
+const NOT_SAVED = 'That did not save. Please try again.';
+const NOT_CHECKED = 'We could not check your booked suppliers just now. Please try again.';
+
 /** Does this field run the booked-vendor conflict preview before saving? */
 function hasConflictPreview(field: EditableField): field is ConflictField {
   return field !== 'ceremony_venue';
@@ -188,6 +195,7 @@ const FIELD_LABEL: Record<EditableField, string> = {
 
 export function GovernedFields({
   eventId,
+  dateExempt = false,
   confirmedVendorCount,
   ceremony,
   secondaryCeremony,
@@ -203,7 +211,6 @@ export function GovernedFields({
   saveDate,
   activeCeremonies = null,
 }: Props) {
-  const router = useRouter();
   // The launch gate (lib/ceremony-choices.ts): coming-soon rites are not offered.
   const offeredCeremonies = new Set<string>(
     ceremonyChoicesFor(
@@ -253,13 +260,20 @@ export function GovernedFields({
       // Keep the current primary; only the overlay changes.
       fd.set('ceremony_type', ceremony);
       fd.set('secondary_ceremony_type', next ? CHINESE_SECONDARY_KEY : '');
-      const res = await setEventCeremonyType(fd);
-      if (!res.ok) {
-        setOverlayError(res.message);
+      /* 📵 A request that never answered is SAID in the row — thrown into this transition it replaced the whole page
+         (and, in the Maker, the whole Maker) with the app's error screen. */
+      let res: Awaited<ReturnType<typeof setEventCeremonyType>> | null;
+      try {
+        res = await setEventCeremonyType(fd);
+      } catch {
+        res = null;
+      }
+      if (!res?.ok) {
+        setOverlayError(res?.message ?? NOT_SAVED);
         return;
       }
       setOverlaySaved(true);
-      router.refresh();
+      // ⚡ Every write on this row revalidates the event, so the action's answer already carries the redrawn page.
     });
   }
 
@@ -300,8 +314,18 @@ export function GovernedFields({
     setSavedField(null);
   }, [proposal]);
 
+  /* 📵 Returns an error message, or null on success — and NEVER throws: a request that did not answer (no signal, a
+     5xx) is a message like any other refusal. Every caller awaits this inside a transition, where a throw replaced
+     the whole page (and, in the Maker, the whole Maker) with the app's error screen. */
   async function applyField(field: EditableField, value: string): Promise<string | null> {
-    // returns an error message, or null on success
+    try {
+      return await sendField(field, value);
+    } catch {
+      return NOT_SAVED;
+    }
+  }
+
+  async function sendField(field: EditableField, value: string): Promise<string | null> {
     const fd = new FormData();
     fd.set('event_id', eventId);
     if (field === 'ceremony') {
@@ -326,17 +350,13 @@ export function GovernedFields({
       const res = await updateGuestCount(fd);
       return res.ok ? null : res.message;
     }
-    // date — the Maker's draft, when it hands one in (Apply asks the gates)…
+    // date — the Maker's own save, when it hands one in (it names a clashing supplier)…
     if (saveDate) return saveDate(value);
-    // …else updateEventDate, which throws on its gates
+    // …else the event's one date door, which answers every refusal in words, beside the date.
     fd.set('event_date', value);
     fd.set('precision', 'day');
-    try {
-      await updateEventDate(fd);
-      return null;
-    } catch (e) {
-      return e instanceof Error ? e.message : 'Could not save the date';
-    }
+    const res = await updateEventDate(fd);
+    return res.ok ? null : res.error;
   }
 
   function commit(field: EditableField, value: string) {
@@ -348,7 +368,6 @@ export function GovernedFields({
       }
       setSavedField(field);
       close();
-      if (!saveDate) router.refresh();
     });
   }
 
@@ -379,7 +398,6 @@ export function GovernedFields({
         }
         setSavedField(field);
         close();
-        if (!saveDate) router.refresh();
       });
       return;
     }
@@ -389,7 +407,16 @@ export function GovernedFields({
       fd.set('event_id', eventId);
       fd.set('field', field);
       fd.set('proposed_value', value);
-      const res = await previewPersonalizationConflicts(fd);
+      let res: Awaited<ReturnType<typeof previewPersonalizationConflicts>> | null;
+      try {
+        res = await previewPersonalizationConflicts(fd);
+      } catch {
+        res = null; // 📵 did not answer — said below, never thrown into the transition
+      }
+      if (!res) {
+        setError(NOT_CHECKED);
+        return;
+      }
       if (!res.ok) {
         setError(res.message);
         return;
@@ -403,7 +430,6 @@ export function GovernedFields({
         }
         setSavedField(field);
         close();
-        if (!saveDate) router.refresh();
         return;
       }
       setConflicts(res.conflicts);
@@ -411,7 +437,7 @@ export function GovernedFields({
     });
   }
 
-  /* ✍ Embedded: a changed value is checked and drafted on its own, after a pause. */
+  /* ✍ Embedded: a changed value is checked and saved on its own, after a pause. */
   const autoSave = useRef(checkAndSave);
   autoSave.current = checkAndSave;
   useEffect(() => {
@@ -442,9 +468,14 @@ export function GovernedFields({
       pf.set('event_id', eventId);
       pf.set('field', field);
       pf.set('proposed_value', value);
-      const res = await previewPersonalizationConflicts(pf);
-      if (res.ok) setConflicts(res.conflicts);
-      router.refresh();
+      /* 📵 The service IS removed; a re-check that did not answer leaves the list as it was, and says so. */
+      try {
+        const res = await previewPersonalizationConflicts(pf);
+        if (res.ok) setConflicts(res.conflicts);
+      } catch {
+        setError(NOT_CHECKED);
+      }
+      // (The page behind is already redrawn: `deleteVendor` revalidates, and its answer carries the render.)
     });
   }
 
@@ -677,7 +708,7 @@ export function GovernedFields({
       >
         <input
           type="date"
-          min={today}
+          min={eventDateMinFor(today, dateExempt)}
           value={proposed}
           onChange={(e) => setProposed(e.target.value)}
           className={SELECT_CLASS}

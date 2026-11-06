@@ -25,6 +25,7 @@
  *
  * Pure. No DOM, no React — `element-preview.test.ts` drives every rule here.
  */
+import { resolveCoverEntrance } from '@/lib/cover-entrance';
 import { hubBackgroundIsMedia, resolveHubBackground, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_ELEMENT_LABEL, type HubElementKey, type HubElementStyles } from '@/lib/element-style';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
@@ -66,7 +67,9 @@ export function elementPreview(
     t: 'elStyle',
     key,
     el,
-    elements: next.elements ?? null,
+    /* 🎬 The cover's words wear the cover's entrance where they have no Build in of their own — laid as the page lays
+       it (`resolveCoverEntrance`), so a choice on one word never takes the entrance off the others. */
+    elements: key === 'f:hero' ? resolveCoverEntrance(next.entrance, next.elements) : (next.elements ?? null),
     motion,
     replay: choice && motion && Boolean(next.elements?.[el]?.motion?.in),
   };
@@ -95,6 +98,7 @@ const CHOICE_WORDS: Record<string, string> = {
   color: 'colour',
   size: 'size',
   align: 'alignment',
+  width: 'width',
   leading: 'line spacing',
   tracking: 'letter spacing',
   hidden: 'show or hide choice',
@@ -183,12 +187,19 @@ type SceneGate = { mode: 'auto' | 'shown' | 'hidden'; isVisible: boolean };
  *   'none'    — nothing the canvas draws changes: held as it is;
  *   'show'    — a scene the page never drew must be drawn: reload;
  *   'unknown' — open browsing unread: reload (never guess).
+ *
+ * This is the EVENT-WIDE write (Auto · Shown · Hidden, and the eye outside the Maker). In the Maker the eye writes
+ * the stage's own value and draws it itself (`editor-shell.tsx` `eyeWrite`): hide = held, show = reload.
  */
 export function sceneDrawEffect(
   before: SceneGate,
   after: SceneGate,
   openBrowse: boolean | null | undefined,
+  /** 👁 The couple's own choice for the stage on screen (`config_json.stage_show[stage]`) — it decides that stage, so
+   *  with one stored an event-wide write changes nothing the canvas draws there. Absent / null = none. */
+  stageChoice?: boolean | null,
 ): 'hide' | 'none' | 'show' | 'unknown' {
+  if (typeof stageChoice === 'boolean') return 'none';
   if (typeof openBrowse !== 'boolean') return 'unknown';
   const drawn = (s: SceneGate) =>
     openBrowse ? (s.mode === 'hidden' ? false : s.mode === 'shown' ? true : s.isVisible) : s.isVisible;

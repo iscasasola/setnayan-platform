@@ -69,6 +69,20 @@ export type HomeFacts = {
   noReplyWaiting: boolean;
   /** `null` = the viewer may not see the budget (no line at all); "—" figures = not measured. */
   money: { paid: string; owing: string } | null;
+  /**
+   * 🔢 THE SAME FACTS AS NUMBERS, for `Count` / `Fill` (owner 2026-10-07, BUTTON_RULE
+   * rule 2: "all numbers on the app will animate going to that number"). `null` = not
+   * a number to count — unread, or a word ("Today"). Money: `'unread'` = the read
+   * failed (said so on the tile, never ₱0); `null` = not shared (no tile).
+   */
+  figures: HomeFigures;
+};
+
+export type HomeFigures = {
+  days: number | null;
+  coming: number | null;
+  noReply: number | null;
+  money: { paid: number; owing: number } | 'unread' | null;
 };
 
 /**
@@ -89,11 +103,18 @@ export function homeFacts(input: {
   /** `events.event_date_precision` — only 'day' counts down. */
   precision: string | null | undefined;
   timezone: string | null | undefined;
-  guests: { stats: GuestStats; measured: boolean };
+  /** `noReply` / `coming` = `rosterStats(rows).none` / `.yes` — the Guests list's own counts
+   *  (ONE source: the two tiles state what the Guests summary line states). */
+  guests: { stats: GuestStats; measured: boolean; noReply?: number; coming?: number };
   money: HomeMoneyRead;
   now?: Date;
 }): HomeFacts {
   const { guests, money } = input;
+  /* 🔑 "No reply" is the Guests list's ONE definition (`hasNotAnswered`, owner 2026-10-07),
+     handed in as `noReply`, so the tile's number is the rows its filter shows. */
+  const noReplyN = guests.noReply ?? guests.stats.pending;
+  /* …and "coming" is the list's own "N attending" (`rosterStats().yes`), from the same call. */
+  const comingN = guests.coming ?? guests.stats.attending;
   const daysOut =
     input.precision === 'month' || input.precision === 'year'
       ? null
@@ -107,12 +128,18 @@ export function homeFacts(input: {
     daysToGo: toGo,
     guestStats: guests.stats,
     days: glanceDaysToGo(toGo),
-    coming: glanceCount(guests.stats.attending, guests.measured),
-    noReply: glanceCount(guests.stats.pending, guests.measured),
-    noReplyWaiting: guests.measured && guests.stats.pending > 0,
+    coming: glanceCount(comingN, guests.measured),
+    noReply: glanceCount(noReplyN, guests.measured),
+    noReplyWaiting: guests.measured && noReplyN > 0,
     money:
       money === 'hidden'
         ? null
         : { paid: glanceMoney(money?.paid ?? null), owing: glanceMoney(money?.owing ?? null) },
+    figures: {
+      days: toGo?.kind === 'days' ? toGo.days : null,
+      coming: guests.measured ? comingN : null,
+      noReply: guests.measured ? noReplyN : null,
+      money: money === 'hidden' ? null : money === null ? 'unread' : { paid: money.paid, owing: money.owing },
+    },
   };
 }

@@ -702,7 +702,7 @@ test('a card that said YES to the gift → the order is fee + gift and names the
     [vendorProfileId],
   );
   const eventId = await newEvent('gift-6');
-  const evId = await newContractedBooking(eventId, vendorProfileId, 50_000);
+  const evId = await newContractedBooking(eventId, vendorProfileId, 20_000);
   await db.query(`UPDATE public.event_vendors SET service_id = $2 WHERE vendor_id = $1`, [
     evId,
     card.rows[0]!.vendor_service_id,
@@ -711,9 +711,9 @@ test('a card that said YES to the gift → the order is fee + gift and names the
   const res = await collect(evId);
   assert.equal(res.status, 'ordered');
   assert.ok(res.status === 'ordered');
-  const feePhp = bookingFeePhp(50_000); // ₱2,500
-  const giftPhp = Math.floor(feePhp * 100 * 0.4) / 100; // 40% of the fee, ₱1,000
-  assert.equal(res.giftCredits, 1_429, '₱50,000 → 1,429 free photos');
+  const feePhp = bookingFeePhp(20_000); // ₱1,000
+  const giftPhp = Math.floor(feePhp * 100 * 0.4) / 100; // 40% of the fee, ₱400 — under the top pack's ₱990, so not capped
+  assert.equal(res.giftCredits, 790, '₱20,000 → 790 free photos (the final price sheet, 2026-11-04)');
   assert.equal(res.amountPhp, feePhp + giftPhp, 'the supplier pays fee + gift');
 
   // The fee column stays the fee — the gift rides beside it.
@@ -723,7 +723,7 @@ test('a card that said YES to the gift → the order is fee + gift and names the
   const [order] = await ordersForCharge(res.chargeId);
   assert.ok(order);
   assert.equal(Number(order.requested_total_php), feePhp + giftPhp);
-  assert.match(order.description, /\+ your Setnayan gift for your couple: 1,429 free Papic photos, ₱1,000/);
+  assert.match(order.description, /\+ your Setnayan gift for your couple: 790 free Papic photos, ₱400/);
   assert.match(order.description, /^Setnayan booking fee \(/);
 
   const [payment] = await paymentsLinkedToChargeOrder(res.chargeId);

@@ -77,6 +77,11 @@ export type YourOwnDay = {
    * shown to that guest, on their own account, and to nobody else.
    */
   tableLabel: string | null;
+  /**
+   * 🫵 Their own guest id, from the same signed session — so the entourage can mark their name (owner 2026-10-17,
+   * `entourage-you.tsx`). Shown back only to them, like their table. Absent / null for everyone else.
+   */
+  guestId?: string | null;
 };
 
 const EMPTY: YourOwnDay = {
@@ -118,7 +123,7 @@ export async function loadYourOwnDay(eventId: string): Promise<YourOwnDay> {
     loadTable(admin, eventId, guestId),
   ]);
 
-  return { signedIn: true, appearsIn, shot, said, tableLabel };
+  return { signedIn: true, appearsIn, shot, said, tableLabel, guestId };
 }
 
 /**

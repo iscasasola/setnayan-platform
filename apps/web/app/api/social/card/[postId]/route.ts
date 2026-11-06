@@ -169,7 +169,7 @@ async function coupleCreationContext(
     const { data: ev } = await admin
       .from('events')
       .select(
-        'display_name, monogram_custom_svg, monogram_uploaded_svg, monogram_text, monogram_color, monogram_font_key, monogram_style',
+        'display_name, monogram_custom_svg, monogram_uploaded_svg, monogram_text, monogram_color, monogram_font_key, monogram_style, logo_wanted',
       )
       .eq('event_id', consent.event_id)
       .maybeSingle();
@@ -256,7 +256,7 @@ function milestoneContext(post: PostRow): CardContext {
 
 /** Human metric phrases for the giant-number milestone card. */
 const MILESTONE_PHRASE: Record<string, string> = {
-  events_created: 'celebrations planned on Setnayan',
+  events_created: 'events planned on Setnayan',
   vendors_verified: 'verified vendors in the marketplace',
   guests_invited: 'guests invited through Setnayan',
 };

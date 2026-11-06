@@ -144,6 +144,21 @@ export const ALLOTMENT_RPC = {
   headcount: 'papic_event_guest_headcount',
 } as const;
 
+/**
+ * 🧱 THE MOST GUESTS ONE `setGuestAllotment` CALL SETS (review 2026-10-23). The action sends one RPC per guest, in turn,
+ * under its own row lock — uncapped, a 400-guest selection was one request holding a server for minutes and dying of its
+ * timeout half-way with nothing said. The bulk sheet sends its selection in chunks of this many and says "X of N set";
+ * the action refuses a bigger list (`too_many`) rather than start it.
+ */
+export const ALLOTMENT_BATCH_MAX = 50;
+
+/** A list cut into the chunks one call may set (`ALLOTMENT_BATCH_MAX`), in order. PURE. */
+export function allotmentChunks<T>(ids: readonly T[], size: number = ALLOTMENT_BATCH_MAX): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
+
 /** The sponsor roles that earn a bigger default. Mirrors `SponsorTier`. */
 export type AllotmentRole = 'principal' | 'cord' | 'veil' | 'coin' | 'candle' | 'guest';
 
@@ -311,11 +326,11 @@ export function summariseMinimum(v: MinimumVerdict): string {
     case 'unknown':
       return '';
     case 'payable':
-      return `Promising ${v.promised.toLocaleString('en-PH')} credits in total, and this celebration holds ${v.pot.toLocaleString('en-PH')}.`;
+      return `Promising ${v.promised.toLocaleString('en-PH')} credits in total, and this event holds ${v.pot.toLocaleString('en-PH')}.`;
     case 'short':
       // 🔑 THE SHORTFALL, NAMED. "That will not work" is not something a couple
       // can act on; "add 4,000 credits" is.
-      return `This promises ${v.promised.toLocaleString('en-PH')} credits between your guests and the celebration holds ${v.pot.toLocaleString('en-PH')} — ${v.shortfall.toLocaleString('en-PH')} short. Lower the minimum, or add ${v.shortfall.toLocaleString('en-PH')} credits.`;
+      return `This promises ${v.promised.toLocaleString('en-PH')} credits between your guests and the event holds ${v.pot.toLocaleString('en-PH')} — ${v.shortfall.toLocaleString('en-PH')} short. Lower the minimum, or add ${v.shortfall.toLocaleString('en-PH')} credits.`;
   }
 }
 
@@ -473,7 +488,7 @@ export function summariseAllotments(i: SplitInputs): string {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   if (split.overCommitted) {
-    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${formatCount(split.namedTotal - i.pot)} credits more than this celebration holds, so they cannot all take their full amount`;
+    return `${plural(i.guestCount, 'guest', 'guests')} · ${i.named.length} named · your named guests' limits add up to ${formatCount(split.namedTotal - i.pot)} credits more than this event holds, so they cannot all take their full amount`;
   }
 
   // Sponsors get their own clause, so the couple can see a ninong's bigger
@@ -584,4 +599,36 @@ export function allotmentRowState(r: AllotmentReads): 'show' | 'hidden' | 'unkno
   if (r.access !== 'on') return 'unknown';
   if (!r.poolOk || !r.headcountOk || !r.guestsOk || !r.allotmentsOk) return 'unknown';
   return 'show';
+}
+
+/**
+ * 🏷 THE "CREDITS PER GUEST" ROW'S VALUE — what the number IS, said on the row (owner 2026-10-23, of
+ * "How many credits each guest gets · 319 each ›": *"we can improve these"*).
+ *
+ * The 319 was `split.perHead`: a per-guest CEILING (the most one guest may take, never credits held back
+ * for her) that is an EQUAL SHARE of the shared pot worked out by `splitTheRest` — unless the couple typed
+ * a LOWER "everyone else" number, which then binds. "319 each" said neither, so a computed number read as
+ * one the couple chose. 🔑 Never show a computed number as if the host chose it: the row now names which.
+ *
+ *   · limits off ............................ "Shared, no limit"
+ *   · over-committed (named > pot) .......... "More than you hold"
+ *   · everyone is named ..................... "Set guest by guest"
+ *   · the couple's typed number binds ....... "Up to 50 · your limit"
+ *   · the equal share binds ................. "Up to 319 · equal share"
+ *
+ * `shareEach` is `splitTheRest` with `everyoneElse: null` — the equal share on its own — so "your limit"
+ * is claimed only when the typed number is what actually applies (the database's `LEAST(...)`).
+ */
+export function allotmentRowValue(i: {
+  enabled: boolean;
+  split: Split;
+  shareEach: number;
+  everyoneElse: number | null;
+}): string {
+  if (!i.enabled) return 'Shared, no limit';
+  if (i.split.overCommitted) return 'More than you hold';
+  if (i.split.unnamedCount === 0) return 'Set guest by guest';
+  const each = i.split.perHead.toLocaleString('en-PH');
+  const yours = i.everyoneElse !== null && i.everyoneElse <= i.shareEach;
+  return `Up to ${each} · ${yours ? 'your limit' : 'equal share'}`;
 }

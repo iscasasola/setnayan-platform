@@ -26,11 +26,19 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
 
-test('⭐ LIVE_STUDIO is listed on /pricing — otherwise the launch has no paid row', () => {
+test('⭐ LIVE_STUDIO has a row on /pricing — otherwise the launch has no paid row', () => {
+  // ⚠ CHANGED 2026-10-25 (prototype `pricing_ours_only_2026-10-25` revision 5): /pricing no longer renders an
+  // ADDON_GROUPS grid. Live Watch is its own row, read from the LIVE_STUDIO catalogue row and drawn whenever that row
+  // is returned — so the same one launch switch (below) lights it.
+  assert.match(
+    repoFile('app/(shell)/pricing/_pricing-reads.ts'),
+    /liveWatch: php\('LIVE_STUDIO'\)/,
+    'the unified SKU is no longer read for /pricing, so it can never render',
+  );
   assert.match(
     repoFile('app/(shell)/pricing/page.tsx'),
-    /\{ code: 'LIVE_STUDIO' \}/,
-    'the unified ₱3,000 SKU is in no /pricing group, so it can never render',
+    /\{prices\.liveWatch \? \(\s*<PriceRowShell\s+name="Live Watch"/,
+    'the Live Watch row is no longer drawn from the LIVE_STUDIO price',
   );
 });
 
@@ -45,10 +53,9 @@ test('the LIVE_STUDIO name-exclusion stays INSIDE the flag gate', () => {
   assert.ok(excludeAt > gateAt, 'LIVE_STUDIO is excluded from /pricing unconditionally');
 });
 
-test('the retired Cast SKU stays legible, not silently deleted', () => {
-  // Convention in this file (see LIVE_BACKGROUND): a retired code stays listed with a
-  // comment, so the retirement reads as deliberate rather than as a lost line.
-  const pricing = repoFile('app/(shell)/pricing/page.tsx');
-  assert.match(pricing, /\{ code: 'PANOOD_SYSTEM' \}/);
-  assert.match(pricing, /20271005180040/, 'the retirement should name its migration');
+test('the retired Cast SKU is never priced on /pricing', () => {
+  // The ADDON_GROUPS list that kept PANOOD_SYSTEM legible (retired by migration 20271005180040) left /pricing with the
+  // grid on 2026-10-25. What must stay true: nothing on the page reads the retired code.
+  const pricing = repoFile('app/(shell)/pricing/page.tsx') + repoFile('app/(shell)/pricing/_pricing-reads.ts');
+  assert.doesNotMatch(pricing, /'PANOOD_SYSTEM'/);
 });

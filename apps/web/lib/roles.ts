@@ -23,10 +23,12 @@ import { canOpenAnotherShop } from '@/lib/shop-limits';
 
 export type UserRoleSummary = {
   /**
-   * True when /dashboard is a reachable surface for this user — i.e. the
-   * `/dashboard` layout guard (`account_type === 'vendor' → redirect`)
-   * will let them through. Used by the always-visible Switch view pill
-   * to decide whether to offer "Customer view" as a target.
+   * True when /dashboard — the person's own events — is theirs to use. Since
+   * 2026-10-22 ("ONE ACCOUNT IS BOTH", owner: *"them as a user, they can
+   * create their events"*) that is EVERY account: a shop owner or team member
+   * plans their own events from the Events tab like any host. It used to be
+   * `account_type !== 'vendor'`, the half of the 2026-08-15 split (superseded)
+   * that this summary still carried after the layout redirect was removed.
    */
   hasCustomerAccess: boolean;
   /**
@@ -83,6 +85,10 @@ export type VendorSwitchTarget = {
   vendor_profile_id: string;
   business_name: string;
   logo_url: string | null;
+  /** The shop's public address (`/v/<slug>`) — the avatar sheet's "View page ↗" row. Null = no page to open. */
+  business_slug: string | null;
+  /** True for a shop this user OWNS; false for a helper (team-member) seat. */
+  owned: boolean;
 };
 
 /**
@@ -109,12 +115,12 @@ export const fetchUserRoleSummary = cache(async (
       .maybeSingle(),
     supabase
       .from('vendor_profiles')
-      .select('vendor_profile_id, business_name, logo_url')
+      .select('vendor_profile_id, business_name, logo_url, business_slug')
       .eq('user_id', userId),
     supabase
       .from('vendor_team_members')
       .select(
-        'vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url )',
+        'vendor_profile_id, vendor_profiles:vendor_profile_id ( business_name, logo_url, business_slug )',
       )
       .eq('user_id', userId),
   ]);
@@ -160,13 +166,12 @@ export const fetchUserRoleSummary = cache(async (
     vendor_profile_id: string;
     business_name: string | null;
     logo_url: string | null;
+    business_slug?: string | null;
   }>;
+  type TeamShop = { business_name: string | null; logo_url: string | null; business_slug?: string | null };
   type TeamRow = {
     vendor_profile_id: string;
-    vendor_profiles:
-      | { business_name: string | null; logo_url: string | null }
-      | Array<{ business_name: string | null; logo_url: string | null }>
-      | null;
+    vendor_profiles: TeamShop | TeamShop[] | null;
   };
   const team = (teamRes.data ?? []) as TeamRow[];
 
@@ -181,6 +186,8 @@ export const fetchUserRoleSummary = cache(async (
       vendor_profile_id: row.vendor_profile_id,
       business_name: row.business_name?.trim() || 'My supplier profile',
       logo_url: row.logo_url ?? null,
+      business_slug: row.business_slug ?? null,
+      owned: true,
     });
   }
   for (const row of team) {
@@ -193,6 +200,8 @@ export const fetchUserRoleSummary = cache(async (
       vendor_profile_id: row.vendor_profile_id,
       business_name: vp?.business_name?.trim() || 'Team supplier',
       logo_url: vp?.logo_url ?? null,
+      business_slug: vp?.business_slug ?? null,
+      owned: false,
     });
   }
 
@@ -200,7 +209,9 @@ export const fetchUserRoleSummary = cache(async (
   // `?? []` above cannot tell "owns nothing" from "we could not find out".
   const shopsMeasured = !ownedRes.error;
   return {
-    hasCustomerAccess: profile?.account_type !== 'vendor',
+    // One account is both (owner 2026-10-22) — the label no longer takes the
+    // personal side away.
+    hasCustomerAccess: true,
     hasVendorAccess: vendorProfiles.length > 0,
     hasAdminAccess,
     vendorProfiles,

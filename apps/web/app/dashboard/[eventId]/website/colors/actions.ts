@@ -37,7 +37,7 @@ import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { combineChanges, siteLookChange } from '@/lib/hub-look-pro';
 import { encodeSiteBackground, ombreLookChange, parseSiteBackground } from '@/lib/ombre';
 import { requireLookPro } from '@/lib/hub-look-gate';
@@ -72,6 +72,7 @@ export async function updateSiteColors(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   await requireHostMembership(eventId);
 
   // ABSENT = UNCHANGED, like every other field on this row. A free couple's
@@ -157,20 +158,15 @@ export async function updateSiteColors(
   // (it ships free), a look change like any other the day the switch flips.
   // Kept OUTSIDE `siteLookChange`, whose inputs are the Pro half only.
   const ombreChange = ombreLookChange(s.site_bg_color ?? null, bg);
+  /* 💎 PART BY PART (owner 2026-10-22): Candlelight and an ombré are the Style part's (gate 14); the logo travelling
+     to the bar is the Logo & QR part's (gate 15) — each asked of its own part. */
+  const stillAll = { font: s.site_font_key ?? null, magic: s.site_magic_traveller ?? null, art: s.site_art_direction ?? null };
   await requireLookPro(
     eventId,
-    combineChanges(
-      siteLookChange(
-        {
-          font: s.site_font_key ?? null,
-          magic: s.site_magic_traveller ?? null,
-          art: s.site_art_direction ?? null,
-        },
-        { font, magic, art },
-      ),
-      ombreChange,
-    ),
+    combineChanges(siteLookChange(stillAll, { font, magic: undefined, art }), ombreChange),
+    'style',
   );
+  await requireLookPro(eventId, siteLookChange(stillAll, { font, magic, art: null }), 'logo_qr');
 
   const { data: event, error } = await supabase
     .from('events')

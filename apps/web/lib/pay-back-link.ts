@@ -77,7 +77,7 @@ export function payBackLink(input: PayBackInput): PayBackLink {
     case 'vendor':
       return { label: 'Back to your shop', href: '/vendor-dashboard' };
     case 'event':
-      return { label: 'Back to your celebration', href: `/dashboard/${input.eventId}` };
+      return { label: 'Back to your event', href: `/dashboard/${input.eventId}` };
     default:
       return { label: 'Back to Setnayan', href: '/dashboard' };
   }

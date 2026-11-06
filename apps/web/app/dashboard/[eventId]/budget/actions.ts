@@ -5,17 +5,13 @@ import { parseClientRef, budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { emitNotification } from '@/lib/notification-emit';
+import { formatPhp } from '@/lib/php';
 import { decideLogPayment } from '@/lib/accepted-quote-terms';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
-import {
-  fetchBudgetSnapshot,
-  buildBudgetLiveSummary,
-  type BudgetLiveSummary,
-} from '@/lib/budget';
-import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
-import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
-import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 // Hard upper bound on the budget setter (₱100,000,000 = 10_000_000_000
 // centavos). Captures real-world Filipino wedding budgets without
@@ -48,6 +44,8 @@ export type SetEventBudgetResult =
  * target on the next visit without a hard refresh).
  */
 export async function setEventBudget(formData: FormData): Promise<SetEventBudgetResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   const budgetRaw = formData.get('budget_php');
 
@@ -132,6 +130,8 @@ export type SetShareBudgetBandResult =
 export async function setShareBudgetBand(
   formData: FormData,
 ): Promise<SetShareBudgetBandResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   const shareRaw = formData.get('share');
 
@@ -188,6 +188,7 @@ function isIsoDate(value: string): boolean {
 }
 
 export async function addLineItem(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const label = formData.get('label');
@@ -251,6 +252,8 @@ export type SuggestMilestonesResult =
 export async function addSuggestedMilestones(
   formData: FormData,
 ): Promise<SuggestMilestonesResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -361,6 +364,7 @@ export async function addSuggestedMilestones(
 }
 
 export async function deleteLineItem(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const lineItemId = formData.get('line_item_id');
   if (typeof eventId !== 'string' || typeof lineItemId !== 'string') {
@@ -397,6 +401,7 @@ export async function deleteLineItem(formData: FormData) {
 }
 
 export async function logPayment(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const lineItemRaw = formData.get('line_item_id');
@@ -517,6 +522,12 @@ export async function logPayment(formData: FormData) {
   });
   if (!logDecision.ok) throw new Error(logDecision.message);
 
+  // ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; audit F2, build item 13). A
+  // payment against an on-platform supplier is recorded only once the booking
+  // is booked and settled as the couple sees it. Never a word about a fee (R12).
+  const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
+  if (notYet) throw new Error(notYet);
+
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,
     vendor_id: vendorId,
@@ -562,10 +573,11 @@ export async function logPayment(formData: FormData) {
           userId: vp.user_id,
           type: 'payment_logged',
           title: 'A couple logged a payment',
-          body: `The couple recorded a ₱${amount.toLocaleString('en-PH')} payment.${proofLine} Confirm it was received.`,
+          body: `The couple recorded a ${formatPhp(amount)} payment.${proofLine} Confirm it was received.`,
           relatedUrl: thread?.thread_id
             ? `/vendor-dashboard/messages/${thread.thread_id}`
             : '/vendor-dashboard/messages',
+          eventId,
         });
       }
     }
@@ -590,6 +602,7 @@ export async function logPayment(formData: FormData) {
 export async function logScheduledPayment(
   formData: FormData,
 ): Promise<{ status: 'ok' } | { status: 'error'; message: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   try {
     await logPayment(formData);
     return { status: 'ok' };
@@ -603,6 +616,7 @@ export async function logScheduledPayment(
 }
 
 export async function deletePayment(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const paymentId = formData.get('payment_id');
   if (typeof eventId !== 'string' || typeof paymentId !== 'string') {
@@ -634,68 +648,5 @@ export async function deletePayment(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/budget`);
   if (paymentRow?.vendor_id) {
     revalidatePath(`/dashboard/${eventId}/vendors/${paymentRow.vendor_id}/workspace`);
-  }
-}
-
-/**
- * Re-read the budget snapshot and return the live payment-progress summary
- * (total to pay / paid / balance / % + next coming payments). Called by the
- * BudgetLiveSummaryCard whenever a Realtime change lands on the event's
- * payments or line items, so the card refreshes its numbers without a page
- * reload.
- *
- * Uses the RLS-scoped authed client — the snapshot only ever covers the
- * caller's own event. Returns null on no-auth / bad input / transient
- * failure; the card keeps its last-known values rather than flashing an
- * error (Realtime auto-reconnects and the next event heals the gap).
- *
- * ─── BA2 · why this asks the flag (found 2026-09-02) ─────────────────────
- * This is the SECOND writer of the same card. `budget/page.tsx` computes the
- * first paint through `budgetLiveSummaryMoney`; this action computed every
- * subsequent one from the raw legacy summary, whose `budget` is *every
- * vendor's itemized total, whatever their status* — with the headline
- * `total_cost_php` as its fallback.
- *
- * So with `NEXT_PUBLIC_BUDGET_TRUTH_ENABLED` on (Production since 2026-09-02),
- * a card that first painted the committed total would SWAP to the legacy one
- * the instant any payment or line item changed on the event: on the prod
- * fixture `044f7e64…` that is ₱0 becoming ₱80,000 — one `considering`
- * vendor's quote, back on the page BA2 just removed it from, with no card
- * anywhere to explain it.
- *
- * Measured 2026-09-02 against prod: LATENT, not yet observable — no event has
- * both an unconfirmed vendor carrying money and the confirmed-vendor payment
- * activity that fires the channel (`044f7e64…` has 0 line items and 0
- * payments). It is wired anyway, because the two writers must not be able to
- * disagree about one number.
- *
- * Same degrade rule as the two render surfaces: any resolver failure returns
- * `null` and the summary falls back to the legacy figures rather than a
- * confident ₱0.
- */
-export async function getBudgetLiveSummary(
-  eventId: string,
-): Promise<BudgetLiveSummary | null> {
-  if (typeof eventId !== 'string' || eventId.length === 0) return null;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const budgetTruth = isBudgetTruthEnabled();
-  try {
-    const [snapshot, money] = await Promise.all([
-      fetchBudgetSnapshot(supabase, eventId),
-      budgetTruth
-        ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
-        : Promise.resolve<EventMoney | null>(null),
-    ]);
-    return budgetLiveSummaryMoney({
-      enabled: budgetTruth,
-      money,
-      legacy: buildBudgetLiveSummary(snapshot),
-    });
-  } catch {
-    return null;
   }
 }

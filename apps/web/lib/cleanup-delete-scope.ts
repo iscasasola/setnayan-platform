@@ -250,6 +250,23 @@ export function pabuyaQrScope(eventId: unknown): CleanupScope {
   ]);
 }
 
+/**
+ * A celebration's gift-record SCREENSHOTS (`event_gift_records.screenshot_r2_key`,
+ * E-Gifts › wish list). Private bucket, own root, the event's folder and nothing
+ * wider — a record naming another event's file, or any other bucket, is refused.
+ */
+export function giftShotScope(eventId: unknown, guestId?: unknown): CleanupScope {
+  const e = safeId(eventId);
+  if (!e) return emptyScope('event_gift_records');
+  /* One guest's own folder — what an account erasure may reach (never another guest's screenshot). */
+  if (guestId !== undefined) {
+    const g = safeId(guestId);
+    if (!g) return emptyScope('event_gift_records');
+    return mintScope(`event_gift_records:${e}:${g}`, [{ bucket: THREAD_FILES, prefixes: [`gift-shots/${e}/${g}/`] }]);
+  }
+  return mintScope(`event_gift_records:${e}`, [{ bucket: THREAD_FILES, prefixes: [`gift-shots/${e}/`] }]);
+}
+
 export function guestSelfieScope(eventId: unknown, guestId: unknown): CleanupScope {
   const e = safeId(eventId);
   const g = safeId(guestId);
@@ -319,6 +336,33 @@ export function profilePhotoScope(userId: unknown): CleanupScope {
   const u = safeId(userId);
   if (!u) return emptyScope('users');
   return mintScope(`users:${u}`, [{ bucket: MEDIA, prefixes: [`profile-photo/${u}/`] }]);
+}
+
+/**
+ * A supplier's PAGE COPY of one of its event-album photos — `putAlbumPhotoOnMyPage` names it
+ * `vendors/<vendor_profile_id>/portfolio/from-album/…` (`pagePhotoKeyFor`) and the 7-day notice publishes it there.
+ * Deleted when a guest removes it or a takedown is honoured (lib/supplier-page-notice.server.ts). Only that folder:
+ * the shop's own uploads beside it are never this cleanup's to touch.
+ */
+export function supplierPageAlbumCopyScope(vendorProfileId: unknown): CleanupScope {
+  const v = safeId(vendorProfileId);
+  if (!v) return emptyScope('supplier_page_photo_notices');
+  return mintScope(`supplier_page_photo_notices:${v}`, [{ bucket: MEDIA, prefixes: [`vendors/${v}/portfolio/from-album/`] }]);
+}
+
+/**
+ * 📸 `couple_photo_shares` — the FROZEN COPY of one approved couple photo (#7089): `couple-looks/<share_id>/…`,
+ * in the public media bucket (audience Public) or the private thread-files bucket (every other audience). Only
+ * that share's folder in either bucket. Deleted on withdraw · decline · take off · an audience move · a refused
+ * approve, by the sweep for orphans, and by erasure (lib/erasure/purge.ts).
+ */
+export function couplePhotoLookScope(shareId: unknown): CleanupScope {
+  const s = safeId(shareId);
+  if (!s) return emptyScope('couple_photo_shares');
+  return mintScope(`couple_photo_shares:${s}`, [
+    { bucket: MEDIA, prefixes: [`couple-looks/${s}/`] },
+    { bucket: 'setnayan-thread-files', prefixes: [`couple-looks/${s}/`] },
+  ]);
 }
 
 /** A shop's logo — `vendors/<vendor_profile_id>/logo/…` in media. */

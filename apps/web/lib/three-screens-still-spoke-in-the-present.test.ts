@@ -46,13 +46,5 @@ test('the seat plan stops telling you guests are watching once it is over', () =
   );
 });
 
-test('the checklist tab does not say Setnayan twice', () => {
-  const c = code('app/dashboard/[eventId]/checklist/page.tsx');
-  assert.match(c, /replace\(\/\\s\*·\\s\*Setnayan\\s\*\$\/, ''\)/, 'the brand must be stripped once');
-  // The behaviour, not just the source: the label table still ships the brand,
-  // and the root template appends it — so the strip is what stands between the
-  // person and a doubled title.
-  const raw = checklistChrome('date').pageTitle;
-  assert.match(raw, /· Setnayan$/, 'the table still carries it — that is why the strip exists');
-  assert.equal(raw.replace(/\s*·\s*Setnayan\s*$/, ''), 'Date checklist');
-});
+// ("The checklist tab does not say Setnayan twice" retired 2026-11-01: the Checklist page now only forwards to
+// Planning Stage's To do filter and has no title of its own.)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import {
   PRINTED_CHANGED_EVENT,
   PRINT_VERSION_HEADER,
@@ -11,7 +11,11 @@ import {
   writePrintedStamp,
   type PrintedStamp,
 } from '@/lib/printed-stamp';
-import { Download, Loader2 } from 'lucide-react';
+import { Share, Loader2 } from 'lucide-react';
+import { ActionButton, type ActionTone } from '@/components/action-button';
+import { usePrintFetch } from './print-fetch-context';
+import { STUDIO_SAVE_CHIP } from '@/lib/studio-skin';
+import { StatusLine } from '@/app/_components/status-line';
 
 /**
  * PrintSaveButton — every Prints & Tickets button SAVES a file and never opens
@@ -40,7 +44,8 @@ import { Download, Loader2 } from 'lucide-react';
  * `href` + `download` stay on the anchor so a click before hydration (or with
  * scripting off) still gets the file the old way.
  */
-type State = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download' } | { k: 'error'; message: string };
+export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download'; file: File } | { k: 'error'; message: string };
+type State = PrintSaveState;
 
 /** A phone or tablet that can share this file. A desktop browser that can also
  *  share (Safari, Chrome on macOS) still downloads — a share sheet is not what
@@ -67,28 +72,24 @@ function downloadBlob(file: File) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-export function PrintSaveButton({
-  href,
-  file: fileName,
-  children,
-  variant = 'secondary',
-  className = '',
-}: {
-  href: string;
-  /** The saved file's name — `<event slug>-<print>.pdf`. */
-  file: string;
-  children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'link';
-  className?: string;
-}) {
+/**
+ * 🎠 THE SAVE ITSELF, as a hook — the same fetch → File → share / download, the same states ("Preparing…" · "Tap to save" · the
+ * plain error · "Saved."), for a control that is not this button: the Prints carousel's Download ▾, whose pick names the file
+ * (This one · All guests) and whose one button then wears the state (`studio-prints-carousel.tsx`). One save, two looks.
+ */
+export function usePrintSave(): { state: PrintSaveState; save: (href: string, fileName: string, body?: string) => Promise<void> } {
+  /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
+  const printFetch = usePrintFetch();
   const [state, setState] = useState<State>({ k: 'idle' });
   const busy = useRef(false);
+  const held = useRef(state);
+  held.current = state;
 
   const hand = async (file: File) => {
     if (canShare(file)) {
       try {
         await navigator.share({ files: [file] });
-        setState({ k: 'saved', via: 'share' });
+        setState({ k: 'saved', via: 'share', file });
         return;
       } catch (e) {
         // Dismissed — they saw the sheet; nothing to say.
@@ -104,22 +105,23 @@ export function PrintSaveButton({
       }
     }
     downloadBlob(file);
-    setState({ k: 'saved', via: 'download' });
+    setState({ k: 'saved', via: 'download', file });
   };
 
-  const onClick = async (ev: React.MouseEvent<HTMLAnchorElement>) => {
-    ev.preventDefault();
+  /** `body` — a file drawn from what the screen holds (one person's day, slice 6) is POSTed; otherwise a GET. */
+  const save = async (href: string, fileName: string, body?: string) => {
     if (busy.current) return;
-    if (state.k === 'ready') {
+    const now = held.current;
+    if (now.k === 'ready' && now.file.name === fileName) {
       busy.current = true;
-      await hand(state.file);
+      await hand(now.file);
       busy.current = false;
       return;
     }
     busy.current = true;
     setState({ k: 'working' });
     try {
-      const res = await fetch(href, { credentials: 'same-origin' });
+      const res = await printFetch(href, body === undefined ? { credentials: 'same-origin' } : { credentials: 'same-origin', method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) {
         const text = (await res.text().catch(() => '')).trim();
         setState({ k: 'error', message: text && text.length < 200 && !text.startsWith('<') ? text : 'That file could not be made just now. Please try again.' });
@@ -138,13 +140,95 @@ export function PrintSaveButton({
       busy.current = false;
     }
   };
+  return { state, save };
+}
+
+export function PrintSaveButton({
+  href,
+  file: fileName,
+  children,
+  variant = 'secondary',
+  className = '',
+  label,
+  icon,
+  main = false,
+  quiet = false,
+  tone,
+  wide = false,
+}: {
+  href: string;
+  /** The saved file's name — `<event slug>-<print>.pdf`. */
+  file: string;
+  children?: ReactNode;
+  /**
+   * `chip` — the old Studio › Prints look (a small bordered Save, words only).
+   * `action` — the new Maker's Studio › Prints wears THE ONE ActionButton (`components/action-button.tsx`): the same save, the same
+   * states ("Preparing…" · "Tap to save" · the plain error line · "Saved."), drawn by the template. Takes `label` (and `icon`, `main`, `tone`)
+   * instead of children.
+   */
+  variant?: 'primary' | 'secondary' | 'link' | 'chip' | 'action';
+  className?: string;
+  /** `action` only: the button's word. */
+  label?: string;
+  /** `action` only: a mark in the icon's place (the Pro mark on the zip). Default: the download arrow. */
+  icon?: ReactElement;
+  /** `action` only: the row's one filled forward step (terracotta). */
+  main?: boolean;
+  /** `action` only: default `brand` for the filled step, `neutral` for the rest. */
+  tone?: ActionTone;
+  /** `action` only: the quiet look (the status line's "Save again" — one quiet word, not a second button competing). */
+  quiet?: boolean;
+  /** `action` only: the button takes the room left in its row (the Event pass's "Every guest's pass", owner 2026-10-16). */
+  wide?: boolean;
+}) {
+  const { state, save } = usePrintSave();
+  const run = () => save(href, fileName);
+  const onClick = (ev: React.MouseEvent<HTMLAnchorElement>) => {
+    ev.preventDefault();
+    void run();
+  };
+
+  /* 🧭 The new Maker's Studio: the ONE ActionButton — the same states, in the template's words and marks. */
+  if (variant === 'action') {
+    const word = state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : (label ?? fileName);
+    return (
+      <span data-print-save={fileName} className={wide ? 'flex min-w-0 flex-1 flex-col items-stretch gap-1' : 'inline-flex flex-col items-start gap-1'}>
+        <ActionButton
+          className={wide ? 'w-full justify-center' : undefined}
+          tone={tone ?? (main ? 'brand' : 'neutral')}
+          main={main}
+          quiet={quiet}
+          waiting={state.k === 'working'}
+          icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Share)}
+          label={word}
+          name={state.k === 'idle' || state.k === 'saved' || state.k === 'error' ? (label ?? fileName) : word}
+          onClick={() => void run()}
+        />
+        {state.k === 'error' ? (
+          <span role="alert" className="max-w-[18rem] text-xs text-danger-700">
+            {state.message}
+          </span>
+        ) : state.k === 'ready' ? (
+          <span role="status" className="text-xs text-ink/60">
+            Your file is ready.
+          </span>
+        ) : state.k === 'saved' ? (
+          <span role="status" className="text-xs text-ink/60">
+            {state.via === 'share' ? 'Saved.' : 'Sent to your downloads.'}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
 
   const base =
     variant === 'primary'
       ? 'button-primary inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap text-sm'
       : variant === 'secondary'
         ? 'button-secondary inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap text-sm'
-        : 'inline-flex min-h-10 items-center gap-1 text-sm font-medium text-mulberry underline underline-offset-2';
+        : variant === 'chip'
+          ? `${STUDIO_SAVE_CHIP} gap-1.5 whitespace-nowrap`
+          : 'inline-flex min-h-10 items-center gap-1 text-sm font-medium text-mulberry underline underline-offset-2';
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
@@ -158,8 +242,8 @@ export function PrintSaveButton({
       >
         {state.k === 'working' ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-        ) : variant !== 'link' ? (
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        ) : variant !== 'link' && variant !== 'chip' ? (
+          <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         ) : null}
         {state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : children}
       </a>
@@ -186,7 +270,21 @@ export function PrintSaveButton({
  * changed since (`printInputsVersion`; lib/printed-stamp.ts). Says nothing when
  * it never saw a save — never a false "changed".
  */
-export function ChangedSincePrinted({ eventId, piece, version }: { eventId: string; piece: string; version: string | null | undefined }) {
+export function ChangedSincePrinted({
+  eventId,
+  piece,
+  version,
+  again,
+}: {
+  eventId: string;
+  piece: string;
+  version: string | null | undefined;
+  /**
+   * 🧭 The new Maker's Studio › Prints (owner "approved" 2026-10-13, kind 12): the line is the amber STATUS LINE under the piece's saves,
+   * with ONE quiet "Save again" — the piece's own main file, through the same save. Gone once that piece is saved (the stamp moves on).
+   */
+  again?: { href: string; file: string };
+}) {
   const [stamp, setStamp] = useState<PrintedStamp | null>(null);
   useEffect(() => {
     const read = () => setStamp(readPrintedStamp(eventId, piece));
@@ -195,6 +293,16 @@ export function ChangedSincePrinted({ eventId, piece, version }: { eventId: stri
     return () => window.removeEventListener(PRINTED_CHANGED_EVENT, read);
   }, [eventId, piece]);
   if (!changedSincePrinted(stamp, version)) return null;
+  if (again) {
+    return (
+      <span data-changed-since-printed={piece} className="block pb-2">
+        <StatusLine tone="warn" data="changed-since-printed" action={<PrintSaveButton href={again.href} file={again.file} variant="action" quiet label="Save again" />}>
+          <b className="font-bold">Changed since you printed</b>
+          {stamp ? ` on ${printedDayLabel(stamp.at)}` : ''} — save it again so the paper matches.
+        </StatusLine>
+      </span>
+    );
+  }
   return (
     <p role="status" data-changed-since-printed={piece} className="border-l-2 border-mulberry/60 pl-3 text-[13px] text-ink/80">
       <span className="font-semibold text-ink">Changed since you printed</span>

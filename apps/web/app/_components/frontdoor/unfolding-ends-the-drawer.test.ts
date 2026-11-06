@@ -68,15 +68,31 @@ function drawerCeilingPx(): number {
 }
 
 /** The breakpoint name the shell asks "is the rail inline?" with, and the variable it lands in. */
-function shellInlineHook(): { bp: string; name: string } {
-  const m = /const\s+(\w+)\s*=\s*useIsDesktop\(\s*'(sm|md|lg|xl|2xl)'\s*\)/.exec(SHELL_CODE);
+/**
+ * The hook that says the rail is inline. Since 2026-10-19 it is per surface —
+ * `useIsDesktop(boundary === 'tab' ? 'tab' : 'lg')` — so `bp` is the DEFAULT
+ * (every tree without `boundary`) and `tabBp` the opted-in tree's.
+ */
+function shellInlineHook(): { bp: string; name: string; tabBp: string } {
+  const m = /const\s+(\w+)\s*=\s*useIsDesktop\(\s*boundary === 'tab' \? '(tab)' : '(sm|md|lg|xl|2xl)'\s*\)/.exec(SHELL_CODE);
   assert.ok(
     m,
     'front-door-shell.tsx no longer asks `useIsDesktop(<bp>)` whether the rail is inline — nothing closes the drawer when the screen unfolds past it',
   );
-  const [, name, bp] = m;
-  assert.ok(name && bp);
-  return { name, bp };
+  const [, name, tabBp, bp] = m;
+  assert.ok(name && bp && tabBp);
+  return { name, bp, tabBp };
+}
+
+/** Where the opted-in tree's inline strip begins: the TABLET BAND's floor. */
+function tabletBandFloorPx(): number {
+  const m =
+    /@media\s*\(min-width:\s*([\d.]+)px\)\s*and\s*\(max-width:\s*([\d.]+)px\)\s*{[^@]*?\.fd\[data-boundary='tab'\] \.fd-rail\[data-open='false'\][^{]*{\s*display:\s*block/.exec(
+      CSS_CODE,
+    );
+  assert.ok(m, "front-door.css no longer pins the opted-in tree's rail inline in a min/max band — the tablet strip is gone");
+  assert.ok(Math.abs(Number(m[2]) - drawerCeilingPx()) < 0.001, 'the tablet band does not run up to the drawer ceiling — a gap or an overlap at 1024');
+  return Number(m[1]);
 }
 
 test('🚨 the shell closes the drawer when the rail becomes inline', () => {
@@ -93,6 +109,11 @@ test('🚨 the shell closes the drawer when the rail becomes inline', () => {
     closer,
     `no useEffect reads \`${name}\` and calls setRailOpen(false) — an open drawer survives an unfold, and the content column stays inert with no scrim to tap`,
   );
+});
+
+test('🚨 the opted-in tree (couple dashboard, 701) — the shell and the tablet band agree too', () => {
+  const { tabBp } = shellInlineHook();
+  assert.equal(breakpointPx(tabBp), tabletBandFloorPx(), 'the shell closes the tablet drawer at a different width from where the strip begins');
 });
 
 test('🚨 the shell and the stylesheet agree where the drawer ends', () => {

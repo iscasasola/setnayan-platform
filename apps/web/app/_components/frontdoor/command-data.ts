@@ -43,6 +43,8 @@ import 'server-only';
 import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
 import { fetchUserCommunities } from '@/lib/communities';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -54,7 +56,9 @@ import {
   splitEventBoard,
 } from '@/lib/event-board';
 
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from './command-item';
+import { ownSupplierItems, type OwnSupplierRow } from '@/lib/own-supplier-items';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /*
   THE EVENT VOCABULARY MOVED to `lib/event-vocabulary.ts` and is re-exported
@@ -113,14 +117,21 @@ export function placeLabel(event: EventWithRole): string | null {
  * never to a bar with no search in it. The underlying helpers already
  * graceful-degrade to `[]`, so the try/catch here is the outer belt.
  */
-export const resolveCommandItems = cache(
-  async (): Promise<HomeCommandItem[]> => {
+export const resolveCommandItems = cache(async (): Promise<HomeCommandItem[]> => {
+  /* ⚡ THE ONE VERIFIED USER OF THIS REQUEST (`getCurrentUser`, cache()d) — this asked the auth
+     server itself, one more `/auth/v1/user` round trip on every signed-in render and every
+     prefetch (measured 2026-10-16). And an in-app request reuses this person's search index from
+     their last render (≤ 20 s, never across people, never an empty answer) — `lib/chrome-snapshot.ts`. */
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) return [];
+  return chromeSnapshot('command-items', user.id, () => loadCommandItems(user.id), (items) => items.length > 0);
+});
+
+async function loadCommandItems(userId: string): Promise<HomeCommandItem[]> {
+  const user = { id: userId };
+  {
     try {
       const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return [];
 
       const [organiser, invited, helping, communities, roles, chapters] =
         await Promise.all([
@@ -187,6 +198,28 @@ export const resolveCommandItems = cache(
       ];
 
       /*
+        🏪 THE SUPPLIERS ALREADY ON YOUR EVENTS (owner 2026-10-22: he searched
+        "seda", a supplier he had booked, and search could not find it). Every
+        supplier row on an event you organise — booked or hand-added, published
+        or not — is findable by its name, tagged "On your event". The decision
+        is `ownSupplierItems` (pure, guarded); this is only the read. RLS fences
+        it to the couple's own events; a refused read is logged and costs the
+        supplier rows, never the rest of the index.
+      */
+      if (organiser.length > 0) {
+        const { data: supplierRows, error: supplierErr } = await supabase
+          .from('event_vendors')
+          .select('vendor_id, event_id, vendor_name, archived_at, marketplace_vendor_id')
+          .in('event_id', organiser.map((e) => e.event_id))
+          .order('created_at', { ascending: true });
+        if (supplierErr) {
+          logQueryError('app/_components/frontdoor/command-data.ts: own suppliers event_vendors', supplierErr);
+        } else {
+          items.push(...ownSupplierItems(organiser, (supplierRows ?? []) as OwnSupplierRow[]));
+        }
+      }
+
+      /*
         WHAT YOU RUN — the same membership rule the rail uses, from the same
         resolver. `hasVendorAccess` covers a hired TEAM MEMBER who owns no
         shop row; gating on ownership instead would offer the console to
@@ -235,7 +268,7 @@ export const resolveCommandItems = cache(
         {
           id: 'action-new-event',
           label: 'New event',
-          sublabel: 'Start planning a new celebration',
+          sublabel: 'Start planning a new event',
           href: '/dashboard/create-event',
           kind: 'action',
           icon: 'plus',
@@ -311,5 +344,5 @@ export const resolveCommandItems = cache(
     } catch {
       return [];
     }
-  },
-);
+  }
+}

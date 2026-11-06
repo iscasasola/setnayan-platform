@@ -1,8 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { stripComments } from '@/lib/strip-comments';
 import { guestSelection, readGuestSelection } from './guest-selection-store';
 
 /**
@@ -26,22 +23,4 @@ test('select-all marks the selection, and unticking a few keeps it marked', () =
   guestSelection.toggle('a');
   assert.equal(state().viaAll, false, 'a hand pick must show its chip');
   guestSelection.clear();
-});
-
-const src = (f: string) =>
-  stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', f), 'utf8'));
-
-test('the bulk bar carries no wall of name chips — the ticked rows are the list', () => {
-  // ⤷ 2026-09-30 (the Fable rows' ledger): "No name chips — the ticked rows are
-  // the list." The owner's 2026-09-21 complaint (a wall of chips after select-all)
-  // is answered for every selection now, not only select-all.
-  const bar = src('guest-list-multiselect.tsx');
-  assert.doesNotMatch(bar, /from the selection`\}/, 'the name chips are back on the bar');
-});
-
-test('the header box clears ANY selection, and select-all goes through selectAllInView', () => {
-  const bar = src('guest-list-multiselect.tsx');
-  assert.match(bar, /const toggleAll = \(\) =>\s*selectedIds\.length > 0 \? guestSelection\.clear\(\) : guestSelection\.selectAllInView\(allIds\);/);
-  // The phone's "Select all N" lives on the bulk bar now (frame C), same door.
-  assert.match(bar, /onClick=\{\(\) => guestSelection\.selectAllInView\(allIds\)\}/);
 });

@@ -41,6 +41,8 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 import { isFirstPartyService } from '../../lib/open-shop-service-vocab';
 import { vendorCategoryForLeaf } from '../../lib/vendor-packages';
+import { taxonomyFromDb } from './taxonomy-from-db';
+import type { TaxonomySnapshot } from '../../lib/taxonomy-snapshot';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -58,9 +60,14 @@ const OFFERABLE_SQL = `
 
 type Leaf = { canonical_service: string; tile_id: string; branch: string; parent: string };
 
+/** The replayed taxonomy as `getTaxonomy()` would read it. */
+let liveTax: TaxonomySnapshot;
+
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // The DATABASE's answer (③0-c: `service_categories.coarse_category`), not the code fallback.
+  liveTax = await taxonomyFromDb(db);
 });
 after(async () => {
   await db.close();
@@ -116,7 +123,7 @@ test('every leaf the picker offers resolves to a real coarse category', async ()
   const r = await db.query<Leaf>(OFFERABLE_SQL);
   const bad = r.rows
     .filter((l) => !isFirstPartyService(l.canonical_service))
-    .filter((l) => vendorCategoryForLeaf(l.canonical_service, l.tile_id) === 'misc')
+    .filter((l) => vendorCategoryForLeaf(l.canonical_service, l.tile_id, liveTax) === 'misc')
     .map((l) => `${l.parent} › ${l.branch} › ${l.canonical_service}`);
   assert.deepEqual(bad, [], `offerable leaves resolving to misc:\n  ${bad.join('\n  ')}`);
 });

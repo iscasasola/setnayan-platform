@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 317 jobs, 202 of them form-driven, as of 1b71b86f7.
+// that performs it. 327 jobs, 209 of them form-driven, as of 56aadc24.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -625,7 +625,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "email",
       "business_name",
-      "service_category"
+      "service_category",
+      "offer_tier",
+      "offer_until",
+      "offer_photos"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -687,7 +690,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "event_type",
       "emoji",
       "description",
-      "sort_order"
+      "sort_order",
+      "request_id"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1229,6 +1233,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "makeSmallCopiesOfOldPhotosAction",
+    "phrase": "make small copies of old photos",
+    "ownerPath": "/admin/papic-storage",
+    "resolvedPath": "/admin/papic-storage",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "mapCategoryRequest",
     "phrase": "map category request",
     "ownerPath": "/admin/categories",
@@ -1241,6 +1254,40 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "request_id",
       "mapped_to_canonical"
     ],
+    "destructive": false
+  },
+  {
+    "name": "mapReorder",
+    "phrase": "map reorder",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "mapWrite",
+    "phrase": "map write",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "mapWriteForm",
+    "phrase": "map write form",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "id",
+      "hint_en",
+      "slot_key",
+      "label",
+      "category_id",
+      "coarse_category"
+    ],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {
@@ -1322,6 +1369,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "dup_id",
       "canonical_id"
     ],
+    "destructive": false
+  },
+  {
+    "name": "moderateServiceCard",
+    "phrase": "moderate service card",
+    "ownerPath": "/admin/vendors/[vendorProfileId]",
+    "resolvedPath": "/admin/vendors",
+    "fields": [
+      "op"
+    ],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {
@@ -2399,7 +2457,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "business_address",
       "business_email",
       "vendor_validate_email",
-      "vendor_validate_phone"
+      "vendor_validate_phone",
+      "drive_speed_kmh"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2434,6 +2493,26 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "saveFeeReviewMin",
+    "phrase": "save fee review min",
+    "ownerPath": "/admin/booking-fees",
+    "resolvedPath": "/admin/booking-fees",
+    "fields": [
+      "fee_review_unsettled_events_min"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveHubMusic",
+    "phrase": "save hub music",
+    "ownerPath": "/admin/hub-music",
+    "resolvedPath": "/admin/hub-music",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "saveIntegrationSecret",
     "phrase": "save integration secret",
     "ownerPath": "/admin/integrations",
@@ -2446,6 +2525,25 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "saveLaunchOffer",
+    "phrase": "save launch offer",
+    "ownerPath": "/admin/launch-offer",
+    "resolvedPath": "/admin/launch-offer",
+    "fields": [
+      "intent",
+      "launch_offer_booking_cap",
+      "launch_offer_papic_credits",
+      "launch_offer_cycle_days",
+      "booking_fee_free_from",
+      "booking_fee_free_until",
+      "booking_fee_free_reason"
+    ],
+    "refusedWhenEmpty": [
+      "booking_fee_free_reason"
+    ],
+    "destructive": false
+  },
+  {
     "name": "saveLoaderAppearance",
     "phrase": "save loader appearance",
     "ownerPath": "/admin/settings",
@@ -2455,6 +2553,18 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "loader_veil_opacity",
       "loader_step_interval_ms",
       "loader_pop_enabled"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveLoadTarget",
+    "phrase": "save load target",
+    "ownerPath": "/admin/app-performance",
+    "resolvedPath": "/admin/app-performance",
+    "fields": [
+      "route",
+      "target_s"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2708,6 +2818,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/verify",
     "resolvedPath": "/admin/verify",
     "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "setBookingsOpen",
+    "phrase": "set bookings open",
+    "ownerPath": "/admin/booking-fees",
+    "resolvedPath": "/admin/booking-fees",
+    "fields": [
+      "bookings_open"
+    ],
     "refusedWhenEmpty": [],
     "destructive": false
   },
@@ -3025,19 +3146,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "setRenderFeatured",
-    "phrase": "set render featured",
-    "ownerPath": "/admin/moodboard-renders",
-    "resolvedPath": "/admin/moodboard-renders",
-    "fields": [],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "setRenderReuseBlocked",
-    "phrase": "set render reuse blocked",
-    "ownerPath": "/admin/moodboard-renders",
-    "resolvedPath": "/admin/moodboard-renders",
+    "name": "setSampleEventSwitch",
+    "phrase": "set sample event switch",
+    "ownerPath": "/admin/settings",
+    "resolvedPath": "/admin/settings",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -3469,6 +3581,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "expires_at",
       "effective_from",
       "max_uses"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "updateEventTypeForWhom",
+    "phrase": "update event type for whom",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "event_type"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

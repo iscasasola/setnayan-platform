@@ -56,6 +56,9 @@
  */
 
 /** How long after the last save lands the refresh waits for another tap. */
+import { undoJournal, undoJournalIsQuiet, type UndoStep } from './maker-drawn-undo';
+import { announceMakerSave } from './maker-save-status';
+
 export const MAKER_REFRESH_COALESCE_MS = 180;
 
 /**
@@ -69,6 +72,12 @@ export const MAKER_UNHELD_WRITE_EVENT = 'setnayan:maker-unheld-write';
 export type MakerSaveOptions<T> = {
   /** The bridge already drew this change on the canvas (the hold covers it). */
   held?: boolean;
+  /**
+   * ↺ How to draw this held step BACKWARDS at once (`lib/maker-drawn-undo.ts`) — noted in the journal as it is sent.
+   * `'noted'`: the caller noted it itself (a scene step, at its press), or it is the ↺'s own write. Absent on a held
+   * save: a BARRIER — the ↺ that meets it takes the slow path (`lib/every-held-save-can-be-undone.test.ts`).
+   */
+  undo?: UndoStep | 'noted';
   /** How to read success from the result (default: `result.ok === true`). */
   ok?: (result: T) => boolean;
 };
@@ -272,7 +281,19 @@ const writer = createLatestWriter({
  * Resolves to the save's own result, or `SUPERSEDED` when a later pick carried it.
  */
 export function makerLatestWrite<T>(key: string, send: () => Promise<T>): Promise<T | Superseded> {
+  started += 1;
   return writer.write(key, send);
+}
+
+/**
+ * Every Maker write this document has STARTED, ever (a pick waiting for its
+ * beat, a draft save, a form the shell submits). The canvas warms the other
+ * stages once per open and stops at the first write — it compares this with
+ * what it read when it mounted (`buffered-canvas-frame.tsx` `warmOnce`).
+ */
+let started = 0;
+export function makerSavesStarted(): number {
+  return started;
 }
 
 /** Writes for `key` still waiting or in flight — the client's copy of that canvas is newer than the server's. */
@@ -290,15 +311,41 @@ export function makerWritesPending(key?: string): number {
 export function makerSave<T>(send: () => Promise<T>, refresh: () => void, options: MakerSaveOptions<T> = {}): Promise<T> {
   if (!options.held) announceUnheldWrite();
   if (!options.held) unheldInFlight += 1;
+  started += 1;
   const saved = shared.save(send, refresh, options.ok, Boolean(options.held));
+  /* ↺ The journal (`lib/maker-drawn-undo.ts`): a held step with its inverse, or a barrier (an unheld one announced itself). */
+  if (options.held && options.undo !== 'noted' && !undoJournalIsQuiet()) {
+    if (options.undo) undoJournal.push(options.undo, saved);
+    else undoJournal.barrier();
+  }
   return saved
     .finally(() => {
       if (!options.held) unheldInFlight -= 1;
+      announceSavesQuiet();
     })
     .then((result) => {
       announceDraftBar(result);
+      // 👥 Another screen's change reached this save (the note above "the toolbar's count"): said once, pages redrawn.
+      const note = (result as { elsewhere?: { note?: string } } | null)?.elsewhere?.note;
+      if (note) {
+        announceMakerSave({ state: 'elsewhere', text: note });
+        requestCanvasRedraw();
+      }
       return result;
     });
+}
+
+/**
+ * ⏳ Every Maker save has landed — told once per quiet moment (a task after the last one, so a save sent in its answer
+ * counts). The canvas warms the next stage then (`buffered-canvas-frame.tsx`): never while a save is on its way.
+ */
+export const MAKER_SAVES_QUIET_EVENT = 'setnayan:maker-saves-quiet';
+function announceSavesQuiet(): void {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  setTimeout(() => {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    if (shared.inFlight() + writer.pending() === 0) window.dispatchEvent(new Event(MAKER_SAVES_QUIET_EVENT));
+  }, 0);
 }
 
 /** Unheld saves still on their way — their render must reload the canvas, so no redraw may hold it meanwhile. */
@@ -328,10 +375,7 @@ export function requestMakerRefresh(): void {
   window.dispatchEvent(new Event(MAKER_REFRESH_EVENT));
 }
 
-/**
- * Maker saves still in flight — the canvas warms no stage while one is (it
- * could miss the save). A pick still waiting for its beat counts.
- */
+/** Maker saves still in flight. A pick still waiting for its beat counts. */
 export function makerSavesInFlight(): number {
   return shared.inFlight() + writer.pending();
 }
@@ -342,9 +386,23 @@ export function makerSavesInFlight(): number {
  * (the router runs actions in the order they are sent).
  */
 export function announceUnheldWrite(): void {
+  started += 1;
   writer.flush();
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(MAKER_UNHELD_WRITE_EVENT));
+}
+
+/** Send every pick still waiting for its beat, now — the ↺ that takes one back must land after it. */
+export function flushMakerWrites(): void {
+  writer.flush();
+}
+
+/* ↺ A write the canvas did not draw (an unheld save, a form, the safety net's reload) is a step the Maker cannot draw
+   backwards: the journal gets a barrier — unless it is the ↺'s own slow write (`undoJournalQuiet`). */
+if (typeof window !== 'undefined') {
+  window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => {
+    if (!undoJournalIsQuiet()) undoJournal.barrier();
+  });
 }
 
 /* ── the toolbar's count, from the save's own answer ─────────────────────── */
@@ -366,6 +424,16 @@ function announceDraftBar(result: unknown): void {
   if (!bar || typeof bar !== 'object') return;
   window.dispatchEvent(new CustomEvent(MAKER_DRAFT_BAR_EVENT, { detail: bar }));
 }
+
+/* ── 👥 another screen's change, from the save's own answer ──────────────── */
+
+/**
+ * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18). A save that met another screen's change answers with
+ * `elsewhere` (`hubDraftAction` — `lib/hub-draft-rebase.ts`): the merged values it must now show. Every Maker save
+ * passes here, so it is said ONCE, in one place — the toolbar's status line (`TWO_SCREENS_NOTE`) — and the pages the
+ * Maker shows redraw in place from the draft, which now holds both screens' changes. A panel that keeps its own copy
+ * takes `merged` from the answer itself (the Mood Board's board, the Love Story).
+ */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    🖼 A PICK THE BRIDGE CANNOT DRAW IS REDRAWN IN PLACE — never by a whole-Maker render
@@ -424,10 +492,41 @@ export function createCanvasRedrawer(redraw: () => void): CanvasRedrawer {
   };
 }
 
+/**
+ * ✓ A write that changes nothing the canvas draws (Apply: the draft it shows is now live) asks the Maker for a render
+ * — the canvas KEEPS its page through it (`editor-shell.tsx` holds what it shows), instead of loading a new one.
+ */
+export const MAKER_CANVAS_KEEP_EVENT = 'setnayan:maker-canvas-keep';
+export function keepCanvasForRender(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(MAKER_CANVAS_KEEP_EVENT));
+}
+
 /** Ask every page the Maker shows (the canvas and its warm stages, Look's page) to re-render in place. */
 export function requestCanvasRedraw(): void {
   if (typeof window === 'undefined') return;
+  /* 🪟 Nobody is looking at a page: it redraws ONCE, when one is shown again (`holdCanvasRedraw`). */
+  if (redrawHeld) {
+    redrawOwed = true;
+    return;
+  }
   window.dispatchEvent(new Event(MAKER_CANVAS_REDRAW_EVENT));
+}
+
+/**
+ * 🪟 NO PAGE ON SCREEN, NO PAGE RENDER (owner rule 2026-10-08: *"the least amount of request for the tasks to be
+ * done"*). While Studio › Look shows its sample screen (`look-sample.tsx`) the stage canvas is hidden, and a pick
+ * the server must measure (a page colour, a Shade, Candlelight) used to re-render that hidden guest page — once per
+ * pick, for nobody. Held, those picks are ONE write each; the page redraws ONCE when it is shown again, and only if
+ * something asked. Releasing with nothing owed asks for nothing.
+ */
+let redrawHeld = false;
+let redrawOwed = false;
+export function holdCanvasRedraw(hold: boolean): void {
+  redrawHeld = hold;
+  if (hold || !redrawOwed) return;
+  redrawOwed = false;
+  requestCanvasRedraw();
 }
 
 const redrawer = createCanvasRedrawer(requestCanvasRedraw);
@@ -438,6 +537,13 @@ const redrawer = createCanvasRedrawer(requestCanvasRedraw);
  * redraw in place once the last such save lands. `refresh` is the caller's
  * `router.refresh` (it still ends any unheld write in the same burst).
  */
-export function makerRedrawSave<T>(send: () => Promise<T>, refresh: () => void, ok?: (result: T) => boolean): Promise<T> {
-  return redrawer.save(() => makerSave(send, refresh, { held: true, ok }), ok);
+export function makerRedrawSave<T>(
+  send: () => Promise<T>,
+  refresh: () => void,
+  okOrOptions?: ((result: T) => boolean) | { ok?: (result: T) => boolean; undo?: UndoStep },
+): Promise<T> {
+  /* ↺ `undo`: the pick's inverse (`lib/maker-scene-look.ts` lays the BEFORE picture back at once) — without it the
+     journal gets a barrier and the ↺ that meets it is a whole-Maker render and a new canvas page (8.7 s, measured). */
+  const { ok, undo } = typeof okOrOptions === 'function' ? { ok: okOrOptions, undo: undefined } : (okOrOptions ?? {});
+  return redrawer.save(() => makerSave(send, refresh, { held: true, ok, ...(undo ? { undo } : {}) }), ok);
 }

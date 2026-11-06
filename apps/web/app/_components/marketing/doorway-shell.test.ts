@@ -566,30 +566,24 @@ test('EVERY variant keeps a way to open the rail on a phone', () => {
 
 /* ── 7 · THE GROUP DOES NOT CHANGE SHAPE AS YOU MOVE ───────────────────── */
 
-test('the Studio rows depend on WHO is looking, not on which page', () => {
+test('neither mount hands the rail a tool list, so the rail cannot change shape between pages', () => {
   /*
-    Owner 2026-08-15: *"same as studio and its sub mene also"* — pressing a
-    Studio row visibly changed the Studio group itself. Measured live before the
-    fix: seven descriptions and three "try it" markers on `/`, ZERO of each on
-    `/papic`, because the app mount asked for the signed-IN rows unconditionally
-    while the front door asked for the signed-OUT ones. `railToolsSignedIn` sets
-    `line: null` BY DESIGN, so the function was right and the caller never asked
-    the question.
-
-    Both mounts must branch on the same thing, or the group changes shape as a
-    person moves between two pages that are supposed to be one shell.
+    Owner 2026-08-15: *"same as studio and its sub mene also"* — the Studio group
+    changed shape as a person moved between `/` and `/papic`, because the two
+    mounts built it differently. 🧭 Since 2026-10-23 the group is gone from the
+    rail altogether (owner 2026-10-01: one Features row), so the question is
+    settled the strongest way: neither mount builds a tool list at all.
   */
   for (const [name, rel] of [
     ['app-rail-shell', join(APP, '_components', 'frontdoor', 'app-rail-shell.tsx')],
     ['front-door', join(APP, '_components', 'frontdoor', 'front-door.tsx')],
   ] as const) {
     const src = code(read(rel));
-    assert.match(
+    assert.ok(src.length > 500, `${name} read back nearly empty — re-point this guard`);
+    assert.doesNotMatch(
       src,
-      /account\.signedIn\s*\?\s*railToolsSignedIn\([\s\S]{0,40}?\)\s*:\s*railToolsSignedOut\(\)/,
-      `${name} does not branch the Studio rows on account.signedIn. One mount ` +
-        'handing out signed-in rows while the other hands out signed-out ones ' +
-        'is what made the group change shape when a row was pressed.',
+      /\b(?:tools|plannerTools|builderTools|togetherTools)=\{|railToolsSigned(?:In|Out)\(/,
+      `${name} builds a rail tool list again — the owner ruled the lists off the rail (2026-10-01).`,
     );
   }
 });
@@ -613,7 +607,10 @@ test('the stranded footer destinations are reachable from the rail', () => {
   for (const href of ['/refunds', '/download', '/blog', '/creators', '/for-suppliers']) {
     assert.match(
       shell,
-      new RegExp(`<Link href="${href}">`),
+      // `[\s>]`, not `>`: /download and /for-suppliers carry `data-web-only`
+      // (hidden in the iPhone app only — the-app-footer-names-no-paid-door.test.ts);
+      // on the web the link is still here, which is what this asserts.
+      new RegExp(`<Link href="${href}"[\\s>]`),
       `The rail's small print has lost ${href}. On a converted page the rail is ` +
         'the only chrome, so a destination missing from it is unreachable.',
     );
@@ -622,26 +619,25 @@ test('the stranded footer destinations are reachable from the rail', () => {
 
 /* ── 9 · "+ CREATE" CREATES ────────────────────────────────────────────── */
 
-test('the gold button opens the create flow, not the board', () => {
+test('the create flow\'s way out does not re-fire the board\'s auto-jump', () => {
   /*
     Owner 2026-08-15: *"create should allow me to create an event."* It pointed
     at `/dashboard`, which for somebody with exactly one upcoming event
     redirects back INTO that event — so the button landed you on the page you
     were already on.
   */
-  const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
-  assert.match(
-    shell,
-    /<Link href="\/dashboard\/create-event" className="fd-btn-gold">/,
-    'The gold button no longer opens the create flow.',
-  );
+  // 2026-10-22: the bar's gold "+ Create event" is gone (owner — Create lives on
+  // the Events board, whose doors open the same flow); the way OUT stays held.
   /*
     …and the way OUT of that flow must not re-fire the board's auto-jump.
     `?hub=1` is the only escape from it.
   */
+  // The way back is drawn by the page's head (`NewEventHead`, split out 2026-10-21), which the page renders.
   const createPage = code(read(join(APP, 'dashboard', '(account)', 'create-event', 'page.tsx')));
+  assert.match(createPage, /<NewEventHead\b/, 'the create page no longer draws its head');
+  const createHead = code(read(join(APP, 'dashboard', '(account)', 'create-event', '_components', 'new-event-head.tsx')));
   assert.match(
-    createPage,
+    createHead,
     /'\/dashboard\?hub=1'/,
     "The create page's back link dropped `?hub=1`, so leaving it dumps a " +
       'one-event couple INSIDE their wedding rather than on their board.',

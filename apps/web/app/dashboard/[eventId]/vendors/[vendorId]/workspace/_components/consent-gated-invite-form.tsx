@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ShieldCheck, UserCheck, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { inviteHost } from '@/app/dashboard/[eventId]/hosts/actions';
 
 const PLANNER_ROLE = 'wedding_planner_external';
@@ -145,11 +146,9 @@ function ConsentModal({
       role="alertdialog"
       aria-modal="true"
       aria-label={`Share your event with ${who}`}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss();
-      }}
+      className="fixed inset-0 z-[100] flex items-end justify-center p-4 focus:outline-none sm:items-center"
     >
+      <OverlayBackdrop onClose={onDismiss} />
       <div className="relative w-full max-w-md rounded-2xl border border-terracotta/30 bg-cream p-5 shadow-xl sm:p-6">
         <button
           type="button"

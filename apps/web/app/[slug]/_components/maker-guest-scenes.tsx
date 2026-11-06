@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatEventDate } from '@/lib/events';
+import { SceneSample } from './maker-scene-samples';
 
 /**
  * 👤 THE GUEST-LINK SCENES, AS THE MAKER DRAWS THEM — never as a guest sees them.
@@ -44,7 +45,7 @@ export function MakerGuestScenes({
               {solemn ? 'We hope you can be with us' : 'We’d love to celebrate with you'}
               {date ? ` on ${date}` : ''}.
             </p>
-            <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH}</p>
           </section>
         </>
       ) : null}
@@ -54,12 +55,12 @@ export function MakerGuestScenes({
           <section className="flex flex-col items-center gap-2 text-center" data-maker-guest-scene="pass">
             <span
               aria-hidden
-              className="flex h-28 w-28 items-center justify-center font-mono text-xs tracking-[0.2em] text-ink/40 [border:2px_dashed_rgb(var(--color-ink)/0.2)] [border-radius:var(--m-r-md)]"
+              className="flex h-28 w-28 items-center justify-center font-mono text-xs tracking-[0.2em] text-ink/70 [border:2px_dashed_rgb(var(--color-ink)/0.2)] [border-radius:var(--m-r-md)]"
             >
               QR
             </span>
             <p className="font-pahina text-xl text-ink">Your guest</p>
-            <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} pass</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH} pass</p>
           </section>
         </>
       ) : null}
@@ -68,7 +69,7 @@ export function MakerGuestScenes({
           {mark('f:rsvp')}
           <section className="space-y-1 text-center" data-maker-guest-scene="rsvp">
             <p className="font-pahina text-xl text-ink">{solemn ? 'Will you be with us?' : 'Will you be there?'}</p>
-            <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} reply, from their own link</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH} reply, from their own link</p>
           </section>
         </>
       ) : null}
@@ -83,27 +84,63 @@ export function MakerGuestScenes({
  * the couple sees where each lands, after its own marker (`f:look`, `f:gifts`),
  * so a tap selects it. Never sample content; a guest never receives this markup.
  */
-export function MakerWelcomeLook() {
+export function MakerWelcomeLook({ look = null }: { look?: string | null } = {}) {
   return (
-    <section className="space-y-2" data-maker-guest-scene="look">
+    <section className="space-y-2" data-maker-guest-scene="look" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>What to wear</span>
       </p>
-      <p className="font-pahina text-xl text-ink">Your guest&rsquo;s role, colors and outfit</p>
-      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} look, from your Mood Board</p>
+      <p className="font-pahina text-xl text-ink">Your guest&rsquo;s role, colours and outfit</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH} look, from your Mood Board</p>
     </section>
   );
 }
 
-/** The E-Gifts place with no gift method on yet — the page draws the real door once there is one. */
-export function MakerWelcomeGiftsEmpty() {
+/**
+ * The E-Gifts place with no gift method on yet — the page draws the real E-Gifts (its ways to give, in place) once there is one.
+ *
+ * 🕯 THE PICKED ACCENT, ON THE EMPTY CARD TOO (owner 2026-10-18, on the Vintage art kit approved 2026-10-16). The gifts'
+ * accent — the corner spray and the lace abaniko on the bank card, the divider above the block — was drawn only on a
+ * real way to give, so a couple who picked it with no way to give yet saw nothing of what they picked. In the Maker the
+ * prompt now sits in ONE card shaped as a way-to-give card (`PabuyaCardList`'s `li`), and the kit dresses it exactly
+ * as it dresses the first bank card (`kit`, a ready `<KitSlot slot="gifts-card">`; the caller draws the divider before
+ * the block's mark, as on a real E-Gifts).
+ * Absent → byte for byte as before. A guest never receives this markup (no way to give = no card).
+ */
+export function MakerWelcomeGiftsEmpty({
+  look = null,
+  kit = null,
+}: {
+  look?: string | null;
+  /** 🕯 The look's gifts-card accent (`<KitSlot slot="gifts-card">`) — null: none picked, nothing drawn. */
+  kit?: ReactNode;
+} = {}) {
+  const prompt = <p className="font-pahina text-xl font-light italic text-ink/70">Add a way to receive gifts.</p>;
   return (
-    <section className="space-y-2" data-maker-guest-scene="gifts">
+    <section className="space-y-2" data-maker-guest-scene="gifts" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>
-      <p className="font-pahina text-xl font-light italic text-ink/60">Add a way to receive gifts.</p>
-      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">Only you see this · guests see it once a gift method is on</p>
+      {kit ? (
+        /* The bank card's own shape, so the kit's corner rules (`lib/art-kits.ts`, `li:has(>[data-kit-slot="gifts-card"])`)
+           place the spray and the abaniko on it — no second rule. */
+        <ul className="pt-6" data-maker-gifts-card="">
+          <li className="overflow-hidden rounded-2xl bg-cream shadow-sm">
+            {kit}
+            <div className="space-y-1 p-4">
+              <SceneSample sceneType="gifts" className="!mx-0 py-1" />
+              {prompt}
+            </div>
+          </li>
+        </ul>
+      ) : (
+        <>
+          {/* 🔲 E-Gifts' shape, in greys (owner 08 Oct) — since 2026-10-14 the content a guest reads on Welcome, not a door. */}
+          <SceneSample sceneType="gifts" className="!mx-0 py-1" />
+          {prompt}
+        </>
+      )}
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">Only you see this · guests see it once a gift method is on</p>
     </section>
   );
 }

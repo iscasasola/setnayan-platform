@@ -72,9 +72,9 @@ import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 // ⚠ WEDDING IS STILL NAMED FIRST in the description and still leads
 // `keywords`. Widening the claim is not the same as dropping the strongest
 // query the brand ranks for — weddings remain the deepest surface.
-const HOME_TITLE = 'Setnayan · Plan any Filipino event free — and never lose a photo';
+const HOME_TITLE = 'Setnayan · Plan any event free. Every photo in one album.';
 const HOME_DESCRIPTION =
-  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — then keep every photo, video, and memory in one place. Verified supplier marketplace at 0% commission.';
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace at 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,
@@ -167,6 +167,18 @@ export const metadata = {
 // per-request. If that proves too expensive once there is real traffic, cache
 // the four feed reads behind `unstable_cache` so only the session lookup stays
 // per-request. Named now so it is a decision later, not a surprise.
+//
+// ⚡ THAT FOLLOW-UP, 2026-10-11 — PARTLY TAKEN. Measured: 27 database calls a
+// view, and one caller asking every 60 s. The page is still rendered per request
+// (it reads `searchParams` and the session, and the after() jobs below need a
+// request), but its same-for-everyone ROW reads are now remembered for 60 s —
+// `lib/home-public-reads-core.ts` lists them and what may never join them.
+// Round 2, the same day: the event types' public rows and the two facts a
+// Discover card's cover can turn on (does the event own Event Hub Pro, is its
+// logo animation on) joined them, so a signed-out view no longer walks the
+// ownership chain card by card — it was most of the page's waiting.
+// ⚠ NOT taken, and still asked on every view: the consented editorials
+// (`loadPublishedShowcases` — consent-gated; its own docblock says why).
 export const revalidate = 300;
 
 const SITE_URL = (
@@ -214,7 +226,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged Memories and personal reels (free to start on every event), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Hub Pro — whose Logo & QR part animates the couple's own logo — each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -233,11 +245,11 @@ const softwareAppJsonLd = {
     'Day-of schedule built block by block (free)',
     'Pakulay mood board (free)',
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
-    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (paid add-on)',
     'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
-    'Animated Monogram — a bespoke monogram + animation across invites, the Event Hub, and signage (paid add-on)',
+    'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Hub Pro’s Logo & QR part animates it)',
     'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
     'Memories — every photo, video, and milestone from the day gathered into one place the host keeps',
     // ⚠ NO COUNT, DELIBERATELY. "as those event types unlock" was false when
@@ -287,6 +299,13 @@ export default async function HomePage({
   */
   const qParam = params.q;
   const q = Array.isArray(qParam) ? qParam[0] : qParam;
+  /*
+    🔎 SIGNED IN, A SEARCH ANSWERS HERE, ON DISCOVER (owner 2026-10-24: *"we will show the result on the page itself.
+    not a new screen"*; on the hop this used to make to `/dashboard/search`: *"it went to a different page?"*). This
+    page draws the account bar and Discover's own search row for a member now (owner 2026-10-22, "Discover needs to
+    show the bottom nav still"), so a member's `?q=` stays: `FrontDoor` draws the shell's results form in place of the
+    sections, and an empty `q` is Discover itself. Signed out, nothing changes.
+  */
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the

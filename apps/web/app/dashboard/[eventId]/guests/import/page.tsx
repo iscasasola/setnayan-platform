@@ -1,9 +1,12 @@
 import Link from 'next/link';
+import { Share } from 'lucide-react';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { importGuestsCsv } from './actions';
-import { GuestImportForm } from './import-form';
+import { GuestImportForm, GuestImportWaits } from './import-form';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { guestTemplateFor } from '@/lib/guest-import-file';
+import { guestImportGate } from '@/lib/guest-import-gate.server';
 
 export const metadata = { title: 'Import guests' };
 
@@ -14,6 +17,8 @@ type Props = {
 export default async function ImportGuestsPage({ params }: Props) {
   const { eventId } = await params;
 
+  // 📥 Before December 19 a normal account's import waits — the door says so in place of the upload (the action refuses too).
+  const notYet = await guestImportGate(eventId);
   const action = importGuestsCsv.bind(null, eventId);
   // A wedding gets the file with the Side column; every other type the general one.
   const template = guestTemplateFor(eventHasSides(await resolveRoleSetForEvent(eventId)));
@@ -39,9 +44,11 @@ export default async function ImportGuestsPage({ params }: Props) {
           Fill it in with Excel, Numbers or Google Sheets — one person per row.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <a href={template.xlsx} download className="button-primary">
+          {/* 📥 Saved, never shown in place — the app's web view renders a file with no way back (owner 2026-10-27). */}
+          <SaveFileLink href={template.xlsx} filename={template.xlsx.split('/').pop() ?? 'setnayan-guest-list.xlsx'} className="button-primary inline-flex items-center gap-1.5">
+            <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Download for Excel / Numbers
-          </a>
+          </SaveFileLink>
           <a
             href={template.googleSheets}
             target="_blank"
@@ -50,13 +57,21 @@ export default async function ImportGuestsPage({ params }: Props) {
           >
             Open in Google Sheets
           </a>
-          <a href={template.csv} download className="text-sm font-medium text-terracotta-700 hover:underline">
+          <SaveFileLink
+            href={template.csv}
+            filename={template.csv.split('/').pop() ?? 'setnayan-guest-list.csv'}
+            className="text-sm font-medium text-terracotta-700 hover:underline"
+          >
             CSV
-          </a>
+          </SaveFileLink>
         </div>
       </section>
 
-      <GuestImportForm action={action} />
+      {notYet ? (
+        <GuestImportWaits message={notYet} />
+      ) : (
+        <GuestImportForm action={action} />
+      )}
     </div>
   );
 }

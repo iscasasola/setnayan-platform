@@ -22,6 +22,8 @@ import {
   type WeddingCity,
 } from '../_data/wedding-cities';
 import type { PhPlace } from '../_data/ph-places';
+import { askLocationOnce } from '@/lib/location-ask';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 
 type Pos = { lat: number; lon: number };
 type Row = { c: WeddingCity; d: number | null };
@@ -32,9 +34,12 @@ const NCR_FALLBACK: Pos = { lat: 14.58, lon: 121.0 };
 export function LocationStep({
   value,
   onChange,
+  storeShell: storeShellFromServer = false,
 }: {
   value: string[];
   onChange: (keys: string[]) => void;
+  /** Resolved server-side (`isStoreShellRequest`) so the app's first paint has no "Near me". */
+  storeShell?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<'popular' | 'near'>('popular');
@@ -102,16 +107,16 @@ export function LocationStep({
       setMode('near');
       setGpsLoading(false);
     };
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      finish(NCR_FALLBACK, true);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (p) => finish({ lat: p.coords.latitude, lon: p.coords.longitude }, false),
+    askLocationOnce(
+      (p) => finish({ lat: p.lat, lon: p.lon }, false),
       () => finish(NCR_FALLBACK, true),
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 },
     );
   };
+  // 📍 Inside the iPhone/Android app there is no "Near me" (it declares no
+  // location — DECISION_LOG 2026-10-19 (1)), so the line under the question
+  // does not offer it. The button itself hides via data-asks-location.
+  const storeShell = useIsStoreShell() || storeShellFromServer;
 
   // Build the result list (null = show the idle carousel instead).
   const q = query.trim().toLowerCase();
@@ -161,7 +166,9 @@ export function LocationStep({
         <div className="locpicks" data-count={value.length} aria-live="polite">
           {value.length === 0 ? (
             <span className="locpicks-empty">
-              {'Tap a destination, search any city, or use “Near me”.'}
+              {storeShell
+                ? 'Tap a destination or search any city.'
+                : 'Tap a destination, search any city, or use “Near me”.'}
             </span>
           ) : (
             value.map((k) => {
@@ -285,11 +292,14 @@ export function LocationStep({
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
+          {/* 📍 data-asks-location: hidden inside the iPhone/Android app before
+              first paint — it declares no location (DECISION_LOG 2026-10-19 (1)). */}
           <button
             type="button"
             className={`locgps${mode === 'near' ? ' on' : ''}${gpsLoading ? ' loading' : ''}`}
             aria-pressed={mode === 'near'}
             aria-label="Use my current location"
+            data-asks-location=""
             onClick={nearMe}
           >
             <svg

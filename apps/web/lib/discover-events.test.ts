@@ -317,7 +317,16 @@ test('people to follow is capped', () => {
 const HERE = __dirname;
 const strip = stripComments;
 const CORE = strip(readFileSync(join(HERE, 'discover-events-core.ts'), 'utf8'));
-const LOADER = strip(readFileSync(join(HERE, 'discover-events.ts'), 'utf8'));
+// ⚡ 2026-10-11 — the loader is TWO files now. The reads that are the same for
+// every visitor (the world's candidates, the hosts, the cover rows, the public
+// profiles) moved to `home-public-reads-core.ts`, where they are remembered;
+// every decision and every viewer-scoped read stayed in `discover-events.ts`.
+// The properties below are held over both, exactly as they were over one.
+const LOADER =
+  strip(readFileSync(join(HERE, 'discover-events.ts'), 'utf8')) +
+  strip(readFileSync(join(HERE, 'home-public-reads-core.ts'), 'utf8')) +
+  // …and the body that draws a card's cover moved to `event-cover-given.ts` (round 2).
+  strip(readFileSync(join(HERE, 'event-cover-given.ts'), 'utf8'));
 const RENDER = strip(
   readFileSync(join(HERE, '..', 'app', '_components', 'frontdoor', 'front-door-discover.tsx'), 'utf8'),
 );

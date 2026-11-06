@@ -26,7 +26,6 @@ import {
   type OurServicesInput,
 } from './our-services';
 import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from './customer-menu';
-import { yourTeamParts } from './pillar-parts';
 import { DETAILS_ITEM_KEYS } from './maker-details-items';
 
 const LIB = path.dirname(fileURLToPath(import.meta.url));
@@ -60,16 +59,16 @@ test('the services, in the owner’s order, with the owner’s names', () => {
   const cards = buildOurServices(input());
   assert.deepEqual(
     cards.map((c) => c.name),
-    ['Planner', 'Guest photos', 'Live stream', 'Music', 'Video booth'],
+    ['Planner', 'Papic', 'Live stream', 'Music', 'Video booth'],
   );
   // Owner d17 (2026-10-02): the plain name first, the Setnayan name small under it.
   assert.deepEqual(
     cards.map((c) => c.brand),
-    ['Setnayan AI', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
+    ['Setnayan AI', 'Guest photos', 'Live Watch', 'Music Maker', 'Patiktok'],
   );
 });
 
-test('each card opens the page its menu row opens; Papic carries the Gallery', () => {
+test('each card opens the page its menu row opens; Papic carries the Memories', () => {
   const cards = buildOurServices(input());
   const hrefs = Object.fromEntries(cards.map((c) => [c.key, c.href]));
   assert.equal(hrefs.papic, addOnHref('papic', EVENT));
@@ -82,7 +81,7 @@ test('each card opens the page its menu row opens; Papic carries the Gallery', (
     papic.parts.map((p) => [p.name, p.href]),
     [
       ['Thank-You Video', appStoreDetailHref('thank-you', EVENT)],
-      ['Gallery', `/dashboard/${EVENT}/galleries`],
+      ['Memories', `/dashboard/${EVENT}/galleries`],
     ],
   );
   assert.equal(cards.some((c) => c.key === 'gallery'), false, 'the Gallery is not a card beside Papic');
@@ -95,7 +94,7 @@ test('each card opens the page its menu row opens; Papic carries the Gallery', (
 });
 
 // SABOTAGE: restore a standalone Gallery card in buildOurServices → RED.
-test('the Gallery is NEVER a More item — not even where there is no Papic card (owner 2026-10-02)', () => {
+test('the Memories is NEVER a More item — not even where there is no Papic card (owner 2026-10-02)', () => {
   const noPapic = buildOurServices(input({ offered: (a) => a.key !== 'papic' }));
   assert.equal(noPapic.some((c) => c.key === 'gallery'), false, 'the Gallery stands as a card again');
   assert.deepEqual(noPapic.map((c) => c.key), ['setnayan-ai', 'live-studio', 'music-maker', 'patiktok']);
@@ -219,39 +218,38 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
   const base = `/dashboard/${EVENT}`;
   return {
     guests: () => row('guests')?.href === `${base}/guests`,
-    // Stage D: Budget is Your Team's part; Schedule and the Mood Board are
-    // Details items, and their old pages land there for the couple.
-    budget: () =>
-      row('explore')?.href === `${base}/vendors` &&
-      yourTeamParts({ eventId: EVENT, budgetEnabled: true }).some((p) => p.key === 'budget') &&
-      read(EV, 'budget', 'page.tsx').includes('redirect(yourTeamBudgetHref(eventId))'),
+    // 💰 Budget is Home's page since 2026-11-01 (owner: "Okay place it in home"): Home lights /budget.
+    budget: () => Boolean(row('home')?.alsoMatch?.includes(`${base}/budget`)) && fs.existsSync(path.join(EV, 'budget', 'page.tsx')),
+    // 📅 Home's page since 2026-11-02 ("BOOKED IS JUST THE TEAM") — the Maker still draws it inside Details.
     schedule: () =>
+      Boolean(row('home')?.alsoMatch?.includes(`${base}/schedule`)) &&
       (DETAILS_ITEM_KEYS as readonly string[]).includes('schedule') &&
-      read(EV, 'schedule', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'schedule'"),
+      fs.existsSync(path.join(EV, 'schedule', 'page.tsx')),
     'mood-board': () =>
       (DETAILS_ITEM_KEYS as readonly string[]).includes('mood-board') &&
       read(EV, 'studio', 'mood-board', 'page.tsx').includes("redirect(detailsItemHref(eventId, 'mood-board'))"),
+    // 🗂 R4: the seat plan is Guests › Seats — its old page lands there, and the Guests row lights it.
     seating: () =>
-      (DETAILS_ITEM_KEYS as readonly string[]).includes('seating') &&
-      read(EV, 'seating', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'seating'") &&
+      read(EV, 'seating', 'page.tsx').includes("redirect(guestsViewHref(eventId, 'seats'") &&
+      Boolean(row('guests')?.alsoMatch?.includes(`${base}/seating`)) &&
       !row('seat'),
     'landing-page': () => row('launch')?.href === addOnHref('landing-page', EVENT),
     rsvp: () =>
       addOnHref('rsvp', EVENT).startsWith(`${base}/website/`) &&
       row('launch')?.matchPrefix === `${base}/website`,
     checklist: () =>
-      read(EV, '_components', 'event-dashboard.tsx').includes('href={`${base}/checklist`}'),
+      // The Checklist merged into Planning Stage (owner 2026-11-01): the doorway opens its To do filter.
+      read(EV, '_components', 'event-dashboard.tsx').includes('href={planningTodoHref(eventId)}'),
     compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
     'save-the-date': () =>
       read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),
     'animated-monogram': () =>
       STUDIO_ABSORBED.palogo?.into === 'launch' &&
       fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),
-    // Details › Seat plan draws the shipped studio in its right part, and the
-    // old page lands there.
+    // Guests › Seats draws the shipped studio in its right part (R4), and the old page lands there.
     'indoor-blueprint': () =>
       read(EV, 'seating', '_components', 'seating-editor.tsx').includes('<BlueprintStudio') &&
-      read(EV, 'studio', 'indoor-blueprint', 'page.tsx').includes("detailsDoorHref(eventId, 'seating', { seat: 'map' })"),
+      read(EV, 'studio', 'indoor-blueprint', 'page.tsx').includes("guestsViewHref(eventId, 'seats', { seat: 'map' })"),
     // Details › Date draws the finder's candidates beside the date row.
     'find-date': () =>
       read(EV, 'launch', '_components', 'details-your-event.tsx').includes('<FindDateCandidates') &&

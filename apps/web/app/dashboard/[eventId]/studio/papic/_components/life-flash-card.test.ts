@@ -17,13 +17,15 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CARD = stripComments(readFileSync(resolve(HERE, 'life-flash-card.tsx'), 'utf8'));
-const PAGE = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
+// Moved with Magazine and Your Recap to Memories when the Papic page was removed (2026-10-26).
+const PAGE = stripComments(readFileSync(resolve(HERE, '..', '..', '..', 'memories', 'page.tsx'), 'utf8'));
 const GRAPH = stripComments(
   readFileSync(resolve(HERE, '..', '..', '..', '..', '..', '..', 'lib', 'life-story-moment-graph.ts'), 'utf8'),
 );
 
 test('the card is mounted', () => {
-  assert.ok(/<LifeFlashCard eventId=\{eventId\} \/>/.test(PAGE),
+  // Since 2026-10-31 the Memories keepsake row hands it the page's one read (`state={flash}`, `readLifeFlashCard`).
+  assert.ok(/<LifeFlashCard eventId=\{eventId\} state=\{flash\} \/>/.test(PAGE),
     'A card that ships unmounted is this repo\'s most repeated defect.');
 });
 

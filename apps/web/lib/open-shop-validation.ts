@@ -43,6 +43,24 @@
  */
 export const OPEN_SHOP_LOGO_REQUIRED: boolean = false;
 
+/**
+ * What the logo step SAYS while the logo is not required here — the label beside
+ * "Shop logo" and the line under the upload. ONE pair, so the two cannot disagree.
+ *
+ * 🔑 THEY DID (live check 2026-10-23): the label said "optional" and the line said
+ * "Needed before your shop is approved". Both halves were partly true and read as a
+ * contradiction. The rule (owner decision 4, 2026-07-21; `open-shop-logo-gate.test.ts`):
+ * not needed to OPEN the shop; needed before VERIFICATION — the logo is a
+ * business-profile checklist row and `verificationSubmitMissing` refuses to submit
+ * the papers while the profile is incomplete. So: "can wait", and the one thing it
+ * waits for, named in the dashboard's own words ("Get verified").
+ * Held by app/open-shop/the-logo-step-says-one-thing.test.ts.
+ */
+export const LOGO_LATER = {
+  label: 'can wait',
+  hint: 'You’ll need it to get verified — add it now or later.',
+} as const;
+
 /** Light email shape check — enough to keep obviously-broken strings out. */
 export const OPEN_SHOP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The host adding — or removing — somebody else's chapter from their day.
@@ -46,6 +47,7 @@ async function requireHost(eventId: string): Promise<string> {
 
 /** Add a chapter to this celebration's public story, or take it back off. */
 export async function setChapterOnMyDay(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventId = String(formData.get('event_id') ?? '');
   const chapterId = String(formData.get('chapter_id') ?? '');
   const include = String(formData.get('include') ?? '') === '1';

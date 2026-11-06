@@ -263,11 +263,16 @@ test('⭐ THE GUARD · page.tsx hands the board the REAL actions, not a stub', (
   const mount = windowOf(read(PAGE), '<InspirationBoard', /\/>/);
   assert.match(mount, /fetchGalleryAction=\{fetchGalleryAssets\}/);
   assert.match(mount, /applyGalleryAction=\{applyGalleryPick\}/);
+  /* 🧩 RE-AIMED 2026-10-26 (step ② of PLAN admin_inspiration_groups_2026-10-25): the slots are derived from the ONE
+     parts reader — `gallerySlotKeys(parts)` over `getInspirationParts()` — no longer from the const GALLERY_SLOT_KEYS.
+     The property is unchanged: never a literal array typed here. */
   assert.match(
     mount,
-    /gallerySlots=\{GALLERY_SLOT_KEYS\}/,
+    /gallerySlots=\{gallerySlotKeys\(parts\)\}/,
     'the slots must be the DERIVED list, never a literal array typed here',
   );
+  assert.match(read(PAGE), /const parts = await getInspirationParts\(\);/, 'the derived slots are not read from the one parts reader');
+  assert.doesNotMatch(mount, /gallerySlots=\{\s*\[/, 'a literal slot array is typed at the mount');
 });
 
 test('⭐ THE GUARD · the board hands the picker the actions it was given', () => {

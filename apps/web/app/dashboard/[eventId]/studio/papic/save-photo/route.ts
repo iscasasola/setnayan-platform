@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getR2Client } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
 import { stripPhotoMetadata } from '@/lib/papic-derivatives';
+import { fetchOriginalFromHostDrive } from '@/lib/papic-original-from-drive';
+import { ORIGINAL_SOURCE_HEADER } from '@/lib/papic-originals-reminder-core';
 
 // "Save to phone" for ONE Papic photo — the per-tile save behind SavePhotoButton
 // in the couple's studio gallery. Owner 2026-07-16: the save must be FULL
@@ -58,7 +60,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .eq(idCol, id)
     .eq('event_id', eventId)
     .is('hidden_at', null)
-    .neq('moderation_state', 'nsfw_blocked')
+    .eq('moderation_state', 'clean')
     .maybeSingle();
   if (!row) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
@@ -96,6 +98,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     ext = 'jpg';
   } else {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
+  // 📸 THE PHOTO RULE (owner 2026-11-03): after the 3 months our original is gone; a HOST whose Drive still holds the
+  // confirmed copy gets the ORIGINAL back from their own Drive — "Original quality, from your Google Drive". This
+  // route is host-only (the couple check above), so a guest never reaches it. Any miss falls through to the 720p copy.
+  if (dropped && orig) {
+    const fromDrive = await fetchOriginalFromHostDrive(eventId, orig);
+    if (fromDrive) {
+      const out = await stripPhotoMetadata(fromDrive.bytes).catch(() => Buffer.from(fromDrive.bytes));
+      return new Response(new Uint8Array(out), {
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Content-Disposition': `attachment; filename="setnayan-photo-${id}.jpg"`,
+          'Cache-Control': 'no-store',
+          [ORIGINAL_SOURCE_HEADER]: 'google-drive',
+        },
+      });
+    }
   }
 
   const client = getR2Client();

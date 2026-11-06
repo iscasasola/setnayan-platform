@@ -24,12 +24,15 @@ export function CustomersPick({
   options,
   dataAttr,
   compact = false,
+  className,
 }: {
   label: string;
   value: string;
   options: ReadonlyArray<{ key: string; label: string; href: string }>;
   dataAttr: string;
   compact?: boolean;
+  /** More classes for the button (a 44-px floor where the row asks for one). */
+  className?: string;
 }) {
   const router = useRouter();
   return (
@@ -37,6 +40,7 @@ export function CustomersPick({
       label={label}
       value={value}
       compact={compact}
+      className={className}
       options={options.map(({ key, label: l }) => ({ key, label: l }))}
       dataAttr={dataAttr}
       onPick={(key) => {

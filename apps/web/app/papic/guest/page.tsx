@@ -1,4 +1,6 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
+import { formatPapicDayInWords } from '@/lib/papic-window';
 import { Camera } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
@@ -18,17 +20,18 @@ import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-pane
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
-import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
-import { guidedTourView } from '@/app/_components/guided-tour';
+import { GuestSpotlight } from '@/app/_components/guest-spotlight';
+import { TOURS } from '@/lib/tours';
 import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
+import { WRITE_A_COLUMN_SHOWN_IN_APP } from '@/lib/hidden-guest-extras';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { guestStagesOn } from '@/lib/guest-stages-on';
-import { cameraLookFromPreferences, cameraLookTint, cameraLookDrawsLogo } from '@/lib/camera-look';
-import { themeColours } from '@/lib/theme-colours';
-import { isInviteThemeId } from '@/lib/invite-themes';
+import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
+import { cameraProFor } from '@/lib/papic-photo-mark.server';
+import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
+import { papicCameraChapter } from '@/lib/papic-chapter.server';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
 // This is the shared "Papic Pool" pass: unlimited guest phones draw from one
@@ -97,16 +100,13 @@ export default async function PapicGuestPage({
             from the event. One tap of one of five tabs and the celebration is
             gone, with no route back to it. The camera link now carries the
             event, so the way out goes back to the invitation they were standing
-            on; `/` remains the fallback for a bare visit that names no event. */}
+            on. A bare visit that names no event draws no back (lib/page-home.ts, owner 2026-10-28:
+            a guest page never sends anyone to the marketing front page). */}
         {backSlug ? (
           <Link href={`/${backSlug}`} className="button-secondary">
             Back to the invitation
           </Link>
-        ) : (
-          <Link href="/" className="button-secondary">
-            Back to Setnayan
-          </Link>
-        )}
+        ) : null}
       </DoorShell>
     );
   }
@@ -125,7 +125,7 @@ export default async function PapicGuestPage({
     eventPapicGuestAccess(admin, session.event_id),
     admin
       .from('events')
-      .select(`display_name, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
+      .select(`display_name, slug, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
     // Resolved only for spec § 7b's "change your mind" offer. The buy panel
@@ -135,6 +135,8 @@ export default async function PapicGuestPage({
       ? resolveGuestOwnCamera(admin, session.event_id, session.guest_id)
       : Promise.resolve(null),
   ]);
+  /** This event's own Event Hub, for the camera's ✕ when it was not opened from a hub tab (re-checked as a slug). */
+  const ownHubSlug = typeof (ev as { slug?: unknown } | null)?.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test((ev as { slug: string }).slug) ? (ev as { slug: string }).slug : null;
   const eventName = (ev?.display_name as string | null) || 'this event';
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
   // pre-migration DB (column absent → null) yields no embedding on this camera.
@@ -180,7 +182,7 @@ export default async function PapicGuestPage({
         sub={
           access === 'unknown'
             ? 'Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — nothing is wrong with your invitation.'
-            : `Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the celebration!`
+            : `Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the event!`
         }
       >
         {backSlug ? (
@@ -208,7 +210,11 @@ export default async function PapicGuestPage({
     windowStart: (ev as { papic_window_start?: string | null } | null)?.papic_window_start,
     windowEnd: (ev as { papic_window_end?: string | null } | null)?.papic_window_end,
   });
-  if (gate.state !== 'open') {
+  // 📷 THE CHAPTER HAPPENING NOW (owner 2026-11-01): a meeting before the day turns Papic on at its start and off at
+  // its end — for the people in it. Resolved by the database (its window + its photo rule), the SAME refusal the
+  // capture route asks at the shutter. Null = the whole event; the event-day gate above then decides, unchanged.
+  const chapter = await papicCameraChapter(admin, { eventId: session.event_id, guestId: session.guest_id });
+  if (gate.state !== 'open' && !chapter) {
     return (
       <DoorShell
         tone="dead_end"
@@ -226,15 +232,17 @@ export default async function PapicGuestPage({
         sub={
           gate.state === 'not_open_yet' ? (
             <>
-              Your camera for {eventName} switches on
-              {gate.eventDay ? ` on ${gate.eventDay}` : ' on the day of the event'}.
+              {/* 📸 The day IN WORDS, on the venue's clock (owner 2026-10-13):
+                  "switches on Saturday, 12 December" — never "on on 2026-12-12". */}
+              Your camera for {eventName} switches on{' '}
+              {formatPapicDayInWords(gate.eventDay) ?? 'the day of the event'}.
               Your host can open it earlier if they&rsquo;d like shots of the
               preparations.
             </>
           ) : (
             <>
               Thanks for shooting at {eventName} — the cameras are closed now.
-              Your photos are still in your gallery.
+              Your photos are still in your Memories.
             </>
           )
         }
@@ -308,10 +316,9 @@ export default async function PapicGuestPage({
   // selfie to ask for. Flag OFF → false with no read (lib/account-face-profile.ts).
   const [reusesAccountFace, ownShots] = await Promise.all([
     guestReusesAccountFace(admin, session.event_id, session.guest_id),
-    // 📸 The thumbnail beside the shutter is the guest's OWN latest shot (owner
-    // 2026-10-01: "the photos one the left will show all their shots") — only
-    // when there is an Event Hub to open them in.
-    backSlug ? getGuestOwnShots(session.event_id, session.guest_id, 1) : Promise.resolve(null),
+    // 📸 The guest's OWN shots: the newest is the thumbnail beside the shutter,
+    // and the rest fill "My shots", the sheet over the camera (owner 2026-10-24).
+    getGuestOwnShots(session.event_id, session.guest_id, 30),
   ]);
   // The guest's own "Want to be tagged in the photos?" answer — null when never
   // answered. A FAILED read turns the catch off (below) rather than reading as
@@ -349,7 +356,7 @@ export default async function PapicGuestPage({
           </>
         }
         title="Camera unavailable."
-        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in the gallery. If you think this is a mistake, reach out to the host directly.`}
+        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`}
       >
         {backSlug ? (
           <Link href={`/${backSlug}`} className="button-secondary">
@@ -360,30 +367,29 @@ export default async function PapicGuestPage({
     );
   }
 
-  // 🎛 THE CAMERA'S LOOK, FULL SCREEN (owner 2026-10-06 — "THE CAMERA HAS ITS
-  // OWN THREE LAYOUTS"), only where the new Maker's guest side is on for this
-  // event (`guestStagesOn`); everywhere else `look` is null and the camera is
-  // exactly as shipped. One read, only then. A failed read is Classic.
-  const cameraLook = (await guestStagesOn(admin, session.event_id))
-    ? await (async () => {
-        const { data: lookRow, error: lookErr } = await admin
-          .from('events')
-          .select(`${HERO_MONOGRAM_COLUMNS}, style_preferences, invite_theme, role_palette`)
-          .eq('event_id', session.event_id)
-          .maybeSingle();
-        if (lookErr) console.error('[supabase-error] app/papic/guest/page.tsx · from:events.select (camera look)', lookErr);
-        const row = (lookRow ?? null) as
-          | (Parameters<typeof EventMonogram>[0]['event'] & { style_preferences?: unknown; invite_theme?: string | null; role_palette?: unknown })
-          | null;
-        const kind = cameraLookFromPreferences(row?.style_preferences);
-        const themeId = isInviteThemeId(row?.invite_theme) ? row.invite_theme : 'house';
-        return {
-          kind,
-          tint: cameraLookTint(kind, themeColours(themeId, row?.role_palette ?? null).colours.accent),
-          logo: cameraLookDrawsLogo(kind) && row ? <EventMonogram event={row} size="lg" /> : null,
-        };
-      })()
-    : null;
+  // 📷 ONE CAMERA, AND ITS PRO DRESS (owner 2026-10-24, final ruling — lib/camera-dress.ts):
+  // free = the plain camera, and a small Setnayan mark on the photos' copies;
+  // Pro (the event's Logo & QR part or Full Pro — the existing part gate) = the
+  // event's logo on the shutter, the theme's colour, and their monogram on the
+  // copies. A failed read is the free camera — never a guess at Pro.
+  const [dressRead, pro] = await Promise.all([
+    admin
+      .from('events')
+      .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted, invite_theme, role_palette`)
+      .eq('event_id', session.event_id)
+      .maybeSingle(),
+    cameraProFor(admin, session.event_id),
+  ]);
+  if (dressRead.error) console.error('[supabase-error] app/papic/guest/page.tsx · from:events.select (camera dress)', dressRead.error);
+  const dressRow = (dressRead.data ?? null) as
+    | (Parameters<typeof EventMonogram>[0]['event'] & { logo_wanted?: boolean | null; invite_theme?: string | null; role_palette?: unknown })
+    | null;
+  const cameraDress = {
+    pro,
+    tint: cameraDressTintOfEvent(pro, dressRow),
+    logo: pro && dressRow ? <EventMonogram event={dressRow} size="lg" /> : null,
+  };
+  const photoMark = photoMarkOfEvent(dressRow, pro);
 
   return (
     <>
@@ -393,6 +399,7 @@ export default async function PapicGuestPage({
       guestName={guestName}
       eventName={eventName}
       eventId={session.event_id}
+      uploadOwner={papicOwnerTag('guest', session.guest_id, session.event_id)}
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}
@@ -414,13 +421,19 @@ export default async function PapicGuestPage({
       canKwento={canKwento}
       capApplies={quota.capApplies}
       poolLow={quota.poolLow}
+      poolEmpty={quota.poolEmpty}
       sponsorShare={quota.sponsorShare}
       eventStyle={eventStyle}
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
-      exitTo={backSlug ? { slug: backSlug, tab: backTab } : null}
+      // ✕ ALWAYS returns to the Event Hub (owner 31 Oct, "needs exit to return to event hub"): the tab it came from,
+      // else this event's own hub (its slug, read above and re-checked) — never a camera with no way out.
+      exitTo={backSlug ? { slug: backSlug, tab: backTab } : ownHubSlug ? { slug: ownHubSlug, tab: null } : null}
       lastShotUrl={ownShots?.shots[0]?.url ?? null}
-      look={cameraLook}
+      dress={cameraDress}
+      photoMark={photoMark}
+      myShots={ownShots?.shots ?? null}
+      chapter={chapter}
     />
     {/* ✍ "WRITE A COLUMN" ON THE DAY LIVES IN THE CAMERA (owner 2026-10-04,
         DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"), under the
@@ -439,8 +452,8 @@ export default async function PapicGuestPage({
     />
     {/* First visit only — the shipped tour registry (owner 2026-09-25: every
         feature gets a first-visit tour). A guest here has no account, so the
-        "seen" mark lives on their phone (GuestGuidedTour), not in `users`. */}
-    <GuestGuidedTour tourKey="guest_papic_camera_v1" tour={guidedTourView('guest_papic_camera_v1')} />
+        "seen" mark lives on their phone (GuestSpotlight — the SPOTLIGHT since 2026-10-25), not in `users`. */}
+    <GuestSpotlight tourKey="guest_papic_camera_v2" script={TOURS.guest_papic_camera_v2.spotlight!} />
     {/* Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
         NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
         is byte-identical today. No seat token: this surface's identity is the
@@ -488,6 +501,9 @@ async function CameraColumn({
   eventTz: string;
   eventEndDate: string | null;
 }) {
+  // 🙈 HIDDEN UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now") — asked BEFORE the env flag, so no flag draws
+  // it. Bring-back steps: lib/hidden-guest-extras.ts.
+  if (!WRITE_A_COLUMN_SHOWN_IN_APP) return null;
   if (!(await guestColumnsActive())) return null;
   return (
     <div className="bg-cream text-ink empty:hidden" data-camera-column="">

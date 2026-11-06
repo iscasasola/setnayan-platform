@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { spreadForDisplay } from '@/lib/table-order';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -9,10 +10,10 @@ import {
   type MoodboardStyleFamily,
 } from '@/lib/moodboard-templates';
 import { getCurrentUser } from '@/lib/auth';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import {
-  fetchGuestsByEvent,
+  fetchGuestsByEventMeasured,
   guestDisplayName,
-  resolveGuestAttire,
   fetchGuestGroupsByEvent,
   fetchGroupMembershipsByEvent,
 } from '@/lib/guests';
@@ -54,6 +55,7 @@ import {
   sideAttireColor,
 } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
+import { guestOutfitOf, seatPlanOutfitOf } from '@/lib/guest-outfit';
 import {
   finalizedPartsNow,
   type PartFinalizationRecord,
@@ -62,6 +64,8 @@ import { renderPartById } from '@/lib/moodboard-render-parts';
 import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { bookedZoneCandidates } from '@/lib/reception-booked-suggestions';
+import { getCanonicalBuckets } from '@/lib/vendor-counts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import type { BookedSupplier } from '@/lib/moodboard-finalization';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
@@ -94,10 +98,10 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRaw, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
+  const [tablesRaw, assignments, guestsRead, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchSeatingConstraints(supabase, eventId),
     fetchSceneObjects(supabase, eventId),
@@ -113,7 +117,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name, dismissed_room_suggestions',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, dress_code_config, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name, dismissed_room_suggestions',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -150,12 +154,25 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);
 
+  // 🔌 A REFUSED GUEST READ IS NOT AN EMPTY ROOM (reads-are-honest, 2026-11-05):
+  // the 3D plan would draw every table empty and count nobody unseated. The 2D
+  // seat plan's own rule (`seating/page.tsx`), said the same way.
+  if (!guestsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your guest list" />
+      </section>
+    );
+  }
+  const guestsRaw = guestsRead.rows;
+
   // Tables created but never dragged onto the spatial canvas have null
   // x_pos/y_pos. Mirror the 2D editor's grid fallback (defaultTablePosition)
   // so the 3D room matches what the couple sees in 2D — Number(null) would
   // otherwise stack every un-positioned table in the back-left corner.
   const spread = !(floorPlan.venue_width_m && floorPlan.venue_length_m);
-  const tables: Lab3DTable[] = tablesRaw.map((t, i) => {
+  // 🪑 Two tables stored on one spot are drawn apart, as in 2D (display only — lib/table-order.ts).
+  const tables: Lab3DTable[] = spreadForDisplay(tablesRaw).map((t, i) => {
     const positioned = t.x_pos != null && t.y_pos != null;
     const pos = positioned
       ? { x: Number(t.x_pos), y: Number(t.y_pos) }
@@ -171,6 +188,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       yPct: pos.y,
       rotationDeg: t.rotation_deg ?? 0,
       linkGroupId: t.link_group_id ?? null,
+      vip: t.is_vip === true,
     };
   });
 
@@ -198,6 +216,8 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   // 02 renders those roles from the derived board; the room now reads the same
   // resolver, so the two surfaces cannot disagree. See lib/room-palette.ts.
   const displayPalette = resolveDisplayPalette(rolePalette);
+  // 👗 The dress code the guests' figures wear (`guestOutfitOf`) — a refused read dresses nobody in a guessed Wear.
+  const dressCodeConfig = (eventRow.data as Record<string, unknown> | null)?.dress_code_config ?? null;
   // Wave 2b: the couple's saved reception treatments + room archetype reach the
   // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).
   const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
@@ -283,6 +303,11 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       services: ((shop as { services?: string[] } | null | undefined)?.services ?? []).filter(Boolean),
     };
   });
+  // The tile → services buckets the chips match on — the live taxonomy, so a service an admin
+  // files under a trade's tile is recognised here too (③0-a one source).
+  const canonicalBuckets = await getCanonicalBuckets();
+  // 🧩 Which booked shop reaches which zone reads the live parts (③0-b), never the seed.
+  const inspirationParts = await getInspirationParts();
   const dismissedSuggestions = sanitizeDismissedSuggestions(
     (eventRow.data as Record<string, unknown> | null)?.dismissed_room_suggestions,
   );
@@ -315,7 +340,16 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     )
       ? (g.rsvp_status as 'attending' | 'pending' | 'maybe' | 'declined')
       : 'pending';
-    const attire = resolveGuestAttire(g.role, g.attire);
+    /* 👗 WHAT THEY WEAR IS THEIR ROLE'S DRESS CODE (owner 2026-10-20: "the attire depends on the dress code of their
+       role") — the ONE reading Me › What to wear makes (`guestOutfitOf`), their own column by the "Atty. (Woman)" pick;
+       `guests.attire` only as `womanOrManOf`'s last-resort woman-or-man. `outfit` is the kit garment its Wear names. */
+    const person = { name_prefix: g.name_prefix ?? null, display_name: g.display_name ?? null, gender: g.gender ?? null, attire: g.attire };
+    const seatOutfit = seatPlanOutfitOf(
+      guestOutfitOf({ role: g.role, dressCodeConfig, palette: displayPalette, person }),
+      g.role,
+      person,
+    );
+    const attire = seatOutfit.attire;
     return {
       id: g.guest_id,
       name: guestDisplayName(g),
@@ -330,6 +364,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       plusOneOfGuestId: g.plus_one_of_guest_id ?? null,
       photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       attire,
+      outfit: seatOutfit.said,
       // Neutral silhouettes keep the RSVP-coloured token body (no motif); gown /
       // suit silhouettes resolve their motif through the taxonomy-v2 attire chain.
       attireColor:
@@ -526,7 +561,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
         receptionDesign={receptionDesign}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
-        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting)}
+        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting, canonicalBuckets, inspirationParts)}
         dismissedSuggestions={dismissedSuggestions}
         themeName={themeName}
         styleFamily={styleFamily}

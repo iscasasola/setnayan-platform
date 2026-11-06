@@ -9,6 +9,7 @@ import {
   shouldAutoSuspend,
   type FraudEnforcementAction,
 } from '@/lib/fraud-enforcement';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * Fraud ENFORCEMENT runner — SERVER-ONLY orchestration for the ONE allowed
@@ -185,6 +186,8 @@ export async function maybeAutoSuspendVendor(
       .is('fraud_banned_at', null)
       .select('vendor_profile_id')
       .maybeSingle();
+    // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+    clearHomeShelf('shops');
 
     if (updErr) {
       Sentry.captureException(updErr, {

@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchOwnPaymentMethodsMeasured,
-  isVendorProActive,
+  isShopProActive,
   type ModerationStatus,
   type PaymentMethodType,
   type VendorPaymentMethodRow,
@@ -37,6 +37,21 @@ export const metadata = { title: 'How clients pay you · Supplier · Setnayan' }
 
 type Props = {
   searchParams: Promise<{ msg?: string; error?: string }>;
+  /**
+   * YOUR DETAILS (step 5) mounts this surface INSIDE its "How clients pay you" fold: no page masthead, no page
+   * padding — the fold is the heading. Default: the full page, exactly as it was.
+   */
+  embedded?: boolean;
+  /**
+   * The methods, when the caller has ALREADY read them (Your details reads them once for its "N of 6" line) — so
+   * the same render never asks the database twice. Absent → this surface reads them itself, as before.
+   */
+  preloaded?: { methods: VendorPaymentMethodRow[]; measured: boolean };
+  /**
+   * ⚙ CUSTOMERS SETTINGS mounts this editor too ("Getting paid", owner 2026-10-28). Its saves come back to Customers
+   * with the ⚙ still open (`return_to=customers`, `return_seg`) instead of Your details. Absent → exactly as before.
+   */
+  returnTo?: { to: 'customers'; seg: string } | null;
 };
 
 /** Show only the last 4 digits of an account number; keep short ones whole. */
@@ -81,7 +96,13 @@ function cardTitle(m: VendorPaymentMethodRow): string {
   );
 }
 
-export default async function VendorPaymentOptionsPage({ searchParams }: Props) {
+export default async function VendorPaymentOptionsPage({ searchParams, embedded = false, preloaded, returnTo = null }: Props) {
+  const back = returnTo ? (
+    <>
+      <input type="hidden" name="return_to" value={returnTo.to} />
+      <input type="hidden" name="return_seg" value={returnTo.seg} />
+    </>
+  ) : null;
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -91,14 +112,12 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const { methods, measured: methodsMeasured } = await fetchOwnPaymentMethodsMeasured(
-    supabase,
-    profile.vendor_profile_id,
-  );
+  const { methods, measured: methodsMeasured } =
+    preloaded ?? (await fetchOwnPaymentMethodsMeasured(supabase, profile.vendor_profile_id));
   // 💳 Links are a Pro feature, asked through the one flag-aware question
   // (lib/vendor-feature-gate.ts). `linksOpen` = the shop's links count and are
   // shown; `linkAsks` = the switch is on and saving a link asks for Pro.
-  const linkAsks = vendorPaywallApplies(await isVendorProActive(supabase, user.id));
+  const linkAsks = vendorPaywallApplies(await isShopProActive(supabase, profile.vendor_profile_id));
   const isPro = !linkAsks;
 
   // Pre-resolve QR thumbnails through the shared helper, which presigns only a
@@ -118,10 +137,14 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="How clients pay you"
-      />
+    <div
+      className={
+        embedded
+          ? 'w-full pb-2'
+          : 'mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8'
+      }
+    >
+      {embedded ? null : <PageMasthead title="How clients pay you" />}
 
       {search.error ? (
         <FormFlash tone="error">
@@ -252,7 +275,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                     {linkHiddenForTier ? (
                       <p className="inline-flex items-center gap-1 text-xs text-ink/55">
                         <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        Hidden from clients — payment links are Pro &amp; Enterprise only.
+                        Hidden from clients — payment links are Pro &amp; Ultra only.
                       </p>
                     ) : null}
                   </div>
@@ -262,6 +285,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                 <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
                   {!m.is_primary ? (
                     <form action={setPrimaryPaymentMethod}>
+                      {back}
                       <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                       <SubmitButton
                         pendingLabel="Saving…"
@@ -274,6 +298,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                   ) : null}
 
                   <form action={togglePaymentMethodShown}>
+                    {back}
                     <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                     {/* CURRENT value — the action toggles to the opposite. */}
                     <input type="hidden" name="is_shown" value={m.is_shown ? 'true' : 'false'} />
@@ -307,6 +332,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
                     confirmLabel="Remove"
                     className="ml-auto"
                   >
+                    {back}
                     <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                     <SubmitButton
                       pendingLabel="Removing…"
@@ -326,6 +352,7 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
       <AddPaymentMethod
         vendorProfileId={profile.vendor_profile_id}
         linkAsks={linkAsks && !(await isStoreShellRequest())}
+        returnTo={returnTo}
       />
 
       <p className="mt-8 flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-xs text-ink/55">

@@ -179,36 +179,50 @@ test('the put-away sentence has readers — it is rendered, not merely declared'
   }
 });
 
-test('the guest camera asks about put-away BEFORE it reads 409 as "out of shots"', () => {
-  const src = code(GUEST_CAM);
+test('put-away and the window KEEP the guest’s shot — only blocked ends one', async () => {
   /*
-    Both refusals answer 409, so ORDER is the whole mechanism: the 409 branch
-    calls setRemaining(0), which disables the shutter for the session and paints
-    a thank-you over a photo that was thrown away — and auto-opens a sheet
-    selling shots that cannot be taken.
+    🔒 REVIEW 2026-10-23, BLOCKER 1 (and 2026-10-24: terms keep too). The save-first camera used to DROP a shot the
+    server refused for put-away, the capture window or event-over — erasing a
+    photograph taken in-window that merely ARRIVED late (no signal at the
+    reception, signal the next afternoon). "Everything already taken stays
+    untouched" (owner, 2026-08-16) is about exactly that shot.
 
-    Asserted per OCCURRENCE, not once globally: the file posts a capture from
-    two places, and a guard that only checks the first index passes while the
-    second is wrong. That is precisely how this shipped.
+    The property, three ways:
+      1. the classifier: put-away / closed / not-open-yet are `kept`, never
+         `drop`; only `blocked` drops (terms_required is kept too);
+      2. the camera: put-away still shows the put-away sentence (never "out of
+         shots"), from the KEPT branch — the shot is not thrown away;
+      3. the server: the window is judged by the SHUTTER (captured_at_ms, with
+         skew bounds — lib/papic-upload/shot-time.ts), not by arrival.
+    The replayer's own suite (lib/papic-upload/replayer.test.ts) RUNS a closed
+    window for ten days and proves the shot is still on the phone.
   */
-  const putAway = [...src.matchAll(/if \(json\.status === 'event_put_away'\)/g)].map((m) => m.index!);
-  const quota = [...src.matchAll(/if \(res\.status === 409/g)].map((m) => m.index!);
+  const { classifyAnswer, DROP_REFUSALS } = await import('./papic-upload/schedule');
+  for (const code of ['event_put_away', 'guest_capture_closed', 'guest_capture_not_open_yet']) {
+    assert.equal(classifyAnswer(409, { status: code }).verdict, 'kept', `${code} must keep the shot`);
+  }
+  assert.equal(classifyAnswer(409, { status: 'camera_points_exhausted' }).verdict, 'credits');
+  assert.deepEqual([...DROP_REFUSALS].sort(), ['blocked'], 'only a blocked guest loses a shot — a new refusal may not drop one');
 
-  assert.equal(
-    putAway.length,
-    quota.length,
-    `every 409 branch needs a put-away branch above it — found ${putAway.length} ` +
-      `put-away checks for ${quota.length} 409 branches`,
-  );
-  assert.ok(quota.length >= 2, 'the file should still post a capture from both sites');
-  quota.forEach((quotaAt, i) => {
-    const putAwayAt = putAway[i];
-    assert.ok(
-      putAwayAt !== undefined && putAwayAt < quotaAt,
-      `capture site ${i + 1}: the put-away check must come BEFORE the 409 branch, ` +
-        `or the refusal is read as "you are out of shots"`,
-    );
-  });
+  const src = code(GUEST_CAM);
+  assert.equal((src.match(/\buploader\.on\(/g) ?? []).length, 1, 'one uploader handler in the camera');
+  const credits = src.indexOf("if (e.type === 'credits')");
+  const kept = src.indexOf("if (e.type === 'kept')");
+  const refused = src.indexOf("if (e.type === 'refused')");
+  assert.ok(credits > -1 && kept > -1 && refused > -1, 'the three branches moved — re-point this guard');
+  assert.match(src.slice(kept, refused), /e\.code === 'event_put_away'\) setSaveError\(EVENT_PUT_AWAY_CAPTURE_COPY\)/);
+  assert.doesNotMatch(src.slice(credits, kept), /event_put_away/, 'put-away must never reach the out-of-shots branch');
+  assert.doesNotMatch(src.slice(refused, refused + 600), /event_put_away/, 'put-away must never reach the drop branch');
+
+  const route = code(GUEST_CAPTURE);
+  assert.match(route, /judgedShotInstant\(/, 'the guest route must judge the window by the shutter');
+  const { judgedShotInstant, CLOCK_SKEW_MS, OLDEST_SHOT_MS } = await import('./papic-upload/shot-time');
+  const now = Date.parse('2026-11-02T06:00:00Z');
+  const lastNight = now - 7 * 3_600_000;
+  assert.equal(judgedShotInstant(lastNight, now), lastNight, 'an in-window shot arriving late is judged by its shutter');
+  assert.equal(judgedShotInstant(now + CLOCK_SKEW_MS + 1, now), now, 'a phone clock in the future is not believed');
+  assert.equal(judgedShotInstant(now - OLDEST_SHOT_MS - 1, now), now, 'older than any queue can hold is not believed');
+  assert.equal(judgedShotInstant(undefined, now), now);
 });
 
 test('a put-away refusal is terminal, so the camera never promises a later upload', () => {
@@ -291,7 +305,7 @@ test('the card does not promise that everything keeps working exactly as now', (
   );
   assert.match(
     src,
-    /cameras and the photo wall go quiet/,
+    /cameras and Memory lane go quiet/,
     'the card must say what STOPS. A couple cannot discover the cameras going ' +
       'quiet any other way before they press.',
   );

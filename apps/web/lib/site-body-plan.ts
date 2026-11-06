@@ -24,6 +24,7 @@ import { revealStageChosen } from './reveal-stages';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { inStageOrder, storedStdLead, stdShows } from './stage-scenes';
 import { anonymousPublicCapability } from './public-capability';
+import { OFF_THE_PAGE, stageListRows } from './what-guests-see';
 import {
   visibleHideableWidgets,
   widgetByType,
@@ -35,6 +36,7 @@ import {
   type LifecyclePhase,
   type WidgetType,
   type WidgetTerminalState,
+  replyAskedInStage,
 } from './invitation-widgets';
 
 /**
@@ -43,6 +45,7 @@ import {
  * always seen the public landing); what distinguishes a host is the
  * orchestrator-side `?phase=` preview permission, not a body variant.
  */
+
 export type SiteIdentityKind = 'anonymous' | 'guest';
 
 /** Which of the three bodies renders. Editorial wins over Save-the-Date by
@@ -259,6 +262,10 @@ export function rsvpReplyOpen(input: {
   phasesEnabled: boolean;
   lifecyclePhase: LifecyclePhase;
 }): boolean {
+  // 📅 Not while the guest's stage is the Save the Date (owner 2026-10-11 — `replyAskedInStage`,
+  // lib/invitation-widgets.ts). Without open browsing the phase gate below already said so; this
+  // makes it true with open browsing too, where the card used to be on the page from day one.
+  if (!replyAskedInStage(input)) return false;
   const shown = widgetShouldRender(widgetByType(input.widgets, 'rsvp'));
   return input.openBrowse
     ? shown && resolveWidgetTerminalState('rsvp', input.lifecyclePhase) === 'active'
@@ -455,20 +462,40 @@ export function resolveSiteBodyPlan(input: {
      BOTH paths — open browsing included, which used to draw every scene on
      every stage "by kind" — a stage draws only its own scenes, in its own
      order. And the Save the Date's photo gallery is the film's to show when a
-     film plays: the gallery SCENE draws there only when no film does. */
+     film plays: the gallery SCENE draws there only when no film does.
+
+     👁 …AND THE COUPLE'S OWN CHOICE FOR THE STAGE DECIDES FIRST (owner
+     2026-10-10, "WHAT GUESTS SEE" — `lib/what-guests-see.ts`). A scene they hid
+     on this stage is not in its list; one they show on this stage is, over the
+     event-wide eye and on a stage whose own list would leave it out — unless it
+     cannot be there at all. With nothing stored for the stage this is the same
+     filter as before: the stage's own scenes, minus the gallery under a film. */
   if (phasesEnabled) {
-    const stageOf = (rows: InvitationWidgetRow[]) =>
+    const stageOf = (rows: InvitationWidgetRow[], reader: SiteIdentityKind) =>
       inStageOrder(
-        rows.filter(
-          (w) =>
-            widgetInPhase(w.widget_type, lifecyclePhase) &&
-            !(body === 'save_the_date' && w.widget_type === 'our_photos'),
-        ),
+        stageListRows(rows, widgets, {
+          stage: lifecyclePhase,
+          reader,
+          openBrowse,
+          film: body === 'save_the_date',
+          content,
+        }),
         lifecyclePhase,
       );
-    hideableInOrder = stageOf(hideableInOrder);
-    publicSafeWidgets = stageOf(publicSafeWidgets);
+    hideableInOrder = stageOf(hideableInOrder, 'guest');
+    publicSafeWidgets = stageOf(publicSafeWidgets, 'anonymous');
   }
+
+  /* 🪪 NO "EVENT DETAILS" CARD ON ANY PAGE (owner 2026-10-24, on cale-ice › Details as a guest: "why do we have
+     this details. it doesn't look as beautiful as the rest of the event hub. and isn't this a dupe?"). The card
+     repeated what already has ONE home each: the guest's role and side are Me's (the greeting at its top), the
+     date and the venues are the Venues scene's and Me's greeting. It is dropped here, from the one list every
+     reader's page is drawn from — guest, a host seeing as a guest, the Maker's canvas, every look the couple
+     picked for it — so no stage and no style can bring it back. With stages on, the stage list already refused it
+     (`OFF_THE_PAGE`, `lib/what-guests-see.ts`); this holds the page with no stages too. Held by
+     `the-details-tab-repeats-nothing.test.ts`. */
+  hideableInOrder = hideableInOrder.filter((w) => !OFF_THE_PAGE.has(w.widget_type));
+  publicSafeWidgets = publicSafeWidgets.filter((w) => !OFF_THE_PAGE.has(w.widget_type));
 
   return {
     body,

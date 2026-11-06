@@ -158,8 +158,9 @@ function matteLUT(lift: number, roll: number, sAmount: number): Uint8ClampedArra
   return lut;
 }
 
-/** Separable box blur over an RGBA Float buffer (≈Gaussian after 2–3 passes). */
-function boxBlurRGBA(
+/** Separable box blur over an RGBA Float buffer (≈Gaussian after 2–3 passes).
+ *  Exported for its bit-identity test only. */
+export function boxBlurRGBA(
   buf: Float32Array,
   w: number,
   h: number,
@@ -186,21 +187,30 @@ function boxBlurRGBA(
         }
       }
     }
-    // vertical
-    for (let x = 0; x < w; x += 1) {
-      const col = x * 4;
-      for (let c = 0; c < 4; c += 1) {
-        let acc = 0;
-        for (let k = -radius; k <= radius; k += 1) {
-          const yy = Math.min(h - 1, Math.max(0, k));
-          acc += tmp[yy * w * 4 + col + c]!;
-        }
-        for (let y = 0; y < h; y += 1) {
-          buf[y * w * 4 + col + c] = acc / win;
-          const add = Math.min(h - 1, y + radius + 1);
-          const sub = Math.max(0, y - radius);
-          acc += tmp[add * w * 4 + col + c]! - tmp[sub * w * 4 + col + c]!;
-        }
+    // vertical — ROW-MAJOR, one running sum per (column, channel).
+    //
+    // ⚡ 2026-10-23: this pass used to walk each column top-to-bottom (a stride
+    // of a whole row per step). Safari's JavaScriptCore took ~15.6 s for the ORIG
+    // look on a 2560×1440 frame (Chromium 0.76 s) — measured in Playwright WebKit
+    // — on the guest camera's shutter path. Walking rows and keeping every
+    // column's sum in a Float64Array does the SAME additions in the SAME order
+    // per column (the sums were JS doubles before too), so the output is
+    // bit-identical (lib/papic-photo-styles-blur.test.ts) — only the memory
+    // order changed.
+    const stride = w * 4;
+    const acc = new Float64Array(stride);
+    for (let k = -radius; k <= radius; k += 1) {
+      const yy = Math.min(h - 1, Math.max(0, k));
+      const base = yy * stride;
+      for (let i = 0; i < stride; i += 1) acc[i]! += tmp[base + i]!;
+    }
+    for (let y = 0; y < h; y += 1) {
+      const row = y * stride;
+      const addRow = Math.min(h - 1, y + radius + 1) * stride;
+      const subRow = Math.max(0, y - radius) * stride;
+      for (let i = 0; i < stride; i += 1) {
+        buf[row + i] = acc[i]! / win;
+        acc[i]! += tmp[addRow + i]! - tmp[subRow + i]!;
       }
     }
   }
@@ -489,8 +499,23 @@ export function applyPapicStyle(
   const { width: w, height: h } = canvas;
   if (!w || !h) return;
   const image = ctx.getImageData(0, 0, w, h);
-  const data = image.data;
+  applyPapicStylePixels(image.data, w, h, style);
+  ctx.putImageData(image, 0, 0);
+}
 
+/**
+ * The same pass over raw RGBA pixels — no canvas, no DOM — so it can run in a
+ * Web Worker (lib/papic-upload/develop.worker.ts): on a phone the pass over a
+ * 3.7 MP frame (a tone curve + an unsharp mask) takes long enough to freeze the
+ * page, and the camera must stay pressable while it runs (save first, send
+ * later, 2026-10-23).
+ */
+export function applyPapicStylePixels(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  style: PapicStyle,
+): void {
   switch (style) {
     case 'RETRO':
       applyRetro(data, w, h);
@@ -509,6 +534,4 @@ export function applyPapicStyle(
       applyOrig(data, w, h);
       break;
   }
-
-  ctx.putImageData(image, 0, 0);
 }

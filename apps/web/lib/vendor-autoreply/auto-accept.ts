@@ -16,7 +16,7 @@
 //      per (vendor,event))
 //   3. flip chat_threads pending → accepted (guarded: only if still pending)
 //   4. post the AI-labelled welcome citing explainCompatScore() reasons
-//   5. log vendor_bot_replies action='auto_accept' (the daily-cap counter)
+//   5. log vendor_bot_replies action='auto_accept' (the supplier's record)
 //
 // The NO-TOKEN path (§4A hard rule): the bot keeps answering (Phase 3b already
 // did, upstream), NO hold is placed — never silently burn or borrow — and the
@@ -60,7 +60,6 @@ import {
   evaluateAutoAccept,
   type AutoAcceptDecision,
 } from './auto-accept-decision';
-import { startOfManilaDayIso } from './inbox-decision';
 
 /** Tiers that can accept in-app inquiries at all — mirrors the RPC's
  *  TIER_FREE_NO_INAPP gate (the RPC re-enforces; this only pre-probes). */
@@ -72,7 +71,6 @@ const MAX_BODY = 4000;
 export type AutoAcceptConfig = {
   autoAcceptEnabled: boolean;
   autoAcceptThreshold: number;
-  dailyAutoAcceptCap: number;
 };
 
 export type AutoAcceptContext = {
@@ -183,13 +181,10 @@ export async function maybeAutoAccept(
       trustFlagged = null;
     }
 
-    // ── Daily auto-accept cap (separate counter from the reply cap) ───────
-    const { count: acceptsToday } = await admin
-      .from('vendor_bot_replies')
-      .select('*', { count: 'exact', head: true })
-      .eq('vendor_profile_id', ctx.vendorProfileId)
-      .eq('action', 'auto_accept')
-      .gte('created_at', startOfManilaDayIso());
+    // No per-day auto-accept count (owner 2026-10-23). An accept opens the
+    // chat and never books: the per-date couple ceiling refuses the flip below
+    // (WHITELIST_DATE_LIMIT), and the supplier's own "bookings per day" is
+    // checked when a booking is made (vendor_agree_to_lock).
 
     // ── Token availability probe (read-only — the RPC stays the enforcer) ─
     // Reads the SAME sources unlock_vendor_event_hold reserves against for the
@@ -211,7 +206,6 @@ export async function maybeAutoAccept(
         ? {
             autoAcceptEnabled: ctx.config.autoAcceptEnabled,
             threshold: ctx.config.autoAcceptThreshold,
-            dailyCap: ctx.config.dailyAutoAcceptCap,
           }
         : null,
       inquiryStatus: ctx.inquiryStatus,
@@ -219,7 +213,6 @@ export async function maybeAutoAccept(
       trustFlagged,
       tierEligible,
       tokenAvailable,
-      autoAcceptsToday: acceptsToday ?? 0,
     });
 
     if (!decision.accept) {
@@ -298,8 +291,8 @@ export async function maybeAutoAccept(
       compat_score: score,
     });
     if (logError) {
-      // The accept already happened; a missing log row only under-counts the
-      // cap. Surface it loudly so it can't rot silently.
+      // The accept already happened; a missing log row loses the supplier's
+      // record of it. Surface it loudly so it can't rot silently.
       console.error('[vendor-autoreply] auto_accept log insert failed:', logError.message);
     }
   } catch (err) {

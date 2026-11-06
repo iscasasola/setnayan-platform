@@ -48,8 +48,9 @@ const WRITE = (() => {
   assert.ok(at > -1, 'the plus-one write is gone');
   // +4600: the block grew each seat's meal/dietary + a details-only branch, and
   // the linked-account name lock (2026-09-29); the end must still reach the
-  // primary's `plus_one_name` mirror.
-  const block = ACTIONS.slice(Math.max(0, at - 1800), at + 4600);
+  // primary's `plus_one_name` mirror. +6400 since 2026-10-25: a ticked seat is written as attending, a minted one too
+  // (the "They're coming" tick).
+  const block = ACTIONS.slice(Math.max(0, at - 1800), at + 6400);
   assert.ok(block.includes('firstNamed'), 'the window no longer reaches the end of the plus-one write');
   return block;
 })();
@@ -80,15 +81,20 @@ test('🔒 the entitlement is re-read from the DATABASE, not taken from the form
   );
 });
 
+// (2026-10-18, event-day L1·1: the row is minted by `guest_plus_one_seat_mint`,
+// migration 20271272305444 — one call under a lock on the bringer, which re-reads
+// the allowance itself and writes `plus_one_of_guest_id` / `event_id` from these
+// two arguments. `tests/db/a-plus-one-seat-is-minted-once.db.test.ts` runs it.)
 test('🔒 the row is created ONLY inside that check', () => {
   const gate = WRITE.indexOf('primary?.plus_one_allowed');
-  const insert = WRITE.indexOf(".insert({");
-  assert.ok(gate > -1 && insert > gate, 'the insert is not inside the entitlement check');
+  const mint = WRITE.indexOf("rpc('guest_plus_one_seat_mint'");
+  assert.ok(gate > -1 && mint > gate, 'the seat mint is not inside the entitlement check');
+  assert.doesNotMatch(WRITE, /from\('guests'\)\s*\.insert\(/, 'a seat is inserted outside the locked writer again');
 });
 
 test('the new row is scoped to this event and this primary', () => {
-  assert.match(WRITE, /plus_one_of_guest_id: guestId/, 'the +1 is not linked to the guest');
-  assert.match(WRITE, /event_id: eventId/, 'the +1 is not scoped to the event');
+  assert.match(WRITE, /p_bringer_guest_id: guestId/, 'the +1 is not linked to the guest');
+  assert.match(WRITE, /p_event_id: eventId/, 'the +1 is not scoped to the event');
 });
 
 // ── The rules it shares with the rest of the card ───────────────────────────
@@ -100,7 +106,7 @@ test('a blank box is not a removal', () => {
   // (unit-tested in lib/extra-seats.test.ts), and the write runs only for names.
   assert.match(
     WRITE,
-    /const seatNames = readSeatNames\(formData\);\s*if \(seatNames\.length > 0\)/,
+    /const \{ kept: seatNames, refused: unticked \} = splitUnconfirmedSeats\(readSeatNames\(formData\)\);[\s\S]{0,600}?if \(seatNames\.length > 0\)/,
     'the write runs on an empty submit — a blank box must change nothing',
   );
   assert.ok(!/\.delete\(\)/.test(WRITE), 'the guest-side write can delete a guest row');

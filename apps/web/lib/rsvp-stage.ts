@@ -36,18 +36,21 @@ import {
   type RsvpWordKey,
 } from './rsvp-ask';
 import { RSVP_BRIDGE_SOURCE, rsvpWordBridgeKey } from './rsvp-stage-shared';
+import { RSVP_LOOK_MESSAGE } from './rsvp-stage-shared';
 
 export * from './rsvp-stage-shared';
 
 export type RsvpStageScene = 'form' | 'thanks' | 'decline';
 
 /** The three scenes, in the order a guest meets them — the navigator's list. */
-export const RSVP_STAGE_SCENES: ReadonlyArray<{ key: RsvpStageScene; label: string; sub: string }> = [
+export const RSVP_STAGE_SCENES: ReadonlyArray<{ key: RsvpStageScene; label: string; tab: string; sub: string }> = [
   /* 📑 Named as the owner approved them (2026-10-05, DECISION_LOG "APPROVED —
-     EVERY GUEST PAGE'S DEFAULT SECTION ORDER"): RSVP form · When yes · When no. */
-  { key: 'form', label: 'RSVP form', sub: 'The form your guests fill in' },
-  { key: 'thanks', label: 'When yes', sub: 'The thank-you, with their Digital tickets' },
-  { key: 'decline', label: 'When no', sub: 'What a guest who can’t come sees' },
+     EVERY GUEST PAGE'S DEFAULT SECTION ORDER"): RSVP form · When yes · When no.
+     `tab` is the word on the Stages page tabs — the prototype's short name
+     (`PAGE_SHORT`: "RSVP form" → "Form"), under the stage's own name. */
+  { key: 'form', label: 'RSVP form', tab: 'Form', sub: 'The form your guests fill in' },
+  { key: 'thanks', label: 'When yes', tab: 'When yes', sub: 'The thank-you, with their Digital tickets' },
+  { key: 'decline', label: 'When no', tab: 'When no', sub: 'What a guest who can’t come sees' },
 ];
 
 export function isRsvpStageScene(v: unknown): v is RsvpStageScene {
@@ -74,6 +77,34 @@ export const RSVP_SCENE_WORDS: Record<RsvpStageScene, readonly RsvpWordKey[]> = 
 };
 
 /** The panel's label for each word. */
+/**
+ * PREMADE LINES — "type your own, or pick one". ONLY words that already exist
+ * (owner 2026-09-30, "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE": no invented
+ * presets): the answers are the lines the owner's own ruling lists ("RSVP
+ * ANSWERS: THE COUPLE RENAMES…": "Joyfully accepts" · "Wouldn't miss it" ·
+ * "Count me in" / "Regretfully declines" · "Sadly can't make it"), and the
+ * screens after a reply offer only the words those screens and the reply card
+ * already print. A key with no shipped line offers none — type your own.
+ *
+ * HERE, not in `lib/rsvp-ask.ts`: that file is read by the Maker's first load (`lib/hub-draft.ts`), and only the lazy
+ * RSVP panel reads these.
+ */
+export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
+  attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
+  declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
+  thanksHeading: { celebrate: ['You’re on the list.', 'See you there!'], solemn: ['Thank you'] },
+  thanksMessage: {
+    celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
+    solemn: ['Your place is noted — thank you for being with the family.'],
+  },
+  declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
+  declineMessage: { celebrate: [], solemn: [] },
+  /* The form's three lines have ONE shipped wording each — the card's own, which "Automatic" already is. */
+  eyebrow: { celebrate: [], solemn: [] },
+  question: { celebrate: [], solemn: [] },
+  hint: { celebrate: [], solemn: [] },
+};
+
 export const RSVP_WORD_LABEL: Record<RsvpWordKey, string> = {
   attending: 'Yes answer',
   declined: 'No answer',
@@ -81,13 +112,17 @@ export const RSVP_WORD_LABEL: Record<RsvpWordKey, string> = {
   thanksMessage: 'Message',
   declineHeading: 'Heading',
   declineMessage: 'Message',
+  eyebrow: 'Eyebrow',
+  question: 'Question',
+  hint: 'Hint',
 };
 
 /* ── The editor bridge's messages (parent → frame, frame → parent) ────────── */
 
 export type RsvpBridgeMessage =
   | { source: typeof RSVP_BRIDGE_SOURCE; t: 'words'; key: string; text: string }
-  | { source: typeof RSVP_BRIDGE_SOURCE; t: 'rsvpAsk'; ask: Record<RsvpAskField, boolean>; oneAtATime: boolean };
+  | { source: typeof RSVP_BRIDGE_SOURCE; t: 'rsvpAsk'; ask: Record<RsvpAskField, boolean>; oneAtATime: boolean }
+  | { source: typeof RSVP_BRIDGE_SOURCE; t: typeof RSVP_LOOK_MESSAGE; look: Record<string, unknown> };
 
 /**
  * What the frame is told for one config — the words (`t:'words'`, the bridge's
@@ -106,6 +141,8 @@ export function rsvpPreviewMessages(config: RsvpAskConfig, solemn: boolean): Rsv
   const ask = {} as Record<RsvpAskField, boolean>;
   for (const field of RSVP_ASK_FIELDS) ask[field] = rsvpAsks(config, field);
   out.push({ source: RSVP_BRIDGE_SOURCE, t: 'rsvpAsk', ask, oneAtATime: readOneAtATime(config) });
+  /* 🎨 Each line's look — the RAW object: the page reads it strictly (`readRsvpLook`) and redraws its one `<style>`. */
+  out.push({ source: RSVP_BRIDGE_SOURCE, t: RSVP_LOOK_MESSAGE, look: config.look ?? {} });
   return out;
 }
 

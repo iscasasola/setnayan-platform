@@ -92,13 +92,17 @@ test('3 · the stand-ins are the Maker canvas’s alone — never a guest’s �
   const at = body.indexOf('makerDayPartsOn(pageStage, place)');
   assert.ok(at > 0, 'the canvas reads the navigator’s list, place by place');
   assert.match(body.slice(at - 40, at), /isMakerCanvas\s*\?\s*$/, 'drawn only on the Maker’s canvas');
-  assert.match(body.slice(at, at + 200), /makerMark\(`f:\$\{part\}`\)/, 'each with its navigator marker');
+  /* 🔁 RE-AIMED 2026-10-10 (a sample made real — `lib/block-looks.ts`): one line now stands before the marker — the
+     hidden mark of a part whose real block takes a look (`sampleBlockMark`) — so the window is 60 characters longer.
+     The claim is the same: each stand-in is drawn with its navigator marker. */
+  assert.match(body.slice(at, at + 260), /makerMark\(`f:\$\{part\}`\)/, 'each with its navigator marker');
   // The three places sit where the navigator lists them: before the stage's
   // sections, right after them, and after the entourage.
   const before = body.indexOf("makerDayStandIns('before')");
   const scenes = body.indexOf('{group(scenesTab, plan.openBrowse ? (');
   const after = body.indexOf("makerDayStandIns('after')");
-  const entourage = body.indexOf('<EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} />');
+  // 🪪 The host page's mount names the host's own row since 2026-10-19 (`hostOwnGuestId`) — the same mount, found by its head.
+  const entourage = body.indexOf('<EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={viewerIsHost');
   const last = body.indexOf("makerDayStandIns('last')");
   assert.ok(before > 0 && scenes > 0 && after > 0 && entourage > 0 && last > 0, 'every place is drawn');
   assert.ok(before < scenes && scenes < after && after < entourage && entourage < last, 'before · sections · after · entourage · last');

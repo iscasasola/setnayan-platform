@@ -40,6 +40,9 @@ const COLUMN = 'app/_components/chat/conversation-column.tsx';
 const COUPLE_PAGE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const BUILDER = 'lib/conversation-list.ts';
 const PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
+/** The supplier's row words, read once for the thread column AND the Chats inbox (2026-11-06). */
+const INPUTS = 'lib/vendor-conversation-inputs.server.ts';
+const CHATS = 'app/vendor-dashboard/messages/page.tsx';
 const BOOKINGS = 'app/vendor-dashboard/bookings/surface.tsx';
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
@@ -386,9 +389,15 @@ test('🔑 14 · a masked supplier’s real name never reaches the column', () =
     /listDisplayNames\.set\(/.test(couplePage),
     'the couple page stopped resolving the column’s names',
   );
+  // Since 2026-10-28 the name arrives through `nameForThread` (lib/chat-supplier-names.ts), which runs the
+  // resolver on `couple_thread_supplier_names` — the RLS-refused embed printed "Supplier" for hidden shops.
   assert.ok(
-    couplePage.includes('resolveVendorDisplayName'),
+    /listDisplayNames\.set\([^)]*nameForThread\(/.test(couplePage),
     'the column’s names stopped going through the anonymity resolver',
+  );
+  assert.ok(
+    /resolveVendorDisplayName\s*\(/.test(read('lib/chat-supplier-names.ts')),
+    'the one supplier-name reader stopped calling the anonymity resolver',
   );
   // The column and the builder must not know what a business_name or a logo is.
   for (const rel of [COLUMN, BUILDER]) {
@@ -507,14 +516,21 @@ test('🔑 17 · a tag that never varies costs a line and says nothing', () => {
   assert.equal(isDateTagWorthShowing(new Date(now + 60 * DAY).toISOString().slice(0, 10), now), true, 'exactly 60 days is still in the window');
 
   // Wired into the supplier's own row-tag construction — not left as a helper
-  // nobody calls.
-  const page = read(PAGE);
-  assert.ok(page.includes('serviceTagVaries('), 'the supplier page stopped asking whether its service tag varies');
-  assert.ok(page.includes('isDateTagWorthShowing('), 'the supplier page stopped gating its date tag by proximity');
+  // nobody calls. Since 2026-11-06 that construction is ONE module both supplier
+  // lists read (the thread column and the Chats inbox), so it is checked there,
+  // and both pages are checked to read it.
+  const inputs = read(INPUTS);
+  assert.ok(inputs.includes('serviceTagVaries('), 'the supplier rows stopped asking whether their service tag varies');
+  assert.ok(inputs.includes('isDateTagWorthShowing('), 'the supplier rows stopped gating their date tag by proximity');
   assert.ok(
-    /if \(service && showServiceTag\)/.test(page),
+    /if \(service && showServiceTag\)/.test(inputs),
     'the service tag stopped being conditional on it actually varying',
   );
+  for (const rel of [PAGE, CHATS]) {
+    const src = read(rel);
+    assert.ok(/readVendorConversationInputs\(\{/.test(src), `${rel} reads its row words its own way again`);
+    assert.ok(/buildVendorConversationRows\(\{/.test(src), `${rel} builds its rows its own way again`);
+  }
 });
 
 test('🔑 18 · the OTHER shipped inbox gets the same preview, sender included, and a bounded fetch', () => {

@@ -9,8 +9,11 @@
  * styles_2026-09-29.html` ("The Maker side — Style is one dropdown") and in the
  * Post Event prototype's Maker frames. A scene tapped → its panel → **Style**,
  * the shared PickMenu showing the current choice; a tap lists the styles with
- * one line each. Picking a style is FREE — no ◆ here — and never touches the
- * couple's words or data (any set of choices is a dropdown, owner 2026-09-28).
+ * one line each. Picking a style is FREE — except a look the owner made Event
+ * Hub Pro (`lib/scene-style-pro.ts`: the Love Story's two-lane timeline and
+ * swipe cards, 2026-10-17), which carries ◆ and is tried free here, asked for at
+ * ✓ Apply — and never touches the couple's words or data (any set of choices is
+ * a dropdown, owner 2026-09-28).
  *
  * Two doors, one row:
  *   · `SceneStyleRow` — the row itself, given its options and a pick handler
@@ -22,17 +25,23 @@
  *     makes the row appear, with no change here.
  */
 
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { sceneStyleOptions, sceneStyleTypeOfWidget, resolveSceneStyle } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow, ISeg, ISegmented } from './inspector-kit';
 import { PickMenu } from './pick-menu';
-import { useSceneCanvas } from './use-scene-canvas';
+import { hubDraftAnswer } from '@/lib/hub-draft';
+import { useHeldEventsSave, useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
-import { PaletteLookRow } from './palette-look-row';
+import { PaletteLookRow, PaletteLookStrip } from './palette-look-row';
+import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 import { useMaker } from '../../../launch/_components/maker-context';
+import { StyleCards } from '../../../launch/_components/stage-panel/style-carousel';
+import { Dd } from '../../../launch/_components/stage-panel/kit';
+import { useStagePanelNow } from '../../../launch/_components/stage-panel/store';
 import {
   HUB_ELEMENT_ALIGNS,
   HUB_ELEMENT_ALIGN_LABEL,
@@ -42,7 +51,8 @@ import {
   type HubElementAlign,
 } from '@/lib/element-style';
 
-export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean };
+/** `pro` — 💎 an Event Hub Pro ◆ look (`lib/scene-style-pro.ts`): tried free here, named at ✓ Apply. */
+export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean; pro?: boolean };
 
 export function SceneStyleRow({
   options,
@@ -51,7 +61,10 @@ export function SceneStyleRow({
   pending = false,
   error = null,
   recommendedId = null,
+  preview = null,
 }: {
+  /** 🧭 The new Maker's miniatures: the part's canvas key and scene type (`StyleCards`). */
+  preview?: { canvasKey: string; sceneType: string } | null;
   options: readonly SceneStyleChoice[];
   /**
    * The style the design recommends, when it is NOT the default — the
@@ -66,11 +79,11 @@ export function SceneStyleRow({
   pending?: boolean;
   error?: string | null;
 }) {
-  /* 🧭 The new Maker draws the same styles as a carousel (`StyleCarousel`). */
+  /* 🧭 The new Maker draws the same styles as a carousel of real miniatures (`StyleCarousel` = `stage-panel/style-carousel.tsx`). */
   const carousel = useMaker()?.stagesStudio === true;
   if (options.length < 2) return null;
   if (carousel) {
-    return <StyleCarousel options={options} value={value} recommendedId={recommendedId} onPick={onPick} pending={pending} error={error} />;
+    return <StyleCarousel options={options} value={value} onPick={onPick} pending={pending} error={error} preview={preview} />;
   }
   return (
     <>
@@ -81,7 +94,8 @@ export function SceneStyleRow({
           dataAttr="data-scene-style"
           options={options.map((o) => ({
             key: o.id,
-            label: o.name,
+            /* 💎 ◆ on a Pro look — never a padlock: it is tried free and asked for at ✓ Apply. */
+            label: o.pro ? `${o.name} ◆` : o.name,
             hint: (recommendedId ? o.id === recommendedId : o.isDefault) ? `${o.line} · Recommended` : o.line,
           }))}
           onPick={(id) => {
@@ -99,61 +113,36 @@ export function SceneStyleRow({
 }
 
 /**
- * 🎠 THE NEW MAKER'S STYLE — the SAME shipped styles (`sceneStyleOptions`,
- * `lib/scene-styles.ts`), side by side as a carousel (owner 2026-10-06: *"Style
- * are the presets"*; prototype `.lcar`). Never a new family list: these are the
- * scene's own three-or-so styles — `lib/layouts-are-the-shipped-scene-styles.test.ts`.
- * A tap applies at once: the page above IS the preview (the pick is redrawn in
- * place, drafted, counted on ✓). Each card is a button.
+ * 🎠 THE NEW MAKER'S STYLE — the SAME shipped styles (`sceneStyleOptions`, `lib/scene-styles.ts`) as a
+ * carousel of REAL miniatures (owner 2026-10-07: *"should be a preview of the style and not text"*; prototype
+ * `.lcar`): each card is the part drawn in that style (`stage-panel/style-carousel.tsx` `StyleCards`), with
+ * its short name only — no description, no "Recommended". Never a list of its own:
+ * `lib/layouts-are-the-shipped-scene-styles.test.ts`. A tap applies at once; the page above is the full preview.
  */
 function StyleCarousel({
   options,
   value,
-  recommendedId,
   onPick,
   pending,
   error,
+  preview,
 }: {
   options: readonly SceneStyleChoice[];
   value: string | null;
-  recommendedId: string | null;
   onPick: (id: string) => void;
   pending: boolean;
   error: string | null;
+  preview: { canvasKey: string; sceneType: string } | null;
 }) {
   return (
-    <div data-style-carousel="" className="py-2">
-      <div role="radiogroup" aria-label="Layout" className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {options.map((o) => {
-          const on = o.id === value;
-          const recommended = recommendedId ? o.id === recommendedId : o.isDefault;
-          return (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              data-style-card={o.id}
-              onClick={() => {
-                if (!pending && !on) onPick(o.id);
-              }}
-              className={`sn-press flex min-h-[92px] w-[9.75rem] shrink-0 snap-start flex-col rounded-xl bg-white px-3 py-2.5 text-left ring-1 transition-shadow duration-sn-control ease-sn ${
-                on ? 'ring-2 ring-mulberry' : 'ring-ink/10'
-              }`}
-            >
-              <span className="font-serif text-[16px] leading-tight text-ink">{o.name}</span>
-              <span className="mt-1 line-clamp-3 text-[11.5px] leading-snug text-ink/65">{o.line}</span>
-              {recommended ? <span className="mt-auto pt-1 text-[10.5px] font-semibold text-ink/50">Recommended</span> : null}
-            </button>
-          );
-        })}
-      </div>
+    <>
+      <StyleCards options={options} value={value} onPick={onPick} pending={pending} canvasKey={preview?.canvasKey ?? null} sceneType={preview?.sceneType ?? ''} />
       {error ? (
-        <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
+        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
           {error}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -191,6 +180,7 @@ export function SceneStyleCanvasRow({
         options={options}
         value={layout}
         recommendedId={recommendedStageSceneStyle(type, stage, eventType)}
+        preview={{ canvasKey: `w:${widgetType}`, sceneType: type }}
         pending={pending}
         error={error}
         /* One row, one value across stages: the pick is stored as chosen. */
@@ -244,6 +234,11 @@ export function PaletteLookCanvasRow({
   draftAction,
   colours,
 }: {
+  /**
+   * 👗 The Dress code as saved (drafted over live, `normalizeDressCodeConfig`) — handed by the Stages panel's
+   * Dress code part alone, for its Figures ▾ (`DressFiguresRow`). Absent = no Figures row.
+   */
+  dressCode?: DressCodeConfig | null;
   eventId: string;
   /** The Dress code scene's canvas (drafted over live). */
   canvas: HubSectionCanvas;
@@ -262,15 +257,40 @@ export function PaletteLookCanvasRow({
     { redraw: true },
   );
   const layout = resolveSceneStyle('dress_code', 'rsvp', shown.style, eventType);
-  if (colours.length === 0 || !layoutDrawsPaletteLook(layout)) return null;
+  /* 🖼 The Stages panel, on the Dress code part: the looks are PICTURES (owner 08 Oct: *"palette should show the
+     actual previews like the other styles"*), drawn by the shared look-card renderer. Studio › Look › Colours
+     keeps the dropdown — the page under it may be a stage that draws no Dress code to picture. */
+  const cards = useMaker()?.stagesStudio === true;
+  const onDressPart = useStagePanelNow().picked === 'dress';
+  const drawsPalette = layoutDrawsPaletteLook(layout);
+  /* Tags is the default, and "Auto is an absence": picking it clears the key. */
+  const pick = (id: string) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; });
+  if (cards && onDressPart) {
+    /* 🎨 THE TOOLBAR'S STYLE, ON THE DRESS CODE (owner 2026-10-09: *"row 3 is palette style"*): the five palette
+       looks as ONE row of five under the layouts' cards — only where the layout draws the look.
+       No longer drawn here (the toolbar is four rows): the Do's & Don'ts looks → Studio › Mood Board & Dress Code
+       (owner, decided 2026-10-09 — their stored pick, `canvas.dos`, is still honoured by the page), and Figures ▾,
+       which is the Mood Board's own switch (`show_figure` — one setting, and that door is still there). */
+    return (
+      <>
+        {drawsPalette ? <PaletteLookStrip value={resolvePaletteLook(shown.palette)} colours={colours} pending={pending} onPick={pick} /> : null}
+        {error ? (
+          <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+  /* The dropdown's thumbnails are the couple's colours — with none there is nothing to show in it. */
+  if (!drawsPalette || colours.length === 0) return null;
   return (
     <div data-look-palette="">
       <PaletteLookRow
         value={resolvePaletteLook(shown.palette)}
         colours={colours}
         pending={pending}
-        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
-        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
+        onPick={pick}
       />
       {error ? (
         <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
@@ -278,6 +298,85 @@ export function PaletteLookCanvasRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 👗 FIGURES ▾ — the small drawn person beside each role's colours (owner's preview check, 08 Oct, verbatim:
+ * *"allow an option not to show this also or pick a style to show or upload a photo for each?"*).
+ *
+ * ONE dropdown, **Drawn · Hidden**, and ONE setting with two doors: it reads and writes the SAME
+ * `events.dress_code_config.show_figure` the Mood Board's own switch does (owner 2026-09-30, *"they can opt not
+ * to add this"*; `studio/mood-board/_components/dress-code-fields.tsx`), the whole config through the one draft
+ * door (`{ events: { dress_code_config: next } }`, as `mood-board-studio.tsx` sends it; `useHeldEventsSave`) —
+ * so the two can never disagree, and guests keep the live page until ✓ Apply. Held and redrawn in place, like a
+ * look pick.
+ *
+ * ⛔ **Photos is NOT offered.** A photo per role does not exist to show: the Mood Board's Attire boards store
+ * three slots only (`bride`, `groom`, `entourage` — Groomsmen · Bridesmaids · Flower girl · Ring bearer wait in
+ * `AWAITING_A_SLOT`, `lib/inspiration-slots.ts`, on a migration widening `event_inspiration_assets_slot_key_
+ * check`), and guests cannot read `event_inspiration_assets` at all (host-members-only RLS; the guest page's
+ * loader does not read it, and its rows hold pasted third-party URLs and suppliers' photos). An option that
+ * could only fall back to Drawn for every role would be a pick that changes nothing — so it is left out, not
+ * drawn disabled.
+ */
+/* (Not drawn in the toolbar since 2026-10-09 — four rows; the Mood Board's own switch is this setting's door. Kept,
+   exported, for whoever gives it a row again.) */
+export function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: string; dressCode: DressCodeConfig; draftAction: ElementDraftAction }) {
+  const saveEvents = useHeldEventsSave(eventId, draftAction);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef(dressCode);
+  const [drawn, setDrawn] = useState(dressCode.show_figure !== false);
+  const json = JSON.stringify(dressCode);
+  useEffect(() => {
+    latest.current = dressCode;
+    setDrawn(dressCode.show_figure !== false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [json]);
+  const pick = (k: string) => {
+    const show = k !== 'hidden';
+    if (pending || show === drawn) return;
+    const before = latest.current;
+    /* The WHOLE config, with the one switch changed — what the Mood Board's door sends. */
+    const next: DressCodeConfig = { ...before, show_figure: show };
+    latest.current = next;
+    setDrawn(show);
+    setError(null);
+    start(async () => {
+      /* 📵 A save that never answered (no signal, a 5xx) is the same refusal, said in the same line — thrown into
+         this transition it replaced the whole Maker with the app's error screen (`hubDraftAnswer`). */
+      const res = await hubDraftAnswer('save', () => saveEvents({ dress_code_config: next }));
+      if (!res.ok) {
+        /* A failure never reads as a pick that landed: the row goes back, and says why. */
+        latest.current = before;
+        setDrawn(before.show_figure !== false);
+        setError(res.error);
+      }
+    });
+  };
+  return (
+    <>
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-figures="">
+        <Dd
+          small="Figures"
+          label="Figures"
+          data="dress-figures"
+          about="The small drawn person beside each role’s colours."
+          value={drawn ? 'drawn' : 'hidden'}
+          options={[
+            { key: 'drawn', label: 'Drawn' },
+            { key: 'hidden', label: 'Hidden' },
+          ]}
+          onPick={pick}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -301,10 +400,56 @@ export function SceneAlignRow({
   canvas: HubSectionCanvas;
   draftAction: ElementDraftAction;
 }) {
-  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const ss = useMaker()?.stagesStudio === true;
+  /* ↕ The new Maker's row also carries Spacing, a class the bridge cannot lay — so there the scene is redrawn
+     in place once the save lands (`redraw`), the way a Style pick is. */
+  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction, undefined, { redraw: ss });
   const keys = HUB_SCENE_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('align'));
   const now = keys.map((k) => shown.elements?.[k]?.align ?? null);
   const value = now.every((a) => a === now[0]) && now[0] ? now[0] : 'auto';
+  const options = [{ key: 'auto', label: 'As the scene' }, ...HUB_ELEMENT_ALIGNS.map((a) => ({ key: a, label: HUB_ELEMENT_ALIGN_LABEL[a] }))];
+  const pick = (k: string) => {
+    if (pending) return;
+    const align = k === 'auto' ? null : (k as HubElementAlign);
+    save((c) => {
+      let next = c.elements ?? null;
+      for (const el of keys) next = withElementAlign(next, el, align);
+      if (next) c.elements = next;
+      else delete c.elements;
+    });
+  };
+  /* 🧭 The new Maker: the prototype's `.r2` row — ALIGNMENT  Centre ▾ · SPACING  Regular ▾ (`stage-panel/kit.tsx`).
+     ↕ Spacing is the scene's room above and below (`HubSectionCanvas.spacing`; Regular is the absence). */
+  if (ss) {
+    return (
+      <>
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-arrange="align">
+        <Dd small="Alignment" label="Alignment" data="arrange-align" about="Follows the page, or set it left, centre or right." value={value} options={options} onPick={pick} />
+      </div>
+      <div className="flex h-11 shrink-0 gap-1.5" data-stage-arrange="spacing">
+        <Dd
+          small="Spacing"
+          label="Spacing"
+          data="arrange-spacing"
+          about="The room above and below this scene."
+          value={shown.spacing ?? 'regular'}
+          options={[
+            { key: 'tight', label: 'Tight' },
+            { key: 'regular', label: 'Regular' },
+            { key: 'roomy', label: 'Roomy' },
+          ]}
+          onPick={(k) => {
+            if (pending) return;
+            save((c) => {
+              if (k === 'tight' || k === 'roomy') c.spacing = k;
+              else delete c.spacing;
+            });
+          }}
+        />
+      </div>
+      </>
+    );
+  }
   return (
     <>
       <IRow label="Alignment" data="scene-align">

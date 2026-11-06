@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCountTo } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -37,36 +37,16 @@ export function CountUp({
   /** How each frame is printed. Defaults to the grouped count; pass `formatPhp` for money. */
   format?: (n: number) => string;
 }) {
-  const [display, setDisplay] = useState(value);
-
-  useEffect(() => {
-    if (!Number.isFinite(value) || value <= 0) return;
-    if (
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      // Reduced motion: keep the final value, no animation.
-      return;
-    }
-    const DURATION = 1150;
-    let raf = 0;
-    let start = 0;
-    setDisplay(0);
-    const timer = window.setTimeout(() => {
-      const tick = (now: number) => {
-        if (!start) start = now;
-        const t = Math.min(1, (now - start) / DURATION);
-        const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-        setDisplay(Math.round(eased * value));
-        if (t < 1) raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-    }, delayMs);
-    return () => {
-      window.clearTimeout(timer);
-      cancelAnimationFrame(raf);
-    };
-  }, [value, delayMs]);
+  // One engine (components/count.tsx, the button rule's `Count`): same
+  // behaviour as before — final value on the server, then 0 → value over
+  // 1150 ms easeOutCubic after the stagger, every time the value changes;
+  // values ≤ 0 and reduced motion print at once.
+  const display = useCountTo(value, {
+    durationMs: 1150,
+    delayMs,
+    alwaysFromZero: true,
+    skipNonPositive: true,
+  });
 
   return (
     <span>

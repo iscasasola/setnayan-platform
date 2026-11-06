@@ -62,4 +62,19 @@ export const PHONE = 'max-w-md' as const; // 28rem
 
 /** The whole sanctioned set. A page-level column outside this is a defect. */
 export const MEASURES = [STAGE, PLATE, READING, PHONE] as const;
+
+/**
+ * THE PAGE'S OWN COLUMN, FOR A BLOCK THE SHELL'S COLUMN DOES NOT WRAP.
+ *
+ * Not a fifth measure — it is the plate, centred, with the page's side gutter
+ * (`px-4`, `sm:px-6`): the classes of the column the Save the Date's page sits
+ * in (`std-film-handoff.tsx`) and of the shell's own (`invitation-shell.tsx`).
+ * On a full-bleed stage the shell draws NO column, so anything drawn outside
+ * the film's page column runs edge to edge unless it takes this one: Me as the
+ * bar draws it (2026-10-11, N11), and the guest's foot — the record note and
+ * the sign-out (2026-10-11: the note ran from the glass's left edge to its
+ * right at 320, 375, 390 and 768).
+ * 🛡 app/[slug]/_components/me-has-the-pages-gutter.test.ts
+ */
+export const PAGE_COLUMN = `mx-auto w-full ${PLATE} px-4 sm:px-6` as const;
 export type Measure = (typeof MEASURES)[number];

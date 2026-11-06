@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
@@ -6,7 +7,7 @@ import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName, guestFullName, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
+import { fetchGuestsByEventMeasured, guestDisplayName, guestNameAsGiven, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
@@ -88,12 +89,21 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   }
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const [guests, inviteSetup] = await Promise.all([
-    fetchGuestsByEvent(supabase, eventId),
+  const [guestsRead, inviteSetup] = await Promise.all([
+    fetchGuestsByEventMeasured(supabase, eventId),
     /* The ONE message builder's inputs — the event's words and the couple's own
        wording — shared with the guest list's Send invite (2026-09-29). */
     loadInviteSetup(supabase, eventId),
   ]);
+  // 🔌 A refused guest read is never a page of nobody (reads-are-honest, 2026-11-02 audit #14).
+  if (!guestsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your guest list" />
+      </section>
+    );
+  }
+  const guests = guestsRead.rows;
   /* Counted from the rows already in hand — no second query for a number the
      page has already read. */
   const invitationsMarked = guests.filter((g) => g.invitation_sent_at !== null).length;
@@ -429,7 +439,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                  they have no link yet — the modal then offers no Copy button. */
               const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
-            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+            formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',
@@ -509,7 +519,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
              they have no link yet — the modal then offers no Copy button. */
           const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
-            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+            formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',

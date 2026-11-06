@@ -3,6 +3,8 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, R2_BUCKETS, r2Delete, r2List } from '@/lib/r2';
 import { retirableKeys } from '@/lib/media-retirement';
+import { HUB_MUSIC_PREFIX } from '@/lib/hub-music';
+import { hubMusicKeyFromRef, hubMusicRefForKey } from '@/lib/hub-music-ref';
 import {
   classifyGroup,
   keyFromRef,
@@ -184,11 +186,56 @@ async function readNavIconRefs(): Promise<ReferenceLookup> {
 }
 
 /**
+ * References held by `hub_music_tracks.r2_key` — the Event Hub "Our music"
+ * list. Every row counts, published or not: an unpublished track is still a
+ * track, and its file is not a leftover.
+ *
+ * …AND BY EVERY EVENT HUB PLAYING ONE. A couple's pick stores the track's file
+ * in `events.site_bg_music_r2_key` (lib/hub-music-ref.ts), so a track removed
+ * from the list must not take its file away from the guests still hearing it:
+ * the file stays "in use" until the last Event Hub lets go of it.
+ */
+async function readHubMusicRefs(): Promise<ReferenceLookup> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from('hub_music_tracks').select('r2_key');
+
+  if (error) {
+    return { ok: false, reason: `Could not read the Event Hub music list (${error.message}).` };
+  }
+
+  const { data: playing, error: playingError } = await supabase
+    .from('events')
+    .select('site_bg_music_r2_key')
+    .like('site_bg_music_r2_key', `${hubMusicRefForKey(HUB_MUSIC_PREFIX)}%`);
+
+  if (playingError) {
+    return {
+      ok: false,
+      reason: `Could not read which Event Hubs play our music (${playingError.message}).`,
+    };
+  }
+
+  const keys = new Set<string>();
+  for (const row of data ?? []) {
+    const k = (row as { r2_key: string | null }).r2_key;
+    if (!k) continue;
+    keys.add(k);
+    const parsed = keyFromRef(k);
+    if (parsed) keys.add(parsed);
+  }
+  for (const row of playing ?? []) {
+    const key = hubMusicKeyFromRef((row as { site_bg_music_r2_key: string | null }).site_bg_music_r2_key);
+    if (key) keys.add(key);
+  }
+  return { ok: true, keys };
+}
+
+/**
  * Which read backs which prefix. Exhaustive by construction — an unmapped
  * prefix throws at build/dev time rather than defaulting to a permanently
  * `unknown` folder.
  */
-type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings' | 'navIcons';
+type LookupSource = 'backgroundVideos' | 'hero' | 'platformSettings' | 'navIcons' | 'hubMusic';
 
 const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
   'homepage-bg/': 'backgroundVideos',
@@ -197,6 +244,7 @@ const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
   'onboarding/': 'platformSettings',
   'brand-icon/': 'platformSettings',
   'nav-icons/': 'navIcons',
+  'hub-music/': 'hubMusic',
 };
 
 /**
@@ -209,7 +257,7 @@ const SOURCE_FOR_PREFIX: Record<string, LookupSource> = {
  * classify its two groups from different reads.
  */
 async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> {
-  const [backgroundVideos, hero, platformSettings, navIcons] = await Promise.all([
+  const [backgroundVideos, hero, platformSettings, navIcons, hubMusic] = await Promise.all([
     readBackgroundVideoRefs().catch(
       (e: unknown): ReferenceLookup => ({
         ok: false,
@@ -234,8 +282,14 @@ async function readAllSources(): Promise<Record<LookupSource, ReferenceLookup>> 
         reason: `Could not read the menu icons (${e instanceof Error ? e.message : String(e)}).`,
       }),
     ),
+    readHubMusicRefs().catch(
+      (e: unknown): ReferenceLookup => ({
+        ok: false,
+        reason: `Could not read the Event Hub music list (${e instanceof Error ? e.message : String(e)}).`,
+      }),
+    ),
   ]);
-  return { backgroundVideos, hero, platformSettings, navIcons };
+  return { backgroundVideos, hero, platformSettings, navIcons, hubMusic };
 }
 
 export type WebsiteMediaReport = {

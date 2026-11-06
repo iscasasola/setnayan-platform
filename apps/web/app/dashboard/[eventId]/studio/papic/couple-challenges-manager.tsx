@@ -1,3 +1,6 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
+import { PapicStayForm } from './_components/papic-stay-form';
+import { ChallengeCardRow } from './_components/challenge-card-row';
 // Papic Games — couple challenge manager (spec §5 / gap #1 + #8). Lets the couple
 // AUTHOR their own generic challenges (so every event has a real game, not just
 // booth missions for booked vendors) and CURATE the live set — hide/show any
@@ -19,6 +22,8 @@ import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
   boardIsTrustworthy,
+  boardLaneCounts,
+  boardShowingWords,
   boardOccupancyClaim,
   coupleSlots,
   displayChallengePrompt,
@@ -48,11 +53,16 @@ import {
   createCoupleChallengeAction,
   addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
+  setChallengesPausedAction,
   deleteCoupleChallengeAction,
   armChallengeAction,
   stopChallengeAction,
 } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { fetchPauseState } from '@/lib/papic-challenge-pause';
+import { ACTIVE_CHALLENGE_CAP } from '@/lib/papic-missions';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 type MissionRow = {
   mission_id: string;
@@ -65,6 +75,8 @@ type MissionRow = {
   source: PapicMissionSource;
   prompt: string;
   is_active: boolean;
+  /** The library row it came from — null for one written by hand. */
+  library_id?: number | null;
   /** The guest board position, 1..20. NULL = this challenge exists but is NOT
    *  being shown to guests — see the split below. */
   board_slot: number | null;
@@ -127,7 +139,7 @@ function FilterChip({
 
   return (
     <Link
-      href={`/dashboard/${eventId}/studio/papic${qs ? `?${qs}` : ''}#challenges`}
+      href={`/dashboard/${eventId}/studio/papic/challenges${qs ? `?${qs}` : ''}`}
       // The active chip is announced, not just coloured: on this palette the
       // difference between a selected and an unselected chip is a fill, and a
       // fill is invisible to a screen reader and to anyone who cannot see it.
@@ -147,6 +159,8 @@ export async function CoupleChallengesManager({
   eventId,
   search,
   standalone = false,
+  inCard = false,
+  returnTo = null,
 }: {
   eventId: string;
   /** The picker's own URL keys, prefixed `c` so they cannot collide with the
@@ -163,6 +177,14 @@ export async function CoupleChallengesManager({
    * one reads the board ONCE and decides how much of it to show.
    */
   standalone?: boolean;
+  /**
+   * 📷 INSIDE THE PAPIC CARD (owner rulings 2026-10-24, the approved sketch): the board a guest sees, IN PLACE — a
+   * tag and a switch per challenge (`setCoupleChallengeActiveAction`) and "+ Add your own" (`createCoupleChallengeAction`),
+   * under one "Challenges" row that says how many are showing. The same read as the other two arms.
+   */
+  inCard?: boolean;
+  /** 🏠 'home' inside Home's card — every press lands back on Home. */
+  returnTo?: 'home' | null;
 }) {
   if (!papicGamesEnabled()) return null;
 
@@ -202,9 +224,11 @@ export async function CoupleChallengesManager({
   // booked; it means nothing to the couple and matched no other screen.
   const { data, error: missionsErr } = await supabase
     .from('papic_missions')
-    .select('mission_id,source,prompt,is_active,board_slot,capture_kind')
+    .select('mission_id,source,prompt,is_active,board_slot,capture_kind,library_id,created_at')
     .eq('event_id', eventId)
     .eq('approved', true)
+    // ✕ A removed challenge leaves the host's list for good (owner 2026-10-26); its row stays for the photos it tagged.
+    .is('removed_at', null)
     .order('board_slot', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true });
 
@@ -324,7 +348,9 @@ export async function CoupleChallengesManager({
     .from('papic_missions')
     .select('library_id')
     .eq('event_id', eventId)
-    .not('library_id', 'is', null);
+    .not('library_id', 'is', null)
+    // ✕ …and a removed one may be picked again (a fresh challenge; the removed row keeps its old photos).
+    .is('removed_at', null);
   if (takenErr) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx · from:papic_missions.select', takenErr);
 
   // What kind of celebration this is (so a birthday is never offered a garter
@@ -363,6 +389,84 @@ export async function CoupleChallengesManager({
   const soldAway = BOARD_SIZE - ceiling;
 
   // ── EMBEDDED: a summary and a door, never a second copy of the screen ──────
+  if (inCard) {
+    // 📷 IN THE PAPIC CARD: ONE "Challenges" row — "N of 10 challenges on" — whose switch is the board's master switch,
+    // the shipped PAUSE (`setChallengesPausedAction`: the board stays, untouched, and comes back as it was). On: the TEN
+    // SLOTS (owner 2026-10-27), each `ChallengeCardRow` — its name opens the one challenge sheet (search the 631-row
+    // library · create your own) and a pick REPLACES it in place; its switch turns just that one off, and it stays in
+    // its slot. No "Add a challenge", no ✕. The hard cap of 10 live is the server's (`activationRefused`).
+    const [pause, typeRes] = await Promise.all([
+      fetchPauseState(supabase, eventId),
+      supabase.from('events').select('event_type').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const off = pause.measured && pause.pausedAt !== null;
+    const running = missions.filter((m) => m.is_active);
+    const full = running.length >= ACTIVE_CHALLENGE_CAP;
+    const taken = missions.map((m) => m.library_id).filter((id): id is number => typeof id === 'number');
+    const ret = returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null;
+    const eventType = ((typeRes.data as { event_type?: string | null } | null)?.event_type ?? null) as string | null;
+    // The ten: what the event has, oldest first (stable — a switch never reorders), padded to ten with slots to choose.
+    const listed = [...missions]
+      .sort((a, b) => String((a as { created_at?: string }).created_at ?? '').localeCompare(String((b as { created_at?: string }).created_at ?? '')))
+      .slice(0, ACTIVE_CHALLENGE_CAP);
+    const slots: Array<(typeof listed)[number] | null> = [...listed, ...Array.from({ length: ACTIVE_CHALLENGE_CAP - listed.length }, () => null)];
+    return (
+      <section className="flex flex-col" data-papic-challenges-card={off ? 'off' : 'on'}>
+        <div className="flex items-center gap-3 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <InfoTip label="Challenges" labelClassName="text-[15px] font-semibold text-ink" align="start">
+                Ten little photo missions on every guest&rsquo;s board. Tap one to choose a different challenge — search
+                ours or write your own; photos already taken keep the old one. Switch one off and it stays in its place,
+                just not live. The switch up here pauses the whole board (for a moment everybody must be watching) and it
+                comes back exactly as it was.
+              </InfoTip>
+              {missionsReadable ? (
+                <span className="text-[12.5px] text-ink/55" data-papic-challenges-count="">
+                  {formatCount(running.length)} of {formatCount(ACTIVE_CHALLENGE_CAP)} challenges on
+                </span>
+              ) : null}
+            </span>
+            <span className="block text-[12.5px] text-ink/60" data-papic-challenges-showing="">
+              {!pause.measured ? 'Couldn’t check whether they are on' : off ? 'Off' : missionsReadable ? 'On' : 'Couldn’t load your challenges'}
+            </span>
+          </span>
+          {pause.measured ? (
+            <PapicStayForm door="setChallengesPausedAction" action={setChallengesPausedAction} className="shrink-0">
+              <input type="hidden" name="event_id" value={eventId} />
+              {off ? <input type="hidden" name="resume" value="1" /> : null}
+              {ret}
+              <button type="submit" role="switch" aria-checked={!off} aria-label="Challenges" className={SWITCH_BUTTON}>
+                <SwitchTrack on={!off} />
+              </button>
+            </PapicStayForm>
+          ) : null}
+        </div>
+        {off ? null : (
+          <>
+            {missionsReadable ? (
+              /* 🎚 TEN SLOTS, ALWAYS TEN ROWS (owner 2026-10-27: "there will be 10 challenges the can make. choose a
+                 challenge or turn that challenge off. turning 1 off will become 9 of 10 challenges. it stays there, but
+                 just off."). Each row: its name — tap to choose its challenge (search · create; the pick replaces it in
+                 place) · its switch. In the order they were made, so a switch never moves a row (an off row keeps its
+                 place; a replacement takes the replaced one's `created_at`). No "Add a challenge" button, no ✕. */
+              <ul className="divide-y divide-ink/10" data-papic-challenges-running="">
+                {slots.map((m, i) => (
+                  <ChallengeCardRow key={m?.mission_id ?? `slot-${i}`} eventId={eventId} eventType={eventType} taken={taken} mission={m} full={full} returnTo={returnTo} />
+                ))}
+              </ul>
+            ) : null}
+            {full ? (
+              <p className="pt-2 text-[12.5px] text-ink/60" data-papic-challenges-full="">
+                10 are on — turn one off to turn another on.
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
+    );
+  }
+
   if (!standalone) {
     return (
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
@@ -384,9 +488,12 @@ export async function CoupleChallengesManager({
           <p className="mt-3 text-sm text-ink/80">
             <span className="font-semibold tabular-nums">{formatCount(chosen)}</span> of{' '}
             <span className="tabular-nums">{formatCount(ceiling)}</span> chosen
+            {/* 🧮 ONE TRUE SENTENCE (2026-10-23): "10 showing to guests" beside "3 of 8 chosen" read as a
+                bug. The board is always filled to its size — suppliers' and Setnayan's suggestions fill
+                what the couple did not pick — so the card names the parts (`boardShowingWords`). */}
             {onBoard.length > 0 ? (
               <>
-                {' '}&middot; <span className="tabular-nums">{onBoard.length}</span> showing to guests
+                {' '}&middot; {boardShowingWords(boardLaneCounts(missions))}
               </>
             ) : null}
             .
@@ -468,7 +575,7 @@ export async function CoupleChallengesManager({
         <p className="mt-3 rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-2 text-xs text-ink/75">
           A guest who does every challenge on the board spends{' '}
           <span className="font-semibold tabular-nums">{boardCostPerGuest}</span>{' '}
-          {boardCostPerGuest === 1 ? 'shot' : 'shots'} from your shared pool
+          {boardCostPerGuest === 1 ? 'credit' : 'credits'} from your shared pool
           {poolRemaining !== null ? (
             <>
               {' '}— you have{' '}
@@ -485,7 +592,7 @@ export async function CoupleChallengesManager({
       ) : null}
 
       {/* Author your own */}
-      <form action={createCoupleChallengeAction} className="mt-4 space-y-2">
+      <PapicStayForm door="createCoupleChallengeAction" action={createCoupleChallengeAction} className="mt-4 space-y-2">
         <input type="hidden" name="event_id" value={eventId} />
         <textarea
           name="prompt"
@@ -503,7 +610,7 @@ export async function CoupleChallengesManager({
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           Add challenge
         </SubmitButton>
-      </form>
+      </PapicStayForm>
 
       {/* ── The picker: 631 challenges, filtered and searched ───────────────
           The owner's spec, verbatim: "here they can filter it so they can pick
@@ -613,7 +720,7 @@ export async function CoupleChallengesManager({
 
           {!showingDefault ? (
             <Link
-              href={`/dashboard/${eventId}/studio/papic#challenges`}
+              href={papicHomeHref(eventId)}
               className="mt-3 inline-flex items-center gap-1 text-xs text-link underline underline-offset-2"
             >
               <X aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -683,7 +790,7 @@ export async function CoupleChallengesManager({
                       Full
                     </span>
                   ) : (
-                    <form action={addLibraryChallengeAction} className="shrink-0">
+                    <PapicStayForm door="addLibraryChallengeAction" action={addLibraryChallengeAction} className="shrink-0">
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="library_id" value={row.library_id} />
                       <SubmitButton
@@ -693,7 +800,7 @@ export async function CoupleChallengesManager({
                         <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                         Add
                       </SubmitButton>
-                    </form>
+                    </PapicStayForm>
                   )}
                 </li>
               ))}
@@ -944,7 +1051,7 @@ function ChallengeRow({
               celebrations whose challenges ARE reaching guests. Gated on
               is_active, which is what "a guest can see this" means. */}
           {m.is_active && !isLiveNow ? (
-            <form action={armChallengeAction} className="flex items-center gap-1">
+            <PapicStayForm door="armChallengeAction" action={armChallengeAction} className="flex items-center gap-1">
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="mission_id" value={m.mission_id} />
               {/* ⏱ How long it runs. Owner 2026-09-01: 30 minutes by default,
@@ -974,14 +1081,14 @@ function ChallengeRow({
                 <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Ask now
               </SubmitButton>
-            </form>
+            </PapicStayForm>
           ) : null}
           {/* ⏹ Stop — ends the prompt, keeps the challenge. Deliberately NOT
               the eye below it: hiding takes the challenge off every guest's
               board, which is a different and much bigger act. Only rendered on
               the one that is actually running. */}
           {isLiveNow ? (
-            <form action={stopChallengeAction}>
+            <PapicStayForm door="stopChallengeAction" action={stopChallengeAction}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="mission_id" value={m.mission_id} />
               <SubmitButton
@@ -992,10 +1099,10 @@ function ChallengeRow({
                 <Square aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Stop
               </SubmitButton>
-            </form>
+            </PapicStayForm>
           ) : null}
           {/* Hide / show — curation for every source. */}
-          <form action={setCoupleChallengeActiveAction}>
+          <PapicStayForm door="setCoupleChallengeActiveAction" action={setCoupleChallengeActiveAction}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="mission_id" value={m.mission_id} />
             <input type="hidden" name="active" value={m.is_active ? 'false' : 'true'} />
@@ -1011,10 +1118,11 @@ function ChallengeRow({
                 <Eye aria-hidden className="h-4 w-4" strokeWidth={2} />
               )}
             </button>
-          </form>
-          {/* Delete — only the couple's own. */}
+          </PapicStayForm>
+          {/* Delete — only the couple's own. Since 2026-10-26 a SOFT remove (`deleteCoupleChallengeAction`): photos already
+              taken keep the challenge. (The Papic card has no ✕ — its slots are changed or switched off, owner 2026-10-27.) */}
           {m.source === 'couple' ? (
-            <form action={deleteCoupleChallengeAction}>
+            <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="mission_id" value={m.mission_id} />
               <button
@@ -1025,7 +1133,7 @@ function ChallengeRow({
               >
                 <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
-            </form>
+            </PapicStayForm>
           ) : null}
         </div>
       </div>

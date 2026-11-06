@@ -49,7 +49,7 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
         already inside. The back cover looks FORWARD; the pointer back is S15's
         (08 step 4.3), on the masthead of No. 2.
       */}
-      <p className="font-mono text-xs uppercase tracking-[0.32em] text-ink/60">
+      <p className="font-mono text-xs uppercase tracking-[0.32em] text-ink/70">
         What comes next
       </p>
 
@@ -58,7 +58,7 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
       </h2>
 
       <p className="mt-2 text-sm text-ink/70">{cover.when}</p>
-      {cover.sub ? <p className="mt-0.5 text-sm text-ink/60">{cover.sub}</p> : null}
+      {cover.sub ? <p className="mt-0.5 text-sm text-ink/70">{cover.sub}</p> : null}
 
       {/*
         THE DOOR IS PER READER, AND A GUEST HAS NONE.
@@ -71,7 +71,7 @@ export function BackCoverBlock({ cover }: { cover: BackCover | null }): ReactEle
       {cover.door ? (
         <Link
           href={cover.door.href}
-          className="mt-5 inline-block rounded-full border border-ink/20 px-5 py-2 text-sm text-ink transition-colors hover:border-ink/40"
+          className="mt-5 inline-flex min-h-[44px] items-center rounded-full border border-ink/20 px-5 py-2 text-sm text-ink transition-colors hover:border-ink/40"
         >
           {cover.door.label}
         </Link>

@@ -271,10 +271,11 @@ test('venue · photo card (the default) with two located venues draws ONE map fo
   const { VenueWidget } = await import('./venue-widget');
   const two = decode(html(h(VenueWidget, { event: EVENT } as never)));
   assert.match(two, /data-venue-map-pins="2"/, 'one map holds both pins');
-  assert.doesNotMatch(two, /openstreetmap\.org\/export\/embed/, 'and no map per card');
+  /* 🗺 The embed itself loads only near the screen (Batch 9 W2), so its box (`data-osm-embed`) is what the server draws. */
+  assert.doesNotMatch(two, /data-osm-embed|openstreetmap\.org\/export\/embed/, 'and no map per card');
   const one = decode(html(h(VenueWidget, { event: { ...EVENT, venues: [VENUES[0]!] } } as never)));
   assert.doesNotMatch(one, /data-venue-map-pins/, 'one place: no shared map …');
-  assert.match(one, /openstreetmap\.org\/export\/embed/, '… its own map stays in its card, as shipped');
+  assert.match(one, /data-osm-embed=""[\s\S]*data-near-viewport="far"/, '… its own map stays in its card, as shipped, and waits until it is near');
 });
 
 test('venue · "No map" draws no map in any style', async () => {
@@ -282,7 +283,7 @@ test('venue · "No map" draws no map in any style', async () => {
   for (const sceneStyle of [null, 'photo-card', 'full-photo', 'journey']) {
     for (const venues of [VENUES, [VENUES[0]!]]) {
       const out = decode(html(h(VenueWidget, { event: { ...EVENT, venues }, sceneStyle, map: 'none', blocks: BLOCKS } as never)));
-      assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
+      assert.doesNotMatch(out, /data-venue-map-pins|data-osm-embed|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
       for (const v of venues) assert.ok(out.includes(v.name), `${sceneStyle}: ${v.name} still named`);
     }
   }
@@ -299,7 +300,7 @@ test('venue · a WITHHELD venue gives no map pin and no directions in any style,
   for (const id of ['photo-card', 'full-photo', 'journey']) {
     const out = decode(html(h(VenueWidget, { event: withheld, sceneStyle: id, blocks: BLOCKS } as never)));
     assert.doesNotMatch(out, /Get directions|>Directions|maps\.google|google\.com\/maps|waze\.com|maps\.apple/, `${id} handed out directions to a withheld venue`);
-    assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
+    assert.doesNotMatch(out, /data-venue-map-pins|data-osm-embed|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
     assert.equal(out.split(decode(VENUE_WITHHELD_LINE)).length - 1, 1, `${id}: the withheld line, once`);
     for (const v of VENUES) assert.ok(out.includes(v.name), `${id}: the name stays before the reply`);
   }
@@ -329,7 +330,9 @@ test('dress code · the palette and the line draw the general view: words, colou
     const out = decode(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, sceneStyle: id } as never)));
     assertStyled(out, id, id);
     assert.ok(out.includes('Garden formal') && out.includes('Long dresses and barongs or suits.'), `${id}: the words`);
-    for (const hex of BOARD.reception) assert.ok(out.toUpperCase().includes(hex), `${id}: our colour ${hex}`);
+    /* No "Our colours" in the dress code (owner 2026-10-17): every colour drawn is a dressed role's. */
+    assert.ok(!/Our colours/.test(out), `${id}: "Our colours" is back`);
+    for (const row of roleRows) assert.ok(out.includes(`data-role-row="${row}"`) || id === 'palette', `${id}: the ${row} row`);
   }
   const line = decode(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS, rolePalette: BOARD, sceneStyle: 'line' } as never)));
   assert.deepEqual([...line.matchAll(/data-role-row="([^"]+)"/g)].map((m) => m[1]), roleRows, 'the line keeps every role row, in order');
@@ -355,25 +358,18 @@ const GROUPS = [
   { key: 'bridesmaids_groomsmen', label: "Bride's Crew & Groom's Crew", rows: [[person('g7', 'Joy Lim', 'bridesmaid'), person('g8', 'Marco Tan', 'groomsman')]] },
 ];
 
-test('entourage · two sides puts each role on its side and keeps the side-less pairs under the rule', async () => {
+test('entourage · On the axis (the default) and Lines draw; a withdrawn Two sides pick draws On the axis (owner 2026-10-15)', async () => {
   const { EntourageSection } = await import('./entourage-section');
-  const out = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: 'two-sides' } as never)));
-  assertStyled(out, 'two-sides', 'two sides');
-  const left = out.slice(out.indexOf('data-entourage-side="0"'), out.indexOf('data-entourage-side="1"'));
-  const right = out.slice(out.indexOf('data-entourage-side="1"'));
-  for (const n of ['Mia Villanueva', 'Cora Bautista', 'Joy Lim']) assert.ok(left.includes(n), `${n} on the first side`);
-  for (const n of ['Paolo Reyes', 'Hugo Cruz', 'Marco Tan']) assert.ok(right.includes(n) && !left.includes(n), `${n} on the second side`);
-  assert.ok(out.includes('Ben Ocampo & Rica Flores'), 'a candle pair stays a pair, on no side');
-  // `best_woman` stands where the best man stands — on the second side.
-  const withBestWoman = [{ key: 'honor', label: 'Maid of Honor & Best Woman', rows: [[person('b1', 'Lara Diaz', 'maid_of_honor'), person('b2', 'Nina Uy', 'best_woman')]] }];
-  const bw = decode(html(h(EntourageSection, { groups: withBestWoman, sceneStyle: 'two-sides' } as never)));
-  assert.ok(bw.slice(bw.indexOf('data-entourage-side="1"')).includes('Nina Uy'), 'the best woman stands on the best man’s side');
-  const oneSided = [GROUPS[2]!];
-  assert.doesNotMatch(
-    html(h(EntourageSection, { groups: oneSided, sceneStyle: 'two-sides' } as never)),
-    /data-scene-style="two-sides"/,
-    'with nobody on either side, the roll call draws',
-  );
+  for (const [picked, drawn] of [[null, 'roll-call'], ['roll-call', 'roll-call'], ['lines', 'lines'], ['two-sides', 'roll-call']] as const) {
+    const out = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: picked } as never)));
+    assertStyled(out, drawn, `${picked ?? 'no pick'}`);
+    for (const n of ['Mia Villanueva', 'Paolo Reyes', 'Hugo Cruz', 'Cora Bautista', 'Ben Ocampo', 'Rica Flores', 'Joy Lim', 'Marco Tan']) {
+      assert.ok(out.includes(n), `${picked}: ${n} prints`);
+    }
+    assert.doesNotMatch(out, /data-entourage-side=/, `${picked}: the withdrawn Two sides columns drew`);
+    // Every pair is ONE row of two cells, partner beside partner — never two family columns.
+    assert.equal((out.match(/data-pair-row=/g) ?? []).length, 4, `${picked}: one pair row per walking pair`);
+  }
 });
 
 test('entourage · the march numbers every line in order and lifts only the signed-in member’s', async () => {
@@ -384,7 +380,8 @@ test('entourage · the march numbers every line in order and lifts only the sign
   assert.doesNotMatch(stranger, /data-march-line="mine"/, 'a stranger sees no mark');
   const joy = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: 'march', myGuestId: 'g7' } as never)));
   assert.equal((joy.match(/data-march-line="mine"/g) ?? []).length, 1);
-  assert.match(joy, /you walk 4th/);
+  /* 🫵 Owner 2026-10-17: where she walks is said under the heading in Me's own words (`marchPlaceLine`). */
+  assert.match(joy, /Your place is marked\. You walk 4th, with Marco Tan/);
 });
 
 // ── CAMERA CUES ──────────────────────────────────────────────────────────────
@@ -518,6 +515,77 @@ test('photos you add · grid and film strip show every photo, in order', async (
   }
 });
 
+test('🎞 photos you add · Glimpse draws every photo once, in order, on a snap rail — the server markup needs no JavaScript', async () => {
+  const { OurPhotosWidget } = await import('./our-photos-widget');
+  const many = Array.from({ length: 12 }, (_, i) => `https://m/${i + 1}.jpg`);
+  for (const urls of [URLS.slice(0, 1), URLS.slice(0, 2), URLS, many]) {
+    const out = html(h(OurPhotosWidget, { urls, sceneStyle: 'glimpse' }));
+    assertStyled(out, 'glimpse', `glimpse × ${urls.length}`);
+    // Every photo once (the loop's copies are added only once the page is live), in the couple's order.
+    const seen = [...out.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(seen, urls, `glimpse × ${urls.length}: the photos drawn, in order`);
+    assert.match(out, /snap-x snap-mandatory/, `glimpse × ${urls.length}: the rail snaps`);
+    assert.equal((out.match(/data-glimpse-card=""/g) ?? []).length, urls.length, `glimpse × ${urls.length}: one card per photo`);
+    assert.match(out, /aspect-\[3\/4\]/, `glimpse × ${urls.length}: the cards are 3:4`);
+    // Where am I: no dots for one photo; dots up to eight; "1 / 12" from nine up.
+    const dots = (out.match(/<i class="h-1\.5 w-1\.5/g) ?? []).length;
+    if (urls.length === 1) {
+      assert.equal(dots, 0, 'one photo: no dots');
+      assert.ok(!out.includes('Swipe · tap to open'), 'one photo: no hint');
+    } else if (urls.length <= 8) {
+      assert.equal(dots, urls.length, `${urls.length} photos: a dot each`);
+    } else {
+      assert.equal(dots, 0, `${urls.length} photos: no dots`);
+      assert.match(out, new RegExp(`1(?:<!-- -->)? / (?:<!-- -->)?${urls.length}`), `${urls.length} photos: the "1 / ${urls.length}" counter`);
+    }
+  }
+});
+
+test('🎞 Post Event · the gallery preview in Glimpse is the SAME rail, with nothing in it to press (it sits inside the open-up button)', async () => {
+  const { GalleryPreview, GLIMPSE_PREVIEW_MAX } = await import('./editorial/post-event-scene-views');
+  const many = Array.from({ length: 20 }, (_, i) => `https://m/${i + 1}.jpg`);
+  for (const urls of [URLS.slice(0, 1), URLS.slice(0, 2), URLS, many.slice(0, 12), many]) {
+    const out = html(h(GalleryPreview, { style: 'glimpse', photos: urls, total: urls.length, names: 'Maria', words: {} }));
+    const want = urls.slice(0, GLIMPSE_PREVIEW_MAX);
+    const what = `post event glimpse × ${urls.length}`;
+    // The photos, once, in the couple's order, capped — the loop's copies are added only once the page is live.
+    const seen = [...out.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(seen, want, `${what}: the photos drawn, in order`);
+    assert.match(out, /snap-x snap-mandatory/, `${what}: the rail snaps`);
+    assert.equal((out.match(/data-glimpse-card=""/g) ?? []).length, want.length, `${what}: one card per photo`);
+    assert.match(out, /aspect-\[3\/4\]/, `${what}: the cards are 3:4`);
+    // 🔒 It is drawn INSIDE a <button> (OpenUpScene) — nothing in it may be a button, a link or a tab stop.
+    assert.ok(!/<button|<a[ >]|tabindex/i.test(out), `${what}: something interactive sits inside the open-up's button`);
+    assert.ok(!out.includes('Swipe · tap to open') && !out.includes('Previous photo') && !out.includes('Next photo'), `${what}: the full rail's controls leaked into the preview`);
+    assert.ok(!out.includes('role="region"'), `${what}: the preview rail claims to be a carousel of its own`);
+    // The scene keeps its own words above the rail.
+    assert.ok(out.includes('From the day'), `${what}: the scene's label`);
+  }
+  // Inside the real open-up the whole thing is ONE button and the markup nests no button in it.
+  const { OpenUpScene } = await import('./editorial/open-up-layer');
+  const wrapped = html(
+    h(OpenUpScene, {
+      kind: 'gallery',
+      title: 'From the Day',
+      openLabel: 'Open the gallery',
+      preview: h(GalleryPreview, { style: 'glimpse', photos: URLS, total: 5, names: 'Maria', words: {} }),
+      children: h('p', null, 'x'),
+    }),
+  );
+  const inside = wrapped.slice(wrapped.indexOf('<button'), wrapped.indexOf('</button>'));
+  assert.equal((inside.match(/<button/g) ?? []).length, 1, 'the open-up trigger holds a second button');
+  assert.ok(inside.includes('data-glimpse-card'), 'the open-up trigger does not hold the Glimpse rail');
+});
+
+test('🔒 Post Event draws Glimpse with the Save the Date’s rail — there is no second copy of the drift', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { stripComments } = await import('@/lib/strip-comments');
+  const views = stripComments(readFileSync(new URL('./editorial/post-event-scene-views.tsx', import.meta.url), 'utf8'));
+  assert.match(views, /import \{ GlimpseRail \} from '\.\.\/glimpse-rail'/, 'Post Event no longer imports the one GlimpseRail');
+  assert.match(views, /<GlimpseRail preview /, 'the Post Event Glimpse branch does not mount the rail in its preview form');
+  assert.doesNotMatch(views, /requestAnimationFrame|scrollLeft|IntersectionObserver/, 'Post Event grew its own drift');
+});
+
 test('each guest’s photos · the big one and polaroids place every tile whole — its controls come with it', async () => {
   const { PhotosOfYouLead, PhotosOfYouPolaroids } = await import('./photos-of-you-styles');
   const tiles = ['a', 'b', 'c'].map((k, i) => ({
@@ -568,6 +636,16 @@ test('live hub · the same player and wall, placed three ways; one missing draws
 
 // ── NO STORED STYLE = TODAY'S PAGE, BYTE FOR BYTE (controller 2026-09-29) ────
 
+/**
+ * 🗣 A DEFAULT THE OWNER RULED — the one exception to "no stored style = today's scene", per scene and stage.
+ * Love Story: owner 2026-10-17, *"Conversation as the default look"* (DECISION_LOG "APPROVED — LOVE STORY, TWO
+ * VOICES"), on the Save the Date and the Invitation. Every other scene and stage stays byte-identical below.
+ * Mirrors `OWNER_DEFAULT` in lib/scene-styles-stages.test.ts.
+ */
+const OWNER_DEFAULT: Readonly<Record<string, Partial<Record<'save_the_date' | 'rsvp' | 'event', string>>>> = {
+  our_love_story: { save_the_date: 'conversation', rsvp: 'conversation' },
+};
+
 test('🔒 an event with no stored style renders byte-identically to the shipped scene on every stage', async () => {
   const { sceneStyleOfRow } = await import('@/lib/scene-style-of-row');
   const { CountdownWidget } = await import('./countdown');
@@ -603,6 +681,13 @@ test('🔒 an event with no stored style renders byte-identically to the shipped
       for (const eventType of ['wedding', 'birthday']) {
         for (const config_json of [null, {}, { canvas: {} }, { canvas: { style: 'no-such-style' } }]) {
           const style = sceneStyleOfRow({ widget_type: type, config_json }, stage, eventType);
+          const ruled = OWNER_DEFAULT[type]?.[stage];
+          if (ruled) {
+            // The owner's ruled default replaces today's scene HERE ONLY — named, and drawn as that look.
+            assert.equal(style, ruled, `${type} on ${stage} (${eventType}, ${JSON.stringify(config_json)}) resolved ${style}, not the owner's default ${ruled}`);
+            assert.ok(html(draw(style)).includes(`data-scene-style="${ruled}"`), `${type} on ${stage}: the owner's default ${ruled} is the look drawn`);
+            continue;
+          }
           assert.equal(html(draw(style)), shipped, `${type} on ${stage} (${eventType}, ${JSON.stringify(config_json)}) drew ${style} instead of today's scene`);
         }
       }
@@ -629,7 +714,9 @@ test('🔒 the five fixed parts with no pick render byte-identically to the ship
   };
   const galleryProps = { gallery, eventId: 'e', isLive: true, isPost: false, showClaimAccountCta: false, occasion: 'celebration', eventWord: 'wedding' };
   const parts: Array<[Parameters<typeof fixedSceneStyleOf>[1], 'rsvp' | 'event', (style?: string | null) => React.ReactElement]> = [
-    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s, myGuestId: 'g7' }) } as never)],
+    /* 🫵 The same signed guest on both sides: since 2026-10-17 the default look marks her own name too
+       (`entourage-you.tsx`), so the shipped part is drawn FOR her — what this holds is that no pick means no style. */
+    ['entourage', 'rsvp', (s) => h(EntourageSection, { groups: GROUPS, myGuestId: 'g7', ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['entourage', 'event', (s) => h(EntourageSection, { groups: GROUPS, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['find_your_seat', 'event', (s) => h(YourSeatBlock, { ...SEAT, ...(s === undefined ? {} : { sceneStyle: s }) } as never)],
     ['announcements', 'event', (s) => h(DayOfAnnouncement, { body: 'Be seated by 2:45.', ...(s === undefined ? {} : { sceneStyle: s }) })],
@@ -644,4 +731,178 @@ test('🔒 the five fixed parts with no pick render byte-identically to the ship
       assert.equal(html(draw(style)), shipped, `${scene} on ${stage} with ${JSON.stringify(prefs)} drew ${style}`);
     }
   }
+});
+
+test('countdown · Offset, Line and Circle (owner 2026-10-07 "allow offset" — the prototype’s five): drawn, clock-free, never for a wake', async () => {
+  const { CountdownWidget } = await import('./countdown');
+  const { EventWordsProvider } = await import('./event-words-provider');
+  const words = { theOrganizer: 'the family', TheOrganizer: 'The family', theOrganizerPossessive: 'the family’s', eventWord: 'wake', occasion: 'gathering', solemn: true };
+  for (const id of ['offset', 'line', 'circle']) {
+    const at = (now: number) => {
+      const real = Date.now;
+      Date.now = () => now;
+      try {
+        return renderToString(h(CountdownWidget, { targetIso: '2026-12-18', timeZone: 'Asia/Manila', sceneStyle: id }));
+      } finally {
+        Date.now = real;
+      }
+    };
+    const a = at(Date.UTC(2026, 8, 29));
+    assert.equal(a, at(Date.UTC(2026, 11, 17, 15, 59, 59)), `${id}: the server markup changed with the clock (#418)`);
+    assertStyled(a, id, `countdown ${id}`);
+    assert.match(a, /––/, `${id}: the shell holds a placeholder, never digits`);
+    assert.match(decode(a), /Until we say/, `${id}: the wedding's line is kept`);
+    const out = html(h(EventWordsProvider, { words, children: h(CountdownWidget, { targetIso: '2026-12-18', sceneStyle: id }) }));
+    assert.equal(out, '', `a wake drew a countdown in style ${id}`);
+  }
+});
+
+// ── 🔲 EMPTY SCENES, IN SAMPLE SHAPES (owner 08 Oct: "maybe show what it could look like with boxes?") ──
+
+test('🔲 an empty scene: the Maker’s dispatcher draws the look the ROW picked in sample shapes; a guest’s dispatcher draws none', async () => {
+  const { PublicHideableWidget } = await import('./public-hideable-widget');
+  const { sceneStylesOn, sceneStyleTypeOfWidget, resolveSceneStyle } = await import('@/lib/scene-styles');
+  const event = {
+    event_id: 'e1', slug: 'x', display_name: 'Cale & Ice', event_type: 'birthday', event_date: null,
+    venue_name: null, venue_address: null, venue_latitude: null, venue_longitude: null,
+    love_story: null, special_message: null, what_to_bring: null, our_photos: [],
+    dress_code_config: null, photo_moments_config: null, role_palette: null,
+  } as never;
+  const draw = (type: string, stage: string, style: string | null, maker: boolean) =>
+    html(
+      h(PublicHideableWidget, {
+        widget: { widget_id: `id-${type}`, event_id: 'e1', widget_type: type, display_order: 1, is_visible: true, is_always_on: false, tier: 'basic', config_json: style ? { canvas: { style } } : {}, created_at: '', updated_at: '', mode: 'auto' },
+        event,
+        words: WEDDING_WORDS,
+        scheduleBlocks: [],
+        isLive: false,
+        ourPhotoUrls: [],
+        stage,
+        guestView: !maker,
+        makerEmpty: maker,
+      } as never),
+    );
+  const scenes: Array<[string, 'save_the_date' | 'rsvp']> = [
+    ['special_message', 'rsvp'], ['schedule', 'rsvp'], ['venue_map', 'rsvp'], ['what_to_bring', 'rsvp'], ['our_love_story', 'rsvp'], ['countdown', 'rsvp'], ['our_photos', 'save_the_date'],
+  ];
+  for (const [type, stage] of scenes) {
+    const scene = sceneStyleTypeOfWidget(type);
+    const looks = sceneStylesOn(scene, stage, 'birthday');
+    assert.ok(looks.length >= 2, `${type}: offers looks on ${stage}`);
+    for (const look of looks) {
+      assert.match(draw(type, stage, look.id, true), new RegExp(`data-maker-sample="${scene}:${look.id}"`), `${type}: the canvas does not draw the picked look "${look.id}"`);
+    }
+    /* No pick, and a stored value this version does not draw: the stage's default — never a blank, never a crash. */
+    const fallback = resolveSceneStyle(scene, stage, null, 'birthday');
+    for (const stored of [null, 'no-such-style']) {
+      assert.match(draw(type, stage, stored, true), new RegExp(`data-maker-sample="${scene}:${fallback}"`), `${type}: stored ${stored} did not fall back to ${fallback}`);
+    }
+    /* A guest: the empty scene is left out whole — no placeholder, no sample, no shape. */
+    for (const look of looks) {
+      assert.doesNotMatch(draw(type, stage, look.id, false), /data-maker-(sample|empty)|data-sample-/, `${type}: a guest was served the Maker’s sample`);
+    }
+  }
+  /* The Dress code is never "empty-drawn" by the dispatcher — its own widget draws the sample, for the Maker alone. */
+  assert.match(draw('dress_code', 'rsvp', 'line', false), /^$/, 'a guest of an event with no dress code is served nothing');
+  const makerDress = html(
+    h(PublicHideableWidget, {
+      widget: { widget_id: 'd', event_id: 'e1', widget_type: 'dress_code', display_order: 1, is_visible: true, is_always_on: false, tier: 'basic', config_json: { canvas: { style: 'line' } }, created_at: '', updated_at: '', mode: 'auto' },
+      event, words: WEDDING_WORDS, scheduleBlocks: [], isLive: false, ourPhotoUrls: [], stage: 'rsvp', guestView: false, makerEmpty: false,
+    } as never),
+  );
+  assert.match(makerDress, /data-maker-sample="dress_code:line"/);
+});
+
+// ── 🧾 DO'S & DON'TS (owner 08 Oct: "the presentation of do's and don'ts doesn't look good with the rest of the website") ──
+
+/** The markup of the Dress code's `data-dress-code="dos"` block (up to its matching close). */
+function dosBlock(markup: string): string {
+  const at = markup.indexOf('data-dress-code="dos"');
+  if (at < 0) return '';
+  const open = markup.lastIndexOf('<', at);
+  let depth = 0;
+  const re = /<(\/?)div\b[^>]*>/g;
+  re.lastIndex = open;
+  for (let m = re.exec(markup); m; m = re.exec(markup)) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) return markup.slice(open, re.lastIndex);
+  }
+  return '';
+}
+const DOS = ['Wear Filipiniana or long gowns', 'Bring a shawl'];
+const DONTS = ['Wear white or ivory', 'Wear the entourage’s plum', 'Arrive in denim'];
+const DRESS_LISTS = { ...DRESS, dos: DOS, donts: DONTS };
+
+test('do’s & don’ts · the two new looks draw both lists in the hub’s own type, ✓ and ✕ before each line — and NO filled box', async () => {
+  const { DressCodeWidget } = await import('./dress-code-widget');
+  const { DOS_LOOK_IDS, DOS_LOOK_DEFAULT } = await import('@/lib/dress-code-looks');
+  const looks = DOS_LOOK_IDS.filter((id) => id !== DOS_LOOK_DEFAULT);
+  assert.ok(looks.length >= 2, 'at least two looks beside the shipped notes');
+  const drawn = new Set<string>();
+  for (const dosLook of looks) {
+    for (const sceneStyle of [null, 'colours-and-roles', 'palette', 'line']) {
+      const what = `${dosLook} under ${sceneStyle ?? 'the default layout'}`;
+      const block = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, sceneStyle, dosLook } as never))));
+      assert.match(block, new RegExp(`data-dos-look="${dosLook}"`), `${what}: the look is not drawn`);
+      /* No grey box: nothing in the block is filled — not the veil, not the deep paper, not any fill at all. */
+      assert.doesNotMatch(block, /(^|[\s"])bg-/, `${what}: a filled box came back`);
+      assert.doesNotMatch(block, /font-mono/, `${what}: the headings are app labels, not the page’s type`);
+      /* The Event Hub's own type and colours: the display face for the headings, ink and gild for the rest. */
+      assert.equal(block.split('class="font-pahina ').length - 1, 2, `${what}: Do and Don’t are not both in the page’s display face`);
+      assert.match(block, /text-gild/);
+      assert.match(block, /text-ink/);
+      /* Every line, in order, each behind its mark. */
+      const words = block.replace(/<[^>]+>/g, '|');
+      let at = -1;
+      for (const row of [...DOS, ...DONTS]) {
+        const next = words.indexOf(row, at + 1);
+        assert.ok(next > at, `${what}: "${row}" is missing or out of order`);
+        at = next;
+      }
+      assert.equal(block.split('>✓<').length - 1, DOS.length, `${what}: a ✓ before each do`);
+      assert.equal(block.split('>✕<').length - 1, DONTS.length, `${what}: a ✕ before each don’t`);
+      assert.equal(block.split('aria-hidden="true" data-dos-mark=""').length - 1, DOS.length + DONTS.length, `${what}: the marks are read aloud as words`);
+      if (sceneStyle === null) drawn.add(block);
+    }
+  }
+  assert.equal(drawn.size, looks.length, 'two looks draw the same picture');
+  /* One list alone still draws, under its own heading — never an empty column. */
+  for (const dosLook of looks) {
+    const only = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: { ...DRESS, donts: DONTS }, rolePalette: BOARD, dosLook } as never))));
+    assert.equal(only.split('class="font-pahina ').length - 1, 1);
+    assert.doesNotMatch(only, /✓|grid-cols-2|border-l /, `${dosLook}: one list is laid out as two`);
+  }
+  /* The reader's own panel (a known guest's Welcome) wears the same look. */
+  const mine = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, guestRole: 'principal_sponsor_ninang', part: 'you', dosLook: 'marks' } as never))));
+  assert.match(mine, /data-dos-look="marks"/);
+});
+
+test('🔒 do’s & don’ts · no pick, "notes" and a stored id this version does not draw are the SHIPPED notes — on every layout', async () => {
+  const { DressCodeWidget } = await import('./dress-code-widget');
+  const { dosLookOfRow } = await import('@/lib/scene-style-of-row');
+  const { sanitizeHubCanvas, hasHubCanvas } = await import('@/lib/hub-canvas');
+  const { DOS_LOOK_IDS, DOS_LOOK_DEFAULT, resolveDosLook } = await import('@/lib/dress-code-looks');
+  assert.equal(DOS_LOOK_DEFAULT, 'notes');
+  assert.deepEqual([...DOS_LOOK_IDS], ['notes', 'marks', 'side-by-side'], 'a stored look id was renamed or dropped');
+  for (const sceneStyle of [null, 'palette', 'line']) {
+    const shipped = html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, ...(sceneStyle ? { sceneStyle } : {}) } as never));
+    for (const config_json of [null, {}, { canvas: {} }, { canvas: { dos: 'notes' } }, { canvas: { dos: 'no-such-look' } }, { canvas: { dos: 7 } }, { dos: 'notes' }]) {
+      const dosLook = dosLookOfRow({ config_json });
+      assert.equal(dosLook, 'notes', `${JSON.stringify(config_json)} did not read as the shipped notes`);
+      const now = html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD, ...(sceneStyle ? { sceneStyle } : {}), dosLook } as never));
+      assert.equal(now, shipped, `${sceneStyle ?? 'default layout'} · ${JSON.stringify(config_json)}: a page that never picked changed`);
+    }
+    assert.doesNotMatch(shipped, /data-dos-look|✓|✕/, 'the shipped notes grew marks nobody picked');
+  }
+  /* The default layout's notes are the markup guests have today — its two fills and its "·" lines, pinned. Each line
+     wears the scene-words mark since 2026-10-15 (owner: the do / don't lines follow Style's Size and Colour —
+     `lib/scene-words-class.ts`); nothing a guest sees changes until a couple picks one. */
+  const a = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD } as never))));
+  assert.match(a, /^<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos"><div class="space-y-2 border-l-2 border-gild bg-veil\/50 p-4 text-sm text-ink\/80"><p class="font-mono text-\[0\.66rem\] uppercase tracking-\[0\.28em\] text-gild">Do<\/p><ul class="space-y-1"><li class="hub-el-words">· Wear Filipiniana or long gowns<\/li>/);
+  assert.match(a, /<div class="space-y-2 border-l-2 border-ink\/30 bg-paper-deep p-4 text-sm text-ink\/75">/);
+  /* A pick is stored beside the palette look, survives the sanitiser, and frames nothing (no motion nobody chose). */
+  assert.deepEqual(sanitizeHubCanvas({ canvas: { dos: 'marks', palette: 'ribbon' } }), { palette: 'ribbon', dos: 'marks' });
+  assert.equal(hasHubCanvas({ dos: 'marks' }), false);
+  assert.equal(dosLookOfRow({ config_json: { canvas: { dos: 'side-by-side' } } }), 'side-by-side');
+  assert.equal(resolveDosLook('marks'), 'marks');
 });

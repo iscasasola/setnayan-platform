@@ -577,6 +577,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Nulling anonymises the feedback; the review itself is product data the platform acts on, not a record about the person.',
   },
   {
+    table: 'booking_fee_disputes',
+    column: 'opened_by_user_id',
+    why: 'The shop account that disputed a booking fee (2026-11-05). The dispute is the SHOP’s record of a fee and Setnayan’s answer — it must survive the person leaving, exactly as the fee it is about does.',
+  },
+  {
+    table: 'booking_fee_disputes',
+    column: 'decided_by_user_id',
+    why: 'The admin who decided the dispute. An admin actor stamp on the shop’s fee record.',
+  },
+  {
     table: 'vendor_disputes',
     column: 'opened_by_user_id',
     why: 'Who raised the dispute. The dispute is a two-party record and the vendor’s side of it must survive the complainant leaving.',
@@ -717,6 +727,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin ruled on the appeal. A staff stamp; the appeal itself is the reviewer’s and is deleted.',
   },
   {
+    table: 'vendor_crew_codes',
+    column: 'created_by',
+    why: 'Which shop admin issued the crew QR. The QR is the SHOP’s; deleting on this would end every crew pass of a third party.',
+  },
+  {
+    table: 'vendor_crew_passes',
+    column: 'decided_by',
+    why: 'Which shop admin allowed or removed a crew phone. An actor stamp on the CREW MEMBER’s row; nulling it removes nobody.',
+  },
+  {
     table: 'vendor_event_access_grants',
     column: 'granted_by',
     why: 'Who issued the access grant. Deleting on this would revoke a THIRD PARTY’s access — the event_delegates lesson.',
@@ -754,6 +774,26 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin last swapped a homepage clip. Six seeded rows of marketing config.',
   },
   {
+    table: 'shop_papic_wallet_entries',
+    column: 'created_by',
+    why: 'Who pressed a shop-wallet spend or wrote an admin credit row. The ledger is the SHOP’s money record (owner 2026-10-23, option A) and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_purchases',
+    column: 'created_by',
+    why: 'Who pressed Buy on a shop’s gift stock. The purchase is the SHOP’s money record and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_stock_entries',
+    column: 'created_by',
+    why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
+  },
+  {
+    table: 'hub_music_tracks',
+    column: 'created_by',
+    why: 'Which admin uploaded an Event Hub music track. The track is Setnayan’s own catalogue and stays; the stamp goes.',
+  },
+  {
     table: 'manpower_gigs',
     column: 'posted_by_user_id',
     why: 'Who posted the gig. A host↔vendor business record read by both; only the poster’s identity goes.',
@@ -767,16 +807,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'owner_alerts',
     column: 'acknowledged_by',
     why: 'Which staff member acknowledged an internal ops alert. The alert is about the PLATFORM, not a person.',
-  },
-  {
-    table: 'event_renders',
-    column: 'created_by_user_id',
-    why: 'A Mood Board “Make it real” render (MB2). The row is read BY EVENT — it is the couple’s render, and deleting rows keyed on the author would strip the co-partner’s images because the person who pressed the button left. The uuid is the stamp of who spent the credit and is selected by no reader, carries no label and is consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. What the subject typed themselves — `note` — is exported to them by /api/profile/export before erasure; the prompt and design snapshot belong to the shared board, not to them.',
-  },
-  {
-    table: 'event_render_share_consent',
-    column: 'consented_by_user_id',
-    why: 'Who ticked “let Setnayan feature your creation” for an event (MB8). The consent is the EVENT’s, not the person’s — it governs whether that event’s renders may be published, and deleting the row because the partner who ticked it left would silently revoke a permission the couple still holds (or, worse, leave renders featured with no record of why they were allowed to be). The uuid is the stamp of who gave it: selected by no reader, shown in no label, consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. Note the withdrawal path is deliberately NOT a delete either — `consented` flips to FALSE and `withdrawn_at` is stamped — because a render featured while consent stood is a thing that happened and has to stay explainable.',
   },
   {
     table: 'moodboard_part_finalizations',
@@ -819,6 +849,26 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which partner rejected a colour change (MB16). An actor stamp on the same couple-owned row. ⚠ Its CHECK is deliberately ONE-DIRECTIONAL (`reverted_by_user_id IS NULL OR reverted_at IS NOT NULL`) rather than a biconditional, precisely so this null lands: a biconditional would make ON DELETE SET NULL behave as RESTRICT and refuse the account deletion outright. A date with no author is the honest record an erased account leaves.',
   },
   {
+    table: 'event_inspiration_suggestions',
+    column: 'suggested_by_user_id',
+    why: 'Which supplier-side account sent a photo suggestion to a couple\u2019s board (2026-10-19, migration 20271279311294). 🔑 THE ROW IS THE COUPLE\u2019S RECORD as much as the shop\u2019s: a kept photo on their board points at it (event_inspiration_assets.from_suggestion_id, ON DELETE CASCADE), so deleting it because the sender left would take a photo off the couple\u2019s board. The credit is `shop_label`, denormalised as it read, never this uuid; no screen and no RLS policy reads it (the gates are current_couple_event_ids / current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_inspiration_suggestions',
+    column: 'decided_by_user_id',
+    why: 'Which partner pressed Keep / No thanks on a supplier\u2019s photo (or which supplier account withdrew it). An actor stamp on the same row; the decision (state, decided_at) stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_mood_board_changes',
+    column: 'actor_user_id',
+    why: 'Who changed a couple\u2019s Mood Board photos under Mood Board Edit (2026-10-30, migration 20271299051148). 🔑 THE ROW IS THE COUPLE\u2019S RECORD, NOT THE ACTOR\u2019S \u2014 the same shape as event_colour_changes: it is the owners\u2019 24-hour Undo for a change still live on their board, so deleting it because the coordinator left would take the Undo away. Readable without the uuid: `actor_label` denormalises the role and name AS IT READ. The trigger only matches an OPEN change by this uuid for 5 minutes; a NULL just means a later write opens a new change. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_mood_board_changes',
+    column: 'undone_by_user_id',
+    why: 'Which owner pressed Undo on a Mood Board change (2026-10-30). An actor stamp on the same couple-owned row; `undone_at` stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
     table: 'event_date_change_requests',
     column: 'asked_by_user_id',
     why: 'Which partner pressed "Ask them to move or unlock?" (the clashing-date flow, 2026-10-01). The REQUEST belongs to the EVENT and is answered by its booked suppliers: a still-open one is what their Move / Unlock card and the couple\u2019s Home card stand on, so deleting it because one partner left would silently withdraw an ask other people are mid-way through answering. The uuid is a stamp read by no screen and no RLS policy (the gate is current_couple_event_ids()). Nullable with ON DELETE SET NULL from the day it shipped.',
@@ -832,6 +882,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'event_egift_methods',
     column: 'created_by_user_id',
     why: '⚠ This stamp records WHO FIRST PRESSED ADD, not whose account it is — the update path rewrites the handle and account name but never this column. So a row now holding the OTHER partner’s GCash number still carries the leaver’s uuid. Nulling is the only safe move; see PARTIALLY_PURGED for what is deliberately retained.',
+  },
+  {
+    table: 'event_wish_items',
+    column: 'created_by_user_id',
+    why: 'Which host pressed "Add an item" on the E-Gifts wish list (2026-10-08). The wish belongs to the EVENT — it is the couple’s shared list, guests may already have sent toward it, and its gift records hang off it — so deleting it because one partner or a co-host left would take a wish, and the meter guests are filling, away from the people still standing. Same stamp, same call as event_egift_methods beside it: selected by no reader, shown in no label, consulted by no RLS policy (the gate is the moderators / couple-member predicate). Nullable with ON DELETE SET NULL from the day it shipped. ⚠ Its sibling event_gift_records carries NO account column at all — a giver is a guest row plus the name they typed — so this detector cannot see it; what a guest wrote there is the couple’s record of a gift and is not touched by this rule.',
   },
   {
     table: 'vendor_invites',
@@ -871,6 +926,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   column: string;
   why: string;
 }> = [
+  {
+    table: 'couple_photo_shares',
+    column: 'shared_by_user_id',
+    why: '📸 The subject’s consent and credit line for THEIR OWN photo on a supplier’s service card (#7089) — CASCADE + NOT NULL: the row is about them. Before the row goes, purge.ts deletes each share’s FROZEN COPY (couple-looks/<share_id>/… in whichever bucket its audience put it) through the cleanup executor, scoped to that share’s folder; the photo then leaves every card at once. A share SENT TO the subject’s shop is the COUPLE’s, so it is withdrawn and its copy deleted, not erased (purge.ts, same step).',
+  },
   {
     table: 'vendor_feature_recommendations',
     column: 'recommended_by_user_id',
@@ -965,6 +1025,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_review_appeals',
     column: 'reviewer_user_id',
     why: 'CASCADE + NOT NULL — the appeal is a dossier about this reviewer’s own review. Nulling is impossible and would void the statement.',
+  },
+  {
+    table: 'vendor_crew_passes',
+    column: 'crew_user_id',
+    why: 'CASCADE + NOT NULL — the row is THIS person’s crew pass for one event (the name they typed, their role). Its decided_by side is an actor stamp and is nulled instead.',
   },
   {
     table: 'vendor_event_access_grants',
@@ -1281,6 +1346,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'event_type_requests',
+    column: 'user_id',
+    why: 'The subject’s own asks for an event type we do not have (“Can’t find yours? Ask us to add it”, 2026-10-28) — what they typed, theirs alone; no audit, money or shared-record role. The type an admin made from it lives on in event_type_vocab, which carries no trace of who asked.',
+  },
+  {
     table: 'notifications',
     column: 'user_id',
     why: 'The subject’s own notification feed — titles/bodies quote payment amounts and deep-link into their dashboard.',
@@ -1291,9 +1361,21 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'Bearer credential material issued to the subject. A credential must not outlive the account (same rule as the photo-delivery OAuth token).',
   },
   {
+    table: 'apple_sign_in_tokens',
+    column: 'user_id',
+    why:
+      'The subject’s sealed Sign in with Apple refresh token, held only so erasure can revoke the grant at Apple (App Store 5.1.1(v)). ' +
+      'Read by the revoke step (purge.ts step 2b) BEFORE this loop deletes it; a credential must not outlive the account, revoked or not.',
+  },
+  {
     table: 'chat_thread_reads',
     column: 'user_id',
     why: 'The subject’s own read cursors. Pseudonymous, no counterparty value — the thread itself is untouched.',
+  },
+  {
+    table: 'samahan_reads',
+    column: 'user_id',
+    why: 'The subject’s own group read markers (group unread, 2026-10-28). No counterparty value — the group and its messages are untouched. CASCADE + NOT NULL as well.',
   },
   {
     table: 'guest_saved_vendors',
@@ -1466,6 +1548,11 @@ export const ERASURE_COLUMN_WRITES: Readonly<Record<string, readonly string[]>> 
   guest_claims: ['claimer_name', 'claimer_email', 'otp_sent_to'],
   help_messages: ['sender_email', 'sender_name', 'subject', 'body'],
   guests: ['photo_url', 'photo_source', 'photo_updated_at'],
+  // The screenshot a guest attached to "I sent it" (E-Gifts wish list,
+  // 2026-10-08) — the pointer is nulled after the object itself is deleted.
+  // The name, the amount and their words stay: see PARTIALLY_PURGED in the
+  // guardrail (the row is also the host's list of who gave what).
+  event_gift_records: ['screenshot_r2_key'],
   // DERIVED from CLAIM_TOKEN_ROTATIONS, never re-typed. Hand-copying the column
   // names here would make the guardrail compare two hand-typed lists, which
   // drift together and stay green — the exact failure G1 exists to catch. This
@@ -1493,6 +1580,8 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
   dependents: ['owner_user_id'],
   godparents: ['owner_user_id'],
   guest_face_enrollments: ['guest_id'],
+  // Who's here (2026-10-29): when the subject's guest rows last opened an Event Hub — deleted by guest id in purge.ts.
+  hub_guest_views: ['guest_id'],
   // ⚠ Was `event_id` — event-wide, which revoked the CO-PARTNER's Google
   // credential. Now the account that actually completed the consent.
   oauth_grants: ['granted_by_user_id'],
@@ -1532,6 +1621,10 @@ export const ERASURE_FILTER_COLUMNS: Readonly<Record<string, readonly string[]>>
   event_paperwork: ['event_id', 'subject_user_id'],
   // The fail-closed residue probe reads oauth_grants by event + attribution.
   oauth_grants: ['event_id', 'granted_by_user_id'],
+  // A gift record has no user column — it is keyed to a GUEST. The screenshot
+  // purge finds the subject's records by their guest ids and nulls each pointer
+  // by its own primary key, held to the same guest ids.
+  event_gift_records: ['giver_guest_id', 'gift_record_id'],
 };
 
 /**

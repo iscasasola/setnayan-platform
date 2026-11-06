@@ -1,6 +1,7 @@
 import { RoomFooter } from '../_components/room-footer';
 import type { RoomLink } from '../_lib/room-links';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
@@ -18,7 +19,8 @@ import {
 } from '@/lib/indoor-blueprint';
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
-import { LiveRefresher } from '@/app/_components/live-refresher';
+import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Find your table' };
 
@@ -114,13 +116,13 @@ export default async function FindMyTablePage({ params }: Props) {
   // 🪑 The seat gate — ONE rule (`guestsMaySeeSeatsFor`, owner 2026-09-30:
   // "seatplan will show on the date of the event"). Before the day, and unless
   // the couple turned on "Show guests their seats early", no table is read.
+  // 👁 The couple hid "Find your seat" on the stage the event is at ("What guests see"): a guest who kept this address
+  // goes back to the event's page — the exit this page already takes above. One reading: `_lib/part-door.server.ts`.
+  if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
   if (!(await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true }))) {
     return (
       <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
-        <PromptCard
-          title="Your table shows on the day"
-          body="Come back to this page on the day and your table and a map to it will be right here."
-        />
+        <SeatsShowOnTheDay eventDate={event.event_date as string | null} />
       </Shell>
     );
   }
@@ -182,10 +184,14 @@ export default async function FindMyTablePage({ params }: Props) {
     <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
       {/* Day-of: silently re-pull this guest's assignment so a live reseat
           re-lights the map without a manual reload (seat-finding PR 5). */}
-      <LiveRefresher eventDate={event.event_date as string | null} />
+      <PulsedLiveRefresher
+        slug={slug}
+        eventDate={event.event_date as string | null}
+        guest={{ eventId: event.event_id as string, guestId: session.guest_id }}
+      />
       <div className="space-y-5">
         <header className="space-y-2 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
             Find your table
           </p>
           {targetTable ? (
@@ -199,7 +205,7 @@ export default async function FindMyTablePage({ params }: Props) {
             </h1>
           )}
           {event.venue_name ? (
-            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
+            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/70">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {event.venue_name}
             </p>
@@ -218,7 +224,7 @@ export default async function FindMyTablePage({ params }: Props) {
             Walk in from the entrance and follow the dotted path to your table.
           </p>
         ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/70">
             You haven&rsquo;t been seated at a table yet.{' '}
             {`Once ${words.theHost} seats you, your spot lights up on this map.`}
           </p>
@@ -227,7 +233,7 @@ export default async function FindMyTablePage({ params }: Props) {
         <div className="text-center">
           <Link
             href={`/${slug}`}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
           >
             <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Back to your invitation
@@ -279,21 +285,21 @@ function Shell({
     <main className="min-h-dvh bg-cream text-ink">
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
+          <Link href={`/${slug}`} className="flex min-h-[44px] items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
               Setnayan
             </span>
           </Link>
-          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
             {displayName}
           </span>
         </div>
       </header>
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
       <footer className="border-t border-ink/10 px-4 py-8 text-center">
-        <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
-        <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+        <p className="font-serif text-lg italic text-terracotta-700">See you soon.</p>
+        <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
       </footer>
       <RoomFooter links={roomLinks} />
     </main>
@@ -304,7 +310,7 @@ function PromptCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
       <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">{body}</p>
+      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">{body}</p>
     </div>
   );
 }

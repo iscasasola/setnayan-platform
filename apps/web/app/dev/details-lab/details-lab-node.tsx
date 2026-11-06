@@ -19,10 +19,26 @@
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
+ *   ?attire=shared        Studio › Attire with a role saved BEFORE the men/women split: Principal Sponsors (6 people) holding ONE
+ *                         shared Wear, "Long gown" (the shape cale-ice's live dress code holds) — plus a women-only and a
+ *                         men-only row. With `?studio=1`.
+ *   ?attire=cale|cale-now  Studio › Attire on cale-ice's dress code + guest-list rows as production held them 2026-10-17 (before /
+ *                         after the owner's Apply). With `?studio=1`.
+ *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
+ *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
+ *   ?venue=mixed          Studio › Info › Venues (with `?studio=1`) and Details › Venues on one MANUAL ceremony (a supplier
+ *                         added by hand — its pin is set right there) and one SHOP reception (a Setnayan shop that has
+ *                         not pinned — "<shop> hasn't pinned their place yet"); `&shop=pinned` = the shop has pinned.
+ *                         The manual card's save is the Studio actions context's stand-in (owner 2026-10-22).
+ *   ?suggest=1            with `?look=1&studio=1`: two photos a lab florist suggested, waiting on Bridal bouquet and on a full
+ *                         Centrepieces — ✓ Keep · ✕ No thanks, the "already has 3 photos" sheet, the top-of-Palette notice
+ *   ?library=1            with `?look=1&studio=1`: Search ideas reads the supplier library lab's memory (`/dev/supplier-lab?s=library`)
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
-import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
+import { passCardDesignFrom } from '@/lib/pass-card';
+import { fallbackInspirationParts } from '@/lib/inspiration-parts';
+import { MakerDetails, detailsFactEditors, hubSettingsEditor } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
@@ -36,31 +52,172 @@ import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
-import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
+import { labOpenMarchCard } from './lab-march-cards';
+import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
+import { LAB_ARRIVAL_DATE, labArrivalBlocks } from './arrival-fixture';
+import { LAB_LOVE_STORY } from './love-story-fixture';
+import { studioAttireRows } from '@/lib/studio-attire-rows';
+import { LAB_SAMPLE, LAB_CALE_ICE_ROLE_NAMES, LAB_CALE_ICE_ROLE_TALLY, LAB_MAN_OF_HONOR_ROLE_TALLY, labCaleIceDressConfig, labCaleIceRolePalette, labRolesDressConfig, labRolesRolePalette, labDesignsDressConfig, labDesignsRolePalette } from '../maker-lab/guest/lab-sample';
+import { LabStudioRsvp } from './lab-studio-rsvp';
+import { MoodBoardStudio } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy';
+import { LabMoodBoardActions } from './lab-mood-board-actions';
+import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
+import { HUB_THEMES } from '@/lib/invite-themes';
+import { themeSeedPalette } from '@/lib/theme-colours';
+import { labWishList, labWishState } from './wish-list-fixture';
+import { LAB_SUGGEST_PHOTO, LAB_SUGGEST_SHOP, LAB_SUGGEST_SWATCHES } from '../supplier-lab/suggestion-lab-fixture';
+import { coupleNameColumns } from '@/lib/typed-names';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** The lab's QR ink — one fixture, shared by Details and the Hub's ⚙. */
+const LAB_QR_INKS = ['#1A1A1A'];
+
+/* 🎂 Three events with a celebrant (lab only): the guest list, the role set its type resolves to, and a dress code.
+   The celebrant's first pick (FOR WOMEN) is `roles.celebrant`, the second (FOR MEN) `women.roles.celebrant`. */
+/* 🎂 Each lab event's type and its celebrants' woman-or-man (owner 2026-11-05, (J) · (L)): the debut's and the
+   christening's are known (one column), the birthday's is not (both), the graduation has nobody tagged yet (the row is
+   there from the start). */
+const LAB_CELEBRANT: Record<string, { roleSet: string; eventType: string; celebrants: Array<'woman' | 'man' | null>; tally: Array<{ role: never; count: number }>; config: object }> = {
+  debut: {
+    roleSet: 'generic',
+    eventType: 'debut',
+    celebrants: ['woman'],
+    tally: [{ role: 'celebrant', count: 1 }, { role: 'family', count: 12 }, { role: 'host', count: 2 }, { role: 'guest', count: 140 }] as never,
+    config: { roles: { celebrant: { style: 'ball_gown', callTime: '17:00' }, guest: { style: 'long_gown' } }, women: { roles: { celebrant: { style: 'barong_tagalog' } } } },
+  },
+  birthday: {
+    roleSet: 'birthday',
+    eventType: 'birthday',
+    celebrants: [null],
+    tally: [{ role: 'celebrant', count: 1 }, { role: 'family', count: 8 }, { role: 'guest', count: 60 }] as never,
+    config: { roles: { celebrant: { style: 'cocktail_dress', callTime: '18:00' }, guest: { style: 'smart_casual' } }, women: { roles: { celebrant: { style: 'smart_casual' } } } },
+  },
+  christening: {
+    roleSet: 'generic',
+    eventType: 'christening',
+    celebrants: ['woman'],
+    tally: [{ role: 'celebrant', count: 1 }, { role: 'family', count: 10 }, { role: 'guest', count: 50 }] as never,
+    config: { roles: { celebrant: { style: 'party_dress', callTime: '09:30' }, guest: { style: 'filipiniana' } }, women: { roles: { celebrant: { style: 'barong_tagalog' } } } },
+  },
+  graduation: {
+    roleSet: 'generic',
+    eventType: 'graduation',
+    celebrants: [],
+    tally: [{ role: 'family', count: 6 }, { role: 'guest', count: 40 }] as never,
+    config: { roles: { guest: { style: 'smart_casual' } } },
+  },
+};
+
+/* 🤝🖼 `&suggest=1`'s board: the couple's own photos, and what the lab florist sent (`suggestion-lab-fixture.ts`). */
+const LAB_SUGGEST_INSPIRATIONS = [
+  { slot_key: 'bridal_bouquet', slot_position: 1, image_url: LAB_SUGGEST_PHOTO.bq1, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'bridal_bouquet', slot_position: 2, image_url: LAB_SUGGEST_PHOTO.bq2, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'centrepieces', slot_position: 1, image_url: LAB_SUGGEST_PHOTO.cp1, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'centrepieces', slot_position: 2, image_url: LAB_SUGGEST_PHOTO.cp2, swatches: LAB_SUGGEST_SWATCHES.own },
+  { slot_key: 'centrepieces', slot_position: 3, image_url: LAB_SUGGEST_PHOTO.cp3, swatches: LAB_SUGGEST_SWATCHES.own },
+];
+const LAB_SUGGESTIONS = [
+  { id: 'lab-s-bouquet', slotKey: 'bridal_bouquet', shop: LAB_SUGGEST_SHOP, url: LAB_SUGGEST_PHOTO.bqS, swatches: LAB_SUGGEST_SWATCHES.bqS },
+  { id: 'lab-s-centre', slotKey: 'centrepieces', shop: LAB_SUGGEST_SHOP, url: LAB_SUGGEST_PHOTO.cpS, swatches: LAB_SUGGEST_SWATCHES.cpS },
+];
+/** ⛪ `?venue=church`'s stand-in "uploaded" ceremony photo — a ref in this lab event's own scene-media folder (never fetched). */
+const LAB_VENUE_PHOTO_REF = `r2://setnayan-media-public/events/${EVENT}/scene-background/lab-venue.jpg`;
+
+/** 🎟 The lab's guests who have a pass — stand-in names (no database here). */
+const LAB_PASS_GUESTS = [
+  { id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000103', name: 'Carla Dizon', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000104', name: 'Dante Lim', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000105', name: 'Elena Santos', reply: 'pending' as const },
+  { id: '00000000-0000-4000-8000-000000000106', name: 'Felix Tan', reply: 'pending' as const },
+];
+
+/** 🔎 `passGuests=many` — a real-sized list (6 coming, 103 not replied: the prototype's shape) for View as ▾'s "Search guests". */
+const LAB_FIRST = ['Bea', 'Joaquin', 'Marisol', 'Teodoro', 'Chesca', 'Ramon', 'Lourdes', 'Nico', 'Patricia', 'Gabriel', 'Isabel', 'Dante', 'Ria', 'Miguel', 'Carmela', 'Ernesto', 'Lia', 'Paolo', 'Tess', 'Vince'];
+const LAB_LAST = ['Santillan', 'Villareal', 'Dizon', 'Lacson', 'Buenaventura', 'Alcantara', 'Pangilinan', 'Esguerra', 'Lim-Yap', 'Montemayor', 'Quiambao', 'Ocampo', 'Fajardo', 'Soriano', 'Reyes', 'Cruz', 'Navarro', 'Salazar', 'Domingo', 'Pascual'];
+const LAB_MANY_GUESTS = Array.from({ length: 109 }, (_, i) => ({
+  id: `00000000-0000-4000-8000-${String(200 + i).padStart(12, '0')}`,
+  name: `${LAB_FIRST[i % LAB_FIRST.length]} ${LAB_LAST[(i * 7) % LAB_LAST.length]}`,
+  reply: i < 6 ? ('attending' as const) : ('pending' as const),
+  /* Pick guests' Side ▾ and Group ▾ (2026-10-25) — the guest list's own words. */
+  side: (["Groom's side", "Bride's side", 'Both sides'] as const)[i % 3],
+  group: (['Family', 'Friends', 'Work', 'School'] as const)[i % 4],
+  role: i % 9 === 0 ? 'Ninang' : i % 9 === 1 ? 'Bridesmaid' : 'Guest',
+}));
+
+/** 🔳 Guests who can't come — on the QR sheet (it is not a ticket), never on a pass or ticket. */
+const LAB_DECLINED_GUESTS = [
+  { id: '00000000-0000-4000-8000-000000000901', name: 'Iris Calderon', reply: 'declined' as const, side: "Bride's side", group: 'Friends', role: 'Guest' },
+  { id: '00000000-0000-4000-8000-000000000902', name: 'Jun Mercado', reply: 'declined' as const, side: "Groom's side", group: 'Work', role: 'Guest' },
+];
+
+/**
+ * ✍ The lab's fact editors — the SAME nodes Details draws (`detailsFactEditors`). Also handed to the Maker lab's shell
+ * as its `factEditors` on `?facts=1` (the launch page hands the real Maker the same), so a tap that opens a fact's
+ * editor in the work area can be seen in the lab — the Love Story's moments, 2026-10-19.
+ */
+export function detailsLabFacts(
+  sp: Record<string, string | string[] | undefined>,
+  words: { specialMessage: string; pabuyaMessage: string },
+) {
+  const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const pro = one('pro') === '1';
+  return detailsFactEditors({
+    eventId: EVENT,
+    specialMessage: words.specialMessage,
+    specialMessageAction: updateSpecialMessage.bind(null, EVENT),
+    pabuyaMessage: words.pabuyaMessage,
+    /* `?studio=1` draws Studio › Love Story's list on maria-and-jose's story — this words panel is handed the SAME
+       one (two different stories for one event lose each other's changes; see `love-story-fixture.ts`). */
+    loveStory: { story: one('studio') === '1' ? LAB_LOVE_STORY : {}, ownsPro: pro },
+  });
+}
 
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */
+/**
+ * ⚙ "Your Event Hub" for the Hub's ⚙ Event Hub settings in the Maker lab (owner 2026-10-30) — the SAME builder the
+ * launch page hands the Maker (`hubSettingsEditor`, open), on the lab's own Your Event Hub fixtures (`?studio=1`'s).
+ */
+export function detailsLabHubSettings(sp: Record<string, string | string[] | undefined>) {
+  const pro = sp.pro === '1';
+  return hubSettingsEditor(
+    {
+      eventId: EVENT,
+      slug: LAB_SAMPLE.slug,
+      slugAction: updateEventSlug.bind(null, EVENT, 'launch'),
+      qr: { ownsPro: pro, style: {}, inks: LAB_QR_INKS, storeShell: false },
+      qrStyleAction: updateQrStyle.bind(null, EVENT),
+      studio: {
+        hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
+        egiftMethods: null,
+        whatToBring: null,
+        livePath: `/${LAB_SAMPLE.slug}`,
+        qrShown: true,
+      },
+    },
+    { bare: true },
+  );
+}
+
 export function detailsLabNode(sp: Record<string, string | string[] | undefined>) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const pro = one('pro') === '1';
   const withLook = one('look') === '1';
   const profile = one('type') === 'wake' ? WAKE_PROFILE : one('type') === 'birthday' ? { ...GENERIC_PROFILE, eventType: 'birthday' } : WEDDING_PROFILE;
   const themes = pickableInviteThemes();
-  const stored = parsePrintDetails({ opening_line: 'Together with their families', include: undefined });
+  const stored = parsePrintDetails({ opening_line: LAB_SAMPLE.openingLine, include: undefined });
   const eventContext = { profile, solemn: profile === WAKE_PROFILE };
   const pabuyaMessage = 'Thank you for joining us — every gift is received with thanks.';
-  const specialMessage = 'We can’t wait to see you on December 18.';
+  /* 🧾 `shape=mj` (the Maker lab) is ONE event: its date, venue, message and address are the canvas's own
+     (`LAB_SAMPLE`). The details lab opened alone keeps its own couple (Claire & Indalecio, December 18). */
+  const mj = one('shape') === 'mj';
+  const specialMessage = mj ? LAB_SAMPLE.message : 'We can’t wait to see you on December 18.';
+  const slug = mj ? LAB_SAMPLE.slug : 'indalecio-and-claire';
   /* ✍ Words (part 2b): the same editors the stage opens. Story & plans need the
      database (the scrapbook, the schedule, the guest's RSVP), so the lab says
      so honestly with a line in each picture. */
-  const facts = detailsFactEditors({
-    eventId: EVENT,
-    specialMessage,
-    specialMessageAction: updateSpecialMessage.bind(null, EVENT),
-    pabuyaMessage,
-    loveStory: { story: {}, ownsPro: pro },
-  });
+  const facts = detailsLabFacts(sp, { specialMessage, pabuyaMessage });
   /* 🪜 The guided flow (part 5): Your event on fixtures, so its first steps are real items. */
   const guideAddr = parseGuideParam(one('guide'));
   const fresh = one('fresh') === '1';
@@ -70,13 +227,43 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
      invitation's host), the film's own background picked, nothing else filled in, and the setup's
      facts (no guests yet) — so the counts, the Parents step and the guests'
      names step behave as they did on the owner's live walk. */
-  const mj = one('shape') === 'mj';
   const words = eventWordsFromProfile(profile);
   /* 🚶 `?item=march` — the Wedding March maker on maria-and-jose's couple + a full entourage (`march-fixture.ts`). */
   const marchLab = one('item') === 'march';
   /* 🧭 `?studio=1` — the new Maker's Studio tools on fixtures (`MakerDetails`'s `studio`). */
   const studioLab = one('studio') === '1';
-  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab
+  /* 👗 `?attire=shared` — a two-pick role stored with one shared, women's Wear (the shape the owner's live dress code
+     holds, 2026-10-16: "the drawing is not following the type of attire"). */
+  const sharedAttire = one('attire') === 'shared';
+  /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`; `&groom=tuxedo` etc. pick a design). */
+  const rolesAttire = one('attire') === 'roles';
+  /* 👔 `?attire=designs&gmd=…&gwd=…` — the guests' styles and designs (owner 2026-10-21, `labDesignsDressConfig`). */
+  const designsAttire = one('attire') === 'designs';
+  /* 🤝🖼 `&suggest=1` — two photos a lab florist suggested, waiting on Bridal bouquet (2 photos of the couple's) and on
+     Centrepieces (already full, 3) — prototype `supplier_inspiration_suggestions_2026-10-19.html` frames 3 · 3b · 4 · 5. */
+  const suggestLab = one('suggest') === '1';
+  /* 🪞 `?attire=cale|cale-now` — cale-ice's dress code and guest-list rows as production held them 2026-10-17 (`labCaleIceDressConfig`). */
+  /* 👯 `cale-honour` — cale-now with the two honour rows dressed (`labCaleIceDressConfig`, 2026-10-19). */
+  /* 🤵‍♂️ `man-honour` — cale-honour with a man of honor on the list and his FOR MEN column dressed (2026-10-19). */
+  const manHonour = one('attire') === 'man-honour';
+  const caleIce = one('attire') === 'cale' || one('attire') === 'cale-now' || one('attire') === 'cale-honour' || manHonour;
+  const caleIceHonour = one('attire') === 'cale-honour' || manHonour;
+  /* 🎂 `?attire=debut|birthday|christening|graduation` — an event with a celebrant, on that type's own role set (2026-11-04): the
+     rows `studioAttireRows` really builds, with the celebrant's figures (`LAB_CELEBRANT`). */
+  const celebrantLab = LAB_CELEBRANT[one('attire') ?? ''] ?? null;
+  const caleIceAfter = one('attire') === 'cale-now' || caleIceHonour;
+  const rolesPick = { groom: one('groom'), bride: one('bride'), men: one('men'), women: one('women'), boys: one('boys'), girls: one('girls'), gm: one('gm'), gw: one('gw') };
+  const wishState = labWishState(one('wish'));
+  /* 📍 `?venue=own` — a Reception the couple types by hand (2026-10-12: the address row is shared with "Add your own"). */
+  const venueLab = one('venue') === 'own';
+  /* ⛪ `?venue=church` — Details › Venues with cale-ice's two venue NAMES typed by hand (no booking): the ceremony is the
+     Santuario (a parish the drawing library has), with a stand-in uploaded photo (a file this repo ships).
+     `&vpic=photo|drawing|none` is the ceremony card's stored Picture (default photo); `&pro=1` = owns Event Hub Pro. */
+  const churchLab = one('venue') === 'church';
+  /* 📍 `?venue=mixed` — one manual ceremony + one shop reception (owner 2026-10-22, "manual entry venues can set pin"). */
+  const mixedLab = one('venue') === 'mixed';
+  const vpic = one('vpic');
+  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab || venueLab || churchLab || mixedLab
     ? {
         kind: {
           words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
@@ -89,7 +276,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           parentCount: fresh || mj ? 0 : 2,
           // Where the invitation prints parents a co-host account never counts (`readYourEventFacts`).
           hostCount: mj ? 0 : 1,
-          marchLines: marchLab ? 1 : 0,
+          marchLines: marchLab || studioLab ? 1 : 0,
         },
         names: hasTwoNamedPeople(profile)
           ? {
@@ -99,6 +286,15 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                 : fresh
                 ? [{ first: '', last: '' }, { first: '', last: '' }]
                 : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
+              /* 🔀 `&order=b` — the event's name stored the other way round ("Indalecio & Claire" — the owner's own,
+                 2026-10-21 — or "Jose & Maria" in the Maker lab): the Event name row and its Name order ▾ read it as stored (`nameOrderOf`). */
+              storedName: fresh
+                ? null
+                : coupleNameColumns(
+                    { first: mj ? 'Maria' : 'Claire', last: '' },
+                    { first: mj ? 'Jose' : 'Indalecio', last: '' },
+                    one('order') === 'b' ? 'b-first' : 'a-first',
+                  ).display_name,
               wholeForm: null,
             }
           : null,
@@ -106,25 +302,50 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         oneName: hasTwoNamedPeople(profile) ? null : { initial: fresh ? '' : 'Mateo', hint: 'Guests read it on your page, on every print and on every pass.' },
         date: {
           confirmedVendorCount: 0,
-          dateDisplay: fresh ? null : 'December 18, 2026',
-          dateValue: fresh ? null : '2026-12-18',
+          dateDisplay: fresh ? null : mj ? LAB_SAMPLE.dateLabel : 'December 18, 2026',
+          dateValue: fresh ? null : mj ? LAB_SAMPLE.date : '2026-12-18',
           label: 'Date',
           matrix: Promise.resolve(null),
           nudge: null,
         },
-        venues: studioLab
-          ? { resolved: [{ role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' } as never], slots: [], city: null }
-          : { resolved: [], slots: [], city: null },
-        march: marchLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
+        venues: mixedLab
+          ? labMixedVenues(one('shop') === 'pinned')
+          : studioLab
+          ? { resolved: [(mj ? { role: 'reception', name: LAB_SAMPLE.venue, address: LAB_SAMPLE.venueAddress } : { role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' }) as never], slots: [], city: null }
+          : churchLab
+            ? labChurchVenues(vpic, pro)
+          : venueLab
+            ? {
+                resolved: [],
+                slots: [
+                  {
+                    label: 'Reception',
+                    slot: 'reception' as const,
+                    booked: null,
+                    columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+                    typed: 'The Garden at Tagaytay',
+                    address: '',
+                    pin: null,
+                    choice: { source: 'own' as const },
+                    photoUrls: {},
+                  },
+                ],
+                city: null,
+              }
+            : { resolved: [], slots: [], city: null },
+        /* 🧭 `?studio=1` also draws the march on fixtures — Studio's side-by-side needs real-looking walks. */
+        march: marchLab || studioLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
       }
     : null;
+  /* 🪪 A tapped name opens its guest card over the march — the lab's card stands in for the read (`lab-march-cards.tsx`). */
+  if (yourEvent && (marchLab || studioLab)) yourEvent.march.openCard = labOpenMarchCard;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;
   return (
       <MakerDetails
         eventId={EVENT}
-        slug="indalecio-and-claire"
+        slug={slug}
         slugAction={updateEventSlug.bind(null, EVENT, 'launch')}
-        qr={{ ownsPro: pro, style: {}, inks: ['#1A1A1A'], storeShell: false }}
+        qr={{ ownsPro: pro, style: {}, inks: LAB_QR_INKS, storeShell: false }}
         qrStyleAction={updateQrStyle.bind(null, EVENT)}
         theme={{
           themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
@@ -137,46 +358,91 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           tour: false,
           chosen: mj || !fresh,
           // maria-and-jose's film keeps a picked background (plain #e8d9bd).
-          filmOwnBackground: mj,
         }}
         prints={{
           eventId: EVENT,
-          slug: 'indalecio-and-claire',
+          slug,
           theme: 'house',
           ownsPro: pro,
           storeShell: false,
-          previewVersion: null,
-          formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
+          /* 🖨 `?studio=1`: a version, so "Changed since you printed" can be walked (a stamp of another version in this browser). */
+          previewVersion: studioLab ? 'lab-v2' : null,
+          /* 🎫 The ticket style the lab's draft holds (the Maker lab's `lab_pass` cookie) — as the real page hands the drafted look in. */
+          passDesign: passCardDesignFrom(one('labPass')),
+          /* 🎟 `?studio=1`: who has a pass (Studio › Prints' Event pass, owner 2026-10-16) — stand-in names; `passGuests=0` walks "nobody yet",
+             `passGuests=x` the list that could not be read. */
+          ...(studioLab ? { passGuests: one('passGuests') === '0' ? [] : one('passGuests') === 'x' ? null : one('passGuests') === 'many' ? LAB_MANY_GUESTS : LAB_PASS_GUESTS } : {}),
+          /* 🔳🪑 …and the QR sheet's and the place cards' own lists (2026-10-26): with `passGuests=many`, the QR sheet adds the guests who
+             can't come and the place cards hold the seated ones only — so each row's count line says its own file's number. */
+          ...(studioLab && one('passGuests') === 'many' ? { qrGuests: [...LAB_MANY_GUESTS, ...LAB_DECLINED_GUESTS], seatedGuests: LAB_MANY_GUESTS.slice(0, 64) } : {}),
+          formats: { pass: formatFor('pass', one('pass_format'))!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
-        menu={{ saved: [], caterer: [], suggestions: [], flash: null }}
+        /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments
+           to add; its quiet save and the poster photo's go to routes the walk stands in for (no database here). */
+        menu={
+          studioLab
+            ? {
+                saved: [
+                  { title: 'Cocktail hour', dishes: ['Lumpiang shanghai', 'Cheese & fruit'] },
+                  { title: 'Reception & dinner', dishes: ['Lechon with liver sauce', 'Kare-kare', 'Garlic rice'] },
+                ],
+                caterer: [],
+                suggestions: ['Dessert', 'Midnight snack'],
+                flash: null,
+              }
+            : { saved: [], caterer: [], suggestions: [], flash: null }
+        }
         stored={stored}
         hosts={
           mj
             ? [{ moderatorId: 'm1', label: 'Ana & Marco · wedding planner external', contact: 'testnayan1@test.com' }]
-            : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
+            : studioLab
+              ? [
+                  { moderatorId: 'm1', label: 'Claire', contact: '0917 555 0142' },
+                  { moderatorId: 'm2', label: 'Marco', contact: null },
+                ]
+              : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
         }
         parents={
-          mj
+          /* `&parents=1` gives the Maker lab (shape=mj, no parents of its own) the three stand-in parents too. */
+          mj && !(studioLab && one('parents') === '1')
             ? []
-            : [
-                { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
-                { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
+            : studioLab
+              ? [
+                  /* The lab's parents — a tap opens THE guest card's sheet (one card everywhere, 2026-10-24); with no database its read says it could not open. */
+                  { guestId: 'lab-p1', name: 'Maria Santos', side: 'bride' as const },
+                  { guestId: 'lab-p2', name: 'Jose Santos', side: 'bride' as const },
+                  { guestId: 'lab-p3', name: 'Lourdes Reyes', side: 'groom' as const },
+                ]
+              : [
+                { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola' },
+                { guestId: null, name: 'Mrs. Milagros Buanhog' },
               ]
         }
         pabuyaMessage={pabuyaMessage}
         specialMessage={specialMessage}
         facts={facts}
-        loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
-        schedule={{ page: needsDb('The schedule'), moments: null, pieces: [] }}
+        /* 🧪 `?studio=1`: Studio › Love Story and Studio › Schedule on fixtures (`studio-lab-fixtures.tsx`) —
+           the real scrapbook and day, their writes in memory — so both can be laid beside the prototype. */
+        loveStory={
+          studioLab
+            ? { book: <LabStudioLoveStory />, moments: 3 }
+            : { book: needsDb('The Love Story'), moments: 0 }
+        }
+        schedule={
+          studioLab
+            ? { page: <LabStudioSchedule />, moments: 6, pieces: [] }
+            : { page: needsDb('The schedule'), moments: null, pieces: [] }
+        }
         rsvp={{
           page: needsDb('The guest’s RSVP'),
           settings: studioLab ? (
-            <MakerRsvpSettings
+            /* The real panel, its Reply-by writer stood in (`lab-studio-rsvp.tsx`: a picked day must not read as refused). */
+            <LabStudioRsvp
               eventId={EVENT}
-              studio
               current={{}}
               drafted={false}
-              replyBy={{ date: 'November 12, 2026', isDefault: true }}
+              replyBy={{ date: '2026-11-12', isDefault: true }}
               replyByOwn={{ deadline: null, pricingMode: 'realtime' }}
               requests={{ count: 0, list: null }}
               celebration={{ ownsPro: pro, storeShell: false, colours: ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'] }}
@@ -190,8 +456,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
             ? {
                 hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
                 egiftMethods: [
-                  { egift_method_id: 'g1', method_kind: 'gcash', label: 'GCash', account_name: 'Maria Santos', handle: '0917 555 0101', qr_r2_key: null, note: null, is_enabled: true, qrDisplayUrl: null },
+                  { egift_method_id: 'g1', method_kind: 'gcash', label: 'GCash', account_name: 'Maria Santos', handle: '0917 555 0101', qr_r2_key: null, note: null, is_enabled: wishState !== 'noway', qrDisplayUrl: null },
                 ],
+                /* 🎁 The wish list on the prototype's seed (`?wish=` five · empty · fail · noway · off). */
+                wishList: labWishList(wishState),
                 whatToBring: 'Your invitation QR · a jacket for the garden',
                 livePath: null,
                 /* 🧱 The missing fields (2026-10-07) on fixtures — a registry link, the QR on,
@@ -208,7 +476,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         hasGifts={false}
         answers={
           studioLab
-            ? { solemn: false, twoPeople: true, giftsMode: 'gifts', papic: { offered: false, value: null }, gifts: { offered: true, value: true }, logo: null, cover: null }
+            ? { solemn: false, twoPeople: true, giftsMode: 'gifts', papic: { offered: false, value: null }, gifts: { offered: true, value: wishState !== 'off' }, logo: null, cover: null }
             : null
         }
         flash={null}
@@ -245,7 +513,54 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         look={
           withLook
             ? {
-                moodBoard: (
+                moodBoard: studioLab ? (
+                  /* 🧭 `?studio=1`: the REAL Studio › Mood Board & Dress Code on fixtures (its writes are the lab's stand-ins — `lab-mood-board-actions.tsx`; they reach no database). */
+                  <LabMoodBoardActions refuse={one('refuse') === '1'} library={one('library') === '1'}>
+                  <MoodBoardStudio
+                    eventId={EVENT}
+                    inspirationParts={fallbackInspirationParts()}
+                    palette={(designsAttire ? labDesignsRolePalette() : caleIce ? labCaleIceRolePalette(caleIceAfter) : rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
+                    fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
+                    frozenDressing={[]}
+                    changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
+                    attire={celebrantLab ? studioAttireRows(celebrantLab.tally, celebrantLab.config, null, { offered: resolveRoleSet(celebrantLab.roleSet).offeredRoles, eventType: celebrantLab.eventType, celebrants: celebrantLab.celebrants }) : caleIce ? studioAttireRows(manHonour ? LAB_MAN_OF_HONOR_ROLE_TALLY : LAB_CALE_ICE_ROLE_TALLY, labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour), LAB_CALE_ICE_ROLE_NAMES as never) : [
+                      { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
+                      { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
+                      ...(sharedAttire || rolesAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
+                      /* The rows `studioAttireRows` really builds (a guest list with bridesmaids, groomsmen and
+                         bearers) — so each attire board is seen under its own role, as in the Maker. */
+                      { tier: 'groups', key: 'bridesmaids', label: 'Bridesmaids', paletteKey: 'bridesmaids', arrives: '2:00 PM' },
+                      { tier: 'groups', key: 'groomsmen', label: 'Groomsmen', paletteKey: 'groomsmen', arrives: '2:00 PM' },
+                      { tier: 'groups', key: 'bearers_flower_girl', label: 'Bearers & Flower Girl', paletteKey: 'bearers_flower_girl', arrives: null },
+                      { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
+                    ] as never}
+                    dressConfig={
+                      celebrantLab
+                        ? (celebrantLab.config as never)
+                        : designsAttire
+                        ? (labDesignsDressConfig(one('gmd'), one('gwd')) as never)
+                        : caleIce
+                        ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never)
+                        : rolesAttire
+                        ? labRolesDressConfig(Object.fromEntries(Object.entries(rolesPick).filter(([, v]) => v)) as never)
+                        : sharedAttire
+                        ? /* ⏰ With call times on some rows (2026-10-18) — a set one, an empty one, and a row with no Wear yet. */
+                          { roles: { bride: { style: 'long_gown', callTime: '13:30' } }, groups: { principal_sponsors: { style: 'long_gown', callTime: '14:00' }, bridesmaids: { style: 'long_gown', callTime: '12:30' }, groomsmen: { style: 'suit' } } }
+                        : { roles: { bride: { style: ATTIRE_STYLES[0] } } }
+                    }
+                    attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
+                    inspirations={suggestLab ? LAB_SUGGEST_INSPIRATIONS : []}
+                    suggestions={suggestLab ? LAB_SUGGESTIONS : undefined}
+                    autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
+                    regions={[]}
+                    dosLists={{ dos: ['Lean into the palette', 'Long gowns and ternos'], donts: ['No white or ivory (reserved for the bride)'], incStarter: false }}
+                    dosLookCanvas={{}}
+                    /* ⏰ The Guests row's call time = the day's arrival moment (`&arrive=none`: no arrival yet; `&arrive=unread`: the
+                       programme could not be read). */
+                    arrival={one('arrive') === 'unread' ? null : { blocks: labArrivalBlocks(one('arrive') === 'none'), eventDate: LAB_ARRIVAL_DATE }}
+                  />
+                  </LabMoodBoardActions>
+                ) : (
                   <div data-lab-stand="mood-board" className="flex min-h-[1400px] items-start justify-center bg-white/70 pt-10 text-sm text-ink/60">
                     Mood Board — the picked part (theme, inspirations, palette, reception…)
                   </div>
@@ -264,4 +579,97 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         }
       />
   );
+}
+
+/**
+ * 📍 `?venue=mixed` — a MANUAL ceremony (a parish the couple added by hand in Suppliers: its card carries an address
+ * and a pin, set right here) and a SHOP reception (a Setnayan shop — its pin is the shop's; unpinned unless
+ * `&shop=pinned`). Names are lab names, not a real couple's.
+ */
+export function labMixedVenues(shopPinned: boolean): YourEventInput['venues'] {
+  return {
+    resolved: [
+      { role: 'ceremony', name: 'San Roque Parish', address: '12 Mabini St, Poblacion, Makati City', latitude: 14.5649, longitude: 121.0301 },
+      { role: 'reception', name: 'Casa Lab Events Place', address: null, latitude: shopPinned ? 14.5547 : null, longitude: shopPinned ? 121.0244 : null },
+    ],
+    slots: [
+      {
+        label: 'Ceremony',
+        slot: 'ceremony' as const,
+        booked: {
+          name: 'San Roque Parish',
+          address: '12 Mabini St, Poblacion, Makati City',
+          photos: [],
+          pin: { lat: 14.5649, lng: 121.0301 },
+          pinFrom: 'manual' as const,
+          vendorId: '00000000-0000-4000-8000-0000000000c1',
+        },
+        columns: { name: 'std_film_ceremony_name' as const, address: 'ceremony_venue_address' as const, lat: 'ceremony_venue_latitude' as const, lng: 'ceremony_venue_longitude' as const },
+        typed: '',
+        address: '',
+        pin: null,
+        choice: {},
+        photoUrls: {},
+      },
+      {
+        label: 'Reception',
+        slot: 'reception' as const,
+        booked: {
+          name: 'Casa Lab Events Place',
+          address: shopPinned ? 'Ayala Ave, Makati City' : null,
+          photos: [],
+          pin: shopPinned ? { lat: 14.5547, lng: 121.0244 } : null,
+          pinFrom: 'shop' as const,
+          vendorId: '00000000-0000-4000-8000-0000000000r1',
+        },
+        columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+        typed: '',
+        address: '',
+        pin: null,
+        choice: {},
+        photoUrls: {},
+      },
+    ],
+    city: null,
+  };
+}
+
+/**
+ * ⛪ `?venue=church` — Details › Venues with cale-ice's two venue NAMES typed by hand (no booking), the ceremony the
+ * Santuario (a parish the drawing library has) with a stand-in uploaded photo. Also handed to the Maker lab's shell as
+ * its `factEditors.venues`, so the new Maker's Venue scene draws the same editor (`/dev/maker-lab?studio=1&venue=church`).
+ */
+export function labChurchVenues(vpic: string | undefined, pro: boolean): YourEventInput['venues'] {
+  return {
+    resolved: [],
+    slots: [
+      {
+        label: 'Ceremony',
+        slot: 'ceremony' as const,
+        booked: null,
+        columns: { name: 'std_film_ceremony_name' as const, address: 'ceremony_venue_address' as const, lat: 'ceremony_venue_latitude' as const, lng: 'ceremony_venue_longitude' as const },
+        typed: 'Santuario de San Vicente de Paul Parish',
+        address: '',
+        pin: null,
+        choice:
+          vpic === 'none'
+            ? { source: 'own' as const, ownPhoto: null }
+            : { source: 'own' as const, ownPhoto: LAB_VENUE_PHOTO_REF, ...(vpic === 'drawing' ? { drawing: true as const } : {}) },
+        photoUrls: { [LAB_VENUE_PHOTO_REF]: '/realstories/jack-jill-g3.jpg' },
+      },
+      {
+        label: 'Reception',
+        slot: 'reception' as const,
+        booked: null,
+        columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+        typed: 'Seda Hotel Vertis North',
+        address: '',
+        pin: null,
+        choice: { source: 'own' as const },
+        photoUrls: {},
+      },
+    ],
+    city: null,
+    pro: { owns: pro, storeShell: false },
+              };
 }

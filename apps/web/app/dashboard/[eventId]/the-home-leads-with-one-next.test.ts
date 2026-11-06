@@ -1,23 +1,18 @@
 /**
- * the-home-leads-with-one-next.test.ts — 2026-10-01.
+ * the-home-leads-with-one-next.test.ts — 2026-10-01, RE-AIMED 2026-10-24.
  *
- * Owner-APPROVED 2026-10-01 (DECISION_LOG "THE SIMPLE PHONE APP — APPROVED",
- * frame 1 "Home"): ONE "Next" card → an always-there **Edit your Event Hub**
- * button → three numbers + one Paid / Still owing line. Nothing else above the
- * fold on a 390 × 844 phone.
+ * Owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP — APPROVED"): ONE next thing, said once. Owner-approved 2026-10-24
+ * (`home_control_center_2026-10-24_fable.html`, "ok"): the "Your next step" card and the aggregate "What's next" are
+ * REMOVED — the ONE next thing is now the Today line on top (the SAME picker, `pickHomeNext`), a POINTER to the widget
+ * it is about, and the verb sits on that widget. What this guard held about the Next card it now holds about the line:
  *
- * Three properties, each RENDERED (not grepped) where it can be — the harness
- * is the neighbouring render tests' (`globalThis.React`, dynamic import):
- *   a · exactly one Next card, and it leads the Home's plan branch;
- *   b · the Edit your Event Hub button is drawn in every state;
- *   c · a read that did not happen prints "—", never 0;
- *   d · "Your services" (Papic · Setnayan AI, owner 2026-10-01): present, "—"
- *       on a failed read, never the service that is already the Next card,
- *       absent in the store shell.
- *   e · EACH THING ONCE, AND NOTHING ELSE (owner 2026-10-02, "HOME IS THE FIRST
- *       SCREEN ONLY"): the plan Home renders the first screen's blocks and no
- *       second section — on desktop too — and every old tile's content is
- *       reachable at its home (route check).
+ *   a · exactly ONE Today line, naming the picker's choice, pointing (never navigating) at a widget that IS drawn;
+ *   b · Home draws no shortcut the event bar already has;
+ *   c · a read that did not happen prints "—" / "couldn't load", never 0 — and the page hands the measurement on;
+ *   d · "Your services" is on the first screen, last; the store shell draws none; no service stands down for Today;
+ *   e · EACH THING ONCE (owner 2026-10-02, "HOME IS THE FIRST SCREEN ONLY") — per version; the old tiles' content
+ *       is reachable at its home (route check);
+ *   f · What's next is GONE (not hidden): no row, no dashboard mount, no `only="whatsnext"` mode.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,6 +37,9 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import type { HomeFirstScreenProps } from './_components/home-first-screen';
+import { homeNowAction, homeToday, homeWaiting } from './_components/home-control-faces';
+import { fixtureControl, fixtureControlUnread } from '@/lib/home-control-fixture';
+import { buildCustomerMenuTree } from '@/lib/customer-menu';
 
 // 🪤 The repo's render harness: `"jsx": "preserve"` compiles to the classic
 // runtime, so `React` must be global BEFORE the component is (dynamically) imported.
@@ -89,25 +87,43 @@ const GUIDE = { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stag
 const EVERY_STATE: HomeNextInput[] = [
   { ...NOTHING, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   { ...NOTHING, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  // An unread guest list is its OWN step (H3, 2026-10-07) — never "on track".
+  { ...NOTHING, guests: null, papicReady: true, aiOffer: true },
+  // 🎨 Papic's moment ranks ABOVE the guest steps since 2026-10-14 (the approved
+  // prototype's stopped/ready card stands where "Send 12 invitations" would).
   { ...NOTHING, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
-  { ...NOTHING, guests: { total: 96, unsent: 58 }, papicReady: true, aiOffer: true },
-  { ...NOTHING, papicReady: true, aiOffer: true },
+  { ...NOTHING, guests: { total: 0, unsent: 0 }, aiOffer: true },
+  { ...NOTHING, guests: { total: 96, unsent: 58 }, aiOffer: true },
   { ...NOTHING, aiOffer: true },
   NOTHING,
 ];
 
+/** The control row a state draws with — the one `draw` uses, so a test can ask the same Today the screen drew. */
+function controlFor(input: HomeNextInput) {
+  return fixtureControl('e1', {
+    next: pickHomeNext(input),
+    guests: input.guests === null ? 'unread' : { coming: 96, noReply: 35, toInvite: input.guests.unsent, declined: 4, total: input.guests.total },
+  });
+}
+
+/** ☀ Nothing waits on the hosts: no overdue payment, no quote to answer (audit 2026-11-02 #2 — only then is Today calm). */
+function calmControl(input: HomeNextInput) {
+  const c = controlFor(input);
+  const budget = c.budget && c.budget !== 'unread' && c.budget.pays !== 'unread' ? { ...c.budget, pays: c.budget.pays.filter((p) => p.state !== 'overdue') } : c.budget;
+  const suppliers = c.suppliers && c.suppliers !== 'unread' ? { ...c.suppliers, toDecide: [] } : c.suppliers;
+  return { ...c, budget, suppliers };
+}
+
 function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = NOTHING): string {
+  const next = pickHomeNext(input);
+  const control = controlFor(input);
   const props: HomeFirstScreenProps = {
     eventId: 'e1',
     cover: { eyebrow: 'Wedding · March 13, 2027', name: 'Ana & Miguel' },
-    next: pickHomeNext(input),
-    days: glanceDays(163),
-    coming: glanceCount(96, true),
-    noReply: glanceCount(35, true),
-    noReplyWaiting: true,
-    money: { paid: glanceMoney(120000), owing: glanceMoney(45000) },
+    next,
+    control,
     services: homeServices({
-      next: pickHomeNext(input).kind,
+      next: 'plan',
       storeShell: false,
       papic: papicStatus({ permitted: true, tile: { photosGathered: 12, preCapture: false } }),
       ai: aiStatus(false),
@@ -118,6 +134,12 @@ function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = N
 }
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
+const norm = (t: string) => t.replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+/** Now's own markup — the row on the event card (Home redraw 2026-11-02, round 3). */
+const todayLine = (html: string) => {
+  const at = html.lastIndexOf('<', html.indexOf('data-home-today='));
+  return html.slice(at, html.indexOf('</div>', at) + 6);
+};
 
 test('the picker walks the order the Home already stacked its nudges in', () => {
   assert.deepEqual(
@@ -127,168 +149,211 @@ test('the picker walks the order the Home already stacked its nudges in', () => 
   );
 });
 
-test('a · exactly ONE Next card with ONE button, in every state', () => {
-  for (const state of EVERY_STATE) {
-    const html = draw({}, state);
-    const kind = pickHomeNext(state).kind;
-    assert.equal(count(html, 'data-home-next='), 1, `${kind}: the first screen must carry exactly one Next card`);
-    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
-    assert.equal(count(card, '<a '), 1, `${kind}: the Next card must hold exactly one button`);
+/*
+  🎴 NOW RIDES THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3): the Today line became the card's Now row —
+  the ONE thing to do, in the redraw's order (a late payment · the oldest request · the picker's setup step · an overdue
+  task), with ONE button carrying its verb to the place that settles it. Exactly one, on the card, its button the one
+  `homeNowAction` names — a door when it has an address, a press when it ticks, points or reloads; none when calm.
+*/
+test('a · exactly ONE Now row, on the event card, naming what waits first — with the one button its action names', () => {
+  for (const state of [...EVERY_STATE.map((s) => [s, controlFor(s)] as const), ...EVERY_STATE.map((s) => [s, calmControl(s)] as const)]) {
+    const [input, control] = state;
+    const html = draw({ control }, input);
+    const next = pickHomeNext(input);
+    const t = homeToday(next, control.guests, homeWaiting(control));
+    const act = homeNowAction(t, control);
+    assert.equal(count(html, 'data-home-today='), 1, `${next.kind}: the first screen must carry exactly one Now row`);
+    const at = html.indexOf('data-home-today=');
+    assert.ok(at > html.indexOf('data-home-cover') && at < html.indexOf('data-home-column'), `${next.kind}: Now is not on the event card`);
+    const line = todayLine(html);
+    assert.match(line, /^<div class="hc-now/, `${next.kind}: Now is not the card's row`);
+    assert.match(line, new RegExp(`data-home-today="${t.target}"`), `${next.kind}: Now names ${t.target}`);
+    const presses = [...line.matchAll(/<(a|button)\b[^>]*>/g)].map((m) => m[0]);
+    if (act === null) {
+      assert.deepEqual(presses, [], `${next.kind}: a calm Now carries a button`);
+      continue;
+    }
+    assert.equal(presses.length, 1, `${next.kind}: Now carries ${presses.length} buttons — it carries exactly one`);
+    assert.match(presses[0]!, new RegExp(`aria-label="[^"]*— ${act.point ? 'show it' : act.verb}"`), `${next.kind}: Now’s button does not say ${act.verb}`);
+    if (act.href && !act.tick && !act.point) assert.ok(presses[0]!.includes(`href="${act.href.replace(/&/g, '&amp;')}"`), `${next.kind}: Now’s ${act.verb} does not open ${act.href}`);
+    assert.equal(count(html, 'data-home-next='), 0, `${next.kind}: the Next card is back`);
   }
+  // The redraw's order: a late payment outranks the setup step (here: the picker's invitations).
+  const busy = controlFor({ ...NOTHING, guests: { total: 96, unsent: 58 } });
+  assert.equal(homeToday(busy.next, busy.guests, homeWaiting(busy)).target, 'budget', 'a late payment no longer comes first');
 });
 
-test('a · the plan branch IS the first screen — the dashboard appears only inside the What\'s next sheet', () => {
+test('a · the plan branch IS the first screen — and mounts no dashboard', () => {
   assert.equal(count(PAGE, '<HomeFirstScreen'), 1, 'the first screen is drawn once, in one place');
   assert.equal(count(PAGE, 'homeFirstScreen'), 2, 'the first screen is built once and mounted once');
   assert.ok(PLAN.includes('{homeFirstScreen}'), 'the plan branch must render the first screen');
-  // The ONLY dashboard in the plan branch is the sheet's, told `only="whatsnext"`, behind the URL param.
-  assert.equal(count(PLAN, '<EventDashboard'), 1, 'the plan branch mounts the dashboard more than once');
-  assert.match(
-    PLAN,
-    /\{search\.sheet === 'next' \? \(\s*<WhatsNextSheet[^>]*>\s*<EventDashboard[^>]*only="whatsnext"[^>]*\/>\s*<\/WhatsNextSheet>\s*\) : null\}/,
-    'the dashboard must sit inside the sheet, only while ?sheet=next, drawn as `only="whatsnext"`',
-  );
+  assert.equal(count(PLAN, '<EventDashboard'), 0, 'the plan branch mounts a second dashboard');
+  assert.doesNotMatch(PAGE, /only="whatsnext"|whatsNext=/, 'What’s next is mounted again');
+  assert.doesNotMatch(PAGE, /sheet === 'next'|WhatsNextSheet/, 'the ?sheet=next portal is back');
   assert.doesNotMatch(PLAN, /slotAfterBento|firstScreenAbove|home-all/, 'a leftover of the stacked second section');
   // The two receded views keep the whole dashboard — each behind its own disclosure.
-  assert.equal(count(PAGE, '<EventDashboard'), 3, 'EventDashboard: day-of, after the day, the sheet');
+  assert.equal(count(PAGE, '<EventDashboard'), 2, 'EventDashboard: day-of and after the day');
   assert.equal(count(PAGE, 'firstScreenAbove'), 0, 'the "first screen is above" flag is dead');
   assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
-test('b · Edit your Event Hub is drawn in every state — no data can hide it', () => {
+test('b · Home draws NO shortcut the event bar already has — in every state (owner 2026-10-23)', () => {
+  // Owner, 23 Oct: "remove Home's three pills (Guests · Suppliers · Event Hub)" — *"we already have those menus on the
+  // nav"*. A link on Home whose destination is a bar tab's AND whose NAME is that tab's name is a second door to the
+  // same place — the bar's job. A widget that opens its page carries its own words ("96 coming — of 131 on the list").
+  const tabs = buildCustomerMenuTree('e1', {})
+    .filter((t) => t.key !== 'home')
+    .map((t) => ({ href: t.href.split('?')[0]!, names: new Set([t.label, ...(t.key === 'launch' ? ['Event Hub', 'Hub'] : [])].map(norm)) }));
+  assert.ok(tabs.length >= 3, 'premise: the bar has its tabs');
   const states: Array<[string, string]> = [
     ...EVERY_STATE.map((s): [string, string] => [pickHomeNext(s).kind, draw({}, s)]),
-    ['nothing measured', draw({ coming: glanceCount(0, false), noReply: glanceCount(0, false), money: { paid: glanceMoney(null), owing: glanceMoney(null) }, days: glanceDays(null) })],
-    ['budget not shared', draw({ money: null })],
+    ['nothing measured', draw({ control: fixtureControlUnread('e1') })],
+    ['budget not shared', draw({ control: fixtureControl('e1', { budget: null }) })],
   ];
   for (const [label, html] of states) {
-    assert.equal(count(html, 'data-home-edit-hub'), 1, `${label}: the Edit your Event Hub button is missing`);
-    assert.match(html, /href="\/dashboard\/e1\/launch"[^>]*>Edit your Event Hub</, `${label}: it must open the Maker`);
+    const links = [...html.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
+      href: (m[1]!.match(/href="([^"]*)"/)?.[1] ?? '').split(/[?#]/)[0]!,
+      name: norm(m[1]!.match(/aria-label="([^"]*)"/)?.[1] ?? m[2]!.replace(/<[^>]+>/g, ' ')),
+    }));
+    assert.ok(links.length > 0, `${label}: premise — Home draws links`);
+    for (const l of links) {
+      const twin = tabs.find((t) => t.href === l.href && t.names.has(l.name));
+      assert.ok(!twin, `${label}: Home draws "${l.name}" → ${l.href} — the event bar already has that door`);
+    }
     assert.doesNotMatch(html, /Recommended/i, `${label}: the owner dropped the Recommended badge (2026-10-01)`);
   }
 });
 
-test('c · an unread number prints "—", never 0', () => {
+test('c · an unread number prints "—" or "couldn’t load", never 0', () => {
   assert.equal(glanceCount(0, false), '—');
   assert.equal(glanceCount(180, false), '—', 'unmeasured is unknown, whatever the rows say');
   assert.equal(glanceCount(0, true), '0', 'a MEASURED zero is a fact and may be stated');
   assert.equal(glanceMoney(null), '—');
   assert.equal(glanceDays(null).value, '—');
-
-  const html = draw({
-    coming: glanceCount(0, false),
-    noReply: glanceCount(0, false),
-    noReplyWaiting: false,
-    money: { paid: glanceMoney(null), owing: glanceMoney(null) },
-  });
-  const numbers = html.slice(html.indexOf('data-home-numbers'));
-  assert.doesNotMatch(numbers, />0</, 'an unread count rendered as 0');
-  assert.doesNotMatch(numbers, /₱0/, 'an unread sum rendered as ₱0');
-  assert.ok(count(numbers, '>—<') >= 4, 'coming · no reply · paid · still owing must each read "—"');
+  // The widgets themselves: `home-control-reads-honestly.test.ts` renders every failed one (never 0, never ₱0).
+  const html = draw({ control: fixtureControlUnread('e1') });
+  const row = html.slice(html.indexOf('data-home-control="compact"'), html.indexOf('data-home-services'));
+  assert.match(row, /Couldn’t load/, 'an unread guest list must say so on its widget');
+  assert.match(row, /Money couldn’t load/, 'an unread money read must say so on the Budget widget');
+  assert.doesNotMatch(row.replace(/not ₱0/g, ''), /₱0/, 'an unread sum rendered as ₱0');
 });
 
 test('c · the page hands the measurement to the render, not only the rows', () => {
   assert.match(PAGE, /fetchGuestsByEventMeasured\(/, 'Home must take the measured guest read');
-  // The page hands the measurement to `homeFacts`; `homeFacts` is the one place the numbers are printed.
-  assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured\s*\}/, 'the page must pass the measured flag with the counts');
-  assert.match(FACTS, /glanceCount\(guests\.stats\.attending,\s*guests\.measured\)/, '"coming" must know whether it was measured');
-  assert.match(FACTS, /glanceCount\(guests\.stats\.pending,\s*guests\.measured\)/, '"no reply" must know whether it was measured');
+  // The page hands the measurement to `homeFacts`; `homeFacts` is the one place the days and the money are worded.
+  assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured,\s*noReply:\s*homeRoster\.none,\s*coming:\s*homeRoster\.yes\s*\}/, 'the page must pass the measured flag with the counts');
+  assert.match(FACTS, /glanceCount\(comingN,\s*guests\.measured\)/, '"coming" must know whether it was measured');
   assert.match(FACTS, /glanceMoney\(money\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
-  assert.match(FACTS, /glanceMoney\(money\?\.owing \?\? null\)/, 'Still owing must print "—" when the money read failed');
+  assert.match(PAGE, /roster: guestsMeasured \? homeRoster : null,/, 'the Guests widget must know whether the list was measured');
   assert.doesNotMatch(PAGE, /measured:\s*true[^}]*\}\s*as Awaited/, 'a failed guest read must never be recast as measured');
 });
 
-test('d · the services row is on the first screen, last, under the money line', () => {
+test('d · the services row is on the first screen, last, under the control row', () => {
   const html = draw();
   assert.equal(count(html, 'data-home-services'), 1, 'the Your services row is missing');
   const at = html.indexOf('data-home-services');
-  assert.ok(at > html.indexOf('data-home-money'), 'the row sits under the money line');
+  assert.ok(at > html.indexOf('data-home-control="detail"'), 'the row sits under the control row');
   assert.equal(count(html, 'See all'), 0, 'there is nothing under the row to "see all" of');
-  assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/studio\/papic"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its page with its status');
+  // 📷 Without the couple's card (the page was removed 2026-10-26), the Papic row opens Papic's photos, in Memories.
+  assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/memories"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its photos with its status');
   assert.match(html, /<a data-home-service="ai"[^>]*href="\/dashboard\/e1\/studio\/setnayan-ai"[^>]*>[\s\S]*?Try it/, 'Setnayan AI opens its page with its status');
 });
 
 test('d · each status is the shipped reader\'s answer, and a failed read is "—"', () => {
   assert.equal(papicStatus({ permitted: true, tile: 'failed' }), '—', 'a thrown Papic read');
   assert.equal(papicStatus({ permitted: true, tile: { photosGathered: null, preCapture: false } }), '—', 'a refused count is not "nothing shot"');
-  assert.equal(papicStatus({ permitted: true, tile: { photosGathered: 0, preCapture: true } }), 'Free camera ready');
+  assert.equal(papicStatus({ permitted: true, tile: { photosGathered: 0, preCapture: true } }), 'Ready', 'no free camera is promised (owner 25 Oct: "unlimited camera but papic credits is used")');
   assert.equal(papicStatus({ permitted: true, tile: null }), 'Not added');
   assert.equal(papicStatus({ permitted: true, tile: { photosGathered: 1, preCapture: false } }), 'On · 1 photo');
   assert.equal(aiStatus(null), '—');
   assert.equal(aiStatus(true), 'On');
   assert.equal(aiStatus(false), 'Try it');
-  const html = draw({ services: homeServices({ next: 'guide', storeShell: false, papic: papicStatus({ permitted: true, tile: 'failed' }), ai: aiStatus(null) }) });
+  const html = draw({ services: homeServices({ next: 'plan', storeShell: false, papic: papicStatus({ permitted: true, tile: 'failed' }), ai: aiStatus(null) }) });
   const row = html.slice(html.indexOf('data-home-services'));
   assert.equal(count(row, '>—<'), 2, 'both services must read "—" when their reads failed');
   assert.doesNotMatch(row, />0</);
 });
 
-test('d · never twice: the service that is Next is left out of the row', () => {
-  for (const kind of HOME_NEXT_ORDER) {
-    const keys = homeServices({ next: kind, storeShell: false, papic: 'x', ai: 'y' }).map((s) => s.key);
-    if (kind === 'papic') assert.deepEqual(keys, ['ai'], 'Papic is Next — the row must show only Setnayan AI');
-    else if (kind === 'ai') assert.deepEqual(keys, ['papic'], 'Setnayan AI is Next — the row must show only Papic');
-    else assert.deepEqual(keys, ['papic', 'ai']);
+test('d · no service stands down for Today — the line points at it, so it must be there', () => {
+  // The old NEVER TWICE left the Next card's service out of the row. The Today line carries no button of its own, so
+  // the page builds the row with `next: 'plan'` (names no service) — Papic and Setnayan AI stay when they are Today.
+  assert.match(PAGE, /const homeServicesInput: Parameters<typeof homeServices>\[0\] = \{\s*next: 'plan',/, 'the plan Home leaves a service out for Today');
+  for (const state of [{ ...NOTHING, papicReady: true }, { ...NOTHING, aiOffer: true }]) {
+    const next = pickHomeNext(state);
+    const html = draw({ control: fixtureControl('e1', { next }) }, state);
+    const t = homeToday(next, null);
+    assert.match(html, new RegExp(`data-home-service="${t.target}"`), `${next.kind}: Today points at ${t.target}, which is gone`);
   }
-  const html = draw({}, { ...NOTHING, papicReady: true });
-  assert.equal(count(html, '/studio/papic'), 1, 'Papic is linked twice on one screen');
 });
 
 test('d · the store shell draws no services row (both are STORE_SHELL_HIDDEN_ADDON_KEYS)', () => {
   assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y' }), []);
   assert.equal(count(draw({ services: [] }), 'data-home-services'), 0);
-  assert.match(PAGE, /homeServices\(\{[\s\S]*?storeShell,/, 'the page must hand the store-shell answer to the row');
-  assert.match(PAGE, /papicReady: Boolean\([^)]*!storeShell\)/, 'the Papic Next card must not send a store-shell user to a web-only page');
+  assert.match(PAGE, /const homeServicesInput: Parameters<typeof homeServices>\[0\] = \{[\s\S]*?storeShell,/, 'the page must hand the store-shell answer to the row');
+  assert.match(PAGE, /homeServices\(homeServicesInput\)/);
+  assert.match(PAGE, /papicReady: Boolean\([^)]*!storeShell\)/, 'the Papic Today must not send a store-shell user to a web-only page');
 });
 
 /* ══ e · EACH THING ONCE ═════════════════════════════════════════════════════
    Owner 2026-10-01, on the TEST wedding's Home (desktop) after the first screen
    shipped: *"you updated the Home of that event but instead of changing it I
-   see dupes on the event."* Measured: days to go ×2 · coming / no reply ×2
-   (three numbers + Guests tile + "N guests haven't replied yet") · money ×2
-   (Paid / Still owing + Budget tile) · Next card ≈ "Needs you this week".
+   see dupes on the event."* Since 2026-10-24 Home draws each widget TWICE in the
+   markup — the phone's tile and the md+ card, one hidden at every width — so the
+   rule is held PER VERSION: each fact once in the tiles, once in the cards. */
 
-   🪤 `EventDashboard` is `server-only` (async, reads the database) — no test can
-   mount it, so the half of each count that lives in it is held by the GATE on
-   each site, and the sites are COUNTED, so a fifth way to print "days to go"
-   added without a gate is a red test, not a silent dupe. The first screen's
-   half is RENDERED. */
-
-test('e · the first screen states each of the four facts exactly once', () => {
+test('e · each version states each fact exactly once', () => {
   const html = draw();
+  const compact = html.slice(html.indexOf('data-home-control="compact"'), html.indexOf('data-home-control="detail"'));
+  const detail = html.slice(html.indexOf('data-home-control="detail"'), html.indexOf('data-home-services'));
+  // 🎴 "days to go" is the event card's (Home redraw 2026-11-02) — stated once on the whole screen, in neither version.
+  assert.equal(count(html, '>days to go<'), 1, 'the card does not state "days to go" exactly once');
+  assert.equal(count(compact + detail, 'days to go'), 0, 'a widget states "days to go" again');
   for (const [what, needle] of [
-    ['the days-to-go number', '>163<'],
-    ['"days to go"', 'days to go<'],
-    ['"coming"', '>coming<'],
-    ['"no reply"', '>no reply<'],
-    ['Paid', 'Paid<'],
-    ['Still owing', 'Still owing<'],
+    ['"coming"', '> coming<'],
+    ['"no reply"', 'no reply<'],
   ] as const) {
-    assert.equal(count(html, needle), 1, `${what} is not stated exactly once on the first screen`);
+    assert.equal(count(compact, needle), 1, `phone: ${what} is not stated exactly once`);
   }
+  assert.equal(count(detail, '>Paid<'), 1, 'cards: Paid is not stated exactly once');
+  assert.equal(count(detail, '>Still owing<'), 1, 'cards: Still owing is not stated exactly once');
 });
 
 test('e · the Home draws exactly one h1 — the cover name — and it is the first screen\'s', () => {
   const html = draw();
   assert.equal(count(html, '<h1'), 1, 'the first screen must carry the page\'s one h1 (the Kumusta hero that held it is gone)');
   assert.match(html, /<h1[^>]*>Ana &amp; Miguel<\/h1>/, 'the h1 is the event name');
-  assert.equal(count(html, 'Ana &amp; Miguel'), 2, 'the name is the h1 (read) plus one aria-hidden line (seen) — a third copy is a dupe');
+  // 📌 2026-10-27 (owner, Home A — "on home, we also want to pin the header on top" → "pinned approve"): the cover pins
+  // as ONE line, `<names> · <date>`, drawn in place of the big words once stuck. That line is the third copy — and the
+  // ONLY one allowed: aria-hidden, inside `data-home-cover-pin`. Any other copy is still a dupe.
+  assert.equal(count(html, 'Ana &amp; Miguel'), 3, 'the name is the h1 (read) plus the big line and the pinned line (both seen, aria-hidden) — a fourth copy is a dupe');
+  // (⚙ 2026-10-27: the line ends with Home's ⚙, a real control — so aria-hidden moved from the line onto its words.)
+  assert.match(html, /<span data-home-cover-pin=""[^>]*><span aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the third copy is the pinned line, hidden from a screen reader');
+  assert.equal(count(html.replace(/<span data-home-cover-pin=""[^>]*><span aria-hidden="true"[^>]*>Ana &amp; Miguel<\/span>/, ''), 'Ana &amp; Miguel'), 2, 'outside the pinned line the name is the h1 plus one aria-hidden line — a third copy is a dupe');
   assert.match(html, /aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the seen copy must be hidden from a screen reader, or the name is read twice');
 });
 
-test('e · desktop is the same single column, only wider — no second section', () => {
+test('e · compact on the phone, detail from md — one column, no second section, no toggle', () => {
   const html = draw();
   assert.equal(count(html, 'data-home-first-screen'), 1, 'one first screen');
-  assert.match(html, /<section[^>]*data-home-first-screen[^>]*class="[^"]*\bmax-w-xl\b[^"]*\blg:max-w-3xl\b/, 'one centred column, with a wider max-width from lg up');
-  assert.doesNotMatch(html, /grid-cols-(?:3|4)\b[^"]*lg:|lg:grid-cols|lg:flex-row/, 'the first screen must not turn into a wide multi-column layout on desktop');
+  // One centred column on a phone; the whole body from md up (owner 2026-10-24: the split moves down from lg to md).
+  assert.match(html, /<div data-home-column[^>]*class="[^"]*\bmax-w-xl\b[^"]*\bmd:max-w-none\b/, 'the column must fill the body from md');
+  assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
+  // 🎴 The event card (Home redraw 2026-11-02): square at the top, its bottom corners rounded — nothing else.
+  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-3xl/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
+  // The two versions, each switched by width alone — no Compact/Detail toggle.
+  // 🧱 The phone's stack (owner 2026-11-01): Countdown · Schedule · the glance row · Budget — still hidden from md.
+  assert.match(html, /class="hc-stack md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
+  assert.match(html, /class="hc-two hidden md:grid" data-home-control="detail"/, 'the cards must show from md');
+  assert.doesNotMatch(html, /Compact|Detail view|aria-pressed="(true|false)"[^>]*>Detail/, 'a Compact/Detail toggle');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
   assert.equal(count(html, '>See all<'), 0);
-  // The ONLY blocks: cover · Next · Edit your Event Hub · numbers · money · services.
-  for (const marker of ['data-home-event-details', 'data-home-next=', 'data-home-edit-hub', 'data-home-numbers', 'data-home-money', 'data-home-services']) {
+  // The blocks: cover · Today · the control row (two versions) · services. The cover's Settings pill is GONE — the
+  // Countdown is Event Settings' one door (owner-approved 2026-10-24).
+  for (const marker of ['data-home-today=', 'data-home-control="compact"', 'data-home-control="detail"', 'data-home-services']) {
     assert.equal(count(html, marker), 1, `${marker} must be drawn exactly once`);
   }
+  assert.equal(count(html, 'data-home-event-details'), 0, 'the cover’s Settings pill is back — a second door to Event Settings');
   assert.equal(count(html, '<section'), 1, 'one section — a second one is a second block');
-  assert.equal(count(html, '<h2'), 1, 'the Next card is the only heading below the cover');
 });
 
 /* The old tiles' content, each at its home. The route check: the Home links to the
@@ -304,17 +369,22 @@ const exists = (route: string) => {
 };
 const read = (route: string) => stripComments(readFileSync(page(route), 'utf8'));
 
-test('e · the "plan" Next card opens the checklist — the plan, step by step', () => {
-  assert.ok(exists('checklist'), 'the checklist page exists');
-  const html = draw({}, NOTHING);
-  assert.match(html, /href="\/dashboard\/e1\/checklist"[^>]*>Open your checklist</, 'the plan card must open the checklist');
-  assert.doesNotMatch(html, /just below|See your plan/i, 'the card still points at a section that no longer exists');
+test('e · a calm Now says so with no button — and the To do list under the card opens Planning Stage’s To do', () => {
+  // The Checklist merged into Planning Stage (owner 2026-11-01); its old address forwards there.
+  assert.ok(exists('checklist'), 'the old checklist address still exists (it forwards)');
+  const html = draw({ control: calmControl(NOTHING) }, NOTHING);
+  assert.match(todayLine(html), /data-home-today="plan"/, 'the calm Now does not name the plan');
+  assert.match(todayLine(html), /Nothing waits on you/);
+  assert.doesNotMatch(todayLine(html), /<(a|button)\b/, 'a calm Now carries a button');
+  assert.match(html, /data-home-todo=""[\s\S]*?href="\/dashboard\/e1\/schedule\?view=preparation&amp;filter=todo"/, 'the To do list does not open Planning Stage’s To do filter');
+  assert.doesNotMatch(html, /just below|See your plan/i, 'Home still points at a section that no longer exists');
 });
 
 test('e · each removed tile\'s content is reachable at its home', () => {
   // [tile, the route it now lives at, a file under that route, what that file still states]
   const homes: Array<[string, string, string | null, RegExp | null]> = [
-    ['Papic · N shots / photos → the Your services row, then its page', 'studio/papic', null, null],
+    // 📷 The Papic page was removed 2026-10-26 — the couple's card is on Today; the photos are Memories.
+    ['Papic · N shots / photos → the Papic card on Today, then its photos', 'memories', null, null],
     // The share's word is "booked" since d19 (2026-10-02, "couples read book, never lock").
     ['Sai · your briefing · % booked → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /% booked/],
     ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every supplier, deadline and payment/],
@@ -335,7 +405,9 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   }
   // The Home hands the way to the two services and the money line.
   const html = draw();
-  for (const href of ['/dashboard/e1/studio/papic', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/budget']) {
+  // The money opens the Budget page, Home's own page since 2026-11-01 (owner: "Okay place it in home").
+  // 📷 Papic: without the couple's card, the row opens Papic's photos (Memories) — the Papic page is gone (2026-10-26).
+  for (const href of ['/dashboard/e1/memories', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/budget']) {
     assert.ok(html.includes(`href="${href}"`), `the first screen must link ${href}`);
   }
 });
@@ -390,36 +462,18 @@ test('e · the nudges of the old second section are not on the plan Home', () =>
   }
 });
 
-/* ══ f · "WHAT'S NEXT" — the one row (owner "yes", 2026-10-03) ═══════════════════ */
+/* ══ f · "WHAT'S NEXT" IS GONE (owner-approved 2026-10-24) ═════════════════════
+   It became the Checklist widget (the plan only); its decision rows went to the widgets they are about (book →
+   Suppliers, pay → Budget, the AI's rows → Setnayan AI). Removed, not hidden. */
 
-test('f · the first screen carries ONE "What\'s next" row — no caption, 48px, opening the sheet', () => {
+test('f · no What’s next row, no dashboard mode for it', () => {
   const html = draw();
-  assert.equal(count(html, 'data-home-whats-next'), 1, 'exactly one What\'s next row');
-  const row = html.slice(html.lastIndexOf('<a', html.indexOf('data-home-whats-next')), html.indexOf('</a>', html.indexOf('data-home-whats-next')) + 4);
-  assert.match(row, /href="\/dashboard\/e1\?sheet=next"/, 'it opens the sheet (the Home URL + ?sheet=next)');
-  assert.match(row, /\bh-12\b/, 'one 48px row (h-12)');
-  assert.equal(row.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '').trim(), 'What’s next', 'no caption, no count, no second line');
-  const at = html.indexOf('data-home-whats-next');
-  assert.ok(at > html.indexOf('data-home-money') && at < html.indexOf('data-home-services'), 'it sits under the money line, above Your services');
-  // present in every state, store shell included
-  assert.equal(count(draw({ services: [] }), 'data-home-whats-next'), 1);
-});
-
-test('f · the sheet draws the dashboard\'s own decisions list, then Coming up — and nothing else of it', () => {
-  assert.match(DASH, /only\?: 'whatsnext'/, 'the dashboard takes the sheet mode');
-  assert.match(DASH, /if \(only\) return inspectorMaster;/, 'in the sheet there is no inspector column — a row opens its room');
-  assert.equal(count(DASH, '{only ? null : ('), 2, 'two blocks leave the sheet: the hero + top grid, and Meanwhile + Around your event');
-  const g1 = DASH.indexOf('{only ? null : (');
-  const g2 = DASH.indexOf('{only ? null : (', g1 + 1);
-  const decisions = DASH.indexOf('<section id="decisions"');
-  const coming = DASH.indexOf('<section id="coming-up"');
-  assert.ok(g1 < decisions && decisions < coming && coming < g2, 'the decisions board, then Coming up, sit between the two removed blocks');
-  assert.match(DASH, /\{slotAfterBento && !only \? \(/, 'the cultural overlays do not ride into the sheet');
-  assert.ok(DASH.indexOf('Today&rsquo;s one thing') > 0 || DASH.includes('Today\'s one thing'), '"Today\'s one thing" is kept with the list');
-  // one wiring: the sheet shell and the row agree on the param
-  const SHEET = stripComments(readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'));
-  assert.match(SHEET, /router\.replace\(closeHref/, 'closing returns to the plain Home URL');
-  assert.match(PAGE, /closeHref=\{`\/dashboard\/\$\{eventId\}`\}/);
+  assert.equal(count(html, 'data-home-whats-next'), 0, 'the What’s next row is drawn again');
+  assert.doesNotMatch(html, /sheet=next/, 'something on Home opens the ?sheet=next portal');
+  assert.doesNotMatch(DASH, /only\?: 'whatsnext'|only === 'whatsnext'|HomeWhatsNext/, 'the dashboard still carries the What’s next mode');
+  assert.throws(() => readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'), 'the sheet shell is back');
+  // The To do list under the card holds the plan: the next dated tasks and % done (Home redraw 2026-11-02).
+  assert.match(html, /data-home-todo=""[\s\S]*?Confirm the caterer’s menu[\s\S]*?<b>62%<\/b> of the plan done/, 'the To do list does not hold the plan');
 });
 
 test('f · replace means remove — the journey-rail stage line and the non-AI "% locked in" are gone, not hidden', () => {
@@ -445,7 +499,7 @@ test('f · a supplier delivery reaches the couple as the ONE existing notificati
   assert.ok(after.includes('/vendors/${eventVendorId}/workspace`'), 'it opens the supplier\'s workspace');
 });
 
-test('f · the guests cards: "Add your guests" on an empty list, "Send N invitations" from the real unsent count', async () => {
+test('f · the guests: "Add your guests" on an empty list, "Send N invitations" from the real unsent count', async () => {
   // First-timer fix 9 (corpus FIRST_TIMER_TEST_2026-10-02.md, H3).
   const { homeGuestsRead } = await import('../../../lib/home-first-screen');
   const rows = [
@@ -459,7 +513,7 @@ test('f · the guests cards: "Add your guests" on an empty list, "Send N invitat
   assert.deepEqual(homeGuestsRead(rows, true), { total: 3, unsent: 2 });
   // A refused read is null — never "Add your guests" to a couple with names.
   assert.equal(homeGuestsRead(rows, false), null);
-  assert.equal(pickHomeNext({ ...NOTHING, guests: null }).kind, 'plan');
+  assert.equal(pickHomeNext({ ...NOTHING, guests: null }).kind, 'unread', 'an unread list is said — never "on track"');
 
   const invite = pickHomeNext({ ...NOTHING, guests: homeGuestsRead(rows, true) });
   assert.equal(invite.kind, 'invite');
@@ -468,24 +522,26 @@ test('f · the guests cards: "Add your guests" on an empty list, "Send N invitat
   assert.equal(pickHomeNext({ ...NOTHING, guests: { total: 0, unsent: 0 } }).title, 'Add your guests');
   // The page feeds the picker from the SAME measured read the numbers use.
   assert.match(PAGE, /guests: homeGuestsRead\(guests, guestsMeasured\),/);
-  // And each card goes where it says.
-  const html = draw({}, { ...NOTHING, guests: { total: 96, unsent: 58 } });
+  // And Now says it with its verb, when nothing waits ahead of it (Home redraw 2026-11-02).
+  const sending = { ...NOTHING, guests: { total: 96, unsent: 58 } };
+  const html = draw({ control: calmControl(sending) }, sending);
+  assert.match(todayLine(html), /Send the invitations[\s\S]*?href="\/dashboard\/e1\/guests\/send"/);
   assert.match(html, /href="\/dashboard\/e1\/guests\/send"/);
 });
 
 /*
-  🗣 THE CARD SAYS WHAT IT IS (owner, live phone test 2026-10-02, asking what the
-  "Next card" was). Its eyebrow reads "Your next step" in plain words, and its
-  button names the action — never a bare "Continue" or "Next". No caption
-  explains it: the words do.
+  🗣 THE LINE SAYS WHAT IT IS (owner, live phone test 2026-10-02, asking what the
+  "Next card" was). It reads "Today", in plain words, and names the action —
+  never a bare "Continue" or "Next". No caption explains it: the words do.
 */
-test('the Next card reads "Your next step", and its button names the action — in every state', () => {
+test('the Now row reads "Now" and names the action — in every state', () => {
   for (const state of EVERY_STATE) {
-    const html = draw({}, state);
+    const html = draw({ control: calmControl(state) }, state);
     const kind = pickHomeNext(state).kind;
-    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
-    assert.match(card, />Your next step<\/p>/, `${kind}: the eyebrow does not say what the card is`);
-    const button = /<a [^>]*>([^<]*)<\/a>/.exec(card)?.[1]?.trim() ?? '';
-    assert.ok(!/^(Continue|Next|Go|Open)$/i.test(button), `${kind}: the button says "${button}" — it must name the action`);
+    const line = todayLine(html);
+    assert.match(line, />Now<\/span>/, `${kind}: the line does not say what it is`);
+    const words = norm(line.replace(/<[^>]+>/g, ' ')).replace(/^now\s*/, '');
+    assert.ok(words.length > 0, `${kind}: the line names nothing`);
+    assert.ok(!/^(continue|next|go|open)$/i.test(words), `${kind}: the line says "${words}" — it must name the action`);
   }
 });

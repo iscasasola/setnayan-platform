@@ -26,8 +26,11 @@
  * client component that needs a piece's name.
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { TIME_TBA } from '@/lib/time-tba';
+import { isOnTheGuestsSchedule } from '@/lib/schedule-audience';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import type { ThemeColours } from '@/lib/theme-colours';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
 import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
@@ -101,6 +104,31 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   'seating-pack': { key: 'seating-pack', label: 'Table signs & place cards', size: 'A4 · directory, signs, cards', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
   'caterer-report': { key: 'caterer-report', label: 'Caterer meal counts', size: 'A4 · attending guests', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
 };
+
+/**
+ * 🚪 A SHOP'S OWN PRINTS — kept OUT of `PRINT_PIECES` on purpose: that record is the couple's Prints & Tickets
+ * (`isPrintPieceKey` opens `/api/hub-print/<piece>`), and a supplier piece there would become a couple print.
+ * The same `PrintDoc` and the same two backends (`renderPrintSvg`, `renderPrintPdf`) draw it.
+ *
+ *   · door-sticker — "We are part of Setnayan" (owner 2026-11-05, *"add them to the marketing tools"*):
+ *     `lib/door-sticker-print.ts`, saved from Customers › QR codes.
+ */
+export type ShopPrintPieceKey = 'door-sticker';
+
+export const SHOP_PRINT_PIECES: Record<ShopPrintPieceKey, { key: ShopPrintPieceKey; label: string; kind: 'shop' }> = {
+  'door-sticker': { key: 'door-sticker', label: 'Door sticker', kind: 'shop' },
+};
+
+/** Any piece a `PrintDoc` can be: a couple's (`PRINT_PIECES`) or a shop's (`SHOP_PRINT_PIECES`). */
+export type AnyPrintPieceKey = PrintPieceKey | ShopPrintPieceKey;
+
+/**
+ * Does this piece print as a PLAIN sheet (no bleed, no crop marks, no die line)? Only the couple's free utility
+ * sheets do. A shop piece goes to a sign or sticker printer, so it carries bleed, crop marks and its die line.
+ */
+export function isPlainPrintSheet(piece: AnyPrintPieceKey): boolean {
+  return piece in PRINT_PIECES ? PRINT_PIECES[piece as PrintPieceKey].kind === 'free' : false;
+}
 
 /**
  * CLASSIC IS FREE (owner 2026-09-25, DECISION_LOG "EVERY PRINT IS FREE IN THE
@@ -276,8 +304,8 @@ export const DIE_CUTS: Record<InviteThemeId, DieCut> = {
  * CR80 (rounded corners are the card standard) and the posters are A3 flat —
  * cutting a poster into an arch is not something a print shop quotes.
  */
-export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey, format?: Pick<PrintFormat, 'wMm' | 'hMm'> | null): DieCut {
-  if (piece === 'pass' || piece === 'passes') return 'rounded';
+export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey, format?: Pick<PrintFormat, 'wMm' | 'hMm'> | null, passCorners: PassCorners = 'rounded'): DieCut {
+  if (piece === 'pass' || piece === 'passes') return passCorners === 'square' ? 'rect' : 'rounded';
   if (piece === 'poster' || piece === 'story-poster' || PRINT_PIECES[piece].kind === 'free') return 'rect';
   const cut = DIE_CUTS[theme];
   // An arch or a chevron is drawn across the sheet's WIDTH; on a LANDSCAPE card
@@ -335,13 +363,46 @@ export type PrintLook = {
   sepia: boolean;
   /** The rule's centre glyph. */
   ornament: string;
-  /** Font keys (see `PRINT_FONT_FILES`). */
+  /** Font keys (see `PRINT_FONT_FILES`, or a Hub face — `hubPrintFont`). */
   headFont: PrintFontKey;
   scriptFont: PrintFontKey | null;
   bodyFont: PrintFontKey;
+  /**
+   * 🔤 THE HUB'S HEADINGS AND LABELS FONTS (`lib/print-hub-look.ts`): a card's title ("The Entourage", "Menu") and
+   * its small caps (the eyebrow, a group's head). Absent = what a print drew before — the title in `headFont`, the
+   * small caps in `bodyFont` — so a look built by `printLookFor` alone prints byte for byte as it did.
+   */
+  headingFont?: PrintFontKey;
+  labelFont?: PrintFontKey;
+  /**
+   * 🖼 A PICTURE BACKGROUND ON PAPER (the Hub's own, `lib/print-hub-look.ts`): the picture runs to the bleed under
+   * the Hub's own scrim (`outer`), and the words sit on a paper panel `inset` points in from the trim, veiled at
+   * `inner` — never less than the Hub's scrim, and as much more as the words need to read on the picture's lightest
+   * and darkest parts. Absent = a full still is veiled edge to edge by `scrim`, as before.
+   */
+  frame?: { inset: number; feather: number; outer: number; inner: number } | null;
   /** Names print in caps (the deco and neon faces). */
   capsNames: boolean;
+  /**
+   * 🏷 HOW THE PRINT CARRIES SETNAYAN (owner 2026-10-21, *"i want the prints branded with setnayan"*, option A —
+   * `brandPiece`, lib/print-layout.ts): `line` — the plain-white FREE print: "Made with Setnayan · setnayan.com" on the
+   * front's bottom edge; `mark` — the Hub-look PRO print: a tiny Setnayan mark on the back, or at the very edge of a
+   * piece with no back. Absent = read by the theme (`printBrandOf`).
+   */
+  brand?: PrintBrand;
 };
+
+/** The two ways a print carries Setnayan — see `PrintLook.brand`. */
+export type PrintBrand = 'line' | 'mark';
+
+/**
+ * 🏷 How THIS look carries Setnayan. Every look a couple's print is drawn in names it (`plainPrintLook` → line, the Pro
+ * looks → mark); a look that does not is read by its theme: Classic is the free print's face, every other theme on paper
+ * is Event Hub Pro (DECISION_LOG 2026-10-21 "free = plain white").
+ */
+export function printBrandOf(look: Pick<PrintLook, 'brand' | 'theme'>): PrintBrand {
+  return look.brand ?? (look.theme === 'house' ? 'line' : 'mark');
+}
 
 /**
  * Fonts that ship IN the repo and are traced into every lambda
@@ -366,7 +427,14 @@ export const PRINT_FONT_FILES = {
   poppinsMedium: 'lib/social/fonts/Poppins-Medium.ttf',
   poppinsBold: 'lib/social/fonts/Poppins-Bold.ttf',
 } as const;
-export type PrintFontKey = keyof typeof PRINT_FONT_FILES;
+/**
+ * 🔤 A FACE THE COUPLE PICKED ON THEIR EVENT HUB (`lib/hub-fonts.ts`) — every one of them has a TrueType outline file
+ * already in the repo (`LOGO_FONT_OUTLINE`, lib/logo-fonts.ts — the Logo's own), which the print engine reads
+ * (`printFontFile`, lib/print-layout.ts). So the paper is set in the face the page is.
+ */
+export type HubPrintFontKey = `hub-${HubFontKey}`;
+export type PrintFontKey = keyof typeof PRINT_FONT_FILES | HubPrintFontKey;
+export const hubPrintFont = (key: HubFontKey): HubPrintFontKey => `hub-${key}`;
 
 const STILLS: Record<InviteThemeId, StillPlacement> = {
   house: 'none',
@@ -477,6 +545,32 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
 }
 
 /**
+ * 🗂 EVERY "DOWNLOAD ALL" IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL'
+ * IS EVENT HUB PRO"; verbatim: *"Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's
+ * own pass one at a time, stay free."*). The all-in-one files — every guest's pass ganged on A4 (`passes`, every size, the phone
+ * card's included) and the whole set as one PDF (`set`, anything but its watermarked sample sheet) — need the event's Event Hub
+ * Pro, in EVERY theme, Classic too. The route refuses them (`app/api/hub-print/[piece]/route.ts`); the page marks them ◆.
+ * Each piece's own file and ONE guest's pass stay free (a Pro theme's print-ready file still asks for Pro: `mayServe`).
+ *
+ * 🗂 …AND THE ALL-GUESTS FILES AND EVERYTHING (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE,
+ * VIEW AS ▾ ON GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆"): the Guest QR sheet (`qr-codes`, every guest's QR — its on-screen
+ * picture stays free) and the place-card pack (`seating-pack`, the directory, every sign and every place card) are all-guest
+ * files now; `everything` is the set, every guest's pass and place card and the day's sheets in one PDF. ONE guest's QR and ONE
+ * guest's place card stay free (`/api/website/qr/guest/<id>`, `/seating/print?guest=<id>`).
+ *
+ * 🎟 …EXCEPT EVERY GUEST'S TICKET AND THE GUEST QR SHEET — FREE AGAIN (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS
+ * PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE"; verbatim: *"the goal of the free is to keep everything minimum ready but no
+ * personalization."* · *"they pay to customize it."*). Every guest's pass in one file (`passes`) and every guest's QR on one sheet
+ * (`qr-codes`) are what a free event needs to RUN its day, so they download free — and a free event's passes are plain white, like
+ * every free print (`printLookForEvent`, #6744). What stays Pro is the DESIGNED set in one file: the whole set (`set`), Everything
+ * (`everything`) and the place-card pack (`seating-pack`). The Pro list's "One download of the whole designed set" is held to this
+ * function both ways (`the-pro-list-names-only-real-gates.test.ts`).
+ */
+export function isAllInOnePrint(piece: string, mode: PrintMode): boolean {
+  return piece === 'seating-pack' || piece === 'everything' || (piece === 'set' && mode !== 'sample');
+}
+
+/**
  * May this mode of this piece, drawn in this theme, be served to this viewer?
  * The route's refusal. A free theme and the free group are always yes; a
  * Pro-themed print-ready file (or the Pro-themed pass batch) needs `printReady`.
@@ -503,6 +597,8 @@ export type ScheduleBlockRow = {
   location?: string | null;
   sort_order?: number | null;
   parent_block_id?: string | null;
+  /** ⏰ Time TBA (migration 20271300482585) — `start_at` is the day at a placeholder 00:00, never a time to print. */
+  time_tba?: boolean | null;
 };
 
 /**
@@ -531,8 +627,25 @@ export function firstBlockOf<T extends ScheduleBlockRow>(blocks: readonly T[], t
  * converted (`formatWallClock`). Converting it prints 10 PM.
  */
 export function blockTime(block: ScheduleBlockRow | null): string | null {
+  // ⏰ A Time-TBA chapter says so — its stored 00:00 is a placeholder, never "12:00 AM" (follow-up to #7158).
+  if (block?.time_tba === true) return TIME_TBA;
   const t = formatWallClock(block?.start_at ?? null);
   return t || null;
+}
+
+/**
+ * 🗓 THE PROGRAMME THE DETAILS CARD PRINTS — guests are handed this card, so it
+ * lists only what the guests' schedule shows (`isOnTheGuestsSchedule`: public,
+ * for Everyone, released), top-level moments with a time and a name, at most
+ * eight, "2:00 PM · Ceremony".
+ */
+export function printProgram(
+  blocks: readonly (ScheduleBlockRow & { is_public?: boolean | null; audience?: string | null; visibility?: string | null })[],
+): string[] {
+  return blocks
+    .filter((b) => isOnTheGuestsSchedule(b) && !b.parent_block_id && b.start_at && b.label)
+    .slice(0, 8)
+    .map((b) => `${blockTime(b) ?? ''} · ${b.label}`);
 }
 
 // ─── The words on the cards ─────────────────────────────────────────────────
@@ -571,10 +684,20 @@ export type PrintDetails = {
   storyExcerpt?: string | null;
   /** Print guests' names on their passes (the Guest list toggle). */
   guestNames?: boolean;
+  /** The passes' corners — `rounded` (the card standard, the default) or `square` (cut straight with a trimmer). */
+  passCorners?: PassCorners;
   /** The pass card's look (lib/pass-card.ts) — the couple's one pick, stored as `pass_design`. */
   passDesign?: PassCardDesign;
   /** A small Setnayan mark in the pass card's foot — free events only (never on Pro). */
   setnayanMark?: boolean;
+  /**
+   * 🏷 PAPER ONLY — the printed phone card carries the free print's "Made with Setnayan · setnayan.com" line as the lowest
+   * line of its own foot, inside its frame (`cardFoot`; owner 2026-10-21). Set by the print path alone, never by the
+   * picture a guest saves.
+   */
+  brandLine?: boolean;
+  /** 🔁 PAPER ONLY — the NFC sticker is on this pass's back, so its foot says "Scan or tap" (set by the print path alone). */
+  nfcBack?: boolean;
 };
 
 /**
@@ -599,8 +722,13 @@ export type RsvpChoice = { kind: 'host'; moderatorId: string } | { kind: 'manual
  * Each source is ticked (with its sub-options) in the Maker's Details panel and
  * READ from where it already lives; an unticked item is simply left off.
  */
+export type PassCorners = 'rounded' | 'square';
+export const PASS_CORNERS: readonly PassCorners[] = ['rounded', 'square'];
+
 export type PrintInclude = {
   guestNames: boolean;
+  /** Rounded or square corners on every pass (Print settings › Passes). */
+  passCorners: PassCorners;
   parents: boolean;
   seatPlan: 'none' | '3d' | '2d' | 'list';
   giftDetails: boolean;
@@ -617,6 +745,7 @@ export type PrintInclude = {
 
 export const DEFAULT_INCLUDE: PrintInclude = {
   guestNames: true,
+  passCorners: 'rounded',
   parents: true,
   seatPlan: 'none',
   giftDetails: true,
@@ -637,6 +766,7 @@ export function parseInclude(raw: unknown): PrintInclude {
     (allowed as readonly unknown[]).includes(r[k]) ? (r[k] as T) : (DEFAULT_INCLUDE[k] as T);
   return {
     guestNames: bool('guestNames'),
+    passCorners: pick('passCorners', PASS_CORNERS),
     parents: bool('parents'),
     seatPlan: pick('seatPlan', ['none', '3d', '2d', 'list'] as const),
     giftDetails: bool('giftDetails'),
@@ -766,6 +896,8 @@ export function parseMenu(raw: unknown): MenuMoment[] {
  * moments (when · the line · where). READ from the one Love Story source
  * (`loveStoryScenes`, `lib/love-story-moments.ts` — hidden moments are not
  * there) by `printStoryChapters` in `lib/love-story-moments.ts`; never typed here.
+ * 🗣 A moment the partners wrote in their own voices prints them in `line`, one per voice, named
+ * ("Maria: … · Jose: …", owner 2026-10-17 — `momentReadLine`); a moment with none prints the line told together.
  */
 export type PrintStoryMoment = { when: string; line: string; place: string | null };
 export type PrintStoryChapter = { label: string; moments: PrintStoryMoment[] };
@@ -887,18 +1019,44 @@ export function coupleNames(displayName: string | null | undefined): { first: st
   const raw = (displayName ?? '').trim();
   const parts = raw.split(/\s+(?:&|and|\+)\s+/i).map((s) => s.trim()).filter(Boolean);
   if (parts.length >= 2) return { first: parts[0]!, second: parts.slice(1).join(' & ') };
-  return { first: raw || 'Our celebration', second: null };
+  return { first: raw || 'Our event', second: null };
 }
 
 /** `2026-12-18` → "Friday, the eighteenth of December, 2026" is the formal
- *  form; paper uses the plain one: "Friday · December 18, 2026". */
-export function printedDate(eventDate: string | null | undefined): string | null {
+ *  form; paper uses the plain one: "Friday · December 18, 2026".
+ *
+ *  📅 ONE DATE, TWO DOORS (owner 2026-10-21, *"most of the settings is already on the event hub"*): the print says the date AS
+ *  PRECISE AS THE EVENT HUB HOLDS IT (`events.event_date_precision`, the Hub's `dateDisplayOf`). A couple who has only picked a
+ *  month ("December 2026") stores the month's first day — the print used to read that stand-in day as the wedding day and
+ *  print "Tuesday · December 1, 2026". A month prints "December 2026"; a year prints "2026"; only a day prints a weekday. */
+export function printedDate(eventDate: string | null | undefined, precision?: string | null): string | null {
   if (!eventDate || !/^\d{4}-\d{2}-\d{2}/.test(eventDate)) return null;
   const [y, m, d] = eventDate.slice(0, 10).split('-').map(Number) as [number, number, number];
   const date = new Date(Date.UTC(y, m - 1, d));
+  if (precision === 'year') return String(y);
+  if (precision === 'month') return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
   const md = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   return `${weekday} · ${md}`;
+}
+
+/**
+ * 📍 ONE VENUE, TWO DOORS (owner 2026-10-21, *"most of the settings is already on the event hub. like parents and other
+ * details."*; DECISION_LOG 2026-10-04 "venues follow the booking"). The print's venue lines are the Event Hub's own venues —
+ * `resolveEventVenues` (lib/event-venues.ts), the pick the Hub's Venue scene and the Maker's Venues row draw — never a
+ * second pick. Before, the print took a Schedule moment's typed `location` FIRST (a place the Hub's Venue scene never shows),
+ * and for an unbooked reception preferred the Save-the-Date's typed name over `events.venue_name` (the Hub's order is the
+ * reverse) — so a card could print a place the Event Hub did not name.
+ *
+ *   · one place for both ("Ceremony & Reception") → the venue line, no "Reception to follow" place;
+ *   · a ceremony and a reception → each its own line;
+ *   · no venue the Hub knows → no line (never a guess).
+ */
+export function printVenueLines(venues: ReadonlyArray<{ role: string; name: string | null }>): { ceremony: string | null; reception: string | null } {
+  const named = (v: { name: string | null } | undefined) => v?.name?.trim() || null;
+  const both = venues.find((v) => v.role === 'both');
+  if (both) return { ceremony: named(both), reception: null };
+  return { ceremony: named(venues.find((v) => v.role === 'ceremony')), reception: named(venues.find((v) => v.role === 'reception')) };
 }
 
 /**

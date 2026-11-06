@@ -36,7 +36,7 @@ export function ArrivalActionRow({
       >
         <span data-motion={landed ? 'label-land' : undefined}>{action.label}</span>
       </Link>
-      {action.note ? <p className="max-w-prose text-xs text-ink/60">{action.note}</p> : null}
+      {action.note ? <p className="max-w-prose text-xs text-ink/70">{action.note}</p> : null}
     </div>
   );
 }

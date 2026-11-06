@@ -154,16 +154,16 @@ export function eventsForStudioApp(
 export function emptyPickerReason(result: PickResult): string | null {
   if (result.pickable.length > 0) return null;
   if (result.unchecked > 0) {
-    return 'We couldn’t check your celebrations just now. Try again in a moment.';
+    return 'We couldn’t check your events just now. Try again in a moment.';
   }
   if (result.rejected.length === 0) {
-    return 'You don’t have a celebration yet. Start one and this can go straight into it.';
+    return 'You don’t have an event yet. Start one and this can go straight into it.';
   }
   if (result.rejected.every((r) => r.reason === 'finished')) {
-    return 'All your celebrations have already happened. This can only be added to one that’s still coming up.';
+    return 'All your events have already happened. This can only be added to one that’s still coming up.';
   }
   if (result.rejected.some((r) => r.reason === 'incompatible')) {
-    return 'None of your celebrations can use this one yet.';
+    return 'None of your events can use this one yet.';
   }
-  return 'You organise no celebration this can be added to.';
+  return 'You organise no event this can be added to.';
 }

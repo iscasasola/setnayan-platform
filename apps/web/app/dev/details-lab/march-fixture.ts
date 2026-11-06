@@ -54,6 +54,24 @@ const ROWS: Row[] = [
   ['p35', null, 'Isabel', 'Ocampo', 'flower_girl', 20],
 ];
 
+/**
+ * 🪪 THE LAB'S RENAMES (a tapped name's guest card, `lab-march-cards.tsx`): the names a lab card saved, by id — kept in this
+ * dev server's memory only (the lab has no database), so the march drawn after the card closes shows the new name, exactly
+ * as the Maker re-reads a real guest's.
+ */
+type LabRenames = Map<string, { prefix: string | null; first: string; last: string }>;
+const labGlobal = globalThis as unknown as { __labMarchRenames?: LabRenames };
+// On globalThis: the dev server bundles a server action and the page separately, so a module-level Map is two Maps.
+export const LAB_MARCH_RENAMES: LabRenames = (labGlobal.__labMarchRenames ??= new Map());
+
+/** One lab person as the guest card reads them (maria-and-jose's march). */
+export function labMarchPerson(id: string): { id: string; prefix: string | null; first: string; last: string; role: string } | null {
+  const r = ROWS.find((x) => x[0] === id);
+  if (!r) return null;
+  const renamed = LAB_MARCH_RENAMES.get(id);
+  return { id, prefix: renamed ? renamed.prefix : r[1], first: renamed?.first ?? r[2], last: renamed?.last ?? r[3], role: r[4] };
+}
+
 /** 🚶 Not walking in the lab (the tray): a groomsman, a flower girl, a principal sponsor. */
 const LAB_OUT = new Set(['p38', 'p35', 'p20']);
 /** Their guest side, as a couple would have set it — the aisle side follows it (`walkSideOf`). */
@@ -64,20 +82,24 @@ const sideOf = (role: string): string => (role.startsWith('groom') ? 'groom' : r
  * walking, `lib/march-owner-shape.fixture.ts`) with six people in the tray;
  * otherwise maria-and-jose's couple + entourage with three.
  */
-export function labMarchSections(shape?: string | null) {
+/** 💬 `&nicks=1` (the guests lab) — a few nicknames (`display_name`), so a March chip in Guests shows one beside the name. */
+const LAB_NICKS: Record<string, string> = { p3: 'Doc Ed', p5: 'Pidoy', p30: 'Jun-Jun' };
+
+export function labMarchSections(shape?: string | null, opts: { nicks?: boolean } = {}) {
   const rows: EntourageGuestRow[] =
     shape === 'owner'
       ? ownerShapedMarch().map((r, i) => ({ ...r, side: sideOf(r.role ?? ''), ...(i % 13 === 7 ? { not_walking: true } : {}) }))
       : ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
           guest_id: id,
-          name_prefix: prefix,
-          first_name: first,
-          last_name: last,
+          name_prefix: LAB_MARCH_RENAMES.has(id) ? LAB_MARCH_RENAMES.get(id)!.prefix : prefix,
+          first_name: LAB_MARCH_RENAMES.get(id)?.first ?? first,
+          last_name: LAB_MARCH_RENAMES.get(id)?.last ?? last,
           role,
           side: sideOf(role),
           extra_roles: [],
           march: typeof walk === 'number' && !LAB_OUT.has(id) ? { walk_no: walk, place_in_walk: place ?? 0 } : null,
           ...(LAB_OUT.has(id) ? { not_walking: true } : {}),
+          ...(opts.nicks && LAB_NICKS[id] ? { display_name: LAB_NICKS[id] } : {}),
         }));
   const style = shape === 'owner' ? 'surname-first' : undefined;
   const walking = buildEntourage(rows.filter((r) => !r.not_walking), null, {}, style, { march: true });

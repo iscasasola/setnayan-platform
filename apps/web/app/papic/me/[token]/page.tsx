@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, CircleAlert, Clock, Share, Images, Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -9,8 +9,9 @@ import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { GuestStoryMaker } from './_components/guest-story-maker';
-import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
-import { guidedTourView } from '@/app/_components/guided-tour';
+import { GuestSpotlight } from '@/app/_components/guest-spotlight';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { TOURS } from '@/lib/tours';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
 //
@@ -93,11 +94,11 @@ async function GuestGallery({
   if (!gallery || gallery.photos.length === 0) return null;
   const groups = groupIntoChapters(gallery.photos, (p) => p.capturedAt ?? '', chapters);
   return (
-    <section aria-label="Photos of you" className="mt-6">
+    <section aria-label="Memories of you" className="mt-6" data-tour="me-photos">
       <div className="flex items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-mulberry">
           <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Photos of you
+          Memories of you
         </p>
         <p className="text-sm text-ink/60">{gallery.total.toLocaleString()}</p>
       </div>
@@ -138,13 +139,15 @@ async function GuestGallery({
       ))}
       {/* Download all — the full set of tagged captures as a ZIP (not just the
           preview grid above), streamed from the token-scoped download route. */}
-      <a
+      <SaveFileLink
         href={`/papic/me/${token}/download`}
+        filename="my-setnayan-photos.zip"
+        data-tour="me-download"
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
       >
-        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+        <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download my photos
-      </a>
+      </SaveFileLink>
       {/* Kwento Decorator — go through the token→session bridge (route handler)
           so a guest who only has the raw token link still gets a session before
           the session-scoped /papic/decorate. Plain <a> = full nav that sets the
@@ -185,18 +188,33 @@ export default async function PapicMyCameraPage({ params }: Props) {
       }
     | null = null;
   if (cleanToken) {
-    const { data } = await admin
+    // 🔌 A REFUSED READ IS NOT A REPLACED LINK (reads-are-honest, 2026-11-05).
+    // Supabase RESOLVES with `{ error }`, so a blip used to arrive here as "no
+    // guest" and the page told a guest holding their own QR "This link isn't
+    // active… it may have been replaced". A refusal now THROWS, so the guest
+    // error page (./error.tsx — the invitation's own) says "Your link is fine"
+    // and tries again. Only a read that ANSWERED "no such guest" reaches the
+    // dead end below.
+    const { data, error: guestError } = await admin
       .from('guests')
       .select('guest_id, event_id, first_name')
       .eq('qr_token', cleanToken)
       .is('deleted_at', null)
       .maybeSingle();
+    if (guestError) {
+      throw new Error(`PapicMyCameraPage: could not read the guest for this QR: ${guestError.message}`);
+    }
     if (data) {
-      const { data: ev } = await admin
+      const { data: ev, error: eventError } = await admin
         .from('events')
         .select('slug, event_date, event_type, papic_window_start')
         .eq('event_id', data.event_id as string)
         .maybeSingle();
+      // The guest IS real; a refused event read would drop their "Back to your
+      // invitation" link and chapter their photos wrongly — say it, don't guess.
+      if (eventError) {
+        throw new Error(`PapicMyCameraPage: could not read the event ${String(data.event_id)}: ${eventError.message}`);
+      }
       guest = {
         guest_id: data.guest_id as string,
         event_id: data.event_id as string,
@@ -225,9 +243,6 @@ export default async function PapicMyCameraPage({ params }: Props) {
         title="This link isn't active."
         sub="This personal QR doesn't open a camera right now — it may have been replaced with a new one. Ask your host for your current QR or link and try again."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }
@@ -276,10 +291,11 @@ export default async function PapicMyCameraPage({ params }: Props) {
             </>
           }
           title="Your camera’s ready"
-          sub="Tap below and your phone turns into a candid camera. Every photo you shoot lands straight in the host's gallery — no app to install."
+          sub="Tap below and your phone turns into a candid camera. Every photo you shoot lands straight in the host's Memories — no app to install."
         >
           <a
             href={`/papic/me/${encodeURIComponent(cleanToken!)}/session?next=guest`}
+            data-tour="me-camera"
             className="button-primary w-full gap-2"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -296,7 +312,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           {backLink}
           {/* First visit only (owner 2026-09-25) — on the two pages where the
               guest's camera is ready; a dead-end page gets no welcome. */}
-          <GuestGuidedTour tourKey="guest_papic_me_v1" tour={guidedTourView('guest_papic_me_v1')} />
+          <GuestSpotlight tourKey="guest_papic_me_v2" script={TOURS.guest_papic_me_v2.spotlight!} />
         </DoorShell>
       );
     }
@@ -373,10 +389,11 @@ export default async function PapicMyCameraPage({ params }: Props) {
         </>
       }
       title="Your camera’s ready"
-      sub="Tap below and your phone turns into a candid camera for the day. Every photo you shoot lands straight in the host's gallery — no app to install."
+      sub="Tap below and your phone turns into a candid camera for the day. Every photo you shoot lands straight in the host's Memories — no app to install."
     >
       <Link
         href={`/papic/seat/${encodeURIComponent(camera.claimToken)}`}
+        data-tour="me-camera"
         className="button-primary w-full gap-2"
       >
         <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -391,7 +408,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         />
       <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
       {backLink}
-      <GuestGuidedTour tourKey="guest_papic_me_v1" tour={guidedTourView('guest_papic_me_v1')} />
+      <GuestSpotlight tourKey="guest_papic_me_v2" script={TOURS.guest_papic_me_v2.spotlight!} />
     </DoorShell>
   );
 }

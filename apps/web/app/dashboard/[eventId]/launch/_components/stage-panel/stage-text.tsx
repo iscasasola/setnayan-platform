@@ -1,0 +1,107 @@
+'use client';
+
+import { useState, type ReactNode } from 'react';
+import {
+  HUB_ELEMENT_SIZE_BASE,
+  HUB_ELEMENT_SIZE_BOUNDS,
+  HUB_ELEMENT_SIZE_STEPS,
+  hubElementSizePct,
+  type HubElementKey,
+} from '@/lib/element-style';
+import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
+import { SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
+import { Swatch, SwatchMore } from './kit';
+
+/**
+ * 🔤 TEXT — Font · Colour · Size, and nothing else (DECISION_LOG "TEXT STYLING STAYS
+ * THREE CONTROLS"; the prototype's `S.tool === 'text'`, three 44 px rows):
+ *
+ *   Font    Aa Cormorant Garamond ▾     the shipped one font dropdown (`FontPick`)
+ *   Colour  ◍ ● ● ● ● ● +               colour CIRCLES (the approved gallery's kind 21): the theme's own
+ *                                       (striped), the Event Hub's colours, ink, then any colour ("+" opens
+ *                                       the one colour picker); the picked one wears the accent's ring
+ *   Size    ━━━━●━━━━━  100%            the app's slider (`Slider`) over the shipped steps (`HUB_ELEMENT_SIZE_STEPS`), inside
+ *                                       the part's bounds; 100% is the theme's own
+ *
+ * Every pick is the part sheet's own `choose` (`element-sheet.tsx`) — the same draft
+ * save, the same instant preview. The words are typed on the page; Alignment is
+ * Style › Arrange's.
+ */
+export function StageText({
+  el,
+  fontPick,
+  colours,
+  colour,
+  onColour,
+  customColour,
+  size,
+  onSize,
+  contrast = null,
+  pending = false,
+  extra = null,
+}: {
+  el: HubElementKey;
+  /** The shipped Font ▾, dressed as the prototype's `.dd`. */
+  fontPick: ReactNode;
+  colours: readonly string[];
+  colour: string | null;
+  onColour: (hex: string | null) => void;
+  /** "+" opens the ONE colour picker (`ColourSheet`, colour-well.tsx) — handed the way to close it. */
+  customColour: (close: () => void) => ReactNode;
+  size: number | null | undefined;
+  onSize: (step: number | null) => void;
+  /** "Hard to read here" — measured, never blocking. */
+  contrast?: ReactNode;
+  pending?: boolean;
+  /** "Whole part / this selection" while letters are selected. */
+  extra?: ReactNode;
+}) {
+  const [custom, setCustom] = useState(false);
+  const { min, max } = HUB_ELEMENT_SIZE_BOUNDS[el];
+  const steps = (HUB_ELEMENT_SIZE_STEPS as readonly number[]).filter((s) => s >= min && s <= max);
+  const pct = hubElementSizePct(size) ?? HUB_ELEMENT_SIZE_BASE;
+  const at = Math.max(0, steps.indexOf(pct));
+  const swatch = (key: string, on: boolean, label: string, face: ReactNode, pick: () => void) => (
+    <Swatch key={key} on={on} label={label} face={face} onPick={pick} data={{ 'data-stage-text-colour': key }} />
+  );
+  const now = colour?.slice(0, 7).toLowerCase() ?? null;
+  return (
+    <div className={SP_PANE} data-stage-text="" aria-busy={pending}>
+      {extra}
+      <div className={SP_ROW} data-stage-text-row="font">
+        <span className={SP_ROW_LABEL}>Font</span>
+        {fontPick}
+      </div>
+      <div className={SP_ROW} data-stage-text-row="colour">
+        <span className={SP_ROW_LABEL}>Colour</span>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
+          {swatch('theme', now === null, 'The theme’s colour', <span className="absolute inset-0 bg-[repeating-linear-gradient(45deg,#fff_0_4px,#EDE8DF_4px_8px)]" />, () => onColour(null))}
+          {colours.map((c) => swatch(c, now === c.slice(0, 7).toLowerCase(), `Colour ${c}`, <span className="absolute inset-0" style={{ background: c }} />, () => onColour(c)))}
+          <SwatchMore open={custom} onOpen={() => setCustom(true)} data={{ 'data-stage-text-colour': 'more' }} />
+        </div>
+      </div>
+      {custom ? customColour(() => setCustom(false)) : null}
+      {contrast}
+      <div className={SP_ROW} data-stage-text-row="size">
+        <span className={SP_ROW_LABEL}>Size</span>
+        {/* The app's ONE slider (`Slider`), over the shipped steps: each notch is one of them. */}
+        <span className="relative flex h-11 min-w-0 flex-1 items-center px-1" data-stage-text-size="">
+          <Slider
+            label="Text size"
+            data="text-size"
+            min={0}
+            max={steps.length - 1}
+            step={1}
+            value={at}
+            valueText={`${pct}%`}
+            onChange={(i) => {
+              const next = steps[i] ?? HUB_ELEMENT_SIZE_BASE;
+              onSize(next === HUB_ELEMENT_SIZE_BASE ? null : next);
+            }}
+          />
+        </span>
+        <span className={`${SLIDER_VALUE} w-[44px]`}>{pct}%</span>
+      </div>
+    </div>
+  );
+}

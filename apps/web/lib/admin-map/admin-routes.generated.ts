@@ -2,8 +2,8 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:map
 //
 // Every place inside /admin a person can land, scanned from the route tree.
-// 95 destinations (59 real pages, 36 redirect stubs)
-// as of 859cf27ff. admin-map-is-generated.test.ts fails if this drifts from the tree.
+// 96 destinations (60 real pages, 36 redirect stubs)
+// as of 7082db452f. admin-map-is-generated.test.ts fails if this drifts from the tree.
 
 import type { AdminRoute } from './scan-admin-routes';
 
@@ -231,6 +231,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "inMenuSource": true
   },
   {
+    "path": "/admin/hub-music",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": true
+  },
+  {
     "path": "/admin/insights",
     "kind": "redirect",
     "redirectsTo": "/admin/app-performance?tab=intelligence",
@@ -261,6 +267,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "inMenuSource": true
   },
   {
+    "path": "/admin/launch-offer",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": true
+  },
+  {
     "path": "/admin/live-studio-channels",
     "kind": "page",
     "redirectsTo": null,
@@ -282,12 +294,6 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "path": "/admin/moodboard-library",
     "kind": "redirect",
     "redirectsTo": "/admin/studio?tab=moodboard-library",
-    "inMenuSource": true
-  },
-  {
-    "path": "/admin/moodboard-renders",
-    "kind": "page",
-    "redirectsTo": null,
     "inMenuSource": true
   },
   {

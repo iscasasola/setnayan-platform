@@ -98,17 +98,16 @@ function element(markup: string, marker: string): string {
 
 // ═══ 1 · progress is one unit ════════════════════════════════════════════
 
-test('1 · the bar and its "2 of 8" are ONE unit, Back beside it — never split across the row', async () => {
+test('1 · the dots are ONE unit, Back beside it — never split across the row (and never a "2 of 8": every-reply-step-wears-step-one.test.ts)', async () => {
   const { RsvpStepProgress } = await import('../_components/rsvp-one-at-a-time');
   const row = await html(React.createElement(RsvpStepProgress, { index: 1, total: 8, onBack: () => {} }));
   const unit = element(row, 'data-rsvp-progress-unit');
-  assert.match(unit, /role="progressbar"/, 'the bar left the unit');
-  assert.match(unit, />2(?:<!-- -->)? of (?:<!-- -->)?8<\/p>/, 'the "2 of 8" left the unit — the owner saw it at one edge and the dots at the other');
-  assert.equal((unit.match(/h-1 flex-1 rounded-full/g) ?? []).length, 8, 'one segment per question');
-  assert.equal((unit.match(/rounded-full bg-ink"/g) ?? []).length, 2, 'the bar fills to the screen the guest is on');
+  assert.match(unit, /role="progressbar"/, 'the dots left the unit');
+  assert.equal((unit.match(/data-rsvp-dot=/g) ?? []).length, 8, 'one dot per question');
+  assert.equal((unit.match(/data-rsvp-dot="done"/g) ?? []).length, 2, 'the dots fill to the screen the guest is on');
   assert.doesNotMatch(unit, /Back/, 'Back is a control beside the progress, not part of it');
-  assert.doesNotMatch(row, /justify-between/, 'a justify-between row pushes the count and the bar to opposite edges again');
-  assert.match(row, /aria-label="Question 2 of 8"/);
+  assert.doesNotMatch(row, /justify-between/, 'a justify-between row pushes the parts of the progress to opposite edges again');
+  assert.match(row, /aria-label="Question 2"/);
 });
 
 test('1 · on the first screen Back keeps its place, invisible — nothing shifts when it appears', async () => {
@@ -212,11 +211,14 @@ test('4 · each screen\'s question is its heading', async () => {
   const out = await card({ oneAtATime: true, previewEveryQuestion: true, doorAction: async () => {}, termsOnSend: true, ask: {} });
   // A guest bringing plus-ones is asked for THEIR OWN meal and notes (each seat's
   // are small labels inside "Who are you bringing?", one screen — #6145).
-  for (const q of ['Who are you bringing?', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing (optional)', 'A note to the couple (optional)', 'How the couple can reach you']) {
+  // 🪑 2026-10-25 (RSVP seats-first): the sample walks the YES path, which now opens with the Seats step ("We reserved
+  // …") and the You step ("You’re <name>" + nickname + mobile) — the decline arm's "How the couple can reach you" is a
+  // No's screen and is not drawn on the sample.
+  for (const q of ['We reserved', 'You’re ', 'Who are you bringing?', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing (optional)', 'A note to the couple (optional)']) {
     const at = out.indexOf(q);
     assert.ok(at > -1, `${q} is not drawn`);
     const tag = out.slice(out.lastIndexOf('<', at), at);
-    assert.match(tag, /font-serif text-xl/, `"${q}" is a small label, not the screen's heading`);
+    assert.match(tag, /font-serif text-\[32px\]/, `"${q}" is a small label, not the screen's heading`);
   }
 });
 

@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
-import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
@@ -12,7 +11,12 @@ import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-s
 import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
+import { changedFields, mergeFromBase, MERGE_BASE_FIELD, TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
+import { floorPlanRowFrom } from '@/lib/floor-plan-row';
+import { floorItemsThisScreenChanged } from '@/lib/floor-items-merge';
 import { SeatingLockError } from './seating-lock-error';
+import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
 import {
   BOOTH_CATALOG,
@@ -25,7 +29,6 @@ import {
   effectiveCapacity,
   fetchAssignments,
   fetchFloorPlan,
-  fetchSeatingConstraints,
   fetchGroupAdjacency,
   fetchTables,
   metricPoseM,
@@ -39,11 +42,17 @@ import {
   tableGeometry,
   tablesToAddForAutoSeat,
   validateChainJointM,
+  type AutoSeatCannotFit,
   type AutoSeatGuest,
+  type VipPlusOneSeating,
   type BoothType,
   type PriorityOrder,
   type TableType,
 } from '@/lib/seating';
+import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
+import { refuseLimitedHelper } from '@/lib/host-gate';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { placedByAuto, placedByCouple } from '@/lib/seat-why';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -103,11 +112,33 @@ async function refreshSeatingLock(
 
 const VALID_TYPES = new Set<TableType>(TABLE_TYPE_CATALOG.map((t) => t.type));
 
+/**
+ * 🪑 Stamp seats as placed BY HAND after an RPC moved them (a swap of two guests, or of two tables' occupants), which
+ * write no `placed_by` of their own (lib/seat-why.ts). If the stamp cannot land, the seats are cleared to "not
+ * recorded" instead — a stale "Auto arrange" on a seat the couple just moved would be a wrong answer. Never throws:
+ * the move itself already succeeded.
+ */
+async function stampPlacedByCouple(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  who: { guestIds: string[] } | { tableIds: string[] },
+): Promise<void> {
+  const write = (row: { placed_by: string | null; placed_at: string | null }) => {
+    const q = supabase.from('event_seat_assignments').update(row).eq('event_id', eventId);
+    return 'guestIds' in who ? q.in('guest_id', who.guestIds) : q.in('table_id', who.tableIds);
+  };
+  const { error } = await write(placedByCouple());
+  if (!error) return;
+  logQueryError('seating.stampPlacedByCouple', error, { event_id: eventId }, 'graceful_degrade');
+  await write({ placed_by: null, placed_at: null });
+}
+
 function isValidTableType(value: unknown): value is TableType {
   return typeof value === 'string' && VALID_TYPES.has(value as TableType);
 }
 
 export async function createTable(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const label = formData.get('table_label');
   const type = formData.get('table_type');
@@ -151,6 +182,19 @@ export async function createTable(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // 🪑 A new table takes the next sort_order (owner 2026-11-01, lib/table-order.ts): left to the column's default it
+  // was 0 for every table made here, so Tables 1, 2 and 3 tied. Readers order by label first; this keeps the stored
+  // order unique too. A refused read is not "no tables" — it stops here.
+  const { data: last, error: lastErr } = await supabase
+    .from('event_tables')
+    .select('sort_order')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastErr) throw new Error(lastErr.message);
+  const nextSort = ((last as { sort_order?: number } | null)?.sort_order ?? -1) + 1;
+
   const { data: created, error } = await supabase
     .from('event_tables')
     .insert({
@@ -158,6 +202,7 @@ export async function createTable(formData: FormData) {
       table_label: trimmed,
       table_type: type,
       capacity,
+      sort_order: nextSort,
       ...(xPos != null && yPos != null ? { x_pos: xPos, y_pos: yPos } : {}),
     })
     .select('table_id')
@@ -180,7 +225,7 @@ export async function createTable(formData: FormData) {
   }
   if (created && seatIds.length > 0) {
     const { error: seatErr } = await supabase.from('event_seat_assignments').upsert(
-      seatIds.map((guestId, i) => ({ event_id: eventId, table_id: created.table_id, guest_id: guestId, seat_number: i })),
+      seatIds.map((guestId, i) => ({ event_id: eventId, table_id: created.table_id, guest_id: guestId, seat_number: i, ...placedByCouple() })),
       { onConflict: 'event_id,guest_id' },
     );
     if (seatErr) throw new Error(seatErr.message);
@@ -197,6 +242,7 @@ export async function createTable(formData: FormData) {
 }
 
 export async function deleteTable(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   if (typeof eventId !== 'string' || typeof tableId !== 'string') {
@@ -250,6 +296,7 @@ export async function deleteTable(formData: FormData) {
 }
 
 export async function assignGuest(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const guestId = formData.get('guest_id');
@@ -285,6 +332,8 @@ export async function assignGuest(formData: FormData) {
       table_id: tableId,
       guest_id: guestId,
       seat_number: seatNumber,
+      // 🪑 Placed by hand (lib/seat-why.ts).
+      ...placedByCouple(),
     },
     { onConflict: 'event_id,guest_id' },
   );
@@ -302,6 +351,7 @@ export async function assignGuest(formData: FormData) {
 // inside ONE transaction, guarded by the new physical-chair unique index.
 // Lock-gated like every seating mutation.
 export async function swapSeats(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestA = formData.get('guest_a_id');
   const guestB = formData.get('guest_b_id');
@@ -331,6 +381,9 @@ export async function swapSeats(formData: FormData) {
     p_guest_b: guestB,
   });
   if (error) throw new Error(error.message);
+  // 🪑 Both seats were just placed by hand. A failed stamp leaves the swap done and the seats saying nothing (not a
+  // stale "Auto arrange") — so it is cleared rather than kept when the stamp itself cannot land.
+  await stampPlacedByCouple(supabase, eventId, { guestIds: [guestA, guestB] });
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -342,6 +395,7 @@ export async function swapSeats(formData: FormData) {
 // RPC, so the exchange is all-or-nothing and never transiently double-seats a
 // chair. Lock-gated like every seating mutation.
 export async function swapTableOccupants(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');
   const tableB = formData.get('table_id_b');
@@ -371,6 +425,8 @@ export async function swapTableOccupants(formData: FormData) {
     p_table_b: tableB,
   });
   if (error) throw new Error(error.message);
+  // 🪑 Everyone at both tables was just moved by hand.
+  await stampPlacedByCouple(supabase, eventId, { tableIds: [tableA, tableB] });
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -385,6 +441,7 @@ export async function swapTableOccupants(formData: FormData) {
 export async function assignGroup(
   formData: FormData,
 ): Promise<{ seated: number; requested: number; overflow: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const idsRaw = formData.get('guest_ids');
@@ -439,7 +496,7 @@ export async function assignGroup(
   const rows = toSeat.map((guestId) => {
     while (occupiedSeats.has(seat)) seat++;
     occupiedSeats.add(seat);
-    return { event_id: eventId, table_id: tableId, guest_id: guestId, seat_number: seat };
+    return { event_id: eventId, table_id: tableId, guest_id: guestId, seat_number: seat, ...placedByCouple() };
   });
 
   if (rows.length > 0) {
@@ -462,6 +519,7 @@ export async function assignGroup(
 // tables to the stage, tier by tier. Idempotent — never moves a guest who is
 // already seated, never touches a sweetheart table, never seats the couple.
 export async function autoSeatGuests(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -480,9 +538,9 @@ export async function autoSeatGuests(formData: FormData) {
   const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
   ]);
 
   const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
@@ -513,6 +571,7 @@ export async function autoSeatGuests(formData: FormData) {
     roleSet,
     groupAdjacency,
     floorPlan.role_seating,
+    { vipPlusOnes: floorPlan.vip_plus_ones },
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -521,6 +580,8 @@ export async function autoSeatGuests(formData: FormData) {
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -543,6 +604,7 @@ export async function autoSeatGuests(formData: FormData) {
 // no longer auto-places a provisional seat — the couple seats manually via
 // Auto-Arrange / drag.
 export async function setSeatingAutoplace(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
   const enabled = formData.get('enabled') === 'true';
@@ -573,6 +635,7 @@ export async function setSeatingAutoplace(formData: FormData) {
 // off, a group's overflow reverts to the classic stage-ranked fill instead of
 // the nearest table by floor coordinates. Couple-scoped.
 export async function setSeatingGroupAdjacency(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
   const enabled = formData.get('enabled') === 'true';
@@ -599,6 +662,7 @@ export async function setSeatingGroupAdjacency(formData: FormData) {
 
 /** Master toggle: show/hide ghost booths for the whole event. */
 export async function setGhostBoothsEnabled(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
   const enabled = formData.get('enabled') === 'true';
@@ -616,10 +680,14 @@ export async function setGhostBoothsEnabled(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  // The switch lives in the seat settings of Guests › Seats now (the room is view-only, 2026-10-30).
+  revalidatePath(`/dashboard/${eventId}/guests`);
 }
 
-/** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). */
-export async function dismissGhostBooth(formData: FormData) {
+/** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). Not exported — no screen calls it
+ *  today, and every export is a Vercel route (`lint-server-action-budget.mjs`). */
+async function dismissGhostBooth(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const category = formData.get('category');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
@@ -674,78 +742,25 @@ async function restoreGhostBooths(formData: FormData) {
 // Save the floor-plan markers (stage position + the single entrance door).
 // Upserts the per-event singleton row; coords are clamped to 0–100 percent.
 export async function saveFloorPlan(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
   }
-  const stageX = clampPct(formData.get('stage_x'));
-  const stageY = clampPct(formData.get('stage_y'));
-  const entranceX = clampPct(formData.get('entrance_x'));
-  const entranceY = clampPct(formData.get('entrance_y'));
-  const entranceEnabled = formData.get('entrance_enabled') === 'true';
-  // Main-entrance geometry (migration 20270717284319): door vs walk-through.
-  // The schema value stays 'tunnel'; the UI labels it "Walk-through". Depth is
-  // METRES (not a percent — never route it through clampPct), clamped 1.5–8.
-  const entranceKind = formData.get('entrance_kind') === 'tunnel' ? 'tunnel' : 'door';
-  const entranceDepth = ((): number => {
-    const raw = formData.get('entrance_depth_m');
-    if (typeof raw !== 'string' || raw.length === 0) return 3;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return 3;
-    return Math.max(1.5, Math.min(8, n));
-  })();
-  // Floor-plan kit: stage size + dance-floor zone + optional service door.
-  // Sizes clamp to 2–100% so a degenerate drag can't zero an element out.
-  const clampSize = (v: unknown): number | null => {
-    if (typeof v !== 'string' || v.length === 0) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(2, Math.min(100, n));
-  };
-  const stageW = clampSize(formData.get('stage_w'));
-  const stageH = clampSize(formData.get('stage_h'));
-  const danceEnabled = formData.get('dance_enabled') === 'true';
-  const danceX = clampPct(formData.get('dance_x'));
-  const danceY = clampPct(formData.get('dance_y'));
-  const danceW = clampSize(formData.get('dance_w'));
-  const danceH = clampSize(formData.get('dance_h'));
-  const serviceEnabled = formData.get('service_entrance_enabled') === 'true';
-  const serviceX = clampPct(formData.get('service_entrance_x'));
-  const serviceY = clampPct(formData.get('service_entrance_y'));
-
-  // Cocktail / waiting-area room — a second room on the same canvas. Its centre
-  // clamps to a WIDER band than 0–100 so the room can dock just OUTSIDE a
-  // reception wall (at the entrance door) without being snapped back on-canvas.
-  const clampCocktailCoord = (v: unknown): number | null => {
-    if (typeof v !== 'string' || v.length === 0) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(-80, Math.min(180, n));
-  };
-  const cocktailEnabled = formData.get('cocktail_enabled') === 'true';
-  const cocktailX = clampCocktailCoord(formData.get('cocktail_x'));
-  const cocktailY = clampCocktailCoord(formData.get('cocktail_y'));
-  const cocktailW = clampSize(formData.get('cocktail_w'));
-  const cocktailH = clampSize(formData.get('cocktail_h'));
-  const cocktailLabelRaw = formData.get('cocktail_label');
-  const cocktailLabel =
-    typeof cocktailLabelRaw === 'string' && cocktailLabelRaw.trim().length > 0
-      ? cocktailLabelRaw.trim().slice(0, 80)
-      : 'Cocktail Area';
-  // Couple revoke switch — absent or anything but 'false' keeps vendor edit on.
-  const cocktailVendorEdit = formData.get('cocktail_vendor_edit') !== 'false';
-  // Dock mode — absent or anything but 'false' keeps it linked (DB default TRUE).
-  const cocktailLinked = formData.get('cocktail_linked') !== 'false';
-
-  // Venue dimensions (metres) — null when the couple hasn't set a room size.
-  const parseDim = (v: FormDataEntryValue | null): number | null => {
-    if (typeof v !== 'string' || v.length === 0) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return Math.min(500, n);
-  };
-  const venueWidth = parseDim(formData.get('venue_width_m'));
-  const venueLength = parseDim(formData.get('venue_length_m'));
+  const row = floorPlanRowFrom((k) => formData.get(k));
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): a save that says what it started from writes
+     only the columns IT changed — an editor opened before the other host (or the 3D lab) moved the stage never puts the
+     stage back (`lib/floor-plan-row.ts`). No base: the whole row, as before. */
+  const baseRaw = formData.get(MERGE_BASE_FIELD);
+  let changed: Set<string> | null = null;
+  if (typeof baseRaw === 'string' && baseRaw) {
+    try {
+      const base = JSON.parse(baseRaw) as Record<string, unknown>;
+      changed = changedFields(floorPlanRowFrom((k) => (typeof base[k] === 'string' ? base[k] : null)), row);
+    } catch {
+      changed = null;
+    }
+  }
 
   const supabase = await createClient();
   const {
@@ -755,41 +770,56 @@ export async function saveFloorPlan(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const { error } = await supabase.from('event_floor_plan').upsert(
-    {
-      event_id: eventId,
-      stage_x: stageX ?? 50,
-      stage_y: stageY ?? 6,
-      stage_w: stageW ?? 24,
-      stage_h: stageH ?? 7,
-      entrance_enabled: entranceEnabled,
-      entrance_x: entranceX ?? 50,
-      entrance_y: entranceY ?? 94,
-      entrance_kind: entranceKind,
-      entrance_depth_m: entranceDepth,
-      dance_enabled: danceEnabled,
-      dance_x: danceX ?? 50,
-      dance_y: danceY ?? 55,
-      dance_w: danceW ?? 22,
-      dance_h: danceH ?? 18,
-      service_entrance_enabled: serviceEnabled,
-      service_entrance_x: serviceX ?? 97,
-      service_entrance_y: serviceY ?? 50,
-      cocktail_enabled: cocktailEnabled,
-      cocktail_x: cocktailX ?? 50,
-      cocktail_y: cocktailY ?? 40,
-      cocktail_w: cocktailW ?? 30,
-      cocktail_h: cocktailH ?? 22,
-      cocktail_label: cocktailLabel,
-      cocktail_vendor_edit: cocktailVendorEdit,
-      cocktail_linked: cocktailLinked,
-      venue_width_m: venueWidth,
-      venue_length_m: venueLength,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id' },
-  );
-  if (error) throw new Error(error.message);
+  const updatedAt = new Date().toISOString();
+  let written = false;
+  if (changed !== null) {
+    const fields = Object.fromEntries(Object.entries(row).filter(([k]) => changed!.has(k)));
+    if (Object.keys(fields).length === 0) written = true; // nothing of this screen's changed
+    else {
+      const { data, error } = await supabase.from('event_floor_plan').update({ ...fields, updated_at: updatedAt }).eq('event_id', eventId).select('event_id');
+      if (error) throw new Error(error.message);
+      written = Array.isArray(data) && data.length > 0;
+    }
+  }
+  // The first save of all (no row yet), or an older page: the whole row.
+  if (!written) {
+    // Every column, spelled — the write that has always flipped the room's switches (`gates-have-handles`).
+    const { error } = await supabase.from('event_floor_plan').upsert(
+      {
+        event_id: eventId,
+        stage_x: row.stage_x,
+        stage_y: row.stage_y,
+        stage_w: row.stage_w,
+        stage_h: row.stage_h,
+        entrance_enabled: row.entrance_enabled,
+        entrance_x: row.entrance_x,
+        entrance_y: row.entrance_y,
+        entrance_kind: row.entrance_kind,
+        entrance_depth_m: row.entrance_depth_m,
+        dance_enabled: row.dance_enabled,
+        dance_x: row.dance_x,
+        dance_y: row.dance_y,
+        dance_w: row.dance_w,
+        dance_h: row.dance_h,
+        service_entrance_enabled: row.service_entrance_enabled,
+        service_entrance_x: row.service_entrance_x,
+        service_entrance_y: row.service_entrance_y,
+        cocktail_enabled: row.cocktail_enabled,
+        cocktail_x: row.cocktail_x,
+        cocktail_y: row.cocktail_y,
+        cocktail_w: row.cocktail_w,
+        cocktail_h: row.cocktail_h,
+        cocktail_label: row.cocktail_label,
+        cocktail_vendor_edit: row.cocktail_vendor_edit,
+        cocktail_linked: row.cocktail_linked,
+        venue_width_m: row.venue_width_m,
+        venue_length_m: row.venue_length_m,
+        updated_at: updatedAt,
+      },
+      { onConflict: 'event_id' },
+    );
+    if (error) throw new Error(error.message);
+  }
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -804,6 +834,7 @@ export async function saveFloorPlan(formData: FormData) {
 const VALID_PHOTO_VISIBILITY = new Set(['table', 'all', 'none']);
 
 export async function saveVenuePhotoVisibility(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -849,20 +880,29 @@ export async function saveVenuePhotoVisibility(formData: FormData) {
 // route and the budget sits at its ceiling (lint-server-action-budget.mjs).
 // Lock-gated like every seating mutation.
 export async function savePriorityOrder(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
   }
   const writesRoleSeating = formData.has('role_seating');
-  // A form without either field keeps the historical meaning: reset the order.
-  const writesPriority = formData.has('priority_order') || !writesRoleSeating;
+  const writesVipPlusOnes = formData.has('vip_plus_ones');
+  // A form without any field keeps the historical meaning: reset the order.
+  const writesPriority = formData.has('priority_order') || (!writesRoleSeating && !writesVipPlusOnes);
 
   const row: {
     event_id: string;
     updated_at: string;
     priority_order?: PriorityOrder | null;
     role_seating?: RoleSeating;
+    vip_plus_ones?: VipPlusOneSeating;
   } = { event_id: eventId, updated_at: new Date().toISOString() };
+  // 🪑 "+1s of VIP guests" (owner 2026-11-02): one of the two picks; anything else is refused, never repaired.
+  if (writesVipPlusOnes) {
+    const raw = formData.get('vip_plus_ones');
+    if (raw !== 'beside' && raw !== 'nearest') throw new Error('Invalid input');
+    row.vip_plus_ones = raw;
+  }
 
   if (writesPriority) {
     const raw = formData.get('priority_order');
@@ -913,6 +953,7 @@ export async function savePriorityOrder(formData: FormData) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function addSeatingConstraint(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -948,6 +989,7 @@ export async function addSeatingConstraint(formData: FormData) {
 }
 
 export async function removeSeatingConstraint(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -987,6 +1029,7 @@ export async function removeSeatingConstraint(formData: FormData) {
 // seat is fixed: lockAndFill (and any future solve) seats everyone else around
 // it. Lock-gated like every seating mutation.
 export async function toggleSeatLock(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');
   if (
@@ -1025,6 +1068,7 @@ export async function toggleSeatLock(formData: FormData) {
 export async function lockAndFill(
   formData: FormData,
 ): Promise<{ seated: number; totalRules: number; satisfiedRules: number; unsatisfiedRules: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1042,10 +1086,10 @@ export async function lockAndFill(
   const [tables, assignments, guests, floorPlan, memberships, constraints] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
-    fetchSeatingConstraints(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
+    keepApartOrStop(supabase, eventId),
   ]);
 
   // Keep locked seats; clear everyone else so the solver re-seats around them.
@@ -1081,6 +1125,7 @@ export async function lockAndFill(
     roleSet: await resolveRoleSetForEvent(eventId),
     groupAdjacency: await fetchGroupAdjacency(supabase, eventId),
     roleSeating: floorPlan.role_seating,
+    autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones },
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -1089,6 +1134,8 @@ export async function lockAndFill(
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Fill around locked seats — placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -1105,6 +1152,7 @@ export async function lockAndFill(
 }
 
 export async function updateTablePosition(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const xRaw = formData.get('x_pos');
@@ -1148,6 +1196,7 @@ export async function updateTablePosition(formData: FormData) {
 }
 
 export async function unassignGuest(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');
   if (typeof eventId !== 'string' || typeof guestId !== 'string') {
@@ -1176,6 +1225,7 @@ export async function unassignGuest(formData: FormData) {
 // Set a table's orientation (0–359°). Lets couples rotate a table so wedges /
 // banquets can be connected edge-to-edge into custom patterns.
 export async function updateTableRotation(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const degRaw = formData.get('rotation_deg');
@@ -1217,6 +1267,7 @@ export async function updateTableRotation(formData: FormData) {
 // Rule: any gesture that changes both pos and rot persists both atomically or
 // neither. Payload: JSON `poses` = [{ tableId, xPct, yPct, rotationDeg }, ...].
 export async function commitWeld(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const posesRaw = formData.get('poses');
   if (typeof eventId !== 'string' || typeof posesRaw !== 'string') {
@@ -1272,6 +1323,7 @@ export async function commitWeld(formData: FormData) {
 export async function updateTableType(
   formData: FormData,
 ): Promise<{ unseated: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const newType = formData.get('table_type');
@@ -1336,6 +1388,7 @@ export async function updateTableType(
 // removed_seats). Clears the edge where two tables connect. Refuses to delete a
 // seat that's currently occupied — unseat the guest first.
 export async function setTableSeat(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const seatRaw = formData.get('seat_number');
@@ -1390,6 +1443,7 @@ export async function setTableSeat(formData: FormData) {
 // weeks ahead is normal, so it must not quietly open seats to guests early.
 // Idempotent; qr_tokens are never re-rolled (publishSeating's own contract).
 export async function stampTableSigns(formData: FormData): Promise<{ stamped: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1418,6 +1472,7 @@ export async function stampTableSigns(formData: FormData): Promise<{ stamped: nu
 // working); publishing only stamps the "last published" timestamps. Returns the
 // table count so the editor can confirm. RLS scopes every write to the couple.
 export async function publishSeating(formData: FormData): Promise<{ published: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1474,6 +1529,7 @@ export async function publishSeating(formData: FormData): Promise<{ published: n
 // the couple. Returns whether a published row was actually found, so the editor
 // can tell "taken down" from "it already wasn't up".
 export async function unpublishSeating(formData: FormData): Promise<{ wasPublished: boolean }> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1498,11 +1554,47 @@ export async function unpublishSeating(formData: FormData): Promise<{ wasPublish
   return { wasPublished: (cleared?.length ?? 0) > 0 };
 }
 
+// 🪑 Mark a table VIP, or not (owner 2026-11-02, "VIP Table/s will be identified"): the table's own setting on Seats.
+// One guarded UPDATE under the couple's RLS; a refused or zero-row write throws so the switch goes back.
+// NOT exported: it rides `updateTableLabel`'s route (a form with `is_vip` and no `table_label`) — every exported
+// server action is a Vercel route and the budget (scripts/lint-server-action-budget.mjs) is full.
+async function updateTableVip(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const vipRaw = formData.get('is_vip');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || (vipRaw !== 'true' && vipRaw !== 'false')) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { data, error } = await supabase
+    .from('event_tables')
+    .update({ is_vip: vipRaw === 'true', updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .select('table_id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('That table was not saved — it may have been removed.');
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Rename a table (the per-table popup's inline rename). Mirrors
 // updateTableRotation: a single guarded UPDATE under the couple's RLS.
 // `table_label` already exists — no schema change. Trim + 1–64 chars, matching
 // createTable's validation.
 export async function updateTableLabel(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+  // 🪑 The table's other own setting — VIP or not — shares this route (see updateTableVip).
+  if (formData.has('is_vip') && !formData.has('table_label')) return updateTableVip(formData);
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const labelRaw = formData.get('table_label');
@@ -1559,6 +1651,7 @@ export async function updateTableLabel(formData: FormData) {
 // it now enforces the connectable-set gate (round / sweetheart reject) should
 // any future caller use it. It is NOT reachable from a drag.
 export async function linkTables(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');
   const tableB = formData.get('table_id_b');
@@ -1658,6 +1751,7 @@ export async function linkTables(formData: FormData) {
 // independent table again with its own name + QR sign, and moves/rotates on
 // its own. Positions/angles are left where they are.
 export async function unlinkTable(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   if (typeof eventId !== 'string' || typeof tableId !== 'string') {
@@ -1700,6 +1794,7 @@ export async function unlinkTable(formData: FormData) {
 export async function seatRoleAtTable(
   formData: FormData,
 ): Promise<{ seated: number; requested: number; overflow: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const tierRaw = formData.get('tier');
@@ -1720,7 +1815,7 @@ export async function seatRoleAtTable(
   const [tables, assignments, guests] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    guestsOrStop(supabase, eventId),
   ]);
   const table = tables.find((t) => t.table_id === tableId);
   if (!table) throw new Error('Table not found');
@@ -1762,7 +1857,7 @@ export async function seatRoleAtTable(
   const rows = toSeat.map((g) => {
     while (occupiedSeats.has(seat)) seat++;
     occupiedSeats.add(seat);
-    return { event_id: eventId, table_id: tableId, guest_id: g.guest_id, seat_number: seat };
+    return { event_id: eventId, table_id: tableId, guest_id: g.guest_id, seat_number: seat, ...placedByCouple() };
   });
 
   if (rows.length > 0) {
@@ -1860,11 +1955,31 @@ async function persistBooths(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
   booths: BoothPayload[],
+  base?: BoothPayload[] | null,
 ) {
   // SECURITY (defense-by-construction): sanitize cross-event vendor links here,
   // in the single choke point EVERY caller (saveBooths, autoArrange, and any
   // future one) passes through — so the guard can never be forgotten again.
   await nullOutForeignBoothVendors(supabase, eventId, booths);
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): given the list this screen STARTED FROM, only
+     what it removed, added or changed is written — a booth it never saw is never deleted (`lib/floor-items-merge.ts`). */
+  if (base) {
+    const w = floorItemsThisScreenChanged('booth_id', base, booths);
+    if (w.remove.length > 0) {
+      const { error } = await supabase.from('event_floor_booths').delete().eq('event_id', eventId).in('booth_id', w.remove);
+      if (error) throw new Error(error.message);
+    }
+    for (const u of w.updates) {
+      const { error } = await supabase.from('event_floor_booths').update(u.fields).eq('booth_id', u.id).eq('event_id', eventId);
+      if (error) throw new Error(error.message);
+    }
+    for (const b of w.inserts) {
+      const { booth_id: _id, ...row } = b;
+      const { error } = await supabase.from('event_floor_booths').insert({ event_id: eventId, ...row });
+      if (error) throw new Error(error.message);
+    }
+    return;
+  }
   const keepIds = booths.map((b) => b.booth_id).filter((id): id is string => id !== null);
   const del = supabase.from('event_floor_booths').delete().eq('event_id', eventId);
   const { error: delError } = await (keepIds.length > 0
@@ -1921,6 +2036,7 @@ async function nullOutForeignBoothVendors(
 }
 
 export async function saveBooths(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
   const booths = parseBoothsPayload(formData.get('booths'));
@@ -1932,7 +2048,14 @@ export async function saveBooths(formData: FormData) {
   if (!user) redirect('/login');
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
-  await persistBooths(supabase, eventId, booths); // guards cross-event vendor links internally
+  // 👥 The list this screen started from (`MERGE_BASE_FIELD`) — unreadable or absent: replace-all, as before.
+  let base: BoothPayload[] | null = null;
+  try {
+    base = formData.get(MERGE_BASE_FIELD) ? parseBoothsPayload(formData.get(MERGE_BASE_FIELD)) : null;
+  } catch {
+    base = null;
+  }
+  await persistBooths(supabase, eventId, booths, base); // guards cross-event vendor links internally
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
@@ -1980,7 +2103,26 @@ async function persistSigns(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
   signs: SignPayload[],
+  base?: SignPayload[] | null,
 ) {
+  // 👥 Given the list this screen started from: only what it removed, added or changed (`lib/floor-items-merge.ts`).
+  if (base) {
+    const w = floorItemsThisScreenChanged('sign_id', base, signs);
+    if (w.remove.length > 0) {
+      const { error } = await supabase.from('event_floor_signs').delete().eq('event_id', eventId).in('sign_id', w.remove);
+      if (error) throw new Error(error.message);
+    }
+    for (const u of w.updates) {
+      const { error } = await supabase.from('event_floor_signs').update(u.fields).eq('sign_id', u.id).eq('event_id', eventId);
+      if (error) throw new Error(error.message);
+    }
+    for (const n of w.inserts) {
+      const { sign_id: _id, ...row } = n;
+      const { error } = await supabase.from('event_floor_signs').insert({ event_id: eventId, ...row });
+      if (error) throw new Error(error.message);
+    }
+    return;
+  }
   const keepIds = signs.map((s) => s.sign_id).filter((id): id is string => id !== null);
   const del = supabase.from('event_floor_signs').delete().eq('event_id', eventId);
   const { error: delError } = await (keepIds.length > 0
@@ -2004,6 +2146,7 @@ async function persistSigns(
 }
 
 export async function saveSigns(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
   const signs = parseSignsPayload(formData.get('signs'));
@@ -2015,7 +2158,13 @@ export async function saveSigns(formData: FormData) {
   if (!user) redirect('/login');
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
-  await persistSigns(supabase, eventId, signs);
+  let base: SignPayload[] | null = null;
+  try {
+    base = formData.get(MERGE_BASE_FIELD) ? parseSignsPayload(formData.get(MERGE_BASE_FIELD)) : null;
+  } catch {
+    base = null;
+  }
+  await persistSigns(supabase, eventId, signs, base);
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
@@ -2023,6 +2172,7 @@ export async function saveSigns(formData: FormData) {
 // Explicit per-guest priority-tier override (guests.seating_priority). An
 // empty value clears the override back to the role-derived tier.
 export async function setGuestSeatingPriority(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');
   const raw = formData.get('priority');
@@ -2069,6 +2219,10 @@ export type AutoArrangeResult = {
   seatedGuestIds: string[];
   /** Tables whose people changed (or that are new) — the plan rings them gold. */
   changedTableIds: string[];
+  /** 🪑 What could not be seated as the rules say — the editor SHOWS it (owner 2026-11-02, never silently). */
+  cannotFit?: AutoSeatCannotFit[];
+  /** 🪑 The seats this run took OFF ("Seat everyone again" · "Clear all seats") — Undo puts exactly these back. */
+  restoreSeats?: RestoreSeat[];
 };
 
 /**
@@ -2079,7 +2233,7 @@ export type AutoArrangeResult = {
  * seated by hand since then is never touched (only the listed ids are).
  */
 async function undoAutoArrange(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
-  let undo: { addedTableIds?: unknown; seatedGuestIds?: unknown; positions?: unknown };
+  let undo: { addedTableIds?: unknown; seatedGuestIds?: unknown; positions?: unknown; restore?: unknown };
   try {
     undo = JSON.parse(String(formData.get('undo') ?? '{}'));
   } catch {
@@ -2107,6 +2261,16 @@ async function undoAutoArrange(eventId: string, formData: FormData): Promise<Aut
   if (addedTableIds.length > 0) {
     const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', addedTableIds);
     if (error) throw new Error(error.message);
+  }
+  // 🪑 The seats the run took off go back exactly — table, chair, lock, who placed it — except where a guest or a
+  // chair has been taken since (lib/seat-plan-scope.ts › restorableSeats).
+  const restore = parseRestoreSeats(undo.restore);
+  if (restore.length > 0) {
+    const back = restorableSeats(restore, await fetchAssignments(supabase, eventId));
+    if (back.length > 0) {
+      const { error } = await supabase.from('event_seat_assignments').insert(back.map((r) => ({ event_id: eventId, ...r })));
+      if (error) throw new Error(error.message);
+    }
   }
   // The booths go back to where they stood too (Auto arrange re-anchors them).
   if (typeof formData.get('booths') === 'string') {
@@ -2138,10 +2302,16 @@ async function undoAutoArrange(eventId: string, formData: FormData): Promise<Aut
 }
 
 export async function autoArrange(formData: FormData): Promise<AutoArrangeResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'undo') {
     return undoAutoArrange(eventId, formData);
   }
+  if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'clear') {
+    return clearAllSeats(eventId, formData);
+  }
+  // 🪑 "Only the unseated" (default) or "Seat everyone again" (owner 2026-11-02) — see lib/seat-plan-scope.ts.
+  const scope = parseSeatScope(formData.get('scope'));
   const positionsRaw = formData.get('positions');
   if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
     throw new Error('Invalid input');
@@ -2177,14 +2347,14 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
-  const [existingTables, assignments, guests, floorPlan, memberships, constraints, roleSet, eventRow] =
+  const [existingTables, assignmentsRead, guests, floorPlan, memberships, constraints, roleSet, eventRow] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
-      fetchGuestsByEvent(supabase, eventId),
-      fetchFloorPlan(supabase, eventId),
-      fetchGroupMembershipsByEvent(supabase, eventId),
-      fetchSeatingConstraints(supabase, eventId),
+      guestsOrStop(supabase, eventId),
+      floorPlanOrStop(supabase, eventId),
+      membershipsOrStop(supabase, eventId),
+      keepApartOrStop(supabase, eventId),
       // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
       resolveRoleSetForEvent(eventId),
       supabase
@@ -2193,6 +2363,19 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
+
+  // 🪑 "Seat everyone again": every unlocked seat comes off first (kept for Undo); a locked seat never moves.
+  const restoreSeats = scope === 'all' ? seatsToClear(assignmentsRead, true) : [];
+  if (restoreSeats.length > 0) {
+    const { error } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('locked', false)
+      .in('guest_id', restoreSeats.map((r) => r.guest_id));
+    if (error) throw new Error(error.message);
+  }
+  const assignments = scope === 'all' ? seatsThatStay(assignmentsRead, true) : assignmentsRead;
 
   // Room first: when the guests who haven't declined outnumber the open chairs,
   // add the room's default table until they fit — decided HERE from fresh data
@@ -2281,6 +2464,8 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
   // keep-apart separation. No rules → identical to the priority-only path.
   const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
   const groupAdjacency = await fetchGroupAdjacency(supabase, eventId);
+  // 🪑 What could not be seated as the rules say — returned so the editor SHOWS it (owner 2026-11-02, never silently).
+  const cannotFit: AutoSeatCannotFit[] = [];
   const solved =
     constraints.length > 0
       ? solveSeatPlan({
@@ -2294,11 +2479,15 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
           roleSet,
           groupAdjacency,
           roleSeating: floorPlan.role_seating,
+          autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones, cannotFit },
         })
       : null;
   const rows =
     solved?.assignments ??
-    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating);
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating, {
+      vipPlusOnes: floorPlan.vip_plus_ones,
+      cannotFit,
+    });
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -2306,6 +2495,8 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -2327,7 +2518,47 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     unsatisfiedRules: solved?.violations.length ?? 0,
     addedTableIds,
     seatedGuestIds: rows.map((r) => r.guest_id),
-    changedTableIds: [...new Set([...rows.map((r) => r.table_id), ...addedTableIds])],
+    changedTableIds: [...new Set([...rows.map((r) => r.table_id), ...addedTableIds, ...restoreSeats.map((r) => r.table_id)])],
+    cannotFit,
+    restoreSeats,
+  };
+}
+
+/**
+ * 🪑 CLEAR ALL SEATS (owner 2026-11-02, *"We want to be able to remove all seated"*). An intent of `autoArrange`, not a
+ * new action (the server-action ceiling). Locked seats stay unless the host chose `keep_locked=false`; every seat that
+ * comes off is returned so Undo (the same `intent=undo`) puts exactly those back.
+ */
+async function clearAllSeats(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
+  const keepLocked = formData.get('keep_locked') !== 'false';
+  const restoreSeats = seatsToClear(await fetchAssignments(supabase, eventId), keepLocked);
+  if (restoreSeats.length > 0) {
+    let del = supabase.from('event_seat_assignments').delete().eq('event_id', eventId).in('guest_id', restoreSeats.map((r) => r.guest_id));
+    if (keepLocked) del = del.eq('locked', false);
+    const { error } = await del;
+    if (error) throw new Error(error.message);
+  }
+  await refreshSeatingLock(supabase, lockId);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return {
+    seated: 0,
+    tablesAdded: 0,
+    unseated: restoreSeats.length,
+    totalRules: 0,
+    satisfiedRules: 0,
+    unsatisfiedRules: 0,
+    addedTableIds: [],
+    seatedGuestIds: [],
+    changedTableIds: [...new Set(restoreSeats.map((r) => r.table_id))],
+    restoreSeats,
   };
 }
 
@@ -2339,6 +2570,7 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
 export async function buildSeatingDraft(
   formData: FormData,
 ): Promise<{ tables: number; seated: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -2355,9 +2587,9 @@ export async function buildSeatingDraft(
 
   const [existing, guests, floorPlan, memberships, eventRow] = await Promise.all([
     fetchTables(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
     supabase
       .from('events')
       .select('ceremony_type, secondary_ceremony_type')
@@ -2456,6 +2688,8 @@ export async function buildSeatingDraft(
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -2491,7 +2725,15 @@ export async function buildSeatingDraft(
 export async function saveReceptionDesign(
   eventId: string,
   design: ReceptionDesign,
-): Promise<void> {
+  /**
+   * 👥 The design this screen's change was BASED ON (owner 2026-10-18, two hosts never overwrite — round 2;
+   * `lib/merge-from-base.ts`). The editor sends the WHOLE design, so a screen holding a copy from before the other
+   * host's pick wiped that pick. With it, what this screen did not change keeps the stored value; absent (an older
+   * page) the design is written whole, as before.
+   */
+  base?: ReceptionDesign,
+): Promise<{ elsewhere?: { design: ReceptionDesign; note: string } }> {
+  await refuseLimitedHelper(eventId, 'seat_plan');
   const supabase = await createClient();
   const {
     data: { user },
@@ -2509,19 +2751,24 @@ export async function saveReceptionDesign(
   }
 
   // RLS enforces host-only writes on their own events via event_members.
-  const { error } = await supabase
-    .from('events')
-    .update({
-      reception_design: clean,
-      mood_board_updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  // 👥 Merged three ways onto the design as it is NOW, written only if it is still that (`updateJsonColumn`).
+  const baseClean = base === undefined ? undefined : sanitizeReceptionDesign(base, []);
+  const wrote = await updateJsonColumn<ReceptionDesign, boolean>(
+    supabase as unknown as JsonColumnClient,
+    { table: 'events', row: { event_id: eventId }, column: 'reception_design', what: 'Your room design' },
+    (stored) => {
+      const m = mergeFromBase(baseClean, clean, stored ?? {});
+      return { next: m.value, also: { mood_board_updated_at: new Date().toISOString() }, said: m.moved };
+    },
+  );
+  if (!wrote.written) throw new Error('Your room design could not be saved.');
 
   // Both surfaces read reception_design: the lab renders it live in 3D, and
   // the Mood Board shows the compact read-only summary — revalidate both.
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+  // 👥 Another screen's pick is in what was stored: the editor shows it, with one calm line.
+  return wrote.said && wrote.value ? { elsewhere: { design: wrote.value, note: TWO_SCREENS_NOTE } } : {};
 }
 
 /**
@@ -2554,6 +2801,7 @@ export async function saveReceptionDesign(
  * uses, and a lost concurrent dismissal costs one re-tap of a chip.
  */
 export async function dismissRoomSuggestion(eventId: string, dismissKey: string): Promise<void> {
+  await refuseLimitedHelper(eventId, 'seat_plan');
   const supabase = await createClient();
   const {
     data: { user },
@@ -2592,7 +2840,9 @@ export async function dismissRoomSuggestion(eventId: string, dismissKey: string)
 /**
  * Reception decor AI-image layers — PILOT. Relocated from
  * studio/mood-board/actions.ts alongside saveReceptionDesign and the
- * ReceptionDesignEditor component that calls it (2026-09-03 relocation).
+ * ReceptionDesignEditor component that called it (2026-09-03 relocation). ⚠ Since 2026-10-30 that editor is retired
+ * (the 3D room is view-only; its choices are the Accents sheet's rows) and nothing draws the concept preview this fed —
+ * kept, not deleted, until the owner says where the concept image is previewed now.
  * Reads the moodboard_library_assets (+ moodboard_asset_color_ranges) rows
  * for the pilot zones (backdrop, ceiling — see PILOT_DECOR_ZONES) into the
  * shape lib/reception-decor-layers.ts's pure `resolveDecorLayer` expects.

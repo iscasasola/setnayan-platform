@@ -8,8 +8,9 @@
  *       *"the pass look waits for Apply"*): the draft holds `pass_design` beside
  *       `name_style`, a pick never forgets the other, Apply merges only what it
  *       holds, the picker saves to the draft — and the old live door is gone.
- *   2 · 💊 THE TOP NAV: ✕ Exit red, its own pill · the screen you are on ·
- *       [ ↺ Undo | 👁 Preview ] one shared pill · ✓ Apply green, its own pill.
+ *   2 · 💊 THE TOP NAV: the screen you are on · [ ↺ Undo | 👁 Preview ] one shared
+ *       pill · ✓ Apply green, its own pill · ⚙ (✕ Exit, red, dropped 2026-10-30 —
+ *       the app's nav is the way out of the Hub).
  *   3 · 🎨 LOOK OPENS THE LOOK TOOLS — never the guided flow's stage list.
  *   4 · 🚫 THE EVENT BAR HAS NO (i) NOTE floating over the scene tiles.
  *   5 · ✋ THE NAMES & DATE SHEET SENDS NOBODY ELSEWHERE — no "Open Hero editor",
@@ -51,7 +52,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('1a · the draft holds the ticket style beside the name style — only a real look, never junk', () => {
   const d = sanitizeHubDraft({ v: 1, events: { print_details: { pass_design: 'ticket', opening_line: 'x', name_style: 'nope' } }, widgets: {}, history: [] });
-  assert.deepEqual(d.events.print_details, { pass_design: 'ticket' }, 'the draft keeps the ticket style and drops every other key');
+  /* The opening line is drafted too since 2026-10-08 (owner, "draft 1-3"); junk is still dropped. */
+  assert.deepEqual(d.events.print_details, { pass_design: 'ticket', opening_line: 'x' }, 'the draft keeps the ticket style (and the opening line) and drops every other key');
   const bad = sanitizeHubDraft({ v: 1, events: { print_details: { pass_design: 'neon' } }, widgets: {}, history: [] });
   assert.equal('print_details' in bad.events, false, 'an unknown look is dropped, never repaired');
   assert.deepEqual(passDesignDraftPatch('poster'), { events: { print_details: { pass_design: 'poster' } } });
@@ -118,33 +120,34 @@ async function shell(): Promise<string> {
   );
 }
 
-test('2a · ✕ Exit is red, an X, its own pill — "‹" never again', async () => {
+test('2a · ✕ Exit is GONE — the app’s nav is the way out (owner 2026-10-30); the row ends with ⚙', async () => {
+  /* 🧭 AMENDED 30 Oct — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS", call (1), *"yes"*: the Hub
+     keeps the app's top bar and bottom nav, so the Maker's red ✕ (25 Oct: a link to this event's dashboard) is
+     dropped — Home on the bottom nav (or the rail) is that same way out. Nothing stands in its place; the row is
+     [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. */
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  const exit = /<span data-icon-pill="exit"[^>]*><a\b[^>]*data-maker-tool="exit"[^>]*>([\s\S]*?)<\/a><\/span>/.exec(header);
-  assert.ok(exit, 'Exit is not its own pill');
-  assert.match(exit[0], /\bmax-lg:bg-\[#B3261E\]/, 'Exit is not red on a phone');
-  assert.doesNotMatch(exit[0], /(?:^|\s)bg-\[#B3261E\]/, 'the red leaks onto a desktop');
-  assert.match(exit[1]!, /lucide-x\b/, 'Exit is not an X');
-  // 🖥 A desktop keeps its ‹ this round — shown only from lg, the X only under it.
-  assert.match(exit[1]!, /lucide-x h-5 w-5 lg:hidden/, 'the X shows on a desktop');
-  assert.match(exit[1]!, /lucide-chevron-left hidden h-6 w-6 lg:block/, 'the desktop lost its ‹');
+  assert.doesNotMatch(header, /data-icon-pill="exit"|data-maker-tool="exit"|aria-label="Exit"/, 'the ✕ Exit is back on the Hub’s pinned row');
+  assert.doesNotMatch(header, /lucide-chevron-left/, 'a ‹ stands in the ✕’s place');
+  /* (The ⚙ itself — `MenuSettingsButton menu="hub"` — loads with the Maker's lazy chunk: its place is what renders here.) */
+  assert.match(header, /data-maker-tool="settings"/, 'the row does not end with the Event Hub ⚙');
 });
 
-test('2b · the bar names the screen you are on — "Invitation · Welcome", never "as a guest sees it"', async () => {
+test('2b · the bar says where you are with Stages | Studio — the old screen label went with the old Maker (2026-10-25), never "as a guest sees it"', async () => {
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  assert.match(header, /data-maker-screen-label=""[^>]*class="[^"]*\btruncate\b[^"]*"[^>]*>Invitation · Welcome</);
+  assert.match(header, /data-maker-tool="side"/, 'the bar does not draw Stages | Studio');
+  assert.doesNotMatch(header, /data-maker-screen-label/, 'the old Maker’s screen label is back');
   assert.doesNotMatch(header, /as a guest sees it/);
 });
 
 test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GREEN pill', async () => {
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /<IconPill label="Undo and preview">\s*<DraftButton\s+label="Undo"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'Undo and Preview are not one shared pill');
-  assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply="">/, 'Apply is not its own pill');
+  assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply=""[^>]*>/, 'Apply is not its own pill');
   assert.match(MAKER_BAR_APPLY, /\bmax-lg:bg-success-600\b/, 'Apply is not green on a phone');
   assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');
   // With no draft bar (a viewer with nothing to draft) Preview still sits in a pill.
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  assert.match(header, /<span role="group" aria-label="Preview" data-icon-pill="shared" class="[^"]*max-lg:bg-ink\/\[0\.06\][^"]*"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'the pill grounds the desktop’s bar');
+  assert.match(header, /<span role="group" aria-label="Preview" data-icon-pill="shared" class="[^"]*max-lg:bg-ink\/\[0\.06\][^"]*"><span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'the pill grounds the desktop’s bar');
 });
 
 /* ══ 3 · LOOK OPENS THE LOOK TOOLS ══════════════════════════════════════════ */
@@ -195,11 +198,11 @@ test('5 · the names & date sheet has no "Open Hero editor", no "Hero" word, and
 
 /* ══ 6 · PREVIEW IS SEEN ON A SETUP SCREEN ══════════════════════════════════ */
 
-test('6 · on a setup screen a view pick (See as · Phone/Desktop · Both) puts the stage back on screen', () => {
+test('6 · on a setup screen a view pick (See as · Phone/Desktop) puts the stage back on screen', () => {
   const src = read(`${L}/maker-shell.tsx`);
   assert.match(src, /const coveringPage = selection\?\.kind === 'tool' && isMakerShellPage\(selection\.key\);\s*const seeTheStage = \(\) => \{\s*if \(coveringPage\) select\(null\);\s*\};/);
   const rows = src.slice(src.indexOf('const previewRows'), src.indexOf('/* ▶ PLAY'));
-  for (const pick of ['setSeeAs(null)', 'setSeeAs(s.key)', 'setDevice(makerViewToggle(shownDevice))', "setDevice(device === 'both' ? 'desktop' : 'both')"]) {
+  for (const pick of ['setSeeAs(null)', 'setSeeAs(s.key)', 'setDevice(makerViewToggle(shownDevice))']) {
     const at = rows.indexOf(pick);
     assert.ok(at > 0, `the ${pick} row is gone — re-read this guard`);
     assert.match(rows.slice(at, at + 120), /seeTheStage\(\)/, `${pick} changes a page nobody can see on a setup screen`);
@@ -212,7 +215,7 @@ test('7 · the Guest’s ticket: the real ticket on the page + ONE Ticket style 
   assert.equal(MAKER_FIXED_TICKET, 'pass');
   assert.match(makerTicketSrc('e1', 'ticket'), /\/api\/hub-print\/pass\?event=e1&mode=screen&pass_format=phone-card&pass_design=ticket&pass_guest=first$/);
   const route = read('app/api/hub-print/[piece]/route.ts');
-  assert.match(route, /url\.searchParams\.get\('pass_guest'\) === 'first'\s*\? await loadGuestPasses\(set, \{ width: 360, limit: 1, ticketsOnly: true \}\)/, 'the preview no longer draws a real guest');
+  assert.match(route, /const asked = url\.searchParams\.get\('pass_guest'\);[\s\S]{0,120}asked === 'first'\s*\? await loadGuestPasses\(set, \{ width: 360, limit: 1, ticketsOnly: true \}\)/, 'the preview no longer draws a real guest');
   const src = read(`${E}/editor-shell.tsx`);
   // The sheet: the picker, and the line and the "Open your guest list →" both stand aside for it.
   assert.match(src, /\{fixed === MAKER_FIXED_TICKET && ticketPanel \? ticketPanel : null\}/);

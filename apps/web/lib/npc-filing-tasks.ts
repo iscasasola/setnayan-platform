@@ -70,7 +70,7 @@ export const NPC_FILING_TASKS: readonly NpcTaskDef[] = [
     detail: 'Confirm whether NEXT_PUBLIC_DEPENDENT_PEOPLE and PABUYA_PUBLIC_ROUTE_ENABLED are ON in production. If ON, add the live SPI + minors and financial-PI processing activities to the RoPA.' },
   { key: 't2-8', tier: 2, kind: 'document', severity: 'blocking', counselGated: false, sortOrder: 80, sourceRefs: ['t2-8', 'm-3', 'B5'],
     title: 'Execute DPAs / SCCs for every named sub-processor',
-    detail: 'The single biggest evidentiary hole: every “DPA on file” is [confirm]. Obtain/execute DPAs or SCCs for Supabase, Vercel, Cloudflare, Resend, Sentry, PostHog, Anthropic, Persona, Google, TikTok, Suno; attach the executed references. Underpins the §21 cross-border-transfer basis.' },
+    detail: 'The single biggest evidentiary hole: every “DPA on file” is [confirm]. Obtain/execute DPAs or SCCs for Supabase, Vercel, Cloudflare, Resend, Sentry, Anthropic, Persona, Google, TikTok, Suno; attach the executed references. Underpins the §21 cross-border-transfer basis.' },
   { key: 't2-9', tier: 2, kind: 'document', severity: 'normal', counselGated: true, sortOrder: 90, sourceRefs: ['t2-9', 'm-7'], relatedControlKey: 'dependent_minor_profiles',
     title: 'Write the outstanding DPIAs',
     detail: 'R-03 Vendor Verification (HIGH — gov-ID/liveness/AMLC/PEP, and processing is LIVE) and R-05 Minors & Legacy (HIGH — counsel-first, before any build). Decide whether R-04 Payments / R-06 Contract Intelligence / R-07 Chat are standalone or folded.' },

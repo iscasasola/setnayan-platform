@@ -24,6 +24,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useReveal, useLineReveal } from '@/app/_components/marketing/_premium';
+import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 
 /**
  * AboutHero — renders the hero block so `useLineReveal`'s ref can sit directly on
@@ -58,7 +59,7 @@ export function AboutHero() {
         <Link
           href="/tl/about"
           hrefLang="tl-PH"
-          className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+          className={LOCALE_SWITCH_CLASS}
         >
           Taglish
         </Link>
@@ -78,9 +79,9 @@ export function AboutHero() {
         Tagalog <em>&ldquo;Set na &rsquo;yan.&rdquo;</em> — &ldquo;that&rsquo;s
         all set&rdquo;) is the Philippines&rsquo; own all-in-one wedding and
         life-events platform — and the first built here to do the whole
-        celebration in one place: plan the event, hire from a 0%-commission
-        marketplace of verified local vendors, and capture the day so every
-        guest goes home with their own highlight reel.
+        event in one place: plan it, hire from a 0%-commission
+        marketplace of verified local suppliers, and capture the day so every
+        guest can find the photos they&rsquo;re in.
       </p>
       <p
         data-reveal-item
@@ -88,7 +89,7 @@ export function AboutHero() {
       >
         Not a foreign directory with a Philippine filter — software built and
         operated entirely in the Philippines, for the way Filipino couples
-        actually plan: a free planning workspace, verified local vendors,
+        actually plan: a free planning workspace, verified local suppliers,
         transparent peso pricing, and zero commission on what you pay your
         suppliers.
       </p>

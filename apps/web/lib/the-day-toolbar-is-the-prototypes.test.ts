@@ -1,0 +1,293 @@
+/**
+ * the-day-toolbar-is-the-prototypes.test.ts — THE DAY'S PARTS, TOOL BY TOOL, ARE THE APPROVED PROTOTYPE'S.
+ *
+ * Owner, 2026-10-09 (`TOOLBAR-SPEC-2026-10-09.md`, "The Day › Camera"; the approved clickable prototype
+ * `public/review/studio-head-prototype.html`, walked headless at 375 × 812 on 2026-10-09 — every part of The Day,
+ * each of the four tools — and written down below): *"Camera is a full screen design"* · *"edit is greyed out too.
+ * only have style"*.
+ *
+ * Seen on the Maker lab before this (375 × 812, The Day): the Camera could not be picked at all — its page was a grey
+ * shape with no marker, so nothing was picked on arriving and every tool was "live" over four empty rows, its three
+ * looks unreachable; and on "Happening now" Style slid over four empty rows.
+ *
+ *   (1) THE RECORD — every part of The Day, Edit's first row and whether Style is live, as the prototype draws them,
+ *       EXECUTED against the app's own rules (`makerPartQuietRow`, `makerPartToolWorks`). The few places the app does
+ *       not follow the prototype are NAMED, each with its reason — never silently different.
+ *   (2) THE CAMERA HAS ONLY STYLE — Edit, Background and Animate are grey and each says the prototype's own line.
+ *       📷 Since 2026-10-24 (owner: "remove the other style template") there is ONE camera: Style picks nothing — its
+ *       rows say, in one line, what the camera wears (`CameraPartNote`), and saves nothing.
+ *   (3) THE CAMERA'S PAGE IS THE CAMERA — RENDERED: the one camera from its own pieces (the approved
+ *       `papic_camera_complete_2026-10-24_fable.html`; the logo on the shutter and the theme's tint on the corners
+ *       only on a Pro event); drawn on the canvas's own Camera page, edge to edge; a tap picks it and is never "a tap
+ *       on the ground"; picked on arriving only when nothing is held; its frame is drawn inside its edge.
+ *   (4) "HAPPENING NOW" HAS NO LOOK — Style is grey there and says so.
+ *   (5) NONE OF IT RIDES THE MAKER'S FIRST LOAD — the camera's page is reached only through the lazy toolbar.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import React from 'react';
+
+import { stripComments } from './strip-comments';
+import {
+  MAKER_CAMERA_TOOL_WHY,
+  MAKER_PARTS,
+  MAKER_PARTS_NO_LOOK,
+  MAKER_PART_TOOLS,
+  MAKER_STAGE_PAGES,
+  makerPartQuietRow,
+  makerPartToolFor,
+  makerPartToolWhy,
+  makerPartToolWorks,
+  type MakerPartKey,
+} from './maker-parts';
+
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    if (request === 'next/navigation') return { useRouter: () => ({ refresh() {} }), usePathname: () => '/', useSearchParams: () => new URLSearchParams() };
+    return load.call(this, request, ...rest);
+  };
+}
+
+const WEB = join(__dirname, '..');
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const L = 'app/dashboard/[eventId]/launch/_components';
+
+/**
+ * THE PROTOTYPE'S RECORD FOR THE DAY (walked 2026-10-09): Edit's row 1 — a door's words, `field` (the part's words
+ * typed there), or null (only the move row) — and whether Style is live. `grey`: Edit itself is grey.
+ */
+const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, string | null, boolean]>>> = {
+  live: [
+    /* (The Reveal's tile led here until 2026-10-16 — the opening is the Cover Scene's Style now, owner-approved.) */
+    ['spotlight', 'Open in Studio › Look', false],
+    ['announce', null, true],
+    ['livehub', null, true],
+    /* 🖼 The Cover Scene (owner-approved 2026-10-15): the group of the cover's words — Background only, so Edit is grey. */
+    /* 'lines': since 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT · STYLE (OPENING)") its Edit is the cover's lines and its Style the Opening. */
+    ['coverscene', 'lines', true],
+    ['logo', 'Open in Studio › Logo', true],
+    ['ename', 'field', true],
+    ['names', 'field', true],
+    ['heroline', 'field', true],
+    ['date', 'Change it in Suppliers', true],
+    ['place', 'Change it in Suppliers', true],
+    /* 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): it only moves — no words, no look. */
+    ['coverphoto', 'grey', false],
+    ['herolink', 'field', true],
+    ['schedule', 'Open in Studio › Schedule', true],
+  ],
+  home: [
+    ['venue', 'Change it in Suppliers', true],
+    ['dress', 'Open in Studio › Palette + Dress Code', true],
+    ['march', 'Open in Guests › March', true], // 🗂 R4: the march is Guests › March (the prototype drew Studio)
+    ['bring', 'Open in Studio › Info', true],
+  ],
+  camera: [['camera', 'grey', true]],
+  gallery: [
+    ['gallery', 'Open in Studio › Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
+    ['myphotos', null, true],
+  ],
+  me: [
+    ['seats', 'Open in Guests › Seats', true], // 🗂 R4: the seat plan is Guests › Seats
+    ['pass', 'Open in Studio › Prints', false],
+  ],
+};
+
+/**
+ * WHERE THE APP DOES NOT FOLLOW THE RECORD — named, with the reason (each told to the owner; none is silent):
+ *   door   the prototype draws a door the app has no page behind: "Open in Studio › Look" names no place for the
+ *          Reveal or "Happening now" (Look holds neither), and the pass's ticket style is picked RIGHT THERE under
+ *          Style (the shipped ticket cards — editing in place beats a jump), so it needs no door to Prints. These
+ *          three are the same on Save the Date and the Invitation, which ship them without a door.
+ *   style  the pass's Style is LIVE in the app (its ticket cards) where the prototype greys it.
+ */
+const NOT_AS_DRAWN: { door: readonly MakerPartKey[]; style: readonly MakerPartKey[] } = { door: ['spotlight', 'pass'], style: ['pass'] };
+
+/** The parts whose words the page draws are TYPED in Edit (`stage-panel/part-words.ts`) — a line of the cover that takes a caret. */
+const TYPED: readonly MakerPartKey[] = ['ename', 'names', 'heroline', 'herolink'];
+
+test('(1) the record: every part of The Day — Edit’s first row and Style — is the prototype’s, and each difference is named', () => {
+  const pages = MAKER_STAGE_PAGES.event!;
+  assert.deepEqual(Object.keys(pages), Object.keys(RECORD), 'The Day’s pages are not the prototype’s five');
+  let rows = 0;
+  for (const [page, parts] of Object.entries(RECORD)) {
+    /* 🕯 The Closing (owner 2026-10-17, after the prototype) ends every page — the shell's footer, under whichever page
+       is on show; held by `the-closing-is-its-own-scene.test.ts`, so the record is the prototype's parts above it. */
+    assert.equal(pages[page]!.at(-1), 'closing', `${page}: the Closing does not end the page`);
+    assert.deepEqual([...pages[page]!].filter((k) => k !== 'closing'), parts.map(([k]) => k), `${page}: the parts are not the prototype’s, in its order`);
+    for (const [k, door, style] of parts) {
+      rows += 1;
+      const q = makerPartQuietRow(k);
+      if (door === 'lines') {
+        assert.equal(makerPartToolWorks(k, 'edit'), true, `${k}: its Edit (the cover's lines) is grey`);
+      } else if (door === 'grey') {
+        assert.equal(makerPartToolWorks(k, 'edit'), false, `${k}: Edit is live`);
+      } else if (door === 'field') {
+        assert.ok(TYPED.includes(k), `${k}: the record types words the page does not take`);
+        assert.ok(MAKER_PARTS[k].canvas === 'f:hero' && MAKER_PARTS[k].el, `${k} is not a line of the cover`);
+      } else if (NOT_AS_DRAWN.door.includes(k)) {
+        assert.equal(q, null, `${k} gained a door — take it off NOT_AS_DRAWN and hold its words here`);
+      } else {
+        assert.equal(q?.words ?? null, door, `${k}: Edit’s door`);
+      }
+      const styleNow = makerPartToolWorks(k, 'style');
+      if (NOT_AS_DRAWN.style.includes(k)) assert.notEqual(styleNow, style, `${k}: Style now follows the record — take it off NOT_AS_DRAWN`);
+      else assert.equal(styleNow, style, `${k}: Style`);
+    }
+  }
+  assert.equal(rows, 22, 'anti-vacuity: the record is 22 part placements (22 less the Reveal tile, ruled off 2026-10-16, plus the cover’s photo, approved the same day)');
+  /* Every difference named is a part of The Day (a stale name would hide a real one). */
+  const all = Object.values(RECORD).flatMap((p) => p.map(([k]) => k));
+  for (const k of [...NOT_AS_DRAWN.door, ...NOT_AS_DRAWN.style]) assert.ok(all.includes(k), `${k} is not a part of The Day`);
+});
+
+test('(2) the Camera has only Style: the three grey tools say the prototype’s own lines; Style picks nothing — one camera', async () => {
+  assert.deepEqual(MAKER_CAMERA_TOOL_WHY, { edit: 'Nothing to edit on the camera.', bg: 'The camera is the whole screen.', animate: 'Nothing to animate on the camera.' });
+  for (const t of ['edit', 'bg', 'animate'] as const) {
+    assert.equal(makerPartToolWorks('camera', t), false);
+    assert.equal(makerPartToolWhy('camera', t), MAKER_CAMERA_TOOL_WHY[t]);
+  }
+  /* Only the Camera speaks those lines. */
+  for (const k of Object.keys(MAKER_PARTS) as MakerPartKey[]) {
+    if (k !== 'camera') for (const t of MAKER_PART_TOOLS) assert.doesNotMatch(makerPartToolWhy(k, t), /camera/i, `${k} · ${t}`);
+  }
+  assert.equal(makerPartToolWorks('camera', 'style'), true);
+  for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('camera', t), 'style', 'the Camera opens on a grey tool');
+  /* 📷 ONE camera (owner 2026-10-24): no look to pick, no layouts, no picker file, nothing saved from its rows. */
+  assert.deepEqual(MAKER_PARTS.camera.layouts, { kind: 'none' });
+  assert.throws(() => read(`${L}/stage-panel/camera-look.tsx`), 'the Camera’s look picker is back');
+  const tools = read(`${L}/stage-tools.tsx`);
+  assert.match(tools, /\{open && cameraOpen && !editOn \? <CameraPartNote pro=\{maker\?\.lookPages\?\.camera\?\.pro \?\? false\} \/> : null\}/);
+  const face = read(`${L}/stage-panel/camera-face.tsx`);
+  const note = face.slice(face.indexOf('export function CameraPartNote'));
+  assert.doesNotMatch(note, /<StyleCards|<PickMenu|<button|onPick|hubDraftAction|makerSave|FormData/, 'the Camera’s rows offer a choice or save something again');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CameraPartNote } = await import(`../${L}/stage-panel/camera-face`);
+  for (const pro of [false, true]) assert.match(renderToStaticMarkup(React.createElement(CameraPartNote, { pro })), /One camera for every guest/);
+});
+
+test('(3) the Camera’s page IS the camera: the one camera from its own pieces, on the canvas’s Camera page, picked by a tap and on arriving', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CameraFace } = await import(`../${L}/stage-panel/camera-face`);
+  const LOGO = '<svg data-test-logo="1"></svg>';
+  const screen = (pro: boolean) => renderToStaticMarkup(React.createElement(CameraFace, { pro, logo: LOGO, accent: '#7A1F2B' }));
+  const free = screen(false);
+  const pro = screen(true);
+  for (const [kind, html] of [['free', free], ['pro', pro]] as const) {
+    assert.match(html, new RegExp(`^<span aria-hidden="true" data-camera-face="${kind}" data-camera-face-screen="" class="absolute inset-0 `), `${kind}: the screen does not fill its page`);
+    assert.equal(html.split('data-focus-corners=""').length - 1, 1, `${kind}: the focus corners are the shipped ones, once`);
+    assert.equal(html.split('data-camera-face-shutter=').length - 1, 1);
+    assert.doesNotMatch(html, /<button|<a |<video|<input/, `${kind}: the drawing can be pressed — the camera is never opened in the Maker`);
+    /* The approved camera's pieces: grid · Selfie Main · .5 1 2 · Photo | Snippet · Tag who's in it · the share line. */
+    for (const word of ['Selfie', 'Main', 'Photo', 'Snippet', 'Tag who’s in it', 'Let the host feature my clips']) assert.ok(html.includes(word), `${kind}: ${word} is not drawn`);
+    assert.doesNotMatch(html, /[Ff]lash|torch/, `${kind}: a flash is drawn`);
+  }
+  /* Free: white corners, the plain shutter, no logo. */
+  assert.match(free, /border-color:#FFFFFF/i);
+  assert.match(free, /data-camera-face-shutter="plain"/);
+  assert.doesNotMatch(free, /data-test-logo/);
+  /* Pro: the logo ON the shutter, the corners in the theme's colour. */
+  assert.match(pro, /data-camera-face-logo=""[^>]*><svg data-test-logo="1"><\/svg>/);
+  assert.match(pro, /border-color:#7A1F2B/i);
+
+  const page = read(`${L}/stage-panel/camera-page.tsx`);
+  /* ON THE CANVAS'S OWN CAMERA PAGE — the page the real canvas draws for the tab (`site-body.tsx` `rest()`)… */
+  assert.match(page, /const CAMERA_PAGE = '\[data-stages-page="camera"\]';/);
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p, \[HUB_PAGE_ATTR\]: pageOf\(p\) \}\} data-stages-page=\{p\} hidden=\{pageOf\(p\) !== active \? true : undefined\}>\s*<MakerPageStandIn page=\{p\}/, 'the canvas no longer marks its Camera page — the camera has nowhere to be drawn');
+  /* …of THIS stage's canvas, and only once that page has FINISHED LOADING (its bridge has bound its parts): a node put
+     into a page its own React has not taken over yet is a hydration failure — the whole page thrown away and drawn
+     again. A canvas with no Camera page gets no camera. */
+  assert.match(page, /const CANVAS_IS_UP = '\[data-setnayan-editor-bound\]';/);
+  /* The bridge binds through its section binder (`canvas-section-binder.ts`, 2026-10-16), which writes the mark. */
+  assert.match(read('app/[slug]/_components/editor-bridge.tsx'), /createSectionBinder\(document,/, 'the bridge no longer binds its page — the camera would never be drawn');
+  const binder = read('app/[slug]/_components/canvas-section-binder.ts');
+  assert.match(binder, /export const EDITOR_BOUND_ATTR = 'data-setnayan-editor-bound';/);
+  assert.match(binder, /el\.setAttribute\(EDITOR_BOUND_ATTR, '1'\);/, 'the bridge no longer marks a page that is up — the camera would never be drawn');
+  assert.match(page, /if \(new URL\(f\.src, window\.location\.href\)\.searchParams\.get\('phase'\) !== stage\) continue;/);
+  assert.match(page, /if \(doc\?\.querySelector\(CANVAS_IS_UP\) && doc\.querySelector\(CAMERA_PAGE\)\) out\.push\(doc\);/);
+  /* A canvas still on its way is looked for again a bounded number of times — never for ever, never on a guess. */
+  assert.match(page, /if \(tries\.current >= FIND_TRIES\) return;\s*tries\.current \+= 1;\s*const again = window\.setTimeout\(\(\) => setCanvas\(\(n\) => n \+ 1\), FIND_EVERY_MS\);/);
+  /* …and in the page ON ITS WAY too (the buffered frame a save loads behind the one on screen): every canvas frame of
+     the stage is asked, the moment one says it is ready — so the old grey shape never flashes between two looks. */
+  assert.match(page, /const CANVAS_FRAMES = 'iframe\[data-maker-canvas-frame\]';/);
+  assert.match(page, /if \(d\?\.source === 'setnayan-site' && d\.t === 'ready'\) setCanvas\(\(n\) => n \+ 1\);/);
+  /* EDGE TO EDGE: fixed to the page's own edges, as tall as the page that can be SEEN (measured, never guessed). */
+  assert.match(page, /host\.style\.cssText = 'position:fixed;left:0;right:0;top:0;height:100vh;z-index:5;cursor:pointer;overflow:hidden';/);
+  assert.match(page, /const bottom = Math\.min\(fr\.bottom, lt && lt\.left < fr\.right && lt\.right > fr\.left \? lt\.top : window\.innerHeight, bar && bar\.height > 0 \? bar\.top : window\.innerHeight\);/);
+  assert.match(page, /if \(h !== null\) for \(const host of hosts\) host\.style\.height = `\$\{h\}px`;/);
+  /* The canvas's own stand-in steps aside while the camera is drawn, and comes back when it is not. */
+  assert.match(page, /css\.textContent = `\$\{CAMERA_PAGE\}>:not\(#\$\{HOST_ID\}\)\{display:none!important\}/);
+  assert.match(page, /function takeOff\(hosts: readonly HTMLElement\[\]\): void \{\s*for \(const h of hosts\) \{\s*h\.ownerDocument\.getElementById\(CSS_ID\)\?\.remove\(\);\s*h\.remove\(\);/);
+  assert.match(page, /if \(on\) return;\s*takeOff\(made\.current\);/, 'the camera stays on a page that is not the Camera’s');
+  /* A TAP PICKS IT — and never reaches the page's "tap on the ground", which lets a part go. */
+  assert.match(page, /host\.addEventListener\('click', \(e\) => \{\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);\s*onPickRef\.current\(\);\s*\}\);/);
+  /* PICKED ON ARRIVING — once, and only when no part is held (the page before's part has been let go by then). */
+  assert.match(page, /const drawn = hosts\.length > 0;\s*useEffect\(\(\) => \{\s*if \(!drawn\) return;\s*const t = window\.setTimeout\(\(\) => \{\s*if \(!heldRef\.current\) onPickRef\.current\(\);\s*\}, ARRIVE_MS\);/);
+  /* The one camera, in the event's Pro dress as the Maker is told it; its frame is inside its edge, only while picked. */
+  assert.match(page, /const pro = useMaker\(\)\?\.lookPages\?\.camera\?\.pro \?\? false;/);
+  assert.match(page, /<CameraFace pro=\{pro\} logo=\{brand\.logo\} accent=\{brand\.accent\} \/>/);
+  assert.match(page, /\{picked \? \(\s*<>[\s\S]*?data-camera-part-frame="" className="pointer-events-none absolute inset-0 z-\[3\] border-\[3px\] border-sn-accent"[\s\S]*?>\s*Camera\s*<\/span>/);
+  /* The toolbar mounts it for The Day's Camera page only, never under the RSVP stage. */
+  const tools = read(`${L}/stage-tools.tsx`);
+  assert.match(tools, /\{rsvpOpen \? null : \(\s*<CameraPage stage=\{stage\} on=\{makerPartsOnPage\(stage, shownPage\)\.includes\('camera'\)\} picked=\{open && cameraOpen\} held=\{picked !== null\} onPick=\{\(\) => pickPartRef\.current\('camera'\)\} \/>\s*\)\}/);
+  /* Only The Day has a Camera page. */
+  const withCamera = Object.entries(MAKER_STAGE_PAGES).flatMap(([s, pages]) => Object.entries(pages).filter(([, parts]) => parts.includes('camera')).map(([p]) => `${s}/${p}`));
+  assert.deepEqual(withCamera, ['event/camera']);
+});
+
+test('(4) “Happening now” has no look: Style is grey there and says so — and it opens on Edit', () => {
+  /* (The rest of the list is Post Event's — `the-post-event-toolbar-is-the-prototypes.test.ts` (5).) */
+  assert.ok(MAKER_PARTS_NO_LOOK.includes('spotlight'));
+  assert.deepEqual(MAKER_PARTS_NO_LOOK.filter((k) => Object.values(MAKER_STAGE_PAGES.event!).some((p) => p.includes(k))), ['spotlight', 'coverphoto'], 'another part of The Day lost its Style');
+  assert.equal(makerPartToolWorks('spotlight', 'style'), false);
+  assert.equal(makerPartToolWhy('spotlight', 'style'), 'Style has nothing to change on this part.');
+  for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('spotlight', t), 'edit');
+  /* It is truly a part with nothing to pick: no styles, no words of its own, a fixed block. */
+  const def = MAKER_PARTS.spotlight;
+  assert.deepEqual(def.layouts, { kind: 'none' });
+  assert.ok(def.canvas === 'f:spotlight' && !def.el);
+  /* The toolbar asks the rule for Style too — a grey Style is never pressed. */
+  assert.match(read(`${L}/stage-tools.tsx`), /const toolWorks = \(t: MakerPartTool\) => !picked \|\| (?:\(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| |ownTool\(t\) \|\| )?\(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\)(?: && !emptyHere\(t\))?\);/);
+});
+
+test('(5) none of it rides the Maker’s first load: the camera’s page is reached only through the lazy toolbar', () => {
+  /* Every file under the Maker and its work area that imports the camera's page or its looks. */
+  const importers: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(join(WEB, dir))) {
+      const rel = `${dir}/${name}`;
+      if (statSync(join(WEB, rel)).isDirectory()) walk(rel);
+      else if (/\.tsx?$/.test(name) && !/\.test\./.test(name) && /stage-panel\/camera-(page|look|face)'|from '\.\/camera-(page|look|face)'/.test(read(rel))) importers.push(rel.replace('app/dashboard/[eventId]/', ''));
+    }
+  };
+  walk('app/dashboard/[eventId]');
+  assert.deepEqual(
+    importers.sort(),
+    ['launch/_components/stage-panel/camera-page.tsx', 'launch/_components/stage-tools.tsx'],
+    'the camera is imported from somewhere new — is it on the first load?',
+  );
+  /* `details-lazy.tsx` carries nothing of the camera… */
+  const lazy = read(`${L}/details-lazy.tsx`);
+  assert.doesNotMatch(lazy, /camera-(page|look|face)/);
+  /* …and the toolbar itself is loaded the same way, by nobody else. */
+  assert.match(lazy, /export const StageTools = dynamic\(\(\) => import\(\s*'\.\/stage-tools'\)/);
+  /* (The chunk's name is a comment the reader strips; it is held where it is written.) */
+  assert.match(readFileSync(join(WEB, `${L}/details-lazy.tsx`), 'utf8'), /import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stage-tools'\)/);
+  const statics: string[] = [];
+  const walk2 = (dir: string) => {
+    for (const name of readdirSync(join(WEB, dir))) {
+      const rel = `${dir}/${name}`;
+      if (statSync(join(WEB, rel)).isDirectory()) walk2(rel);
+      else if (/\.tsx?$/.test(name) && !/\.test\./.test(name) && /^import (?!type )[^\n]*from '[^']*\/stage-tools'/m.test(read(rel))) statics.push(rel);
+    }
+  };
+  walk2('app/dashboard/[eventId]');
+  walk2('app/dev');
+  assert.deepEqual(statics, [], `the toolbar is imported statically — it would ride a first load: ${statics.join(', ')}`);
+});

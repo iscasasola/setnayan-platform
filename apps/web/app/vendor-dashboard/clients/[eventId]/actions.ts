@@ -1,14 +1,29 @@
 'use server';
 
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
+import { mintLeftAnUnpaidBill } from '@/lib/couple-booked-and-settled';
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
-import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { formatPhp } from '@/lib/php';
+import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { shortDayWords, waitlistMessage } from '@/lib/day-check';
+import { sendChatMessageCore } from '@/lib/chat-send';
+import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
+import {
+  changeOrderAnsweredNotice,
+  changeOrderProposedNotice,
+  type ChangeOrderForNotice,
+} from '@/lib/change-order-notice';
+import { readChangeOrderJustRaised } from '@/lib/change-order-notice.server';
+import { freezePaymentPlanAfterSupplierAgreed } from '@/lib/booking-payment-plan.server';
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -17,6 +32,12 @@ import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
 import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
+import { whereAskRefusalWords } from '@/lib/supplier-where';
+import { settleAfterAsking } from '@/lib/schedule-suggestion-decide.server';
+import { answerScheduleAsk } from '@/lib/schedule-ask.server';
+import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
+import { shiftWall } from '@/lib/schedule-chapters';
+import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -86,18 +107,28 @@ export async function vendorMarkServiceComplete(formData: FormData) {
       .eq('marketplace_vendor_id', profile.vendor_profile_id)
       .is('service_marked_complete_at', null);
 
-    const { data: couple } = await admin
+    // EVERY couple member, not `.maybeSingle()`. That call ERRORS on two rows —
+    // and an event with both partners on it has two — so `data` came back null
+    // and the request to confirm delivery was sent to nobody, in silence, for
+    // exactly the events with two hosts. Same fan-out as the notices below.
+    const { data: members, error: membersError } = await admin
       .from('event_members')
       .select('user_id')
       .eq('event_id', eventId)
-      .eq('member_type', 'couple')
-      .maybeSingle();
-    if (couple?.user_id) {
+      .eq('member_type', 'couple');
+    if (membersError) {
+      console.error(
+        `[vendorMarkServiceComplete] could not read who to tell for event_id=${eventId}:`,
+        membersError.message,
+      );
+    }
+    for (const m of members ?? []) {
+      if (!m.user_id) continue;
       await emitNotification({
-        userId: couple.user_id,
+        userId: m.user_id,
         type: 'review_request',
         title: `${ev.vendor_name ?? 'Your supplier'} marked their service complete`,
-        body: 'Confirm you received everything to unlock your review and galleries.',
+        body: 'Confirm you received everything to unlock your review and photos.',
         relatedUrl: `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`,
       });
     }
@@ -350,16 +381,27 @@ export async function createClientNote(formData: FormData) {
     typeof remindRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(remindRaw) ? remindRaw : null;
 
   // RLS (vendor_client_notes_org_all) enforces the org scope on WITH CHECK.
-  await supabase.from('vendor_client_notes').insert({
+  const { error } = await supabase.from('vendor_client_notes').insert({
     vendor_profile_id: profile.vendor_profile_id,
     event_id: eventId,
     author_user_id: user.id,
     body: (body as string).trim().slice(0, 2000),
     remind_at: remindAt,
   });
+  noteSaved(eventId as string, error, 'createClientNote');
+}
 
+/**
+ * 💾 A NOTE SAVES IN PLACE (owner 2026-10-29: "it should not jump to old pages but everything working similar to event
+ * dashboard"). Success re-reads the card where it stands — no navigation, so the screen never resets. A refused write
+ * is SAID: back to the notes with `?note=error`, which the notes list prints ("Couldn’t save that — try again").
+ */
+function noteSaved(eventId: string, error: { message: string } | null, where: string): void {
+  if (error) {
+    console.error(`[supabase-error] clients/actions: ${where}`, error);
+    redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled(), query: { note: 'error' } }));
+  }
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 /** Toggle a note's done/reopened state. Team-shared: any org member may flip. */
@@ -378,13 +420,11 @@ export async function toggleClientNoteDone(formData: FormData) {
   if (!user) redirect('/login');
 
   // RLS scopes the UPDATE to the caller's own org's notes — no extra gate here.
-  await supabase
+  const { error } = await supabase
     .from('vendor_client_notes')
     .update({ done_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
     .eq('note_id', noteId);
-
-  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
+  noteSaved(eventId as string, error, 'toggleClientNoteDone');
 }
 
 /** Delete a private note. Team-shared: any org member may remove any org note. */
@@ -402,16 +442,74 @@ export async function deleteClientNote(formData: FormData) {
   if (!user) redirect('/login');
 
   // RLS scopes the DELETE to the caller's own org's notes.
-  await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
-
-  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
+  const { error } = await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
+  noteSaved(eventId as string, error, 'deleteClientNote');
 }
 
-export async function suggestScheduleChange(formData: FormData) {
+/**
+ * 🤝 THE SUPPLIER'S PART OF THE SCHEDULE — one door for every ask (owner 2026-10-03 "SUPPLIERS WRITE THEIR OWN PART OF
+ * THE SCHEDULE" · 2026-11-01 "SUPPLIERS GIVE THEIR PART FROM THEIR SCHEDULE VIEW"; corpus SCHEDULE_CHAPTERS_BUILD_PLAN
+ * §3). Every exported action is a Vercel route and that budget is full (`scripts/lint-server-action-budget.mjs`), so
+ * the Schedule view's new asks ride THIS action by `request`:
+ *
+ *   (none) / 'remove' — the 3 Oct asks: add (no block) · change (a block) · delete (a block + remove). From the
+ *                       Schedule view an add names its CHAPTER (`chapter_id`, + My moment) and may carry its crew.
+ *   'times'           — My times: an arrive and a done moment per linked chapter, each its own request.
+ *   'take_back'       — Take back a request still waiting (`withdraw_schedule_request`).
+ *   'seen' · 'confirm' — Seen on a change · Confirm my times in the final week (`supplier_mark_schedule`).
+ *   'answer'          — Accept / Decline what a HOST or the COORDINATOR asked of them (D2, owner 2026-11-02;
+ *                       `answerScheduleAsk`, lib/schedule-ask.server.ts): `decision` accept | decline, `reason` on a No.
+ *   'where'           — 📍 Where (owner 2026-11-04, "They can pick and we can also pick for them"): the chapters a
+ *                       booked supplier serves, sent as ONE request (`supplier_ask_where`, migration 20271308641275)
+ *                       the host OKs; Auto-agree applies it at once. The host hears it in the app only.
+ *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
+ *                       by the database until they unlock. Their own requests still go through.
+ *
+ * Every write is the database's to allow (`schedule_suggestions_vendor_insert`, 20271263061583 + 20271300619930): own
+ * items only for an edit or a delete, own linked chapters only for an add, words only on anybody else's. After an ask
+ * lands, `settleAfterAsking` runs the host's ONE accept path IF the host chose Auto-agree — off (the default) it waits.
+ *
+ * `quiet=1` (the Schedule view's sheets) answers in words instead of redirecting, so the sheet can say what happened
+ * and the screen never resets; the old Customer-card forms keep their redirect.
+ */
+export type SupplierScheduleAnswer =
+  | { ok: true; outcome: 'waits' | 'applied' | 'words' | 'done'; /** 📍 the request written, for Take back */ suggestionId?: string }
+  | { ok: false; error: string };
+
+const NOT_YOURS_WORDS = 'That isn’t yours, so you can only suggest a change to it in words.';
+const NOT_SENT_WORDS = 'That didn’t send — try again.';
+
+/** A venue's hours as posted: wall-clock ISO start/end, setup and pack-up in minutes (blank = none). */
+function venueHoursFromForm(
+  fd: FormData,
+): { ok: true; start: string; end: string | null; ingress: number | null; egress: number | null } | { ok: false; error: string } {
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z$/;
+  const start = String(fd.get('start_at') ?? '');
+  const endRaw = String(fd.get('end_at') ?? '');
+  if (!iso.test(start)) return { ok: false, error: 'Give the chapter a start time.' };
+  if (endRaw && (!iso.test(endRaw) || Date.parse(endRaw) <= Date.parse(start))) return { ok: false, error: 'The end comes after the start.' };
+  const minutes = (k: string, max: number): number | null | 'bad' => {
+    const v = String(fd.get(k) ?? '').trim();
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 0 && n <= max ? n : 'bad';
+  };
+  const ingress = minutes('ingress_minutes', 1440);
+  const egress = minutes('egress_minutes', 2880);
+  if (ingress === 'bad' || egress === 'bad') return { ok: false, error: 'Setup and pack-up are up to a day.' };
+  return { ok: true, start, end: endRaw || null, ingress, egress };
+}
+
+export async function suggestScheduleChange(formData: FormData): Promise<SupplierScheduleAnswer | void> {
   const eventId = formData.get('event_id');
+  const quiet = formData.get('quiet') === '1';
+  const request = formData.get('request');
   const note = formData.get('note');
-  if (typeof eventId !== 'string' || typeof note !== 'string' || note.trim().length === 0) {
+  const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
+  const sheetAsk =
+    request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours' || request === 'where';
+  if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
+    if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
   }
 
@@ -423,25 +521,195 @@ export async function suggestScheduleChange(formData: FormData) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const blockId = nullIfBlank(formData.get('block_id'), 64);
-  /*
-    THE THREE ASKS (owner 2026-10-03, "SUPPLIERS WRITE THEIR OWN PART OF THE
-    SCHEDULE"): no block = add ('new'); a block + `request=remove` = delete
-    ('remove'); a block otherwise = change ('adjust'). An edit or a delete is
-    for the supplier's OWN items only, and that rule is the database's —
-    `schedule_suggestions_vendor_insert` (20271263061583) refuses it on anybody
-    else's item, so this action cannot be talked past by a hand-made POST. On
-    another's item the supplier may only suggest, in words.
-  */
-  const kind: 'new' | 'adjust' | 'remove' = !blockId
-    ? 'new'
-    : formData.get('request') === 'remove'
-      ? 'remove'
-      : 'adjust';
+  const done = (answer: SupplierScheduleAnswer): SupplierScheduleAnswer => {
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+    return answer;
+  };
 
-  // The block's own label: the notice names it, and a 'remove' keeps it as
-  // `proposed_label` so the request still says what it was about once the
-  // block is gone (the FK is ON DELETE SET NULL since 20271263061583).
+  // ── Take back · Seen · Confirm — one RPC each, the database decides who may ──────────────────────────────────────
+  if (request === 'take_back') {
+    const { data, error } = await supabase.rpc('withdraw_schedule_request', {
+      p_suggestion_id: String(formData.get('suggestion_id') ?? ''),
+    });
+    if (error || data !== true) return { ok: false, error: 'It was already answered, so it can’t be taken back.' };
+    return done({ ok: true, outcome: 'done' });
+  }
+  // ── Answer a host's or the coordinator's ask — the database says whether this supplier was asked ────────────────
+  if (request === 'answer') {
+    const decision = formData.get('decision');
+    if (decision !== 'accept' && decision !== 'decline') return { ok: false, error: NOT_SENT_WORDS };
+    const r = await answerScheduleAsk(
+      supabase,
+      user.id,
+      eventId,
+      String(formData.get('suggestion_id') ?? ''),
+      decision,
+      formData.get('reason'),
+    );
+    if (!r.ok) return { ok: false, error: r.error };
+    if (r.value === 'gone') return { ok: false, error: 'That ask was already answered or taken back.' };
+    return done({ ok: true, outcome: decision === 'accept' ? 'applied' : 'done' });
+  }
+  if (isMark) {
+    const { error } = await supabase.rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: request });
+    if (error) {
+      return {
+        ok: false,
+        error: error.code === '22023' ? 'Confirm my times opens one week before the event.' : NOT_SENT_WORDS,
+      };
+    }
+    return done({ ok: true, outcome: 'done' });
+  }
+
+  const supplierName = profile.business_name?.trim() || 'A supplier';
+
+  /** Write one ask, tell the host, then settle it (Auto-agree on = in at once; off = it waits). */
+  const ask = async (row: {
+    kind: 'new' | 'adjust' | 'remove' | 'hours';
+    proposed_ingress_minutes?: number | null;
+    proposed_egress_minutes?: number | null;
+    block_id: string | null;
+    proposed_label: string | null;
+    proposed_start_at: string | null;
+    proposed_end_at: string | null;
+    proposed_location: string | null;
+    proposed_parent_block_id?: string | null;
+    proposed_crew?: string[] | null;
+    note: string;
+    itemLabel: string | null;
+  }): Promise<{ ok: true; outcome: 'waits' | 'applied' | 'words' } | { ok: false; code: string | null }> => {
+    const { itemLabel, ...fields } = row;
+    // RLS enforces: booked on the event, own org, own user, status open — an edit or a delete only on the supplier's
+    // own item, an add only into a chapter they are linked to.
+    const { data, error } = await supabase
+      .from('event_schedule_suggestions')
+      .insert({
+        event_id: eventId,
+        vendor_profile_id: profile.vendor_profile_id,
+        suggested_by_user_id: user.id,
+        suggested_by_name: profile.business_name ?? null,
+        status: 'open',
+        ...fields,
+        proposed_parent_block_id: fields.proposed_parent_block_id ?? null,
+        proposed_crew: fields.proposed_crew && fields.proposed_crew.length > 0 ? fields.proposed_crew : null,
+        note: fields.note.trim().slice(0, 1000),
+      })
+      .select('suggestion_id')
+      .maybeSingle();
+    if (error || !data) return { ok: false, code: error?.code ?? null };
+    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id);
+    // Tell everyone who can approve it — the couple AND a coordinator holding The Day = Edit (best-effort: the
+    // request is already written; a failed notice must never undo it). Auto-agreed changes are told too: the
+    // schedule moved and the host should know who moved it.
+    try {
+      await notifyScheduleRequest({
+        eventId,
+        supplierName,
+        // 🏛 A venue's hours read to the host as a change to that chapter.
+        kind: row.kind === 'hours' ? 'adjust' : row.kind,
+        itemLabel,
+        proposesChange: row.kind !== 'adjust' || !isNoteOnlySuggestion(row),
+        note: row.note,
+        applied: outcome === 'applied',
+      });
+    } catch (e) {
+      console.error('[suggestScheduleChange] notify failed:', e);
+    }
+    return { ok: true, outcome };
+  };
+
+  // ── 🏛 Venue hours — the chapter's Starts · Ends · setup from · pack-up until (migration 20271307658341) ─────────────
+  // Only a venue booked to the chapter may send them (RLS: `schedule_suggestions_hours_only_from_its_venue`). Once the
+  // host approves, the hours are held for the venue: the host asks it to change.
+  if (request === 'hours') {
+    const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
+    const hours = venueHoursFromForm(formData);
+    if (!chapterId || !hours.ok) return { ok: false, error: hours.ok ? NOT_SENT_WORDS : hours.error };
+    const label = nullIfBlank(formData.get('chapter_label'), 120) ?? 'the chapter';
+    const r = await ask({
+      kind: 'hours',
+      block_id: chapterId,
+      proposed_label: null,
+      proposed_start_at: hours.start,
+      proposed_end_at: hours.end,
+      proposed_location: null,
+      proposed_ingress_minutes: hours.ingress,
+      proposed_egress_minutes: hours.egress,
+      note: `${supplierName} sets the hours of ${label}`,
+      itemLabel: `${label} hours`,
+    });
+    if (!r.ok) return { ok: false, error: r.code === '42501' ? 'Only the venue booked to this chapter can set its hours.' : NOT_SENT_WORDS };
+    return done({ ok: true, outcome: r.outcome });
+  }
+
+  // ── 📍 Where — the chapters they serve, as one request (migration 20271308641275) ──────────────────────────────────
+  // The database decides who may ask and what (`supplier_ask_where`: their own booked booking, chapters of this event,
+  // at least one, a real change). Then the ONE accept path settles it exactly like every other ask.
+  if (request === 'where') {
+    const vendorId = nullIfBlank(formData.get('vendor_id'), 64);
+    const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
+    if (!vendorId) return { ok: false, error: NOT_SENT_WORDS };
+    const { data, error } = await supabase.rpc('supplier_ask_where', { p_vendor_id: vendorId, p_block_ids: ids });
+    const asked = (data ?? null) as { suggestion_id?: string; names?: string } | null;
+    if (error || !asked?.suggestion_id) return { ok: false, error: whereAskRefusalWords(error?.message ?? '') };
+    const outcome = await settleAfterAsking(eventId, asked.suggestion_id);
+    try {
+      await notifyScheduleRequest({
+        eventId,
+        supplierName,
+        kind: 'adjust',
+        itemLabel: 'Where',
+        proposesChange: true,
+        note: `Asks to work ${asked.names ?? ''}`,
+        applied: outcome === 'applied',
+        where: { names: asked.names || 'their chapters', suggestionId: asked.suggestion_id },
+      });
+    } catch (e) {
+      console.error('[suggestScheduleChange] where notify failed:', e);
+    }
+    return done({ ok: true, outcome: outcome === 'words' ? 'waits' : outcome, suggestionId: asked.suggestion_id });
+  }
+
+  // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────
+  if (request === 'times') {
+    const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
+    const { data: chapters } = ids.length
+      ? await supabase.from('event_schedule_blocks').select('block_id, start_at, time_tba').eq('event_id', eventId).in('block_id', ids).is('parent_block_id', null)
+      : { data: [] as { block_id: string; start_at: string | null; time_tba: boolean | null }[] };
+    // ⏰ A Time-TBA chapter's 00:00 is only its DAY: the times typed land on that day, never measured against midnight.
+    const wanted = ((chapters ?? []) as { block_id: string; start_at: string | null; time_tba: boolean | null }[]).flatMap((c) =>
+      timesRequests({
+        shop: supplierName,
+        chapter: c,
+        arrive: String(formData.get(`arrive_${c.block_id}`) ?? ''),
+        done: String(formData.get(`done_${c.block_id}`) ?? ''),
+      }),
+    );
+    if (wanted.length === 0) return { ok: false, error: 'Add an arrive or a done time first.' };
+    let applied = 0;
+    for (const t of wanted) {
+      const r = await ask({
+        kind: 'new',
+        block_id: null,
+        proposed_label: t.label,
+        proposed_start_at: t.start,
+        proposed_end_at: t.end,
+        proposed_location: null,
+        proposed_parent_block_id: t.parent,
+        note: t.label,
+        itemLabel: t.label,
+      });
+      if (!r.ok) return { ok: false, error: r.code === '42501' ? 'You can only give times for the chapters you are linked to.' : NOT_SENT_WORDS };
+      if (r.outcome === 'applied') applied += 1;
+    }
+    return done({ ok: true, outcome: applied === wanted.length ? 'applied' : 'waits' });
+  }
+
+  const blockId = nullIfBlank(formData.get('block_id'), 64);
+  const kind: 'new' | 'adjust' | 'remove' = !blockId ? 'new' : request === 'remove' ? 'remove' : 'adjust';
+
+  // The block's own label: the notice names it, and a 'remove' keeps it as `proposed_label` so the request still
+  // says what it was about once the block is gone (the FK is ON DELETE SET NULL since 20271263061583).
   let blockLabel: string | null = null;
   if (blockId) {
     const { data: block } = await supabase
@@ -453,58 +721,68 @@ export async function suggestScheduleChange(formData: FormData) {
     blockLabel = (block as { label: string | null } | null)?.label ?? null;
   }
 
+  // + My moment / My moment (the Schedule view's sheet): a chapter, a clock, minutes and crew — not the old
+  // datetime-local boxes.
+  const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
+  const clock = nullIfBlank(formData.get('time'), 5);
+  let sheetTimes: { start: string | null; end: string | null } | null = null;
+  if (clock && (chapterId || blockId)) {
+    const anchorId = kind === 'new' ? chapterId : nullIfBlank(formData.get('chapter_of_block'), 64);
+    const { data: anchor } = anchorId
+      ? await supabase.from('event_schedule_blocks').select('start_at, time_tba').eq('block_id', anchorId).eq('event_id', eventId).maybeSingle()
+      : { data: null };
+    const section = formData.get('section');
+    const a = anchor as { start_at: string | null; time_tba: boolean | null } | null;
+    // ⏰ A Time-TBA chapter has no clock to be before or after — its 00:00 is only its day, so no section shifts it.
+    const start = a
+      ? momentStartIn(a, clock, a.time_tba ? null : section === 'Ingress' || section === 'Event' || section === 'Egress' ? section : null)
+      : null;
+    sheetTimes = { start, end: start ? shiftWall(start, momentMinutes(formData.get('minutes'))) : null };
+  }
+  const crewRaw = formData.get('crew');
+  const crew = typeof crewRaw === 'string' ? crewFromText(crewRaw) : null;
+
   const proposed =
     kind === 'remove'
       ? { proposed_label: blockLabel?.slice(0, 120) ?? null, proposed_start_at: null, proposed_end_at: null, proposed_location: null }
       : {
           proposed_label: nullIfBlank(formData.get('proposed_label'), 120),
-          proposed_start_at: parseDatetimeLocal(formData.get('proposed_start_at')),
-          proposed_end_at: parseDatetimeLocal(formData.get('proposed_end_at')),
+          proposed_start_at: sheetTimes ? sheetTimes.start : parseDatetimeLocal(formData.get('proposed_start_at')),
+          proposed_end_at: sheetTimes ? sheetTimes.end : parseDatetimeLocal(formData.get('proposed_end_at')),
           proposed_location: nullIfBlank(formData.get('proposed_location'), 200),
         };
-  const proposesChange =
-    kind === 'adjust' &&
-    Boolean(proposed.proposed_label || proposed.proposed_start_at || proposed.proposed_end_at || proposed.proposed_location);
-
-  // RLS enforces: booked on the event, own org, own user, status open — and
-  // an edit or a delete only on the supplier's own item.
-  const { error } = await supabase.from('event_schedule_suggestions').insert({
-    event_id: eventId,
-    block_id: blockId,
-    vendor_profile_id: profile.vendor_profile_id,
-    suggested_by_user_id: user.id,
-    suggested_by_name: profile.business_name ?? null,
-    kind,
-    ...proposed,
-    note: (note as string).trim().slice(0, 1000),
-    status: 'open',
-  });
-
-  // Tell everyone who can approve it — the couple AND a coordinator holding
-  // The Day = Edit — in the app and by email (best-effort: the request is
-  // already written; a failed notice must never undo it).
-  if (!error) {
-    try {
-      await notifyScheduleRequest({
-        eventId,
-        supplierName: profile.business_name?.trim() || 'A supplier',
-        kind,
-        itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
-        proposesChange,
-        note: note as string,
-      });
-    } catch (e) {
-      console.error('[suggestScheduleChange] notify failed:', e);
-    }
+  const typedNote = typeof note === 'string' ? note.trim() : '';
+  const fallbackNote =
+    kind === 'remove'
+      ? `Asks to delete “${blockLabel ?? 'a moment'}”`
+      : kind === 'new'
+        ? `Adds “${proposed.proposed_label ?? 'a moment'}”`
+        : `Changes “${blockLabel ?? 'a moment'}”`;
+  if (kind === 'adjust' && !typedNote && !proposed.proposed_label && !proposed.proposed_start_at && !(crew && crew.length)) {
+    return quiet ? { ok: false, error: 'Say what should change first.' } : redirect('/vendor-dashboard/clients');
   }
 
+  const r = await ask({
+    kind,
+    block_id: blockId,
+    ...proposed,
+    proposed_parent_block_id: kind === 'new' ? chapterId : null,
+    proposed_crew: kind === 'remove' ? null : crew,
+    note: typedNote || fallbackNote,
+    itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
+  });
+
+  if (quiet) {
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+    return r.ok ? { ok: true, outcome: r.outcome } : { ok: false, error: r.code === '42501' ? NOT_YOURS_WORDS : NOT_SENT_WORDS };
+  }
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(
     vendorClientSurfaceHref(eventId, 'delivery', {
       shellOn: isRelationshipWorkspaceEnabled(),
       // 42501 = the own-items rule said no. Its own word, so the supplier is
       // told WHY rather than "try again" (which would fail the same way).
-      query: { suggest: !error ? 'sent' : error.code === '42501' ? 'notyours' : 'error' },
+      query: { suggest: r.ok ? 'sent' : r.code === '42501' ? 'notyours' : 'error' },
     }),
   );
 }
@@ -568,7 +846,7 @@ export async function createVendorChallengeAction(formData: FormData) {
           type: 'papic_challenge_pending',
           title: `${vendorName} added a Papic Challenge`,
           body: 'Approve it to share it with your guests.',
-          relatedUrl: `/dashboard/${eventId}/studio/papic`,
+          relatedUrl: papicHomeHref(eventId),
         });
       }
     } catch (e) {
@@ -576,8 +854,8 @@ export async function createVendorChallengeAction(formData: FormData) {
     }
   }
 
+  // 💾 Saved in place — the revalidated list shows the new challenge (its own feedback, as before); no navigation.
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 // ==========================================================================
@@ -839,13 +1117,26 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
         .select('user_id')
         .eq('event_id', eventId)
         .eq('member_type', 'couple');
+      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it
+      // has its own label and names its figure; `schedule_suggestion` carried
+      // it before. In-app only (owner 2026-10-11). The figure is read back off
+      // the row, never taken from the form.
+      const notice = changeOrderProposedNotice({
+        from: 'supplier',
+        supplierName: vendorName,
+        row: await readChangeOrderJustRaised(admin, {
+          eventVendorId,
+          raisedByUserId: user.id,
+        }),
+        typedTitle: title as string,
+      });
       for (const m of members ?? []) {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: `${vendorName} proposed a change order`,
-          body: `${(title as string).trim().slice(0, 120)} — open the supplier to accept or decline.`,
+          type: 'change_order_proposed',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -905,11 +1196,15 @@ export async function vendorRespondChangeOrder(formData: FormData) {
       const admin = createAdminClient();
       const { data: co } = await admin
         .from('vendor_change_orders')
-        .select('event_vendor_id, title')
+        .select('event_vendor_id, title, delta_amount_php')
         .eq('change_order_id', changeOrderId)
         .maybeSingle();
       const eventVendorId = (co as { event_vendor_id?: string } | null)?.event_vendor_id ?? null;
-      const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
+      const notice = changeOrderAnsweredNotice({
+        by: 'supplier',
+        decision,
+        row: (co as ChangeOrderForNotice | null) ?? null,
+      });
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -919,9 +1214,9 @@ export async function vendorRespondChangeOrder(formData: FormData) {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
-          body: `Your supplier ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          type: 'change_order_answered',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: eventVendorId
             ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`
             : `/dashboard/${eventId}/vendors`,
@@ -1008,51 +1303,92 @@ export async function vendorAgreeToLock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 🚪 DOOR 6 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The yes is what books, so a closed
+  // platform refuses it here, before the RPC — nothing booked, no fee minted. The trigger
+  // `event_vendors_require_bookings_open` refuses the same flip if anything reaches the RPC anyway.
+  if (!(await areBookingsOpen())) {
+    redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=bookings_closed`);
+  }
+
+  // 🏛 A JOINED HALL IS CHECKED BEFORE THE YES (owner 2026-10-14, "A + B asked, A taken"): the yes never took a pool
+  // seat, so a card using Hall A + B over a taken Hall A would book a wedding the venue cannot hold. Refused with the
+  // names — which hall is taken, which are free to offer. A card with no halls answers `no_halls` and goes on as before.
+  {
+    const { data: hallsOn } = await supabase.rpc('vendor_card_halls_on', { p_event_vendor_id: eventVendorId });
+    const h = (hallsOn ?? {}) as { status?: string; taken?: string[]; free?: string[] };
+    if (h.status === 'hall_taken') {
+      const backTo = lockAnswerReturnTo(formData.get('return_to'));
+      redirect(`${backTo}?lock_agree=hall_taken${lockAgreeHallsParam({ taken: h.taken ?? [], free: h.free ?? [] })}`);
+    }
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });
   const env = (data ?? {}) as { status?: string; event_id?: string; competing?: number };
   const eventId = typeof env.event_id === 'string' ? env.event_id : null;
 
-  // Tell the couple, on a FRESH agreement only — a re-call ('already') stays
-  // silent. Best-effort: the booking is already made and a notification hiccup
-  // must never roll it back.
+  // ── 1 · THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which
+  // of the two lock moments freezes it: **"both. the supplier needs to pay us
+  // before this becomes true."** The couple's press RECORDED it; this is the
+  // moment the booking actually exists, so this CONFIRMS it and the four value
+  // columns become immutable. FIRST, because the fee made in step 2 sizes the
+  // gift from this stamp. Best-effort: an unstamped booking falls back to live
+  // derivation, which is exactly the behaviour before stamps existed.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      await createAdminClient().rpc('stamp_setnayan_gift_at_lock', {
+        p_event_vendor_id: eventVendorId,
+        p_confirm: true,
+      });
+    } catch (e) {
+      console.error(`[vendorAgreeToLock] gift stamp failed for vendor_id=${eventVendorId}:`, e);
+    }
+  }
+
+  // ── 2 · THE YES MAKES THE BOOKING FEE (owner 2026-10-12, answer 1: "the fee
+  // is CREATED at the supplier's YES — no handshake, no access"). At launch the
+  // charge is waived at this same moment (free five, a free window, the launch
+  // offer, the supplier's own client), so nobody waits; only a billed booking
+  // carries a bill from here. On `ok` ONLY — the one call that flipped the row
+  // to booked. Its own try: a fee hiccup must never undo the booking, and the
+  // render-time catch-up re-makes a fee that failed here.
+  //
+  // ⚖ AND IT DECIDES WHAT THE COUPLE IS TOLD (owner 2026-10-07: "no handshake,
+  // no confirmation of the event being booked to them · meaning. no booking fee
+  // paid to us"; audit F6, build item 13). A BILLED fee the supplier has not
+  // paid means the booking is not confirmed to the couple yet: they are not
+  // sent "said yes" or "your booking is confirmed" now — they are told when the
+  // fee settles (`tellCoupleTheBookingIsConfirmed`, from the payment approval).
+  // The couple is never told why (R12): to them the supplier simply has not
+  // finished. A failed or unknown mint tells them now, as before — a fee
+  // hiccup must not silence a real yes.
+  let feeBilledUnpaid = false;
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      const mint = await mintBookingFeeForBooking(createAdminClient(), {
+        eventVendorId,
+        door: 'supplier_yes',
+      });
+      feeBilledUnpaid = mintLeftAnUnpaidBill(mint.fee?.status);
+    } catch (e) {
+      console.error(`[vendorAgreeToLock] booking fee mint failed for vendor_id=${eventVendorId}:`, e);
+    }
+  }
+
+  // ── 3 · TELL THE COUPLE — on a FRESH agreement only (a re-call answers
+  // 'already' and stays silent). Best-effort: the booking is already made and a
+  // notification hiccup must never roll it back.
   if (!error && env.status === 'ok' && eventId) {
     try {
       const admin = createAdminClient();
 
-      /**
-       * ⚖ THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which of
-       * the two lock moments freezes it: **"both. the supplier needs to pay us
-       * before this becomes true."**
-       *
-       * The couple's press RECORDED it; this is the moment the booking actually
-       * exists, so this CONFIRMS it and the four value columns become immutable.
-       * Delivery is unchanged: the photographs still reach the couple only when
-       * the supplier's bill is paid.
-       *
-       * Best-effort, deliberately: the booking is already made and a stamp
-       * hiccup must never roll it back. An unstamped booking falls back to live
-       * derivation, which is exactly today's behaviour.
-       */
-      await admin.rpc('stamp_setnayan_gift_at_lock', {
-        p_event_vendor_id: eventVendorId,
-        p_confirm: true,
-      });
-
       // ── THE DATE NARROWS HERE, NOT AT THE ASK (owner §6.1 · slice B) ──────
       // A couple with no wedding day yet carries CANDIDATE days; every supplier
       // they actually book removes the days that supplier cannot work, and when
-      // one candidate is left, that is the date. Slice A deliberately SKIPPED
-      // this at the couple's press — running it there would have pinned the
-      // wedding date off a supplier who had agreed to nothing and could still
-      // decline, and the date would have survived the decline. An AGREEMENT is
-      // the event that legitimately narrows it, and this is that moment.
-      //
-      // Best-effort and ordered FIRST so the notification below can say what
-      // happened: the booking is already committed by the RPC, and a failure to
-      // narrow must never roll it back. `still_open` / `no_op` / `lost_race`
-      // are all ordinary outcomes, not errors.
+      // one candidate is left, that is the date. An AGREEMENT is the event that
+      // legitimately narrows it, and this is that moment. Best-effort and
+      // ordered before the notification so it can say what happened.
       let narrowedDate: string | null = null;
       try {
         const narrowed = await narrowEventDateAfterAgreement(admin, {
@@ -1080,6 +1416,21 @@ export async function vendorAgreeToLock(formData: FormData) {
         .eq('member_type', 'couple');
       for (const m of members ?? []) {
         if (!m.user_id) continue;
+        if (feeBilledUnpaid) {
+          // 🗣 A DATE MUST NEVER APPEAR ON A COUPLE'S SCREEN WITHOUT THEM BEING
+          // TOLD IT WAS SET — even while the yes waits on the supplier's side.
+          // So the date is said, and the booking is not.
+          if (narrowedDate) {
+            await emitNotification({
+              userId: m.user_id,
+              type: 'lock_request_agreed',
+              title: 'Your date is set',
+              body: `That leaves one day everyone you are booking can make, so your date is now ${formatCandidateDate(narrowedDate)}.`,
+              relatedUrl: `/dashboard/${eventId}/vendors`,
+            });
+          }
+          continue;
+        }
         await emitNotification({
           userId: m.user_id,
           type: 'lock_request_agreed',
@@ -1102,6 +1453,45 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // ── 4 · THE YES MADE A BOOKING — FREEZE ITS PAYMENT PLAN. The SAME function
+  // the direct path calls, on `ok` ONLY, so the plan is written once. Its notice
+  // ("your booking is confirmed") follows step 2's rule: held back while the
+  // fee is billed and unpaid, and replaced by the confirmation sent when it
+  // settles. The PLAN itself is always written — it is the couple's record of
+  // what they will pay, whatever the supplier owes us.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      await freezePaymentPlanAfterSupplierAgreed(
+        createAdminClient(),
+        { eventId, eventVendorId },
+        feeBilledUnpaid ? { emit: async () => {} } : undefined,
+      );
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] payment-plan snapshot failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  // 🔴 THE YES CAME TOO LATE. `vendor_agree_to_lock` closes a request that is
+  // past its 48 hours ITSELF and answers `expired` — and until 2026-10-10 that
+  // answer was read by the supplier's screen only. The couple's "Waiting for
+  // their yes" row vanished with no word, and the sweep (which selects
+  // `pending`) could never tell them afterwards, because the row no longer was.
+  // `expired` is answered ONLY by the call that flips the row; every later
+  // press answers `not_pending` — so this can fire once per request, never twice.
+  if (!error && env.status === 'expired' && eventId) {
+    try {
+      await tellCoupleLockRequestExpired(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] late-yes expiry notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
   // Where the answer lands: the Overview, as always — or the supplier's own
   // thread when the answer came from the accepted quote card there. Validated
   // to that one shape (`lockAnswerReturnTo`); the thread page reads the status.
@@ -1117,7 +1507,10 @@ export async function vendorAgreeToLock(formData: FormData) {
     env.status === 'resolve_others_first' && typeof env.competing === 'number'
       ? `&competing=${env.competing}`
       : '';
-  redirect(`${back}?lock_agree=${flag}${competing}`);
+  // 🔑 ONE ANSWER: the SAME `feeBilledUnpaid` that held the couple's news back above tells the supplier so — and
+  // that paying the fee is what lets the couple know (`lockAgreeNotice` · `ok` with `feeHeld`). Batch-5 audit F9.
+  const feeHeld = flag === 'ok' && feeBilledUnpaid ? `&fee=${LOCK_AGREE_FEE_HELD}` : '';
+  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}`);
 }
 
 /**
@@ -1177,6 +1570,20 @@ export async function vendorDeclineLock(formData: FormData) {
     } catch (e) {
       console.error(
         `[vendorDeclineLock] couple notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  // A no that came after the 48 hours is not a decline — the function closes
+  // the request as `expired` and records no reason. Same notice, same single
+  // call that flips the row, as the late yes above.
+  if (!error && env.status === 'expired' && eventId) {
+    try {
+      await tellCoupleLockRequestExpired(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorDeclineLock] late-no expiry notify failed for vendor_id=${eventVendorId}:`,
         e,
       );
     }
@@ -1278,9 +1685,11 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
             ? `${name} agreed to the removal`
             : `${name} would rather keep it for now`,
           body: agree
-            ? 'You can remove this celebration now.'
+            ? 'You can remove this event now.'
             : reason ?? 'They did not give a reason.',
           relatedUrl: '/dashboard',
+          // Which event: the link is account-level, so the email is told here.
+          eventId,
         });
       }
     } catch (err) {
@@ -1475,9 +1884,7 @@ export async function vendorAskForPayment(formData: FormData) {
           // "they asked for something" makes the reader open the page to find
           // out what, which is the shape this repo already fixed once on the
           // Papic studio banner that named no figure.
-          body: note
-            ? `₱${amount.toLocaleString('en-PH')} — ${note}`
-            : `₱${amount.toLocaleString('en-PH')}`,
+          body: note ? `${formatPhp(amount)} — ${note}` : formatPhp(amount),
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -1532,4 +1939,58 @@ export async function vendorWithdrawPaymentAsk(formData: FormData) {
       query: { ask: ok ? 'withdrawn' : 'error' },
     }),
   );
+}
+
+/**
+ * "WAITING LIST" ON A FULL DAY (owner 2026-11-04, DAY CHECK BEFORE ACCEPT — `lib/day-check.ts`). Where Agree would
+ * be refused because the day is full, the supplier can instead put the asking couple on the shop's EXISTING waiting
+ * list (`vendor_date_waitlist` — the row the couple's own "Join the waitlist" writes, so the shipped "a slot opened →
+ * tell them first" path reaches them) and tell them so in their chat, politely.
+ *
+ * 🔑 The RPC decides, not this action: `vendor_waitlist_the_ask` carries `vendor_agree_to_lock`'s ownership gate and
+ * refuses (`not_full`) unless the SAME verdict the panel drew says the day is full. The message rides the shipped
+ * send path (`sendChatMessageCore` — its gates, its notice); no email is added. The ask itself is left as it is —
+ * turning it down stays the supplier's own, separate answer.
+ *
+ * 🪟 IN PLACE (house rule "a save never resets the screen"): no redirect — the answer RETURNS (`{ status }`) to the
+ * form's own `useActionState` (`_components/waitlist-form.tsx`), which says it under the button, and the page is
+ * revalidated so the line reads the day again.
+ */
+export async function vendorWaitlistTheAsk(
+  _prev: { status: string } | null,
+  formData: FormData,
+): Promise<{ status: string }> {
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
+  const back = lockAnswerReturnTo(formData.get('return_to'));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('vendor_waitlist_the_ask', { p_event_vendor_id: eventVendorId });
+  const env = (data ?? {}) as { status?: string; event_id?: string; date?: string; vendor_profile_id?: string };
+  let flag = error ? 'error' : typeof env.status === 'string' ? env.status : 'error';
+  if (error) console.error('[vendorWaitlistTheAsk] rpc failed:', error.message);
+
+  // Tell them in their chat — only on a fresh add (an `already` was told the first time).
+  if (flag === 'ok' && typeof env.event_id === 'string' && typeof env.date === 'string' && typeof env.vendor_profile_id === 'string') {
+    const { data: thread } = await supabase
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('event_id', env.event_id)
+      .eq('vendor_profile_id', env.vendor_profile_id)
+      .maybeSingle();
+    const threadId = (thread as { thread_id?: string } | null)?.thread_id ?? null;
+    const sent = threadId
+      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)) }).catch(() => null)
+      : null;
+    if (!sent?.ok) flag = 'ok_unsent';
+  }
+
+  revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
+  return { status: flag };
 }

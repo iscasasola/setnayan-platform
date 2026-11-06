@@ -6,6 +6,7 @@ import {
   CameraOff,
   Check,
   CircleCheck,
+  CircleDot,
   Nfc,
   Search,
   Undo2,
@@ -23,6 +24,18 @@ import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 import { tableWords } from '@/lib/table-words';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
+import type { CheckinNote } from '@/lib/offline/checkin-queue';
+
+/** 🎫 The offline queue (EV3) — loaded on first use, never in the desk's first load. */
+const offlineQueue = () => import('@/lib/offline/checkin-queue');
+type OfflineQueue = Awaited<ReturnType<typeof offlineQueue>>;
+
+/** True when the browser itself says there is no network. A request can still fail with it true (venue Wi-Fi with no
+ *  internet) — every server call below is also caught and falls back to the saved list + the queue. */
+function browserOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
 
 export type DeskGuest = {
   guestId: string;
@@ -31,7 +44,8 @@ export type DeskGuest = {
   role: GuestRole;
   rsvpStatus: 'pending' | 'attending' | 'declined' | 'maybe';
   photoUrl: string | null;
-  plusOneName: string | null;
+  /** Who they bring, by name — every named seat (`companionNames`); `[]` when none is named. */
+  plusOneNames: readonly string[];
   qrToken: string;
   tableLabel: string | null;
 };
@@ -54,12 +68,19 @@ function timeLabel(iso: string): string {
 
 export function CheckinDesk({
   eventId,
+  viewer,
   guests,
   initialCheckins,
   expected,
   hasSides = true,
+  queue = offlineQueue,
 }: {
   eventId: string;
+  /** The signed-in account — whose scans the offline queue holds and sends (EV3). */
+  viewer: string;
+  /** The offline queue — the daemon-backed `lib/offline/checkin-queue.ts`. Only `/dev/home-lab?view=offline` passes a
+   *  stand-in (a lab has no database to send to); every real desk uses the default. */
+  queue?: () => Promise<OfflineQueue>;
   guests: DeskGuest[];
   initialCheckins: DeskCheckin[];
   expected: number;
@@ -86,6 +107,17 @@ export function CheckinDesk({
   // A guest accepted AFTER this desk loaded still admits — held here once the
   // live check has named them.
   const [lateGuests, setLateGuests] = useState<Map<string, DeskGuest>>(() => new Map());
+
+  // ---- no signal (EV3, owner 2026-10-28: "scans … QUEUE offline and sync later; double claims surfaced, never lost") --
+  // `online` is what the desk last learned — the browser's word, or a request that failed on the way. `queued` holds
+  // this account's scans still waiting on this phone (guestId → item id in the offline daemon's `checkin` store).
+  const [online, setOnline] = useState(true);
+  const [queued, setQueued] = useState<Map<string, string>>(() => new Map());
+  const [sent, setSent] = useState<number | null>(null);
+  const [notes, setNotes] = useState<CheckinNote[]>([]);
+  /** The selected guest was found on THIS PHONE'S saved list — the live check could not run. */
+  const [savedListPick, setSavedListPick] = useState(false);
+  const sending = useRef(false);
 
   // ---- scanner ------------------------------------------------------------
   const [scanning, setScanning] = useState(false);
@@ -123,7 +155,41 @@ export function CheckinDesk({
       // 🎟 LIVE, EVERY SCAN (owner 2026-09-29): a saved "Request pending"
       // picture, a screenshot, or a code the couple has since declined — the
       // row decides, now. The desk's own list is only the fast path's names.
-      const check = await checkTicketLive(eventId, token);
+      let check: TicketCheck | null = null;
+      if (!browserOffline()) {
+        try {
+          check = await checkTicketLive(eventId, token);
+        } catch {
+          setOnline(false); // the request did not get through — no signal, whatever the browser says
+        }
+      } else {
+        setOnline(false);
+      }
+      // 🔌 The live read was REFUSED (not "not a guest"): decide from the saved list, as with no signal.
+      if (check?.verdict === 'unreadable') check = null;
+      if (!check) {
+        // 📶 NO SIGNAL: the list saved on this phone decides who it is; the live check (a declined request, a
+        // screenshot) runs when the queued check-in is sent — and if it refuses then, the desk says so.
+        const known = guestByToken.get(token);
+        setLive(null);
+        if (!known) {
+          setNotice(
+            via === 'nfc_tap'
+              ? 'That tag isn’t on this phone’s saved list — check again when the signal is back.'
+              : 'That QR isn’t on this phone’s saved list — check again when the signal is back.',
+          );
+          return;
+        }
+        if (typeof navigator !== 'undefined') navigator.vibrate?.(80);
+        setNotice(null);
+        setQuery('');
+        setSelectedVia(via);
+        setSavedListPick(true);
+        setSelectedId(known.guestId);
+        return;
+      }
+      setOnline(true);
+      setSavedListPick(false);
       setLive(check);
       if (check.verdict === 'pending' || check.verdict === 'declined') {
         setSelectedId(null);
@@ -149,7 +215,7 @@ export function CheckinDesk({
             role: 'guest',
             rsvpStatus: 'attending',
             photoUrl: null,
-            plusOneName: null,
+            plusOneNames: [],
             qrToken: token,
             tableLabel: null,
           }),
@@ -209,6 +275,18 @@ export function CheckinDesk({
     }
   }, [stopScanner]);
 
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stopScanner();
+      void startScanner();
+    },
+  });
+
   // Once the <video> has mounted (scanning === true), bind the live stream and
   // run the decode loop. Runs after commit, so videoRef.current is populated.
   useEffect(() => {
@@ -264,7 +342,7 @@ export function CheckinDesk({
       .filter(
         (g) =>
           g.name.toLowerCase().includes(q) ||
-          (g.plusOneName ? g.plusOneName.toLowerCase().includes(q) : false),
+          g.plusOneNames.some((n) => n.toLowerCase().includes(q)),
       )
       .slice(0, 12);
   }, [guests, query]);
@@ -275,18 +353,42 @@ export function CheckinDesk({
       setBusy(true);
       setNotice(null);
       try {
-        const result = await checkInGuest(eventId, guestId, method);
-        if (result.ok) {
-          setCheckins((prev) => new Map(prev).set(guestId, result.checkedInAt));
-        } else {
-          setNotice(result.error);
+        if (!browserOffline()) {
+          try {
+            const result = await checkInGuest(eventId, guestId, method);
+            setOnline(true);
+            if (result.ok) {
+              setCheckins((prev) => new Map(prev).set(guestId, result.checkedInAt));
+            } else {
+              setNotice(result.error);
+            }
+            return;
+          } catch {
+            // The request never reached Setnayan — keep the scan on this phone instead of losing it.
+          }
+        }
+        setOnline(false);
+        try {
+          const q = await (await queue()).queueCheckin({
+            viewer,
+            eventId,
+            guestId,
+            name: guestById.get(guestId)?.name ?? 'A guest',
+            method,
+          });
+          setQueued((prev) => new Map(prev).set(guestId, q.itemId));
+          setCheckins((prev) => new Map(prev).set(guestId, q.scannedAt));
+          setSent(null);
+        } catch {
+          // 🔑 Never a silent loss: if this phone cannot even keep it (private mode, storage full), say so.
+          setNotice('No signal, and this phone couldn’t keep the scan — check them in on paper and again when you’re back online.');
         }
       } finally {
         setBusy(false);
         lastHitRef.current = null;
       }
     },
-    [eventId],
+    [eventId, viewer, guestById, queue],
   );
 
   const doUndo = useCallback(
@@ -294,7 +396,35 @@ export function CheckinDesk({
       setBusy(true);
       setNotice(null);
       try {
-        const result = await undoCheckIn(eventId, guestId);
+        // An unsent scan is undone on this phone: it leaves the queue and is never sent.
+        const itemId = queued.get(guestId);
+        if (itemId) {
+          await (await queue()).unqueueCheckin(itemId);
+          setQueued((prev) => {
+            const next = new Map(prev);
+            next.delete(guestId);
+            return next;
+          });
+          setCheckins((prev) => {
+            const next = new Map(prev);
+            next.delete(guestId);
+            return next;
+          });
+          return;
+        }
+        if (browserOffline()) {
+          setOnline(false);
+          setNotice('Undo needs signal — try again when you’re back online.');
+          return;
+        }
+        let result: Awaited<ReturnType<typeof undoCheckIn>>;
+        try {
+          result = await undoCheckIn(eventId, guestId);
+        } catch {
+          setOnline(false);
+          setNotice('Undo needs signal — try again when you’re back online.');
+          return;
+        }
         if (result.ok) {
           setCheckins((prev) => {
             const next = new Map(prev);
@@ -309,7 +439,68 @@ export function CheckinDesk({
         lastHitRef.current = null;
       }
     },
-    [eventId],
+    [eventId, queued, queue],
+  );
+
+  // ---- the queue: load it, and send it whenever the signal is back ----------------------------------------------
+  const refreshQueue = useCallback(async () => {
+    const q = await queue();
+    const items = await q.queuedCheckins(viewer, eventId);
+    setQueued(new Map(items.map((i) => [i.guestId, i.itemId])));
+    setCheckins((prev) => {
+      const next = new Map(prev);
+      for (const i of items) if (!next.has(i.guestId)) next.set(i.guestId, i.scannedAt);
+      return next;
+    });
+    setNotes(q.readCheckinNotes(viewer, eventId));
+    return items.length;
+  }, [viewer, eventId, queue]);
+
+  const sendQueued = useCallback(async () => {
+    if (sending.current || browserOffline()) return;
+    sending.current = true;
+    try {
+      const q = await queue();
+      const waiting = (await q.queuedCheckins(viewer, eventId)).length;
+      if (waiting === 0) return;
+      const n = await q.sendQueuedCheckins(viewer);
+      const left = await refreshQueue();
+      if (left < waiting) {
+        setOnline(true);
+        setSent(n);
+      }
+    } catch {
+      // Still no way through — the scans stay on this phone for the next try.
+    } finally {
+      sending.current = false;
+    }
+  }, [viewer, eventId, refreshQueue, queue]);
+
+  useEffect(() => {
+    setOnline(!browserOffline());
+    void refreshQueue()
+      .then((n) => (n > 0 ? sendQueued() : undefined))
+      .catch(() => undefined);
+    const back = () => {
+      setOnline(true);
+      void sendQueued();
+    };
+    const gone = () => setOnline(false);
+    window.addEventListener('online', back);
+    window.addEventListener('offline', gone);
+    return () => {
+      window.removeEventListener('online', back);
+      window.removeEventListener('offline', gone);
+    };
+  }, [refreshQueue, sendQueued]);
+
+  const dismissNote = useCallback(
+    async (guestId: string) => {
+      const q = await queue();
+      q.dismissCheckinNote(viewer, eventId, guestId);
+      setNotes(q.readCheckinNotes(viewer, eventId));
+    },
+    [viewer, eventId, queue],
   );
 
   // ---- derived -----------------------------------------------------------
@@ -330,6 +521,50 @@ export function CheckinDesk({
 
   return (
     <div className="mt-6 space-y-4">
+      {/* 📶 THE QUEUE LINE (EV3, prototype frame "Supplier · Hub › Scan"): "● No signal · N scans saved on this phone"
+          → "✓ Back online · N sent". Shown only when there is something to say. */}
+      {!online ? (
+        <p role="status" data-desk-queue="offline" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-warn-800">
+          <CircleDot aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          No signal · {queued.size === 0 ? 'scans will be saved on this phone' : `${formatCount(queued.size)} scan${queued.size === 1 ? '' : 's'} saved on this phone`}
+        </p>
+      ) : queued.size > 0 ? (
+        <p role="status" data-desk-queue="waiting" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-warn-800">
+          <CircleDot aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          {formatCount(queued.size)} scan{queued.size === 1 ? '' : 's'} saved on this phone · sending when Setnayan answers
+        </p>
+      ) : sent !== null ? (
+        <p role="status" data-desk-queue="sent" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-success-700">
+          <CircleCheck aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          Back online · {formatCount(sent)} sent
+        </p>
+      ) : null}
+
+      {/* 🔎 NEEDS A LOOK — what came back when the saved scans were sent: a guest another phone had already checked in
+          (the earlier time stands), or a scan the live check refused. Never dropped silently. */}
+      {notes.length > 0 ? (
+        <section aria-label="Needs a look" data-desk-notes="" className="space-y-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink/45">Needs a look</h3>
+          <ul className="divide-y divide-ink/10">
+            {notes.map((n) => (
+              <li key={n.guestId} className="flex items-start gap-3 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-ink">{n.name}</span>
+                  <span className="block text-xs text-ink/65">{n.detail}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void dismissNote(n.guestId)}
+                  className="min-h-11 shrink-0 rounded-lg border border-ink/15 px-3 text-sm font-medium text-ink/75"
+                >
+                  OK
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* headcount */}
       <section
         aria-label="Arrival headcount"
@@ -408,7 +643,7 @@ export function CheckinDesk({
             <button
               type="button"
               onClick={() => void nfc.start()}
-              className="flex w-full items-center justify-center gap-2 bg-white px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
+              className="flex w-full items-center justify-center gap-2 bg-white dark:bg-raised px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
             >
               <Nfc className="h-5 w-5" /> Read a guest&rsquo;s tag
             </button>
@@ -443,6 +678,7 @@ export function CheckinDesk({
                     type="button"
                     onClick={() => {
                       setSelectedVia('manual_search');
+                      setSavedListPick(false);
                       setSelectedId(g.guestId);
                       setLive(null);
                       setQuery('');
@@ -518,7 +754,7 @@ export function CheckinDesk({
                   setLive(null);
                   lastHitRef.current = null;
                 }}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 text-base font-semibold text-ink shadow-sm"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white dark:bg-raised px-4 text-base font-semibold text-ink shadow-sm"
               >
                 {DOOR_WORDS.next}
               </button>
@@ -543,6 +779,10 @@ export function CheckinDesk({
                 <p className="inline-flex items-center gap-1 text-sm font-semibold text-success-700" data-door-verdict="valid">
                   <CircleCheck className="h-4 w-4" /> {DOOR_WORDS.valid}
                 </p>
+              ) : savedListPick ? (
+                <p className="inline-flex items-center gap-1 text-sm font-semibold text-warn-800" data-door-verdict="saved-list">
+                  <CircleDot className="h-4 w-4" /> On this phone’s saved list · checked live when the signal is back
+                </p>
               ) : null}
               <h2 className="truncate text-lg font-semibold text-ink">{selected.name}</h2>
               <p className="mt-0.5 text-sm text-ink/60">
@@ -558,9 +798,9 @@ export function CheckinDesk({
                   <Utensils className="h-3.5 w-3.5" />
                   {selected.tableLabel ? tableWords(selected.tableLabel) : 'No table assigned'}
                 </span>
-                {selected.plusOneName ? (
+                {selected.plusOneNames.length > 0 ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-ink/70">
-                    <UserRound className="h-3.5 w-3.5" /> +1 · {selected.plusOneName}
+                    <UserRound className="h-3.5 w-3.5" /> +{selected.plusOneNames.length} · {selected.plusOneNames.join(', ')}
                   </span>
                 ) : null}
                 {selected.rsvpStatus !== 'attending' ? (
@@ -576,7 +816,8 @@ export function CheckinDesk({
             {selectedCheckin ? (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-success-50 px-4 py-3">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-success-800">
-                  <CircleCheck className="h-5 w-5" /> Checked in at {timeLabel(selectedCheckin)}
+                  <CircleCheck className="h-5 w-5" />{' '}
+                  {queued.has(selected.guestId) ? 'Checked in · saved on this phone' : `Checked in at ${timeLabel(selectedCheckin)}`}
                 </p>
                 <button
                   type="button"
@@ -621,6 +862,7 @@ export function CheckinDesk({
                   <span className="block text-xs text-ink/50">
                     {timeLabel(at)}
                     {guest.tableLabel ? ` · ${tableWords(guest.tableLabel)}` : ''}
+                    {queued.has(guest.guestId) ? ' · saved on this phone' : ''}
                   </span>
                 </span>
                 <button
@@ -652,6 +894,8 @@ function GuestAvatar({ guest, size }: { guest: DeskGuest; size: 'sm' | 'lg' }) {
       <img
         src={guest.photoUrl}
         alt=""
+        width={size === 'lg' ? 64 : 36}
+        height={size === 'lg' ? 64 : 36}
         className={`${cls} shrink-0 rounded-full object-cover`}
       />
     );

@@ -201,7 +201,8 @@ test('a failed form save bounces back to where it came from, with draft_error â€
   const save = fnBody(src('lib/hub-draft-store.ts'), 'saveHubDraftPatch');
   assert.match(
     save,
-    /try \{[\s\S]*writeHubDraft\([\s\S]*\} catch \(e\) \{[\s\S]*redirect\(hubDraftBounceHref\(back\.formData, back\.fallback, hubDraftSaveFailure\(e\)\)\)/,
+    /* RE-AIMED 2026-10-18 (two hosts never overwrite): the write is `updateHubDraft` (the compare-and-set door). */
+    /try \{[\s\S]*updateHubDraft\([\s\S]*\} catch \(e\) \{[\s\S]*redirect\(hubDraftBounceHref\(back\.formData, back\.fallback, hubDraftSaveFailure\(e\)\)\)/,
     'saveHubDraftPatch must turn a failed write into a redirect back, not a throw',
   );
   const words = fnBody(src('lib/hub-draft-store.ts'), 'draftEventsAndReturn');

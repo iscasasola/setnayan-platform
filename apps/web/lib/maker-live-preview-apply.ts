@@ -67,6 +67,12 @@ export function applyLoveStoryPreview(doc: PreviewRoot, raw: unknown): number {
       const el = scenes[i]!;
       found += 1;
       setText(el, '[data-love-line]', line);
+      /* 🗣 The two voices (owner 2026-10-17) — only where the page drew one; a voice that appears or goes is a new
+         shape, which the Maker reloads the canvas for (`sceneShape`, love-story-live.tsx). */
+      const voiceA = str(r.voiceA);
+      const voiceB = str(r.voiceB);
+      if (voiceA) setText(el, '[data-love-voice-a]', voiceA);
+      if (voiceB) setText(el, '[data-love-voice-b]', voiceB);
       setText(el, '[data-love-when]', `${when ? `${when} · ` : ''}${chapter}`);
       setOptional(el, '[data-love-place]', place);
     }

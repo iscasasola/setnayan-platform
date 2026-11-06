@@ -28,6 +28,8 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { taxonomyFromDb } from './taxonomy-from-db';
+import type { TaxonomySnapshot } from '../../lib/taxonomy-snapshot';
 
 import { vendorCategoryForLeaf } from '../../lib/vendor-packages';
 import { BRANCH_TO_VENDOR_CATEGORY } from '../../lib/vendor-branch-category';
@@ -54,9 +56,14 @@ const LEAVES_SQL = `
 
 type LeafRow = { canonical_service: string; tile_id: string; branch: string; parent: string };
 
+/** The replayed taxonomy as `getTaxonomy()` would read it. */
+let liveTax: TaxonomySnapshot;
+
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // The DATABASE's answer (③0-c: `service_categories.coarse_category`), not the code fallback.
+  liveTax = await taxonomyFromDb(db);
 });
 after(async () => {
   await db.close();
@@ -76,7 +83,7 @@ test('META: the seeded taxonomy is actually populated', async () => {
 test('no marketplace-visible service resolves to misc', async () => {
   const r = await db.query<LeafRow>(LEAVES_SQL);
   const offenders = r.rows
-    .filter((l) => vendorCategoryForLeaf(l.canonical_service, l.tile_id) === 'misc')
+    .filter((l) => vendorCategoryForLeaf(l.canonical_service, l.tile_id, liveTax) === 'misc')
     .map((l) => `${l.parent} › ${l.branch} › ${l.canonical_service}`);
 
   assert.deepEqual(
@@ -99,14 +106,17 @@ test('every live branch has a category, including the empty ones', async () => {
        AND coalesce(b.status,'') <> 'retired' AND coalesce(b.marketplace_hidden,false) = false
        AND coalesce(p.status,'') <> 'retired' AND coalesce(p.marketplace_hidden,false) = false
   `);
+  // ③0-c: the answer is the DATABASE column (`service_categories.coarse_category`), read through
+  // the same snapshot every resolver now takes — not the code map it was seeded from.
   const missing = r.rows
-    .filter((b) => !BRANCH_TO_VENDOR_CATEGORY[b.id])
+    .filter((b) => !liveTax.tileCoarseCategory[b.id])
     .map((b) => `${b.parent} › ${b.branch}  (tile_id: ${b.id})`);
 
   assert.deepEqual(
     missing,
     [],
-    `${missing.length} live branch(es) have no coarse category:\n  ` + missing.join('\n  '),
+    `${missing.length} live branch(es) have no coarse category — set service_categories.coarse_category ` +
+      `(the code map BRANCH_TO_VENDOR_CATEGORY is only the fallback now):\n  ` + missing.join('\n  '),
   );
 });
 
@@ -145,7 +155,7 @@ test('every category the branch map names exists in the DATABASE enum too', asyn
 });
 
 test('NEUTRALISATION: dropping a branch entry is caught', async () => {
-  // Proves case 2 measures the map rather than the default. Without this, an
+  // Proves case 2 measures the column rather than the default. Without this, an
   // always-empty `missing` list looks identical to a correct one.
   const r = await db.query<{ id: string }>(`
     SELECT b.id FROM service_categories b
@@ -156,12 +166,12 @@ test('NEUTRALISATION: dropping a branch entry is caught', async () => {
   const victim = r.rows[0]?.id;
   assert.ok(victim, 'no live branch to neutralise against');
 
-  const withoutIt: Record<string, string> = { ...BRANCH_TO_VENDOR_CATEGORY };
+  const withoutIt: Record<string, string> = { ...liveTax.tileCoarseCategory };
   delete withoutIt[victim!];
   assert.notEqual(
     Object.keys(withoutIt).length,
-    Object.keys(BRANCH_TO_VENDOR_CATEGORY).length,
-    'the neutralisation removed nothing — the branch was not in the map to begin with',
+    Object.keys(liveTax.tileCoarseCategory).length,
+    'the neutralisation removed nothing — the branch had no coarse category in the database to begin with',
   );
   assert.equal(
     withoutIt[victim!],

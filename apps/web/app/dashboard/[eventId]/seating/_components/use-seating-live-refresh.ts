@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { pauseWhileHidden } from '@/lib/tab-return';
 
 /**
  * Live seat-plan sync (2026-07-10) — makes a VIEW-ONLY surface follow the
@@ -26,6 +27,7 @@ import { createClient } from '@/lib/supabase/client';
 export function useSeatingLiveRefresh(eventId: string, enabled: boolean): void {
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const instance = useId().replace(/[^A-Za-z0-9]/g, '');
 
   useEffect(() => {
     if (!enabled || !eventId) return;
@@ -35,22 +37,37 @@ export function useSeatingLiveRefresh(eventId: string, enabled: boolean): void {
       if (timer.current) clearTimeout(timer.current);
       // Coalesce the row-writes of one save (a link touches 2+ tables; an
       // auto-seat touches many assignments) into a single refresh.
+      // one-render: keep (realtime) — a seat-plan row changed (realtime); coalesced into one re-read.
       timer.current = setTimeout(() => router.refresh(), 350);
     };
 
-    const channel = supabase.channel(`seating-plan:${eventId}`);
-    for (const table of ['event_tables', 'event_seat_assignments', 'event_floor_plan'] as const) {
-      channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table, filter: `event_id=eq.${eventId}` },
-        bump,
-      );
-    }
-    channel.subscribe();
+    // 🔌 A plan left in a background tab lets the channel go after a while (`pauseWhileHidden`). Coming back opens
+    // it again — and a re-SUBSCRIBED re-reads once, because the editor may have moved tables meanwhile.
+    let subscribedOnce = false;
+    const stop = pauseWhileHidden(() => {
+      // 🔀 ONE TOPIC PER SUBSCRIBER. Guests › Seats mounts the 2D plan AND the 3D room, and both are view-only whenever
+      // someone else holds the lock (the 3D room is view-only always, owner 2026-10-30). supabase-js hands back the SAME
+      // channel object for a topic it already holds, so the second surface's `.on()` landed on a subscribed channel and
+      // threw ("cannot add `postgres_changes` callbacks … after `subscribe()`") — the whole page fell to the error screen.
+      const channel = supabase.channel(`seating-plan:${eventId}:${instance}`);
+      for (const table of ['event_tables', 'event_seat_assignments', 'event_floor_plan'] as const) {
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `event_id=eq.${eventId}` },
+          bump,
+        );
+      }
+      channel.subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (subscribedOnce) bump();
+        subscribedOnce = true;
+      });
+      return () => supabase.removeChannel(channel);
+    });
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
-      void supabase.removeChannel(channel);
+      stop();
     };
-  }, [enabled, eventId, router]);
+  }, [enabled, eventId, router, instance]);
 }

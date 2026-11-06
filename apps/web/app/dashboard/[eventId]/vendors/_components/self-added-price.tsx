@@ -29,11 +29,18 @@
  */
 
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
-import { Check, Loader2, PencilLine } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
+import type { KeepAnswer } from '@/lib/form-row';
 import { updateVendorCosts } from '../actions';
 
+/**
+ * 2026-10-12 look sweep — the price is ONE Form row (`TypedRow`, `INTERACTION_RULES.md` § 9 kind 6): the answer is a
+ * pill with a pencil; a tap opens the field across the row with ✕; tapping out or Enter keeps it, ✕ or Esc leaves
+ * it. It replaces the hand-made "Add the price you agreed" ghost button and the inline field's ✓ Save price. The
+ * row keeps its ₱ and its commas (`amount`), says a wrong number in plain words, and a save that did not land says
+ * so with Try again — never a tick.
+ */
 export function SelfAddedPrice({
   eventId,
   vendorId,
@@ -41,102 +48,55 @@ export function SelfAddedPrice({
   eventId: string;
   vendorId: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
 
-  function submit() {
-    const n = Number.parseFloat(value.replace(/,/g, ''));
-    if (!Number.isFinite(n) || n <= 0) {
-      setErr('Enter the price you agreed, in pesos.');
-      return;
+  async function keep(digits: string): Promise<KeepAnswer> {
+    const n = Number.parseInt(digits, 10);
+    try {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('vendor_id', vendorId);
+      fd.set('total_cost_php', String(Math.round(n)));
+      // PRICE ONLY. This control used to echo transport and food back so
+      // updateVendorCosts would not blank them — and did NOT echo crew, so
+      // every save reset crew_size and crew_meal_covered. The writer now has
+      // a price-only mode, which leaves every other column alone.
+      fd.set('price_only', '1');
+      await save.run(() => updateVendorCosts(fd), {
+        steps: ['Saving the price'],
+        hint: 'Saving',
+      });
+      // The action revalidates /vendors, so the card re-renders with the
+      // price and this control is replaced by "＋ Add to build".
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Try again, or add it from their page.' };
     }
-    setErr(null);
-    startTransition(async () => {
-      try {
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('vendor_id', vendorId);
-        fd.set('total_cost_php', String(Math.round(n)));
-        // PRICE ONLY. This control used to echo transport and food back so
-        // updateVendorCosts would not blank them — and did NOT echo crew, so
-        // every save reset crew_size and crew_meal_covered. The writer now has
-        // a price-only mode, which leaves every other column alone.
-        fd.set('price_only', '1');
-        await save.run(() => updateVendorCosts(fd), {
-          steps: ['Saving the price'],
-          hint: 'Saving',
-        });
-        // The action revalidates /vendors, so the card re-renders with the
-        // price and this control is replaced by "＋ Add to build".
-      } catch {
-        setErr('Could not save — try again, or add it from their page.');
-      }
-    });
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="vact ghost"
-        onClick={() => setOpen(true)}
-        aria-label="Add the price you agreed"
-      >
-        <PencilLine size={12} strokeWidth={1.9} aria-hidden />
-        Add the price you agreed
-      </button>
-    );
   }
 
   return (
-    <div className="vact-inline-price">
-      <label className="sr-only" htmlFor={`self-price-${vendorId}`}>
-        Price you agreed, in pesos
-      </label>
-      <div className="vact-inline-price-row">
-        <span aria-hidden>₱</span>
-        <input
-          id={`self-price-${vendorId}`}
-          type="text"
-          inputMode="decimal"
-          autoFocus
-          disabled={pending}
-          value={value}
-          placeholder="80,000"
-          onChange={(e) => {
-            setValue(e.target.value);
-            setErr(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              submit();
-            }
-          }}
-        />
-        <button type="button" onClick={submit} disabled={pending} aria-label="Save price">
-          {pending ? (
-            <Loader2 size={12} className="animate-spin" strokeWidth={2} aria-hidden />
-          ) : (
-            <Check size={12} strokeWidth={2.4} aria-hidden />
-          )}
-        </button>
-      </div>
-      {err ? (
-        <p role="alert" className="vact-inline-price-err">
-          {err}
-        </p>
-      ) : null}
-      <Link
-        href={`/dashboard/${eventId}/vendors/${vendorId}/workspace`}
-        className="vact-inline-price-more"
-        onClick={(e) => e.stopPropagation()}
-      >
-        Transport, food &amp; inclusions →
-      </Link>
-    </div>
+    <FormRows width="short" data="self-added-price">
+      <TypedRow
+        name="Price"
+        placeholder="Price you agreed"
+        value=""
+        empty="Add"
+        amount
+        maxLength={12}
+        check={(digits) =>
+          Number.parseInt(digits, 10) > 0 ? null : 'Enter the price you agreed, in pesos.'
+        }
+        onKeep={keep}
+        below={
+          <Link
+            href={`/dashboard/${eventId}/vendors/${vendorId}/workspace`}
+            className="vact-inline-price-more block pb-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Transport, food &amp; inclusions →
+          </Link>
+        }
+      />
+    </FormRows>
   );
 }

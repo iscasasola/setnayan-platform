@@ -1,14 +1,18 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Mail, Phone } from 'lucide-react';
+import { Mail, Phone, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { fetchClaimLandingByToken, readInviteOffer } from '@/lib/vendor-invites';
+import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
-import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { VENDOR_CATEGORY_LABEL, displayServiceLabel, type VendorCategory } from '@/lib/vendors';
+import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
+import { claimDatePhrase } from '@/lib/claim-invite-words';
+import { CoupleLinkDoor, Perk, SnapshotField, TeamInviteDoor } from './_components/claim-parts';
 
 export const metadata = {
   title: 'Claim your Setnayan profile',
@@ -25,6 +29,8 @@ export default async function VendorClaimPage({ params }: Props) {
   const { token } = await params;
   const admin = createAdminClient();
   const data = await fetchClaimLandingByToken(admin, token);
+  // The LIVE booking-fee schedule for the perk below (audit 2026-10-12, item 5).
+  const feeSchedule = await getBookingFeeSchedule(admin);
   if (!data) notFound();
 
   const { invite, parentVendor, event, existingVendor } = data;
@@ -64,6 +70,10 @@ export default async function VendorClaimPage({ params }: Props) {
       })
     : `their upcoming ${eventWord}`;
   const inviterName = event?.couple_display_name ?? 'Setnayan';
+  // The date as the couple's own page states it — a day when they have set
+  // one, a month or a year when that is all they have decided (owner
+  // 2026-10-10: a couple's own link shows who invited the supplier and the date).
+  const datePhrase = claimDatePhrase(event?.event_date, event?.event_date_precision);
 
   // ------------------------------------------------------------------
   // Terminal-state surfaces (status !== 'pending')
@@ -114,80 +124,26 @@ export default async function VendorClaimPage({ params }: Props) {
   if (invite.source === 'auto_share_link') {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
     const signupUrl = `/signup?as=vendor&next=${encodeURIComponent(finalizeUrl)}`;
+    // A supplier who already has an account signs in instead (finalize refuses
+    // a couple's account, so the link is never spent on the wrong one).
+    const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}&as=vendor`;
+    // WHO INVITED THEM, AND THE DATE (owner 2026-10-10) — drawn by
+    // `CoupleLinkDoor`, which holds no data of its own so the dev lab can show
+    // the same door on fixtures.
     return (
-      <DoorShell
-        width="lg"
+      <CoupleLinkDoor
         eyebrow={inviterEyebrow}
-        title={
-          <>
-            <strong className="font-semibold">{inviterName}</strong> locked you in as their{' '}
-            <strong className="font-semibold">{categoryLabel}</strong>.
-          </>
-        }
-        sub={
-          <>
-            They&rsquo;re planning their {eventWord} on{' '}
-            <strong className="text-ink">{eventDateLabel}</strong>. Claim your free Setnayan
-            profile to confirm the schedule and keep everything in one place.
-          </>
-        }
-      >
-        <article className="space-y-6">
-          <section className="rounded-xl bg-cream p-5 ring-1 ring-inset ring-ink/10">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              What they&rsquo;ve recorded
-            </p>
-            <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <SnapshotField
-                label="Business"
-                value={parentVendor?.vendor_name ?? invite.business_name}
-                bold
-              />
-              <SnapshotField label="Service" value={categoryLabel} />
-              {parentVendor?.contact_phone ? (
-                <SnapshotField
-                  label="Phone"
-                  value={parentVendor.contact_phone}
-                  icon={<Phone className="h-3.5 w-3.5" strokeWidth={1.75} />}
-                />
-              ) : null}
-            </dl>
-            <p className="mt-4 border-t border-dashed border-ink/10 pt-3 text-xs italic text-ink/55">
-              Package &amp; payment details stay private until you finish
-              signup.
-            </p>
-          </section>
-
-          <section className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              What you get
-            </p>
-            <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
-              <Perk>Free supplier profile + marketplace listing</Perk>
-              <Perk>Chat with {inviterName} in-app</Perk>
-              <Perk>Calendar + payments + contracts tracking</Perk>
-              <Perk>Marketplace exposure to other PH couples</Perk>
-              <Perk className="sm:col-span-2">
-                No upfront cost · no credit card required
-              </Perk>
-            </ul>
-          </section>
-
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={signupUrl}
-              className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-            >
-              Claim &amp; sign up
-            </Link>
-            <DeclineForm token={invite.claim_token} />
-          </div>
-          <p className="text-xs text-ink/50">
-            Not the right supplier? Just ignore this page — we won&rsquo;t
-            follow up.
-          </p>
-        </article>
-      </DoorShell>
+        inviterName={inviterName}
+        categoryLabel={categoryLabel}
+        eventWord={eventWord}
+        datePhrase={datePhrase}
+        businessName={parentVendor?.vendor_name ?? invite.business_name}
+        contactPerson={parentVendor?.contact_person ?? null}
+        contactPhone={parentVendor?.contact_phone ?? null}
+        signupUrl={signupUrl}
+        signInUrl={signInUrl}
+        decline={<DeclineForm token={invite.claim_token} />}
+      />
     );
   }
 
@@ -206,58 +162,20 @@ export default async function VendorClaimPage({ params }: Props) {
       : '';
     const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
+    // 🎁 THE PERSONAL INVITE (owner 2026-10-23, prototype frame B1): the admin's door with **Your offer**. Read on
+    // its own (`readInviteOffer`) so a database without the columns still draws the door, just without the rows.
+    const stored = await readInviteOffer(admin, invite.invite_id);
+    const offer = stored ? doorOffer(offerFromInvite(stored)) : null;
     return (
-      <DoorShell
-        width="lg"
-        eyebrow="Team invite"
-        title={
-          <>
-            The Setnayan team set up a profile for{' '}
-            <strong className="font-semibold">{invite.business_name}</strong>.
-          </>
-        }
-        sub="Claim it now to add your photos, services, and pricing. Couples browsing the marketplace will see you once you publish."
-      >
-        <article className="space-y-6">
-          <section className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              What you get
-            </p>
-            <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
-              <Perk>Free supplier profile + marketplace listing</Perk>
-              <Perk>Chat with couples in-app</Perk>
-              <Perk>Calendar + bookings dashboard</Perk>
-              {/* A perk list is where half a promise hides best: "0% commission
-                  on bookings" read as the whole truth to a supplier who was
-                  about to be billed. Short form, still BOTH halves. */}
-              <Perk>{supplierCommissionShort()}</Perk>
-              <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
-            </ul>
-          </section>
-
-          <div className="flex flex-wrap gap-3">
-            {existingVendor ? (
-              <Link
-                href={signInUrl}
-                className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-              >
-                Sign in &amp; claim
-              </Link>
-            ) : (
-              <Link
-                href={signupUrl}
-                className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-              >
-                Claim &amp; sign up
-              </Link>
-            )}
-            <DeclineForm token={invite.claim_token} />
-          </div>
-          <p className="text-xs text-ink/50">
-            Not the right business? Just ignore this page — we won&rsquo;t follow up.
-          </p>
-        </article>
-      </DoorShell>
+      <TeamInviteDoor
+        businessName={invite.business_name}
+        categoryLabel={invite.service_category ? displayServiceLabel(invite.service_category) : null}
+        offer={offer}
+        commissionPerk={supplierCommissionShort(feeSchedule)}
+        claimHref={existingVendor ? signInUrl : signupUrl}
+        claimLabel={existingVendor ? 'Sign in & claim' : 'Claim & sign up'}
+        decline={<DeclineForm token={invite.claim_token} />}
+      />
     );
   }
 
@@ -381,12 +299,12 @@ export default async function VendorClaimPage({ params }: Props) {
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             What you get
           </p>
-          <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
+          <ul className="divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
             <Perk>Marketplace exposure to other PH couples</Perk>
-            <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
+            <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>
 
@@ -432,55 +350,7 @@ function TerminalCard({
 }) {
   return (
     <DoorShell tone="dead_end" eyebrow={eyebrow} title={title} sub={body} width="lg">
-      <Link href="/" className="button-secondary">
-        Back to Setnayan
-      </Link>
     </DoorShell>
-  );
-}
-
-function SnapshotField({
-  label,
-  value,
-  icon,
-  bold,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
-  bold?: boolean;
-}) {
-  return (
-    <div>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-        {label}
-      </dt>
-      <dd
-        className={`mt-1 inline-flex items-center gap-1.5 text-sm text-ink ${
-          bold ? 'font-semibold' : ''
-        }`}
-      >
-        {icon}
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function Perk({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <li
-      className={`inline-flex items-start gap-2 rounded-md bg-cream px-3 py-2 ring-1 ring-inset ring-ink/10 ${className}`}
-    >
-      <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-terracotta" strokeWidth={1.75} />
-      <span>{children}</span>
-    </li>
   );
 }
 
@@ -488,12 +358,15 @@ function DeclineForm({ token }: { token: string }) {
   return (
     <form action={declineVendorInviteByToken}>
       <input type="hidden" name="claim_token" value={token} />
-      <SubmitButton
-        className="inline-flex items-center justify-center rounded-md bg-cream px-6 py-3 text-sm font-medium text-ink/70 ring-1 ring-inset ring-ink/15 hover:bg-ink/5"
-        pendingLabel="…"
-      >
-        I&rsquo;m not this supplier
-      </SubmitButton>
+      {/* The one ActionButton, as this form's submit. The icon is a READY ELEMENT:
+          this is a server component, and a component function cannot cross into
+          the client button. */}
+      <ActionButton
+        tone="neutral"
+        type="submit"
+        icon={<X aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+        label="I’m not this supplier"
+      />
     </form>
   );
 }

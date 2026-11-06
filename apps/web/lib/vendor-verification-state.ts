@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * The ONE authorised vendor-initiated writer of `vendor_profiles.verification_state`.
@@ -134,6 +135,8 @@ export async function markVendorPendingReview(
     .eq('vendor_profile_id', vendorProfileId)
     .eq('user_id', userId)
     .select('vendor_profile_id');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (updErr) {
     return {
       ok: false,
@@ -180,5 +183,7 @@ export async function revertVendorPendingReview(
     .eq('vendor_profile_id', vendorProfileId)
     .eq('user_id', userId)
     .eq('verification_state', 'pending_review');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   return error ? { ok: false, error: error.message } : { ok: true };
 }

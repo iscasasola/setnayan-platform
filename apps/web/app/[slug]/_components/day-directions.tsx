@@ -1,4 +1,4 @@
-import { NavLinksRow } from '@/app/_components/nav-links';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import { venueSearchQuery, VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 
 /**
@@ -8,7 +8,9 @@ import { venueSearchQuery, VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event
  * Directions on top"*).
  *
  * The day-of hub's own Directions panel (`hub/page.tsx`), brought onto the
- * event page, with "Open in" Maps / Waze. A venue with neither a place to
+ * event page, with the map apps as ONE "Directions ▾" dropdown — the venue
+ * cards' own `DirectionsMenu` (owner: "any set of choices is a dropdown";
+ * three chips here until 2026-10-22). A venue with neither a place to
  * search nor a pin has no way to be opened, so it is not drawn; nothing to
  * draw → nothing at all.
  *
@@ -33,12 +35,7 @@ export function DayDirections({ venues }: { venues: readonly EventVenue[] }) {
           </p>
           <h3 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">{v.name ?? 'Venue'}</h3>
           {v.address ? <p className="text-sm text-ink/65">{v.address}</p> : null}
-          <NavLinksRow
-            latitude={v.latitude ?? null}
-            longitude={v.longitude ?? null}
-            addressFallback={venueSearchQuery(v)}
-            label="Open in"
-          />
+          <DirectionsMenu venue={v} />
         </article>
       ))}
     </section>

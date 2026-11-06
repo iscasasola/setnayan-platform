@@ -48,7 +48,8 @@ const SAMAHAN_CODE = stripComments(SAMAHAN);
 
 /** The JSX of one view: from `view === '<key>' ?` to the next `view ===`. */
 function viewBranch(key: string): string {
-  const open = CODE.indexOf(`{view === '${key}' ? (`);
+  const at = CODE.search(new RegExp(`\\{view === '${key}'(?: && \\w+)? \\? \\(`));
+  const open = at;
   assert.ok(open >= 0, `the page has no '${key}' view branch — the doors have nowhere to live`);
   const next = CODE.indexOf('{view ===', open + 10);
   return CODE.slice(open, next === -1 ? undefined : next);
@@ -63,8 +64,15 @@ test('the fixture is real — the page source was actually read, and stripped', 
   assert.ok(!CODE.includes('we already agreed'), 'comments were NOT stripped — prose could pass this guard');
 });
 
-test('🔴 "Add a loved one" is at the head of the Loved ones view — before its list', () => {
-  const alaga = viewBranch('alaga');
+/** The Loved ones block — since 2026-10-22 a folded section of the list, built ONCE as `lovedOnes`. */
+function lovedOnesBlock(): string {
+  const open = CODE.indexOf('const lovedOnes = ');
+  assert.ok(open >= 0, 'the page no longer builds the Loved ones block — the door has nowhere to live');
+  return CODE.slice(open, CODE.indexOf(') : null;', open));
+}
+
+test('🔴 "Add a loved one" is at the head of the Loved ones section — before its list', () => {
+  const alaga = lovedOnesBlock();
   const door = alaga.indexOf('<AddAlagaButton />');
   const list = alaga.indexOf('<DependentsSection />');
   assert.ok(door >= 0, 'the Loved ones view lost its "Add a loved one" door');
@@ -72,18 +80,22 @@ test('🔴 "Add a loved one" is at the head of the Loved ones view — before it
   assert.ok(door < list, '"Add a loved one" must head the view, not trail the list');
 });
 
-test('🔴 "New group" is at the head of the Groups view — before its list', () => {
+test('🔴 the Groups view makes a group from its pinned row only — ＋ New, no second "New group" (owner 2026-10-28)', () => {
   const samahan = viewBranch('samahan');
-  const door = samahan.indexOf('href="/dashboard/samahan/new"');
-  const list = samahan.indexOf('<SamahanPeopleSection');
-  assert.ok(door >= 0, 'New group does not point at the page that creates one');
-  assert.ok(samahan.includes('New group'), 'the Groups view lost its "New group" door');
-  assert.ok(door < list, '"New group" must head the view, not trail the list');
+  assert.ok(!samahan.includes('/dashboard/samahan/new'), 'the Groups view draws its own "New group" again — ＋ New in the pinned row is the one');
+  assert.match(samahan, /<PeopleGroupsView\b/, 'the Groups view no longer draws the pinned-row view');
+  const VIEW = stripComments(readFileSync(join(__dirname, '_components', 'people-groups-view.tsx'), 'utf8'));
+  assert.match(VIEW, /action=\{\{ kind: 'new-group' \}\}/, 'the Groups pinned row lost ＋ New');
+  assert.ok(!VIEW.includes('/dashboard/samahan/new'), 'the Groups view draws a second "New group" link');
+  const ROW = stripComments(readFileSync(join(__dirname, '_components', 'people-pinned-row.tsx'), 'utf8'));
+  assert.equal(count(ROW, "href: '/dashboard/samahan/new'"), 1, '＋ New does not open the page that creates a group');
 });
 
 test('each door exists ONCE on the page — never also in the header', () => {
   assert.equal(count(CODE, '<AddAlagaButton />'), 1, '"Add a loved one" is drawn more than once (or not at all)');
-  assert.equal(count(CODE, 'href="/dashboard/samahan/new"'), 1, '"New group" is drawn more than once');
+  // "New group" lives in the list's Groups section (samahan-people-section.tsx) and as ＋ New in the Groups view's
+  // pinned row — never on the page itself (2026-10-28).
+  assert.equal(count(CODE, '/dashboard/samahan/new'), 0, '"New group" is drawn by the page itself again');
   // …and the cards' own section does not draw a second copy under the list.
   assert.ok(!SECTION_CODE.includes('<AddAlagaButton'), 'the Loved ones section draws a second "Add a loved one"');
   // The retired header action row, by its exact shape.
@@ -93,19 +105,19 @@ test('each door exists ONCE on the page — never also in the header', () => {
   );
 });
 
-test('the header holds ONLY the picker', () => {
-  const at = CODE.indexOf('data-people-header');
-  assert.ok(at >= 0, 'the header block moved; re-anchor this guard');
-  const end = CODE.indexOf('</div>', at);
-  const header = CODE.slice(at, end);
-  assert.ok(header.includes('<PeopleViewPicker'), 'the picker left the header');
-  for (const stray of ['AddAlagaButton', 'samahan/new', '<button', '<Link']) {
-    assert.ok(!header.includes(stray), `the header draws "${stray}" beside the picker`);
-  }
+test('🔴 the top is the counts line — no header block and no view dropdown above the list (owner 2026-10-22: "remove it")', () => {
+  assert.ok(!CODE.includes('data-people-header'), 'the header block above the list came back');
+  assert.ok(!CODE.includes('<PeopleViewPicker'), 'the page draws the view dropdown itself again — it lives in the thumb row');
+  const ROSTER = stripComments(readFileSync(join(__dirname, '_components', 'people-roster-view.tsx'), 'utf8'));
+  const ret = ROSTER.slice(ROSTER.indexOf('data-people-screen'));
+  assert.ok(ret.indexOf('{topLine}') >= 0 && ret.indexOf('{topLine}') < ret.indexOf('{list}'), 'the counts line is not the first thing the roster draws');
+  // …and the view list sits in the thumb row, as ≡.
+  const thumb = ROSTER.slice(ROSTER.indexOf('const filterPick = ('), ROSTER.indexOf('const thumb = selectMode'));
+  assert.match(thumb, /picker\.options\.map\(/, 'the ≡ button no longer opens the view list (Groups · Following · Followers)');
 });
 
 test('the Groups view does not draw a second "Groups" heading under its picker', () => {
-  assert.match(viewBranch('samahan'), /<SamahanPeopleSection heading=\{false\} \/>/);
+  assert.match(viewBranch('samahan'), /<SamahanPeopleSection heading=\{false\} listed=\{false\} \/>/);
   assert.match(SAMAHAN_CODE, /heading \? \(/, 'the section can no longer hide its heading');
 });
 

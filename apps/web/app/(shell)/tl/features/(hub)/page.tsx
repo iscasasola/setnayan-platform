@@ -1,0 +1,39 @@
+import { localeAlternates } from '@/lib/marketing-i18n';
+import { FeaturesPageBody, FEATURES_PATHS } from '@/app/features/_PageBody';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
+
+// /tl/features — Taglish edition of /features. Thin route: it reuses the
+// exact same <FeaturesPageBody> as the English page, passing locale="tl".
+// All copy lives in the section components' per-locale dictionaries, so the
+// two pages can never structurally drift — only the prose differs.
+// Reciprocal hreflang lives in both pages' `alternates` via localeAlternates.
+
+// Moved into app/(shell)/ with its English twin (2026-10-19, sweep C5) — the
+// group layout owns caching, so no `revalidate` here.
+
+export const metadata = {
+  title: 'Lahat ng Feature sa Setnayan — Wedding & Life-Events Platform Philippines',
+  description:
+    'Guest list, seating, budget, mood board, schedule, supplier ledger, plus day-of apparatus (Live Watch, Papic, Pakulay). Ang buong feature catalog ng Filipino-first events platform — sa Taglish.',
+  alternates: localeAlternates('tl', FEATURES_PATHS),
+  keywords: [
+    'Filipino wedding features',
+    'wedding planning tools Philippines',
+    'Live Watch live streaming',
+    'Papic wedding photography',
+    'Pakulay mood board',
+    'wedding seating chart Tagalog',
+    'wedding budget tracker Philippines',
+  ],
+  openGraph: {
+    images: BRAND_OG_IMAGES,
+    title: 'Lahat ng Feature sa Setnayan — Wedding & Life-Events Platform Philippines',
+    description:
+      'Guest list, seating, budget, mood board, schedule, supplier ledger, plus day-of apparatus (Live Watch, Papic, Pakulay) — sa Taglish.',
+    url: '/tl/features',
+  },
+};
+
+export default function FeaturesPageTaglish() {
+  return <FeaturesPageBody locale="tl" />;
+}

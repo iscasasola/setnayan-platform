@@ -52,9 +52,17 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 
-/** The published body of the "what needs two-admin approval" article. */
+/**
+ * The body of the "what needs two-admin approval" article.
+ *
+ * ⚠ IT IS NO LONGER ON /help (2026-10-19, sweep B3): the operations guides were
+ * being published to strangers, so they moved to lib/help-admin.ts, which no
+ * public route imports. The article — and every promise in it — is kept and
+ * still counted here; only who can read it changed. The Vendor Agreement § 9.1
+ * itself is unchanged.
+ */
 function publishedBody(): string {
-  const src = readFileSync(join(WEB, 'lib/help.ts'), 'utf8');
+  const src = readFileSync(join(WEB, 'lib/help-admin.ts'), 'utf8');
   const at = src.indexOf("slug: 'what-needs-two-admins'");
   assert.ok(at > 0, 'the two-admin help article has moved or been renamed');
   const body = src.slice(at, src.indexOf('},', at));
@@ -120,7 +128,7 @@ test('an implemented promise must name a REAL action type', () => {
   // promise as kept while the insert fails a CHECK.
   const live = new Set([
     'grant_internal_account',
-    'grant_team_pool',
+    'grant_team_pool', // still in the CHECK; retired 2026-11-05, no row claims it any more
     'promote_to_admin',
     'approve_vendor_partnership',
     'approve_fraud_wipe_ban',
@@ -129,6 +137,7 @@ test('an implemented promise must name a REAL action type', () => {
     'approve_large_refund',
     'approve_payment_account_change',
     'approve_retail_price_change',
+    'grant_team_member', // 2026-11-05 · migration 20271309260178
   ]);
   for (const p of TWO_ADMIN_PROMISES) {
     if (p.actionType === null) continue;

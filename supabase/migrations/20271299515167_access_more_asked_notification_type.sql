@@ -1,0 +1,23 @@
+-- access_more_asked_notification_type
+-- ============================================================================
+-- 🪪 "HELPER ANA ASKS FOR MORE ACCESS · GUEST LIST" — TO EVERY HOST
+-- (owner 2026-10-31, "yes" to "Ask the hosts"; DECISION_LOG "A HELPER SEES
+-- THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS — read-only, with
+-- 'Ask the hosts'"): a helper (coordinator or limited helper) reads their own
+-- access in Home ⚙ and may ask the hosts for more on one part. Every host gets
+-- ONE in-app notice, which opens People with access on that helper. In-app
+-- only — no email, no push (owner: no new emails without his word).
+--
+-- No existing type says it truthfully: `cohost_added` is "you're now a
+-- co-host", `guest_claim_pending` is a joiner the list did not know, and
+-- `event_access_requests` (a table, not a type) is a booked supplier's ask,
+-- answered on its own approve screen. Written by the definer in
+-- 20271299854365_a_helper_asks_the_hosts_for_more.sql.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it (same shape as
+-- 20271298460272_mood_board_changed_notification_type.sql).
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'access_more_asked';

@@ -338,7 +338,8 @@ test('repricing a row moves the copy with it — no figure is hard-coded', () =>
 // wedding planning + verified suppliers" — the tab, the share card and the
 // SERP title of EVERY page that does not set its own. The owner picked "Plan,
 // share and relive every celebration" for the email footer; the site now says
-// the same. These run on COMMENT-STRIPPED source, because layout.tsx's comment
+// the same. 2026-10-22: the owner changed it to "…every event" (DECISION_LOG
+// "TAGLINE SAYS EVENT", house word). These run on COMMENT-STRIPPED source, because layout.tsx's comment
 // above the constants quotes the old wedding title on purpose.
 
 const LAYOUT = path.join(import.meta.dirname, '..', 'app', 'layout.tsx');
@@ -362,7 +363,7 @@ function baseMetadataBlock(): string {
 
 test('the site-wide default title is the owner\'s tagline, not a wedding-only line', () => {
   const title = layoutConst('SITE_TITLE');
-  assert.equal(title, 'Setnayan · Plan, share and relive every celebration');
+  assert.equal(title, 'Setnayan · Plan, share and relive every event');
   assert.ok(!/\bwedding/i.test(title), `the default title sells weddings only: ${JSON.stringify(title)}`);
 });
 
@@ -393,5 +394,5 @@ test('the installed-app (manifest) description is not a wedding-only claim', () 
   assert.ok(desc.length > 0, 'public/manifest.json has no description');
   assert.ok(!/\bwedding/i.test(desc), `the manifest description sells weddings only: ${JSON.stringify(desc)}`);
   assert.ok(!/\bvendors?\b/i.test(desc), 'the manifest description says "vendor" — the customer-facing word is "supplier"');
-  assert.ok(desc.startsWith('Plan, share and relive every celebration'), 'the manifest description dropped the tagline');
+  assert.ok(desc.startsWith('Plan, share and relive every event'), 'the manifest description dropped the tagline');
 });

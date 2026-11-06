@@ -235,7 +235,10 @@ test('the card draws its label from the rule — the literal "See the quote" is 
   assert.equal(count(branch, /quoteState\.offerRevise && reviseHref \?/g), 1, 'Update this quote is not gated on the rule');
   assert.equal(count(branch, /quoteState\.offerLock && lockTarget \?/g), 1, 'Lock is not gated on the rule');
   assert.equal(count(branch, /quoteState\.offerLockAnswer &&/g), 1, 'the supplier’s answer is not gated on the rule');
-  assert.equal(count(branch, /Update this quote/g), 1);
+  // 4 Nov 2026: the revise label now comes from the rule ("Update this quote" → "Update again"
+  // once updated) — the literal must not come back beside it.
+  assert.equal(count(branch, /quoteState\.reviseLabel/g), 1, 'the revise label is not the rule’s');
+  assert.equal(count(branch, /Update this quote/g), 0, 'a hard-coded revise label is back');
   assert.equal(count(branch, /to confirm your booking`/g), 1, 'the couple’s lock label must render once');
   assert.match(branch, /handshake: lockHandshake\?\.state \?\? null/, 'the rule is not told the handshake');
   assert.match(branch, /isLatest: isLatestProposal/, 'the rule is not told which card is the live one');
@@ -275,7 +278,10 @@ test('the couple’s page resolves the Lock target from event_vendors and passes
 
 test('the builder opens expanded and seeded when given a revision, and says what sending does', () => {
   const m = read(MAKER);
-  assert.match(m, /useState\(revision != null\)/, 'a revision does not open the builder');
+  // 2026-10-14 · the builder opens for EVERY quote (the ＋ sheet's "Send a quote" opens the panel, and the quote is
+  // the panel), so a revision opens expanded by the same rule — and starts from the quote it replaces.
+  assert.match(m, /const \[open, setOpen\] = useState\(true\)/, 'the builder does not open expanded');
+  assert.match(m, /useState<string>\(revision \? 'revision' : 'blank'\)/, 'a revision does not start from the quote it replaces');
   assert.match(m, /revision\.lines\.map\(/, 'the lines are not seeded');
   assert.match(m, /useState\(revision\?\.discountPhp \?\? 0\)/, 'the folded discount is not seeded');
   assert.match(m, /Sending replaces that quote/, 'the banner does not say sending replaces the quote');

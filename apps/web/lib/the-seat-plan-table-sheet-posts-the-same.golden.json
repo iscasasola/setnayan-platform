@@ -1,0 +1,97 @@
+{
+ "_about": "RECORDED 2026-10-09 from the phone table sheet AS IT STOOD (after the Done fix, before its name, shape, Rotate · Edit chairs · Link and Delete moved onto the templates): the sheet was first moved WHOLE into `PhoneTableDock` (`seat-plan-phone.tsx`, markup unchanged, every handler handed in from the editor), then bundled with esbuild (handlers replaced by recorders) and driven in Chromium at 375 px. `calls` = which handler each press called and with what; `labels` = every button's name. Two differences on purpose: Esc on the name (the old box blurred and re-sent the SAME label — `renameTable` ignores an unchanged label — the row now sends nothing), and the name is a Form-row pill, so it is one more named button.",
+ "renameBlur": [
+  [
+   "rename",
+   "Table Ten"
+  ]
+ ],
+ "renameEnter": [
+  [
+   "rename",
+   "Table Eleven"
+  ]
+ ],
+ "renameEscape": [
+  [
+   "rename",
+   "Table 10"
+  ]
+ ],
+ "renameUnchanged": [
+  [
+   "rename",
+   "Table 10"
+  ]
+ ],
+ "pickType": [
+  [
+   "type",
+   "long"
+  ]
+ ],
+ "rotate": [
+  [
+   "rotate"
+  ]
+ ],
+ "editChairs": [
+  [
+   "editChairs"
+  ]
+ ],
+ "link": [
+  [
+   "link"
+  ]
+ ],
+ "seatPeople": [
+  [
+   "seatPeople"
+  ]
+ ],
+ "stepper": [
+  [
+   "seat-"
+  ],
+  [
+   "seat+"
+  ]
+ ],
+ "done": [
+  [
+   "done"
+  ]
+ ],
+ "deleteWord": 1,
+ "delete": [
+  [
+   "delete"
+  ]
+ ],
+ "labels": [
+  "Table type: Round",
+  "Remove a chair",
+  "Restore a chair",
+  "Rotate",
+  "Edit chairs…",
+  "Link…",
+  "Seat people",
+  "Done",
+  "Delete this table"
+ ],
+ "linkPressedAttr": "false",
+ "unlink": [
+  [
+   "unlink"
+  ]
+ ],
+ "linkedHasLink": 0,
+ "viewOnly": [
+  "Rotate",
+  "Edit chairs…",
+  "Link…",
+  "Delete this table"
+ ],
+ "linkPressedOn": "true"
+}

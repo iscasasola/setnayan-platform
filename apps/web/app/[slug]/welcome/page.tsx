@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { composeFormalName } from '@/lib/formal-name';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
@@ -22,6 +23,9 @@ import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 import type { WebFormAction } from '@/lib/native-account-save';
 import { eventWordsFor } from '../_lib/event-words';
 import { PlusOneDoor } from './_components/plus-one-door';
+import { displayPersonName } from '@/lib/person-name-case';
+import { accountStandingOnEvent } from '@/lib/link-guest-account';
+import { seatDisplayName } from '@/lib/seat-binding';
 
 export const metadata = { title: 'Welcome' };
 export const dynamic = 'force-dynamic';
@@ -69,13 +73,17 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   if (!session) redirect(`/${slug}`);
 
   const admin = createAdminClient();
-  const { data: event } = await admin
-    .from('events')
-    .select(
-      `event_id, display_name, event_date, slug, event_type, rsvp_ask_config, guest_count_locked_at, guest_list_edit_deadline, ${QR_LOOK_COLUMNS}`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  const event = await guestRead('welcome (event)', () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, display_name, event_date, slug, event_type, rsvp_ask_config, guest_count_locked_at, guest_list_edit_deadline, ${QR_LOOK_COLUMNS}`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (!event) notFound();
 
   if (event.event_id !== session.event_id) redirect(`/${slug}`);
@@ -85,16 +93,21 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   // guest list, whatever kind of event they had been invited to.
   const words = await eventWordsFor(event.event_type as string);
 
-  const { data: guest } = await admin
-    .from('guests')
-    // The shared guest-name columns (the five parts among them), not a hand-picked few.
-    .select(
-      `${ENTOURAGE_COLUMNS}, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions`,
-    )
-    .eq('guest_id', session.guest_id)
-    .eq('event_id', event.event_id)
-    .is('deleted_at', null)
-    .maybeSingle();
+  // 🔌 A plus-one whose row could not be READ is not "no such guest": that
+  // answer sends them back to the event's page, which sends an unnamed
+  // plus-one straight back here. A failed read throws (the guest boundary).
+  const guest = await guestRead('welcome (guest)', () =>
+    admin
+      .from('guests')
+      // The shared guest-name columns (the five parts among them), not a hand-picked few.
+      .select(
+        `${ENTOURAGE_COLUMNS}, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions`,
+      )
+      .eq('guest_id', session.guest_id)
+      .eq('event_id', event.event_id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  );
   if (!guest) redirect(`/${home}`);
 
   // Only a plus-one has this door; everyone else has the reply.
@@ -106,11 +119,12 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     .eq('guest_id', guest.plus_one_of_guest_id)
     .maybeSingle();
 
+  // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3) — "from Maria", never "from maria". Display only.
   const primaryName =
-    primary?.display_name?.trim() ||
-    [primary?.first_name, primary?.last_name].filter(Boolean).join(' ') ||
-    'the inviting guest';
-  const primaryFirst = (primary?.first_name as string | null)?.trim() || primaryName.split(/\s+/)[0];
+    displayPersonName(
+      primary?.display_name?.trim() || [primary?.first_name, primary?.last_name].filter(Boolean).join(' '),
+    ) || 'the inviting guest';
+  const primaryFirst = displayPersonName((primary?.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0] || primaryName;
 
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const row: PlusOneRow = {
@@ -139,6 +153,13 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
     seatHolderUserId: await readSeatHolder(event.event_id as string, guest.guest_id as string),
+    // The plus-one's name as the bringer gave it (first + last) — this door never prints a Shown as.
+    seatName: seatDisplayName({
+      first_name: guest.first_name as string | null,
+      last_name: guest.last_name as string | null,
+    }),
+    // 🔒 A host looking at a plus-one's door is never offered the seat (lib/seat-binding.ts `'manager'`).
+    viewerManagesEvent: user ? (await accountStandingOnEvent(admin, event.event_id as string, user.id)).manages : false,
   });
   const showPass = search.pass === '1';
   // Kept in their account and nothing required missing — nothing to welcome.
@@ -180,7 +201,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
 
   // 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30 — no casual
   // greetings). Once their name is in, the heading is their FORMAL name.
-  const formalName = missing.name ? null : composeFormalName(row);
+  const formalName = missing.name ? null : displayPersonName(composeFormalName(row)) || null;
 
   return (
     /* 🎨 The plus-one's first page is a page of the reply — it wears the
@@ -193,7 +214,8 @@ export default async function WelcomePage({ params, searchParams }: Props) {
       eyebrow="You’re invited"
       title={formalName ?? `You are the +1 of ${primaryName}`}
       sub={<>{primaryName} is bringing you as their guest.</>}
-      meta={`${event.display_name} · ${formatEventDate(event.event_date as string | null)}`}
+      /* 📅 No date yet → the name alone, never "Marco & Marga · " with nothing after the dot. */
+      meta={[event.display_name, formatEventDate(event.event_date as string | null)].filter(Boolean).join(' · ')}
     >
       {errorMessage ? <DoorNotice kind="alert">{errorMessage}</DoorNotice> : null}
       <PlusOneDoor

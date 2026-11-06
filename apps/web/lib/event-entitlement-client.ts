@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 
@@ -68,12 +69,9 @@ export async function viewerHostsEvent(
 ): Promise<boolean> {
   if (!userId || !eventId) return false;
 
-  const { data: member, error: memberError } = await userClient
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', userId)
-    .maybeSingle();
+  // The render's one membership read (lib/event-membership-once.ts) — the dashboard layout's gate
+  // asks the same question; outside a render this is a fresh read, as before.
+  const { data: member, error: memberError } = await eventMemberTypeOnce(userClient, eventId, userId);
   if (memberError) {
     console.error('[supabase-error] lib/event-entitlement-client.ts · from:event_members.select', memberError, {
       event_id: eventId,

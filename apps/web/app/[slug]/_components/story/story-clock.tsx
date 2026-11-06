@@ -27,6 +27,7 @@ import {
   readerReached,
 } from '@/lib/story-spine';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { clearReaderPosition, publishReaderPosition } from '@/lib/story-reader-position';
 
 /** One bar, fully resolved on the server. */
@@ -425,14 +426,16 @@ export function StoryClock({
 
   return (
     <>
-      <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur-sm">
+      {/* 📱 Pins at the top of the SAFE AREA (house rule for a sticky head), never at 0 — under the iPhone's clock
+          (owner 2026-10-30). The page's band above paints the strip behind the clock. */}
+      <div className="sticky top-[env(safe-area-inset-top,0px)] z-20 border-b border-ink/10 bg-cream/95 backdrop-blur-sm">
         <div className="mx-auto max-w-5xl px-4 py-2 sm:px-6">
           <div className="flex items-baseline justify-between gap-3">
             <div className="flex min-w-0 items-baseline gap-2.5">
               <b className="whitespace-nowrap font-condensed text-2xl font-extrabold leading-none tabular-nums tracking-tight sm:text-3xl">
                 {now.stamp}
                 {now.suffix ? (
-                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/60">
+                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/70">
                     {now.suffix}
                   </small>
                 ) : null}
@@ -554,10 +557,10 @@ export function StoryClock({
                   key={i}
                   className={
                     l.kind === 'segment'
-                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/60'
+                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/70'
                       : l.kind === 'mark'
-                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/60 sm:block'
-                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/60'
+                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/70 sm:block'
+                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/70'
                   }
                   style={{ left: percentOf(l.x) }}
                 >
@@ -567,7 +570,7 @@ export function StoryClock({
             </div>
           </div>
 
-          <p className="mt-0.5 text-center text-xs text-ink/60">
+          <p className="mt-0.5 text-center text-xs text-ink/70">
             Tap anywhere on the line to open that moment
           </p>
         </div>
@@ -575,18 +578,14 @@ export function StoryClock({
 
       {openBar ? (
         <>
-          <div
-            aria-hidden
-            onClick={close}
-            className="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px]"
-          />
+          <OverlayBackdrop onClose={close} className="z-40" />
           <div
             ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${sheetId}-t`}
             tabIndex={-1}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream px-5 pb-8 pt-4 shadow-[0_-24px_60px_-30px_rgba(30,34,41,0.55)] sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[26rem] sm:rounded-2xl sm:border"
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream pl-[max(1.25rem,var(--sn-safe-l))] pr-[max(1.25rem,var(--sn-safe-r))] pb-[max(2rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-24px_60px_-30px_rgba(30,34,41,0.55)] sm:inset-x-auto sm:right-[max(1.5rem,var(--sn-safe-r))] sm:bottom-6 sm:w-[26rem] sm:rounded-2xl sm:border"
           >
             <div className="flex items-start justify-between gap-4">
               <b
@@ -616,7 +615,7 @@ export function StoryClock({
             </p>
 
             {openBar.place ? (
-              <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+              <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
                 {openBar.place}
               </p>
             ) : null}

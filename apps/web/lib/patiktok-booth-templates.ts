@@ -18,14 +18,27 @@
 
 import { PATIKTOK_TEMPLATES, findPatiktokTemplate, type PatiktokTemplate } from '@/lib/patiktok';
 
-/** One cookie per event; the event id is a UUID, safe in a cookie name. */
+/**
+ * One cookie per event; the event id is a UUID, safe in a cookie name.
+ *
+ * 🏠 SCOPED TO THE EVENT, NOT THE BOOTH (2026-10-24): Home's Video booth card shows and changes the same pick (owner
+ * 2026-10-23, `home_service_widgets_2026-10-23.html` frame 8: "Primary template ▾ · Backup template ▾"), so the cookie
+ * lives at `/dashboard/<event>`. It has a NEW name (`_v2_`) because the old one sat at the narrower Patiktok path: a
+ * browser sends the narrower cookie FIRST, so re-using the name would let an old pick shadow every new one on the
+ * booth pages, and one response cannot both set and clear one name. The old one is still READ as a fallback
+ * (`patiktokBoothLegacyCookieName`) and simply expires.
+ */
 export function patiktokBoothCookieName(eventId: string): string {
+  return `sn_patiktok_booth_v2_${eventId}`;
+}
+
+/** The pick's cookie before 2026-10-24 (the Patiktok pages only) — read as a fallback on those pages, never written. */
+export function patiktokBoothLegacyCookieName(eventId: string): string {
   return `sn_patiktok_booth_${eventId}`;
 }
 
-/** The cookie is scoped to the event's Patiktok pages only. */
 export function patiktokBoothCookiePath(eventId: string): string {
-  return `/dashboard/${eventId}/studio/patiktok`;
+  return `/dashboard/${eventId}`;
 }
 
 export const PATIKTOK_BOOTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;

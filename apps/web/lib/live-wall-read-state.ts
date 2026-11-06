@@ -76,4 +76,4 @@ export function liveWallReadState(input: LiveWallReadInput): LiveWallReadState {
  * every 25s while the tab is visible, so "in a moment" is true.
  */
 export const LIVE_WALL_UNREADABLE_LINE =
-  'The photo wall is having trouble loading right now. It should appear in a moment.';
+  'Memory lane is having trouble loading right now. It should appear in a moment.';

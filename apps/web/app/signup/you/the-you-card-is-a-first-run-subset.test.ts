@@ -14,20 +14,30 @@ import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
 import { stripComments } from '@/lib/strip-comments';
 
 const strip = stripComments;
-const PAGE = strip(readFileSync('app/signup/you/page.tsx', 'utf8'));
+// The page reads the account; `YouCard` draws it (split 2026-10-21 so /dev/you-lab can draw the real card).
+// The card's claims are read across BOTH, so the split cannot hide one.
+const PAGE_ONLY = strip(readFileSync('app/signup/you/page.tsx', 'utf8'));
+const CARD = strip(readFileSync('app/signup/you/_components/you-card.tsx', 'utf8'));
+const PAGE = `${PAGE_ONLY}\n${CARD}`;
 const ACTIONS = strip(readFileSync('app/signup/you/actions.ts', 'utf8'));
 const FIELD = strip(readFileSync('app/signup/you/_components/account-name-field.tsx', 'utf8'));
+// The Display name is its own Field-template row (`TypedRow`, 1 Nov 2026) — its post name is read there.
+const NAME_FIELD = strip(readFileSync('app/signup/you/_components/display-name-field.tsx', 'utf8'));
 const SIGNUP_ACTIONS = strip(readFileSync('app/signup/actions.ts', 'utf8'));
 const CALLBACK = strip(readFileSync('app/auth/callback/route.ts', 'utf8'));
 const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) || []).length;
 
 test('the card posts to saveYou, and nothing else', () => {
-  assert.equal(count(PAGE, /<form\b[^>]*action=\{saveYou\}/), 1);
-  assert.equal(count(PAGE, /<form\b/), 1, 'a second form on the card would post to something else');
+  // The page hands the card saveYou; the card's one form posts exactly what it was handed.
+  assert.match(PAGE_ONLY, /<YouCard\b[^>]*\baction=\{saveYou\}/);
+  assert.equal(count(PAGE_ONLY, /<form\b/), 0, 'the page draws no form of its own');
+  assert.equal(count(CARD, /<form\b[^>]*action=\{action\}/), 1);
+  assert.equal(count(CARD, /<form\b/), 1, 'a second form on the card would post to something else');
 });
 
 test('every field the card writes is on the form, by the profile page’s own names', () => {
-  const posted = new Set([...PAGE.matchAll(/\bname=(?:"([^"]+)"|\{([^}]+)\})/g)].map((m) => m[1] ?? m[2]));
+  // A raw box posts by `name`; a Field-template row (`TypedRow`) by `fieldName` — both are what the form posts.
+  const posted = new Set([...`${PAGE}\n${NAME_FIELD}`.matchAll(/\b(?:name|fieldName)=(?:"([^"]+)"|\{([^}]+)\})/g)].map((m) => m[1] ?? m[2]));
   for (const n of ['display_name', 'phone', 'profile_photo_url', 'next', 'public_summary_consent']) {
     assert.ok(posted.has(n), `${n} is not posted by the You card`);
   }
@@ -38,7 +48,7 @@ test('every field the card writes is on the form, by the profile page’s own na
   assert.ok(posted.has('PRESENCE_MARKERS.profile_photo_url'), 'the photo needs its presence marker');
   assert.equal(PRESENCE_MARKERS.profile_photo_url, 'has_profile_photo_url');
   // the @name posts from the client field, as `slug`, like the profile page's editor
-  assert.match(FIELD, /name="slug"/);
+  assert.match(FIELD, /\bfieldName="slug"/);
 });
 
 test('the @name field renders ONLY while the account has none — renames stay on the profile page', () => {

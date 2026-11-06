@@ -6,6 +6,7 @@ import { guestDisplayName } from '@/lib/guests';
 import { DEFAULT_ENTRANCE } from '@/lib/indoor-blueprint';
 import { FindYourSeat, type TourSeat } from './_components/find-your-seat';
 import { formatCount } from '@/lib/format-number';
+import { coupleNamesLine } from '@/lib/typed-names';
 
 /**
  * /tour/seating — Stop 3 of the public Maria & Jose tour: "Every guest finds their table."
@@ -111,8 +112,8 @@ export default async function TourSeatingPage() {
   // nothing sensitive in the DOM.
   const mapTables: EventTableRow[] = tables;
 
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
   const seatedCount = seats.length;
   const tableCount = tables.length;
 
@@ -123,7 +124,7 @@ export default async function TourSeatingPage() {
           Every guest finds their table
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          {bride} & {groom} arranged{' '}
+          {couple} arranged{' '}
           {tableCount > 0 ? (
             <>
               <span className="font-medium text-[#1B1A17]">{formatCount(tableCount)} tables</span> for{' '}
@@ -164,7 +165,7 @@ export default async function TourSeatingPage() {
           href="/tour/vendors"
           className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#1B1A17] transition-opacity hover:opacity-80"
         >
-          &larr; The vendors
+          &larr; The suppliers
         </Link>
         <Link
           href="/tour"

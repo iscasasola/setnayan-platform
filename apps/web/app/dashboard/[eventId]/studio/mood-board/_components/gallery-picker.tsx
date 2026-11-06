@@ -36,6 +36,7 @@ import { photoMatchesColours } from '@/lib/mood-board-studio';
 import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import { EventLinkedBadge } from './event-linked-badge';
 import { formatCount } from '@/lib/format-number';
+import { SWITCH_TRACK } from '@/app/_components/switch-track';
 
 /**
  * 🔍 STUDIO'S "SEARCH IDEAS ›" — the SAME picker, with search on top (owner
@@ -153,8 +154,12 @@ export function GalleryPicker({
 
   const free = emptyPositions.length > 0 ? emptyPositions[0]! : null;
   /* 🎨 "Matches my colours" keeps the loaded photos near the five — said as a count, never a silent shrink. */
-  const hiddenAsset = (a: GalleryAsset) => Boolean(studio && matchMine && !photoMatchesColours(a.swatches, studio.mainFive));
+  /* 🌱🖼 A photo nobody tagged (no swatches) is never hidden by "Matches my colours" — there is nothing to compare, and
+     hiding it made an approved supplier photo invisible (2026-10-19). With the filter on it is drawn AFTER the matches. */
+  const untagged = (a: GalleryAsset) => a.swatches.length === 0;
+  const hiddenAsset = (a: GalleryAsset) => Boolean(studio && matchMine && !untagged(a) && !photoMatchesColours(a.swatches, studio.mainFive));
   const hiddenByMatch = assets.filter(hiddenAsset).length;
+  const shown = studio && matchMine ? [...assets.filter((a) => !untagged(a)), ...assets.filter(untagged)] : assets;
 
   function save(asset: GalleryAsset) {
     if (pending || free === null) return;
@@ -226,10 +231,7 @@ export function GalleryPicker({
           <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3" data-gallery-match="">
             <span className="text-[14px] font-semibold text-ink">Matches my colours</span>
             <input type="checkbox" role="switch" checked={matchMine} onChange={(e) => setMatchMine(e.target.checked)} className="peer sr-only" />
-            <span
-              aria-hidden
-              className="relative h-6 w-11 shrink-0 rounded-full bg-ink/20 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-terracotta-700 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry"
-            />
+            <span aria-hidden className={SWITCH_TRACK} />
           </label>
         </div>
       ) : null}
@@ -254,7 +256,7 @@ export function GalleryPicker({
                 : assets.length > 0
                   ? `${formatCount(total)} ${total === 1 ? 'photo' : 'photos'} from suppliers — every one credited to the shop that made it.`
                   : withheld > 0
-                    ? `${withheld} ${withheld === 1 ? 'photo is' : 'photos are'} here but not ready to show — their shop isn’t verified yet, or the photo carries no sampled colours.`
+                    ? `${withheld} ${withheld === 1 ? 'photo is' : 'photos are'} here but not ready to show — their shop isn’t verified yet.`
                     : 'No supplier has added photos for this yet. Nothing is wrong — the shelf is new.'}
           </p>
         </div>
@@ -298,7 +300,7 @@ export function GalleryPicker({
       ) : null}
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {assets.map((asset) => {
+        {shown.map((asset) => {
           if (hiddenAsset(asset)) return null;
           const isSaving = savingId === asset.assetId && pending;
           const saved = savedIds.has(asset.assetId);
@@ -377,7 +379,7 @@ export function GalleryPicker({
         <p className="flex items-center gap-1.5 text-[11px] text-ink/55">
           <ImageOff className="h-3 w-3" aria-hidden />
           {withheld} more {withheld === 1 ? 'photo' : 'photos'} here {withheld === 1 ? 'is' : 'are'}{' '}
-          waiting on its shop&rsquo;s verification or its colours.
+          waiting on its shop&rsquo;s verification.
         </p>
       ) : null}
 

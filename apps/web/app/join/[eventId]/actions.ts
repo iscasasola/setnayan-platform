@@ -1,6 +1,8 @@
 'use server';
 
 import { allowGuestSelfJoinAttempt } from '@/lib/join-door-throttle';
+import { REPLY_WINDOW_EVENT_COLUMNS } from '@/lib/reply-window';
+import { replyWindowOfRow } from '@/lib/reply-window.server';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { redirect } from 'next/navigation';
@@ -30,6 +32,12 @@ import { forgetFindState } from '@/lib/find-me.server';
 // more, but every request is still a row the couple has to read — this bounds
 // runaway spam. Generous — weddings rarely exceed it.
 const SELF_JOIN_CEILING = 1000;
+
+/** The form's own `request_key` (a UUID minted when the form was drawn), or null. */
+function readRequestKey(formData: FormData): string | null {
+  const v = String(formData.get('request_key') ?? '').trim().toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v) ? v : null;
+}
 
 // 🛂 NOBODY WITHOUT A KEY GETS INSIDE UNTIL THE COUPLE KEEPS OR LINKS THEM
 // (owner, DECISION_LOG 2026-09-26 — reverses the 2026-06-25 optimistic admit).
@@ -209,6 +217,12 @@ async function createJoinRequest(
     avatarUrl: string | null;
     /** This browser's own open request (its remembered key) — asked again, it is updated, never doubled. */
     rememberedRequestId?: string | null;
+    /**
+     * 🔁 The form's own key (`request_key`, minted when the form was drawn — `readRequestKey`).
+     * The same form sent twice (a double tap, a retry after a lost redirect) carries the
+     * same key and is answered with the request it already wrote: one row, one notice.
+     */
+    requestKey?: string | null;
   },
 ): Promise<string | null> {
   const { eventId, answers, userId } = args;
@@ -220,7 +234,8 @@ async function createJoinRequest(
      wins. Unreadable fails closed. */
   const { data: setting, error: settingErr } = await admin
     .from('events')
-    .select('rsvp_ask_config')
+    // + the reply window's columns: a request carries an ANSWER, so it is a reply (📬 owner 2026-10-14).
+    .select(REPLY_WINDOW_EVENT_COLUMNS)
     .eq('event_id', eventId)
     .maybeSingle();
   if (settingErr) {
@@ -230,9 +245,15 @@ async function createJoinRequest(
     return null;
   }
   if (!anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;
+  /* 📬 …AND ONLY WHILE REPLIES ARE OPEN (owner 2026-10-14, `lib/reply-window.ts`). A request carries
+     an answer — yes or no, a meal, a note — so it is a reply, and a reply never lands outside the
+     window. Every caller already refused with the sentence first; this is the property. */
+  if (!setting || (await replyWindowOfRow(setting)).state !== 'open') return null;
   const now = new Date().toISOString();
   const answerColumns = {
     rsvp_status: answers.rsvp_status,
+    // 🖐 Their own answer, in their own request (owner 2026-10-21).
+    rsvp_set_by: 'guest',
     rsvp_responded_at: now,
     meal_preference: answers.meal_preference,
     dietary_restrictions: answers.dietary_restrictions,
@@ -307,15 +328,21 @@ async function createJoinRequest(
         ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
         ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
       };
-  const { data: inserted, error } = await admin
-    .from('guests')
-    .insert({
-      event_id: eventId,
+  // 🔒 ONE WRITER, UNDER A LOCK ON THE EVENT (event-day L1·3, migration
+  // 20271273586425). The same form arriving twice is answered with the request
+  // it already wrote (`created: false` — its answers are refreshed, and the
+  // couple is NOT told a second time); the event's live requests are counted
+  // against SELF_JOIN_CEILING inside the same lock, so a rush cannot pass it
+  // together. The row is the shape this door always inserted.
+  const { data: written, error } = await admin.rpc('guest_join_request_create', {
+    p_event_id: eventId,
+    p_request_key: args.requestKey ?? null,
+    p_ceiling: SELF_JOIN_CEILING,
+    p_row: {
       ...nameColumns,
       side: 'both',
       group_category: 'other',
       role: args.role,
-      invited_to_blocks: ['ceremony', 'reception'],
       entry_source: 'self_added_unlisted',
       // The address they gave so Keep/Link can send their key — the ONE email
       // writer on this door. It never binds anything: `emailMayBindRow` refuses
@@ -330,12 +357,20 @@ async function createJoinRequest(
             photo_set_by_user_id: userId,
           }
         : {}),
-    })
-    .select('guest_id')
-    .single();
-  if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.insert', error);
-  if (error || !inserted) return null;
-  const requestId = inserted.guest_id as string;
+    },
+  });
+  const outcome = (written ?? null) as { status?: string; guest_id?: string; created?: boolean } | null;
+  if (error) console.error('[supabase-error] app/join/[eventId]/actions.ts · rpc:guest_join_request_create', error);
+  if (error || outcome?.status !== 'ok' || !outcome.guest_id) return null;
+  const requestId = outcome.guest_id;
+
+  // The same form, again: its one request takes these answers and nothing else
+  // happens — no second claim, no second "Someone asked to join".
+  if (outcome.created === false) {
+    const { error: againErr } = await admin.from('guests').update(answerColumns).eq('guest_id', requestId).eq('event_id', eventId);
+    if (againErr) console.error('[supabase-error] app/join/[eventId]/actions.ts · from:guests.update(again)', againErr);
+    return againErr ? null : requestId;
+  }
 
   // 3. A signed-in asker is remembered, so Keep/Link can bind THEIR account.
   if (userId) {
@@ -415,7 +450,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   // holds HERE, through the SAME resolver the guest site uses.
   const { data: visRow } = await admin
     .from('events')
-    .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at, rsvp_ask_config')
+    .select(`slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${REPLY_WINDOW_EVENT_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -531,6 +566,9 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   }
 
   // Everyone else → a REQUEST. Nothing is bound; the couple decides.
+  // 📬 A request carries an answer: only while replies are open (owner 2026-10-14).
+  const replies = await replyWindowOfRow(visRow);
+  if (replies.state !== 'open') return backToDoor(eventId, token, replies.state === 'not_yet' ? 'replies_not_yet' : 'replies_closed');
   const read = readRequestAnswers(formData, sanitizeRsvpAskConfig(visRow.rsvp_ask_config), accountEmail);
   if (!read.ok) return backToDoor(eventId, token, read.error);
 
@@ -543,6 +581,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     role,
     userId: user.id,
     avatarUrl,
+    requestKey: readRequestKey(formData),
   });
   if (!requestId) return backToDoor(eventId, token, 'join_failed');
   return requestSent(admin, eventId, token, requestId);
@@ -569,7 +608,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   // `selfJoinRefusalPath`. From the DATABASE, never the form.
   const { data: event } = await admin
     .from('events')
-    .select('slug, rsvp_ask_config')
+    .select(`slug, ${REPLY_WINDOW_EVENT_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   const slug = ((event?.slug as string | null) ?? '').trim() || null;
@@ -651,6 +690,10 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return refuse('join_closed');
   }
 
+  // 📬 4b. A request carries an answer: only while replies are open (owner 2026-10-14).
+  const replies = event ? await replyWindowOfRow(event) : null;
+  if (!replies || replies.state !== 'open') return refuse(replies?.state === 'not_yet' ? 'replies_not_yet' : 'replies_closed');
+
   // 5. The request. The name only ever SUGGESTS a match to the couple — it
   //    never hands this browser another guest's seat (a name is not a secret).
   const read = readRequestAnswers(formData, sanitizeRsvpAskConfig(event?.rsvp_ask_config));
@@ -663,6 +706,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     userId: null,
     avatarUrl: null,
     rememberedRequestId: remembered?.state.kind === 'pending' ? remembered.guestId : null,
+    requestKey: readRequestKey(formData),
   });
   if (!requestId) {
     return refuse('join_failed');

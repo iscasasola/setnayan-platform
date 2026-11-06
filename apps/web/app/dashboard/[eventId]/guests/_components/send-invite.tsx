@@ -1,8 +1,19 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { Check, Copy, Download, Send, Undo2 } from 'lucide-react';
+import { Check, Copy, Share, Send, Undo2 } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import {
+  INVITE_APP_NAMES,
+  inviteAppHint,
+  inviteAppPlan,
+  inviteAppSaid,
+  inviteDevice,
+  runInviteAppPlan,
+  type InviteApp,
+} from '@/lib/invite-app-links';
 import {
   buildGuestInviteMessage,
   defaultInviteTemplate,
@@ -13,6 +24,9 @@ import {
 } from '@/lib/guest-invite-message';
 import { setGuestInvitationSent } from '../../invitation/actions';
 import { saveInviteMessage } from '../send/actions';
+import { hearAction } from './hear-action';
+import { SentOrNotYet } from './sent-or-not-yet';
+import { useAskOnReturn } from '@/lib/ask-on-return';
 
 /**
  * SEND INVITE · COPY MESSAGE — one guest, their own link, from the couple's
@@ -34,6 +48,12 @@ import { saveInviteMessage } from '../send/actions';
  *     A share the phone completed stamps Sent ✓ (`invitation_sent_at`, through
  *     the ONE writer in `invitation/actions.ts`). Closing the sheet is not a
  *     failure and stamps nothing.
+ *   · SEND IN AN APP ▾ — ONE dropdown: WhatsApp · Viber · Messenger (owner
+ *     2026-10-26: *"Viber/Whatsapp invite buttons"*). What each does on a phone
+ *     and a computer is `inviteAppPlan` (lib/invite-app-links.ts). 🔑 OPENING AN
+ *     APP IS NOT A SEND, so a pick never stamps; it says what happened and offers
+ *     "Mark as sent", exactly as a copy does. "More apps…" is Send itself (the
+ *     phone's own share sheet), so it is not listed twice.
  *   · COPY MESSAGE — the full filled-in text, "Copied ✓", for couples who
  *     paste into Messenger/Viber themselves. 🔑 A COPY IS NOT A SEND, so it
  *     never stamps by itself; it OFFERS "Mark as sent".
@@ -71,6 +91,8 @@ export type SendInviteGuest = {
    * cannot come, and that "failure" was landing in the Problems log.
    */
   hasTicket?: boolean;
+  /** Their ticket's version (`TicketVersion`) — the Share then fetches the SAME cached address the card shows. */
+  ticketVersion?: TicketVersion;
 };
 
 type ShareNav = Navigator & {
@@ -86,8 +108,36 @@ type ShareNav = Navigator & {
  */
 export const TICKET_ROUTE = '/api/guest/pass-card';
 
-export function ticketUrl(guestId: string): string {
-  return `${TICKET_ROUTE}?guest=${encodeURIComponent(guestId)}`;
+export function ticketUrl(guestId: string, version?: string | null): string {
+  const base = `${TICKET_ROUTE}?guest=${encodeURIComponent(guestId)}`;
+  // 🎟 With its version the address is cached for a year (`passCardTicketVersion`): asked for once per
+  // version, then drawn from the phone's own cache — no request on any later open.
+  return version ? `${base}&v=${encodeURIComponent(version)}` : base;
+}
+
+/**
+ * A ticket's version as a surface hands it in: absent (the old, revalidating address), known, or still on
+ * its way from the server (a promise streamed with the guest card, so the card never waits for it).
+ */
+export type TicketVersion = string | null | Promise<string | null> | undefined;
+
+/** `{ ready: false }` while a streamed version is still coming; then the version to put in the address. */
+export function useTicketVersion(version: TicketVersion): { ready: boolean; v: string | null } {
+  const pending = Boolean(version) && typeof (version as Promise<unknown>).then === 'function';
+  const [got, setGot] = useState<{ from: TicketVersion; v: string | null } | null>(null);
+  useEffect(() => {
+    if (!pending) return;
+    let alive = true;
+    (version as Promise<string | null>).then(
+      (v) => alive && setGot({ from: version, v: typeof v === 'string' ? v : null }),
+      () => alive && setGot({ from: version, v: null }),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [pending, version]);
+  if (!pending) return { ready: true, v: typeof version === 'string' ? version : null };
+  return got && got.from === version ? { ready: true, v: got.v } : { ready: false, v: null };
 }
 
 /** The ticket's file name — "Maria-Santos-ticket.png"; the route's own header wins when it sends one. */
@@ -102,17 +152,23 @@ export function ticketFileName(name: string): string {
  * it instead of sending the message without the ticket — and `null` when there
  * is none (no ticket, a device that cannot share files, or not asked yet).
  */
-export function useTicketFile(guestId: string, name: string, enabled: boolean): File | null | undefined {
+export function useTicketFile(
+  guestId: string,
+  name: string,
+  enabled: boolean,
+  version?: TicketVersion,
+): File | null | undefined {
   const [file, setFile] = useState<File | null | undefined>(null);
+  const tv = useTicketVersion(version);
   useEffect(() => {
     setFile(null);
-    if (!enabled) return;
+    if (!enabled || !tv.ready) return;
     const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
     // Only a device that can share files needs the bytes.
     if (!nav || typeof nav.share !== 'function' || typeof nav.canShare !== 'function') return;
     setFile(undefined);
     let alive = true;
-    fetch(ticketUrl(guestId), { credentials: 'same-origin' })
+    fetch(ticketUrl(guestId, tv.v), { credentials: 'same-origin' })
       .then(async (r) => {
         if (!r.ok) return null;
         // The route names the file the way "Save my ticket" does — use that.
@@ -130,7 +186,7 @@ export function useTicketFile(guestId: string, name: string, enabled: boolean): 
     return () => {
       alive = false;
     };
-  }, [guestId, name, enabled]);
+  }, [guestId, name, enabled, tv.ready, tv.v]);
   return file;
 }
 
@@ -170,6 +226,7 @@ type Said =
   | { kind: 'copied' } // Copy message — offers Mark as sent
   | { kind: 'copied-desktop' } // Send invite with no share sheet — copy + Download ticket + Mark as sent
   | { kind: 'manual'; text: string } // clipboard blocked — the text, selectable
+  | { kind: 'app'; text: string } // an app was opened (or its message copied) — offers Mark as sent
   | { kind: 'error'; text: string };
 
 export function SendInviteActions({
@@ -196,7 +253,9 @@ export function SendInviteActions({
   const [pending, startTransition] = useTransition();
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
-  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl));
+  const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl), guest.ticketVersion);
+  // 📨 Copy and "Send in an app" LEAVE Setnayan — on the way back, ask "Sent / Not yet" (owner 2026-10-27).
+  const back = useAskOnReturn();
 
   useEffect(() => {
     setSentAt(guest.sentAt);
@@ -229,7 +288,8 @@ export function SendInviteActions({
 
   function mark(sent: boolean) {
     startTransition(async () => {
-      const res = await setGuestInvitationSent(eventId, guest.guestId, sent);
+      // 🔌 `hearAction`: a failed request answers like a refusal — the page stays and the line below is said.
+      const res = await hearAction(() => setGuestInvitationSent(eventId, guest.guestId, sent));
       if (res.ok) {
         setSentAt(res.sentAt);
         setSaid(null);
@@ -247,6 +307,8 @@ export function SendInviteActions({
 
   async function copyText(kind: 'copied' | 'copied-desktop') {
     const text = message(false);
+    // They will paste it somewhere else — ask when they come back. Armed AT the press, before any await.
+    if (!sentAt) back.arm();
     try {
       await navigator.clipboard.writeText(text);
       setSaid({ kind });
@@ -265,38 +327,67 @@ export function SendInviteActions({
     await copyText('copied-desktop');
   }
 
+  // WhatsApp · Viber · Messenger — opens or copies, SAYS which, and never stamps (see the docblock).
+  async function viaApp(key: string) {
+    const app = key as InviteApp;
+    const device = inviteDevice();
+    const text = message(false);
+    const plan = inviteAppPlan(app, text, device);
+    if (plan.kind === 'share') return send();
+    // Armed AT the press: opening an app can hide this page before the promise below settles.
+    if (!sentAt) back.arm();
+    const out = await runInviteAppPlan(plan, text, device.touch);
+    setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
+  }
+  const appDevice = inviteDevice();
+  const appMenu = (
+    <span className="contents" data-send-invite-apps="">
+      <PickMenu
+        label={`Send to ${first} in an app`}
+        buttonText="Send in an app"
+        value={null}
+        options={(['whatsapp', 'viber', 'messenger'] as const).map((app) => ({
+          key: app,
+          label: INVITE_APP_NAMES[app],
+          hint: inviteAppHint(app, appDevice),
+        }))}
+        onPick={viaApp}
+        className={`border border-ink/15 ${size === 'run' ? 'min-h-12 w-full justify-center text-sm' : 'min-h-11'}`}
+      />
+    </span>
+  );
+
   const big = size === 'run';
-  const primary = big
-    ? 'inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-base font-medium text-cream disabled:opacity-60'
-    : 'inline-flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-cream disabled:opacity-60';
-  const secondary = big
-    ? 'inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full border border-ink/20 bg-cream px-4 text-sm font-medium text-ink disabled:opacity-60'
-    : 'inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/20 bg-cream px-4 text-sm font-medium text-ink disabled:opacity-60';
-  const quiet =
-    'inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline disabled:opacity-60';
+  /* THE BUTTON RULE (`components/action-button.tsx`): the forward step is the filled brand button; Copy is its
+     neighbour (neutral); Undo is the quiet one. The run's full-width phone buttons are the same buttons, stretched. */
+  const wide = big ? 'w-full' : undefined;
 
   return (
     <div data-send-invite="" className="space-y-2">
       <div className={big ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-2'}>
-        <button type="button" onClick={send} disabled={pending} className={primary} data-send-invite-share="">
-          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {big ? `Send to ${first}` : sentAt ? 'Send again' : 'Send invite'}
-        </button>
-        <div className={big ? 'flex gap-2' : 'contents'}>
-          <button
-            type="button"
-            onClick={() => copyText('copied')}
+        <span className="contents" data-send-invite-share="">
+          <ActionButton
+            tone="brand"
+            main
+            icon={Send}
+            label={big ? `Send to ${first}` : sentAt ? 'Send again' : 'Send invite'}
+            onClick={send}
             disabled={pending}
-            className={secondary}
-            data-send-invite-copy=""
-          >
-            {said?.kind === 'copied' ? (
-              <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={2.25} />
-            ) : (
-              <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            {said?.kind === 'copied' ? 'Copied ✓' : 'Copy message'}
-          </button>
+            className={wide}
+          />
+        </span>
+        {appMenu}
+        <div className={big ? 'flex gap-2' : 'contents'}>
+          <span className="contents" data-send-invite-copy="">
+            <ActionButton
+              tone="neutral"
+              icon={said?.kind === 'copied' ? Check : Copy}
+              label={said?.kind === 'copied' ? 'Copied ✓' : 'Copy message'}
+              onClick={() => copyText('copied')}
+              disabled={pending}
+              className={big ? 'flex-1' : undefined}
+            />
+          </span>
           {extra}
         </div>
       </div>
@@ -311,10 +402,7 @@ export function SendInviteActions({
               {/* A fixed zone: the server (UTC) and the phone must draw the same day, or the card fails to hydrate. */}
               {new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
             </span>
-            <button type="button" onClick={() => mark(false)} disabled={pending} className={quiet}>
-              <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Undo
-            </button>
+            <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={() => mark(false)} disabled={pending} />
           </p>
         ) : null}
 
@@ -330,27 +418,27 @@ export function SendInviteActions({
                 <SaveFileLink
                   href={ticketUrl(guest.guestId)}
                   filename={ticketFileName(guest.fullName)}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 text-sm font-medium text-ink/80"
+                  className={`${actionButtonClass('neutral')} min-h-11`}
                 >
                   {(state) => (
                     <>
-                      <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                      {state === 'saving' ? 'Saving…' : 'Download ticket'}
+                      <Share aria-hidden strokeWidth={1.9} />
+                      <span className="lbl">{state === 'saving' ? 'Saving…' : 'Download ticket'}</span>
                     </>
                   )}
                 </SaveFileLink>
               ) : null}
               {sentAt ? null : (
-                <button
-                  type="button"
-                  onClick={() => mark(true)}
-                  disabled={pending}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 text-sm font-medium text-cream disabled:opacity-60"
-                  data-send-invite-mark=""
-                >
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  {pending ? 'Saving…' : 'Mark as sent'}
-                </button>
+                <span className="contents" data-send-invite-mark="">
+                  <ActionButton
+                    tone="brand"
+                    main
+                    icon={Check}
+                    label={pending ? 'Saving…' : 'Mark as sent'}
+                    onClick={() => mark(true)}
+                    disabled={pending}
+                  />
+                </span>
               )}
             </div>
           </div>
@@ -362,17 +450,23 @@ export function SendInviteActions({
               Your phone blocked the copy — select the message below and copy it.
             </p>
             <textarea
-              className="w-full rounded-xl border border-ink/15 bg-white p-3 text-sm leading-relaxed text-ink"
+              className="w-full rounded-xl border border-ink/15 bg-white dark:bg-raised p-3 text-sm leading-relaxed text-ink"
               ref={manualRef}
               readOnly
               value={said.text}
               rows={8}
             />
             {sentAt ? null : (
-              <button type="button" onClick={() => mark(true)} disabled={pending} className={quiet}>
-                <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Mark as sent
-              </button>
+              <ActionButton tone="neutral" quiet icon={Check} label="Mark as sent" onClick={() => mark(true)} disabled={pending} />
+            )}
+          </div>
+        ) : null}
+
+        {said?.kind === 'app' ? (
+          <div className="space-y-1.5 text-[13px] text-ink/75" data-send-invite-app-said="">
+            <p>{said.text}</p>
+            {sentAt ? null : (
+              <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Mark as sent'} onClick={() => mark(true)} disabled={pending} />
             )}
           </div>
         ) : null}
@@ -383,6 +477,16 @@ export function SendInviteActions({
           </p>
         ) : null}
       </div>
+
+      <SentOrNotYet
+        open={back.asking && !sentAt}
+        name={first}
+        onSent={() => {
+          back.settle();
+          mark(true);
+        }}
+        onNotYet={back.settle}
+      />
     </div>
   );
 }
@@ -427,7 +531,8 @@ export function InviteMessageEditor({
 
   function save(next: string) {
     startTransition(async () => {
-      const res = await saveInviteMessage(eventId, next);
+      // 🔌 `hearAction`: a failed request answers like a refusal — the message being written stays in the box.
+      const res = await hearAction(() => saveInviteMessage(eventId, next));
       if (res.ok) {
         setState('saved');
         setText(res.template ?? ours);
@@ -444,7 +549,7 @@ export function InviteMessageEditor({
         Your message — for every guest
       </label>
       <textarea
-        className="w-full rounded-xl border border-ink/15 bg-white p-3 text-[15px] leading-relaxed text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
+        className="w-full rounded-xl border border-ink/15 bg-white dark:bg-raised p-3 text-[15px] leading-relaxed text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
         id={boxId}
         value={text}
         maxLength={INVITE_TEMPLATE_MAX}
@@ -471,22 +576,15 @@ export function InviteMessageEditor({
         <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-ink/85">{preview}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => save(text)}
-          disabled={pending}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-medium text-cream disabled:opacity-60"
-        >
-          {pending ? 'Saving…' : 'Save for every guest'}
-        </button>
-        <button
-          type="button"
+        <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Save for every guest'} onClick={() => save(text)} disabled={pending} />
+        <ActionButton
+          tone="neutral"
+          quiet
+          icon={Undo2}
+          label="Use our wording"
           onClick={() => save('')}
           disabled={pending || (template === null && text === ours)}
-          className="inline-flex min-h-[44px] items-center rounded-full px-3 text-sm font-medium text-ink/70 underline-offset-4 hover:underline disabled:opacity-40"
-        >
-          Use our wording
-        </button>
+        />
         <span aria-live="polite" className="text-sm">
           {state === 'saved' ? <span className="text-success-700">Saved ✓</span> : null}
           {state === 'error' ? <span className="text-danger-700">We couldn’t save it — try again.</span> : null}

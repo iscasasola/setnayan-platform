@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
+import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from '@/lib/event-settings-record';
 import {
   COULD_NOT_LOAD,
   EVENT_DETAILS_MAP,
@@ -63,8 +64,15 @@ test('every MAP row with an Event Details column renders, in its own section (co
   assert.ok(!EVENT_DETAILS_MAP.some((r) => r.fact === 'theme'), 'a Theme fact came back to Event Details');
   const missing: string[] = [];
   let checked = 0;
+  // ⚙ A fact that MOVED to its menu's ⚙ (settings per menu, owner 2026-10-27 — `DETAILS_ROWS_MOVED_TO_GUESTS`) is shown
+  // THERE, once (`one-home-per-setting.test.ts`), and must be GONE from Event Details — never in two places.
+  const moved = new Set<string>([...Object.keys(DETAILS_ROWS_MOVED_TO_GUESTS), ...Object.keys(DETAILS_ROWS_MOVED_TO_SUPPLIERS)]);
   for (const row of EVENT_DETAILS_MAP) {
     checked += 1;
+    if (moved.has(row.fact)) {
+      assert.ok(!PAGE.includes(`fact="${row.fact}"`), `"${row.fact}" moved to its menu's ⚙ but Event Details still draws it`);
+      continue;
+    }
     if (!sectionBody(row.section).includes(`fact="${row.fact}"`)) {
       missing.push(`${row.asked} "${row.question}" → ${row.section} (fact="${row.fact}")`);
     }
@@ -94,12 +102,18 @@ test('only the parts another flow owns carry a quiet "Open … ›" link — one
   }
 });
 
-test('People with access is the ONE live part — mounted once, in its own file, before Put this away', async () => {
+test('People with access is the ONE live part — mounted once, in its own Event access fold, before Put this away', async () => {
   // ⚖ Owner 2026-10-03: access is set per person, per area, in Event Details ›
   // People with access. Access is a door, so it changes at once — the one part
   // of the sheet that is not a read-out. Everything else stays information only.
+  // ⚖ Owner 2026-10-07: it is its OWN fold, Event access — after Guests &
+  // money (where it used to hide under the last supplier row), before Put this away.
   assert.equal((PAGE.match(/<PeopleWithAccess\b/g) ?? []).length, 1, 'People with access is not drawn exactly once');
   assert.match(PAGE, /from '\.\/_components\/people-with-access'/, 'People with access is not its own component');
+  const accessFold = PAGE.indexOf('<RecordFold group="access"');
+  assert.ok(accessFold > 0, 'People with access has no Event access fold of its own');
+  assert.ok(PAGE.indexOf('<RecordFold group="guests-money"') < accessFold, 'Event access sits before Guests & money');
+  assert.ok(accessFold < PAGE.indexOf('<PeopleWithAccess'), 'People with access is mounted outside the Event access fold');
   assert.ok(PAGE.indexOf('<PeopleWithAccess') < PAGE.indexOf('data-section="put-away"'), 'People with access sits after Put this away');
   // Only a host loads everyone; a delegate sees their own access, as words.
   assert.match(PAGE, /viewer\.isCouple\s*\?\s*loadPeopleWithAccess\(eventId, user\.id\)/, 'people with access is loaded for a non-host');
@@ -179,27 +193,34 @@ test('the fixed bugs stay fixed: venues come from bookings, never a setting type
   assert.deepEqual(said, [], 'the word "vendor" is back in Event Details copy');
 });
 
-test('Event Home carries the Event Details button beside the event name', () => {
-  const home = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
-  assert.match(home, /href=\{`\/dashboard\/\$\{eventId\}\/details`\}[\s\S]{0,200}Event Details/);
-  const cover = home.slice(home.indexOf('{cover.name}'), home.indexOf('{cover.name}') + 600);
-  assert.ok(cover.includes('data-home-event-details'), 'the button is not on the cover beside the name');
+test('Event Home carries the date’s door — the Countdown opens the Date Finder', () => {
+  // Owner-approved 2026-10-24: the Countdown — the first widget, right under the name — was Event Details' one door.
+  // RE-AIMED 2026-10-30 (owner: *"move them all in the event settings"* · *"date finder. because we want them to find
+  // the date for their event"*): for the couple (whose /details forwards to ⚙ Event Settings) it opens the Date Finder in
+  // place; a helper's Countdown still opens this page (`countdownDoor`).
+  const first = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
+  assert.match(first, /<HomeCoverBand cover=\{cover\}/);
+  assert.match(first, /<HomeControlRow input=\{control\}[^>]*\/>/);
+  const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces, /const door = c\.door \?\? countdownDoor\(e\);/, 'the Countdown does not open the Date Finder');
+  assert.match(faces, /return dateFinderHref\(eventId\);/, 'the Countdown’s door is not the Date Finder');
+  assert.doesNotMatch(read('app/dashboard/[eventId]/_components/home-cover-band.tsx'), /data-home-event-details/, 'the cover’s pill is back — a second door');
 });
 
 test('how guests get in — one fact, the shipped readers', () => {
-  assert.deepEqual(howGuestsGetIn(null), { value: 'List only · Guests reply', chosen: false });
-  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Accept · Guests reply', chosen: true });
-  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'List only · No reply, each gets their own QR');
-  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · One QR for everyone');
+  assert.deepEqual(howGuestsGetIn(null), { value: 'Only my list · They reply', chosen: false });
+  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'My list + requests · They reply', chosen: true });
+  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'Only my list · No reply');
+  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · Anyone with the link');
   assert.equal(
     howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone', approveEach: true }).value,
-    'Accept · No reply, one QR, I approve each',
+    'My list + requests · No reply',
   );
 });
 
 test('RSVP questions: absent is ON, only false is off; no reply means no questions', () => {
-  assert.ok(rsvpQuestions({}).includes('Meal choice'));
-  assert.ok(!rsvpQuestions({ meal: false }).includes('Meal choice'));
+  assert.ok(rsvpQuestions({}).includes('Meal'));
+  assert.ok(!rsvpQuestions({ meal: false }).includes('Meal'));
   assert.deepEqual(rsvpQuestions({ guestsReply: false }), []);
 });
 

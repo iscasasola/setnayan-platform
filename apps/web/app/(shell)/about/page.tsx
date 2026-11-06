@@ -6,7 +6,8 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { HELP_TOPICS } from '@/lib/help';
+import { HELP_TOPICS, helpTopicsFor } from '@/lib/help';
+import { isStoreShellRequest } from '@/lib/request-platform';
 // Client motion island (the page itself stays a force-static Server Component).
 // Renders the hero so the serif line-reveal ref sits on the real <h1>, and
 // provides container wrappers that attach the shared quiet reveal to
@@ -16,6 +17,8 @@ import {
   RevealGrid,
   RevealSection,
 } from './_about-motion';
+import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // /about — the canonical brand/entity page. Fully static: brand facts, no DB,
 // no session. This is the surface SEO + GEO engines (ChatGPT-User, Perplexity,
@@ -32,7 +35,7 @@ const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding & life-even
 // (Description carries no free-claims — clean under the 2026-06-13 reprice
 // scrub of Pricing.md § 00.D, which retired "free RSVP / free website" copy.)
 const PAGE_DESCRIPTION =
-  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local suppliers, and capture the day so every guest goes home with a personal highlight reel.";
+  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local suppliers, and capture the day so every guest can find the photos they're in.";
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
@@ -57,6 +60,7 @@ export const metadata = {
     },
   },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     type: 'website',
     url: `${SITE_URL}/about`,
     title: PAGE_TITLE,
@@ -65,6 +69,7 @@ export const metadata = {
     locale: 'en_PH',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
@@ -78,8 +83,11 @@ export const metadata = {
 // answer is a stable brand/feature/policy fact.
 const PRICING_DETAIL_SLUG = 'how-much-does-setnayan-cost';
 
-const ABOUT_FAQ = (HELP_TOPICS.find((t) => t.key === 'about-setnayan')?.articles ?? [])
-  .filter((a) => a.slug !== PRICING_DETAIL_SLUG);
+/** 🍎 The FAQ as this reader sees it — the app's own answers in the store shell (lib/help.ts `helpTopicsFor`). */
+function aboutFaq(storeShell: boolean) {
+  return (helpTopicsFor(HELP_TOPICS, storeShell).find((t) => t.key === 'about-setnayan')?.articles ?? [])
+    .filter((a) => a.slug !== PRICING_DETAIL_SLUG);
+}
 
 const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   {
@@ -92,7 +100,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: Heart,
     label: 'Free to start',
     value:
-      'Guest list, seating, budget, schedule, the mood board, supplier browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
+      'Guest list, seating, budget, schedule, the mood board, your Event Hub, supplier browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
   },
   {
     icon: ShieldCheck,
@@ -108,7 +116,9 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const storeShell = await isStoreShellRequest();
+  const faq = aboutFaq(storeShell);
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -138,7 +148,7 @@ export default function AboutPage() {
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: ABOUT_FAQ.map((a) => ({
+    mainEntity: faq.map((a) => ({
       '@type': 'Question',
       name: a.title,
       acceptedAnswer: { '@type': 'Answer', text: a.body },
@@ -176,7 +186,7 @@ export default function AboutPage() {
           <Link
             href="/tl/about"
             hrefLang="tl-PH"
-            className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+            className={LOCALE_SWITCH_CLASS}
           >
             Taglish
           </Link>
@@ -218,21 +228,20 @@ export default function AboutPage() {
               cut of your supplier bills. It&rsquo;s the toolkit: a guest list,
               seating, budget, and schedule workspace, a free mood board, a
               marketplace of
-              verified Filipino wedding vendors you message directly, and
+              verified Filipino wedding suppliers you message directly, and
               in-app services — free single-camera livestreaming to YouTube
               (Live Watch), candid photo capture (Papic), a custom wedding
-              song (Music Maker), and bespoke monograms. Every service is free to
-              use; some have clearly priced upgrades, like Live Watch&rsquo;s
-              multicam control room. Couples and vendors
+              song (Music Maker), and bespoke monograms. Papic has no limit on
+              cameras: every photo uses credits, and your first event starts
+              with free credits; the rest is priced on the Pricing page. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the
               money.
             </p>
             <p className="text-base leading-relaxed text-ink/75">
-              The first surface is weddings — the deepest, most complete one —
-              but Setnayan is built to grow into a life-events collection: as
-              birthdays, debuts, christenings, and anniversaries unlock, the same
-              tools carry across them, and everything you create is gathered into
-              one living memory you keep. Your wedding is where it starts.
+              Weddings are the deepest, most complete surface, and the same
+              tools already run debuts, christenings, birthdays, anniversaries,
+              reunions and more. Everything you create is gathered into
+              Memories, one place you keep.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               {/* 2026-09-01 — /how-it-works folded into /features. Deep-linked
@@ -262,7 +271,7 @@ export default function AboutPage() {
             Frequently asked
           </h2>
           <dl className="mt-6 divide-y divide-ink/10 border-y border-ink/10">
-            {ABOUT_FAQ.map((a) => (
+            {faq.map((a) => (
               <div key={a.slug} className="py-5">
                 <dt className="text-base font-semibold text-ink">
                   <Link
@@ -279,14 +288,22 @@ export default function AboutPage() {
             ))}
           </dl>
           <p className="mt-6 text-sm text-ink/60">
-            For full pricing see{' '}
-            <Link
-              href="/pricing"
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
-            >
-              the pricing page
-            </Link>
-            , or browse{' '}
+            {/* 🍎 In the app /pricing is a refused door, so the line names only
+                the help center (Apple check 2026-10-19, row #6). */}
+            {storeShell ? (
+              'Browse '
+            ) : (
+              <>
+                For full pricing see{' '}
+                <Link
+                  href="/pricing"
+                  className="font-medium text-terracotta underline-offset-4 hover:underline"
+                >
+                  the pricing page
+                </Link>
+                , or browse{' '}
+              </>
+            )}
             <Link
               href="/help"
               className="font-medium text-terracotta underline-offset-4 hover:underline"
@@ -306,7 +323,7 @@ export default function AboutPage() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
               Build your guest list, sketch your seating and budget, and browse
-              verified Filipino wedding vendors with 0% booking commission. No
+              verified Filipino wedding suppliers with 0% booking commission. No
               card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -318,7 +335,7 @@ export default function AboutPage() {
                 href="/explore"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
-                Browse vendors
+                Browse suppliers
               </Link>
             </div>
           </RevealSection>

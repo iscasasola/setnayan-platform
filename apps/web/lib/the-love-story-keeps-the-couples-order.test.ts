@@ -73,7 +73,7 @@ test('the Studio cards post ONE intent=order through the moment door, in the Stu
   const book = read('app/dashboard/[eventId]/website/our-story/_components/love-story-book.tsx');
   assert.match(book, /\{p\.studio \? \(\s*<MomentOrderCards/);
   assert.match(book, /<MomentOrderCards[\s\S]{0,200}action=\{p\.action\}/);
-  assert.match(read('app/dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx'), /fd\.set\('intent', 'order'\);\s*fd\.set\('order', next\.join\(','\)\);\s*void action\(fd\);/);
+  assert.match(read('app/dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx'), /fd\.set\('intent', 'order'\);\s*fd\.set\('order', next\.join\(','\)\);\s*void send\(fd\);/);
   assert.match(read('app/dashboard/[eventId]/website/our-story/_components/love-story-live.tsx'), /studio=\{studio\}/);
   assert.match(read('app/dashboard/[eventId]/website/our-story/actions.ts'), /const MOMENT_INTENTS = \[[^\]]*'order'/);
   assert.match(read('app/dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx'), /name="title"/);

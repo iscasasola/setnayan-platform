@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { checklistProgress, type ChecklistItem, type ChecklistKey } from '@/lib/guest-checklist';
 import { formatCount } from '@/lib/format-number';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
  * "YOUR CHECKLIST" — the last 30 days (owner 2026-09-26: *"something
@@ -76,7 +77,7 @@ export function GuestChecklist({
         </span>
       </h2>
       {readFailed ? (
-        <p role="status" className="text-xs text-ink/60">
+        <p role="status" className="text-xs text-ink/70">
           We could not load your ticks just now — what you tick still saves.
         </p>
       ) : null}
@@ -96,13 +97,22 @@ export function GuestChecklist({
                 aria-checked={done}
                 aria-label={item.title}
                 onClick={() => toggle(item.key)}
-                className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                  done ? 'border-ink bg-ink text-cream' : 'border-ink/30 bg-transparent text-transparent'
-                }`}
+                /* 👆 A 44 px PRESS AROUND A 28 px BOX (the Hub button walk, 2026-10-21): the button was the 28 px box
+                   itself, and the global `button { min-height: 44px }` stretched it into a 28 × 44 bar. The button is
+                   now the thumb-sized target, its −8 px margin keeping the row's layout where the box always sat; the
+                   box is the span inside, drawn exactly as before. */
+                className="-m-2 mt-[-0.375rem] flex h-11 w-11 shrink-0 items-center justify-center"
               >
-                <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3.5 8.5l3 3 6-7" />
-                </svg>
+                <span
+                  aria-hidden
+                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                    done ? 'border-ink bg-ink text-cream' : 'border-ink/30 bg-transparent text-transparent'
+                  }`}
+                >
+                  <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3.5 8.5l3 3 6-7" />
+                  </svg>
+                </span>
               </button>
               <span className="min-w-0 flex-1">
                 <span className="block font-serif text-lg leading-snug text-ink">{item.title}</span>
@@ -121,10 +131,19 @@ export function GuestChecklist({
                   <span className="mt-0.5 block text-sm text-ink/70">
                     {item.sub}
                     {item.sub && item.link ? ' · ' : null}
-                    {item.link ? (
+                    {item.link?.download ? (
+                      <SaveFileLink
+                        href={item.link.href}
+                        filename="setnayan-guest-pass.png"
+                        className="font-medium text-ink underline underline-offset-4"
+                      >
+                        {item.link.label}
+                      </SaveFileLink>
+                    ) : item.link ? (
                       <a
                         href={item.link.href}
-                        {...(item.link.download ? { download: '' } : { target: '_blank', rel: 'noopener noreferrer' })}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="font-medium text-ink underline underline-offset-4"
                       >
                         {item.link.label}

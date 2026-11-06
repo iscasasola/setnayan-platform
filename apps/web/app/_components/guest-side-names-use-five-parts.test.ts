@@ -109,8 +109,6 @@ test('the plus-one seat panels draw all five, per seat; a blank seat stays allow
         { seatId: 's1', first: 'Ben', last: 'Reyes', prefix: 'Atty.', middle: 'Cruz', suffix: 'Jr.', meal: 'fish', dietary: '' },
         { seatId: null, first: '', last: '', meal: 'no_preference', dietary: '' },
       ],
-      active: 0,
-      arranged: false,
       askMeal: false,
       askDietary: false,
     }),

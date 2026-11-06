@@ -48,6 +48,7 @@
  * fetch is a thin wrapper. Consumers: computeUserAiDigest (the account digest
  * render) and lib/setnayan-ai-notify.ts (the guard-notification sweep).
  */
+import { blockClosesDay, manilaDayOf, NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, type DayPart, type RepeatRule } from '@/lib/not-available';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { WEDDING_TERMINOLOGY } from './setnayan-ai-templates';
@@ -71,7 +72,7 @@ import {
   type PaperworkDocumentType,
   type PaperworkStatus,
 } from './paperwork';
-import { formatBlockTime } from './schedule';
+import { formatBlockTime, onlyTimedBlocks } from './schedule';
 import { bucketLabel, resolveEventMoney, type EventMoney } from './budget-truth';
 import { logQueryError } from './supabase/error-detect';
 
@@ -343,6 +344,10 @@ export type AvailabilityBlockRow = {
   vendorProfileId: string;
   blockedAt: string; // ISO
   blockedUntil: string; // ISO
+  /** "Not available" repeats + hours (2026-10-14, `lib/not-available.ts`). Absent = a one-off, all day. */
+  repeat?: RepeatRule;
+  repeatUntil?: string | null;
+  dayPart?: DayPart;
 };
 
 /**
@@ -374,8 +379,17 @@ export function availabilityChangesFromBlocks(
     const from = Date.parse(r.blockedAt);
     const until = Date.parse(r.blockedUntil);
     if (Number.isNaN(from) || Number.isNaN(until)) continue;
-    // Interval [from, until) overlaps the event day [dayStart, dayEnd).
-    if (from < dayEnd && until > dayStart) {
+    // A part of the day (a morning) never makes a supplier busy on the date; a REPEAT covers it by the ONE rule.
+    if ((r.dayPart ?? 'all_day') !== 'all_day') continue;
+    const repeats = (r.repeat ?? 'once') !== 'once';
+    const covers = repeats
+      ? blockClosesDay(
+          { startDate: manilaDayOf(r.blockedAt), endDate: manilaDayOf(r.blockedUntil), repeat: r.repeat, repeatUntil: r.repeatUntil ?? null, dayPart: 'all_day' },
+          eventDateIso.slice(0, 10),
+        )
+      : // Interval [from, until) overlaps the event day [dayStart, dayEnd).
+        from < dayEnd && until > dayStart;
+    if (covers) {
       seen.add(r.vendorProfileId);
       out.push({ vendor, date: dateLabel, status });
     }
@@ -446,21 +460,27 @@ export async function loadVendorChangeSignals(
       .gte('changed_at', sinceIso),
     admin
       .from('vendor_calendar_blocks')
-      .select('vendor_profile_id, blocked_at, blocked_until, created_at')
+      .select(`vendor_profile_id, blocked_at, blocked_until, created_at, ${NOT_AVAILABLE_COLUMNS}`)
       .in('vendor_profile_id', watchedIds)
       .gte('created_at', sinceIso),
     admin
       .from('vendor_availability_freed')
-      .select('vendor_profile_id, blocked_at, blocked_until, freed_at')
+      .select(`vendor_profile_id, blocked_at, blocked_until, freed_at, ${NOT_AVAILABLE_COLUMNS}`)
       .in('vendor_profile_id', watchedIds)
       .gte('freed_at', sinceIso),
   ]);
 
-  const toBlockRow = (r: unknown): AvailabilityBlockRow => ({
-    vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
-    blockedAt: (r as { blocked_at: string }).blocked_at,
-    blockedUntil: (r as { blocked_until: string }).blocked_until,
-  });
+  const toBlockRow = (r: unknown): AvailabilityBlockRow => {
+    const f = notAvailableFieldsOf(r as { repeat_rule?: unknown; repeat_until?: unknown; day_part?: unknown });
+    return {
+      vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
+      blockedAt: (r as { blocked_at: string }).blocked_at,
+      blockedUntil: (r as { blocked_until: string }).blocked_until,
+      repeat: f.repeat,
+      repeatUntil: f.repeatUntil,
+      dayPart: f.dayPart,
+    };
+  };
 
   // "Newly booked" (a current block on the date) + "available again" (a block
   // that covered the date was just removed). Same overlap logic, opposite
@@ -580,10 +600,10 @@ export async function buildPlanningSnapshot(
     // The phantom-COLUMN guard could not see this — it skips sites whose table is
     // unknown (select-column-scan.ts `if (!table) continue`); the companion
     // unresolved-TABLE ratchet in select-column-scan.test.ts now covers that gap.
-    admin
-      .from('event_schedule_blocks')
-      .select('label, start_at, end_at, parent_block_id')
-      .eq('event_id', eventId),
+    // ⏰ No Time-TBA chapter in the assistant's timeline — it would be told 12:00 AM (onlyTimedBlocks).
+    onlyTimedBlocks(
+      admin.from('event_schedule_blocks').select('label, start_at, end_at, parent_block_id').eq('event_id', eventId),
+    ),
   ]);
 
   // --- GRD-01 payments (line items + per-line settlement) --------------------

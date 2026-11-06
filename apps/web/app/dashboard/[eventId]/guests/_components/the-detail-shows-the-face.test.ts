@@ -29,13 +29,17 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p: string) => stripComments(readFileSync(join(HERE, p), 'utf8'));
 const BODY = read('guest-card-body.tsx');
+/* 🪪 The face is drawn by `GuestCardAvatar`, which lives with the card's head (`guest-card-head.tsx`, 2026-10-28 — so the
+   Guest list can draw the head at the tap) and is re-exported and drawn by the body. */
+const FACE = read('guest-card-head.tsx');
 const ROSTER = readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8');
 const ROUTE = readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8');
 
 test('the body renders a photo when it has one, and initials when it does not', () => {
-  assert.ok(/photoDisplayUrl \?/.test(BODY), 'the face must be conditional on having one');
-  assert.ok(/guestInitials\(guest\)/.test(BODY), 'initials remain the fallback — never a blank circle');
-  assert.ok(/<img/.test(BODY), 'a photo must actually render');
+  assert.ok(/<GuestCardAvatar guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\}/.test(BODY), 'the body must draw the face it is handed');
+  assert.ok(/photoDisplayUrl \?/.test(FACE), 'the face must be conditional on having one');
+  assert.ok(/guestInitials\(guest\)/.test(FACE), 'initials remain the fallback — never a blank circle');
+  assert.ok(/<img/.test(FACE), 'a photo must actually render');
 });
 
 test('it takes a RESOLVED url, never the stored column', () => {
@@ -78,21 +82,13 @@ test('BOTH loaders resolve a face — the roster panel and the standalone route'
     'the roster panel lost the linked-account fallback',
   );
 
-  const route = propAt(ROUTE);
-  assert.ok(route, 'the standalone route does not pass the photo');
-  assert.match(route, /photoDisplayUrl\}/, 'the route must hand over a resolved value');
-  // The route resolves its own single guest rather than reading a page-wide map,
-  // so the property is asserted where it is computed.
-  assert.match(
-    ROUTE,
-    /photoDisplayUrls\[guest\.photo_url \?\? ''\]/,
-    'the route lost the guest photo lookup',
-  );
-  assert.match(
-    ROUTE,
-    /accountPhotoRefsByGuest/,
-    'the route lost the linked-account fallback',
-  );
+  /* The standalone route — and every surface that opens a guest's card in place (the Wedding March, the parents) — reads
+     the card through ONE reader (`guest-card-read.ts`, 2026-10-24), so the property is asserted where it is computed. */
+  assert.match(ROUTE, /const read = await readGuestCard\(supabase, eventId, guestId, user\.id\);[\s\S]*<GuestCard[\s\S]*\{\.\.\.read\}/, 'the standalone route does not hand the card the reader’s face');
+  const READER = readFileSync(resolve(HERE, 'guest-card-read.ts'), 'utf8');
+  assert.match(READER, /\[guest\.photo_url \?\? ''\]/, 'the reader lost the guest photo lookup');
+  assert.match(READER, /accountPhotoRefsByGuest/, 'the reader lost the linked-account fallback');
+  assert.match(READER, /\n\s+photoDisplayUrl,\n/, 'the reader does not hand the face on');
 });
 
 test('there is no second, unresolved face left behind', () => {

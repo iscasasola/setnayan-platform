@@ -110,8 +110,11 @@ test('a couple can actually SEE the set list — the column has a viewer', () =>
 
 test('the fetch carries the link through, or the viewer has nothing to show', () => {
   const src = read('lib/songs.ts');
-  const fn = /export async function fetchVendorSongs\([\s\S]*?\n}/.exec(src);
-  assert.ok(fn, 'fetchVendorSongs should exist');
+  // The read lives in `readVendorSongs` since 2026-10-23 (it also says whether the read failed);
+  // `fetchVendorSongs` is its rows. Both must stay one path to the same select.
+  assert.match(src, /export async function fetchVendorSongs\([\s\S]*?return \(await readVendorSongs\(/, 'fetchVendorSongs no longer reads through readVendorSongs');
+  const fn = /export async function readVendorSongs\([\s\S]*?\n}/.exec(src);
+  assert.ok(fn, 'readVendorSongs should exist');
   assert.match(
     fn[0],
     /\.select\('[^']*\bperformance_url\b[^']*'\)/,

@@ -61,7 +61,9 @@ export default async function PhotoMomentsEditorPage({
       <div className="mt-3 space-y-3">
         <p className="max-w-prose text-base text-ink/70">
           Tell guests when to enjoy the moment phone-down · when to capture freely · and
-          which beats your Papic team will own. Up to 8 entries, displayed in order on
+          which beats your <span data-web-only="">Papic</span>
+          {/* 🍎 the iPhone app names no paid extra (lib/store-shell.ts) */}
+          <span data-app-only="">photo</span> team will own. Up to 8 entries, displayed in order on
           your landing page.
         </p>
       </div>

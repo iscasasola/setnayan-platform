@@ -193,8 +193,9 @@ test('the date-clash count is computed over EVERY customer, not the filtered lis
   // warning vanish the moment a shop pressed "Booked" — a warning that
   // disappears when you look away is worse than no warning.
   assert.ok(
-    /holdingByDate\(derived\)/.test(pageSrc),
-    'holdingByDate is no longer computed over the full derived set',
+    // 2026-10-28: over every LISTED customer — `derived` less only the chats the shop archived (`listed`).
+    /holdingByDate\(listed\)/.test(pageSrc) && /const listed = derived\.filter\(\(r\) => !archivedOff\.has\(r\.eventId\)\)/.test(pageSrc),
+    'holdingByDate is no longer computed over the full listed set',
   );
   assert.ok(
     !/holdingByDate\(rosterRows\)/.test(pageSrc),
@@ -252,33 +253,44 @@ test('the money note stays off a masked row', () => {
   );
 });
 
-test('"Book of business" is still reachable from this page', () => {
-  // It lived in the header of the block this redesign replaced. A redesign is
-  // exactly when a control goes missing. Since 2026-10-01 it sits behind the
-  // roster's ⋯ with the other customer tools (DECISION_LOG "THE SUPPLIER PHONE
-  // APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS", frame 2).
-  assert.ok(
-    /href="\?open=clients[#"&]/.test(rosterSrc) && /Book of business/.test(rosterSrc),
-    'the Book of business link was lost in the redesign',
-  );
+test('the retired "Book of business" lives ON People — outside clients and kept notes, one list (S-PR2)', () => {
+  // It sat behind the roster's ⋯ (2026-10-01) and opened the Clients page. The
+  // plan retires that page (owner 2026-10-08, answer 4 "Remove the Old One"):
+  // its booked and in-conversation customers ARE roster rows, and the two
+  // things only it showed — outside clients and kept notes — are drawn on
+  // People. A redesign is exactly when a control goes missing, so both are
+  // pinned to a LIVE branch of this page.
+  const people = stripComments(readFileSync(join(HERE, '_components', 'people-more.tsx'), 'utf8'));
+  assert.match(pageSrc, /\.filter\(\(b\) => b\.source === 'external_client'\)/, 'People no longer reads the outside clients');
+  assert.match(pageSrc, /const outsidePage = paginate\(/, 'the outside clients are not paged before they render');
+  // 2026-10-28: under the Booked door (they are booked customers), after the Setnayan rows.
+  assert.match(pageSrc, /\{isBooked \? \(\s*<OutsideClientRows\b/, 'the outside clients are not drawn on People');
+  assert.match(people, /removeBlock/, 'an outside client can no longer be removed');
+  assert.match(pageSrc, /keptNotesMeasured && keptNotes\.length > 0 \?[\s\S]{0,300}<KeptNotesFold\b/, 'the kept notes are not drawn on People');
+  assert.equal(/\?open=clients/.test(rosterSrc + pageSrc), false, 'a door still names the retired Clients fold');
 });
 
-test('the round + on Customers opens the SHIPPED outside-client form (owner answer 3)', () => {
+test('Add (the thumb row) opens the SHIPPED outside-client import (owner answer 3)', () => {
   // "+ on Customers adds an outside client" — and the shipped way to take one
-  // is Clients' "Import an outside client · free". The + must land on that
-  // form, open; a second add-client form would be a second mechanism.
-  assert.ok(
-    /href="\?open=clients&add=outside#import-outside"/.test(rosterSrc),
-    'the + no longer lands on the shipped outside-client form',
-  );
-  const clients = readFileSync(join(dirname(PAGE), '..', 'clients', 'surface.tsx'), 'utf8');
-  assert.ok(/id="import-outside"/.test(clients), 'the outside-client form lost its #import-outside anchor');
-  assert.ok(/open=\{search\.add === 'outside'\}/.test(clients), '?add=outside no longer opens the form');
+  // is `importExternalClient`. A second add-client mechanism would be a second
+  // way to write a block; the Add sheet posts the same action, back to People.
+  const add = stripComments(readFileSync(join(HERE, '_components', 'outside-client-add.tsx'), 'utf8'));
+  assert.match(pageSrc, /<OutsideClientAdd\b[\s\S]{0,300}action=\{importExternalClient\}/, 'Add no longer posts the shipped import');
+  assert.match(pageSrc, /startOpen=\{search\.add === 'outside'\}/, '?add=outside (an older link) no longer opens it');
+  assert.match(add, /<form\b[^>]*action=\{action\}/, 'the sheet does not post the action it is handed');
+  // S-PR3: the same sheet is Dates' Add too — it comes back to where it was opened, Events unless told Dates.
+  assert.match(add, /returnTo = 'events'/, 'the import no longer comes back to Events by default');
+  assert.match(add, /name="return_to" value=\{returnTo\}/, 'the sheet does not post where it came from');
+  const peopleAdd = pageSrc.slice(pageSrc.indexOf('<OutsideClientAdd'), pageSrc.indexOf('/>', pageSrc.indexOf('<OutsideClientAdd')));
+  assert.doesNotMatch(peopleAdd, /returnTo=/, 'Events’ Add is sent somewhere else');
+  const actions = stripComments(readFileSync(join(HERE, '..', 'calendar', 'actions.ts'), 'utf8'));
+  // 2026-10-30: Events is the hub itself (no `seg`); `people` — the view's old name — still comes back to it.
+  assert.match(actions, /returnTo === 'events' \|\| returnTo === 'people'\) \{[\s\S]{0,200}new URLSearchParams\(\{ notice \}\)/, 'the action does not bring the outcome back to Events');
 });
 
-test('every ⋯ door lands somewhere on this page', () => {
-  // The ⋯ doors carry `#customer-tools` / `#calendar`; both ids must exist, or
-  // the tap opens a section the reader is never scrolled to.
+test('every fold door lands somewhere on this page', () => {
+  // The folds carry `#customer-tools`; the month carries `#calendar`. Both ids
+  // must exist, or the tap opens a section the reader is never scrolled to.
   assert.ok(/id="customer-tools"/.test(pageSrc), 'the #customer-tools anchor is gone from the page');
   assert.ok(/id="calendar"/.test(pageSrc), 'the #calendar anchor is gone from the page');
 });

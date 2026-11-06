@@ -123,15 +123,18 @@ test('3 · the middleware slides the pass only on a plain read that is not a pas
   const fn = mw.slice(mw.indexOf('async function refreshGuestSessionCookie('));
   const gate = fn.indexOf('if (!mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) return;');
   assert.ok(gate > -1, 'the refresh no longer asks mayRefreshGuestPass');
-  assert.ok(gate < fn.indexOf('signGuestSession('), 'the pass is re-signed before the hop is checked');
+  // The re-signing (the sliding window AND the legacy re-seal) lives in the pure `guestPassRefreshFor`.
+  const sign = fn.indexOf('guestPassRefreshFor(');
+  assert.ok(sign > -1, 'the refresh no longer goes through guestPassRefreshFor');
+  assert.ok(gate < sign, 'the pass is re-signed before the hop is checked');
 });
 
 test('4 · the redeem writes the link\'s pass unconditionally, then opens that guest\'s landing', () => {
   const whole = read('app/[slug]/redeem/route.ts');
   // The TOKEN path — everything after the re-entry code's own branch (which is
   // spent, so it does ask the phone first: lib/guest-reentry.test.ts § 6).
-  const route = whole.slice(whole.indexOf('const { data: keyRow }'));
-  assert.ok(whole.includes('const { data: keyRow }'), 'the redeem lost its token read');
+  const route = whole.slice(whole.indexOf('const { data: keyRow'));
+  assert.ok(whole.includes('const { data: keyRow'), 'the redeem lost its token read');
   assert.doesNotMatch(route, /readGuestSession\(|readGuestSessionForEvent\(/, 'the redeem consults the pass the phone already held');
   const set = route.indexOf('await setGuestSession({');
   const land = route.lastIndexOf('return NextResponse.redirect(landing);');

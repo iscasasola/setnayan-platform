@@ -145,7 +145,7 @@ test("a scene's stored override renders for guests — a scoped style right afte
   assert.match(css, /zoom:1\.2 !important/);
   // The motion is inside BOTH gates, and "Plays once" binds only once the scene is reached.
   assert.match(css, /@supports \(animation-timeline: view\(\)\)\{@media \(prefers-reduced-motion: no-preference\)\{/);
-  assert.match(css, /\.pahina-in:has\(\+ style\[data-hub-els="schedule"\]\) :is\(h1, h2, h3, \.hub-tpl-h\):not\(#el-own\)\{animation:1\.1s [^;]* none el-in-fade/);
+  assert.match(css, /\.pahina-in:has\(\+ style\[data-hub-els="schedule"\]\) :is\(h1, h2, h3, \.hub-tpl-h\):not\(#el-own\)\{animation:1\.1s [^;]* backwards el-in-fade/);
   assert.doesNotMatch(html, /class="hub-canvas/, 'elements alone must not frame the scene');
 });
 
@@ -163,6 +163,8 @@ test('⛔ the RSVP form is never element-styled, whatever is stored', async () =
 async function renderMasthead(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PahinaMasthead } = await import('../app/[slug]/_components/pahina-masthead');
+  /* Each cover line's veil mark (`data-cover-line`) is held by `the-veil-hides-the-cover-words.test.ts`; taken out
+     here so these assertions read the look's attributes in their own order. */
   return renderToStaticMarkup(
     React.createElement(PahinaMasthead, {
       displayName: 'Cale & Ice',
@@ -171,7 +173,7 @@ async function renderMasthead(props: Record<string, unknown>): Promise<string> {
       card: { eyebrow: 'Together with their families', line: 'invite you to celebrate their wedding', timeLabel: '3:00 PM', hubHref: '#hub', hubLabel: 'Open' },
       ...props,
     }),
-  );
+  ).replace(/ data-cover-line="[^"]*"/g, '');
 }
 
 test("the hero's stored override renders for guests, inline on the part it names", async () => {
@@ -181,7 +183,7 @@ test("the hero's stored override renders for guests, inline on the part it names
   // "Plays once" arrives on the clock — no scroll timeline.
   const moving = await renderMasthead({ elements: { names: { motion: { in: 'rise' } } } });
   // As custom properties the ONE gated rule reads — never a bare inline animation.
-  assert.match(moving, /<h1 data-el-motion="" style="--el-anim:1\.1s [^"]* none el-in-rise;--el-tl:auto;--el-range:normal"/);
+  assert.match(moving, /<h1 data-el-motion="" style="--el-anim:1\.1s [^"]* backwards el-in-rise;--el-tl:auto;--el-range:normal;--el-anim-t:1\.1s [^"]* backwards el-in-rise"/);
   assert.doesNotMatch(moving, /style="([^"]*;)?animation(-timeline|-range)?:/);
 });
 
@@ -218,27 +220,27 @@ const LIVE: HubLiveState = {
   ],
 };
 
-test('a part’s own FONT is FREE — Apply writes it for every couple (owner 2026-10-06)', () => {
-  // 🔤 2026-10-06 ("EVENT DETAILS IS REBUILT": *"font on a single part is FREE"*) — was Pro since 2026-09-28.
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB
+   PRO ◆"): *everything in Style is Pro (colour, size, font …)*. A part's font, colour and size were freed on 2026-09-28
+   and 2026-10-06; they are tried free in the Maker and held at ✓ Apply again — the event's unlock writes them. */
+test('💎 a part’s own FONT is Pro at Apply — held without Pro, written with it (2026-10-16)', () => {
   const draft = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { font: 'script' } } } } },
   });
   const free = planHubDraftApply(draft, LIVE, false);
-  assert.equal(free.refused.length, 0, 'a part’s font was held as Pro');
-  assert.equal(free.apply.length, 1, 'a free couple’s font did not reach the live page');
-  assert.equal(free.apply[0]!.kind === 'widget' && free.apply[0]!.field, 'canvas');
+  assert.equal(free.refused.length, 1, 'a part’s font went live for a couple without Pro');
+  assert.equal(free.apply.length, 0);
   const pro = planHubDraftApply(draft, LIVE, true);
   assert.equal(pro.apply.length, 1);
+  assert.equal(pro.apply[0]!.kind === 'widget' && pro.apply[0]!.field, 'canvas');
 });
 
-test('💎 a part’s own COLOUR and SIZE are free — Apply writes them for a couple without Pro', () => {
-  // Owner 2026-09-28: "free to change design, change text, size, color …".
+test('💎 a part’s own COLOUR and SIZE are Pro at Apply — held without Pro, written with it (2026-10-16)', () => {
   const draft = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { color: '#8a1c2b', size: 120 } } } } },
   });
-  const free = planHubDraftApply(draft, LIVE, false);
-  assert.equal(free.refused.length, 0, 'a free couple’s colour and size were held as Pro');
-  assert.equal(free.apply.length, 1);
+  assert.equal(planHubDraftApply(draft, LIVE, false).refused.length, 1, 'a free couple’s colour and size went live');
+  assert.equal(planHubDraftApply(draft, LIVE, true).apply.length, 1);
 });
 
 test('taking an element style OFF is free, even while another element keeps its own', () => {

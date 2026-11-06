@@ -1,0 +1,116 @@
+/**
+ * the-guests-see-sheet-is-lazy.test.ts — "WHAT GUESTS SEE", step 2: where the sheet lives and how it is reached.
+ *
+ *   1. NOTHING OF IT IS IN THE MAKER'S FIRST LOAD: the sheet is imported by ONE file, `stages-studio-parts.tsx` — a
+ *      piece the Maker reaches only through its lazy stand-ins (`details-lazy.tsx`; `details-pieces-are-lazy` walks the
+ *      server graph and holds that) — and the table's BUILDER, which carries the page's rules, is imported by no
+ *      client file at all: the sheet's chunk carries only the words and the handlers;
+ *   2. the sheet reaches no server module itself: its draft door and its table are the work area's (asked through
+ *      `MAKER_PART_OPS_EVENT`, as the block tools ask) — and its save is `makerSave` with the Maker's one refresh;
+ *   3. it is opened from ONE row in Studio ▾, drawn only where the work area can answer, and it is a sheet — the
+ *      Maker's own (`MakerSheet`), never a twelfth Studio page;
+ *   4. the sheet draws what it is handed and decides nothing: it imports no rule of the page;
+ *   5. only colour tokens: no white, no black, no hex.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+import { STUDIO_TILE_KEYS } from './studio-tile-defs';
+import { PILL_ON_CLASS } from '../app/_components/pill-classes';
+
+const WEB = join(__dirname, '..');
+const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
+const walk = (dir: string): string[] =>
+  readdirSync(join(WEB, dir)).flatMap((name) => {
+    const rel = `${dir}/${name}`;
+    if (name === 'node_modules' || name.startsWith('.')) return [];
+    return statSync(join(WEB, rel)).isDirectory() ? walk(rel) : /\.tsx?$/.test(name) && !/\.test\./.test(name) ? [rel] : [];
+  });
+const FILES = ['app', 'lib', 'components'].flatMap(walk);
+const SHEET = 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx';
+const PARTS = 'app/dashboard/[eventId]/launch/_components/stages-studio-parts.tsx';
+const HUB = 'app/dashboard/[eventId]/launch/_components/hub-settings.tsx';
+
+test('1 · the sheet has one importer — a lazy piece — and the builder has no client importer', () => {
+  assert.ok(FILES.length > 2000 && FILES.includes(SHEET), `anti-vacuity: walked ${FILES.length} files`);
+  const importers = (needle: RegExp) => FILES.filter((f) => needle.test(stripComments(read(f))));
+  /* ⚙ (2026-10-30) …and the Hub's ⚙, which offers its row (asking the work area whether it can answer) — two lazy pieces. */
+  assert.deepEqual(importers(/from ['"][^'"]*\/guests-see-sheet['"]/).sort(), [HUB, PARTS].sort());
+  // …and each is reached through the lazy stand-ins only (never a static import from a first-load file).
+  const lazy = read('app/dashboard/[eventId]/launch/_components/details-lazy.tsx');
+  assert.match(lazy, /export const StudioSideSwitch = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/);
+  assert.match(lazy, /export const HubSettingsGear = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/hub-settings'\)/);
+  const builders = importers(/from ['"][^'"]*\/guests-see-build['"]/);
+  // Home's Event Hub card builds the same table on the server (owner 2026-10-23, the service widgets) — a second
+  // SERVER builder, never a client one (the next line holds that for both).
+  assert.deepEqual(builders, ['app/dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts', 'lib/home-hub-card.server.ts']);
+  for (const f of builders) assert.doesNotMatch(read(f), /^'use client'/, `${f} is a client file`);
+  // What the sheet's chunk carries of the table is rule-free.
+  assert.doesNotMatch(stripComments(read('lib/guests-see-table.ts')), /from '\.\/(what-guests-see|site-body-plan|maker-scene-list|invitation-welcome|stage-scenes)'/);
+});
+
+test('2 · the sheet reaches no server module: the work area lends the table and the draft door', () => {
+  const src = stripComments(read(SHEET));
+  assert.doesNotMatch(src, /hub-draft-actions|server-only|supabase|router\.refresh\(/);
+  assert.match(src, /window\.dispatchEvent\(new CustomEvent\(MAKER_PART_OPS_EVENT, \{ detail: \(raw: MakerPartRaw\) => \(got = raw\) \}\)\);/);
+  assert.match(src, /const table = raw\?\.navigator\?\.guestsSee;/);
+  assert.match(src, /const door = raw\?\.elementEditing\?\.draftAction;\s*if \(!raw \|\| !table \|\| !door\) return null;/);
+  assert.match(src, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(patch\)\);/);
+  assert.match(src, /makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\)/);
+  assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToKeep\);/, 'Keep is not exactly the pending ticks');
+});
+
+test('3 · one row — in the Hub’s ⚙, no longer in Studio ▾ — only where the work area answers; a sheet, never a Studio page', () => {
+  /* ⚙ MOVED 2026-10-30 (owner, the Event Hub Pro prototype's Q4 drawn as A — DECISION_LOG 2026-10-26 "EACH MENU HAS ITS
+     OWN SETTINGS": "everything guests see on the Hub only in Event Hub Settings"). It was the last row of Studio ▾. */
+  const src = stripComments(read(PARTS));
+  assert.equal((src.match(/data-pick-option="guests-see"/g) ?? []).length, 0, 'the row is back in Studio ▾');
+  const hub = stripComments(read(HUB));
+  // The work area is asked while the ⚙ is open, and the row is offered only when it answers.
+  assert.match(hub, /const guestsSeeShown = open && guestsSeeWorkArea\(\) !== null;/);
+  assert.match(hub, /\{guestsSeeShown \? \(\s*<section data-hub-settings-group="guests-see">/);
+  assert.match(hub, /<FormRow data="guests-see" name=\{GUESTS_SEE_WORDS\.menuLine\}[\s\S]{0,200}onClick=\{go\(doors\.guestsSee\)\}/);
+  // The ⚙ closes and asks; the switch — always mounted — opens the shipped sheet.
+  assert.match(stripComments(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx')), /guestsSee: \(\) => window\.dispatchEvent\(new Event\(MAKER_OPEN_GUESTS_SEE_EVENT\)\)/);
+  assert.match(src, /window\.addEventListener\(MAKER_OPEN_GUESTS_SEE_EVENT, open\);/);
+  assert.match(src, /\{guestsSee && typeof document !== 'undefined' \? createPortal\(<GuestsSeeSheet onClose=\{\(\) => setGuestsSee\(false\)\} \/>, document\.body\) : null\}/);
+  assert.match(stripComments(read(SHEET)), /<MakerSheet label=\{W\.title\} onClose=\{close\} everyWidth tall>/);
+  /* 🗂 R1 (owner 2026-10-28): the RSVP tile left for Guests ⚙; R4 the Wedding March and Seat plan for Guests' views;
+     R8 Prints for its own page — the sheet is still never a page of its own. */
+  assert.ok(!(STUDIO_TILE_KEYS as readonly string[]).includes('guests-see'), 'a Studio page was added for it');
+});
+
+test('4 · the sheet decides nothing: it imports the table’s handlers and no rule of the page', () => {
+  const src = stripComments(read(SHEET));
+  assert.doesNotMatch(src, /what-guests-see|guests-see-build|site-body-plan|maker-scene-list|invitation-widgets|stage-scenes/);
+  for (const handler of ['guestsSeeToggle(table, writes, row.key, col)', 'guestsSeeBackToPicks(table, writes)', 'guestsSeeOn(row, col, writes)']) assert.ok(src.includes(handler), handler);
+  // A cell that is not a box is never drawn as one.
+  assert.match(src, /cell\.kind === 'box' \? \(\s*<button[\s\S]{0,120}?role="checkbox"/);
+  assert.equal((src.match(/role="checkbox"/g) ?? []).length, 1);
+});
+
+test('5 · colour tokens only', () => {
+  const src = stripComments(read(SHEET));
+  assert.doesNotMatch(src, /\b(?:bg|text|border|ring|fill|stroke)-(?:white|black)\b|#[0-9a-fA-F]{3,8}\b|rgba?\(/);
+  // A ticked box is the app's "picked / on" colour — the accent and its own ink (`PILL_ON_CLASS`), never ink-black.
+  assert.match(src, /on \? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-ink\/30 text-transparent'/);
+  assert.equal(PILL_ON_CLASS, 'bg-sn-accent text-sn-on-accent', 'the app’s picked colour moved — the tick must follow it');
+  assert.doesNotMatch(src, /bg-ink text-paper/);
+});
+
+test('6 · the three buttons fit a phone: ↺ and "Back to our picks" on one line, Apply on a full-width line of its own', () => {
+  /* Seen 2026-10-11 at 375: with the three on one line, "Apply · 1 change" ran past the sheet's right edge. The
+     prototype draws Apply as one full-width pill under "Back to our picks"; so does this. The measured half of this
+     check is the lab's (`public/review/what-guests-see/notes.json` `fits`: 375 and 360, counts 0 · 1 · 12). */
+  const src = stripComments(read(SHEET));
+  const buttons = src.slice(src.indexOf('<div data-gs-buttons=""'), src.indexOf('</>', src.indexOf('<div data-gs-buttons=""')));
+  assert.match(buttons, /<div data-gs-buttons="" className="flex flex-col gap-2">\s*<div className="flex items-center gap-2">[\s\S]*?guests-see-undo[\s\S]*?guests-see-back[\s\S]*?<\/div>\s*<ActionButton[^>]*className="w-full justify-center" data-testid="guests-see-apply" \/>/);
+  assert.equal((buttons.match(/<ActionButton/g) ?? []).length, 3);
+  // The 16 px gutter: the sheet's own 8 (`MakerSheet` px-2) and 8 here.
+  assert.match(src, /role="table" aria-label=\{W\.title\} className="flex-1 bg-inherit px-2"/);
+  assert.match(src, /data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink\/10 bg-inherit px-2 /);
+  assert.match(read(PARTS), /flex-col rounded-t-3xl bg-white px-2 /);
+});
+

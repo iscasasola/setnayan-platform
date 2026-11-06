@@ -22,22 +22,76 @@
  * status codes, no table names.
  */
 
+import { BOOKINGS_CLOSED_SUPPLIER_MESSAGE } from './bookings-open';
+
 /** Whether the notice is good news, a refusal, or a nothing-changed. */
 export type LockAnswerTone = 'ok' | 'refused' | 'noop';
 
-export type LockAnswerNotice = { tone: LockAnswerTone; text: string };
+export type LockAnswerNotice = {
+  tone: LockAnswerTone;
+  text: string;
+  /**
+   * A door the sentence asks the supplier to go through (the booking-fee pay hub when the couple's news waits on it).
+   * Drawn where the page has no Pay of its own (the thread); Today and the customer card already draw the new bill
+   * with its Pay right under the sentence (`BookingFeeBills`), so they say the sentence and let that Pay be the door.
+   */
+  door?: { label: string; href: string };
+};
 
 /** Extra facts the RPC hands back alongside a refusal. */
 export type LockAnswerContext = {
   /** `resolve_others_first` — how many other couples are waiting on this date. */
   competing?: number | null;
+  /**
+   * `ok` — the yes left a BILLED, UNPAID booking fee, so the couple's "said yes" / "your booking is confirmed" is
+   * HELD BACK until the fee settles (`vendorAgreeToLock`'s `feeBilledUnpaid` — the SAME value that holds the news
+   * back; it rides the redirect as `&fee=held`, read by `lockAgreeFeeHeld`). Batch-5 needs audit F9, 2026-10-14.
+   */
+  feeHeld?: boolean;
+  /**
+   * `hall_taken` (owner 2026-10-14 🏛, prototype "A + B asked, A taken") — which of the card's halls are already taken
+   * that day, and which of the shop's halls are free to offer instead (`vendor_card_halls_on`, read before the yes).
+   */
+  halls?: { taken: string[]; free: string[] } | null;
 };
 
+/** The redirect's hall names (`&taken=` · `&free=`), one spelling written by `vendorAgreeToLock` and read here. */
+export function lockAgreeHallsParam(halls: { taken: string[]; free: string[] }): string {
+  const enc = (a: string[]) => encodeURIComponent(a.join('|'));
+  return `&taken=${enc(halls.taken)}&free=${enc(halls.free)}`;
+}
+/** Read `?taken=` / `?free=` back — null when the answer was not about halls. */
+export function lockAgreeHalls(taken: unknown, free: unknown): { taken: string[]; free: string[] } | null {
+  const list = (v: unknown) => (typeof v === 'string' && v ? v.split('|').map((x) => x.trim()).filter(Boolean).slice(0, 12) : []);
+  const t = list(taken);
+  return t.length > 0 ? { taken: t, free: list(free) } : null;
+}
+const andList = (a: string[]) => (a.length <= 1 ? (a[0] ?? '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+const orList = (a: string[]) => (a.length <= 1 ? (a[0] ?? '') : `${a.slice(0, -1).join(', ')} or ${a[a.length - 1]}`);
+
+/** The redirect's `fee` value when the couple's news waits on the fee — the one spelling, written and read here. */
+export const LOCK_AGREE_FEE_HELD = 'held';
+/** Read `?fee=` back: true only for the one spelling `vendorAgreeToLock` writes. */
+export function lockAgreeFeeHeld(raw: unknown): boolean {
+  return raw === LOCK_AGREE_FEE_HELD;
+}
+/** Where the supplier pays — the shipped booking-fee hub (each due bill has its Pay there). */
+const PAY_THE_FEE_HREF = '/vendor-dashboard/booking-fees';
+
 const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
-  ok: () => ({
-    tone: 'ok',
-    text: 'You took the booking. The couple has been told, and they will send you their payment details next.',
-  }),
+  // The couple is told ONLY when their news is not held back (`ctx.feeHeld`). With a billed, unpaid fee the yes is
+  // real but the couple hears nothing until the fee settles — so the supplier is told THAT, and given the Pay door.
+  ok: (ctx) =>
+    ctx.feeHeld
+      ? {
+          tone: 'ok',
+          text: 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.',
+          door: { label: 'Pay the booking fee', href: PAY_THE_FEE_HREF },
+        }
+      : {
+          tone: 'ok',
+          text: 'You took the booking. The couple has been told, and they will send you their payment details next.',
+        },
   already: () => ({
     tone: 'noop',
     text: 'You had already agreed to this one — nothing changed.',
@@ -77,18 +131,26 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     tone: 'refused',
     text: 'That date already has as many bookings for this service as your “Bookings per day” allows, so this one cannot be added. If you can take more, raise “Bookings per day” on this service; if not, turn this one down so the couple can look elsewhere.',
   }),
+  // 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 6) — said by the app, not the RPC.
+  bookings_closed: () => ({
+    tone: 'refused',
+    text: BOOKINGS_CLOSED_SUPPLIER_MESSAGE,
+  }),
   not_verified: () => ({
     tone: 'refused',
     text: 'Setnayan has not approved your shop yet, so a couple cannot book you. Finish your shop verification and this booking can go through.',
   }),
-  fully_booked: () => ({
-    // Mirrors the database's own HINT on `free_tier_booking_cap`, read out of
-    // production: a free shop holds a fixed number of live bookings at once.
-    // No number is printed here — the cap is decided in SQL and a second copy
-    // of it would drift.
-    tone: 'refused',
-    text: 'You are holding as many live bookings at once as a free shop can. Finish one of your current events to free a slot, or move to a paid plan to take on more.',
-  }),
+  hall_taken: (ctx) => {
+    const taken = ctx.halls?.taken ?? [];
+    const free = ctx.halls?.free ?? [];
+    const what = taken.length > 0 ? `${andList(taken)} ${taken.length === 1 ? 'is' : 'are'} booked that day` : 'A hall this card uses is booked that day';
+    return {
+      tone: 'refused',
+      text:
+        `${what}, so this booking cannot be held. ` +
+        (free.length > 0 ? `Offer ${orList(free)} instead — ${free.length === 1 ? 'it is' : 'they are'} free that day — or turn this one down.` : 'Every hall is taken that day — turn this one down so the couple can look elsewhere.'),
+    };
+  },
   error: () => ({
     tone: 'refused',
     text: 'That did not go through. Nothing changed — please try again.',
@@ -167,7 +229,15 @@ export function lockDeclineNotice(
  * always gone. This is an allowlist of one shape, never a denylist.
  */
 const THREAD_RETURN = /^\/vendor-dashboard\/messages\/[A-Za-z0-9_-]{1,80}$/;
+/**
+ * …and the supplier's CUSTOMER CARD (2026-10-12, pair P2): the ask is answered
+ * there too (`clients/[eventId]/_components/booking-ask-panel.tsx`), and until
+ * now its forms posted no `return_to`, so a supplier who pressed Agree on the
+ * card was thrown to the Overview. The card reads `?lock_agree=` itself. Same
+ * one-shape rule: the bare card path, an event id of id characters, no query.
+ */
+const CLIENT_CARD_RETURN = /^\/vendor-dashboard\/clients\/[A-Za-z0-9-]{1,64}$/;
 
 export function lockAnswerReturnTo(raw: unknown): string {
-  return typeof raw === 'string' && THREAD_RETURN.test(raw) ? raw : '/vendor-dashboard';
+  return typeof raw === 'string' && (THREAD_RETURN.test(raw) || CLIENT_CARD_RETURN.test(raw)) ? raw : '/vendor-dashboard';
 }

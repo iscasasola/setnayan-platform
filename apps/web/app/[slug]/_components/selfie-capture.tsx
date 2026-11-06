@@ -3,18 +3,21 @@
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Info, Loader2, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import type { FaceGateReason, FaceGateResult } from '@/lib/face-gate';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import { isFaceModelConfigured } from '@/lib/face-embed-core';
 import {
   FACE_STEP_SUB,
   FACE_STEP_TICK,
   FACE_STEP_TICK_HINT,
   FACE_STEP_TITLE,
+  faceStepFailureWords,
 } from '@/lib/face-enroll-refusal';
 import { FaceReceiptCard } from './face-receipt-card';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 /**
  * THE FACE SCREEN — built from the approved design
@@ -24,7 +27,9 @@ import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
  * we want 1 step at a time"* → *"too many texts again"* → *"keep everything
  * very simple and fluid and easy to use. too much confirmation is a hassle"*.
  *
- *   A · the whole screen is the front camera with a soft oval to stand in;
+ *   A · the whole screen is the camera's place with a soft oval to stand in —
+ *       🔒 the camera itself starts only once the box is ticked (owner
+ *       2026-10-11; until then the still ground and the oval);
  *       "Find you in photos?" on top, × (not now) top-left; a bottom sheet
  *       with ONE tick — "I'm 18+ and agree to face tagging", never pre-ticked —
  *       and "Take selfie", grey with "Tick to continue" under it until ticked,
@@ -39,6 +44,17 @@ import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
  * 🔒 THE EMBEDDER RUNS ONLY ON A mode_a EVENT (One-Pool spec §3.4); the server
  * nulls any vector off mode_a regardless — this is the first line.
  */
+
+/** ⚡ The long side of the photo the press works on and uploads (owner 2026-10-30, "almost 2 minutes"). */
+export const SELFIE_MAX_SIDE = 720;
+
+/**
+ * MAY THE CAMERA BE ASKED FOR? Only once the guest has ticked "I'm 18+ and
+ * agree to face tagging" — the one fact, as a rule a test can run.
+ */
+export function cameraMayStart(agreed: boolean): boolean {
+  return agreed === true;
+}
 
 /** What a successful shot hands the parent — the parent saves it. */
 export type SelfieShot = {
@@ -95,6 +111,9 @@ export function SelfieCapture({
   const [live, setLive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  // Bumped when the camera must come back — re-runs the open effect below with
+  // the same front camera (see useCameraThatComesBack).
+  const [revival, setRevival] = useState(0);
   // The whole screen is a modal over the page (Escape = ×, the page behind it
   // cannot scroll); the ⓘ sheet is a modal over the screen.
   const screenRef = useRef<HTMLDivElement>(null);
@@ -108,9 +127,15 @@ export function SelfieCapture({
     setLive(false);
   }, []);
 
-  // CAMERA FIRST (frame A): the guest opened this screen themselves, so the
-  // front camera starts with it. Released on leaving.
+  // 🔒 THE CAMERA STARTS ONLY WHEN THE BOX IS TICKED (owner 2026-10-11, on a
+  // guest's walk: the phone asked for the camera BEFORE "I'm 18+ and agree to
+  // face tagging" — a permission asked for ahead of the consent it is for).
+  // This CHANGES the screen approved on 2026-09-30 ("Camera first", frame A),
+  // by the owner's word: it is the same one screen, but until the tick the
+  // camera area is the still ground and the oval — no stream, no prompt.
+  // Unticking stops the stream and releases the camera; so does leaving.
   useEffect(() => {
+    if (!cameraMayStart(agreed)) return;
     let cancelled = false;
     (async () => {
       try {
@@ -139,7 +164,27 @@ export function SelfieCapture({
       cancelled = true;
       stopStream();
     };
-  }, [onFail, stopStream]);
+  }, [agreed, onFail, stopStream, revival]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): iOS ends capture
+  // when the app goes to the background; reopen the same front camera instead of
+  // leaving a frozen oval. Held while a selfie is being taken and saved — a
+  // reopen is never a shot.
+  useCameraThatComesBack({
+    streamRef,
+    live,
+    restart: () => setRevival((n) => n + 1),
+    holdWhile: busy || saving,
+  });
+
+  // ⚡ THE MODELS LOAD WHILE THE GUEST READS (owner 2026-10-30: *"registering the selfie is taking too long … almost 2
+  // minutes"*). They used to start downloading only on the press — the face detector, and on a mode_a event face-api.js
+  // with ~12 MB of weights — so the guest stood in the oval while they arrived. Fetching a model reads no face; the
+  // photo is only taken, checked and read on the press, after the tick, exactly as before.
+  useEffect(() => {
+    void import('@/lib/face-gate').then((m) => m.warmFaceGate()).catch(() => {});
+    if (faceMode === 'mode_a') void import('@/lib/face-embed').then((m) => m.warmFaceEmbed()).catch(() => {});
+  }, [faceMode]);
 
   // The frame → the quality gate → the descriptor (mode_a only) → the upload
   // to this guest's own folder → the parent saves. Taken AND saved in one go.
@@ -153,8 +198,12 @@ export function SelfieCapture({
     setBusy(true);
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // ⚡ The working copy is at most SELFIE_MAX_SIDE on its long side: the checks and the face reading run on it in
+      // a fraction of the time a full 1280 frame takes on a phone, and the upload is a fraction of the size. A face
+      // filling the oval is still hundreds of pixels across — the recognition net reads it at 150.
+      const scale = Math.min(1, SELFIE_MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('canvas');
       // Mirror, so the saved photo matches the preview the guest just saw.
@@ -177,16 +226,41 @@ export function SelfieCapture({
 
       let vector: number[] | null = null;
       if (faceMode === 'mode_a') {
+        // The reader itself did not arrive (script or weights failed to download) — not the guest's face.
+        let unloaded = false;
         try {
-          const { embedSingleFace } = await import('@/lib/face-embed');
-          const r = await embedSingleFace(canvas);
+          const { embedSingleFace, faceEmbedDidNotLoad } = await import('@/lib/face-embed');
+          let r = await embedSingleFace(canvas);
+          unloaded = faceEmbedDidNotLoad();
+          // Not found on the small copy (a face held further off) → read the camera's full frame once more. Not when
+          // the reader never loaded: a second read would only wait for the same download again.
+          if (faceMode === 'mode_a' && !r && scale < 1 && !unloaded) {
+            const full = document.createElement('canvas');
+            full.width = video.videoWidth;
+            full.height = video.videoHeight;
+            const fctx = full.getContext('2d');
+            if (fctx) {
+              fctx.translate(full.width, 0);
+              fctx.scale(-1, 1);
+              fctx.drawImage(video, 0, 0, full.width, full.height);
+              r = await embedSingleFace(full);
+            }
+          }
           vector = r ? r.vector : null;
         } catch {
           vector = null;
+          unloaded = true;
+        }
+        // 🔒 NO FINGERPRINT, NO SAVE (owner 2026-10-30): a mode_a selfie the phone could not read matches nobody —
+        // saving it told Indalecia she was set while every photo of her went to somebody else. Say so; she stays here.
+        // The words are honest about WHICH failed: a reader that never downloaded is "connection lost", not her face.
+        if (!vector && isFaceModelConfigured()) {
+          onFail(faceStepFailureWords(unloaded ? 'save' : 'face_unread'));
+          return;
         }
       }
 
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
       if (!blob) throw new Error('blob');
       const presign = await fetch('/api/guest-selfie', {
         method: 'POST',
@@ -206,7 +280,10 @@ export function SelfieCapture({
   }, [agreed, busy, saving, live, onFail, onShot, faceMode]);
 
   const working = busy || saving;
-  const ready = agreed && !working;
+  // Ticked, and the camera has answered — live, or refused (the press then says
+  // "camera blocked", as before). While it is still starting the button waits:
+  // a press in that second used to be told the camera was blocked.
+  const ready = agreed && !working && (live || blocked);
 
   return (
     <div
@@ -225,14 +302,15 @@ export function SelfieCapture({
         autoPlay
         className="absolute inset-0 h-full w-full -scale-x-100 object-cover"
       />
-      {!live && !blocked ? (
+      {/* Starting — only once ticked; before the tick there is nothing to wait for. */}
+      {agreed && !live && !blocked ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/50" strokeWidth={2} />
         </div>
       ) : null}
       {/* The soft oval to stand in. Decorative. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center pb-40">
-        <div className="aspect-[3/4] w-[58%] max-w-[13.5rem] rounded-[50%] border border-cream/70 shadow-[0_0_0_9999px_rgba(29,23,25,0.45)]" />
+        <div className="aspect-[3/4] w-[78%] max-w-[18rem] rounded-[50%] border border-cream/70 shadow-[0_0_0_9999px_rgba(29,23,25,0.45)]" />
       </div>
 
       {/* Top: × and the title (frame A). */}
@@ -241,7 +319,7 @@ export function SelfieCapture({
           type="button"
           onClick={onClose}
           aria-label="Not now"
-          className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/30"
+          className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/30"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
@@ -262,7 +340,11 @@ export function SelfieCapture({
                 type="checkbox"
                 name="face_step_agree"
                 checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
+                onChange={(e) => {
+                  // A fresh tick is a fresh ask of the camera: a refusal from before is not carried over.
+                  if (e.target.checked) setBlocked(false);
+                  setAgreed(e.target.checked);
+                }}
                 className="h-5 w-5 shrink-0 rounded border-ink/40 text-ink focus:ring-ink"
               />
               <span>{FACE_STEP_TICK}</span>
@@ -271,9 +353,17 @@ export function SelfieCapture({
               type="button"
               onClick={() => setDetails(true)}
               aria-label="Details"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/55"
+              className="sn-press group/info -m-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
             >
-              <Info aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {/* The house ⓘ, class for class (`<InfoTip>`'s drawn circle — owner 2026-10-25: "the (i) is not
+                  consistent across the app"), inside this 44-px button, which opens the details sheet. Its hover
+                  colour is InfoTip's `terracotta` — on a guest page, the couple's own colour. */}
+              <span
+                aria-hidden="true"
+                className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta" /* legibility-ok — the aria-hidden "i" of the house ⓘ (16 px dot, InfoTip's size); the button is named "Details" */
+              >
+                i
+              </span>
             </button>
           </div>
           {/* Both inputs the enrolment reads, posted only with the tick. */}
@@ -294,7 +384,7 @@ export function SelfieCapture({
             Take selfie
           </button>
           {agreed ? null : (
-            <p id="face-step-hint" className="mt-2 text-center text-xs text-ink/55">
+            <p id="face-step-hint" className="mt-2 text-center text-xs text-ink/70">
               {FACE_STEP_TICK_HINT}
             </p>
           )}
@@ -313,7 +403,7 @@ export function SelfieCapture({
         >
           <div className="max-h-[85%] overflow-y-auto rounded-t-3xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-ink">
             <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-ink/15" />
-            <p className="text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-ink/60">Face tagging</p>
+            <p className="text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-ink/70">Face tagging</p>
             <p className="mt-1 text-center font-serif text-lg leading-snug">
               One selfie, so Papic can spot you in {w.theOrganizerPossessive} photos.
             </p>

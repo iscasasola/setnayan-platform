@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { shopToolShelves } from './shop-tool-shelves';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
+import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 
 function fakeProfile(services: string[]): VendorProfileRow {
   return { services } as unknown as VendorProfileRow;
@@ -36,7 +37,7 @@ function couplesSeeHrefs(hasAccess: boolean, hasMusicRepertoireAccess = false): 
 }
 
 test('a shop whose only service is bridal_gown_custom gets the moodboard-library card', () => {
-  const access = moodboardLibraryAccessForProfile(fakeProfile(['bridal_gown_custom']));
+  const access = moodboardLibraryAccessForProfile(fakeProfile(['bridal_gown_custom']), fallbackInspirationParts());
   assert.equal(access.allowed, true, 'a gown designer supplies the bride slot and should be allowed');
 
   const hrefs = couplesSeeHrefs(access.allowed);
@@ -46,13 +47,20 @@ test('a shop whose only service is bridal_gown_custom gets the moodboard-library
   );
 });
 
-test('a shop with no supplying trade does not get the moodboard-library card', () => {
-  const access = moodboardLibraryAccessForProfile(fakeProfile(['disputes_only_trade_that_supplies_nothing']));
-  assert.equal(access.allowed, false, 'a trade with no mood-board slot must be refused');
+test('a shop whose trade supplies no shelf yet STILL gets the moodboard-library card (owner 2026-11-02, the gate)', () => {
+  // Was "does not get the card" until 2026-11-02: the inspiration box is one of the five things the supplier gate
+  // needs, for EVERY trade (`libraryUploadVerdict`, lib/moodboard-gallery-upload.ts).
+  const access = moodboardLibraryAccessForProfile(fakeProfile(['disputes_only_trade_that_supplies_nothing']), fallbackInspirationParts());
+  assert.equal(access.allowed, true, 'a trade with no shelf of its own must still reach the inspiration box');
 
   const hrefs = couplesSeeHrefs(access.allowed);
   assert.ok(
-    !hrefs.includes('/vendor-dashboard/moodboard-library'),
-    'the rendered shelf must NOT include the moodboard-library card when access is refused',
+    hrefs.includes('/vendor-dashboard/moodboard-library'),
+    'the rendered shelf must include the moodboard-library card for every trade',
   );
+});
+
+test('a refused access (no shop) still hides the card', () => {
+  const hrefs = couplesSeeHrefs(moodboardLibraryAccessForProfile(null, fallbackInspirationParts()).allowed);
+  assert.ok(!hrefs.includes('/vendor-dashboard/moodboard-library'));
 });

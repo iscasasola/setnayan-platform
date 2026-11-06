@@ -101,7 +101,7 @@ export async function ReuseBookingsPanel() {
                       <input type="hidden" name="request_id" value={r.requestId} />
                       <button
                         type="submit"
-                        className="rounded-lg bg-success-600 px-3 py-1 text-xs font-semibold text-white hover:bg-success-700"
+                        className="rounded-lg bg-success-600 px-3 py-1 text-xs font-semibold text-white dark:text-cream hover:bg-success-700"
                       >
                         Accept
                       </button>

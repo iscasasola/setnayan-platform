@@ -6,6 +6,7 @@ import satori from 'satori';
 import sharp from 'sharp';
 
 import { CREATOR_BADGE_LABEL } from '@/app/_components/creator-badge';
+import { cardPhotoSignal } from '@/lib/social/card-photo-fetch';
 
 /**
  * apps/web/lib/social/chapter-card.tsx — the Open Graph share card for a public
@@ -340,7 +341,7 @@ function photoOverlayTree(input: ChapterCardInput): VNode {
 export async function renderChapterOgJpeg(input: ChapterCardInput): Promise<Buffer> {
   if (input.thumbUrl) {
     try {
-      const res = await fetch(input.thumbUrl);
+      const res = await fetch(input.thumbUrl, { signal: cardPhotoSignal() });
       if (res.ok) {
         const photo = Buffer.from(await res.arrayBuffer());
         const base = await sharp(photo)

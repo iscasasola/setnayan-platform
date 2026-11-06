@@ -65,13 +65,17 @@ test("where Studio › Info's door ships, it carries the same key", () => {
     special_message: 'app/dashboard/[eventId]/launch/_components/special-message-field.tsx',
     what_to_bring: 'app/dashboard/[eventId]/website/editor/page.tsx',
     opening_line: 'app/dashboard/[eventId]/launch/_components/opening-line-field.tsx',
+    photos_heading: 'app/dashboard/[eventId]/launch/_components/studio-info.tsx',
   };
   for (const [field, door] of Object.entries(MAKER_INFO_DOORS)) {
     if (door.sameField === null) continue;
     const file = where[field];
     assert.ok(file, `${field}: this test knows its Info door`);
     const src = read(file!);
-    assert.ok(src.includes(`data-same-field="${door.sameField}"`) || src.includes(`sameField="${door.sameField}"`), `${field}: its Info door carries "${door.sameField}"`);
+    assert.ok(
+      src.includes(`data-same-field="${door.sameField}"`) || src.includes(`sameField="${door.sameField}"`) || src.includes(`'data-same-field': '${door.sameField}'`),
+      `${field}: its Info door carries "${door.sameField}"`,
+    );
   }
   assert.match(read('app/dashboard/[eventId]/website/editor/_components/text-panel.tsx'), /data-same-field=\{sameField\}/, 'the Reminders box wears its key');
 });

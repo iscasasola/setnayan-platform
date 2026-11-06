@@ -112,6 +112,45 @@ export const VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE = 'vendor_papic_portfolio_pack
 export const VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS = 100;
 
 /**
+ * 🛍 THE SHOP BUYS THE SAME PAPIC PACKS COUPLES BUY (owner 2026-11-04, "SIX OWNER ANSWERS" (4): *"Same price for
+ * papic"*). The ₱500 `vendor_papic_portfolio_pack` is retired (`is_active = false`; credits already bought stay in the
+ * wallet, and an order minted before today still activates through its own key). A shop pack order's
+ * `orders.service_key` is this prefix + the couple pack's catalogue code (`PAPIC_GUEST_150` · `PAPIC_GUEST_1K` ·
+ * `PAPIC_GUEST`); its PRICE is that row's `retail_price_php` and its CREDITS that rung's `papic_pass_tiers.points` —
+ * both read, never typed. The credits land in the SHOP WALLET, not an event's pool.
+ *
+ * `VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS` above stays as the "under a pack's worth" line `offerPack` draws (and the
+ * credits a pre-2026-11-04 order of the retired pack still grants).
+ */
+export const SHOP_PAPIC_PACK_KEY_PREFIX = 'vendor_papic_pack__';
+
+/** A couple pack offered to a shop, as read from the catalogue. */
+export type ShopPapicPack = {
+  code: string;
+  title: string;
+  credits: number;
+  /** The price couples pay (`retail_price_php`). */
+  pricePhp: number;
+  /**
+   * 🎁 What a Verified-and-up shop pays to GIFT this pack (`gift_price_php`, owner 2026-11-04 "GIFT PRICES"), or
+   * null when the row has none — then every shop pays `pricePhp`. Read with the pack, never typed.
+   */
+  giftPricePhp?: number | null;
+};
+
+/** The order key a shop pack is minted under. */
+export function shopPapicPackServiceKey(code: string): string {
+  return SHOP_PAPIC_PACK_KEY_PREFIX + code;
+}
+
+/** The couple pack code a shop pack order bought, or null for any other key. Only `PAPIC_GUEST*` codes qualify. */
+export function shopPapicPackCodeOf(serviceKey: string | null | undefined): string | null {
+  if (typeof serviceKey !== 'string' || !serviceKey.startsWith(SHOP_PAPIC_PACK_KEY_PREFIX)) return null;
+  const code = serviceKey.slice(SHOP_PAPIC_PACK_KEY_PREFIX.length);
+  return /^PAPIC_GUEST(_[A-Z0-9]+)?$/.test(code) ? code : null;
+}
+
+/**
  * Credits a booking fee earns: `floor(fee × 5%)`, capped, NO floor.
  *
  * `null` / `undefined` / NaN / ≤ 0 → 0. A caller that could not READ the fee
@@ -158,19 +197,18 @@ export function offerPack(creditsGranted: number): boolean {
  *   left         — what the on-the-day allowance says remains (tier floor
  *                  included, so it is the SAME number the capture screen shows).
  *                  `null` = unlimited (an admin-comped Unli tier).
- *   packSkuCode  — the SKU to mint an order for.
- *   packPricePhp — its price, read from `vendor_billing_catalog`; `null` when
- *                  the row is missing or inactive — render "unavailable", never
- *                  a remembered number.
- *   packCredits  — 100.
+ *   packs        — the couple's Papic packs on sale (2026-11-04), read from
+ *                  `platform_retail_catalog_v2` + `papic_pass_tiers`; `null`
+ *                  when unreadable — render "unavailable", never a number.
+ *   packCredits  — 100 (the "under a pack's worth" line).
  *   offerPack    — `offerPack(credits)`, so the CTA rule is not re-derived.
  */
 export type VendorPapicPortfolioCredits = {
   credits: number | null;
   spent: number;
   left: number | null;
-  packSkuCode: string;
-  packPricePhp: number | null;
   packCredits: number;
+  /** The packs on sale to this shop (the couple's three), read from the catalogue; `null` = unreadable. */
+  packs: readonly ShopPapicPack[] | null;
   offerPack: boolean;
 };

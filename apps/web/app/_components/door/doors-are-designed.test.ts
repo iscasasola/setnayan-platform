@@ -417,14 +417,18 @@ const readsAsText = (line: string): boolean => {
 const ALLOWED_DOOR_LINES: ReadonlyArray<{ file: string; snippet: string }> = [
   { file: 'forgot-password/page.tsx', snippet: 'One account for couples planning their' },
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Marketplace exposure to other PH couples' },
-  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Chat with couples in-app' },
-  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Couples browsing the marketplace' },
+  // Moved with the team door into `TeamInviteDoor` (personal invite, 2026-10-23) — the same shipped perk.
+  { file: 'vendor/claim/[token]/_components/claim-parts.tsx', snippet: 'Chat with couples in-app' },
   // ⚖ NOT COPY: `event_members.member_type` compared against its enum value in
   // the signed-in arm's redirect — it never reaches a screen. join-flow.tsx joined
   // this rule's derived set on 2026-09-10 when it began importing DoorShell's
   // `DoorSkin` type for the invite themes; every OTHER line of it is now guarded
   // here for the first time, which is why this is a snippet and not the file.
   { file: 'join/[eventId]/_components/join-flow.tsx', snippet: "existing.member_type === 'couple'" },
+  // The same customer-base perk as page.tsx's, moved with `Perk` into the couple's-link door (2026-10-12).
+  { file: 'vendor/claim/[token]/_components/claim-parts.tsx', snippet: 'Marketplace exposure to other PH couples' },
+  // ⚖ NOT COPY: an import path (the module that seats the claimed couple as a customer) — it never reaches a screen.
+  { file: 'vendor/claim/[token]/finalize/page.tsx', snippet: "import { seatClaimedCoupleAsCustomer } from '@/lib/claimed-couple-is-a-customer.server';" },
 ];
 
 function doorFiles(): Array<{ rel: string; src: string }> {

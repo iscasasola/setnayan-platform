@@ -10,7 +10,6 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import {
   SAMPLE_PRINT_PIECES,
   TILE_GIVE_UP_MS,
-  TILE_H,
   TILE_PAGE_H,
   TILE_PAGE_W,
   TILE_SCALE,
@@ -177,7 +176,9 @@ export function ThemePickProvider({
       }
     });
     start(async () => {
-      await queue.current;
+      /* Busy until the queue is through. Each link catches its own save (above); this wait never throws into the
+         transition either — a throw here would replace the whole Maker with the app's error screen. */
+      await queue.current.catch(() => undefined);
     });
   };
 
@@ -310,7 +311,12 @@ export function MakerThemeGallery({
                   on ? 'ring-2 ring-ink' : 'ring-1 ring-ink/10'
                 }`}
               >
-                <span className="relative block shrink-0 overflow-hidden rounded-md bg-white" style={{ width: TILE_W, height: TILE_H }}>
+                <span
+                  /* 📱 The ONE phone-shaped frame (`globals.css` `.sn-phone-card`, 3 : 4 — owner 2026-10-08, "on all style
+                     across the market hub"): the top of the couple's page in this theme, at the tile's own width. */
+                  className="sn-phone-card relative block shrink-0 overflow-hidden rounded-md bg-white"
+                  style={{ ['--phone-card-w' as string]: `${TILE_W}px` }}
+                >
                   {/* ⚖ Pictures at the size they are drawn (next/image, 2× of 132 px),
                       never the full poster — a phone loads a few KB per entry. */}
                   {still && seen ? (
@@ -416,7 +422,7 @@ export function MakerThemeMenu({
   themes: ThemeTile[];
   ownsPro: boolean;
   storeShell: boolean;
-  /** 🎞 The one line under Theme while the Save the Date film keeps its own background (`FilmFollowsTheme`). */
+  /** 🎞 A line under Theme (it was the Save the Date film's "Same as the Event Hub", which left Look 2026-10-08 — nothing hands one today). */
   filmLine?: ReactNode;
 }) {
   const { picked, error, pick } = usePick();
@@ -426,8 +432,14 @@ export function MakerThemeMenu({
       <div className="flex min-h-11 items-center justify-between gap-3">
         <InfoTip label="Theme" align="start">
           Your whole Event Hub wears it — colours, lettering and motion — and so does every print.{' '}
-          {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
-          asks. It goes into your draft: Undo steps it back, Apply puts it live.
+          {/* 🍎 The iPhone app lists only the free themes (`tilesShown`) and names no paid extra. */}
+          {storeShell && !ownsPro ? null : (
+            <>
+              {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
+              asks.{' '}
+            </>
+          )}
+          It goes into your draft: Undo steps it back, Apply puts it live.
         </InfoTip>
         <PickMenu
           label="Theme"

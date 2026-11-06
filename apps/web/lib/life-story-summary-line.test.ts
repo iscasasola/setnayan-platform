@@ -45,6 +45,6 @@ test('singulars read as singulars', () => {
 
 test('no moments yet gets the invitation, never a count', () => {
   const line = lifeFlashSummaryLine(0, 0);
-  assert.equal(line, 'Moments gather here live, from every celebration you’re part of.');
+  assert.equal(line, 'Moments gather here live, from every event you’re part of.');
   assert.ok(!/\d/.test(line), 'the empty state must carry no number at all');
 });

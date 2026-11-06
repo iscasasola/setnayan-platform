@@ -88,7 +88,7 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}`)
+    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();

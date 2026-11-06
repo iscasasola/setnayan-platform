@@ -171,10 +171,10 @@ export function WallProjection({
           </span>
         ) : null}
         <h1 className="mt-6 text-5xl font-semibold tracking-tight">
-          {initial.displayName ?? 'The celebration'}
+          {initial.displayName ?? 'The event'}
         </h1>
         <p className="mt-6 max-w-xl text-lg text-cream/60">
-          The photo wall lights up when the celebration starts.
+          Memory lane lights up when the event starts.
         </p>
         <ConnDot conn={conn} />
       </main>
@@ -347,7 +347,7 @@ function ConnDot({ conn }: { conn: Conn }) {
   const label =
     conn === 'live' ? 'connected' : conn === 'reconnecting' ? 'reconnecting' : 'offline';
   return (
-    <span className="inline-flex items-center gap-1.5" role="status" aria-label={`wall ${label}`}>
+    <span className="inline-flex items-center gap-1.5" role="status" aria-label={`Memory lane ${label}`}>
       <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
     </span>
   );

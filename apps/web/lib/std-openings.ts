@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventHubPartActive, eventOwnsHubPart } from '@/lib/couple-website-pro';
 
 /**
  * apps/web/lib/std-openings.ts
@@ -53,7 +54,9 @@ export async function eventOwnsStdOpenings(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventOwnsSku(supabase, eventId, STD_PREMIUM_OPENINGS_SERVICE_KEY);
+  // 💎 …or the Reveal part (owner 2026-10-22, gates 1–2); Full Pro and the cap are inside its answer.
+  if (await eventOwnsSku(supabase, eventId, STD_PREMIUM_OPENINGS_SERVICE_KEY)) return true;
+  return eventOwnsHubPart(supabase, eventId, 'reveal');
 }
 
 /**
@@ -66,5 +69,7 @@ export async function eventStdOpeningsActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventSkuActive(supabase, eventId, STD_PREMIUM_OPENINGS_SERVICE_KEY);
+  // 💎 …or the Reveal part, active (owner 2026-10-22, gates 1–2).
+  if (await eventSkuActive(supabase, eventId, STD_PREMIUM_OPENINGS_SERVICE_KEY)) return true;
+  return eventHubPartActive(supabase, eventId, 'reveal');
 }

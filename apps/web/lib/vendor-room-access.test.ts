@@ -210,9 +210,11 @@ const ROOM_SITES: ReadonlyArray<readonly [string, number]> = [
   // ("which events is this shop booked on?"), and it was the one leave-behind
   // named as a real gap rather than a deliberate choice.
   ['lib/vendor-overview.ts', 1],
-  // S43 · My Customers → Clients, "Booked via Setnayan" — the same question
-  // again, and the same gap: an agreed or Locked-QR booking was not listed.
-  ['app/vendor-dashboard/clients/surface.tsx', 1],
+  // (S43 · My Customers → Clients, "Booked via Setnayan" sat here. Retired by
+  // S-PR2, 2026-10-13: those customers are People rows, whose booked lane is
+  // `customerLaneOf` over the shop's `event_vendors` rows — `lockRequestStateOf`
+  // reads `contracted` (an agreed lock) and `deposit_paid` (a claimed Locked QR)
+  // as booked, so neither arm needs the room read there.)
 ];
 
 test('every day-of screen asks the room read, and none of them still asks the pool', () => {
@@ -230,7 +232,7 @@ test('every day-of screen asks the room read, and none of them still asks the po
     );
     total += calls;
   }
-  assert.equal(total, 12, 'ten day-of call sites in six files, plus the Overview’s Upcoming and the Clients list');
+  assert.equal(total, 11, 'ten day-of call sites in six files, plus the Overview’s Upcoming');
 });
 
 test('the Upcoming row id does not depend on a pool row (SUP-8)', () => {
@@ -260,12 +262,8 @@ test('the interconnection probe keeps watching the pool reader it was written fo
 test('every reader left on the pool read carries a stated reason', () => {
   // A leave-behind with no reason is indistinguishable from one that was missed.
   const LEFT = [
-    'app/vendor-dashboard/calendar/surface.tsx',
-    'app/vendor-dashboard/calendar/[date]/page.tsx',
     'app/vendor-dashboard/customers/page.tsx',
-    'app/vendor-dashboard/shop/page.tsx',
-    'app/vendor-dashboard/recaps/page.tsx',
-    'app/vendor-dashboard/real-stories/page.tsx',
+    'app/vendor-dashboard/shop/promote/_components/share-your-work-data.ts',
     'app/vendor-dashboard/proposals/surface.tsx',
     'app/vendor-dashboard/services/_components/services-manager.tsx',
     'app/v/[slug]/page.tsx',
@@ -273,7 +271,13 @@ test('every reader left on the pool read carries a stated reason', () => {
   ];
   // 12 → 11: lib/vendor-overview.ts moved to the room read (SUP-8).
   // 11 → 10: clients/surface.tsx moved to the room read (S43).
-  assert.equal(LEFT.length, 10, 'ten readers stay on the pool read — measured, not remembered');
+  // 10 → 8: calendar/surface.tsx retired and calendar/[date] became a redirect (S-PR3) — their month and their one
+  //         day are Customers › Dates now, whose every pool read states the same CAPACITY reason.
+  // 8 → 7: shop/page.tsx no longer reads the pool — its only use fed the Stories and Recap number tiles, which left
+  //        Shop › Services for Shop › How it is going (owner "Yes to all", 2026-10-21, item 4).
+  // 7 → 6: the Recaps and Stories pages became forwards to Shop › Promote › Share your work (owner 2026-11-06), whose
+  //        ONE loader reads the pool once for both lists, with the same stated reason.
+  assert.equal(LEFT.length, 6, 'six readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');
     const idx = raw.indexOf('fetchVendorPoolBookings(');

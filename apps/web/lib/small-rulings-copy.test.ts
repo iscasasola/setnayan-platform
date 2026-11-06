@@ -61,8 +61,10 @@ test('the More Services card for the live service reads "Live Watch"', () => {
 });
 
 test('the Groups empty state does not name a parish', () => {
-  const src = readCode('app/dashboard/(account)/samahan/page.tsx');
-  assert.match(src, /Wala ka pang group\./, 'the empty state moved — this guard is pointed at nothing');
-  assert.match(src, /your barkada or clan/, 'the blurb lost its example');
+  // 2026-10-28: the old standalone Groups index forwards to People › Groups (owner: "it did not return to people"), so
+  // the Groups empty state is People's — `samahan-people-section.tsx`. Same rule: no parish named.
+  const src = readCode('app/dashboard/(account)/people/_components/samahan-people-section.tsx');
+  assert.match(src, /No group yet/, 'the empty state moved — this guard is pointed at nothing');
   assert.doesNotMatch(src, /parish/i, 'a parish is named on the Groups screen again');
+  assert.doesNotMatch(readCode('app/dashboard/(account)/samahan/page.tsx'), /parish/i);
 });

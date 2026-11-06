@@ -1,0 +1,62 @@
+'use client';
+
+/**
+ * 🎨 THE STUDIO'S ONE COLOUR CIRCLE — every colour Studio › Mood Board & Dress Code draws (owner 2026-10-19, on the
+ * Attire rows and the Palette side by side, verbatim: *"i like the circles on the attire. but they look different on the
+ * palette. palette has a dropdown but attire does not. all colors can be edited on palette. no need for code. just name
+ * if it has name. and just the circle like attire"*).
+ *
+ *   · `RoleColourDot` — the circle itself: 44 px to the finger, the colour on a 28 px circle inside, a hairline ring.
+ *     Moved here unchanged from `mood-board-studio.tsx`, where Attire drew it inline (its call sites' props are the same).
+ *   · `NamedColourDot` — the circle with its word under it, in the Attire dots' own type (`DOT_WORD`): Palette's five
+ *     (their slot word, then the name — `DOT_NAME`), the room, the flowers and the cake. The word is the colour's NAME
+ *     when it has one, never its code; no arrow.
+ *
+ * `colour-circles-are-one.test.ts` holds that the Studio draws no other colour circle and no colour code.
+ */
+
+/** The word under a circle — the Attire dots' own type. */
+export const DOT_WORD = '-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65';
+/** The colour's name under a main colour's slot word (prototype `.dotcol small.name`): the same type, quieter. */
+export const DOT_NAME = 'max-w-[64px] text-center text-[10.5px] leading-tight text-ink/50';
+
+/**
+ * 🎨 THE ROLE'S COLOUR CIRCLE — the one hand-made button for a colour a role wears (a zone's dot, a guest's option, a
+ * pick's colour): tap it to change the colour. 44 px to the finger, the colour on the circle inside.
+ */
+export function RoleColourDot({ label, colour, index, onPick, tight = false }: { label: string; colour: string; index: number; onPick: () => void; tight?: boolean }) {
+  return (
+    <button type="button" aria-label={label} data-mood-board-role-colour={index} onClick={onPick} className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${tight ? '-my-1' : ''}`}>
+      <i aria-hidden className={`${tight ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: colour }} />
+    </button>
+  );
+}
+
+/**
+ * A Palette colour: the same circle, its NAME under it (only when it has one — never the code). `onPick` absent = shown,
+ * not changeable (a part a supplier has agreed): the same circle, not a button, and its line says why.
+ */
+export function NamedColourDot({ label, colour, name, onPick, data, slot }: { label: string; colour: string; name: string | null; onPick?: () => void; data: string; slot?: string }) {
+  return (
+    <span className="flex flex-col items-center" data-mood-board-colour={data}>
+      {onPick ? (
+        <RoleColourDot label={label} colour={colour} index={0} onPick={onPick} />
+      ) : (
+        <span role="img" aria-label={label} className="inline-flex h-11 w-11 items-center justify-center" data-mood-board-colour-shown="">
+          <i aria-hidden className="h-7 w-7 rounded-full border border-ink/10" style={{ background: colour }} />
+        </span>
+      )}
+      {slot ? (
+        /* A main colour: its slot ("Dominant"), then the colour's name under it (prototype frame 1, YOUR MAIN PALETTE). */
+        <small className={DOT_WORD} data-mood-board-dot-slot={slot}>
+          {slot}
+        </small>
+      ) : null}
+      {name ? (
+        <small className={slot ? DOT_NAME : DOT_WORD} data-mood-board-dot-word={name}>
+          {name}
+        </small>
+      ) : null}
+    </span>
+  );
+}

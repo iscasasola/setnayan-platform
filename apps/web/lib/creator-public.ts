@@ -204,7 +204,11 @@ export async function fetchPublishedChapterByPublicId(
  * value / phantom RPC argument: the database DECLINES, and the only symptom is
  * that something isn't there.
  */
-export async function fetchPublishedChapterForShare(publicId: string): Promise<{
+export async function fetchPublishedChapterForShare(
+  publicId: string,
+  /** Told when a read was REFUSED — the `null` then is not "unpublished" (the Journal keeps that render briefly). */
+  onRefused?: (error: unknown) => void,
+): Promise<{
   chapter: PublicChapter;
   ownerName: string;
   ownerSlug: string;
@@ -219,6 +223,7 @@ export async function fetchPublishedChapterForShare(publicId: string): Promise<{
     .maybeSingle();
   if (error) {
     console.error('[creator-public] chapter share read failed', publicId, error);
+    onRefused?.(error);
   }
   if (!data) return null;
   const row = data as Record<string, unknown>;
@@ -236,6 +241,7 @@ export async function fetchPublishedChapterForShare(publicId: string): Promise<{
       publicId,
       ownerError,
     );
+    onRefused?.(ownerError);
   }
   const u = owner as {
     slug: string | null;

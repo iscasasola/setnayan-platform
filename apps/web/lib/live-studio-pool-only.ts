@@ -110,9 +110,17 @@ export const POOL_ONLY_DEFAULT_NOTICE =
  * picking a notice inline — that is exactly how the two copies would drift, or
  * how a surface could end up showing the add-on sentence to a default host.
  */
-export function poolOnlyConnectNotice(ownsHostedChannel: boolean): string {
-  return ownsHostedChannel ? POOL_ONLY_CONNECT_NOTICE : POOL_ONLY_DEFAULT_NOTICE;
+export function poolOnlyConnectNotice(ownsHostedChannel: boolean, appleIap = false): string {
+  if (ownsHostedChannel) return POOL_ONLY_CONNECT_NOTICE;
+  return appleIap ? POOL_ONLY_APP_NOTICE : POOL_ONLY_DEFAULT_NOTICE;
 }
+
+/**
+ * 🍎 The same door in the iPhone app where Apple sells (the controller opens there for an owned Live Watch): the
+ * default notice WITHOUT its last sentence. The hosted channel is a web extra Apple does not sell, so the app does
+ * not offer it (guideline 3.1.1) — the paste-link route to air is the whole truth there.
+ */
+export const POOL_ONLY_APP_NOTICE = POOL_ONLY_DEFAULT_NOTICE.slice(0, POOL_ONLY_DEFAULT_NOTICE.indexOf(' Rather have'));
 
 /**
  * 🚨 THE POOL CHANNEL'S RISK IS NOT THE BUYER'S — IT IS EVERY OTHER COUPLE'S.

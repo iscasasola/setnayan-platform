@@ -8,6 +8,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { InfoTip } from './info-tip';
 import { formatCount } from '@/lib/format-number';
 import type { TourSlideView } from './tour-slide-view';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 type Props = {
   tourKey: TourKey;
@@ -37,7 +38,14 @@ export function GuidedTourCard({ tourKey, slides, label, blurb, completeAction }
   const dismiss = (): void => {
     setOpen(false);
     startTransition(async () => {
-      await completeAction(tourKey);
+      /* 📵 The card is already closed: a record that could not be written (no signal, a 5xx) must not take the page
+         with it — thrown here it replaced the whole screen with the app's error page. Nothing to say: the tour is
+         simply offered once more on the next visit. */
+      try {
+        await completeAction(tourKey);
+      } catch {
+        /* not recorded — shown again next time */
+      }
     });
   };
 
@@ -64,8 +72,9 @@ export function GuidedTourCard({ tourKey, slides, label, blurb, completeAction }
          sized to the DOCUMENT, so "the bottom" was 1300px below the fold and
          the card surfaced behind the bottom nav. #5582 fixes the sizing; the
          owner asked for centre regardless, so centre it is. */
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm focus:outline-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 focus:outline-none"
     >
+      <OverlayBackdrop onClose={dismiss} />
       {/* House style (2026-09-25 · Maker Phase 11): no bordered card — this is
           `.sn-glass-bare` (borderless glass, seated by `--sn-sh-float`
           instead of a hairline) + shadow, the same skin `maker-tour.tsx`

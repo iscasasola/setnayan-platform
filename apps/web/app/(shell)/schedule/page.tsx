@@ -87,8 +87,8 @@ const APP_LD = {
   featureList: [
     'Build your day-of timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off',
     'Give each block a time, a place, notes, and who is responsible',
-    'Show a block to guests or keep it hidden — public blocks appear on every guest’s invitation site',
-    'A live “happening now” on the invitation site as the day unfolds',
+    'Show a block to guests or keep it hidden — public blocks appear on your Event Hub',
+    'A live “happening now” on your Event Hub as the day unfolds',
     'Running late? Shift a block and everything after it in one move, durations kept',
     'Booked suppliers see the blocks they carry, and can suggest changes you accept or decline',
     'Turn the timeline into a ready-to-read emcee or host script',
@@ -108,7 +108,7 @@ const FAQ = [
   },
   {
     q: 'Do our guests see it?',
-    a: 'Only what you choose. Each block has a Show to guests switch. Public blocks appear on every guest’s invitation site with a live “happening now” highlight as the day unfolds, so they always know what is next and roughly when. Drafts stay private until you flip them visible.',
+    a: 'Only what you choose. Each block has a Show to guests switch. Public blocks appear on your Event Hub with a live “happening now” highlight as the day unfolds, so they always know what is next and roughly when. Drafts stay private until you flip them visible.',
   },
   {
     q: 'What happens when the day runs late?',
@@ -141,7 +141,7 @@ const STEPS = [
   },
   {
     t: 'Say who does what, and who sees what',
-    d: 'Name the responsible party on each block and tag the booked suppliers who carry it. Flip Show to guests on the blocks that belong on the invitation site; keep the crew logistics hidden.',
+    d: 'Name the responsible party on each block and tag the booked suppliers who carry it. Flip Show to guests on the blocks that belong on your Event Hub; keep the crew logistics hidden.',
   },
   {
     t: 'Run the day from it',
@@ -151,7 +151,7 @@ const STEPS = [
 
 const VS = [
   ['A program pasted into a group chat', 'A master timeline every view reads from'],
-  ['Guests asking what time the ceremony starts', 'Public blocks on the invitation site, with “happening now”'],
+  ['Guests asking what time the ceremony starts', 'Public blocks on your Event Hub, with “happening now”'],
   ['Re-typing every time after the ceremony runs late', 'Shift a block and everything after it, durations kept'],
   ['Suppliers keeping their own copy of your day', 'Suppliers see their blocks, suggest changes, and you decide'],
 ] as const;
@@ -171,7 +171,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Show to guests',
     t: 'What guests see, and what they don’t',
-    d: 'Public blocks appear on every guest’s invitation site with a live “happening now” as the day unfolds. Drafts stay private until you flip them visible.',
+    d: 'Public blocks appear on your Event Hub with a live “happening now” as the day unfolds. Drafts stay private until you flip them visible.',
     media: { kind: 'photo', src: '/demo/maria-jose/toast.webp', alt: 'Guests raising a toast at their table' },
   },
   {
@@ -211,13 +211,13 @@ export default function ScheduleLandingPage() {
       steps={STEPS}
       differentiator={{
         heading: 'One timeline that guests, suppliers and your emcee all read from',
-        lede: 'Every view is a live filter over the same master — what guests see on the invitation site, what each supplier is responsible for, what the emcee reads — so you edit the master and each slice updates itself.',
+        lede: 'Every view is a live filter over the same master — what guests see on your Event Hub, what each supplier is responsible for, what the emcee reads — so you edit the master and each slice updates itself.',
         rows: VS,
       }}
       faq={FAQ}
       closing={{
         heading: 'Start with the day itself',
-        body: 'The Schedule is free with every Setnayan wedding — beside your guest list, seat plan, budget and mood board. Nothing to buy, and it is the timeline the invitation site, your suppliers and your emcee all read from.',
+        body: 'The Schedule is free with every Setnayan wedding — beside your guest list, seat plan, budget and mood board. Nothing to buy, and it is the timeline your Event Hub, your suppliers and your emcee all read from.',
         href: '/onboarding/wedding?from=schedule',
         label: 'Start planning · free',
       }}

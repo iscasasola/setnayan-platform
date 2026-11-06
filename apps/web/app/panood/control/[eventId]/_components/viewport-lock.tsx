@@ -13,7 +13,7 @@ import { useEffect } from 'react';
  *
  * This belt-and-braces lock exists for the things that are NOT the shell. The
  * root layout mounts a handful of global siblings ahead of `{children}` (the
- * cold-start splash, the pilot / demo banners, the cookie-consent banner). Any
+ * cold-start splash, the demo banner, the stale-tab notice). Any
  * one of them rendering in normal flow would give the document a scrollbar the
  * operator can drag — and the whole point of § 4g is that a one-handed operator
  * mid-ceremony cannot be shown a control that scrolled away, nor be able to

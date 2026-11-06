@@ -7,39 +7,50 @@
 // read-only autofill. This file adds the couple's add/delete affordances on
 // top of it, backed by the new `event_preparation_items` table:
 //
-//   • AddPreparationItem — a compact "+ Add to schedule" trigger that opens
-//     the canonical Setnayan modal (bottom-sheet on mobile via items-end →
-//     sm:items-center; ESC + backdrop dismiss; matches cancel-booking-button
-//     .tsx). Fields: label (required), date (required), optional notes.
-//     Calls the addPreparationItem server action.
+//   • AddPreparationItem — "+ Add to schedule" (or the thumb-zone "+ Add a step")
+//     opening the Schedule's ONE pop-up (schedule-sheet.tsx, 2026-10-31).
+//     Fields: type, label (required), amount (payment), date (required),
+//     optional notes. Calls the addPreparationItem server action.
 //
-//   • DeletePreparationItemButton — a small inline Trash2 affordance rendered
-//     on the deletable agenda rows (the event_preparation_items rows only,
-//     NOT the autofill rows). Calls deletePreparationItem. A couple may
-//     remove their own items AND dismiss vendor-added ones (RLS allows both).
+//   • PrepItemSwipe — the deletable agenda rows' swipe-left Delete, with Undo
+//     (owner 2026-11-03; it was a small inline Trash2 button). The
+//     event_preparation_items rows only, NOT the autofill rows. Calls
+//     deletePreparationItem. A couple may remove their own items AND dismiss
+//     vendor-added ones (RLS allows both).
 //
 // Clean Editorial tokens only (cream / ink / terracotta / mulberry). All
 // interaction is contained here; the agenda stays a server component and
 // receives these as leaf controls.
 // ============================================================================
 
-import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { CalendarPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { useId, useState, useTransition, type ReactNode } from 'react';
+import { Plus, X } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { addPreparationItem, deletePreparationItem } from '../prep-actions';
-import { PrepKindPicker, type PrepKind } from './prep-kind-picker';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { PREP_KIND_OPTIONS, type PrepKind } from './prep-kind-picker';
+import { ScheduleAddPill, ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
 
 // ── Add ─────────────────────────────────────────────────────────────────
 
-export function AddPreparationItem({ eventId }: { eventId: string }) {
-  const router = useRouter();
+/**
+ * ＋ ADD A STEP — in the Schedule's ONE pop-up (owner 2026-10-31, live iPhone: *"the pop up. design template."* — this
+ * was a boxed card pinned under the top nav). Same fields (Type · What · Amount for a payment · When · Notes), the same
+ * `addPreparationItem` write; the frame, the field look and the thumb-zone answers are `schedule-sheet.tsx`'s. Type is
+ * ONE dropdown (owner 2026-09-28, *"if there are choices … drop down menu"*), never a segmented row.
+ *
+ *   `button`  the shipped "+ Add to schedule" button, where the agenda stands alone (its empty state, the page)
+ *   `pill`    "+ Add a step", the page's one add in the thumb zone (Suppliers › Booked › Schedule › Preparation)
+ */
+export function AddPreparationItem({ eventId, door = 'button', hidden = false }: { eventId: string; door?: 'button' | 'pill'; hidden?: boolean }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLInputElement | null>(null);
+  const formId = useId();
 
   function close() {
     if (isPending) return;
@@ -47,15 +58,6 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
     setErrorMessage(null);
     setKind('task');
   }
-
-  // Focus the label field on open so a couple can type immediately; `close`
-  // already blocks mid-submit, so Esc-to-close stays gated while pending.
-  useModalA11y({
-    open,
-    onClose: close,
-    containerRef: overlayRef,
-    initialFocusRef: labelRef,
-  });
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,7 +71,6 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
         setOpen(false);
         setErrorMessage(null);
         setKind('task');
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not add this item.',
@@ -89,156 +90,106 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-3 py-2 text-sm font-medium text-mulberry transition-colors hover:border-mulberry/50 hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-      >
-        <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Add to schedule
-      </button>
-
-      {open ? (
-        <div
-          ref={overlayRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-prep-headline"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={(e) => {
-            if (e.target === overlayRef.current) close();
-          }}
+      {door === 'pill' ? (
+        <ScheduleAddPill label="Add a step" data="step" view="preparation" hidden={hidden || open} onPress={() => setOpen(true)} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-3 py-2 text-sm font-medium text-mulberry transition-colors hover:border-mulberry/50 hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
         >
-          <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={close}
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+          Add to schedule
+        </button>
+      )}
+
+      <ScheduleSheet
+        open={open}
+        onClose={close}
+        id="add-prep-headline"
+        title="Add a step"
+        aside="Planning Stage"
+        data="add-step"
+        foot={
+          <SheetFoot>
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={close} disabled={isPending} />
+            <ActionButton
+              tone="brand"
+              main
+              icon={Plus}
+              label={isPending ? 'Adding…' : 'Add step'}
+              type="submit"
+              form={formId}
               disabled={isPending}
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
+              waiting={isPending}
+            />
+          </SheetFoot>
+        }
+      >
+        <form id={formId} onSubmit={onSubmit} className="space-y-3.5">
+          <input type="hidden" name="event_id" value={eventId} />
+          <SheetChoice label="Type">
+            <PickMenu
+              label="Type"
+              value={kind}
+              compact
+              dataAttr="data-prep-kind"
+              options={PREP_KIND_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+              onPick={(key) => setKind(key as PrepKind)}
+            />
+          </SheetChoice>
+          <SheetField
+            label={kind === 'meeting' ? 'Meeting title' : kind === 'payment' ? 'What is this payment for?' : 'What is it?'}
+          >
+            <input
+              name="label"
+              type="text"
+              required
+              maxLength={200}
+              placeholder={
+                kind === 'meeting'
+                  ? 'e.g. Final venue walkthrough'
+                  : kind === 'payment'
+                    ? 'e.g. Caterer balance'
+                    : 'e.g. Final dress fitting'
+              }
+              disabled={isPending}
+            />
+          </SheetField>
+          {kind === 'payment' ? (
+            <SheetField label="Amount (₱)">
+              <input
+                name="amount_php"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                required
+                placeholder="e.g. 25000"
+                disabled={isPending}
+              />
+            </SheetField>
+          ) : null}
+          <SheetField label={kind === 'payment' ? 'Due date' : 'When?'}>
+            <input name="due_date" type="date" required defaultValue={today} disabled={isPending} />
+          </SheetField>
+          <SheetField label={<>Notes <span className="text-ink/40">(optional)</span></>}>
+            <textarea
+              name="notes"
+              rows={3}
+              maxLength={2000}
+              placeholder="Anything to remember for this step"
+              disabled={isPending}
+            />
+          </SheetField>
 
-            <div className="mb-4 flex items-center gap-2">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-mulberry/10 text-mulberry">
-                <CalendarPlus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              <h2
-                id="add-prep-headline"
-                className="text-lg font-semibold tracking-tight text-ink"
-              >
-                Add to your schedule
-              </h2>
-            </div>
-
-            <form onSubmit={onSubmit} className="space-y-4">
-              <input type="hidden" name="event_id" value={eventId} />
-              <PrepKindPicker value={kind} onChange={setKind} disabled={isPending} />
-              <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">
-                  {kind === 'meeting'
-                    ? 'Meeting title'
-                    : kind === 'payment'
-                      ? 'What is this payment for?'
-                      : 'What is it?'}
-                </span>
-                <input
-                  ref={labelRef}
-                  name="label"
-                  required
-                  maxLength={200}
-                  placeholder={
-                    kind === 'meeting'
-                      ? 'e.g. Final venue walkthrough'
-                      : kind === 'payment'
-                        ? 'e.g. Caterer balance'
-                        : 'e.g. Final dress fitting'
-                  }
-                  className="input-field"
-                  disabled={isPending}
-                />
-              </label>
-              {kind === 'payment' ? (
-                <label className="block space-y-1">
-                  <span className="block text-xs font-medium text-ink">Amount (₱)</span>
-                  <input
-                    name="amount_php"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    required
-                    placeholder="e.g. 25000"
-                    className="input-field"
-                    disabled={isPending}
-                  />
-                </label>
-              ) : null}
-              <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">
-                  {kind === 'meeting' ? 'When?' : kind === 'payment' ? 'Due date' : 'When?'}
-                </span>
-                <input
-                  name="due_date"
-                  type="date"
-                  required
-                  defaultValue={today}
-                  className="input-field"
-                  disabled={isPending}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">
-                  Notes <span className="text-ink/40">(optional)</span>
-                </span>
-                <textarea
-                  name="notes"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Anything to remember for this step"
-                  className="input-field min-h-[80px] py-2"
-                  disabled={isPending}
-                />
-              </label>
-
-              {errorMessage ? (
-                <p role="alert" className="text-xs text-danger-700">
-                  {errorMessage}
-                </p>
-              ) : null}
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                <button
-                  type="button"
-                  onClick={close}
-                  disabled={isPending}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                      Adding…
-                    </>
-                  ) : (
-                    <>
-                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                      Add item
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+          {errorMessage ? (
+            <p role="alert" className="text-xs text-danger-700">
+              {errorMessage}
+            </p>
+          ) : null}
+        </form>
+      </ScheduleSheet>
     </>
   );
 }
@@ -246,55 +197,51 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
 // ── Delete ──────────────────────────────────────────────────────────────
 
 /**
- * Inline delete affordance rendered on deletable agenda rows (manual /
- * vendor-added). Single-tap delete — these rows are cheap to re-add and a
- * confirm dialog would be heavy for a planning list. Removes the row +
- * refreshes; errors surface inline as a tiny tooltip-style title.
+ * 👈 A HAND-ADDED STEP'S DELETE IS ITS SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW —
+ * NO VISIBLE ✕ ON ROWS"). It was a small trash button on the row (`DeletePreparationItemButton`); now the row itself is
+ * wrapped in THE ONE SWIPE (`app/_components/swipe-to-delete.tsx`) — swipe left on a phone, the hover trash on a
+ * computer — and the delete waits out the Undo window (`deleteWithUndo`): the row goes at once, Undo brings it back and
+ * nothing was written, a refusal brings it back and says so. Same write as before (`deletePreparationItem`, the same
+ * FormData). Only the manual / supplier-added rows (`event_preparation_items`) get it; autofill rows stay read-only.
+ *
+ * The page's Undo toast is mounted here, once per list (`UndoToastHost` draws only its first mount).
  */
-export function DeletePreparationItemButton({
+export function PrepItemSwipe({
   eventId,
   itemId,
   label,
+  children,
 }: {
   eventId: string;
   itemId: string;
   label: string;
+  children: ReactNode;
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  function onDelete() {
-    setErrorMessage(null);
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('item_id', itemId);
-    startTransition(async () => {
-      try {
-        await deletePreparationItem(fd);
-        router.refresh();
-      } catch (err) {
-        setErrorMessage(
-          err instanceof Error ? err.message : 'Could not remove this item.',
-        );
-      }
-    });
-  }
-
+  const [gone, setGone] = useState(false);
+  if (gone) return <div hidden data-swipe-gone="" />;
   return (
-    <button
-      type="button"
-      onClick={onDelete}
-      disabled={isPending}
-      title={errorMessage ?? `Remove “${label}”`}
-      aria-label={`Remove ${label}`}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-    >
-      {isPending ? (
-        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-      ) : (
-        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      )}
-    </button>
+    <>
+      <UndoToastHost />
+      <SwipeToDelete
+        label={`Delete ${label}`}
+        surfaceClass="bg-cream"
+        onDelete={() =>
+          deleteWithUndo({
+            label: `“${label}” deleted`,
+            hide: () => setGone(true),
+            restore: () => setGone(false),
+            commit: () => {
+              const fd = new FormData();
+              fd.set('event_id', eventId);
+              fd.set('item_id', itemId);
+              return deletePreparationItem(fd);
+            },
+            failed: `Couldn’t delete “${label}”. It’s back — try again.`,
+          })
+        }
+      >
+        {children}
+      </SwipeToDelete>
+    </>
   );
 }

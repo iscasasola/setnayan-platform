@@ -124,7 +124,11 @@ test('the day’s Welcome runs look · reminders · walking order · venue · E-
   const body = BODY();
   assert.match(body, /march=\{marchOnWelcome \? guestEntourage : null\}/);
   assert.match(body, /venue=\{<DayDirections venues=\{dayVenues\} \/>\}/);
-  assert.match(body, /\{marchOnWelcome \? null : guestEntourage\}/);
+  /* 📱 2026-10-08 (owner, DECISION_LOG "EIGHT OWNER ANSWERS" answer 5 — the guest's pages follow the Maker's
+     filing): the walk also leaves this group when its own tab is another one (`marchTab`, the one filing). The
+     property is unchanged — one place on the page — and both slots are counted. */
+  assert.match(body, /\{marchOnWelcome \|\| marchTab !== hereTab \? null : guestEntourage\}/);
+  assert.match(body, /\{marchOnWelcome \|\| marchTab === hereTab \? null : group\(marchTab, guestEntourage,/);
 });
 
 test('one venue is labelled with its role, so the guest knows which of the two it is', async () => {
@@ -160,7 +164,10 @@ test('Your shots: three states, three sets of words — and everyone’s only be
     }),
   );
   assert.match(some, />14</, 'the count is the read’s own total');
-  assert.match(some, /href="\/papic\/me\/tok\/photo\?id=c1&amp;src=guest"/, 'a guest saves their own shot');
+  /* 2026-10-24: the shot opens IN PLACE (the shared viewer) and saves the same full-size route from there — never a
+     new tab on the bare picture. */
+  assert.match(some, /data-save-src="\/papic\/me\/tok\/photo\?id=c1&amp;src=guest"/, 'a guest saves their own shot');
+  assert.doesNotMatch(some, /target="_blank"/, 'a shot opens a bare picture in a new tab again');
   assert.doesNotMatch(some, /Everyone/, 'not shared → no way into everyone’s photos');
   const shared = html(
     h(YourShotsGallery, { shots: { shots: [], total: 0 }, qrToken: 'tok', cameraOn: true, everyoneHref: '/papic/me/tok/session?next=pool' }),
@@ -199,12 +206,16 @@ test('the camera comes back to the tab it was opened from — Live when opened d
   // REACHED: the bar carries the tab, the bridge passes it, the camera draws
   // the × and the thumbnail, and the page says what landed.
   assert.match(src('app/[slug]/_components/site-menu-bar.tsx'), /cameraHrefWithBack\(slot\.href, activeKey\)/);
-  assert.match(BODY(), /camera: papicGuest\s*\?\s*`\/papic\/me\/\$\{encodeURIComponent\(guest\.qr_token\)\}\/session\?next=guest&from=/);
+  // 🖼 The address is one value since 2026-10-14 (`guestCameraHref`) — the bar's Camera and the
+  // early Gallery's "Take your first photo" share it.
+  assert.match(BODY(), /const guestCameraHref = papicGuest\s*\?\s*`\/papic\/me\/\$\{encodeURIComponent\(guest\.qr_token\)\}\/session\?next=guest&from=/);
+  assert.match(BODY(), /camera: guestCameraHref,/);
   assert.match(src('app/papic/me/[token]/session/route.ts'), /cameraBackTab\(url\.searchParams\.get\(CAMERA_BACK_PARAM\)\)/);
   const cam = src('app/papic/guest/_components/papic-guest-capture.tsx');
   assert.match(cam, /data-camera-exit=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, exitTo\.tab, added\)\}/);
-  assert.match(cam, /data-camera-thumb=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, null, added, 'gallery'\)\}/);
-  assert.match(src('app/papic/guest/page.tsx'), /exitTo=\{backSlug \? \{ slug: backSlug, tab: backTab \} : null\}/);
+  // 🖼 The thumbnail opens "My shots" as a sheet OVER the camera (owner 2026-10-24) — no longer the hub's gallery.
+  assert.match(cam, /data-camera-thumb=""\s*onClick=\{\(\) => setShotsOpen\(true\)\}/);
+  assert.match(src('app/papic/guest/page.tsx'), /exitTo=\{backSlug \? \{ slug: backSlug, tab: backTab \} : ownHubSlug \? \{ slug: ownHubSlug, tab: null \} : null\}/);
   const body = BODY();
   assert.match(body, /data-shots-added=""[\s\S]{0,900}See them/);
   assert.match(src('app/[slug]/page.tsx'), /shotsAdded: addedShots\(search\[CAMERA_ADDED_PARAM\]\)/);

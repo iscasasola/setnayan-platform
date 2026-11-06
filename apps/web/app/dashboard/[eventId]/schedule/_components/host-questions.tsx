@@ -115,6 +115,8 @@ export async function HostQuestions({
             {question.hint ? (
               <span className="block text-xs leading-relaxed text-ink/55">{question.hint}</span>
             ) : null}
+            {/* 👥 What this box showed — only a box this screen changes is saved (`lib/host-answers-merge.ts`). */}
+            <input type="hidden" name={`base:${question.question_id}`} value={answer ?? ''} />
             <textarea
               name={`answer:${question.question_id}`}
               defaultValue={answer ?? ''}

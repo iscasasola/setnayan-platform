@@ -26,7 +26,6 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Bookmark,
   ChevronDown,
@@ -34,8 +33,10 @@ import {
   Loader2,
   Lock,
   Pencil,
+  Save,
   Trash2,
 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import {
   savePlanBuildNamed,
   deleteBudgetBuild,
@@ -59,7 +60,11 @@ import {
   isPlanLoadable,
 } from '@/lib/plans-panel';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { formatCount } from '@/lib/format-number';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
@@ -144,7 +149,6 @@ export function BuildCompare({
   /** B5 — the day-precision counterpart of `availability`. Never both. */
   anchoredDate?: CompareAnchoredDate | null;
 }) {
-  const router = useRouter();
   // PR-F: every user-visible delta below is gated on this. Read once so the
   // whole surface agrees within a render.
   const replan = isExploreReplanEnabled();
@@ -160,7 +164,12 @@ export function BuildCompare({
   const save = useSaveLoader();
 
   // Stable column order (named builds oldest-first).
-  const orderedBuilds = useMemo(() => sortSavedBuilds(savedBuilds), [savedBuilds]);
+  /* ↩ Builds deleted by a swipe or a column's delete, waiting out the Undo window (owner 2026-11-03). */
+  const [goneBuilds, setGoneBuilds] = useState<ReadonlySet<string>>(() => new Set());
+  const orderedBuilds = useMemo(
+    () => sortSavedBuilds(savedBuilds).filter((b) => !goneBuilds.has(b.build_id)),
+    [savedBuilds, goneBuilds],
+  );
 
   // Columns = saved builds, then the live "Current" plan last.
   const columns = useMemo(() => {
@@ -257,12 +266,11 @@ export function BuildCompare({
       else {
         setName('');
         setOverwriteId('');
-        router.refresh();
       }
     });
   }
 
-  async function onDelete(buildId: string, title: string) {
+  async function onDelete(buildId: string, title: string, close?: () => void) {
     setErr(null);
     // 🔑 A DESTRUCTIVE ACTION MUST ASK, AND THIS ONE DID NOT. `deleteBudgetBuild`
     // is a HARD row delete — no soft-delete column, no undo, and the couple's
@@ -285,14 +293,23 @@ export function BuildCompare({
       cancelLabel: 'Keep it',
       destructive: true,
     });
-    if (!ok) return;
-    startTransition(async () => {
-      const res = await save.run(() => deleteBudgetBuild({ eventId, buildId }), {
-        steps: ['Deleting your build'],
-        hint: 'Saving',
-      });
-      if (!res.ok) setErr(res.error);
-      else router.refresh();
+    if (!ok) {
+      close?.();
+      return;
+    }
+    // ↩ Asked, and still an Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): the plan leaves the list
+    // at once and is deleted when the Undo window closes; Undo brings it back with nothing written.
+    deleteWithUndo({
+      label: `“${title}” deleted`,
+      hide: () => setGoneBuilds((g) => new Set(g).add(buildId)),
+      restore: () =>
+        setGoneBuilds((g) => {
+          const next = new Set(g);
+          next.delete(buildId);
+          return next;
+        }),
+      commit: () => deleteBudgetBuild({ eventId, buildId }),
+      failed: `Couldn’t delete “${title}”. It’s back — try again.`,
     });
   }
 
@@ -355,7 +372,6 @@ export function BuildCompare({
         setErr(res.error);
         return;
       }
-      router.refresh();
       // "Build absorbs Lock" 2026-06-20 (PR2): the standalone Lock tab is gone —
       // the lock action + locked list now live in Build. The per-column "lock"
       // button keeps its "Lock" confirm-label intent but lands the couple on the
@@ -367,6 +383,7 @@ export function BuildCompare({
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-1 py-2">
       {dialog}
+      <UndoToastHost />
       <div className="space-y-1">
         {/* No card title inside a named section — the section heading ("Your
             plans", `services-takeover.tsx`) is the only title
@@ -405,28 +422,28 @@ export function BuildCompare({
               className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
               aria-label="Build name"
             />
-            <select
+            {/* New, or one of the saved builds → the one dropdown (2026-10-12 look sweep). */}
+            <PickMenu
+              label="Save as a new build or overwrite an existing one"
               value={overwriteId}
-              onChange={(e) => setOverwriteId(e.target.value)}
-              className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-              aria-label="Save as a new build or overwrite an existing one"
-            >
-              <option value="">as a new build</option>
-              {orderedBuilds.map((b, i) => (
-                <option key={b.build_id} value={b.build_id}>
-                  overwrite “{displayBuildTitle(b, i)}”
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
+              dataAttr="data-build-save-target"
+              options={[
+                { key: '', label: 'as a new build' },
+                ...orderedBuilds.map((b, i) => ({
+                  key: b.build_id,
+                  label: `overwrite “${displayBuildTitle(b, i)}”`,
+                })),
+              ]}
+              onPick={setOverwriteId}
+            />
+            <ActionButton
+              tone="brand"
+              main
+              icon={pending ? <Loader2 className="animate-spin" aria-hidden /> : Save}
+              label={overwriteId ? 'Save' : 'Save As'}
               onClick={onSaveNamed}
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-              {overwriteId ? 'Save' : 'Save As'}
-            </button>
+            />
           </div>
           {err ? <p className="text-xs text-danger-700">{err}</p> : null}
         </div>
@@ -467,10 +484,16 @@ export function BuildCompare({
                   lockedGroupIds: lockedGroups,
                 });
                 return (
-                  <li
+                  // 👈 The plan's Delete is the row's swipe (owner 2026-11-03) — the same ask, then Undo.
+                  <SwipeToDelete
                     key={b.build_id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                    as="li"
+                    label={`Delete ${title}`}
+                    radiusClass=""
+                    onDelete={(close) => void onDelete(b.build_id, title, close)}
+                    disabled={pending}
                   >
+                  <div className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                       {title}
                     </span>
@@ -517,16 +540,8 @@ export function BuildCompare({
                       <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       Load
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(b.build_id, title)}
-                      disabled={pending}
-                      aria-label={`Delete ${title}`}
-                      className="shrink-0 rounded-full p-1 text-ink/35 transition hover:text-danger-600 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                    </button>
-                  </li>
+                  </div>
+                  </SwipeToDelete>
                 );
               })}
             </ul>

@@ -54,7 +54,10 @@ test('D-3 · a schedule name wraps rather than being cut to eleven characters', 
 
 test('D-4 · exactly ONE filled action on the page, and it is the action colour', () => {
   const focal = code(FOCAL);
-  const filled = (focal.match(/background: 'var\(--sn-gold-700\)', color: '#FFFFFF'/g) || []).length;
+  // Light ink on the gold: '#FFFFFF', or the page token (white in light, the page colour in dark — dark 3a).
+  const filled = (
+    focal.match(/background: 'var\(--sn-gold-700\)', color: '(?:#FFFFFF|rgb\(var\(--color-cream\)\))'/g) || []
+  ).length;
   assert.equal(filled, 1, 'the only solid gold left is the PRIORITY badge, which is not an action');
   assert.match(
     focal,

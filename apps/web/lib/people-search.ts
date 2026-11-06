@@ -57,14 +57,118 @@ import {
 
 export type { PersonHit };
 
+/** A read that can say it failed — the shell's search must print "couldn't search", never an empty list. */
+export type PeopleSearchRead = { hits: PersonHit[]; failed: boolean };
+
+type FindableRow = {
+  user_id: string;
+  public_id: string;
+  display_name: string | null;
+  name_prefix: string | null;
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  name_suffix: string | null;
+  slug: string | null;
+  profile_photo_url: string | null;
+  email: string | null;
+  public_profile_enabled: boolean | null;
+};
+
+const FINDABLE_COLUMNS =
+  'user_id, public_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, slug, profile_photo_url, email, discoverable_by_name, public_profile_enabled';
+
 export async function searchPeopleByName(
   rawQuery: string,
   viewerUserId: string,
 ): Promise<PersonHit[]> {
+  return (await readPeopleByName(rawQuery, viewerUserId)).hits;
+}
+
+/**
+ * `searchPeopleByName`, saying whether it could read. Same query, same fence,
+ * same rows — the only difference is that a refused read is `failed: true`
+ * rather than an indistinguishable `[]` (the shell's search, owner 2026-10-22:
+ * a failed read says it could not read).
+ */
+export async function readPeopleByName(
+  rawQuery: string,
+  viewerUserId: string,
+): Promise<PeopleSearchRead> {
   // Word by word, in any order — "Casasola Ice" finds "Ice Casasola".
   const terms = nameSearchTerms(rawQuery);
-  if (terms.length === 0) return [];
+  if (terms.length === 0) return { hits: [], failed: false };
 
+  const admin = createAdminClient();
+
+  // The search itself. Admin-read because another account's row is invisible
+  // under `users` RLS by design — and NOTHING from this read leaves this
+  // function except the fields of PersonHit.
+  // One ILIKE per word; PostgREST ANDs repeated filters on a column, so every
+  // word must appear somewhere. The column is `name_search` — a generated,
+  // lower-cased haystack of nickname + the five formal-name parts + the slug
+  // (migration users_formal_name) — so "Indalecio", "Ice" and "@ice" all find
+  // the same person with one single-column filter per word.
+  let query = admin.from('users').select(FINDABLE_COLUMNS);
+  for (const term of terms) {
+    query = query.ilike('name_search', `%${escapeLikeQuery(term)}%`);
+  }
+  const { data, error } = await query
+    .eq('discoverable_by_name', true)
+    .not('display_name', 'is', null)
+    .neq('user_id', viewerUserId)
+    .limit(MAX_RESULTS * 3);
+  if (error) {
+    logQueryError('searchPeopleByName.users', error, {}, 'graceful_degrade');
+    return { hits: [], failed: true };
+  }
+
+  const hits = await findableHits((data ?? []) as FindableRow[], viewerUserId);
+  return { hits: hits.slice(0, MAX_RESULTS), failed: false };
+}
+
+/**
+ * ONE PERSON BY THEIR PUBLIC ID — what `/dashboard/people?person=S89U-…` opens
+ * when the id is not somebody already on your list (a search result in the
+ * shell, owner 2026-10-22).
+ *
+ * 🔒 THE SAME FENCE AS THE NAME SEARCH, NOT A SECOND ONE. The row is read with
+ * the same three filters (discoverable, has a name, not you) and handed to the
+ * same `findableHits`, which applies the other refusals (anonymous draft,
+ * already on your list) and builds the same four-field row. So a person the
+ * name search would never show cannot be opened by typing their id either —
+ * and `none` is returned for every refusal alike, so the link is no oracle.
+ */
+export async function findPersonByPublicId(
+  publicId: string,
+  viewerUserId: string,
+): Promise<{ state: 'found'; hit: PersonHit } | { state: 'none' } | { state: 'unavailable' }> {
+  const id = publicId.trim();
+  if (!/^S89U-[0-9A-Z]{10}$/.test(id)) return { state: 'none' };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('users')
+    .select(FINDABLE_COLUMNS)
+    .eq('public_id', id)
+    .eq('discoverable_by_name', true)
+    .not('display_name', 'is', null)
+    .neq('user_id', viewerUserId)
+    .limit(1);
+  if (error) {
+    logQueryError('findPersonByPublicId.users', error, {}, 'graceful_degrade');
+    return { state: 'unavailable' };
+  }
+  const [hit] = await findableHits((data ?? []) as FindableRow[], viewerUserId);
+  return hit ? { state: 'found', hit } : { state: 'none' };
+}
+
+/**
+ * The refusals after the query, and the row a result may be — shared by the
+ * name search and the id lookup so the two can never disagree about who is
+ * findable or what a result carries.
+ */
+async function findableHits(rows: FindableRow[], viewerUserId: string): Promise<PersonHit[]> {
+  if (rows.length === 0) return [];
   const supabase = await createClient();
   const admin = createAdminClient();
 
@@ -93,47 +197,6 @@ export async function searchPeopleByName(
     }
   }
 
-  // The search itself. Admin-read because another account's row is invisible
-  // under `users` RLS by design — and NOTHING from this read leaves this
-  // function except the four fields of PersonHit.
-  // One ILIKE per word; PostgREST ANDs repeated filters on a column, so every
-  // word must appear somewhere. The column is `name_search` — a generated,
-  // lower-cased haystack of nickname + the five formal-name parts + the slug
-  // (migration users_formal_name) — so "Indalecio", "Ice" and "@ice" all find
-  // the same person with one single-column filter per word.
-  let query = admin
-    .from('users')
-    .select(
-      'user_id, public_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, slug, profile_photo_url, email, discoverable_by_name, public_profile_enabled',
-    );
-  for (const term of terms) {
-    query = query.ilike('name_search', `%${escapeLikeQuery(term)}%`);
-  }
-  const { data, error } = await query
-    .eq('discoverable_by_name', true)
-    .not('display_name', 'is', null)
-    .neq('user_id', viewerUserId)
-    .limit(MAX_RESULTS * 3);
-  if (error) {
-    logQueryError('searchPeopleByName.users', error, {}, 'graceful_degrade');
-    return [];
-  }
-
-  const rows = (data ?? []) as Array<{
-    user_id: string;
-    public_id: string;
-    display_name: string | null;
-    name_prefix: string | null;
-    first_name: string | null;
-    middle_name: string | null;
-    last_name: string | null;
-    name_suffix: string | null;
-    slug: string | null;
-    profile_photo_url: string | null;
-    email: string | null;
-    public_profile_enabled: boolean | null;
-  }>;
-
   // Their person rows, to drop anybody already on my list.
   const userIds = rows.map((r) => r.user_id);
   const personByUser = new Map<string, string>();
@@ -151,6 +214,7 @@ export async function searchPeopleByName(
   const keep = rows.filter((r) => {
     const name = (r.display_name ?? '').trim();
     if (!name) return false;
+    if (r.user_id === viewerUserId) return false;
     if (isPlaceholderEmail(r.email ?? '')) return false;
     const person = personByUser.get(r.user_id);
     if (person && alreadyThere.has(person)) return false;
@@ -179,7 +243,7 @@ export async function searchPeopleByName(
     for (const f of (mine ?? []) as Array<{ followed_user_id: string }>) alreadyFollowing.add(f.followed_user_id);
   }
 
-  return keep.slice(0, MAX_RESULTS).map((r) => {
+  return keep.map((r) => {
     const name = (r.display_name ?? '').trim();
     const formal = composeFormalName(r);
     return {

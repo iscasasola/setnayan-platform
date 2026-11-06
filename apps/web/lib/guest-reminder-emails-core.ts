@@ -115,15 +115,20 @@ export function untickedItems(items: readonly ChecklistItem[], ticks: readonly s
  * (owner). Null when the guest has replied, when the couple's list is already
  * final (a reply can no longer change — asking for one would be a lie), or when
  * the reply-by date has passed.
+ *
+ * 📬 …and never outside the couple's reply window (owner 2026-10-14, DECISION_LOG 📬: "reply
+ * reminders wait" before replies open, "reminders stop" after they close). `repliesOpen` is
+ * `replyWindow(…).state === 'open'` (lib/reply-window.ts) — the sender asks it per event.
  */
 export function replyByLine(input: {
   rsvpStatus: string | null | undefined;
   replyBy: { date: string } | null;
   today: string;
   listClosed: boolean;
+  repliesOpen: boolean;
 }): string | null {
   const replied = input.rsvpStatus === 'attending' || input.rsvpStatus === 'declined' || input.rsvpStatus === 'maybe';
-  if (replied || input.listClosed || !input.replyBy) return null;
+  if (replied || input.listClosed || !input.repliesOpen || !input.replyBy) return null;
   if (input.replyBy.date < input.today) return null;
   const label = formatWeddingDate(input.replyBy.date);
   return label ? `Reply by ${label}` : null;

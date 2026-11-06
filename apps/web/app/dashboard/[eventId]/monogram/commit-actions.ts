@@ -12,6 +12,7 @@ import {
   resolveRevealTiming,
 } from '@/lib/monogram-studio-shared';
 import { isMarkInkMode, writeMarkInkMode, type MarkInkMode } from '@/lib/monogram-ink';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * commitMonogram — the ONE save on the Monogram Maker.
@@ -59,6 +60,8 @@ export type CommitMonogramInput = {
 export async function commitMonogram(
   input: CommitMonogramInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'invitations');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = String(input.eventId ?? '').trim();
   if (!eventId) return { ok: false, error: 'Something went wrong — please refresh and try again.' };
 

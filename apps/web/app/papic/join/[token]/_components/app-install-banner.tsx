@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Smartphone, X } from 'lucide-react';
+import { deviceOs } from '@/lib/apple-device';
 
 // Papic · hybrid join — PAGE-LOCAL smart app-install banner.
 //
@@ -44,12 +45,10 @@ type Platform = 'ios' | 'android' | 'other';
 
 function detectPlatform(): Platform {
   if (typeof navigator === 'undefined') return 'other';
-  const ua = navigator.userAgent || '';
-  // iPadOS 13+ reports as Mac; the touch-points check disambiguates a real iPad.
-  const isIpadOs =
-    /Macintosh/.test(ua) && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1;
-  if (/iPhone|iPad|iPod/.test(ua) || isIpadOs) return 'ios';
-  if (/Android/.test(ua)) return 'android';
+  // iPadOS 13+ reports as Mac; `deviceOs` (lib/apple-device.ts) reads the touch points.
+  const os = deviceOs(navigator.userAgent || '', navigator.maxTouchPoints);
+  if (os === 'iphone' || os === 'ipad') return 'ios';
+  if (os === 'android') return 'android';
   return 'other';
 }
 
@@ -115,7 +114,7 @@ export function AppInstallBanner({
             </a>
           </>
         ) : (
-          <p className="mt-0.5 text-xs text-ink/60">
+          <p data-coming-soon className="mt-0.5 text-xs text-ink/60">
             The app is coming soon — for now, keep going right here in your browser. Nothing to install.
           </p>
         )}

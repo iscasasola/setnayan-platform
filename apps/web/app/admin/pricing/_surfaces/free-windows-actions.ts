@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
@@ -58,6 +59,8 @@ function backTo(base: string, key: string, value = '1'): never {
 }
 
 function revalidateBoth(): void {
+  // Guest and couple pages remember the live windows (lib/global-settings-cache.ts) — forget them now.
+  revalidateTag(GLOBAL_SETTINGS_TAGS.promoFreeWindows);
   revalidatePath('/admin/pricing');
   revalidatePath('/admin/gifts');
 }

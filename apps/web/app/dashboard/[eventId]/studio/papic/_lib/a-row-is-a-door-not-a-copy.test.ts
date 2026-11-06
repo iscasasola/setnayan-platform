@@ -26,7 +26,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+// 📍 The look moved with the camera settings (2026-10-23): ONE component draws them on Home's Papic card and on this
+// page, and the owner calls it "Filter". The rule is unchanged — one row's height, the shipped picker rendered.
+const PAGE = readFileSync(join(PAPIC, '_components/papic-camera-settings.tsx'), 'utf8');
 const ROW = readFileSync(join(PAPIC, '_components/setting-row.tsx'), 'utf8');
 
 test('the row primitive still exists and still opens a sheet', () => {
@@ -35,43 +37,33 @@ test('the row primitive still exists and still opens a sheet', () => {
   assert.ok(/\{children\}/.test(ROW), 'the row stopped rendering its children — see the docblock');
 });
 
-test('🚨 the look is a ROW, not five cards on the page', () => {
-  assert.ok(/<SettingRow[\s\S]{0,300}?label="Your Papic look"/.test(PAGE), 'the look is not rendered as a row');
-  // The old card led with a large heading in the page body. If that shape is
-  // back, five gradient cards are the first thing on the screen again.
-  assert.ok(
-    !/Your Papic look\s*<\/p>/.test(PAGE),
-    'the look heading is back in the page body — the card returned',
-  );
+test('🚨 the look is ONE ROW, not five cards on the page', () => {
+  // 📍 2026-10-24: the approved one-page controller drew Filter as "A" — five small swatches across ONE thumb-width
+  // row, one tap saves (`papic_controller_one_page_2026-10-23.html`). Still one row's height, never the 2×3 cards.
+  assert.ok(/<StylePicker\s+variant="strip"/.test(PAGE), 'the look is not drawn as the one-row strip');
+  assert.equal((PAGE.match(/<StylePicker\b/g) ?? []).length, 1, 'the picker is drawn more than once');
+  assert.ok(!/<StylePicker(?![^>]*variant="strip")[^>]*\/>/.test(PAGE), 'the five tall cards are back on the page');
 });
 
-test('🚨 the sheet renders the SHIPPED picker, never a copy of it', () => {
-  // ⚠ ANCHOR ON THE LABEL, NOT ON "the first SettingRow". This matched the first
-  // row on the page, which was fine while the look was the only one. The
-  // 2026-08-27 one-page rebuild put the capture window above it, so the guard
-  // started reading the WRONG row's contents and reported the look's picker
-  // missing. A guard keyed on position answers a question about position.
-  const row =
-    /<SettingRow(?:(?!<\/SettingRow>)[\s\S])*?label="Your Papic look"[\s\S]*?<\/SettingRow>/.exec(
-      PAGE,
-    )?.[0] ?? '';
-  assert.ok(row, 'no SettingRow block labelled "Your Papic look" was found');
-  assert.ok(
-    /<StylePicker\b/.test(row),
-    'the sheet no longer renders StylePicker. A reimplementation of the five looks here is a SECOND COPY of a shipped control — the failure this file exists for.',
-  );
+test('🚨 the strip IS the shipped picker, never a copy of it', () => {
+  // The strip is a variant of `StylePicker` — the same table, the same forms, the same action.
+  const picker = readFileSync(join(PAPIC, 'style-picker.tsx'), 'utf8');
+  const strip = picker.slice(picker.indexOf("if (variant === 'strip')"), picker.indexOf('grid-cols-2', picker.indexOf("if (variant === 'strip')")));
+  assert.ok(strip.length > 100, 'premise: the strip branch');
+  assert.match(strip, /PAPIC_STYLES\.map/, 'the strip no longer draws from the style table');
+  assert.match(strip, /action=\{setPapicStyle\}/, 'the strip saves through something other than the shipped action');
   for (const look of ['Retro', 'Mono', 'Cine', 'Lomo']) {
     assert.ok(
-      !new RegExp(`>\\s*${look}\\s*<`).test(row),
-      `"${look}" is being drawn inside the row — the picker is being reproduced instead of rendered`,
+      !new RegExp(`>\\s*${look}\\s*<`).test(PAGE),
+      `"${look}" is being drawn in the settings — the picker is being reproduced instead of rendered`,
     );
   }
 });
 
-test('🚨 the row shows the current answer, DERIVED not re-typed', () => {
+test('🚨 the current answer is shown, DERIVED not re-typed', () => {
   assert.ok(
-    /value=\{papicStyleLabel\}/.test(PAGE),
-    'the row no longer shows the current look — a row without its answer is strictly worse than the card it replaced',
+    /\{papicStyleLabel\} · every camera/.test(PAGE),
+    'the line no longer says the current look — a picker without its answer read in words is worse than the card it replaced',
   );
   assert.ok(
     /PAPIC_STYLES\.find/.test(PAGE),

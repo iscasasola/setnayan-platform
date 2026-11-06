@@ -77,14 +77,21 @@ test('the owner’s case, drawn: ₱2,000 received of ₱10,170', async () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 
+// 2026-10-13 (Suppliers Pair 3): the Quote tab's money is the Money fold
+// (`_components/customer-money-fold.tsx`), which mounts the same summary for a
+// booking with no plan — so the page mounts it once directly (Payments) and
+// once through the fold (Quote), still from the one `ledgerMoney`.
+const fold = stripComments(readFileSync(join(HERE, '_components', 'customer-money-fold.tsx'), 'utf8'));
+
 test('the page feeds the summary from the timeline and mounts it in both tabs', () => {
   assert.match(page, /ledgerMoney = bookingMoney\(/, 'ledgerMoney is never computed from the timeline');
   const mounts = page.match(/<BookingMoneySummary\s+money=\{ledgerMoney\}/g) ?? [];
-  assert.equal(mounts.length, 2, `expected 2 mounts (Payments + Quote), found ${mounts.length}`);
+  assert.equal(mounts.length, 1, `expected 1 direct mount (Payments), found ${mounts.length}`);
   const quoteStart = page.indexOf('function QuoteTab(');
   assert.ok(quoteStart > 0, 'QuoteTab not found');
   const quoteEnd = page.indexOf('\nfunction ', quoteStart + 1);
   const quoteBody = page.slice(quoteStart, quoteEnd > 0 ? quoteEnd : undefined);
-  assert.match(quoteBody, /<BookingMoneySummary\s+money=\{ledgerMoney\}/, 'the Quote tab does not mount it');
+  assert.match(quoteBody, /<CustomerMoneyFold[\s\S]*?ledgerMoney=\{ledgerMoney\}/, 'the Quote tab does not hand the fold the money');
+  assert.match(fold, /<BookingMoneySummary money=\{ledgerMoney\} \/>/, 'the fold no longer mounts the summary for a no-plan booking');
   assert.match(page, /ledgerMoney=\{ledgerMoney\}/, 'QuoteTab is never handed the money');
 });

@@ -1,11 +1,13 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseEventFaceTaggingSelfies } from '@/lib/face-selfie-erase';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The couple turns face tagging off — or back on — for their own event.
@@ -24,9 +26,10 @@ import { eraseEventFaceTaggingSelfies } from '@/lib/face-selfie-erase';
  * authorises it. Exactly the shape the livestream audience switch uses.
  */
 export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const declined = String(formData.get('declined') ?? '') === '1';
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
   if (!eventId) redirect('/dashboard');
 
   const supabase = await createClient();
@@ -54,7 +57,7 @@ export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<
     .update({ face_tagging_declined_by_couple: declined })
     .eq('event_id', eventId);
 
-  if (error) redirect(`${back}?faceTagging=error`);
+  if (error) redirect(withQuery(back, `faceTagging=error`));
 
   // 🧽 OFF ERASES, IT DOES NOT PAUSE (owner 2026-09-30, DECISION_LOG "FACE
   // DATA: THREE OWNER ANSWERS": *"the couple turning tagging off erases (not
@@ -66,6 +69,11 @@ export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<
   // switch (`enrollGuestFace` reads the switch through `resolveFaceTagging`).
   if (declined) await eraseEventFaceTaggingSelfies(admin, eventId);
 
-  revalidatePath(back);
-  redirect(`${back}?faceTagging=${declined ? 'off' : 'on'}`);
+  revalidatePath(hrefPath(back));
+  // 🏠 Saved from Home's Papic card (`return_to=home`, a fixed word → a fixed path): back to Home, the card open.
+  if (formData.get('return_to') === 'home') {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
+  redirect(withQuery(back, `faceTagging=${declined ? 'off' : 'on'}`));
 }

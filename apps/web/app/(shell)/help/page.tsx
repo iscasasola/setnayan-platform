@@ -1,11 +1,13 @@
 import Link from 'next/link';
-import { MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
-import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
+import { MessageSquare, Mail, Heart, Briefcase, Mailbox, HelpCircle } from 'lucide-react';
+import { HELP_TOPICS, HELP_ROLES, PUBLIC_HELP_ROLES, helpTopicsFor, type HelpRole } from '@/lib/help';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { submitHelpMessage } from '@/app/help/actions';
-import { HelpSearch } from '@/app/help/_components/help-search';
+import { HowSearchField, HowSearchResults } from '@/app/_components/how-search/how-search';
+import { runHowSearch } from '@/lib/how-search';
 
 
 /*
@@ -19,17 +21,17 @@ import { HelpSearch } from '@/app/help/_components/help-search';
   for it to disagree with itself — do not re-add it here.
 */
 
-export const metadata = {
+const HELP_METADATA = {
   title: 'Help & support',
   description:
-    'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    'Step-by-step guides for couples, suppliers and guests using Setnayan. Pick your role tile or send us a message.',
   alternates: { canonical: '/help' },
   openGraph: {
     type: 'website',
     url: '/help',
     title: 'Help & support · Setnayan',
     description:
-      'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+      'Step-by-step guides for couples, suppliers and guests using Setnayan. Pick your role tile or send us a message.',
     siteName: 'Setnayan',
     locale: 'en_PH',
     images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
@@ -38,10 +40,21 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Help & support · Setnayan',
     description:
-      'Step-by-step guides for couples, suppliers, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+      'Step-by-step guides for couples, suppliers and guests using Setnayan. Pick your role tile or send us a message.',
     images: ['/brand/og-card.webp'],
   },
 };
+
+/**
+ * 🔎 A SEARCH IS NOT A PAGE FOR GOOGLE. `/help?q=…` draws results in place;
+ * indexed, every typed phrase would be a thin duplicate of /help. So a
+ * search address is `noindex, follow` (its links still count) and keeps the
+ * `/help` canonical. The bare /help is unchanged.
+ */
+export async function generateMetadata({ searchParams }: Props) {
+  const { q } = await searchParams;
+  return q?.trim() ? { ...HELP_METADATA, robots: { index: false, follow: true } } : HELP_METADATA;
+}
 
 const FAQ_JSONLD = {
   '@context': 'https://schema.org',
@@ -62,24 +75,29 @@ const ROLE_ICON: Record<HelpRole, typeof Heart> = {
   couple: Heart,
   vendor: Briefcase,
   guest: Mailbox,
-  admin: Shield,
 };
 
 function isHelpRole(value: string | undefined): value is HelpRole {
-  return value === 'couple' || value === 'vendor' || value === 'guest' || value === 'admin';
+  return (PUBLIC_HELP_ROLES as ReadonlyArray<string | undefined>).includes(value);
 }
 
 type Props = {
-  searchParams: Promise<{ submitted?: string; error?: string; role?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; role?: string; q?: string }>;
 };
 
 export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
   const role: HelpRole | undefined = isHelpRole(search.role) ? search.role : undefined;
 
+  // 🍎 In the iPhone app every answer is the app's own (no price, no purchase,
+  // no pointer to the web, no Android) and questions about parts the app does
+  // not include are left out — lib/help.ts `helpTopicsFor`. This page is
+  // per-request (the (shell) layout is force-dynamic), so it picks on the
+  // server and ships one set of words. Apple check 2026-10-19, rows #6 · #14.
+  const shellTopics = helpTopicsFor(HELP_TOPICS, await isStoreShellRequest());
   const visibleTopics = role
-    ? HELP_TOPICS.filter((t) => t.roles.includes(role))
-    : HELP_TOPICS;
+    ? shellTopics.filter((t) => t.roles.includes(role))
+    : shellTopics;
 
   const activeRoleMeta = role ? HELP_ROLES.find((r) => r.key === role) : undefined;
 
@@ -89,6 +107,106 @@ export default async function HelpPage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   const prefilledEmail = user?.email ?? '';
+
+  // 🔎 One search for help, features and guides (owner 2026-10-25) — the words
+  // ride in this page's `?q=`, the results draw here, under the head.
+  const q = (search.q ?? '').trim().slice(0, 120);
+  const found = q ? await runHowSearch(q, { role }) : null;
+  const here = role ? `/help?role=${role}` : '/help'; // this page, without the words
+
+  const contact = (
+    <section id="contact" className="scroll-mt-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <MessageSquare
+          aria-hidden
+          className="h-4 w-4 text-terracotta"
+          strokeWidth={1.75}
+        />
+        <h2 className="text-xl font-semibold tracking-tight">Reach the team</h2>
+      </div>
+      <p className="max-w-2xl text-sm text-ink/70">
+        Send us a note and we&rsquo;ll reply to the email you provide. Useful for
+        anything not covered above — billing questions, supplier onboarding, custom
+        quotes, bug reports.
+      </p>
+
+      <form
+        action={submitHelpMessage}
+        className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Your email" htmlFor="sender_email">
+            <input
+              id="sender_email"
+              name="sender_email"
+              type="email"
+              required
+              defaultValue={prefilledEmail}
+              placeholder="you@example.com"
+              className="input-field"
+            />
+          </Field>
+          <Field label="Your name (optional)" htmlFor="sender_name">
+            <input
+              id="sender_name"
+              name="sender_name"
+              maxLength={128}
+              className="input-field"
+            />
+          </Field>
+        </div>
+
+        <Field label="Topic" htmlFor="topic">
+          <select
+            id="topic"
+            name="topic"
+            defaultValue={role ?? ''}
+            className="input-field"
+          >
+            <option value="">Choose one (optional)</option>
+            <option value="couple">I&rsquo;m a couple planning an event</option>
+            <option value="vendor">I&rsquo;m a supplier</option>
+            <option value="guest">I&rsquo;m a guest invited to an event</option>
+            <option value="billing">Billing or payments</option>
+            <option value="bug">Bug report</option>
+            <option value="feature">Feature request</option>
+            <option value="other">Other</option>
+          </select>
+        </Field>
+
+        <Field label="Subject" htmlFor="subject">
+          <input
+            id="subject"
+            name="subject"
+            required
+            maxLength={160}
+            placeholder="One sentence about what's up"
+            className="input-field"
+          />
+        </Field>
+
+        <Field label="Message" htmlFor="body">
+          <textarea
+            id="body"
+            name="body"
+            required
+            rows={6}
+            maxLength={4000}
+            placeholder="Anything that helps us help you — event ID, exact URL you were on, what you expected vs. what happened."
+            className="input-field min-h-[140px] py-2"
+          />
+        </Field>
+
+        <SubmitButton
+          className="button-primary inline-flex items-center gap-2"
+          pendingLabel="Sending…"
+        >
+          <Mail aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Send message
+        </SubmitButton>
+      </form>
+    </section>
+  );
 
   return (
     /*
@@ -110,7 +228,7 @@ export default async function HelpPage({ searchParams }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
       />
-      <main className="min-h-dvh bg-cream">
+      <main className="min-h-dvh bg-cream pb-24 lg:pb-0">
 
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="max-w-2xl space-y-3">
@@ -120,17 +238,38 @@ export default async function HelpPage({ searchParams }: Props) {
             <p className="text-base text-ink/65">
               {activeRoleMeta
                 ? activeRoleMeta.blurb
-                : "Step-by-step guides for couples, suppliers, guests, and admins. Pick your role below or scroll for everything."}
+                : "Step-by-step guides for couples, suppliers and guests. Pick your role below or scroll for everything."}
             </p>
           </div>
 
-          {/* Role tiles — 4-way split (Couple / Vendor / Guest / Admin). The
-              spec for iteration 0029 § 1 calls for four role tiles at
-              /help; this is that tile bar. Tiles are real links so they
-              work without JS and bookmark cleanly. */}
+          {/* 🔎 ONE SEARCH — help answers, feature pages and guides together
+              (owner 2026-10-25). The bottom thumb row for everyone, signed in
+              or out (docked at the screen's foot below 1024, this line on a
+              computer); the shell draws no top-bar box on this page. */}
+          <div className="max-w-2xl lg:mt-6">
+            <HowSearchField q={q} action="/help" keep={{ role }} />
+          </div>
+
+          {found ? (
+            <div className="mt-8 max-w-3xl space-y-12">
+              <HowSearchResults
+                q={q}
+                hits={found.hits}
+                storiesFailed={found.storiesFailed}
+                clearHref={here}
+                askHref="#contact"
+              />
+              {contact}
+            </div>
+          ) : (
+          <>
+          {/* Role tiles — Couple / Supplier / Guest. Iteration 0029 § 1 drew a
+              fourth, Admin; it published the operations team's own guides to
+              strangers, so it left on 2026-10-19 (sweep B3 — lib/help-admin.ts).
+              Tiles are real links so they work without JS and bookmark cleanly. */}
           <nav
             aria-label="Help by role"
-            className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
+            className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3"
           >
             {HELP_ROLES.map((r) => {
               const Icon = ROLE_ICON[r.key];
@@ -218,108 +357,41 @@ export default async function HelpPage({ searchParams }: Props) {
             </nav>
 
             <div className="space-y-10">
-              {/* Client-side instant search over the role-filtered corpus —
-                  closes the metadata-vs-reality "no search" gap. Empty box keeps
-                  the topic-grouped list (anchor ids preserved for the sidebar +
-                  /help#slug deep links); typing filters to a flat result list.
-                  The FAQPage JSON-LD above is server-rendered from the full
-                  corpus and is unaffected. */}
-              <HelpSearch topics={visibleTopics} />
+              {/* The topic-grouped list, server-rendered (anchor ids kept for the
+                  sidebar + /help#slug deep links). Its client filter box left on
+                  2026-10-25: the one search above answers help, features and
+                  guides together (owner: "one place for everything"). */}
+              <div className="space-y-10">
+                {visibleTopics.map((topic) => (
+                  <section key={topic.key} id={topic.key} className="scroll-mt-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <HelpCircle aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+                      <h2 className="text-xl font-semibold tracking-tight">{topic.label}</h2>
+                    </div>
+                    <ul className="divide-y divide-ink/10">
+                      {topic.articles.map((a) => (
+                        <li key={a.slug} id={a.slug} className="scroll-mt-6 py-4">
+                          <h3 className="text-base font-semibold text-ink">
+                            <Link
+                              href={`/help/${a.slug}`}
+                              className="underline-offset-4 hover:text-terracotta hover:underline"
+                            >
+                              {a.title}
+                            </Link>
+                          </h3>
+                          <p className="mt-1 text-sm text-ink/70">{a.body}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
 
-              <section id="contact" className="scroll-mt-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <MessageSquare
-                    aria-hidden
-                    className="h-4 w-4 text-terracotta"
-                    strokeWidth={1.75}
-                  />
-                  <h2 className="text-xl font-semibold tracking-tight">Reach the team</h2>
-                </div>
-                <p className="max-w-2xl text-sm text-ink/70">
-                  Send us a note and we&rsquo;ll reply to the email you provide. Useful for
-                  anything not covered above — billing questions, supplier onboarding, custom
-                  quotes, bug reports.
-                </p>
-
-                <form
-                  action={submitHelpMessage}
-                  className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5"
-                >
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Your email" htmlFor="sender_email">
-                      <input
-                        id="sender_email"
-                        name="sender_email"
-                        type="email"
-                        required
-                        defaultValue={prefilledEmail}
-                        placeholder="you@example.com"
-                        className="input-field"
-                      />
-                    </Field>
-                    <Field label="Your name (optional)" htmlFor="sender_name">
-                      <input
-                        id="sender_name"
-                        name="sender_name"
-                        maxLength={128}
-                        className="input-field"
-                      />
-                    </Field>
-                  </div>
-
-                  <Field label="Topic" htmlFor="topic">
-                    <select
-                      id="topic"
-                      name="topic"
-                      defaultValue={role ?? ''}
-                      className="input-field"
-                    >
-                      <option value="">Choose one (optional)</option>
-                      <option value="couple">I&rsquo;m a couple planning an event</option>
-                      <option value="vendor">I&rsquo;m a supplier</option>
-                      <option value="guest">I&rsquo;m a guest invited to an event</option>
-                      <option value="admin">Admin / operations</option>
-                      <option value="billing">Billing or payments</option>
-                      <option value="bug">Bug report</option>
-                      <option value="feature">Feature request</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </Field>
-
-                  <Field label="Subject" htmlFor="subject">
-                    <input
-                      id="subject"
-                      name="subject"
-                      required
-                      maxLength={160}
-                      placeholder="One sentence about what's up"
-                      className="input-field"
-                    />
-                  </Field>
-
-                  <Field label="Message" htmlFor="body">
-                    <textarea
-                      id="body"
-                      name="body"
-                      required
-                      rows={6}
-                      maxLength={4000}
-                      placeholder="Anything that helps us help you — event ID, exact URL you were on, what you expected vs. what happened."
-                      className="input-field min-h-[140px] py-2"
-                    />
-                  </Field>
-
-                  <SubmitButton
-                    className="button-primary inline-flex items-center gap-2"
-                    pendingLabel="Sending…"
-                  >
-                    <Mail aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                    Send message
-                  </SubmitButton>
-                </form>
-              </section>
+              {contact}
             </div>
           </section>
+          </>
+          )}
         </div>
 
       </main>

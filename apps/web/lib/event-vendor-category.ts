@@ -1,7 +1,7 @@
 import type { VendorCategory } from '@/lib/vendors';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
-import { categoryForBranch } from '@/lib/vendor-branch-category';
+import { categoryForBranch, type CoarseCategorySource } from '@/lib/vendor-branch-category';
 
 /**
  * event-vendor-category.ts — TURNING A SERVICE CARD'S KIND INTO THE COUPLE-SIDE
@@ -63,10 +63,13 @@ const COARSE: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORIES);
  *                  (`(await getTaxonomy()).map[cardKind]?.tile`), or null when
  *                  the taxonomy does not know it / could not be read. A missing
  *                  tile is never fatal: rung 3 then reads the kind as a tile.
+ * @param tax       the same snapshot — the branch rungs read its
+ *                  `tileCoarseCategory` (`service_categories.coarse_category`, ③0-c).
  */
 export function eventVendorCategoryForCardKind(
   cardKind: string | null | undefined,
   tileForKind: string | null | undefined,
+  tax: CoarseCategorySource,
 ): VendorCategory {
   const kind = typeof cardKind === 'string' ? cardKind.trim() : '';
   if (kind.length === 0) return 'misc';
@@ -75,11 +78,11 @@ export function eventVendorCategoryForCardKind(
   if (COARSE.has(kind)) return kind as VendorCategory;
 
   // 2 · a leaf: its own map, else its branch.
-  const viaLeaf = vendorCategoryForLeaf(kind, tileForKind ?? null);
+  const viaLeaf = vendorCategoryForLeaf(kind, tileForKind ?? null, tax);
   if (viaLeaf !== 'misc') return viaLeaf;
 
   // 3 · the kind is itself a branch (tile) id.
-  return categoryForBranch(kind) ?? 'misc';
+  return categoryForBranch(kind, tax) ?? 'misc';
 }
 
 /**
@@ -94,10 +97,11 @@ export function eventVendorCategoryForCardKind(
 export function eventVendorCategoryKeyForCardKind(
   cardKind: string | null | undefined,
   tileForKind: string | null | undefined,
+  tax: CoarseCategorySource,
 ): string | null {
   const kind = typeof cardKind === 'string' ? cardKind.trim() : '';
   const tile = typeof tileForKind === 'string' ? tileForKind.trim() : '';
   if (tile.length > 0) return tile;
-  if (kind.length > 0 && categoryForBranch(kind) != null) return kind;
+  if (kind.length > 0 && categoryForBranch(kind, tax) != null) return kind;
   return null;
 }

@@ -26,9 +26,10 @@
  * Every decision above that can be made without a DOM lives in `lib/your-team.ts`
  * and is unit-tested; this file only renders.
  */
-import Link from 'next/link';
-import { Lock as LockIcon, CheckCircle2 } from 'lucide-react';
-import type { PlanBudgetModel } from '@/lib/vendors-plan-budget';
+import { Lock as LockIcon, CheckCircle2, CalendarCheck, CreditCard, Star } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { usuallyBookedAheadLine, type PlanBudgetModel } from '@/lib/vendors-plan-budget';
+import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { lockedGroupIdsOf, type PlansRowPick } from '@/lib/plans-panel';
 import {
@@ -42,10 +43,11 @@ import {
 import type { PlanBuildSnapshot, SavedPlanBuild } from '../build-actions';
 import { AccordionLockButton } from './accordion-lock';
 import { QuoteFillRow, type FillableCategory } from './quote-fill';
+import { GoToFind } from './go-to-find';
 import {
   TeamClearCandidates,
   TeamDecisionDoorway,
-  TeamRemoveCandidate,
+  TeamCandidateSwipe,
   TeamSavePlan,
 } from './team-controls';
 import type { BlockedLockReason } from '@/lib/bench-card-actions';
@@ -63,8 +65,14 @@ const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 /** How many "still needs your decision" rows show before the "…and N more" line. */
 const DECISION_ROW_LIMIT = 4;
 
-const LOCK_BTN_CLASS =
-  'mt-2 inline-flex w-full items-center justify-center rounded-md bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60';
+/** "Book to confirm" — the ActionButton look, the `book` verb's own tone
+ *  (`lib/supplier-card-verbs.ts`: book → ok) as the row's filled main verb. It is
+ *  `actionButtonClass('ok', { main: true })` written out: this is a SERVER
+ *  component, and that helper lives in a 'use client' module, so calling it here
+ *  would throw at render. `AccordionLockButton` (the one lock path) draws the
+ *  `<button>`; this only dresses it (2026-10-12 look sweep). */
+// The main button is terracotta (owner 2026-10-12, look call 1).
+const LOCK_BTN_CLASS = 'ab ab-brand ab-main mt-2 w-full justify-center';
 
 /** The committed anchors shown as summary tiles atop the locked list (prototype
  *  `.lock-sum`). Date label + region come from the event; budget + committed come
@@ -236,6 +244,8 @@ export function BuildLocked({
           Add suppliers to your build from the Shortlist, then come back here to book them — that
           confirms your pick, updates your budget, and notifies the supplier.
         </p>
+        {/* The empty state gives the first action (2026-10-12 look sweep). */}
+        <GoToFind className="mt-1" />
       </div>
     );
   }
@@ -263,10 +273,14 @@ export function BuildLocked({
   // flag ON follows the merged "Your team" order of spec §3 + §4. Extracting
   // them is what lets the two orders share one implementation instead of two.
 
+  // Read-only figures sit on the page, each ending in a divider — no frames
+  // (2026-10-12 look sweep: a frame only on what is pressed).
+  //
+  // NO DATE OR LOCATION TILE flag ON (controller ruling 2026-10-12): the date ·
+  // place line at the top of the Suppliers page is their only place. A second
+  // copy down here could only ever disagree with it.
   const tiles = replan ? (
-    <div className="grid grid-cols-2 gap-3">
-      <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
-      <LockTile k="Location" v={summary?.region ?? '—'} />
+    <div className="grid grid-cols-2 gap-x-6">
       <LockTile
         k="Booked"
         v={pesoFromPhp(money.lockedPhp) ?? '—'}
@@ -297,7 +311,7 @@ export function BuildLocked({
       />
     </div>
   ) : (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-x-6">
       <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
       <LockTile k="Budget" v={pesoFromPhp(summary?.budgetPhp ?? null) ?? '—'} />
       <LockTile k="Location" v={summary?.region ?? '—'} />
@@ -329,11 +343,9 @@ export function BuildLocked({
               {subtotalLabel(toLockTotal, money.inBuildUnpriced)} in your build
             </span>
           </div>
-          {readyRows.map((r) => (
-            <div
-              key={`${r.groupId}-${r.vendorId}`}
-              className="rounded-xl border border-ink/10 bg-cream px-4 py-3"
-            >
+          {readyRows.map((r) => {
+            const line = (
+            <div className="border-b border-ink/15 py-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
@@ -352,13 +364,6 @@ export function BuildLocked({
                     Right-alignment alone does not fix that; the FIGURES have to
                     be equal-width. */}
                     <RowPrice cost={r.cost} />
-                    {/* One candidate off the build. Vendor-scoped, never a lock. */}
-                    <TeamRemoveCandidate
-                      eventId={eventId}
-                      groupId={r.groupId as string}
-                      vendorId={r.vendorId}
-                      vendorName={r.name}
-                    />
                   </span>
                 ) : (
                   <RowPrice cost={r.cost} shrink />
@@ -376,42 +381,51 @@ export function BuildLocked({
                 vendorName={r.name}
                 label="Book to confirm"
                 pendingLabel="Booking…"
+                icon={<CalendarCheck aria-hidden strokeWidth={1.9} />}
                 className={LOCK_BTN_CLASS}
                 wrapperClassName=""
                 isVerified={r.isVerified}
               />
             </div>
-          ))}
+            );
+            /* 👈 One candidate off the build is the row's swipe (owner 2026-11-03) — vendor-scoped, never a lock. */
+            return replan ? (
+              <TeamCandidateSwipe key={`${r.groupId}-${r.vendorId}`} eventId={eventId} groupId={r.groupId as string} vendorId={r.vendorId} vendorName={r.name}>
+                {line}
+              </TeamCandidateSwipe>
+            ) : (
+              <div key={`${r.groupId}-${r.vendorId}`}>{line}</div>
+            );
+          })}
           {/* Owner 2026-09-11 — in the build, but NOT lockable: not available on
               the date, or the supplier declined. Listed, never dropped (they are
               still in the couple's build and its total), with the one control
-              that fixes it — Remove — and no "Lock to confirm". */}
+              that fixes it — Remove (the row's swipe) — and no "Lock to confirm". */}
           {blockedRows.length > 0 ? (
             <div className="space-y-2 pt-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
                 {CANT_LOCK_YET_HEADING}
               </p>
-              {blockedRows.map((r) => (
-                <div
-                  key={`${r.groupId}-${r.vendorId}-blocked`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-ink/15 px-4 py-3"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-ink/75">{r.name}</span>
-                    <span className="block text-xs text-ink/60">
-                      {BLOCKED_LOCK_ROW[r.blocked]} · {r.group}
+              {blockedRows.map((r) => {
+                const line = (
+                  <div className="flex items-center justify-between gap-3 border-b border-ink/15 py-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink/75">{r.name}</span>
+                      <span className="block text-xs text-ink/60">
+                        {BLOCKED_LOCK_ROW[r.blocked]} · {r.group}
+                      </span>
                     </span>
-                  </span>
-                  {replan ? (
-                    <TeamRemoveCandidate
-                      eventId={eventId}
-                      groupId={r.groupId as string}
-                      vendorId={r.vendorId}
-                      vendorName={r.name}
-                    />
-                  ) : null}
-                </div>
-              ))}
+                  </div>
+                );
+                /* 👈 Its one fix — Remove — is the row's swipe (owner 2026-11-03). */
+                return replan ? (
+                  <TeamCandidateSwipe key={`${r.groupId}-${r.vendorId}-blocked`} eventId={eventId} groupId={r.groupId as string} vendorId={r.vendorId} vendorName={r.name}>
+                    {line}
+                  </TeamCandidateSwipe>
+                ) : (
+                  <div key={`${r.groupId}-${r.vendorId}-blocked`}>{line}</div>
+                );
+              })}
             </div>
           ) : null}
           {replan ? (
@@ -425,15 +439,15 @@ export function BuildLocked({
   const lockedIn = lockedRows.length > 0 && (
         <section className="space-y-2">
           <h3 className="font-display text-lg italic text-ink/85">Booked</h3>
-          <ul className="space-y-2">
+          <ul>
             {lockedRows.map((r, i) => (
               <li
                 key={`${r.group}-${r.name}-${i}`}
-                className="rounded-xl border border-success-200 bg-success-50/60 px-4 py-3"
+                className="border-b border-ink/15 py-3"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 items-center gap-2.5">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} aria-hidden />
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[rgb(var(--color-ok))]" strokeWidth={1.75} aria-hidden />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
                       <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
@@ -448,25 +462,21 @@ export function BuildLocked({
                         genuinely open — a prompt the product would then refuse is
                         worse than no prompt. */}
                     {reviewStatusByVendorId?.get(r.vendorId) === 'open' ? (
-                      <Link
+                      /* 🪤 THE QUIET VERSION OF THIS CHIP FAILED AA (a `bg-mulberry/10`
+                         tint under `text-mulberry` measured 4.16:1). It stays a
+                         SOLID fill — now the ActionButton's filled main verb
+                         (2026-10-12 look sweep: one button, one source). */
+                      <ActionButton
                         href={`/dashboard/${eventId}/vendors/${r.vendorId}/review`}
-                        /* 🪤 THE QUIET VERSION OF THIS CHIP FAILED AA AND BOTH
-                           CONTRAST GUARDS WAVED IT THROUGH. `text-mulberry` on a
-                           `bg-mulberry/10` tint MEASURES 4.16:1 on the white page
-                           (3.62:1 on hover) — mulberry has only 0.26 of headroom
-                           over the 4.5 floor, so any tint under it spends the lot.
-                           The guards missed it because one checks token
-                           DEFINITIONS and the other only judges pairings where
-                           both sides are opaque; an alpha fill is neither.
-                           The solid action is the canonical treatment and
-                           measures 4.76:1 light / 6.20:1 dark. */
-                        className="rounded-full bg-mulberry px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-cream transition hover:opacity-90"
-                      >
-                        Leave a review
-                      </Link>
+                        tone="brand"
+                        main
+                        icon={<Star aria-hidden strokeWidth={1.9} />}
+                        label="Leave a review"
+                        name={`Leave a review for ${r.name}`}
+                      />
                     ) : null}
                     {reviewStatusByVendorId?.get(r.vendorId) === 'submitted' ? (
-                      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-success-700">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[rgb(var(--color-ok))]">
                         Reviewed
                       </span>
                     ) : null}
@@ -497,7 +507,7 @@ export function BuildLocked({
               label={d.label}
               tile={d.tile}
               folderSlug={d.folderSlug}
-              meta={decisionMeta(d.daysLeft, d.optionCount)}
+              meta={decisionMeta(d.groupId as PlanGroupId, d.daysLeft, d.optionCount)}
             />
           </li>
         ))}
@@ -579,12 +589,17 @@ export function BuildLocked({
 }
 
 /**
- * The right-aligned line on a decision row. Overdue and due-soon speak in days
- * (that IS the pressure); otherwise it reports how many options are already on
- * the bench. Null when there is nothing true to say.
+ * The right-aligned line on a decision row. Past the lock-by floor it says,
+ * kindly, how far ahead the category is usually booked (owner 2026-10-12 — not
+ * "Nd overdue"); due-soon speaks in days; otherwise it reports how many options
+ * are already on the bench. Null when there is nothing true to say.
  */
-function decisionMeta(daysLeft: number | null, optionCount: number): string | null {
-  if (daysLeft != null && daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`;
+function decisionMeta(
+  groupId: PlanGroupId,
+  daysLeft: number | null,
+  optionCount: number,
+): string | null {
+  if (daysLeft != null && daysLeft < 0) return usuallyBookedAheadLine(groupId);
   if (daysLeft != null && daysLeft <= 30) return `${daysLeft}d left`;
   if (optionCount > 0) return `${formatCount(optionCount)} shortlisted`;
   return null;
@@ -600,29 +615,35 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
   if (!step) return null;
   if (step === 'due' || step === 'refused') {
     return (
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-success-200 pt-2.5" data-money="">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-ink/15 pt-2.5" data-money="">
         <span className="text-xs text-ink/70">
           {step === 'due'
             ? 'Next: make your first payment to hold the date.'
             : 'They say your first payment hasn’t reached them.'}
         </span>
-        {/* Solid mulberry — the canonical action treatment the review chip above
-            measured at 4.76:1 light / 6.20:1 dark. */}
-        <Link
+        {/* The Pay pill — the ActionButton's filled main verb in the money tone
+            (`lib/supplier-card-verbs.ts`: pay → ok), 2026-10-12 look sweep. */}
+        <ActionButton
           href={href}
-          className="inline-flex items-center rounded-full bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition hover:opacity-90"
-        >
-          {step === 'due' ? 'Make your first payment' : 'Send it again'}
-        </Link>
+          tone="ok"
+          main
+          icon={<CreditCard aria-hidden strokeWidth={1.9} />}
+          label={step === 'due' ? 'Make your first payment' : 'Send it again'}
+        />
       </div>
     );
   }
   if (step === 'unknown') {
     return (
-      <div className="mt-2 text-xs" data-money="">
-        <Link href={href} className="font-medium text-ink/70 underline-offset-2 hover:underline">
-          First payment &amp; payments
-        </Link>
+      <div className="mt-2" data-money="">
+        {/* A door, so a button — quiet, because nothing is being asked yet. */}
+        <ActionButton
+          href={href}
+          tone="ok"
+          quiet
+          icon={<CreditCard aria-hidden strokeWidth={1.9} />}
+          label="First payment & payments"
+        />
       </div>
     );
   }
@@ -687,18 +708,28 @@ function LockTile({
    */
   note?: string | null;
 }) {
+  // Flipping tokens only — `text-danger-700` / `text-success-700` /
+  // `text-terracotta-700` had no dark value of their own (2026-10-12 look sweep).
+  // The accent is kept for what can be pressed, so the committed figure is ink,
+  // set heavier rather than coloured.
   const toneClass =
-    tone === 'over' ? 'text-danger-700' : tone === 'good' ? 'text-success-700' : null;
+    tone === 'over'
+      ? 'text-[rgb(var(--color-danger))]'
+      : tone === 'good'
+        ? 'text-[rgb(var(--color-ok))]'
+        : null;
   return (
     <div
-      className="rounded-xl border border-ink/10 bg-cream px-4 py-3"
+      // Read, not pressed: no frame — the figure sits on the page and ends in a
+      // divider (2026-10-12 look sweep).
+      className="border-b border-ink/15 py-2.5"
       // 💾 Every tile but Date and Location is a peso figure — never kept as
       // last-seen data (lib/last-seen).
       data-money={k === 'Date' || k === 'Location' ? undefined : ''}
     >
       <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
       <div
-        className={`mt-1 truncate font-display text-lg italic ${toneClass ?? (accent ? 'text-terracotta-700' : 'text-ink')}`}
+        className={`mt-1 truncate font-display text-lg italic ${toneClass ?? 'text-ink'}${accent ? ' font-semibold' : ''}`}
       >
         {v}
       </div>

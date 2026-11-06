@@ -24,7 +24,6 @@
  * price ladder reads as "free". A shorter true ladder, never a fake door.
  */
 import { PAPIC_FREE_ONE_CAMERA_COUNT, type PapicOneTier } from '@/lib/papic-one';
-import type { PapicSizing } from '@/lib/onboarding/papic-recommendation';
 import type { PapicPassTier } from '@/lib/papic-pass-tiers';
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { hubProOffered, splitProOffer } from '@/lib/onboarding-hub-pro';
@@ -74,12 +73,6 @@ export type PapicCardView = {
   types: PapicTypeView[];
   /** ['1 photo = 1 pt', '10-second clip = 8 pts'] — derived, never typed. */
   currencyTerms: readonly [string, string];
-  /**
-   * The admin-editable sizing (`papic_event_pool_config`) the onboarding card
-   * turns a guest estimate into its ONE recommendation with
-   * (`lib/onboarding/papic-recommendation.ts`). null ⇒ nothing is recommended.
-   */
-  sizing?: PapicSizing | null;
 };
 
 export type AiCardView = {
@@ -121,6 +114,11 @@ export type HubProCardView = {
   headline: string;
   /** What Pro adds, behind the (i). Null ⇒ the (i) is not rendered. */
   detail: string | null;
+  /**
+   * 💎 The cheapest Event Hub Pro part, read from the catalogue (owner 2026-10-22) — the (i) adds "or buy it part by
+   * part later, from ₱500". Sign-up still sells ONE offer: Full Pro. Null ⇒ the sentence is not said.
+   */
+  partsFromPhp?: number | null;
 };
 
 export type ServicesStepView = {
@@ -196,8 +194,6 @@ export function buildServicesStepView(input: {
   listPricePhpByCode?: ReadonlyMap<string, number>;
   freePoolPoints: number;
   freeOnePoints: number;
-  /** `papic_event_pool_config` for this type, or null. Read server-side; never typed here. */
-  poolSizing?: PapicSizing | null;
   /** null ⇒ the gate closed. Never 0-as-a-signal — 0 is a price, not an absence. */
   aiPricePhp: number | null;
   /** The planner's regular price, for the "later" comparison. Defaults to the
@@ -213,6 +209,7 @@ export function buildServicesStepView(input: {
     pricePhp: number | null;
     listPricePhp?: number | null;
     copy: { label: string; blurb: string } | null;
+    partsFromPhp?: number | null;
   } | null;
 }): ServicesStepView {
   const {
@@ -223,7 +220,6 @@ export function buildServicesStepView(input: {
     listPricePhpByCode,
     freePoolPoints,
     freeOnePoints,
-    poolSizing,
     aiPricePhp,
     aiListPricePhp,
     hubPro,
@@ -261,7 +257,7 @@ export function buildServicesStepView(input: {
   ];
 
   return {
-    papic: { eventWord, types, currencyTerms: papicPointCurrencyTerms(), sizing: poolSizing ?? null },
+    papic: { eventWord, types, currencyTerms: papicPointCurrencyTerms() },
     ai:
       aiPricePhp != null && aiPricePhp > 0
         ? {
@@ -310,6 +306,7 @@ function buildHubProCard(
         : pricePhp,
     headline,
     detail,
+    partsFromPhp: typeof input.partsFromPhp === 'number' && input.partsFromPhp > 0 ? input.partsFromPhp : null,
   };
 }
 

@@ -403,7 +403,9 @@ test("⚠ a REMOVED note is not announced as a note", () => {
   const at = src.indexOf("changed.includes('note')");
   assert.ok(at > -1, 'the note branch is gone');
   const branch = src.slice(at, at + 220);
-  assert.match(branch, /guestNote \?/, 'the note branch does not ask whether there IS a note');
+  // ✍ 2026-10-25: asked of the note as WRITTEN (`guestNoteWritten` — the note plus any "Name correction: …" line from
+  // the You step's "Wrong name? Tell the couple", which can fill the note while the note question is off).
+  assert.match(branch, /guestNoteWritten \?/, 'the note branch does not ask whether there IS a note');
   assert.match(branch, /removed their note/, 'there is no sentence for a note that was deleted');
 });
 
@@ -497,11 +499,14 @@ test('🔴 the guest-side restamp was fixed too, not just the host one', () => {
   assert.match(expr, /before\?\.rsvp_status === status/, 'an unchanged answer is restamped as a fresh reply');
   assert.match(expr, /before\?\.rsvp_responded_at/, 'an unchanged answer does not keep its own date');
   // …and the value it leans on must actually be selected.
+  // (2026-10-18, event-day L1·6: the column list became `REPLY_BEFORE_COLUMNS`, read
+  // once before the write and again if another save landed in between.)
   assert.match(
     src,
-    /\.select\('rsvp_status, rsvp_responded_at,/,
+    /const REPLY_BEFORE_COLUMNS =\s*'rsvp_status, rsvp_responded_at,/,
     'the prior date is not read — the expression above reads undefined',
   );
+  assert.match(src, /const \{ data: before \} = await admin\s*\.from\('guests'\)\s*\.select\(REPLY_BEFORE_COLUMNS\)/);
 });
 
 test('every reported change produces a sentence, and no branch is neutered', () => {

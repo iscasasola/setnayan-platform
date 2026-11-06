@@ -24,7 +24,7 @@
  * `lib/customer-menu.ts` (`buildEventMenuSections`), which the phone's one
  * bottom bar reads too. Stage D (owner 2026-09-29):
  *
- *   (name row)  → Details (Event settings)
+ *   (name row)  → the event's name, PLAIN TEXT — no door (owner 2026-10-23, below)
  *   (the five)  → Home · Guests · Suppliers · Hub · More Services (2026-10-01)
  *
  * 🔒 EVERY ROW IS A PLAIN LEAF — "solid menu with no submenus" (owner-locked
@@ -62,13 +62,14 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { asksForMoreServices } from '@/lib/studio-hub';
-import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { NavItem } from '@/app/_components/nav/types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import type { EventMenuChild, EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { eventSettingsHref } from '@/lib/people-with-access-href';
+import { SETTINGS_ENTRY } from '@/lib/menu-settings';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
 import { formatCount } from '@/lib/format-number';
@@ -77,6 +78,7 @@ export function EventRailContext({
   eventId,
   eventName,
   eventMonogram,
+  eventMonogramPlays,
   navSlots,
   hideKeys,
   websiteEnabled,
@@ -122,6 +124,9 @@ export function EventRailContext({
     /** The logo moves and the animation is on (`logoPlaysFor`) — it plays. */
     plays?: boolean;
   } | null;
+  /** Whether the mark plays, when `eventMonogram` is an object shared with the switcher
+   *  (one copy of the SVG on the page) and so cannot carry it. Wins over `eventMonogram.plays`. */
+  eventMonogramPlays?: boolean;
   navSlots?: Record<string, NavSlotLite>;
   hideKeys?: string[];
   websiteEnabled?: boolean;
@@ -183,11 +188,9 @@ export function EventRailContext({
     `studio` key). It opens to the five — Setnayan AI · Papic · Live Studio ·
     Music Maker · Patiktok — and their pages light this row.
 
-    The event's Details row is not drawn as a row: it IS the event's name row
-    (the `event` group), so the place you are in opens its own facts.
+    The `event` group (its one row, `personalization` → /details) is NOT
+    drawn here at all — see the name below (owner 2026-10-23).
   */
-  const detailsRow =
-    groupsWithHub.find((g) => g.key === 'event')?.items.find((i) => i.key === 'personalization') ?? null;
   const groups = groupsWithHub.filter((g) => g.key !== 'event');
 
   /*
@@ -231,41 +234,33 @@ export function EventRailContext({
         accessible label and sits directly under it, so a screen reader hearing
         the initials first would only hear the same thing twice.
       */}
+      {/*
+        ⚙ THE MARK IS A DOOR — TO HOME'S ⚙ EVENT SETTINGS (owner 2026-10-30, on the iPhone app: *"tapping monogram not
+        working"* → *"no. that shoud be inside home settings"* → *"move them all in the event settings"*). Until today it
+        was a bare picture (a `div`, deliberately plain since 23 Oct) while every word around it — and this menu's own
+        tree, `personalization` → Event Details — told him it opened the event's details. Now it opens the sheet the
+        event's details and its People with access live in: Home with `?settings=1` (`eventSettingsHref`), a real link,
+        44 px at least (`.fd-rctx-door`). The name under it stays plain text; the mark is the one door.
+      */}
       {eventMonogram ? (
         <div className="fd-rctx-mark">
-          <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogram.plays} place="event-rail" />
+          <Link href={eventSettingsHref(eventId)} className="fd-rctx-door" aria-label={SETTINGS_ENTRY.home.sheet} data-rail-event-settings="">
+            <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogramPlays ?? eventMonogram.plays} place="event-rail" />
+          </Link>
         </div>
       ) : null}
       {/*
-        THE EVENT'S NAME OPENS ITS DETAILS (owner 2026-09-24 — the rail's
-        Personalization row, renamed Details, moved onto the name). Names,
-        date, venue and budget are facts ABOUT the event, so they open from
-        the event's name: that is where a person looks to change "our wedding".
-        Still no way OUT of the event here — that is the Events row above.
-        Falls back to the plain name if the row is ever absent (hidden by an
-        admin or a future gate), rather than a link to nowhere.
+        THE EVENT'S NAME IS PLAIN TEXT — ONE DOOR TO EVENT DETAILS (owner
+        2026-10-23, comparing the Home cover's "ⓘ Event Details" button with
+        this row's "⚙ Event settings" line: *"same? If yes, only keep the
+        Event Details button and remove the event settings"*). Both opened
+        /details, so the rail's copy went and the Home cover's button is the
+        one door. The name says which event you are in; it opens nothing, and
+        the way OUT is the Events row above. Because no row is drawn for the
+        `event` group, /details lights nothing here — never a removed row.
+        `one-door-to-event-details.test.ts` holds both halves.
       */}
-      {detailsRow ? (
-        <Link
-          href={detailsRow.href}
-          className="fd-rctx fd-rctx-link fd-mrow"
-          data-on={activeKey === detailsRow.key ? 'true' : 'false'}
-          aria-current={activeKey === detailsRow.key ? 'page' : undefined}
-        >
-          <span className="fd-rctx-name">{eventName}</span>
-          {/* ⚙ A GEAR, NOT THE WORD "DETAILS" (owner 2026-09-27: "make a
-              settings icon"). "Details" also names the Event Hub Maker's
-              include-checklist page, so one word meant two places; this row
-              opens Event Settings (names, date, venues, guest count), so it
-              wears the settings gear and says so. */}
-          <span className="fd-rctx-sub fd-rctx-settings">
-            <Settings aria-hidden className="fd-rctx-gear" strokeWidth={1.75} />
-            Event settings
-          </span>
-        </Link>
-      ) : (
-        <div className="fd-rctx">{eventName}</div>
-      )}
+      <div className="fd-rctx">{eventName}</div>
 
       {groups.map((group) => (
         <div key={group.key}>

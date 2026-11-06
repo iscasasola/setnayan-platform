@@ -16,7 +16,8 @@
  *       redirect. The `[addon]` placeholder that showed couples developer notes
  *       ("Cloudflare Stream Live SFU → YouTube RTMP relay") is a redirector.
  *   4 · PAPIC GUEST PAGES with no way back — /papic/pool and /papic/decorate
- *       now link "Back to my photos", their signed-out screens have a button,
+ *       now link "Back to my photos" (their signed-out screens' "Back to
+ *       Setnayan" button left 2026-10-28 — see the test below),
  *       and the decorator's "accept the photo terms" message opens the camera
  *       page that holds them.
  *
@@ -146,10 +147,14 @@ test('/papic/pool and /papic/decorate lead back to the guest’s photos', () => 
   for (const p of ['app/papic/pool/page.tsx', 'app/papic/decorate/page.tsx']) {
     const src = code(p);
     assert.match(src, MY_PHOTOS, `${p}: no way back to the guest's own photos`);
-    // Every DoorShell carries a way out. 🪤 The first version of this counted
+    // Every DoorShell is read by its BODY. 🪤 The first version of this counted
     // open and close tags, and a sabotage that emptied the body (keeping the
-    // `</DoorShell>`) walked straight through it — so each door's BODY is read
-    // and must hold a link.
+    // `</DoorShell>`) walked straight through it.
+    // 🧭 SUPERSEDED IN PART 2026-10-28 (owner, DECISION_LOG "EVERY PAGE GOES BACK TO THE RIGHT
+    // HOME"; lib/page-home.ts): the signed-out door's "Back to Setnayan" sent a guest to the
+    // MARKETING front page, which the ruling forbids — a guest page goes back to ITS event's hub,
+    // and with no session the door knows no event, so it draws no back. What stays held: no door
+    // ever links to `/`, and the signed-in page still leads back to the guest's own photos (above).
     let from = 0;
     let doors = 0;
     for (;;) {
@@ -159,7 +164,7 @@ test('/papic/pool and /papic/decorate lead back to the guest’s photos', () => 
       assert.ok(close > open, `${p}: a DoorShell self-closes — a door with nothing to press`);
       const next = src.indexOf('<DoorShell', open + 1);
       assert.ok(next < 0 || next > close, `${p}: a DoorShell self-closes — a door with nothing to press`);
-      assert.match(src.slice(open, close), /<Link\b/, `${p}: a DoorShell renders with no button`);
+      assert.doesNotMatch(src.slice(open, close), /href="\/"/, `${p}: a guest door sends the guest to the marketing front page`);
       doors++;
       from = close;
     }

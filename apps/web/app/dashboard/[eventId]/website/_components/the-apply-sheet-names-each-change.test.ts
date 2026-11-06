@@ -8,8 +8,9 @@
  *   1. THE LIST MATCHES THE COUNT — `hubDraftChangeLines` is exactly
  *      `summarizeHubDraft(...).changeCount` lines, for a couple with Pro and
  *      without, because both walk ONE reader (`hubDraftCountedChanges`). The
- *      names (two columns) and the date (two) are one line each, as they are
- *      one in the badge.
+ *      names (three columns) are one line, as they are one in the badge — and
+ *      the date is never a line at all: it is not drafted (owner 2026-11-05,
+ *      "it shouldn't rely on the hub").
  *   2. EVERY DRAFT KIND MAPS TO A LABEL — every draftable `events` column,
  *      every widget field, every Post Event item and every fixed part's style
  *      reads as "Place · What", never blank or "undefined".
@@ -76,9 +77,8 @@ const DRAFT = mergeHubDraft(emptyHubDraft(), {
     // ✍ The names — two columns, ONE change.
     display_name: 'Ana & Miguel',
     bride_name: 'Ana',
-    // 🗓 The date — two columns, ONE change.
-    event_date: '2031-05-01',
-    event_date_precision: 'day',
+    // 🗓 A date sent by an older screen — never drafted, so never a line (owner 2026-11-05).
+    ...({ event_date: '2031-05-01', event_date_precision: 'day' } as object),
     ceremony_time: '15:00',
     site_button_style: HUB_BUTTON_STYLE_VALUES[0],
     invite_theme: INVITE_THEME_IDS[INVITE_THEME_IDS.length - 1],
@@ -98,12 +98,12 @@ test('the named list is exactly the count — with Pro and without — in one wa
   for (const ownsPro of [false, true]) {
     const summary = summarizeHubDraft(DRAFT, LIVE, ownsPro);
     const lines = hubDraftChangeLines(DRAFT, LIVE, ownsPro);
-    assert.ok(summary.changeCount >= 8, `anti-vacuity: the draft holds ${summary.changeCount} changes: ${hubDraftChangeLines(DRAFT, LIVE, ownsPro).map(text).join(" | ")}`);
+    assert.ok(summary.changeCount >= 7, `anti-vacuity: the draft holds ${summary.changeCount} changes: ${hubDraftChangeLines(DRAFT, LIVE, ownsPro).map(text).join(" | ")}`);
     assert.equal(lines.length, summary.changeCount, `ownsPro=${ownsPro}: ${lines.length} lines for a count of ${summary.changeCount}`);
     const said = lines.map(text);
     // The facts carried by several columns are ONE line each.
-    assert.equal(said.filter((l) => l === 'Event Details · Names').length, 1, 'the names are listed twice');
-    assert.equal(said.filter((l) => l === 'Event Details · Date').length, 1, 'the date is listed twice');
+    assert.equal(said.filter((l) => l === 'Event Details · Event title').length, 1, 'the names are listed twice');
+    assert.equal(said.some((l) => /· Date$/.test(l)), false, 'a date is listed — it is not drafted');
     assert.ok(said.includes('Event Details · Ceremony time'), said.join(' | '));
     assert.ok(said.includes('Look · Buttons'), said.join(' | '));
     assert.ok(said.includes('Look · Theme'), said.join(' | '));
@@ -124,7 +124,7 @@ const ok = (p: { place: string; what: string }, of: string) => {
 test('every draft kind maps to a plain "Place · What" label', () => {
   for (const c of HUB_DRAFT_EVENT_COLUMNS) ok(HUB_DRAFT_EVENT_PLACE[c], `events.${c}`);
   const base = { change: 'change' as const, pro: false, value: null };
-  const fields = ['mode', 'is_visible', 'display_order', 'canvas', 'main', 'stage_order', 'std_lead', 'custom', 'venue'] as const;
+  const fields = ['mode', 'is_visible', 'display_order', 'canvas', 'main', 'stage_order', 'std_lead', 'photos_heading', 'custom', 'venue'] as const;
   for (const field of fields) {
     const item = { ...base, kind: 'widget', widgetType: 'schedule', widgetId: 'w-schedule', field } as HubDraftItem;
     ok(hubDraftChangePlace(item, LIVE), `widget field ${field}`);
@@ -207,7 +207,10 @@ test('the sheet holds no write of its own — its one write is the Apply its par
 
 test('wired: the loader and the after-save read fill summary.changes from the ONE reader; the bar hands it to the sheet', () => {
   const store = stripComments(readFileSync(join(process.cwd(), 'lib/hub-draft-store.ts'), 'utf8'));
-  assert.match(store, /summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !storeShell\);/, 'the bar’s loader does not name the changes with the count’s own entitlement');
+  // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
+  // 💎 Part by part (2026-10-22): the count's own entitlement is the parts owned (none in the store shell), `forPlan`.
+  assert.match(store, /const forPlan = proShell \? NO_HUB_PARTS : owned;\s*summary = summarizeHubDraft\(draft, live, forPlan, me\);/);
+  assert.match(store, /summary\.changes = hubDraftChangeLines\(draft, live, forPlan\);/, 'the bar’s loader does not name the changes with the count’s own entitlement');
   assert.match(store, /changes: hubDraftChangeLines\(draft, live, false\)/, 'the after-save read (free) does not name the changes');
   assert.match(store, /changes: hubDraftChangeLines\(draft, live, true\)/, 'the after-save read (owned) does not name the changes');
   const lines = stripComments(readFileSync(join(process.cwd(), 'lib/hub-draft-change-lines.ts'), 'utf8'));

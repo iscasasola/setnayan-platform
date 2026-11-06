@@ -299,8 +299,8 @@ test('every render site is guarded on the view being present', () => {
   const flowConfig = read('lib/onboarding/flow-config.ts');
   assert.equal(
     (flowConfig.match(/\.\.\.\(input\.services \? \['services'\] : \[\]\)/g) ?? []).length,
-    2,
-    'both branches of genericFlowScreens (engine on and off) must drop the services screen when its view is absent',
+    3,
+    'every branch of genericFlowScreens (needs-first, engine on, engine off) must drop the services screen when its view is absent',
   );
   assert.match(generic, /screen === 'services' && servicesStepView/);
 

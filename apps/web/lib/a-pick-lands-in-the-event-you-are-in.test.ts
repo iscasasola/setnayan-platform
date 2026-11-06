@@ -35,7 +35,7 @@ const bench = src('../app/dashboard/[eventId]/vendors/_components/shortlist-cate
 const events = src('../lib/events.ts');
 
 test('the bench sends the event it is standing in', () => {
-  const fn = bench.slice(bench.indexOf('const saveFromMore'), bench.indexOf('const saveFromMore') + 900);
+  const fn = bench.slice(bench.indexOf('const saveFromMore'), bench.indexOf('const undoFromMore'));
   assert.match(
     fn,
     /fd\.set\('event_id', eventId\)/,

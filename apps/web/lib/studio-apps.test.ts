@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { STUDIO_APPS, studioDescription } from './studio-apps';
-import { railToolsSignedIn, railToolsSignedOut } from '@/lib/studio-rail';
+import { railToolsSignedIn } from '@/lib/studio-rail';
 import { GENERIC_PROFILE, WEDDING_PROFILE } from './event-type-profile';
 
 /**
@@ -85,7 +85,6 @@ test('the anchor: there are nine Studio apps and each names a page', () => {
   for (const a of STUDIO_APPS) {
     assert.ok(a.href.startsWith('/'), `${a.key}: href is not a path`);
     assert.ok(a.description.length > 80, `${a.key}: description is a stub`);
-    assert.ok(a.railLine.length > 10, `${a.key}: railLine is a stub`);
   }
 });
 
@@ -189,12 +188,8 @@ test('the Studio rows NAVIGATE — they never open the demo directly', () => {
     'A Studio row opens the demo directly again. It must navigate to the ' +
       "product's page — the feature description comes first.",
   );
-  assert.match(
-    shell,
-    /tools\.map\(\(t\) => \(\s*<Link/,
-    'The Studio rows are no longer plain <Link>s. A row that is a <button> ' +
-      'cannot be middle-clicked, opened in a new tab, or crawled.',
-  );
+  // (The rail's Studio rows themselves left on 2026-10-23 — owner 2026-10-01:
+  // one Features row. The products' own pages carry the demo.)
 });
 
 test('a "try it" marker is backed by a real demo button on that page', () => {
@@ -255,16 +250,6 @@ test('a "try it" marker is backed by a real demo button on that page', () => {
         `/${a.key} has no demo in the source but its page passes one.`,
       );
     }
-  }
-});
-
-test('signed out, every row says what the product is', () => {
-  for (const t of railToolsSignedOut()) {
-    assert.ok(
-      t.line && t.line.length > 10,
-      `${t.key} has no line. Seven bare names teach a stranger nothing — the ` +
-        'owner asked for exactly this.',
-    );
   }
 });
 
@@ -345,23 +330,17 @@ test('a row whose surface the event type does not enable is DROPPED', () => {
 
 /* ── 4 · THE FREE ROW IS A ROW, NOT AN UPSELL ──────────────────────────── */
 
-test('the Mood Board is in the group, and its door is real', () => {
+test('the Mood Board is a Studio product, and its door is real', () => {
   /*
-    Named on its own for the reason Pakanta is: it is the one that was
-    deliberately held OUT — the 2026-08-21 structure put the free parts on the
-    "All services" hub — and the check that every row leads to a real page goes
-    quiet the moment somebody removes the row. An empty promise is caught by
-    that guard; a missing product is not.
+    Named on its own: it was the one deliberately held OUT once (owner
+    2026-09-03: "i do not see it"). Since 2026-10-23 the products are rows of
+    the EVENT's menu, not the front-door rail — so this reads the signed-in
+    builder the event layout uses.
   */
-  const row = railToolsSignedOut().find((r) => r.key === 'mood-board');
-  assert.ok(row, 'the Mood Board has no Studio row (owner 2026-09-03: "i do not see it")');
+  const row = railToolsSignedIn({ eventId: null, count: 0, profile: null }).find((r) => r.key === 'mood-board');
+  assert.ok(row, 'the Mood Board has no Studio row');
   assert.equal(row?.href, '/mood-board');
-  assert.equal(
-    row?.demo,
-    undefined,
-    'the Mood Board row offers a demo. HomeOverlays mounts no mood-board ' +
-      'overlay, so the marker would be a fake door.',
-  );
+  assert.equal(row?.demo, undefined, 'the Mood Board row offers a demo — HomeOverlays mounts none');
 });
 
 test('promoting a FREE tool renders no price, tier or lock in the rail', () => {
@@ -377,7 +356,7 @@ test('promoting a FREE tool renders no price, tier or lock in the rail', () => {
     product must carry exactly the same fields as a rail row for a paid one.
     A price would have to arrive as a new field, and that fails here.
   */
-  const rows = railToolsSignedOut();
+  const rows = railToolsSignedIn({ eventId: null, count: 0, profile: null });
   const free = rows.find((r) => r.key === 'mood-board');
   const paid = rows.find((r) => r.key === 'pakanta');
   assert.ok(free && paid, 'the two rows this compares are not both rendered');

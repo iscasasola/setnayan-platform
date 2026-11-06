@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import satori from 'satori';
 import sharp from 'sharp';
+import { cardPhotoSignal } from '@/lib/social/card-photo-fetch';
 
 /**
  * apps/web/lib/social/profile-card.tsx — the personalized Open Graph share card
@@ -268,7 +269,7 @@ function photoOverlayTree(input: ProfileCardInput): VNode {
 export async function renderProfileOgJpeg(input: ProfileCardInput): Promise<Buffer> {
   if (input.heroPhotoUrl) {
     try {
-      const res = await fetch(input.heroPhotoUrl);
+      const res = await fetch(input.heroPhotoUrl, { signal: cardPhotoSignal() });
       if (res.ok) {
         const photo = Buffer.from(await res.arrayBuffer());
         const base = await sharp(photo)

@@ -2,11 +2,16 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronRight, MoreHorizontal, Sparkles, X } from 'lucide-react';
+import { Armchair, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { ActionButton } from '@/components/action-button';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { ChosenRow, FormRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { StatusLine } from '@/app/_components/status-line';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -29,6 +34,27 @@ import { OneOpenScope, useOneOpen } from '@/lib/one-open';
  *     tables with room, or + New table) → Move. No drag on a phone.
  */
 
+/**
+ * 🔔 The Auto arrange line (and its Undo) — the template's toast (`PeekToast`: peeks from the top, one Undo action, leaves by itself and tells the editor, which then
+ * forgets the line). Its Dismiss ✕ is the toast's own leaving.
+ */
+export function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } }) {
+  return (
+    <PeekToast key={toast.text} data="seat-plan" onGone={toast.onDismiss} action={toast.onUndo ? { label: 'Undo', onPress: toast.onUndo } : undefined}>
+      {toast.text}
+    </PeekToast>
+  );
+}
+
+/** Auto arrange — the screen's forward step: THE ONE ActionButton (a waiting button while it arranges), with the editor's own handler. */
+function AutoArrange({ onAutoArrange, disabled, busy }: { onAutoArrange: () => void; disabled: boolean; busy: boolean }) {
+  return (
+    <span data-seat-plan-auto="" data-tour="seat-plan-auto" className="flex min-w-0 flex-1">
+      <ActionButton tone="brand" main waiting={busy} disabled={disabled && !busy} icon={Sparkles} label={busy ? 'Arranging…' : 'Auto arrange'} onClick={onAutoArrange} className="w-full" />
+    </span>
+  );
+}
+
 /** A tap-to-open popover (Rules ▾ and ⋯) — solid surface, closes on a tap outside. */
 function Pop({
   button,
@@ -36,12 +62,18 @@ function Pop({
   children,
   align = 'left',
   data,
+  up = false,
+  round = false,
 }: {
   button: ReactNode;
   label: string;
   children: ReactNode;
   align?: 'left' | 'right';
   data: string;
+  /** 🗂 R4: opened from the thumb row at the foot of the screen, the menu rises above it. */
+  up?: boolean;
+  /** 🎚 A 40-px round (the Guests top row's rounds), not a word pill. */
+  round?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts; what opens inside is its child
@@ -55,7 +87,7 @@ function Pop({
           aria-label={label}
           onClick={() => setOpen((v) => !v)}
           {...{ [data]: '' }}
-          className="sn-press inline-flex h-11 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-[13px] font-medium text-ink"
+          className={`sn-press inline-flex items-center rounded-full border border-ink/15 bg-cream text-[13px] font-medium text-ink ${round ? 'h-10 w-10 justify-center' : 'h-11 gap-1 px-3.5'}`}
         >
           {button}
         </button>
@@ -67,7 +99,7 @@ function Pop({
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[data-close]')) setOpen(false);
               }}
-              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
+              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 ${up ? 'bottom-full mb-1' : 'mt-1'} w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
             >
               {children}
             </div>
@@ -145,30 +177,9 @@ export function PhoneSeatPlanHead({
       <p data-seat-plan-status="" className="text-[12.5px] leading-snug text-ink/60 group-data-[details-mode=guided]/ws:hidden">
         {status}
       </p>
-      {toast ? (
-        <div role="status" data-seat-plan-toast="" className="flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-[13px] text-cream">
-          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-terracotta-200" />
-          <span className="min-w-0 flex-1">{toast.text}</span>
-          {toast.onUndo ? (
-            <button type="button" onClick={toast.onUndo} data-seat-plan-undo="" className="sn-press shrink-0 font-semibold text-terracotta-200 underline-offset-2 hover:underline">
-              Undo
-            </button>
-          ) : null}
-          <button type="button" onClick={toast.onDismiss} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-cream/70 hover:text-cream">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
+      {toast ? <SeatToast toast={toast} /> : null}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onAutoArrange}
-          disabled={autoDisabled || autoBusy}
-          data-seat-plan-auto=""
-          className="sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-cream disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {autoBusy ? 'Arranging…' : 'Auto arrange'}
-        </button>
+        <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
         <Pop
           label="Who sits together"
           align="right"
@@ -187,6 +198,7 @@ export function PhoneSeatPlanHead({
           type="button"
           onClick={onUnseated}
           data-seat-plan-unseated=""
+          data-tour="seat-plan-unseated"
           className={`sn-press inline-flex h-9 items-center gap-1 rounded-full px-3 text-[12.5px] font-semibold ${
             unseated > 0 ? 'bg-terracotta/15 text-terracotta-800' : 'bg-success-50 text-success-700'
           }`}
@@ -195,7 +207,10 @@ export function PhoneSeatPlanHead({
           <ChevronRight aria-hidden className="h-3.5 w-3.5" />
         </button>
         <span className="flex-1" />
-        <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="border border-ink/15" />
+        {/* 🔦 The tour's stop 3 rides on a box of its own — PickMenu takes no attribute beyond its one data hook. */}
+        <span data-tour="seat-plan-view" className="inline-flex">
+          <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="border border-ink/15" />
+        </span>
       </div>
     </div>
   );
@@ -258,7 +273,7 @@ export function MoveGuestSheet({
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div data-seat-plan-move="" className="fixed inset-0 z-[80] flex flex-col justify-end">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-ink/35" />
+      <OverlayBackdrop onClose={onClose} />
       <div role="dialog" aria-label={`Move ${firstName} to…`} className="relative flex flex-col gap-3 rounded-t-2xl bg-cream px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-xl">
         <span aria-hidden className="mx-auto h-1 w-10 rounded-full bg-ink/15" />
         <h3 className="font-display text-xl text-ink">Move {firstName} to…</h3>
@@ -267,7 +282,8 @@ export function MoveGuestSheet({
             {initial}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[15px] text-ink">{fullName}</span>
+            {/* ✂ A guest's name wraps, never cut (owner v15). */}
+            <span className="line-clamp-3 block text-[15px] text-ink [overflow-wrap:anywhere]">{fullName}</span>
             <span className="block truncate text-[12px] text-ink/55">{sub}</span>
           </span>
         </div>
@@ -276,17 +292,319 @@ export function MoveGuestSheet({
         <p className="text-[12px] text-ink/60">
           {partyNote ? `${partyNote} ` : ''}Only tables with room are listed.
         </p>
-        <button
-          type="button"
-          onClick={onMove}
-          disabled={busy || value === null}
-          data-seat-plan-move-go=""
-          className="sn-press inline-flex h-12 items-center justify-center rounded-full bg-ink text-[15px] font-semibold text-cream disabled:opacity-50"
-        >
-          Move
-        </button>
+        <span data-seat-plan-move-go="" className="flex">
+          <ActionButton tone="brand" main waiting={busy} disabled={value === null && !busy} icon={ArrowRight} label="Move" onClick={onMove} className="w-full" />
+        </span>
       </div>
     </div>,
     document.body,
+  );
+}
+
+/*
+ * 🧭 STUDIO › SEAT PLAN — THE MAP GETS THE SPACE (owner 2026-10-08, studio round 3, verbatim:
+ * *"seatplan has correct page but wrong balance. there is no space to see the whole seatplan"*).
+ * Drawn only in the new Maker's Studio on a phone; the shipped head and foot above stay for
+ * everyone else. The SAME handlers and counts the editor hands the shipped head — nothing new is
+ * saved, nothing is counted twice:
+ *
+ *   StudioSeatPlanHead  — ONE compact row: "Seat plan · N tables" · the save chip · ⋯
+ *   StudioSeatPlanTools — the thumb zone, over the foot of the map: Auto arrange · Rules ▾ · View ▾
+ *                         (2D · 3D · List — the view dropdown covers "Same layout in 3D ↗")
+ *   PeopleSheet         — the people list as a pull-up sheet over the map, its peek
+ *                         "32 guests · 0 unseated"; a tap (or a drag up) raises it, ⌄ lowers it.
+ */
+export function StudioSeatPlanHead({
+  countLabel,
+  more,
+  trailing,
+  view,
+}: {
+  /** Null in Guests › Seats (R4) — the counts are the summary row's, never said twice. */
+  countLabel: string | null;
+  more: ReactNode;
+  trailing?: ReactNode;
+  /** 🗂 R4: the plan's ONE mode dropdown (List · 2D · 3D) in the pinned row — Guests › Seats. */
+  view?: ReactNode;
+}) {
+  return (
+    <div data-seat-plan-studio-head="" className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-cream px-3">
+      {/* ✂ The head's words never cut — the mode dropdown beside it keeps its whole word too (owner v15). */}
+      <h2 className="shrink-0 whitespace-nowrap text-[15px] font-semibold text-ink">
+        Seat plan
+        {countLabel !== null ? (
+          <>
+            {' '}
+            <span className="font-normal text-ink/55">· </span>
+            <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
+              {countLabel}
+            </span>
+          </>
+        ) : null}
+      </h2>
+      {view}
+      <span className="flex-1" />
+      {trailing}
+      <Pop
+        label="More seat-plan tools"
+        align="right"
+        data="data-seat-plan-more"
+        button={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+      >
+        {more}
+      </Pop>
+    </div>
+  );
+}
+
+export function StudioSeatPlanTools({
+  onAutoArrange,
+  autoDisabled,
+  autoBusy,
+  rules,
+  view,
+  onView,
+  show3D,
+  toast,
+}: {
+  onAutoArrange: () => void;
+  autoDisabled: boolean;
+  autoBusy: boolean;
+  rules: ReactNode;
+  view: '2d' | '3d' | 'list';
+  onView: (v: '2d' | '3d' | 'list') => void;
+  show3D: boolean;
+  toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } | null;
+}) {
+  const views: PickOption[] = [
+    { key: '2d', label: '2D' },
+    ...(show3D ? [{ key: '3d', label: '3D' }] : []),
+    { key: 'list', label: 'List' },
+  ];
+  return (
+    <div data-seat-plan-studio-tools="" className="flex flex-col gap-2">
+      {toast ? <SeatToast toast={toast} /> : null}
+      {/* 🪟 The floating row is glass (`sn-glass-row`, BUTTON_RULE Rule 7) — no fill, no shadow of its own. */}
+      <div className="sn-glass-row flex items-center gap-2 rounded-full p-1">
+        {/* BUTTON-RULE — Auto arrange is the forward step (terracotta). */}
+        <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
+        <Pop
+          label="Who sits together"
+          align="right"
+          data="data-seat-plan-rules"
+          button={
+            <>
+              Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" />
+            </>
+          }
+        >
+          {rules}
+        </Pop>
+        <span data-tour="seat-plan-view" className="inline-flex">
+          <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** 🗂 R4 · The plan's three modes as ONE dropdown (owner rule: any set of choices is a dropdown) — the SAME options the
+ *  Studio's tools row offered, now in the pinned row of Guests › Seats. */
+/**
+ * 🎚 R4 slice 2 — Seats' own rounds in the GUESTS TOP ROW (owner 2026-10-29: the "Seat plan · 2D ▾" sub-row is replaced
+ * by the top row's Seats ▾). What that head held besides its mode — Edit (or the save chip) and ⋯ (who sits together,
+ * the doors, the 3D Plan facts, add, share & print, the room) — rides the top row, left of the ⚙: the SAME nodes the
+ * head drew, never a copy. The ⋯ is a 40-px round there (the row's rounds are action rounds — 📤 ⚙ — owner v14).
+ */
+export function SeatPlanToolRounds({ more, trailing }: { more: ReactNode; trailing?: ReactNode }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5" data-seat-plan-rounds="">
+      {trailing}
+      <Pop label="More seat-plan tools" align="right" data="data-seat-plan-more" round button={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}>
+        {more}
+      </Pop>
+    </span>
+  );
+}
+
+export function PeopleSheet({
+  guests,
+  unseated,
+  open,
+  onOpen,
+  onClose,
+  tools,
+  children,
+}: {
+  /** Everyone on the list the plan seats — `guests.length`, counted by the editor. */
+  guests: number;
+  /** The Unseated section's own count (the shipped head's chip). */
+  unseated: number;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  /** The thumb-zone tools, riding just above the peek. */
+  tools: ReactNode;
+  /** The people list — the editor's own `guestsNode`, never a copy. */
+  children: ReactNode;
+}) {
+  const peek = `${formatCount(guests)} ${guests === 1 ? 'guest' : 'guests'} · ${formatCount(unseated)} unseated`;
+  /* A drag up on the peek raises the sheet, a drag down on its grip lowers it (no library — two numbers). */
+  const [startY, setStartY] = useState<number | null>(null);
+  const swipe = (endY: number) => {
+    if (startY === null) return;
+    const dy = endY - startY;
+    setStartY(null);
+    if (!open && dy < -24) onOpen();
+    if (open && dy > 24) onClose();
+  };
+  return (
+    <div
+      data-seat-plan-people={open ? 'open' : 'peek'}
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end"
+      style={{ top: open ? 0 : undefined }}
+    >
+      {open ? null : <div className="pointer-events-auto px-3 pb-2">{tools}</div>}
+      <div
+        className={`pointer-events-auto flex min-h-0 flex-col rounded-t-2xl border-t border-ink/10 bg-cream ${open ? 'h-[72%] shadow-[0_-12px_30px_-18px_rgba(26,26,26,0.35)]' : ''}`}
+      >
+        <button
+          type="button"
+          aria-expanded={open}
+          data-seat-plan-people-peek=""
+          data-tour="seat-plan-unseated"
+          onClick={open ? onClose : onOpen}
+          onPointerDown={(e) => setStartY(e.clientY)}
+          onPointerUp={(e) => swipe(e.clientY)}
+          className="flex min-h-12 w-full shrink-0 flex-col items-center justify-center gap-1 px-4 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-1.5 text-[13.5px] font-semibold text-ink"
+        >
+          <span aria-hidden className="h-1 w-10 rounded-full bg-ink/20" />
+          <span className="flex w-full items-center justify-between gap-2">
+            <span data-seat-plan-people-count="">{peek}</span>
+            <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? '' : 'rotate-180'}`} />
+          </span>
+        </button>
+        {/* Mounted always (the list keeps its search and scroll); shown only when raised. */}
+        <div hidden={!open} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 📱 THE TABLE'S SHEET ON A PHONE (owner 2026-10-01, the approved frame 3) — moved here from `seating-editor.tsx` whole, so it can be driven and held: the table's name, Type ▾, then the
+ * shipped verbs. PRESENTATIONAL: the editor keeps every piece of state and every save; it hands this the handlers it already had, UNTOUCHED (`onRename` is `renameTable`, `onPickType`
+ * `changeStyle`, `onRotate` `rotateTable(st, 90)`, `onLink` the link toggle, `onDelete` `requestRemoveTable`, …). The seat counter (the shared `Counter`, kind 17) and
+ * "Seat people" are the editor's own nodes, handed in; the counter's last step (`seatNote`) is said here in the status line (kind 12) with its Undo.
+ */
+export function PhoneTableDock({
+  tableId,
+  tableLabel,
+  typeValue,
+  typeOptions,
+  typeWord,
+  onRename,
+  onPickType,
+  seats,
+  seatsLine,
+  seatNote,
+  canEdit,
+  onRotate,
+  onEditChairs,
+  linked,
+  onUnlink,
+  linkPressed,
+  onLink,
+  swapPressed = false,
+  onSwap,
+  seatPeople,
+  onDone,
+  onDelete,
+}: {
+  tableId: string;
+  tableLabel: string;
+  typeValue: string;
+  typeOptions: readonly PickOption[];
+  typeWord: string;
+  onRename: (label: string) => void;
+  onPickType: (key: string) => void;
+  /** The seat counter — the editor's `Counter`, its handlers already wired (`dockSeatsStepper`). */
+  seats: ReactNode;
+  /** The counter row's small line: "6 seated · of 10 chairs". */
+  seatsLine: string;
+  /** The counter's last step ("Chair 8 removed.") and its Undo — or null. */
+  seatNote: { words: string; onUndo: () => void } | null;
+  canEdit: boolean;
+  onRotate: () => void;
+  onEditChairs: () => void;
+  linked: boolean;
+  onUnlink: () => void;
+  linkPressed: boolean;
+  onLink: () => void;
+  /** ⇄ "Swap with another table…" — the next table tapped trades its guests with this one, after a confirm (it moved here
+   *  from the 3D room's "Swap two tables" when the room became view-only, owner 2026-10-30). Absent = not offered. */
+  swapPressed?: boolean;
+  onSwap?: () => void;
+  seatPeople: ReactNode;
+  onDone: () => void;
+  onDelete: () => void;
+}) {
+  /* 🧩 THE TEMPLATES (owner 2026-10-09, the table's sheet): the name is the Form row's typed answer (kept — `renameTable` — when it is left, as the box saved on blur), the
+     shape is the dropdown row; Rotate · Edit chairs… · Link… · Unlink · Done · Delete are the ONE ActionButton, one row, Done the filled step; the delete's confirm is the
+     centred box (the editor's, `GuestPopup kind="confirm"`). 🔢 The seats are the third row (owner "approved" 2026-10-13): "Seats at this table" · "6 seated · of 10
+     chairs" · the Counter (kind 17); its last step is the status line under the rows, "Chair 8 removed." · Undo — it saves at once, never via Apply. */
+  return (
+    <div data-seat-plan-phone-dock={tableId} className="flex w-full flex-col gap-2.5">
+      <FormRows data="seat-table">
+        <TypedRow
+          key={tableId}
+          data="seat-table-name"
+          attrs={{ 'data-seat-table-name': '' }}
+          name="Table name"
+          value={tableLabel}
+          maxLength={64}
+          required
+          onKeep={(label) => {
+            onRename(label);
+            return { ok: true as const };
+          }}
+        />
+        <ChosenRow name="Shape" label="Table type" value={typeValue} options={typeOptions} onPick={onPickType} buttonText={typeWord} dataAttr="data-seat-plan-type" />
+        <FormRow name="Seats at this table" line={seatsLine} data="seat-table-seats">
+          {seats}
+        </FormRow>
+      </FormRows>
+      {seatNote ? (
+        <StatusLine tone="info" data="seat-step" action={{ label: 'Undo', onClick: seatNote.onUndo }}>
+          {seatNote.words}
+        </StatusLine>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <ActionButton tone="neutral" icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={onRotate} />
+        <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />
+        {linked ? (
+          <ActionButton tone="neutral" icon={Ungroup} label="Unlink" disabled={!canEdit} onClick={onUnlink} />
+        ) : (
+          <span data-seat-plan-link="" className="inline-flex">
+            <ActionButton tone={linkPressed ? 'brand' : 'neutral'} icon={Link2} label="Link…" aria-pressed={linkPressed} disabled={!canEdit} onClick={onLink} />
+          </span>
+        )}
+        {onSwap ? (
+          <span data-seat-plan-swap="" className="inline-flex">
+            <ActionButton tone={swapPressed ? 'brand' : 'neutral'} icon={ArrowLeftRight} label="Swap with another table…" aria-pressed={swapPressed} disabled={!canEdit} onClick={onSwap} />
+          </span>
+        ) : null}
+        {seatPeople}
+        {/* The row's one filled step, in the accent (the template's) — see `a-sheet-button-always-shows-its-word.test.ts`. */}
+        <span className="ml-auto inline-flex">
+          <ActionButton tone="brand" main icon={Check} label="Done" onClick={onDone} />
+        </span>
+      </div>
+      <span className="self-start">
+        <ActionButton tone="danger" icon={Trash2} label="Delete this table" disabled={!canEdit} onClick={onDelete} />
+      </span>
+    </div>
   );
 }

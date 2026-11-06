@@ -63,7 +63,12 @@ test('the migration adds the enum value, alone, and the host CHECK lists it with
 
   const hostFile = ls.find((f) => f.endsWith('_host_roles_add_best_woman.sql'));
   assert.ok(hostFile, 'no host_roles_add_best_woman migration');
-  const hostSql = readFileSync(join(dir, hostFile!), 'utf8');
+  assert.ok(readFileSync(join(dir, hostFile!), 'utf8').includes(`'best_woman'::text`), 'the best_woman CHECK does not list best_woman');
+  /* The CHECK as it stands is the LATEST migration that redefines it (2026-10-19: host_roles_add_man_of_honor widened it
+     again) — every host role the TypeScript offers must be in THAT one. */
+  const latest = ls.filter((f) => f.endsWith('.sql') && readFileSync(join(dir, f), 'utf8').includes('ADD CONSTRAINT event_moderators_role_subtype_check')).sort().pop();
+  assert.ok(latest && latest >= hostFile!, 'no migration defines the host role CHECK');
+  const hostSql = readFileSync(join(dir, latest!), 'utf8');
   for (const r of ROLE_SUBTYPES) {
     assert.ok(hostSql.includes(`'${r}'::text`), `the widened CHECK dropped host role ${r}`);
   }
@@ -171,6 +176,13 @@ const NAMES_BEST_MAN_ONLY_ON_PURPOSE: Record<string, string> = {
   'app/dashboard/[eventId]/wizard-actions.ts': 'onboarding VIP draft card — fixed fields',
   // A measured 2026-09-24 production reading in a docblock — evidence, frozen.
   'lib/role-group-dress-code.ts': 'frozen measurement in a comment',
+  // The Maker lab's ONE sample entourage (dev only, 404 in production): a fixed cast whose honour pair happens to be
+  // a maid of honour and a best man. It is a row of sample data fed to the real `buildEntourage`, not a place where
+  // the role vocabulary is decided — a best woman would be one more sample row, not a missing branch.
+  'app/dev/maker-lab/guest/lab-sample.ts': 'lab fixture — one sample cast, not a vocabulary',
+  // The Maria and Jose sample's fixture cast (S2): the brief lists a best man; it is sample data fed to the real
+  // builders, not a place where the role vocabulary is decided.
+  'lib/sample-event/snapshot.ts': 'sample fixture — one cast, not a vocabulary',
 };
 
 test('every file that names best_man also names best_woman — or says why not', () => {

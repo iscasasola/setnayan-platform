@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   Plus,
-  Trash2,
   Users,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -22,6 +21,9 @@ import {
   setWalkthroughZonePublished,
   setWalkthroughZoneTables,
 } from '../actions';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { formatCount } from '@/lib/format-number';
 
 export type ZoneVM = {
@@ -74,6 +76,8 @@ export function WalkthroughManager({
 
   return (
     <div className="space-y-4">
+      {/* ↩ The Undo a swiped-away zone leaves (owner 2026-11-03). */}
+      <UndoToastHost />
       <div className="rounded-2xl border border-ink/10 bg-cream/60 p-4 text-sm text-ink/70">
         <p>
           The walk-to-your-table video is the coordinator&rsquo;s (or your own helper&rsquo;s)
@@ -120,7 +124,7 @@ export function WalkthroughManager({
           placeholder="New zone — e.g. “Garden side”, “Near the stage”"
           aria-label="New zone name"
           maxLength={80}
-          className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-base text-ink shadow-sm outline-none placeholder:text-ink/35 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20"
+          className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white dark:bg-raised px-4 py-2.5 text-base text-ink shadow-sm outline-none placeholder:text-ink/35 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20"
         />
         <button
           type="submit"
@@ -132,7 +136,7 @@ export function WalkthroughManager({
       </form>
 
       {zones.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-ink/15 bg-white p-6 text-center text-sm text-ink/55">
+        <p className="rounded-2xl border border-dashed border-ink/15 bg-white dark:bg-raised p-6 text-center text-sm text-ink/55">
           No zones yet. Add one above, tag its tables, and record the walk to it.
         </p>
       ) : (
@@ -168,6 +172,7 @@ function ZoneCard({
 }) {
   const [label, setLabel] = useState(zone.label);
   const [tablesOpen, setTablesOpen] = useState(false);
+  const [gone, setGone] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(zone.tableIds));
 
   // Reseed from the server only when THIS zone's saved set actually changes
@@ -195,8 +200,29 @@ function ZoneCard({
     });
   }
 
+  /* 👈 A ZONE'S DELETE IS ITS CARD'S SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
+     VISIBLE ✕ ON ROWS"): the trash beside the name left; the swipe asks the SAME question (its tables lose the walk
+     video), then deletes after the Undo window (`deleteWithUndo`) — the same `deleteWalkthroughZone`. */
+  if (gone) return <li hidden data-swipe-gone="" />;
   return (
-    <li className="rounded-2xl border border-ink/12 bg-white p-4 shadow-sm">
+    <SwipeToDelete
+      as="li"
+      label={`Delete ${zone.label}`}
+      radiusClass="rounded-2xl"
+      surfaceClass=""
+      disabled={pending}
+      onDelete={(close) => {
+        if (!confirm(`Delete “${zone.label}”? Its tables keep their seats — they just lose the walk video.`)) return close();
+        deleteWithUndo({
+          label: `“${zone.label}” deleted`,
+          hide: () => setGone(true),
+          restore: () => setGone(false),
+          commit: () => deleteWalkthroughZone(eventId, zone.zoneId),
+          failed: `Couldn’t delete “${zone.label}”. It’s back — try again.`,
+        });
+      }}
+    >
+    <div className="rounded-2xl border border-ink/12 bg-white p-4 shadow-sm">
       {/* Label + delete */}
       <div className="flex items-start gap-2">
         <input
@@ -217,18 +243,6 @@ function ZoneCard({
             Save name
           </button>
         ) : null}
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            if (confirm(`Delete “${zone.label}”? Its tables keep their seats — they just lose the walk video.`))
-              run(() => deleteWalkthroughZone(eventId, zone.zoneId));
-          }}
-          aria-label={`Delete ${zone.label}`}
-          className="shrink-0 rounded-lg p-1.5 text-ink/45 hover:bg-danger-50 hover:text-danger-700 disabled:opacity-50"
-        >
-          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-        </button>
       </div>
 
       {/* Tables in this zone */}
@@ -371,6 +385,7 @@ function ZoneCard({
           />
         )}
       </div>
-    </li>
+    </div>
+    </SwipeToDelete>
   );
 }

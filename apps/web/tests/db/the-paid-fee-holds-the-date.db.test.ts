@@ -89,7 +89,9 @@ test('a settled fee holds the date — on a booking still at `contracted`', asyn
 });
 
 test('the first five bookings hold a date too — waived is settled', async () => {
-  for (const status of ['waived_free5', 'waived_import']) {
+  // `waived_promo` since 20271268087628 (audit C15) — a free-window booking is
+  // settled exactly like the free five.
+  for (const status of ['waived_free5', 'waived_import', 'waived_promo']) {
     const vpid = await newVendor();
     const b = await newBooking(vpid);
     const chargeId = await newCharge(vpid, b.eventId, b.eventVendorId, status);

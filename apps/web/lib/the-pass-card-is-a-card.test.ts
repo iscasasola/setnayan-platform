@@ -36,7 +36,7 @@ import {
 } from './pass-card';
 import { layoutPassCard, layoutPieceDocs, passCardFacts, safeContainsBox, type PrintOp, type PrintPass, type PrintSetData } from './print-layout';
 import { INVITE_THEME_IDS } from './invite-themes';
-import { PRINT_FORMATS, printLookFor } from './print-pieces';
+import { PRINT_FORMATS, printBrandOf, printLookFor } from './print-pieces';
 import { renderPassCardPng } from './pass-card-render';
 import { renderInvitationQrPng } from './qr';
 import { decodeQrPayloadFromImage } from './qr-decode';
@@ -254,12 +254,17 @@ test('the Phone card PRINT format is the SAME drawing as the saved picture (one 
   assert.deepEqual([f.wMm, f.hMm, f.style, f.for], [90, 120, 'phone', 'pass'], '3 : 4 portrait, a pass format');
   assert.ok(f.sheet && f.sheet.cols * f.sheet.rows === 4, 'four to an A4 with cut lines');
   for (const design of PASS_CARD_DESIGNS) {
-    for (const mode of ['screen', 'print'] as const) {
+    for (const [mode, look] of [['screen', printLookFor('vintage')], ['print', printLookFor('vintage')], ['print', printLookFor('house')]] as const) {
       const d = data({ details: { ...data().details, passDesign: design } });
-      const look = printLookFor('vintage');
       const printed = layoutPieceDocs('pass', { look, data: d, mode, foil: false, format: 'phone-card', pass: PASS })[0]!;
-      const saved = layoutPassCard({ look, data: d, mode, foil: false }, PASS);
-      assert.deepEqual(printed.ops, saved.ops, `${design} · ${mode}: the print and the picture are one drawing`);
+      /* 🏷 On paper the card carries Setnayan ONCE (owner 2026-10-21) — never the picture's foot mark: a free card draws the
+         print's line in its own foot (`brandLine`), a Pro card wears the stamped mark. So the printed card is the SAME function
+         drawing the same card with the paper's brand in place of the picture's mark; nothing else may differ. */
+      const line = printBrandOf(look) === 'line';
+      const saved = layoutPassCard({ look, data: { ...d, details: { ...d.details, setnayanMark: false, brandLine: line } }, mode, foil: false }, PASS);
+      const branded = printed.ops.filter((o) => o.t === 'path' && o.brand);
+      assert.ok(branded.length >= 1, `${design} · ${mode}: the print carries the brand`);
+      assert.deepEqual(line ? printed.ops : printed.ops.filter((o) => !(o.t === 'path' && o.brand)), saved.ops, `${design} · ${mode}: the print and the picture are one drawing`);
       assert.equal(printed.diePath, saved.diePath);
     }
   }
@@ -352,14 +357,14 @@ test('one guest’s card is FREE for the couple — no Pro question on the singl
   assert.doesNotMatch(fn, /PaidMark|makerProMark|ownsPro/, 'no ◆ on the per-guest download');
 });
 
-test('the zip: hosts only, Event Hub Pro only — both on the SERVER, before a single card is drawn', () => {
+/* 🎟 The zip is FREE since 2026-10-22 (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE") — its route is CALLED for a free
+   event in `all-in-one-prints-are-pro.test.ts` § 1d; here, the host gate still comes first. */
+test('the zip: hosts only — on the SERVER, before a single card is drawn', () => {
   const r = src('app/api/guest/pass-card/all/route.ts');
   const host = r.indexOf('getHostUserId(eventId)');
-  const pro = r.indexOf('printOwnsPro(eventId)');
   const list = r.indexOf('eligiblePassCardGuests(');
   const draw = r.indexOf('renderPassCardFor(');
-  assert.ok(host > 0 && pro > host && list > pro && draw > list, 'member → Pro → the eligible list → draw');
-  assert.match(r, /PASS_CARD_ZIP_PRO_MESSAGE, \{ status: 403 \}/);
+  assert.ok(host > 0 && list > host && draw > list, 'member → the eligible list → draw');
   assert.match(r, /archiver\('zip', \{ store: true \}\)/, 'the shipped streaming zip');
   assert.match(r, /uniqueFileNames\(guests\.map\(\(g\) => passCardFileNameFor\(kit, g\)\)\)/, 'the same names as a guest’s own save');
   assert.match(r, /PASS_CARD_ZIP_MAX[\s\S]{0,400}status: 413/, 'too many → said plainly, never a short zip');

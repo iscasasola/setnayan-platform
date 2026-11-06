@@ -1,7 +1,8 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-import { normalizeRowsAffected } from '@/lib/periodic-job-registry';
+import { normalizeRowsAffected, periodicCheckIntervalMs } from '@/lib/periodic-job-registry';
+import { backgroundWritesAllowed } from '@/lib/background-writes';
 
 export {
   DAILY_GAP_MS,
@@ -36,9 +37,11 @@ export {
  * would otherwise never run again, which is worse than the defect being fixed.
  *
  * A cheap in-memory pre-throttle per key means most requests never even touch
- * the DB. Best-effort: any error → skip now; a later request retries.
+ * the DB. Best-effort: any error → skip now; a later request retries. Its
+ * interval follows the job's own gap (`periodicCheckIntervalMs`, 2026-10-20):
+ * five minutes for a job due every few minutes, an hour for a daily or weekly
+ * one — never the gap itself, and never what the job does.
  */
-const CHECK_THROTTLE_MS = 5 * 60 * 1000;
 const lastCheckMs = new Map<string, number>();
 
 /**
@@ -50,8 +53,11 @@ const lastCheckMs = new Map<string, number>();
  * fails if anything outside this file calls it.
  */
 export async function claimPeriodicJob(jobKey: string, minGapMs: number): Promise<boolean> {
+  // ⛔ Only the production deployment claims a window — never a dev server or a
+  // preview pointed at the production database (lib/background-writes.ts).
+  if (!backgroundWritesAllowed()) return false;
   const nowMs = Date.now();
-  if (nowMs - (lastCheckMs.get(jobKey) ?? 0) < CHECK_THROTTLE_MS) return false;
+  if (nowMs - (lastCheckMs.get(jobKey) ?? 0) < periodicCheckIntervalMs(minGapMs)) return false;
   lastCheckMs.set(jobKey, nowMs);
   try {
     const admin = createAdminClient();

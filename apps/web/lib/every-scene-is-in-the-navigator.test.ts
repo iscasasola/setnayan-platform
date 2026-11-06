@@ -14,6 +14,13 @@
  *   2. a navigator tap sets the selection, and that selection opens a panel
  *      that is never blank;
  *   3. a canvas tap sets the SAME selection (one selection, both highlights).
+ *
+ * 🧭 AMENDED 2026-10-07 — owner, verbatim: *"yes pages"* (after *"each page is just a bookmark on a single page
+ * that just jumps. this was not the plan. we want each page to be what the menu wants"*). The new Maker's
+ * Stages canvas now draws each tab as its OWN page (`hubTabsOn`'s one canvas exception, `?tabs=1`), so all but
+ * one tab's groups are `hidden`. The promise above is KEPT, not weakened: every scene is still in the navigator,
+ * listed under its tab — `drawnMakerOrder` measures every tab's groups — and a scene on another tab is reached by
+ * switching tabs, never dropped (test 1b below).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -135,6 +142,35 @@ test('1 · the navigator lists EVERY scene the canvas binds, in canvas order', (
     .filter((label, i, all) => i === 0 || all[i - 1] !== label);
   assert.deepEqual(headers, runs);
   for (const t of tabs.filter((tab) => tab.tiles.length > 0)) assert.ok(headers.includes(t.label), `${t.label} heads its scenes`);
+});
+
+test('1b · a TABBED Stages canvas (all but one tab hidden) still binds every scene, in canvas order', () => {
+  const tiles = invitationTiles();
+  const keys = tiles.map((t) => t.key);
+  const tabs = navigatorTabs(INVITATION_BAR, keys);
+  const tabOf = (k: string) => tabs.find((t) => t.tiles.includes(k))!.key;
+  /* One group per tab; a section draws only while its group is shown — exactly what `hidden` does. */
+  const groups = new Map<string, { hidden: boolean; attr: string }>();
+  for (const k of keys) if (!groups.has(tabOf(k))) groups.set(tabOf(k), { hidden: groups.size > 0, attr: tabOf(k) });
+  const nodes: FakeEl[] = [];
+  for (const t of tiles) {
+    const g = groups.get(tabOf(t.key))!;
+    const shown = () => (g.hidden ? 0 : 40);
+    const mk = (attrs: Record<string, string>, id = ''): FakeEl => ({ ...el(attrs, id), get offsetHeight() { return shown(); }, getBoundingClientRect: () => ({ height: shown() }) });
+    if (t.key === 'f:entourage') nodes.push(mk({}, 'site-entourage'));
+    else if (t.key === 'f:story') nodes.push(mk({}, 'site-story'));
+    else {
+      const marker = mk({ 'data-maker-section': t.key });
+      marker.nextElementSibling = mk({});
+      nodes.push(marker);
+    }
+  }
+  const doc = {
+    querySelectorAll: (sel: string) => (sel.includes('data-hub-tab') ? [...groups.values()].filter((g) => !sel.includes('[hidden]') || g.hidden) : nodes),
+  } as unknown as Document;
+  assert.ok([...groups.values()].filter((g) => g.hidden).length >= 2, 'precondition: several tabs are hidden');
+  assert.deepEqual(drawnMakerOrder(doc), keys, 'a scene on a hidden tab is still bound — never dropped');
+  assert.ok([...groups.values()].slice(1).every((g) => g.hidden), 'and the tabs are put back as they were');
 });
 
 test('1 · SOURCE: the shell draws every row — no tab filter survives', () => {

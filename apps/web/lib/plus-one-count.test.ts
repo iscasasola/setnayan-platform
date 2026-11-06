@@ -38,19 +38,11 @@ test('a CSV can say how many', () => {
 const read = (...p: string[]) => stripComments(readFileSync(join(process.cwd(), ...p), 'utf8'));
 const C = ['app', 'dashboard', '[eventId]', 'guests', '_components'];
 
-test('the table row carries the +N picker, and the card carries it on every width', () => {
-  // ⤷ 2026-09-30 (the Fable rows): the table gained its own +N column; the phone
-  // row shows "+N" in its one line and the picker lives on the guest card
-  // (Extra seats ▾), one tap away — so every width can still set it.
-  const rows = read(...C, 'guest-list-multiselect.tsx');
-  assert.equal(
-    (rows.match(/<PlusOneChipEditor eventId=\{eventId\} guest=\{guest\} \/>/g) ?? []).length,
-    1,
-    'expected the picker in the desktop row’s +N column',
-  );
+test('the card carries the +N picker on every width', () => {
+  // ⤷ 2026-10-09: the table's in-row +N picker (chip-editors.tsx
+  // PlusOneChipEditor) went with the retired GuestListMultiselect. The picker
+  // lives on the guest card (Extra seats ▾), one tap away, so every width can
+  // still set it.
   const card = read(...C, 'guest-card-body.tsx');
   assert.match(card, /name="plus_one_count"[\s\S]{0,200}PLUS_ONE_CHOICES\.map/, 'the card lost its Extra seats dropdown');
-  const editor = read(...C, 'chip-editors.tsx');
-  assert.match(editor, /run: \(\) => setGuestPlusOneCount\(eventId, guest\.guest_id, count\)/, 'the picker does not save');
-  assert.match(editor, /PLUS_ONE_CHOICES\.map/, 'the picker does not offer None · +1 … +4');
 });

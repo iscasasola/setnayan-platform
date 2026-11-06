@@ -75,14 +75,23 @@ const HOOKS = [
     // Added 2026-09-05 with the supplier's Papic credits: the ₱500 pack is
     // an exact-match SKU whose target (vendor, event) is read off the ORDER
     // itself, so the gate asserts that the paying order belongs to the vendor
-    // it is about to credit before the ledger row is written.
+    // it is about to credit before the ledger row is written. Since
+    // 2026-10-23 that ledger is the SHOP WALLET (one balance per shop, owner
+    // option A), so the first effect is the wallet insert.
     name: 'vendor papic portfolio pack',
     extract: 'async function grantVendorPapicPortfolioPack(ctx: ActivationContext)',
-    firstEffect: 'await grantVendorPapicCredits(ctx, {',
+    firstEffect: "from('shop_papic_wallet_entries').insert(",
+  },
+  {
+    // Added 2026-11-04 with SUPPLIER GIFTS: a gift order's shop (from the order) must be the shop the purchase row
+    // names before its credits land in that shop's gift stock.
+    name: 'shop gift purchase',
+    extract: 'async function grantShopGiftPurchase(ctx: ActivationContext)',
+    firstEffect: "from('shop_gift_stock_entries').insert(",
   },
 ] as const;
 
-test('every vendor-surface hook calls the ownership gate — six today', () => {
+test('every vendor-surface hook calls the ownership gate — seven today', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,

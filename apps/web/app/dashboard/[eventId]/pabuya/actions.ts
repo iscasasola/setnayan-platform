@@ -2,6 +2,7 @@
 
 import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR } from '@/lib/gift-registry';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isEgiftMethodKind } from '@/lib/egift-kinds';
@@ -10,6 +11,12 @@ import { checkPabuyaQrImage } from '@/lib/pabuya-qr-check.server';
 import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
+import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { egiftFieldsThisScreenChanged, type EgiftEditField } from '@/lib/egift-method-merge';
+import { wishListWrite, type WishWriteResult } from './wish-items.server';
+import { GIFT_READ_OP } from './gift-records.server';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -29,9 +36,18 @@ const MAX_ACCOUNT_NAME = 80;
 const MAX_HANDLE = 200;
 const MAX_NOTE = 240;
 
+/**
+ * `wish`, `shotUrl` and `kept` are the wish list's:
+ *   · `wish` (`wish-items.server.ts`) — the row a save kept, so the Studio lays
+ *     it over what it drew instead of re-reading the Maker;
+ *   · `shotUrl` (`gift-records.server.ts`) — the opened gift's screenshot, on the
+ *     one READ that rides this door;
+ *   · `kept` — "the record was changed, its wish's mark was not", on a late refusal.
+ * Every other caller reads `ok` / `error` exactly as before.
+ */
 export type EgiftActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+  | { ok: true; wish?: Extract<WishWriteResult, { ok: true }>['wish']; shotUrl?: string | null }
+  | { ok: false; error: string; kept?: true };
 
 const GENERIC_WRITE_ERROR =
   'Couldn’t save that. If it keeps happening, reach out from /help.';
@@ -90,11 +106,38 @@ async function revalidateSurfaces(eventId: string): Promise<void> {
 export async function saveEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
   } catch {
     return { ok: false, error: 'Missing event reference. Please refresh.' };
+  }
+
+  /* 🎁 THE WISH LIST RIDES THIS ONE DOOR (owner 2026-10-08, E-Gifts › Wish list).
+     A form that carries `wish_op` (save · delete · move · got) is a write to
+     `event_wish_items`, done by `wish-items.server.ts` — a plain server module,
+     not four more exported actions: each export here is a Vercel route and the
+     ceiling is near (`scripts/lint-server-action-budget.mjs`). Same shape as
+     `saveCustomSection`'s six intents. A form WITHOUT the field is a way to
+     give, exactly as before. Live, like every write on this page. */
+  if (formData.has('wish_op')) {
+    const wish = await wishListWrite(eventId, formData);
+    /* ⚡ THE GUESTS' PAGES ARE REFRESHED AFTER THE ANSWER IS SENT (`after`), never
+       before it (owner rule 2026-10-08: a press costs one request and never
+       re-renders the page). `revalidatePath` called INSIDE an action marks the
+       action's own route as revalidated, and Next then renders that whole route
+       into the action's response (`skipFlight: !pathWasRevalidated`) — here the
+       whole Maker, every read of it, for one wish or one corrected amount. Run
+       after the response, the same guest paths are invalidated and nothing is
+       rendered: the screen already shows the change, and lays the answer over it.
+       A gift change that was KEPT but late-refused (`kept`) refreshes them too.
+       The one READ that rides this door (`gift-shot`) changed nothing: it
+       refreshes nothing. */
+    const changed = wish.ok || ('kept' in wish && wish.kept === true);
+    if (changed && formData.get('wish_op') !== GIFT_READ_OP) after(() => revalidateSurfaces(eventId));
+    return wish;
   }
 
   const methodKind = str(formData, 'method_kind');
@@ -136,6 +179,14 @@ export async function saveEgiftMethod(
   if (!user) redirect('/login');
 
   const editingId = str(formData, 'egift_method_id');
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): an edit that says what it started from
+     (`MERGE_BASE_FIELD`) writes only the fields it changed — a form opened before the other host fixed the number never
+     puts the old number back (`lib/egift-method-merge.ts`). `null` = no base: every field, as before. */
+  const onlyChanged =
+    editingId.length > 0
+      ? egiftFieldsThisScreenChanged(formData.get(MERGE_BASE_FIELD), { method_kind: methodKind, label, account_name: accountName, handle, qr_r2_key: qrRaw, note })
+      : null;
+  const writesQr = onlyChanged === null || onlyChanged.has('qr_r2_key');
 
   // Grandfather clause: the edit form echoes the method's CURRENT qr ref back,
   // so a row written before this policy existed must still be re-savable.
@@ -209,7 +260,7 @@ export async function saveEgiftMethod(
      retired once the row points at the redrawn copy instead. */
   let rawUploadRef: string | null = null;
 
-  if (qrR2Key) {
+  if (qrR2Key && writesQr) {
     if (qrR2Key !== previousRef) {
       const inspection = await checkPabuyaQrImage({
         kind: methodKind,
@@ -252,21 +303,23 @@ export async function saveEgiftMethod(
        another tab deleted — so `!error` alone renders "saved" over a write that
        changed nothing. `.select()` makes the affected rows come back and the
        count is the proof. Same shape as savePabuyaMessage below. */
-    const { data: updated, error } = await supabase
-      .from('event_egift_methods')
-      .update({
-        method_kind: methodKind,
-        label,
-        account_name: accountName,
-        handle,
-        qr_r2_key: qrR2Key,
-        note,
-      })
-      .eq('egift_method_id', editingId)
-      .eq('event_id', eventId)
-      .select('egift_method_id');
+    const all = { method_kind: methodKind, label, account_name: accountName, handle, qr_r2_key: qrR2Key, note };
+    const fields = onlyChanged === null ? all : Object.fromEntries(Object.entries(all).filter(([k]) => onlyChanged.has(k as EgiftEditField)));
+    // 👥 Nothing changed here: nothing is written — the row is only proved to be there (a stale id still says so).
+    let updated: unknown[] | null;
+    let error: unknown;
+    if (Object.keys(fields).length > 0) {
+      ({ data: updated, error } = await supabase.from('event_egift_methods').update(fields).eq('egift_method_id', editingId).eq('event_id', eventId).select('egift_method_id'));
+    } else {
+      ({ data: updated, error } = await supabase.from('event_egift_methods').select('egift_method_id').eq('egift_method_id', editingId).eq('event_id', eventId));
+    }
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
     if (!updated || updated.length === 0) return { ok: false, error: STALE_ROW_ERROR };
+    if (!writesQr) {
+      // The QR was not this screen's change: the row's image is not this save's to retire.
+      await revalidateSurfaces(eventId);
+      return { ok: true };
+    }
     /* The row now points somewhere else — retire the image it left behind.
        AFTER the write, and only once a row is confirmed to have moved: deleting
        first would destroy a live QR whenever the write then matched nothing.
@@ -333,6 +386,8 @@ export async function saveEgiftMethod(
 export async function deleteEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -381,6 +436,8 @@ export async function deleteEgiftMethod(
 export async function setEgiftMethodEnabled(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -419,6 +476,8 @@ export async function setEgiftMethodEnabled(
 export async function moveEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -502,6 +561,8 @@ export async function moveEgiftMethod(
 export async function savePabuyaMessage(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -521,6 +582,20 @@ export async function savePabuyaMessage(
     patch.gift_registry_url = link;
   }
   if (Object.keys(patch).length === 0) return { ok: false, error: 'Nothing to save. Please try again.' };
+
+  /* ⏳ THE THANK-YOU WORDS WAIT FOR APPLY IN THE MAKER (owner 2026-10-08, "draft 1-3"): a Maker
+     form (`HubDraftField`) puts `pabuya_message` into the hub DRAFT — guests read it only after ✓
+     Apply. The registry link is not this ruling's field and keeps saving live beside it. */
+  if (isHubDraftWrite(formData) && 'pabuya_message' in patch) {
+    /* The draft table's RLS (hosts of this event) is the fence, as for the live column. */
+    try {
+      await saveHubDraftPatch(eventId, { events: { pabuya_message: patch.pabuya_message ?? null } });
+    } catch {
+      return { ok: false, error: 'Could not save your message. Please try again.' };
+    }
+    delete patch.pabuya_message;
+    if (Object.keys(patch).length === 0) return { ok: true };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase

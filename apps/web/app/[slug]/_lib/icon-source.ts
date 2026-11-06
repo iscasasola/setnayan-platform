@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { deriveMonogram } from '@/lib/monogram';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette-vars';
 import type { RolePalette } from '@/lib/mood-board';
 
 /**
@@ -44,7 +44,7 @@ export async function loadEventIconSource(slug: string): Promise<EventIconSource
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_date, landing_page_visibility, monogram_uploaded_svg, monogram_custom_svg, monogram_text, role_palette',
+      'event_id, slug, display_name, event_date, landing_page_visibility, monogram_uploaded_svg, monogram_custom_svg, monogram_text, role_palette, logo_wanted',
     )
     .eq('slug', slug)
     .maybeSingle();

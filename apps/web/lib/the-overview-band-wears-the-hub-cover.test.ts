@@ -147,13 +147,15 @@ test('a wake’s band is still: no image, no stock, no per-event colour grade', 
 
 test('the Overview focal band is handed the resolver’s cover, and reads the columns it needs', () => {
   const focal = src('app/dashboard/[eventId]/_components/event-dashboard.tsx');
-  assert.match(focal, /sceneCoverFor\(\s*await resolveEventPoster\(/, 'the focal asks the one resolver');
+  // ⚡ The poster is STARTED ahead (`posterRead`, 2026-10-16) and awaited where the cover is built.
+  assert.match(focal, /const posterRead = startAhead\(\s*ownHeroRead\.then\(\(ownHero\) =>\s*resolveEventPoster\(/, 'the focal asks the one resolver');
+  assert.match(focal, /sceneCoverFor\(await posterRead\)/, 'and builds the cover from its answer');
   assert.match(focal, /cover=\{sceneCover\}/, 'and hands its answer to the band');
   const lean = /const leanSelect =\s*'([^']*)'/.exec(focal)?.[1] ?? '';
   for (const col of ['landing_page_hero_image_url', 'std_background', 'invite_theme', 'monogram_color']) {
     assert.ok(new RegExp(`\\b${col}\\b`).test(lean), `the focal's lean select stopped reading ${col}`);
   }
-  assert.match(focal, /\n\s*ownHeroSrc,\n\s*\)\.catch\(\(\) => null\)/, 'the own hero reaches the resolver; a failure keeps the band');
+  assert.match(focal, /\n\s*ownHero,\n\s*\)\.catch\(\(\) => null\)/, 'the own hero reaches the resolver; a failure keeps the band');
 });
 
 test('every glass card on the home board wears the same cover', () => {

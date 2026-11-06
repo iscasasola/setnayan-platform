@@ -138,16 +138,19 @@ test('the route reads the LAST day and the venue’s zone, not just the first da
 
 test('the gate runs BEFORE anything is uploaded or spent', () => {
   // A capture refused after the R2 write has already cost storage and points.
+  // 📮 Since 2026-10-23 the bytes go straight to storage on a URL this route
+  // signs, so "before the upload" means before the SIGN; "before the spend"
+  // means before the row is inserted (the meter counts rows).
   const src = route();
-  // 🪤 MATCH THE CALL, NOT THE NAME. The first `r2Upload` in this file is its
-  // IMPORT on line 4, so `indexOf('r2Upload')` puts the upload before every
-  // gate and this test failed on a correct route. Same for `canCapture`.
-  const gate = src.indexOf("'event_over'");
-  const upload = src.indexOf('r2Upload({');
-  const spend = src.indexOf('canCapture(tier');
-  assert.ok(gate > 0 && upload > 0 && spend > 0, 'all three landmarks must exist');
-  assert.ok(gate < upload, 'the window must be checked before the upload');
-  assert.ok(gate < spend, 'and before the point budget is spent');
+  const sign = src.slice(src.indexOf("if (op === 'sign')"), src.indexOf("if (op === 'record')"));
+  const record = src.slice(src.indexOf("if (op === 'record')"), src.indexOf("if (op === 'attach')"));
+  assert.ok(sign.length > 100 && record.length > 100, 'all landmarks must exist');
+  const gateS = sign.indexOf("'event_over'");
+  const signAt = sign.indexOf('signCaptureTierPut(admin');
+  assert.ok(gateS > 0 && signAt > gateS, 'the window must be checked before a PUT is signed');
+  const gateR = record.indexOf("'event_over'");
+  const insert = record.indexOf(".from('vendor_papic_captures')\n      .insert(");
+  assert.ok(gateR > 0 && (insert < 0 ? record.indexOf('.insert(') : insert) > gateR, 'and before the row (the spend) is written');
 });
 
 test('an unreadable event leaves the lane OPEN', () => {
@@ -156,7 +159,7 @@ test('an unreadable event leaves the lane OPEN', () => {
   const src = route();
   assert.match(
     src,
-    /if \(ev\) \{/,
+    /if \(!ev\) return false;/,
     'the phase check must be inside a guard on the event having been read',
   );
   assert.equal(getMenuLifecyclePhase(null, null, MNL, at('2027-01-01T09:00:00+08:00')), 'plan');

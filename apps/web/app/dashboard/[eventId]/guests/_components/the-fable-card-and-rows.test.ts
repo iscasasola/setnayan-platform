@@ -41,18 +41,9 @@ const CARD = read('guest-card-body.tsx');
 const GUESTS_LIB = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8'));
 const PARTS = read('guest-ticket-parts.tsx');
 const CELL = read('guest-invite-cell.tsx');
-const ROWS = read('guest-list-multiselect.tsx');
-const CHIPS = read('chip-editors.tsx');
+const ROWS = read('guests-screen.tsx');
 const PAGE = read('..', 'page.tsx');
 const COLS = ['invite', 'rsvp', 'access', 'checkin', 'seat', 'side', 'role', 'groups', 'plus', 'account', 'contact'] as const;
-
-/** A function's source from its name to the next top-level function. */
-function bodyOfFn(src: string, name: string): string {
-  const a = src.indexOf(`function ${name}(`);
-  assert.notEqual(a, -1, `${name} is gone — this guard is blind`);
-  const b = src.indexOf('\nfunction ', a + 10);
-  return src.slice(a, b === -1 ? undefined : b);
-}
 
 const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'actions.ts'), 'utf8'));
 
@@ -60,10 +51,9 @@ const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'act
 
 test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, the status line — no QR look', () => {
   assert.match(CARD, /<TicketThumb guestId=\{guest\.guest_id\}/, 'the ticket thumbnail is gone');
-  // The Guest list and the standalone card hand in the real ticket view and ⋯.
-  for (const page of [PAGE, stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'))]) {
-    assert.match(page, /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'a guest page draws the card without its ticket view or ⋯');
-  }
+  // THE card (`guest-card.tsx` — the Guest list's panel, the standalone route, the march, the parents) hands in the real
+  // ticket view and ⋯ (2026-10-24, one card everywhere).
+  assert.match(read('guest-card.tsx'), /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'the card is drawn without its ticket view or ⋯');
   assert.equal((CARD.match(/<SendInvite\b/g) ?? []).length, 1, 'the card draws more than one Invite');
   assert.match(CARD, /more=\{more\}/, 'the ⋯ is not beside Invite');
   assert.doesNotMatch(CARD, /Customize guest QRs|launch\?tool=details&item=qr|Copy message|Download QR/, 'the old QR tools are back on the card');
@@ -84,25 +74,53 @@ test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, t
 
 test('card body: every choice is ONE shipped PickMenu — never a native select, never a pill row', () => {
   assert.doesNotMatch(CARD, /<select\b|type="radio"/, 'a native select or a radio pill row is back on the card');
-  for (const name of ['name_prefix', 'side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
-    assert.match(CARD, new RegExp(`<FormPick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
+  // 🪪 The Title is its own leaf since 2026-10-17 — the pick carries woman or man ("Atty. (Woman)"), posting `name_title`.
+  assert.match(CARD, /<K\.Title\s+label="Title"/, 'the Title is not a dropdown on the card');
+  /* 👗 2026-10-20 (owner: "the attire depends on the dress code of their role"): attire is no longer a pick — the card SAYS
+     what their role's dress code gives them (`K.Fact`), held in lib/the-seat-plan-wears-the-role-dress-code.test.ts. */
+  assert.doesNotMatch(CARD, /<K\.Pick\s+name="attire"/, 'the attire pick is back on the card');
+  assert.match(CARD, /<K\.Fact\s+field="attire"/, 'the card no longer says what their role dresses them in');
+  for (const name of ['side', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id']) {
+    assert.match(CARD, new RegExp(`<K\\.Pick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
+    // ⤷ 2026-10-09 (4B): the body names the field; the kit draws it — a FormPick in the Maker's card, a Form row on the Guests pages.
   }
-  // The two "several choices" are checkmark dropdowns.
-  assert.match(CARD, /name="extra_roles"[\s\S]{0,200}\bmulti\b/);
-  assert.match(CARD, /name="group_ids"[\s\S]{0,400}\bmulti\b/);
+  /* ⤷ 2026-10-20 (owner: "there are 2 groups." · "Roles doesn't need also serves as"): `group_category` + `group_ids` are ONE
+     checkmark dropdown (`K.Group`), `role` + `extra_roles` ONE (`K.Roles`) — held in one-group-one-role.test.ts. */
+  assert.match(CARD, /<K\.Group\b/, 'the one Group dropdown is not on the card');
+  assert.match(CARD, /<K\.Roles\b/, 'the one Role dropdown is not on the card');
   const fields = read('card-fields.tsx');
   assert.match(fields, /<PickMenu\b/, 'FormPick is not the shipped PickMenu');
 });
 
-test('card body: the name is open; the rest fold, one open at a time', () => {
-  const nameAt = CARD.indexOf('data-guest-card-name=""');
-  const firstFold = CARD.indexOf('<Fold summary=');
-  assert.ok(nameAt > 0 && firstFold > nameAt, 'the name is not open above the rows');
-  for (const s of ['Details', 'RSVP', 'Seat', 'Photos', 'Private note', 'Access']) {
-    assert.match(CARD, new RegExp(`<Fold summary="${s}"`), `the ${s} row is gone`);
-  }
-  assert.match(CARD, /<details name="guest-card-row"/, 'the rows are not one exclusive accordion');
-  assert.match(CARD, /data-guest-card-tags=""/, 'Tags is gone');
+/* RE-AIMED 2026-10-23 — THE OWNER'S GROUPS (prototype `guest_card_groups_and_papic_2026-10-23.html`): the name is no longer
+   open above the rows; it is Basic Info, the first group, CLOSED with the mobile in its summary. Every group is one row
+   (label · summary · open), in his order, and the read-only Tags line is gone (its words were the eyebrow and the summaries). */
+test('card body: the owner’s groups, in his order — every one folds, one open at a time; Tags gone', () => {
+  const ORDER = ['Basic Info', 'Details', 'Additional Guests', 'RSVP Status', 'Papic', 'Seat Plan', 'Note for them · Private note', 'Access', 'Passed Away', 'Delete'];
+  // Papic is named only off the app (🍎 — it is "Photos" there and in the Maker's cards).
+  // RE-AIMED 2026-10-24 (the approved prototype): Passed Away is no fold — its switch IS its row (`data-card-passed-away`).
+  const at = ORDER.map((g) =>
+    CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : g === 'Passed Away' ? 'data-card-passed-away=""' : `<K.Fold summary="${g}"`),
+  );
+  ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
+  for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
+  // RE-AIMED 2026-10-23 (review, owner "Always show them"): while the event's Papic is off, its one line replaces only
+  // "Their camera" — INSIDE the Papic group, beside the face switches that always show — never the whole group.
+  const door = CARD.indexOf('<K.Door label="Their camera"');
+  assert.ok(door > at[4]! && door < at[5]!, 'the "Papic is off" line is not inside the Papic group');
+  // Basic Info is CLOSED by default and holds the name and the mobile; RSVP Status opens by itself for the guest's note.
+  assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\} emptyValue="Add a mobile">/, 'Basic Info opens by itself');
+  const basic = CARD.slice(at[0]!, at[1]!);
+  assert.match(basic, /data-guest-card-name=""/, 'the name is not in Basic Info');
+  assert.match(basic, /<K\.Field id="mobile"/, 'the mobile is not in Basic Info');
+  assert.match(CARD, /const basicSummary = \[[^\n]*guest\.mobile/, 'the mobile is not Basic Info’s summary');
+  assert.match(CARD, /<K\.Fold summary="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
+  assert.match(CARD.slice(at[3]!, door), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
+  // ONE card, ONE kit (2026-10-24): every row is the shared Fold, one-open-at-a-time (`useOneOpen`) — the hand-drawn
+  // exclusive <details> rows (the Maker's "chevron rows") are gone.
+  assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the card’s rows are not the shared Fold');
+  assert.doesNotMatch(CARD, /<details name="guest-card-row"/, 'a hand-drawn row is back on the card');
+  assert.doesNotMatch(CARD, /data-guest-card-tags=""|tagWords/, 'the Tags line is back');
 });
 
 test('card: RSVP is Attending · No reply · Not coming — Maybe only for a guest who said it', () => {
@@ -131,21 +149,16 @@ test('card: Groups, Also serves as and Table are written ONLY when the card post
     assert.match(CARD, new RegExp(`name="${marker}" value="1"`), `the card no longer marks ${marker}`);
     assert.match(ACTIONS, new RegExp(`formData\\.get\\('${marker}'\\)\\) === '1'`), `updateGuest no longer reads ${marker}`);
   }
-  assert.match(ACTIONS, /if \(groupsPosted\) \{\s*await syncCardGroups\(/, 'groups are written without the marker');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): …and, with a base, only when THIS card changed them. */
+  assert.match(ACTIONS, /if \(groupsPosted && \(!merge\.based \|\| merge\.changed\.has\('group_ids'\)\)\) \{\s*await syncCardGroups\(/, 'groups are written without the marker');
   assert.match(ACTIONS, /\.\.\.\(extraRolesPosted \? \{ extra_roles \} : \{\}\)/, 'extra roles are written without the marker');
-  assert.match(ACTIONS, /if \(tablePosted && !passed_away && effectiveRsvp !== 'declined'\)/, 'a table is set for someone who is not coming');
+  assert.match(ACTIONS, /if \(tablePosted && \(!merge\.based \|\| merge\.changed\.has\('table_id'\)\) && !passed_away && effectiveRsvp !== 'declined'\)/, 'a table is set for someone who is not coming');
   // A seat is written only when the table CHANGED (autosave must not reset the chair).
   const seat = ACTIONS.slice(ACTIONS.indexOf('async function syncCardTable('));
   assert.match(seat, /if \(now === tableId\) return \{ ok: true \};/);
 });
 
 // ── THE ROWS ────────────────────────────────────────────────────────────────
-
-test('rows: the reply pill opens ONE dropdown — no tap-to-cycle', () => {
-  assert.doesNotMatch(CHIPS, /RSVP_CYCLE|mobileCycle/, 'the tap-to-cycle is back');
-  assert.doesNotMatch(ROWS, /mobileCycle/);
-  assert.match(CHIPS, /const RSVP_OPTIONS: RsvpStatus\[\] = \['attending', 'pending', 'declined'\];/);
-});
 
 test('rows: "walks with" and Pair are gone from the list', () => {
   assert.doesNotMatch(ROWS, /walks with|<PartnerLine|pairSelectedGuests|unpairGuestAction|Pair these 2/);
@@ -157,37 +170,9 @@ test('rows: no two-person row — every person is their own row, name and face',
   // march … They have their own plus"*. So the list never merges two people:
   // no pair lookup, no "A & B" name, no two-letter pair avatar, no couple
   // short form — each row's name comes from ONE guest.
-  for (const [where, src] of [['guest-list-multiselect.tsx', ROWS], ['guests/page.tsx', PAGE]] as const) {
+  for (const [where, src] of [['guests-screen.tsx', ROWS], ['guests/page.tsx', PAGE]] as const) {
     assert.doesNotMatch(src, /pair_with_guest_id|pairWith|coupleShortName|PairAvatar|` & `|' & '|" & "/, `${where} merges two people into one row`);
   }
-  // Both row shapes name exactly one guest.
-  const names = ROWS.match(/const shownName = [^;]+;/g) ?? [];
-  assert.ok(names.length >= 2, 'the row name was not found — re-aim this guard');
-  for (const n of names) {
-    assert.equal(n, 'const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);', `a row name is built from more than one guest: ${n}`);
-  }
-});
-
-test('rows: the eye left; every column is a slot whose header is ONE dropdown — Name first', () => {
-  // ⤷ 2026-09-30, the full-width list (DECISION_LOG "THE GUEST LIST USES THE
-  // FULL WIDTH…"): Name first, then as many slots as fit, each header a
-  // PickMenu choosing Invite · RSVP · Access · Check-in · Seat · Side · Role ·
-  // Groups · +N · Account · Contact.
-  const head = ROWS.slice(ROWS.indexOf('<thead'), ROWS.indexOf('</thead>'));
-  assert.ok(head.includes('>Name<'), 'Name is no longer the first column');
-  assert.match(head, /desk\.columns\.map\(\(column, slot\) =>[\s\S]*?<ColumnPick\b/, 'a slot header is not a dropdown');
-  assert.doesNotMatch(head, /ArrangeTh/, 'the old sort/group header is back');
-  assert.match(bodyOfFn(ROWS, 'ColumnPick'), /<PickMenu\b/, 'the slot header is not the shipped PickMenu');
-  assert.doesNotMatch(ROWS, /QuickViewButton|mailto:/);
-  assert.match(ROWS, /<GuestMoreMenu\b/, 'a row has no ⋯');
-  // One switch draws every column, on both widths.
-  const cell = bodyOfFn(ROWS, 'RosterCell');
-  for (const c of COLS) assert.match(cell, new RegExp(`case '${c}':`), `RosterCell cannot draw ${c}`);
-  assert.match(cell, /<GuestAccessCell|<RowAccess\b/, 'Access is not the #6191 cell');
-  assert.match(cell, /<GuestCheckinCell\b/, 'Check-in is not the desk’s cell');
-  assert.match(read('guest-checkin-cell.tsx'), /import \{ checkInGuest, undoCheckIn \} from '\.\.\/checkin\/actions';/, 'Check-in grew its own writer');
-  assert.match(bodyOfFn(ROWS, 'MobileListRow'), /<RosterCell column=\{column\}/, 'the phone does not draw its ONE slot through the same cell');
-  assert.match(ROWS, /fixedSlots: 1/, 'the phone shows more than one slot');
 });
 
 test('columns: no column twice, Invite leads while anyone is unsent, Check-in only from the day (executed)', () => {
@@ -216,26 +201,15 @@ test('columns: no column twice, Invite leads while anyone is unsent, Check-in on
   assert.equal(rosterSlotCount(200, COLS.length), 1, 'a squeezed list still shows one column');
 });
 
-test('columns: remembered per device — every storage touch is inside try/catch', () => {
-  const hook = read('use-roster-columns.ts');
-  const touches = hook.match(/window\.localStorage\.\w+\(/g) ?? [];
-  assert.equal(touches.length, 2, 'the hook reads/writes storage more or less than once each');
-  for (const t of ['window.localStorage.getItem(', 'window.localStorage.setItem(']) {
-    const at = hook.indexOf(t);
-    const tryAt = hook.lastIndexOf('try {', at);
-    const catchAt = hook.indexOf('catch', tryAt);
-    assert.ok(tryAt !== -1 && catchAt > at, `${t} is not inside try/catch`);
-  }
-  assert.match(hook, /new ResizeObserver\(/, 'the slot count no longer follows the width');
-  assert.match(PAGE, /data-roster-full-width=""/, 'the Guest list no longer spans the full width');
-  assert.match(PAGE, /sn-col max-w-none/, 'the Guest list is narrowed to the reading column again');
-});
-
-test('rows: requests are never rows between guests — one strip leads to the Requests page', () => {
+test('rows: requests are never rows between guests — one door leads to the Requests page', () => {
   assert.doesNotMatch(ROWS, /SelfJoinDesktopRow|MobileSelfJoinCard/);
-  assert.match(ROWS, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows');
-  assert.match(PAGE, /data-requests-strip=""/);
-  assert.match(PAGE, /'request' : 'requests'\} to join/);
+  // ⤷ Maker PR 4f: the strip was the List's first row (GuestsScreen), `👤 Review`; since 2026-10-27 the door is card ① of
+  // the summary carousel ("● N requests to join ›") — the whole card opens the same Requests page.
+  const SCREEN = read('guests-screen.tsx');
+  assert.doesNotMatch(SCREEN, /data-requests-strip=""/, 'the requests strip came back above the list — it is card ① now');
+  assert.match(SCREEN, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/claims`\}[^>]*data-requests-door=""/);
+  assert.match(SCREEN, /'request' : 'requests'\} to join/);
+  assert.match(PAGE, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows on the new list');
 });
 
 test('rows: a +1 sits right under the guest who brings them (executed)', () => {
@@ -248,38 +222,26 @@ test('rows: a +1 sits right under the guest who brings them (executed)', () => {
   assert.deepEqual(plusOnesUnderBringers(rows).map((r) => r.guest_id), ['ana', 'manuel', 'bea', 'x']);
   // Nobody is dropped or doubled.
   assert.equal(new Set(plusOnesUnderBringers(rows).map((r) => r.guest_id)).size, rows.length);
-  assert.match(ROWS, /plusOnesUnderBringers\(/, 'the roster no longer orders a +1 under its bringer');
 });
 
-test('rows: long-press selects on a phone, and ONE bulk bar holds the four', () => {
-  assert.match(ROWS, /guestSelection\.enter\(\);/, 'a long press no longer starts selecting');
-  const bar = ROWS.slice(ROWS.indexOf('function RosterBulkBar('));
-  for (const w of ['Invite selected', 'label="Set group"', 'label="Set table"', 'label="More for the selected guests"']) {
-    assert.ok(bar.includes(w), `the bulk bar lost ${w}`);
-  }
-  // Bride and groom are never sent to.
-  assert.match(bar, /g\.role !== 'bride' && g\.role !== 'groom'/);
-});
-
-test('list head: Sort ▾ and four dropdowns — RSVP · Side · Role · Group — on both widths', () => {
-  const controls = read('roster-controls.tsx');
-  for (const d of ['data-roster-filter-rsvp', 'data-roster-filter-side', 'data-roster-filter-role', 'data-roster-filter-group', 'data-roster-sort']) {
-    assert.ok(controls.includes(d), `${d} is gone`);
-  }
-  // ⤷ 2026-09-30 (Fix E): ONE head at every width — the phone-only head is
-  // deleted, so the page's own RosterFilters + RosterSort are the phone's too.
+test('list head: the filter row is gone — ONE Sort dropdown regroups the sections (Maker PR 4f, G16/G17)', () => {
+  // ⤷ 2026-10-07 (owner: *"we can remove this? because if we search attending
+  // it will already show all attending"* · *"So we can group them by Last Name,
+  // Side, Role, Group, RSVP"*): Filter ▾ (RSVP · Side · Role · Group), Show ▾ and
+  // the old Sort ▾ are retired; one Sort in the thumb row changes the sections.
+  assert.ok(!existsSync(join(HERE, 'roster-controls.tsx')), 'the retired filter dropdowns are back');
+  assert.ok(!existsSync(join(HERE, 'find-add-row.tsx')), 'the retired head row is back');
   assert.ok(!existsSync(join(HERE, 'mobile-guest-carousel.tsx')), 'the phone-only head is back');
-  assert.match(PAGE, /<RosterFilters\b/);
-  assert.match(PAGE, /<RosterSort\b/);
-  assert.equal((PAGE.match(/<RosterFilters\b/g) ?? []).length, 1, 'a second set of filters is back on the page');
-  // On a phone the four dropdowns and Sort ▾ take their own line under Add
-  // (frame A — search left for the top bar on 2026-10-01); on a computer they
-  // sit in the one row (frame F).
-  const ROW = read('find-add-row.tsx');
-  // ⤷ 2026-10-01 (the approved simple phone app, frame 2): at every width the
-  // four dropdowns fold under ONE Filter ▾, on a line of their own when open.
-  assert.match(ROW, /order-last w-full min-w-0 \$\{filterOpen \? 'block' : 'hidden'\}/, 'the filter line is gone — the controls squeeze one 390px row');
-  assert.match(PAGE, /sort=\{<RosterSort sorts=\{sorts\} current=\{sort\} \/>\}/, 'Sort ▾ left the row');
-  // "Share the link" — Invite means one guest's ticket everywhere.
-  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'roster-doors.ts'), 'utf8'), /'Share the link'/);
+  assert.doesNotMatch(PAGE, /<RosterFilters\b|<RosterSort\b|<FindAddRow\b/, 'a retired head control is on the page again');
+  const SCREEN = read('guests-screen.tsx');
+  // The Sort is ONE dropdown — the shared row's ≡ seat (a `ThumbMenu`, drawn as a PickMenu by components/thumb-row.tsx).
+  // ⇅ R4 slice 1: the ONE dropdown is the shared ⇅ (`guestsFilterMenu`), whose Group by lists the five shipped views.
+  // 3 Nov (owner approved the "Show & sort" sheet): the List's ≡ opens a sheet whose Group by is ONE dropdown
+  // (`ChosenRow`, a PickMenu) — options still from `guestsFilterOptions('list', …)`, so the five views stay listed.
+  assert.match(SCREEN, /const filterSheet = \(\s*<GuestsFilterSheet\b/, 'the List’s ≡ is not the Show & sort sheet');
+  const SHEET_SRC = read('guests-filter-panel.tsx');
+  assert.match(SHEET_SRC, /guestsFilterOptions\('list', filter/, 'the sheet does not read the shared options');
+  assert.match(SHEET_SRC, /name="Group by"[\s\S]{0,200}options=\{of\('Group by'\)\}/, 'Group by is not one dropdown');
+  const LIB = readFileSync(join(HERE, '../../../../../lib/guests-filter.ts'), 'utf8');
+  assert.match(LIB, /for \(const v of ROSTER_VIEWS\) \{[\s\S]{0,160}group: 'Group by'/, 'the Sort no longer lists the five views');
 });

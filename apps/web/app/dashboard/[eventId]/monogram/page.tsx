@@ -22,9 +22,9 @@ import {
   eventOwnsAnimatedMonogram,
   eventGetsAnimatedMonogramFromHubPro,
   animatedMonogramIncludedNote,
-  ANIMATED_MONOGRAM_SERVICE_KEY,
 } from '@/lib/animated-monogram';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { hubPart } from '@/lib/hub-parts';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -186,12 +186,14 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     settings: Awaited<ReturnType<typeof fetchPlatformSettings>>;
   } | null = null;
   if (!ownsAnimated && !storeShell) {
-    const pricePhp =
-      (await formatV2Sku(ANIMATED_MONOGRAM_SERVICE_KEY).catch(() => null))?.price_php ?? null;
+    /* 💎 The animation is Event Hub Pro's Logo & QR part (owner 2026-10-22, Q2): the standalone Animated Monogram is
+       retired from sale (migration 20271283592608), so the ONE button sells the part, at the part's catalogue price. */
+    const logoQr = hubPart('logo_qr');
+    const pricePhp = (await formatV2Sku(logoQr.sku).catch(() => null))?.price_php ?? null;
     if (pricePhp != null) {
       checkout = {
-        serviceKey: ANIMATED_MONOGRAM_SERVICE_KEY,
-        displayName: `Animated Monogram${event.display_name ? ` · ${event.display_name}` : ''}`,
+        serviceKey: logoQr.sku,
+        displayName: `Event Hub Pro · ${logoQr.name}${event.display_name ? ` · ${event.display_name}` : ''}`,
         originalPriceCentavos: String(Math.round(pricePhp * 100)),
         settings: await fetchPlatformSettings(supabase),
       };

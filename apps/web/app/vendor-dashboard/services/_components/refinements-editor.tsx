@@ -25,15 +25,40 @@ export function RefinementsEditor({
   refinements,
   initial,
   leafLabel,
+  bare = false,
 }: {
   canonicalService: string;
   refinements: CategoryRefinements;
   initial: Record<string, unknown>;
   leafLabel: string;
+  /**
+   * The fields only, posting with the card's ONE save (the simpler maker's "Details" fold, 2026-10-14): no `<form>`,
+   * no "Save refinements". `commitVendorService` merges them through the same body as `saveServiceRefinements`
+   * (`mergeServiceRefinements`) — chip fields only, never a wipe of the heavier ones.
+   */
+  bare?: boolean;
 }) {
   const keys = Object.keys(refinements.fields);
   if (keys.length === 0) return null;
   const facetSet = new Set(refinements.filter_facets);
+  if (bare) {
+    return (
+      <div className="space-y-4" data-refinements-bare="">
+        <input type="hidden" name="canonical_service" value={canonicalService} />
+        <input type="hidden" name="refinement_keys" value={keys.join(',')} />
+        <p className="text-[13px] text-ink/60">Shared by every {leafLabel} card · couples filter by these.</p>
+        {Object.entries(refinements.fields).map(([k, def]) => (
+          <AttributeFieldRenderer key={k} fieldKey={k} def={def} initial={initial[k]} isFacet={facetSet.has(k)} />
+        ))}
+        <Link
+          href={`/vendor-dashboard/attributes#${encodeURIComponent(canonicalService)}`}
+          className="sn-press inline-flex min-h-11 items-center text-sm font-semibold text-sn-accent"
+        >
+          More details ›
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form

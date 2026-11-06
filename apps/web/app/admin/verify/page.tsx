@@ -44,6 +44,7 @@ import {
 } from '@/lib/platform-settings';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { BadgeCheck } from 'lucide-react';
 import {
@@ -253,21 +254,16 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
     { key: 'visibility', label: 'Listing visibility' },
   ];
   return (
-    <nav className="mb-4 inline-flex flex-wrap gap-2" aria-label="Verification surfaces">
+    <PillTrack as="nav" className="mb-4" aria-label="Verification surfaces">
       {tabs.map((t) => {
         const active = current === t.key;
         return (
-          <Link
-            key={t.key}
-            href={`/admin/verify?surface=${t.key}`}
-            aria-pressed={active}
-            className={`sn-chip${active ? ' selected' : ''}`}
-          >
+          <PillLink key={t.key} on={active} href={`/admin/verify?surface=${t.key}`} aria-pressed={active} className="px-3">
             {t.label}
-          </Link>
+          </PillLink>
         );
       })}
-    </nav>
+    </PillTrack>
   );
 }
 
@@ -1266,6 +1262,14 @@ function DeepSearchBlock({
         ))}
       </p>
 
+      {/* What they will actually show couples — the cards, with take-down and remove-photo (7 Nov registration). */}
+      <Link
+        href={`/admin/vendors/${application.vendor_profile_id}#cards`}
+        className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-2"
+      >
+        See their service cards
+      </Link>
+
       <DeepSearchChat
         vendorProfileId={application.vendor_profile_id}
         applicationId={application.application_id}
@@ -1534,7 +1538,7 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
 
 /** What every grant does to the shop, said the same way wherever it is offered. */
 const GRANT_CONSEQUENCE =
-  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they are notified.';
+  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Pro/Ultra unlock, and they are notified.';
 
 /**
  * The sentence the grant dialog shows, warning first.
@@ -2118,6 +2122,13 @@ function VerifyCard({
         verificationState={vendor.verification_state ?? null}
         deadline={vendor.next_renewal_due_at ?? null}
       />
+
+      <Link
+        href={`/admin/vendors/${vendor.vendor_profile_id}#cards`}
+        className="inline-flex min-h-[44px] w-fit items-center text-xs font-medium text-ink underline underline-offset-2"
+      >
+        See their service cards
+      </Link>
 
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         {visibility !== 'verified' ? (

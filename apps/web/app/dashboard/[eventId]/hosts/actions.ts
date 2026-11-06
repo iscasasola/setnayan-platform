@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
@@ -25,7 +26,19 @@ import {
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
 import { seatIsFullCohost } from '@/lib/guest-access';
+import {
+  ACCESS_LEVEL_AREA,
+  ACCESS_LEVEL_UNDO,
+  COORDINATOR_ACCESS_LEVELS,
+  COORDINATOR_ROLE,
+  levelOf,
+  levelWrite,
+  undoWrite,
+  type CoordinatorAccessLevel,
+  type LevelledPermissions,
+} from '@/lib/coordinator-access-level';
 import { seatReturnPath, seatReturnScreen } from '@/lib/seat-return-path';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * 🔑 A GRANT IS A COORDINATOR'S, NEVER A CO-HOST'S. A full co-host seat is a
@@ -85,6 +98,7 @@ function parseRole(raw: FormDataEntryValue | null): RoleSubtype {
  * accepts from their link after the RA 10173 consent step.
  */
 export async function inviteHost(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const rawEventId = formData.get('event_id');
   if (typeof rawEventId !== 'string' || rawEventId.length === 0) {
     redirect('/dashboard');
@@ -239,6 +253,8 @@ async function requireCoupleMembership(eventId: string): Promise<string> {
 
 export type SetDelegateAreaResult =
   | { ok: true; choice: AreaChoice }
+  /** 🔑 The coordinator's level answered (or undone) — `area = ACCESS_LEVEL_AREA`. `level` null = back to un-asked. */
+  | { ok: true; choice: 'level'; level: CoordinatorAccessLevel | null }
   | { ok: false; error: string };
 
 /**
@@ -256,8 +272,9 @@ export type SetDelegateAreaResult =
  *   · NEVER A FULL CO-HOST. Nothing reads a co-host seat's permissions_json,
  *     so a grant written there would change nothing and say something.
  *   · ONLY A LEVEL SOMETHING ENFORCES (`areaChoices`): Budget & payments and
- *     Photos are View · Off (locked D1 · owner 2026-08-06); Event Hub and Mood
- *     Board are not settable until their gates exist.
+ *     Photos are View · Off (locked D1 · owner 2026-08-06); Mood Board is
+ *     Edit · View (its photos — owner 2026-10-30); Event Hub is not settable
+ *     until its gate exists.
  *   · MATERIALISED, NEVER SPREAD (`withArea`): setting one area writes every
  *     other one down as it stands, so a grant is never a silent withdrawal.
  *     Off is an explicit null, never a deleted key.
@@ -272,6 +289,11 @@ export async function setDelegateArea(
   area: string,
   choice: string,
 ): Promise<SetDelegateAreaResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  // 🔑 THE COORDINATOR'S LEVEL — Limited · Full access, answered on Home (owner 2026-10-29). The SAME door, so no new
+  // server action (the route budget sits at its ceiling): `area = 'access_level'`, `choice = limited | full | undo`.
+  if (area === ACCESS_LEVEL_AREA) return setCoordinatorAccessLevel(eventId, moderatorId, choice);
   if (!(DELEGATE_AREAS as readonly string[]).includes(area)) return { ok: false, error: 'Unknown area.' };
   const a = area as DelegateArea;
   const allowed = areaChoices(a);
@@ -305,25 +327,26 @@ export async function setDelegateArea(
   if (seatIsFullCohost(seat.role_subtype)) return { ok: false, error: COHOST_NEEDS_NO_GRANT };
   if (seat.user_id === user.id) return { ok: false, error: 'You cannot change your own access.' };
 
-  const perms = (seat.permissions_json ?? {
-    edit_all: false,
-    checkout: false,
-    invite_hosts: false,
-    remove_hosts: false,
-  }) as ModeratorPermissions;
-  const permissions = withArea(perms, a, levelOfChoice(picked));
-
-  const { data: touched, error } = await supabase
-    .from('event_moderators')
-    .update({ permissions_json: permissions, updated_at: new Date().toISOString() })
-    .eq('moderator_id', moderatorId)
-    .eq('event_id', eventId)
-    .select('moderator_id');
-  if (error) {
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): the one area is changed on the helper's
+     access AS IT IS when the write lands (`updateJsonColumn`, a compare-and-set on the value) — the other co-host's
+     change to another area, landed meanwhile, stays. Its write proves its row. */
+  let written = false;
+  try {
+    written = (
+      await updateJsonColumn<ModeratorPermissions | null>(
+        supabase as unknown as JsonColumnClient,
+        { table: 'event_moderators', row: { moderator_id: moderatorId, event_id: eventId }, column: 'permissions_json', what: 'Their access' },
+        (now) => {
+          const perms = (now ?? { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false }) as ModeratorPermissions;
+          return { next: withArea(perms, a, levelOfChoice(picked)), also: { updated_at: new Date().toISOString() } };
+        },
+      )
+    ).written;
+  } catch (error) {
     console.error('[setDelegateArea]', error);
     return { ok: false, error: 'Could not change their access. Nothing has changed — try again.' };
   }
-  if (!touched || touched.length === 0) {
+  if (!written) {
     return {
       ok: false,
       error: 'We could not change that. Nothing has changed — they still have what they had. Try again.',
@@ -337,12 +360,91 @@ export async function setDelegateArea(
 }
 
 /**
+ * 🔑 LIMITED · FULL ACCESS FOR THE COORDINATOR (owner 2026-10-29, "pick what kind of access do we want to give the
+ * coordinator. On the home" · "only TWO levels"). Not exported — a branch of `setDelegateArea`, under its rules:
+ * host-only (a `couple` member), never one's own seat, a refused write is never success. The seat becomes what the
+ * level IS (`levelWrite`, `lib/coordinator-access-level.ts`): Limited = the coordinator's seat with the limited
+ * helper's view-only grant; Full = the CO-HOST seat (`sync_delegate_membership` makes her a `couple` member). The
+ * answer and the seat-as-it-was are recorded in `permissions_json` (`access_level` · `prior`), so Home asks once and
+ * Undo restores exactly what was there. Asked only of a coordinator's seat — or of a co-host seat that WAS one (its
+ * recorded answer says so) — never of a guest-list co-host or a helper.
+ */
+async function setCoordinatorAccessLevel(eventId: string, moderatorId: string, choice: string): Promise<SetDelegateAreaResult> {
+  if (choice !== ACCESS_LEVEL_UNDO && !(COORDINATOR_ACCESS_LEVELS as readonly string[]).includes(choice)) {
+    return { ok: false, error: 'Pick Limited or Full access.' };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const { data: me } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!me) return { ok: false, error: 'Only a co-host can change who has access.' };
+
+  const { data: row, error: readError } = await supabase
+    .from('event_moderators')
+    .select('role_subtype, permissions_json, user_id')
+    .eq('moderator_id', moderatorId)
+    .eq('event_id', eventId)
+    .is('removed_at', null)
+    .maybeSingle();
+  if (readError) {
+    console.error('[setCoordinatorAccessLevel] read', readError);
+    return { ok: false, error: 'Could not change their access. Nothing has changed — try again.' };
+  }
+  if (!row) return { ok: false, error: 'They no longer have access to this event.' };
+  const seat = row as { role_subtype: string; permissions_json: LevelledPermissions | null; user_id: string | null };
+  if (seat.user_id === user.id) return { ok: false, error: 'You cannot change your own access.' };
+  const wasCoordinator = seat.role_subtype === COORDINATOR_ROLE || levelOf(seat) !== null;
+  if (!wasCoordinator) return { ok: false, error: 'This is not your coordinator’s access.' };
+
+  const now = { role_subtype: seat.role_subtype, permissions_json: seat.permissions_json };
+  const next =
+    choice === ACCESS_LEVEL_UNDO
+      ? undoWrite(now)
+      : levelWrite(choice as CoordinatorAccessLevel, now, {
+          co_host: PERMISSION_TEMPLATES.co_host,
+          wedding_planner_external: PERMISSION_TEMPLATES.wedding_planner_external,
+        });
+  if (!next) return { ok: false, error: 'There is nothing to undo.' };
+
+  // Compare-and-set on what was read: a second host's answer landed meanwhile is never overwritten silently.
+  const { data: changed, error } = await supabase
+    .from('event_moderators')
+    .update({ role_subtype: next.role_subtype, permissions_json: next.permissions_json, updated_at: new Date().toISOString() })
+    .eq('moderator_id', moderatorId)
+    .eq('event_id', eventId)
+    .eq('role_subtype', seat.role_subtype)
+    .is('removed_at', null)
+    .select('moderator_id');
+  if (error) {
+    console.error('[setCoordinatorAccessLevel] write', error);
+    return { ok: false, error: 'Could not change their access. Nothing has changed — try again.' };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: 'We could not change that. Nothing has changed — they still have what they had. Try again.' };
+  }
+
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}/details`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true, choice: 'level', level: levelOf({ permissions_json: next.permissions_json as LevelledPermissions | null }) };
+}
+
+/**
  * Remove an ACCEPTED host (locked doc § 3: "revocation is one toggle,
  * effective immediately"). Soft-removes the moderator row (audit trail
  * preserved) and drops their event_members coordinator row so the event
  * leaves their picker. Couple-only.
  */
 export async function removeHost(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const rawEventId = formData.get('event_id');
   const rawModeratorId = formData.get('moderator_id');
   if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {
@@ -428,6 +530,7 @@ export async function removeHost(formData: FormData) {
  * row is a no-op.
  */
 export async function revokeHostInvite(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const rawEventId = formData.get('event_id');
   const rawModeratorId = formData.get('moderator_id');
   if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {

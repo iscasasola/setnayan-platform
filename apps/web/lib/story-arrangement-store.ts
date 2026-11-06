@@ -31,7 +31,7 @@ import {
 import { resolvePlayRef, resolveStillRef } from './papic-display-ref';
 import { PUBLIC_SAFE_MODERATION_STATE, filterPublicSafeRows } from './public-media-visibility';
 import { plannedInstant } from './run-of-show';
-import { DEFAULT_EVENT_TZ } from './schedule';
+import { DEFAULT_EVENT_TZ, onlyWhatGuestsMaySee } from './schedule';
 import {
   ARRANGEMENT_PROBLEM_MESSAGE,
   type ArrangementProblem,
@@ -83,11 +83,13 @@ function chunks<T>(list: readonly T[], size: number): T[][] {
 /**
  * The run of show, as moments.
  *
- * 🔒 PUBLIC BLOCKS ONLY — `is_public`, and never a coordinator's unreleased prep block. The
- * same rule the story's chapter names and venue state already follow: a block the couple kept
- * off the guest schedule is not named on a story page. And as with `fetchPublicScheduleBlocks`,
- * a staged `coordinator_only` block is excluded in app code because the admin client passes
- * straight through the RLS that would otherwise hide it.
+ * 🔒 ONLY WHAT A GUEST MAY SEE — `onlyWhatGuestsMaySee` (lib/schedule.ts): public, for
+ * Everyone, and never a coordinator's unreleased prep block. The same rule the story's chapter
+ * names and venue state follow: a block the couple kept off the guest schedule — hidden, or
+ * "Only for · Entourage" — is not named on a story page. And as with `fetchPublicScheduleBlocks`,
+ * every condition is applied in app code because the admin client passes straight through the
+ * RLS that would otherwise hide the row. (This read had the first and the last condition and
+ * not the middle one until 2026-10-08.)
  *
  * ⚠ THE WALL-CLOCK TRAP. `start_at` holds the venue's wall clock in a timestamptz column;
  * `plannedInstant` lifts it to a real instant before any capture is compared with it, and a
@@ -101,12 +103,9 @@ export async function loadRunOfShowMoments(
   eventId: string,
 ): Promise<{ moments: RunOfShowMoment[]; failed: boolean }> {
   try {
-    const { data, error } = await admin
-      .from('event_schedule_blocks')
-      .select('public_id, label, start_at, sort_order')
-      .eq('event_id', eventId)
-      .eq('is_public', true)
-      .neq('visibility', 'coordinator_only')
+    const { data, error } = await onlyWhatGuestsMaySee(
+      admin.from('event_schedule_blocks').select('public_id, label, start_at, sort_order').eq('event_id', eventId),
+    )
       .order('start_at', { ascending: true })
       .order('sort_order', { ascending: true });
     if (error) console.error('[supabase-error] lib/story-arrangement-store.ts · from:event_schedule_blocks.select', error);

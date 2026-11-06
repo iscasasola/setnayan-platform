@@ -55,6 +55,12 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
     load: () => import(/* webpackChunkName: "maker-details" */ './details-lazy').then(warmDynamicExports),
   },
   {
+    key: 'maker:guest-setup',
+    /* the RSVP settings' shared Setup parts — How guests get in · RSVP asks · Reply by (Guests › Setup draws the same) */
+    label: 'Guest setup',
+    load: () => import(/* webpackChunkName: "maker-details" */ '../../_components/guest-setup/guest-setup-lazy').then(warmDynamicExports),
+  },
+  {
     key: 'maker:scene-styles',
     /* a scene's Style rows, the Post Event panel and its twelve preset tiles (+ Add a scene) */
     label: 'Scene styles',
@@ -67,6 +73,12 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
       liveLoveStory.length > 0 ? Promise.all(liveLoveStory.map(warmDynamic)) : Promise.reject(new Error('not on the Maker')),
   },
   {
+    key: 'maker:love-story-cards',
+    /* 🧭 Studio › Love Story's cards (`moment-order-cards-lazy.tsx`) — lazy so the Maker's first load stays within budget. */
+    label: 'Love Story cards',
+    load: () => import(/* webpackChunkName: "maker-details" */ '../../website/our-story/_components/moment-order-cards-lazy').then(warmDynamicExports),
+  },
+  {
     key: 'maker:schedule',
     label: 'Schedule',
     load: () => import(/* webpackChunkName: "maker-schedule" */ '../../schedule/_components/schedule-lazy').then(warmDynamicExports),
@@ -76,11 +88,7 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
     label: 'Mood Board',
     load: () => import(/* webpackChunkName: "maker-mood-board" */ '../../studio/mood-board/_components/mood-board-lazy').then(warmDynamicExports),
   },
-  {
-    key: 'maker:seating',
-    label: 'Seat plan',
-    load: () => import(/* webpackChunkName: "maker-seating" */ '../../seating/_components/seating-lazy').then(warmDynamicExports),
-  },
+  /* (The Seat plan left on 2026-10-28 — R4: it is Guests › Seats, and the Maker draws only its door.) */
   /* (The march's ↑↓ panel left on 2026-10-06 — the Wedding March is the drag maker,
      `details-march.tsx`, warmed with the Details pieces above.) */
   /* The Logo studio turns typed words into outlines with opentype.js — loaded by
@@ -91,4 +99,15 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
      when a logo plays (so a page of still logos ships none of it). Warmed here
      so a Maker Play never waits for the download. */
   { key: 'maker:logo-player', label: 'Logo player', load: () => import('@/app/_components/couple-logo').then(warmDynamicExports) },
+  /* 👤 Studio › Prints' View as ▾ sheet with "Search guests" (2026-10-17) — its own small chunk, so the shared PickMenu never grows;
+     warmed here so the first tap on View as ▾ never waits for it. */
+  { key: 'maker:prints-guest-sheet', label: 'Guest picker', load: () => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then(warmDynamicExports) },
+  /* 🪪 THE guest card a walker or a parent opens in place (2026-10-29): drawn in the browser from the one read's answer
+     (`guest-card-in-place.tsx` — the action may not answer it drawn here), so its code is warmed here and a tap waits
+     only for the person's own read. */
+  /* ⓘ What an explanation opens — the phone's centred popup, the computer's note (`explain-open.tsx`, 2026-11-01): its
+     own chunk so the many screens with an ⓘ do not carry it in their first load; warmed here so the first ⓘ tap on the
+     Maker never waits for it. */
+  { key: 'maker:explain', label: 'ⓘ popup', load: () => import('@/app/_components/explain-lazy').then(warmDynamicExports) },
+  { key: 'maker:guest-card', label: 'Guest card', load: () => import('../../guests/_components/guest-card-in-place').then(warmDynamicExports) },
 ];

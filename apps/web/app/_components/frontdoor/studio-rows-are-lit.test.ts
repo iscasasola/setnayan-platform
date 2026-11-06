@@ -90,7 +90,8 @@ function wholeRail(): RailMatchRow[] {
 }
 
 /** The row that holds a product's page: the host a ruling folded it into, else Our Services. */
-const holderOf = (key: string) => STUDIO_ABSORBED[key]?.into ?? 'studio';
+// Home holds every service page since More left the menu (owner 22 Oct 2026, "Yes remove more").
+const holderOf = (key: string) => STUDIO_ABSORBED[key]?.into ?? 'home';
 
 /** The product pages that must light a holder (the Event Hub product IS the Maker row; `__all__` IS Our Services). */
 function productPages(): RailMatchRow[] {
@@ -139,9 +140,11 @@ test('the three measured overlaps resolve the way a person would read them', () 
     🔄 Train n (2026-09-29): the Seat plan row itself left the menu — its home
     is Details › Your event › Seat plan — so the whole family lights the Event
     Hub Maker, and no Seat plan row is matchable either.
+    🔄 R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH"): the seat plan is Guests › Seats, its 3D room
+    inside it — so the family lights Guests; `/plan3d` is a forward to Seats' 3D room now, never a page to light.
   */
-  for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'launch', `${p} must light the Event Hub Maker`);
+  for (const p of ['/seating', '/seating/lab']) {
+    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'guests', `${p} must light Guests`);
   }
   assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again');
   assert.ok(!rail.some((r) => r.key === 'seat'), 'a Seat plan row is matchable again beside the Maker');
@@ -332,11 +335,10 @@ test('there is ONE resolver in the rail, and the child does not keep a second', 
   assert.ok(unionStart >= 0, 'the shell no longer declares one match list.');
   const union = shell.slice(unionStart, shell.indexOf('];', unionStart));
   assert.match(union, /railMatchRows\(/, 'the union lost the account rows.');
-  assert.match(
-    union,
-    /\.\.\.tools\b/,
-    'the union lost the Studio rows (outside an event they are still the group) — they go dark again.',
-  );
+  // 🧭 No `...tools` half any more: outside an event the rail lists no products
+  // (owner 2026-10-01, built 2026-10-23 — one Features row); inside one they are
+  // the event menu's rows, which reach the union through `contextMatchRows`.
+  assert.doesNotMatch(union, /\.\.\.tools\b/, 'the union reads a Studio list again.');
   assert.match(
     union,
     /\.\.\.\(contextMatchRows/,
@@ -344,20 +346,6 @@ test('there is ONE resolver in the rail, and the child does not keep a second', 
       'and inside an event that half now carries every product row.',
   );
 
-  /*
-    And the Studio rows must actually WEAR the state. A row can win the
-    resolver and still render no `data-on`, in which case nothing on screen
-    changes and every behaviour test above still passes.
-  */
-  const rowsStart = shell.indexOf('{tools.map((t) => (');
-  assert.ok(rowsStart >= 0, 'the shell no longer renders the Studio rows from `tools`.');
-  const rowsJsx = shell.slice(rowsStart, shell.indexOf('))}', rowsStart));
-  assert.match(
-    rowsJsx,
-    /\{\.\.\.rowProps\(t\.key\)\}/,
-    'the Studio rows render without data-on / aria-current — they resolve correctly ' +
-      'and look exactly as dark as before.',
-  );
   /* …and inside an event, the product rows wear it from the ONE published key. */
   assert.match(
     child,

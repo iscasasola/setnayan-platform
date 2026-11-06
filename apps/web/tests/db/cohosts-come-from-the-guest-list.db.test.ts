@@ -200,6 +200,104 @@ test('a limited helper can VIEW the plan but cannot WRITE it', async () => {
   assert.equal(seen.rows[0]!.c, '1', 'a limited helper reads the plan — "can see progress"');
 });
 
+test('is_limited_helper answers for a viewer seat, never a co-host (the server-action gate asks THIS)', async () => {
+  // lib/limited-helper-gate.ts — every action under app/dashboard/[eventId] asks
+  // public.is_limited_helper(event_id) before it writes (owner 2026-10-25: a
+  // helper "can change table, delete guests"). The gate trusts this answer, so
+  // the answer is pinned here, as each kind of person on the event.
+  const { eventId, creator } = await newEvent('gate');
+  const helper = await newUser('gate-helper@cohost.test');
+  const cohost = await newUser('gate-cohost@cohost.test');
+  const hg = await newGuest(eventId, 'Helper');
+  const cg = await newGuest(eventId, 'Cohost');
+  for (const [g, u] of [[hg, helper], [cg, cohost]] as const) {
+    await link(eventId, g, u);
+    await sayYes(g);
+  }
+  const helperSeat = await pick(eventId, hg, 'viewer', creator);
+  await pick(eventId, cg, 'co_host', creator);
+
+  const asks = async (uid: string): Promise<boolean> => {
+    await db.exec('SET ROLE authenticated');
+    await setAuthUid(db, uid);
+    const r = await db.query<{ v: boolean }>(`SELECT public.is_limited_helper($1) AS v`, [eventId]);
+    await db.exec('RESET ROLE');
+    return r.rows[0]!.v;
+  };
+  assert.equal(await asks(helper), true, 'a live viewer seat is a limited helper');
+  assert.equal(await asks(cohost), false, 'a co-host is NOT a limited helper — they edit like the creator');
+  assert.equal(await asks(creator), false, 'the creator is not a limited helper');
+
+  await db.query(`UPDATE public.event_moderators SET removed_at = now() WHERE moderator_id = $1`, [helperSeat]);
+  assert.equal(await asks(helper), false, 'a removed seat is nobody’s helper seat');
+});
+
+test('owner 2026-10-26: a helper set to guest list = Edit edits guests but not the seat plan; all-View edits nothing', async () => {
+  // "Limited helpers can view but not change anything. limited helpers capabilities depend on the
+  // settings on their event details" — permissions_json.areas is what Event Details › Event access writes
+  // (setDelegateArea), and moderator_area_level is what every area-aware policy reads.
+  const { eventId, creator } = await newEvent('areas');
+  const table = await db.query<{ table_id: string }>(
+    `INSERT INTO public.event_tables (event_id, table_label, table_type, capacity)
+     VALUES ($1, 'Table 1', (enum_range(NULL::public.table_type))[1], 8) RETURNING table_id`,
+    [eventId],
+  );
+  const tableId = table.rows[0]!.table_id;
+  const target = await newGuest(eventId, 'Target');
+
+  const helperWith = async (label: string, areas: Record<string, string>) => {
+    const uid = await newUser(`areas-${label}@cohost.test`);
+    const g = await newGuest(eventId, `Helper-${label}`);
+    await link(eventId, g, uid);
+    await sayYes(g);
+    const seat = await pick(eventId, g, 'viewer', creator);
+    await db.query(
+      `UPDATE public.event_moderators SET permissions_json = jsonb_build_object(
+         'edit_all', false, 'checkout', false, 'invite_hosts', false, 'remove_hosts', false, 'areas', $2::jsonb)
+       WHERE moderator_id = $1`,
+      [seat, JSON.stringify(areas)],
+    );
+    return uid;
+  };
+  const ALL_VIEW = { guest_list: 'view', seat_plan: 'view', schedule: 'view', vendors: 'view', invitations: 'view', mood_board: 'view', budget: 'view', photos: 'view' };
+  const guestsEditor = await helperWith('guests', { ...ALL_VIEW, guest_list: 'edit' });
+  const viewer = await helperWith('view', ALL_VIEW);
+
+  const as = async <T,>(uid: string, fn: () => Promise<T>): Promise<T> => {
+    await db.exec('SET ROLE authenticated');
+    await setAuthUid(db, uid);
+    try {
+      return await fn();
+    } finally {
+      await db.exec('RESET ROLE');
+    }
+  };
+  const editsGuest = (uid: string, note: string) =>
+    as(uid, async () =>
+      (await db.query(`UPDATE public.guests SET guest_note = $2 WHERE guest_id = $1 RETURNING guest_id`, [target, note])).rows.length);
+  const editsTable = (uid: string) =>
+    as(uid, async () =>
+      (await db.query(`UPDATE public.event_tables SET table_label = 'Moved' WHERE table_id = $1 RETURNING table_id`, [tableId])).rows.length);
+  const checksIn = (uid: string) =>
+    as(uid, () =>
+      db.query(`INSERT INTO public.guest_checkins (event_id, guest_id, method) VALUES ($1, $2, 'manual_search')`, [eventId, target]));
+
+  // Guest list = Edit → guests change; the seat plan (View) does not.
+  assert.equal(await editsGuest(guestsEditor, 'by the helper'), 1, 'a helper set to guest list = Edit could not edit a guest');
+  assert.equal(await editsTable(guestsEditor), 0, 'a helper with seat plan = View moved a table');
+  // …and a guest-list table behind the lh_ro refusal (20271288470033) follows the area too.
+  await checksIn(guestsEditor);
+  await db.query(`DELETE FROM public.guest_checkins WHERE guest_id = $1`, [target]);
+
+  // Everything View → nothing changes, anywhere.
+  assert.equal(await editsGuest(viewer, 'by the viewer'), 0, 'an all-View helper edited a guest');
+  assert.equal(await editsTable(viewer), 0, 'an all-View helper moved a table');
+  await assert.rejects(() => checksIn(viewer), /row-level security/, 'an all-View helper checked a guest in');
+
+  const note = await db.query<{ n: string | null }>(`SELECT guest_note AS n FROM public.guests WHERE guest_id = $1`, [target]);
+  assert.equal(note.rows[0]!.n, 'by the helper');
+});
+
 test('every coordinator-writable table without an area check refuses a limited helper', async () => {
   const r = await db.query<{ t: string; ins: boolean; upd: boolean; del: boolean }>(`
     WITH w AS (

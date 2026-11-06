@@ -23,10 +23,11 @@
  * arrives before any of it is used.
  */
 
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import {
   EMPTY_SERVICES_SELECTION,
   type ServicesStepSelection,
@@ -40,6 +41,14 @@ import {
   HUB_PRO_FIELD_SELECTED,
 } from './papic-step-field-names';
 
+/**
+ * 🧭 The needs screen's Suppliers row, LIVE (owner 2026-10-26: *"it is based on the onboarding"*).
+ * `SimpleSetupFlow` provides it from its own `needs` state, so switching Suppliers off on "What do you
+ * need?" removes the Setnayan AI card here at once, and switching it on brings it back — no reload. No
+ * provider (the engine is off: no needs screen, no choice made) ⇒ true ⇒ the card is offered as before.
+ */
+export const SimpleSuppliersOnContext = createContext<boolean>(true);
+
 export function PapicStepFields({
   view,
   className,
@@ -48,6 +57,9 @@ export function PapicStepFields({
   className?: string;
 }) {
   const [selection, setSelection] = useState<ServicesStepSelection>(EMPTY_SERVICES_SELECTION);
+  const suppliersOn = useContext(SimpleSuppliersOnContext);
+  // An AI pick never posts while Setnayan AI is not offered (commitSimpleEvent drops it again, server-side).
+  const aiPosted = selection.ai && setnayanAiOffered({ suppliers: suppliersOn });
 
   return (
     <div className={className}>
@@ -55,6 +67,7 @@ export function PapicStepFields({
         view={view}
         selection={selection}
         onSelectionChange={setSelection}
+        suppliersOn={suppliersOn}
       />
       {/* Empty strings rather than omitted inputs: a field that is always present
           and sometimes blank is easier to reason about server-side than one that
@@ -65,7 +78,7 @@ export function PapicStepFields({
           (owner 2026-08-11). Cameras are free and unlimited now, so there is
           nothing here to buy — and an always-empty field would leave the next
           reader hunting for the control that fills it. */}
-      <input type="hidden" name={AI_FIELD_SELECTED} value={String(selection.ai)} />
+      <input type="hidden" name={AI_FIELD_SELECTED} value={String(aiPosted)} />
       <input type="hidden" name={HUB_PRO_FIELD_SELECTED} value={String(selection.hubPro)} />
     </div>
   );

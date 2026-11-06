@@ -143,7 +143,7 @@ export function GuestPushPrompt() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-ink">Get seat & schedule alerts</p>
-        <p className="mt-0.5 text-xs text-ink/60">
+        <p className="mt-0.5 text-xs text-ink/70">
           We&rsquo;ll let you know on this device if your table changes or something at the venue
           needs your attention — even if you close this page.
         </p>
@@ -160,7 +160,7 @@ export function GuestPushPrompt() {
             type="button"
             onClick={handleDismiss}
             disabled={busy}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-ink/55 hover:text-ink/80"
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-ink/70 hover:text-ink/80"
           >
             Not now
           </button>
@@ -171,7 +171,7 @@ export function GuestPushPrompt() {
         onClick={handleDismiss}
         aria-label="Dismiss"
         disabled={busy}
-        className="shrink-0 rounded-md p-1 text-ink/40 hover:text-ink/70"
+        className="shrink-0 rounded-md p-1 text-ink/70 hover:text-ink/70"
       >
         <X className="h-4 w-4" strokeWidth={1.75} />
       </button>

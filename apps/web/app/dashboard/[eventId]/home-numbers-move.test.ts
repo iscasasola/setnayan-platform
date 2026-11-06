@@ -54,27 +54,41 @@ const STUB = join(process.cwd(), '__server_only_stub_home_numbers__.js');
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 async function paint(f: {
-  days: { value: string; label: string };
-  coming: string;
-  noReply: string;
-  money?: { paid: string; owing: string } | null;
+  facts: Awaited<ReturnType<typeof factsFor>>;
+  roster?: { yes: number; none: number; toInvite: number; no: number; total: number } | null;
+  money?: { paid: number; owing: number } | null | 'hidden';
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { HomeFirstScreen } = await import('./_components/home-first-screen');
+  const { composeHomeControl } = await import('./_components/home-control-faces');
+  const next = { kind: 'plan', title: 'Plan', body: 'Next', action: 'See all' } as const;
+  // The page's own chain: homeFacts → composeHomeControl → HomeFirstScreen (page.tsx `homeControl`).
+  const control = composeHomeControl({
+    eventId: 'evt-1',
+    next,
+    days: f.facts.days,
+    daysN: f.facts.figures.days ?? null,
+    eventDate: null,
+    venueName: null,
+    needs: { guestList: true, suppliers: true },
+    roster: f.roster === undefined ? { yes: 0, none: 0, toInvite: 0, no: 0, total: 0 } : f.roster,
+    money: f.money === undefined ? 'hidden' : f.money,
+    ledger: { allOk: true, lines: [] },
+    hub: null,
+    suppliers: null,
+    checklist: null,
+  });
   return renderToStaticMarkup(
-    React.createElement(HomeFirstScreen, {
-      eventId: 'evt-1',
-      cover: { eyebrow: 'Wedding', name: 'A & B' },
-      next: { kind: 'plan', title: 'Plan', body: 'Next', action: 'See all' },
-      days: f.days,
-      coming: f.coming,
-      noReply: f.noReply,
-      noReplyWaiting: false,
-      money: f.money ?? null,
-      services: [],
-    } as never),
+    React.createElement(HomeFirstScreen, { eventId: 'evt-1', cover: { eyebrow: 'Wedding', name: 'A & B' }, next, control, services: [] } as never),
   );
 }
+
+/**
+ * The number drawn beside a label — `numberBeside`, widened for `Count` (2026-10-07):
+ * the counted figure sits in a `<span>` inside the value's `<div>`.
+ */
+const beside = (html: string, label: RegExp): string | null =>
+  numberBeside(html.replace(/<span[^>]*data-count="[^"]*"[^>]*>([^<]*)<\/span>/g, '$1'), label);
 
 const guest = (rsvp_status: string) => ({ rsvp_status, plus_one_count: 0, entry_source: 'host', passed_away: false });
 
@@ -100,17 +114,20 @@ async function factsFor(over: {
 test('page.tsx feeds the first screen — and the dashboard — through the ONE chain this test runs', () => {
   const src = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
   assert.match(src, /facts\s*=\s*homeFacts\(\{[\s\S]{0,400}?eventDate:\s*\(?event\.event_date/, 'the facts come from homeFacts(event.event_date …)');
-  assert.match(src, /days=\{facts\.days\}/);
-  assert.match(src, /coming=\{facts\.coming\}/);
-  assert.match(src, /noReply=\{facts\.noReply\}/);
-  assert.match(src, /money=\{facts\.money\}/);
+  // The control row is composed from those facts (`composeHomeControl`, the chain this test runs) and handed over.
+  assert.match(src, /composeHomeControl\(\{[\s\S]{0,200}?days: facts\.days,\s*daysN: facts\.figures\.days \?\? null,/);
+  assert.match(src, /roster: guestsMeasured \? homeRoster : null,/, 'the guests reach Home from the Guests summary’s own counts');
+  assert.match(src, /money: moneyNow,/);
+  assert.match(src, /control=\{homeControl\}/);
   // …and nothing else on the page works those numbers out a second time.
   assert.doesNotMatch(src, /\bdaysUntil\(/, 'the page must not run its own countdown');
   assert.doesNotMatch(src, /\bcomputeGuestStats\(/, 'the page must not recount the guests');
   assert.doesNotMatch(src, /\bresolveEventMoney\(/, 'the page must not resolve the money a second time');
   // The dashboard is HANDED the same numbers (three mounts), never re-deriving them.
-  assert.equal((src.match(/daysOut=\{facts\.daysOut\}/g) ?? []).length, 3, 'every EventDashboard mount gets the same daysOut');
-  assert.equal((src.match(/guestStats=\{facts\.guestStats\}/g) ?? []).length, 3, 'every EventDashboard mount gets the same guest counts');
+  // (Two mounts since the What's next mount went, owner-approved 2026-10-24.)
+  const mounts = (src.match(/<EventDashboard/g) ?? []).length;
+  assert.equal((src.match(/daysOut=\{facts\.daysOut\}/g) ?? []).length, mounts, 'every EventDashboard mount gets the same daysOut');
+  assert.equal((src.match(/guestStats=\{facts\.guestStats\}/g) ?? []).length, mounts, 'every EventDashboard mount gets the same guest counts');
 });
 
 test('the dashboard no longer works the first screen\'s numbers out itself', () => {
@@ -126,12 +143,12 @@ test('days to go moves when today moves — and when the date does', async () =>
     mock.timers.enable({ apis: ['Date'], now: new Date(`${i.today}T04:00:00Z`) });
     try {
       const f = await factsFor({ date: i.date });
-      return await paint({ days: f.days, coming: '0', noReply: '0' });
+      return await paint({ facts: f });
     } finally {
       mock.timers.reset();
     }
   };
-  const read = (html: string) => numberBeside(html, /days? to go/);
+  const read = (html: string) => beside(html, /days? to go/);
   await assertOutputMoves({
     what: 'Home · days to go, two todays',
     render,
@@ -164,36 +181,45 @@ test('a date that is only a month or a year counts down to nothing', async () =>
 test('coming and no-reply move when the guest list does', async () => {
   const render = async (gs: Array<ReturnType<typeof guest>>) => {
     const f = await factsFor({ guests: gs });
-    return paint({ days: f.days, coming: f.coming, noReply: f.noReply });
+    const { rosterStats } = await import('@/lib/guest-roster-view');
+    return paint({ facts: f, roster: rosterStats(gs as never) });
   };
   const small = [guest('attending'), guest('pending'), guest('declined')];
   const big = [...small, guest('attending'), guest('attending'), guest('pending')];
-  await assertOutputMoves({ what: 'Home · coming', render, read: (h) => numberBeside(h, /coming/), inputs: [small, big], expect: ['1', '3'] });
-  await assertOutputMoves({ what: 'Home · no reply', render, read: (h) => numberBeside(h, /no reply/), inputs: [small, big], expect: ['1', '2'] });
+  // The Guests widget's counted figures (`Count` ids — the face and the card share them).
+  const counted = (id: string) => (h: string) => h.match(new RegExp(`data-count="${id}"[^>]*>([^<]*)<`))?.[1] ?? null;
+  await assertOutputMoves({ what: 'Home · coming', render, read: counted('home-guests-coming'), inputs: [small, big], expect: ['1', '3'] });
+  await assertOutputMoves({ what: 'Home · no reply', render, read: counted('home-guests-noreply'), inputs: [small, big], expect: ['1', '2'] });
 });
 
 test('a guest read that did not happen prints "—", never 0 coming', async () => {
   const f = await factsFor({ guests: [], measured: false });
-  const html = await paint({ days: f.days, coming: f.coming, noReply: f.noReply });
-  assert.equal(numberBeside(html, /coming/), '—');
-  assert.equal(numberBeside(html, /no reply/), '—');
+  const html = await paint({ facts: f, roster: null });
+  // Said, not a bare "—" (H3, 2026-10-07): the Guests widget becomes one "couldn't load" face.
+  assert.doesNotMatch(html, /data-count="home-guests-coming"/, 'no "coming" number is drawn from a read that did not happen');
+  assert.match(html, /Guest counts couldn’t load/);
+  const guests = html.slice(html.indexOf('data-home-tile="guests"'), html.indexOf('data-home-tile="', html.indexOf('data-home-tile="guests"') + 20));
+  assert.doesNotMatch(guests, />0</);
 });
 
 test('Paid and Still owing move when the money does — and "—" when it was not read', async () => {
   const render = async (m: { paid: number; owing: number } | null) => {
     const f = await factsFor({ money: m });
-    return paint({ days: f.days, coming: '0', noReply: '0', money: f.money });
+    return paint({ facts: f, money: m });
   };
-  const owing = (html: string) => html.match(/Still owing<span[^>]*>([^<]+)</)?.[1] ?? null;
-  const paid = (html: string) => html.match(/Paid<span[^>]*>([^<]+)</)?.[1] ?? null;
+  const owing = (html: string) => html.match(/>Still owing<\/div><div[^>]*>(?:<span[^>]*>)?([^<]+)</)?.[1] ?? null;
+  const paid = (html: string) => html.match(/>Paid<\/div><div[^>]*>(?:<span[^>]*>)?([^<]+)</)?.[1] ?? null;
   const a = await render({ paid: 12_000, owing: 3_000 });
   const b = await render({ paid: 20_000, owing: 500 });
   assert.notEqual(owing(a), owing(b), 'Still owing did not move with the money');
   assert.notEqual(paid(a), paid(b), 'Paid did not move with the money');
   assert.match(owing(a) ?? '', /3,000/);
   assert.match(owing(b) ?? '', /500/);
-  assert.equal(owing(await render(null)), '—', 'an unread budget prints —, never ₱0');
-  const hidden = await paint({ days: { value: '1', label: 'day to go' }, coming: '0', noReply: '0', money: (await factsFor({ money: 'hidden' })).money });
+  const unread = await render(null);
+  assert.equal(owing(unread), null, 'an unread budget prints no figure at all');
+  assert.match(unread, /Money couldn’t load/, 'an unread budget is SAID (H3), never hidden like "not shared"');
+  assert.doesNotMatch(unread.replace(/not ₱0|not zero/g, ''), /₱0/, 'never ₱0');
+  const hidden = await paint({ facts: await factsFor({ money: 'hidden' }), money: 'hidden' });
   assert.equal(owing(hidden), null, 'a viewer the budget is not shared with gets no money line at all');
 });
 

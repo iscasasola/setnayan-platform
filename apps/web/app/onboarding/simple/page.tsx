@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateMinFor } from '@/lib/event-date-floor';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
+import { manilaToday } from '@/lib/std-views';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -8,19 +11,20 @@ import { readServicesStepView } from '@/lib/onboarding/services-step-server';
 import { PapicStepFields } from './_components/papic-step-fields';
 import { SimpleSetupFlow } from './_components/simple-setup-flow';
 import { commitSimpleEvent } from './actions';
+import { CarriedHonoreeFields } from './_components/carried-honoree-fields';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 
 export const metadata = { title: 'Create a Simple Event' };
 
-import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 
 const ERROR_COPY: Record<string, string> = {
-  shop_account: SHOP_ACCOUNT_CANNOT_CREATE_COPY,
   missing_name: 'Please give your event a name.',
   missing_date: 'Please pick a date for your event.',
+  event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
   // Kept apart deliberately — see the same pair in the create-event picker.
   // `create_failed` = nothing survived, retrying is safe. `create_incomplete` =
   // a half-made event could not be rolled back, so "try again" would duplicate.
@@ -57,12 +61,16 @@ export default async function SimpleOnboardingPage({
 
   // If the type isn't live in the create-roster, send them back to the picker.
   const creatable = await getCreatableEventTypes();
-  if (!creatable.some((t) => t.key === 'simple_event')) {
+  const typeRow = creatable.find((t) => t.key === 'simple_event');
+  if (!typeRow) {
     redirect('/dashboard/create-event');
   }
 
   const params = await searchParams;
-  const errorMessage = params.error ? (ERROR_COPY[params.error] ?? GENERIC_ERROR) : null;
+  // 💍 The date rule's message is said beside the date (below), never twice.
+  const errorMessage =
+    params.error && params.error !== 'event_date_before_first_event' ? (ERROR_COPY[params.error] ?? GENERIC_ERROR) : null;
+  const dateExempt = await viewerIsInternal().catch(() => false);
 
   // The services step. This route is NOT a wizard — it is one form — so "adding
   // the step" means adding the card beneath the form, not inserting a screen.
@@ -91,21 +99,26 @@ export default async function SimpleOnboardingPage({
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8 space-y-2">
+      <header className={setupView ? 'mb-4 space-y-2' : 'mb-8 space-y-2'}>
+        {/* The brand line (owner 2026-10-21, "make sure there is Setnayan") — the same one every first-run screen carries. */}
+        <FirstRunBrand color="rgb(var(--color-ink))" size={13} className="pb-1" />
         <Link
           href="/dashboard/create-event"
           className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
         >
           ‹ Back
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Let’s set the date.
-        </h1>
-        <p className="text-base text-ink/60">
-          {setupView
-            ? 'A name and a date, then a few quick picks.'
-            : 'A name and a date are all we need — everything else is Setnayan’s in-app services.'}
-        </p>
+        {/* 🚪 With the engine on, "What do you need?" carries its own title (owner 2026-10-08, frame 3). */}
+        {setupView ? null : (
+          <>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Let’s set the date.
+            </h1>
+            <p className="text-base text-ink/60">
+              A name and a date are all we need — everything else is Setnayan’s in-app services.
+            </p>
+          </>
+        )}
       </header>
 
       {errorMessage ? (
@@ -118,11 +131,16 @@ export default async function SimpleOnboardingPage({
       ) : null}
 
       <form action={commitSimpleEvent} className="space-y-6">
+        {/* The shop "For ▾" named, when it named one (owner 2026-10-22). */}
+        <CarriedHonoreeFields />
         {/* Paced by the setup engine when the type is admitted; with `view` null
             it renders the two halves exactly as before, one plain form. */}
         <SimpleSetupFlow
           view={setupView}
           steps={setupSteps}
+          label={typeRow?.label ?? 'Get-together'}
+          marketplace={profile.marketplaceEnabled === true}
+          dateExempt={dateExempt}
           start={
             <>
               <div className="space-y-1.5">
@@ -135,7 +153,7 @@ export default async function SimpleOnboardingPage({
                   className="input-field"
                   id="display_name"
                   name="display_name"
-                  placeholder="Our celebration"
+                  placeholder="Our event"
                   required
                   type="text"
                 />
@@ -148,10 +166,17 @@ export default async function SimpleOnboardingPage({
                 <input
                   className="input-field"
                   id="event_date"
+                  min={eventDateMinFor(manilaToday(), dateExempt)}
                   name="event_date"
                   required
                   type="date"
                 />
+                {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+                {params.error === 'event_date_before_first_event' ? (
+                  <p role="alert" className="text-xs text-danger-700">
+                    {EVENT_DATE_FLOOR_MESSAGE}
+                  </p>
+                ) : null}
                 <p className="text-xs text-ink/50">You can change this later in event settings.</p>
               </div>
             </>

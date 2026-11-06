@@ -189,7 +189,33 @@ const readUserEvents = cache(async (
   userId: string,
   memberType?: EventWithRole['member_type'],
 ): Promise<{ events: EventWithRole[]; error: PostgrestError | null; status: number | null }> => {
+  /* ⚡ ONE TRIP FOR THE THREE PERSONAL SHELVES (measured 2026-10-16). The events board, the
+     account chrome and the event layout ask for 'couple', 'guest' and 'coordinator' in the same
+     render — three identical embedded reads of `event_members`, differing only in one filter,
+     on EVERY page and every prefetch. They now share one read of the three and split it here:
+     the same rows (the filter moved from the URL to this line), the same error for each caller
+     (it was the same table, policy and query), the same order (the sort is stable). 'vendor'
+     and "every membership" keep their own read — a supplier can hold hundreds of client rows
+     that no couple surface should pay for. 🔒 lib/the-shelves-share-one-read.test.ts */
+  if (memberType && PERSONAL_SHELVES.includes(memberType)) {
+    const all = await readPersonalShelves(supabase, userId);
+    if (all.error) return all;
+    return { ...all, events: all.events.filter((e) => e.member_type === memberType) };
+  }
   const { data, error, status } = await withSchemaRetry(() => buildUserEventsQuery(supabase, userId, memberType));
+  if (error) return { events: [], error, status: status ?? null };
+  return { events: shapeUserEvents(data), error: null, status: status ?? null };
+});
+
+const PERSONAL_SHELVES: readonly EventWithRole['member_type'][] = ['couple', 'guest', 'coordinator'];
+
+const readPersonalShelves = cache(async (
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ events: EventWithRole[]; error: PostgrestError | null; status: number | null }> => {
+  const { data, error, status } = await withSchemaRetry(() =>
+    buildUserEventsQuery(supabase, userId, undefined, PERSONAL_SHELVES),
+  );
   if (error) return { events: [], error, status: status ?? null };
   return { events: shapeUserEvents(data), error: null, status: status ?? null };
 });
@@ -198,6 +224,7 @@ function buildUserEventsQuery(
   supabase: SupabaseClient,
   userId: string,
   memberType?: EventWithRole['member_type'],
+  memberTypes?: readonly EventWithRole['member_type'][],
 ) {
   let query = supabase
     .from('event_members')
@@ -235,6 +262,8 @@ function buildUserEventsQuery(
 
   if (memberType) {
     query = query.eq('member_type', memberType);
+  } else if (memberTypes) {
+    query = query.in('member_type', [...memberTypes]);
   }
   // Account auto-surface (#7b): hide events the guest opted OUT of — a "no"
   // (declined or left) stamps event_members.hidden_at. Normal memberships have
@@ -626,9 +655,10 @@ export function eventDatePrecisionOf(v: unknown): EventDatePrecision | null {
 }
 
 /**
- * 🗓 THE DATE'S GATES, AS ONE ANSWER — `updateEventDate`'s rules, read by that
- * writer AND by the Event Hub's Apply, which writes a date typed into the
- * Maker's draft (owner 2026-10-01, "wait for apply"). One rule, two doors:
+ * 🗓 THE DATE'S GATES, AS ONE ANSWER — read by the event's one date door,
+ * `updateEventDate`, which every place a couple sets the date posts to (owner
+ * 2026-11-05, "it shouldn't rely on the hub" — the Event Hub's Apply no longer
+ * writes a date). One rule:
  *
  *   · `in_past` — the new date has already gone by at its precision (Task #41);
  *   · `locked`  — the day moves while a supplier is booked (Task #37);
@@ -659,10 +689,10 @@ export function eventDateRefusal(
    * the clashing-date flow 2026-10-01): every booked supplier can do the new
    * day — or every one whose calendar clashes answered Move. Only then does a
    * date with booked suppliers move (`dateMoveClearance`, lib/date-change.ts,
-   * asked by the Maker's Apply). The blanket "a booked supplier's date can't
-   * move" is relaxed for THAT case only: a wider precision (`widens`) and a day
-   * gone by (`in_past`) are refused whatever the suppliers said, and a caller
-   * that does not ask (Event Details' `updateEventDate`) keeps the lock.
+   * asked by `updateEventDate` through `dateApplyClearance`). The blanket "a
+   * booked supplier's date can't move" is relaxed for THAT case only: a wider
+   * precision (`widens`) and a day gone by (`in_past`) are refused whatever the
+   * suppliers said, and a caller that does not ask keeps the lock.
    */
   cleared = false,
 ): EventDateRefusal | null {
@@ -900,7 +930,7 @@ export async function recomputeReceptionAnchor(
 
 // Role subtypes that grant "primary host" status — equivalent to the
 // legacy member_type='couple' for plan-ownership purposes. Excludes
-// viewer / family_helper / ninong / ninang / maid_of_honor / best_man /
+// viewer / family_helper / ninong / ninang / maid_of_honor / man_of_honor / best_man /
 // best_woman —
 // those roles can co-plan but aren't the canonical event-owner host.
 // Per iteration 0048 spec § Permission templates, only these subtypes

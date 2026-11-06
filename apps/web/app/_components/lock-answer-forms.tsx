@@ -1,6 +1,16 @@
-import { SubmitButton } from '@/app/_components/submit-button';
+import { Check, X } from 'lucide-react';
+import { AskSubmit } from '@/app/_components/ask-submit';
+import dynamic from 'next/dynamic';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
+
+/**
+ * ⚡ LOADED WHEN IT IS FIRST NEEDED. The decline's Why ▾ + note are a Field-template row (`TypedRow`), and this card rides
+ * every chat thread: imported statically, the whole Field template (and its ⓘ popup) joined each thread page's first
+ * load for a fold that starts SHUT — and re-packed the event dashboard's shared chunks, which put the Maker 0.3 KB over
+ * its first-load budget (`check-maker-js-budget.mjs`, PR #7142). Rendered on the server as before; only its code waits.
+ */
+const DeclineReasonFields = dynamic(() => import('@/app/_components/decline-reason-fields').then((m) => m.DeclineReasonFields));
 
 /**
  * THE SUPPLIER'S ANSWER TO A BOOKING ASK, ON THE ACCEPTED QUOTE CARD.
@@ -50,36 +60,21 @@ export function LockAnswerForms({
       <form action={agreeLock}>
         <input type="hidden" name="vendor_id" value={eventVendorId} />
         <input type="hidden" name="return_to" value={returnTo} />
-        <SubmitButton
-          pendingLabel="Agreeing…"
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-success)' }}
-        >
-          Agree to this booking
-        </SubmitButton>
+        {/* 2026-10-12 look calls: the main answer is terracotta, 44 px — the
+            customer card's Agree (`booking-ask-panel.tsx`) is the same button. */}
+        <AskSubmit tone="brand" main icon={<Check aria-hidden strokeWidth={1.9} />} label="Agree to this booking" pendingLabel="Agreeing…" />
       </form>
       <details className="mt-2">
-        <summary className="cursor-pointer text-sm text-ink/60">
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm text-ink/60">
           Can&rsquo;t take this booking?
         </summary>
         <form action={declineLock} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={eventVendorId} />
           <input type="hidden" name="return_to" value={returnTo} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
+          {/* Why ▾ + an optional line, joined into the one \`reason\` field the action reads (no Undo — the couple
+              is told at once). */}
+          <DeclineReasonFields />
+          <AskSubmit tone="neutral" icon={<X aria-hidden strokeWidth={1.9} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
       </details>
     </div>

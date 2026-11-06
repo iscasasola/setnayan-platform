@@ -26,6 +26,7 @@ export const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   explore: 'customer.sidebar.explore',
   studio: 'customer.sidebar.studio',
   launch: 'customer.sidebar.launch',
+  memories: 'customer.sidebar.memories',
   // (No 'budget' — the top-level Budget item was removed 2026-07-10; its
   // customer.sidebar.budget registry slot was already retired.)
 };

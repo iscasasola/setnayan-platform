@@ -55,7 +55,7 @@ export const BASE_ROWS: BaseRow[] = [
   // permanently empty by construction — it costs a row and a glance every day
   // forever. /admin/payouts itself STAYS, reachable from the Money menu, because
   // legacy orders may still need it. This removes the daily prompt, not the page.
-  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Supplier Pro / Enterprise upgrades awaiting confirmation.' },
+  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Supplier Pro / Ultra upgrades awaiting confirmation.' },
   { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Supplier payment destinations awaiting a fraud screen.' },
   { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and supplier disputes.' },
   { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', icon: AlertOctagon, description: 'Event-impacting flags to triage.' },
@@ -66,7 +66,7 @@ export const BASE_ROWS: BaseRow[] = [
   { key: 'approvals', label: 'Two-admin approvals', href: '/admin/approvals', icon: CheckCheck, description: 'A colleague is waiting on your second sign-off.' },
   { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
   { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Supplier-to-supplier partnership claims awaiting two-admin verification.' },
-  { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest-gallery content awaiting moderation.' },
+  { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest Memories content awaiting moderation.' },
   /* ─── ADDED 2026-08-19 · the four the owner said matter ──────────────────
      The list counted 14 queues while ten other queue-shaped admin surfaces went
      uncounted, under a headline reading "You're all caught up". Three of the ten

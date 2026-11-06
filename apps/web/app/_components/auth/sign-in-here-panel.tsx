@@ -108,6 +108,7 @@ export function SignInHerePanel({
         keeps a half-written enquiry in its box. `router.push(here)` would look
         identical in the address bar and throw the typing away.
       */
+      // one-render: keep (auth) — the session changed in this browser; the server components must be read with it.
       router.refresh();
     },
     [onClose, options, router],

@@ -117,10 +117,19 @@ test('🚨 the pack door is registered — ₱500 lands the pack credits on appr
     'the pack SKU has no activation hook — a supplier pays ₱500, the admin approves, and nothing lands',
   );
   const fn = /async function grantVendorPapicPortfolioPack[\s\S]*?\n}/.exec(src)?.[0] ?? '';
-  assert.ok(
-    /credits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS/.test(fn),
-    'the pack grants a number other than the declared pack size',
-  );
+  // Since the shop wallet (2026-10-23, option A) the pack lands as a SIGNED wallet row (`delta:`), not an event
+  // grant (`credits:`) — either way it must be the declared pack size, never a literal. Since the final price sheet
+  // (2026-11-04) the retired pack and the shop's Papic packs share ONE wallet writer, `grantShopWalletCredits`: the
+  // retired pack hands it the declared size, and the writer lands exactly what it was handed.
+  const inline = /(?:credits|delta): VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS\b/.test(fn);
+  const viaWriter = /grantShopWalletCredits\(ctx, async \(\) => VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS\)/.test(fn);
+  assert.ok(inline || viaWriter, 'the pack grants a number other than the declared pack size');
+  if (viaWriter) {
+    const writer = /async function grantShopWalletCredits\([\s\S]*?\n}/.exec(src)?.[0] ?? '';
+    assert.ok(writer, 'grantShopWalletCredits is gone');
+    assert.match(writer, /const credits = await creditsOf\(\);/, 'the wallet writer no longer lands the credits it was handed');
+    assert.match(writer, /delta: credits,/, 'the wallet writer lands a number other than the credits it was handed');
+  }
 });
 
 test('🚨 the ledger is idempotent per (order, source) — the hook treats a unique violation as "already granted"', () => {

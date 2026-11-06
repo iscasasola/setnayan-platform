@@ -101,8 +101,12 @@ test('1 · the entourage is on the Invitation, the Day and Post Event — never 
   assert.equal(stageShowsEntourage('save_the_date'), false);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   const mounts = BODY.match(/<EntourageSection[\s/>]/g) ?? [];
-  const gated = BODY.match(/stageShowsEntourage\(pageStage\) \? <EntourageSection/g) ?? [];
+  /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
+     stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
+  const gated = BODY.match(/entourageShownOn\(pageStage\) \? <EntourageSection/g) ?? [];
   assert.equal(gated.length, mounts.length, 'every entourage mount asks the stage');
+  assert.ok(mounts.length >= 2, 'anti-vacuity: the page mounts the entourage');
+  assert.match(BODY, /const entourageShownOn = \(stage: LifecyclePhase\): boolean =>\s*partOnStage\(widgets, 'entourage', lifecyclePhase, phasesEnabled, stageShowsEntourage\(stage\)\);/);
 });
 
 test('2 · "Two ways to celebrate" is on NO stage — Post Event included, open browsing too', () => {
@@ -141,27 +145,33 @@ const bar = (stage: LifecyclePhase, over: Partial<Parameters<typeof resolveSiteN
 test('3 · the Invitation bar: Welcome · Details · Our Love Story · Me — always the four, no RSVP tab', () => {
   // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love
   // Story - Me"* and *"RSVP does not have 4 tabs under"* — replied or not.
-  assert.deepEqual(bar('rsvp'), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  // 📷 With Papic OFF (owner 2026-10-30, "PAPIC ON = A CAMERA TAB ON EVERY STAGE"): the four.
+  assert.deepEqual(bar('rsvp', { hostAllowsCamera: false }), ['Home', 'Details', 'Story', 'Me']);
+  // …and with Papic ON the four carry the Camera too — still no RSVP tab.
+  assert.deepEqual(bar('rsvp'), ['Home', 'Details', 'Story', 'Camera', 'Me']);
   // A stranger: Welcome · Details · Our Love Story, no Me.
-  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Welcome', 'Details', 'Our Love Story']);
+  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Home', 'Details', 'Story']);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   assert.doesNotMatch(BODY, /\breplied: Boolean\(guest\.rsvp_status\)/, 'the bar is told whether they answered again — an RSVP tab is back');
 });
 
-test('4 · the On the Day bar: Live · Welcome · Camera · Gallery · Me', () => {
+test('4 · the On the Day bar: Live · Welcome · Camera · Memories · Me', () => {
   // Owner 2026-09-30, verbatim: *"Live - Welcome - Camera - Gallery - Me"*
   // (DECISION_LOG "THE DAY'S MENU HAS FIVE") — it supersedes Now · Schedule.
-  assert.deepEqual(bar('event'), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(bar('event'), ['Live', 'Home', 'Camera', 'Memories', 'Me']);
   // The stream is part of Live — a broadcast no longer takes a tab of its own.
-  assert.deepEqual(bar('event', { liveBroadcast: true }), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(bar('event', { liveBroadcast: true }), ['Live', 'Home', 'Camera', 'Memories', 'Me']);
   // A reader with no Welcome on the day (no table, look, reminders or gifts) → no dead tab.
-  assert.deepEqual(bar('event', { hasWelcome: false }), ['Live', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(bar('event', { hasWelcome: false }), ['Live', 'Camera', 'Memories', 'Me']);
 });
 
-test('5 · the Save the Date: no Camera tab — Welcome · Our Love Story, and Me for a key-holder', () => {
-  const std = bar('save_the_date');
-  assert.ok(!std.includes('Camera'), `the Save the Date offers a camera: ${std.join(' · ')}`);
-  assert.deepEqual(std, ['Welcome', 'Our Love Story', 'Me']);
+test('5 · the Save the Date: Welcome · Our Love Story, and Me for a key-holder — Camera only while Papic is on', () => {
+  // 📷 Papic OFF: no Camera tab, as before.
+  const std = bar('save_the_date', { hostAllowsCamera: false });
+  assert.ok(!std.includes('Camera'), `the Save the Date offers a camera with Papic off: ${std.join(' · ')}`);
+  assert.deepEqual(std, ['Home', 'Story', 'Me']);
+  // 📷 Papic ON (owner 2026-10-30, "no matter what event hub stage it is, it will add the camera menu").
+  assert.deepEqual(bar('save_the_date'), ['Home', 'Story', 'Camera', 'Me']);
 });
 
 /* ── 6 · empty scenes ──────────────────────────────────────────────────── */

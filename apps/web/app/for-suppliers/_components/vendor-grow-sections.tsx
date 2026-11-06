@@ -12,8 +12,8 @@
  * speaks the "free" thesis, never a number. Server components (no hooks).
  */
 import Link from 'next/link';
-import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
@@ -147,7 +147,14 @@ function CardGrid({ children }: { children: React.ReactNode }) {
 
 /* ── 0 · THESIS STRIP ──────────────────────────────────────────────────── */
 
-export function VendorGrowThesis() {
+/**
+ * Every section below that quotes the booking fee takes the LIVE schedule the
+ * page read (`getLiveBookingFeeSchedule`), never the code default (audit
+ * 2026-10-12, item 5). NULL = could not read it: the fee is named, no rate.
+ */
+type FeeProp = { fee: BookingFeeSchedule | null };
+
+export function VendorGrowThesis({ fee }: FeeProp) {
   const items = [
     { b: '₱0', s: 'to join, run your whole business & bring your own clients — always free' },
     // 🔴 THIS FILE DOCUMENTS FIXING "0% commission while we launch" ON THE HERO
@@ -156,7 +163,12 @@ export function VendorGrowThesis() {
     // collected ₱837.50. A fix applied to one string in a file is not a fix
     // applied to the file.
     { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
-    { b: 'First 5 free', s: `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary()}, only on couples we source` },
+    {
+      b: 'First booking free',
+      s: fee
+        ? `${FIRST_BOOKING_ON_US_CLAUSE} — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
+        : `${FIRST_BOOKING_ON_US_CLAUSE} — after that a booking fee, only on couples we source`,
+    },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -233,7 +245,21 @@ export function VendorGrowHub() {
 
 /* ── 2 · SETNAYAN AI (DARK SIGNATURE) ──────────────────────────────────── */
 
-export function VendorGrowAI() {
+/**
+ * Where "Get your invite link" goes. The link lives in Shop › Promote
+ * (/vendor-dashboard/shop/promote — moved from Customers › QR codes 2026-11-05, owner: the
+ * marketing codes belong in Shop, which is where this page already shows them),
+ * so a supplier who already has a shop goes straight there; everyone else opens
+ * a shop first and is carried on to it (`?next=`). It used to be a bare
+ * `/open-shop` for everybody, which sent a registered supplier to the open-shop
+ * page (and on to Today), never to the invite link the button names.
+ */
+export const INVITE_LINK_PATH = '/vendor-dashboard/shop/promote';
+export function inviteLinkHref(hasShop: boolean): string {
+  return hasShop ? INVITE_LINK_PATH : '/open-shop?next=' + encodeURIComponent(INVITE_LINK_PATH);
+}
+
+export function VendorGrowAI({ inviteHref = inviteLinkHref(false) }: { inviteHref?: string }) {
   const steps = [
     { n: '1', t: 'Strategic computation', p: 'We compute where you’re the strongest match — by date, budget, faith, location and the other suppliers they’re choosing.' },
     // ⚠ THIS STEP USED TO PROMISE VENDORS A DARK PATTERN, and one we don't build.
@@ -361,7 +387,7 @@ export function VendorGrowAI() {
               A couple who&rsquo;s activated it is a couple we can nudge, create urgency for, and lock in on your behalf. Invite yours in one tap — it costs you nothing, and it lets us push your bookings far harder.
             </p>
           </div>
-          <Link href="/open-shop" className="m-btn m-btn-orange m-btn-lg">
+          <Link href={inviteHref} className="m-btn m-btn-orange m-btn-lg">
             Get your invite link
           </Link>
         </div>
@@ -384,7 +410,7 @@ export function VendorGrowAI() {
  * billed, so the promise and the charge can never disagree again. It is one
  * function call, deliberately: a hand-edited sentence is what went stale.
  */
-export function VendorGrowFairPay() {
+export function VendorGrowFairPay({ fee }: FeeProp) {
   const feeLive = isBookingFeeEnabled();
   return (
     <section style={SECTION}>
@@ -398,9 +424,16 @@ export function VendorGrowFairPay() {
               While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>{COMMISSION_PCT}%</b>.{' '}
             </>
           )}
-          Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
-          {feeLive ? 'after that the booking fee is ' : 'after that, '}
-          <b style={{ color: 'var(--m-ink)' }}>{bookingFeeScheduleSummary()}</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
+          Your first booking from Setnayan is on us —{' '}
+          {fee ? (
+            <>
+              {feeLive ? 'after that the booking fee is ' : 'after that, '}
+              <b style={{ color: 'var(--m-ink)' }}>{bookingFeeScheduleSummary(fee)}</b>, only on the couples we bring you.
+            </>
+          ) : (
+            <>after that a booking fee, only on the couples we bring you — its rate is shown in full before you agree to any booking.</>
+          )}{' '}
+          Your imported and repeat clients stay free, forever.
         </Lede>
       </div>
     </section>
@@ -414,15 +447,15 @@ export function VendorGrowWebsite() {
     <section style={{ ...SECTION, paddingTop: 0 }}>
       <div className="m-split" style={SPLIT}>
         <ul className="m-split-flip" style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FeatureLI icon="🌐" title="A free, search-ready website" body="We build it for you — live the moment you set an address." />
+          <FeatureLI icon="🌐" title="A free, search-ready Setnayan page" body="We build it for you — live the moment you set an address." />
           <FeatureLI icon="📈" title="SEO + GEO marketing analytics" body="Ranks on Google, discoverable near your couples, tracked." />
-          <FeatureLI icon="🔎" title="Discovered without spending" body="Our site is already search-optimized — that reach is yours." />
+          <FeatureLI icon="🔎" title="Discovered without spending" body="Setnayan is already search-optimized — that reach is yours." />
         </ul>
         <div style={{ maxWidth: '60ch' }}>
           <Eyebrow>Get discovered</Eyebrow>
-          <H2>A website that ranks — no spend, all reach.</H2>
+          <H2>A page that ranks — no spend, all reach.</H2>
           <Lede>
-            You shouldn&rsquo;t pay to be found. We give you a search-optimized website with SEO and GEO analytics built in, so the market discovers you on Google and inside Setnayan from day one — free.
+            You shouldn&rsquo;t pay to be found. We give you a search-optimized Setnayan page with SEO and GEO analytics built in, so the market discovers you on Google and inside Setnayan from day one — free.
           </Lede>
         </div>
       </div>
@@ -525,7 +558,8 @@ export function VendorGrowTools() {
       <CardGrid>
         <GridCard icon="▦" title="Custom QR" body="Add your services to anyone — in or out of the app. Dedicated codes whether they've inquired or already paid." />
         <GridCard icon="₱" title="Price your way" body="Build services priced by fixed package, per guest, or per hour — with inclusions, add-ons and custom payment schedules." />
-        <GridCard icon="📞" title="In-app video & audio calls" body="Meet couples face-to-face right in the thread. Peer-to-peer and never recorded." />
+        {/* ⛔ "In-app video & audio calls" was a card here until 2026-11-04 — in-app calls were retired 2026-10-28 and
+            the `calls` plan capability removed (owner, "SUPPLIER PLAN ALLOWANCES"). Do not re-add it. */}
         <GridCard icon="★" title="Printable review QR" body="Print it, place it at the event — collect real reviews from real guests on the day." />
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />
@@ -562,7 +596,7 @@ export function VendorGrowGetPaid() {
 
 /* ── CLOSING CTA ───────────────────────────────────────────────────────── */
 
-export function VendorGrowCTA() {
+export function VendorGrowCTA({ fee }: FeeProp) {
   return (
     <div style={{ textAlign: 'center', background: 'var(--m-paper)', borderTop: '1px solid var(--m-line)' }}>
       <section style={SECTION}>
@@ -580,7 +614,7 @@ export function VendorGrowCTA() {
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>
-          {supplierCommissionShort()} · we never hold your money · merit-only ranking.
+          {supplierCommissionShort(fee)} · we never hold your money · merit-only ranking.
         </p>
       </section>
     </div>

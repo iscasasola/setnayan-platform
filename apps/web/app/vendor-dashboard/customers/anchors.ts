@@ -7,6 +7,8 @@
  * fragment here must match an `id` rendered by `customers/page.tsx` —
  * `anchors-land.test.ts` holds the two together.
  */
+import type { CustomersSegment } from './segments';
+
 export const BOOKINGS_ANCHOR = '#bookings';
 export const CALENDAR_ANCHOR = '#calendar';
 /** Where the hub's folds open (`<FeatureAccordion>` lives inside this id). */
@@ -16,22 +18,42 @@ export const PAYDAY_ANCHOR = '#payday';
 
 const HUB = '/vendor-dashboard/customers';
 
+/*
+  🔀 S-PR2 — EVERY LANDING NAMES ITS SEGMENT TOO. Customers is three segments
+  now (People · Dates · Money, `./segments.ts`), and a fragment never reaches
+  the server: `/customers#payday` would draw People, which has no `#payday`.
+  So each landing carries `?seg=` — the one table below — and the redirect
+  stubs' `?tab=` keys are mapped by `customersSegmentOf` to the same homes.
+*/
+
 /**
- * The four sections the supplier's phone names by their own words — Messages,
- * Earnings & payday, Send quote, Send contract — and where each one IS on the
- * hub. ONE table, read by the More rows, Today's tiles, the Next card AND the
- * redirect stubs, so a link and a stub can never land in two places.
+ * 💬 THE SUPPLIER'S CHATS — every "Messages" door (the top bar's ✉, a customer card's chat fallback, old links, emails,
+ * notifications) lands HERE, a full-screen page of its own (owner 2026-11-06, verbatim: *"The chat page is a full
+ * screen page, correct? Independent of any other menus? Why is it still jumping to customer events"*).
+ *
+ * 🗑 IT IS NOT A CUSTOMERS LANDING ANY MORE. From 2026-10-28 to 2026-11-06 `CUSTOMER_LANDINGS.messages` sent Messages to
+ * Customers › Events (`?seg=events#customers`) and `/vendor-dashboard/messages` was a redirect stub into it — which is
+ * exactly the jump the owner asked about. Customers › Events itself is unchanged (each row still opens its chat).
+ * 🔒 app/vendor-dashboard/messages/the-chats-page-is-full-screen.test.ts
+ */
+export const SUPPLIER_CHATS_HREF = '/vendor-dashboard/messages';
+
+/**
+ * The three sections the supplier's phone names by their own words — Earnings
+ * & payday, Send quote, Send contract — and where each one IS on the hub. ONE
+ * table, read by Today's tiles, the Next card AND the redirect stubs, so a link
+ * and a stub can never land in two places. (Messages left this table
+ * 2026-11-06 — it is its own page, `SUPPLIER_CHATS_HREF` above.)
  *
  * 🔑 `fold` is the `?open=` key of a FeatureAccordion section (the same keys the
  * roster's ⋯ menu uses); `payday` has none because it is not a fold — it is
  * always on the page, so only its fragment is needed.
  */
 export const CUSTOMER_LANDINGS = {
-  messages: { fold: 'messages', anchor: CUSTOMER_TOOLS_ANCHOR },
-  payday: { fold: null, anchor: PAYDAY_ANCHOR },
-  proposals: { fold: 'proposals', anchor: CUSTOMER_TOOLS_ANCHOR },
-  contracts: { fold: 'contracts', anchor: CUSTOMER_TOOLS_ANCHOR },
-} as const;
+  payday: { seg: 'money', fold: null, anchor: PAYDAY_ANCHOR },
+  proposals: { seg: 'money', fold: 'proposals', anchor: CUSTOMER_TOOLS_ANCHOR },
+  contracts: { seg: 'money', fold: 'contracts', anchor: CUSTOMER_TOOLS_ANCHOR },
+} as const satisfies Record<string, { seg: CustomersSegment; fold: string | null; anchor: string }>;
 
 export type CustomerLanding = keyof typeof CUSTOMER_LANDINGS;
 
@@ -42,6 +64,6 @@ export function customerLandingAnchor(key: CustomerLanding): string {
 
 /** The full link: opens the fold, in view. Never the bare roster. */
 export function customerLandingHref(key: CustomerLanding): string {
-  const { fold, anchor } = CUSTOMER_LANDINGS[key];
-  return `${HUB}${fold ? `?open=${fold}` : ''}${anchor}`;
+  const { seg, fold, anchor } = CUSTOMER_LANDINGS[key];
+  return `${HUB}?seg=${seg}${fold ? `&open=${fold}` : ''}${anchor}`;
 }

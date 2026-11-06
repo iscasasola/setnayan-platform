@@ -80,6 +80,7 @@
  */
 
 import { SERVICE_NAMES, serviceNameLine } from '@/lib/service-names';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Camera, CheckCircle2, Globe2, Sparkles, Users, UserRound } from 'lucide-react';
 
@@ -90,7 +91,8 @@ import {
   type PapicTypeView,
   type ServicesStepView,
 } from '@/lib/onboarding/services-step-data';
-import { recommendedPackStep } from '@/lib/onboarding/papic-recommendation';
+import { papicPackEstimatePhrase } from '@/lib/papic-tier-copy';
+import { formatCount } from '@/lib/format-number';
 import {
   poolPriceAt,
   poolListPriceAt,
@@ -140,7 +142,7 @@ const TYPE_COPY: Record<
     // the same thing at exactly the same price — which is simpler to say and is
     // the actual product rule, not a simplification of it.
     note:
-      'One free camera to try it — then add as many dedicated cameras as you ' +
+      'One camera included to try it — then add as many dedicated cameras as you ' +
       'want, and top any of them up for the same price when they run low. No ' +
       'new QR needed.',
     Icon: UserRound,
@@ -148,15 +150,19 @@ const TYPE_COPY: Record<
 };
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-const pts = (n: number) => `${n.toLocaleString('en-PH')} pts`;
+// 🔤 The unit is "credits" on every Papic surface (owner 2026-10-13; lib/papic-unit-is-credits.test.ts).
+const credits = (n: number) => `${formatCount(n)} credits`;
 
 function LadderRow({
   left,
   right,
+  note,
   free = false,
 }: {
   left: string;
   right: string;
+  /** The pack's plain estimate (owner 2026-10-15) — "about N photos, or N short clips". */
+  note?: string;
   free?: boolean;
 }) {
   return (
@@ -168,7 +174,14 @@ function LadderRow({
           : 'border-t border-ink/[0.07] first:border-t-0',
       ].join(' ')}
     >
-      <span className="font-semibold text-ink">{left}</span>
+      <span className="flex flex-col">
+        <span className="font-semibold text-ink">{left}</span>
+        {note ? (
+          <span data-papic-pack-estimate className="font-sans text-xs font-normal text-ink/55">
+            {note}
+          </span>
+        ) : null}
+      </span>
       <span className={free ? 'font-semibold text-terracotta-700' : 'text-ink/60'}>
         {right}
       </span>
@@ -264,7 +277,7 @@ function PriceLine({ pricePhp, listPricePhp }: { pricePhp: number; listPricePhp?
   ) : (
     <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-terracotta/10 px-3 py-2">
       <span className="text-sm text-ink/70">Included</span>
-      <span className="font-mono text-base font-semibold text-terracotta-700">Free</span>
+      <span className="font-mono text-base font-semibold text-terracotta-700">Included</span>
     </p>
   );
 }
@@ -304,8 +317,8 @@ function PoolPicker({
       <Stepper
         decLabel="Fewer shots"
         incLabel="More shots"
-        value={pts(poolShotsAt(type, step))}
-        sub={step === 0 ? 'Yours already' : 'Shared by every camera'}
+        value={credits(poolShotsAt(type, step))}
+        sub={step === 0 ? 'Yours already' : papicPackEstimatePhrase(poolShotsAt(type, step))}
         canDec={step > 0}
         canInc={step < last}
         onDec={() => onChange(stepPool(type, selection, -1))}
@@ -315,11 +328,11 @@ function PoolPicker({
       {step < last ? (
         <p className="mt-2 text-center text-xs text-ink/60">
           Press <span className="font-semibold text-ink">+</span> to add{' '}
-          <span className="font-semibold text-ink">{pts(nextShots)}</span> more for{' '}
+          <span className="font-semibold text-ink">{credits(nextShots)}</span> more for{' '}
           <span className="font-semibold text-ink">{peso(nextPrice)}</span>.
         </p>
       ) : (
-        <p className="mt-2 text-center text-xs text-ink/45">
+        <p className="mt-2 text-center text-xs text-ink/70">
           That&rsquo;s the biggest pool we sell in one go — you can add more later from
           your Papic studio.
         </p>
@@ -330,46 +343,49 @@ function PoolPicker({
 
 
 /**
- * 🎟 The Pool with the owner's ONE recommendation (2026-10-01): "We recommend
- * {pack} Papic credits for your {guests} guests." — the NEAREST pack on the live
- * ladder (ties up), with − [pack] + stepping the live packs and "Add Papic ·
- * ₱X" / "Not now" deciding. Nothing is added until "Add Papic": the free
- * floor stays the default, so a resumed draft never carries a purchase.
+ * 📦 The Pool as − [pack] + with "Add Papic · ₱X" / "Not now" (owner 2026-10-01
+ * "THE PAPIC PACK IS A − [NUMBER] + STEPPER"). Each pack says what it buys —
+ * "about N photos, or N short clips" — and NOTHING sizes it from the guest count:
+ * owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS", answer 1) removed the
+ * "We recommend N credits for your X guests" line this picker used to open on.
+ *
+ * ⚖ THE PACK IT OPENS ON (builder's call, recorded in the handover): the pack
+ * already added, else the SMALLEST paid pack. With the recommendation gone there
+ * is no other default, and the smallest is the one that cannot be read as us
+ * steering a couple toward spending more. Nothing is added until "Add Papic":
+ * the free floor stays the selection, so a resumed draft never carries a purchase.
  */
-function RecommendedPoolPicker({
+function PackPoolPicker({
   type,
   selection,
   onChange,
-  guests,
-  startStep,
+  eventWord,
 }: {
   type: PapicTypeView;
   selection: ServicesStepSelection;
   onChange: (next: ServicesStepSelection) => void;
-  guests: number;
-  startStep: number;
+  eventWord: string;
 }) {
   const last = poolStepCount(type) - 1;
-  const [view, setView] = useState(startStep);
-  const added = poolStepOf(type, selection) > 0;
+  const addedStep = poolStepOf(type, selection);
+  const [view, setView] = useState(addedStep > 0 ? addedStep : 1);
+  const added = addedStep > 0;
   const rung = poolRungAt(type, view);
   const move = (to: number) => {
     setView(to);
     // An added pack follows the stepper, so the bill is never a step behind it.
     if (added) onChange(stepPool(type, selection, to - poolStepOf(type, selection)));
   };
-  const credits = (n: number) => `${n.toLocaleString('en-PH')} credits`;
   return (
-    <div className="mx-3 mb-3" data-papic-recommended>
+    <div className="mx-3 mb-3" data-papic-pack-picker>
       <p className="mb-2 text-sm font-medium text-ink">
-        We recommend {(poolRungAt(type, startStep)?.points ?? 0).toLocaleString('en-PH')} Papic credits for your{' '}
-        {guests.toLocaleString('en-PH')} guests.
+        How many credits do you want for this {eventWord}?
       </p>
       <Stepper
         decLabel="Smaller pack"
         incLabel="Bigger pack"
         value={credits(rung?.points ?? 0)}
-        sub="Shared by every camera"
+        sub={papicPackEstimatePhrase(rung?.points ?? 0)}
         canDec={view > 1}
         canInc={view < last}
         onDec={() => move(view - 1)}
@@ -413,12 +429,12 @@ function PapicType({
   selection,
   onSelectionChange,
   eventWord,
-  recommendedFor,
+  packPicker = false,
 }: {
   type: PapicTypeView;
   suggested: boolean;
-  /** The guest estimate + sizing, when this mount recommends a pack (the approved wedding). */
-  recommendedFor?: { guests: number; startStep: number } | null;
+  /** true ⇒ the − [pack] + / Add Papic picker (the approved wedding) instead of the running-total stepper. */
+  packPicker?: boolean;
   /** Both present ⇒ this product gets controls. Absent ⇒ read-only ladder. */
   selection?: ServicesStepSelection;
   onSelectionChange?: (next: ServicesStepSelection) => void;
@@ -432,8 +448,11 @@ function PapicType({
 
   return (
     <section className="overflow-hidden rounded-[var(--m-r-md)] border border-ink/12 bg-paper">
-      <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-4">
-        <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
+      {/* 📐 Wraps, never clips: at 375 the kicker sat on one `whitespace-nowrap` line beside
+          the title and ran out of the card ("SHARED C…"). It now drops under the title
+          when there is no room, and may break between its own words at 320. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pb-1 pt-4">
+        <h3 className="flex shrink-0 items-center gap-2 text-base font-semibold text-ink">
           <Icon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
           <span className="flex flex-col leading-tight">
             {copy.title}
@@ -441,7 +460,7 @@ function PapicType({
             <span className="text-[11px] font-normal text-ink/50">{SERVICE_NAMES.papic.brand}</span>
           </span>
         </h3>
-        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
+        <span data-papic-kind className="min-w-0 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
           {copy.kind}
         </span>
       </div>
@@ -463,13 +482,12 @@ function PapicType({
         // couple buys. Anything else falls through to the read-only ladder
         // below rather than to a control — which is what a retired product
         // should look like on the screen where money is chosen.
-        recommendedFor ? (
-          <RecommendedPoolPicker
+        packPicker ? (
+          <PackPoolPicker
             type={type}
             selection={selection}
             onChange={onSelectionChange}
-            guests={recommendedFor.guests}
-            startStep={recommendedFor.startStep}
+            eventWord={eventWord}
           />
         ) : (
         <PoolPicker
@@ -484,26 +502,27 @@ function PapicType({
           {showFree ? (
             <LadderRow
               free
-              left={pts(type.freePoints)}
+              left={credits(type.freePoints)}
               right={
                 type.freeCameras === null
-                  ? 'Free — yours now'
-                  : `Free — ${type.freeCameras === 1 ? '1 camera' : `${type.freeCameras} cameras`}`
+                  ? 'Included — yours now'
+                  : `Included — ${type.freeCameras === 1 ? '1 camera' : `${type.freeCameras} cameras`}`
               }
             />
           ) : null}
           {type.rungs.map((r) => (
             <LadderRow
               key={r.key}
-              left={type.id === 'pool' ? `+${pts(r.points)}` : pts(r.points)}
+              left={type.id === 'pool' ? `+${credits(r.points)}` : credits(r.points)}
               right={peso(r.pricePhp)}
+              note={type.id === 'pool' ? papicPackEstimatePhrase(r.points) : undefined}
             />
           ))}
         </ul>
       )}
 
       {copy.note ? (
-        <p className="px-4 pb-4 text-xs italic leading-relaxed text-ink/45">{copy.note}</p>
+        <p className="px-4 pb-4 text-xs italic leading-relaxed text-ink/70">{copy.note}</p>
       ) : null}
     </section>
   );
@@ -517,7 +536,8 @@ export function ServicesStep({
   selection,
   onSelectionChange,
   className,
-  guests = null,
+  packPicker = false,
+  suppliersOn = true,
   solemn = false,
 }: {
   /**
@@ -556,12 +576,24 @@ export function ServicesStep({
    */
   solemn?: boolean;
   /**
-   * The couple's guest estimate. Present (with the view's `papic.sizing`) ⇒ the Pool
-   * card recommends its nearest pack. Absent ⇒ every existing mount reads as before.
+   * true ⇒ the Pool card is the − [pack] + / "Add Papic" picker (the approved
+   * wedding). It used to open on a pack sized from the guest estimate; owner
+   * 2026-10-15 removed that — every pack now states its own estimate instead.
    */
-  guests?: number | null;
+  packPicker?: boolean;
+  /**
+   * 🧭 The draft's "What do you need?" Suppliers row, LIVE (owner 2026-10-26, DECISION_LOG "SETNAYAN AI
+   * SHOWS ONLY WHEN THE EVENT HAS SUPPLIERS ON": *"it is based on the onboarding"*). false ⇒ card 2 is not
+   * drawn and its pick never reaches the total — switched back on, it returns as it was. Absent ⇒ true ⇒
+   * a flow with no Suppliers choice (the wedding) reads byte-identically.
+   */
+  suppliersOn?: boolean;
 }) {
-  const { papic, ai } = view;
+  const { papic } = view;
+  // 🧭 ONE predicate decides (`setnayanAiOffered`, lib/setnayan-ai.ts) — never a second rule here.
+  const ai = setnayanAiOffered({ suppliers: suppliersOn }) ? view.ai : null;
+  // An AI pick made before Suppliers was switched off never prices: the quote reads it as not picked.
+  const quoted = selection && !ai && selection.ai ? setAi(selection, false) : selection;
   const hubPro = view.hubPro ?? null;
   const types = useMemo(
     () => orderPapicTypes(papic.types, interestedServices),
@@ -569,23 +601,18 @@ export function ServicesStep({
   );
   const named = useMemo(() => new Set(interestedServices), [interestedServices]);
   const eventWord = papic.eventWord || 'event';
-  const recommendation = useMemo(() => {
-    const pool = papic.types.find((t) => t.id === 'pool');
-    const step = pool ? recommendedPackStep(pool.rungs, guests, papic.sizing) : 0;
-    return step > 0 && guests ? { guests, startStep: step } : null;
-  }, [papic.types, papic.sizing, guests]);
   const interactive = selection != null && onSelectionChange != null;
   const quote = useMemo(
     () =>
-      selection
+      quoted
         ? quoteServicesStepSelection(
             papic.types,
-            selection,
+            quoted,
             ai?.pricePhp ?? null,
             hubPro?.pricePhp ?? null,
           )
         : { poolPhp: 0, aiPhp: 0, hubProPhp: 0, papicPhp: 0, totalPhp: 0 },
-    [papic.types, selection, ai, hubPro],
+    [papic.types, quoted, ai, hubPro],
   );
 
   /**
@@ -595,15 +622,15 @@ export function ServicesStep({
    */
   const laterPhp = useMemo(
     () =>
-      selection
+      quoted
         ? quoteServicesStepLaterSelection(
             papic.types,
-            selection,
+            quoted,
             ai?.listPricePhp ?? ai?.pricePhp ?? null,
             hubPro?.listPricePhp ?? hubPro?.pricePhp ?? null,
           )
         : 0,
-    [papic.types, selection, ai, hubPro],
+    [papic.types, quoted, ai, hubPro],
   );
   const savingPhp = Math.max(0, laterPhp - quote.totalPhp);
 
@@ -613,7 +640,7 @@ export function ServicesStep({
    * 🔑 FLOORED, NEVER ROUNDED. Rounding 29.6% up to "30% off" claims a discount
    * we did not give, on the one screen where somebody is about to hand over
    * money. Flooring can only ever under-state our own offer, which is the safe
-   * direction — and it is the same reasoning as the banner's "at least 10%".
+   * direction.
    * Zero when there is nothing to show, and the label omits it rather than
    * printing "0% off".
    */
@@ -622,33 +649,11 @@ export function ServicesStep({
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
       {/*
-        ── THE DISCOUNT HAS TO BE READABLE, AND SO DOES ITS DEADLINE ─────────
-        Owner, 2026-08-28: *"Onboarding discount should be visible and easy to
-        understand that this discount only applies on onboarding."*
-
-        🔑 A DISCOUNT NOBODY NOTICES IS A DISCOUNT WE PAID FOR AND DID NOT SELL,
-        and one whose deadline is not stated is one somebody feels tricked by
-        later. So it is said three times, in the three places a person actually
-        looks: here before they choose, on each item as they choose it, and on
-        the total when they are about to agree.
-
-        ⚖ "AT LEAST 10%" IS DELIBERATE. The owner's rule is 10% (*"10% for all
-        purchase on onboarding"*), and Setnayan AI already carries a deeper
-        sign-up price — 40%, and 44% on the birthday tier. Advertising a flat
-        "10% off" beside a card giving 40% would understate our own offer;
-        promising more than 10% would over-claim on the Papic rungs. The floor is
-        the honest word for a floor.
+        ⚖ NO SET-UP DISCOUNT BANNER (owner 2026-11-03, "drop the 40% on all then"). This used to promise
+        "Anything you add here is at least 10% off" to every couple, unconditionally — a typed promise that
+        outlives the discount. The total below still names a saving if one ever exists (savingPhp > 0),
+        because that line is computed from the same quote the charge uses.
       */}
-      {interactive && (
-        <p className="rounded-[var(--m-r-lg)] border border-terracotta/30 bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
-          <span className="font-semibold">
-            Anything you add here is at least 10% off.
-          </span>{' '}
-          This is a set-up price — it ends when you finish. You can always add these
-          later from your studio, at the normal price.
-        </p>
-      )}
-
       {/* ── CARD 1 · PAPIC — already on, free, informational ─────────────── */}
       <article className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
         {solemn ? (
@@ -671,7 +676,7 @@ export function ServicesStep({
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-ink/60">
           Every guest&rsquo;s phone becomes a camera. Photos and clips land in your
-          gallery, tagged, in real time — starting today, not on the day itself.
+          Memories, tagged, in real time — starting today, not on the day itself.
         </p>
 
         <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-emerald-600/[0.08] px-3 py-2.5 text-sm text-ink">
@@ -682,11 +687,11 @@ export function ServicesStep({
           />
           <span>
             {solemn ? (
-              <>Photo sharing is ready whenever you need it — the free shots and guest QR are set up.</>
+              <>Photo sharing is ready whenever you need it — your shots and guest QR are set up.</>
             ) : (
               <>
-                <strong className="font-semibold">{SERVICE_NAMES.papic.plain} are live on this {eventWord}.</strong>{' '}
-                Your free shots and guest QR are ready.
+                <strong className="font-semibold">{SERVICE_NAMES.papic.plain} is live on this {eventWord}.</strong>{' '}
+                Your shots and guest QR are ready.
               </>
             )}
           </span>
@@ -701,7 +706,7 @@ export function ServicesStep({
               eventWord={eventWord}
               selection={selection}
               onSelectionChange={onSelectionChange}
-              recommendedFor={t.id === 'pool' ? recommendation : null}
+              packPicker={t.id === 'pool' && packPicker}
             />
           ))}
         </div>
@@ -712,7 +717,7 @@ export function ServicesStep({
           <p className="mt-4 flex items-baseline justify-between gap-3 rounded-[var(--m-r-md)] border border-ink/12 bg-ink/[0.02] px-4 py-3">
             <span className="text-sm font-semibold text-ink">{SERVICE_NAMES.papic.plain}</span>
             <span className="font-sans text-xl font-semibold tabular-nums text-ink">
-              {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+              {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Included'}
             </span>
           </p>
         ) : null}
@@ -727,10 +732,10 @@ export function ServicesStep({
           <strong className="font-semibold text-ink">
             Covered from today until your {eventWord} date.
           </strong>{' '}
-          Plan a year ahead and that&rsquo;s a year of storage — the window is free,
+          Plan a year ahead and that&rsquo;s a year of storage — the window costs nothing extra,
           however long it is.
         </p>
-        <p className="mt-2 text-xs leading-relaxed text-ink/45">
+        <p className="mt-2 text-xs leading-relaxed text-ink/70">
           Guests shoot with any phone — nothing to install. Add credits here now, or top
           up later from your Papic studio.
         </p>
@@ -756,7 +761,7 @@ export function ServicesStep({
             <span className="font-mono text-lg font-semibold tabular-nums text-ink">
               {ai.priceLabel}
             </span>
-            <span className="text-xs text-ink/45">
+            <span className="text-xs text-ink/70">
               one-time · yours through your {eventWord}
             </span>
           </p>
@@ -850,7 +855,7 @@ export function ServicesStep({
             <span className="font-mono text-lg font-semibold tabular-nums text-ink">
               {hubPro.priceLabel}
             </span>
-            <span className="text-xs text-ink/45">one-time · for this {eventWord}</span>
+            <span className="text-xs text-ink/70">one-time · for this {eventWord}</span>
           </p>
           {/* The same comparison as the planner's: a row with no sign-up
               discount has list === price, and this line says nothing at all. */}
@@ -869,6 +874,8 @@ export function ServicesStep({
               labelClassName="text-sm text-ink/60"
             >
               {hubPro.detail}
+              {/* 💎 Owner 2026-10-22: sign-up keeps ONE offer — the parts are met later, in the Maker. */}
+              {hubPro.partsFromPhp ? ` Or buy it part by part later, from ${peso(hubPro.partsFromPhp)}.` : null}
             </InfoTip>
           ) : null}
 
@@ -924,7 +931,7 @@ export function ServicesStep({
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-sm text-ink/70">{SERVICE_NAMES.papic.plain}</dt>
               <dd className="font-mono text-sm tabular-nums text-ink/80">
-                {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+                {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Included'}
               </dd>
             </div>
             {ai ? (
@@ -981,7 +988,7 @@ export function ServicesStep({
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-3">
               <dt className="text-sm font-semibold text-ink">Your total today</dt>
               <dd className="font-sans text-2xl font-semibold tabular-nums text-ink">
-                {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
+                {quote.totalPhp > 0 ? peso(quote.totalPhp) : '₱0'}
               </dd>
             </div>
           </dl>
@@ -996,12 +1003,12 @@ export function ServicesStep({
             {quote.totalPhp > 0 ? (
               <>
                 We&rsquo;ll show you where to send it right after this — your {eventWord}{' '}
-                and your free shots are live either way, and what you added arrives once
+                and your included credits are live either way, and what you added arrives once
                 your payment is confirmed.
               </>
             ) : (
               <>
-                Nothing to pay. Your {eventWord} and your free shots go live the moment
+                Nothing to pay. Your {eventWord} and your included shots go live the moment
                 you finish — you can add more whenever you want.
               </>
             )}
@@ -1009,7 +1016,7 @@ export function ServicesStep({
         </div>
       ) : null}
 
-      <p className="text-center text-xs text-ink/45">
+      <p className="text-center text-xs text-ink/70">
         {interactive
           ? 'Nothing is charged now, and finishing never waits on a payment. You can add more from your studio whenever you want.'
           : 'No payment in this step. Upgrades live in your studio, whenever you want them.'}

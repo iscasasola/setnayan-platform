@@ -139,11 +139,11 @@ test('2 · the menu is a sheet INSIDE the lower third with exactly two groups �
 
 test('3 · a tool open folds the menu and the navigator into the left column — name · ‹ › · × — and the tool takes ≥ 300 px', async () => {
   let closed = 0;
-  const html = await lowerThird({ tool: { key: 'part:f:hero:names', name: 'Names', close: () => (closed += 1), step: { prev: null, next: () => {} } } });
+  const html = await lowerThird({ tool: { key: 'part:f:hero:names', name: 'Event title', close: () => (closed += 1), step: { prev: null, next: () => {} } } });
   const col = /<div\b[^>]*data-lt-column=""[^>]*>/.exec(html)![0];
   assert.match(col, /\bw-\[52px\]/, 'the column is not 52 px');
   assert.doesNotMatch(col, /aria-hidden/, 'the column is hidden while a tool is open');
-  assert.match(html, /data-lt-column-name=""[\s\S]*?>Names</, 'the column does not name the tool');
+  assert.match(html, /data-lt-column-name=""[\s\S]*?>Event title</, 'the column does not name the tool');
   assert.match(html, /data-lt-step="prev"[^>]*disabled=""/, '‹ is offered with nothing before');
   assert.doesNotMatch(/<button\b[^>]*data-lt-step="next"[^>]*>/.exec(html)![0], /\sdisabled=""/, '› is not offered');
   assert.match(html, /data-lt-close=""/, 'the column has no ×');
@@ -186,7 +186,7 @@ test('3 · ‹ › step within the tile’s own group — scene to scene, never 
   const work = read(`${E}/editor-shell.tsx`);
   assert.match(work, /data-lt-tile=\{tile\.key\}\s*data-lt-group="scenes"/, 'a scene tile is not a tile of the navigator — the scene sheet’s ‹ › do nothing');
   /* 🗂 2026-10-06: Look's sections are Event Details items (one 'details' group of tiles), no 'look' parts. */
-  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp'], [`${L}/maker-logo.tsx`, 'logo']] as const) {
+  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp']] as const) {
     assert.match(read(file), new RegExp(`data-lt-group="${group}"`), `${file}: its tiles have no group`);
   }
   assert.match(read(`${L}/maker-lower-third.tsx`), /data-lt-group=\{group\}/);
@@ -215,12 +215,16 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   const DOORS: Array<[string, RegExp]> = [
     ['Event Bar', /key: 'event-bar'[\s\S]*?toggle: true, on: eventBar\.on, onPick: eventBar\.toggle/],
     ['Who can view', /key: 'who'[\s\S]*?onPick: \(\) => setMoreOpen\(true\)/],
-    ['Prints', /key: 'prints'[\s\S]*?openSection\('prints'\)/],
     ['Restore what guests see', /key: 'restore'[\s\S]*?draft\.restore\(\)/],
     ['Reset this stage…', /key: 'reset'[\s\S]*?new Event\(MAKER_OPEN_RESET_EVENT\)/],
-    ['About the Maker', /key: 'about'[\s\S]*?setTour\(true\)/],
+    // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
+    ['About the Maker', /key: 'about'[\s\S]*?onPick: aboutTheMaker/],
   ];
   for (const [door, re] of DOORS) assert.match(settings, re, `${door} has no home in Settings`);
+  /* 🖨 MOVED (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is no door of the Maker — no Settings row, no menu
+     part. Its home is its own page, opened from Home's Prints line (`lib/prints-has-its-own-page.test.ts`). */
+  assert.doesNotMatch(settings, /key: 'prints'/, 'Prints is a Settings row of the Maker again — it has its own page');
+  assert.doesNotMatch(shellSrc.slice(shellSrc.indexOf('const ltGlobal = ['), shellSrc.indexOf('const openSection')), /key: 'prints'/, 'Prints is a part of the Maker’s menu again');
   // The address is Details › Your Event Hub (a Details item, on the Details door).
   assert.equal(makerDoorOf('address'), 'details');
   // ＋ Add a scene stays the strip's last tile — the strip IS the stage's navigator on a phone.
@@ -229,10 +233,10 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   // The canvas's floating Event Bar switch is a desktop's only; a phone's is Settings' tile.
   assert.match(work, /setEventBar\?\.\(publicLandingUrl \? \{ on: guestBars, toggle: \(\) => toggleRef\.current\(\) \} : null\);/);
   assert.match(work, /<div className="flex w-full shrink-0 items-center justify-end gap-1 pt-1\.5 max-lg:hidden">\s*<button\s+type="button"\s+role="switch"/);
-  // The RSVP's three screens, Details' items and the logo's two panels draw THEIR tiles into the navigator.
+  // The RSVP's three screens and Details' items draw THEIR tiles into the navigator. (The Logo's
+  // panels are its own, under the logo — never navigator tiles: `the-logo-maker-opens-ready-to-edit.test.ts`.)
   assert.match(read(`${L}/maker-rsvp-stage.tsx`), /<IntoLowerThird to=\{maker\.ltNav\}>/);
   assert.match(read(`${L}/details-workspace.tsx`), /<IntoLowerThird to=\{ltNav\}>/);
-  assert.match(read(`${L}/maker-logo.tsx`), /<IntoLowerThird to=\{ltNav\}>/);
 });
 
 test('4 · a jump to another item (Look → the address, the Mood Board, the love story) moves the pick with it — never snaps back', () => {
@@ -261,8 +265,8 @@ test('4 · a jump to another item (Look → the address, the Mood Board, the lov
  */
 const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
   [`${L}/details-guide.tsx`]: { count: 3, why: 'the guided step "Your guests’ names" (→ guest list import), Send, a link step’s one way in' },
-  [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the Pro unlock · the 3D seat plan' },
-  [`${L}/maker-details.tsx`]: { count: 1, why: 'Gifts → E-Gifts' },
+  [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the 3D seat plan · the Pro unlock: a free couple’s all-in-one files in the shipped Details (2026-10-16) — the ticket zip’s own unlock link left on 2026-10-22, the zip is free' },
+  /* maker-details.tsx: its one link out (Prints › Set up E-Gifts → /pabuya) became E-Gifts' own editor IN PLACE (owner 2026-10-08). */
   [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
 };
 const TOOL_FILES = [
@@ -299,10 +303,19 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     assert.ok(src.length > 400, `${file} scanned nearly empty`);
     scanned += 1;
     const known = KNOWN_LINK_OUTS[file]?.count ?? 0;
-    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 1 : 0); // ✕ Exit is the Maker's one way out, in the top nav
+    /* 🚪 AMENDED 30 Oct (DECISION_LOG "EVENT HUB PRO (look redesign)", call 1): the ✕ — the shell's one allowed link
+       since 25 Oct — is DROPPED; the app's own nav is the way out. The shell is held at no link like every other
+       file (`the-hub-is-left-by-the-apps-nav.test.ts`). */
+    const seen = linkOuts(src);
     assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
   }
   assert.ok(scanned >= 15, 'the scan is blind');
+  // The Maker's way out is the app's nav (30 Oct) — the shell draws no link of its own (`the-hub-is-left-by-the-apps-nav.test.ts`).
+  const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
+  assert.equal((shell.match(/<Link\b/g) ?? []).length, 0, 'the shell links out of the Maker again');
+  // 🖨 The R8 forward is no tool: an item crossing to the Prints page (or back) — `prints-forward.ts`, held by
+  // `prints-has-its-own-page.test.ts`. The shell itself loads no page.
+  assert.equal((shell.match(/window\.location\.(?:assign|replace)\(/g) ?? []).length, 0, 'the shell loads another page itself');
   // The scene sheet and the navigator's notes — in the work area.
   const work = read(`${E}/editor-shell.tsx`);
   const inspector = work.slice(work.indexOf('function Inspector('), work.indexOf('function makerSelectionKey('));
@@ -312,7 +325,7 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
   const nav = work.slice(work.indexOf('aria-label="Scenes"'), work.indexOf('aria-label="Preview"'));
   assert.ok(nav.length > 2000, 'the navigator was not found — this scan is blind');
   assert.equal(linkOuts(nav), 0, 'a tile’s note links out of the Maker');
-  // Settings › Who can view (the "Your Event Hub" tool): its rows, portalled from the work area — the Pro unlock only.
+  // ⚙ Event Hub settings (Settings › Who can view opens it too): its rows, portalled from the work area — the Pro unlock only.
   const more = work.slice(work.indexOf('function MoreExtras('), work.indexOf('\n}\n', work.indexOf('function MoreExtras(')));
   assert.ok(more.length > 400, 'the Your Event Hub rows were not found — this scan is blind');
   assert.equal(linkOuts(more), 1, 'the Your Event Hub tool links out beyond its Pro unlock');
@@ -353,12 +366,10 @@ test('🔑 6 · after Settings › Prints, a later Theme/Details mount lands on 
   }
   // Desktop unchanged: a door's mount still opens its column as before.
   assert.equal(panelOpen(await mount({ detailsDoor: 1, lowerThird: false })), true, 'anti-vacuity: the desktop door no longer opens');
-  // …and the lower third's Prints tile opens on the NAVIGATOR (its print tiles), never as a door press.
+  // …and a menu part opens on the NAVIGATOR, never as a door press. (🖨 Settings' Prints tile, the case this was written
+  // for, MOVED with R8 — Prints is its own page now, `lib/prints-has-its-own-page.test.ts`; the rule stands for every part.)
   const shell = read(`${L}/maker-shell.tsx`);
-  /* Settings' own Prints tile (the menu's Prints row, 2026-10-06, has no onPick of its own). */
-  const settingsRows = shell.slice(shell.indexOf("ltPick === 'settings'"));
-  const prints = settingsRows.slice(settingsRows.indexOf("key: 'prints', label: MAKER_PRINTS_LABEL"));
-  assert.match(prints.slice(0, 300), /onPick: \(\) => openSection\('prints'\)/, 'the Prints tile presses a door again');
+  assert.doesNotMatch(shell.slice(shell.indexOf("ltPick === 'settings'")), /key: 'prints', label: MAKER_PRINTS_LABEL/, 'Settings’ Prints tile is back');
   const nav = shell.slice(shell.indexOf('const openSection'), shell.indexOf('const openSection') + 400);
   assert.ok(nav.includes("select({ kind: 'tool', key: 'details' })"), 'anti-vacuity: openSection was not found');
   assert.doesNotMatch(nav, /setDetailsDoor/, 'opening on the navigator moved the door count');

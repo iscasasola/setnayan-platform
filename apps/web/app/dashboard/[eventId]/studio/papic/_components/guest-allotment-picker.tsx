@@ -1,5 +1,6 @@
 'use client';
 
+import { PapicStayForm } from './papic-stay-form';
 /**
  * FINDING ONE GUEST AMONG TWO HUNDRED.
  *
@@ -49,8 +50,11 @@ export type AllotmentPickerGuest = {
 type Props = {
   eventId: string;
   guests: readonly AllotmentPickerGuest[];
-  /** The `setGuestAllotment` server action, passed down from the server component. */
-  action: (formData: FormData) => void | Promise<void>;
+  /**
+   * The `setGuestAllotment` server action, passed down from the server component. Its in-place answer (`quiet=1`) is the
+   * guest card's (2026-10-23); this plain form posts no `quiet`, so the action redirects back here as it always did.
+   */
+  action: (formData: FormData) => Promise<unknown>;
 };
 
 export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
@@ -94,8 +98,8 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
         <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
           {ordered.map((g) => (
             <li key={g.guestId}>
-              <form
-                action={action}
+              <PapicStayForm
+                door="setGuestAllotment" action={action as (formData: FormData) => Promise<void>}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-ink/[0.03]"
               >
                 <input type="hidden" name="event_id" value={eventId} />
@@ -121,7 +125,7 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
                 <SubmitButton className="rounded-lg bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10">
                   Save
                 </SubmitButton>
-              </form>
+              </PapicStayForm>
             </li>
           ))}
         </ul>

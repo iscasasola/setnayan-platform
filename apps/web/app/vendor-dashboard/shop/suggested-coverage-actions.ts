@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   fetchPendingSignupCoverageSuggestion,
   resolveSuggestedTradeLeaves,
@@ -88,8 +89,9 @@ export async function applySuggestedCoverage(
   const leaves = await resolveSuggestedTradeLeaves(confirmed.map((c) => c.key));
   const existingServices = ((profile.services ?? []) as string[]).filter(Boolean);
   const wanted: string[] = [];
+  const tax = await getTaxonomy();
   for (const leaf of leaves) {
-    const coarse = vendorCategoryForLeaf(leaf.canonicalService, leaf.tileId);
+    const coarse = vendorCategoryForLeaf(leaf.canonicalService, leaf.tileId, tax);
     if (!wanted.includes(coarse)) wanted.push(coarse);
     if (!wanted.includes(leaf.canonicalService)) wanted.push(leaf.canonicalService);
   }

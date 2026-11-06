@@ -39,7 +39,6 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { reportConnectionType } from '@/lib/webrtc-telemetry';
 import {
   GUEST_PICK_MAX_BITRATE_BPS,
   GUEST_PICK_MAX_VIEWERS_PER_CAMERA,
@@ -212,7 +211,6 @@ export function publishGuestFanout({
     const pc = new RTCPeerConnection({ iceServers });
     peers.set(viewerId, pc);
     report();
-    reportConnectionType(pc, 'panood-guest'); // relay-vs-direct telemetry (best-effort)
     unwatchers.set(
       viewerId,
       watchState(pc, (s) => {
@@ -403,7 +401,6 @@ export function watchGuestCamera({
         pc?.close();
         pc = new RTCPeerConnection({ iceServers });
         unwatch = watchState(pc, onState);
-        reportConnectionType(pc, 'panood-guest');
         pc.onicecandidate = (e) => {
           if (e.candidate) {
             send('g-ice', { slot, viewerId, side: 'viewer', candidate: e.candidate.toJSON() });

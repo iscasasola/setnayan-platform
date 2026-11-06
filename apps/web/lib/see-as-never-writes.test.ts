@@ -131,19 +131,23 @@ test('4 · in the canvas: a press on a link / button / field — no default; out
   assert.deepEqual([words.prevented, words.stopped], [0, 0]);
 });
 
-test('4 · off the canvas (the host’s own Event Hub): buttons and fields still act on nothing; links, tabs and the ribbon move the host around', () => {
+test('4 · off the canvas (a host-only ?as= address): buttons and fields still act on nothing; links, tabs and an open list move the host around', () => {
   for (const what of ['button', 'input', '[role="button"]']) {
     const e = fakeEvent(el([what]));
     stopSamplePress(e, false);
     assert.deepEqual([e.prevented, e.stopped], [1, 1], `${what} acts on the host’s own sample page`);
   }
-  for (const free of [['a[href]'], ['button', '[data-owner-ribbon]'], ['[role="option"]', '[role="listbox"]'], ['button', 'nav[aria-label="Site sections"]']]) {
+  for (const free of [['a[href]'], ['[role="option"]', '[role="listbox"]'], ['button', 'nav[aria-label="Site sections"]']]) {
     const e = fakeEvent(el(free));
     stopSamplePress(e, false);
-    assert.deepEqual([e.prevented, e.stopped], [0, 0], `${free.join(' in ')} is stopped — the host cannot look around or switch back`);
+    assert.deepEqual([e.prevented, e.stopped], [0, 0], `${free.join(' in ')} is stopped — the host cannot look around`);
   }
+  // 🚫 The host strip is gone (owner 2026-10-15, "Remove it"): its old marker frees nothing any more.
+  const strip = fakeEvent(el(['button', '[data-owner-ribbon]']));
+  stopSamplePress(strip, false);
+  assert.deepEqual([strip.prevented, strip.stopped], [1, 1], 'a button under the old host-strip marker is let through — an exemption for chrome that no longer exists');
   // …and the submit guard has no exemption at all.
-  const sub = fakeEvent(el(['[data-owner-ribbon]']));
+  const sub = fakeEvent(el(['nav[aria-label="Site sections"]']));
   stopSampleSubmit(sub);
   assert.deepEqual([sub.prevented, sub.stopped], [1, 1]);
 });

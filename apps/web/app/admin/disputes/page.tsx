@@ -26,6 +26,12 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { DepositDisputesSection } from './_components/deposit-disputes-section';
 import { PaymentDisputesSection } from './_components/payment-disputes-section';
+import { BookingFeeDisputesSection } from './_components/booking-fee-disputes-section';
+import {
+  QuoteVersionsEvidence,
+  fetchQuoteVersionsByVendor,
+  type QuoteVersionsByVendor,
+} from './_components/quote-versions-evidence';
 export const metadata = { title: 'Disputes · Admin' };
 
 /**
@@ -145,6 +151,7 @@ type Props = {
   searchParams: Promise<{
     status?: string;
     category?: string;
+    fee_dispute?: string;
   }>;
 };
 
@@ -293,6 +300,15 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     logQueryError('AdminDisputesPage (handovers)', e);
   }
 
+  // 4 Nov 2026 · every version of each supplier's quotes in view, with exact timestamps —
+  // a disagreement over what was quoted is settled from the record. null = refused (said).
+  let quoteVersionsByVendor: QuoteVersionsByVendor | null = null;
+  try {
+    quoteVersionsByVendor = await fetchQuoteVersionsByVendor({ adminClient: admin, vendorProfileIds: vendorIds });
+  } catch (e) {
+    logQueryError('AdminDisputesPage (quote versions)', e);
+  }
+
   const openerMap = new Map<string, { name: string; email: string | null }>();
   for (const u of openerData ?? []) {
     const display = ((u.display_name as string | null) ?? '').trim();
@@ -359,6 +375,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           openerMap={openerMap}
           policyAcksByVendor={policyAcksByVendor}
           handoversByVendor={handoversByVendor}
+          quoteVersionsByVendor={quoteVersionsByVendor}
         />
       </div>
 
@@ -366,6 +383,8 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           one path (owner 2026-08-28; installments H4, 2026-09-11). */}
       <PaymentDisputesSection />
       <DepositDisputesSection />
+      {/* 🕵️ A supplier questioning OUR booking fee (owner 2026-07-27 grace-first ladder · 2026-11-05). */}
+      <BookingFeeDisputesSection result={search.fee_dispute} />
     </div>
   );
 }
@@ -492,6 +511,7 @@ function DisputesTable({
   openerMap,
   policyAcksByVendor,
   handoversByVendor,
+  quoteVersionsByVendor,
 }: {
   rows: DisputeRow[] | null;
   readError?: { message?: string } | null;
@@ -500,6 +520,8 @@ function DisputesTable({
   openerMap: Map<string, { name: string; email: string | null }>;
   policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
   handoversByVendor: Map<string, HandoverEvidenceRow[]>;
+  /** null = the read was refused — each row says so rather than showing nothing. */
+  quoteVersionsByVendor: QuoteVersionsByVendor | null;
 }) {
   return (
     <ConsoleTable
@@ -599,6 +621,9 @@ function DisputesTable({
                     </ul>
                   </details>
                 ) : null}
+                <QuoteVersionsEvidence
+                  groups={quoteVersionsByVendor ? quoteVersionsByVendor.get(r.vendor_profile_id) : null}
+                />
                 {handovers.length > 0 ? (
                   <details className="mt-2">
                     <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
@@ -741,7 +766,7 @@ function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
 function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
   const kindLabel =
     handover.kind === 'gallery_link'
-      ? 'Gallery link'
+      ? 'Album link'
       : handover.kind === 'file'
         ? 'Sample / proof'
         : handover.kind === 'note'

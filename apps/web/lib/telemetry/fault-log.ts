@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { backgroundWritesAllowed } from '@/lib/background-writes';
 import type { TelemetryEventType } from '@/lib/telemetry/track-error';
 import { redactPayload } from '@/lib/telemetry/redact';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -99,6 +100,9 @@ export type FaultRpc = (
 export async function recordFault(input: RecordFaultInput, rpc?: FaultRpc): Promise<string | null> {
   let call = rpc;
   if (!call) {
+    // ⛔ Only the production deployment writes to the Problems list — never a dev
+    // server or a preview pointed at the production database (lib/background-writes.ts).
+    if (!backgroundWritesAllowed()) return null;
     try {
       const admin = createAdminClient();
       call = (fn, args) => admin.rpc(fn, args) as unknown as Promise<{ data: unknown; error: unknown }>;
@@ -149,6 +153,8 @@ export async function bumpActionCounts(
   counts: ReadonlyArray<{ a: string; ok?: number; fail?: number }>,
 ): Promise<number> {
   if (counts.length === 0) return 0;
+  // ⛔ Only the production deployment counts — see recordFault above.
+  if (!backgroundWritesAllowed()) return 0;
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.rpc('bump_app_action_counts', {

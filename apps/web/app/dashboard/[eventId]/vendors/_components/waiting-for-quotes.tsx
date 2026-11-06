@@ -93,8 +93,8 @@ const WFQ_CSS = `
 .wfq .wfq-more>summary::-webkit-details-marker{display:none}
 .wfq .wfq-more[open]>summary{color:var(--ink)}
 .wfq .wfq-more>div{margin-top:7px}
-html.dark .wfq{--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--card:#2A2E36}
-html.dark .wfq .wfq-hd .wfq-i,html.dark .wfq .wfq-wait{color:#C99DB0}
+html.dark .wfq{--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgba(251,251,250,.16);--card:#232019}
+html.dark .wfq .wfq-hd .wfq-i,html.dark .wfq .wfq-wait{color:#E5794E}
 `;
 
 function WaitingRow({ it }: { it: WaitingInquiry }) {

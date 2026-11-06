@@ -224,9 +224,11 @@ test('the vendor has a FORM, not just an action that would accept one', async ()
   }
 
   // And the page must feed the saved values back in, or the form is write-only
-  // and a vendor loses their answer every time they reopen it.
+  // and a vendor loses their answer every time they reopen it. Since the simpler
+  // supplier dashboard step 5 (2026-10-15) the checklist lives on Your details,
+  // whose loader builds the form's values.
   const page = readFileSync(
-    join(here, '..', 'app', 'vendor-dashboard', 'shop', 'page.tsx'),
+    join(here, '..', 'app', 'vendor-dashboard', 'profile', 'details-data.ts'),
     'utf8',
   );
   assert.match(

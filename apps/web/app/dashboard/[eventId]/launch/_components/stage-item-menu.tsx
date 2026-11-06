@@ -1,28 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, CircleCheck, CircleX, Reply } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, CircleCheck, CircleX, Clock, FileText, Heart, Reply } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
 import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
-import { STAGE_ITEM_BUTTON, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { makerStagesPages } from '@/lib/maker-stage-filing';
+import { STAGE_ITEM_BUTTON, STAGE_PANEL_VARS, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { useOneOpen } from '@/lib/one-open';
 import { MakerSheet } from './stages-studio-parts';
 import { makerPagePick, makerStageLabel } from './maker-bar';
-import type { NavSlotKey } from '@/app/[slug]/_lib/site-nav';
 
 /**
  * 🧭 THE STAGE ▾ — the Stages side's one item menu (owner 2026-10-06; plan
  * `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` §3 PR 2; prototype
- * `#pmenu`). PR 1's one bottom sheet (`MakerSheet`) lists the FIVE stages; a stage
- * of one page jumps there; a stage of several EXPANDS IN PLACE to its pages —
- * the guest bar's own pages, with the guest bar's own icons (`page-pick.tsx`
- * `GUEST_PAGE_ICON`, `lib/maker-guest-pages.ts` `guestBarForStage`) — and the
- * page on screen says "Here". One stage open at a time. The RSVP stage's pages
- * are its three screens (`lib/rsvp-stage.ts`).
+ * `#pmenu`). PR 1's one bottom sheet (`MakerSheet`) lists the FIVE stages — and only
+ * the stages (redraw 2026-10-07, side-by-side M4): a pick goes to that stage's first
+ * page; the guest's tab bar under the page picks the page. The stage on screen says
+ * HERE ✓. The RSVP stage's pages are its three screens (`lib/rsvp-stage.ts`).
  *
  * The pages are the shell's own Page ▾ options (`makerPageMenu`), so this and
  * the desktop's Page ▾ can never disagree. 🔒 Nothing here writes.
@@ -46,6 +43,7 @@ export function StageItemMenu({
   rsvpScreen,
   onPick,
   onRsvpScreen,
+  bar,
 }: {
   /** Every stage's pages, as the shell's Page ▾ lists them. */
   options: readonly StagePageOption[];
@@ -59,14 +57,17 @@ export function StageItemMenu({
   onPick: (key: string) => void;
   /** One of the RSVP stage's three screens picked. */
   onRsvpScreen: (screen: RsvpStageScene) => void;
+  /**
+   * 🧭 THE TOP BAR'S "Stages ▾" HALF draws this SAME list and sheet with no button of its own (owner 2026-10-08:
+   * *"Stages and Studio both has dropdown"*): the bar says when it is open, and whether the stage on screen is HERE —
+   * only on the Stages side (from Studio nothing is ticked, and a pick takes you to that stage).
+   */
+  bar?: { open: boolean; onClose: () => void; here: boolean };
 }) {
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = bar ? bar.open : own;
+  const setOpen = (next: false) => (bar ? bar.onClose() : setOwn(next));
   useOneOpen(open, setOpen);
-  /* The stage on screen opens expanded; one stage open at a time. */
-  const [expanded, setExpanded] = useState<MakerStageKey | null>(stage);
-  useEffect(() => {
-    if (open) setExpanded(stage);
-  }, [open, stage]);
 
   const pagesOf = (s: MakerStageKey): Array<{ key: string; label: string; icon: LucideIcon | null; here: boolean; note?: string; pick: () => void }> => {
     if (s === RSVP_STAGE_KEY) {
@@ -81,15 +82,21 @@ export function StageItemMenu({
         },
       }));
     }
+    /* 🧭 The pages the CANVAS draws this stage as (`makerStagesPages` — the one list its groups and the tab bar
+       under the page share), so "3 pages" here is three pages there; a stage it draws as one page says "One page". */
+    const own = new Set(makerStagesPages(s).map((p) => p.key));
     return options
-      .filter((o) => stageOf(o.key) === s)
+      .filter((o) => {
+        const pk = makerPagePick(o.key);
+        return stageOf(o.key) === s && pk?.kind === 'page' && own.has(pk.page);
+      })
       .map((o) => {
         const pk = makerPagePick(o.key);
         const key = pk?.kind === 'page' ? pk.page : '';
         return {
           key,
           label: o.label,
-          icon: GUEST_PAGE_ICON[key as NavSlotKey] ?? null,
+          icon: null,
           here: stage === s && page === key,
           note: o.disabledNote,
           pick: () => onPick(o.key),
@@ -98,76 +105,63 @@ export function StageItemMenu({
   };
 
   const label = makerStageLabel(stage as never);
+  /* 🧭 STAGES ONLY (owner 2026-10-06: *"if we are having this, then we don't need the expand on the drop down"*;
+     side-by-side M4): the sheet lists the five stages — icon · name · its pages in a grey line · HERE ✓ on the one
+     on screen. A page is picked from the guest's tab bar under the page, never from here. */
+  const STAGE_ICON: Record<string, LucideIcon> = { save_the_date: CalendarDays, [RSVP_STAGE_KEY]: Reply, rsvp: FileText, event: Clock, editorial: Heart };
   return (
     <>
+      {bar ? null : (
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
         data-stage-item-menu=""
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOwn((o) => !o)}
         className={STAGE_ITEM_BUTTON}
       >
         <span className="min-w-0 truncate">{label}</span>
-        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-[240ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2.2} />
+        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 text-sn-accent transition-transform duration-[220ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2.2} />
       </button>
+      )}
       {/* ▁ Portalled to <body>: the panel moves (it slides away while typing), and a moved box would hold a fixed sheet. */}
       {open && typeof document !== 'undefined' ? createPortal(
         <MakerSheet label="Stages" onClose={() => setOpen(false)}>
+          {/* From Studio the Stages panel is not drawn, and its colours go with it: the bar's list carries them itself. */}
+          {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}`}</style> : null}
           <ul className="flex flex-col gap-0.5 pb-1" data-stage-menu="">
             {MAKER_STAGE_KEYS.map((s) => {
+              /* 🚪 A stage Page ▾ does not list (this event does not need it — `needsHidesStage`) is not listed here. */
+              if (options[0] && !options.some((o) => o.key.split(':')[0] === s)) return null;
               const pages = pagesOf(s);
-              const many = pages.length > 1;
-              const isOpen = expanded === s && many;
-              const on = s === stage;
+              const on = s === stage && (bar?.here ?? true);
+              const Icon = STAGE_ICON[s] ?? FileText;
+              const first = pages.find((p) => !p.note);
               return (
                 <li key={s}>
                   <button
                     type="button"
-                    aria-expanded={many ? isOpen : undefined}
+                    aria-current={on ? 'true' : undefined}
                     data-stage-menu-stage={s}
+                    disabled={!on && !first}
                     onClick={() => {
-                      if (many) setExpanded((e) => (e === s ? null : s));
-                      else {
-                        setOpen(false);
-                        pages[0]?.pick();
-                      }
+                      setOpen(false);
+                      if (!on) first?.pick();
                     }}
-                    className={`${STAGE_SHEET_ROW} ${on ? 'font-semibold' : ''}`}
+                    className={`${STAGE_SHEET_ROW} ${on ? 'bg-[var(--sp-cta-wash)] font-semibold' : ''}`}
                   >
-                    <span className="min-w-0 flex-1 truncate">{makerStageLabel(s as never)}</span>
-                    {many ? (
-                      <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-ink/50 transition-transform duration-[240ms] motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
-                    ) : on ? (
-                      <Check aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.4} />
+                    <Icon aria-hidden className="h-[18px] w-[18px] shrink-0 text-[var(--sp-ink2)]" strokeWidth={1.9} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {makerStageLabel(s as never)}
+                      <small className="block text-[10.5px] font-medium text-[var(--sp-mute)]">{pages.length > 1 ? `${pages.length} pages` : 'One page'}</small>
+                    </span>
+                    {on ? (
+                      <>
+                        <span className="shrink-0 rounded-full bg-[var(--sp-pill)] px-[7px] py-[2px] text-[10px] font-bold uppercase tracking-[0.04em] text-[var(--sp-ink2)]">Here</span>
+                        <Check aria-hidden className="h-[18px] w-[18px] shrink-0 text-[var(--sp-cta)]" strokeWidth={2.4} />
+                      </>
                     ) : null}
                   </button>
-                  {isOpen ? (
-                    <ul className="flex flex-col gap-0.5 pb-1 pl-3" data-stage-menu-pages={s}>
-                      {pages.map((p) => {
-                        const Icon = p.icon;
-                        return (
-                          <li key={p.key}>
-                            <button
-                              type="button"
-                              disabled={Boolean(p.note)}
-                              aria-current={p.here ? 'page' : undefined}
-                              data-stage-menu-page={`${s}:${p.key}`}
-                              onClick={() => {
-                                setOpen(false);
-                                p.pick();
-                              }}
-                              className={`${STAGE_SHEET_ROW} ${p.here ? 'bg-mulberry/10 font-semibold' : ''}`}
-                            >
-                              {Icon ? <Icon aria-hidden className="h-[18px] w-[18px] shrink-0 text-ink/70" strokeWidth={1.75} /> : null}
-                              <span className="min-w-0 flex-1 truncate">{p.label}</span>
-                              {p.here ? <span className="shrink-0 text-[12px] font-semibold text-mulberry">Here</span> : null}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
                 </li>
               );
             })}
@@ -178,4 +172,3 @@ export function StageItemMenu({
     </>
   );
 }
-

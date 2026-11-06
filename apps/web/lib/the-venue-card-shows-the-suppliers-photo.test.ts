@@ -225,5 +225,6 @@ test('the choice drafts into the Venue scene’s config — and Apply writes it 
   assert.doesNotMatch(editor, /router\.refresh\(/, 'the Maker is never reloaded by a pick');
   const action = read('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
   assert.match(action, /readVenueChoices\(\{ \[VENUE_CHOICES_KEY\]: \{ \[slot\]: data\.venueChoice\.choice \} \}, eventId\)/);
-  assert.match(action, /\.from\('invitation_widgets'\)\s*\.update\(\{ config_json: \{ \.\.\.config, \[VENUE_CHOICES_KEY\]: \{ \.\.\.venue, \[slot\]: choice \} \} \}\)[\s\S]{0,80}\.select\('widget_id'\)/);
+  // RE-AIMED 2026-10-18 (two hosts never overwrite, round 3): the same bag, written one at a time from what was read.
+  assert.match(action, /await writeWidgetConfig\(supabase as unknown as WidgetConfigClient, \{ eventId, widgetId: w\.widget_id as string \}, config, \{\s*\.\.\.config,\s*\[VENUE_CHOICES_KEY\]: \{ \.\.\.venue, \[slot\]: choice \},\s*\}\);/);
 });

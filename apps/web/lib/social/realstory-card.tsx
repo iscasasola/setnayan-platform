@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import satori from 'satori';
 import sharp from 'sharp';
+import { cardPhotoSignal } from '@/lib/social/card-photo-fetch';
+import { cardLogoImage, cardLogoNode, type CardLogo } from '@/lib/social/card-logo';
 
 /**
  * apps/web/lib/social/realstory-card.tsx — the per-editorial Open Graph share
@@ -419,7 +421,7 @@ export async function renderRealStoryOgJpeg(
   const d = DIMS[format];
   if (input.heroPhotoUrl) {
     try {
-      const res = await fetch(input.heroPhotoUrl);
+      const res = await fetch(input.heroPhotoUrl, { signal: cardPhotoSignal() });
       if (res.ok) {
         const photo = Buffer.from(await res.arrayBuffer());
         const base = await sharp(photo)
@@ -436,7 +438,8 @@ export async function renderRealStoryOgJpeg(
           .toBuffer();
       }
     } catch {
-      // Photo unreachable / undecodable → fall through to the branded card.
+      // Photo unreachable / undecodable / slower than the limit
+      // (`cardPhotoSignal`, lib/social/card-photo-fetch.ts) → the branded card.
     }
   }
   const svg = await satori(cardTree(input, format) as unknown as React.ReactNode, {
@@ -465,6 +468,12 @@ export type CoupleMonogramCardInput = {
   monogramText: string | null;
   /** Monogram colour (events.monogram_color); null/invalid → brand mulberry. */
   monogramColor: string | null;
+  /**
+   * The couple's own LOGO, already resolved through `heroMarkSvg(row)` — the cover's resolver, so the Logo switch
+   * (`logo_wanted`), the read-time safety gate and the mood-board ink all apply exactly as on the cover. When it
+   * draws, it takes the initials' place; null / unset / unrenderable ⇒ the initials (lib/social/card-logo.ts).
+   */
+  logoSvg?: string | null;
 };
 
 /** Two-letter monogram from the couple's names, e.g. "Cale & Ice" → "CI". */
@@ -479,7 +488,7 @@ function monogramInitials(names: string, override: string | null): string {
   return (a && b ? a + b : (names ?? '').trim().charAt(0) || '·').toUpperCase();
 }
 
-function monogramCardTree(input: CoupleMonogramCardInput): VNode {
+function monogramCardTree(input: CoupleMonogramCardInput, logo: CardLogo | null): VNode {
   const mono =
     input.monogramColor && /^#[0-9a-fA-F]{6}$/.test(input.monogramColor.trim())
       ? input.monogramColor.trim()
@@ -535,19 +544,23 @@ function monogramCardTree(input: CoupleMonogramCardInput): VNode {
           gap: '16px',
         },
         [
-          el(
-            'div',
-            {
-              fontFamily: 'Cardo',
-              fontWeight: 600,
-              fontSize: '156px',
-              lineHeight: '1',
-              letterSpacing: '6px',
-              paddingLeft: '6px', // optical centring for the tracking
-              color: mono,
-            },
-            initials,
-          ),
+          // 🖼 THE COUPLE'S LOGO WHEN THEY HAVE ONE AND WANT IT (owner 2026-10-20: "the link sent did not use the
+          // logo") — the same mark the cover draws; their initials only when there is no logo to draw.
+          logo
+            ? cardLogoNode(logo)
+            : el(
+                'div',
+                {
+                  fontFamily: 'Cardo',
+                  fontWeight: 600,
+                  fontSize: '156px',
+                  lineHeight: '1',
+                  letterSpacing: '6px',
+                  paddingLeft: '6px', // optical centring for the tracking
+                  color: mono,
+                },
+                initials,
+              ),
           el('div', { width: '78px', height: '2px', backgroundColor: GOLD }),
           el(
             'div',
@@ -599,7 +612,9 @@ function monogramCardTree(input: CoupleMonogramCardInput): VNode {
 export async function renderCoupleMonogramOgJpeg(
   input: CoupleMonogramCardInput,
 ): Promise<Buffer> {
-  const svg = await satori(monogramCardTree(input) as unknown as React.ReactNode, {
+  // Never throws: a logo that cannot be drawn in time comes back null and the card draws the initials.
+  const logo = await cardLogoImage(input.logoSvg);
+  const svg = await satori(monogramCardTree(input, logo) as unknown as React.ReactNode, {
     width: OG_WIDTH,
     height: OG_HEIGHT,
     fonts: SATORI_FONTS,

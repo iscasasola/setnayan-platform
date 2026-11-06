@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { pauseWhileHidden } from '@/lib/tab-return';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
 import {
@@ -49,10 +50,12 @@ function fmtAckDate(iso: string): string {
 
 const peso = (n: number) => `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
 
-const CONFIRM_CLASS =
-  'inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800';
-const QUIET_CLASS =
-  'inline-flex h-9 items-center rounded-lg border border-ink/15 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]';
+// The ActionButton look (components/action-button.tsx), written out as classes
+// because a SubmitButton takes a class, not a tone. "Confirm received" is the
+// card's MAIN button → terracotta (owner 2026-10-12, look call 1 — it was a
+// green fill); "Not received" is the quiet outline beside it. 44 px floor.
+const CONFIRM_CLASS = 'ab ab-brand ab-main min-h-[44px]';
+const QUIET_CLASS = 'ab ab-neutral min-h-[44px]';
 
 /**
  * The supplier's answer to one logged payment — "Confirm received" or "Not
@@ -64,12 +67,19 @@ const QUIET_CLASS =
  * money can turn up late, and confirming lifts the refusal (the database does
  * that, for the deposit and for an installment alike).
  */
-function PendingPaymentAnswer({
+export function PendingPaymentAnswer({
   payment,
   threadId,
+  returnTo,
 }: {
   payment: PendingVendorPayment;
+  /** The conversation, when there is one ('' when the card has none). */
   threadId: string;
+  /**
+   * The customer card answers here too (Suppliers Pair 3, 2026-10-13): its own
+   * path, so the answer re-draws THAT page (`payConfirmReturnTo`).
+   */
+  returnTo?: string;
 }) {
   const [notReceivedOpen, setNotReceivedOpen] = useState(false);
   const d = payment.dispute;
@@ -78,6 +88,7 @@ function PendingPaymentAnswer({
     <>
       <input type="hidden" name="payment_id" value={payment.paymentId} />
       <input type="hidden" name="thread_id" value={threadId} />
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
     </>
   );
   return (
@@ -163,42 +174,43 @@ export function VendorPaymentLive({
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel(`vendor-pay-${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_vendor_payments',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          void refetch();
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_vendor_line_items',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          void refetch();
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          if (subscribedOnce.current) void refetch();
-          subscribedOnce.current = true;
-        }
-      });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    // 🔌 A console left in a background tab lets the channel go after a while (`pauseWhileHidden`); coming back
+    // re-subscribes, and the re-SUBSCRIBED below re-pulls — a payment logged meanwhile is on screen.
+    return pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`vendor-pay-${threadId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_vendor_payments',
+            filter: `event_id=eq.${eventId}`,
+          },
+          () => {
+            void refetch();
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_vendor_line_items',
+            filter: `event_id=eq.${eventId}`,
+          },
+          () => {
+            void refetch();
+          },
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            if (subscribedOnce.current) void refetch();
+            subscribedOnce.current = true;
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
   }, [threadId, eventId, refetch]);
 
   return (

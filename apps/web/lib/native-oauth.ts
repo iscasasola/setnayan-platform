@@ -107,7 +107,7 @@ async function sha256Hex(input: string): Promise<string> {
 /** Resolves when the flow left this screen or was cancelled (then: false). */
 async function appleSheet(next: string, accountType: OAuthIntentAccountType): Promise<boolean> {
   const rawNonce = randomNonce();
-  let result: { identityToken?: unknown; givenName?: unknown; familyName?: unknown };
+  let result: { identityToken?: unknown; authorizationCode?: unknown; givenName?: unknown; familyName?: unknown };
   try {
     result = (await callPlugin('signInWithApple', { nonce: await sha256Hex(rawNonce) })) as typeof result;
   } catch (err) {
@@ -147,7 +147,12 @@ async function appleSheet(next: string, accountType: OAuthIntentAccountType): Pr
   // (lib/native-oauth-plan.ts, "THE NATIVE LANDING MARKER"). If minting fails
   // the person is still signed in — the callback then just sends them on to
   // `next` and writes nothing, the same as an expired sign-in.
-  const marker = await issueNativeLandingMarker()
+  // 🍎 The sheet's authorization code rides along (an older app build sends
+  // none): the server trades it for the refresh token erasure needs to revoke
+  // this Sign in with Apple grant (App Store 5.1.1(v)). Never in a URL, never logged.
+  const appleAuthorizationCode =
+    typeof result.authorizationCode === 'string' ? result.authorizationCode : undefined;
+  const marker = await issueNativeLandingMarker({ appleAuthorizationCode })
     .then((r) => r.marker)
     .catch(() => null);
   window.location.assign(nativeSessionLandingPath(next, accountType, marker));
@@ -158,11 +163,16 @@ async function systemBrowser(
   provider: NativeOAuthProvider,
   next: string,
   accountType: OAuthIntentAccountType,
+  loginHint: string | null,
 ): Promise<boolean> {
   const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: nativeRedirectTo(next, accountType), skipBrowserRedirect: true },
+    options: {
+      redirectTo: nativeRedirectTo(next, accountType),
+      skipBrowserRedirect: true,
+      ...(provider === 'google' && loginHint ? { queryParams: { login_hint: loginHint } } : {}),
+    },
   });
   if (error || !data?.url) {
     fail(error?.message ?? `${provider} sign-in could not start.`, next);
@@ -202,6 +212,8 @@ export async function signInWithProviderNative(
   provider: NativeOAuthProvider,
   next: string,
   accountType: OAuthIntentAccountType = 'customer',
+  /** A typed Google address (lib/google-address.ts) — Google opens on that account. */
+  loginHint: string | null = null,
 ): Promise<boolean> {
   const platform = nativePlatform();
   if (!platform) {
@@ -211,7 +223,7 @@ export async function signInWithProviderNative(
   try {
     return nativeOAuthPlan(provider, platform) === 'apple-sheet'
       ? await appleSheet(next, accountType)
-      : await systemBrowser(provider, next, accountType);
+      : await systemBrowser(provider, next, accountType, loginHint);
   } catch {
     fail('Sign-in failed. Please try again.', next);
     return true;

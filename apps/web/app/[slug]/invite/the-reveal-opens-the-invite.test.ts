@@ -144,7 +144,7 @@ test('the fixtures land in the stage they claim — otherwise every assertion be
 test('a wedding’s invite opens with the reveal on the save-the-date ONLY — not the invitation, not the day, not the story', () => {
   for (const m of MOMENTS) {
     assert.equal(
-      inviteRevealPlays({ profile: WEDDING_PROFILE, eventDate: m.eventDate, eventEndDate: null, venueTz: MNL, nowMs: m.nowMs }),
+      inviteRevealPlays({ profile: WEDDING_PROFILE, eventDate: m.eventDate, eventEndDate: null, invitationLaunchDate: null, venueTz: MNL, nowMs: m.nowMs }),
       REVEAL_STAGES.has(m.stage),
       `wedding invite in ${m.stage}`,
     );
@@ -157,7 +157,7 @@ test('a wake — and any type without the Save-the-Date film — never gets a ve
   for (const profile of [WAKE_PROFILE, GENERIC_PROFILE]) {
     for (const m of MOMENTS) {
       assert.equal(
-        inviteRevealPlays({ profile, eventDate: m.eventDate, eventEndDate: null, venueTz: MNL, nowMs: m.nowMs }),
+        inviteRevealPlays({ profile, eventDate: m.eventDate, eventEndDate: null, invitationLaunchDate: null, venueTz: MNL, nowMs: m.nowMs }),
         false,
         `${profile.eventType} invite in ${m.stage}`,
       );
@@ -183,7 +183,7 @@ test('the invite door and the Event Hub agree, for every profile at every stage'
         widgets: [],
         weddingOnlyParts: resolveWeddingOnlyParts(profile),
       }).revealEnabled;
-      const invite = inviteRevealPlays({ profile, eventDate: m.eventDate, eventEndDate: null, venueTz: MNL, nowMs: m.nowMs });
+      const invite = inviteRevealPlays({ profile, eventDate: m.eventDate, eventEndDate: null, invitationLaunchDate: null, venueTz: MNL, nowMs: m.nowMs });
       assert.equal(invite, hub, `${profile.eventType} in ${m.stage}: the invite says ${invite}, the Event Hub says ${hub}`);
     }
   }

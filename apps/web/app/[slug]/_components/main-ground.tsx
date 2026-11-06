@@ -1,5 +1,6 @@
 import type { AdaptiveTheme } from '@/lib/adaptive-theme';
-import type { HubMainBlur, HubMainFocus, HubMainPatternKey } from '@/lib/hub-canvas';
+import { mainGroundPosition, type HubMainBlur, type HubMainFocus, type HubMainPatternKey } from '@/lib/hub-canvas';
+import { MAIN_GROUND_PATTERN_CSS } from '@/lib/main-ground-patterns';
 import { SceneClip } from './scene-clip';
 
 /**
@@ -60,9 +61,12 @@ export function MainGround({
   /** `adaptiveThemeVars(adaptive, …)` — `{}` when the couple keeps the theme's colours. */
   vars: Record<string, string>;
   /**
-   * 🌄 Parallax on the couple's own photo — the SHIPPED hero parallax: the
-   * layer wears `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts
-   * it with the PAGE's scroll (this layer is fixed, so its own box never moves).
+   * 🌄 Parallax on the picture — the SHIPPED hero parallax: the layer wears
+   * `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts it with the
+   * PAGE's scroll (this layer is fixed, so its own box never moves). One wrapper
+   * around the still AND the clip (Look restudy row 8: a clip and a video of ours
+   * move too), outside the blur's own scale so the two never fight over one
+   * `transform`.
    */
   parallax?: boolean;
   /**
@@ -73,11 +77,11 @@ export function MainGround({
   veil?: { color: string; opacity: number } | null;
   /** 🌫 Blur ▾ — Soft · Strong; null = sharp. */
   blur?: HubMainBlur | null;
-  /** 🎯 Focus ▾ — which part of a photo stays in view; null = the centre. */
+  /** 🎯 Focus ▾ — which part of the picture (a photo or the clip) stays in view; null = the centre. */
   focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
-  const position = focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+  const position = mainGroundPosition(focus);
   /* A blur's soft edge would show the page through it — the footage is drawn a
      little larger, so the edge falls outside the screen. */
   const blurStyle = blur ? { filter: `blur(${blur === 'strong' ? 14 : 5}px)`, transform: 'scale(1.08)' } : {};
@@ -86,7 +90,8 @@ export function MainGround({
     .join('');
   const css =
     '[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}' +
-    (declarations ? `[data-guest-look]{${declarations}}` : '');
+    /* 🎨 Over a picture the names keep the measured ink — the Dominant was measured on the paper (`globals.css`). */
+    `[data-guest-look]{${declarations}--hub-names-ink:initial !important;}`;
   return (
     <>
       <style data-main-ground-style="">{css}</style>
@@ -96,11 +101,11 @@ export function MainGround({
         data-main-ground-tint={adaptive.tint ? 'match' : 'theme'}
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       >
+        <div className="absolute inset-0" {...(parallax ? { 'data-pahina-parallax': 'page' } : {})}>
         {still ? (
           <div
             className="absolute inset-0 bg-cover"
             style={{ backgroundImage: `url(${JSON.stringify(still)})`, backgroundPosition: position, ...blurStyle }}
-            {...(parallax && !clip ? { 'data-pahina-parallax': 'page' } : {})}
           />
         ) : null}
         {clip ? (
@@ -115,11 +120,14 @@ export function MainGround({
             play="loop"
             open="inplace"
             label=""
-            className={`absolute inset-0 h-full w-full object-cover ${focus === 'top' ? 'object-top' : focus === 'bottom' ? 'object-bottom' : ''}`}
+            className="absolute inset-0 h-full w-full object-cover"
+            /* 🎯 The film is held where its still is — the ONE crop rule, not a second copy in class names. */
+            position={position}
               revealOnPlay
             />
           </div>
         ) : null}
+        </div>
         {veil ? (
           <div
             data-main-ground-scrim=""
@@ -160,19 +168,8 @@ export function MainGroundNone() {
  * so nothing to sign and nothing to measure: the words sit on the colour as
  * they always did. The theme's loop is switched off, as for "Just the colour".
  */
-const PATTERN_CSS: Readonly<Record<HubMainPatternKey, { image: string; size: string }>> = {
-  lines: { image: 'repeating-linear-gradient(135deg, rgb(var(--color-ink) / 0.07) 0 1px, transparent 1px 9px)', size: 'auto' },
-  dots: { image: 'radial-gradient(rgb(var(--color-ink) / 0.10) 1.2px, transparent 1.6px)', size: '16px 16px' },
-  lace: {
-    image:
-      'radial-gradient(circle at 50% 0, transparent 7px, rgb(var(--color-ink) / 0.08) 7.5px 8.5px, transparent 9px), radial-gradient(rgb(var(--color-ink) / 0.08) 1px, transparent 1.5px)',
-    size: '18px 12px, 18px 12px',
-  },
-  grid: {
-    image: 'linear-gradient(rgb(var(--color-ink) / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--color-ink) / 0.06) 1px, transparent 1px)',
-    size: '22px 22px',
-  },
-};
+/* The four, as CSS — `lib/main-ground-patterns.ts` (the Maker's Pattern cards draw the same ones). */
+const PATTERN_CSS = MAIN_GROUND_PATTERN_CSS;
 
 export function PatternGround({ pattern, hideLoop }: { pattern: HubMainPatternKey; hideLoop: boolean }) {
   const p = PATTERN_CSS[pattern];

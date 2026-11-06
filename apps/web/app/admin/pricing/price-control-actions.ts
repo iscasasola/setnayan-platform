@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { BOOKING_FEE } from '@/lib/booking-fee';
@@ -14,7 +15,7 @@ import {
   blockingComplaint,
   discountComplaints,
   familyForServiceCode,
-  signupPriceFor,
+  storedSignupPriceFor,
 } from '@/lib/onboarding-family-discount';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
@@ -140,6 +141,7 @@ export async function saveBookingFeeSchedule(
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
   await admin.from('admin_audit_log').insert({
@@ -209,7 +211,7 @@ export async function savePapicLadder(
   const { userId: adminUserId } = await requireAdminAction();
   const admin = createAdminClient();
 
-  // The five typed prices, read by the shot count they anchor.
+  // The typed prices — every priced rung since 2026-10-28 — read by the shot count they anchor.
   const anchors: [number, number][] = [];
   for (const shots of PAPIC_ANCHOR_SHOTS) {
     const raw = Number(String(formData.get(`anchor_${shots}`) ?? '').trim());
@@ -265,7 +267,7 @@ export async function savePapicLadder(
     const shots = shotsByCode.get(row.service_code)!;
     const regular = phpByShots.get(shots);
     if (regular == null) continue;
-    const signup = signupPriceFor(regular, discountPct);
+    const signup = storedSignupPriceFor(regular, discountPct);
     if (Number(row.retail_price_php) === regular) {
       // Regular unchanged — still re-derive the sign-up half in case the
       // discount moved since this row was last written.
@@ -377,6 +379,7 @@ export async function saveSignupDiscount(
     .from('platform_settings')
     .update({ onboarding_discount_pct: pct, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (setErr) return { ok: false, message: `Couldn't save — ${setErr.message}` };
 
   let moved = 0;
@@ -384,7 +387,7 @@ export async function saveSignupDiscount(
     if (familyForServiceCode(row.service_code) === null) continue;
     const regular = Number(row.retail_price_php);
     if (!Number.isFinite(regular) || regular <= 0) continue;
-    const next = signupPriceFor(regular, pct);
+    const next = storedSignupPriceFor(regular, pct);
     const current = row.onboarding_price_php == null ? null : Number(row.onboarding_price_php);
     if (next === current) continue;
     const { error } = await admin
@@ -475,6 +478,7 @@ export async function setEventTypeBand(
     .from('event_type_vocab')
     .update({ ai_price_tier: band, updated_at: new Date().toISOString() })
     .eq('event_type', eventType);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
   await admin.from('admin_audit_log').insert({
@@ -563,7 +567,7 @@ export async function saveAiBandPrice(
   // THE one sign-up discount decides the sign-up half — the same function the
   // discount save uses, so one band edited here and every price re-derived
   // there can never produce two different answers for the same inputs.
-  const signup = signupPriceFor(price, discountPct);
+  const signup = storedSignupPriceFor(price, discountPct);
 
   const before = {
     regular: Number(prior.retail_price_php),

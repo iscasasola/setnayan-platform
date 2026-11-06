@@ -87,6 +87,23 @@ export const FACE_SELFIE_PAPIC_CLOSE_GAP_MS = 30 * 60 * 1000;
 export const FACE_RESCAN_GAP_MS = 5 * 60 * 1000;
 
 /**
+ * Papic save-first upload sweep (lib/papic-upload-sweep.ts). HOURLY, not daily:
+ * review 2026-10-23 (major 6) — settled intent rows are forgotten ~15 minutes
+ * after their shot is recorded, so the table must be drained often or it grows
+ * by every piece every phone sends. Fired from admin traffic AND the capture
+ * routes, so a quiet admin console does not stall it.
+ */
+export const PAPIC_UPLOAD_SWEEP_GAP_MS = 60 * 60 * 1000;
+
+/**
+ * A supplier's event photo goes on its page once its 7-day guest notice has passed (owner 2026-10-03, DECISION_LOG "A
+ * SUPPLIER'S OWN PAPIC PHOTOS GO ON ITS PORTFOLIO AUTOMATICALLY AFTER A 7-DAY GUEST NOTICE"). Hourly: going up late is
+ * the safe direction (the photo is more private for longer, never less), and when nothing is due the body is one
+ * indexed read. Declared here, imported by `supplier-page-notice.server.ts` — same direction as the others.
+ */
+export const SUPPLIER_PAGE_PUBLISH_GAP_MS = 60 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -199,7 +216,7 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     key: 'papic-fullres-drop',
     kind: 'retention',
     gapMs: WEEKLY_GAP_MS,
-    what: 'Full-resolution originals replaced by the compressed copy at 6 months',
+    what: 'Full-resolution originals replaced by the 720p copy 3 months after the event’s last day',
     reportsCount: true,
   },
   {
@@ -217,6 +234,16 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 🗂 CHAT FILES (owner 2026-10-28). SHIPS OFF — `CHAT_FILE_EXPIRY_ENABLED`
+    // (server-side, opt-in) — and runs as a dry run until he switches it on.
+    // rows_affected = objects R2 confirmed gone (HEAD 404), never "attempted".
+    key: 'chat-file-expiry',
+    kind: 'retention',
+    gapMs: DAILY_GAP_MS,
+    what: 'Chat files deleted 90 days after the event (contracts, payment proofs and anything pinned to Decisions are kept) — off until switched on',
+    reportsCount: true,
+  },
+  {
     key: 'samahan-story-sweep',
     kind: 'retention',
     gapMs: 60 * 60 * 1000,
@@ -224,6 +251,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   // ── Operational ──────────────────────────────────────────────────────────
+  {
+    key: 'supplier-page-photo-publish',
+    kind: 'operational',
+    gapMs: SUPPLIER_PAGE_PUBLISH_GAP_MS,
+    what: "A supplier's event photo goes on its page once the guests' 7-day notice has passed and nobody removed it",
+    reportsCount: true,
+  },
   {
     key: 'anniversary-digest',
     kind: 'operational',
@@ -257,6 +291,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: DAILY_GAP_MS,
     what: 'The two-week warning before full-resolution originals are compressed',
+    reportsCount: true,
+  },
+  {
+    key: 'papic-originals-reminders',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: "The in-app reminders at day 60 · 80 · 89 to keep a host's original photos (no email)",
     reportsCount: true,
   },
   {
@@ -339,6 +380,17 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 2026-10-23 — Papic save-first: a phone PUTs pieces straight to R2; one
+    // that was never recorded is an object nothing points at
+    // (lib/papic-upload-sweep.ts). Staging keys after the phone's 7-day TTL
+    // plus a day; an attempt's final copy only when no row points at it.
+    key: 'papic-upload-sweep',
+    kind: 'operational',
+    gapMs: PAPIC_UPLOAD_SWEEP_GAP_MS,
+    what: 'Removal of Papic uploads that were never recorded',
+    reportsCount: true,
+  },
+  {
     // 🔴 ADDED 2026-09-18. The worker has existed since iteration 0011 as a
     // cron route with `TODO(0011): wire the actual cron schedule` on it — a
     // schedule that was never coming, because this repo has no scheduler by
@@ -402,6 +454,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     what: 'Asking Resend whether each email we sent was delivered or bounced',
     reportsCount: true,
   },
+  {
+    key: 'push-morning-release',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Sending the phone notices that waited through quiet hours (10 pm to 7 am), collapsed per kind',
+    reportsCount: true,
+  },
+  {
+    key: 'push-evening-summary',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'The one evening phone summary of the day\'s small updates ("Today on your event: 3 updates")',
+    reportsCount: true,
+  },
 ] as const;
 
 export const PERIODIC_JOB_KEYS: readonly string[] = PERIODIC_JOBS.map((j) => j.key);
@@ -425,6 +491,46 @@ export const RETENTION_JOB_KEYS: readonly string[] = PERIODIC_JOBS.filter(
  */
 export function normalizeRowsAffected(result: unknown): number | null {
   return typeof result === 'number' && Number.isFinite(result) ? Math.trunc(result) : null;
+}
+
+// ── How often one instance ASKS whether a job is due ──────────────────────
+
+/**
+ * The fastest any one instance asks the database whether a job is due — the
+ * single fixed cadence every job had until 2026-10-20.
+ */
+export const PERIODIC_CHECK_FLOOR_MS = 5 * 60 * 1000;
+
+/** The slowest: a daily or weekly job is asked about at least once an hour per instance. */
+export const PERIODIC_CHECK_CEILING_MS = 60 * 60 * 1000;
+
+/** A job whose gap is under this keeps the floor cadence, untouched. */
+export const PERIODIC_CHECK_KEEP_BELOW_MS = 30 * 60 * 1000;
+
+/**
+ * How long one instance waits between asking `claim_periodic_job` about one key.
+ *
+ * 🧮 WHY IT FOLLOWS THE GAP (2026-10-20, fewer-reads). Every key was asked every
+ * five minutes on every warm instance — a weekly retention sweep as often as the
+ * ten-minute email check — and prod's gateway logged `rpc/claim_periodic_job`
+ * ~5,500 times a day, nearly all of them answering "not yet". The ask now
+ * scales with what is being asked about: a sixth of the gap, between the old
+ * five minutes and an hour.
+ *
+ *   gap < 30 min            → 5 min (unchanged: the 10- and 20-minute jobs)
+ *   gap ≥ 30 min            → gap / 6, at least 5 min, at most 60 min
+ *   (1 h → 10 min · 6 h, 12 h, daily, weekly → 60 min)
+ *
+ * 🔒 IT NEVER CHANGES A JOB'S GAP OR WHAT IT DOES. The claim is still the
+ * database's compare-and-swap on `last_run_at` against the job's own gap; this
+ * only decides how often one instance asks. The cost is lateness: a job may
+ * start up to one interval after its window opens (≤ 60 min for a job whose gap
+ * is ≥ 6 h — at most a sixth of the gap for anything shorter). Held over every
+ * key in `PERIODIC_JOBS` by `lib/periodic-check-interval.test.ts`.
+ */
+export function periodicCheckIntervalMs(gapMs: number): number {
+  if (!(gapMs >= PERIODIC_CHECK_KEEP_BELOW_MS)) return PERIODIC_CHECK_FLOOR_MS;
+  return Math.max(PERIODIC_CHECK_FLOOR_MS, Math.min(gapMs / 6, PERIODIC_CHECK_CEILING_MS));
 }
 
 export function findPeriodicJob(key: string): PeriodicJob | undefined {

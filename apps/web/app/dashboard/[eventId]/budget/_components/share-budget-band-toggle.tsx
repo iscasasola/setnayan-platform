@@ -3,6 +3,7 @@
 import { useActionState, useRef } from 'react';
 import { Users, CheckCircle2 } from 'lucide-react';
 import { setShareBudgetBand, type SetShareBudgetBandResult } from '../actions';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 // Share-budget-band toggle — the couple opt-IN (default OFF) that lets a vendor
 // they talk to see a ROUNDED RANGE for that vendor's own category on the Customer
@@ -43,7 +44,7 @@ export function ShareBudgetBandToggle({
             <Users aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             <h2
               id="share-budget-band-heading"
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
+              className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
             >
               Share budget ranges with suppliers
             </h2>
@@ -83,15 +84,9 @@ export function ShareBudgetBandToggle({
             aria-checked={checked}
             aria-label="Share budget ranges with suppliers"
             disabled={isPending}
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-              checked ? 'bg-terracotta' : 'bg-ink/20'
-            }`}
+            className={SWITCH_BUTTON}
           >
-            <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                checked ? 'translate-x-5' : 'translate-x-0.5'
-              }`}
-            />
+            <SwitchTrack on={checked} />
           </button>
         </form>
       </div>

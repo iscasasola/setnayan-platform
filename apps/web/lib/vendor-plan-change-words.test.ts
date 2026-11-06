@@ -125,7 +125,7 @@ test('none of it speaks in jargon', () => {
 
 test('every plan has a name a person would recognise', () => {
   assert.equal(planWord('solo'), 'Solo');
-  assert.equal(planWord('enterprise'), 'Enterprise');
+  assert.equal(planWord('enterprise'), 'Ultra');
   assert.equal(planWord('verified'), 'Free · Verified');
   // An unknown value must never render as a raw database word.
   assert.equal(planWord('some_future_tier'), 'Free');

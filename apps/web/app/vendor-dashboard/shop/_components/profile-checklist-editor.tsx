@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
-import { EditableRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
+import { EditableRow, RequestOnlyRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
+import { ADMIN_SET_UP_ROW_FIELD, rowAsks, type LockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -25,10 +26,26 @@ export function ProfileChecklistEditor({
   items,
   data,
   isVerified,
+  showProgress = true,
+  flat = false,
+  asks,
 }: {
   items: BusinessProfileItem[];
   data: ProfileFieldData;
   isVerified: boolean;
+  /**
+   * Your details (step 5) mounts this editor once per fold with that fold's rows only, under the screen's ONE
+   * progress line — so the per-editor badge, count and bar step aside there. Default: exactly as it was.
+   */
+  showProgress?: boolean;
+  /** 🧾 House form rows — no card around each row (Today's setup steps, owner 2026-10-28). Absent → as it was. */
+  flat?: boolean;
+  /**
+   * 🏷 Which fields change only BY REQUEST (`DetailsData.requestOnly`, from `identityLockOf`) and which already have
+   * one waiting (the open requests' `field_key`s). A filled name / address row in that list becomes "Ask to change"
+   * (or "Change asked · waiting") instead of a save the server would refuse. Absent → every row as it was.
+   */
+  asks?: { requestOnly: readonly LockedIdentityFieldKey[]; pending: readonly string[] };
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -38,6 +55,7 @@ export function ProfileChecklistEditor({
 
   return (
     <div className="space-y-4">
+      {showProgress ? (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {isVerified ? (
@@ -90,13 +108,23 @@ export function ProfileChecklistEditor({
           </p>
         )}
       </div>
+      ) : null}
 
-      <ul className="space-y-2">
+      <ul className={flat ? '' : 'space-y-2'}>
         {items.map((item) =>
           // "Services covered" is taxonomy-driven — it jumps to the Coverage
           // flow instead of editing a column inline (owner 2026-07-03).
           item.key === 'services' ? (
-            <ServiceCoverageRow key={item.key} item={item} count={data.services.length} />
+            <ServiceCoverageRow key={item.key} item={item} count={data.services.length} flat={flat} />
+          ) : rowAsks(item.key, item.ok, asks) ? (
+            <RequestOnlyRow
+              key={item.key}
+              item={item}
+              data={data}
+              field={ADMIN_SET_UP_ROW_FIELD[item.key as keyof typeof ADMIN_SET_UP_ROW_FIELD]}
+              pending={rowAsks(item.key, item.ok, asks) === 'pending'}
+              flat={flat}
+            />
           ) : (
             <EditableRow
               key={item.key}
@@ -109,6 +137,7 @@ export function ProfileChecklistEditor({
               // different row meanwhile — a late rejection must never steal the
               // open slot from (and force-commit) the row they moved to.
               onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
+              flat={flat}
             />
           ),
         )}
@@ -116,3 +145,4 @@ export function ProfileChecklistEditor({
     </div>
   );
 }
+

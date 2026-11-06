@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import {
   buildInstagramAuthorizeUrl,
   generateInstagramStateToken,
@@ -33,19 +34,15 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
-  const { data: vp } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  const vendorProfileId = (vp as { vendor_profile_id?: string } | null)
-    ?.vendor_profile_id;
-  if (!vendorProfileId) {
+  // 🔀 The ACTIVE shop (lib/active-shop.ts), owner-only — the shop on screen, never "the shop whose owner I am".
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) {
     return NextResponse.json(
-      { error: 'Only a vendor can connect Instagram' },
+      { error: 'Only the shop’s owner can connect Instagram', message: shopAuth.error },
       { status: 403 },
     );
   }
+  const vendorProfileId = shopAuth.vendorProfileId;
 
   // --- Graceful fallback: 503 when IG_APP_* env vars are missing ---
   const config = getMetaAppOAuthConfig(req.nextUrl.origin);

@@ -1,0 +1,1125 @@
+{
+ "what": "The first screen of the live sample event (maria-and-jose, a316051), measured in Chromium from the tester's saved copy of the live page at four phone sizes \u00d7 two cookie-banner states: the three measurements FirstScreenDoor takes (as designed \u00b7 air closed up \u00b7 air closed up and the mark at MARK_MIN), in document pixels. limit = the y the button's bottom edge may reach; headerBottom = the pinned top bar's bottom edge.",
+ "screens": [
+  {
+   "size": "320x568",
+   "banner": "up",
+   "vh": 568,
+   "vw": 320,
+   "headerBottom": 69,
+   "limit": 342,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 173
+     },
+     {
+      "key": "mark",
+      "top": 193,
+      "bottom": 345
+     },
+     {
+      "key": "names",
+      "top": 365,
+      "bottom": 488
+     },
+     {
+      "key": "line",
+      "top": 504,
+      "bottom": 526.7
+     },
+     {
+      "key": "date",
+      "top": 542.7,
+      "bottom": 570.7
+     },
+     {
+      "key": "time",
+      "top": 578.7,
+      "bottom": 594.7
+     },
+     {
+      "key": "link",
+      "top": 638.7,
+      "bottom": 690.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 714.7,
+     "bottom": 770.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 285
+     },
+     {
+      "key": "names",
+      "top": 305,
+      "bottom": 428
+     },
+     {
+      "key": "line",
+      "top": 444,
+      "bottom": 466.7
+     },
+     {
+      "key": "date",
+      "top": 482.7,
+      "bottom": 510.7
+     },
+     {
+      "key": "time",
+      "top": 518.7,
+      "bottom": 534.7
+     },
+     {
+      "key": "link",
+      "top": 558.7,
+      "bottom": 610.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 622.7,
+     "bottom": 678.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 216.6
+     },
+     {
+      "key": "names",
+      "top": 236.6,
+      "bottom": 359.6
+     },
+     {
+      "key": "line",
+      "top": 375.6,
+      "bottom": 398.3
+     },
+     {
+      "key": "date",
+      "top": 414.3,
+      "bottom": 442.3
+     },
+     {
+      "key": "time",
+      "top": 450.3,
+      "bottom": 466.3
+     },
+     {
+      "key": "link",
+      "top": 490.3,
+      "bottom": 542.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 554.3,
+     "bottom": 610.3
+    }
+   }
+  },
+  {
+   "size": "320x568",
+   "banner": "answered",
+   "vh": 568,
+   "vw": 320,
+   "headerBottom": 69,
+   "limit": 492,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 173
+     },
+     {
+      "key": "mark",
+      "top": 193,
+      "bottom": 345
+     },
+     {
+      "key": "names",
+      "top": 365,
+      "bottom": 488
+     },
+     {
+      "key": "line",
+      "top": 504,
+      "bottom": 526.7
+     },
+     {
+      "key": "date",
+      "top": 542.7,
+      "bottom": 570.7
+     },
+     {
+      "key": "time",
+      "top": 578.7,
+      "bottom": 594.7
+     },
+     {
+      "key": "link",
+      "top": 638.7,
+      "bottom": 690.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 714.7,
+     "bottom": 770.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 285
+     },
+     {
+      "key": "names",
+      "top": 305,
+      "bottom": 428
+     },
+     {
+      "key": "line",
+      "top": 444,
+      "bottom": 466.7
+     },
+     {
+      "key": "date",
+      "top": 482.7,
+      "bottom": 510.7
+     },
+     {
+      "key": "time",
+      "top": 518.7,
+      "bottom": 534.7
+     },
+     {
+      "key": "link",
+      "top": 558.7,
+      "bottom": 610.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 622.7,
+     "bottom": 678.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 216.6
+     },
+     {
+      "key": "names",
+      "top": 236.6,
+      "bottom": 359.6
+     },
+     {
+      "key": "line",
+      "top": 375.6,
+      "bottom": 398.3
+     },
+     {
+      "key": "date",
+      "top": 414.3,
+      "bottom": 442.3
+     },
+     {
+      "key": "time",
+      "top": 450.3,
+      "bottom": 466.3
+     },
+     {
+      "key": "link",
+      "top": 490.3,
+      "bottom": 542.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 554.3,
+     "bottom": 610.3
+    }
+   }
+  },
+  {
+   "size": "375x667",
+   "banner": "up",
+   "vh": 667,
+   "vw": 375,
+   "headerBottom": 69,
+   "limit": 461,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 173
+     },
+     {
+      "key": "mark",
+      "top": 193,
+      "bottom": 345
+     },
+     {
+      "key": "names",
+      "top": 365,
+      "bottom": 488
+     },
+     {
+      "key": "line",
+      "top": 504,
+      "bottom": 526.7
+     },
+     {
+      "key": "date",
+      "top": 542.7,
+      "bottom": 570.7
+     },
+     {
+      "key": "time",
+      "top": 578.7,
+      "bottom": 594.7
+     },
+     {
+      "key": "link",
+      "top": 638.7,
+      "bottom": 690.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 714.7,
+     "bottom": 770.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 285
+     },
+     {
+      "key": "names",
+      "top": 305,
+      "bottom": 428
+     },
+     {
+      "key": "line",
+      "top": 444,
+      "bottom": 466.7
+     },
+     {
+      "key": "date",
+      "top": 482.7,
+      "bottom": 510.7
+     },
+     {
+      "key": "time",
+      "top": 518.7,
+      "bottom": 534.7
+     },
+     {
+      "key": "link",
+      "top": 558.7,
+      "bottom": 610.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 622.7,
+     "bottom": 678.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 216.6
+     },
+     {
+      "key": "names",
+      "top": 236.6,
+      "bottom": 359.6
+     },
+     {
+      "key": "line",
+      "top": 375.6,
+      "bottom": 398.3
+     },
+     {
+      "key": "date",
+      "top": 414.3,
+      "bottom": 442.3
+     },
+     {
+      "key": "time",
+      "top": 450.3,
+      "bottom": 466.3
+     },
+     {
+      "key": "link",
+      "top": 490.3,
+      "bottom": 542.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 554.3,
+     "bottom": 610.3
+    }
+   }
+  },
+  {
+   "size": "375x667",
+   "banner": "answered",
+   "vh": 667,
+   "vw": 375,
+   "headerBottom": 69,
+   "limit": 591,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 173
+     },
+     {
+      "key": "mark",
+      "top": 193,
+      "bottom": 345
+     },
+     {
+      "key": "names",
+      "top": 365,
+      "bottom": 488
+     },
+     {
+      "key": "line",
+      "top": 504,
+      "bottom": 526.7
+     },
+     {
+      "key": "date",
+      "top": 542.7,
+      "bottom": 570.7
+     },
+     {
+      "key": "time",
+      "top": 578.7,
+      "bottom": 594.7
+     },
+     {
+      "key": "link",
+      "top": 638.7,
+      "bottom": 690.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 714.7,
+     "bottom": 770.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 285
+     },
+     {
+      "key": "names",
+      "top": 305,
+      "bottom": 428
+     },
+     {
+      "key": "line",
+      "top": 444,
+      "bottom": 466.7
+     },
+     {
+      "key": "date",
+      "top": 482.7,
+      "bottom": 510.7
+     },
+     {
+      "key": "time",
+      "top": 518.7,
+      "bottom": 534.7
+     },
+     {
+      "key": "link",
+      "top": 558.7,
+      "bottom": 610.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 622.7,
+     "bottom": 678.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 216.6
+     },
+     {
+      "key": "names",
+      "top": 236.6,
+      "bottom": 359.6
+     },
+     {
+      "key": "line",
+      "top": 375.6,
+      "bottom": 398.3
+     },
+     {
+      "key": "date",
+      "top": 414.3,
+      "bottom": 442.3
+     },
+     {
+      "key": "time",
+      "top": 450.3,
+      "bottom": 466.3
+     },
+     {
+      "key": "link",
+      "top": 490.3,
+      "bottom": 542.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 554.3,
+     "bottom": 610.3
+    }
+   }
+  },
+  {
+   "size": "375x812",
+   "banner": "up",
+   "vh": 812,
+   "vw": 375,
+   "headerBottom": 69,
+   "limit": 606,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 173
+     },
+     {
+      "key": "mark",
+      "top": 193,
+      "bottom": 345
+     },
+     {
+      "key": "names",
+      "top": 365,
+      "bottom": 488
+     },
+     {
+      "key": "line",
+      "top": 504,
+      "bottom": 526.7
+     },
+     {
+      "key": "date",
+      "top": 542.7,
+      "bottom": 570.7
+     },
+     {
+      "key": "time",
+      "top": 578.7,
+      "bottom": 594.7
+     },
+     {
+      "key": "link",
+      "top": 638.7,
+      "bottom": 690.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 714.7,
+     "bottom": 770.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 285
+     },
+     {
+      "key": "names",
+      "top": 305,
+      "bottom": 428
+     },
+     {
+      "key": "line",
+      "top": 444,
+      "bottom": 466.7
+     },
+     {
+      "key": "date",
+      "top": 482.7,
+      "bottom": 510.7
+     },
+     {
+      "key": "time",
+      "top": 518.7,
+      "bottom": 534.7
+     },
+     {
+      "key": "link",
+      "top": 558.7,
+      "bottom": 610.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 622.7,
+     "bottom": 678.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 216.6
+     },
+     {
+      "key": "names",
+      "top": 236.6,
+      "bottom": 359.6
+     },
+     {
+      "key": "line",
+      "top": 375.6,
+      "bottom": 398.3
+     },
+     {
+      "key": "date",
+      "top": 414.3,
+      "bottom": 442.3
+     },
+     {
+      "key": "time",
+      "top": 450.3,
+      "bottom": 466.3
+     },
+     {
+      "key": "link",
+      "top": 490.3,
+      "bottom": 542.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 554.3,
+     "bottom": 610.3
+    }
+   }
+  },
+  {
+   "size": "375x812",
+   "banner": "answered",
+   "vh": 812,
+   "vw": 375,
+   "headerBottom": 69,
+   "limit": 736,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 173
+     },
+     {
+      "key": "mark",
+      "top": 193,
+      "bottom": 345
+     },
+     {
+      "key": "names",
+      "top": 365,
+      "bottom": 488
+     },
+     {
+      "key": "line",
+      "top": 504,
+      "bottom": 526.7
+     },
+     {
+      "key": "date",
+      "top": 542.7,
+      "bottom": 570.7
+     },
+     {
+      "key": "time",
+      "top": 578.7,
+      "bottom": 594.7
+     },
+     {
+      "key": "link",
+      "top": 638.7,
+      "bottom": 690.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 714.7,
+     "bottom": 770.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 285
+     },
+     {
+      "key": "names",
+      "top": 305,
+      "bottom": 428
+     },
+     {
+      "key": "line",
+      "top": 444,
+      "bottom": 466.7
+     },
+     {
+      "key": "date",
+      "top": 482.7,
+      "bottom": 510.7
+     },
+     {
+      "key": "time",
+      "top": 518.7,
+      "bottom": 534.7
+     },
+     {
+      "key": "link",
+      "top": 558.7,
+      "bottom": 610.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 622.7,
+     "bottom": 678.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 125
+     },
+     {
+      "key": "mark",
+      "top": 133,
+      "bottom": 216.6
+     },
+     {
+      "key": "names",
+      "top": 236.6,
+      "bottom": 359.6
+     },
+     {
+      "key": "line",
+      "top": 375.6,
+      "bottom": 398.3
+     },
+     {
+      "key": "date",
+      "top": 414.3,
+      "bottom": 442.3
+     },
+     {
+      "key": "time",
+      "top": 450.3,
+      "bottom": 466.3
+     },
+     {
+      "key": "link",
+      "top": 490.3,
+      "bottom": 542.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 554.3,
+     "bottom": 610.3
+    }
+   }
+  },
+  {
+   "size": "390x844",
+   "banner": "up",
+   "vh": 844,
+   "vw": 390,
+   "headerBottom": 69,
+   "limit": 638,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 157
+     },
+     {
+      "key": "mark",
+      "top": 177,
+      "bottom": 329
+     },
+     {
+      "key": "names",
+      "top": 349,
+      "bottom": 472
+     },
+     {
+      "key": "line",
+      "top": 488,
+      "bottom": 510.7
+     },
+     {
+      "key": "date",
+      "top": 526.7,
+      "bottom": 554.7
+     },
+     {
+      "key": "time",
+      "top": 562.7,
+      "bottom": 578.7
+     },
+     {
+      "key": "link",
+      "top": 622.7,
+      "bottom": 674.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 698.7,
+     "bottom": 754.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 109
+     },
+     {
+      "key": "mark",
+      "top": 117,
+      "bottom": 269
+     },
+     {
+      "key": "names",
+      "top": 289,
+      "bottom": 412
+     },
+     {
+      "key": "line",
+      "top": 428,
+      "bottom": 450.7
+     },
+     {
+      "key": "date",
+      "top": 466.7,
+      "bottom": 494.7
+     },
+     {
+      "key": "time",
+      "top": 502.7,
+      "bottom": 518.7
+     },
+     {
+      "key": "link",
+      "top": 542.7,
+      "bottom": 594.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 606.7,
+     "bottom": 662.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 109
+     },
+     {
+      "key": "mark",
+      "top": 117,
+      "bottom": 200.6
+     },
+     {
+      "key": "names",
+      "top": 220.6,
+      "bottom": 343.6
+     },
+     {
+      "key": "line",
+      "top": 359.6,
+      "bottom": 382.3
+     },
+     {
+      "key": "date",
+      "top": 398.3,
+      "bottom": 426.3
+     },
+     {
+      "key": "time",
+      "top": 434.3,
+      "bottom": 450.3
+     },
+     {
+      "key": "link",
+      "top": 474.3,
+      "bottom": 526.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 538.3,
+     "bottom": 594.3
+    }
+   }
+  },
+  {
+   "size": "390x844",
+   "banner": "answered",
+   "vh": 844,
+   "vw": 390,
+   "headerBottom": 69,
+   "limit": 768,
+   "natural": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 141,
+      "bottom": 157
+     },
+     {
+      "key": "mark",
+      "top": 177,
+      "bottom": 329
+     },
+     {
+      "key": "names",
+      "top": 349,
+      "bottom": 472
+     },
+     {
+      "key": "line",
+      "top": 488,
+      "bottom": 510.7
+     },
+     {
+      "key": "date",
+      "top": 526.7,
+      "bottom": 554.7
+     },
+     {
+      "key": "time",
+      "top": 562.7,
+      "bottom": 578.7
+     },
+     {
+      "key": "link",
+      "top": 622.7,
+      "bottom": 674.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 698.7,
+     "bottom": 754.7
+    }
+   },
+   "noAir": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 109
+     },
+     {
+      "key": "mark",
+      "top": 117,
+      "bottom": 269
+     },
+     {
+      "key": "names",
+      "top": 289,
+      "bottom": 412
+     },
+     {
+      "key": "line",
+      "top": 428,
+      "bottom": 450.7
+     },
+     {
+      "key": "date",
+      "top": 466.7,
+      "bottom": 494.7
+     },
+     {
+      "key": "time",
+      "top": 502.7,
+      "bottom": 518.7
+     },
+     {
+      "key": "link",
+      "top": 542.7,
+      "bottom": 594.7
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 606.7,
+     "bottom": 662.7
+    }
+   },
+   "smallMark": {
+    "parts": [
+     {
+      "key": "eyebrow",
+      "top": 93,
+      "bottom": 109
+     },
+     {
+      "key": "mark",
+      "top": 117,
+      "bottom": 200.6
+     },
+     {
+      "key": "names",
+      "top": 220.6,
+      "bottom": 343.6
+     },
+     {
+      "key": "line",
+      "top": 359.6,
+      "bottom": 382.3
+     },
+     {
+      "key": "date",
+      "top": 398.3,
+      "bottom": 426.3
+     },
+     {
+      "key": "time",
+      "top": 434.3,
+      "bottom": 450.3
+     },
+     {
+      "key": "link",
+      "top": 474.3,
+      "bottom": 526.3
+     }
+    ],
+    "door": {
+     "key": "door",
+     "top": 538.3,
+     "bottom": 594.3
+    }
+   }
+  }
+ ]
+}

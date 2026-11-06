@@ -15,6 +15,7 @@ import { eventNoun } from '@/lib/event-noun';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 import type { EventVisibility } from '@/lib/event-visibility';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Who can view your event page' };
 
@@ -57,7 +58,7 @@ export default async function PrivacyEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, live_media_public',
+      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, live_media_public, same_date_count_opt_out',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -76,7 +77,7 @@ export default async function PrivacyEditorPage({
     search.showcase === 'blocked'
       ? 'This kind of day can’t be featured in Stories.'
       : search.showcase === 'error'
-        ? 'We couldn’t read this celebration just now. Please try again.'
+        ? 'We couldn’t read this event just now. Please try again.'
         : null;
 
   /**
@@ -111,6 +112,8 @@ export default async function PrivacyEditorPage({
   // answered by the predicate the guest page itself renders from.
   const reach = resolveSiteReachability(event);
   const liveMediaOpen = Boolean(event.live_media_public);
+  // ⚖ DPO ruling 2026-10-23: a couple may leave the same-date count.
+  const countedForOthers = event.same_date_count_opt_out !== true;
   const launched = reach.reachable;
   const scheduledAt =
     typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
@@ -228,7 +231,7 @@ export default async function PrivacyEditorPage({
       </div>
 
       {/* The picker — three radio cards in a single form */}
-      <form action={updateLandingPageVisibility} className="space-y-4">
+      <SafeForm action={updateLandingPageVisibility} className="space-y-4">
         <input type="hidden" name="event_id" value={eventId} />
 
         <fieldset className="space-y-3">
@@ -286,7 +289,7 @@ export default async function PrivacyEditorPage({
             Back
           </Link>
         </div>
-      </form>
+      </SafeForm>
 
       {/* Footnote — light context so the host knows what changes immediately */}
       <footer className="sn-tile p-5 text-sm text-ink/65">
@@ -312,8 +315,8 @@ export default async function PrivacyEditorPage({
             Who can watch on the day
           </h2>
           <p className="max-w-prose text-sm text-ink/70">
-            Your invited guests can always watch your livestream and see the photo
-            wall. This decides whether someone <em>without</em> an invitation can
+            Your invited guests can always watch your livestream and see Memory
+            lane. This decides whether someone <em>without</em> an invitation can
             too &mdash; a relative abroad who was sent your link, or a friend
             watching from home. Turn it on when you&rsquo;re ready to go live, and
             off again afterwards.
@@ -330,19 +333,65 @@ export default async function PrivacyEditorPage({
               ? 'Open — anyone with your link can watch'
               : 'Closed — only your invited guests can watch'}
           </span>
-          <form action={setLiveMediaAudience}>
+          <SafeForm action={setLiveMediaAudience}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="open" value={liveMediaOpen ? '0' : '1'} />
             <SubmitButton className="button-primary" pendingLabel="Saving…">
               {liveMediaOpen ? 'Close it to guests only' : 'Let anyone with the link watch'}
             </SubmitButton>
-          </form>
+          </SafeForm>
         </div>
 
         <p className="text-xs text-ink/50">
-          This only affects the livestream and the live photo wall. It doesn&rsquo;t
+          This only affects the livestream and Memory lane. It doesn&rsquo;t
           change who can open your page, and it never shares anything before the
           day itself.
+        </p>
+      </div>
+
+      {/* Same-date count — DPO ruling 2026-10-23: a couple may leave it.
+          Same control as "Who can watch on the day": a pill that says the
+          current answer, and one button that flips it. */}
+      <div className="space-y-4 sn-tile p-5 sm:p-6">
+        <div className="space-y-2">
+          <p className="sn-eye flex items-center gap-2">
+            <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Same-date count
+          </p>
+          <h2 className="font-serif text-2xl italic tracking-tight">
+            Count us for other couples
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            When another couple looks at a supplier for the same date, they can
+            see how many couples asked that supplier about it &mdash; only a
+            number, only when it is three or more, never who. Turn this off and
+            your questions are left out of that number.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              countedForOthers ? 'bg-ink/5 text-ink/60' : 'bg-success-50 text-success-800'
+            }`}
+          >
+            {countedForOthers ? 'On — you are counted, never named' : 'Off — you are left out of the count'}
+          </span>
+          {/* Rides setLiveMediaAudience with setting=same_date_count — one
+              route for both switches (server-action budget). */}
+          <SafeForm action={setLiveMediaAudience}>
+            <input type="hidden" name="setting" value="same_date_count" />
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="opt_out" value={countedForOthers ? '1' : '0'} />
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
+              {countedForOthers ? 'Leave us out of the count' : 'Count us again'}
+            </SubmitButton>
+          </SafeForm>
+        </div>
+
+        <p className="text-xs text-ink/50">
+          This doesn&rsquo;t change what you see, and suppliers never see this
+          number.
         </p>
       </div>
 
@@ -394,13 +443,13 @@ export default async function PrivacyEditorPage({
                 : 'On — eligible to be featured'
               : `Off — your ${eventNoun(event.event_type)} stays private`}
           </span>
-          <form action={setShowcaseConsent}>
+          <SafeForm action={setShowcaseConsent}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="opt_in" value={showcaseOptedIn ? '0' : '1'} />
             <SubmitButton className="button-primary" pendingLabel="Saving…">
               {showcaseOptedIn ? 'Turn off featuring' : `Feature our ${eventNoun(event.event_type)}`}
             </SubmitButton>
-          </form>
+          </SafeForm>
         </div>
 
         <p className="text-xs text-ink/50">

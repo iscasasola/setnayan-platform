@@ -123,11 +123,11 @@ export async function GET(
     // an-invited-person-is-recognised.test.ts and stays byte-identical.
     if (slug && thenReply) dest = inviteReplyPath(slug);
     // SIGN UP FIRST, THEN THE FORM (owner 2026-09-25): a guest who has not
-    // answered yet lands AT the reply — the sheet opens on `#your-details` —
+    // answered yet lands AT the reply — the reply page, the one form (owner 2026-10-11) —
     // with their details already filled from the seat and the account. The form
     // is still theirs to complete; signing in never counts as a reply.
     if (slug && !thenReply && (await seatAwaitsReply(eventId, user.id))) {
-      dest = `/${slug}${REPLY_SHEET_HASH}`;
+      dest = inviteReplyPath(slug);
     }
   }
 
@@ -158,9 +158,6 @@ async function alreadyInside(eventId: string, userId: string): Promise<boolean> 
   if (error) console.error('[supabase-error] app/join/[eventId]/connect/route.ts · from:event_members.select', error);
   return Boolean(data);
 }
-
-/** The reply sheet's own anchor (rsvp-sheet.tsx `id="your-details"`). */
-const REPLY_SHEET_HASH = '#your-details';
 
 /** Has this account's seat on this event still not answered? False on any doubt. */
 async function seatAwaitsReply(eventId: string, userId: string): Promise<boolean> {

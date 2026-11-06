@@ -75,13 +75,15 @@ test('the fixtures are real — both sources loaded and stripping kept the code'
   );
 });
 
-test('🔴 the Alaga VIEW carries its own way to create one — ahead of the list', () => {
-  const open = PAGE_CODE.indexOf("{view === 'alaga' ? (");
-  assert.ok(open >= 0, 'the page has no Alaga view');
-  const branch = PAGE_CODE.slice(open, PAGE_CODE.indexOf('{view ===', open + 10));
+test('🔴 the Loved ones section carries its own way to create one — ahead of the list', () => {
+  // 2026-10-22: a folded section of the list (owner: "like Family/Friends"), built once as `lovedOnes`.
+  const open = PAGE_CODE.indexOf('const lovedOnes = ');
+  assert.ok(open >= 0, 'the page has no Loved ones block');
+  const branch = PAGE_CODE.slice(open, PAGE_CODE.indexOf(') : null;', open));
   const door = branch.indexOf('<AddAlagaButton />');
-  assert.ok(door >= 0, 'the Alaga view lost its create button — the view is a dead end again');
+  assert.ok(door >= 0, 'the Loved ones section lost its create button — a dead end again');
   assert.ok(door < branch.indexOf('<DependentsSection />'), 'the create button trails the list');
+  assert.match(PAGE_CODE, /key: 'alaga' as const, label: 'Loved ones'/, 'Loved ones is not handed to the list as a section');
 });
 
 test('🔴 an empty Alaga list is answered, never rendered as nothing', () => {

@@ -40,13 +40,18 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+/* 🗂 THE SWITCH MOVED WITH THE FILES (owner 2026-10-23, PR-B): the Papic page is the camera only, and + Add photos —
+   the uploader this switch governs — is on the event's Memories tab, where the sheet offers the switch while it is
+   off. `PAGE` is where the uploader branches now; `PAPIC_PAGE` still reads the save's outcome (the action lands there). */
+const PAGE = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
+// The Papic page is gone (2026-10-26) — its banners (which say a save's outcome) moved, unchanged, to the card.
+const PAPIC_PAGE = readFileSync(join(PAPIC, '_components', 'papic-outcome-banners.tsx'), 'utf8');
 const CHOICE = readFileSync(join(PAPIC, '_components/uploads-open-choice.tsx'), 'utf8');
 const ACTIONS = readFileSync(join(PAPIC, 'actions.ts'), 'utf8');
 
@@ -60,10 +65,13 @@ test('the switch exists on all three layers — column, action, control', () => 
 test('🚨 the switch actually GOVERNS the picker', () => {
   // The failure being guarded is a switch that saves a value nobody reads.
   assert.match(PAGE, /const uploadsOpen =/, 'the page no longer reads the column');
+  // Since 2026-10-23 the uploader's one door is Memories' + Add photos: OFF, its sheet offers the switch; ON, the
+  // shipped uploader (which claims the uploads camera on the first pick — 2026-10-26, one press). The branch is on the
+  // switch's own value.
   assert.match(
     PAGE,
-    /\{!uploadsOpen \?/,
-    'the picker no longer branches on the switch — turning it off would save a value and change nothing a person can see',
+    /addPhotos = !uploadsOpen \? \(\s*<UploadsOpenChoice[\s\S]{0,200}?\) : \(\s*<AddToLibrary/,
+    'the + Add photos door no longer branches on the switch — turning it off would save a value and change nothing a person can see',
   );
 });
 
@@ -105,7 +113,7 @@ test('the copy says what it costs, and what OFF actually means', () => {
 test('🚨 saving it is confirmed, never silent', () => {
   // Nine settings on this page once saved into the void.
   assert.match(ACTIONS, /uploads_open_set=/, 'the action no longer reports its outcome');
-  assert.match(PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
+  assert.match(PAPIC_PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
 });
 
 /**
@@ -142,14 +150,15 @@ test('7 · the value the picker branches on is actually SELECTED from the databa
       `and reports OPEN forever; more than one is a second copy of the read.`,
   );
 
-  // …and on its own, so an unknown column cannot take the main event read down.
-  assert.doesNotMatch(
-    selects[0]!,
-    /event_id,|papic_storage_target/,
-    'papic_uploads_open was folded into the main event select. On a database ' +
-      'that predates its migration PostgREST refuses that whole query, and this ' +
-      'page answers an unreadable event with notFound() — a live celebration ' +
-      'would render as missing.',
+  // 🔌 FOLDED INTO THE ONE EVENT READ (2026-10-13, owner: least requests per
+  // screen). It used to be its own round trip so a database that predated the
+  // column could not take the main read down. That database no longer exists:
+  // the migration has been in the replay and in production for two months. So
+  // what must hold now is that the migration is still in the tree — delete it
+  // and the main event read (and the page) would fail, and this goes red first.
+  assert.ok(
+    existsSync(join(dirname(dirname(fileURLToPath(import.meta.url))), '..', '..', '..', '..', '..', '..', '..', 'supabase', 'migrations', '20271170068924_papic_uploads_open.sql')),
+    'the papic_uploads_open migration is gone, but the main event read names the column',
   );
 
   // The branch must consume THAT read, not something shaped like it.

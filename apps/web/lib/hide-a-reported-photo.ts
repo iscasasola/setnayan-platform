@@ -109,7 +109,8 @@ export function supplierTakedownNotice(table: ReportedPhotoTable): {
 } {
   const where =
     table === 'vendor_papic_portfolio_photos'
-      ? 'your portfolio album'
+      ? // …and from your page, if it was on it — the trigger `a_hidden_album_photo_leaves_the_page` pulls the copy.
+        'your portfolio album (and from your page, if it was there)'
       : 'what you shot on the day';
   return {
     title: 'A photo was taken down at a guest’s request',

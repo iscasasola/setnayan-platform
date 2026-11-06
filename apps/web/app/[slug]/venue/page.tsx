@@ -2,7 +2,6 @@ import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { eventNoun } from '@/lib/event-noun';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
@@ -13,6 +12,7 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import type { VenueScene } from './_components/guest-venue-3d';
+import { withDayNote } from '../_lib/day-words';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
 // session: a guest opens this from their invite (the `?t=` personal token
@@ -128,7 +128,6 @@ export default async function VenuePage({
   }
 
   const rolePalette = sanitizeRolePalette(paletteRow.data?.role_palette ?? null);
-  const noun = eventNoun((paletteRow.data as { event_type?: string | null }).event_type);
   let scene = data ? ({ ...(data as object), rolePalette } as VenueScene) : null;
   // Event UUID (top-scope) — the shared-room channel scope for the 3D walk, and
   // the booth-slug join below.
@@ -273,7 +272,7 @@ export default async function VenuePage({
             Your link is fine — something on our end is having trouble. Give it a
             moment and try again.
           </p>
-          <Link href={`/${slug}/venue`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+          <Link href={`/${slug}/venue`} className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
             Try again
           </Link>
         </div>
@@ -287,10 +286,10 @@ export default async function VenuePage({
         <div className="max-w-sm">
           <p className="text-lg font-medium text-white">The 3D room opens on the day</p>
           <p className="mt-2 text-sm text-white/60">
-            Come back on the day to walk the room and find your seat.
+            {withDayNote('Come back on the day to walk the room and find your seat.', eventRow.event_date)}
           </p>
-          <Link href={`/${slug}`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
-            ← Back to the {noun}
+          <Link href={`/${slug}`} className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+            ← Back to the invitation
           </Link>
         </div>
       </main>

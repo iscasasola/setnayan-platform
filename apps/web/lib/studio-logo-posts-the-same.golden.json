@@ -1,0 +1,497 @@
+{
+  "_about": "RECORDED 2026-10-09 from Studio › Logo AS IT STOOD BEFORE any control moved onto the templates: MakerLogoDoor (an image layer, the new Maker on) was bundled with esbuild (its server action replaced by a recorder), loaded in Chromium at 375 px and driven (a frame added · its kind picked · the colour picked in the one picker and in the shipped inks · each slider moved · Centre it · a layer moved down · a layer removed · Remove white background · Motion In and Out · Starts after · a rename · and a refused / dropped save). calls = every server action the page called, with the FormData it built (as [name, value] pairs). A layer id is random per session and is masked as ID here. says_before / says_after = what the page announced to the Maker toolbar (the old page announced the database words on a refusal). Re-record only with a reason written in the commit.",
+  "l1_add_frame": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g><g data-logo-layer=\\\"ID\\\" data-kind=\\\"frame\\\" data-in=\\\"fade\\\" data-during=\\\"still\\\" data-delay=\\\"2\\\" transform=\\\"translate(500 500) scale(1) translate(-500 -500)\\\"><g data-logo-body=\\\"1000 1000\\\"><path fill=\\\"#C5A059\\\" fill-rule=\\\"evenodd\\\" d=\\\"M20 500a480 480 0 1 0 960 0a480 480 0 1 0 -960 0ZM42 500a458 458 0 1 0 916 0a458 458 0 1 0 -916 0Z\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}},{\"id\":\"ID\",\"kind\":\"frame\",\"name\":\"Ring\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#C5A059\",\"motion\":{\"in\":\"fade\",\"during\":\"still\",\"delay\":2},\"frame\":\"ring\"}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l2_frame_kind": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g><g data-logo-layer=\\\"ID\\\" data-kind=\\\"frame\\\" data-in=\\\"fade\\\" data-during=\\\"still\\\" data-delay=\\\"2\\\" transform=\\\"translate(500 500) scale(1) translate(-500 -500)\\\"><g data-logo-body=\\\"1000 1000\\\"><path fill=\\\"#C5A059\\\" fill-rule=\\\"evenodd\\\" d=\\\"M500 10L990 500L500 990L10 500ZM500 41L959 500L500 959L41 500Z\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}},{\"id\":\"ID\",\"kind\":\"frame\",\"name\":\"Diamond\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#C5A059\",\"motion\":{\"in\":\"fade\",\"during\":\"still\",\"delay\":2},\"frame\":\"diamond\"}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l3_colour_studio": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#3E3350\\\" data-of=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#3E3350\",\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l3b_colour_shipped": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#5C2542\\\" data-of=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#5C2542\",\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l4_size": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10.6) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1.06,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l5_centre": {
+    "calls": [],
+    "state_before": "idle",
+    "says_before": [],
+    "state_after": "idle",
+    "says_after": []
+  },
+  "l5b_rotate": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) rotate(5) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0},\"rotate\":5}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l6_move": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"frame\\\" data-in=\\\"fade\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(1) translate(-500 -500)\\\"><g data-logo-body=\\\"1000 1000\\\"><path fill=\\\"#C5A059\\\" fill-rule=\\\"evenodd\\\" d=\\\"M20 500a480 480 0 1 0 960 0a480 480 0 1 0 -960 0ZM42 500a458 458 0 1 0 916 0a458 458 0 1 0 -916 0Z\\\"/></g></g><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"2\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"frame\",\"name\":\"Ring\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#C5A059\",\"motion\":{\"in\":\"fade\",\"during\":\"still\",\"delay\":0},\"frame\":\"ring\"},{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":2}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l7_remove": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l8_knockout": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><rect width=\\\"100\\\" height=\\\"100\\\" fill=\\\"#FFFFFF\\\"/><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0},\"keepWhite\":true}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l9_motion_in": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"fade\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"fade\",\"during\":\"still\",\"delay\":0}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l9b_motion_out": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" data-out=\\\"sink\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0,\"out\":\"sink\"}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l10_delay": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0.3\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0.3}}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "saved",
+    "says_before": [
+      {
+        "state": "saved"
+      }
+    ],
+    "state_after": "saved",
+    "says_after": [
+      {
+        "state": "saved"
+      }
+    ]
+  },
+  "l11_rename": {
+    "calls": [],
+    "state_before": "idle",
+    "says_before": [],
+    "state_after": "idle",
+    "says_after": []
+  },
+  "f1_refused": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g><g data-logo-layer=\\\"ID\\\" data-kind=\\\"frame\\\" data-in=\\\"fade\\\" data-during=\\\"still\\\" data-delay=\\\"2\\\" transform=\\\"translate(500 500) scale(1) translate(-500 -500)\\\"><g data-logo-body=\\\"1000 1000\\\"><path fill=\\\"#C5A059\\\" fill-rule=\\\"evenodd\\\" d=\\\"M20 500a480 480 0 1 0 960 0a480 480 0 1 0 -960 0ZM42 500a458 458 0 1 0 916 0a458 458 0 1 0 -916 0Z\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}},{\"id\":\"ID\",\"kind\":\"frame\",\"name\":\"Ring\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#C5A059\",\"motion\":{\"in\":\"fade\",\"during\":\"still\",\"delay\":2},\"frame\":\"ring\"}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "error",
+    "says_before": [
+      {
+        "state": "error",
+        "text": "new row violates row-level security policy for table \"events\""
+      }
+    ],
+    "state_after": "error",
+    "says_after": [
+      {
+        "state": "error",
+        "text": "Your logo could not be saved to your draft. Keep this open and try again."
+      }
+    ]
+  },
+  "f2_thrown": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"monogram_custom_svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 1000 1000\\\" data-logo=\\\"layers\\\"><g data-logo-layer=\\\"ID\\\" data-kind=\\\"image\\\" data-in=\\\"draw\\\" data-during=\\\"still\\\" data-delay=\\\"0\\\" transform=\\\"translate(500 500) scale(10) translate(-50 -50)\\\"><g data-logo-body=\\\"100 100\\\"><path d=\\\"M10 10H90V90H10Z\\\" fill=\\\"#111111\\\"/></g></g><g data-logo-layer=\\\"ID\\\" data-kind=\\\"frame\\\" data-in=\\\"fade\\\" data-during=\\\"still\\\" data-delay=\\\"2\\\" transform=\\\"translate(500 500) scale(1) translate(-500 -500)\\\"><g data-logo-body=\\\"1000 1000\\\"><path fill=\\\"#C5A059\\\" fill-rule=\\\"evenodd\\\" d=\\\"M20 500a480 480 0 1 0 960 0a480 480 0 1 0 -960 0ZM42 500a458 458 0 1 0 916 0a458 458 0 1 0 -916 0Z\\\"/></g></g></svg>\",\"monogram_studio_config\":{\"layers\":[{\"id\":\"ID\",\"kind\":\"image\",\"name\":\"Your logo\",\"x\":500,\"y\":500,\"scale\":1,\"color\":null,\"motion\":{\"in\":\"draw\",\"during\":\"still\",\"delay\":0}},{\"id\":\"ID\",\"kind\":\"frame\",\"name\":\"Ring\",\"x\":500,\"y\":500,\"scale\":1,\"color\":\"#C5A059\",\"motion\":{\"in\":\"fade\",\"during\":\"still\",\"delay\":2},\"frame\":\"ring\"}]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "state_before": "error",
+    "says_before": [
+      {
+        "state": "error",
+        "text": "Your logo could not be saved to your draft. Keep this open and try again."
+      }
+    ],
+    "state_after": "error",
+    "says_after": [
+      {
+        "state": "error",
+        "text": "Your logo could not be saved to your draft. Keep this open and try again."
+      }
+    ]
+  }
+}

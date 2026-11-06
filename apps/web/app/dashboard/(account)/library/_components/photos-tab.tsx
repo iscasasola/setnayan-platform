@@ -164,7 +164,7 @@ export async function PhotosTab({
           {anniversaries.map(({ album, yearsAgo }) => (
             <Link
               key={album.event.event_id}
-              href={`/dashboard/${album.event.event_id}/studio/papic`}
+              href={`/dashboard/${album.event.event_id}/memories`}
               className="flex items-center gap-3 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 transition-colors hover:bg-terracotta/10"
             >
               <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-terracotta">
@@ -187,7 +187,7 @@ export async function PhotosTab({
       {/* Facebook helper card — Recent only. On a narrowed lens the albums are
           the answer; a sharing utility on top of them is noise. */}
       {lens === 'recent' ? (
-        <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-2xl border border-ink/10 bg-white dark:bg-raised p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
               <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
@@ -209,7 +209,7 @@ export async function PhotosTab({
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1666d4]"
               >
                 <FacebookGlyph className="h-4 w-4" />
-                Share the gallery link
+                Share the Memories link
               </a>
             ) : null}
           </div>
@@ -295,7 +295,7 @@ function AlbumCard({ album }: { album: Album }) {
   );
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm">
       {/* Thumbnail strip — linked only when this person has somewhere to go. */}
       {href ? (
         <Link href={href} className="block">

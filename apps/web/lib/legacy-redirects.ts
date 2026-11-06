@@ -37,6 +37,8 @@
  */
 
 import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
+import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from './event-settings-record';
+import { papicHomeHref } from './papic-home-href';
 
 /** The More menu's address, relative to the event (`studioHubHref`). */
 const MORE_MENU = `?${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
@@ -66,6 +68,28 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   // live, so they cannot sit in the Maker. Its redirect from #6280 is gone.)
 ];
 
+/**
+ * ⚙ SETTINGS THAT MOVED HOME (owner 2026-10-26/27, "each menu has their own settings"; settings per menu PLAN § 6).
+ * NOT retired pages — `details/field/[row]` is still a route for the rows that stayed — but a row that left Event
+ * Details for its menu's ⚙ must not 404 or open nothing: its old field address (digest emails, bookmarks, tours)
+ * lands on the control in its new home. `/dashboard/<eventId>/<from>` → `/dashboard/<eventId>/<to>`.
+ * Held by `lib/moved-settings-forward.test.ts`.
+ */
+const MOVED_SETTINGS: readonly (readonly [from: string, to: string])[] = [
+  // B · Guests ⚙ — the Guest list with its ⚙ sheet open on that row.
+  ...Object.entries(DETAILS_ROWS_MOVED_TO_GUESTS).map(
+    ([from, row]) => [`details/field/${from}`, `guests?settings=1&row=${row}`] as const,
+  ),
+  // Suppliers ⚙ (owner 2026-10-27) — Suppliers with its ⚙ sheet open.
+  ...Object.entries(DETAILS_ROWS_MOVED_TO_SUPPLIERS).map(
+    ([from, row]) => [`details/field/${from}`, `vendors?settings=1&row=${row}`] as const,
+  ),
+];
+const MOVED_SETTINGS_MAP: ReadonlyMap<string, string> = new Map(MOVED_SETTINGS);
+
+/** Every moved setting's old address, with `<eventId>` as the placeholder — for tests and docs. */
+export const MOVED_SETTING_OLD_PATHS: readonly string[] = MOVED_SETTINGS.map(([from]) => `/dashboard/<eventId>/${from}`);
+
 /** Whole-path pairs (no event id in them). */
 const FIXED: readonly (readonly [from: string, to: string])[] = [
   ['/admin/refinements', '/admin/categories'], //                 retired 2026-07-03
@@ -91,6 +115,34 @@ const KEEPS_QUERY: ReadonlyMap<string, string> = new Map([
 ]);
 
 /**
+ * 📷 THE PAPIC PAGE (`/dashboard/<id>/studio/papic`, removed 2026-10-26 — owner: *"that papic frame with toggle, place
+ * that on home and remove that page"* · *"it should be on the today"*). Its card lives on Home › Today now. The ONE
+ * retired page whose query is READ, because old saves, emails and bookmarks carry answers in it:
+ *   · the files' answers (Google Drive's connect / disconnect, adding photos by hand) and `?gallery=open` → Memories,
+ *     where the files live (the page did exactly this since 2026-10-24);
+ *   · everything else (a save's outcome, `?buy=1`, a purchase error) → Home with the card open (`?papic=open`) and
+ *     scrolled to (`#papic`), the outcome riding along for the card's outcome line. `?tab=` (three tabs, retired
+ *     2026-08-27) is dropped. Only `/studio/papic` itself — its children (crew, challenges, recap, …) are still pages.
+ */
+const PAPIC_PAGE_RE = /^\/dashboard\/([^/]+)\/studio\/papic$/;
+const PAPIC_FILES_KEYS = ['drive_connected', 'drive_disconnected', 'drive_error', 'uploads_ready', 'uploads_error', 'uploads_open_set'] as const;
+
+function papicPageTarget(eventId: string, search: string): string {
+  const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const files = new URLSearchParams();
+  for (const k of PAPIC_FILES_KEYS) {
+    const v = q.get(k);
+    if (v !== null) files.set(k, v);
+  }
+  if (q.get('gallery') === 'open' || files.size > 0) {
+    return `/dashboard/${eventId}/memories${files.size > 0 ? `?${files.toString()}` : ''}`;
+  }
+  const rest = new URLSearchParams();
+  for (const [k, v] of q) if (k !== 'tab' && k !== 'papic' && k !== 'gallery') rest.append(k, v);
+  return papicHomeHref(eventId, rest.toString());
+}
+
+/**
  * `/admin/event-types/<type>/(categories|profile|onboarding)` — the three
  * per-type pages, now sections of the event type's panel.
  */
@@ -104,6 +156,7 @@ export const LEGACY_REDIRECT_OLD_PATHS: readonly string[] = [
   ...EVENT_SCOPED.map(([from]) => `/dashboard/<eventId>/${from}`),
   ...FIXED.map(([from]) => from),
   ...[...KEEPS_QUERY.keys()],
+  '/dashboard/<eventId>/studio/papic',
   '/admin/event-types/<type>/categories',
   '/admin/event-types/<type>/profile',
   '/admin/event-types/<type>/onboarding',
@@ -122,11 +175,16 @@ export function legacyRedirectTarget(pathname: string, search = ''): string | nu
   const keeps = KEEPS_QUERY.get(path);
   if (keeps) return search && search !== '?' ? `${keeps}${search.startsWith('?') ? search : `?${search}`}` : keeps;
 
+  const papicPage = PAPIC_PAGE_RE.exec(path);
+  if (papicPage) return papicPageTarget(papicPage[1]!, search);
+
   const et = EVENT_TYPE_PAGE_RE.exec(path);
   if (et) return `/admin/categories?list=event-types&open=${et[1]}`;
 
   const m = /^\/dashboard\/([^/]+)\/(.+)$/.exec(path);
   if (!m) return null;
+  const moved = MOVED_SETTINGS_MAP.get(m[2]!);
+  if (moved !== undefined) return `/dashboard/${m[1]}/${moved}`;
   const to = EVENT_SCOPED_RE.get(m[2]!);
   if (to === undefined) return null;
   if (to === '' || to.startsWith('?')) return `/dashboard/${m[1]}${to}`;

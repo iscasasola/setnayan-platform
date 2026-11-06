@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { faceTaggingAskable, papicHasClosed } from '@/lib/face-selfie-lifetime';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * ONE READ, TWO ANSWERS: what runs on this event (`mode`), and may a guest be
@@ -44,13 +45,20 @@ export async function resolveFaceTagging(
   try {
     if (!eventId) return OFF;
     const [{ data, error }, papicActive] = await Promise.all([
-      client
-        .from('events')
-        .select(
-          'papic_face_mode, event_type, face_tagging_declined_by_couple, event_date, event_end_date, papic_window_end',
-        )
-        .eq('event_id', eventId)
-        .maybeSingle(),
+      // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+      eventRowOnce(
+        client,
+        eventId,
+        'papic_face_mode, event_type, face_tagging_declined_by_couple, event_date, event_end_date, papic_window_end',
+        () =>
+          client
+            .from('events')
+            .select(
+              'papic_face_mode, event_type, face_tagging_declined_by_couple, event_date, event_end_date, papic_window_end',
+            )
+            .eq('event_id', eventId)
+            .maybeSingle(),
+      ),
       eventPapicGuestActive(client, eventId).catch(() => false),
     ]);
     if (error) console.error('[supabase-error] lib/face-tagging-gate.ts · from:events.select', error);

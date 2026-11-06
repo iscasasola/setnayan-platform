@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
+import { revokeHeldAppleSignIn } from '@/lib/apple-sign-in-store';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { CleanupDeleteRefused, planCleanupDelete } from '@/lib/cleanup-delete-scope';
 import { eraseUserAccount, type ErasureIo } from '@/lib/erasure/purge';
@@ -56,6 +57,9 @@ function erasureIo(): ErasureIo {
       await executeCleanupDelete(decision.target);
     },
     revokeAllSessions,
+    // App Store 5.1.1(v): revoke the Sign in with Apple grant at Apple. Never
+    // throws; the purge records every outcome (lib/erasure/purge.ts step 2b).
+    revokeAppleSignIn: revokeHeldAppleSignIn,
   };
 }
 
@@ -77,6 +81,25 @@ async function requireAdmin() {
   return { adminUserId: user.id };
 }
 
+/**
+ * "Add to team" / "Remove from team" on the Users list.
+ *
+ * ── ADDING SOMEONE TAKES TWO ADMINS (Vendor Agreement § 9.1) ────────────────
+ * `is_team_member = TRUE` is an admin role — `isAdminProfile`
+ * (lib/admin/admin-predicate.ts) admits it everywhere. § 9.1: "Promote a user
+ * to any admin role" needs two admins. Until 2026-11-05 this button set the
+ * flag with ONE admin; once the team pool (and `grant_team_pool`, its two-admin
+ * path) was retired that day, the button was the only way in.
+ *
+ * So the two directions are deliberately different:
+ *   ON  → opens a `grant_team_member` approval. Grants NOTHING here; the
+ *         approvals dispatcher sets the flag after a different admin confirms.
+ *   OFF → writes `false` at once, with one admin. Removing access must never
+ *         wait on a quorum.
+ *
+ * `adding-a-team-member-takes-two-admins.test.ts` fails if this function
+ * writes anything but `false` to the flag.
+ */
 export async function toggleTeamMember(formData: FormData) {
   const { adminUserId } = await requireAdmin();
   const targetUserId = formData.get('user_id');
@@ -84,12 +107,16 @@ export async function toggleTeamMember(formData: FormData) {
   if (typeof targetUserId !== 'string' || typeof desiredRaw !== 'string') {
     throw new Error('Invalid input');
   }
-  const desired = desiredRaw === 'true';
 
   const admin = createAdminClient();
 
+  if (desiredRaw === 'true') {
+    await requestTeamMemberGrant(admin, { adminUserId, targetUserId });
+    return;
+  }
+
   // Capture the prior value so the audit row has clean before/after metadata.
-  // Best-effort lookup — if the read fails we still proceed with the toggle.
+  // Best-effort lookup — if the read fails we still proceed with the removal.
   const { data: prior } = await admin
     .from('users')
     .select('is_team_member, email')
@@ -98,7 +125,7 @@ export async function toggleTeamMember(formData: FormData) {
 
   const { error } = await admin
     .from('users')
-    .update({ is_team_member: desired, updated_at: new Date().toISOString() })
+    .update({ is_team_member: false, updated_at: new Date().toISOString() })
     .eq('user_id', targetUserId);
   if (error) throw new Error(error.message);
 
@@ -114,7 +141,7 @@ export async function toggleTeamMember(formData: FormData) {
     metadata: {
       target_email: prior?.email ?? null,
       before: prior?.is_team_member ?? null,
-      after: desired,
+      after: false,
     },
   });
   if (auditErr) {
@@ -122,6 +149,78 @@ export async function toggleTeamMember(formData: FormData) {
   }
 
   revalidatePath('/admin/users');
+  revalidatePath('/admin/accounts');
+}
+
+/**
+ * The ON half of toggleTeamMember: opens the § 9.1 approval and sets nothing.
+ * The flag is written only by the approvals dispatcher (`grant_team_member`
+ * in app/admin/approvals/actions.ts), after a DIFFERENT admin confirms.
+ */
+async function requestTeamMemberGrant(
+  admin: ReturnType<typeof createAdminClient>,
+  { adminUserId, targetUserId }: { adminUserId: string; targetUserId: string },
+): Promise<never> {
+  // Same hardening as requestPrivilegedGrant: nobody asks for their own access.
+  if (targetUserId === adminUserId) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent('You cannot add yourself to the team — ask another admin to start it.')}`,
+    );
+  }
+
+  const { data: target, error: readErr } = await admin
+    .from('users')
+    .select('user_id, email, is_team_member')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (readErr) throw new Error(`Could not read that account: ${readErr.message}`);
+  if (!target) throw new Error('No Setnayan account with that id');
+  if (target.is_team_member) {
+    revalidatePath('/admin/accounts');
+    redirect(`/admin/users?grant_banner=${encodeURIComponent(`${target.email ?? 'That account'} is already on the team.`)}`);
+  }
+
+  // One pending request per person — a second press must not open a second
+  // request that two different admins could each approve.
+  const { data: alreadyPending, error: pendingErr } = await admin
+    .from('admin_approval_requests')
+    .select('approval_id')
+    .eq('action_type', 'grant_team_member')
+    .eq('target_user_id', targetUserId)
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString())
+    .limit(1)
+    .maybeSingle();
+  if (pendingErr) throw new Error(`Could not check for an open request: ${pendingErr.message}`);
+
+  if (!alreadyPending) {
+    const { error: insErr } = await admin.from('admin_approval_requests').insert({
+      action_type: 'grant_team_member',
+      target_user_id: targetUserId,
+      rationale: 'Add to team (Setnayan HQ admin access), from the Users list.',
+      initiated_by: adminUserId,
+    });
+    if (insErr) throw new Error(`Could not open the approval: ${insErr.message}`);
+
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action: 'user_team_member_requested',
+      target_id: targetUserId,
+      actor_user_id: adminUserId,
+      metadata: { target_email: target.email ?? null, status: 'pending_second_admin' },
+    });
+    if (auditErr) {
+      console.error('[toggleTeamMember] request audit insert failed', auditErr.message);
+    }
+  }
+
+  revalidatePath('/admin/approvals');
+  revalidatePath('/admin/accounts');
+  // Said out loud, because "nothing visibly happened" after pressing Add to
+  // team would read as a broken button.
+  const banner =
+    `${target.email ?? 'That account'} is not on the team yet — adding someone makes them an admin, ` +
+    'so a second admin must approve it in Approvals.';
+  redirect(`/admin/users?grant_banner=${encodeURIComponent(banner)}`);
 }
 
 /**

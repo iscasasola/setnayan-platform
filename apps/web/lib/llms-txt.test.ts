@@ -28,7 +28,7 @@ import {
   llmsFeatureRoutes,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
-import { bookingFeeScheduleSummary } from './booking-fee';
+import { BOOKING_FEE, bookingFeeScheduleSummary } from './booking-fee';
 
 import { RETAIL, VENDOR, INPUT_FOR_GUARDS as INPUT } from './llms-txt-guard-input';
 
@@ -96,30 +96,31 @@ test('RETIRED products never appear — the 2026-07-31 drift cases', () => {
   assert.ok(!body.includes('₱1,999'), 'Papic Pool 6k is ₱2,000 now, not ₱1,999');
 });
 
-test('the Setnayan AI ladder renders all four priced tiers, despite B/C/D being inactive', () => {
-  const body = renderLlmsTxt(INPUT);
+test('Setnayan AI is never quoted a price of its own — it comes with Event Plus and Event Pro', () => {
   /*
-    ⚠ THESE FOUR NUMBERS WERE 1499/899/499/99 UNTIL 2026-08-31, AND THEY WERE A
-    WHOLE RUNG BEHIND PRODUCTION — which is 2499/1499/899/199, and which
-    `AI_TIER_FALLBACK_PHP` in setnayan-ai-type-pricing.ts has matched all along.
-    The assertion agreed with the fixture and the fixture agreed with nothing, so
-    it passed for weeks while testing a ladder nobody could buy.
+    ⚖ Owner 2026-11-04 (final price sheet): "Setnayan ai no separate purchase will be part of event plus and event
+    pro". Until that day this test proved the four-rung AI ladder rendered; the ladder is no longer for sale, so the
+    property flips — NO rung may be quoted, and the planner is described inside the two plans instead.
 
-    🔑 IT IS STILL A TYPED LADDER, deliberately: this test's job is to prove the
-    renderer emits ALL FOUR RUNGS rather than flattening to one, so the expected
-    values must be independent of what `aiLadder()` returns. Reading them from
-    the thing under test is how a check stops being one. When the ladder reprices,
-    it changes HERE, in the fixture, and in the catalogue — same PR.
+    🔑 The rung figures are read from the FIXTURE's AI rows (still present, inactive, as price sources), not typed
+    here — so a reprice of a rung cannot leave this check testing a figure nobody would ever render.
   */
-  for (const php of [2499, 1499, 899, 199]) {
-    assert.ok(body.includes(peso(php)), `AI tier price ${peso(php)} missing from llms.txt`);
+  const body = renderLlmsTxt(INPUT);
+  const aiCodes = new Set(['SETNAYAN_AI', 'SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D', 'SETNAYAN_AI_RENEW']);
+  const otherFigures = new Set([
+    ...RETAIL.filter((r) => r.is_active && !aiCodes.has(r.service_code)).map((r) => peso(Number(r.retail_price_php))),
+    ...VENDOR.map((r) => peso(Number(r.price_php))),
+  ]);
+  for (const row of RETAIL.filter((r) => aiCodes.has(r.service_code))) {
+    const fig = peso(Number(row.retail_price_php));
+    if (otherFigures.has(fig)) continue; // the same peso is some live product's price — not evidence either way
+    assert.ok(!figures(body).has(fig), `llms.txt still quotes ${row.service_code} at ${fig}`);
   }
-  // The bug this replaces: filtering on is_active flattened the ladder to one rung.
-  const ladder = aiLadder(buildPriceBook(INPUT));
-  assert.deepEqual(
-    ladder.map((t) => t.php),
-    [2499, 1499, 899, 199],
-  );
+  assert.ok(!/priced by event type/i.test(body), 'llms.txt still sells Setnayan AI by event type');
+  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Plus and Event Pro/);
+  assert.ok(body.includes(peso(Number(RETAIL.find((r) => r.service_code === 'EVENT_PLUS')!.retail_price_php))), 'Event Plus is not priced');
+  // The ladder primitive still resolves (other callers price from it); it is simply not rendered here.
+  assert.equal(aiLadder(buildPriceBook(INPUT)).length, 4);
 });
 
 test('every linked route is in the audit KNOWN_PUBLIC_ROUTES set', () => {
@@ -202,13 +203,22 @@ test('the retired subdomain is gone from the rendered file', () => {
   );
 });
 
-test('the monogram no longer promises the LED background', () => {
+test('the monogram no longer promises the LED background — and is no longer sold on its own', () => {
   const out = renderLlmsTxt(INPUT);
+  // The standalone Animated Monogram was retired from sale on 2026-10-22 (#6781, migration
+  // 20271283592608): the animation is Event Hub PRO's Logo & QR part. Its last mention — the
+  // /palogo link label — read as a product a model would recommend buying (live check 2026-10-23).
+  // SABOTAGE: put "[Animated Monogram](…/palogo)" back in lib/llms-txt.ts → RED.
   assert.ok(
-    /Animated Monogram/.test(out),
-    'The Animated Monogram is still on sale and must still be listed — only its ' +
-      'LED claim was removed.',
+    !/Animated Monogram/.test(out),
+    'llms.txt still names the Animated Monogram, which is no longer sold — the animation is ' +
+      "Event Hub PRO's Logo & QR part. Name /palogo \"Logo Maker\".",
   );
+  assert.match(out, /\[Logo Maker\]\([^)]*\/palogo\)/, 'the /palogo link must name the product the page sells');
+  // 2026-10-26 (owner, "just have the upgrade event hub pro"): the Logo & QR part is off sale too — the animation's
+  // home is Event Hub PRO itself, named on the Monogram Maker's own line.
+  assert.match(out, /\*\*Monogram Maker\*\* — free\.[^\n]*Event Pro animates it/, "the animation's real home (Event Pro) must still be named");
+  assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Hub PRO part by part');
   assert.ok(
     !/includes the LED Live Background/i.test(out),
     'llms.txt still claims the monogram includes the LED Live Background. The LED ' +
@@ -232,14 +242,15 @@ test('advertising a SKU that is off sale REFUSES to render', () => {
   const retired = {
     ...INPUT,
     retail: INPUT.retail.map((r) =>
-      r.service_code === 'ANIMATED_MONOGRAM' ? { ...r, is_active: false } : r,
+      // 2026-10-22: ANIMATED_MONOGRAM was retired (the Logo & QR part sells it) — PAKANTA is prose-priced and on sale.
+      r.service_code === 'PAKANTA' ? { ...r, is_active: false } : r,
     ),
   };
   assert.throws(
     () => renderLlmsTxt(retired),
     (err: unknown) => {
       assert.ok(err instanceof RetiredSkuError, `expected RetiredSkuError, got ${err}`);
-      assert.match((err as Error).message, /ANIMATED_MONOGRAM/);
+      assert.match((err as Error).message, /PAKANTA/);
       return true;
     },
     'A SKU named in the prose was taken off sale and llms.txt rendered anyway — ' +
@@ -288,8 +299,16 @@ function supplierSection(body: string): string {
 // SABOTAGE: drop `${supplierFee}` from the tier-table paragraph or the
 // List-Your-Business line → RED.
 test('with the fee on, every supplier-facing "0% commission" is followed by the fee', () => {
-  const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
-  const schedule = bookingFeeScheduleSummary();
+  // ⚖ THE LIVE RATE, NOT THE CODE DEFAULT (audit 2026-10-12, item 5): the route
+  // hands in the schedule it read from `platform_settings`. An owner-edited
+  // schedule is used here so a file quoting the code default would fail.
+  const live = { ...BOOKING_FEE, rate: 0.04 };
+  const body = withFeeFlag('true', () => renderLlmsTxt({ ...INPUT, bookingFee: live }));
+  const schedule = bookingFeeScheduleSummary(live);
+  assert.ok(
+    !body.includes(bookingFeeScheduleSummary(BOOKING_FEE)),
+    'llms.txt printed the CODE DEFAULT rate beside the live one',
+  );
   assert.ok(
     supplierSection(body).includes(schedule),
     'the vendor tier section says 0% commission and never states the booking fee',

@@ -68,7 +68,7 @@ export function CreateClusterForm({
       */}
       {linkableMeasured && !hasLinkable ? (
         <p className="mt-3 text-sm text-ink-soft">
-          Every celebration you host is already in a group, so a new one would start empty.
+          Every event you host is already in a group, so a new one would start empty.
         </p>
       ) : null}
     </section>

@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { VendorCardTitle } from './vendor-card-title';
 import Image from 'next/image';
-import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
+import { Pencil, Trash2, BadgeCheck, Users, LayoutGrid } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { displayServiceLabel } from '@/lib/vendors';
+import { displayServiceLabel, VENDOR_CATEGORIES } from '@/lib/vendors';
+import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
   isShopLive,
@@ -262,6 +263,9 @@ export async function VendorsSurface({
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
+  // 🎁 The personal invite's plan dropdown reads the catalogue's prices (owner 2026-10-23) — never a typed number.
+  const invitePrices = await readPersonalInvitePlanPrices();
+  const inviteCategories = VENDOR_CATEGORIES.map((key) => ({ key, label: displayServiceLabel(key) }));
 
   return (
     <div>
@@ -269,7 +273,7 @@ export async function VendorsSurface({
         title="Suppliers"
       />
 
-      <InviteVendorForm />
+      <InviteVendorForm prices={invitePrices} categories={inviteCategories} />
 
       {/* New vendor requests — couples' manual-adds awaiting a vendor claim
           (owner 2026-06-09). Each is a couple-source pending invite minted by
@@ -603,6 +607,15 @@ export async function VendorsSurface({
               <p className="mt-auto font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
                 {v.public_id}
               </p>
+
+              {/* Every shop's service cards — take down a card or a photo (7 Nov registration). */}
+              <Link
+                href={`/admin/vendors/${v.vendor_profile_id}#cards`}
+                className="inline-flex min-h-[44px] w-fit items-center gap-1 text-[11px] font-medium text-ink underline underline-offset-2"
+              >
+                <LayoutGrid className="h-3 w-3" strokeWidth={2} aria-hidden />
+                Service cards
+              </Link>
 
               {/* Plan link · admin sets the vendor's subscription tier. Was
                   "Grant tokens" until the token currency was retired

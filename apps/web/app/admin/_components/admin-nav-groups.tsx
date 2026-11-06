@@ -49,6 +49,7 @@ import {
   MapPin,
   MessageSquareWarning,
   Music,
+  Music4,
   Network,
   Newspaper,
   Palette,
@@ -80,6 +81,7 @@ import {
   Wallet,
   WifiOff,
   FileWarning,
+  Footprints,
 } from 'lucide-react';
 
 import type { NavGroup } from '@/app/_components/nav/types';
@@ -439,6 +441,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/website-media',
       },
       {
+        // Event Hub music — "Our music": the tracks an admin uploads and a
+        // couple picks in Look › Music (owner 2026-10-08). Beside the other two
+        // upload tools; its files show up in Website media like theirs.
+        key: 'hub-music',
+        label: 'Event Hub music',
+        href: '/admin/hub-music',
+        icon: Music4,
+        matchPrefix: '/admin/hub-music',
+      },
+      {
         // Repointed to the Studio Studio Reveal Studio tab (slice 1).
         // matchPrefix keeps this item lit on the legacy /admin/reveal-studio
         // path (redirects in). NB /admin/studio and /admin/reveal-studio are
@@ -502,17 +514,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/studio?tab=moodboard-library',
         icon: Palette,
         matchPrefix: '/admin/moodboard-library',
-      },
-      {
-        // MB8 — every Mood Board render on the platform, consented or not.
-        // 🔒 Deliberately NOT filtered by consent: this feed is how Setnayan
-        // compiles its own content database (owner lock 2026-06-09). Consent
-        // gates whether a creation may be FEATURED, which is refused at the
-        // write, not hidden at the read.
-        key: 'moodboard-renders',
-        label: 'All creations',
-        href: '/admin/moodboard-renders',
-        icon: Images,
       },
       {
         // Repointed to the Studio Studio Social queue tab (slice 4 · final).
@@ -762,6 +763,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/app-performance',
       },
       {
+        // Visits — site traffic counted in our own database, no cookies
+        // (owner 2026-10-22: "in our own admin, not Vercel").
+        key: 'visits',
+        label: 'Visits',
+        href: '/admin/app-performance?tab=visits',
+        icon: Footprints,
+        matchPrefix: '/admin/app-performance?tab=visits',
+      },
+      {
         key: 'growth',
         label: 'Growth',
         href: '/admin/app-performance?tab=growth',
@@ -863,6 +873,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/booking-fees',
         icon: Receipt,
         matchPrefix: '/admin/booking-fees',
+      },
+      {
+        // The launch offer (owner 2026-10-08: "ONE admin page") — the first
+        // N fee-free bookings, free Pro's end date, the Papic credits, and the
+        // free-fee window. Beside "Fees owed" because it decides who owes.
+        key: 'launch-offer',
+        label: 'Launch offer',
+        href: '/admin/launch-offer',
+        icon: Gift,
+        matchPrefix: '/admin/launch-offer',
       },
       {
         // Money queue — vendor payout release (was in Money group).

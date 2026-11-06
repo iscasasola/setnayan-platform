@@ -22,6 +22,7 @@ import { REVEAL_STAGE_CHOICES, revealOnlyOnTheFirstPage, revealStagesWith, type 
 import { revealEffectsWithExtra, revealExtraOf, revealExtrasFor } from './reveal-extras';
 import type { RevealEffects } from './std-reveal-effects';
 import { MAKER_STAGE_PAGES } from './maker-parts';
+import { revealCoverPickPatch, revealCoverPicked } from './reveal-none';
 
 const WEB = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
@@ -47,11 +48,21 @@ test('Hidden / Shown on one stage moves that stage only — every starting choic
 
 test('the Reveal part writes ITS stage, through the one helper, to the draft', () => {
   const src = read('app/dashboard/[eventId]/launch/_components/maker-reveal.tsx');
-  const part = src.slice(src.indexOf('if (onStage) {'), src.indexOf("if (part === 'options')"));
+  /* 🎭 2026-10-16/17 (owner-approved prototype `cover_scene_edit_animate_2026-10-16.html`: "Per-stage Shown | Hidden
+     becomes picking None on that stage's Cover Scene"): the part's cards write THIS stage through one helper —
+     None takes this stage out, an opening puts it in; the three switches are not drawn any more. */
+  const part = src.slice(src.indexOf('function RevealStagePart('), src.indexOf('</section>', src.indexOf('function RevealStagePart(')));
   assert.ok(part.length > 200, 'the Reveal part is drawn');
-  assert.match(part, /setStages\(revealStagesWith\(stages, onStage, true\)\)/, 'Shown writes this stage only');
-  assert.match(part, /setStages\(revealStagesWith\(stages, onStage, false\)\)/, 'Hidden writes this stage only');
+  assert.match(part, /savePick\(revealCoverPickPatch\(id, now, onStage\)\)/, 'a card writes something other than this stage');
+  assert.match(part, /const picked = revealCoverPicked\(now, onStage\);/, 'the card picked is not what plays on this stage');
   assert.doesNotMatch(part, /REVEAL_STAGE_CHOICES/, 'the part never lists every stage itself');
+  assert.deepEqual(revealCoverPickPatch('none', { effective: 'veil-sheer', stages: ['save_the_date', 'rsvp'] }, 'rsvp'), { reveal_stages: ['save_the_date'] }, 'None took more than this stage out');
+  assert.deepEqual(revealCoverPickPatch('veil-sheer', { effective: 'veil-sheer', stages: ['save_the_date'] }, 'rsvp'), { reveal_stages: ['save_the_date', 'rsvp'] });
+  assert.equal(revealCoverPickPatch('veil-sheer', { effective: 'veil-sheer', stages: ['rsvp'] }, 'rsvp'), null, 'a pick of what already plays wrote');
+  assert.equal(revealCoverPickPatch('none', { effective: 'veil-sheer', stages: ['event'] }, 'rsvp'), null);
+  assert.deepEqual(revealCoverPickPatch('four-flap', { effective: 'none', stages: ['rsvp'] }, 'rsvp'), { std_reveal_template: 'four-flap', reveal_stages: ['rsvp'] });
+  assert.equal(revealCoverPicked({ effective: 'veil-sheer', stages: ['event'] }, 'rsvp'), 'none');
+  assert.equal(revealCoverPicked({ effective: 'veil-sheer', stages: ['rsvp'] }, 'rsvp'), 'veil-sheer');
   /* …and the stages save is the draft door (`hubDraftAction` intent=save, `events.reveal_stages`). */
   const save = src.slice(src.indexOf('const setStages ='), src.indexOf('const setEffects ='));
   assert.match(save, /fd\.set\('intent', 'save'\)/);
@@ -59,14 +70,16 @@ test('the Reveal part writes ITS stage, through the one helper, to the draft', (
   assert.match(save, /hubDraftAction\(eventId, fd\)/);
 });
 
-test('the Reveal is the FIRST part of Save the Date, Invitation › Welcome and The Day › Live — nowhere else', () => {
-  assert.equal(MAKER_STAGE_PAGES.save_the_date.home![0], 'reveal');
-  assert.equal(MAKER_STAGE_PAGES.rsvp.home![0], 'reveal');
-  assert.equal(MAKER_STAGE_PAGES.event.live![0], 'reveal');
+test('the opening is the Cover Scene’s — on Save the Date, Invitation › Welcome and The Day › Live; no Reveal tile anywhere', () => {
+  /* 🎭 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN … STYLE (OPENING)"): the Reveal's tile is gone; the opening is
+     Cover Scene › Style on exactly the pages it played over. */
+  for (const parts of [MAKER_STAGE_PAGES.save_the_date.home!, MAKER_STAGE_PAGES.rsvp.home!, MAKER_STAGE_PAGES.event.live!]) {
+    assert.ok(parts.includes('coverscene'), 'a page the opening plays over has no Cover Scene');
+  }
   const elsewhere = Object.entries(MAKER_STAGE_PAGES).flatMap(([st, pages]) =>
     Object.entries(pages).flatMap(([pg, parts]) => (parts.includes('reveal') ? [`${st}:${pg}`] : [])),
   );
-  assert.deepEqual(elsewhere.sort(), ['event:live', 'rsvp:home', 'save_the_date:home']);
+  assert.deepEqual(elsewhere, [], 'the Reveal’s tile is back on a page');
 });
 
 test('it plays once over the cover: off the Save the Date, the first page only', () => {

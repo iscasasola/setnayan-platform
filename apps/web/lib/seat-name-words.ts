@@ -13,8 +13,10 @@
 export const SEAT_NAME_DID_NOT_SAVE = 'Their name did not save — try again.';
 export const SEAT_NAME_MISSING = 'Type their first or last name, then Save name.';
 export const SEAT_NAME_OFFLINE = 'Their name did not save — check your connection and try again.';
+/** A name sent without its "They're coming" tick (owner 2026-10-25) — refused, never saved. */
+export const SEAT_NAME_NOT_TICKED = 'Tick “They’re coming” under their name, then save again.';
 
-const KNOWN: readonly string[] = [SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING];
+const KNOWN: readonly string[] = [SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING, SEAT_NAME_NOT_TICKED];
 
 /** What the boxes say for a failed save — the real reason, never a guess. */
 export function seatNameFailure(err: unknown): string {

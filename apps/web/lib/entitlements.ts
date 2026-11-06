@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { cache } from 'react';
 
 import { eventBasketOrdersGranting } from '@/lib/onboarding-order-items';
 import {
@@ -8,6 +7,9 @@ import {
   promoFreeSkusForCouples,
 } from '@/lib/promo-free-windows';
 import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
+import { askedOnce, insideRender, isServiceRoleClient } from '@/lib/request-once';
+import { eventRowOnce } from '@/lib/event-row-once';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 
 /**
  * The event's own event_date, fetched ONLY to resolve a date-filtered couple
@@ -20,22 +22,28 @@ import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
  * read elsewhere via ordinary/public clients too (e.g. lib/chat.ts joins
  * `event:events(display_name, event_date, public_id)`), so an admin OR a
  * user-scoped client passed into eventOwnsSku/eventSkuActive/eventActiveSkus
- * can read it. cache()d per (supabase, eventId) — in practice per eventId
- * within one request, since these call sites share one client per request.
+ * can read it. Asked once per render per (authority, eventId) —
+ * `lib/request-once.ts`; it used to be memoized on the client OBJECT, which
+ * two service-role clients never share.
  */
-const fetchEventDateForPromo = cache(async (
+function fetchEventDateForPromo(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<string | null> => {
-  const { data, error } = await supabase
-    .from('events')
-    .select('event_date')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (error) console.error('[supabase-error] lib/entitlements.ts · from:events.select', error);
-  if (error || !data) return null;
-  return (data as { event_date: string | null }).event_date ?? null;
-});
+): Promise<string | null> {
+  return askedOnce(supabase, 'event-date-for-promo', [eventId], async () => {
+    // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+    const { data, error } = await eventRowOnce(supabase, eventId, 'event_date', () =>
+      supabase
+        .from('events')
+        .select('event_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
+    if (error) console.error('[supabase-error] lib/entitlements.ts · from:events.select', error);
+    if (error || !data) return null;
+    return (data as { event_date: string | null }).event_date ?? null;
+  });
+}
 
 /**
  * apps/web/lib/entitlements.ts
@@ -103,6 +111,15 @@ export async function eventHasCompGrant(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  if (insideRender()) return compGrantInRender(supabase, eventId, serviceKey);
+  return readCompGrant(supabase, eventId, serviceKey);
+}
+
+async function readCompGrant(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
   const { data, error } = await supabase.rpc('event_has_comp_for_sku', {
     p_event_id: eventId,
     p_service_key: serviceKey,
@@ -136,6 +153,13 @@ export async function eventHostIsInternal(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
+  return askedOnce(supabase, 'host-is-internal', [eventId], async () => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    return facts ? facts.hostInternal : readHostIsInternal(supabase, eventId);
+  });
+}
+
+async function readHostIsInternal(supabase: SupabaseClient, eventId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('event_host_is_internal', {
     p_event_id: eventId,
   });
@@ -164,6 +188,13 @@ export async function eventHostHoldsFounderSeat(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
+  return askedOnce(supabase, 'host-holds-founder-seat', [eventId], async () => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    return facts ? facts.founderSeat : readHostHoldsFounderSeat(supabase, eventId);
+  });
+}
+
+async function readHostHoldsFounderSeat(supabase: SupabaseClient, eventId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('event_host_holds_founder_seat', {
     p_event_id: eventId,
   });
@@ -181,15 +212,29 @@ export async function eventCompActiveSkus(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<string[]> {
+  return (await compSkusOnce(supabase, eventId)).skus;
+}
+
+/** `answered` is false when the read was refused — then `skus` says nothing either way. */
+type CompSkusRead = { answered: boolean; skus: string[] };
+
+function compSkusOnce(supabase: SupabaseClient, eventId: string): Promise<CompSkusRead> {
+  return askedOnce(supabase, 'comp-active-skus', [eventId], async () => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    return facts ? { answered: true, skus: facts.compSkus } : readCompActiveSkus(supabase, eventId);
+  });
+}
+
+async function readCompActiveSkus(supabase: SupabaseClient, eventId: string): Promise<CompSkusRead> {
   const { data, error } = await supabase.rpc('event_comp_active_skus', {
     p_event_id: eventId,
   });
   if (error) {
     console.error('[supabase-error] entitlements: event_comp_active_skus', error);
-    return [];
+    return { answered: false, skus: [] };
   }
-  if (!Array.isArray(data)) return [];
-  return data.filter((s): s is string => typeof s === 'string');
+  if (!Array.isArray(data)) return { answered: false, skus: [] };
+  return { answered: true, skus: data.filter((s): s is string => typeof s === 'string') };
 }
 
 /**
@@ -303,7 +348,12 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // siblings: buying the animation does NOT confer Event Hub Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
-    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']),
+    // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the
+    // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
+    // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the
+    // part's buyers own the animation (the line above). Read side only: past AND pending orders, no backfill.
+    COUPLE_HUB_PART_LOGO_QR: Object.freeze(['ANIMATED_MONOGRAM']),
     // LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE (owner 2026-08-11, "remove
     // wall backdrop"). It was the line that made a ₱1,000 monogram purchase
     // unlock an LED maker whose output nothing could produce. The whole
@@ -326,6 +376,9 @@ export async function checkOrderOwnership(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  if (insideRender()) {
+    return hasOrder(await eventOrdersForGate(supabase, eventId, serviceKey, 'ownership'), serviceKey, confersOwnership);
+  }
   const { data, error } = await supabase
     .from('orders')
     .select('status')
@@ -362,6 +415,9 @@ export async function checkOrderActive(
   eventId: string,
   serviceKey: string,
 ): Promise<boolean> {
+  if (insideRender()) {
+    return hasOrder(await eventOrdersForGate(supabase, eventId, serviceKey, 'active entitlement'), serviceKey, confersAccess);
+  }
   const { data, error } = await supabase
     .from('orders')
     .select('status')
@@ -566,24 +622,39 @@ export function childrenOfBundle(
 export async function fetchBundleComponents(
   supabase: SupabaseClient,
 ): Promise<BundleComposition> {
-  const { data, error } = await supabase
-    .from('bundle_components')
-    .select('bundle_sku_code, component_service_code');
-  if (error) console.error('[supabase-error] lib/entitlements.ts · from:bundle_components.select', error);
+  return askedOnce(supabase, 'bundle-components', [], () => readBundleComponents(supabase));
+}
 
-  if (error) {
-    console.error(
-      '[supabase-error] lib/entitlements.ts · from:bundle_components.select',
-      error,
-    );
+async function readBundleComponents(supabase: SupabaseClient): Promise<BundleComposition> {
+  // 🧊 Remembered across requests (`lib/global-settings-cache.ts`): the table is
+  // public-read and the same for every reader, and a guest visit used to ask it
+  // three or four times. A refused read throws inside, so it is never remembered —
+  // and lands on the same const fallback as before, for this page only.
+  let rows: Array<{ bundle_sku_code: string | null; component_service_code: string | null }>;
+  try {
+    rows = await rememberedGlobalRead('bundle_components-v1', GLOBAL_SETTINGS_TAGS.bundleComponents, async () => {
+      const { data, error } = await supabase
+        .from('bundle_components')
+        .select('bundle_sku_code, component_service_code');
+      if (error) {
+        console.error(
+          '[supabase-error] lib/entitlements.ts · from:bundle_components.select',
+          error,
+        );
+        throw error;
+      }
+      return (data ?? []) as Array<{ bundle_sku_code: string | null; component_service_code: string | null }>;
+    });
+  } catch {
+    // Pre-migration / drift / any error → const fallback. Never throw at a gate.
+    return BUNDLE_CHILD_SKUS;
   }
-  // Pre-migration / drift / any error → const fallback. Never throw at a gate.
-  if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;
+  if (rows.length === 0) return BUNDLE_CHILD_SKUS;
 
   const out: Record<string, string[]> = {};
-  for (const row of data) {
-    const bundle = row.bundle_sku_code as string | null;
-    const child = row.component_service_code as string | null;
+  for (const row of rows) {
+    const bundle = row.bundle_sku_code;
+    const child = row.component_service_code;
     if (!bundle || !child) continue;
     (out[bundle] ??= []).push(child);
   }
@@ -731,8 +802,9 @@ async function basketGrantsSku(
  *
  * ⛔ THE SHOT LADDER IS NOT IN THIS SET AND MUST NOT JOIN IT. Papic FEATURES are
  * free; Papic SHOTS are the product — 50 free, then ₱50 / ₱1,000 / ₱3,000 /
- * ₱5,000, owner-locked. Same for PAPIC_ADDON_THANK_YOU: the produced video is
- * the thing that gets monetised.
+ * ₱5,000, owner-locked. (PAPIC_ADDON_THANK_YOU was named here as "the produced
+ * video is the thing that gets monetised" — the owner made it free on 2026-10-26;
+ * see its entry below.)
  */
 export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   // SEATING_3D — the 3D Plan — FREE for couples (owner 2026-09-05). Measured
@@ -770,7 +842,17 @@ export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   // lands its own gate for the pass, delete this entry with it — a free entry
   // for a SKU nothing reads is the "free and retired are opposite products"
   // trap kwento-is-free.test.ts describes.
-  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D', 'CUSTOM_QR_GUEST']),
+  //
+  // PAPIC_ADDON_THANK_YOU — the Thank-You Video — FREE for every event, web and
+  // app (owner 2026-10-26: *"let us remove thank you from the inapp purchase"* →
+  // *"make it free for now"*). Measured before: zero orders and zero order lines,
+  // ever. The two halves of the LIVE_WALL precedent travel together: this entry
+  // switches it ON for everyone, and migration `_thank_you_video_is_free`
+  // deactivates the row ONLY so nothing quotes a price (`retail_price_php` kept,
+  // so a reversal has its figure). Its App Store product is retired, never offered
+  // (lib/iap/products.ts `RETIRED_IAP_PRODUCT_IDS`). "For now" is the owner's —
+  // putting a price back is one line here plus re-activating the row.
+  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D', 'CUSTOM_QR_GUEST', 'PAPIC_ADDON_THANK_YOU']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(
@@ -780,6 +862,7 @@ export async function eventOwnsSku(
 ): Promise<boolean> {
   // 0. Free for everyone — an owner pricing decision. No order to find.
   if (FREE_FOR_ALL_SKUS.has(serviceKey)) return true;
+  if (insideRender()) return ownsSkuInRender(supabase, eventId, serviceKey);
 
   // 1. Direct order for the SKU (covers à-la-carte purchase AND a bundle code
   //    passed directly).
@@ -848,6 +931,7 @@ export async function eventSkuActive(
   // Free for everyone — see FREE_FOR_ALL_SKUS. Checked before the order read so
   // a free feature never depends on a payment that will never exist.
   if (FREE_FOR_ALL_SKUS.has(serviceKey)) return true;
+  if (insideRender()) return skuActiveInRender(supabase, eventId, serviceKey);
 
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
   // Composition DB-first from bundle_components (const fallback pre-migration).
@@ -954,11 +1038,13 @@ export async function eventActiveSkus(
   // fetched once for the whole batch.
   const composition = await fetchBundleComponents(supabase);
 
-  const { data, error } = await supabase
-    .from('orders')
-    .select('service_key, status')
-    .eq('event_id', eventId)
-    .in('status', ['paid', 'fulfilled', 'submitted', 'awaiting_payment']);
+  const { data, error } = insideRender()
+    ? await eventOrdersOnce(supabase, eventId).then((read) => ({ data: read.rows, error: read.error }))
+    : await supabase
+        .from('orders')
+        .select('service_key, status')
+        .eq('event_id', eventId)
+        .in('status', ['paid', 'fulfilled', 'submitted', 'awaiting_payment']);
 
   const childrenOf = (key: string): ReadonlyArray<string> =>
     childrenOfBundle(composition, key);
@@ -1014,4 +1100,427 @@ export async function eventActiveSkus(
   }
 
   return { active, pending };
+}
+
+// ===========================================================================
+// IN A RENDER — THE SAME ANSWERS, EACH QUESTION ASKED ONCE.
+// ===========================================================================
+//
+// 🧯 WHY (production incident, 2026-10-08 — lib/request-once.ts tells it in
+// full). "Does this event hold X?" was answered by walking, PER PRODUCT:
+//
+//     orders (the SKU) → orders (each bundle that grants it) → basket RPC →
+//     comp RPC → internal-host RPC → founder-seat RPC
+//
+// and one Maker open asks it for five or six products on the Maker page and
+// again on every guest page it frames. For the owner's own event — hosted by
+// an internal account, with nothing bought — every product walked the whole
+// chain to its last step. PostgREST ran out of connections answering the same
+// handful of facts a few hundred times.
+//
+// The facts behind every product's answer are PER EVENT, not per product:
+//
+//     · the event's order rows          — ONE read, every SKU and bundle
+//                                         answered from it in memory;
+//     · which SKUs a comp grant covers  — ONE RPC (`event_comp_active_skus`,
+//                                         the batch companion that already
+//                                         existed for the Studio grid);
+//     · internal host · founder seat    — ONE RPC each;
+//     · bundle composition              — ONE read.
+//
+// So in a render the chain below asks each of those once, whatever the number
+// of products. The ORDER of the chain is unchanged, and so is every answer.
+//
+// ⛔ OUTSIDE A RENDER NOTHING HERE RUNS. A server action, a route handler and
+// a job keep the per-product queries above, byte for byte — there an absence
+// DENIES, and nothing about a gate on a write was worth changing in an
+// incident fix. `insideRender()` is the one switch, and
+// `lib/entitlements-ask-once.test.ts` holds the two paths to the same answers.
+
+type OrderRow = { service_key: string | null; status: string | null };
+type EventOrdersRead =
+  | { rows: OrderRow[]; error: null }
+  | { rows: null; error: { code?: string; message: string } };
+
+/** Every order row of ONE event — read once per render, per authority. */
+function eventOrdersOnce(supabase: SupabaseClient, eventId: string): Promise<EventOrdersRead> {
+  return askedOnce(supabase, 'orders-of-event', [eventId], async (): Promise<EventOrdersRead> => {
+    const facts = await entitlementFactsOnce(supabase, eventId);
+    if (facts) return { rows: facts.orders, error: null };
+    const { data, error } = await supabase
+      .from('orders')
+      .select('service_key, status')
+      .eq('event_id', eventId);
+    if (error) return { rows: null, error: { code: error.code, message: error.message } };
+    return { rows: (data ?? []) as OrderRow[], error: null };
+  });
+}
+
+/**
+ * The event's order rows for a gate, under the SAME failure contract as the
+ * per-product queries: an undefined table or column reads as "no orders" (the
+ * pre-bootstrap default), any other error throws with the same words.
+ */
+async function eventOrdersForGate(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+  what: 'ownership' | 'active entitlement',
+): Promise<OrderRow[]> {
+  const read = await eventOrdersOnce(supabase, eventId);
+  if (read.error) {
+    if (read.error.code === '42P01' || read.error.code === '42703') return [];
+    throw new Error(`Failed to resolve ${what} for ${serviceKey}: ${read.error.message}`);
+  }
+  return read.rows;
+}
+
+/**
+ * 💎 THE EVENT'S ORDER ROWS, for the Event Hub Pro cap (`lib/hub-parts.ts`
+ * `hubOwnershipFrom`) — the cap is a SUM over paid part orders, so it needs the
+ * rows, not a yes/no per product.
+ *
+ * In a render it is the SAME one read every gate already shares
+ * (`eventOrdersOnce`), so the cap costs no extra request there; outside a render
+ * it asks only for the codes it was given. Fails CLOSED: an unreadable table
+ * reads as no orders — the cap then cannot be reached by error.
+ */
+export async function eventOrderRowsFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKeys: readonly string[],
+): Promise<ReadonlyArray<{ service_key: string; status: string }>> {
+  const keep = (rows: ReadonlyArray<OrderRow>) =>
+    rows.flatMap((r) =>
+      r.service_key !== null && r.status !== null && serviceKeys.includes(r.service_key)
+        ? [{ service_key: r.service_key, status: r.status }]
+        : [],
+    );
+  if (insideRender()) {
+    const read = await eventOrdersOnce(supabase, eventId);
+    return read.error ? [] : keep(read.rows);
+  }
+  const { data, error } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .in('service_key', [...serviceKeys]);
+  if (error) {
+    console.error('[supabase-error] entitlements: eventOrderRowsFor', error);
+    return [];
+  }
+  return keep((data ?? []) as OrderRow[]);
+}
+
+/**
+ * 💎 Every line that buys one of `codes` on this event — its own order (`service_key`) AND a line inside a
+ * multi-product bill (`onboarding_order_items`, e.g. several Event Hub Pro parts bought in one press), each with its
+ * order's status. In a render it is the entitlement facts every gate already shares (orders + basket lines, one RPC);
+ * outside it, the orders read plus the basket RPC per code. Fails CLOSED to "no lines".
+ */
+export async function eventSkuLinesFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  codes: readonly string[],
+  /** The bill code whose lines can carry `codes` — outside a render the basket is asked only when such a bill exists. */
+  billKey?: string,
+): Promise<ReadonlyArray<{ service_key: string; status: string }>> {
+  const rows = await eventOrderRowsFor(supabase, eventId, billKey ? [...codes, billKey] : codes);
+  const direct = rows.filter((r) => r.service_key !== billKey);
+  const facts = insideRender() ? await entitlementFactsOnce(supabase, eventId) : null;
+  if (facts) {
+    return [
+      ...direct,
+      ...facts.basket.filter((b) => codes.includes(b.serviceCode)).map((b) => ({ service_key: b.serviceCode, status: b.status })),
+    ];
+  }
+  if (billKey && direct.length === rows.length) return direct;
+  const basket = await Promise.all(
+    codes.map(async (code) =>
+      (await eventBasketOrdersGranting(supabase, eventId, code)).map((r) => ({ service_key: code, status: r.status })),
+    ),
+  );
+  return [...direct, ...basket.flat()];
+}
+
+/** Does this status confer ACCESS (admin-approved) — the feature-gate rule? */
+export function orderStatusConfersAccess(status: string | null): boolean {
+  return confersAccess(status);
+}
+
+/** Does this status confer OWNERSHIP (anything not relinquished) — the buy-surface rule? */
+export function orderStatusConfersOwnership(status: string | null): boolean {
+  return confersOwnership(status);
+}
+
+/**
+ * The two liveness rules, written the way the queries filter. A NULL status is
+ * excluded by both — `NOT IN (…)` is not true of NULL in SQL, so the ownership
+ * query never returned such a row either.
+ */
+const confersOwnership = (status: string | null): boolean =>
+  status !== null && !RELINQUISHED_STATUSES.has(status);
+const confersAccess = (status: string | null): boolean =>
+  status !== null && ACTIVE_STATUSES.has(status);
+
+/** Is there an order for `serviceKey` (or a purchase key that confers it) in a status that counts? */
+function hasOrder(
+  rows: ReadonlyArray<OrderRow>,
+  serviceKey: string,
+  counts: (status: string | null) => boolean,
+): boolean {
+  const keys = ownershipKeysFor(serviceKey);
+  return rows.some((row) => row.service_key !== null && keys.includes(row.service_key) && counts(row.status));
+}
+
+/**
+ * The comp gate, in a render: the batch answer first, the per-product RPC only
+ * when the batch cannot settle it.
+ *
+ *   · the product is in the list            → comped. (The list is never wider
+ *     than the truth: it is the grant's own codes, or — for an all-services
+ *     grant — the catalogue.)
+ *   · the list is EMPTY                     → not comped: the host holds no
+ *     live grant. This is every ordinary couple, and it is what saves a comp
+ *     RPC per product.
+ *   · the list has codes and not this one   → ASK. An all-services grant
+ *     covers a key the catalogue does not list (a bundle code, a purchase
+ *     key), and only the per-product function knows.
+ *   · the batch read was refused            → ASK, exactly as before.
+ *
+ * ⚠ The one case this reads differently from the per-product RPC: an
+ * all-services grant while `platform_retail_catalog_v2` holds ZERO rows (the
+ * batch then lists nothing). With no catalogue nothing can be sold or shown,
+ * and the Studio grid has read comps through this same list since 2026-03.
+ */
+async function compGrantInRender(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  const batch = await compSkusOnce(supabase, eventId);
+  if (batch.answered) {
+    if (batch.skus.includes(serviceKey)) return true;
+    if (batch.skus.length === 0) return false;
+  }
+  return askedOnce(supabase, 'comp-for-sku', [eventId, serviceKey], () =>
+    readCompGrant(supabase, eventId, serviceKey),
+  );
+}
+
+/**
+ * The basket gate, in a render. A basket line hangs off an ORDER ROW of this
+ * event (`event_basket_orders_granting` joins `orders` on `event_id`), so an
+ * event with no order rows at all has no basket to ask about.
+ *
+ * 🔒 ONLY A SERVICE-ROLE READ MAY CONCLUDE THAT. A signed-in viewer's own
+ * `orders` read is purchaser-scoped by RLS — a co-host sees none of their
+ * partner's orders — while the RPC answers for the couple. So a session client
+ * always asks.
+ */
+async function basketGrantsSkuInRender(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+  orders: ReadonlyArray<OrderRow>,
+  live: (status: string) => boolean,
+): Promise<boolean> {
+  if (isServiceRoleClient(supabase) && orders.length === 0) return false;
+  // Every basket line of the event came with the facts — no request per product.
+  const facts = await entitlementFactsOnce(supabase, eventId);
+  if (facts) return facts.basket.some((r) => r.serviceCode === serviceKey && live(r.status));
+  const rows = await askedOnce(supabase, 'basket-orders-granting', [eventId, serviceKey], () =>
+    eventBasketOrdersGranting(supabase, eventId, serviceKey),
+  );
+  return rows.some((r) => live(r.status));
+}
+
+/**
+ * ⚡ EVERY PER-EVENT OWNERSHIP FACT IN ONE REQUEST (event-day load L3, 2026-10-18 —
+ * migration 20271275959355 `event_entitlement_facts`).
+ *
+ * A render asked the order rows, the comp list, "is a host internal?", "does a
+ * host hold a founder seat?" — four requests — and, for an event WITH orders,
+ * one `event_basket_orders_granting` per product on top (3–7 on a guest page).
+ * The facts are per EVENT, not per product, so one function answers them all:
+ * the same four questions, word for word (it calls the same three functions and
+ * reads the same order rows), plus every basket line of the event with its
+ * order's status — the per-product RPC's rows for every service code at once.
+ *
+ * 🔒 Asked only by a SERVICE-ROLE client inside a render (`insideRender`): the
+ * function answers the service role alone (the order rows are the couple's
+ * bill), and a session client's orders are purchaser-scoped by RLS — that path
+ * is untouched. Outside a render nothing here runs (an action's gate re-reads
+ * each fact, exactly as before).
+ *
+ * ⛔ NEVER REMEMBERED ACROSS REQUESTS (it is an RPC — `lib/event-shared-reads.ts`
+ * never files one): a comp grant expires by the clock, and no write says so.
+ *
+ * 🔑 ANY FAILURE → null → each fact asked the old way, with its own failure
+ * contract (a missing function before the migration, a refusal, a shape this
+ * does not recognise). The answers are held equal to the per-fact path by
+ * `lib/entitlement-facts-equal-the-per-fact-answers.test.ts`.
+ */
+type BasketLine = { serviceCode: string; status: string };
+type EntitlementFacts = {
+  orders: OrderRow[];
+  compSkus: string[];
+  hostInternal: boolean;
+  founderSeat: boolean;
+  basket: BasketLine[];
+};
+
+function entitlementFactsOnce(supabase: SupabaseClient, eventId: string): Promise<EntitlementFacts | null> {
+  if (!eventId || !isServiceRoleClient(supabase) || !insideRender()) return Promise.resolve(null);
+  return askedOnce(supabase, 'entitlement-facts', [eventId], async () => {
+    try {
+      const { data, error } = await supabase.rpc('event_entitlement_facts', { p_event_id: eventId });
+      if (error) {
+        // Each fact is then asked the old way — the render loses a request, not an answer.
+        console.error('[supabase-error] entitlements: event_entitlement_facts', error);
+        return null;
+      }
+      return entitlementFactsFrom(data);
+    } catch {
+      return null;
+    }
+  });
+}
+
+/** The function's answer, checked part by part — anything unexpected is "no answer". */
+export function entitlementFactsFrom(data: unknown): EntitlementFacts | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const d = data as Record<string, unknown>;
+  if (!Array.isArray(d.orders) || !Array.isArray(d.comp_skus) || !Array.isArray(d.basket)) return null;
+  if (typeof d.host_internal !== 'boolean' || typeof d.founder_seat !== 'boolean') return null;
+  const orders: OrderRow[] = [];
+  for (const o of d.orders) {
+    if (!o || typeof o !== 'object') return null;
+    const r = o as { service_key?: unknown; status?: unknown };
+    orders.push({
+      service_key: typeof r.service_key === 'string' ? r.service_key : null,
+      status: typeof r.status === 'string' ? r.status : null,
+    });
+  }
+  const basket: BasketLine[] = [];
+  for (const b of d.basket) {
+    if (!b || typeof b !== 'object') return null;
+    const r = b as { service_code?: unknown; status?: unknown };
+    if (typeof r.service_code !== 'string') continue;
+    // As `eventBasketOrdersGranting` maps a row: a status that is not text reads as ''.
+    basket.push({ serviceCode: r.service_code, status: typeof r.status === 'string' ? r.status : '' });
+  }
+  return {
+    orders,
+    compSkus: d.comp_skus.filter((s): s is string => typeof s === 'string'),
+    hostInternal: d.host_internal,
+    founderSeat: d.founder_seat,
+    basket,
+  };
+}
+
+/** `eventOwnsSku`, in a render — the same chain in the same order (see its docblock). */
+function ownsSkuInRender(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  return askedOnce(supabase, 'owns-sku', [eventId, serviceKey], async () => {
+    const orders = await eventOrdersForGate(supabase, eventId, serviceKey, 'ownership');
+    if (hasOrder(orders, serviceKey, confersOwnership)) return true;
+
+    const composition = await fetchBundleComponents(supabase);
+    for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
+      if (hasOrder(orders, bundleKey, confersOwnership)) return true;
+    }
+
+    if (
+      await basketGrantsSkuInRender(supabase, eventId, serviceKey, orders, (status) =>
+        !RELINQUISHED_STATUSES.has(status),
+      )
+    ) {
+      return true;
+    }
+
+    if (await compGrantInRender(supabase, eventId, serviceKey)) return true;
+
+    if (isPromoFreeWindowsEnabled()) {
+      const eventDate = await fetchEventDateForPromo(supabase, eventId);
+      if (await isSkuFreeForCouplesNow(serviceKey, eventDate)) return true;
+    }
+
+    return false;
+  });
+}
+
+/** `eventSkuActive`, in a render — the same chain in the same order (see its docblock). */
+function skuActiveInRender(
+  supabase: SupabaseClient,
+  eventId: string,
+  serviceKey: string,
+): Promise<boolean> {
+  return askedOnce(supabase, 'sku-active', [eventId, serviceKey], async () => {
+    // ⚡ EVERY FACT LEAVES IN ONE ROUND TRIP (2026-10-13, guest-load fix).
+    // The facts behind any product's answer are per EVENT, not per product —
+    // its orders, the bundle list, its comp grants, whether its host is internal
+    // or holds a founder seat (and the promo windows) — and each is asked once
+    // per render (`askedOnce`). They do not depend on each other, so they now
+    // all leave together, at the first product's question, instead of in three
+    // waves (orders → promo/comp/internal → founder seat). On the free database,
+    // which stalls for seconds at a time, every wave a render stands in line for
+    // is one more chance to be caught in a stall.
+    //   · the ANSWERS are read in exactly the old order — direct order, bundle,
+    //     basket, promo, comp, internal, founder — so the first "yes" decides as
+    //     before, and a refused read is thrown at the step it always was;
+    //   · the requests are the same for an event that owns nothing or is hosted
+    //     internally (the two cases that walk the whole chain on nearly every
+    //     render), +1 (the founder seat) for an internal host, and at most +4 —
+    //     once per event per render, whatever the number of products — for an
+    //     event whose every asked product is bought outright.
+    // `lib/entitlements-in-render-asks-together.test.ts` holds answer, order and count.
+    const compositionAhead = askedTogether(() => fetchBundleComponents(supabase));
+    const promo = isPromoFreeWindowsEnabled()
+      ? askedTogether(async () =>
+          isSkuFreeForCouplesNow(serviceKey, await fetchEventDateForPromo(supabase, eventId)),
+        )
+      : null;
+    const comp = askedTogether(() => compGrantInRender(supabase, eventId, serviceKey));
+    const internal = askedTogether(() => eventHostIsInternal(supabase, eventId));
+    const founder = askedTogether(() => eventHostHoldsFounderSeat(supabase, eventId));
+
+    const orders = await eventOrdersForGate(supabase, eventId, serviceKey, 'active entitlement');
+    if (hasOrder(orders, serviceKey, confersAccess)) return true;
+
+    const composition = await compositionAhead;
+    for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
+      if (hasOrder(orders, bundleKey, confersAccess)) return true;
+    }
+
+    if (
+      await basketGrantsSkuInRender(supabase, eventId, serviceKey, orders, (status) =>
+        ACTIVE_STATUSES.has(status),
+      )
+    ) {
+      return true;
+    }
+
+    if (promo && (await promo)) return true;
+    if (await comp) return true;
+    if (await internal) return true;
+    if (await founder) return true;
+
+    return false;
+  });
+}
+
+/**
+ * Start a question now, to be awaited later IN ITS PLACE. If an earlier answer
+ * decides first, this one is never awaited — so its refusal must not surface as
+ * an unhandled rejection. The promise handed back still rejects for whoever
+ * does await it.
+ */
+function askedTogether<T>(ask: () => Promise<T>): Promise<T> {
+  const asked = ask();
+  asked.catch(() => undefined);
+  return asked;
 }

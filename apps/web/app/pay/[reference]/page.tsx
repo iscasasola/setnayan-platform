@@ -266,6 +266,19 @@ export default async function PayPage({ params, searchParams }: Props) {
       </div>
     )}
 
+    {/* A sign-up bill whose lines could not be read. Drawing nothing here
+        would tell the payer their bill covers nothing — the 2026-10-13 fault,
+        where every view was refused and the list silently vanished. */}
+    {payable.rowsUnreadable && (
+      <p
+        role="status"
+        className="mt-5 border-t border-ink/10 pt-3 text-sm text-ink/70"
+      >
+        We couldn&rsquo;t load the list of what this covers just now. The total
+        above is still what you owe — refresh the page to see the list.
+      </p>
+    )}
+
     <div className="mt-5 flex items-center gap-3 rounded-lg border border-ink/12 bg-ink/[0.03] px-4 py-3">
       <div>
         {/* ⚠ `block`, NOT the default. `.sn-eye` is `display: inline-flex`
@@ -328,8 +341,8 @@ export default async function PayPage({ params, searchParams }: Props) {
         <p className="mb-4 rounded-[var(--m-r-lg)] border border-terracotta/30 bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
           <span className="font-semibold">Last step.</span>{' '}
           {waiting
-            ? 'Your celebration is set up and live. We just need to confirm this payment.'
-            : 'Your celebration is already set up and its free credits are live. Settle this and the extras you picked switch on too.'}
+            ? 'Your event is set up and live. We just need to confirm this payment.'
+            : 'Your event is already set up and its free credits are live. Settle this and the extras you picked switch on too.'}
         </p>
       ) : (
         payable.back && (
@@ -403,7 +416,7 @@ export default async function PayPage({ params, searchParams }: Props) {
             I don&rsquo;t want these after all — remove them
           </button>
           <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-ink/45">
-            Your celebration and its free credits stay live. You can add these any time
+            Your event and its free credits stay live. You can add these any time
             from your studio — at the normal price, without the set-up discount.
           </p>
         </form>

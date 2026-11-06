@@ -122,6 +122,8 @@ test('a contracted vendor carrying the SAME money does get a card', () => {
 // ── 2 · SHAPE ───────────────────────────────────────────────────────────────
 
 const MONEY_80K_ESTIMATED: EventMoney = {
+  // Every source answered — this fixture is about WHICH pesos count, not about a refused read.
+  reads: { suppliers: 'ok', orders: 'ok', costs: 'ok' },
   targetPhp: 500_000,
   estimated: 80_000,
   committed: 0,

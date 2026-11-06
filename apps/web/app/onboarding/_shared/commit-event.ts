@@ -9,6 +9,8 @@
  * pure `buildGenericEventInsert`). Inert until PR2's `/onboarding/[type]` route
  * calls it.
  */
+import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
@@ -20,19 +22,18 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
+import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
 import { setupArmsPapic } from '@/lib/event-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import {
-  eventTypeAcceptsHonoreeLink,
-  isDependentId,
-  resolveHonoreeDependentId,
+  resolveEventHonoree,
 } from '@/lib/honoree-dependent-link';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 export async function commitOnboardingEvent(
   payload: GenericOnboardingPayload,
@@ -74,16 +75,14 @@ export async function commitOnboardingEvent(
   }
 
   /*
-    The shop account does not plan celebrations (owner 2026-08-15). This is one
-    of the TWO creation paths that live outside `/dashboard` — which is why the
-    old `dashboard/layout.tsx` redirect was never the rule it appeared to be:
-    a shop account could reach this wizard and commit an event through it.
-
-    An anonymous draft can never be a shop account, so the check is only ever
-    meaningful for a real signed-in user; it costs one cheap label read.
+    The one creation gate (lib/vendor-event-creation.ts). This is one of the
+    creation paths that live OUTSIDE `/dashboard`, which is why the rule lives
+    on the doors and not in a layout. Owner 2026-10-22: one account is both — a
+    shop account creates its own events here like any host — so today nobody is
+    refused; the call stays so a future rule has one home.
   */
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return { ok: false, error: 'shop_account' };
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: 'not_allowed' };
   }
 
   // Life-event cardinality (2026-07-17): one IN-PLANNING life event per
@@ -109,25 +108,25 @@ export async function commitOnboardingEvent(
   // ⚠ THE TYPE GATE IS ON THE SERVER, NOT ONLY IN THE WIZARD. Until 2026-08-31
   // this branch ran for ANY type, because the client was the only thing deciding
   // which types collect an honoree — and a server action is reachable by direct
-  // POST. `eventTypeAcceptsHonoreeLink` is the same predicate the create-event
-  // action and the picker read, so a WEDDING (in neither list, and holding its
-  // own guard) cannot name a dependent through this door either.
-  let honoreeDependentId: string | null = null;
-  if (eventTypeAcceptsHonoreeLink(payload.eventType) && isDependentId(payload.honoreeDependentId)) {
-    try {
-      honoreeDependentId = await resolveHonoreeDependentId(createAdminClient(), {
-        userId: user.id,
-        dependentId: payload.honoreeDependentId,
-        honoreeLabel: payload.honoreeLabel,
-      });
-    } catch {
-      honoreeDependentId = null;
-    }
-  }
+  // POST. The type gate lives inside `resolveEventHonoree`, so a WEDDING (which
+  // names nobody, and holds its own guard) cannot name a dependent through this
+  // door either.
+  //
+  // 2026-10-22 (owner "yes"): a SHOP's business alaga is linked on EVERY type the
+  // picker offers for it, not only the named ones — the same `resolveEventHonoree`
+  // the inline create action calls, so the two doors answer identically. The
+  // LABEL is overwritten from it too: on a business-only type it survives only
+  // beside a verified shop, so a person's name never lands on a trip.
+  const { honoreeLabel, honoreeDependentId } = await resolveEventHonoree(createAdminClient, {
+    userId: user.id,
+    eventType: payload.eventType,
+    honoreeLabel: payload.honoreeLabel,
+    dependentId: payload.honoreeDependentId,
+  });
 
   const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
     eventType: payload.eventType,
-    honoreeLabel: payload.honoreeLabel?.trim() || null,
+    honoreeLabel,
     honoreeDependentId,
   });
   if (blockingLifeEvent) {
@@ -146,6 +145,21 @@ export async function commitOnboardingEvent(
     };
   }
 
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): every
+  // date this event is created with — its candidates and its window — on or after it. The
+  // client walks back to the date and says the owner's words beside it.
+  if (
+    eventDatesFloorRefusal(
+      [
+        ...(payload.dateMode === 'window' ? [] : payload.dateCandidates ?? []),
+        ...(payload.dateMode === 'window' ? [payload.windowStart, payload.windowEnd] : []),
+      ],
+      await eventDateFloorExempt(null),
+    )
+  ) {
+    return { ok: false, error: 'event_date_before_first_event' };
+  }
+
   // Resolve the profile for a sensible display-name fallback + to confirm the type
   // is real (degrades to GENERIC_PROFILE on a missing row, which is fine).
   const profile = await resolveProfile(payload.eventType);
@@ -161,9 +175,23 @@ export async function commitOnboardingEvent(
   // engine, and re-read key by key against that type's own view — the theme
   // fence, the reply default and the rows offered come from the profile, never
   // from the wire.
-  const setup = profile.onboardingEngine
+  const sanitizedSetup = profile.onboardingEngine
     ? sanitizeSetupAnswers(payload.setup, setupViewForProfile(profile))
     : null;
+
+  // 🚪 What the event needs (Level 1, owner 2026-10-08). Re-read against the TYPE — the wire is never
+  // trusted — then the answers that already have a home follow it: no guest list = "Will guests
+  // reply? No" + one QR + no guests card; a list = replies on (+ requests when One QR is on too).
+  // Papic is always on from that screen. Absent (the engine did not run) = nothing written: NULL = on.
+  const needsScope = { marketplace: profile.marketplaceEnabled === true };
+  const needs =
+    profile.onboardingEngine && payload.needs !== undefined
+      ? sanitizeNeeds(payload.needs, defaultNeedsFor(payload.eventType, needsScope), needsScope)
+      : null;
+  const setup =
+    sanitizedSetup && needs
+      ? applyNeedsToSetup(sanitizedSetup, needs)
+      : sanitizedSetup;
 
   const displayName =
     payload.displayName?.trim() ||
@@ -174,7 +202,7 @@ export async function commitOnboardingEvent(
   const row = buildGenericEventInsert(
     // `honoreeDependentId` is OVERWRITTEN with the server-verified value, never
     // merged with the client's — a forged id must not survive the spread.
-    { ...payload, displayName, honoreeDependentId },
+    { ...payload, displayName, honoreeLabel, honoreeDependentId },
     {
       slug,
       now,
@@ -190,7 +218,7 @@ export async function commitOnboardingEvent(
   // the internal bigserial). The on_event_created trigger mints the join token.
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
-    .insert(row)
+    .insert(needs ? { ...row, ...needsColumns(needs) } : row)
     .select('event_id')
     .single();
   if (insertError || !insertedEvent) {
@@ -216,13 +244,9 @@ export async function commitOnboardingEvent(
   // Turning it on later in Your info arms both at Apply.
   if (setupArmsPapic(setup)) {
     await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-    // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-    // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-    // shared pool because the two are different products — the pool grant does
-    // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-    // idempotent (fixed seat index + a partial unique index on the grant), so the
-    // creation call and the studio self-heal collapse to one camera.
-    await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
+    // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+    // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+    // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
   }
 
   const { error: memberError } = await admin.from('event_members').insert({
@@ -251,7 +275,12 @@ export async function commitOnboardingEvent(
   const papic = await mintOnboardingServiceOrders(admin, {
     eventId: insertedEvent.event_id,
     userId: user.id,
-    rawSelection: payload.servicesSelection,
+    // 🧭 Suppliers switched off on "What do you need?" ⇒ Setnayan AI was not offered (`setnayanAiOffered`,
+    // owner 2026-10-26) — a pick the wire still carries is dropped, never charged.
+    rawSelection:
+      needs && !setnayanAiOffered(needs) && payload.servicesSelection && typeof payload.servicesSelection === 'object'
+        ? { ...(payload.servicesSelection as Record<string, unknown>), ai: false }
+        : payload.servicesSelection,
   });
 
   return { ok: true, eventId: insertedEvent.event_id, paymentPath: papic.paymentPath };

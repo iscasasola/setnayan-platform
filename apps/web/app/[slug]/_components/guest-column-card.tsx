@@ -61,7 +61,8 @@ export async function GuestColumnCard({
 
   const w = await eventWordsForEvent(eventId);
 
-  const closed = getLifecyclePhase(eventDate, eventTz, eventEndDate ?? null) === 'editorial';
+  // The Invitation's opening date cannot move 'editorial' — only the Save the Date / Invitation split (`null`).
+  const closed = getLifecyclePhase(eventDate, eventTz, eventEndDate ?? null, undefined, null) === 'editorial';
   const admin = createAdminClient();
 
   // The guest's own column (any status — drives the form state). A withdrawn
@@ -152,7 +153,7 @@ export async function GuestColumnCard({
       <h2 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
         The paper
       </h2>
-      <p className="max-w-prose text-sm leading-relaxed text-ink/60">
+      <p className="max-w-prose text-sm leading-relaxed text-ink/70">
         Short columns written by guests for {w.theOrganizerPossessive} paper.
         Write one — {w.theOrganizer} reads and approves every column before it
         appears.

@@ -1,7 +1,11 @@
+import { Suspense } from 'react';
+import { readGuestChapterReplies, readInvitationChapters } from '@/lib/invitation-chapters.server';
+import { readGuestStandIn } from '@/lib/guest-proxy.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventRowOnceBySlug } from '@/lib/event-row-once';
 import { createClient } from '@/lib/supabase/server';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
@@ -12,9 +16,20 @@ import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
 import { NotYouSwitch } from '../../_components/not-you-switch';
+import { HeldPassLine } from '../../_components/held-pass-line';
+import { heldPassFirstNameFor } from '../../_lib/held-pass-name';
+import { readGuestPassStanding } from '@/lib/guest-session';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
-import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { OPEN_REPLY_WINDOW, replyFaceOf, replyRefusedWords, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { ReplyWindowNote } from '../../_components/reply-window-note';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
+import { headers } from 'next/headers';
+import { isLinkPreviewFetch, passHopMissFault, replyEntry } from '@/lib/guest-pass-hop';
+import { guestPassEvidence } from '@/lib/guest-one-path.server';
+import { recordFault } from '@/lib/telemetry/fault-log';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
 import { guestReplyBy, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
@@ -24,9 +39,15 @@ import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
-import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
+import { loadEventShell, loadGuestLook, loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
+import { ArrivalLoading } from '../_components/arrival-loading';
 import { wearTheHub } from '../_lib/wear-the-hub';
+import { RsvpLookStyle } from '../../_components/rsvp-look-style';
+import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
+import { celebrationColours } from '@/lib/rsvp-celebration';
+import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { getCurrentUser } from '@/lib/auth';
@@ -34,13 +55,17 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
 import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
+import { withGuestReadLimit } from '@/lib/read-limit';
+
+/** The Maker part this page draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
+const RSVP_FORM_PARTS = ['rsvp'] as const;
 
 export const metadata = { title: 'Your reply', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rsvp?: string; editor?: string; preview?: string }>;
+  searchParams: Promise<{ rsvp?: string; editor?: string; preview?: string; k?: string }>;
 };
 
 /**
@@ -66,19 +91,33 @@ type Props = {
  * The write is `RsvpWidget` → `submitInviteReply` → `submitRsvp`, the same save
  * the Event Hub's own card makes, with every guard it carries.
  */
-export default async function InviteReplyPage({ params, searchParams }: Props) {
+export default async function InviteReplyPage(props: Props) {
+  // ⏱ Bounded waits; an essential read that never answers is "didn't load" (`lib/read-limit.ts`).
+  return withGuestReadLimit('slug/invite/reply', () => inviteReplyPage(props));
+}
+
+async function inviteReplyPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: liveEvent, error: eventError } = await admin
-    .from('events')
-    .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
-    )
-    // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
-    .ilike('slug', slug)
-    .maybeSingle();
+  /* 1️⃣ ONE READ OF THE EVENT (2026-10-12, `lib/event-row-once.ts`). The layout, the
+     metadata and the look already read this event's row for this request
+     (`loadEventShell`, one `cache()`d read) — with every column this door asks
+     for. So that read is awaited first, and the door's own read below, unchanged,
+     is SENT only when the row is not in hand (the shell could not be read, or a
+     column here is one it does not carry). Its failure is still this door's own. */
+  await loadEventShell(slug).catch(() => null);
+  const { data: liveEvent, error: eventError } = await eventRowOnceBySlug(admin, slug, () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, venue_latitude, venue_longitude`,
+      )
+      // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (eventError) {
     throw new Error(`invite/reply: could not read the event for "${slug}": ${eventError.message}`);
   }
@@ -108,8 +147,38 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   // both, so this page must too — otherwise a signed-in guest on a new phone
   // would be bounced between the two). No key → the event page, where a
   // stranger gets the one "Get inside" button.
-  const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
-  if (!canvas && !session) redirect(`/${home}`);
+  // 🔁 …unless the Reply carried the landing's own re-entry code (`?k=`): a guest
+  // whose pass went missing between the landing and this press is re-keyed at
+  // the redeem and comes straight back to these questions — no sign-in, no
+  // account (2026-10-12, `replyEntry`, lib/guest-pass-hop.ts).
+  /* 🗳 WHO THIS REPLY IS SENT AS (owner bug 2026-10-24, `readReplyIdentityForEvent`): EXACTLY whom the Event Hub says
+     it is viewing as — the pass it honours, the guest's seat, or a signed-in host's OWN row ("Viewing as you" = you).
+     The save asks the same function, so the form and the write are one person. Signed in with no row of their own
+     here (or more than one), the page SAYS so — it never draws a sample, and never somebody else. */
+  const replyAs = canvas ? null : await readReplyIdentityForEvent(event.event_id as string);
+  const session = replyAs && replyAs.kind !== 'none' ? replyAs.session : null;
+  if (!canvas && !session && !search.k && replyAs?.kind === 'none' && (replyAs.why === 'not_on_list' || replyAs.why === 'several_rows')) {
+    return <NoReplyHere slug={home} event={event} why={replyAs.why} />;
+  }
+  if (!canvas) {
+    const entry = replyEntry({ slug: home, hasPass: Boolean(session), code: search.k });
+    if (entry.kind !== 'ask') {
+      await recordReplyMiss(event.event_id as string, entry.kind, Boolean(search.k));
+      redirect(entry.href);
+    }
+  }
+  /* 🪪 THE ACCOUNT OUTRANKS THE PASS (owner bug 2026-10-19, lib/pass-account-rule.ts): the reply above is the
+     ACCOUNT's (its own seat, or a held pass that is theirs). A pass this browser also holds for somebody else is said
+     in one line beside "Not you? Switch" — never answered for. A host who opened it on purpose is told the way back. */
+  const passHere = canvas ? null : await readGuestPassStanding({ eventId: event.event_id as string });
+  const heldAside = passHere?.setAside && passHere.setAside.pass.event_id === event.event_id ? passHere.setAside : null;
+  const hostOpened = passHere?.standing === 'host_preview' ? passHere.session : null;
+  const heldPassName =
+    heldAside || hostOpened
+      ? await heldPassFirstNameFor(admin, event.event_id as string, (heldAside?.pass ?? hostOpened)!.guest_id)
+      : null;
+  /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 
   const { data: guest, error: guestError } = canvas
     ? {
@@ -125,7 +194,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     : await admin
     .from('guests')
     .select(
-      'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+      'guest_id, first_name, last_name, display_name, role, extra_roles, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile, represented_by_guest_id, proxy_named_by_guest',
     )
     .eq('guest_id', session!.guest_id)
     .eq('event_id', event.event_id)
@@ -142,8 +211,30 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     !guest.plus_one_name_confirmed_at &&
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
+  /* 🧍 The proxy, both ways — never on the Maker's canvas (a stand-in person, nothing of theirs to read). */
+  const standIn = canvas
+    ? null
+    : await readGuestStandIn(admin, event.event_id as string, guest as { guest_id: string; represented_by_guest_id?: string | null; proxy_named_by_guest?: string | null });
 
-  const [words, faceTagging, supabase, hub, seats, animationOwned, replyStyle] = await Promise.all([
+  /* ⏳ THE ARRIVAL SHOWS SOMETHING WHILE IT LOADS (2026-10-11). Everything above
+     this line is a ROUTING decision — `notFound()`, the redirects, who this
+     guest is. Everything below is body work: a dozen-plus awaits. With no
+     boundary under this route nothing was drawn until the last one answered.
+     The body is now ONE async part inside a `<Suspense>`, so the door — the
+     couple's names, their mark, the date — is on screen as soon as the routing
+     is decided.
+     ⛔ NOT a `loading.tsx`: that commits HTTP 200 before `notFound()` can run
+     (app/[slug]/page.tsx, "THE BLANK WHITE SCREEN"). This boundary sits AFTER
+     the last `notFound()`/`redirect()`, so the status is settled first — and
+     nothing below it may call either (🛡 the-arrival-shows-something-while-it-
+     loads.test.ts).
+     (The body keeps its indentation on purpose: it is the page's own code,
+     unmoved, so its history and the guards that read it stay true.) */
+  // The look the guest layout already asked for on this request (`cache()`d) —
+  // best-effort, like the layout's own: unread, the fallback is the house door.
+  const loadingLook = await loadGuestLook(slug).catch(() => null);
+  const InviteReplyBody = async () => {
+  const [words, faceTagging, supabase, hub, seats, animationOwned, replyStyle, replyChapters] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolveFaceTagging(admin, event.event_id as string),
     createClient(),
@@ -158,6 +249,12 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     loadWidgets(admin, event.event_id as string)
       .then((rows) => sceneStyleOfRow(overlayHubDraftWidgets(rows, hostDraft).find((w) => w.widget_type === 'rsvp'), 'rsvp', event.event_type as string))
       .catch(() => null),
+    /* ✉ THE INVITATION'S CHAPTERS AND THIS GUEST'S ANSWERS (Step 5) — the same reads the Event Hub's card uses. */
+    Promise.all([
+      // ✉ THIS guest's chapters (owner 2026-11-02, "Invited to") — the Maker's sample shows the whole invitation.
+      readInvitationChapters(admin, event.event_id as string, canvas ? undefined : (guest.guest_id as string)),
+      canvas ? Promise.resolve(null) : readGuestChapterReplies(admin, guest.guest_id as string),
+    ]),
   ]);
   // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
   // would: the animation is owned AND not switched to "Use Static Image".
@@ -171,6 +268,19 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const replyLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
   });
+  /* 📬 THE COUPLE'S REPLY WINDOW (owner 2026-10-14, `lib/reply-window.ts`) — from the row in hand (the
+     shell carries every column), on the venue's clock. Shut: the page says when, or that replies closed,
+     and draws NO form — a bookmark or a stale link meets the words, not a form that refuses on Send.
+     The Maker's canvas always draws the form (it is the couple editing it). */
+  const replies = canvas
+    ? OPEN_REPLY_WINDOW
+    : replyWindow(
+        event as unknown as ReplyWindowEvent,
+        Date.now(),
+        eventTimezoneFromCoords((event.venue_latitude as number | null) ?? null, (event.venue_longitude as number | null) ?? null),
+        replyFaceOf(await resolveProfile(event.event_type as string)),
+      );
+  const repliesShut = replyWindowWords(replies, words.theOrganizer);
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const gate = canvas ? ({ kind: 'inside', didntReply: false } as const) : rsvpGate({
     rsvpStatus: guest.rsvp_status as string | null,
@@ -229,6 +339,12 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             tone: 'error' as const,
             text: 'Please tick “I agree to the Terms” to send your reply — it has not been sent yet.',
           }
+        : // 📬 Sent from a page left open after replies shut, or before they opened (submitRsvp).
+          search.rsvp === 'window'
+          ? {
+              tone: 'error' as const,
+              text: replyRefusedWords(replies, words.theOrganizer) || 'Your reply was not sent.',
+            }
         : null;
 
   /* ── THE WAY ONWARD FOR SOMEBODY WHO HAS ALREADY ANSWERED ────────────────
@@ -286,7 +402,9 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         brand="foot"
         eyebrow="You’re invited"
         title={(event.display_name as string | null) || guestName}
-        meta={joinDoorMeta({
+        /* 🔤 The couple's names — they wear the Names font where one was chosen. (A guest's own name is not theirs.) */
+        titleIsNames={Boolean(event.display_name)}
+        meta={canvas ? canvasWhenWhere(event) : joinDoorMeta({
           event_date: event.event_date as string | null,
           event_date_precision: event.event_date_precision as string | null,
           venue_name: event.venue_name as string | null,
@@ -301,16 +419,33 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
           </p>
         ) : null}
+        {/* 🧩 ON THE MAKER'S CANVAS EVERY PIECE IS A PART (owner 2026-10-07/08: "RSVP cannot select anything" · "it is
+            the actual RSVP not an editing way"): the SHIPPED section marker stands before each — the guest's own
+            name (the greeting) and the form, with its reply-by line. Canvas only: a guest is served none of it. */}
+        {canvas ? <span hidden data-maker-section="f:greeting" /> : null}
         {/* Whose reply this is — and, on a phone a family shares, the way out. */}
         <FirstScreenOnly on={oneQuestionFrame}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
             <p className="font-serif text-lg text-ink" data-reply-for="">
               {guestName}
             </p>
-            {canvas ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
+            {/* A host replying as their own row holds no pass to switch out of (`own_row`). */}
+            {canvas || replyAs?.kind === 'own_row' ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
           </div>
+          {heldAside ? (
+            <HeldPassLine
+              slug={home}
+              firstName={heldPassName}
+              mode={heldAside.standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'}
+              className="mt-2"
+            />
+          ) : hostOpened ? (
+            <HeldPassLine slug={home} firstName={heldPassName} mode="host_preview" className="mt-2" />
+          ) : null}
         </FirstScreenOnly>
 
+        {canvas ? <span hidden data-maker-section="f:rsvp" /> : null}
+        <CanvasSection on={canvas}>
         {hasAnswered ? (
           <FirstScreenOnly on={oneQuestionFrame}>
             <DoorNotice>
@@ -321,10 +456,10 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
               >
                 Open your invitation and your QR
               </Link>
-              {replyLocked ? null : <> &mdash; or change your answer below.</>}
+              {replyLocked || repliesShut ? null : <> &mdash; or change your answer below.</>}
             </DoorNotice>
           </FirstScreenOnly>
-        ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
+        ) : closesLabel && !repliesShut && (guest.rsvp_status as string | null) === 'pending' ? (
           <FirstScreenOnly on={oneQuestionFrame}>
             <p className="text-sm text-ink/70" data-rsvp-word={canvas ? rsvpWordBridgeKey('reply-by') : undefined}>
               Please reply by {closesLabel}.
@@ -332,13 +467,21 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           </FirstScreenOnly>
         ) : null}
 
+        {repliesShut ? (
+          /* 📬 Shut: the window's words, no form (and the refusal above them when a Send was refused). */
+          <ReplyWindowNote window={replies} organizer={words.theOrganizer} refused={search.rsvp === 'window'} />
+        ) : (
         <RsvpWidget
           words={words}
           guest={{
             ...(guest as unknown as GuestRow),
+            // 🧍 Who they stand in for, or who stands in for them (owner 2026-10-27) — the reply says it.
+            stand_in: standIn ?? undefined,
             // One set of boxes per seat (+1…+4): name, meal, dietary. Never the
             // seat's key — that is for the thank-you's "Send their invite".
-            plus_one_seats: seats.map((s) => ({
+            // 🪑 A REFUSED read (null) is NOT "no seats": `undefined` gives the reply the loader's own fallback (one box,
+            // the stored name) — `[]` drew empty boxes over a guest's named +1s (2026-10-22, `plusOneSeatsFor`).
+            plus_one_seats: seats === null ? undefined : seats.map((s) => ({
               guest_id: s.guest_id,
               name: s.name,
               first: s.first,
@@ -349,6 +492,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
               meal: s.meal,
               dietary: s.dietary,
               linked: s.linked,
+              rsvp_status: s.rsvpStatus,
             })),
           }}
           eventId={event.event_id as string}
@@ -358,6 +502,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           replyLocked={replyLocked}
           profileDetails={profileDetails}
           doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
+          chapters={replyChapters[0]}
+          chapterReplies={replyChapters[1]}
           /* 🏷 THE QUESTION AT THE INVITATION, THE SELFIE ON THE DAY (owner
              2026-09-30, "go"; DECISION_LOG "THE TAGGING QUESTION AT RSVP, THE
              SELFIE ON THE DAY"). The invite asks "Want to be tagged in the
@@ -377,9 +523,97 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           sceneStyle={replyStyle}
           previewEveryQuestion={canvas}
           answerWords={readRsvpWords(event.rsvp_ask_config)}
+          /* 🧱 The card's lines in the couple's order, with the lines they added and their groups (the Maker's RSVP
+             stage). From the config this page already holds — no new read; null for a couple who arranged nothing. */
+          lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
+          pictures={rsvpPictures}
         />
+        )}
+        </CanvasSection>
       </DoorShell>
+      {/* 🍪 Drawn inside the Maker's canvas, this page shows none of the app's own floating notices (the cookie card,
+          a stale-tab bar) — the rule every Event Hub canvas already carries (`EDITOR_CANVAS_HIDES_APP_CHROME`). A
+          host who never answered the cookie card saw it over the RSVP stage. Canvas only: a guest's page is as it was. */}
+      {canvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
+      {/* 🎨 The look the couple gave each line of the form (`lib/rsvp-look.ts`) — nothing at all when they gave none.
+          After the door, never inside it: the card's children are spaced by their order. */}
+      <RsvpLookStyle
+        config={event.rsvp_ask_config}
+        board={celebrationColours(boardSwatches((event as { role_palette?: unknown }).role_palette))}
+        parts={RSVP_FORM_PARTS}
+        canvas={canvas}
+      />
     </GuestLookScope>
+  );
+  };
+
+  return (
+    <Suspense
+      fallback={
+        <ArrivalLoading
+          look={loadingLook}
+          door={{
+            eyebrow: 'You’re invited',
+            title: (event.display_name as string | null) ?? '',
+            titleIsNames: Boolean(event.display_name),
+            // The same words the page writes. (On the Maker's canvas the page
+            // splits them into two named parts; a loading door has no parts.)
+            meta: joinDoorMeta({
+              event_date: event.event_date as string | null,
+              event_date_precision: event.event_date_precision as string | null,
+              venue_name: event.venue_name as string | null,
+            }),
+            width: 'lg',
+            // The couple's mark, still: whether it plays is one of the slow reads.
+            skin: hubDoorSkin({ ...doorMarkFor(event), animate: false }),
+          }}
+        />
+      }
+    >
+      <InviteReplyBody />
+    </Suspense>
+  );
+}
+
+/**
+ * 🗳 NOBODY TO REPLY AS (owner bug 2026-10-24). A signed-in account with no guest row of its own on this event — a
+ * host who is not on their own list, a coordinator — or one bound to more than one row is TOLD so, here, with the way
+ * back. Before, a host's Reply opened the Maker's sample guest under a real guest's name ("Gabriel dela Peña") as if
+ * it were theirs to answer. Nothing is read or written for anybody.
+ */
+function NoReplyHere({
+  slug,
+  event,
+  why,
+}: {
+  slug: string;
+  event: { display_name?: unknown; event_date?: unknown; event_date_precision?: unknown; venue_name?: unknown };
+  why: 'not_on_list' | 'several_rows';
+}) {
+  return (
+    <DoorShell
+      brand="foot"
+      eyebrow="Your reply"
+      title={(event.display_name as string | null) || 'This event'}
+      titleIsNames={Boolean(event.display_name)}
+      meta={joinDoorMeta({
+        event_date: (event.event_date as string | null) ?? null,
+        event_date_precision: (event.event_date_precision as string | null) ?? null,
+        venue_name: (event.venue_name as string | null) ?? null,
+      })}
+      width="lg"
+    >
+      <div data-reply-nobody={why}>
+        <DoorNotice kind="note">
+          {why === 'not_on_list'
+            ? 'You’re not on this event’s guest list, so there is no reply to send as you.'
+            : 'Your account is on this guest list more than once, so we can’t tell which reply is yours. Ask the hosts to keep one.'}
+        </DoorNotice>
+        <Link className="mt-4 inline-flex min-h-[44px] items-center font-medium text-link underline-offset-2 hover:underline" href={`/${slug}`}>
+          Back to the Event Hub
+        </Link>
+      </div>
+    </DoorShell>
   );
 }
 
@@ -390,4 +624,63 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
  */
 function FirstScreenOnly({ on, children }: { on: boolean; children: React.ReactNode }) {
   return on ? <div data-rsvp-context="">{children}</div> : <>{children}</>;
+}
+
+/**
+ * 🧩 ONE PART'S PIECES, HELD TOGETHER FOR THE MAKER'S CANVAS — the form and its reply-by line are the RSVP part, so
+ * the marker before them needs ONE element to stand in front of. `space-y-4` is the door's own gap between its
+ * children, so the pieces sit exactly where they do for a guest. Off (every guest): a bare fragment — the page is
+ * exactly as before.
+ */
+function CanvasSection({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return on ? <div className="space-y-4">{children}</div> : <>{children}</>;
+}
+
+/**
+ * 🧩 THE DATE · PLACE LINE, FOR THE MAKER'S CANVAS: the same words `joinDoorMeta` writes, each half named as the
+ * hero part it is (`data-el`), so the couple can pick the Date and the Place apart. Never called for a guest.
+ */
+function canvasWhenWhere(event: { event_date?: unknown; event_date_precision?: unknown; venue_name?: unknown }): React.ReactNode {
+  const when = joinDoorMeta({
+    event_date: (event.event_date as string | null) ?? null,
+    event_date_precision: (event.event_date_precision as string | null) ?? null,
+    venue_name: null,
+  });
+  const place = ((event.venue_name as string | null) ?? '').trim();
+  if (!when && !place) return undefined;
+  return (
+    <>
+      {when ? <span data-el="date">{when}</span> : null}
+      {when && place ? ' · ' : null}
+      {place ? <span data-el="venue">{place}</span> : null}
+    </>
+  );
+}
+
+/**
+ * 🧾 ONE Problems-log row when the Reply re-keys a guest or sends them to the door
+ * (2026-10-12): what the browser held — pass missing (`none`), a pass for another
+ * event (`other-event`), a pass that is unusable (`revoked`) — and how many passes
+ * its pass book held. No token, no code, no name (lib/guest-pass-hop.ts
+ * `passHopMissFault`). A link-preview robot's miss is not a guest's. Best-effort:
+ * evidence never stands between a guest and their answer.
+ */
+async function recordReplyMiss(eventId: string, kind: 'rekey' | 'door', carriedCode: boolean): Promise<void> {
+  try {
+    const userAgent = (await headers()).get('user-agent');
+    if (isLinkPreviewFetch(userAgent)) return;
+    const { held, bookPasses } = await guestPassEvidence(eventId);
+    await recordFault(
+      passHopMissFault({
+        rule: kind === 'rekey' ? 'reply:rekey' : 'reply:door',
+        steps: ['reply', kind === 'rekey' ? 'redeem' : 'door'],
+        userAgent,
+        held,
+        carriedCode,
+        bookPasses,
+      }),
+    );
+  } catch {
+    /* evidence only */
+  }
 }

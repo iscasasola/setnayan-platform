@@ -2,6 +2,8 @@ import path from 'node:path';
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import { sentrySourcemapsCanUpload } from './lib/sentry-sourcemaps-can-upload';
+import { findLayoutAnchors, oneCopyPerLayoutGroups } from './lib/one-copy-per-layout';
+import { keepWebpackCache } from './lib/build-webpack-cache';
 
 function getHostnameFromEnv(url: string | undefined): string | null {
   if (!url) return null;
@@ -120,7 +122,7 @@ const remoteImagePatterns = [
 //
 // We intentionally ship ONLY `frame-ancestors 'self'` for CSP — NOT a full
 // resource/script CSP. A strict default-src/script-src would have to enumerate
-// every external origin we load (Supabase · Sentry ingest · PostHog · R2 ·
+// every external origin we load (Supabase · Sentry ingest · R2 ·
 // Maya · YouTube · Google Fonts · Vercel) AND would break the inline
 // Babel-standalone keynote decks under public/keynote/* — so a tested
 // resource-CSP is a deliberate follow-up, not this change.
@@ -191,11 +193,10 @@ const CSP_REPORT_ONLY = [
   //
   // 🔑 REPORT-ONLY DATA IS A LOWER BOUND ON WHAT BREAKS. Read the code for the
   // rarely-exercised paths; the table only knows what visitors happened to hit.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://*.posthog.com https://challenges.cloudflare.com https://itunes.apple.com https://cdn.jsdelivr.net",
-  // ↑ MEASURED 2026-08-02: PostHog loads its client from
-  // `us-assets.i.posthog.com`, and it was in connect-src but NOT script-src —
-  // so the policy let PostHog SEND but not LOAD. Enforcing the old list would
-  // have killed product analytics outright. Exactly what report-only is for.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-insights.com https://*.vercel-scripts.com https://challenges.cloudflare.com https://itunes.apple.com https://cdn.jsdelivr.net",
+  // ↑ 2026-10-22: `https://*.posthog.com` LEFT both lists with PostHog itself
+  // (owner: essential cookies only). Nothing loads from or sends to it now, so
+  // a report naming it would mean an analytics SDK came back.
   //
   // ↑ 2026-08-11, both found by `csp-embeds-are-allowed.test.ts` once it was
   // taught to look at SCRIPT hosts, not just `<iframe>` markup we wrote:
@@ -237,7 +238,7 @@ const CSP_REPORT_ONLY = [
   // the r2.dev host. A future custom domain would still be an ADD, not a swap,
   // because the dev URL is currently the ONLY public path to the bucket —
   // disabling it before a custom domain is Active blacks out 1.11 GB of media.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.posthog.com https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com https://cdn.jsdelivr.net https://storage.googleapis.com ipc: http://ipc.localhost",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.r2.cloudflarestorage.com https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.vercel-insights.com https://cdn.jsdelivr.net https://storage.googleapis.com ipc: http://ipc.localhost",
   // 🔴 ADDED 2026-08-11. This directive was MISSING ENTIRELY, and its absence was
   // a live outage scheduled for whenever someone enforces this draft: with no
   // `frame-src`, frames fall back to `default-src 'self'`, so EVERY embed on the
@@ -266,8 +267,19 @@ const CSP_REPORT_ONLY = [
   // the dress rehearsal for enforcement. Leaving a known-good host out of it
   // means every pin drop files a violation report, and the day anyone promotes
   // this policy the map goes blank with nothing in the diff to explain it.
-  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com https://tile.openstreetmap.org",
-  "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com",
+  //
+  // ⚠ `https://*.mzstatic.com` + `https://images.unsplash.com` (img-src) and
+  // `https://*.itunes.apple.com` (media-src) added 2026-10-13 — the live quality
+  // sweep found the report-only policy refusing 62 song covers on every
+  // onboarding page (iTunes artwork, `is1-ssl.mzstatic.com` and its is2–is5
+  // siblings) and the Maria & Jose sample wall's photographs on /tour/gallery
+  // (seeded from `scripts/seed-sample-event-maria-jose-*.sql`). Both are images
+  // the product shows on purpose; Apple's artwork may not be re-hosted, so the
+  // host is named rather than self-hosted. The 30-second preview the same song
+  // row plays is Apple's too (`audio-ssl.itunes.apple.com`) — media-src.
+  // Guard: `lib/csp-names-the-third-party-images.test.ts`.
+  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com https://tile.openstreetmap.org https://*.mzstatic.com https://images.unsplash.com",
+  "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.itunes.apple.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "worker-src 'self' blob:",
@@ -390,11 +402,17 @@ const nextConfig: NextConfig = {
       '../../node_modules/.pnpm/@tensorflow+tfjs-backend-wasm@*/node_modules/@tensorflow/tfjs-backend-wasm/dist/*.wasm',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
+      // 🔤 The Hub's faces on paper (lib/print-hub-look.ts → `printFontFile`): the Logo's own TrueType outline files.
+      './public/logo-fonts/*.ttf',
+      './public/monogram-studio/fonts/*.ttf',
       // NPC submission PDFs streamed admin-only by
       // /admin/data-privacy/documents/[doc] (read via a dynamic filename, so
       // nft can't statically trace them — force-include the set).
       './assets/npc-docs/*.pdf',
     ],
+    // 🖨 The supplier's prints (lib/supplier-prints-svg.ts) outline every letter from these faces — read by a dynamic
+    // path, so nft cannot see them. Only the one route that draws a print carries them.
+    '/api/vendor/prints': ['./public/print-fonts/*.ttf'],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required
@@ -423,12 +441,76 @@ const nextConfig: NextConfig = {
   // compile too so `next build` doesn't try to resolve the absent, unused
   // jsdom/canvas node deps (it OOM-pattern-failed at module resolution before
   // this). Safe: neither is an app dependency and paper's node path never runs.
-  webpack: (config) => {
+  webpack: (config, { isServer, dev }) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = config.resolve.alias || {};
     config.resolve.alias.jsdom = false;
     config.resolve.alias.canvas = false;
     config.resolve.alias['jsdom/lib/jsdom/living/generated/utils'] = false;
+    // ⏱ NO WEBPACK DISK CACHE IN A PRODUCTION BUILD (2026-11-04).
+    // Next writes webpack's filesystem cache to .next/cache/webpack when the
+    // compile ends. Measured on main 78112195 (clean build, 4 cores): the
+    // server cache write alone took 2.0 min, ran BEFORE the edge and client
+    // compiles could start, and was the build's memory peak (7.8 GB → 11.4 GB
+    // while serialising). The result was 5.6 GB on disk, and Vercel keeps at
+    // most 3 GB of build cache on an Enhanced machine, so the cache it paid
+    // for could not be kept for the next build. Every build starts cold either
+    // way, so writing the cache is pure cost. Dev (`next dev`) keeps its cache.
+    // Set NEXT_BUILD_WEBPACK_CACHE=1 to keep it for repeated local builds.
+    // 🛡 lib/the-build-stays-fast.test.ts + scripts/check-build-budget.mjs (CI).
+    if (!keepWebpackCache(dev, process.env)) {
+      config.cache = false;
+    }
+    // 📦 ONE COPY PER LAYOUT (2026-10-13) — a module a layout already ships is
+    // not shipped again by a page beneath it. The app router makes every
+    // layout / loading / page its own webpack entry, and Next's client
+    // splitChunks (20KB minSize, 25 initial requests) leaves small shared
+    // modules COPIED into each one: the Maker's cold open carried 81 modules
+    // 2–4 times. Client production build only; no page can grow (every entry
+    // that gets an anchor's chunk already loads that anchor). Why + numbers:
+    // lib/one-copy-per-layout.ts.
+    const split = config.optimization?.splitChunks;
+    if (!isServer && !dev && split && typeof split === 'object') {
+      split.cacheGroups = {
+        ...(split.cacheGroups ?? {}),
+        ...oneCopyPerLayoutGroups(findLayoutAnchors(path.join(__dirname, 'app'))),
+      };
+    }
+    // ✂ A SHORTER CHUNK HASH, ONE FILENAME SHAPE (2026-10-25, Next 15.5.28).
+    // The webpack runtime loads on EVERY page and spells out every lazy chunk's
+    // file name: 184 entries, 3,151 B of its 5,489 B gzipped. Next names chunks
+    // two ways — initial `[name]-[contenthash].js`, lazy `[name].[contenthash].js`
+    // — so webpack writes the 66 chunks that are both as a long
+    // `id===e?"static/chunks/…-<hash>.js":` chain instead of a map entry, and
+    // every hash is 16 hex (Next's hashDigestLength), which gzip cannot fold.
+    // One shape + 10 hex shrinks that map; the CI bundle check holds the result.
+    // Same bytes in every file; only names change. 10 hex = 40 bits per chunk
+    // id (~1 in 10^12 that a changed chunk reuses its old name) and still
+    // matches the service worker's content-hashed rule (`IMMUTABLE_PATH`, ≥ 8
+    // hex). Client production build only. Without it the Next 15.5.28 security
+    // bump is 507 B over the 202KB lock (`scripts/check-bundle-size.mjs`).
+    //
+    // 9 hex since 2026-11-04 (#7244). Moving supabase-js (~43KB gz) OUT of every
+    // signed-in page's first load made its three chunks lazy, and every lazy
+    // chunk is one more entry in this runtime: +42 B gzipped, which put the
+    // shared bundle 16 B over the lock while the pages themselves shrank (the
+    // Maker 507.4 → 453.6KB). Measured on that build: 10 → 9 hex takes the
+    // runtime 4,999 → 4,860 B (−139 B) with nothing else changed. 9 hex = 36 bits
+    // (~1 in 7×10^10 that a changed chunk reuses its old name); still above the
+    // service worker's ≥ 8 hex rule.
+    if (!isServer && !dev && config.output) {
+      const CHUNK_HASH = '[contenthash:9]';
+      const { filename, chunkFilename } = config.output;
+      if (typeof filename === 'string' && filename.startsWith('static/chunks/')) {
+        config.output.filename = filename.replace('[contenthash]', CHUNK_HASH);
+      }
+      if (typeof chunkFilename === 'string' && chunkFilename.startsWith('static/chunks/')) {
+        config.output.chunkFilename = chunkFilename.replace(
+          '[name].[contenthash]',
+          `[name]-${CHUNK_HASH}`,
+        );
+      }
+    }
     return config;
   },
   images: {

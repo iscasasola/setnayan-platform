@@ -1,7 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { liveDayTag } from '@/lib/live-day-cache';
 import { createClient } from '@/lib/supabase/server';
+import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
@@ -15,6 +18,9 @@ import {
   isCoordinatorP3Enabled,
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
+import { RELEASE_NOTICE_TYPE, releasePro } from '@/lib/schedule-release.server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Coordinator P3 server actions — day-of broadcast + email call-times
@@ -40,7 +46,12 @@ export type SendBroadcastResult =
 
 export async function sendCoordinatorBroadcast(
   formData: FormData,
-): Promise<SendBroadcastResult> {
+): Promise<SendBroadcastResult | ReleaseScheduleResult> {
+  // 📣 The 🔊 sheet's other press — Release (plan §4 "Release + announce") — rides this one action, so the sheet costs
+  // no second server-action route (`lint-server-action-budget`: every export is a Vercel route).
+  if (formData.get('intent') === RELEASE_INTENT) return releaseFullSchedule(formData);
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'schedule');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await isCoordinatorP3Enabled())) {
     return { ok: false, error: 'Broadcasts are not enabled yet.' };
   }
@@ -84,30 +95,16 @@ export async function sendCoordinatorBroadcast(
     return { ok: false, error: 'Could not send the broadcast. Try again.' };
   }
 
-  // Tell the guests' phones, without telling the channel what was said.
+  // The guests' read of the latest announcement is remembered per event for a few seconds
+  // (`app/[slug]/_lib/latest-announcement.server.ts` · lib/live-day-cache.ts). Forget it NOW, so the next ask of every
+  // phone reads these words, not the remembered previous ones. The cached Event Hub copies of this event wear the same
+  // tag (`app/[slug]/cached/[key]/page.tsx`), so they are drawn afresh on their next open too.
   //
-  // Their pages used to resolve the announcement ONCE at render, so "phones
-  // down, the ceremony is starting" reached only whoever happened to reload —
-  // and nobody reloads a page they are already looking at.
-  //
-  // The payload is deliberately EMPTY. A `broadcast` channel has no RLS, so
-  // anything put on it is readable by anyone who can guess an event id; the
-  // words are fetched by each guest through an action that checks their own
-  // cookie. What travels here is only "there is something new for this event",
-  // which is already implied by the page being live.
-  //
-  // Best-effort by design: if this send fails, every guest's page still polls,
-  // so a coordinator's words arrive late rather than never. It must never fail
-  // the write that already succeeded.
-  try {
-    await supabase.channel(`announce:${eventId}`).send({
-      type: 'broadcast',
-      event: 'announcement',
-      payload: {},
-    });
-  } catch {
-    // Channel unavailable — the poll covers it.
-  }
+  // 📵 NO PING ANY MORE (EV1, 2026-10-28 — DECISION_LOG "NO EVENT HUB MAY CRASH": guests never hold a live
+  // connection). The `announce:<event>` broadcast channel this used to send on had exactly one kind of listener — a
+  // Realtime socket on every guest's phone — and those are gone: each phone asks `GET /{slug}/announcement` every
+  // ~30 s while it is looked at, and the moment it is looked at again. A coordinator's words arrive within one ask.
+  revalidateTag(liveDayTag(eventId));
 
   revalidatePath(`/dashboard/${eventId}`);
   return { ok: true };
@@ -126,6 +123,7 @@ export type EmailCallTimesResult =
 export async function emailVendorCallTimes(
   formData: FormData,
 ): Promise<EmailCallTimesResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   if (!(await isCoordinatorP3Enabled())) return { ok: false, reason: 'not_enabled' };
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -150,12 +148,25 @@ export async function emailVendorCallTimes(
       fetchBlockRosMeta(supabase, eventId),
       supabase
         .from('event_vendors')
-        .select('vendor_id, vendor_name, contact_email')
+        .select('vendor_id, vendor_name, contact_email, marketplace_vendor_id')
         .eq('event_id', eventId)
         .is('archived_at', null),
       supabase.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
     ]);
-    const vendors = (vendorsRes.data ?? []) as CallTimeVendor[];
+    // ⚖ NO HANDSHAKE, NO ACCESS (owner 2026-10-07; audit F3, item 13). A
+    // Setnayan supplier is sent the day's call times only once booked and
+    // settled as the couple sees it. A supplier the couple added by hand is
+    // their own contact and is sent them as before.
+    const rawVendors = (vendorsRes.data ?? []) as Array<
+      CallTimeVendor & { marketplace_vendor_id?: string | null }
+    >;
+    const standings = await readCoupleBookingStandings(
+      createAdminClient(),
+      rawVendors.filter((v) => v.marketplace_vendor_id).map((v) => v.vendor_id),
+    );
+    const vendors: CallTimeVendor[] = rawVendors.filter(
+      (v) => !v.marketplace_vendor_id || standings.get(v.vendor_id)?.standing === 'booked',
+    );
     const callTimes = deriveVendorCallTimes(blocks, meta, vendors);
     if (callTimes.length === 0) return { ok: false, reason: 'nothing_to_send' };
 
@@ -179,4 +190,56 @@ export async function emailVendorCallTimes(
   } catch {
     return { ok: false, reason: 'error' };
   }
+}
+
+/** The `intent` a FormData carries to ask `sendCoordinatorBroadcast` for Release instead of an announcement. */
+const RELEASE_INTENT = 'release';
+
+export type ReleaseScheduleResult =
+  | { ok: true; releasedAt: string; told: number; already: boolean }
+  | { ok: false; error: string };
+
+/**
+ * 📣 RELEASE THE FULL SCHEDULE (owner 2026-11-01: *"Coordinator or host presses release"* · *"Just norifications
+ * please"*; plan §3, §3b). A host, or a coordinator with Edit on the Schedule, presses it in the Schedule's 🔊 sheet.
+ *
+ *   · 💎 PRO ONLY (§3b) — a Free event is refused here, before anything is written (`releasePro`, the real answer,
+ *     never the "view as free" one). The sheet shows Free its ◆ Pro door instead of a working button.
+ *   · The ONE writer is the database (`release_full_schedule`, 20271302139506): it re-checks who may, stamps
+ *     `events.schedule_released_at` once, and writes ONE in-app notice to every guest account on the event. No email.
+ *     A second press is a no-op that notifies nobody.
+ *   · The event's stamp moves with the write, and the live-day tag is cleared, so every cached Event Hub copy is drawn
+ *     afresh on its next open — guests hold no live connection, nothing is pushed to them.
+ */
+async function releaseFullSchedule(formData: FormData): Promise<ReleaseScheduleResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'schedule');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return { ok: false, error: 'Invalid event.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  const authority = await resolveBroadcastAuthority(supabase, eventId, user.id);
+  if (!authority.canSend) return { ok: false, error: 'Only a host or your coordinator can release the schedule.' };
+  if (!(await releasePro(eventId))) {
+    return { ok: false, error: 'Release is part of Pro. On Free, guests keep their chapters and an estimated call time.' };
+  }
+
+  const { data, error } = await supabase.rpc('release_full_schedule', { p_event_id: eventId });
+  if (error) {
+    logQueryError('releaseFullSchedule', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false, error: 'Could not release the schedule. Try again.' };
+  }
+  const out = (data ?? {}) as { released_at?: string; told?: number; already?: boolean; notice?: string };
+  if (!out.already && out.notice !== RELEASE_NOTICE_TYPE) {
+    // Released, but the database wrote a notice the app's union does not name — said in the log, never hidden.
+    logQueryError('releaseFullSchedule.notice', { message: `unexpected notice type ${String(out.notice)}` }, { event_id: eventId }, 'graceful_degrade');
+  }
+  revalidateTag(liveDayTag(eventId));
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
+  return { ok: true, releasedAt: out.released_at ?? new Date().toISOString(), told: out.told ?? 0, already: out.already === true };
 }

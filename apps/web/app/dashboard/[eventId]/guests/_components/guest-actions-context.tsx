@@ -1,0 +1,154 @@
+'use client';
+
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
+import { addSingleGuest, restoreGuestRsvpAndSeat, setGuestRsvp } from '../inline-actions';
+import { addRoleToGuest, quickAddGuest, quickCreateGroup, setGuestPrimaryRole } from '../quick-add-actions';
+import { addGuestsFromPeople, listPeopleYouCanInvite } from '../people-add-actions';
+import { setGuestInvitationSent } from '../../invitation/actions';
+import { hubDraftAction } from '../../website/hub-draft-actions';
+import { updatePaxSettings } from '../../actions';
+import { setGuestListFinalized } from '../finalize-actions';
+import { releaseGuestClaim } from '../[guestId]/actions';
+import { editGuestGroupInPlace } from '../group-edit-actions';
+import { setGuestAllotment } from '../../studio/papic/actions';
+import { setGuestProxy } from '../proxy-actions';
+import { openGuestCard } from '../open-guest-card';
+import type { GuestCardResult } from './guest-card';
+
+/**
+ * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
+ *
+ * Why this exists: the dev lab (`/dev/guests-lab`) draws the REAL screen on fixture data, and every one of these buttons
+ * used to reach the real action — a lab press could reach the database (controller, 2026-10-09: the lab's Delete had called
+ * the real action; nothing was harmed only because Postgres refused the id). The lab hands in stand-ins that succeed
+ * LOCALLY (`app/dev/guests-lab/lab-guest-actions.tsx`); nothing in the app ever provides this context, so production runs
+ * the real thing — `useGuestActions()` falls back to `REAL_GUEST_ACTIONS` for every name the provider does not override.
+ *
+ * Call sites keep the action's OWN name (`const { quickAddGuest } = useGuestActions();`), so every call reads — and every
+ * guard that pins "the sheet calls quickAddGuest(…)" still reads — as the real call.
+ * (The removal's two writes ride their own context in `guest-delete.tsx`.)
+ */
+export type GuestActions = {
+  bulkApplyRoleAndGroup: typeof bulkApplyRoleAndGroup;
+  createGuestGroup: typeof createGuestGroup;
+  addSingleGuest: typeof addSingleGuest;
+  quickAddGuest: typeof quickAddGuest;
+  quickCreateGroup: typeof quickCreateGroup;
+  addRoleToGuest: typeof addRoleToGuest;
+  setGuestPrimaryRole: typeof setGuestPrimaryRole;
+  addGuestsFromPeople: typeof addGuestsFromPeople;
+  listPeopleYouCanInvite: typeof listPeopleYouCanInvite;
+  setGuestInvitationSent: typeof setGuestInvitationSent;
+  /** Guests › Setup's three writes: the asks and how guests get in (the Maker's draft door), Reply by, Finalize. */
+  hubDraftAction: typeof hubDraftAction;
+  updatePaxSettings: typeof updatePaxSettings;
+  setGuestListFinalized: typeof setGuestListFinalized;
+  /** The guest card's ⋯: New QR · Unlink account (one door, `new_qr` / `unlink_account`). */
+  releaseGuestClaim: typeof releaseGuestClaim;
+  /** Where "Invite N" goes: the one-by-one run, with the selected guests who still need an invitation. */
+  sendRunHref: (eventId: string, ids: string[]) => string;
+  /** Guests › Setup's two doors: "Send to N" (the run, for everyone still to invite) and "Pick who" (the list, in Select mode). */
+  setupDoorHref: (eventId: string, door: 'send' | 'pick-who' | 'requests') => string;
+  /** 👥 The ONE Group dropdown's ✎ and 🗑 (owner 2026-10-20): rename / delete a couple's own group in place, and the delete's count. */
+  editGuestGroupInPlace: typeof editGuestGroupInPlace;
+  /** ✋ Select → Set reply ▾ (owner 2026-10-21) — the one host reply write, and its Undo. */
+  setGuestRsvp: typeof setGuestRsvp;
+  restoreGuestRsvpAndSeat: typeof restoreGuestRsvpAndSeat;
+  /** 📸 The card's "Their camera ▾" and Select → Set… › Papic (owner 2026-10-23) — the shipped ceiling writer, quiet. */
+  setGuestAllotment: typeof setGuestAllotment;
+  /** 🧍 The card's "Proxy ▾" (owner 2026-10-27) — link · add · remove · keep, on the role holder's row. */
+  setGuestProxy: typeof setGuestProxy;
+  /**
+   * 🪪 ONE guest's card, read alone — what a tap on a row opens (guest card opens fast, owner 2026-10-27: ~2 s on his
+   * iPhone). The shipped card-only reader (`openGuestCard`, the Wedding March's), never the whole Guests page: opening a
+   * card used to re-render the entire list on the server and send all of it back (~312 KB for 182 guests) before the
+   * card could show. The action is imported statically, so the first tap asks at once; the action answers the card's
+   * DATA (main, 2026-10-29: a drawn answer cannot cross every route's manifest) and THE card is drawn here from it — its
+   * code fetched BESIDE the read (`guest-card-in-place.tsx`), never in front of it, and never on a first load.
+   */
+  openGuestCard: (eventId: string, guestId: string) => Promise<GuestCardResult>;
+};
+
+export const REAL_GUEST_ACTIONS: GuestActions = {
+  bulkApplyRoleAndGroup,
+  createGuestGroup,
+  addSingleGuest,
+  quickAddGuest,
+  quickCreateGroup,
+  addRoleToGuest,
+  setGuestPrimaryRole,
+  addGuestsFromPeople,
+  listPeopleYouCanInvite,
+  setGuestInvitationSent,
+  hubDraftAction,
+  updatePaxSettings,
+  setGuestListFinalized,
+  releaseGuestClaim,
+  sendRunHref: (eventId, ids) => `/dashboard/${eventId}/guests/send?ids=${ids.join(',')}`,
+  setupDoorHref: (eventId, door) =>
+    door === 'send'
+      ? `/dashboard/${eventId}/guests/send`
+      : door === 'requests'
+        ? `/dashboard/${eventId}/guests/claims`
+        : `/dashboard/${eventId}/guests?select=to-invite`,
+  editGuestGroupInPlace,
+  setGuestRsvp,
+  restoreGuestRsvpAndSeat,
+  setGuestAllotment,
+  setGuestProxy,
+  openGuestCard: async (eventId, guestId) => {
+    const [opened, inPlace] = await Promise.all([openGuestCard(eventId, guestId, 'list'), import('./guest-card-in-place')]);
+    return inPlace.drawOpenedGuestCard(eventId, opened);
+  },
+};
+
+export const GuestActionsContext = createContext<Partial<GuestActions> | null>(null);
+
+export function GuestActionsProvider({ actions, children }: { actions: Partial<GuestActions>; children: ReactNode }) {
+  return <GuestActionsContext.Provider value={actions}>{children}</GuestActionsContext.Provider>;
+}
+
+export function useGuestActions(): GuestActions {
+  const over = useContext(GuestActionsContext);
+  return useMemo(() => (over ? { ...REAL_GUEST_ACTIONS, ...over } : REAL_GUEST_ACTIONS), [over]);
+}
+
+/**
+ * ☑ PICK WHO, IN PLACE (owner 2026-10-28: "guest settings beside send to 107 there is a button pick who. that does not
+ * show anything"). The ⚙ sheet's "Pick who" was a link to the page it sits on (`?select=to-invite`), so the sheet stayed
+ * open over an unchanged list. The Guests screen provides this: one press CLOSES the sheet, turns Select on and narrows
+ * the list to To invite (the carousel's `toinvite` filter, `isToInvite`) — no navigation, the screen never resets. Its
+ * Select bar's "Invite N" then walks the picked guests in the ONE send run (`sendRunHref`).
+ * Absent (the ⚙ rows drawn outside the Guests screen) → "Pick who" keeps its link, the cold-load way in, which opens the
+ * list in the same state (`initialSelect`). 🔒 guests/_components/pick-who-narrows-in-place.test.ts
+ */
+export const PickWhoContext = createContext<(() => void) | null>(null);
+
+/**
+ * 📥 ⚙ › REQUESTS TO JOIN, IN PLACE (R4 slice 11; house rule "a save never resets the screen"). The Guests screen
+ * provides this for the couple: the row's press closes the sheet and opens Asking to join on the List — the requests
+ * drawn in place, each Accept · Decline answered there with Undo. Absent (the ⚙ rows drawn outside the Guests screen,
+ * or a helper) → the row keeps its link to the Requests page. 🔒 lib/requests-are-inside-guests.test.ts
+ */
+export const OpenRequestsContext = createContext<(() => void) | null>(null);
+
+export function useOpenRequests(): (() => void) | null {
+  return useContext(OpenRequestsContext);
+}
+
+export function usePickWho(): (() => void) | null {
+  return useContext(PickWhoContext);
+}
+
+/**
+ * 📤 ⚙ › DOWNLOAD AS EXCEL (owner 3 Nov, "so fix their locations" — the filter only filters). The Guests screen hands its
+ * shipped save (`useGuestsExcel`: the phone's share sheet / a download) to the ⚙ rows; the row draws only where this is
+ * provided — not on the phone's failed copy (there is no fresh list to write), not outside the Guests screen.
+ * 🔒 guests/_components/the-filter-sheet-only-filters.test.ts
+ */
+export const GuestsExcelContext = createContext<{ label: string; save: () => void } | null>(null);
+
+export function useGuestsExcelSave(): { label: string; save: () => void } | null {
+  return useContext(GuestsExcelContext);
+}

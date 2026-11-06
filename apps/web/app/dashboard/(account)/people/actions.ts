@@ -35,6 +35,8 @@ import {
 } from '@/lib/people-add';
 import { followUser, unfollowUser } from '@/app/u/_actions/audience-actions';
 import { celebrantAccountsFor } from '@/lib/event-celebrants.server';
+import { requestConnection } from '@/lib/people-connection-request.server';
+import { removalWriteResult, removableConnectionFilter } from '@/lib/people-remove';
 
 /**
  * Person-spine · Phase 2 · connection flow server actions (STAGED).
@@ -96,7 +98,7 @@ async function sendPeopleInvitation(
   const who = fromFirstName ?? 'Someone you know';
   const heading = `${who} added you to their people`;
   const lines = [
-    `${who} keeps their celebrations on Setnayan — birthdays, weddings, the photos afterwards — and added you to the people in their life.`,
+    `${who} keeps their events on Setnayan — birthdays, weddings, the photos afterwards — and added you to the people in their life.`,
     'Open your people to see who it is and decide. Nothing connects until you confirm it yourself.',
   ];
   const sent = await sendEmail({
@@ -657,9 +659,10 @@ async function declineLabel(connectionId: string): Promise<ActionResult> {
  * 2026-08-16) — so the ask ships with its own undo.
  *
  * Soft-delete, not DELETE: every read in the product already filters
- * `deleted_at`, and the row is evidence of what was asked. Only the DECLARER's
- * side is touched; a confirmed connection is a mutual fact and comes down the
- * same way, from whichever side asks.
+ * `deleted_at`, and the row is evidence of what was asked. A request still
+ * waiting comes down only from the DECLARER's side (the recipient Declines);
+ * a confirmed connection is a mutual fact and comes down the same way, from
+ * whichever side asks — `removableConnectionFilter`.
  */
 export async function withdrawConnection(connectionId: string): Promise<ActionResult> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
@@ -669,13 +672,22 @@ export async function withdrawConnection(connectionId: string): Promise<ActionRe
   const myPerson = await myPersonId(supabase, user.id);
   if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
 
-  const { error } = await supabase
+  // 🔒 EITHER SIDE ENDS A CONFIRMED CONNECTION, AND ZERO ROWS IS NOT "DONE"
+  // (owner 2026-10-23, "why can't i delete anyone"). This filtered on
+  // `from_person_id = me` alone, so a connection somebody else asked for —
+  // where I am `to_person_id` — matched nothing and still returned ok. The
+  // rows actually changed are counted; see `lib/people-remove.ts`.
+  if (!connectionId) return { ok: false, error: 'Couldn’t remove them. Nothing changed — try again.' };
+  const { data, error } = await supabase
     .from('person_connections')
     .update({ deleted_at: new Date().toISOString() })
     .eq('connection_id', connectionId)
-    .eq('from_person_id', myPerson)
-    .is('deleted_at', null);
-  if (error) return { ok: false, error: 'Couldn’t remove that.' };
+    .or(removableConnectionFilter(myPerson))
+    .is('deleted_at', null)
+    .select('connection_id');
+  if (error) logQueryError('withdrawConnection', error, { connectionId });
+  const result = removalWriteResult(data, error);
+  if (!result.ok) return result;
   revalidatePath('/dashboard/people');
   return { ok: true };
 }
@@ -1070,7 +1082,7 @@ export async function invitePersonToSamahan(input: {
   const url = `${origin}/samahan/join/${live!.token}`;
   const who = firstNameOf((me as { display_name: string | null } | null)?.display_name) ?? 'Someone you know';
   const lines = [
-    `${who} would like you in ${samahanName} on Setnayan — the group they keep their celebrations with.`,
+    `${who} would like you in ${samahanName} on Setnayan — the group they keep their events with.`,
     'Opening the link puts you in; nothing happens until you do.',
   ];
   const delivered = await sendEmail({
@@ -1180,91 +1192,8 @@ export async function addPersonByPublicId(input: {
     theirEmail: them.email,
     relation,
     fromEvent: null,
+    invite: sendPeopleInvitation,
   });
-}
-
-/**
- * THE ASK ITSELF — shared by the search's Add and the event's Add, so the two
- * can never drift: one PENDING claim (unlabelled unless the caller says),
- * their bell gets the owner's sentence, their inbox the invitation. Only they
- * can accept it.
- *
- * `fromEvent` stamps `created_by_event_id` — the database refuses it unless the
- * sender belongs to that event (migration 20271253740454), and the recipient's
- * row only names it when they host it.
- */
-async function requestConnection(input: {
-  supabase: SupabaseServer;
-  userId: string;
-  fromPerson: string;
-  toUserId: string;
-  theirName: string | null;
-  theirEmail: string | null;
-  relation: ConnectionRelation | null;
-  fromEvent: { eventId: string; name: string; type: string } | null;
-}): Promise<ActionResult> {
-  const { supabase, fromPerson, relation, fromEvent } = input;
-  const admin = createAdminClient();
-  const { data: theirPerson } = await admin
-    .from('people')
-    .select('person_id')
-    .eq('claimed_by_user_id', input.toUserId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  const toPerson = (theirPerson as { person_id: string } | null)?.person_id ?? null;
-  if (!toPerson) return { ok: false, error: 'Their profile isn’t ready yet.' };
-
-  const { data: already } = await supabase
-    .from('person_connections')
-    .select('connection_id')
-    .eq('from_person_id', fromPerson)
-    .eq('to_person_id', toPerson)
-    .is('deleted_at', null)
-    .limit(1);
-  if (((already ?? []) as unknown[]).length > 0) {
-    return { ok: false, error: 'They’re already on your list.' };
-  }
-
-  const theirName = (input.theirName ?? '').trim().slice(0, 120) || 'Someone';
-  const { error } = await supabase.from('person_connections').insert({
-    from_person_id: fromPerson,
-    to_person_id: toPerson,
-    relation,
-    layer: relation ? layerForRelation(relation) : null,
-    declared_name: theirName,
-    status: 'pending',
-    created_by_user_id: input.userId,
-    created_by_event_id: fromEvent?.eventId ?? null,
-  });
-  if (error && error.code !== '23505') {
-    return { ok: false, error: 'Couldn’t send the request.' };
-  }
-
-  const me = await supabase
-    .from('people')
-    .select('display_name')
-    .eq('person_id', fromPerson)
-    .maybeSingle();
-  const myDisplayName = ((me.data as { display_name: string | null } | null)?.display_name ?? '').trim();
-  const myFirstName = firstNameOf(myDisplayName);
-
-  await emitNotification({
-    userId: input.toUserId,
-    type: 'connection_request',
-    // The owner's sentence (2026-09-28): "{name} is trying to add you from your
-    // {event name} {event type} event" — the same words their People row says.
-    title: connectionRequestSentence(
-      myDisplayName || 'Someone',
-      fromEvent ? { name: fromEvent.name, type: fromEvent.type } : null,
-    ),
-    body: 'Open your people to accept or decline. Nothing connects until you say so.',
-    relatedUrl: '/dashboard/people',
-  });
-  const email = normalizeEmail(input.theirEmail);
-  if (email) await sendPeopleInvitation(email, myFirstName);
-
-  revalidatePath('/dashboard/people');
-  return { ok: true };
 }
 
 /**
@@ -1336,6 +1265,7 @@ export async function addCelebrantFromEvent(input: {
       name: (ev.display_name ?? '').trim(),
       type: (ev.event_type ?? '').replace(/_/g, ' '),
     },
+    invite: sendPeopleInvitation,
   });
 }
 

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
 
 /**
  * WHICH BOOKED SUPPLIER ON THIS EVENT IS THE HOST/MC?
@@ -37,7 +39,7 @@ export async function findBookedHost(
 ): Promise<BookedHostLookup> {
   const { data: booked, error: bookedError } = await supabase
     .from('event_vendors')
-    .select('marketplace_vendor_id')
+    .select('vendor_id, marketplace_vendor_id')
     .eq('event_id', eventId)
     .not('marketplace_vendor_id', 'is', null);
   if (bookedError) {
@@ -45,7 +47,17 @@ export async function findBookedHost(
     return { state: 'unread' };
   }
 
-  const vendorIds = ((booked ?? []) as { marketplace_vendor_id: string | null }[])
+  // ⚖ "BOOKED" MEANS BOOKED AND SETTLED (owner 2026-10-07 "no handshake, no
+  // access"; audit F3, build item 13). This read every Setnayan supplier on
+  // the event as booked — a shortlisted MC would be handed the couple's emcee
+  // questions. Only a booking the couple sees as booked counts.
+  const rows = (booked ?? []) as { vendor_id: string; marketplace_vendor_id: string | null }[];
+  const standings = await readCoupleBookingStandings(
+    createAdminClient(),
+    rows.map((r) => r.vendor_id),
+  );
+  const vendorIds = rows
+    .filter((r) => standings.get(r.vendor_id)?.standing === 'booked')
     .map((r) => r.marketplace_vendor_id)
     .filter((v): v is string => Boolean(v));
   if (vendorIds.length === 0) return { state: 'none' };

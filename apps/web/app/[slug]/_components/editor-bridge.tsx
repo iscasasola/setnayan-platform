@@ -1,7 +1,8 @@
 'use client';
 
 import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
-import { useEffect, useRef } from 'react';
+import { Component, useEffect, useRef, useTransition } from 'react';
+import { applyCoverShadePreview, sanitizeCoverShadePreview, undoCoverShadePreview } from './cover-shade-preview';
 import { useRouter } from 'next/navigation';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -16,6 +17,8 @@ import {
   hubElementHeroMotionVars,
   hubElementSceneCss,
   hubSceneRunsAttr,
+  hubSceneFxAttr,
+  HUB_SCENE_FX_ATTR,
   hubTextHash,
   isHubElementKey,
   readHubSceneRuns,
@@ -23,16 +26,29 @@ import {
   type HubElementKey,
   type HubElementStyle,
   type HubElementStyles,
+  HUB_SHIMMER_ATTR,
+  hubElementShimmer,
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
-import { findMakerSection, sectionAfter } from './maker-section-find';
-import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
+import { CLOSING_EL, closingLineMotionVars } from '@/lib/closing-line';
+import { CANVAS_REDRAW_COMMITS_EVENT, SCENE_LOOK_HIDDEN_ATTR, findMakerSection, sectionAfter } from './maker-section-find';
+import { layScenePicture, takeScenePicturesOff } from './scene-look-lay';
+import { keepReactChildren, keepReactNodes, putReactChildrenBack } from './react-children-keep';
+import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
+import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
+import { createMainGroundPreviewer, sanitizeMainGroundPreview, type MainGroundPreviewer } from './main-ground-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
+import { applyPartFxAttrs, applySceneFx, replayPartFx, unwrapPartFx, wrapPartFx } from './part-fx-cut';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
-import { replaySceneIn } from './scene-replay';
+import { createSectionBinder } from './canvas-section-binder';
+import { replaySceneIn, sceneFrameOf } from './scene-replay';
+import { finishArrivals, playCover, playSequence } from './play-sequence';
+import { laySceneMotion, readSceneMotion } from './scene-motion-lay';
+import { startGuestArrivals } from './guest-preview-arrivals';
+import { guestLinkLeaves } from './guest-in-canvas';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -48,6 +64,9 @@ import { replaySceneIn } from './scene-replay';
  *   parent → frame  { source:'setnayan-editor', t:'scrollTo', key }
  *   parent → frame  { source:'setnayan-editor', t:'play',     key } — replays the scene's CHOSEN arrival (`scene-replay.ts`)
  *   parent → frame  { source:'setnayan-editor', t:'playStage' } / { t:'playStop' } — ▶ the whole stage, scene by scene
+ *   parent → frame  { source:'setnayan-editor', t:'playSeq', key, el?, only? } — ▶ a part's life, or ONE phase of it (`play-sequence.ts`)
+ *   parent → frame  { source:'setnayan-editor', t:'guest', on } — 👁 the whole page as a guest: the canvas takes no tap (`guest` below)
+ *   frame  → parent { source:'setnayan-site',   t:'guestRefused', what:'link'|'send' } — a tap the preview would not follow
  *   frame  → parent { source:'setnayan-site',   t:'playDone' } — the stage's play ended (its end, a tap, or Stop)
  *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el?, moment? }
@@ -57,9 +76,15 @@ import { replaySceneIn } from './scene-replay';
  *   parent → frame  { source:'setnayan-editor', t:'elStyle',  key, el, elements, motion, replay }
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
- *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar, tab }
+ *   parent → frame  { source:'setnayan-editor', t:'hubTab',   tab } — 🧭 Stages: show that tab's page, from its top
+ *   frame  → parent { source:'setnayan-site',   t:'hubTab',   tab } — the tab now on screen (after any switch)
  *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
  *                    was saved: the page re-renders itself in place (`router.refresh()`)
+ *   parent → frame  { source:'setnayan-editor', t:'mainGround', seq, lay } · { seq, landed } — ⚡ Look ›
+ *                    Background's pick, worn on the bridge's own layer and kept: its save asks for no render
+ *                    (`main-ground-preview.ts` has the whole protocol)
+ *   frame  → parent { source:'setnayan-site',   t:'mainGround', seq, shown } · { seq, playing } · { redrawn }
  *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
  *                    surface closed: the page goes back to where it rested, or (`forget`, a
  *                    canvas tap ended it) stays put (`canvas-bring-up.ts`)
@@ -107,6 +132,17 @@ import { replaySceneIn } from './scene-replay';
  * no guest's markup carries a key. ⛔ Never inside the RSVP form.
  */
 
+/**
+ * 🧱 The element that carries a fixed block's own motion, at or inside a section: the one right after the block's mark
+ * (`data-block-mark`) — or after the Maker's marker standing between. The two attribute names are said outright: the
+ * block-looks module is fetched only when a look is picked, so a guest's bundle never carries it (held equal to
+ * `blockSelector` by `lib/play-plays-a-fixed-block.test.ts`).
+ */
+export const BLOCK_PART_SELECTOR = ':is([data-block-mark] + :not([data-maker-section]), [data-block-mark] + [data-maker-section] + *)';
+export function blockPartOf(section: Pick<HTMLElement, 'matches' | 'querySelector'>): HTMLElement | null {
+  return section.matches(BLOCK_PART_SELECTOR) ? (section as HTMLElement) : section.querySelector<HTMLElement>(BLOCK_PART_SELECTOR);
+}
+
 /* 📦 `findMakerSection` and `sectionAfter` live in `./maker-section-find` — the
    Maker imports that small module, never this bridge, so the bridge stays in the
    guest page's code (see that file). Re-exported here for the bridge's callers. */
@@ -124,8 +160,25 @@ export function readMakerBar(doc: Document): unknown[] | null {
   }
 }
 
+/* 🧭 The Stages canvas's tabs (each its own page): `./hub-tab-dom` — a file with no imports, which the Maker's
+   panel reads too. Re-exported here for the bridge's callers. */
+export { shownHubTab, showHubTab } from './hub-tab-dom';
+
 /** Every section the canvas actually DREW, in page order — the navigator must equal this. */
 export function drawnMakerOrder(doc: Document): string[] {
+  /* 🧭 A tabbed Stages canvas draws each tab's groups and hides all but one: a scene on another tab is still
+     DRAWN (it is reached by switching tabs), so every group is shown for this one synchronous measure — no paint
+     happens in between — and put back. Never dropped from the navigator. */
+  const tucked = [...doc.querySelectorAll<HTMLElement>('[data-hub-tab][hidden]')];
+  tucked.forEach((g) => (g.hidden = false));
+  try {
+    return drawnOrderNow(doc);
+  } finally {
+    tucked.forEach((g) => (g.hidden = true));
+  }
+}
+
+function drawnOrderNow(doc: Document): string[] {
   const keys: string[] = [];
   const nodes = doc.querySelectorAll('[data-maker-section], #site-entourage, #site-story');
   nodes.forEach((n) => {
@@ -237,6 +290,7 @@ export function previewSceneWords(section: Element, text: string): boolean {
     });
   }
   if (!target) return false;
+  keepReactChildren(target);
   target.textContent = text;
   return true;
 }
@@ -256,20 +310,32 @@ const LOOK_PROPS: readonly string[] = HUB_ELEMENT_LOOK_PROPS;
  * must not replay the entrance. `animation-name` goes with the motion because
  * ▶ Play leaves its `-p` twin inline.
  */
-export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | null | undefined, motion: boolean): void {
+export function applyHeroPartStyle(
+  part: HTMLElement,
+  style: HubElementStyle | null | undefined,
+  motion: boolean,
+  /* 🕯 The closing's line lays its motion for the page's foot (`lib/closing-line.ts`) — the guest page's own vars. */
+  motionVars: (style: HubElementStyle | null | undefined) => Array<[string, string]> = hubElementHeroMotionVars,
+): void {
   const clear: string[] = [...LOOK_PROPS];
   if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
   for (const p of clear) part.style.removeProperty(p);
-  // The Maker's canvas: a hidden part is ghosted, never gone (as the server
-  // draws it with `stampElements`).
-  for (const [p, v] of hubElementDeclarations(style, { editor: true })) part.style.setProperty(p, v);
+  // A hidden cover line LEAVES the canvas at once (owner-approved 2026-10-16) — as the server draws it — and comes
+  // back from Cover Scene › Edit's list; it is never ghosted on the cover.
+  for (const [p, v] of hubElementDeclarations(style, { editor: part.getAttribute('data-el') === 'joiner' })) part.style.setProperty(p, v);
   if (!motion) return;
   /* The motion as the guest page carries it: three custom properties and the
      `data-el-motion` hook the one gated rule in globals.css reads. */
-  const vars = hubElementHeroMotionVars(style);
+  const vars = motionVars(style);
   for (const [p, v] of vars) part.style.setProperty(p, v);
   if (vars.length > 0) part.setAttribute('data-el-motion', '');
   else part.removeAttribute('data-el-motion');
+  /* ✨ …and a shimmer's band, the hook of its one paint rule (`hubElementMotionAttr`). */
+  const band = hubElementShimmer(style?.motion);
+  if (band) part.setAttribute(HUB_SHIMMER_ATTR, band);
+  else part.removeAttribute(HUB_SHIMMER_ATTR);
+  /* ✨ …and the six new effects' hooks (Words ▾ · Glow · Reveal ▾ · the photo's Action), as the server lays them. */
+  applyPartFxAttrs(part, style);
 }
 
 /**
@@ -281,6 +347,7 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
  */
 export function applyPartWords(part: HTMLElement, word: string | null | undefined): void {
   const target = part.querySelector<HTMLElement>('[data-el-words]') ?? part;
+  keepReactChildren(target);
   if (!target.hasAttribute('data-el-word')) target.setAttribute('data-el-word', target.textContent ?? '');
   target.textContent = word ?? target.getAttribute('data-el-word') ?? '';
 }
@@ -319,7 +386,7 @@ export function applySceneElementStyles(
   const runs = hubSceneRunsAttr(elements);
   let tag = sceneStyleOf(section, widgetType);
   if (!tag) {
-    if (!css && !runs) return null;
+    if (!css && !runs && !hubSceneFxAttr(elements)) return null;
     tag = doc.createElement('style');
     tag.hidden = true;
     tag.setAttribute('data-hub-els', widgetType);
@@ -328,6 +395,10 @@ export function applySceneElementStyles(
   tag.textContent = css;
   if (runs) tag.setAttribute('data-hub-runs', runs);
   else tag.removeAttribute('data-hub-runs');
+  /* ✨ …and its parts' word effects, as the frame renders them (`hubSceneFxAttr`). */
+  const fx = hubSceneFxAttr(elements);
+  if (fx) tag.setAttribute(HUB_SCENE_FX_ATTR, fx);
+  else tag.removeAttribute(HUB_SCENE_FX_ATTR);
   return tag;
 }
 
@@ -346,6 +417,20 @@ export function applyElementPreview(
   doc: PreviewDoc,
 ): HTMLElement[] {
   const parts = Array.from(section.querySelectorAll<HTMLElement>(`[data-el="${el}"]`));
+  /* 🕯 THE CLOSING'S LINE (`f:closing`, stored on the hero row): its look, its words and its cut — as the guest page
+     draws it (`closing-line.tsx`). No other part shares its alignment, so only it is re-laid. */
+  if (el === CLOSING_EL) {
+    for (const part of parts) {
+      applyHeroPartStyle(part, elements?.[el], motion, closingLineMotionVars);
+      /* The sign-off's own ink (the kit's, `data-el-ink`) is under the couple's colour — back when theirs is taken off. */
+      const ink = part.getAttribute('data-el-ink');
+      if (ink && !part.style.color) part.style.color = ink;
+      unwrapPartFx(part, doc);
+      applyPartWords(part, elements?.[el]?.word);
+      wrapPartFx(part, elements?.[el], doc);
+    }
+    return parts;
+  }
   if ((HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(el)) {
     /* The hero's alignment is ONE choice for every part (`withElementAlign`), and
        "↺ Use the Event Hub style" takes it off every part — so every hero part's
@@ -357,8 +442,11 @@ export function applyElementPreview(
     }
     for (const part of parts) {
       applyHeroPartStyle(part, elements?.[el], motion);
+      /* ✂ The words' cut (Word by word · Spread · Glow) off first, laid again last — over the words and runs drawn now. */
+      unwrapPartFx(part, doc);
       if (HUB_ELEMENT_FIELDS[el].includes('word')) applyPartWords(part, elements?.[el]?.word);
       if (HUB_ELEMENT_RUN_KEYS.includes(el)) applyHeroPartRuns(part, elements?.[el], doc);
+      wrapPartFx(part, elements?.[el], doc);
     }
     return parts;
   }
@@ -372,8 +460,14 @@ export function applyElementPreview(
   // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
   if (motion) for (const part of parts) part.style.removeProperty('animation-name');
   applySceneElementStyles(section, scope, elements, doc);
+  /* ✨ The word effects' cut off first (the runs re-cut the words drawn now), then laid again over them — at once, the
+     couple is looking at the scene (`applySceneFx`). */
+  const cutNow = Boolean(section.querySelector('[data-el-w]') || section.querySelector('[data-el-sl]'));
+  const cutNext = hubSceneFxAttr(elements) !== null;
+  if (cutNow) applySceneFx(section, null, doc);
   // ✍ …and its runs, cut into the part they were made on (`applySceneRuns`).
   if (key.startsWith('w:') && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneRuns(section, elements, doc);
+  if (cutNext && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneFx(section, elements, doc);
   return parts;
 }
 
@@ -384,9 +478,14 @@ export function applyElementPreview(
  * on the clock for this one replay. False when the part has no In to play.
  */
 export function replayElementIn(part: HTMLElement, scroll = true): boolean {
+  /* ✨ The words' and the reveal's own arrival (Word by word · Spread · Develop · Curtain) play again too. */
+  const fx = replayPartFx(part);
   const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
   const i = names.findIndex((n) => n.startsWith('el-in-'));
-  if (i < 0) return false;
+  if (i < 0) {
+    if (fx && scroll) part.scrollIntoView({ behavior: 'auto', block: 'center' });
+    return fx;
+  }
   names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
   const prevOutline = part.style.outline;
   part.style.outline = 'none';
@@ -423,14 +522,91 @@ function flash(el: HTMLElement) {
   }, 1400);
 }
 
+/**
+ * 🧷 BEFORE REACT TOUCHES THE DOM FOR A REDRAW. The bridge lays previews by hand — a scene's background WRAPS the
+ * scene (`scene-bg-preview.ts`), moving a node this page's React tree drew. When the page then redraws itself in
+ * place, React removes that scene from the parent it remembers and `removeChild` throws: the whole sample fell to
+ * the error screen (measured on the Maker lab, 2026-10-08). `getSnapshotBeforeUpdate` is React's own "the new output
+ * is about to be committed, the DOM is still the old one" moment — every one runs before any node is removed — so
+ * `run` puts the DOM back exactly then: the previewed background never blinks off while the server answers, and
+ * React finds every node where it left it. `pending` is the redraw's transition; it ends in the commit that brings
+ * the server's render (the same fact `redrawDone` below relies on).
+ */
+export class BeforeRedrawCommits extends Component<{ pending: boolean; run: () => void }> {
+  override getSnapshotBeforeUpdate(prev: { pending: boolean }) {
+    if (prev.pending && !this.props.pending) this.props.run();
+    return null;
+  }
+  override componentDidUpdate() {
+    /* (React asks for this beside `getSnapshotBeforeUpdate`; there is nothing to do after the commit.) */
+  }
+  override render() {
+    return null;
+  }
+}
+/** What `BeforeRedrawCommits` runs: every hand-laid scene frame goes back to the page's own DOM. */
+const undoLaidPreviews = () => {
+  undoSceneBgPreviews(document);
+  /* 🌗 …and the cover's Darker ↔ Lighter laid while the thumb moved: the render about to commit draws the saved shade. */
+  undoCoverShadePreview(document);
+  /* ✋ …and whatever the Maker laid ON the page ahead of a save (a scene slid to where it was dropped, a place held for
+     a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
+     never one frame of the order twice, never React finding a node it did not put there (the Maker's drag engine). */
+  document.querySelector('[data-maker-scene-placeholder]')?.remove();
+  /* 🎨 …and a style pick's picture laid at the tap (`sceneLook`): the server's render of that style takes its place. */
+  takeScenePicturesOff(document);
+  /* 🧯 …and every node React made that the Maker wrote into (words typed in place, runs cut) is React's again —
+     else this very commit's `removeChild` throws and the page falls to its error screen (`react-children-keep.ts`). */
+  putReactChildrenBack();
+  /* A scene ＋ brought back that this page had taken off (`sceneShow`): the render about to commit draws it. */
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[${SHOW_ON_REDRAW_ATTR}]`))) {
+    el.style.display = '';
+    el.removeAttribute(SHOW_ON_REDRAW_ATTR);
+  }
+  document.dispatchEvent(new Event(CANVAS_REDRAW_COMMITS_EVENT));
+};
+const SHOW_ON_REDRAW_ATTR = 'data-maker-show-on-redraw';
+
+
 export function EditorBridge() {
   /* 🖼 `refresh` — the Maker's page re-renders ITSELF, in place (below). */
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
+  /* ⚡ LOOK › BACKGROUND, AT ONCE (owner 2026-10-08: *"took 8 seconds before a background shows"*). The bridge's OWN
+     layer — after every ground the page draws, hidden at rest — wears the pick the Maker posts
+     (`main-ground-preview.ts`) and KEEPS it: the pick's save asks this page for no render. It steps aside only when
+     this page next renders for another reason, once that render is on screen: a refresh runs inside a transition,
+     and the transition ending is that render committed. */
+  const groundLayer = useRef<HTMLDivElement>(null);
+  const groundPreview = useRef<MainGroundPreviewer | null>(null);
+  const [redrawing, startRedraw] = useTransition();
+  const startRedrawRef = useRef(startRedraw);
+  startRedrawRef.current = startRedraw;
+  const wasRedrawing = useRef(false);
+  /** The tap sweep (`bindAll` in the bridge's effect) — run again once a redraw is on the page. */
+  const rebindRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (wasRedrawing.current && !redrawing) {
+      groundPreview.current?.redrawDone();
+      /* 👆 the server's render may have brought new section nodes: each is bound before the couple can tap it */
+      rebindRef.current?.();
+      /* 🔁 The page now draws what the server holds — a held move / ＋ waits on this (the Maker's held-redraw watch). */
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'redrawn' }, window.location.origin);
+    }
+    wasRedrawing.current = redrawing;
+  }, [redrawing]);
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
+    /* 🧯 the Maker's canvas: note React's nodes before every write into them (`react-children-keep.ts`) */
+    keepReactNodes(true);
+    cleanups.push(() => keepReactNodes(false));
+    if (groundLayer.current) {
+      groundPreview.current = createMainGroundPreviewer(groundLayer.current, (m) =>
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'mainGround', ...m }, origin),
+      );
+    }
     /* ✍ TAP ANY TEXT, TYPE RIGHT THERE (Maker core part 2): a tap on a hero
        part's words puts the caret in them; the Maker hears every keystroke and
        writes it (`type-in-place-canvas.ts`). */
@@ -439,15 +615,67 @@ export function EditorBridge() {
     const lift = createCanvasBringUp(window);
     cleanups.push(() => lift.dispose());
     const typing = createCanvasTyping(window, (m) => window.parent?.postMessage(m, origin), lift);
+    /* 👁 THE WHOLE PAGE, AS A GUEST (owner 2026-10-09, on ▶ held down: *"long press will preview that whole page (they
+       can scroll, tap around, and an exit preview button should show)"*). While it is on the canvas takes NO tap of
+       its own: the page's buttons, tabs and sheets answer as they do for a guest. Two things a guest can do are
+       refused, because this is the couple's draft inside the Maker: a link that leaves this page (the frame would
+       walk away, and the Maker with it) and a form being sent (an answer written as the host). The Maker is told
+       so it can say so. Nothing is saved by being here; `{ t:'guest', on:false }` puts every tap back. */
+    const guest = (() => {
+      const state = { on: false };
+      const refuse = (e: Event, what: 'link' | 'send') => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'guestRefused', what }, origin);
+      };
+      const onClick = (e: MouseEvent) => {
+        const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+        if (a && guestLinkLeaves(a.href, a.target, window.location.href)) refuse(e, 'link');
+      };
+      const onSubmit = (e: Event) => refuse(e, 'send');
+      /* 👁 …and each scene ARRIVES as a guest gets it: on screen now, below as it is scrolled to (`guest-preview-arrivals.ts`). */
+      let arrivals: (() => void) | null = null;
+      const set = (on: boolean) => {
+        if (on === state.on) return;
+        state.on = on;
+        if (on) {
+          typing.stop();
+          document.documentElement.setAttribute('data-maker-guest', '');
+          document.addEventListener('click', onClick, true);
+          document.addEventListener('submit', onSubmit, true);
+          arrivals = startGuestArrivals(document, window, (frame) => {
+            replaySceneIn(frame as never, {
+              replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
+              later: (fn, ms) => window.setTimeout(fn, ms),
+            });
+          }, (part) => void replayElementIn(part, false));
+        } else {
+          arrivals?.();
+          arrivals = null;
+          document.documentElement.removeAttribute('data-maker-guest');
+          document.removeEventListener('click', onClick, true);
+          document.removeEventListener('submit', onSubmit, true);
+        }
+      };
+      cleanups.push(() => set(false));
+      return {
+        get on() {
+          return state.on;
+        },
+        set,
+      };
+    })();
     cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
-    const bind = (el: HTMLElement, key: string) => {
-      if (el.dataset.setnayanEditorBound === '1') return;
-      el.dataset.setnayanEditorBound = '1';
+    /* 🔑 WHAT IS BOUND IS WHAT THIS BRIDGE BOUND (`canvas-section-binder.ts`, 2026-10-16 live: "cannot select on maker
+       preview screen anymore") — a Style card's picture laid over a section arrives wearing another page's mark. */
+    const listen = (el: HTMLElement, key: string) => {
       const prevCursor = el.style.cursor;
       el.style.cursor = 'pointer';
       const send = (e: Event) => {
+        /* 👁 THE WHOLE PAGE, AS A GUEST (`guest` below): the canvas takes no tap — the page's own buttons do. */
+        if (guest.on) return;
         /*
           📖 AN OPEN-UP SCENE (Maker Phase 8) OPENS IN THE CANVAS TOO. Its
           trigger goes nowhere — it lays the scene full screen over this same
@@ -499,51 +727,69 @@ export function EditorBridge() {
         // schedule-widget.tsx), so the Maker opens THAT moment in Details.
         const momentId = (e.target as Element | null)?.closest?.('[data-schedule-moment]')?.getAttribute('data-schedule-moment');
         const moment = momentId ? { moment: momentId } : {};
+        // 🖼 A tap on one of a template scene's pictures names its slot (`data-scene-slot`, scene-template.tsx), so the
+        // Maker opens THAT picture in Edit (owner 2026-10-18).
+        const slotAt = (e.target as Element | null)?.closest?.('[data-scene-slot]')?.getAttribute('data-scene-slot');
+        const slot = slotAt ? { slot: slotAt } : {};
         window.parent?.postMessage(
           part
-            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment }
-            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment },
+            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment, ...slot }
+            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment, ...slot },
           origin,
         );
       };
       el.addEventListener('click', send);
-      cleanups.push(() => {
+      return () => {
         el.removeEventListener('click', send);
         el.style.cursor = prevCursor;
-        delete el.dataset.setnayanEditorBound;
-      });
+      };
     };
-    document.querySelectorAll('[data-maker-section]').forEach((m) => {
-      const el = sectionAfter(m);
-      if (!el) return;
-      const key = m.getAttribute('data-maker-section')!;
-      stampSceneElements(el, key);
-      bind(el, key);
+    const binder = createSectionBinder(document, listen, (el, key) => void stampSceneElements(el, key));
+    cleanups.push(() => binder.dispose());
+    /* 🔁 EVERY SECTION ON THE PAGE NOW — at mount, the moment a Style card's picture is laid over a section (that copy
+       IS the section the couple sees and taps), and after every in-place redraw (the server's render can bring a NEW
+       node where the bound one stood). A sweep that finds nothing new does nothing. */
+    const bindAll = binder.sweep;
+    bindAll();
+    rebindRef.current = bindAll;
+    cleanups.push(() => {
+      rebindRef.current = null;
     });
-    for (const key of ['f:entourage', 'f:story']) {
-      const el = findMakerSection(document, key);
-      if (el) bind(el, key);
-    }
-    // The legacy rows (details, …) — bubbling from a section above stops first.
-    for (const key of ['home', 'details', 'gallery', 'me']) {
-      const el = findMakerSection(document, key);
-      if (el) bind(el, key);
-    }
 
     /* 📱 A tap that lands on NO section (the page's margins, the ground between
        scenes) — the Maker folds an open part sheet to its bar on a phone
        (owner 2026-10-04, `lib/element-sheet-state.ts`). A bound section stops
        its own clicks, so only a stray tap reaches here. */
     const onStray = (e: MouseEvent) => {
-      if ((e.target as Element | null)?.closest?.('[data-setnayan-editor-bound="1"]')) return;
+      if (guest.on) return;
+      if (binder.holds(e.target)) return;
       window.parent?.postMessage({ source: 'setnayan-site', t: 'tapOutside' }, origin);
     };
     document.addEventListener('click', onStray);
     cleanups.push(() => document.removeEventListener('click', onStray));
 
+    /* 🫥 THE COUPLE SCROLLS THE PAGE — a finger or a wheel, never the Maker's own scrolling (a pick brought into view
+       moves the page with no gesture): the Maker puts its editing toolbar away (owner 2026-10-30, "hides on … a
+       scroll"). Said at most once a moment; a guest's preview says nothing. */
+    let scrolledAt = 0;
+    const theirScroll = () => {
+      if (guest.on) return;
+      const now = Date.now();
+      if (now - scrolledAt < 400) return;
+      scrolledAt = now;
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'pageScroll' }, origin);
+    };
+    window.addEventListener('touchmove', theirScroll, { passive: true });
+    window.addEventListener('wheel', theirScroll, { passive: true });
+    cleanups.push(() => {
+      window.removeEventListener('touchmove', theirScroll);
+      window.removeEventListener('wheel', theirScroll);
+    });
+
     // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
     let selTimer: number | null = null;
     const onSelection = () => {
+      if (guest.on) return;
       if (selTimer) window.clearTimeout(selTimer);
       selTimer = window.setTimeout(() => {
         /* ✍ Letters selected while typing are the caret's, not a pick for the
@@ -551,7 +797,9 @@ export function EditorBridge() {
         if (typing.typing()) return;
         const hit = selectionInPart(window.getSelection());
         const section = hit?.part.closest('[data-setnayan-editor-bound="1"]') as HTMLElement | null;
-        const marker = section?.previousElementSibling;
+        /* A laid Style picture stands after the page's own (hidden) section, which stands after the marker. */
+        let marker = section?.previousElementSibling ?? null;
+        if (marker?.hasAttribute(SCENE_LOOK_HIDDEN_ATTR)) marker = marker.previousElementSibling;
         const key = marker?.getAttribute('data-maker-section') ?? null;
         window.parent?.postMessage(
           hit && key
@@ -586,6 +834,18 @@ export function EditorBridge() {
             replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
             later: (fn, ms) => window.setTimeout(fn, ms),
           });
+    /** ▶ The picked part's sequence now playing (`playSeq`) — stopped by the next one or by `playStop`. */
+    let seqStop: (() => void) | null = null;
+    /** 🔝 A page that just opened is held at its top until the couple touches it or picks a part (`createPageTop`). */
+    const pageTop = createPageTop(window);
+    const onPageScroll = () => void pageTop.onScroll();
+    const theirTouch = () => pageTop.release();
+    window.addEventListener('scroll', onPageScroll, { passive: true });
+    for (const t of ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const) window.addEventListener(t, theirTouch, { passive: true, capture: true });
+    cleanups.push(() => {
+      window.removeEventListener('scroll', onPageScroll);
+      for (const t of ['pointerdown', 'touchstart', 'wheel', 'keydown'] as const) window.removeEventListener(t, theirTouch, { capture: true });
+    });
     /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
     const stage = (() => {
       let timer: number | null = null;
@@ -635,7 +895,33 @@ export function EditorBridge() {
          Countdown kept its four boxes; a palette pick reset the page to the
          cover). Never a reload: that is what lost the place. */
       if (data && data.source === 'setnayan-editor' && data.t === 'refresh') {
-        routerRef.current.refresh();
+        /* ⚡ …and a background laid ahead of its save steps aside for THIS render — never before it is on screen. */
+        groundPreview.current?.redrawStarted();
+        startRedrawRef.current(() => {
+          // one-render: keep (other-frame) — the Maker saved in the PARENT document; its answer re-rendered the Maker, never this canvas page.
+          routerRef.current.refresh();
+        });
+        return;
+      }
+      /* ⚡ LOOK › BACKGROUND'S PICK, WORN NOW — its still first, its clip when it moves; `lay: null` takes it off
+         (the save was refused). Every field is checked again here: nothing from a message becomes CSS unchecked. */
+      /* ＋ refused: the place held for a part on its way goes ("nothing changed" is true of the page too). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'scenePlaceholderOff') {
+        document.querySelector('[data-maker-scene-placeholder]')?.remove();
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && data.t === 'mainGround') {
+        const preview = sanitizeMainGroundPreview(data, origin);
+        if (preview && 'landed' in preview) groundPreview.current?.land(preview.seq);
+        else if (preview) groundPreview.current?.lay(preview);
+        return;
+      }
+      /* 🌗 THE COVER SCENE'S Darker ↔ Lighter, WHILE THE THUMB MOVES (`cover-shade-preview.ts`): one style this file
+         owns, checked; taken off by the redraw that draws the saved shade, or at once when the save was refused. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'coverShade') {
+        const look = sanitizeCoverShadePreview(data);
+        if (look === 'off') undoCoverShadePreview(document);
+        else if (look) applyCoverShadePreview(document, look);
         return;
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {
@@ -658,6 +944,35 @@ export function EditorBridge() {
          but always need to press apply"). The Maker resolved the buttons with
          the guest page's own rule; this lays them on every look scope
          (`buttons-preview.ts`). The draft save follows; guests see it at Apply. */
+      /* 🧱 A FIXED BLOCK'S LOOK, picked in the Maker (`lib/block-looks.ts`): the page's one `<style data-block-looks>`
+         is rebuilt by the SAME strict reader the server used — never from text this message holds. The reader is
+         fetched on this message only (the Maker's canvas), so a guest's bundle never carries it; the two names are
+         said outright here for that reason (held equal to the module's by its guard). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'blockLooks') {
+        const looks = (data as { looks?: unknown }).looks;
+        void import('@/lib/block-looks').then(({ blockLooksCss, readBlockLooks }) => {
+          const css = blockLooksCss(readBlockLooks({ block_looks: looks }));
+          let changed = false;
+          document.querySelectorAll<HTMLElement>('style[data-block-looks]').forEach((el) => {
+            if (el.textContent === css) return;
+            el.textContent = css;
+            changed = true;
+          });
+          if (!changed) return;
+          /* ✨ So the couple SEES it: each marked block is told it has just been reached (`.pahina-in`, the page
+             observer's own mark), which is what starts a timed Build in. Canvas only; a guest's page waits for the
+             observer. The block is the element after its mark — or after the Maker's marker standing between. */
+          document.querySelectorAll('[data-block-mark]').forEach((mark) => {
+            const after = mark.nextElementSibling;
+            const block = after?.hasAttribute('data-maker-section') ? after.nextElementSibling : after;
+            if (!(block instanceof HTMLElement)) return;
+            block.classList.remove('pahina-in');
+            void block.offsetWidth;
+            block.classList.add('pahina-in');
+          });
+        });
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && data.t === 'buttons') {
         const preview = sanitizeButtonsPreview(data);
         if (preview) applyButtonsPreview(document, preview);
@@ -706,15 +1021,47 @@ export function EditorBridge() {
         );
         return;
       }
+      /* 👁 THE WHOLE PAGE AS A GUEST, on or off. Up HERE with the other messages that name no section: a message
+         without a `key` never gets past the line below them (seen on the review copy, 2026-10-09: the Maker went into
+         its preview and the canvas, never told, kept taking every tap). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'guest') {
+        guest.set((data as { on?: unknown }).on === true);
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && (data.t === 'playStage' || data.t === 'playStop')) {
         /* ▶ THE WHOLE STAGE (the new Maker's ▶ with nothing picked, `stage-tools.tsx`):
            each scene in turn, brought into view and replaying its own arrival; a
            tap anywhere on the page, or `playStop`, ends it. */
         stage.stop(false);
+        seqStop?.();
+        seqStop = null;
+        pageTop.release();
         if (data.t === 'playStage') stage.start();
         return;
       }
+      if (data && data.source === 'setnayan-editor' && data.t === 'hubTab') {
+        /* 🧭 THE STAGES CANVAS'S TABS — each its own page, switched in place exactly as the guest's hub shell does
+           (`hub-shell.tsx` `showTab`): every group but the tab's is `hidden`, and the page starts at its top —
+           and STAYS there (`holdTop`): the Maker's page pick also asks for its first scene, which used to scroll
+           the fresh page down (owner 2026-10-07: *"a bookmark on a single page that just jumps. this was not the
+           plan"*). The Maker is told the tab that is on screen. */
+        const tab = (data as { tab?: unknown }).tab;
+        if (typeof tab !== 'string' || !tab) return;
+        /* 🔥 A stage warmed BEHIND the canvas is not on screen: a tab picked on the page in front is not for it
+           (both stages have a Welcome) — it keeps its first page until it is shown. */
+        if (window.frameElement?.getAttribute('data-maker-canvas-frame') === 'warm') return;
+        /* 🔝 From the top, the old page's resting place forgotten (`openHubTab`) — so the `settle` that follows a
+           tab tap (it closes the part being edited) cannot send the page back down. */
+        const opened = openHubTab(document, window, lift, tab);
+        if (!opened) return;
+        /* 📜 A jump mark of the one page (owner 2026-10-15) went to its place — nothing to hold at the top. */
+        if (opened === true) pageTop.hold();
+        window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab }, origin);
+        return;
+      }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
+      /* 🔝 A part picked or played may be brought into view — the page is the couple's again. */
+      if (HUB_TAB_FREES.includes(data.t ?? '')) pageTop.release();
       if (data.t === 'typeText') {
         /* ✍ A Wording ▾ / Format ▾ pick, the other pane's keystroke, or a
            refused save's words put back — on the part now. */
@@ -724,6 +1071,13 @@ export function EditorBridge() {
           const scene = typeof field === 'string' && field ? field : null;
           typing.set(findMakerSection(document, data.key), data.el, text.slice(0, scene ? 4000 : 240), scene);
         }
+        return;
+      }
+      if (data.t === 'sceneLook') {
+        /* 🎨 A STYLE PICK, ON THE PAGE AT THE TAP (`lib/maker-scene-look.ts`): the picked card's own section — the
+           guest page drawn in that style — laid over this one until the in-place redraw brings the server's. */
+        const html = (data as { html?: unknown }).html;
+        if (typeof html === 'string' && html.length < 400_000 && layScenePicture(document, data.key, html)) bindAll();
         return;
       }
       const el = findMakerSection(document, data.key);
@@ -737,6 +1091,66 @@ export function EditorBridge() {
            reloads. Putting a scene back is never drawn here: a scene the page
            did not draw has nothing to show, so that write reloads. */
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
+        return;
+      }
+      if (data.t === 'sceneShowOnRedraw') {
+        /* ＋ A scene this page took off a moment ago, brought back by a held save: it is shown by the in-place redraw
+           that draws it in its new place — in that very commit (`undoLaidPreviews`), never before at its old one. */
+        el.setAttribute(SHOW_ON_REDRAW_ATTR, '');
+        return;
+      }
+      if (data.t === 'playSeq') {
+        /* ▶ THE PICKED PART'S WHOLE LIFE — Build in · Action · Build out · rest (`play-sequence.ts`); each
+           phase, and what it has none of, told to the Maker so it can say so. */
+        seqStop?.();
+        const part = typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
+        const frame = part ? null : (sceneFrameOf(el as never) as unknown as HTMLElement | null);
+        /* 🧱 A FIXED BLOCK (the March, E-Gifts, Photos of you…) HAS NO SCENE FRAME: its Animate is its OWN part-motion,
+           written on the element after its mark (`lib/block-looks.ts` `blockSelector` — `el-in-*` · `el-during-*` ·
+           `el-out-*`, as a scene's part). ▶ read a block as a SCENE (`--hub-in-kf`, which a block never carries),
+           found "Build in: none" and stopped in a frame: Fade picked, ▶ pressed, nothing moved (the walk of
+           2026-10-11, M12). A block is played as the part it is. */
+        const block = part || frame ? null : blockPartOf(el);
+        const target = part ?? frame ?? block ?? el;
+        const only = (data as { only?: unknown }).only;
+        seqStop = playSequence(
+          target,
+          !part && !block,
+          /* ✋ `rest` keeps the stop: the Maker holds the finished look until its Exit preview (or a tap) sends `playStop`. */
+          (r) => window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin),
+          /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
+          only === 'in' || only === 'act' || only === 'out' ? only : undefined,
+          /* ✋ …and holds on its finished look (owner 1 Nov 2026); a whole life's finished look is its rest. */
+          only === 'in' || only === 'act' || only === 'out',
+        );
+        return;
+      }
+      if (data.t === 'playCover') {
+        /* 🎬 ▶ THE COVER SCENE: veil → unveil → every line in its beat (`playCover`). Told back like any ▶. */
+        seqStop?.();
+        const sel = 'header[data-pahina-first-screen]';
+        const header = (el as HTMLElement).matches?.(sel) ? (el as HTMLElement) : (el.querySelector<HTMLElement>(sel) ?? null);
+        if (!header) return;
+        seqStop = playCover(header, (data as { veil?: unknown }).veil === true, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
+        });
+        return;
+      }
+      if (data.t === 'sceneMotion') {
+        /* 🎬 A SCENE'S MOTION PICK, ON THE CANVAS NOW (`scene-motion-lay.ts`, the 2026-10-15 walk F5 · F10): laid on the
+           frame on screen — so ▶ always plays the latest pick — and the picked phase played once, as ▶ plays it. The
+           page's own arrival restarted by the new values is finished first, so only the one replay is seen. */
+        const motion = readSceneMotion(data);
+        const frame = sceneFrameOf(el as never) as unknown as HTMLElement | null;
+        if (!motion || !frame) return;
+        laySceneMotion(frame as never, motion);
+        finishArrivals(frame, true);
+        if (!motion.play || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        seqStop?.();
+        seqStop = playSequence(frame, true, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+        }, motion.play);
         return;
       }
       if (data.t === 'playEl') {
@@ -783,11 +1197,18 @@ export function EditorBridge() {
         const box = document.createElement('div');
         box.setAttribute('data-maker-scene-placeholder', '');
         box.setAttribute('role', 'status');
-        box.textContent = 'Adding your scene…';
+        /* ＋ A part brought back names itself and stands where it will land — above or below the part ＋ was pressed
+           on (`where`), until the in-place redraw that draws it takes this away (`undoLaidPreviews`). */
+        const p = data as { label?: unknown; where?: unknown };
+        const label = typeof p.label === 'string' ? p.label.slice(0, 80) : '';
+        box.textContent = label ? `Adding ${label}…` : 'Adding your scene…';
         box.style.cssText =
           'margin:16px auto;max-width:560px;min-height:180px;display:flex;align-items:center;justify-content:center;border:1.5px dashed rgba(27,26,23,.25);border-radius:var(--m-r-md);font:500 13px/1.4 system-ui,sans-serif;color:rgba(27,26,23,.6);animation:pulse 1.4s ease-in-out infinite';
-        el.insertAdjacentElement('afterend', box);
-        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (p.where === 'above') {
+          const marker = el.previousElementSibling?.hasAttribute('data-maker-section') ? el.previousElementSibling : el;
+          marker.insertAdjacentElement('beforebegin', box);
+        } else el.insertAdjacentElement('afterend', box);
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
       if (data.t === 'words') {
@@ -803,6 +1224,14 @@ export function EditorBridge() {
         return;
       }
       if (data.t === 'scrollTo') {
+        /* 🧭 A page just opened stays at its top (see `hubTab`). */
+        if (pageTop.held()) return;
+        /* 🧭 …and a scene on ANOTHER page is reached by opening its page first — never a scroll to a hidden part. */
+        const here = shownHubTab(document);
+        const away = here === null ? null : (el.closest('[data-hub-tab]')?.getAttribute('data-hub-tab') ?? null);
+        if (away && away !== here && showHubTab(document, away)) {
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab: away }, origin);
+        }
         /* To the scene's TOP, always (owner 2026-09-27: "a scene is as tall as
            its content — never a forced full screen"). A short scene lands with
            the next one below it on the same screen; nothing is resized. */
@@ -823,12 +1252,19 @@ export function EditorBridge() {
 
     // Tell the parent the frame is ready, with the order it actually drew.
     window.parent?.postMessage(
-      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document) },
+      { source: 'setnayan-site', t: 'ready', order: drawnMakerOrder(document), bar: readMakerBar(document), tab: shownHubTab(document) },
       origin,
     );
 
     return () => cleanups.forEach((fn) => fn());
   }, []);
 
-  return null;
+  /* The preview's layer: `fixed -z-10` like every ground, LAST in the page so it lies over them; `hidden` until a
+     pick is laid. Only ever in the Maker's canvas — a guest's page never mounts this bridge. */
+  return (
+    <>
+      <BeforeRedrawCommits pending={redrawing} run={undoLaidPreviews} />
+      <div ref={groundLayer} data-main-ground-preview="" aria-hidden hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" />
+    </>
+  );
 }

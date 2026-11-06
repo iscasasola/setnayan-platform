@@ -88,14 +88,11 @@ const BELOW_AA_AS_TEXT: ReadonlyArray<{
  * decorative arrows. This list only ever gets SHORTER. */
 const BILL: ReadonlyArray<readonly [string, number]> = [
   ['budget/_components/share-budget-band-toggle.tsx', 1],
-  // ⤷ 2026-09-22: the guest's form moved out of the route and into the shared
-  // card, and the THREE privacy checkboxes that carried this became one
-  // <Toggle> component — so three billed uses became one, in a new file.
-  // Still a checkbox ACCENT (Tailwind's form colour), never text.
-  ['guests/_components/guest-list-multiselect.tsx', 3],
+  // (guests/_components/guest-list-multiselect.tsx carried 3 checkbox accents; the
+  // file was deleted 2026-10-09 with the retired GuestListMultiselect.)
   ['guests/checkin/page.tsx', 1],
   ['guests/claims/page.tsx', 1],
-  ['guests/invite/_components/invite-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel
+  ['guests/invite/_components/share-link-panel.tsx', 1], // the theme-link chevron — moved from invite/page.tsx with the panel
   ['guests/invite/page.tsx', 1],
   ['guests/new/page.tsx', 1], // the Allow plus-one checkbox became the 0–4 choice (2026-09-21)
   ['guests/souvenirs/_components/souvenir-desk.tsx', 1],
@@ -119,20 +116,15 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/working-folder-notes.tsx', 1],
   ['vendors/[vendorId]/workspace/page.tsx', 6],
-  ['vendors/_components/accordion-lock.tsx', 3],
   ['vendors/_components/build-compare.tsx', 2],
   ['vendors/_components/build-locked.tsx', 1],
-  ['vendors/_components/lock-milestone.tsx', 1],
-  ['vendors/_components/merkado-budget-lens.tsx', 2],
   ['vendors/_components/merkado-guard-banner.tsx', 1],
   ['vendors/_components/pending-lock-proposals.tsx', 1],
   ['vendors/_components/quote-fill.tsx', 1],
   ['vendors/_components/reuse-bookings-panel.tsx', 1],
   ['vendors/_components/services-takeover.tsx', 2],
-  ['vendors/_components/team-controls.tsx', 1],
   ['vendors/_components/vendor-quickview-inspector.tsx', 1],
   ['vendors/packages/[bookingId]/page.tsx', 1],
-  ['_components/new-manual-vendor-modal.tsx', 1],
   ['_components/vendor-itemization-card.tsx', 1],
   ['_components/vendor-marketplace-info.tsx', 4],
 ];

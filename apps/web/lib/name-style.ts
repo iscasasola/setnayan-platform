@@ -25,9 +25,11 @@
  * WHAT IT APPLIES TO: the formal surfaces — the entourage (sponsors included)
  * on the Event Hub, /everyone and the printed Entourage card; the printed
  * per-guest cards; the tickets (digital and printed); the name lists; and the
- * couple's invite message `{name}`. A name the couple TYPED as a Display name
- * is printed as given — it is their choice for that person, and no style
- * rewrites it (`guestFullName`).
+ * couple's invite message `{name}`. 🪪 A "Shown as" (`display_name`) never
+ * replaces the five parts on a formal surface (owner 2026-10-20, DECISION_LOG
+ * "THE INVITATION PRINTS A GUEST'S FULL NAME — SHOWN AS NEVER REPLACES IT",
+ * `guestFullName`); it is printed only for a row with no parts at all, and as
+ * given only where words are addressed to the guest (`guestNameAsGiven`).
  *
  * Pure and import-free on purpose: the Maker's dropdown, the guest pages and
  * the print server all read it, and none may disagree about a style's words.

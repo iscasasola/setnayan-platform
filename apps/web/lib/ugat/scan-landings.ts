@@ -80,6 +80,9 @@ export const LANDING_SYNONYMS: ReadonlyArray<readonly string[]> = [
   ['feature', 'tool', 'pricing', 'plan'],
   ['addon', 'add', 'on', 'service', 'studio', 'suite', 'extra'],
   ['taglish', 'tl', 'tagalog', 'english', 'about'],
+  // The disputes flow is "Report a problem" to a couple (owner 2026-10-14, DECISION_LOG 🧾; nav.disputes in
+  // i18n/dashboard.en.json says the same) — the page itself is titled Disputes.
+  ['dispute', 'problem', 'issue'],
 ];
 
 export function wordsOf(text: string): string[] {

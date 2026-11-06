@@ -1,0 +1,238 @@
+/**
+ * find-thumb-row.test.ts — THE FLOATING ROW AT THE THUMB OF FIND (owner
+ * 2026-10-07 evening; corpus `SUPPLIERS_BUILD_PLAN_2026-10-07_fable.md` § PR2
+ * "UPDATED 2026-10-07 EVENING / LATE"; acceptance pictures 19–22):
+ * ⇕ Expand all · Search all suppliers or add your own · ＋ Add your own.
+ *
+ *   T1  the row owns nothing and writes nothing — its three controls are the
+ *       bench's own (open state, search text, the add form);
+ *   T2  rule 4 — the box keeps its own text and the list hears it 250 ms after
+ *       the last keystroke; the bench's old in-list search box is gone;
+ *   T3  rule 5 — it rises once Find is on screen and slides down BEFORE the
+ *       body swaps; a hidden Find body takes its row down;
+ *   T4  rules 3 and 7 — one fit state for the row, the field keeps 60 %; the
+ *       field is the frosted piece and Add keeps its full colour;
+ *   T5  Expand all opens every category and a header tap folds just that one;
+ *   T6  ＋ Add your own opens the form for the ONE open category, otherwise it
+ *       asks which first — one dropdown of only the categories on the event;
+ *   T7  an open category's header pins; the ONE open category is the scope of
+ *       the words, the search and Add (2026-10-13 — the moment it opens; Expand
+ *       all = everything); a pinned header's first tap goes back to its first
+ *       card and a tap at its top folds it (rule 6). One Add on Find.
+ *
+ * Source assertions, comments stripped: the row is a portal over
+ * `document.body` and this runner has no DOM. The open rule itself is EXECUTED
+ * in `lib/suppliers-shell.test.ts` (`isCategoryOpen`), and the glass recipe in
+ * `lib/floating-rows-are-glass.test.ts`.
+ *
+ * SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
+ *   T1 the row calls the search action itself   T2 search on every keystroke ·
+ *   keep the in-list box   T3 stay up while Find is hidden · swap without the wait
+ *   T4 drop the fit pass · call it where the row is not mounted · let the field
+ *      shrink · frost Add   T5 a header tap closes them all
+ *   T6 list every category in the dropdown
+ *   T7 a scroll-box body · search everything while pinned · fold on the first tap
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+
+const DIR = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', '_components');
+const code = (f: string) => stripComments(readFileSync(join(DIR, f), 'utf8'));
+
+const ROW = code('find-thumb-row.tsx');
+const BENCH = code('shortlist-categories.tsx');
+const SHELL = code('services-takeover.tsx');
+const MODE = code('suppliers-mode.tsx');
+
+/* ── T1 ──────────────────────────────────────────────────────────────────── */
+
+test('T1 · the row owns nothing and writes nothing', () => {
+  const imports = [...ROW.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
+  // `@/lib/suppliers-shell` lends only the `?find=1` door's name (a string); the controls are the ONE shared row
+  // (`components/thumb-row.tsx`, owner 2026-10-22) — still nothing that writes.
+  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/thumb-row', '@/lib/suppliers-shell', './suppliers-mode']);
+  assert.doesNotMatch(ROW, /'use server'|-actions'|_actions\/|\.from\(|fetch\(|router\./);
+  // The bench hands it its own three controls — once.
+  assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
+  assert.match(
+    BENCH,
+    // + Find v4 (2026-10-29): "Go to a category" from the empty box, and the ⇅ (Sort · Price · Rating) — both the
+    //   bench's own state, handed in.
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+onGoToCategory=\{goToCategory\}\s+sortMenu=\{findSortMenu\(\{/,
+  );
+  // Every control is the shared row's; nothing hand-made, no › in a control.
+  assert.equal((ROW.match(/<ThumbRow\b/g) ?? []).length, 1);
+  assert.doesNotMatch(ROW, /<button\b|<ActionButton\b|›/);
+});
+
+/* ── T2 · rule 4 ─────────────────────────────────────────────────────────── */
+
+test('T2 · the search runs 250 ms after the last keystroke, and typing never rebuilds the box', () => {
+  assert.match(ROW, /export const THUMB_SEARCH_DEBOUNCE_MS = 250;/);
+  // The box's text is the row's own state — the list is told later.
+  assert.match(ROW, /const \[text, setText\] = useState\(''\);/);
+  assert.match(ROW, /value: text,\s+onChange: \(e\) => setText\(e\.target\.value\),/);
+  assert.match(
+    ROW,
+    /const t = window\.setTimeout\(\(\) => \{\s*said\.current = text;\s*onSearch\(text\);\s*\}, THUMB_SEARCH_DEBOUNCE_MS\);\s*return \(\) => window\.clearTimeout\(t\);/,
+  );
+  assert.doesNotMatch(ROW, /onChange=\{[^}]*onSearch\(/, 'the list is searched on every keystroke');
+  // The words name the place, short (owner 2026-10-22) — the full scope is the accessible name.
+  assert.match(ROW, /placeholder: findPlaceholder\(scope\),\s+label: `Search \$\{scope\}`,/);
+});
+
+test('T2 · the bench’s in-list search box is gone with the new shape — one box, at the thumb', () => {
+  const at = BENCH.indexOf('<div className="bench-search">');
+  assert.ok(at > -1, 'the flag-off box moved — re-anchor');
+  assert.match(BENCH.slice(at - 60, at), /\{replan \? null : \(\s*$/, 'the old box is drawn beside the thumb row');
+});
+
+/* ── T3 · rule 5 ─────────────────────────────────────────────────────────── */
+
+test('T3 · it rises once Find is on screen, and a hidden Find body takes its row down', () => {
+  assert.match(ROW, /const \{ mode, leaving, thumbUp \} = useSuppliersMode\(\);/);
+  assert.match(ROW, /const wanted = mode === 'find' && !leaving;/);
+  assert.match(ROW, /if \(!wanted\) \{\s*thumbUp\.current = false;\s*setUp\(false\);\s*return;\s*\}/);
+  assert.match(ROW, /inner = requestAnimationFrame\(\(\) => \{\s*thumbUp\.current = true;\s*setUp\(true\);/);
+  assert.match(ROW, /inert=\{!up\}/);
+  assert.match(ROW, /style=\{\{ transitionDuration: `\$\{THUMB_SLIDE_MS\}ms` \}\}/);
+  // Unmounting says the row is down, so the shell never waits for a row that is gone.
+  assert.match(ROW, /useEffect\(\s*\(\) => \(\) => \{\s*thumbUp\.current = false;\s*\},\s*\[thumbUp\],\s*\);/);
+  // The shell is what tells every body which one is on screen.
+  assert.match(SHELL, /const modeState = useMemo\(\(\) => \(\{ mode, leaving, thumbUp \}\), \[mode, leaving\]\);/);
+  assert.match(SHELL, /<SuppliersModeContext\.Provider value=\{modeState\}>/);
+  // Outside the shell a body renders as it would alone: Find, on screen, not leaving.
+  assert.match(MODE, /createContext<SuppliersModeState>\(\{\s*mode: 'find',\s*leaving: false,\s*thumbUp: \{ current: false \},\s*\}\)/);
+});
+
+test('T3 · the body swaps only AFTER the row has slid down — and only when a row is up', () => {
+  const goTo = SHELL.slice(SHELL.indexOf('const goToSection'), SHELL.indexOf('}, []);', SHELL.indexOf('const goToSection')));
+  assert.match(
+    goTo,
+    /if \(nextMode !== modeRef\.current && thumbUp\.current && !prefersReducedMotion\(\)\) \{\s*setLeaving\(true\);\s*leaveTimer\.current = window\.setTimeout\(swap, THUMB_SLIDE_MS\);\s*return;\s*\}\s*swap\(\);/,
+  );
+  // The swap ends the wait — so a second press on the body being left brings its row back.
+  assert.match(goTo, /flushSync\(\(\) => \{[\s\S]*?setLeaving\(false\);\s*\}\);/);
+  assert.match(goTo, /if \(leaveTimer\.current != null\) window\.clearTimeout\(leaveTimer\.current\);/);
+  assert.match(MODE, /export const THUMB_SLIDE_MS = 300;/);
+});
+
+/* ── T4 · rules 3 and 7 ──────────────────────────────────────────────────── */
+
+test('T4 · the controls are the ONE shared row — icon rounds, the field the widest seat (2026-10-22)', () => {
+  // The 2026-10-07 fit pass (icon + word → word → icon) retires here: every round is icon-only at 44 px, so there is
+  // no word to fit; the field takes the rest (`components/thumb-row.module.css` `.field { flex: 1 1 auto }`).
+  const call = ROW.slice(ROW.indexOf('<ThumbRow'), ROW.indexOf('/>', ROW.indexOf('action={{')));
+  assert.match(call, /name="suppliers-find"/);
+  assert.match(call, /left=\{\[/);
+  assert.match(call, /field=\{\{/);
+  assert.match(call, /action=\{\{\s*icon: Plus,/);
+  assert.doesNotMatch(ROW, /useFitRow|ThumbControls/, 'a second drawing of the row is back');
+});
+
+test('T4 · glass: the row has no background; the field is frosted; Add keeps its full colour', () => {
+  const outer = /<div\s+data-find-thumb=""[\s\S]*?className=\{`([^`]*)`\}/.exec(ROW)?.[1] ?? '';
+  assert.ok(outer, 'the row lost its anchor');
+  assert.doesNotMatch(outer, /(^| )(bg-|shadow|backdrop-blur|sn-glass-row)/, 'the row has a fill, a shadow or a blur of its own');
+  // The glass and the terracotta are the shared row's (`every-thumb-row-is-the-one-row.test.ts` renders them).
+  assert.match(ROW, /label: text\.trim\(\) \? 'Add' : 'Add your own',/);
+  assert.doesNotMatch(ROW, /!bg-/);
+});
+
+/* ── T5 · expand all ─────────────────────────────────────────────────────── */
+
+test('T5 · Expand all opens every category; a header tap then folds just that one', () => {
+  assert.match(BENCH, /const tileOpen = isCategoryOpen\(\{ tile: t\.tile, searching, openTile, openAll, folded \}\);/);
+  assert.match(BENCH, /const folderOpen = replan \|\| searching \|\| openAll \|\| openFolder === folder\.folder;/);
+  assert.match(BENCH, /onClick=\{\(\) => tapRowHead\(t\.tile, tileOpen\)\}/);
+  assert.match(BENCH, /if \(openAll\) toggleFolded\(tile\);\s*else setOpenTile\(isOpen \? null : tile\);/);
+  const toggle = BENCH.slice(BENCH.indexOf('function toggleOpenAll()'), BENCH.indexOf('const benchRows'));
+  assert.match(toggle, /setFolded\(new Set\(\)\);/, 'a stale fold would survive the next Expand all');
+  assert.match(toggle, /setOpenAll\(\(on\) => \{\s*if \(on\) \{\s*setOpenFolder\(null\);\s*setOpenTile\(null\);\s*\}\s*return !on;\s*\}\);/);
+  // The control says what it will do, and whether everything is open.
+  assert.match(ROW, /label: allOpen \? 'Collapse all' : 'Expand all',\s+expanded: allOpen,/);
+});
+
+/* ── T6 · add your own ───────────────────────────────────────────────────── */
+
+test('T6 · Add opens the form for the ONE open category — otherwise it asks which, first', () => {
+  const add = BENCH.slice(BENCH.indexOf("function addYourOwn(typed = '')"), BENCH.indexOf('function openPlan('));
+  assert.ok(add.length > 0, 'addYourOwn moved — re-anchor');
+  // The scope IS the one open category (2026-10-13) — Add goes there; with none, it asks.
+  // …carrying the name typed in the box (2026-10-10).
+  assert.match(
+    add,
+    // …and the ROW itself, so the card is filed under it (owner 2026-10-20).
+    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label, name: typedForAdd\.current, tile: scopeRow\.t\.tile \}\);\s*else setAddAsk\(true\);/,
+  );
+  // ONE add on Find (owner 2026-10-13): the thumb row's ＋ — no category draws its own "Add your own".
+  assert.doesNotMatch(BENCH, /\{replan && rowBooked \? \(\s*<div className="morefoot">/, 'a booked category grew its own Add again');
+  assert.doesNotMatch(BENCH, /onAdd\?: \(\) => void;/, 'More to compare grew its own Add again');
+  assert.equal((BENCH.match(/label="Add your own"/g) ?? []).length, 0, 'a second "Add your own" inside a category');
+  // The shipped form — never a second one: the record (edit) and the pre-replan
+  // first add. The one-screen first add is the four-step walk, mounted once.
+  assert.equal((BENCH.match(/<NewManualVendorModal\b/g) ?? []).length, 2, 'a third manual-supplier form');
+  assert.equal((BENCH.match(/<AddYourOwnWalk\b/g) ?? []).length, 1, 'the walk must be mounted exactly once');
+});
+
+test('T6 · the question is ONE dropdown of only the categories on the event', () => {
+  // "On the event" is the bench's own row set — the in-plan tiles.
+  assert.match(
+    BENCH,
+    /const benchRows = folders\.flatMap\(\(f\) =>\s*f\.tiles\.filter\(\(t\) => !inPlanTiles \|\| inPlanTiles\.has\(t\.tile\)\)\.map\(\(t\) => \(\{ t, group: f\.label \}\)\),\s*\);/,
+  );
+  const ask = BENCH.slice(BENCH.indexOf('{addAsk &&'), BENCH.indexOf('{manual && replan ? ('));
+  assert.ok(ask.length > 0, 'the ask moved — re-anchor');
+  assert.equal((ask.match(/<PickMenu\b/g) ?? []).length, 1, 'more than one control asks the category');
+  assert.match(ask, /options=\{benchRows\.map\(\(\{ t, group \}\) => \(\{ key: t\.tile, label: t\.label, group \}\)\)\}/);
+  assert.match(
+    ask,
+    /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label, name: typedForAdd\.current, tile: row\.t\.tile \}\);/,
+  );
+  // A sheet must escape the page's transform.
+  assert.match(ask, /createPortal\(\s*<Sheet open onClose=\{\(\) => setAddAsk\(false\)\}[\s\S]*document\.body,\s*\)/);
+  assert.doesNotMatch(ask, /<select\b|role="radio"/);
+});
+
+/* ── T7 · the pinned header and the scope that follows it ────────────────── */
+
+test('T7 · an open category’s header pins under the shell’s block, and the body is not a scroll box', () => {
+  assert.match(BENCH, /\.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{position:sticky;top:var\(--stick-h,150px\);z-index:3;background:#F7F5F0;/);
+  assert.match(BENCH, /\.slcat \.fold\.flat \.fold-collapse>\.fold-body\{overflow:visible\}/, 'a hidden-overflow ancestor would stop the head pinning');
+  assert.match(BENCH, /html\.dark \.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{background:#17160F\}/);
+});
+
+test('T7 · the scope is the ONE OPEN category the moment it opens: the words, the search and Add follow it', () => {
+  // Owner 2026-10-13: "whatever category is picked, that is where we add manually and search" — the open row, not
+  // only once its header has pinned (his picture: Reception open, the box still "Search all suppliers").
+  assert.match(BENCH, /const scopeTile = replan \? thumbScopeTile\(\{ openTile, openAll \}\) : null;/);
+  assert.doesNotMatch(BENCH, /setScopeTile|useState<string \| null>\(null\);\s*const benchRef/, 'the scope went back to a scroll read');
+  assert.match(BENCH, /const scopeRow = scopeTile \? \(benchRows\.find\(\(r\) => r\.t\.tile === scopeTile\) \?\? null\) : null;/);
+  assert.match(BENCH, /const searching = q\.length > 0 && !scopeRow;/);
+  assert.match(BENCH, /scopedQ && scopeTile === t\.tile\s*\? t\.vendors\.filter\(\(v\) => v\.name\.toLowerCase\(\)\.includes\(scopedQ\)\)\s*: t\.vendors;/);
+  // More to compare searches that category too.
+  assert.match(BENCH, /query=\{scopeTile === t\.tile \? scopedQ : ''\}/);
+  assert.match(BENCH, /data-tile=\{t\.tile\}/);
+  // No hit there is said, in the prototype's words — never an empty category.
+  assert.match(BENCH, /Nobody called “\{query\.trim\(\)\}” in \{t\.label\} yet — add them as your own\./);
+});
+
+test('T7 · rule 6 — pinned and scrolled into: the first tap goes back to the first card; at the top it folds', () => {
+  const tap = BENCH.slice(BENCH.indexOf('function tapRowHead('), BENCH.indexOf('function toggleFolded('));
+  assert.match(
+    tap,
+    /if \(row && isOpen && row\.getBoundingClientRect\(\)\.top < stickLine\(\) - 2\) \{\s*scrollBenchAnchor\(benchTileAnchorId\(tile\)\);\s*return;\s*\}/,
+  );
+  // Opening a row lands its first card under the pinned block.
+  assert.match(tap, /if \(replan && !isOpen\) setLanding\(\(cur\) => \(\{ tile, n: \(cur\?\.n \?\? 0\) \+ 1 \}\)\);/);
+  // …with no guessed delay: a frame after the commit, then once when the unfold has finished.
+  const land = BENCH.slice(BENCH.indexOf('const [landing, setLanding]'), BENCH.indexOf('}, [landing]);'));
+  // Each landing makes the page's room first, then scrolls (`land`, 2026-10-25 — lib/an-opened-row-reaches-the-top.test.ts).
+  assert.match(land, /const land = \(\) => \{[\s\S]*?makeRoomToPin\(row, benchRef\.current\);\s*scrollBenchAnchor\(id\);\s*\};/);
+  assert.match(land, /const frame = requestAnimationFrame\(land\);/);
+  assert.match(land, /if \(e\.propertyName !== 'grid-template-rows'\) return;\s*row\?\.removeEventListener\('transitionend', settle\);\s*land\(\);/);
+  assert.doesNotMatch(BENCH, /setTimeout\([\s\S]{0,200}benchTileAnchorId/);
+});

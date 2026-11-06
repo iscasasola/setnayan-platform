@@ -19,6 +19,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveLivePax, computeAddedPaxSurcharge } from '@/lib/pax';
 import { formatCount } from '@/lib/format-number';
+import { formatPhp } from '@/lib/php';
 
 type Resolved = {
   admin: ReturnType<typeof createAdminClient>;
@@ -171,7 +172,7 @@ async function notifyCoupleOfSurchargeChange(
         userId: m.user_id,
         type: 'pax_surcharge_changed',
         title: `${vendorName} ${direction} a guest-count charge`,
-        body: `Based on ${formatCount(r.livePax)} guests, the booking total is now ₱${newTotal.toLocaleString('en-PH')}.`,
+        body: `Based on ${formatCount(r.livePax)} guests, the booking total is now ${formatPhp(newTotal)}.`,
         relatedUrl: `/dashboard/${r.eventId}/budget`,
       });
     }

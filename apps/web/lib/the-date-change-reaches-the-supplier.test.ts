@@ -10,7 +10,8 @@
  * `tests/db/a-clashing-date-goes-to-the-supplier.db.test.ts`. This file holds
  * the halves a db test cannot see: the notice AND its allowlist line (two
  * halves of one mechanism), the desk card AND its buttons, the Next card, Home,
- * Apply's relaxation, and that money never narrows a date.
+ * the date door's relaxation (`updateEventDate` — the date saves to the event at
+ * once, owner 2026-11-05), and that money never narrows a date.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -83,14 +84,20 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   assert.match(sections, /card\.kind === 'date_change' \? \(\s*<DateChangeBody card=\{card\} answerDateChange=\{answerDateChange\} \/>/);
   const body = sections.slice(sections.indexOf('function DateChangeBody('), sections.indexOf('function DeleteRequestBody('));
   assert.equal((body.match(/<form action=\{answerDateChange\}>/g) ?? []).length, 2, 'not exactly two answers');
-  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \{to\}/);
+  // The words ride on the shared submit's `label` since 2026-10-12 (the button rule): `label={`Move to ${to}`}`.
+  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \$?\{to\}/);
   assert.match(body, /name="answer" value="unlocked"[\s\S]*?Unlock my service/);
   // 💸 Said BEFORE the press: the deposit follows the booking's own terms.
   assert.match(body, /settled by the cancellation terms on the booking/);
   assert.doesNotMatch(body, /\bvendor\b/i, 'a supplier page says "supplier", never "vendor"');
-  // Both seams (the feed AND the closed list) carry the action — counted, not matched.
+  // The page hands the ONE action to the ONE drawing (simpler Today 2026-10-14: `SupplierTodayScreen`, which the
+  // dev lab shares), and the drawing hands it to the card AND to every row (the asks and the closed lines are one
+  // list now) — counted, not matched.
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.equal((page.match(/answerDateChange=\{vendorAnswerDateChange\}/g) ?? []).length, 2);
+  assert.equal((page.match(/answerDateChange: vendorAnswerDateChange,/g) ?? []).length, 1);
+  const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.equal((screen.match(/answer: actions\.answerDateChange/g) ?? []).length, 1, 'the Next card lost the answer');
+  assert.equal((screen.match(/<WhatsNewFeed[\s\S]*?\{\.\.\.actions\}/g) ?? []).length, 1, 'the rows lost the answer');
   assert.equal((sections.match(/answerDateChange=\{answerDateChange\}/g) ?? []).length, 2);
   // The action exists, reads the answer from the form, and asks the database.
   const actions = code('app/vendor-dashboard/clients/[eventId]/actions.ts');
@@ -133,11 +140,13 @@ test('5 · one rule for "may the date go live": every clashing supplier moved �
   assert.deepEqual(dateMoveClearance({ clashing: [], moved: [] }), { cleared: true, waitingOn: [] });
   assert.deepEqual(dateMoveClearance({ clashing: ['a', 'b'], moved: ['a'] }), { cleared: false, waitingOn: ['b'] });
   assert.deepEqual(dateMoveClearance({ clashing: ['a', 'a'], moved: ['a'] }), { cleared: true, waitingOn: [] });
-  // Apply asks it ONLY where the refusal would be 'locked', fail-closed, then tells every booked supplier.
-  const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /if \(refusal === 'locked' && nextDate\.date\) \{\s*const clearance = await dateApplyClearance\(/);
-  assert.match(action, /if \(!clearance\.ok\) return \{ ok: false, intent, error:/, 'an unread calendar is not "everyone is free"');
-  assert.match(action, /await afterDateApplied\(\{ supabase, eventId, next: dateMove\.next, requestId: dateMove\.requestId \}\)/);
+  // The date's ONE door (`updateEventDate`, owner 2026-11-05) asks it ONLY where the refusal would be 'locked',
+  // fail-closed, then tells every booked supplier.
+  const door = code('app/dashboard/[eventId]/actions.ts');
+  const save = door.slice(door.indexOf('export async function updateEventDate'), door.indexOf('export async function setPlanningMode'));
+  assert.match(save, /if \(refusal === 'locked' && eventDate\) \{[\s\S]{0,200}const clearance = await dateApplyClearance\(/);
+  assert.match(save, /if \(!clearance\.ok\) return \{ ok: false, error:/, 'an unread calendar is not "everyone is free"');
+  assert.match(save, /await afterDateApplied\(\{ supabase, eventId, next: \{ date: eventDate, precision: newPrecision \}, requestId \}\)/);
   const server = code('lib/date-change.server.ts');
   const clear = server.slice(server.indexOf('export async function dateApplyClearance('), server.indexOf('export async function afterDateApplied('));
   assert.match(clear, /failClosed: true/);
@@ -145,8 +154,8 @@ test('5 · one rule for "may the date go live": every clashing supplier moved �
   const after = server.slice(server.indexOf('export async function afterDateApplied('));
   assert.match(after, /title: dateMovedNotice\(next\.date, next\.precision\)/, 'the plain notice "The date moved to <date>"');
   assert.equal(dateMovedNotice('2030-07-06', 'day'), 'The date moved to Saturday, July 6, 2030');
-  // The Event Details writer keeps the lock — it does not ask the suppliers.
-  assert.match(code('app/dashboard/[eventId]/actions.ts'), /const refusal = eventDateRefusal\(prior, next, count \?\? 0\);/);
+  // …the rule first, the suppliers' answers only on a 'locked' refusal.
+  assert.match(save, /let refusal = eventDateRefusal\(prior, next, confirmed\);/);
 });
 
 test('6 · Home: "Date change: n of N suppliers answered", the 3-day choices only when due, withdraw anytime', () => {

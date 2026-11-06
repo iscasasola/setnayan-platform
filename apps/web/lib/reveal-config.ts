@@ -18,6 +18,7 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 import {
   DEFAULT_REVEAL_CONFIG,
   mergeRevealConfig,
@@ -39,9 +40,17 @@ export * from '@/lib/reveal-config-pure';
  */
 export const fetchRevealConfig = cache(async (): Promise<RevealStudioConfig> => {
   try {
-    const db = createAdminClient();
-    const { data } = await db.from('reveal_studio_config').select('config').eq('id', 1).maybeSingle();
-    return mergeRevealConfig((data as { config?: unknown } | null)?.config);
+    // 🧊 Remembered across requests (`lib/global-settings-cache.ts`), cleared by
+    // /admin/reveal-studio's save. The raw row is remembered, the merge over the
+    // locked defaults is done here; a refused read throws inside (never
+    // remembered) and lands on the locked defaults below, as before.
+    const config = await rememberedGlobalRead('reveal_studio_config-v1', GLOBAL_SETTINGS_TAGS.revealStudioConfig, async () => {
+      const db = createAdminClient();
+      const { data, error } = await db.from('reveal_studio_config').select('config').eq('id', 1).maybeSingle();
+      if (error) throw error;
+      return (data as { config?: unknown } | null)?.config ?? null;
+    });
+    return mergeRevealConfig(config);
   } catch {
     return DEFAULT_REVEAL_CONFIG;
   }

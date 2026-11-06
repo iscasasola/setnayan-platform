@@ -120,7 +120,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
       />
 
       <p className="mx-auto mt-6 max-w-md text-sm text-ink/60">
-        Every photo lands in our gallery. Shoot anything — the candids are the
+        Every photo lands in our Memories. Shoot anything — the candids are the
         ones we&rsquo;ll never get otherwise.
       </p>
 

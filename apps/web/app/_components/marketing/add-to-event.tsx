@@ -110,7 +110,7 @@ export function AddToEvent({
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-[var(--m-orange-2)]">
-          Start a new celebration
+          Start a new event
         </span>
         <span className="block text-xs text-[var(--m-slate-2)]">{createLabel}</span>
       </span>
@@ -165,25 +165,25 @@ export function AddToEvent({
             ) : (
               <>
                 <p className="mt-1 flex-none text-xs text-[var(--m-slate-2)]">
-                  Only celebrations you organise that haven’t happened yet.
+                  Only events you organise that haven’t happened yet.
                 </p>
 
                 {options.length >= SEARCH_FROM ? (
                   <>
                     <label className="mt-3 flex flex-none items-center gap-2 rounded-full border border-[var(--m-line)] px-4">
-                      <span className="sr-only">Find a celebration</span>
+                      <span className="sr-only">Find an event</span>
                       <input
                         type="search"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Find a celebration"
+                        placeholder="Find an event"
                         className="min-h-[38px] w-full bg-transparent text-sm text-[var(--m-ink)] outline-none placeholder:text-[var(--m-slate-2)]"
                       />
                     </label>
                     <p className="mt-2 flex-none text-xs text-[var(--m-slate-2)]">
                       {q.trim()
                         ? `${formatCount(shown.length)} of ${formatCount(options.length)} match`
-                        : `${options.length} celebrations can take ${serviceName}`}
+                        : `${formatCount(options.length)} events can take ${serviceName}`}
                     </p>
                   </>
                 ) : null}

@@ -29,11 +29,15 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import {
+  PLAN_PRESENT_FIELD,
   buildCouplePaymentPlan,
+  couplePlanUpsert,
   onLockAnchorIso,
+  planSaveStep,
   type CouplePlanRowInput,
 } from '@/lib/self-added-payment-plan';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // ============================================================================
 // saveSelfAddedPaymentPlan (2026-09-20)
@@ -63,6 +67,7 @@ import { manilaTodayIso } from '@/lib/vendor-cashflow';
 //     from their own schedule at lock; a couple must not overwrite it.
 // ============================================================================
 export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (
@@ -149,22 +154,44 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
         return a === 'on_lock' || a === 'before_event' ? a : '';
       })(),
       due_offset_days: String(formData.getAll('plan_days')[i] ?? '0'),
+      // The row's own instalment number, when the sheet posts one (the record card does) — so a payment logged
+      // against an instalment stays on it however the rows around it change.
+      seq: (() => {
+        const raw = formData.getAll('plan_seq')[i];
+        const n = typeof raw === 'string' && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+        return Number.isInteger(n) ? n : null;
+      })(),
     });
   }
 
-  const built = buildCouplePaymentPlan({ rows, totalPhp, lockDateIso, eventDateIso });
+  // Every payment removed (or left blank) on a sheet that carried the plan:
+  // the couple's plan is NO payments, written as such — not a refusal, and not
+  // the old plan silently kept (owner 2026-10-29: "properly update and save").
+  // A caller without the editor (`plan_present`) still gets PLAN_EMPTY.
+  const step = planSaveStep({
+    editorPresent: formData.get(PLAN_PRESENT_FIELD) === '1',
+    postedLabels: rows.map((r) => r.label),
+    postedValues: rows.map((r) => r.value),
+  });
+  const built =
+    step === 'clear'
+      ? ({ ok: true, instances: [] } as const)
+      : buildCouplePaymentPlan({ rows, totalPhp, lockDateIso, eventDateIso });
   if (!built.ok) throw new Error(built.message);
 
   // One plan per booking — the table's own UNIQUE (event_id, event_vendor_id).
   const { data: written, error } = await supabase
     .from('event_vendor_payment_plan')
+    // `couplePlanUpsert` also writes `is_default_seeded: false` — a plan typed
+    // over the lock's 50/50 estimate is the couple's now, and must not be
+    // treated (or re-locked away) as an estimate.
     .upsert(
-      {
-        event_id: eventId,
-        event_vendor_id: vendorId,
-        instances_json: built.instances,
-        updated_at: new Date().toISOString(),
-      },
+      couplePlanUpsert({
+        eventId,
+        vendorId,
+        instances: built.instances,
+        nowIso: new Date().toISOString(),
+      }),
       { onConflict: 'event_id,event_vendor_id' },
     )
     .select('plan_id');

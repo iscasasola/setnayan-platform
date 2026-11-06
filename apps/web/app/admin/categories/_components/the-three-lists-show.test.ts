@@ -29,8 +29,8 @@ import {
 (globalThis as unknown as { React: unknown }).React = React;
 
 const groups: Group[] = [
-  { id: 'feast', label: 'Catering & cake', short: 'Catering', iconName: null },
-  { id: 'booths', label: 'Booths, carts & bars', short: 'Booths & carts', iconName: null },
+  { id: 'feast', label: 'Catering & cake', short: 'Catering', iconName: null, hint: null },
+  { id: 'booths', label: 'Booths, carts & bars', short: 'Booths & carts', iconName: null, hint: null },
 ];
 
 function cat(id: string, groupId: string, label: string, extra: Partial<Category> = {}): Category {
@@ -48,6 +48,8 @@ function cat(id: string, groupId: string, label: string, extra: Partial<Category
     serviceCount: 1,
     faithCount: 0,
     refinementCount: 0,
+    onePerEvent: false,
+    hint: null,
     ...extra,
   };
 }
@@ -109,9 +111,9 @@ const requests: SupplierRequest[] = [
 ];
 
 const eventTypes: EventType[] = [
-  { key: 'wedding', label: 'Wedding', emoji: '💍', description: null, sortOrder: 1, status: 'active', enabled: true, onboardingHref: null, heroPhotoUrl: null },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂', description: null, sortOrder: 2, status: 'active', enabled: false, onboardingHref: null, heroPhotoUrl: null },
-  { key: 'old_rite', label: 'Old rite', emoji: '🕯️', description: null, sortOrder: 3, status: 'retired', enabled: false, onboardingHref: null, heroPhotoUrl: null },
+  { key: 'wedding', label: 'Wedding', emoji: '💍', description: null, sortOrder: 1, status: 'active', enabled: true, onboardingHref: null, heroPhotoUrl: null, forWhom: null },
+  { key: 'birthday', label: 'Birthday', emoji: '🎂', description: null, sortOrder: 2, status: 'active', enabled: false, onboardingHref: null, heroPhotoUrl: null, forWhom: null },
+  { key: 'old_rite', label: 'Old rite', emoji: '🕯️', description: null, sortOrder: 3, status: 'retired', enabled: false, onboardingHref: null, heroPhotoUrl: null, forWhom: null },
 ];
 
 const religions: Religion[] = [

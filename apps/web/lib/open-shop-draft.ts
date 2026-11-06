@@ -20,9 +20,19 @@
  * by the server action as if typed fresh. Pure: no `window`, so it can be executed
  * by a test; the wizard supplies the storage.
  *
- * The chosen web address is deliberately NOT carried: `AddressPreview` owns that choice
- * and re-derives it from the shop name, so a restored name yields the same default and
- * the vendor re-picks a custom one on the step they land back on.
+ * The chosen web address is NOT carried across the OAuth round trip: `AddressPreview` owns
+ * that choice and re-derives it from the shop name, so a restored name yields the same
+ * default and the vendor re-picks a custom one on the step they land back on.
+ *
+ * ── PARKED AT SUBMIT TOO (owner "yes to all" 2026-10-22, journey_fixes_later Supplier 4c) ──
+ * The step-1 availability check makes a taken address rare, not impossible: two people can
+ * pick one word in the same minute, the unique index refuses at Submit, and `becomeVendor`
+ * redirects to `/open-shop?…&error=`. The page reloads with only the step and the banner —
+ * and name, logo, service, events and contact were React state, gone. So the wizard parks
+ * this same draft as the form submits (`atSubmit`), WITH the address it sent (`slug`, the
+ * one that was refused), and restores it only on that error reload: the person changes one
+ * word instead of typing four steps again. A submit that succeeded leaves the dashboard, and
+ * the parked note is dropped unread the next time the wizard opens without an error.
  */
 
 export const OPEN_SHOP_DRAFT_KEY = 'setnayan.open-shop.draft.v1';
@@ -42,11 +52,15 @@ export type OpenShopDraft = {
   position: string;
   phone: string;
   email: string;
+  /** Parked as the form submitted — restored only when the server sends it back with `?error=`. */
+  atSubmit?: boolean;
+  /** The web address that was submitted (parked at submit only) — the one the refusal is about. */
+  slug?: string;
 };
 
 export type OpenShopDraftInput = Omit<OpenShopDraft, 'v' | 'at'>;
 
-const MAX = { shopName: 128, logoUrl: 512, service: 64, serviceLabel: 128, position: 64, phone: 32, email: 254, event: 64 } as const;
+const MAX = { shopName: 128, logoUrl: 512, service: 64, serviceLabel: 128, position: 64, phone: 32, email: 254, event: 64, slug: 32 } as const;
 
 const str = (v: unknown, max: number): string => (typeof v === 'string' ? v.slice(0, max) : '');
 
@@ -63,6 +77,8 @@ export function serializeOpenShopDraft(d: OpenShopDraftInput, now: number = Date
     position: str(d.position, MAX.position),
     phone: str(d.phone, MAX.phone),
     email: str(d.email, MAX.email),
+    ...(d.atSubmit ? { atSubmit: true } : {}),
+    ...(d.slug ? { slug: str(d.slug, MAX.slug) } : {}),
   };
   return JSON.stringify(draft);
 }
@@ -100,5 +116,16 @@ export function parseOpenShopDraft(raw: string | null | undefined, now: number =
     position: str(d.position, MAX.position),
     phone: str(d.phone, MAX.phone),
     email: str(d.email, MAX.email),
+    ...(d.atSubmit === true ? { atSubmit: true } : {}),
+    ...(typeof d.slug === 'string' && d.slug ? { slug: d.slug.slice(0, MAX.slug) } : {}),
   };
+}
+
+/**
+ * Should the wizard restore this draft on THIS load? An OAuth round-trip draft — always. A draft parked at
+ * submit — only when the server sent the form back with an error (`?error=`); after a submit that succeeded
+ * there is nothing to restore.
+ */
+export function restoresOnThisLoad(d: Pick<OpenShopDraft, 'atSubmit'>, cameBackWithError: boolean): boolean {
+  return d.atSubmit ? cameBackWithError : true;
 }

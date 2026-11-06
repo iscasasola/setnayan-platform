@@ -65,6 +65,35 @@ export function hashOpensSheet(hash: string | null | undefined): boolean {
   return (RSVP_SHEET_ANCHORS as readonly string[]).includes(id);
 }
 
+/**
+ * WHAT A CHANGE OF ADDRESS MEANS FOR THE SHEET — asked on every `hashchange`
+ * and `popstate`, and once when the page loads.
+ *
+ * 🔙 BACK CLOSES IT (a guest's walk 2026-10-11, fault N14). A door to the sheet
+ * is a plain link to `#your-details`, so opening it adds an entry to the
+ * browser's history. Pressing Back took that entry away again — the address
+ * went back — and the sheet stayed up, over the page and over the bar: the
+ * listener only ever asked "does this address open it?" and never "has the
+ * address that opened it gone?". On a phone Back is how a sheet is dismissed.
+ *
+ *   · the address asks for the sheet          → open it (or leave it open);
+ *   · it does not, and the sheet was opened BY the address → close it;
+ *   · it does not, and the sheet was opened some other way (a refused save
+ *     reopens it with no fragment at all, `sheetOpensOnLoad`) → leave it. That
+ *     sheet holds the sentence explaining what went wrong, and an unrelated
+ *     history event must not take it away.
+ */
+export type SheetAddressVerdict = 'open' | 'close' | 'stay';
+export function sheetAfterAddressChange(input: {
+  hash: string | null | undefined;
+  open: boolean;
+  /** The sheet is up because the address asked for it (and not only because of a refused save). */
+  openedByAddress: boolean;
+}): SheetAddressVerdict {
+  if (hashOpensSheet(input.hash)) return input.open ? 'stay' : 'open';
+  return input.open && input.openedByAddress ? 'close' : 'stay';
+}
+
 /** What `page.tsx` builds from `?rsvp=` after `submitRsvp` redirects back. */
 export type RsvpSheetFlash = { tone: 'ok' | 'error'; text: string } | null;
 

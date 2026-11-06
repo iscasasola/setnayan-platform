@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { studioHubHref } from './studio-hub';
 
-export type PlannerMode = 'guided' | 'diy';
 
 export type StepKey =
   | 'set_date'

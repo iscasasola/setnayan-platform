@@ -26,13 +26,42 @@ import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
 export const FIXED_STYLE_SCENES = ['entourage', 'find_your_seat', 'photos_of_you', 'announcements', 'live_hub'] as const;
 export type FixedStyleScene = (typeof FIXED_STYLE_SCENES)[number];
 
+/**
+ * 🎨 THE PARTS' OWN STYLES (owner 2026-10-07, `lib/scene-styles-parts.ts`) — the
+ * hero's Names · Date · Place · Logo · Title, E-Gifts and the four for-each-guest
+ * parts. Their picks live BESIDE the five above, in the same `scene_styles` key,
+ * drafted and applied the same way. Kept as their own list so the five fixed
+ * parts (the navigator's day parts) stay exactly five.
+ */
+export const PART_LOOK_SCENES = [
+  'hero_names',
+  'hero_date',
+  'hero_venue',
+  'hero_mark',
+  'hero_eyebrow',
+  'gifts',
+  'my_role',
+  'my_wear',
+  'my_arrive',
+  'my_guests',
+] as const;
+export type PartLookScene = (typeof PART_LOOK_SCENES)[number];
+
+/** Every scene whose pick lives in `scene_styles` — the five fixed parts and the parts' own. */
+export const STYLED_SCENES = [...FIXED_STYLE_SCENES, ...PART_LOOK_SCENES] as const;
+export type StyledScene = FixedStyleScene | PartLookScene;
+
+export function isPartLookScene(v: unknown): v is PartLookScene {
+  return typeof v === 'string' && (PART_LOOK_SCENES as readonly string[]).includes(v);
+}
+
 /** The key inside `events.style_preferences` the picks live under. */
 export const SCENE_STYLES_PREF_KEY = 'scene_styles';
 
 /** Stored picks — an absent scene is the default. */
-export type FixedSceneStyles = Partial<Record<FixedStyleScene, string>>;
+export type FixedSceneStyles = Partial<Record<StyledScene, string>>;
 /** Drafted picks — `null` = back to the default (the key comes off at Apply). */
-export type FixedSceneStylesDraft = Partial<Record<FixedStyleScene, string | null>>;
+export type FixedSceneStylesDraft = Partial<Record<StyledScene, string | null>>;
 
 export function isFixedStyleScene(v: unknown): v is FixedStyleScene {
   return typeof v === 'string' && (FIXED_STYLE_SCENES as readonly string[]).includes(v);
@@ -46,7 +75,7 @@ export function sanitizeFixedSceneStyles(raw: unknown): FixedSceneStyles {
   const src = asObject(raw);
   const out: FixedSceneStyles = {};
   if (!src) return out;
-  for (const scene of FIXED_STYLE_SCENES) {
+  for (const scene of STYLED_SCENES) {
     const id = sanitizeSceneStyleId(src[scene]);
     if (id) out[scene] = id;
   }
@@ -58,7 +87,7 @@ export function sanitizeFixedSceneStylesDraft(raw: unknown): FixedSceneStylesDra
   const src = asObject(raw);
   if (!src) return null;
   const out: FixedSceneStylesDraft = {};
-  for (const scene of FIXED_STYLE_SCENES) {
+  for (const scene of STYLED_SCENES) {
     if (!(scene in src)) continue;
     if (src[scene] === null) out[scene] = null;
     else {
@@ -77,7 +106,7 @@ export function fixedSceneStylesFromPreferences(stylePreferences: unknown): Fixe
 /** Live picks with a draft on top — what the host's canvas and the Maker show. */
 export function fixedSceneStylesAfter(live: FixedSceneStyles, draft: FixedSceneStylesDraft | null | undefined): FixedSceneStyles {
   const out: FixedSceneStyles = { ...live };
-  for (const scene of FIXED_STYLE_SCENES) {
+  for (const scene of STYLED_SCENES) {
     if (!draft || !(scene in draft)) continue;
     const v = draft[scene];
     if (v === null || v === undefined) delete out[scene];

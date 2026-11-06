@@ -95,7 +95,7 @@ export const DAY_OF_FAMILY_META: Record<
   capture: {
     label: 'Capture the day',
     blurb:
-      'Your shot list against the couple’s live timeline, and a quick way to hand galleries over as you go.',
+      'Your shot list against the couple’s live timeline, and a quick way to hand albums over as you go.',
   },
   serve: {
     label: 'Serve the guests',
@@ -292,7 +292,7 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     id: 'vendor_papic',
     label: 'Papic capture',
     blurb:
-      'Shoot photos and clips of the event you’re working. Free Papic Lite (50 pts, photos + video); Papic Ltd (70 pts) when you accepted the booking with a token.',
+      'Shoot photos and clips of the event you’re working. Free Papic Lite (50 credits, photos + video); Papic Ltd (70 credits) when you accepted the booking with a token.',
     // ON FOR NOBODY BY DEFAULT — deliberately, and `alwaysAvailable` keeps it
     // one tap away for any vendor who wants it.
     //

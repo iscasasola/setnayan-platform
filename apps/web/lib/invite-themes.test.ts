@@ -121,7 +121,7 @@ test('no theme path asks the wedding-only fence again', () => {
   for (const rel of [
     'lib/invite-themes.ts',
     'app/[slug]/_lib/hub-look.ts',
-    'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx',
+    'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx',
     'app/dashboard/[eventId]/website/hub-draft-actions.ts',
   ]) {
     const code = stripComments(readFileSync(join(root, rel), 'utf8'));

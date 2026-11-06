@@ -123,9 +123,6 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
            actually know here. */
         sub="This Papic link doesn't open a camera right now. Ask whoever sent it to re-share your link and try again."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }
@@ -150,7 +147,7 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
         </>
       }
       title="Opening your camera…"
-      sub="One tap turns your phone into a candid camera for the day. Every shot lands straight in the host's gallery — no app to install."
+      sub="One tap turns your phone into a candid camera for the day. Every shot lands straight in the host's Memories — no app to install."
     >
       {/* No-JS fallback: a scanner with JS disabled still reaches the camera. */}
       <noscript>

@@ -7,7 +7,7 @@
 // public site — rendering a second logo header + a second link footer here
 // doubled the chrome. The inter-policy links the old LegalFooter carried live
 // in the ReskinFooter's Legal column (Privacy / Terms / Refunds / Cookies /
-// Acceptable use + Cookie settings). Only the article body remains.
+// Acceptable use). Only the article body remains.
 
 export function LegalLayout({
   title,

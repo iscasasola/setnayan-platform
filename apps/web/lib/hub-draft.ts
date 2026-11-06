@@ -43,9 +43,10 @@
  *           own public page in the Maker, and every "Saves immediately" there
  *           was a half-finished edit a guest could read. See
  *           `HUB_DRAFT_EVENT_COLUMNS` for how the host's preview shows each.
- *         — and (2026-10-01, "wait for apply") the NAMES and the DATE typed in
- *           the Maker (`HUB_DRAFT_FACT_COLUMNS`): the host's preview reads both
- *           off the overlaid row, and Apply re-asks the date's own gates.
+ *         — and (2026-10-01, "wait for apply") the NAMES typed in the Maker
+ *           (`HUB_DRAFT_FACT_COLUMNS`): the host's preview reads them off the
+ *           overlaid row. 🗓 NEVER THE DATE (owner 2026-11-05, "it shouldn't
+ *           rely on the hub"): it saves to the event at once (`updateEventDate`).
  * widgets — per section: `mode` (Auto · Shown · Hidden), `is_visible` (the
  *           navigator's eye — the legacy gate `mode: 'auto'` falls back to),
  *           `display_order`, and the section's whole `canvas` (background, crop,
@@ -61,23 +62,30 @@
  *           (owner 2026-09-27, every scene drags within its stage) — and the
  *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
+ *           And (2026-10-10, "WHAT GUESTS SEE") `stage_show` — shown or hidden on
+ *           EACH stage, beside `stage_order` and shaped like it: merged stage by
+ *           stage, `null` = back to our pick. Refused on an always-on section,
+ *           as the eye is. Free — except that putting a scene of their own in
+ *           front of guests is Pro at Apply, on one stage as on all of them.
  * march   — (2026-10-06, "Wait for apply") the Wedding March's moves, each the
  *           list of shipped march steps one drop makes (`lib/march-draft.ts`).
  *           Not a column: Apply REPLAYS them through the shipped march actions,
  *           in order. Free. Never Pro.
  */
+import { coverGroundIsPro } from './cover-scene';
 import { sanitizeStdFollowTheme } from './std-backgrounds';
 import {
   sanitizeFixedSceneStylesDraft,
   stylePreferencesWithDraftedStyles,
   type FixedSceneStyles,
   type FixedSceneStylesDraft,
-  type FixedStyleScene,
+  type StyledScene,
 } from '@/lib/fixed-scene-styles';
 import {
   WIDGET_PHASES,
   WIDGET_TYPES,
   isWidgetType,
+  widgetInPhase,
   type InvitationWidgetRow,
   type LifecyclePhase,
   type WidgetType,
@@ -91,15 +99,26 @@ import {
 } from '@/lib/custom-sections';
 import {
   STAGE_ORDER_KEY,
+  PART_SHOW_KEY,
+  STAGE_SHOW_KEY,
+  configWithPartShow,
+  sanitizePartShow,
+  type PartShow,
+  STAGE_SCENES,
   configWithStageOrder,
+  configWithStageShow,
   configWithStdLead,
   sanitizeStageOrder,
+  sanitizeStageShow,
   sanitizeStdLead,
+  stageRowOrder,
   storedStdLead,
   type StdLead,
 } from '@/lib/stage-scenes';
+import { configWithPhotosHeading, photosHeadingOf, sanitizePhotosHeading } from '@/lib/photos-heading';
 import {
   HUB_MAIN_GROUND_KEY,
+  hubMainEffect,
   hubMainGround,
   isHubMainFollow,
   isHubMainLoop,
@@ -109,19 +128,19 @@ import {
   type HubMainGround,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
-import { HUB_ELEMENT_KEYS, type HubElementKey, type HubElementRun, type HubElementStyle } from '@/lib/element-style';
+import { HUB_ELEMENT_KEYS, type HubElementKey, type HubElementStyle } from '@/lib/element-style';
 import {
   HUB_CANVAS_LOOK_KEYS,
   HUB_ELEMENT_PRO_FIELDS,
   HUB_LOOK_EVENT_COLUMNS,
   combineChanges,
   galleryChange,
-  lookWriteAllowed,
   refChange,
   type LookChange,
 } from '@/lib/hub-look-pro';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
+import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
 import {
   classifyPostEventDraft,
@@ -141,6 +160,8 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { sanitizeHubButtonStyle } from '@/lib/hub-buttons';
+import { sanitizeSiteRoles } from '@/lib/site-roles';
+import { HUB_MUSIC_KEY, sanitizeHubMusic, type HubMusic } from '@/lib/hub-music-button';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -148,6 +169,8 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { sceneStyleIsPro } from '@/lib/scene-style-pro';
+import { ACCENT_NONE, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, sanitizeSceneAccents, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
@@ -155,7 +178,19 @@ import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
+import { cleanRoleName, sanitizeDraftedSectionWords, withDraftedSectionWords } from '@/lib/role-names';
 import type { MarchStep } from '@/lib/march-drag';
+import {
+  HUB_EVENT_COLUMN_PART,
+  asHubOwnership,
+  canvasFacetPart,
+  ownsHubPart,
+  partsWriteAllowed,
+  rsvpFieldPart,
+  stylePreferencesPartOf,
+  type HubOwnershipLike,
+  type HubPartId,
+} from '@/lib/hub-parts';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -342,6 +377,9 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   // 🔘 LOOK › BUTTONS (owner 2026-10-04, "create them") — shape + fill as one
   // value (`lib/hub-buttons.ts`); the colour stays `site_button_color` above.
   'site_button_style',
+  // 🔤 LOOK › ELEMENTS (owner 2026-10-08, round 5) — the Headings · Text · Labels & buttons fonts, ONE jsonb
+  // (`lib/site-roles.ts`). The Names font stays `site_font_key`: one fact, one column.
+  'site_roles',
   // 🎨 THE MOOD BOARD PALETTE A THEME PICK FILLS (owner 2026-10-05, "THE MOOD
   // BOARD PALETTE IS THE PRIORITY": *"If the mood board does not have a
   // palette, use our original theme and place it on the moodboard's
@@ -396,26 +434,31 @@ export const HUB_DRAFT_MEDIA_COLUMNS = [
 export const HUB_DRAFT_GALLERY_MAX = 24;
 
 /**
- * ✍ THE NAMES AND THE DATE TYPED IN THE MAKER (owner 2026-10-01, verbatim
- * *"wait for apply"* — DECISION_LOG "ELEVEN OWNER ANSWERS" #1). Typed on the
- * hero (tap-to-type, the `names` part) or in Details › Your event, each is a
- * DRAFT until Apply like every Maker edit. They join because the host's
- * preview CAN show them (`app/[slug]/page.tsx` overlays the whole drafted row
- * before the masthead reads `display_name` and `event_date`):
+ * ✍ THE NAMES TYPED IN THE MAKER (owner 2026-10-01, verbatim *"wait for
+ * apply"* — DECISION_LOG "ELEVEN OWNER ANSWERS" #1). Typed on the hero
+ * (tap-to-type, the `names` part) or in Details › Your event, each is a DRAFT
+ * until Apply like every Maker edit. They join because the host's preview CAN
+ * show them (`app/[slug]/page.tsx` overlays the whole drafted row before the
+ * masthead reads `display_name`):
  *
  *   · `display_name` — the page's names: the hero, every print and every pass;
  *   · `bride_name` · `groom_name` — the two people's "First Last", drafted by
  *     Details' Names editor through `coupleNameColumns` (lib/typed-names.ts),
  *     the composition `updateEventMatchCriteria` writes live;
- *   · `event_date` · `event_date_precision` — `updateEventDate`'s two columns.
- *     Apply re-asks that writer's gates (`eventDateRefusal`, lib/events.ts):
- *     never a past date, and a booked supplier's date never moves — a refused
- *     date STAYS in the draft, said by name.
  *
- * Never Pro. Each is also a fact other screens read (Home, the dashboard, a
- * supplier's calendar) — and those keep reading the LIVE row until Apply, which
- * is the point. The list stays narrow: venues, the programme's times, the
- * march and the people are NOT here (each has its own writer and its own rule).
+ * 🗓 THE DATE IS NOT HERE (owner 2026-11-05, verbatim *"it shouldn't rely on
+ * the hub."* — amends answer 7 for the date only). `event_date` ·
+ * `event_date_precision` drive suppliers, booking clashes, Home, Papic and Live
+ * Watch, so a pick saves to the event at once through its one live door
+ * (`updateEventDate`). Off this list, a date an older draft still holds is
+ * dropped by `sanitizeState` on every read — it is never laid over the preview,
+ * counted by the bar or written by Apply — and a save that still carries one
+ * is refused in words (`HUB_DRAFT_DATE_IS_LIVE_MESSAGE`).
+ *
+ * Never Pro. The names are also a fact other screens read — and those keep
+ * reading the LIVE row until Apply, which is the point. The list stays narrow:
+ * venues, the programme's times, the march and the people are NOT here (each
+ * has its own writer and its own rule).
  *
  * 🔤 …and (2026-10-01, "in event hub maker will only take effect when pressed
  * apply") the NAME STYLE — Full · Middle initial · Surname first — picked in the
@@ -434,10 +477,44 @@ export const HUB_DRAFT_FACT_COLUMNS = [
   'display_name',
   'bride_name',
   'groom_name',
-  'event_date',
-  'event_date_precision',
   'print_details',
 ] as const;
+
+/** 🗓 What a save that still carries a date hears (owner 2026-11-05) — an old screen; the date saves on its own now. */
+export const HUB_DRAFT_DATE_IS_LIVE_MESSAGE = 'Your date now saves on its own, straight to your event. Reload this page and pick it again.';
+
+/**
+ * ⏳ "DRAFT 1-3" (owner 2026-10-08, verbatim *"draft 1-3"*): three settings the Maker used to save
+ * LIVE now wait for ✓ Apply like every other Maker edit —
+ *
+ *   · `pabuya_message` — E-Gifts' thank-you words (`savePabuyaMessage`, the E-Gifts page's own
+ *     column; the Maker's two doors — E-Gifts and Prints › Finer Details — post into the draft);
+ *   · `guest_list_edit_deadline` — RSVP's Reply by (`updatePaxSettings`; only the date drafts — its
+ *     pricing view, posted beside it, stays live: it is not this ruling's field);
+ *   · the opening line — `print_details.opening_line`, drafted as ONE key of that blob beside the
+ *     name and ticket styles (`HUB_DRAFT_OPENING_LINE_KEY`), merged by Apply like them.
+ *
+ * Never Pro. The Event Hub address (the slug) stays LIVE (owner, item 4). E-Gifts' ways to give are
+ * rows of `event_egift_methods`, not an `events` column — the draft holds only `events` columns and
+ * section rows, so they are NOT drafted here (reported; that is a shape change, not a column).
+ */
+export const HUB_DRAFT_SETTINGS_COLUMNS = ['pabuya_message', 'guest_list_edit_deadline'] as const;
+
+/** The opening line's key of `print_details` a draft may hold (owner 2026-10-08, "draft 1-3"). */
+export const HUB_DRAFT_OPENING_LINE_KEY = 'opening_line';
+/** `parsePrintDetails`' own cap for the opening line. */
+export const HUB_DRAFT_OPENING_LINE_MAX = 240;
+/**
+ * `cleanPabuyaMessage`'s own cap for the thank-you words (`PABUYA_MESSAGE_MAX`, the column's
+ * `events_pabuya_message_chk`) — the NUMBER, never an import of `lib/pabuya-message`.
+ *
+ * ⚖ Budget (507 KB, never raised): this file is in the Maker's FIRST LOAD (the toolbar and the shell
+ * read it). Importing the cap from `lib/pabuya-message` moved that whole module — the five
+ * starting-point templates, ~0.5 KB gzipped — out of the lazy thank-you editor's chunk and into the
+ * first load: 506.9 → 507.4 KB, CI red on "draft 1-3". `draft-1-3-waits-for-apply.test.ts` holds the
+ * two numbers equal and this file free of that import.
+ */
+export const HUB_DRAFT_PABUYA_MESSAGE_MAX = 600;
 
 /**
  * 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-01, DECISION_LOG "THE MAKER'S
@@ -519,16 +596,26 @@ export const HUB_DRAFT_FACT_GROUP: Readonly<
   display_name: 'names',
   bride_name: 'names',
   groom_name: 'names',
-  event_date: 'date',
-  event_date_precision: 'date',
   print_details: 'name-style',
   // 📍 The venues are ONE change however many of their nine columns moved.
-  ...(Object.fromEntries(HUB_DRAFT_VENUE_COLUMNS.map((c) => [c, 'venues'])) as Record<(typeof HUB_DRAFT_VENUE_COLUMNS)[number], 'venues'>),
+  // ⚖ WRITTEN OUT, never computed from `HUB_DRAFT_VENUE_COLUMNS` (the type above refuses a missing or
+  // an extra column): this file is in the Maker's FIRST LOAD, and a computed spread is a statement the
+  // minifier must keep — it shipped the nine column names and an `Object.fromEntries` call to every
+  // Maker open for a table no client reads (507 KB, never raised).
+  std_film_ceremony_name: 'venues',
+  ceremony_venue_address: 'venues',
+  ceremony_venue_latitude: 'venues',
+  ceremony_venue_longitude: 'venues',
+  std_film_venue_name: 'venues',
+  venue_address: 'venues',
+  venue_latitude: 'venues',
+  venue_longitude: 'venues',
+  std_film_venue_city: 'venues',
   ceremony_time: 'ceremony-time',
 };
 
-/** The typed facts a draft counts once each: the names, the date, the name style (and, in the same blob, the ticket style), the venues, the ceremony time. */
-export type HubDraftFact = 'names' | 'date' | 'name-style' | 'venues' | 'ceremony-time';
+/** The typed facts a draft counts once each: the names, the name style (and, in the same blob, the ticket style), the venues, the ceremony time. (Never the date — it is not drafted, owner 2026-11-05.) */
+export type HubDraftFact = 'names' | 'name-style' | 'venues' | 'ceremony-time';
 
 /** The draft's `events` keys that ARE `events` columns — what a live read selects. */
 export const HUB_DRAFT_EVENT_READ_COLUMNS = [
@@ -566,10 +653,20 @@ export const HUB_DRAFT_EVENT_READ_COLUMNS = [
   ...HUB_DRAFT_ANSWER_COLUMNS,
   // 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-04).
   ...HUB_DRAFT_VENUE_COLUMNS,
+  // ⏳ "DRAFT 1-3" (owner 2026-10-08) — the thank-you words (its SELECT grant is 20271230123132).
+  'pabuya_message',
+  /* 🏷 THE ENTOURAGE'S SECTION HEADINGS, NAMED IN THE WEDDING MARCH'S EDIT (owner 2026-10-19, *"Immediate Family change it
+     to VIP"*): `events.role_names`, drafted as its SECTION keys only (`sanitizeDraftedSectionWords`) — a role's word is the
+     Guest list's, live, and is never drafted, overlaid away or written here. SELECT is granted to `authenticated`
+     (20271253896753); UPDATE is not, so Apply writes it through the column's one writer (`writeRoleNames`, admin). */
+  'role_names',
 ] as const;
 
 /** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
-export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME, HUB_DRAFT_MAIN_COLOURS] as const;
+/* ⏳ Reply by is drafted (owner 2026-10-08) but NOT in the session-client live read above: its only
+   readers and its writer use the admin client, and one refused column would fail the whole read.
+   Apply writes it through the admin client (`hub-draft-actions.ts`). */
+export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME, HUB_DRAFT_MAIN_COLOURS, 'guest_list_edit_deadline'] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
 export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;
@@ -599,6 +696,12 @@ export type HubDraftWidget = {
    */
   main?: HubMainGround | null;
   /**
+   * 🎵 HERO ROW ONLY — the guest's music button design (owner 2026-10-08, round 5), kept at `config_json.music`
+   * beside the Main background (`lib/hub-music-button.ts`). `null` = the default (moving bars): the key is taken
+   * off. Free — a shape is not a Pro look.
+   */
+  music?: HubMusic | null;
+  /**
    * ↕ This section's place on each stage (owner 2026-09-27, "EVERY SCENE DRAGS
    * WITHIN ITS STAGE"), kept at `config_json.stage_order` (`lib/stage-scenes.ts`).
    * Merged stage by stage; `null` for a stage = back to the stage's default.
@@ -606,11 +709,32 @@ export type HubDraftWidget = {
    */
   stage_order?: Partial<Record<LifecyclePhase, number | null>>;
   /**
+   * 👁 Shown or hidden on EACH stage (owner 2026-10-10, "WHAT GUESTS SEE"), kept
+   * at `config_json.stage_show` (`lib/stage-scenes.ts`): `false` hides the
+   * section on that stage, `true` shows it there — over the event-wide eye, and
+   * on a stage that would not draw it by default. Merged stage by stage; `null`
+   * for a stage = back to our pick. What it decides: `lib/what-guests-see.ts`.
+   */
+  stage_show?: Partial<Record<LifecyclePhase, boolean | null>>;
+  /**
+   * 👁 HERO ROW ONLY — the per-stage choices of the parts that are not scenes (E-Gifts, the Entourage, the reply card,
+   * the seat, the Digital pass, Announcements, Live, the Camera, Photos of you), kept at `config_json.part_show`
+   * (`lib/stage-scenes.ts`). Merged part by part and stage by stage; `null` = back to our pick. Free — these are
+   * parts of the page we write. Dropped on any other section.
+   */
+  part_show?: PartShow;
+  /**
    * 🎞 `our_photos` ROW ONLY — what leads the Save the Date, Film or Photos
    * (same ruling), kept at `config_json.std_lead`; `null` = back to the
    * default. Dropped on any other section: one home for one choice. Never Pro.
    */
   std_lead?: StdLead | null;
+  /**
+   * ✍ `our_photos` ROW ONLY — the Photos scene's own heading (owner 2026-10-15, "Add a heading field"), kept at
+   * `config_json.photos_heading` (`lib/photos-heading.ts`); `null` = no heading, today's scene. Dropped on any other
+   * section. Words, never Pro.
+   */
+  photos_heading?: string | null;
   /**
    * ✍ A SCENE OF THEIR OWN — its heading and words (`config_json.custom`),
    * `custom_*` rows ONLY. Drafted from the Maker when the scene has nothing in
@@ -625,6 +749,9 @@ export type HubDraftWidget = {
    * (`config_json.venue`, lib/event-venues.ts `VenueChoice`), drafted with the
    * venues' words and pins (owner 2026-10-04). Merged slot by slot. Apply
    * re-reads it through `readVenueChoices` (this event's own photos only).
+   * ⛪ A card's `drawing: true` ("Our drawing ◆", owner 2026-10-16) is the one
+   * Pro key in the bag: turning it ON is held at Apply for a couple without
+   * Event Hub Pro (`venueBagNewDrawings`); the rest of the bag still goes live.
    */
   venue?: HubDraftVenueChoices;
   /**
@@ -638,7 +765,7 @@ export type HubDraftWidget = {
 };
 
 /** The Venue scene's per-card choices as the draft holds them (shape only — the event is checked at Apply). */
-export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null };
+export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null; drawing?: true };
 export type HubDraftVenueChoices = Partial<Record<'ceremony' | 'reception', HubDraftVenueChoice>>;
 
 /** A stored or posted `config_json.venue` bag → its shape, refs `r2://` only (the event is checked at Apply). */
@@ -653,7 +780,31 @@ export function draftVenueChoices(raw: unknown): HubDraftVenueChoices {
     if (r.source === 'supplier' || r.source === 'own') c.source = r.source;
     if (r.supplierPhoto === null || ref(r.supplierPhoto)) c.supplierPhoto = (r.supplierPhoto as string | null);
     if (r.ownPhoto === null || ref(r.ownPhoto)) c.ownPhoto = (r.ownPhoto as string | null);
+    if (r.drawing === true) c.drawing = true;
     if (Object.keys(c).length) out[key] = c;
+  }
+  return out;
+}
+
+/**
+ * ⛪ THE ONE PRO KEY IN A VENUE BAG (owner 2026-10-16, "A VENUE CARD'S PICTURE IS
+ * THE COUPLE'S CHOICE"): the cards whose "Our drawing ◆" the next bag turns ON
+ * where the live bag does not have it. Event Hub Pro — tried in the draft, held
+ * at Apply for a couple without it, and named on the Apply sheet. Turning a
+ * drawing OFF (back to the photo, or None) is never Pro.
+ */
+export function venueBagNewDrawings(live: HubDraftVenueChoices, next: HubDraftVenueChoices): Array<'ceremony' | 'reception'> {
+  return (['ceremony', 'reception'] as const).filter((k) => next[k]?.drawing === true && live[k]?.drawing !== true);
+}
+
+/** The bag with every NEW drawing taken off again — what goes live without Pro (photo and source edits kept). */
+export function venueBagFreePart(live: HubDraftVenueChoices, next: HubDraftVenueChoices): HubDraftVenueChoices {
+  const out: HubDraftVenueChoices = { ...next };
+  for (const k of venueBagNewDrawings(live, next)) {
+    const { drawing: _drawing, ...rest } = next[k]!;
+    void _drawing;
+    if (Object.keys(rest).length) out[k] = rest;
+    else delete out[k];
   }
   return out;
 }
@@ -687,6 +838,20 @@ export type HubDraftState = {
    * Absent = nothing drafted.
    */
   march?: MarchStep[][];
+  /**
+   * 💎 A CUSTOM ADDRESS TRIED IN THE MAKER (owner 2026-10-22, "Event Hub Pro, part by part"): the couple's own
+   * setnayan.com/… typed under "Pick your own ◆", held here — never saved on the Details page itself. Apply renames the
+   * event to it (`renameEventSlug`, the shipped rename: conflict checks, the old link forwarding) when the event holds
+   * the Custom address part; until then guests use the address they have. Absent = nothing drafted.
+   */
+  address?: string;
+  /**
+   * 👥 WHO MADE THE STEP THAT LEFT THIS STATE (owner 2026-10-18, rulings A + B — `lib/hub-draft-authors.ts`): the
+   * account id of the host whose save produced it, set by the one door (`updateHubDraft` → `mergeHubDraft(…, by)`).
+   * Each Undo state keeps its own, so the draft knows who made every step it can still take back. Absent = not known
+   * (a step from before this record, or a writer with no session). Never part of what Apply writes, nor of the stamp.
+   */
+  by?: string;
 };
 
 export type HubDraft = HubDraftState & {
@@ -711,14 +876,16 @@ export function sanitizeHubDraftEventValue(
   column: HubDraftEventColumn,
   raw: unknown,
 ): unknown | undefined {
-  // A page is never nameless, a date always says how precise it is, and a
-  // ceremony time is moved, never erased, from here.
+  // A page is never nameless, and a ceremony time is moved, never erased, from here.
   // 🎨 …and the Mood Board palette is only ever FILLED from here, never cleared.
   if (raw === null)
-    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours'
+    return column === 'display_name' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours' || column === 'role_names'
       ? undefined
       : null;
   switch (column) {
+    // 🏷 The section headings only — never a role's word, never the whole column cleared.
+    case 'role_names':
+      return sanitizeDraftedSectionWords(raw);
     case 'rsvp_backdrop':
       return parseRsvpBackdropConfig(raw) ?? undefined;
     case 'landing_page_hero_image_url': {
@@ -763,6 +930,10 @@ export function sanitizeHubDraftEventValue(
     // 🔘 Look › Buttons — a known '<shape>-<fill>', or back to the theme's.
     case 'site_button_style':
       return sanitizeHubButtonStyle(raw);
+    // 🔤 Look › Elements — three roles, a real font key each; an empty value is not held (handing every font back is
+    // `null`, taken above).
+    case 'site_roles':
+      return sanitizeSiteRoles(raw) ?? undefined;
     // 🎨 A theme's own colours as the board's main colours — nothing else.
     case 'role_palette':
       // …or a board the couple PAINTED (the Mood Board's own sanitizer — step 4c, 2026-10-07).
@@ -778,6 +949,11 @@ export function sanitizeHubDraftEventValue(
     case 'special_message':
     case 'what_to_bring':
       return draftText(raw, HUB_DRAFT_TEXT_MAX);
+    // ⏳ "Draft 1-3" (owner 2026-10-08): `cleanPabuyaMessage`'s cap; a real day for Reply by (null = the default).
+    case 'pabuya_message':
+      return draftText(raw, HUB_DRAFT_PABUYA_MESSAGE_MAX);
+    case 'guest_list_edit_deadline':
+      return isCalendarDay(raw) ? raw : undefined;
     case 'together_since':
       return draftText(raw, 120);
     case 'love_story':
@@ -804,9 +980,18 @@ export function sanitizeHubDraftEventValue(
       return [...new Set(refs)].slice(0, HUB_DRAFT_GALLERY_MAX);
     }
     case 'style_preferences': {
-      // ONLY the QR's look — never another key of the blob.
+      // ONLY the QR's look, the blocks' looks and the accents — never another key of the blob. Each is kept only
+      // when the save carries it, so one pick never resets another (`mergeHubDraft` merges them key by key).
+      // 📷 No camera look any more (owner 2026-10-24: ONE camera, its Pro dress decided by the Logo & QR part —
+      // `lib/camera-dress.ts`): a `camera_look` a save carries is dropped here, so it never reaches a draft.
       if (!isPlainObject(raw)) return undefined;
-      return { [QR_STYLE_PREF_KEY]: sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]) };
+      const out: Record<string, unknown> = {};
+      if (QR_STYLE_PREF_KEY in raw) out[QR_STYLE_PREF_KEY] = sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]);
+      // 🧱 The fixed blocks' looks (`lib/block-looks.ts`) are CARRIED: `readBlockLooks` is their one strict reader.
+      if (isPlainObject(raw.block_looks)) out.block_looks = raw.block_looks;
+      // 🕯 Each scene's Accent pick (owner 2026-10-16, `lib/art-kits.ts`) — known scenes and their own choices only.
+      if (isPlainObject(raw[SCENE_ACCENTS_PREF_KEY])) out[SCENE_ACCENTS_PREF_KEY] = sanitizeSceneAccents(raw[SCENE_ACCENTS_PREF_KEY]);
+      return Object.keys(out).length > 0 ? out : undefined;
     }
     // 🗂 An answer is a yes or a no (null = back to "not asked"); anything else is dropped.
     case 'papic_on':
@@ -848,18 +1033,20 @@ export function sanitizeHubDraftEventValue(
     case 'bride_name':
     case 'groom_name':
       return cleanPersonName(raw);
-    case 'event_date':
-      return isCalendarDay(raw) ? raw : undefined;
-    case 'event_date_precision':
-      return raw === 'year' || raw === 'month' || raw === 'day' ? raw : undefined;
     // 🔤 The Name style — ONLY that key of `print_details`, and only one of the
     // three styles (`NAME_STYLES`); anything else is dropped, never repaired.
     case 'print_details': {
       if (!isPlainObject(raw)) return undefined;
       const style = raw[HUB_DRAFT_PRINT_DETAILS_KEY];
       const pass = raw[HUB_DRAFT_PASS_DESIGN_KEY];
-      const out: Record<string, string> = {};
+      const out: Record<string, string | null> = {};
       if (typeof style === 'string' && (NAME_STYLES as readonly string[]).includes(style)) out[HUB_DRAFT_PRINT_DETAILS_KEY] = style;
+      // ⏳ The opening line (owner 2026-10-08, "draft 1-3") — `parsePrintDetails`' own cleaning; empty = none.
+      if (HUB_DRAFT_OPENING_LINE_KEY in raw) {
+        const line = raw[HUB_DRAFT_OPENING_LINE_KEY];
+        if (line === null) out[HUB_DRAFT_OPENING_LINE_KEY] = null;
+        else if (typeof line === 'string') out[HUB_DRAFT_OPENING_LINE_KEY] = line.replace(/\s+/g, ' ').trim().slice(0, HUB_DRAFT_OPENING_LINE_MAX) || null;
+      }
       // 🎫 The ticket style — one of the three looks, else dropped (never repaired).
       if (typeof pass === 'string' && (PASS_CARD_DESIGNS as readonly string[]).includes(pass)) out[HUB_DRAFT_PASS_DESIGN_KEY] = pass;
       return Object.keys(out).length > 0 ? out : undefined;
@@ -945,6 +1132,12 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   }
   const places = sanitizeStageOrder(src.stage_order);
   if (places) out.stage_order = places;
+  const shows = sanitizeStageShow(src.stage_show);
+  if (shows) out.stage_show = shows;
+  if (type === 'hero') {
+    const parts = sanitizePartShow(src.part_show);
+    if (parts) out.part_show = parts;
+  }
   if (isCustomSectionType(type) && 'custom' in src) {
     if (src.custom === null) out.custom = null;
     else if (isPlainObject(src.custom)) {
@@ -957,11 +1150,28 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
     const venue = draftVenueChoices(src.venue);
     if (Object.keys(venue).length) out.venue = venue;
   }
+  /* 🎵 The music button's design — the hero row's, like the Main background. The default is `null` (nothing stored). */
+  if (type === 'hero' && 'music' in src) {
+    if (src.music === null) out.music = null;
+    else {
+      const music = sanitizeHubMusic(src.music);
+      if (music) out.music = music;
+    }
+  }
   if (type === 'our_photos' && 'std_lead' in src) {
     if (src.std_lead === null) out.std_lead = null;
     else {
       const lead = sanitizeStdLead(src.std_lead);
       if (lead) out.std_lead = lead;
+    }
+  }
+  /* ✍ The Photos heading — a blank one is "no heading" (back to today's scene), never refused. */
+  if (type === 'our_photos' && 'photos_heading' in src) {
+    const raw = src.photos_heading;
+    if (raw === null || (typeof raw === 'string' && raw.trim() === '')) out.photos_heading = null;
+    else {
+      const heading = sanitizePhotosHeading(raw);
+      if (heading) out.photos_heading = heading;
     }
   }
   return Object.keys(out).length > 0 ? out : null;
@@ -993,23 +1203,52 @@ function sanitizeState(raw: unknown): HubDraftState {
   const fixedStyles = sanitizeFixedSceneStylesDraft(src.fixedStyles);
   // 🚶 The Wedding March's moves — each step one of the shipped march moves (`lib/march-draft.ts`).
   const march = sanitizeMarchMoves(src.march);
+  // 💎 A custom address — the shape the rename enforces (`SLUG_SHAPE`), else nothing.
+  const address = sanitizeDraftAddress(src.address);
   return {
     events,
     widgets,
     ...(editorial ? { editorial } : {}),
     ...(fixedStyles ? { fixedStyles } : {}),
     ...(march ? { march } : {}),
+    ...(address ? { address } : {}),
   };
+}
+
+/** The address shape the rename enforces (`invitation/actions.ts` `updateEventSlug`): 3–32 small letters, digits, hyphens. */
+export const SLUG_SHAPE = /^[a-z0-9-]{3,32}$/;
+
+/** A drafted custom address, or null. */
+export function sanitizeDraftAddress(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim().toLowerCase();
+  return SLUG_SHAPE.test(v) ? v : null;
+}
+
+/** A posted patch (or a save's `base`, the same shape) → its well-formed state, through the SAME readers every write uses. */
+export function sanitizeHubDraftPatch(raw: unknown): HubDraftState {
+  return sanitizeState(raw);
 }
 
 /** Anything → a well-formed draft. Unknown keys and unusable values are dropped. */
 export function sanitizeHubDraft(raw: unknown): HubDraft {
-  const state = sanitizeState(raw);
+  const state = withAuthor(sanitizeState(raw), raw);
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const history = Array.isArray(src.history)
-    ? src.history.slice(-HUB_DRAFT_HISTORY_LIMIT).map(sanitizeState)
+    ? src.history.slice(-HUB_DRAFT_HISTORY_LIMIT).map((h: unknown) => withAuthor(sanitizeState(h), h))
     : [];
   return fitHubDraftHistory({ v: 1, ...state, history });
+}
+
+/** 👥 An account id, as `auth.uid()` spells it — or nothing. */
+export function hubDraftAuthorOf(v: unknown): string | undefined {
+  return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : undefined;
+}
+/* 👥 Only a STORED state keeps its author: a posted patch (`sanitizeHubDraftPatch`) never can — who made a step is the
+   session's, said by the server, never the client's. */
+function withAuthor(state: HubDraftState, raw: unknown): HubDraftState {
+  const by = hubDraftAuthorOf(raw && typeof raw === 'object' ? (raw as { by?: unknown }).by : undefined);
+  return by ? { ...state, by } : state;
 }
 
 /** Does the draft differ from nothing? (Whether it differs from LIVE is `planHubDraftApply`.) */
@@ -1019,7 +1258,8 @@ export function hubDraftHasChanges(d: HubDraftState): boolean {
     Object.keys(d.widgets).length > 0 ||
     Object.keys(d.editorial ?? {}).length > 0 ||
     Object.keys(d.fixedStyles ?? {}).length > 0 ||
-    (d.march?.length ?? 0) > 0
+    (d.march?.length ?? 0) > 0 ||
+    Boolean(d.address)
   );
 }
 
@@ -1039,6 +1279,8 @@ export type HubDraftPatch = {
   march?: MarchStep[][];
   /** 🚶 Take the LAST drafted march move back off (the march's own Undo) — before `march` is added. */
   marchUndo?: true;
+  /** 💎 A custom address to try (`HubDraftState.address`); `null` takes the drafted one back off. */
+  address?: string | null;
 };
 
 const stateOf = (d: HubDraftState): HubDraftState => ({
@@ -1049,6 +1291,8 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   ...(d.editorial ? { editorial: { ...d.editorial } } : {}),
   ...(d.fixedStyles ? { fixedStyles: { ...d.fixedStyles } } : {}),
   ...(d.march ? { march: d.march.map((move) => [...move]) } : {}),
+  ...(d.address ? { address: d.address } : {}),
+  ...(d.by ? { by: d.by } : {}),
 });
 
 /**
@@ -1057,15 +1301,19 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
  * forget a canvas already drafted); its canvas is replaced whole, because the
  * writer that sends it has already merged the canvas it read.
  */
-export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft {
+export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: string): HubDraft {
   const clean = sanitizeState(patch);
   const next = stateOf(current);
+  /* 👥 The new state is THIS save's: its author (`by`, the session's account — `updateHubDraft`), or not known. */
+  const author = hubDraftAuthorOf(by);
+  if (author) next.by = author;
+  else delete next.by;
   for (const [col, v] of Object.entries(clean.events)) {
     // 🎫 The two drafted print settings merge KEY BY KEY — a ticket style pick
     // never forgets a drafted name style, nor the other way round.
     const prev = next.events[col as HubDraftEventColumn];
     next.events[col as HubDraftEventColumn] =
-      col === 'print_details' && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
+      (col === 'print_details' || col === 'style_preferences' || col === 'role_names') && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
   }
   for (const [type, w] of Object.entries(clean.widgets)) {
     const prev = next.widgets[type as WidgetType] ?? {};
@@ -1074,6 +1322,10 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
       ...w,
       // ↕ Places merge STAGE BY STAGE — a drag on one stage never forgets another's.
       ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
+      // 👁 …and so do the per-stage shown / hidden choices.
+      ...(w.stage_show ? { stage_show: { ...(prev.stage_show ?? {}), ...w.stage_show } } : {}),
+      // 👁 …and the fixed parts' choices part by part, stage by stage.
+      ...(w.part_show ? { part_show: mergePartShow(prev.part_show, w.part_show) } : {}),
       // 🏛 …and venue cards card by card.
       ...(w.venue ? { venue: { ...(prev.venue ?? {}), ...w.venue } } : {}),
     };
@@ -1090,6 +1342,12 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
   if ((patch as { marchUndo?: unknown }).marchUndo === true && next.march?.length) next.march = next.march.slice(0, -1);
   if (clean.march) next.march = [...(next.march ?? []), ...clean.march];
   if (next.march && next.march.length === 0) delete next.march;
+  /* 💎 A custom address replaces the drafted one; `null` takes it back off. */
+  if ('address' in patch) {
+    const a = sanitizeDraftAddress((patch as { address?: unknown }).address);
+    if (a) next.address = a;
+    else delete next.address;
+  }
   const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
   return fitHubDraftHistory({ v: 1, ...next, history });
 }
@@ -1151,6 +1409,8 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
     const live = row.print_details && typeof row.print_details === 'object' && !Array.isArray(row.print_details) ? (row.print_details as Record<string, unknown>) : {};
     out.print_details = { ...live, ...(draft.events.print_details as Record<string, unknown>) };
   }
+  /* 🏷 The drafted section headings laid INTO the live words, every role's word kept. */
+  if ('role_names' in draft.events) out.role_names = withDraftedSectionWords(row.role_names, draft.events.role_names);
   return out as T;
 }
 
@@ -1175,6 +1435,14 @@ export function configWithCustom(config: unknown, custom: CustomSectionContent |
   return base;
 }
 
+/** `config_json` with the music button's design set or taken off (the default); every sibling key kept. */
+export function configWithMusic(config: unknown, music: HubMusic | null): Record<string, unknown> {
+  const base = config && typeof config === 'object' && !Array.isArray(config) ? { ...(config as Record<string, unknown>) } : {};
+  if (music === null) delete base[HUB_MUSIC_KEY];
+  else base[HUB_MUSIC_KEY] = music;
+  return base;
+}
+
 /** `config_json` with the Main background set or taken off; every sibling key kept. */
 export function configWithMainGround(config: unknown, main: HubMainGround | null): Record<string, unknown> {
   const base =
@@ -1191,6 +1459,27 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
   const base = isPlainObject(config) ? { ...config } : {};
   base.venue = { ...draftVenueChoices(base.venue), ...venue };
   return base;
+}
+
+/** One save's parts merged over the drafted ones — part by part, stage by stage (a tick on one stage never forgets another). */
+function mergePartShow(prev: PartShow | undefined, next: PartShow): PartShow {
+  const out: PartShow = { ...(prev ?? {}) };
+  for (const [part, shows] of Object.entries(next) as Array<[keyof PartShow, PartShow[keyof PartShow]]>) out[part] = { ...(out[part] ?? {}), ...(shows ?? {}) };
+  return out;
+}
+
+/**
+ * ↕👁 A drafted section's stage places and per-stage choices laid over a live
+ * row's `config_json` — and nothing else of the draft. What a stage move builds
+ * on in draft mode (`draftedStageConfigs`, `lib/hub-draft-store.ts`): the list
+ * the couple is looking at, in its order, with the scenes they added to the
+ * stage. Returns `config` itself when the draft holds neither.
+ */
+export function configWithDraftedStage(config: unknown, w: Pick<HubDraftWidget, 'stage_order' | 'stage_show'> | undefined): unknown {
+  let next = config;
+  if (w?.stage_order !== undefined) next = configWithStageOrder(next, w.stage_order);
+  if (w?.stage_show !== undefined) next = configWithStageShow(next, w.stage_show);
+  return next;
 }
 
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
@@ -1211,7 +1500,12 @@ export function overlayHubDraftWidgets(
     if (w.canvas !== undefined) config = configWithCanvas(config, w.canvas);
     if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
+    // 👁 Refused on an always-on section, exactly as the eye is below.
+    if (w.stage_show !== undefined && !row.is_always_on) config = configWithStageShow(config, w.stage_show);
+    if (w.part_show !== undefined && row.widget_type === 'hero') config = configWithPartShow(config, w.part_show);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
+    if (w.photos_heading !== undefined && row.widget_type === 'our_photos') config = configWithPhotosHeading(config, w.photos_heading);
+    if (w.music !== undefined && row.widget_type === 'hero') config = configWithMusic(config, w.music);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
     if (w.venue !== undefined && row.widget_type === 'venue_map') config = configWithVenue(config, w.venue);
     return {
@@ -1229,8 +1523,14 @@ export function overlayHubDraftWidgets(
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /** What the live page holds, as Apply reads it just before writing. */
+/**
+ * 🗓 The live date, read beside the drafted columns but never drafted (owner 2026-11-05): Apply stands a drafted
+ * ceremony time on the event's live day (`exactDayOf`), so the live read carries it.
+ */
+export const HUB_LIVE_DATE_COLUMNS = ['event_date', 'event_date_precision'] as const;
+
 export type HubLiveState = {
-  events: Partial<Record<HubDraftEventColumn, unknown>>;
+  events: Partial<Record<HubDraftEventColumn | (typeof HUB_LIVE_DATE_COLUMNS)[number], unknown>>;
   widgets: ReadonlyArray<
     Pick<InvitationWidgetRow, 'widget_id' | 'widget_type' | 'is_always_on' | 'display_order' | 'config_json' | 'mode'> &
       // Optional so a live read from before the eye was draftable still types;
@@ -1245,6 +1545,8 @@ export type HubLiveState = {
   editorial?: unknown;
   /** 🎨 The fixed parts' live picks (`events.style_preferences.scene_styles`). Absent reads as none. */
   fixedStyles?: FixedSceneStyles;
+  /** 💎 The address guests use today (`events.slug`). Absent reads as unknown — a drafted address is then no change. */
+  slug?: string | null;
 };
 
 export type HubDraftItem =
@@ -1266,10 +1568,16 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'part_show' | 'std_lead' | 'photos_heading' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
+      /**
+       * ↕ `stage_order` only: the stages whose ORDER this scene's new place takes part in moving
+       * (`hubDraftMovedStages`). A stage's order is ONE change however many scenes shifted — the count and the Apply
+       * sheet read this (`hubDraftCountedChanges`); Apply still writes every scene's own place.
+       */
+      stages?: LifecyclePhase[];
       /**
        * Set only on the FREE PART of a held scene (`canvasFreePart`) — the same
        * scene is also in `refused`, holding the whole drafted canvas. Apply
@@ -1295,13 +1603,21 @@ export type HubDraftItem =
       freePart?: true;
     }
   | {
-      /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`). Free. */
+      /** 🎨 One fixed part's style pick (`lib/fixed-scene-styles.ts`) — 💎 Pro ◆ unless it is the theme's own (2026-10-16). */
       kind: 'fixed-style';
-      scene: FixedStyleScene;
+      scene: StyledScene;
       /** The id to store, or null = back to the default. */
       value: string | null;
       change: LookChange;
-      pro: false;
+      pro: boolean;
+      freePart?: undefined;
+    }
+  | {
+      /** 💎 A custom address tried in the Maker — Pro (the Custom address part) to put live. */
+      kind: 'address';
+      value: string;
+      change: LookChange;
+      pro: true;
       freePart?: undefined;
     }
   | {
@@ -1317,9 +1633,16 @@ export type HubDraftItem =
 const asText = (v: unknown): string | null =>
   v === null || v === undefined ? null : typeof v === 'string' ? v : JSON.stringify(v);
 
+type PrintDetailsDraftKey = typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY | typeof HUB_DRAFT_OPENING_LINE_KEY;
+
 /** One drafted `print_details` key, as the prints read it. */
-function printDetailsValue(v: unknown, key: typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY): string {
+function printDetailsValue(v: unknown, key: PrintDetailsDraftKey): string {
   if (key === HUB_DRAFT_PRINT_DETAILS_KEY) return nameStyleOfPrintDetails(v);
+  /* ⏳ The opening line, as `parsePrintDetails` cleans it — none and empty are one. */
+  if (key === HUB_DRAFT_OPENING_LINE_KEY) {
+    const line = isPlainObject(v) ? v[HUB_DRAFT_OPENING_LINE_KEY] : null;
+    return typeof line === 'string' ? line.replace(/\s+/g, ' ').trim().slice(0, HUB_DRAFT_OPENING_LINE_MAX) : '';
+  }
   return passCardDesignFrom(isPlainObject(v) ? v[HUB_DRAFT_PASS_DESIGN_KEY] : undefined);
 }
 
@@ -1330,9 +1653,9 @@ function printDetailsValue(v: unknown, key: typeof HUB_DRAFT_PRINT_DETAILS_KEY |
 export function printDetailsKeysChanged(
   live: unknown,
   next: unknown,
-): Array<typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY> {
+): PrintDetailsDraftKey[] {
   if (!isPlainObject(next)) return [];
-  return ([HUB_DRAFT_PRINT_DETAILS_KEY, HUB_DRAFT_PASS_DESIGN_KEY] as const).filter(
+  return ([HUB_DRAFT_PRINT_DETAILS_KEY, HUB_DRAFT_PASS_DESIGN_KEY, HUB_DRAFT_OPENING_LINE_KEY] as const).filter(
     (key) => key in next && printDetailsValue(live, key) !== printDetailsValue(next, key),
   );
 }
@@ -1417,6 +1740,15 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'main_colours':
       // 🎨 Only the slots the draft HOLDS, against the five the page wears live.
       return mainColoursChanged(live, next) ? 'change' : 'none';
+    case 'site_roles': {
+      // 🔤 Compared as the page reads it — through the sanitiser, key order ignored (jsonb hands keys back in its
+      // own order), and NULL ≡ {} ≡ a value with nothing the page would wear.
+      const key = (v: unknown) => {
+        const roles = sanitizeSiteRoles(v);
+        return roles ? canonicalJson(roles) : null;
+      };
+      return refChange(key(live), key(next));
+    }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
       // Daylight and "never chosen" are the same page.
@@ -1438,10 +1770,15 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'site_bg_music_enabled':
       return refChange(live === true ? 'on' : null, next === true ? 'on' : null);
     case 'style_preferences': {
-      // Only the QR's look is compared; the blob's other keys are not the Maker's.
+      // Only the QR's look, the blocks' and the accents are compared; the blob's other keys are not the Maker's.
       const qr = (v: unknown) => {
         const s = qrStyleFromPreferences(v);
-        return Object.keys(s).length > 0 ? JSON.stringify(s) : null;
+        // 🧱 …and the fixed blocks' looks: an empty one is no look at all (a look put back to still).
+        const b = isPlainObject(v) && isPlainObject(v.block_looks) && Object.keys(v.block_looks).length > 0 ? v.block_looks : undefined;
+        // 🕯 …and the scenes' Accent picks (none picked = the look's defaults, no change).
+        const a = sceneAccentsFromPreferences(v);
+        const ac = Object.keys(a).length > 0 ? canonicalJson(a) : undefined;
+        return Object.keys(s).length > 0 || b || ac ? JSON.stringify({ qr: s, b, ac }) : null;
       };
       return refChange(qr(live), qr(next));
     }
@@ -1461,6 +1798,14 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       const now = k.map((key) => printDetailsValue(next, key)).join('|');
       return k.length === 0 ? refChange('same', 'same') : refChange(was, now);
     }
+    case 'role_names': {
+      // 🏷 Only the section headings the draft HOLDS, each as a guest reads it ('' and never renamed are one).
+      const drafted = sanitizeDraftedSectionWords(next) ?? {};
+      const keys = Object.keys(drafted).filter((k) => (drafted[k as keyof typeof drafted] || null) !== draftedSectionWordOf(live, k));
+      const was = keys.map((k) => draftedSectionWordOf(live, k) ?? '').join('|');
+      const now = keys.map((k) => drafted[k as keyof typeof drafted]).join('|');
+      return keys.length === 0 ? refChange('same', 'same') : refChange(was || null, now || null);
+    }
     case 'invite_theme': {
       // Compared as guests meet it: never chosen and Classic are the same page,
       // and a retired id is its alias (`capiz` is Vintage).
@@ -1477,6 +1822,12 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(norm(live), norm(next));
     }
   }
+}
+
+/** The live word for one `section:<key>` of `events.role_names`, or null. */
+function draftedSectionWordOf(live: unknown, key: string): string | null {
+  const one = isPlainObject(live) && isPlainObject(live[key]) ? (live[key] as { one?: unknown }).one : null;
+  return cleanRoleName(one) || null;
 }
 
 /**
@@ -1516,10 +1867,15 @@ export function eventItemIsPro(
   // effect is Event Hub Pro; the RSVP's words, switches and going back to None
   // never are — so the WHOLE config is Pro only while it carries a new effect
   // (and Apply still writes its free part — `rsvpAskFreePart`).
-  if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value);
+  // 💎 …and a reply line's own Style (colour · font · size · its picture's look) or Build in, or a card's or a group's
+  // Build in (owner 2026-10-16, "all animate, effects, styles, accents are pro") — `rsvpLookGrowing`.
+  if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value) || rsvpLookGrowing(live, value).length > 0;
   // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
   // going back to the plain code is a removal, which is free.
-  if (column === 'style_preferences') return true;
+  // 🕯 …or turns a scene's accent ON (Event Hub Pro while `ART_KIT_IS_PRO`; turning one off is free).
+  // 💎 …or (2026-10-16, "all animate, effects, styles, accents are pro") gives a fixed block a motion it does not
+  // have live. Each part is asked by `stylePreferencesProParts`.
+  if (column === 'style_preferences') return stylePreferencesProParts(live, value).length > 0;
   if (column === 'invite_theme') {
     // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
     // 2026-09-29) are free; every other theme is Event Hub Pro (owner 2026-09-28,
@@ -1534,6 +1890,12 @@ export function eventItemIsPro(
     // and paid at Apply, like every other look.
     return OMBRE_IS_PRO && isOmbreValue(value);
   }
+  // 🎵 A song from "Our music" (the list Setnayan uploads, owner 2026-10-08 —
+  // the approved Look restudy offers it as "Setnayan’s own songs, by mood ·
+  // free to use") is free to pick. The couple's OWN song stays Event Hub Pro.
+  // Which one it is, is read off the stored reference (`lib/hub-music-ref.ts`);
+  // Apply separately admits that reference only while its track is published.
+  if (column === 'site_bg_music_r2_key' && isHubMusicRef(value)) return false;
   return eventColumnIsPro(column);
 }
 
@@ -1572,7 +1934,11 @@ export type CanvasFacetGroup =
   | 'font'
   | 'part-motion'
   | 'slot-media'
-  | 'playback';
+  | 'playback'
+  /** 💎 A Pro look (Style) — every style card but the theme's own default (`lib/scene-style-pro.ts`), the Dress code's palette and Do's & Don'ts looks. */
+  | 'look'
+  /** 💎 A part's own Style — colour · size · font · width · spacing … (owner 2026-10-16, `HUB_ELEMENT_PRO_FIELDS`). */
+  | 'part-style';
 
 export type CanvasLookFacet = {
   key: string;
@@ -1594,9 +1960,8 @@ const CANVAS_KEY_GROUP: Record<string, CanvasFacetGroup> = {
 };
 
 /** A part's Pro field → the group it is named by. */
-const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], CanvasFacetGroup> = {
-  motion: 'part-motion',
-};
+/* Motion is a part's Animate; every other Pro field is its Style (2026-10-16). A rule, not a table — the Maker's first load. */
+const elementFieldGroup = (field: (typeof HUB_ELEMENT_PRO_FIELDS)[number]): CanvasFacetGroup => (field === 'motion' ? 'part-motion' : 'part-style');
 
 /**
  * Every look facet of a section's canvas, live → drafted, each with its own
@@ -1605,7 +1970,7 @@ const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], Canva
  * so a colour background stays free in every direction; every other look key
  * (crop, arrangement, motion, transition) adds, changes or removes.
  */
-export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas): CanvasLookFacet[] {
+export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): CanvasLookFacet[] {
   const out: CanvasLookFacet[] = [
     { key: 'media', group: 'media', change: refChange(canvasMediaRef(live), canvasMediaRef(next)) },
   ];
@@ -1627,12 +1992,13 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas)
     for (const field of HUB_ELEMENT_PRO_FIELDS) {
       out.push({
         key: `el:${element}:${field}`,
-        group: ELEMENT_FIELD_GROUP[field],
+        group: elementFieldGroup(field),
         element,
         change: refChange(asText(live.elements?.[element]?.[field]), asText(next.elements?.[element]?.[field])),
       });
     }
-    /* 🔤 A text run's font is FREE since 2026-10-06 (the part's font too) — no facet. */
+    /* 💎 A text run's font · colour · size — Style, so Pro again since 2026-10-16 (it was free 2026-10-06). */
+    out.push({ key: `el:${element}:runs`, group: 'part-style', element, change: refChange(runStyles(live.elements?.[element]), runStyles(next.elements?.[element])) });
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
      line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a
@@ -1646,12 +2012,50 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas)
     out.push({ key: `slot:${i}`, group: 'slot-media', slot: i, change: refChange(slotMediaRef(live, i), slotMediaRef(next, i)) });
   }
   out.push({ key: 'video', group: 'playback', change: refChange(asText(live.video), asText(next.video)) });
+  /* 🖼 THE COVER SCENE'S BACKGROUND (`canvas.ground`, the hero row's — owner-approved 2026-10-15): Scene ◆ (a
+     ready-made loop) and Upload ◆ (a photo) are Event Hub Pro by the shipped rule (`BACKGROUND_SOURCE_IS_PRO`);
+     Colour is free and taking either off is free. Without this facet a free couple could draft a loop on the cover
+     and Apply it — the gate would see no look key change at all. */
+  out.push({ key: 'ground', group: 'media', change: refChange(coverGroundProRef(live), coverGroundProRef(next)) });
+  out.push({ key: 'groundMotion', group: 'motion', change: refChange(coverGroundMotionRef(live), coverGroundMotionRef(next)) });
+  /* 💎 A PRO LOOK (owner 2026-10-17, "Timeline and Swipe cards as Pro looks in Style") — the scene's `style` when it
+     is one of its type's Pro looks (`lib/scene-style-pro.ts`); every other style, and going back to a free one, is
+     free. Asked by scene TYPE (a style id means nothing alone: `cards` is also the Camera cues' free look), so a
+     caller that does not name the type sees no change here — every Apply caller names it. */
+  out.push({ key: 'style', group: 'look', change: refChange(proLookRef(sceneType, live), proLookRef(sceneType, next)) });
+  /* 💎 …and the Dress code's two other style cards (2026-10-16, "everything in Style is Pro"): its palette look and its
+     Do's & Don'ts look. Absent — or the default named — is the theme's own, free. */
+  out.push({ key: 'palette', group: 'look', change: refChange(notDefault(live.palette, 'tags'), notDefault(next.palette, 'tags')) });
+  out.push({ key: 'dos', group: 'look', change: refChange(notDefault(live.dos, 'notes'), notDefault(next.dos, 'notes')) });
   return out;
 }
 
+/** A stored style-card id, or null when it is absent or the card that is the theme's own. */
+function notDefault(id: string | undefined, def: string): string | null {
+  return id && id !== def ? id : null;
+}
+
+/** The scene's style when it is a Pro look on this scene type — else null (a free style, or no type to ask by). */
+function proLookRef(sceneType: string | null | undefined, c: HubSectionCanvas): string | null {
+  return sceneStyleIsPro(sceneType, c.style) ? (c.style ?? null) : null;
+}
+
+/** The Cover Scene's background as one comparable ref — only its Pro half (a loop, a photo); null for a colour or none. */
+/** ✨ How the Cover's photo moves (Parallax — an effect, Pro since 2026-10-16); Still is its absence, so off is free. */
+function coverGroundMotionRef(c: HubSectionCanvas): string | null {
+  const g = c.ground;
+  return g && (g.kind === 'photo' || g.kind === 'snippet') && g.motion ? g.motion : null;
+}
+
+function coverGroundProRef(c: HubSectionCanvas): string | null {
+  const g = c.ground;
+  if (!g || !coverGroundIsPro(g)) return null;
+  return g.kind === 'loop' ? `loop:${g.loop}` : g.kind === 'photo' || g.kind === 'snippet' ? `${g.kind}:${g.media}` : null;
+}
+
 /** A section's canvas, live → drafted, as ONE change: the most demanding facet. */
-export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas): LookChange {
-  return combineChanges(...canvasLookFacets(live, next).map((f) => f.change));
+export function canvasLookChange(live: HubSectionCanvas, next: HubSectionCanvas, sceneType?: string | null): LookChange {
+  return combineChanges(...canvasLookFacets(live, next, sceneType).map((f) => f.change));
 }
 
 /** The media behind a scene, as one comparable ref — null for any colour ground. */
@@ -1665,10 +2069,16 @@ function slotMediaRef(c: HubSectionCanvas, i: number): string | null {
   return s?.media ? `${s.kind ?? 'photo'}:${s.media}` : null;
 }
 
-/** The Pro half of a part's text runs — which letters wear which FONT — or null. */
-function runFonts(style: HubElementStyle | undefined): string | null {
-  const runs = (style?.runs ?? []).filter((r) => r.font).map((r) => [r.start, r.end, r.font]);
-  return runs.length > 0 ? JSON.stringify({ of: style?.of ?? null, runs }) : null;
+/**
+ * 💎 The Pro half of a part's text runs — which letters wear which font, colour and size — or null. Compared by the
+ * LETTERS a run styles (`was`, the text it was made on) where the part keeps them, so words typed elsewhere in the
+ * part — which move a run's offsets and its `of` — are no new Style: a grandfathered run stays 'none'.
+ */
+function runStyles(style: HubElementStyle | undefined): string | null {
+  const runs = (style?.runs ?? [])
+    .filter((r) => r.font || r.color || r.size)
+    .map((r) => [style?.was ? style.was.slice(r.start, r.end) : `${r.start}-${r.end}`, r.font ?? null, r.color ?? null, r.size ?? null]);
+  return runs.length > 0 ? JSON.stringify(runs) : null;
 }
 
 const grows = (c: LookChange) => c === 'add' || c === 'change';
@@ -1704,6 +2114,19 @@ export function canvasWithoutFacet(
     for (const k of CANVAS_GROUND_KEYS) put(k, liveRec[k]);
   } else if (key === 'video') {
     put('video', live.video);
+  } else if (key === 'ground') {
+    put('ground', live.ground);
+  } else if (key === 'groundMotion') {
+    /* ✨ The Cover photo's Parallax taken off: the motion guests see today, on the drafted photo. */
+    const g = next.ground;
+    if (g && (g.kind === 'photo' || g.kind === 'snippet')) {
+      const { motion: _m, ...rest } = g;
+      const liveMotion = coverGroundMotionRef(live);
+      put('ground', liveMotion ? { ...rest, motion: liveMotion } : rest);
+    }
+  } else if (key === 'style') {
+    /* 💎 A Pro look taken off: the scene wears the style guests see today. */
+    put('style', live.style);
   } else if (key.startsWith('slot:')) {
     const i = Number(key.slice('slot:'.length));
     if (next.slots && Number.isInteger(i) && i >= 0 && i < next.slots.length) {
@@ -1721,25 +2144,16 @@ export function canvasWithoutFacet(
       const was = live.elements?.[element];
       const el: Record<string, unknown> = { ...style };
       if (field === 'runs') {
-        if (style.runs) {
-          const liveFont = (r: { start: number; end: number }) =>
-            was?.of === style.of ? was?.runs?.find((w) => w.start === r.start && w.end === r.end)?.font : undefined;
-          const withoutFont = (r: HubElementRun): HubElementRun => {
-            const { font: _font, ...rest } = r;
-            return rest;
-          };
-          let runs: HubElementRun[] = style.runs.map((r) => {
-            const f = liveFont(r);
-            return f ? { ...withoutFont(r), font: f } : withoutFont(r);
-          });
-          // Put back exactly, or not at all: a partial font set would still be a change.
-          if (runFonts({ ...style, runs }) !== runFonts(was)) runs = runs.map(withoutFont);
-          runs = runs.filter((r) => 'font' in r || 'color' in r || 'size' in r);
-          if (runs.length > 0) el.runs = runs;
-          else {
-            delete el.runs;
-            delete el.of;
-          }
+        /* 💎 A run's Style taken off: the runs guests see today (when they were made on the same words), else none. */
+        if (was?.runs && was.of && was.of === style.of) {
+          el.runs = was.runs;
+          el.of = was.of;
+          if (was.was) el.was = was.was;
+          else delete el.was;
+        } else {
+          delete el.runs;
+          delete el.of;
+          delete el.was;
         }
       } else if ((HUB_ELEMENT_PRO_FIELDS as readonly string[]).includes(field)) {
         const f = field as (typeof HUB_ELEMENT_PRO_FIELDS)[number];
@@ -1774,12 +2188,19 @@ export function canvasWithoutFacet(
  * then CHECKED against it: if the result would still add or change a look, the
  * live canvas comes back unchanged — nothing Pro can leak through this door.
  */
-export function canvasFreePart(live: HubSectionCanvas, next: HubSectionCanvas): HubSectionCanvas {
+export function canvasFreePart(
+  live: HubSectionCanvas,
+  next: HubSectionCanvas,
+  sceneType?: string | null,
+  /** 💎 Part by part (2026-10-22): a growing facet this returns true for is KEPT — its part is owned. Absent: none. */
+  keep?: (facet: CanvasLookFacet) => boolean,
+): HubSectionCanvas {
   let free = sanitizeHubCanvas({ canvas: next });
-  for (const facet of canvasLookFacets(live, next)) {
-    if (grows(facet.change)) free = canvasWithoutFacet(live, free, facet);
+  for (const facet of canvasLookFacets(live, next, sceneType)) {
+    if (grows(facet.change) && !keep?.(facet)) free = canvasWithoutFacet(live, free, facet);
   }
-  return grows(canvasLookChange(live, free)) ? live : free;
+  // 🔒 Fail-closed: anything still growing that is not kept means the live canvas, unchanged.
+  return canvasLookFacets(live, free, sceneType).some((f) => grows(f.change) && !keep?.(f)) ? live : free;
 }
 
 const liveCanvasOf = (config: unknown): HubSectionCanvas => sanitizeHubCanvas(config);
@@ -1809,14 +2230,36 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
   const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
     isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;
-  const motion = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.motion ?? null) : null);
-  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null));
+  /* 🌄 Parallax on ANY picture is Pro to add (Look restudy row 8 widened it past an own photo). */
+  const motion = (m: HubMainGround | null) => (m && 'motion' in m && m.motion === 'parallax' ? 'parallax' : null);
+  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null), mainEffectChange(live, null));
   return combineChanges(
     refChange(ref(live), ref(next)),
     refChange(poster(live), poster(next)),
     refChange(tint(live), tint(next)),
     refChange(motion(live), motion(next)),
+    mainEffectChange(live, next),
   );
+}
+
+/**
+ * ✨ The effect on the main background, live → drafted (owner 2026-10-16: *"all animate, effects, styles, accents are
+ * pro"* — every one of the eight, `AMBIENT_EFFECT_IS_PRO`). The whole effect is one reference — its kind, How much and
+ * Colour — so putting one on, swapping it or retuning it is Pro, and taking it off is free. An effect already LIVE
+ * compares as no change: a free event keeps what it published (`refChange`), the #6623 grandfather.
+ */
+export function mainEffectChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
+  const fx = (m: HubMainGround | null) => {
+    const e = hubMainEffect(m);
+    return e ? `${e.kind}:${e.intensity}:${e.colour ?? ''}` : null;
+  };
+  return refChange(fx(live), fx(next));
+}
+
+/** The background with its effect taken off — every other key as it was (what the Apply line compares the rest by). */
+export function withoutEffect(main: HubMainGround): HubMainGround {
+  const { effect: _fx, ...rest } = main as HubMainGround & { effect?: unknown };
+  return rest as HubMainGround;
 }
 
 /**
@@ -1825,14 +2268,20 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
  * (`widgetShouldRender` reads the eye; `openBrowseSectionVisible` lets a
  * `shown` mode win over it), so "on" is on under EITHER — fail-closed: a state
  * one reader would draw counts as shown.
+ *
+ * 👁 …and a per-stage `true` (`config_json.stage_show`) shows it on that stage
+ * over both, so ONE stage set to shown counts as on too. Without this a scene
+ * of their own could be put in front of guests stage by stage, around the gate.
  */
 function ownSceneOn(
   row: HubLiveState['widgets'][number],
-  w: Pick<HubDraftWidget, 'mode' | 'is_visible'>,
+  w: Pick<HubDraftWidget, 'mode' | 'is_visible' | 'stage_show'>,
 ): boolean {
   const visible = (w.is_visible ?? row.is_visible ?? true) !== false;
   const mode = w.mode ?? row.mode ?? 'auto';
-  return visible || mode === 'shown';
+  const stages = configWithStageShow(row.config_json, w.stage_show ?? {})[STAGE_SHOW_KEY];
+  const onAStage = isPlainObject(stages) && Object.values(stages).some((v) => v === true);
+  return visible || mode === 'shown' || onAStage;
 }
 
 /**
@@ -1844,6 +2293,43 @@ function ownSceneOn(
  * A drafted section with no live row (a custom section that was deleted) is
  * returned in `orphans`, never silently dropped.
  */
+/**
+ * ↕ THE STAGES WHOSE ORDER THE DRAFT REALLY MOVES — each named once.
+ *
+ * Measured 2026-10-11 at 375 px, on the Maker's own toolbar: ONE tap on Earlier and ✓ read **8**; a tap on Later, back
+ * to the order guests have, and it still read 8 — and the Apply sheet would have listed eight "Order" lines. A move
+ * saves the stage's WHOLE order, every scene its place (`lib/maker-reorder.ts` `stageOrderPatch`), and each scene's
+ * place was classified on its own, against a live page that had stored no places at all.
+ *
+ * A couple reads that number as "what I changed". The order of a stage is ONE fact: what matters is the SEQUENCE its
+ * scenes come out in (`stageRowOrder` — the very order the page and the Maker draw), with the draft's places laid on,
+ * against the live sequence. Places that restate the live sequence are no difference; a different sequence is one
+ * change for that stage, however many scenes shifted.
+ */
+export function hubDraftMovedStages(draft: HubDraftState, live: HubLiveState): LifecyclePhase[] {
+  const placed = new Set<string>();
+  for (const w of Object.values(draft.widgets)) for (const stage of Object.keys(w?.stage_order ?? {})) placed.add(stage);
+  if (placed.size === 0) return [];
+  /* 👁 WHO IS ON THE STAGE is the draft's too (`stage_show` — a scene the couple ADDED to a stage has a place there,
+     `stageRowOrder`). Both sequences are read over the SAME members — the drafted ones — and differ only by the
+     places: with the live members, two scenes added to a stage and then put in another order were "no move", so
+     their order was neither counted nor written, and Apply drew them in the default order (found 2026-10-11 by
+     `the-table-the-maker-and-the-page-agree.test.ts`, seed 26). Adding a scene alone is still no move. */
+  const members = live.widgets.map((row) => {
+    const shows = draft.widgets[row.widget_type as WidgetType]?.stage_show;
+    return shows === undefined || row.is_always_on ? row : { ...row, config_json: configWithStageShow(row.config_json, shows) as typeof row.config_json };
+  });
+  const drafted = members.map((row) => {
+    const places = draft.widgets[row.widget_type as WidgetType]?.stage_order;
+    return places === undefined ? row : { ...row, config_json: configWithStageOrder(row.config_json, places) as typeof row.config_json };
+  });
+  const sequence = (rows: HubLiveState['widgets'], stage: LifecyclePhase) =>
+    stageRowOrder(rows, stage, (type, s) => widgetInPhase(type as WidgetType, s))
+      .map((r) => r.widget_id)
+      .join(' ');
+  return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((stage) => placed.has(stage) && sequence(members, stage) !== sequence(drafted, stage));
+}
+
 export function classifyHubDraft(
   draft: HubDraftState,
   live: HubLiveState,
@@ -1865,6 +2351,7 @@ export function classifyHubDraft(
     });
   }
   const orphans: WidgetType[] = [];
+  const movedStages = hubDraftMovedStages(draft, live);
   for (const type of WIDGET_TYPES) {
     const w = draft.widgets[type];
     if (!w) continue;
@@ -1918,15 +2405,68 @@ export function classifyHubDraft(
        is the WHOLE merged key, so Apply sets it exactly as the preview showed. */
     if (w.stage_order !== undefined) {
       const liveKey = configWithStageOrder(row.config_json, {})[STAGE_ORDER_KEY] ?? null;
-      const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
-      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey)) {
-        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false });
+      /* ↕ …AND ONLY WHERE A STAGE'S ORDER REALLY COMES OUT DIFFERENT (`hubDraftMovedStages`). A move saves every
+         scene's place on the stage (0, 1, 2 …), so the keys differ from a live page that never stored places even
+         when the scenes are back in the order guests have — that is not a change, and nothing is written for it. */
+      const stages = movedStages.filter((stage) => stage in w.stage_order!);
+      /* ⚠ …AND ONLY THE MOVED STAGES' PLACES ARE WRITTEN. The value was the row's whole drafted key — so a row moved
+         on the Invitation carried its place on Save the Date too, though that stage's order had been put back and
+         was "no change". Its NEIGHBOURS there, with no moved stage of their own, were written nothing: Save the Date
+         went live with SOME of its scenes placed, and a placed scene comes before an unplaced one (`inStageOrder`) —
+         the gallery fell from first to last on a stage nobody had changed, and ✓ read "1 change" straight after
+         Apply. (Found 2026-10-11 by `the-table-the-maker-and-the-page-agree.test.ts`, seed 12.) A stage whose order
+         is not in `stages` keeps exactly the places guests have. */
+      const moved = Object.fromEntries(Object.entries(w.stage_order).filter(([stage]) => (stages as string[]).includes(stage)));
+      const nextKey = configWithStageOrder(row.config_json, moved)[STAGE_ORDER_KEY] ?? null;
+      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey) && stages.length > 0) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false, stages });
+      }
+    }
+    /* 👁 Shown or hidden per stage — refused on an always-on section, as the eye
+       is; compared as the page reads it (the merged key), and the value written
+       is the WHOLE merged key. Free, except for a scene of their own that no
+       guest sees today: showing it on a stage is the same 'add' the eye makes. */
+    /* 👁 The fixed parts' per-stage choices (hero row only) — compared as the page reads them, the WHOLE merged key
+       written. Free: showing or hiding a part of the page we write is never Pro. */
+    if (w.part_show !== undefined && type === 'hero') {
+      const liveParts = configWithPartShow(row.config_json, {})[PART_SHOW_KEY] ?? null;
+      const nextParts = configWithPartShow(row.config_json, w.part_show)[PART_SHOW_KEY] ?? null;
+      if (canonicalJson(liveParts) !== canonicalJson(nextParts)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'part_show', value: nextParts, change: 'change', pro: false });
+      }
+    }
+    if (w.stage_show !== undefined && !row.is_always_on) {
+      const liveKey = configWithStageShow(row.config_json, {})[STAGE_SHOW_KEY] ?? null;
+      const nextKey = configWithStageShow(row.config_json, w.stage_show)[STAGE_SHOW_KEY] ?? null;
+      if (canonicalJson(liveKey) !== canonicalJson(nextKey)) {
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'stage_show',
+          value: nextKey,
+          change: showsOwnScene ? 'add' : 'change',
+          pro: showsOwnScene,
+        });
+      }
+    }
+    /* 🎵 The music button's design — free; compared as the page reads it (absent ≡ the default). */
+    if (w.music !== undefined && type === 'hero') {
+      const live = sanitizeHubMusic((row.config_json as Record<string, unknown> | null)?.[HUB_MUSIC_KEY]);
+      if (JSON.stringify(live) !== JSON.stringify(w.music ?? null)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'music', value: w.music ?? null, change: 'change', pro: false });
       }
     }
     if (w.std_lead !== undefined && type === 'our_photos') {
       const liveLead = storedStdLead([row]);
       if ((w.std_lead ?? null) !== liveLead) {
         items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'std_lead', value: w.std_lead ?? null, change: 'change', pro: false });
+      }
+    }
+    /* ✍ The Photos heading — words, free; compared as the page reads it (absent ≡ none). */
+    if (w.photos_heading !== undefined && type === 'our_photos') {
+      if ((w.photos_heading ?? null) !== photosHeadingOf(row.config_json)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'photos_heading', value: w.photos_heading ?? null, change: 'change', pro: false });
       }
     }
     if (w.main !== undefined && type === 'hero') {
@@ -1968,19 +2508,31 @@ export function classifyHubDraft(
       }
     }
     /* 🏛 The venue cards' source and photo — compared as the page reads the
-       bag; the value written is the WHOLE merged bag. Never Pro. */
+       bag; the value written is the WHOLE merged bag. Free — except ⛪ "Our
+       drawing ◆" turned ON on a card (owner 2026-10-16): that is Event Hub Pro,
+       an 'add' the gate holds for a couple without it (its free part — every
+       photo and source edit — still goes live; see `planHubDraftApply`). */
     if (w.venue !== undefined && type === 'venue_map') {
       const liveBag = draftVenueChoices(isPlainObject(row.config_json) ? row.config_json.venue : null);
-      const nextBag = configWithVenue(row.config_json, w.venue).venue;
+      const nextBag = configWithVenue(row.config_json, w.venue).venue as HubDraftVenueChoices;
       if (JSON.stringify(liveBag) !== JSON.stringify(nextBag)) {
-        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'venue', value: nextBag, change: 'change', pro: false });
+        const addsDrawing = venueBagNewDrawings(liveBag, nextBag).length > 0;
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'venue',
+          value: nextBag,
+          change: addsDrawing ? 'add' : 'change',
+          pro: addsDrawing,
+        });
       }
     }
     if (w.canvas !== undefined) {
       const liveCanvas = liveCanvasOf(row.config_json);
       const nextCanvas = w.canvas ?? {};
       if (JSON.stringify(liveCanvas) !== JSON.stringify(nextCanvas)) {
-        const change = canvasLookChange(liveCanvas, nextCanvas);
+        const change = canvasLookChange(liveCanvas, nextCanvas, type);
         items.push({
           kind: 'widget',
           widgetType: type,
@@ -2001,13 +2553,26 @@ export function classifyHubDraft(
     }
   }
   // 🎨 The fixed parts' style picks, last — each compared with what is live.
-  for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[FixedStyleScene, string | null]>) {
+  // 💎 A style card that is not the theme's own is Event Hub Pro ◆ (owner 2026-10-16, "everything in Style is Pro …
+  // style cards on a part") — the scene registry's one rule (`sceneStyleIsPro`); back to the default is free, and a
+  // card already live is no change at all (grandfathered).
+  for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[StyledScene, string | null]>) {
     const liveId = live.fixedStyles?.[scene] ?? null;
-    if ((value ?? null) !== liveId) items.push({ kind: 'fixed-style', scene, value: value ?? null, change: 'change', pro: false });
+    if ((value ?? null) !== liveId) {
+      const proRef = (id: string | null) => (sceneStyleIsPro(scene, id) ? id : null);
+      const change = refChange(proRef(liveId), proRef(value ?? null));
+      const pro = change === 'add' || change === 'change';
+      items.push({ kind: 'fixed-style', scene, value: value ?? null, change: pro ? change : 'change', pro });
+    }
   }
   // 🚶 The Wedding March's moves, very last: they are not compared with live (a
   // move is a step, not a value) — every drafted move is one Apply makes.
   if (draft.march?.length) items.push({ kind: 'march', value: draft.march, change: 'change', pro: false });
+  /* 💎 A custom address (owner 2026-10-22): renaming is the Custom address part's — tried free, held at Apply. One that
+     names the address guests already use is no change at all. */
+  if (draft.address && typeof live.slug === 'string' && draft.address !== live.slug) {
+    items.push({ kind: 'address', value: draft.address, change: 'change', pro: true });
+  }
   return { items, orphans };
 }
 
@@ -2025,17 +2590,161 @@ export type HubDraftApplyPlan = {
  * 🎉 The FREE PART of a drafted RSVP config: everything the couple drafted,
  * with the celebration put back to what is live (absent when live has none).
  */
-export function rsvpAskFreePart(live: unknown, drafted: unknown): Record<string, unknown> {
+export function rsvpAskFreePart(
+  live: unknown,
+  drafted: unknown,
+  /** 💎 Part by part (2026-10-22): the parts the event owns keep their drafted fields. Absent: none. */
+  keep?: (part: HubPartId) => boolean,
+): Record<string, unknown> {
   const next = { ...sanitizeRsvpAskConfig(drafted) } as Record<string, unknown>;
   const liveConfig = sanitizeRsvpAskConfig(live);
-  if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
-  else delete next.celebration;
+  /* 🎉 The When yes celebration is Motion's (gate 26). */
+  if (!keep?.('motion')) {
+    if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
+    else delete next.celebration;
+  }
+  /* 💎 …and each reply line's / card's NEW Style or Build in put back to live — its words, order, groups and card
+     grounds (free) kept. */
+  const look = rsvpLookFreePart(liveConfig.look, next.look, keep);
+  if (look) next.look = look;
+  else delete next.look;
   return next;
 }
 
+/* ── 💎 THE REPLY PAGES' LOOKS (`events.rsvp_ask_config.look`, read strictly by `lib/rsvp-look.ts`) ──────────────────
+   Asked here on the RAW object, field by field, so the Apply gate (in the Maker's first load) never loads the reader:
+   a line's colour · font · size · picture look (`c` `f` `s` `l`) are its Style, and a line's, a card's and a group's
+   `i` · `v` are its Build in — all Pro since 2026-10-16. A card's or a group's ground (`g`) is a background — free —
+   and the words, the added lines, the order and the groups themselves are the couple's arrangement — free. */
+const RSVP_LINE_PRO_KEYS = ['c', 'f', 's', 'l', 'i', 'v'] as const;
+const RSVP_MOTION_KEYS = ['i', 'v'] as const;
+
+/** Every Pro field the look holds, as `<where>|<field>` → comparable text. */
+function rsvpLookProFields(look: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!isPlainObject(look)) return out;
+  const each = (home: unknown, prefix: string, keys: readonly string[]) => {
+    if (!isPlainObject(home)) return;
+    for (const [id, one] of Object.entries(home)) {
+      if (!isPlainObject(one)) continue;
+      for (const k of keys) if (one[k] !== undefined && one[k] !== null) out.set(`${prefix}:${id}|${k}`, asText(one[k])!);
+    }
+  };
+  each(look.lines, 'lines', RSVP_LINE_PRO_KEYS);
+  each(look.card, 'card', RSVP_MOTION_KEYS);
+  if (isPlainObject(look.groups)) {
+    for (const [card, list] of Object.entries(look.groups)) {
+      if (!Array.isArray(list)) continue;
+      for (const g of list) if (isPlainObject(g) && typeof g.id === 'string') each({ [g.id]: g }, `groups:${card}`, RSVP_MOTION_KEYS);
+    }
+  }
+  return out;
+}
+
+/** The reply look's Pro fields that are new or different from live (taking one off is free). */
+export function rsvpLookGrowing(live: unknown, drafted: unknown): string[] {
+  const was = rsvpLookProFields(sanitizeRsvpAskConfig(live).look);
+  const now = rsvpLookProFields(sanitizeRsvpAskConfig(drafted).look);
+  return [...now.keys()].filter((k) => grows(refChange(was.get(k) ?? null, now.get(k) ?? null)));
+}
+
+/** The drafted reply look with every growing Pro field put back to live's (absent where live had none). */
+function rsvpLookFreePart(liveLook: unknown, draftedLook: unknown, keep?: (part: HubPartId) => boolean): Record<string, unknown> | undefined {
+  if (!isPlainObject(draftedLook)) return undefined;
+  const was = rsvpLookProFields(liveLook);
+  const now = rsvpLookProFields(draftedLook);
+  const growing = [...now.keys()].filter(
+    (k) => grows(refChange(was.get(k) ?? null, now.get(k) ?? null)) && !keep?.(rsvpFieldPart(k.split('|')[1] ?? '')),
+  );
+  if (growing.length === 0) return draftedLook;
+  const out = JSON.parse(JSON.stringify(draftedLook)) as Record<string, unknown>;
+  const liveRaw = isPlainObject(liveLook) ? liveLook : {};
+  for (const k of growing) {
+    const [where, field] = k.split('|') as [string, string];
+    const [home, a, b] = where.split(':') as [string, string, string | undefined];
+    const find = (root: Record<string, unknown>): Record<string, unknown> | null => {
+      if (home === 'groups') {
+        const list = isPlainObject(root.groups) ? root.groups[a] : null;
+        const g = Array.isArray(list) ? list.find((x) => isPlainObject(x) && x.id === b) : null;
+        return isPlainObject(g) ? g : null;
+      }
+      const h = root[home];
+      return isPlainObject(h) && isPlainObject(h[a]) ? h[a] : null;
+    };
+    const target = find(out);
+    if (!target) continue;
+    const back = find(liveRaw)?.[field];
+    if (back === undefined || back === null) delete target[field];
+    else target[field] = back;
+    if (field === 'i' && target.i === undefined) delete target.v; /* a feel times an effect (`rsvpLookWith`) */
+    /* A line or a card left with nothing is no look at all (`rsvpLookWith` stores none) — a group keeps its members. */
+    if (home !== 'groups' && Object.keys(target).length === 0) {
+      const h = out[home] as Record<string, unknown>;
+      delete h[a];
+      if (Object.keys(h).length === 0) delete out[home];
+    }
+  }
+  return out;
+}
+
+/** 🔳 Does the drafted `style_preferences` move the QR's look from live? (Only the QR is Pro.) */
+function styleQrMoves(live: unknown, drafted: unknown): boolean {
+  if (!isPlainObject(drafted) || !(QR_STYLE_PREF_KEY in drafted)) return false;
+  const next = qrStyleFromPreferences(drafted);
+  /* Back to the plain code is a removal — free. */
+  if (Object.keys(next).length === 0) return false;
+  return canonicalJson(qrStyleFromPreferences(live)) !== canonicalJson(next);
+}
+
+/** The Pro parts of a drafted `style_preferences` — what Apply holds and the sheet names. Empty = all free. */
+export type StylePreferencesProPart = 'qr' | 'accents' | 'blocks';
+
+/** 🧱 One fixed block's motion in a `style_preferences` value, as comparable text — null when it is still. */
+function blockMotionText(v: unknown, block: string): string | null {
+  const looks = isPlainObject(v) && isPlainObject(v.block_looks) ? v.block_looks : null;
+  const look = looks && isPlainObject(looks[block]) ? looks[block] : null;
+  return look && look.motion !== undefined && look.motion !== null ? asText(look.motion) : null;
+}
+
+/** 🧱 The blocks whose drafted motion is new or different from live (turning one still is free). */
+export function blockMotionsGrowing(live: unknown, drafted: unknown): string[] {
+  if (!isPlainObject(drafted) || !isPlainObject(drafted.block_looks)) return [];
+  return Object.keys(drafted.block_looks).filter((b) => grows(refChange(blockMotionText(live, b), blockMotionText(drafted, b))));
+}
+
+export function stylePreferencesProParts(live: unknown, drafted: unknown): StylePreferencesProPart[] {
+  const out: StylePreferencesProPart[] = [];
+  if (styleQrMoves(live, drafted)) out.push('qr');
+  if (isPlainObject(drafted) && SCENE_ACCENTS_PREF_KEY in drafted && accentsTurnOn(sceneAccentsFromPreferences(live), sceneAccentsFromPreferences(drafted)).length > 0) out.push('accents');
+  if (blockMotionsGrowing(live, drafted).length > 0) out.push('blocks');
+  return out;
+}
+
+/**
+ * 🧱 The drafted `block_looks` with every block's NEW motion put back to live — its background picks kept (a
+ * background is free). Undefined when the draft holds no block looks.
+ */
+export function blockLooksFreePart(live: unknown, drafted: unknown): Record<string, unknown> | undefined {
+  if (!isPlainObject(drafted) || !isPlainObject(drafted.block_looks)) return undefined;
+  const liveLooks = isPlainObject(live) && isPlainObject(live.block_looks) ? live.block_looks : {};
+  const growing = new Set(blockMotionsGrowing(live, drafted));
+  const out: Record<string, unknown> = {};
+  for (const [block, look] of Object.entries(drafted.block_looks)) {
+    if (!growing.has(block) || !isPlainObject(look)) {
+      out[block] = look;
+      continue;
+    }
+    const was = isPlainObject(liveLooks[block]) ? liveLooks[block] : {};
+    const { motion: _m, ...rest } = look;
+    const kept = was.motion !== undefined && was.motion !== null ? { ...rest, motion: was.motion } : rest;
+    if (Object.keys(kept).length > 0) out[block] = kept;
+  }
+  return out;
+}
+
 /** Did anything BESIDES the celebration move between live and the draft? */
-export function rsvpAskFreePartMoves(live: unknown, drafted: unknown): boolean {
-  return canonicalJson(rsvpAskFreePart(live, drafted)) !== canonicalJson(sanitizeRsvpAskConfig(live));
+export function rsvpAskFreePartMoves(live: unknown, drafted: unknown, keep?: (part: HubPartId) => boolean): boolean {
+  return canonicalJson(rsvpAskFreePart(live, drafted, keep)) !== canonicalJson(sanitizeRsvpAskConfig(live));
 }
 
 /** Key-order-free JSON (jsonb hands keys back in its own order). */
@@ -2052,31 +2761,96 @@ function canonicalJson(v: unknown): string {
 }
 
 /**
- * THE GATE, as a plan. `ownsPro` is measured by the caller (admin-client SKU
- * read, `lookProAllows`); this decides with the one rule, `lookWriteAllowed`.
- * Nothing here can let a Pro key through for a couple who does not own Pro.
+ * 💎 WHICH PARTS A DRAFTED ITEM NEEDS (owner 2026-10-22, "Event Hub Pro, part by
+ * part") — derived from the SAME comparisons that decided `item.pro`, never a
+ * second list of what is Pro: only of WHOSE it is (`lib/hub-parts.ts`).
+ * Empty for an item that is not Pro. An item can need several parts at once
+ * (a scene whose font AND animation changed); each comes off by its own part.
+ */
+export function hubDraftItemParts(item: HubDraftItem, live: HubLiveState): HubPartId[] {
+  if (!item.pro) return [];
+  const out = new Set<HubPartId>();
+  switch (item.kind) {
+    case 'event': {
+      if (item.column === 'style_preferences') {
+        for (const piece of stylePreferencesProParts(live.events.style_preferences ?? null, item.value)) out.add(stylePreferencesPartOf(piece));
+      } else if (item.column === 'rsvp_ask_config') {
+        const liveConfig = live.events.rsvp_ask_config ?? null;
+        if (celebrationDraftIsPro(liveConfig, item.value)) out.add('motion');
+        for (const k of rsvpLookGrowing(liveConfig, item.value)) out.add(rsvpFieldPart(k.split('|')[1] ?? ''));
+      } else {
+        out.add(HUB_EVENT_COLUMN_PART[item.column] ?? 'style');
+      }
+      break;
+    }
+    case 'widget': {
+      if (item.field === 'main') out.add('background');
+      else if (item.field === 'canvas') {
+        const row = live.widgets.find((r) => r.widget_id === item.widgetId) ?? live.widgets.find((r) => r.widget_type === item.widgetType);
+        const liveCanvas = liveCanvasOf(row?.config_json);
+        for (const f of canvasLookFacets(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType)) {
+          if (grows(f.change)) out.add(canvasFacetPart(f.key, f.group));
+        }
+      } else out.add('own_scenes'); // a scene of their own shown or filled (22), the venue's drawing (32)
+      break;
+    }
+    case 'editorial':
+      out.add('post_event'); // 23, 24
+      break;
+    case 'fixed-style':
+      out.add('style'); // 18
+      break;
+    case 'address':
+      out.add('address'); // the custom address — the one part PRO-GATES.md had no row for (it was ungated)
+      break;
+  }
+  return [...out];
+}
+
+/**
+ * THE GATE, as a plan. What the event owns is measured by the caller
+ * (admin-client read, `hubOwnershipForWrite`) — the old boolean still means
+ * "everything" or "nothing"; this decides with the one rule, asked of the parts
+ * each item needs (`partsWriteAllowed`). Nothing here can let a Pro key through
+ * for an event that does not own its part.
  */
 export function planHubDraftApply(
   draft: HubDraftState,
   live: HubLiveState,
-  ownsPro: boolean,
+  owned: HubOwnershipLike,
 ): HubDraftApplyPlan {
+  const own = asHubOwnership(owned);
+  const keep = (part: HubPartId) => ownsHubPart(own, part);
   const { items, orphans } = classifyHubDraft(draft, live);
   const apply: HubDraftItem[] = [];
   const refused: HubDraftItem[] = [];
   for (const item of items) {
-    const allowed = item.pro ? lookWriteAllowed(ownsPro, item.change) : true;
+    const allowed = item.pro ? partsWriteAllowed(own, hubDraftItemParts(item, live), item.change) : true;
     (allowed ? apply : refused).push(item);
     /* 💎 A HELD SCENE STILL GETS ITS FREE EDITS (the 2026-09-28 redraw). The
        canvas is one item, so a colour drafted beside a Pro font would otherwise
        be held with it. Its free part is written now; the whole drafted canvas
-       stays in the draft (below), where it now differs from live only by Pro. */
+       stays in the draft (below), where it now differs from live only by Pro.
+       💎 …and, part by part (2026-10-22), the facets of every part the event
+       OWNS go live with it — only the unowned parts wait. */
     if (!allowed && item.kind === 'widget' && item.field === 'canvas') {
       const row = live.widgets.find((r) => r.widget_type === item.widgetType);
       const liveCanvas = liveCanvasOf(row?.config_json);
-      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {});
+      const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {}, item.widgetType, (f) => keep(canvasFacetPart(f.key, f.group)));
       if (JSON.stringify(free) !== JSON.stringify(liveCanvas)) {
-        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
+        apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free, item.widgetType), pro: false, freePart: true });
+      }
+    }
+    /* ⛪ A held venue bag (a new "Our drawing ◆") still gets its free edits: every
+       photo and source pick is written now, the drawing left as live; the whole
+       drafted bag stays in the draft (below), where it differs from live only by
+       the drawing. */
+    if (!allowed && item.kind === 'widget' && item.field === 'venue') {
+      const cfg = live.widgets.find((r) => r.widget_type === item.widgetType)?.config_json;
+      const liveBag = draftVenueChoices(isPlainObject(cfg) ? cfg.venue : null);
+      const free = venueBagFreePart(liveBag, item.value as HubDraftVenueChoices);
+      if (JSON.stringify(free) !== JSON.stringify(liveBag)) {
+        apply.push({ ...item, value: free, change: 'change', pro: false, freePart: true });
       }
     }
     /* 🎉 A held RSVP config still gets its free edits: the words and switches
@@ -2084,9 +2858,30 @@ export function planHubDraftApply(
        celebration kept; the whole drafted config stays in the draft (below). */
     if (!allowed && item.kind === 'event' && item.column === 'rsvp_ask_config') {
       const liveConfig = live.events.rsvp_ask_config ?? null;
-      if (rsvpAskFreePartMoves(liveConfig, item.value)) {
-        apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value), change: 'change', pro: false, freePart: true });
+      if (rsvpAskFreePartMoves(liveConfig, item.value, keep)) {
+        apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value, keep), change: 'change', pro: false, freePart: true });
       }
+    }
+    /* 🧱 A held blob still gets its free parts: written now (merged into the blob like the QR); the whole drafted
+       blob stays in the draft (below), where it now differs from live only by what is held. */
+    if (!allowed && item.kind === 'event' && item.column === 'style_preferences') {
+      const liveBlob = live.events.style_preferences ?? null;
+      const free: Record<string, unknown> = {};
+      /* 🧱 …and the blocks' backgrounds (free) go live, each block's new motion put back to live's — unless Motion is owned (17b). */
+      const blocks = keep('motion') && isPlainObject(item.value) && isPlainObject(item.value.block_looks) ? item.value.block_looks : blockLooksFreePart(liveBlob, item.value);
+      if (blocks && canonicalJson(blocks) !== canonicalJson(isPlainObject(liveBlob) ? (liveBlob.block_looks ?? {}) : {})) free.block_looks = blocks;
+      /* 🕯 …and a scene's accent taken OFF is free: the live picks with only the drafted Nones laid on — or every drafted
+         pick, while Style is owned (16). */
+      if (isPlainObject(item.value) && SCENE_ACCENTS_PREF_KEY in item.value) {
+        const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
+        const offs = Object.entries(sceneAccentsFromPreferences(item.value)).filter(
+          ([sc, id]) => (keep('style') || id === ACCENT_NONE) && liveAccents[sc as keyof typeof liveAccents] !== id,
+        );
+        if (offs.length > 0) free[SCENE_ACCENTS_PREF_KEY] = { ...liveAccents, ...Object.fromEntries(offs) };
+      }
+      /* 🔳 …and the QR's look, while Logo & QR is owned (29). */
+      if (keep('logo_qr') && isPlainObject(item.value) && QR_STYLE_PREF_KEY in item.value) free[QR_STYLE_PREF_KEY] = item.value[QR_STYLE_PREF_KEY];
+      if (Object.keys(free).length > 0) apply.push({ kind: 'event', column: 'style_preferences', value: free, change: 'change', pro: false, freePart: true });
     }
     /* 💎 …and a held Post Event look gets its free edits the same way — its
        style, its words, a colour beside a Pro font (`sceneLooksFreePart`). */
@@ -2126,11 +2921,14 @@ export function planHubDraftApply(
         remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
       }
     } else if (item.kind === 'fixed-style') {
-      // Never refused (a style pick is free) — kept for completeness.
+      // 💎 A held Pro style card stays drafted, still picked.
       remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };
     } else if (item.kind === 'march') {
       // Never refused (a march move is free) — kept for completeness.
       remaining.march = item.value;
+    } else if (item.kind === 'address') {
+      // 💎 A held custom address stays drafted, still picked.
+      remaining.address = item.value;
     } else {
       const w = (remaining.widgets[item.widgetType] ??= {});
       if (item.field === 'canvas') w.canvas = item.value as HubSectionCanvas | null;
@@ -2138,10 +2936,26 @@ export function planHubDraftApply(
       // A held scene of their own stays SHOWN in the draft, so the couple still sees it.
       else if (item.field === 'mode') w.mode = item.value as HubSectionMode;
       else if (item.field === 'is_visible') w.is_visible = item.value as boolean;
+      // 👁 …and so does a held per-stage choice (the whole merged key the classifier compared).
+      else if (item.field === 'stage_show') w.stage_show = heldStageShow(item.value);
       else if (item.field === 'custom') w.custom = item.value as CustomSectionContent | null;
+      // ⛪ A held venue bag stays drafted WHOLE, its drawing still picked.
+      else if (item.field === 'venue') w.venue = item.value as HubDraftVenueChoices;
     }
   }
   return { apply, refused, remaining, orphans };
+}
+
+/**
+ * A held `stage_show` item's value (the whole merged key, or `null` = no stage
+ * keeps a choice) back as a draft patch: every stage named, the ones the key
+ * does not hold as `null`, so the kept draft says exactly what was held.
+ */
+export function heldStageShow(value: unknown): Partial<Record<LifecyclePhase, boolean | null>> {
+  const key = sanitizeStageShow(value) ?? {};
+  const out: Partial<Record<LifecyclePhase, boolean | null>> = {};
+  for (const st of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) out[st] = key[st] ?? null;
+  return out;
 }
 
 /**
@@ -2157,7 +2971,7 @@ export function hubDraftWriteTables(
   // 🚶 The march's moves are the shipped march actions' (`march_walks`, the tray, the section order).
   for (const i of items)
     out.add(
-      i.kind === 'event' || i.kind === 'fixed-style'
+      i.kind === 'event' || i.kind === 'fixed-style' || i.kind === 'address'
         ? 'events'
         : i.kind === 'editorial'
           ? 'event_editorial'
@@ -2209,7 +3023,7 @@ const STAGE_EVENT_COLUMNS: Record<Exclude<HubResetScope, 'all'>, HubDraftEventCo
 export const HUB_RESET_NEVER_TOUCHES = [
   'your guest list and their replies',
   'your schedule',
-  'your photos and galleries',
+  'your photos and Memories',
   'orders and payments',
   'your Post Event story',
   'your Event Hub address and who can view it',
@@ -2270,6 +3084,12 @@ export type HubDraftChangeLine = {
   pro: boolean;
   /** Held back at this Apply — it needs Event Hub Pro, or the web. */
   held: boolean;
+  /**
+   * 💎 The Event Hub Pro parts this change needs to go live (owner 2026-10-22, part by part) — `hubDraftItemParts`.
+   * Empty for a free change. What lets the toolbar say, without asking anybody, which held lines an event that owns
+   * some parts would still hold (`hubSummaryFor`).
+   */
+  parts?: HubPartId[];
 };
 
 /**
@@ -2280,17 +3100,26 @@ export type HubDraftChangeLine = {
  *
  * Each is a plan item; `held` = refused (it needs Event Hub Pro, or the web).
  */
-export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean }> {
+export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> {
   // A held scene's free part is the same scene as its refused twin — one change.
   // ✍ …and the names (three columns) or the date (two) are ONE change each.
+  // ↕ …and a stage's ORDER is ONE change, named for the stage (`stage`), however many scenes took a new place.
   const facts = new Set<string>();
-  const out: Array<{ item: HubDraftItem; held: boolean }> = [];
+  const out: Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> = [];
   const walk = [
     ...plan.apply.filter((i) => !i.freePart).map((item) => ({ item, held: false })),
     ...plan.refused.map((item) => ({ item, held: true })),
   ];
   for (const c of walk) {
     const i = c.item;
+    if (i.kind === 'widget' && i.field === 'stage_order' && i.stages) {
+      for (const stage of i.stages) {
+        if (facts.has(`order:${stage}`)) continue;
+        facts.add(`order:${stage}`);
+        out.push({ ...c, stage });
+      }
+      continue;
+    }
     const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : i.kind === 'widget' && i.field === 'venue' ? 'venues' : null;
     if (fact && facts.has(fact)) continue;
     if (fact) facts.add(fact);
@@ -2299,7 +3128,22 @@ export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: H
   return out;
 }
 
-export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: boolean): HubDraftSummary {
+/**
+ * ↺ RULING B (owner 2026-10-18): ↺ takes back only YOUR OWN steps (`lib/hub-draft-authors.ts`). A step ↺ may take back
+ * for `me`: one `me` made, or one nobody is recorded for (before the record). `me` unknown (the dev lab): every step.
+ */
+export function isOwnStep(by: string | undefined, me: string | undefined): boolean {
+  return me === undefined || by === undefined || by === me;
+}
+/** ↺ Is there a step `me` may take back? Step k left state k (`history`, then now); the oldest state's own step is gone. */
+export function hubDraftCanUndoOwn(draft: HubDraft | null, me?: string): boolean {
+  if (!draft) return false;
+  const states: HubDraftState[] = [...draft.history, draft];
+  for (let k = states.length - 1; k >= 1; k -= 1) if (isOwnStep(states[k]!.by, me)) return true;
+  return false;
+}
+
+export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: HubOwnershipLike, me?: string): HubDraftSummary {
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
   const changeCount = hubDraftCountedChanges(plan).length;
@@ -2307,7 +3151,8 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
     hasChanges: changeCount > 0,
     changeCount,
     proCount: plan.refused.length,
-    canUndo: draft.history.length > 0,
+    // ↺ Greyed when no step left is yours (ruling B) — the other host's steps are theirs to take back.
+    canUndo: hubDraftCanUndoOwn(draft, me),
   };
 }
 
@@ -2335,21 +3180,25 @@ export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
   return typeof v === 'string' && (HUB_DRAFT_INTENTS as readonly string[]).includes(v);
 }
 
+/** The Apply sheet's "Remove Pro changes": the `effect` a `drop` carries to take EVERY held Pro effect off the draft. */
+export const HUB_DROP_ALL_PRO = '*';
+
 /** Why Apply held a key back. */
 export type HubDraftRefusal =
   | 'needs_pro'
-  | 'apply_on_the_web'
+  /** 📵 The store shell where Apple does not sell Pro: held, said neutrally — never "on the web" (anti-steering, 3.1.1). */
+  | 'waits_for_pro'
   | 'not_your_photo'
+  /** 🎵 A drafted song from "Our music" whose track is no longer published. */
+  | 'song_off_the_list'
   | 'empty_section'
   | 'missing_section'
-  /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
-  | 'date_in_past'
-  /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */
-  | 'date_locked'
   /** 🕒 A ceremony time with no day to stand on (the event's date is not a single day). */
   | 'needs_a_day'
   /** 🚶 A drafted march move the server refused at Apply — the moves before it went live, the rest were dropped. */
-  | 'march_stopped';
+  | 'march_stopped'
+  /** 💎 A drafted custom address someone else took (or a word we keep) since it was typed. */
+  | 'address_taken';
 
 export type HubDraftActionResult =
   | {
@@ -2365,8 +3214,18 @@ export type HubDraftActionResult =
        * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
        */
       bar?: HubDraftBarLive;
+      /** ↺ The stamp of the draft state this answer left (save · undo · reset) — `lib/hub-draft-stamp.ts`. */
+      stamp?: string;
+      /** ↺ A drawn undo only: the state it stepped back FROM was the one the Maker expected (`expect`). */
+      matched?: boolean;
       /** `date_change` only: what happened, in words ("Asked. Your date stays as it is…"). */
       message?: string;
+      /**
+       * 👥 `save` only: another screen's change reached this save (`lib/hub-draft-rebase.ts`). `merged` holds the values
+       * that now differ from what this screen sent — what it must show — and `clashed` the ones both screens changed
+       * (this save's value was kept). The screen shows them with one calm line (`TWO_SCREENS_NOTE`).
+       */
+      elsewhere?: { merged: HubDraftPatch; clashed: string[]; note: string };
     }
   | {
       ok: false;
@@ -2389,6 +3248,7 @@ export type HubDraftActionResult =
  */
 export type HubDraftBarLive = {
   free: HubDraftSummary;
+  /** Everything owned. 💎 A part owner's half is DERIVED from `free` by the parts each held line needs (`hubSummaryFor`). */
   owned: HubDraftSummary;
   proEffects: HubProEffectView[];
   priceLabel: string | null;
@@ -2418,6 +3278,27 @@ export function hubDraftOutcome(result: HubDraftActionResult | null): HubDraftOu
   return result.held.length > 0 ? { kind: 'held', held: result.held } : { kind: 'live' };
 }
 
+/**
+ * 📵 AN ACTION THAT NEVER ANSWERED IS A REFUSAL, SAID — never a crash.
+ *
+ * Measured 2026-10-11 at 375 px, on the Maker's own bar: with the phone offline, one tap on ↺ Undo replaced the WHOLE
+ * Maker with the app's error screen ("Something on our end didn't work."). The bar awaited the server action inside a
+ * transition with nothing to catch it, so a request that could not leave (no signal, a tunnel, a lapsed connection)
+ * threw into React and took the page — the canvas, the tools and every unsaved field on screen — with it. ✓ Apply
+ * and Restore went the same way.
+ *
+ * `send` is the action call. An answer is returned as it came; a throw becomes the refusal every other failure of
+ * this action already is (`HUB_DRAFT_SAVE_FAILED_MESSAGE` — "your draft is kept": the draft is on the server, and a
+ * request that never left changed nothing there), which the bar says beside ✓ (`hubDraftOutcome`) and stays usable.
+ */
+export async function hubDraftAnswer(intent: HubDraftIntent | null, send: () => Promise<HubDraftActionResult>): Promise<HubDraftActionResult> {
+  try {
+    return await send();
+  } catch {
+    return { ok: false, intent, error: HUB_DRAFT_SAVE_FAILED_MESSAGE };
+  }
+}
+
 /** Which typed fact (the names, the date, the name style, the venues, the ceremony time) an `events` key carries — null for every other column. */
 export function hubDraftFactOf(column: HubDraftEventColumn): HubDraftFact | null {
   return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, HubDraftFact>>)[column] ?? null;
@@ -2437,8 +3318,9 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_button_color: 'Your button colour',
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
-  site_magic_traveller: 'Magic move',
+  site_magic_traveller: 'Your logo travelling to the bar',
   site_button_style: 'Your buttons',
+  site_roles: 'Your fonts',
   invite_theme: 'Your theme',
   role_palette: 'Your Mood Board colours',
   site_bg_music_r2_key: 'Your background music',
@@ -2453,13 +3335,14 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   dress_code_config: 'Your dress code',
   photo_moments_config: 'Your camera cues',
   rsvp_ask_config: 'What you ask your guests',
-  // The names and the date are ONE change each, however many columns carry them.
+  // The names are ONE change, however many columns carry them.
   display_name: 'Your names',
   bride_name: 'Your names',
   groom_name: 'Your names',
-  event_date: 'Your date',
-  event_date_precision: 'Your date',
   print_details: 'Your name style',
+  role_names: 'Your entourage headings',
+  pabuya_message: 'Your thank-you message',
+  guest_list_edit_deadline: 'Your reply-by date',
   // The venues are ONE change however many columns carry them.
   std_film_ceremony_name: 'Your venues',
   ceremony_venue_address: 'Your venues',
@@ -2480,12 +3363,23 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */
-export const FIXED_STYLE_LABEL: Record<FixedStyleScene, string> = {
+export const FIXED_STYLE_LABEL: Record<StyledScene, string> = {
   entourage: 'The entourage',
   find_your_seat: 'Find your seat',
   photos_of_you: "Each guest's own photos",
   announcements: 'Announcements',
   live_hub: 'The live hub',
+  /* 🎨 The parts' own (owner 2026-10-07, `lib/scene-styles-parts.ts`). */
+  hero_names: 'The names',
+  hero_date: 'The date',
+  hero_venue: 'The place',
+  hero_mark: 'The logo',
+  hero_eyebrow: 'The title',
+  gifts: 'E-Gifts',
+  my_role: 'Your role',
+  my_wear: 'What to wear',
+  my_arrive: 'Arrive by',
+  my_guests: 'Coming with you',
 };
 
 /** A sentence-ready name for one draft key. */
@@ -2495,21 +3389,29 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
     if (item.column === 'print_details' && isPlainObject(item.value)) {
       const pass = HUB_DRAFT_PASS_DESIGN_KEY in item.value;
       const name = HUB_DRAFT_PRINT_DETAILS_KEY in item.value;
-      if (pass && !name) return 'Your ticket style';
-      if (pass && name) return 'Your name style and ticket style';
+      const opening = HUB_DRAFT_OPENING_LINE_KEY in item.value;
+      if (opening && !pass && !name) return 'Your opening line';
+      if (pass && !name) return opening ? 'Your ticket style and opening line' : 'Your ticket style';
+      if (pass && name) return opening ? 'Your name style, ticket style and opening line' : 'Your name style and ticket style';
+      if (name && opening) return 'Your name style and opening line';
     }
+    if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && item.value.block_looks) return 'How your blocks look';
+    if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && SCENE_ACCENTS_PREF_KEY in item.value) return 'Your accents';
     return HUB_DRAFT_EVENT_LABEL[item.column];
   }
   if (item.kind === 'editorial') return postEventItemLabel(item.item);
   if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
   if (item.kind === 'march') return MARCH_DRAFT_PLACE;
+  if (item.kind === 'address') return `Your address · ${item.value}`;
   if (item.field === 'main') return 'Behind every scene';
+  if (item.field === 'music') return 'Your music button';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
+  if (item.field === 'photos_heading') return 'Photos · its heading';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
   if (item.field === 'venue') return 'Your venues';
   if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;
   const what =
-    item.field === 'mode' || item.field === 'is_visible'
+    item.field === 'mode' || item.field === 'is_visible' || item.field === 'stage_show' || item.field === 'part_show'
       ? 'shown or hidden'
       : item.field === 'display_order' || item.field === 'stage_order'
         ? 'its place'

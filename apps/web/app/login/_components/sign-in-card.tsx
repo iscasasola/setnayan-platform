@@ -29,8 +29,6 @@ import { useActionState, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
-import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
-import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
@@ -38,6 +36,30 @@ import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
+import dynamic from 'next/dynamic';
+
+/*
+  Loaded after the card, never with it: this card ships inside the root layout's
+  sign-in popup, so anything imported here is on EVERY page's first load —
+  including the Maker's, whose budget the eager import broke by 1.2 KB gz
+  (CI 2026-10-18). The door only matters once an address has been typed.
+*/
+const GoogleAddressDoor = dynamic(
+  () => import('@/app/_components/auth/google-address-door').then((m) => m.GoogleAddressDoor),
+  { ssr: false },
+);
+/*
+  Same reason, and it pays for the door: the desktop app's and the phone app's
+  buttons render ONLY in those shells (the shell gate decides on the server), so
+  a web page — the Maker included — never downloads them. Server-rendered as
+  before where they are shown.
+*/
+const DesktopOAuthButtons = dynamic(() =>
+  import('@/app/_components/desktop-oauth-buttons').then((m) => m.DesktopOAuthButtons),
+);
+const NativeOAuthButtons = dynamic(() =>
+  import('@/app/_components/native-oauth-buttons').then((m) => m.NativeOAuthButtons),
+);
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */
@@ -263,7 +285,11 @@ export function SignInCard({
             className="hr-si-input"
           />
         </div>
-        <div className="hr-si-field">
+        {/* A TYPED Google address takes the Google button's own door, address
+            pre-filled (owner 2026-10-18). Folds away every `data-password-only`
+            part below; where this shell hides the Google button it never shows. */}
+        <GoogleAddressDoor enabled={showOAuth} desktopOAuth={desktopOAuth} nativeOAuth={nativeOAuth} next={next} />
+        <div className="hr-si-field" data-password-only="">
           <label htmlFor="hr-si-password" className="hr-si-label">
             Password
           </label>
@@ -279,7 +305,7 @@ export function SignInCard({
         </div>
         {/* "Stay signed in" defaults CHECKED — explicit opt-out only (the server
             action downgrades sb-* cookies to session-only when unchecked). */}
-        <div className="hr-si-row">
+        <div className="hr-si-row" data-password-only="">
           <label htmlFor="hr-si-remember" className="hr-si-remember">
             <input id="hr-si-remember" name="remember" type="checkbox" defaultChecked />
             <span>Stay signed in</span>
@@ -288,7 +314,7 @@ export function SignInCard({
             Forgot password?
           </Link>
         </div>
-        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…">
+        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…" data-password-only="">
           Continue
         </SubmitButton>
       </form>

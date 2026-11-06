@@ -81,6 +81,8 @@ function render(design: HeroDesignId | undefined, extra: Record<string, unknown>
       monogramSlot: MARK,
       card: CARD,
       badgeSlot: React.createElement('p', { 'data-pill': '' }, 'Happening now'),
+      // 🔘 The cover's RSVP button (2026-10-16) — drawn where the reply exists; every design draws it.
+      rsvp: { kind: 'ask', href: '#reply' },
       ...(design ? { design } : {}),
       ...extra,
     }),
@@ -139,7 +141,8 @@ for (const design of HERO_DESIGNS) {
     assert.match(partTag(html, 'names'), /color:#123456/);
     assert.match(partTag(html, 'names'), /zoom:1\.2/);
     assert.match(partTag(html, 'date'), /font-style:italic/);
-    assert.match(partTag(html, 'eyebrow'), /opacity:0\.3/, 'a hidden part is ghosted in the Maker canvas');
+    /* 2026-10-16 (owner-approved, Cover Scene › Edit): a hidden line leaves the Maker's canvas too — never ghosted. */
+    assert.match(partTag(html, 'eyebrow'), /display:none/, 'a hidden part is still drawn in the Maker canvas');
   });
 }
 

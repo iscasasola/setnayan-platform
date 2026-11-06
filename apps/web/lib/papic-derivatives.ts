@@ -1,5 +1,7 @@
 import 'server-only';
 import sharp from 'sharp';
+import type { PapicMark } from '@/lib/papic-photo-mark';
+import { markOverlaySvg } from '@/lib/papic-photo-mark-raster';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parseStoredAsset, encodeR2Ref } from '@/lib/uploads';
@@ -129,17 +131,28 @@ export async function toAvif(
   longEdge: number,
   quality: number,
   effort = 4,
+  /** 🏷 Burn the event's photo mark into this COPY (guest captures, owner
+   *  2026-10-24). Never passed for an original. */
+  mark: PapicMark | null = null,
 ): Promise<Buffer> {
-  return await sharp(input)
+  const pipeline = sharp(input)
     .rotate() // honour EXIF orientation before stripping metadata
     .resize({
       width: longEdge,
       height: longEdge,
       fit: 'inside',
       withoutEnlargement: true,
-    })
-    .avif({ quality, effort })
-    .toBuffer();
+    });
+  if (mark) {
+    // Resize to raw pixels first, so the mark is laid on the copy's REAL size
+    // (sharp's own rounding), then encode once — still a single lossy pass.
+    const { data, info } = await pipeline.raw().toBuffer({ resolveWithObject: true });
+    const overlay = markOverlaySvg(info.width, info.height, mark);
+    const raw = sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
+    if (overlay) raw.composite([{ input: Buffer.from(overlay), top: 0, left: 0 }]);
+    return await raw.avif({ quality, effort }).toBuffer();
+  }
+  return await pipeline.avif({ quality, effort }).toBuffer();
 }
 
 /**
@@ -182,16 +195,19 @@ export async function generatePhotoDerivatives(
   table: PapicDerivativeTable,
   idColumn: string,
   idValue: string,
+  /** 🏷 The event's photo mark — burned into the three COPIES, never the original. */
+  opts: { mark?: PapicMark | null } = {},
 ): Promise<DerivativeKeys> {
   try {
     const fetched = await fetchR2Bytes(originalRef);
     if (!fetched) return NULL_KEYS;
     const { bytes, bucket, key } = fetched;
+    const mark = opts.mark ?? null;
 
     const [displayBuf, tileBuf, thumbBuf] = await Promise.all([
-      toAvif(bytes, DISPLAY_LONG_EDGE, DISPLAY_QUALITY),
-      toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY),
-      toAvif(bytes, THUMB_LONG_EDGE, THUMB_QUALITY),
+      toAvif(bytes, DISPLAY_LONG_EDGE, DISPLAY_QUALITY, 4, mark),
+      toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY, 4, mark),
+      toAvif(bytes, THUMB_LONG_EDGE, THUMB_QUALITY, 4, mark),
     ]);
 
     const displayObjKey = derivativeKey(key, 'display');
@@ -261,30 +277,42 @@ export async function generateClipThumb(
   table: PapicDerivativeTable,
   idColumn: string,
   idValue: string,
+  /**
+   * 🏷 The event's photo mark, when the POSTER came unmarked (the phone could not
+   * make its copy). Then the tile, the thumb AND a display still are made with
+   * it — the display can no longer be the poster itself, which carries no mark.
+   */
+  opts: { mark?: PapicMark | null } = {},
 ): Promise<DerivativeKeys> {
   try {
     const fetched = await fetchR2Bytes(posterRef);
     if (!fetched) return NULL_KEYS;
     const { bytes, bucket, key } = fetched;
+    const mark = opts.mark ?? null;
 
-    const [tileBuf, thumbBuf] = await Promise.all([
-      toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY),
-      toAvif(bytes, THUMB_LONG_EDGE, THUMB_QUALITY),
+    const [tileBuf, thumbBuf, markedDisplayBuf] = await Promise.all([
+      toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY, 4, mark),
+      toAvif(bytes, THUMB_LONG_EDGE, THUMB_QUALITY, 4, mark),
+      mark ? toAvif(bytes, DISPLAY_LONG_EDGE, DISPLAY_QUALITY, 4, mark) : Promise.resolve(null),
     ]);
     const tileObjKey = derivativeKey(key, 'tile');
     const thumbObjKey = derivativeKey(key, 'thumb');
+    const displayObjKey = derivativeKey(key, 'display');
 
     await Promise.all([
       r2Upload({ bucket, key: tileObjKey, body: tileBuf, contentType: 'image/avif' }),
       r2Upload({ bucket, key: thumbObjKey, body: thumbBuf, contentType: 'image/avif' }),
+      markedDisplayBuf
+        ? r2Upload({ bucket, key: displayObjKey, body: markedDisplayBuf, contentType: 'image/avif' })
+        : Promise.resolve(),
     ]);
 
     const tileKey = encodeR2Ref(bucket, tileObjKey);
     const thumbKey = encodeR2Ref(bucket, thumbObjKey);
-    // Display = the poster itself (already a compressed still). Persist the
-    // poster's own ref verbatim so the lightbox serves the poster, not the
+    // Display = the poster itself (already a compressed still) — or, when the
+    // poster came unmarked, a marked display still made from it. Never the
     // video bytes.
-    const displayKey = posterRef;
+    const displayKey = markedDisplayBuf ? encodeR2Ref(bucket, displayObjKey) : posterRef;
 
     // WS4 telemetry: record display (poster) + thumb bytes. orig_bytes is left
     // NULL for clips — `bytes` here is the poster, NOT the video original, so
@@ -293,7 +321,7 @@ export async function generateClipThumb(
       display_r2_key: displayKey,
       thumb_r2_key: thumbKey,
       tile_r2_key: tileKey,
-      display_bytes: bytes.length,
+      display_bytes: markedDisplayBuf ? markedDisplayBuf.length : bytes.length,
       thumb_bytes: thumbBuf.length,
       tile_bytes: tileBuf.length,
     });
@@ -386,13 +414,15 @@ export async function generateTileDerivative(
   table: PapicDerivativeTable,
   idColumn: string,
   idValue: string,
+  /** 🏷 The event's photo mark — only when the SOURCE is unmarked (an original). */
+  opts: { mark?: PapicMark | null } = {},
 ): Promise<string | null> {
   try {
     const fetched = await fetchR2Bytes(sourceRef);
     if (!fetched) return null;
     const { bytes, bucket, key } = fetched;
 
-    const tileBuf = await toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY);
+    const tileBuf = await toAvif(bytes, TILE_LONG_EDGE, TILE_QUALITY, 4, opts.mark ?? null);
     // Keyed off the SOURCE object, so re-running is idempotent: the same row
     // always writes the same object key and simply overwrites itself.
     const tileObjKey = derivativeKey(key, 'tile');

@@ -128,7 +128,7 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
           rowKey={editor === 'font' ? 'font' : 'colors'}
           part={editor === 'font' ? 'font' : 'colours'}
           proLocked={proLocked}
-          proLock={lockPanel(editor === 'font' ? 'Typeface' : 'Candlelight and motion')}
+          proLock={lockPanel(editor === 'font' ? 'Typeface' : 'Effects and motion')}
           proMark={makerProMark({ owns: ctx.ownsPro, storeShell: ctx.storeShell })}
           themeId={themeId}
           moodBoard={editor === 'colours' ? boardSiteColours(palette) : undefined}
@@ -136,7 +136,6 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
           buttonColor={(drafted.site_button_color as string | null) ?? null}
           artDirection={(drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null}
           fontKey={(drafted.site_font_key as string | null) ?? null}
-          magicTraveller={editor === 'colours' ? ((drafted.site_magic_traveller as string | null) ?? null) : undefined}
         />
       );
     }
@@ -282,7 +281,15 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
     case 'settings': {
       const settings = await loadEventSettings({ supabase, eventId, userId: ctx.userId });
       if (!settings) return <CouldNotOpen />;
-      return <EventSettingsEditor eventId={eventId} form={settings.form} governed={settings.governed} pax={settings.pax} />;
+      return (
+        <EventSettingsEditor
+          eventId={eventId}
+          form={settings.form}
+          governed={settings.governed}
+          pax={settings.pax}
+          kind={settings.kind}
+        />
+      );
     }
   }
 }

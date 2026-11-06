@@ -32,7 +32,7 @@
  * (one hidden input, the value the URL decided — owner-locked 2026-09-20,
  * `lib/signup-intent.ts`), `next`, `ref` / `src_event` (guest → host
  * attribution), `refc` (couple referral), `email`, `password`, the Terms box
- * (CTRL-B3, unticked, required, above the submit — `lib/terms-agreement.ts`),
+ * (CTRL-B3, unticked, required, JUST above the submit — one box for all three doors since 2026-10-22, and it gates Google / Apple from there — `lib/terms-agreement.ts`),
  * `remember`, and the Turnstile bot check inside the form. The OAuth row above
  * the email form, shell-gated exactly as /login gates it. The status banners
  * (error · confirmation sent · guest photos will be saved · a couple invited
@@ -50,7 +50,9 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { OAUTH_FLAGS, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
+import { OAUTH_FLAGS, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { TermsFirst } from '@/app/_components/auth/terms-first';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { getOAuthGate } from '@/lib/request-platform';
@@ -62,14 +64,19 @@ import { accountTypeForSignup } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
+import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
 import '@/app/_components/home/home-reskin.css';
 
 export const metadata: Metadata = {
   title: 'Create account',
   description:
-    'Create a Setnayan account in seconds. Free to start for anyone planning a celebration. Free baseline listing for Filipino suppliers.',
+    'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
 };
+
+/** The one Terms box (inside the email form, just above its submit) and that form — one id each. */
+const TERMS_BOX_ID = 'hr-su-terms';
+const SIGNUP_FORM_ID = 'hr-su-form';
 
 const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both an email and a password.',
@@ -162,8 +169,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           {/* No ✕: this is a page of its own with nothing behind it (the same
               mistake as aria-modal, one layer up — overlay chrome on a page).
               The way out is the browser and the Sign-in link below. */}
-          <div className="hr-ov-eyebrow">User account</div>
-          <h1 className="hr-ov-title">Create your user account.</h1>
+          {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small —
+              not the brand PANEL retired above. */}
+          <FirstRunBrand className="hr-si-brand" />
+          <div className="hr-ov-eyebrow">Your account</div>
+          <h1 className="hr-ov-title">Create your account.</h1>
           {/* THE OWNER'S OWN WORDS (2026-09-23): "enter your email address and
               create your password. or directly sign in with Google or Apple." —
               said in the order the card now shows them (2026-09-25: Google /
@@ -205,19 +215,25 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               form) and the approved one_door_FINAL_2026-09-22 card; then the email
               form. ⚠ This reverses the 2026-09-23 ORDER only (email first); the
               owner's WORDS from that day stay — "sign in directly with Google or
-              Apple", `SIGNUP_OAUTH_VERB` — shared with the wedding onboarding's
-              account screen so the two sign-up doors cannot drift apart again.
+              Apple" (the sentence above); the buttons say `OAUTH_VERB`
+              (lib/oauth-words.ts, "Continue with"), the one wording every door
+              uses (sweep C9, 2026-10-19). The one Terms box — below them, just
+              above "Create user account" (owner 2026-10-22, "do both") — is the
+              agreement on this path as well; `TermsFirst` holds them until it is
+              ticked.
               Same components and shell gate as /login; `withAccountType` carries
               the URL's decision so a vendor arriving by Google is filed as one. */}
           {showOAuth ? (
             <div className="hr-si-oauth">
-              {desktopOAuth ? (
-                <DesktopOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} />
-              ) : nativeOAuth ? (
-                <NativeOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} accountType={accountType} />
-              ) : (
-                <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} verb={SIGNUP_OAUTH_VERB} />
-              )}
+              <TermsFirst boxId={TERMS_BOX_ID}>
+                {desktopOAuth ? (
+                  <DesktopOAuthButtons next={next} termsBoxId={TERMS_BOX_ID} />
+                ) : nativeOAuth ? (
+                  <NativeOAuthButtons next={next} accountType={accountType} />
+                ) : (
+                  <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} />
+                )}
+              </TermsFirst>
             </div>
           ) : null}
           {showOAuth ? (
@@ -226,7 +242,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </div>
           ) : null}
 
-          <form action={signUp} className="hr-si-form">
+          <form action={signUp} id={SIGNUP_FORM_ID} className="hr-si-form">
             <input type="hidden" name="next" value={next} />
             <TurnstileField action="signup" />
             {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
@@ -245,13 +261,23 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                placeholder="you@setnayan.com"
+                placeholder="you@email.com"
                 defaultValue={prefilledEmail}
                 required
                 className="hr-si-input"
               />
             </div>
-            <div className="hr-si-field">
+            {/* A TYPED Google address takes the Google button's own door (owner
+                2026-10-18) — same words, same account type as the row above. */}
+            <GoogleAddressDoor
+              enabled={showOAuth}
+              desktopOAuth={desktopOAuth}
+              nativeOAuth={nativeOAuth}
+              next={next}
+              accountType={accountType}
+              termsBoxId={TERMS_BOX_ID}
+            />
+            <div className="hr-si-field" data-password-only="">
               <label htmlFor="hr-su-password" className="hr-si-label">
                 Create your password
               </label>
@@ -267,10 +293,25 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               />
             </div>
 
-            {/* THE AGREEMENT — clickwrap, above the submit, UNTICKED (CTRL-B3).
-                `required` is the browser's half; `signUp` refuses without it. */}
-            <label htmlFor="hr-su-terms" className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
-              <input id="hr-su-terms" name={TERMS_FIELD} type="checkbox" required style={{ marginTop: 3 }} />
+            {/* "Stay signed in" defaults CHECKED — explicit opt-out only; the
+                action downgrades sb-* cookies to session-only when unchecked. */}
+            <div className="hr-si-row" data-password-only="">
+              <label htmlFor="hr-su-remember" className="hr-si-remember">
+                <input id="hr-su-remember" name="remember" type="checkbox" defaultChecked />
+                <span>Stay signed in</span>
+              </label>
+            </div>
+
+            {/* THE AGREEMENT — ONE BOX FOR ALL THREE DOORS (owner 2026-10-22, "Yes to all": Host 1 option B,
+                prototype journey_fixes_2026-10-22.html), and since the same day ("do both") JUST ABOVE the button
+                that creates the account — the card reads choose how (Google · Apple · or email + password) →
+                agree → create. Clickwrap, UNTICKED, `required` (CTRL-B3). Inside the form, so the email door posts
+                it as before; NOT `data-password-only`, so it stays on screen when a typed Google address folds the
+                password half away. `TermsFirst` above still dims Google / Apple until it is ticked, and a press on
+                them unticked scrolls here and nudges it; the tick rides the provider round trip (`carrySignupTerms`
+                → `app/auth/callback`), so a Google / Apple account that ticked here never meets "One quick thing". */}
+            <label htmlFor={TERMS_BOX_ID} className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
+              <input id={TERMS_BOX_ID} name={TERMS_FIELD} type="checkbox" required data-terms-box="" style={{ marginTop: 3 }} />
               <span>
                 I agree to the{' '}
                 <Link href="/terms" className="hr-si-link">
@@ -283,18 +324,12 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 .
               </span>
             </label>
+            <p id={`${TERMS_BOX_ID}-hint`} role="status" className="hr-si-hint hr-si-terms-hint" hidden>
+              Tick the Terms first.
+            </p>
 
-            {/* "Stay signed in" defaults CHECKED — explicit opt-out only; the
-                action downgrades sb-* cookies to session-only when unchecked. */}
-            <div className="hr-si-row">
-              <label htmlFor="hr-su-remember" className="hr-si-remember">
-                <input id="hr-su-remember" name="remember" type="checkbox" defaultChecked />
-                <span>Stay signed in</span>
-              </label>
-            </div>
-
-            <SubmitButton className="hr-si-submit" pendingLabel="Creating account…">
-              Create user account · free
+            <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
+              Create account · free
             </SubmitButton>
           </form>
 

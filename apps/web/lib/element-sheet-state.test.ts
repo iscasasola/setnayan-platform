@@ -12,6 +12,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
 import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetState } from './element-sheet-state';
+import { PILL_ON_CLASS } from '../app/_components/pill-selector';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -126,7 +127,12 @@ test('▣ the part sheet has exactly ONE segmented control — Text · Motion ·
   assert.deepEqual(labels, ['Text', 'Motion', 'Arrange']);
   const chosen = /<button[^>]*aria-pressed="true"[^>]*>Motion<\/button>/.exec(groups[0]!);
   assert.ok(chosen, 'Motion is not the chosen section');
-  assert.match(chosen[0], /\bbg-mulberry\b[^"]*\btext-white\b/, 'the chosen section is not filled in the wine token');
+  /* 🔁 RE-AIMED 2026-10-09: "in wine" was spelled `bg-mulberry text-white`; the app's picked choice is now ONE
+     setting — the accent token (`PILL_ON_CLASS`, `app/_components/pill-selector.tsx`; wine today). The claim is
+     unchanged: the chosen section is FILLED with the app's "on" colour, and its words are that colour's own ink. */
+  assert.equal(PILL_ON_CLASS, 'bg-sn-accent text-sn-on-accent');
+  for (const cls of PILL_ON_CLASS.split(' ')) assert.match(chosen[0], new RegExp(`class="[^"]*\\b${cls}\\b`), `the chosen section is not filled in the accent token (${cls})`);
+  for (const other of groups[0]!.match(/<button[^>]*aria-pressed="false"[^>]*>/g) ?? []) assert.doesNotMatch(other, /\bbg-sn-accent\b/, 'a section that is not chosen is filled too');
   assert.doesNotMatch(html, /role="tablist"|data-inspector-tabs-pick/, 'the old tabs are still drawn');
   assert.match(html, /data-part-tab="animate"/, 'the Motion section is not the one shown');
 });

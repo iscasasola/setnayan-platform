@@ -2,6 +2,7 @@ import { sampleShowcaseNote } from '@/lib/a-sample-says-what-it-is';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import { SampleMarker } from '@/app/_components/sample-marker';
 import { EditorialContent } from '@/app/[slug]/_components/editorial/editorial-content';
 import { SAMPLE_EDITORIAL_IDS } from '@/app/[slug]/_components/editorial/data';
 import {
@@ -114,7 +115,7 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
 
         {/* Palette */}
         <div className="mt-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">The palette</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">The palette</p>
           <div className="mt-3 flex gap-2">
             {wedding.palette.map((hex) => (
               <span
@@ -129,7 +130,7 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
 
         {/* Team */}
         <div className="mt-10 rounded-2xl border border-ink/10 bg-white/50 p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">The team</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">The team</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {wedding.team.map((credit) => (
               <Link
@@ -284,11 +285,8 @@ export default async function WeddingShowcasePage({ params }: Props) {
             Stories
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            {wedding.isSample ? (
-              <span className="rounded-full border border-ink/15 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/55">
-                Sample showcase
-              </span>
-            ) : null}
+            {/* The ONE sample marker (app/_components/sample-marker.tsx) — the demo shops wear this same chip. */}
+            {wedding.isSample ? <SampleMarker>Sample showcase</SampleMarker> : null}
           </div>
         </div>
       </div>

@@ -87,7 +87,7 @@ function Chip({
       aria-pressed={on}
       aria-label={ariaLabel}
       className={
-        'rounded-lg px-2.5 py-1.5 text-xs transition ' +
+        'min-w-[44px] rounded-lg px-2.5 py-1.5 text-xs transition ' +
         (on ? 'bg-white text-[#0b0d12]' : 'bg-white/10 text-white/75 hover:bg-white/20')
       }
     >
@@ -104,12 +104,20 @@ function Swatch({ hex, on, onClick, name }: { hex: string; on: boolean; onClick:
       aria-pressed={on}
       aria-label={name}
       title={name}
-      style={{ backgroundColor: hex }}
-      className={
-        'h-7 w-7 rounded-full border transition ' +
-        (on ? 'border-white ring-2 ring-white/70' : 'border-white/25 hover:border-white/60')
-      }
-    />
+      /* 🎯 A 44×44 ROUND press area around the 28px swatch (2026-10-12, guest walk N23: 28 wide). The button is
+         sized to the floor itself so globals.css's button min-height cannot stretch a circle into an oval —
+         which is what the bare `h-7 w-7` button became (28×44). The swatch is drawn inside, unchanged. */
+      className="group grid h-11 w-11 place-items-center rounded-full"
+    >
+      <span
+        aria-hidden
+        style={{ backgroundColor: hex }}
+        className={
+          'block h-7 w-7 rounded-full border transition ' +
+          (on ? 'border-white ring-2 ring-white/70' : 'border-white/25 group-hover:border-white/60')
+        }
+      />
+    </button>
   );
 }
 
@@ -372,7 +380,7 @@ export function AvatarMaker({
         ) : null}
         <Link
           href={`/${slug}/venue`}
-          className="rounded-xl px-3 py-2 text-sm text-white/60 hover:text-white"
+          className="inline-flex min-h-[44px] items-center rounded-xl px-3 py-2 text-sm text-white/60 hover:text-white"
         >
           See me in the room →
         </Link>
@@ -383,7 +391,7 @@ export function AvatarMaker({
           {note}
         </p>
       ) : null}
-      <p className="px-1 text-xs text-white/40">
+      <p className="px-1 text-xs text-white/60">
         Only guests with a personal link to this seating plan can see your
         avatar, and only where guest photos are already shown. It is used for
         this event only, and you can remove it at any time.

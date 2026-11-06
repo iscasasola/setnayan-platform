@@ -1,3 +1,5 @@
+import { chatFileLimitFor } from '@/lib/chat-file-rules';
+import { CHAT_ATTACHMENT_MIME } from '@/lib/chat-attachment-limits';
 import { randomUUID } from 'node:crypto';
 import {
   tenancyForPathPrefix,
@@ -8,7 +10,7 @@ import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
-import { rateLimit } from '@/lib/rate-limit';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import { pathPrefixIsAcceptable, privateBucketRootIsAllowed } from '@/lib/r2-client-ref';
 import {
@@ -22,7 +24,8 @@ import {
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
-  PAPIC_CLIP_COST_MIN,
+  papicSeatCaptureSource,
+  papicClipCostFloor,
   resolvePointsGate,
   type PointsGateVerdict,
   eventUnliFreeViaUnlock,
@@ -42,6 +45,8 @@ import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captureWindowState } from '@/lib/papic-window';
 import { COUPLE_MEDIA_FULL_CODE, coupleMediaFullMessage, isCoupleMediaMeterPath } from '@/lib/couple-media-allowance';
 import { reserveCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import { hubMusicUploadRefusal, hubMusicUploadRule } from '@/lib/hub-music';
+import { isAdminProfile } from '@/lib/admin/admin-predicate';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -250,18 +255,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Best-effort flood backstop (see lib/rate-limit — in-memory, per-instance,
-  // NOT a hard cross-instance guarantee). Keyed on the caller; a generous
-  // ceiling no legitimate capture/upload session approaches. The real
-  // protection for the seat path is the server-derived prefix + tight byte caps
-  // below; this just blunts a naive presign flood from one identity.
-  const rl = rateLimit(`upload:${user.id}`, 120, 60_000);
+  // Flood backstop, keyed on the caller; a generous ceiling no legitimate
+  // capture/upload session approaches. The real protection for the seat path is
+  // the server-derived prefix + tight byte caps below; this blunts a presign
+  // flood from one identity.
+  // 📶 DURABLE NOW (event-day L1·8): the bare in-memory limiter counted per warm
+  // serverless instance, so on Vercel the same caller spread over N instances
+  // got N × 120. `enforceRateLimit` keeps that in-memory layer as L1 and adds
+  // the Postgres window as L2 (fails open on a database fault). Same number.
+  const rl = await enforceRateLimit('upload', user.id, { limit: 120, windowSecs: 60 });
   if (!rl.ok) {
     return NextResponse.json(
       { error: 'Too many uploads — give it a moment and try again.' },
       {
         status: 429,
-        headers: { 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) },
+        headers: { 'Retry-After': String(Math.max(1, rl.retryAfterSecs)) },
       },
     );
   }
@@ -332,7 +340,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (uploadsClosed) {
         return NextResponse.json(
           {
-            error: 'Adding photos by hand is switched off for this celebration.',
+            error: 'Adding photos by hand is switched off for this event.',
             code: 'uploads_closed',
           },
           { status: 403 },
@@ -476,10 +484,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // This seam's stated job has always been "no URL ⇒ no orphan R2 bytes",
         // never "decide the price". It now refuses only when the camera cannot
         // afford ANY clip at all.
+        // 📤 ADDED BY HAND (the Uploads camera) = the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26) — the
+        // source is the seat this route resolved from the token, the same answer the record step charges with.
+        const captureSource = papicSeatCaptureSource(seat.seat_index as number | null);
         const cost =
           cameraKind === 'clip'
-            ? PAPIC_CLIP_COST_MIN
-            : papicCaptureCost(cameraKind);
+            ? papicClipCostFloor(captureSource)
+            : papicCaptureCost(cameraKind, null, captureSource);
         let seatGate: PointsGateVerdict = 'allow';
         if (!unlocked) {
           try {
@@ -744,7 +755,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // exempt — its prefix is derived server-side from the seat, so there is no
   // client-named id to verify.
   // Set below, only for the couple's OWN media-bucket upload against an event
-  // they hold — the 100 MB/event meter (DECISION_LOG 2026-09-25) counts
+  // they hold — the per-event allowance (DECISION_LOG 2026-09-25; Free 10 MB /
+  // Pro 500 MB since 2026-10-15) counts
   // exactly this population and nothing else (never Papic/guest captures,
   // never a vendor's own uploads, never a chat/order attachment).
   let coupleMediaEventId: string | null = null;
@@ -851,7 +863,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // matches `audio/webm`. We preserve the original value for the presign so
   // R2 stores the full content-type header the browser sent.
   const baseContentType = contentType.split(';')[0]?.trim() ?? '';
-  if (!ALLOWED_MIME_TYPES.has(baseContentType)) {
+  // A conversation accepts its OWN list (Word/Excel/text too) — the one the
+  // send re-checks (`CHAT_ATTACHMENT_MIME`), so the picker, this route and the
+  // send cannot disagree about a chat file's type.
+  const isChatPrefix = !seatMode && pathPrefix.startsWith('chat/');
+  const typeAllowed = isChatPrefix
+    ? (CHAT_ATTACHMENT_MIME as readonly string[]).includes(baseContentType)
+    : ALLOWED_MIME_TYPES.has(baseContentType);
+  if (!typeAllowed) {
     return NextResponse.json(
       { error: `Unsupported file type "${contentType || 'unknown'}".` },
       { status: 400 },
@@ -891,6 +910,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )?.[1];
     maxBytes = typeOverride ?? BUCKET_MAX_BYTES[bucketKey];
   }
+  // 🔒 A CHAT FILE IS JUDGED BY THE CHAT RULE (owner 2026-10-28, CHAT FILES):
+  // video ≤ 50 MB, document/photo ≤ 20 MB, after the phone compressed it — in
+  // the owner's words. The generic 200 MB video override above is for a
+  // Save-the-Date clip, not for a conversation. The send re-measures the stored
+  // object too (`judgeStoredChatFile`), so this is the first refusal, not the only one.
+  if (isChatPrefix) {
+    // 🔒 Only into the caller's OWN folder — `chat/<thread>/<own uid>` — the one
+    // place the database will accept a chat file from them
+    // (tg_chat_messages_guard_end_user_write). Thread membership was checked above.
+    const seg = pathPrefix.split('/');
+    if (seg.length !== 3 || seg[2] !== user.id) {
+      return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+    }
+    const chatLimit = chatFileLimitFor(baseContentType);
+    if (sizeBytes > chatLimit.maxBytes) {
+      return NextResponse.json({ error: chatLimit.tooLargeMessage }, { status: 413 });
+    }
+  }
   if (sizeBytes > maxBytes) {
     return NextResponse.json(
       {
@@ -900,9 +937,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // ── THE 100 MB ALLOWANCE IS A CAP (DECISION_LOG 2026-09-25) ────────────────
-  // "they can only upload a total of 100MB compressed files." `sizeBytes` is the
-  // COMPRESSED length — the client ran `compressImageForWeb`/`compressVideoForWeb`
+  // ── EVENT HUB MUSIC IS AN ADMIN'S FOLDER (owner 2026-10-08) ────────────────
+  // `hub-music/` holds the tracks every couple is offered in Look › Music, so a
+  // presign there is the one flat prefix that asks WHO is calling: an admin,
+  // one of three audio kinds, 20 MB. The rule and its sentences are
+  // `lib/hub-music.ts`; the admin test is the console's own `isAdminProfile`.
+  // What is INSIDE the file (an .m4a can hold Opus, which is silent on some
+  // iPhones) is read from the stored bytes when the track is added —
+  // app/admin/hub-music/actions.ts.
+  if (!seatMode && hubMusicUploadRule(pathPrefix)) {
+    const { data: me } = await supabase
+      .from('users')
+      .select('is_internal, is_team_member, account_type')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const refusal = hubMusicUploadRefusal({
+      bucketKey,
+      isAdmin: isAdminProfile(me),
+      contentType: baseContentType,
+      sizeBytes,
+    });
+    if (refusal) {
+      return NextResponse.json({ error: refusal.error }, { status: refusal.status });
+    }
+  }
+
+  // ── THE ALLOWANCE IS A CAP, AND IT FOLLOWS THE PLAN ────────────────────────
+  // DECISION_LOG 2026-09-25: "they can only upload a total of 100MB compressed
+  // files"; owner FINAL 2026-10-15: Free 10 MB · Event Hub Pro 500 MB — the
+  // reservation reads the plan itself (lib/couple-media-allowance.server.ts).
+  // `sizeBytes` is the COMPRESSED length — the client ran `compressImageForWeb`/`compressVideoForWeb`
   // before calling this route — and the signed content-length binds the PUT to
   // it. Reserved BEFORE the PUT is signed, atomically, so an upload that would
   // take the event over its allowance is refused here and never reaches storage.
@@ -914,7 +978,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (reservation.kind === 'full') {
       return NextResponse.json(
         {
-          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes),
+          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes, reservation.isPro),
           code: COUPLE_MEDIA_FULL_CODE,
         },
         { status: 413 },

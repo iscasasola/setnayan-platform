@@ -13,7 +13,18 @@ import {
 import type { EventTableRow } from '@/lib/seating';
 import type { EntrancePos } from '@/lib/indoor-blueprint';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
+import { useEventPulse } from '@/lib/use-event-pulse';
+import type { PulseBaseline } from '@/lib/event-pulse';
+import { abortAfter } from '@/lib/abort-after';
 import { Postmark, StepUp } from './seat-frame';
+
+/**
+ * How long one seat lookup may stay out before the guest is told to try again
+ * (lib/abort-after.ts). The lookup is one indexed read; 15 s is far past a slow
+ * one (the database's first call after a quiet gap is up to 3 s) and well short
+ * of how long a phone holds a dead socket.
+ */
+export const SEAT_LOOKUP_LIMIT_MS = 15_000;
 
 /**
  * Section B of the prototype — the OPEN link (the general link, or the venue QR
@@ -68,6 +79,7 @@ export function NameSearch({
   tables,
   entrance,
   postmark = null,
+  pulse = null,
 }: {
   slug: string;
   /** The couple's names ("Indalecio & Claire") — whose list this is. */
@@ -78,6 +90,9 @@ export function NameSearch({
   entrance: EntrancePos;
   /** The Vintage postmark, drawn only while the head is up (B1). */
   postmark?: string | null;
+  /** 🧯 The event's pulse baseline (live-day polling). With it, a found table is re-asked only when the event's
+   *  shared "has anything changed?" answer moves, not every 45 s. Without it, the 45 s re-ask as before. */
+  pulse?: PulseBaseline | null;
 }) {
   const [q, setQ] = useState('');
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' });
@@ -92,6 +107,11 @@ export function NameSearch({
       abortRef.current?.abort();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+      // ⏳ THE SEARCH GIVES UP (2026-10-11). `fetch` has no time limit: with the
+      // signal gone it stayed "Looking…" for as long as the phone held the
+      // socket. After `SEAT_LOOKUP_LIMIT_MS` it is aborted and reported as the
+      // failure it is — the same "try again" a failed lookup already shows.
+      const limit = abortAfter(ctrl, SEAT_LOOKUP_LIMIT_MS);
       if (!quiet) setLoading(true);
       try {
         const headers: Record<string, string> = {};
@@ -119,18 +139,23 @@ export function NameSearch({
         }
       } catch (err) {
         // A quiet day-of refresh that fails leaves the shown table alone.
-        if ((err as Error).name !== 'AbortError' && !quiet) setOutcome({ kind: 'failed' });
+        // An abort is silent only when a NEWER search replaced this one; an
+        // abort because the time ran out is a failure and says so.
+        if (((err as Error).name !== 'AbortError' || limit.ranOut()) && !quiet) setOutcome({ kind: 'failed' });
       } finally {
+        limit.clear();
         if (!quiet) setLoading(false);
       }
     },
     [slug],
   );
 
-  useDayOfLiveTick(eventDate, () => {
+  const requery = () => {
     const clean = lastFoundRef.current;
     if (clean) void runSearch(clean, { quiet: true });
-  });
+  };
+  useEventPulse(slug, eventDate, pulse, requery);
+  useDayOfLiveTick(eventDate && !pulse ? eventDate : null, requery);
 
   const clean = sanitizeSeatLookupQuery(q);
 

@@ -53,7 +53,9 @@ function entourageRead(): string {
      anchor faces whichever match comes first. */
   const start = src.indexOf('export const loadEntourage = cache(');
   assert.ok(start > 0, 'loadEntourage is gone — this guard is pointing at nothing');
-  const body = src.slice(start).replace(/\s+/g, ' ').slice(0, 700);
+  // 1,400, was 700: three reads of the same event are now STARTED beside this one
+  // (2026-10-12), a few lines above the query. The query itself did not move.
+  const body = src.slice(start).replace(/\s+/g, ' ').slice(0, 1400);
   /* Vacuity: if the slice missed the query, every assertion below is about
      nothing and would pass forever. */
   assert.ok(body.includes('.from('), 'the slice does not contain the query at all');

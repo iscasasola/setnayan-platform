@@ -80,8 +80,20 @@ const MAKER_DIRS = [
   'app/dashboard/[eventId]/website/_components',
 ];
 
+/**
+ * Files whose held saves write LIVE rows, never the hub draft — so the Apply ·
+ * Undo · Restore count cannot move, and there is no bar to ask for. One reason
+ * each; a file listed here that DOES name the draft door fails (its held saves
+ * would then leave the count stale), and an entry no file answers to fails too.
+ */
+const HELD_LIVE: Record<string, string> = {
+  'app/dashboard/[eventId]/launch/_components/studio-wish-list.tsx':
+    'E-Gifts › Wish list is rows, live (owner 2026-10-08: "live"), written through the E-Gifts page’s own door — nothing of it is drafted, so ✓ Apply counts nothing of it.',
+};
+
 test('2 · every held save asks for the Apply bar; the action answers with the render’s own count; the toolbar takes it', () => {
   const heldFiles: string[] = [];
+  const liveSeen = new Set<string>();
   for (const d of MAKER_DIRS) {
     for (const f of readdirSync(join(WEB, d))) {
       if (!f.endsWith('.tsx') || f.endsWith('.test.tsx')) continue;
@@ -89,26 +101,38 @@ test('2 · every held save asks for the Apply bar; the action answers with the r
       const src = read(rel);
       if (!/makerSave\([\s\S]*?\{\s*held(?:: true)?\b/.test(src)) continue;
       heldFiles.push(rel);
+      if (rel in HELD_LIVE) {
+        liveSeen.add(rel);
+        assert.doesNotMatch(src, /hubDraftAction|hub-draft|HUB_DRAFT|saveHubDraftPatch|isHubDraftWrite/, `${rel}: listed as LIVE, but it names the draft door — a held draft save must ask for the bar`);
+        continue;
+      }
       assert.match(src, /\.set\(HUB_DRAFT_BAR_FIELD, '1'\)/, `${rel}: a held save that does not ask for the bar leaves the Apply count stale (no render follows it)`);
     }
   }
   console.log(`[drawn-pick] held saves in: ${heldFiles.join(', ')}`);
-  assert.ok(heldFiles.length >= 4, `only ${heldFiles.length} files hold a save — the scan is not reading the Maker`);
+  assert.deepEqual(Object.keys(HELD_LIVE).filter((k) => !liveSeen.has(k)), [], 'HELD_LIVE lists a file that holds no save any more — remove it');
+  assert.ok(heldFiles.length - liveSeen.size >= 4, `only ${heldFiles.length} files hold a save — the scan is not reading the Maker`);
 
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save')"), action.indexOf("if (intent === 'reset')"));
   assert.match(save, /const wantsBar = formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1';/);
-  assert.match(save, /wantsBar \? hubDraftBarAfterSave\(supabase, eventId, mergeHubDraft\(current, patch\)\)/, 'the bar must be read from the draft this save wrote');
-  assert.match(save, /if \(!bar\) return done\(\);\s*return \{ \.\.\.done\(\), bar \};/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  /* RE-AIMED 2026-10-18 round 3 (two hosts never overwrite): every step records who made it; whole canvases say what they were built on. Same property. */
+  assert.match(save, /const next = mergeHubDraft\(c, rebased\.patch, by\);[\s\S]{0,400}?if \(wantsBar\) barP = hubDraftBarAfterSave\(supabase, eventId, next, me\);/, 'the bar must be read from the draft this save wrote');
+  /* (2026-10-13, `rd/maker-undo-instant`: every answer also names the state it left — `stamp`, `lib/hub-draft-stamp.ts`.) */
+  /* RE-AIMED 2026-10-18: …and, when another screen's change reached the save, what the screen must now show (`elsewhere`). */
+  assert.match(save, /if \(!bar\) return \{ \.\.\.done\(\), stamp, \.\.\.elsewhere \};\s*return \{ \.\.\.done\(\), bar, stamp, \.\.\.elsewhere \};/);
   // The same count the render uses — both answers to "owns Pro", and nobody asked (the view switch never reaches a save).
   const store = read('lib/hub-draft-store.ts');
   const after = store.slice(store.indexOf('export async function hubDraftBarAfterSave('));
-  assert.match(after, /summarizeHubDraft\(draft, live, false\)[\s\S]*summarizeHubDraft\(draft, live, true\)/);
+  // (RE-AIMED 2026-10-18 round 3: …with whose steps ↺ may take back — `me`, ruling B.)
+  assert.match(after, /summarizeHubDraft\(draft, live, false, me\)[\s\S]*summarizeHubDraft\(draft, live, true, me\)/);
   assert.doesNotMatch(after.slice(0, after.indexOf('\n}\n')), /asViewed\(|eventCoupleWebsiteProActive\(|lookProAllows\(/, 'the save-side bar asked who owns Pro');
 
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /addEventListener\(MAKER_DRAFT_BAR_EVENT/, 'the toolbar no longer hears the count a save answers with');
-  assert.match(bar, /fromSave \? \(ownsPro \? fromSave\.owned : fromSave\.free\) : renderedSummary/, 'the toolbar must pick the half the render drew with');
+  /* RE-AIMED 2026-10-22 (part by part): a part owner's half is DERIVED from the free one by the parts each held line needs — still nobody asked. */
+  assert.match(bar, /fromSave \? \(ownsPro \? hubSummaryFor\(fromSave\.free, fromSave\.owned, owned\) : fromSave\.free\) : renderedSummary/, 'the toolbar must pick the half the render drew with');
   const refresh = read('lib/maker-refresh.ts');
   assert.match(refresh, /shared\.save\(send, refresh, options\.ok, Boolean\(options\.held\)\)/, 'makerSave dropped `held` on its way to the refresher');
   assert.match(refresh, /announceDraftBar\(result\)/);

@@ -1,25 +1,23 @@
 /**
- * EVERY READ OF A RENDER, AND EVERY SIGN OF AN EVENT'S WEBSITE MEDIA, GOES
- * THROUGH A PINNED DOOR — derived from the source tree, not from a list of the
- * call sites that exist today.
+ * NO RENDER IS READ, AND EVERY SIGN OF AN EVENT'S WEBSITE MEDIA GOES THROUGH A
+ * PINNED DOOR — derived from the source tree, not from a list of the call sites
+ * that exist today.
  *
- * The rules (lib/moodboard-render-keys.ts, lib/site-media-ref.ts) are unit
- * tested beside themselves. What they cannot say is that nobody reads storage
- * AROUND them. So:
+ * 🗑 Mood Board renders were RETIRED 2026-10-26 (owner: "can we delete that?").
+ * Their serve module, its doors and rule A ("only the serve module reads the
+ * render bucket") went with them, and the render tables were dropped
+ * (migration 20271289858095), so:
  *
- *   A · a file that names the render bucket (`RENDER_BUCKET_KEY`) may not call
- *       a raw read primitive — only `lib/moodboard-render-serve.ts` may;
  *   B · no raw read or sign CALL may take a render key column (`image_key` /
- *       `gallery_image_key`) in its arguments — same one exemption. Held per
- *       CALL, not per file: a file that exports render rows as data (the
- *       RA 10173 export) and signs something unrelated is not an offender, and
- *       a file-level test would have to exempt it blind;
+ *       `gallery_image_key`) in its arguments — there is no exemption any more.
+ *       Held per CALL, not per file: a file that exports render rows as data
+ *       (the RA 10173 export) and signs something unrelated is not an
+ *       offender, and a file-level test would have to exempt it blind;
  *   C · a file that reads a couple-writable website-media column AND calls the
  *       resolver must route through `@/lib/site-media-ref` — and every direct
  *       `displayUrlForStoredAsset(<… that column …>)` call must wrap it;
- *   D · the doors are actually used where renders are shown (positive control,
- *       so a refactor that deletes a call site cannot leave this vacuously
- *       green).
+ *   D · the website-media doors are actually used (positive control, so a
+ *       refactor that deletes a call site cannot leave this vacuously green).
  *
  * Source is comment-stripped with the repo's ONE stripper (lib/strip-comments).
  */
@@ -30,7 +28,6 @@ import { join, relative, sep } from 'node:path';
 import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
-const SERVE_MODULE = 'lib/moodboard-render-serve.ts';
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -50,7 +47,6 @@ function sources(): Src[] {
   }));
 }
 
-const RAW_READ = /\b(r2SignedGet|r2GetBytes|presignDisplayUrl)\s*\(/;
 const RAW_READ_OR_SIGN_FNS = [
   'r2SignedGet',
   'r2GetBytes',
@@ -81,18 +77,11 @@ function callArgs(code: string, fn: string): string[] {
   return out;
 }
 
-test('A · only the serve module reads the render bucket with a raw primitive', () => {
-  const offenders = sources()
-    .filter((s) => s.rel !== SERVE_MODULE && /\bRENDER_BUCKET_KEY\b/.test(s.code) && RAW_READ.test(s.code))
-    .map((s) => s.rel);
-  assert.deepEqual(offenders, [], `read the render bucket through lib/moodboard-render-serve.ts: ${offenders.join(', ')}`);
-});
-
 test('B · no raw read or sign call is handed a render key column', () => {
   const offenders: string[] = [];
   let scanned = 0;
   for (const s of sources()) {
-    if (s.rel === SERVE_MODULE || !RENDER_KEY_COLUMN.test(s.code)) continue;
+    if (!RENDER_KEY_COLUMN.test(s.code)) continue;
     for (const fn of RAW_READ_OR_SIGN_FNS) {
       for (const arg of callArgs(s.code, fn)) {
         scanned += 1;
@@ -100,8 +89,10 @@ test('B · no raw read or sign call is handed a render key column', () => {
       }
     }
   }
-  assert.ok(scanned > 0, 'anti-vacuity: files that hold render keys do make storage calls — none were scanned');
-  assert.deepEqual(offenders, [], `sign a render key through lib/moodboard-render-serve.ts:\n${offenders.join('\n')}`);
+  /* No anti-vacuity floor any more: the render tables were dropped (migration 20271289858095) and no file holds a render
+     key, so `scanned` is legitimately 0. The offender check stays — it is what fires if a render key ever comes back. */
+  void scanned;
+  assert.deepEqual(offenders, [], `renders are retired — nothing may read or sign a render key:\n${offenders.join('\n')}`);
 });
 
 test('C · website media is held to the public bucket wherever it is signed', () => {
@@ -124,14 +115,9 @@ test('C · website media is held to the public bucket wherever it is signed', ()
   assert.deepEqual(unwrapped, [], `website media signed without siteMediaServeRef:\n${unwrapped.join('\n')}`);
 });
 
-test('D · the pinned doors are what the render surfaces actually call (anti-vacuity)', () => {
+test('D · the pinned website-media doors are what the surfaces actually call (anti-vacuity)', () => {
   const byRel = new Map(sources().map((s) => [s.rel, s.code] as const));
   const expect: Array<[string, string]> = [
-    ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx', 'signOwnRenderImage('],
-    ['app/admin/moodboard-renders/page.tsx', 'signOwnRenderImage('],
-    ['app/dashboard/[eventId]/studio/mood-board/render-actions.ts', 'signOwnRenderImage('],
-    ['app/dashboard/[eventId]/studio/mood-board/actions.ts', 'signPooledGalleryImage('],
-    ['app/dashboard/[eventId]/studio/mood-board/actions.ts', 'readPooledGalleryBytes('],
     ['app/[slug]/_lib/loaders.ts', 'siteMediaServeRef('],
     ['lib/showcase-db.ts', 'siteMediaServeRef('],
   ];
@@ -139,15 +125,5 @@ test('D · the pinned doors are what the render surfaces actually call (anti-vac
     const code = byRel.get(rel);
     assert.ok(code, `${rel} is gone — move this expectation with the surface`);
     assert.ok(code.includes(call), `${rel} no longer calls ${call}`);
-  }
-  // And the doors themselves ask the question before touching storage.
-  const serve = byRel.get(SERVE_MODULE)!;
-  for (const door of ['signOwnRenderImage', 'signPooledGalleryImage', 'readPooledGalleryBytes']) {
-    const body = serve.slice(serve.indexOf(`function ${door}`));
-    const next = body.indexOf('export async function', 10);
-    const own = next > 0 ? body.slice(0, next) : body;
-    const ask = own.search(/\bis(Own|Pooled)Render\w*Key\(/);
-    const touch = own.search(/\br2(SignedGet|GetBytes)\(/);
-    assert.ok(ask > 0 && touch > ask, `${door} must check the key BEFORE it reads storage`);
   }
 });

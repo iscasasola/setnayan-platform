@@ -5,6 +5,8 @@ import { pabuyaQrPath } from '@/lib/pabuya-qr-url';
 import type { EgiftMethodKind } from '@/lib/egift-kinds';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { giftsAreOn } from '@/lib/event-answers';
+import { eventRowOnce } from '@/lib/event-row-once';
+import { askedOnce } from '@/lib/request-once';
 
 /**
  * apps/web/lib/egift.ts (server-only)
@@ -97,7 +99,13 @@ export async function fetchEgiftMethods(
   eventId: string,
   opts: { enabledOnly?: boolean } = {},
 ): Promise<EgiftMethodView[]> {
-  return (await readEgiftMethods(supabase, eventId, opts)).methods;
+  /* ⚡ ASKED ONCE PER RENDER (2026-10-14, E-Gifts drawn on the Welcome page): the guest page counts the ways to give
+     for its doorway facts, and the Welcome then draws them — one question, one request (`lib/request-once.ts`:
+     per authority, per event, per filter; outside a render every call reads, as before). Nobody changes the list. */
+  const asked = askedOnce(supabase, 'egift methods', [eventId, opts.enabledOnly ? 'enabled' : 'all'], () =>
+    readEgiftMethods(supabase, eventId, opts),
+  );
+  return (await asked).methods;
 }
 
 /**
@@ -123,7 +131,9 @@ export async function readEgiftMethods(
     // Event Hub's doors, the gift page, the prints). The host's own E-Gifts page
     // still lists every method they made.
     opts.enabledOnly
-      ? supabase.from('events').select('gifts_on').eq('event_id', eventId).maybeSingle()
+      ? eventRowOnce(supabase, eventId, 'gifts_on', () =>
+          supabase.from('events').select('gifts_on').eq('event_id', eventId).maybeSingle(),
+        )
       : Promise.resolve(null),
   ]);
 

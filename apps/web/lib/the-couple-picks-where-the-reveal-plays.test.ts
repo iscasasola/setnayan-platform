@@ -153,7 +153,11 @@ test('off the Save the Date the reveal belongs to the first page', () => {
   // Date the film it leads is lifted for that landing (`StdFilmHandoff`).
   assert.match(overlay, /if \(!landedOnTheFirstPage\(\{ hash: window\.location\.hash/, 'a guest who lands part-way down is not met by it');
   assert.match(overlay, /!offTheFirstPage &&/, 'standing aside must reach `active`');
-  assert.match(overlay, /addEventListener\('std-reveal-done', onDone\)/, 'once opened, it must retire');
+  // 🎭 SUPERSEDED 2026-10-17 for the drape (owner: "the veil disappears. it shouldn't. it should stay until cover is
+  // gone. and return when cover scene returns"): once opened it is NOT retired any more — the lifted drape follows the
+  // cover, held as a property in `app/[slug]/_components/reveal/the-veil-stays-with-the-cover.test.ts`. What stays
+  // here: scrolling past the first page BEFORE it is opened still retires it.
+  assert.equal(/addEventListener\('std-reveal-done', onDone\)/.test(overlay), false, 'the lift retires the drape again — it must stay with the cover');
   assert.match(overlay, /window\.scrollY > window\.innerHeight\) setGone\(true\)/, 'scrolling past the first page retires it');
 });
 

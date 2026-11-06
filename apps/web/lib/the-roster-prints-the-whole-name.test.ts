@@ -65,10 +65,11 @@ test('a guest with no extra parts reads exactly as before', () => {
   assert.equal(guestFullName(base), guestDisplayName(base));
 });
 
-test('an explicit display_name still wins — a title never overrides it', () => {
+test('a "Shown as" never replaces the full name (owner 2026-10-20)', () => {
   const g = { ...base, display_name: 'Tita Claire', name_prefix: 'Ms.', middle_name: 'Estoras' };
-  assert.equal(guestFullName(g), 'Tita Claire');
-  assert.equal(guestFullName(g), guestDisplayName(g));
+  assert.equal(guestFullName(g), 'Ms. Claire Estoras Buanhog');
+  // The couple's own list still says what they typed — the compact name is theirs.
+  assert.equal(guestDisplayName(g), 'Tita Claire');
 });
 
 test('absent parts leave no double spaces', () => {

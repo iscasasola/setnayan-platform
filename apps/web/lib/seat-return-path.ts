@@ -12,11 +12,15 @@
  * falls back to the guest list. Pure, so `seat-return-path.test.ts` runs it.
  *
  * People with access (Event Details) posts `return_to=details` and lands back
- * on its own section.
+ * on its own section; inside Home's ⚙ Event Settings sheet (owner 2026-10-30,
+ * "inside home settings") it posts `return_to=home` and lands on Home with the
+ * sheet open on that section (`eventSettingsHref`).
  *
  * The workspace lands on its Details tab (where the card sits) and scrolls to
  * the card, so the "saved" line and the planner's share link are on screen.
  */
+import { eventSettingsHref } from './people-with-access-href';
+
 const ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function seatReturnPath(
@@ -27,6 +31,9 @@ export function seatReturnPath(
   const q = new URLSearchParams(flash);
   // Event Details › People with access — the one home for setting access
   // (owner 2026-10-03). Its forms carry `return_to=details`.
+  if (form.get('return_to') === 'home') {
+    return eventSettingsHref(eventId, 'access', flash);
+  }
   if (form.get('return_to') === 'details') {
     const qs = q.toString();
     return `/dashboard/${eventId}/details${qs ? `?${qs}` : ''}#people-with-access`;

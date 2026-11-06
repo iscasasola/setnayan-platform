@@ -174,7 +174,10 @@ test('page.tsx hands the finalization rows to the provider', () => {
     /const provider = \{[\s\S]{0,200}?finalizations: finalizationRecords,/,
     'the provider is not given the rows — nothing is frozen on the couple’s screen',
   );
-  assert.ok((PAGE.match(/<PaletteBoardProvider \{\.\.\.provider\}>/g) ?? []).length >= 2, 'a view of the board draws the palette without the rows');
+  /* The page's view spreads the provider; the old Maker's three-part view (the second spread) went with the old Maker
+     (2026-10-25) — the Maker's board is Studio › Mood Board, handed the SAME rows through `studio.finalizations`. */
+  assert.ok((PAGE.match(/<PaletteBoardProvider \{\.\.\.provider\}>/g) ?? []).length >= 1, 'a view of the board draws the palette without the rows');
+  assert.match(PAGE, /studio: \{[\s\S]{0,200}?finalizations: finalizationRecords,/, 'Studio › Mood Board is not given the rows');
   assert.ok(
     PAGE.includes("from('moodboard_part_finalizations')"),
     'the rows are never read at all',

@@ -29,7 +29,7 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useSameFieldDoors } from './same-field';
 import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteStepTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
-import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
+import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground, StudioTool } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MakerHalfSheet } from './maker-sheet';
@@ -186,10 +186,19 @@ export function DetailsWorkspace({
   guide = null,
   coverUrl = null,
   bodyAlias = {},
+  formHeads = {},
 }: {
   /**
+   * 🗂 A form's group headings (the new Maker's Studio, prototype `.gh`): the item a
+   * group of the one scrolling form starts at → its small-capital heading and the
+   * small line on its right ("Your event · saves as you type"). Drawn above that
+   * item's field, inside the form only.
+   */
+  /** A form group's heading, DRAWN by the server (`maker-details.tsx`) — its words and classes never ride the Maker's first load (507 KB). */
+  formHeads?: Partial<Record<DetailsItemKey, ReactNode>>;
+  /**
    * 🖼 Items that SHARE another item's picture (owner 2026-10-06: Background ·
-   * Colours · Font · Music each show the couple's own page — ONE frame, the
+   * Elements · Music each show the couple's own page — ONE frame, the
    * whole Look's, never four). Key → the item whose body it shows.
    */
   bodyAlias?: Partial<Record<DetailsItemKey, DetailsItemKey>>;
@@ -275,6 +284,13 @@ export function DetailsWorkspace({
   useEffect(() => {
     if (marchHere) setSheetOpen(true);
   }, [marchHere]);
+  /* 🧭 STUDIO › LOOK (the new Maker, prototype `.lt .look`): Look opens straight on its controls —
+     ONE full-width bar, Background · Elements · Music (`StudioLookBar`), over the page — never
+     a row of tall tiles to pick from first (side-by-side M29, owner 2026-10-07). */
+  const studioLook = maker?.stagesStudio === true && detailsLtSection(selected) === 'look';
+  useEffect(() => {
+    if (studioLook) setSheetOpen(true);
+  }, [studioLook]);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -289,7 +305,9 @@ export function DetailsWorkspace({
   );
 
   /* ══ 🪜 THE GUIDED FLOW — BY STAGE (PR-2) ══ */
-  const plan = guide && guide.plan.steps.length > 0 ? guide.plan : null;
+  /* 🧭 THE NEW MAKER RETIRED THE GUIDED FLOW (DECISION_LOG 2026-10-07 rule 3): with it on, no plan — the
+     stage picker, Before we start and the Ready screens never draw; Studio's tiles are the way in. */
+  const plan = maker?.stagesStudio !== true && guide && guide.plan.steps.length > 0 ? guide.plan : null;
   const entry = plan && guide?.open ? guide.entry : null;
   const [mode, setMode] = useState<'guided' | 'all'>(plan && guide?.open ? 'guided' : 'all');
   /** A screen of the flow that is not a step — the stage picker, a Before we start, a Ready screen. */
@@ -567,7 +585,7 @@ export function DetailsWorkspace({
   const ltNav = maker?.ltNav ?? null;
   const ltSection = (k: DetailsItemKey) => detailsLtSection(k);
   const here = ltSection(selected);
-  const ltTiles = ltNav ? (
+  const ltTiles = ltNav && !studioLook ? (
     <IntoLowerThird to={ltNav}>
           {detailsListGroups(groups, selected)
             .flatMap((g) => g.items)
@@ -642,6 +660,12 @@ export function DetailsWorkspace({
     return () => window.cancelAnimationFrame(id);
   }, [formAt, sheetOpen]);
 
+  /* 🎠 STUDIO › PRINTS IS A SWIPE CAROUSEL (owner 2026-10-26, DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL"; prototype
+     `prints_carousel_2026-10-26`): only the new Maker's Prints form. Its items' editors stay MOUNTED — hidden, never unmounted (the
+     print words form posts every field; each print registers its slide from there) — and the carousel draws one print per slide in
+     their place, its toolbar under it (`studio-prints-carousel.tsx`). A swipe, ‹ › or a jump picks the item (`select`). */
+  const studioPrints = maker?.stagesStudio === true && formGroup?.key === 'prints';
+
   /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
   const editorsBody = (whole: boolean) => (
     <div
@@ -660,6 +684,7 @@ export function DetailsWorkspace({
           data-details-form-field={formKeys.has(i.key) ? '' : undefined}
           className={!showsEditor(i.key) ? 'hidden' : i.key === 'march' ? 'flex min-h-0 flex-1 flex-col' : `flex flex-col gap-3${formKeys.has(i.key) && i.key !== formGroup?.items[0]?.key ? ' border-t border-ink/10 pt-4' : ''}`}
         >
+          {formKeys.has(i.key) && formHeads[i.key] ? <Fragment key="head">{formHeads[i.key]}</Fragment> : null}
           {/* 🗂 In the Your event form each field is named — the list's row is the form's. */}
           {formKeys.has(i.key) ? <h3 className="text-[15px] font-semibold text-ink" data-details-form-heading={i.key}>{i.label}</h3> : null}
           {/* A server-made editor arrives as a lazy client reference — keyed, so it is
@@ -736,7 +761,7 @@ export function DetailsWorkspace({
                       <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={bodyLabel(i)} compact={detailsItemLayout(i.key) !== 'flow'} />
                     </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
-                    <header className="flex flex-col gap-0.5">
+                    <header className="flex flex-col gap-0.5" data-details-body-head="">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                         {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
                       </p>
@@ -749,7 +774,7 @@ export function DetailsWorkspace({
                     </header>
                   ) : (
                     /* A page that moved in keeps its room: one line, not a masthead. */
-                    <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6">
+                    <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6" data-details-body-head="">
                       <h2 className="font-serif text-lg text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
                         <p className="text-xs text-ink/60" data-details-used-on={i.key}>
@@ -958,7 +983,9 @@ export function DetailsWorkspace({
             />
           </div>
           <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
-          {editorsBody(false)}
+          {/* 🎠 Studio › Prints: the editors stay mounted but hidden — the carousel is what shows. */}
+          {editorsBody(studioPrints)}
+          {studioPrints && formGroup ? <StudioTool part="prints-carousel" items={formGroup.items} at={selected} onSelect={select} /> : null}
         </aside>
         )}
         {ltTiles}
@@ -972,7 +999,7 @@ export function DetailsWorkspace({
         <GuideLinkScreen
           plan={plan}
           link={at.link}
-          href={guide?.actions.guestsHref ?? null}
+          actions={guide?.actions ?? null}
           foot={
             <GuideFoot
               onBack={backScreen(plan, at) ? () => move(backScreen(plan, at), 'back') : null}

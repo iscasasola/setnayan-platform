@@ -34,6 +34,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
+import { isWelcomeDiscountEnabled } from '@/lib/welcome-discount-flag';
+import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
 
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
@@ -42,12 +44,11 @@ import {
   readPapicFreeGrantPoints,
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
-import { FALLBACK_POOL_SIZING, fetchEventPoolSizing } from '@/lib/papic-pool-sizing';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY, hubPartPrices } from '@/lib/couple-website-pro';
 import { buildServicesStepView, type ServicesStepView } from './services-step-data';
 
 /**
@@ -79,7 +80,6 @@ export async function readServicesStepView(
     aiPricePhp,
     aiListPricePhp,
     settingsRow,
-    poolSizing,
   ] =
     await Promise.all([
       fetchV2CustomerCatalog(),
@@ -138,15 +138,25 @@ export async function readServicesStepView(
           return null;
         }
       })(),
-      // 🎟 The admin-editable sizing the onboarding Papic card recommends a pack
-      // from (owner 2026-10-01). ADMIN CLIENT for the same reason as the settings
-      // read above: this page is reached by an ANONYMOUS visitor, and a refused
-      // read would quietly quote the code fallback instead of the owner's number.
-      fetchEventPoolSizing(createAdminClient(), eventType).catch(() => null),
     ]);
   // ⚠ Fails to the DEFAULT, never to zero: a settings read that fails must not
   // silently retract a discount the rest of the screen is advertising.
   const discountPct = readOnboardingDiscountPct(settingsRow?.onboarding_discount_pct);
+
+  /**
+   * 💲 IS THIS BUYER ON THE SET-UP PRICE AT ALL? (owner 2026-10-28, "ONE PRICE
+   * EVERYWHERE"). With the welcome switch OFF, yes — exactly as shipped. With it
+   * ON, only when this is the account's FIRST purchase (an anonymous visitor has
+   * made none). The bill asks the SAME question (`onboarding-services-orders.ts`),
+   * so the card cannot quote a figure the bill will not charge. The account is
+   * read only when the switch is on — off, nothing extra is asked.
+   */
+  const setupApplies = isWelcomeDiscountEnabled()
+    ? await client.auth
+        .getUser()
+        .then(({ data }) => setupPriceAppliesForCreateFlow(data.user?.id ?? null))
+        .catch(() => false)
+    : true;
 
   /**
    * ── WHAT IT COSTS HERE, AND WHAT IT COSTS LATER ────────────────────────────
@@ -168,11 +178,13 @@ export async function readServicesStepView(
   // function `onboarding-services-orders.ts` mints with, so a figure on this
   // screen cannot differ from the one on the bill.
   const priceOfRow = (row: { retail_price_php: number; onboarding_price_php?: number | null }) =>
-    setupPricePhp(
-      Number(row.retail_price_php),
-      row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
-      discountPct,
-    );
+    setupApplies
+      ? setupPricePhp(
+          Number(row.retail_price_php),
+          row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
+          discountPct,
+        )
+      : Number(row.retail_price_php);
   const pricePhpByCode = new Map<string, number>(
     customerSkus.map((s) => [s.service_code, priceOfRow(s)]),
   );
@@ -207,22 +219,20 @@ export async function readServicesStepView(
     listPricePhpByCode,
     freePoolPoints,
     freeOnePoints,
-    // ⛔ A refused read returns the CODE fallback, and a code default must never size
-    // what a couple is told to buy (RULE 0.9) — so it recommends nothing.
-    poolSizing: poolSizing && poolSizing !== FALLBACK_POOL_SIZING
-      ? {
-          pointsPerGuest: poolSizing.pointsPerGuest,
-          recommendFloorPoints: poolSizing.recommendFloorPoints,
-          ceilingPoints: poolSizing.ceilingPoints,
-        }
-      : null,
-    aiPricePhp: aiOffered ? aiPricePhp : null,
+    aiPricePhp: aiOffered ? (setupApplies ? aiPricePhp : aiListPricePhp) : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,
     hubPro: {
       websiteEnabled: surfaceEnabled(profile, 'website'),
       pricePhp: pricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
       listPricePhp: listPricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
       copy: hubProCopy,
+      // 💎 "or part by part later, from ₱500" (owner 2026-10-22) — the parts are off /pricing, so read here, from the catalogue.
+      partsFromPhp: await hubPartPrices(createAdminClient())
+        .then((p) => {
+          const on = [...p.parts.entries()].filter(([code]) => p.onSale.has(code)).map(([, php]) => php);
+          return on.length > 0 ? Math.min(...on) : null;
+        })
+        .catch(() => null),
     },
   });
 }

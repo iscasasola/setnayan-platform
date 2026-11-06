@@ -1,0 +1,335 @@
+{
+  "_about": "RECORDED 2026-10-09 from Studio › E-Gifts AS IT STOOD BEFORE any control moved onto the Form row / Switch templates: the page was bundled with esbuild (its server actions replaced by recorders), loaded in Chromium at 375 px and driven (switch flips, typing a number and leaving the box, the QR, the registry link, a thank-you typed / a starting point picked, Accept gifts? flipped). `calls` = every server action the page called, with the FormData it built. `says` = what the page said (it changes on purpose: the templates' own failure words). Re-record only with a reason written in the commit.",
+  "s1_off": {
+    "calls": [
+      {
+        "action": "setEgiftMethodEnabled",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "is_enabled": "false"
+        }
+      }
+    ],
+    "on": false
+  },
+  "s1_on": {
+    "calls": [
+      {
+        "action": "setEgiftMethodEnabled",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "is_enabled": "true"
+        }
+      }
+    ],
+    "on": true
+  },
+  "s2_on": {
+    "calls": [],
+    "on": true
+  },
+  "s2_handle": {
+    "calls": [
+      {
+        "action": "saveEgiftMethod",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "method_kind": "maya",
+          "label": "Maya",
+          "account_name": "",
+          "handle": "0917 111 2222",
+          "note": "",
+          "qr_r2_key": ""
+        }
+      }
+    ]
+  },
+  "s3_handle": {
+    "calls": [
+      {
+        "action": "saveEgiftMethod",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "method_kind": "gcash",
+          "label": "GCash",
+          "account_name": "Maria Santos",
+          "handle": "0918 000 0000",
+          "note": "a note",
+          "qr_r2_key": ""
+        }
+      }
+    ]
+  },
+  "s3_account": {
+    "calls": [
+      {
+        "action": "saveEgiftMethod",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "method_kind": "gcash",
+          "label": "GCash",
+          "account_name": "Maria S. Santos",
+          "handle": "0918 000 0000",
+          "note": "a note",
+          "qr_r2_key": ""
+        }
+      }
+    ]
+  },
+  "s3_unchanged": {
+    "calls": []
+  },
+  "s4_qr": {
+    "calls": [
+      {
+        "action": "saveEgiftMethod",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "method_kind": "gcash",
+          "label": "GCash",
+          "account_name": "Maria Santos",
+          "handle": "0917 555 0101",
+          "note": "a note",
+          "qr_r2_key": "r2://thread-files/pabuya-qr/E1/qr.png"
+        }
+      }
+    ]
+  },
+  "s4_qr_remove": {
+    "calls": [
+      {
+        "action": "saveEgiftMethod",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "method_kind": "gcash",
+          "label": "GCash",
+          "account_name": "Maria Santos",
+          "handle": "0917 555 0101",
+          "note": "a note",
+          "qr_r2_key": ""
+        }
+      }
+    ]
+  },
+  "s5_valid": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "gift_registry_url": "https://shop.example.ph/my-list"
+        }
+      }
+    ],
+    "says": []
+  },
+  "s5_invalid": {
+    "calls": [],
+    "says": [
+      "That link does not look right — paste one that starts with https:// Nothing else was changed."
+    ]
+  },
+  "s5_clear": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "gift_registry_url": ""
+        }
+      }
+    ],
+    "says": []
+  },
+  "s6_toggle_fail": {
+    "calls": [
+      {
+        "action": "setEgiftMethodEnabled",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "is_enabled": "false"
+        }
+      }
+    ],
+    "on": true,
+    "says": [
+      "Couldn’t save that. If it keeps happening, reach out from /help. Nothing else was changed."
+    ]
+  },
+  "s6_handle_fail": {
+    "calls": [
+      {
+        "action": "saveEgiftMethod",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "egift_method_id": "g1",
+          "method_kind": "gcash",
+          "label": "GCash",
+          "account_name": "Maria Santos",
+          "handle": "",
+          "note": "a note",
+          "qr_r2_key": ""
+        }
+      }
+    ],
+    "says": [
+      "Add a number/link or upload a QR code so guests know where to send. Nothing else was changed."
+    ]
+  },
+  "s6_registry_throw": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "gift_registry_url": "https://x.example.ph/"
+        }
+      }
+    ],
+    "says": []
+  },
+  "t1_typed": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "pabuya_message": "Thank you, all of you!",
+          "draft": "1"
+        }
+      }
+    ]
+  },
+  "t2_slow": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "pabuya_message": "Our own words. a b c d e",
+          "draft": "1"
+        }
+      }
+    ]
+  },
+  "t3_start_from": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "pabuya_message": "Your presence is the gift. But if you’d like to give more, a blessing lets us choose the one thing our new home still needs — chosen together, from all of you who love us.",
+          "draft": "1"
+        }
+      }
+    ],
+    "words": "Your presence is the gift. But if you’d like to give more, a blessing lets us choose the one thing our new home still needs — chosen together, from all of you who love us."
+  },
+  "t4_refused": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "pabuya_message": "Words that will be refused",
+          "draft": "1"
+        }
+      }
+    ],
+    "says": [
+      "These words are not in your draft yet. Could not save your message. Please try again.Try again"
+    ],
+    "words": "Words that will be refused"
+  },
+  "t5_thrown": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "pabuya_message": "Words, network down",
+          "draft": "1"
+        }
+      }
+    ],
+    "says": [
+      "These words are not in your draft yet. Please try again.Try again"
+    ],
+    "words": "Words, network down"
+  },
+  "t6_two_doors": {
+    "calls": [
+      {
+        "action": "savePabuyaMessage",
+        "args": [],
+        "fields": {
+          "event_id": "E1",
+          "pabuya_message": "Typed in the first door",
+          "draft": "1"
+        }
+      }
+    ],
+    "a": "Typed in the first door",
+    "b": "Typed in the first door"
+  },
+  "t7_unchanged": {
+    "calls": []
+  },
+  "a1_off": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1"
+        ],
+        "fields": {
+          "intent": "save",
+          "patch": "{\"events\":{\"gifts_on\":false}}"
+        }
+      }
+    ],
+    "value": "no"
+  },
+  "a2_refused": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1"
+        ],
+        "fields": {
+          "intent": "save",
+          "patch": "{\"events\":{\"gifts_on\":false}}"
+        }
+      }
+    ],
+    "value": "yes",
+    "says": [
+      "That did not save. Nothing changed — please try again."
+    ]
+  }
+}

@@ -1,9 +1,9 @@
 import Link from 'next/link';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import {
-  ArrowLeft,
-  Download,
+  Share,
   AlertTriangle,
   ChevronRight,
   Compass,
@@ -15,7 +15,6 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { CONCIERGE_ENABLED } from '@/lib/concierge';
-import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -23,6 +22,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
+import { DASHBOARD_TAGALOG_READY } from '@/lib/i18n/tagalog-ready';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import {
@@ -40,7 +40,6 @@ import {
   requestAccountDeletion,
   updateLocalePreference,
   updatePersonalInfo,
-  updatePlannerMode,
   updatePublicProfileEnabled,
   updateDiscoverableByName,
   updateSharePhotoWithHosts,
@@ -51,6 +50,7 @@ import {
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import {
   atTag,
   composeFormalName,
@@ -62,7 +62,6 @@ import {
 } from '@/lib/formal-name';
 import { formalNameFromGuestList } from '@/lib/formal-name-from-guest-list';
 import { PrefixSelect } from '@/app/_components/formal-name-inputs';
-import { AnalyticsChoice } from './_components/analytics-choice';
 import { SettingsShell } from './_components/settings-shell';
 import { groupFromSearchParams } from '@/lib/profile-settings-groups';
 import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
@@ -78,6 +77,9 @@ import {
   setAccountFaceProfileConsent,
   forgetMyFaceEverywhere,
 } from './face-profile-actions';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row';
+import { getIapGate } from '@/lib/request-platform';
 
 export const metadata = { title: 'Profile' };
 
@@ -100,9 +102,9 @@ type Props = {
   }>;
 };
 
-// Light-locked 2026-06-04: the theme picker (Light · Dark · Auto) was removed —
-// Setnayan always renders light. `users.theme_preference` is left dormant. See
-// _components/theme-provider.tsx and CLAUDE.md decision-log.
+// Appearance = Light · Dark · Automatic (owner "approve all", DECISION_LOG 2026-10-13) was the first row of
+// Preferences until 2026-10-25, when it MOVED to the account menu (owner: one place for everything) —
+// `app/_components/account-switcher/appearance-choice.tsx`. Preferences no longer draws it.
 
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
@@ -132,7 +134,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -194,7 +196,6 @@ export default async function ProfilePage({ searchParams }: Props) {
   const formalNameOffer =
     formalNameSuggestion && formalNameFill.length > 0 ? composeFormalName(formalNameSuggestion.name) : null;
 
-  const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
 
   // Public account handle (#7a/#7b). `slug` is backfilled for every account;
@@ -227,10 +228,13 @@ export default async function ProfilePage({ searchParams }: Props) {
   const publicProfileShareTitle = profile?.display_name?.trim()
     ? `${profile.display_name.trim()} · Setnayan`
     : 'My Setnayan profile';
-  // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
-  // UI exposes EN/TL only; anything else falls back to EN in the toggle.
-  const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
+  // Iteration 0025 — runtime EN/TL toggle. 🙈 HIDDEN until the whole app is translated
+  // (owner 23 Oct: Tagalog covers 59 labels on 3 screens), so everyone reads English —
+  // a saved 'tl' included. `DASHBOARD_TAGALOG_READY` turns both back on together.
+  const activeLocale: 'en' | 'tl' = DASHBOARD_TAGALOG_READY && profile?.locale === 'tl' ? 'tl' : 'en';
   const tr = makeT(activeLocale);
+  /* 🍎 Restore purchases is shown only where the app sells through Apple (lib/iap/iap-gate.ts). */
+  const appleIap = (await getIapGate()).iap;
   const isAdmin =
     profile?.is_internal ||
     profile?.is_team_member ||
@@ -351,15 +355,11 @@ export default async function ProfilePage({ searchParams }: Props) {
     faceReuseEvents = faceReuseEvents.slice(0, 50);
   }
 
-  // If the user has exactly one active event, "Back" lands on that event's
-  // home rather than the event-picker. Two+ events fall through to /dashboard.
-  const events = await fetchUserEvents(supabase, user.id, 'couple');
-  const activeEvents = events.filter((e) => !e.archived);
-  const backHref =
-    activeEvents.length === 1 && activeEvents[0]
-      ? `/dashboard/${activeEvents[0].event_id}`
-      : '/dashboard';
-  const backLabel = activeEvents.length === 1 ? 'Back to Home' : 'Back to events';
+  /* ↩ ONE BACK PER SCREEN (owner "yes", 23 Oct). The masthead's "Back to events" /
+     "Back to Home" chip is gone: the shell already carries that way back — the account
+     bar's Events tab on a phone, the rail's Events row on a desktop — so on a phone an
+     open group showed TWO backs (the chip and "‹ Settings"). The one left is the group's
+     own "‹ Settings", one level up, the shell's pattern (a focused rail's one way back). */
 
   /* ── GROUPED SETTINGS (owner-approved prototype, 2026-09-21) ───────────────
      Twelve sections on one long page became six groups — Profile · Guest
@@ -481,6 +481,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="square"
             roundPreview
+            slotSays="Add a photo"
             help="Your avatar across the app · PNG / JPG / WebP, up to 2 MB"
           />
           <div className="min-w-0 text-center sm:text-left">
@@ -811,7 +812,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                   is separate, narrower and opt-in (owner 2026-09-20); it is not
                   read or written here.
                 */
-                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · shows your name, your profile photo and the celebrations you’ve made public. Off: hidden from everyone but you, never in search.`}
+                help={`${publicHost}/u/${currentSlug ?? 'your-handle'} · shows your name, your profile photo and the events you’ve made public. Off: hidden from everyone but you, never in search.`}
               >
                 <input
                   type="hidden"
@@ -832,7 +833,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                     View public profile
                   </Link>
                   {hasPublicChapter ? null : (
-                    <p className="text-xs text-ink/60">Publish a celebration to share your profile.</p>
+                    <p className="text-xs text-ink/60">Publish an event to share your profile.</p>
                   )}
                 </div>
               ) : null}
@@ -875,7 +876,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 on={findableByName}
                 id="findable-by-name"
                 label="Can people find you by name?"
-                help="They see your name and photo — never your email, phone or celebrations — and nothing connects until you confirm. Off: only someone with your email can add you."
+                help="They see your name and photo — never your email, phone or events — and nothing connects until you confirm. Off: only someone with your email can add you."
               >
                 <input
                   type="hidden"
@@ -889,7 +890,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 on={sharePhotoWithHosts}
                 id="photo-with-hosts"
                 label="Share my profile photo with hosts"
-                help="Couples whose celebration you joined see it on their guest list. Never shared automatically."
+                help="Couples whose event you joined see it on their guest list. Never shared automatically."
               >
                 <input
                   type="hidden"
@@ -913,8 +914,6 @@ export default async function ProfilePage({ searchParams }: Props) {
               Your data
             </h3>
           </div>
-          <AnalyticsChoice />
-
           <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">Download my data</p>
@@ -923,14 +922,15 @@ export default async function ProfilePage({ searchParams }: Props) {
                 wrote.
               </p>
             </div>
-            <a
+            {/* 📥 Saved, never shown in place — the app's web view renders a file with no way back (owner 2026-10-27). */}
+            <SaveFileLink
               href="/api/profile/export"
-              download
+              filename="setnayan-my-data.json"
               className="button-secondary inline-flex items-center gap-2"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Download .json
-            </a>
+            </SaveFileLink>
           </div>
 
           {/*
@@ -1019,14 +1019,14 @@ export default async function ProfilePage({ searchParams }: Props) {
             setting has its permanent home. See 03_Strategy/People_Graph_and_
             Lifelong_Identity_2026-07-04.md.
           */}
-          <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div data-coming-soon className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">Legacy contact</p>
               <p className="text-xs text-ink/60">
                 Choose, while living, who inherits your memories. Coming soon.
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/60">
+            <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 dark:bg-raised px-3 py-1 text-xs text-ink/60">
               Not set
             </span>
           </div>
@@ -1237,19 +1237,16 @@ export default async function ProfilePage({ searchParams }: Props) {
     <>
       <GroupHeader eyebrow="How Setnayan works for you" title="Preferences" />
       <div className="space-y-6">
+        {/* 🌗 APPEARANCE MOVED TO THE ACCOUNT MENU (owner 2026-10-25 — one place for everything): it is the
+            menu's own row now (`app/_components/account-switcher/appearance-choice.tsx`), so Preferences draws no
+            second copy. The tile below exists only while Display language has something to show — an empty frame
+            is a frame on nothing. */}
+        {DASHBOARD_TAGALOG_READY ? (
         <div className="sn-tile divide-y divide-ink/10">
-          <Segmented
-            label="Planner mode"
-            help="Guided shows the 9-step checklist on your Overview tab. DIY hides it."
-            action={updatePlannerMode}
-            name="planner_mode"
-            value={activePlannerMode}
-            options={[
-              { key: 'guided', label: 'Guided' },
-              { key: 'diy', label: 'DIY' },
-            ]}
-          />
-          {/* Iteration 0025 — runtime EN/TL toggle. */}
+          {/* 🗑 PLANNER MODE (Guided · DIY) IS GONE (owner 23 Oct). Nothing ever read
+              `users.planner_mode` — Home's checklist shows for everyone, which is what
+              "Guided" promised — so the choice changed nothing (handles-have-gates, 2026-08-17). */}
+          {/* Iteration 0025 — runtime EN/TL toggle, hidden until the app is translated. */}
           <Segmented
             label="Display language"
             help="Dashboard menus, headings and buttons. What you typed stays as you typed it."
@@ -1262,6 +1259,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             ]}
           />
         </div>
+        ) : null}
 
         <div className="sn-tile divide-y divide-ink/10">
           <SwitchRow
@@ -1269,7 +1267,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             on={remindersOn}
             id="planning-reminders"
             label="Planning reminders"
-            help="Nudges on your Overview tab for when to book each supplier."
+            help="Nudges on Home for when to book each supplier."
           >
             <input type="hidden" name="reminders_enabled" value={remindersOn ? 'false' : 'true'} />
           </SwitchRow>
@@ -1315,14 +1313,14 @@ export default async function ProfilePage({ searchParams }: Props) {
         <dl className="sn-tile grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
           <Row label="Account type" value={profile?.account_type ?? '—'} />
-          <Row label="Locale" value={profile?.locale ?? '—'} />
+          <Row label="Language" value={activeLocale === 'tl' ? 'Tagalog' : 'English'} />
           <Row
             label="Internal account"
             value={
               profile?.is_internal
                 ? 'Yes (§ 10a — owner)'
                 : profile?.is_team_member
-                  ? 'Yes (§ 10b — team pool)'
+                  ? 'Yes (§ 10b — team member)'
                   : 'No'
             }
           />
@@ -1349,6 +1347,8 @@ export default async function ProfilePage({ searchParams }: Props) {
             API keys
             <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
           </Link>
+          {/* 🍎 Restore purchases — only where the iPhone app sells through Apple (owner 2026-10-18). */}
+          {appleIap ? <RestorePurchasesRow className={ACCOUNT_ROW} /> : null}
           <form action={restartTour}>
             <SubmitButton pendingLabel="Restarting…" className={`${ACCOUNT_ROW} w-full text-left`}>
               <span className="inline-flex items-center gap-2">
@@ -1492,15 +1492,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="Profile &amp; settings"
-        actions={
-          <Link href={backHref} className="sn-chip sn-press w-fit">
-            <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {backLabel}
-          </Link>
-        }
-      />
+      <PageMasthead title="Profile &amp; settings" />
 
       <SettingsShell
         // Remount on every navigation to a new URL (an action's redirect), so
@@ -1585,16 +1577,9 @@ function SwitchRow({
         role="switch"
         aria-checked={on}
         aria-labelledby={`${id}-label`}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          on ? 'bg-terracotta' : 'bg-ink/20'
-        }`}
+        className={SWITCH_BUTTON}
       >
-        <span
-          aria-hidden
-          className={`inline-block h-5 w-5 transform rounded-full bg-cream shadow transition-transform ${
-            on ? 'translate-x-[22px]' : 'translate-x-0.5'
-          }`}
-        />
+        <SwitchTrack on={on} />
       </button>
     </form>
   );
@@ -1626,32 +1611,27 @@ function Segmented({
         <p className="text-sm font-medium text-ink">{label}</p>
         <p className="mt-0.5 text-xs text-ink/60">{help}</p>
       </div>
-      <div
-        role="group"
-        aria-label={label}
-        className="inline-flex shrink-0 gap-1 self-start rounded-md border border-ink/15 bg-cream p-1 sm:self-auto"
-      >
+      {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — ONE form, and each
+          choice a submit button carrying `name=value` (it was one form per choice; the thumb needs the choices to
+          be the track's direct children). The picked choice is a plain button: pressing it sends nothing. */}
+      <PillTrack as="form" action={action} role="group" aria-label={label} className="shrink-0 self-start sm:self-auto" data-setting-segmented={name}>
         {options.map((opt) => {
           const isActive = opt.key === value;
           return (
-            <form key={opt.key} action={action}>
-              <input type="hidden" name={name} value={opt.key} />
-              <button
-                type="submit"
-                disabled={isActive}
-                aria-pressed={isActive}
-                className={`rounded-sm px-4 py-1.5 text-sm transition-colors ${
-                  isActive
-                    ? 'bg-terracotta/10 font-semibold text-terracotta-700'
-                    : 'font-medium text-ink/70 hover:text-ink'
-                }`}
-              >
-                {opt.label}
-              </button>
-            </form>
+            <PillButton
+              key={opt.key}
+              on={isActive}
+              type={isActive ? 'button' : 'submit'}
+              name={name}
+              value={opt.key}
+              aria-pressed={isActive}
+              className="px-4"
+            >
+              {opt.label}
+            </PillButton>
           );
         })}
-      </div>
+      </PillTrack>
     </div>
   );
 }

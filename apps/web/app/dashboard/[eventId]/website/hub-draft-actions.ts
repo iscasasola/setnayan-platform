@@ -40,8 +40,16 @@
  *
  * Address, who can view, what guests get and open browsing are NOT drafted —
  * they stay live (the build plan's rule), in `editor/actions.ts`. The NAMES
- * and the DATE typed in the Maker ARE (owner 2026-10-01, "wait for apply";
- * `HUB_DRAFT_FACT_COLUMNS`), and Apply asks the date's own gates.
+ * typed in the Maker ARE (owner 2026-10-01, "wait for apply";
+ * `HUB_DRAFT_FACT_COLUMNS`).
+ *
+ * 🗓 THE DATE IS NEVER DRAFTED (owner 2026-11-05, verbatim *"it shouldn't rely
+ * on the hub."* — amends answer 7 of 2026-10-01 for the date only). It is a
+ * fact of the event, saved at once by its one live door (`updateEventDate`,
+ * `../actions.ts`), which carries the floor, the clash refusal at the pick and
+ * the booked suppliers' clearance that used to sit here. A save that still
+ * carries a date is REFUSED in words (an old screen), never quietly dropped;
+ * a date an older draft still holds is not read at all (`sanitizeState`).
  *
  * ⛔ A SAVE NEVER TOUCHES `events`: `intent === 'save'` writes the draft row
  * and nothing else (`tap-to-type-is-instant.test.ts` holds that on source,
@@ -53,21 +61,28 @@
  *
  * 🔑 EVERY WRITE IS THE COUPLE'S OWN SESSION. `events` and `invitation_widgets`
  * RLS still apply underneath the host gate; only the Pro read uses the admin
- * client (inside `lookProAllows`, because orders RLS is purchaser-scoped).
+ * client (inside `hubOwnershipForWrite`, because orders RLS is purchaser-scoped).
  */
+import { rsvpPictureRefsIn } from '@/lib/rsvp-picture-ref';
 import { deleteOwnScene } from '@/lib/own-scene-delete';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
-import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { parsePrintDetails } from '@/lib/print-pieces';
+import { updatePrintDetails } from '@/lib/print-details-write';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
+import { SECTION_NAME_PREFIX, sanitizeDraftedSectionWords, type SectionNameKey } from '@/lib/role-names';
+import { writeRoleNames } from '@/lib/role-names.server';
+import { isRenamableSection } from '@/lib/entourage';
+import { revalidateMarch } from '@/lib/entourage-write';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
-import { datePickClash } from '@/lib/date-clash.server';
-import { requireHostMembershipOrThrow } from '@/lib/host-gate';
-import { lookProAllows } from '@/lib/hub-look-gate';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { requireHostMembershipOrThrow, refuseLimitedHelper } from '@/lib/host-gate';
+import { hubOwnershipForWrite } from '@/lib/hub-look-gate';
+import { NO_HUB_PARTS } from '@/lib/hub-parts';
+import { renameEventSlug } from '@/lib/event-slug-rename.server';
+import { getIapGate } from '@/lib/request-platform';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { PUBLIC_R2_BUCKET, eventMediaPolicy, parseClientRef } from '@/lib/r2-client-ref';
@@ -78,6 +93,7 @@ import {
   type SectionContentEvent,
 } from '@/lib/website-section-content';
 import {
+  HUB_DRAFT_DATE_IS_LIVE_MESSAGE,
   HUB_DRAFT_MAIN_COLOURS,
   HUB_DRAFT_SAVE_FAILED_MESSAGE,
   HUB_DRAFT_TOO_LARGE_MESSAGE,
@@ -87,27 +103,41 @@ import {
   hubDraftItemLabel,
   hubResetPatch,
   isHubDraftIntent,
+  HUB_DROP_ALL_PRO,
   isHubResetScope,
   mergeHubDraft,
+  heldStageShow,
   planHubDraftApply,
   presetSceneOf,
-  undoHubDraft,
+  type HubDraft,
   type HubDraftActionResult,
   type HubDraftItem,
   type HubDraftPatch,
   type HubDraftRefusal,
   type HubDraftState,
 } from '@/lib/hub-draft';
-import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, rebaseOnDraft, updateHubDraft } from '@/lib/hub-draft-store';
+import { draftLeftAfterApply, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
+import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
+import { hostFirstName } from '@/lib/host-first-name.server';
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
+import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
+import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { boardWithMainColours, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
-import { hubDraftProEffects } from '@/lib/hub-pro-effects';
+import { HUB_DRAFT_EXPECT_FIELD } from '@/lib/maker-drawn-undo';
+import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
+import { dropAllHubProEffects, hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
-import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { PART_SHOW_KEY, STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { PHOTOS_HEADING_KEY } from '@/lib/photos-heading';
+import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
+import { isThemeLoopRef } from '@/lib/theme-loop-refs';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
@@ -117,10 +147,10 @@ import { storyProExtrasOf } from '@/lib/story-pro-extras';
 import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
-import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
+import { eventDatePrecisionOf } from '@/lib/events';
 import { isDateChangeAction } from '@/lib/date-change';
-import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
-import { moveScheduleWithDate, placeCeremonyBlock } from '@/lib/ceremony-time.server';
+import { askDateChange, settleDateChange } from '@/lib/date-change.server';
+import { placeCeremonyBlock } from '@/lib/ceremony-time.server';
 import { exactDayOf } from '@/lib/schedule-datetime-local';
 import { isListedPlaceName } from '@/lib/listed-place';
 import { readVenueChoices, VENUE_CHOICES_KEY } from '@/lib/event-venues';
@@ -133,13 +163,16 @@ export async function hubDraftAction(
   eventId: string,
   formData: FormData,
 ): Promise<HubDraftActionResult> {
+  await refuseLimitedHelper(eventId, 'invitations');
   const intentRaw = formData.get('intent');
   const intent = isHubDraftIntent(intentRaw) ? intentRaw : null;
   if (!intent || typeof eventId !== 'string' || eventId.length === 0) {
     return { ok: false, intent, error: 'That did not look like an Event Hub change.' };
   }
 
-  await requireHostMembershipOrThrow(eventId, FORBIDDEN);
+  /* 👥 `me` — the host making this step: recorded on it (`by`, ruling A names them to the other host) and the one whose
+     steps ↺ takes back (ruling B). */
+  const me = await requireHostMembershipOrThrow(eventId, FORBIDDEN);
   const supabase = await createClient();
   const done = (applied = 0, held: Array<{ label: string; reason: HubDraftRefusal }> = []) =>
     ({ ok: true, intent, applied, held }) as const;
@@ -182,6 +215,31 @@ export async function hubDraftAction(
     const current = (await readHubDraft(supabase, eventId)) ?? emptyHubDraft();
 
     /* ── SAVE · RESET · UNDO — the draft only, never the live page ──────── */
+    /* ↺ ONE PRESS, ITS OWN ANSWER (owner 2026-10-11: "pressed undo twice before it reversed that edit"). Undo and
+       Reset bring a whole render of the Maker, and until it landed the toolbar still read the count from BEFORE the
+       press. Asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back with the write — read beside it, from the same
+       draft, by the reader a save's answer uses — so ✓ and ↺ show the step the moment the action answers. */
+    /* 👥 Built on the draft AS IT IS when the write lands (`updateHubDraft`: compare-and-set, built again if another
+       screen saved in between) — never on the copy read at the top, which a second host's save may already have passed. */
+    const answerWithBar = async (build: (cur: HubDraft, by: string | undefined) => HubDraft, matchedOf?: (cur: HubDraft) => boolean | undefined): Promise<HubDraftActionResult> => {
+      let barP: Promise<Awaited<ReturnType<typeof hubDraftBarAfterSave>>> = Promise.resolve(null);
+      let matched: boolean | undefined;
+      const wrote = await updateHubDraft(supabase, eventId, (cur, by) => {
+        const c = cur ?? emptyHubDraft();
+        const next = build(c, by);
+        matched = matchedOf?.(c);
+        // ⚡ The bar is read BESIDE the write, for the draft this round builds (a lost round reads it again).
+        if (formData.get(HUB_DRAFT_BAR_FIELD) === '1') barP = hubDraftBarAfterSave(supabase, eventId, next, me);
+        return { next };
+      }, undefined, me);
+      const next = wrote.draft ?? emptyHubDraft();
+      const bar = await barP;
+      /* ↺ …and the STAMP of the state it left (`lib/hub-draft-stamp.ts`): the Maker's ↺ proves with it that the step it
+         draws backwards is the server's newest. */
+      const stamp = hubDraftStamp(next);
+      const said = matched === undefined ? { stamp } : { stamp, matched };
+      return bar ? { ...done(), bar, ...said } : { ...done(), ...said };
+    };
     if (intent === 'save') {
       let patch: HubDraftPatch;
       try {
@@ -200,28 +258,11 @@ export async function hubDraftAction(
       if (typeof city === 'string' && city.trim() && !isListedPlaceName(city)) {
         return { ok: false, intent, error: 'Pick the city or area from the list.' };
       }
-      /* 🗓 A DAY OR MONTH A BOOKED SUPPLIER CANNOT DO IS NEVER ACCEPTED INTO THE
-         DRAFT (owner 2026-10-01, "refused at the pick"): asked here, in the one
-         door every date goes through (typed, picked, month), with the shipped
-         availability read (`datePickClash`) — never a second check. The
-         supplier's name and where to ask them to move or unlock go back with
-         the refusal. Apply's `eventDateRefusal` stays as the backstop. */
-      const asksDate = Boolean(patch.events && ('event_date' in patch.events || 'event_date_precision' in patch.events));
-      const mergedDate = asksDate ? mergeHubDraft(current, patch).events : null;
-      if (mergedDate && typeof mergedDate.event_date === 'string') {
-        const { data: liveDate } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
-        const pickedPrecision = eventDatePrecisionOf(mergedDate.event_date_precision ?? liveDate?.event_date_precision) ?? 'day';
-        /* …unless every supplier it clashes with already answered Move for
-           exactly this date (the clashing-date flow) — `clashStillOpen`. */
-        const asked = await clashStillOpen(supabase, eventId, { date: mergedDate.event_date, precision: pickedPrecision }, await datePickClash({
-          supabase,
-          admin: createAdminClient(),
-          eventId,
-          date: mergedDate.event_date,
-          precision: pickedPrecision,
-          live: { date: (liveDate?.event_date as string | null | undefined) ?? null, precision: liveDate?.event_date_precision },
-        }));
-        if (asked) return { ok: false, intent, error: asked.reason, clash: asked.clash };
+      /* 🗓 THE DATE IS NOT A DRAFT (owner 2026-11-05, "it shouldn't rely on the hub"): it saves to the event at once
+         through `updateEventDate`. A patch that still carries one comes from a screen older than that ruling — said
+         in words, so the couple never reads "saved" over a date that went nowhere. */
+      if (patch.events && ('event_date' in patch.events || 'event_date_precision' in patch.events)) {
+        return { ok: false, intent, error: HUB_DRAFT_DATE_IS_LIVE_MESSAGE };
       }
       /* 🚶 A drafted march holds a bounded number of moves (every Undo state
          carries the list) — past it, the couple is told to Apply first, never
@@ -229,10 +270,43 @@ export async function hubDraftAction(
       if (Array.isArray(patch.march) && (current.march?.length ?? 0) + patch.march.length > MARCH_DRAFT_MAX_MOVES) {
         return { ok: false, intent, error: MARCH_DRAFT_FULL_MESSAGE };
       }
-      const [, bar] = await Promise.all([
-        writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
-        wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
-      ]);
+      /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18). The merge is built on the draft as it is when the
+         write lands (`updateHubDraft`, a compare-and-set on the row's version — built again if another screen saved in
+         between, so that save is kept). A save that sends a WHOLE value it built from its own copy also sends the value
+         it was based on (`MERGE_BASE_FIELD`): merged three ways (`rebaseOnDraft`) — what it did not change keeps the
+         other host's value; what both changed, this later save wins. The screen is told what it must now show. */
+      let base: unknown;
+      try {
+        const rawBase = formData.get(MERGE_BASE_FIELD);
+        base = typeof rawBase === 'string' && rawBase ? (JSON.parse(rawBase) as unknown) : undefined;
+      } catch {
+        base = undefined;
+      }
+      let barP: Promise<Awaited<ReturnType<typeof hubDraftBarAfterSave>>> = Promise.resolve(null);
+      let met: { found: boolean; by?: string } = { found: false };
+      const wrote = await updateHubDraft<HubDraftRebased>(supabase, eventId, async (cur, by) => {
+        const c = cur ?? emptyHubDraft();
+        const rebased = await rebaseOnDraft(supabase, eventId, c, patch, base);
+        const next = mergeHubDraft(c, rebased.patch, by);
+        /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure), so asking for it adds no round trip
+           after the save; a round lost to another screen reads it again for the draft that round builds. */
+        if (wantsBar) barP = hubDraftBarAfterSave(supabase, eventId, next, me);
+        // 👥 Whose change this save met (ruling A): the newest drafted step that touched what the screen must now show.
+        met = rebased.moved ? hubDraftStepAuthorOf(c, rebased.merged) : { found: false };
+        return { next, said: rebased };
+      }, undefined, me);
+      const written = wrote.draft ?? mergeHubDraft(current, patch, me);
+      const bar = await barP;
+      /* 👥 RULING A — the note NAMES the person: "Claire changed this a moment ago — showing the newest." Your own other
+         screen keeps the shipped line; a step nobody is recorded for (or a live change) is "Someone". */
+      const note = !wrote.said?.moved
+        ? null
+        : met.by === me
+          ? twoScreensNoteFor({ self: true })
+          : twoScreensNoteFor({ self: false, name: met.by ? await hostFirstName(eventId, met.by) : null });
+      const elsewhere = wrote.said?.moved && note ? { elsewhere: { merged: wrote.said.merged, clashed: wrote.said.clashed, note } } : {};
+      /* ↺ The stamp of the state this save left — the Maker's journal keeps it beside the step (`lib/hub-draft-stamp.ts`). */
+      const stamp = hubDraftStamp(written);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
          *"picking something takes a lot of time before the website reacts"*).
          A draft write changes nothing a guest can see — guests meet the draft
@@ -251,20 +325,23 @@ export async function hubDraftAction(
          in this same answer — the SAME summary the render counts with, for both
          answers to "owns Pro" (this action never asks — the view switch must
          not reach a save; the toolbar picks). */
-      if (!bar) return done();
-      return { ...done(), bar };
+      if (!bar) return { ...done(), stamp, ...elsewhere };
+      return { ...done(), bar, stamp, ...elsewhere };
     }
     if (intent === 'reset') {
       const scope = formData.get('stage');
       if (!isHubResetScope(scope)) return { ok: false, intent, error: 'Choose which stage to reset.' };
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, hubResetPatch(scope)));
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
-      return done();
+      return answerWithBar((cur, by) => mergeHubDraft(cur, hubResetPatch(scope), by));
     }
     if (intent === 'undo') {
-      await writeHubDraft(supabase, eventId, undoHubDraft(current));
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
-      return done();
+      /* ↺ A DRAWN UNDO says which state it expects to step back from (`HUB_DRAFT_EXPECT_FIELD`): the undo ALWAYS runs —
+         one press is one step — and the answer says whether it was that one (`matched`; `lib/hub-draft-stamp.ts`). */
+      /* ↺ RULING B (owner 2026-10-18): ↺ takes back only YOUR newest step — the other host's later steps stay, and
+         are still theirs to take back (`undoOwnHubDraftStep`). With no step of yours left ↺ is greyed (the bar's
+         `canUndo`) and a press reaching here anyway changes nothing. */
+      return answerWithBar((cur) => undoOwnHubDraftStep(cur, me), (cur) => hubDraftUndoMatched(cur, formData.get(HUB_DRAFT_EXPECT_FIELD)));
     }
     /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
        is recomputed HERE from the stored draft — the same one decision the
@@ -274,25 +351,46 @@ export async function hubDraftAction(
        Undo takes it back. */
     if (intent === 'drop') {
       const id = formData.get('effect');
+      /* ◆ "Remove Pro changes" (owner 2026-10-08, "keep, marked"): every held Pro effect off the draft in one step —
+         the same per-effect `remove` patches as the ×, recomputed on the draft as the write lands — ONE save, ONE
+         undo step (`dropAllHubProEffects`). */
+      if (id === HUB_DROP_ALL_PRO) {
+        const live = await readHubLiveState(supabase, eventId);
+        await updateHubDraft(supabase, eventId, (cur, by) => {
+          const next = dropAllHubProEffects(cur ?? emptyHubDraft(), live, by);
+          return next ? { next } : null;
+        }, undefined, me);
+        return done();
+      }
       const live = await readHubLiveState(supabase, eventId);
       const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
       if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, effect.remove));
+      // 👥 Recomputed on the draft as it is when the write lands (another screen may have saved since the read above).
+      await updateHubDraft(supabase, eventId, (cur, by) => {
+        const remove = hubDraftProEffects(cur ?? emptyHubDraft(), live, false).find((e) => e.id === id)?.remove;
+        return remove ? { next: mergeHubDraft(cur ?? emptyHubDraft(), remove, by) } : null;
+      }, undefined, me);
       return done();
     }
 
     /* ── APPLY ───────────────────────────────────────────────────────────── */
+    /* 🍎 In the store shell a Pro key is held for the web — UNLESS Apple can
+       sell Pro there (lib/iap/iap-gate.ts, owner 2026-10-18): then the app is
+       the web for Pro, and the event's real ownership decides. */
+    const iapGate = await getIapGate();
     const live = await readHubLiveState(supabase, eventId);
-    const storeShell = await isStoreShellRequest();
-    /* ⛔ THE GATE. `lookProAllows(eventId, 'change')` is true only when the event
-       owns ACTIVE Event Hub Pro — the same read, and the same rule, every live
-       look writer uses. In the store shell a Pro key is never applied. */
-    const ownsPro = storeShell ? false : await lookProAllows(eventId, 'change');
-    const plan = planHubDraftApply(current, live, ownsPro);
+    const storeShell = iapGate.storeShell && !iapGate.iap;
+    /* ⛔ THE GATE. `hubOwnershipForWrite` is what the event ACTIVELY owns of
+       Event Hub Pro — Full Pro, each part, the cap (owner 2026-10-22, part by
+       part) — the same read every live look writer's `lookProAllows` makes, and
+       each drafted item is asked for ITS parts. In the store shell a Pro key is
+       never applied. */
+    const owned = storeShell ? NO_HUB_PARTS : await hubOwnershipForWrite(eventId);
+    const plan = planHubDraftApply(current, live, owned);
 
     const held: Array<{ item: HubDraftItem; reason: HubDraftRefusal }> = plan.refused.map((item) => ({
       item,
-      reason: storeShell ? 'apply_on_the_web' : 'needs_pro',
+      reason: storeShell ? 'waits_for_pro' : 'needs_pro',
     }));
 
     /* 🔒 A DRAFTED BACKGROUND (or slot picture) MUST STILL BE THIS COUPLE'S OWN
@@ -348,91 +446,44 @@ export async function hubDraftAction(
     const ownScenePrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/${SCENE_BACKGROUND_FOLDER}/`;
     /* 🖼 …or one of the ready-made Save the Date scenes (Setnayan's own public
        pictures, a closed list — owner 2026-09-29, answer 3). */
-    const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref);
+    /* 🎞 …or one of OUR theme loops and its still (Look restudy row 7 — a part's Video ◆), the closed list
+       `isThemeLoopRef`, never a folder pattern. */
+    const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref) || isThemeLoopRef(ref);
 
     /* 💎 THE LAST THREE PRO TOOLS (owner 2026-09-29, "yes to all 3"). A drafted
        song, hero video or gallery photo is a public POST like any other, so
        each NEW ref must be an upload into THIS event's own folder — the rule
        `updateSiteChrome` asks live (`eventMediaPolicy`). A ref the page already
        shows is kept as it is. */
+    /* 🎵 …or, for the song, a track on "Our music" (owner 2026-10-08): a ref
+       into `hub-music/` is admitted only while its track is PUBLISHED — asked of
+       the list itself, through the couple's client, fail-closed. */
+    const draftedSong = siteMediaServeRef(current.events.site_bg_music_r2_key);
+    const ourSong = (await isPublishedHubMusicRef(supabase, draftedSong)) ? draftedSong : null;
     const newMediaIsOwn = (column: 'site_bg_music_r2_key' | 'landing_page_hero_video_r2_key' | 'our_photos', value: unknown) => {
       const liveRefs = new Set(
         column === 'our_photos' ? siteMediaServeRefs(live.events.our_photos) : [siteMediaServeRef(live.events[column])].filter(Boolean),
       );
       const refs = column === 'our_photos' ? siteMediaServeRefs(value) : [siteMediaServeRef(value)].filter((r): r is string => Boolean(r));
-      return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null);
+      return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null || r === ourSong);
     };
 
-    /* 🗓 A DRAFTED DATE ASKS `updateEventDate`'S OWN GATES (owner 2026-10-01,
-       "wait for apply": a date typed in the Maker is drafted, so the rules its
-       live writer asks are asked HERE, against live, at the moment it would go
-       live) — never a day gone by; a booked supplier's date never moves. ONE
-       rule (`eventDateRefusal`, lib/events.ts). A refused date STAYS in the
-       draft and is said by name. The supplier count is read fail-CLOSED: an
-       unread count is not "no suppliers". */
-    const isDateItem = (i: HubDraftItem) => i.kind === 'event' && (i.column === 'event_date' || i.column === 'event_date_precision');
-    let dateHeld: HubDraftRefusal | null = null;
-    /* 🗓 THE BOOKED SUPPLIERS HAVE CLEARED IT (owner 2026-10-02, Q8; the
-       clashing-date flow 2026-10-01): a day every booked supplier can do — or
-       every one that clashes answered Move — is not "locked". Asked only when
-       the refusal would be `locked`, through the SAME availability read as the
-       pick, FAIL-CLOSED (`dateApplyClearance`). Each booked supplier then gets
-       the plain notice "The date moved to <date>" (`afterDateApplied`). */
-    let dateMove: { next: { date: string; precision: 'day' | 'month' | 'year' }; requestId: string | null } | null = null;
-    if (plan.apply.some(isDateItem)) {
-      const priorDate = { date: (live.events.event_date as string | null | undefined) ?? null, precision: live.events.event_date_precision };
-      const nextDate = {
-        date: 'event_date' in current.events ? ((current.events.event_date as string | null) ?? null) : priorDate.date,
-        precision:
-          eventDatePrecisionOf('event_date_precision' in current.events ? current.events.event_date_precision : priorDate.precision) ?? 'day',
-      };
-      let confirmed = 0;
-      if (eventDateChangeIsGoverned(priorDate, nextDate)) {
-        const { count, error: countErr } = await supabase
-          .from('event_vendors')
-          .select('vendor_id', { count: 'exact', head: true })
-          .eq('event_id', eventId)
-          .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
-        if (countErr) return { ok: false, intent, error: 'Could not check your booked suppliers. Nothing was applied.' };
-        confirmed = count ?? 0;
-      }
-      let refusal = eventDateRefusal(priorDate, nextDate, confirmed);
-      let requestId: string | null = null;
-      if (refusal === 'locked' && nextDate.date) {
-        const clearance = await dateApplyClearance({ supabase, eventId, prior: priorDate, next: { date: nextDate.date, precision: nextDate.precision } });
-        if (!clearance.ok) return { ok: false, intent, error: 'Could not check your booked suppliers’ calendars. Nothing was applied.' };
-        refusal = eventDateRefusal(priorDate, nextDate, confirmed, new Date(), clearance.cleared);
-        requestId = clearance.requestId;
-      }
-      dateHeld = refusal === 'in_past' ? 'date_in_past' : refusal ? 'date_locked' : null;
-      if (!dateHeld && confirmed > 0 && nextDate.date && nextDate.date !== priorDate.date) {
-        dateMove = { next: { date: nextDate.date, precision: nextDate.precision }, requestId };
-      }
-    }
-
-    /* 🕒 THE CEREMONY TIME STANDS ON THE EVENT'S DAY — the day as it will be
-       after this Apply (a drafted date that goes live now, else the live one).
-       No single day yet (a month, a year) → the time waits in the draft, said
-       by name. `priorDay` is the day the event stood on: when the date
-       moves, the whole Schedule follows it from there (owner 2026-10-04).
-       ONE exact-day rule (`exactDayOf`) for both. */
-    const priorDay = exactDayOf(live.events.event_date, live.events.event_date_precision);
-    const dateGoes = !dateHeld && plan.apply.some(isDateItem);
-    const nextDay = dateGoes
-      ? exactDayOf(
-          'event_date' in current.events ? current.events.event_date : live.events.event_date,
-          'event_date_precision' in current.events ? current.events.event_date_precision : live.events.event_date_precision,
-        )
-      : priorDay;
+    /* 🕒 THE CEREMONY TIME STANDS ON THE EVENT'S DAY — the live one (the date is
+       never drafted: owner 2026-11-05). No single day yet (a month, a year) →
+       the time waits in the draft, said by name. ONE exact-day rule
+       (`exactDayOf`). */
+    const nextDay = exactDayOf(live.events.event_date, live.events.event_date_precision);
 
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
-      if (dateHeld && isDateItem(item)) {
-        held.push({ item, reason: dateHeld });
-        continue;
-      }
       if (item.kind === 'event' && item.column === 'ceremony_time' && !nextDay) {
         held.push({ item, reason: 'needs_a_day' });
+        continue;
+      }
+      // 🎵 A song from "Our music" whose track has since left the list: said in
+      // its own words, not as "a photo that is not in your Event Hub".
+      if (item.kind === 'event' && item.column === 'site_bg_music_r2_key' && isHubMusicRef(item.value) && item.value !== ourSong) {
+        held.push({ item, reason: 'song_off_the_list' });
         continue;
       }
       if (
@@ -459,13 +510,26 @@ export async function hubDraftAction(
           continue;
         }
       }
+      /* 🖼 THE RSVP PICTURE LINES — each file must be an upload into THIS event's own scene-background folder (the
+         shipped scene upload's — DECISION_LOG 2026-10-12 (a)); the reader only knows "an event's". A draft is a
+         public POST, so it is asked here, as a scene's own upload is. */
+      if (item.kind === 'event' && item.column === 'rsvp_ask_config' && rsvpPictureRefsIn(item.value).some((r) => !r.startsWith(ownScenePrefix))) {
+        if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
+        continue;
+      }
       if (item.kind === 'widget' && item.field === 'canvas') {
         const drafted = item.value as HubSectionCanvas | null;
         // The background (and a clip's still) — the couple's pictures or their
         // own scene upload — and every picture in a template scene's slots.
-        const ground = [drafted?.media, drafted?.poster].filter((r): r is string => Boolean(r));
+        // 🖼 …and the COVER SCENE's own (`canvas.ground` of the hero row): since 2026-10-16 its clip plays for guests,
+        // so its clip and still are held to the same rule as a scene's — never another event's media by a hand-made POST.
+        const cover = drafted?.ground && (drafted.ground.kind === 'photo' || drafted.ground.kind === 'snippet') ? drafted.ground : null;
+        const ground = [drafted?.media, drafted?.poster, cover?.media, cover?.poster].filter((r): r is string => Boolean(r));
         const slotRefs = (drafted?.slots ?? []).map((s) => s.media).filter((r): r is string => Boolean(r));
-        if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !ownRefs.has(r))) {
+        /* 🖼 A slot's picture: the couple's own (`ownRefs`) or an upload into THIS event's scene folder — the phone
+           Maker's slot picker uploads there (owner 2026-10-18), the same folder a scene background's upload uses. */
+        const slotIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix);
+        if (ground.some((r) => !sceneIsOwn(r)) || slotRefs.some((r) => !slotIsOwn(r))) {
           // A held scene's free part (`canvasFreePart`) is already reported,
           // and kept whole in the draft, by its refused twin — skip it quietly.
           if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
@@ -477,6 +541,14 @@ export async function hubDraftAction(
       // "Shown" must never manufacture a blank section — `setSectionMode`'s rule.
       if (item.kind === 'widget' && item.field === 'mode' && item.value === 'shown' && !hasContent(item.widgetType, contentMap)) {
         held.push({ item, reason: 'empty_section' });
+        continue;
+      }
+      /* 💎 A CUSTOM ADDRESS (owner 2026-10-22) goes live through the ONE rename (`renameEventSlug` — conflict checks,
+         the old link forwarding), never through the events update below. Taken since it was typed → held, said why. */
+      if (item.kind === 'address') {
+        const renamed = await renameEventSlug(supabase, eventId, item.value, typeof me === 'string' ? me : null);
+        if (!renamed.ok) held.push({ item, reason: 'address_taken' });
+        else if (renamed.changed) revalidatePath(`/dashboard/${eventId}`, 'layout');
         continue;
       }
       toWrite.push(item);
@@ -518,7 +590,6 @@ export async function hubDraftAction(
        write time (below, after the theme's fill), every other key kept. */
     const mainColoursWrite = HUB_DRAFT_MAIN_COLOURS in eventsPatch ? sanitizeMainColourDraft(eventsPatch[HUB_DRAFT_MAIN_COLOURS]) : undefined;
     delete eventsPatch[HUB_DRAFT_MAIN_COLOURS];
-    const dateWritten = 'event_date' in eventsPatch;
     /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
        only; `style_preferences` also carries the couple's onboarding answers,
        so it is MERGED into the blob as it stands at write time — through the
@@ -538,7 +609,22 @@ export async function hubDraftAction(
     /* 🎫 THE TICKET STYLE (owner 2026-10-02 Q7, "the pass look waits for Apply"):
        drafted beside the name style, merged the same way — only when held. */
     const passDesignWrite = draftedPrint && 'pass_design' in draftedPrint ? passCardDesignFrom(draftedPrint.pass_design) : undefined;
+    /* ⏳ THE OPENING LINE (owner 2026-10-08, "draft 1-3"): drafted beside them, merged the same way. */
+    const openingLineWrite =
+      draftedPrint && 'opening_line' in draftedPrint ? parsePrintDetails({ opening_line: draftedPrint.opening_line }).openingLine : undefined;
     delete eventsPatch.print_details;
+    /* ⏳ REPLY BY (owner 2026-10-08, "draft 1-3") leaves the session update too: its live writer
+       (`updatePaxSettings`) writes it through the admin client, after the host check — Apply does the
+       same below (the host check is at the top of this action), with the same audit row. */
+    const deadlineWrite =
+      'guest_list_edit_deadline' in eventsPatch ? ((eventsPatch.guest_list_edit_deadline as string | null) ?? null) : undefined;
+    delete eventsPatch.guest_list_edit_deadline;
+    /* 🏷 THE ENTOURAGE'S SECTION HEADINGS (owner 2026-10-19) leave the session update too: `role_names` has no UPDATE
+       grant, and the draft holds its SECTION keys only. Written below through the column's ONE writer
+       (`writeRoleNames` — the Guest list's "Rename this section" is the same door), each word laid on the names as
+       they are when the write lands, every role's word kept. */
+    const sectionWordsWrite = 'role_names' in eventsPatch ? sanitizeDraftedSectionWords(eventsPatch.role_names) : undefined;
+    delete eventsPatch.role_names;
     /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
        from, and off when there is no song to play. */
     if ('site_bg_music_r2_key' in eventsPatch) {
@@ -607,10 +693,6 @@ export async function hubDraftAction(
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
       }
-      // The date went live over booked suppliers — close the request, tell each one.
-      if (dateMove && eventsPatch.event_date === dateMove.next.date) {
-        await afterDateApplied({ supabase, eventId, next: dateMove.next, requestId: dateMove.requestId });
-      }
       /* 🗂 Papic turned back ON in Your info (owner 2026-10-02): arm what the
          commit did not when the answer was No — the free pool and the one free
          camera, the same two idempotent writes every creation path makes, so
@@ -619,55 +701,80 @@ export async function hubDraftAction(
       if (eventsPatch.papic_on === true) {
         const admin = createAdminClient();
         await ensureFreePapicPoolGrantAdmin(admin, eventId);
-        await ensureFreePapicOneCameraAdmin(admin, eventId);
+        // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+        // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+        // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
       }
     }
     if (qrWrite !== undefined) {
-      const admin = createAdminClient();
-      const { data: prefRow, error: prefErr } = await admin
-        .from('events')
-        .select('style_preferences')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      const prefs =
-        !prefErr && prefRow?.style_preferences && typeof prefRow.style_preferences === 'object'
-          ? { ...(prefRow.style_preferences as Record<string, unknown>) }
-          : null;
-      if (!prefs && prefErr) {
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      /* 👥 Laid onto style_preferences AS IT IS when the write lands (`updateJsonColumn`, round 2) — a key another
+         feature wrote while Apply ran (a scene style, a pending inquiry) stays. Its write proves its row. */
+      let qrOk = false;
+      try {
+        qrOk = (
+          await updateJsonColumn(
+            createAdminClient() as unknown as JsonColumnClient,
+            { table: 'events', row: { event_id: eventId }, column: 'style_preferences', what: 'Your style' },
+            (raw) => ({ next: { ...(raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}), ...qrWrite } }),
+          )
+        ).written;
+      } catch {
+        qrOk = false;
       }
-      const { data: qrRows, error: qrErr } = await admin
-        .from('events')
-        .update({ style_preferences: { ...(prefs ?? {}), ...qrWrite } })
-        .eq('event_id', eventId)
-        .select('event_id');
-      if (qrErr || !Array.isArray(qrRows) || qrRows.length === 0) {
+      if (!qrOk) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
-    if (nameStyleWrite !== undefined || passDesignWrite !== undefined) {
+    if (deadlineWrite !== undefined) {
       const admin = createAdminClient();
-      const { data: pdRow, error: pdErr } = await admin
+      const { data: before } = await admin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle();
+      const { data: dlRows, error: dlErr } = await admin
         .from('events')
-        .select('print_details')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      if (pdErr || !pdRow) {
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
-      }
-      const stored = parsePrintDetails(pdRow.print_details);
-      const { data: pdRows, error: pdWriteErr } = await admin
-        .from('events')
-        .update({
-          print_details: serializePrintDetails({
-            ...stored,
-            ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
-            ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
-          }),
-        })
+        .update({ guest_list_edit_deadline: deadlineWrite })
         .eq('event_id', eventId)
         .select('event_id');
-      if (pdWriteErr || !Array.isArray(pdRows) || pdRows.length === 0) {
+      if (dlErr || !Array.isArray(dlRows) || dlRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const { data: who } = await supabase.auth.getUser();
+      const { error: auditErr } = await admin.from('admin_audit_log').insert({
+        action: 'pax_settings_updated',
+        target_table: 'events',
+        target_id: eventId,
+        before_json: before ?? null,
+        after_json: { guest_list_edit_deadline: deadlineWrite, via: 'hub_draft_apply' },
+        actor_user_id: who.user?.id ?? null,
+      });
+      /* The date is applied; a missing audit row is logged, never a reason to call Apply failed. */
+      if (auditErr) console.error('[hub-draft] reply-by audit row not written:', auditErr.message);
+    }
+    if (sectionWordsWrite) {
+      const changes = Object.entries(sectionWordsWrite)
+        .filter(([key]) => isRenamableSection(key.slice(SECTION_NAME_PREFIX.length)))
+        .map(([key, one]) => ({ key: key as SectionNameKey, one }));
+      let written: unknown = null;
+      try {
+        written = changes.length > 0 ? await writeRoleNames(createAdminClient() as unknown as JsonColumnClient, eventId, changes) : {};
+      } catch {
+        written = null;
+      }
+      if (!written) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      // Every surface that prints a heading: the guest list + the Event Hub (`revalidateMarch`), the prints, the studio rows.
+      await revalidateMarch(eventId);
+      for (const path of [`/dashboard/${eventId}/prints`, `/dashboard/${eventId}/studio/mood-board`, `/dashboard/${eventId}/invitation`]) revalidatePath(path);
+    }
+    if (nameStyleWrite !== undefined || passDesignWrite !== undefined || openingLineWrite !== undefined) {
+      // 👥 Applied to print_details as it is when the write lands (lib/print-details-write.ts) — never a copy read
+      // earlier, which a menu or a poster photo saved meanwhile may already have passed. A row-count proof inside.
+      const pd = await updatePrintDetails(createAdminClient(), eventId, (now) => ({
+        ...now,
+        ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
+        ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
+        ...(openingLineWrite !== undefined ? { openingLine: openingLineWrite } : {}),
+      }));
+      if (!pd.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
@@ -731,29 +838,9 @@ export async function hubDraftAction(
       }
     }
 
-    /* 📅 THE WHOLE SCHEDULE FOLLOWS THE DATE (owner 2026-10-04, DECISION_LOG
-       "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", *"Yes if possible"*):
-       the date went live above, so every block — the ceremony, its parts and
-       the rest of the day — moves by the same number of days, each keeping its
-       time. Only when both days are exact and differ (a month or a year has no
-       day to measure from). ONE SQL function moves every block in one
-       statement — all or nothing — and only once per move, so a second Apply
-       racing this one shifts nothing. The couple's own session. */
-    if (dateWritten) {
-      const shifted = await moveScheduleWithDate({ supabase, eventId, fromDay: priorDay, toDay: nextDay });
-      if (!shifted.ok) {
-        console.error('[hub-draft] the schedule did not follow the date:', shifted.error);
-        // Said as it is: NO block moved (all or nothing), so Apply again would
-        // not move it — the Schedule can. `stale`: the date changed again meanwhile.
-        return shifted.error === 'stale'
-          ? { ok: false, intent, error: 'Your date changed again while this was applying. Open your Schedule to check its times.' }
-          : { ok: false, intent, error: 'Your new date is live, but your Schedule stayed on the old day. Open your Schedule to move it.' };
-      }
-    }
-
     /* 🕒 THE CEREMONY BLOCK (owner 2026-10-04, "YES TO ALL" (2)): a typed time
        creates the Ceremony on the event's day, or moves the one there is. (A
-       date that moved already took it along, with the whole Schedule, above.) */
+       date that moves takes it along, with the whole Schedule, in `updateEventDate`.) */
     if (nextDay && ceremonyTimeWrite !== undefined) {
       const placed = await placeCeremonyBlock({ supabase, eventId, day: nextDay, time: ceremonyTimeWrite });
       if (!placed.ok) {
@@ -808,10 +895,18 @@ export async function hubDraftAction(
           const key =
             item.field === 'main'
               ? HUB_MAIN_GROUND_KEY
+              : item.field === 'music'
+                ? HUB_MUSIC_KEY
               : item.field === 'stage_order'
                 ? STAGE_ORDER_KEY
+                : item.field === 'stage_show'
+                  ? STAGE_SHOW_KEY
+                : item.field === 'part_show'
+                  ? PART_SHOW_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
+                : item.field === 'photos_heading'
+                  ? PHOTOS_HEADING_KEY
                   : item.field === 'custom'
                     ? 'custom'
                     : item.field === 'venue'
@@ -827,15 +922,28 @@ export async function hubDraftAction(
         }
       }
       (snapshot.widgets as Record<string, unknown>)[row.widget_type] = before;
-      const { data: wRows, error: wErr } = await supabase
-        .from('invitation_widgets')
-        .update(patch)
-        .eq('widget_id', widgetId)
-        .eq('event_id', eventId)
-        .select('widget_id');
-      if (wErr || !Array.isArray(wRows) || wRows.length === 0) {
-        // Earlier writes landed; the draft is untouched, so Apply again finishes it.
-        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      /* 👥 The section's bag is written ONE AT A TIME, merged from the bag Apply read onto the bag as it is now
+         (`lib/widget-config-write.ts`, owner 2026-10-18: two hosts never overwrite each other) — a live write another
+         screen made while Apply ran (a crop, a venue card) is kept. The section's other columns as before. */
+      const { config_json: nextConfig, ...rowColumns } = patch as Record<string, unknown>;
+      if (nextConfig !== undefined) {
+        try {
+          await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, row.config_json, nextConfig as Record<string, unknown>);
+        } catch {
+          return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        }
+      }
+      if (Object.keys(rowColumns).length > 0) {
+        const { data: wRows, error: wErr } = await supabase
+          .from('invitation_widgets')
+          .update(rowColumns)
+          .eq('widget_id', widgetId)
+          .eq('event_id', eventId)
+          .select('widget_id');
+        if (wErr || !Array.isArray(wRows) || wRows.length === 0) {
+          // Earlier writes landed; the draft is untouched, so Apply again finishes it.
+          return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+        }
       }
     }
 
@@ -895,7 +1003,8 @@ export async function hubDraftAction(
       if (item.kind !== 'march') continue;
       const replay = await runDraftedMarch(item.value, (step) => callMarchStep(eventId, step));
       if (replay.failed) {
-        await writeHubDraft(supabase, eventId, { ...current, march: replay.left, history: [] });
+        // 👥 A save another screen made while Apply ran stays drafted (`draftLeftAfterApply`).
+        await updateHubDraft(supabase, eventId, (now) => ({ next: draftLeftAfterApply(current, { ...current, march: replay.left, history: [] }, now) }));
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
       if (replay.stopped) {
@@ -919,6 +1028,9 @@ export async function hubDraftAction(
         // A style pick is free and never held; nothing to keep.
       } else if (item.kind === 'march') {
         // 🚶 A march that stopped keeps nothing: what was still queued is dropped (said by name).
+      } else if (item.kind === 'address') {
+        // 💎 A custom address held (for the part, or taken meanwhile) stays drafted, still picked.
+        remaining.address = item.value;
       } else if (item.field === 'canvas') {
         (remaining.widgets[item.widgetType] ??= {}).canvas = item.value as HubSectionCanvas | null;
       } else if (item.field === 'main') {
@@ -928,12 +1040,26 @@ export async function hubDraftAction(
       } else if (item.field === 'is_visible') {
         // 🎬 A scene of their own, held for Pro, stays SHOWN in the draft.
         (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
+      } else if (item.field === 'stage_show') {
+        // 👁 …and on the stages it was set to show on.
+        (remaining.widgets[item.widgetType] ??= {}).stage_show = heldStageShow(item.value);
       } else if (item.field === 'custom') {
         // ✍ Its words, held for Pro, stay in the draft too.
         (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;
       }
     }
-    await writeHubDraft(supabase, eventId, { v: 1, ...remaining, history: [] }, snapshot);
+    /* 👥 What another screen saved while Apply ran is NOT live yet: it stays drafted, built on the draft as it is when
+       this write lands (`draftLeftAfterApply` inside `updateHubDraft`) — never Apply's own trim of the copy it read. */
+    const trimmed = await updateHubDraft(
+      supabase,
+      eventId,
+      (now) => ({ next: draftLeftAfterApply(current, { v: 1, ...remaining, history: [] }, now) }),
+      snapshot,
+    );
+    const left: HubDraft = trimmed.draft ?? { v: 1, ...remaining, history: [] };
+    /* ✓ (2026-10-15) asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back WITH the apply — the ✓ count shows what is
+       left the moment the write answers, never only after the Maker's render (`hub-draft-bar.tsx` `applyHeld`). */
+    const applyBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1' ? await hubDraftBarAfterSave(supabase, eventId, left) : null;
 
     revalidateWebsiteEditor(eventId);
     revalidateGuestSite(typeof ownRow.slug === 'string' ? ownRow.slug : null);
@@ -951,14 +1077,15 @@ export async function hubDraftAction(
       const preset = postEventPreset(presetSceneOf(drafted !== undefined ? (drafted ?? {}) : sanitizeHubCanvas(row?.config_json)));
       return preset ? `Post Event · your scene “${preset.name}”` : (WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section');
     };
-    // A fact held across several columns (the date's day and precision) is said once.
+    // A fact held across several columns (the venues' nine) is said once.
     const heldSaid = held
       .map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason }))
       .filter((h, i, all) => all.findIndex((o) => o.label === h.label && o.reason === h.reason) === i);
-    return done(
+    const applied = done(
       toWrite.length,
       [...heldSaid, ...plan.orphans.map((t) => ({ label: label(t), reason: 'missing_section' as const }))],
     );
+    return applyBar ? { ...applied, bar: applyBar } : applied;
   } catch (e) {
     console.error('[hub-draft] action failed:', intent, e instanceof Error ? e.message : e);
     // 📏 The draft would not fit even with no Undo history: say WHAT to do,

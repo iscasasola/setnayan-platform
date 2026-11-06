@@ -42,6 +42,12 @@
  */
 
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
+import {
+  MOODBOARD_SLOT_TRADES as SLOT_TRADES,
+  inspirationPart,
+  partCategories,
+  type InspirationPartsSnapshot,
+} from './inspiration-parts';
 import { GALLERY_FROM, cleanGallerySearch, isGalleryFromKey, type GalleryFromKey } from './inspiration-slots';
 import { resolveRegion } from './region-source';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
@@ -57,70 +63,65 @@ import { canonicalServicesForTile } from './vendor-counts';
  */
 export { SUPPLIER_GALLERY_ASSET_TYPE } from './moodboard-gallery-pure';
 
-/**
- * Which marketplace trades supply each inspiration slot.
- *
- * Ordered MOST characteristic first: the first tile a shop matches is the one
- * printed on the credit, so `flowers` leads with `florist` and `table` leads
- * with `stylist_decorator` (a stylist dresses the table; a florist supplies
- * one thing on it).
- */
-export const MOODBOARD_SLOT_TRADES: Readonly<
-  Record<MoodboardSlotKey, readonly WeddingTile[]>
-> = {
-  // ── the place ──
-  venue: ['ceremony_venue'],
-  reception_venue: ['reception'],
-  // ── what the room is dressed with ──
-  backdrop: ['stylist_decorator', 'led_wall'],
-  tunnel: ['stylist_decorator'],
-  stage: ['stylist_decorator', 'av_production', 'lights_sound'],
-  table: ['stylist_decorator', 'florist'],
-  ceiling: ['stylist_decorator', 'lights_sound'],
-  flowers: ['florist', 'stylist_decorator'],
-  cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
-  cake: ['cake', 'dessert'],
-  // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
-  bridal_bouquet: ['florist'],
-  centrepieces: ['florist', 'stylist_decorator', 'catering'],
-  overall: ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
-  // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
-  // from — a wall, a fabric, a sunset. No shop's portfolio answers it.
-  palette: [],
-  // ── what people wear. HMUA rides with `bride` because a bridal-hair photo
-  //    and a gown photo are the same picture. ──
-  bride: ['brides_attire', 'filipiniana_barongs', 'hmua'],
-  groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
-  principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-};
+/** The slot → trade map — the fallback seed. MOVED to lib/inspiration-parts.ts (client-safe); re-exported. */
+export { MOODBOARD_SLOT_TRADES } from './inspiration-parts';
 
-/** The trades that supply a slot — empty when no shop's portfolio answers it. */
-export function tradesForSlot(slot: string): readonly WeddingTile[] {
-  return MOODBOARD_SLOT_TRADES[slot as MoodboardSlotKey] ?? [];
+/**
+ * The trades that supply a slot — empty when no shop's portfolio answers it.
+ *
+ * 🧩 READ OFF THE PARTS SNAPSHOT (step ②): the part's home category, then its "also from" categories, in
+ * order (`partCategories`). Every function below takes the snapshot as its last, REQUIRED argument — a
+ * server caller passes `await getInspirationParts()`.
+ *
+ * 🛑 ③0-b (PLAN `admin_taxonomy_four_levels_2026-10-26` § 8.3): this argument USED TO DEFAULT to
+ * `fallbackInspirationParts()`, and every caller that forgot it silently read the consts — sign-off,
+ * supplier suggestions and the library nav gate kept the seed's answer after an admin edited a part while
+ * the couple's picker moved. There is no default now: a caller that has no snapshot must name
+ * `fallbackInspirationParts()` itself, where a reviewer can see it (dev labs, the seed generator, the
+ * module-load structural asserts — each says why).
+ */
+export function tradesForSlot(
+  slot: string,
+  parts: InspirationPartsSnapshot,
+): readonly WeddingTile[] {
+  return partCategories(inspirationPart(parts, slot));
 }
 
 /** TRUE when a supplier gallery is meaningful for this slot at all. */
-export function slotHasSupplierTrade(slot: string): boolean {
-  return tradesForSlot(slot).length > 0;
+export function slotHasSupplierTrade(slot: string, parts: InspirationPartsSnapshot): boolean {
+  return tradesForSlot(slot, parts).length > 0;
 }
 
-/** Every inspiration slot a supplier gallery can exist for — derived. */
+/** Every part a supplier gallery can exist for, in the parts' order — derived from the snapshot. */
+export function gallerySlotKeys(parts: InspirationPartsSnapshot): string[] {
+  return parts.parts.filter((p) => partCategories(p).length > 0).map((p) => p.slotKey);
+}
+
+/**
+ * The fallback's gallery slots, in `MOODBOARD_SLOT_KEYS` order — kept for the callers that still read the
+ * consts (the legacy board's tile grid, the render pool); a server page that reads the snapshot uses
+ * `gallerySlotKeys(parts)`.
+ */
 export const GALLERY_SLOT_KEYS: readonly MoodboardSlotKey[] = MOODBOARD_SLOT_KEYS.filter(
-  (k) => MOODBOARD_SLOT_TRADES[k].length > 0,
+  (k) => SLOT_TRADES[k].length > 0,
 );
 
 /**
- * The canonical service keys a slot's trades cover, de-duped.
+ * The canonical service keys that may add a photo to a slot, de-duped.
  *
- * DERIVED from the tiles above via lib/vendor-counts. MB11's "which trades may
- * upload to this slot" gate reads exactly this — never its own copy.
+ * 🧩 ③a: the part's OWN services (`inspiration_part_services`, read into the snapshot) — the same
+ * `canonical_service` a shop sells, linked one by one by an admin. Only the fallback snapshot (no table read,
+ * `services: null`) derives them from the part's categories via lib/vendor-counts, which is exactly how the
+ * table was backfilled. MB11's "which trades may upload to this slot" gate reads exactly this — never its own copy.
  */
-export function canonicalServicesForSlot(slot: string): string[] {
+export function canonicalServicesForSlot(
+  slot: string,
+  parts: InspirationPartsSnapshot,
+): string[] {
+  const part = inspirationPart(parts, slot);
+  if (part && part.services !== null) return part.kind === 'system' ? [] : [...new Set(part.services)];
   const out = new Set<string>();
-  for (const tile of tradesForSlot(slot)) {
+  for (const tile of tradesForSlot(slot, parts)) {
     for (const canonical of canonicalServicesForTile(tile)) out.add(canonical);
   }
   return [...out];
@@ -144,16 +145,18 @@ export function canonicalServicesForSlot(slot: string): string[] {
 export function tradeLabelForCredit(
   slot: string,
   vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
 ): string | null {
   if (!vendorServices || vendorServices.length === 0) return null;
+  const trades = tradesForSlot(slot, parts);
   const owned = new Set<WeddingTile>();
   for (const canonical of vendorServices) {
-    for (const tile of tradesForSlot(slot)) {
+    for (const tile of trades) {
       if (canonicalServicesForTile(tile).includes(canonical)) owned.add(tile);
     }
   }
-  for (const tile of tradesForSlot(slot)) {
-    if (owned.has(tile)) return WEDDING_TILE_LABEL[tile];
+  for (const tile of trades) {
+    if (owned.has(tile)) return WEDDING_TILE_LABEL[tile] ?? null;
   }
   return null;
 }
@@ -192,7 +195,8 @@ export const GALLERY_MAX_LIMIT = 24;
 export const GALLERY_MAX_OFFSET = 600;
 
 export type GalleryQuery = {
-  slotKey: MoodboardSlotKey;
+  /** A part's key — any part of the snapshot, so an admin-added part's shelf can be searched too. */
+  slotKey: string;
   limit: number;
   offset: number;
   /**
@@ -211,18 +215,21 @@ export type GalleryQuery = {
  * Clamp an untrusted page request. `null` = this slot has no supplier trade,
  * or the key is not a slot at all — the caller must not query.
  */
-export function normalizeGalleryQuery(input: {
-  slotKey?: unknown;
-  limit?: unknown;
-  offset?: unknown;
-  q?: unknown;
-  from?: unknown;
-  near?: unknown;
-}): GalleryQuery | null {
+export function normalizeGalleryQuery(
+  input: {
+    slotKey?: unknown;
+    limit?: unknown;
+    offset?: unknown;
+    q?: unknown;
+    from?: unknown;
+    near?: unknown;
+  },
+  parts: InspirationPartsSnapshot,
+): GalleryQuery | null {
   const slotKey = input.slotKey;
   if (typeof slotKey !== 'string') return null;
-  if (!(MOODBOARD_SLOT_KEYS as readonly string[]).includes(slotKey)) return null;
-  if (!slotHasSupplierTrade(slotKey)) return null;
+  if (!inspirationPart(parts, slotKey)) return null;
+  if (!slotHasSupplierTrade(slotKey, parts)) return null;
 
   const rawLimit = Number(input.limit ?? GALLERY_PAGE_SIZE);
   const limit = Number.isFinite(rawLimit)
@@ -234,7 +241,7 @@ export function normalizeGalleryQuery(input: {
     ? Math.min(GALLERY_MAX_OFFSET, Math.max(0, Math.floor(rawOffset)))
     : 0;
 
-  const out: GalleryQuery = { slotKey: slotKey as MoodboardSlotKey, limit, offset };
+  const out: GalleryQuery = { slotKey, limit, offset };
   const q = cleanGallerySearch(input.q);
   if (q) out.q = q;
   if (isGalleryFromKey(input.from) && input.from !== 'everyone') {
@@ -295,13 +302,13 @@ export type GalleryPage = {
    *     'verified'`, so an unapproved shop's photo comes back with a null
    *     embed. An uncredited gallery photo is a stock photo, and showing it
    *     would break the only promise the gallery makes;
-   *   · the asset carries NO sampled colours, so there is nothing honest to
-   *     write into the board row's six NOT NULL `sampled_hex_*` columns. The
-   *     apply-a-template path already refuses this case for the same reason
-   *     ("no real color to write — skip, don't invent one"), and the Canvas
-   *     extractor cannot rescue it: a cross-origin image taints the canvas and
-   *     `extractPaletteFromImage` then returns CREAM DEFAULTS rather than
-   *     throwing — a fabricated palette that renders exactly like a real one.
+   *   · ~~the asset carries NO sampled colours~~ — NO LONGER A REASON (2026-10-19):
+   *     withholding it made an approved, credited supplier photo invisible, and
+   *     suppliers do not tag colours. It is shown with `swatches: []`; the
+   *     colours the board row's six NOT NULL `sampled_hex_*` need are read off
+   *     the photo's own pixels ON THE SERVER at the pick
+   *     (`extractPaletteFromBytes` — no canvas to taint, no cream padding), and
+   *     a photo whose pixels yield none is refused there, never invented.
    *
    * `total > 0` with an empty `assets` is therefore a real and different
    * answer from `total === 0`, and the picker says something different for
@@ -334,11 +341,23 @@ export type RawGalleryRow = {
  * PURE — no Supabase, so every withholding rule unit-tests in milliseconds.
  * The six hexes are the asset's own sampled colours in slot order, cycled to
  * six when it carries fewer (the same `i % length` fill the template path
- * uses); a row with none is withheld rather than padded with invented colour.
+ * uses).
+ *
+ * 🌱🖼 A ROW WITH NO COLOURS IS SHOWN, NOT WITHHELD (2026-10-19, PR #6655). It used to be withheld — and suppliers do
+ * not tag colours, so an approved, credited supplier photo was invisible to every couple: the owner's "create more
+ * inspirations faster" would have filled the library with photos nobody could find. It now arrives with `swatches: []`
+ * — still never padded with an invented colour — and the picker shows it unfiltered by "Matches my colours", after
+ * the photos that do match. Its colours are read off its own pixels when a couple saves it (`applyGalleryPick` →
+ * `extractPaletteFromBytes`), and every new supplier upload is tagged at upload, so this is the fallback, not the
+ * path. `an-untagged-supplier-photo-still-reaches-search-ideas.test.ts` holds it.
+ *
+ * 🖼 THE IMAGE URL IS SERVABLE (`galleryImageUrl`). A supplier upload stores `moodboard-library/<uid>/<id>.jpg` — a
+ * bucket path, not a URL — and handing that to `<img src>` drew a broken picture.
  */
 export function shapeGalleryPage(
   slot: string,
   rows: readonly RawGalleryRow[],
+  parts: InspirationPartsSnapshot,
 ): { assets: GalleryAsset[]; withheld: number } {
   const assets: GalleryAsset[] = [];
   let withheld = 0;
@@ -352,22 +371,32 @@ export function shapeGalleryPage(
     const hexes = [...row.ranges]
       .sort((a, b) => a.slot_id - b.slot_id)
       .map((r) => r.sampled_hex);
-    if (hexes.length === 0) {
-      withheld += 1;
-      continue;
-    }
     assets.push({
       assetId: row.asset_id,
-      imageUrl: row.storage_path,
+      imageUrl: galleryImageUrl(row.storage_path),
       label: row.label?.trim() ?? '',
-      credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null)),
+      credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null, parts)),
       vendorProfileId,
       shopSlug: row.shop?.business_slug?.trim() || null,
-      swatches: Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
+      swatches: hexes.length === 0 ? [] : Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
       isEventLinked: row.is_event_linked === true,
     });
   }
   return { assets, withheld };
+}
+
+/**
+ * A library row's `storage_path` as something a browser can load. Rows authored by the upload actions store the
+ * bucket path (`moodboard-library/<key>`, the shape `stylistAssetObjectKey` reads back); older rows store a full URL
+ * or a site path (`/moodboard/…`), which pass through untouched. The bucket is public (its read policy is the
+ * approved-and-not-retired one), so its public object URL is the address.
+ */
+export function galleryImageUrl(storagePath: string): string {
+  const prefix = 'moodboard-library/';
+  if (!storagePath.startsWith(prefix)) return storagePath;
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  // Joined, not a `/…` template: the Root map reads a slash-led template as an app door (it matched a catch-all).
+  return [base, 'storage', 'v1', 'object', 'public', storagePath].join('/');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

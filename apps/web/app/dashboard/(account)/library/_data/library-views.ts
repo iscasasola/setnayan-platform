@@ -9,7 +9,7 @@
  * lights and the view the page renders cannot disagree — including for the
  * legacy `?tab=photos` an email already in people's inboxes still sends.
  */
-import { Images, Heart, Newspaper } from 'lucide-react';
+import { Images, Heart, Newspaper, Trophy } from 'lucide-react';
 
 /** The Alaala tile's five lenses, in the tile's own order. */
 export const LENS_KEYS = ['recent', 'owned', 'attended', 'people', 'with_me'] as const;
@@ -21,7 +21,7 @@ export const LENS_KEYS = ['recent', 'owned', 'attended', 'people', 'with_me'] as
  * of it — but it is a LIST OF EVENTS, and a list of events is the board's
  * answer, not Alaala's. It keeps its door; it stops being the memory.
  */
-export const KEPT_KEYS = ['albums', 'editorials', 'vendors'] as const;
+export const KEPT_KEYS = ['albums', 'challenges', 'editorials', 'vendors'] as const;
 
 export type LensKey = (typeof LENS_KEYS)[number];
 export type KeptKey = (typeof KEPT_KEYS)[number];
@@ -52,6 +52,9 @@ export const LENSES: { key: LensKey; label: string }[] = [
 
 export const KEPT: { key: KeptKey; label: string; Icon: typeof Images }[] = [
   { key: 'albums', label: 'Albums by event', Icon: Images },
+  // 🏆 The Papic challenges, by event then by challenge (owner 2026-10-23: "on the memories. a place for the papic
+  // challenges also. how they are categorized") — only the events that had any.
+  { key: 'challenges', label: 'Challenges', Icon: Trophy },
   { key: 'editorials', label: 'Editorials', Icon: Newspaper },
   { key: 'vendors', label: 'Saved suppliers', Icon: Heart },
 ];

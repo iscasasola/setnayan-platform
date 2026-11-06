@@ -11,8 +11,7 @@ import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-id
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { appendLedger } from '@/lib/ledger';
 import {
@@ -120,7 +119,7 @@ export async function activateVendorAiAddon(
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
   if (!isTierAtLeast(tier, 'solo')) {
-    return err('Vendor AI is available on the paid plans (Solo, Pro, or Enterprise). Upgrade to add it.');
+    return err('Vendor AI is available on the paid plans (Solo, Pro, or Ultra). Upgrade to add it.');
   }
   if (verification !== 'verified') {
     return err('Get your shop verified first — Vendor AI unlocks once you’re verified.');
@@ -135,13 +134,13 @@ export async function activateVendorAiAddon(
   const trialUsed =
     (stateRow as { ai_addon_trial_used_at?: string | null } | null)?.ai_addon_trial_used_at != null;
 
-  // Re-read the authoritative ₱1,500 price + is_active from the admin-managed
-  // catalog (mirrors the token-RPC is_active guard). A retired SKU (row exists,
-  // is_active=false) blocks the sale; a missing row falls back to ₱1,500.
+  // Re-read the authoritative price + is_active from the admin-managed catalog — THIS shop's band row (owner
+  // 2026-11-04, "DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN"). A retired row blocks the sale. The ORDER still
+  // carries `VENDOR_AI_ADDON_SKU_CODE` (the activation hook's key).
   const { data: skuRow } = await supabase
     .from('vendor_billing_catalog')
     .select('price_php, is_active')
-    .eq('sku_code', VENDOR_AI_ADDON_SKU_CODE)
+    .eq('sku_code', vendorAddonSkuCode('ai_chatbot_basic', tier))
     .maybeSingle();
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('Vendor AI is temporarily unavailable. Please try again later.');
@@ -150,17 +149,10 @@ export async function activateVendorAiAddon(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  // 2026-07-25 tiered add-on model: the CYCLE price comes from the code SSOT band
-  // (₱2,000 Free/Solo · ₱1,500 Pro/Ent) instead of the flat catalog row.
-  //
-  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveVendorAiAddonPricePhp
-  // short-circuits to ₱0 on the free first cycle BEFORE it looks at this value, so
-  // overwriting `pricePhp` afterwards would silently bill the trial. Same shape as
-  // booth-addon-actions.ts. The tier is re-read server-side above, so a tampered
-  // client can never force the cheaper Pro band.
-  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
-    ? resolveVendorAddonPricePhp('ai_chatbot_basic', tier)
-    : catalogCyclePricePhp;
+  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveVendorAiAddonPricePhp short-circuits to ₱0 on the
+  // free first cycle BEFORE it looks at this value, so overwriting `pricePhp` afterwards would silently bill the
+  // trial. The tier is re-read server-side above, so a tampered client can never force the cheaper band.
+  const cyclePricePhp = catalogCyclePricePhp;
   const pricePhp = resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp });
   /** What a cycle costs this vendor once the free first cycle is spent — so no
    *  message below hardcodes ₱1,500, which is wrong for the entry band. */

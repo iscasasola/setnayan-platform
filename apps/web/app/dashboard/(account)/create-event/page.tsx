@@ -1,20 +1,25 @@
 import Link from 'next/link';
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ArrowLeft, HeartHandshake, Sparkles, Users } from 'lucide-react';
+import { HeartHandshake, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveProfile } from '@/lib/event-type-profile';
-import { fetchCommunity } from '@/lib/communities';
+import { fetchCommunity, fetchUserCommunities } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isPersonDependent } from '@/lib/dependent-people';
+import { lovedOnesInMyCare, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
 import {
+  buildCreateRoster,
+  buildGroupSubject,
   buildSelfSubject,
-  buildUnspecifiedSubject,
   dependentSubjects,
   type CreateSubject,
   type DependentSubjectRow,
@@ -22,19 +27,42 @@ import {
 import { getInPlanningWedding } from './wedding-guard';
 import { readPlanTogether } from '@/lib/plan-together.server';
 import { EventTypePicker } from './_components/event-type-picker';
+import { NewEventHead } from './_components/new-event-head';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
    lands in DIY by default. */
 
 export const metadata = { title: 'Create event' };
 
-import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation';
+/**
+ * The name of the shop this login is standing in, or null. ⚠ A refused read ANYWHERE
+ * here means "A business" asks the name instead of filling it — never a wrong shop.
+ */
+async function readActiveShopName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<string | null> {
+  let shopId: string | null = null;
+  try {
+    shopId = await resolveActiveShopId(supabase, userId);
+  } catch (e) {
+    logQueryError('CreateEventPage.activeShop', e, {}, 'graceful_degrade');
+    return null;
+  }
+  if (!shopId) return null;
+  const { data, error } = await supabase
+    .from('vendor_profiles')
+    .select('business_name')
+    .eq('vendor_profile_id', shopId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('CreateEventPage.shopName', error, {}, 'graceful_degrade');
+    return null;
+  }
+  return (data?.business_name as string | null | undefined) ?? null;
+}
 
 const ERROR_COPY: Record<string, string> = {
-  // Owner ruling 2026-08-15 — the shop account is the business, and the business
-  // does not plan celebrations. Says the way forward, because the old behaviour
-  // was a SILENT flick back to the shop with no message at all.
-  shop_account: SHOP_ACCOUNT_CANNOT_CREATE_COPY,
   // The two outcomes of a failed write, kept apart on purpose. `create_failed`
   // means nothing survived — retrying is safe and is the right advice.
   // `create_incomplete` means a half-made event could NOT be rolled back, so
@@ -46,6 +74,7 @@ const ERROR_COPY: Record<string, string> = {
   plan_next_year_failed:
     'We couldn’t set up next year’s event. Nothing was charged — please try again.',
   missing_name: 'Please give the event a name.',
+  event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
   invalid_type:
     "That event type isn't available yet — pick one to continue.",
   missing_ceremony_type:
@@ -64,7 +93,7 @@ const ERROR_COPY: Record<string, string> = {
   // same block ON that screen. Naming a field by its old label sent people
   // looking for something that is not there.
   life_event_exists:
-    'That celebration is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
+    'That event is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
 };
 
 type SearchParams = Promise<{
@@ -124,6 +153,18 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     data: { user },
   } = await supabase.auth.getUser();
   const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
+  // 🚪 A brand-new account's FIRST screen after the You card (owner 2026-10-21, prototype
+  // first_run_you_and_next_steps P2): there is no board behind it yet, so no "Back to events". A count, not the
+  // rows; an unread count (error) keeps the way back — the unknown never reads as "nothing behind you".
+  let nothingBehind = false;
+  if (user && !params.samahan) {
+    const { count, error } = await supabase
+      .from('event_members')
+      .select('event_id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    if (error) logQueryError('CreateEventPage.eventCount', error, { user_id: user.id }, 'graceful_degrade');
+    nothingBehind = !error && (count ?? 0) === 0;
+  }
 
   // Samahan context (plan §7): `?samahan=<communityId>` turns this into
   // COMMUNITY event creation — organizer-gated. A non-organizer, a plain
@@ -140,17 +181,31 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // Community events are class-gated (owner lock 2026-07-15): the picker only
   // shows event types whose profile is community_eligible — a Samahan can
   // never own a personal milestone. resolveProfile is request-cached per type.
-  const typesForContext = samahan
-    ? (
-        await Promise.all(
-          eventTypes.map(async (t) =>
-            (await resolveProfile(t.key)).eventClass === 'community_eligible'
-              ? t
-              : null,
-          ),
-        )
-      ).filter((t): t is (typeof eventTypes)[number] => t !== null)
-    : eventTypes;
+  //
+  // 👥 "YOUR GROUPS" (owner 2026-10-28, DECISION_LOG "EVENT TYPES MUST BE SPECIFIC"): the SAME class rule narrows the
+  // grid when "For ▾" is one of the account's groups, so it is computed once here for both. Only groups this person
+  // ORGANIZES are offered — the create action refuses anyone else (`samahan_not_organizer`), and a row that can only
+  // fail is not offered. A refused read (logged inside `fetchUserCommunities`) offers no groups, never a wrong one.
+  const myGroups =
+    user && !samahan && !preselect
+      ? (await fetchUserCommunities(supabase, user.id)).filter((c) => c.role === 'organizer')
+      : [];
+  const groupTypes =
+    samahan || myGroups.length > 0
+      ? (
+          await Promise.all(
+            eventTypes.map(async (t) =>
+              (await resolveProfile(t.key)).eventClass === 'community_eligible'
+                ? t
+                : null,
+            ),
+          )
+        ).filter((t): t is (typeof eventTypes)[number] => t !== null)
+      : [];
+  const typesForContext = samahan ? groupTypes : eventTypes;
+  const groupSubjects = myGroups.map((g) =>
+    buildGroupSubject({ communityId: g.community_id, name: g.name, memberCount: g.member_count }),
+  );
 
   // Measured-life-type visibility (owner 2026-07-17: "hide events that do not
   // concern them for their life events — Wedding available anytime, it's not a
@@ -176,18 +231,31 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     dependentPeopleEnabled() &&
     (await isDataPrivacyControlActive('dependent_minor_profiles'))
   ) {
-    // RLS scopes this to the viewer's own (+ married-household shared)
-    // dependents; a household concern counts. Handed-over records aged out.
-    const { data: deps, error: depsError } = await supabase
-      .from('dependents')
-      .select('dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id')
-      .is('handed_over_at', null);
+    // ⚠ RLS IS NOT THE SCOPE: it admits an ADMIN to every dependent on the platform (owner 2026-10-27, on this
+    // picker: "Why do i have flowerstoreph and indigocaterers" — three were other users' businesses). The rows are
+    // the viewer's own loved ones still in their care (+ a real spouse's shared ones), by the ONE rule in
+    // `lib/my-loved-ones.ts` — the same one the People page uses.
+    const [{ data: deps, error: depsError }, { data: spouseIds, error: spouseError }] = await Promise.all([
+      supabase
+        .from('dependents')
+        .select(
+          'dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id, owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at',
+        )
+        .is('handed_over_at', null),
+      supabase.rpc('current_spouse_user_ids'),
+    ]);
     // ⚠ the dependents this person can create an event for. Refused, the picker offers
     // ⚠ none and they cannot start an event for a child they already added.
     if (depsError) {
       logQueryError('CreateEventPage.deps', depsError, {}, 'graceful_degrade');
     }
-    const rows = (deps ?? []) as DependentSubjectRow[];
+    // Refused, a spouse's shared rows are left out — never someone else's.
+    if (spouseError) logQueryError('CreateEventPage.depsSpouse', spouseError, {}, 'graceful_degrade');
+    const rows: DependentSubjectRow[] = lovedOnesInMyCare(
+      (deps ?? []) as Array<DependentSubjectRow & DependentOwnership>,
+      user.id,
+      spouseIdSet(spouseIds),
+    );
     hiddenTypeKeys = hiddenMeasuredTypes(
       rows.filter((r) => isPersonDependent(r.dependent_kind)) as ConcernPerson[],
       today,
@@ -207,28 +275,40 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // barred by lib/onboarding/event-insert.ts). An account with no saved birthday
   // measures nothing and keeps the whole grid, exactly as it shipped.
   //
-  // `sex` is deliberately NOT read. It would only sharpen 18F/21M on the debut
-  // ladder, it carries its own RA 10173 consent stamp, and the owner directed
-  // birthdays — not a second sensitive field. Omitting it checks BOTH debut ages,
-  // which folds LESS, the documented fail-open direction.
+  // `sex` IS read now — but only when it carries its RA 10173 consent stamp
+  // (`sex_consent_at`). Owner 2026-10-26: "debut 17-18 woman, 20-21 men. so if no
+  // gender for 17-21." Unconsented (or blank) → null → the wide 17–21 band, which
+  // folds LESS: the documented fail-open direction. It sorts this picker only; it
+  // is disclosed to nobody and written nowhere.
+  //
+  // The shop this login is standing in fills "For · A business" (owner 2026-10-26:
+  // "If it is for a business …") — asked of THE resolver (`resolveActiveShopId`,
+  // the one answer to "which shop am I in"), then that one shop's name. None, or a
+  // refused read → the business name is asked instead.
   let subjects: CreateSubject[] = [];
   if (user && !samahan) {
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('display_name, birth_date')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const [{ data: profile, error: profileError }, shopName] = await Promise.all([
+      supabase
+        .from('users')
+        .select('display_name, birth_date, sex, sex_consent_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      readActiveShopName(supabase, user.id),
+    ]);
     // ⚠ the account record. Absence DENIES rather than renders.
     if (profileError) {
       logQueryError('CreateEventPage.profile', profileError, {}, 'graceful_degrade');
     }
-    subjects = [
+    const consentedSex = profile?.sex_consent_at ? ((profile?.sex as string | null) ?? null) : null;
+    subjects = buildCreateRoster(
       buildSelfSubject((profile?.display_name as string | null) ?? null, {
         birth_date: (profile?.birth_date as string | null) ?? null,
+        sex: consentedSex,
       }),
-      ...alagaSubjects,
-      buildUnspecifiedSubject(),
-    ];
+      alagaSubjects,
+      shopName,
+      groupSubjects,
+    );
   }
 
   // "PLAN AN EVENT TOGETHER" (owner 2026-09-29: "add partner (to become a
@@ -277,7 +357,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           <span>
             Planning for <span className="font-medium text-ink">{samahan.name}</span>
           </span>
-          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 dark:bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             Group
           </span>
         </p>
@@ -293,11 +373,11 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           <p className="font-sans text-xl text-ink">Tuloy pa rin ang planning na ito</p>
           <p className="mt-2 text-sm leading-relaxed text-ink/70">
             <span className="font-medium text-ink">{blockedLifeEvent.displayName}</span> is already in
-            planning — one celebration of this kind per celebrant at a time.
+            planning — one event of this kind per celebrant at a time.
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link
-              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
               href={`/dashboard/${blockedLifeEvent.eventId}`}
             >
               Buksan ang {blockedLifeEvent.displayName}
@@ -320,30 +400,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-2 space-y-2">
-{/*
-          🔴 `?hub=1`, NOT A BARE `/dashboard`. The board AUTO-JUMPS a couple who
-          holds exactly one upcoming event straight back into that event
-          (`(launcher)/page.tsx:348`) — an owner ruling that stays. So the
-          routine way OUT of this page would have dumped them INSIDE their
-          wedding instead of on their events board, and `?hub=1` is the only
-          escape hatch that exists. This matters now because the rail's
-          "+ Create event" points here (2026-08-15); before that, almost nobody
-          arrived from the board.
-        */}
-        <Link
-          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard?hub=1'}
-          className="sn-chip sn-press w-fit"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {samahan ? `Back to ${samahan.name}` : 'Back to events'}
-        </Link>
-        <p className="sn-eye">
-          <Sparkles aria-hidden strokeWidth={1.75} />
-          New event
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 [[data-create-event-in-panel]_&]:pt-4">
+      <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker
         types={typesForContext}
@@ -356,7 +414,9 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         hiddenTypeKeys={hiddenTypeKeys}
         subjects={subjects}
         todayISO={today}
+        dateExempt={await viewerIsInternal().catch(() => false)}
         couple={together}
+        groupTypeKeys={groupSubjects.length > 0 ? groupTypes.map((t) => t.key) : undefined}
       />
     </div>
   );

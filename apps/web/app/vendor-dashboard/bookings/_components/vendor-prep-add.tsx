@@ -7,7 +7,7 @@
 // Rendered per ACCEPTED booking. A booked vendor can push dated items onto
 // the couple's Preparation agenda (e.g. "Send shot list", "Final headcount
 // due") backed by event_preparation_items. The vendor also sees the items
-// they've already added here, each with an inline delete control (their own
+// they've already added here; each deletes by its swipe, with Undo (their own
 // rows only — RLS enforces).
 //
 // Mirrors the couple-side prep-item-controls.tsx + the canonical Setnayan
@@ -17,13 +17,15 @@
 // ============================================================================
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { CalendarPlus, Loader2, Plus, Trash2, Users, Wallet, X } from 'lucide-react';
+import { CalendarPlus, Loader2, Plus, Users, Wallet, X } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import {
   vendorAddPreparationItem,
   vendorDeletePreparationItem,
 } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useSaveLoader } from '@/components/sd-loader';
 import {
   PrepKindPicker,
@@ -74,7 +76,6 @@ export function VendorPrepForBooking({
   eventName: string;
   items: VendorPrepItem[];
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -82,6 +83,31 @@ export function VendorPrepForBooking({
   const overlayRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLInputElement | null>(null);
   const save = useSaveLoader();
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  const shown = items.filter((it) => !hidden.has(it.itemId));
+
+  /**
+   * 👈 A prep item's delete is its SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
+   * VISIBLE ✕ ON ROWS"): left on a phone, the hover trash on a computer. It hides at once and the same
+   * `vendorDeletePreparationItem` is written after the Undo window (`deleteWithUndo`); a refusal brings it back and
+   * says so. The page mounts the one `UndoToastHost` (bookings/surface.tsx).
+   */
+  function removeItem(it: VendorPrepItem) {
+    const fd = new FormData();
+    fd.set('item_id', it.itemId);
+    deleteWithUndo({
+      label: `${it.label} removed`,
+      hide: () => setHidden((h) => new Set(h).add(it.itemId)),
+      restore: () =>
+        setHidden((h) => {
+          const next = new Set(h);
+          next.delete(it.itemId);
+          return next;
+        }),
+      commit: () => vendorDeletePreparationItem(fd),
+      failed: `Couldn’t remove “${it.label}”. It’s back — try again.`,
+    });
+  }
 
   function close() {
     if (isPending) return;
@@ -113,7 +139,6 @@ export function VendorPrepForBooking({
         setOpen(false);
         setErrorMessage(null);
         setKind('task');
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not add this item.',
@@ -135,15 +160,24 @@ export function VendorPrepForBooking({
         </button>
       </div>
 
-      {items.length > 0 ? (
+      {shown.length > 0 ? (
         <ul className="space-y-1">
-          {items.map((it) => {
+          {shown.map((it) => {
             const KindIcon =
               it.kind === 'meeting' ? Users : it.kind === 'payment' ? Wallet : null;
             return (
-              <li
+              <SwipeToDelete
                 key={it.itemId}
-                className="flex items-center gap-2 rounded-md border border-mulberry/15 bg-mulberry/[0.03] px-2.5 py-1.5"
+                as="li"
+                label={`Remove ${it.label}`}
+                word="Remove"
+                onDelete={() => removeItem(it)}
+                radiusClass="rounded-md"
+                surfaceClass="bg-[var(--m-paper)]"
+              >
+              <div
+                className="flex min-h-11 items-center gap-2 rounded-md border border-mulberry/15 bg-mulberry/[0.03] px-2.5 py-1.5"
+                data-vendor-prep-item=""
               >
                 <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink/50">
                   {formatDateShort(it.dueDate)}
@@ -163,8 +197,8 @@ export function VendorPrepForBooking({
                     </span>
                   ) : null}
                 </span>
-                <VendorDeletePrepItem itemId={it.itemId} label={it.label} />
-              </li>
+              </div>
+              </SwipeToDelete>
             );
           })}
         </ul>
@@ -176,11 +210,9 @@ export function VendorPrepForBooking({
           role="dialog"
           aria-modal="true"
           aria-labelledby="vendor-add-prep-headline"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={(e) => {
-            if (e.target === overlayRef.current) close();
-          }}
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
+          <OverlayBackdrop onClose={close} />
           <div className="relative w-full max-w-md sn-tile p-5 shadow-xl sm:p-6">
             <button
               type="button"
@@ -318,44 +350,5 @@ export function VendorPrepForBooking({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function VendorDeletePrepItem({ itemId, label }: { itemId: string; label: string }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  function onDelete() {
-    setErrorMessage(null);
-    const fd = new FormData();
-    fd.set('item_id', itemId);
-    startTransition(async () => {
-      try {
-        await vendorDeletePreparationItem(fd);
-        router.refresh();
-      } catch (err) {
-        setErrorMessage(
-          err instanceof Error ? err.message : 'Could not remove this item.',
-        );
-      }
-    });
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onDelete}
-      disabled={isPending}
-      title={errorMessage ?? `Remove “${label}”`}
-      aria-label={`Remove ${label}`}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-    >
-      {isPending ? (
-        <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
-      ) : (
-        <Trash2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-      )}
-    </button>
   );
 }

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getHostUserId } from '@/lib/host-gate';
-import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { getHostUserId, refuseLimitedHelper } from '@/lib/host-gate';
+import { updatePrintDetails } from '@/lib/print-details-write';
 import { defaultInviteTemplate, sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
@@ -38,6 +38,7 @@ export async function saveInviteMessage(
   eventId: string,
   text: string,
 ): Promise<{ ok: true; template: string | null } | { ok: false }> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   if (!UUID.test(eventId)) return { ok: false };
   const hostId = await getHostUserId(eventId);
   if (!hostId) return { ok: false };
@@ -49,25 +50,11 @@ export async function saveInviteMessage(
     cleaned === defaultInviteTemplate({ solemn: true });
   const template = isOurs ? null : cleaned;
 
-  const admin = createAdminClient();
-  const { data: current, error: readError } = await admin
-    .from('events')
-    .select('print_details')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (readError || !current) {
-    if (readError) logQueryError('saveInviteMessage.read', readError, { event_id: eventId }, 'graceful_degrade');
-    return { ok: false };
-  }
-  const stored = parsePrintDetails((current as { print_details?: unknown }).print_details ?? null);
-
-  const { data, error } = await admin
-    .from('events')
-    .update({ print_details: serializePrintDetails({ ...stored, inviteMessage: template }) })
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (error || !data || data.length === 0) {
-    if (error) logQueryError('saveInviteMessage.write', error, { event_id: eventId }, 'graceful_degrade');
+  // 👥 Applied to print_details as it is when the write lands (lib/print-details-write.ts) — the menu or the poster
+  // photo saved by another screen meanwhile stays.
+  const wrote = await updatePrintDetails(createAdminClient(), eventId, (now) => ({ ...now, inviteMessage: template }));
+  if (!wrote.ok) {
+    logQueryError('saveInviteMessage.write', { message: wrote.error } as never, { event_id: eventId }, 'graceful_degrade');
     return { ok: false };
   }
 

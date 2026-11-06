@@ -62,7 +62,7 @@ test('1 · nothing under the Guest list can choose a theme', () => {
 });
 
 test('2 · the Guest list keeps ONE quiet line — the theme, and the way to Details', () => {
-  const panel = read(join(HERE, 'invite', '_components', 'invite-panel.tsx'));
+  const panel = read(join(HERE, 'invite', '_components', 'share-link-panel.tsx'));
   const at = panel.indexOf('data-invite-theme-line');
   assert.ok(at > 0, 'the theme line is gone — a couple can no longer see which theme guests meet');
   const line = panel.slice(at, panel.indexOf('</p>', at));
@@ -70,7 +70,8 @@ test('2 · the Guest list keeps ONE quiet line — the theme, and the way to Det
   assert.match(line, /Change in Event Hub Maker ↗/);
   assert.match(line, /INVITE_THEMES\[liveTheme\]\.name/, 'the line names a theme it did not resolve');
   // What guests meet — through the one theme rule, not the pre-selection guess.
-  assert.match(panel, /const liveTheme = resolveInviteTheme\(\{ saved: lookRow\?\.invite_theme \?\? null, ownsPro \}\)/);
+  // 💎 RE-AIMED 2026-10-22: a Pro theme is the Style part's — the line asks THAT (`ownsStyle`), as the guest page does.
+  assert.match(panel, /const liveTheme = resolveInviteTheme\(\{ saved: lookRow\?\.invite_theme \?\? null, ownsPro: ownsStyle \}\)/);
   assert.doesNotMatch(panel, /suggestedInviteTheme/, 'the line names the onboarding guess, not what guests see');
 });
 

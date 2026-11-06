@@ -69,8 +69,11 @@ test('the anchor: the frame, the stream and both pages were read', () => {
 });
 
 test('(1) the ChatBox root keeps its automatic minimum, so an open tray cannot take the stream’s floor', () => {
-  const roots = classNamesWith(BOX, ['flex-1', 'flex-col']).filter((c) => c.includes('sn-row'));
-  assert.equal(roots.length, 1, `expected exactly one framed flex-1 root in chat-box.tsx, found ${roots.length}`);
+  // 2026-10-28 · the root lost its `sn-row` card (Messenger look: no frame) and became the full-screen takeover — it is
+  // now found by its `min-w-0` (only the root has it) and must still carry `data-chat-takeover`. The property is the same.
+  assert.match(BOX, /data-chat-takeover/, 'the ChatBox root is no longer the takeover');
+  const roots = classNamesWith(BOX, ['flex-1', 'flex-col', 'min-w-0']);
+  assert.equal(roots.length, 1, `expected exactly one flex-1 root in chat-box.tsx, found ${roots.length}`);
   const root = classes(roots[0]!);
   assert.ok(
     !root.some((c) => c === 'min-h-0' || /^min-h-(px|\[0(px|rem)?\])$/.test(c)),
@@ -81,8 +84,10 @@ test('(1) the ChatBox root keeps its automatic minimum, so an open tray cannot t
 
 test('the page column that holds the frame scrolls, so a frame taller than the column is reachable', () => {
   for (const p of PAGES) {
-    const s = read(p);
-    const at = s.indexOf('<ChatBox');
+    // Since 2026-10-29 the column is the ONE thread frame both pages return (`ChatThreadFrame`): read it there.
+    assert.match(read(p), /<ChatThreadFrame\b/, `${p}: the page does not return the one thread frame`);
+    const s = read('app/_components/chat/chat-thread-frame.tsx');
+    const at = s.indexOf('{children}');
     const open = s.lastIndexOf('<section className="', at);
     assert.ok(open !== -1, `${p}: no <section> wraps the ChatBox`);
     const cls = classes(s.slice(open + '<section className="'.length, s.indexOf('"', open + '<section className="'.length)));
@@ -108,4 +113,24 @@ test('(2) every view scroller carries a floor AND basis-0, so the frame’s mini
   // And name the conversation list itself, so the Decisions/Files scrollers can never stand in for it.
   const ol = STREAM.slice(STREAM.indexOf('<ol'), STREAM.indexOf('>', STREAM.indexOf('className=', STREAM.indexOf('<ol'))));
   assert.match(ol, /(^|[\s`])basis-0(\s|`)/, 'the conversation <ol> is not basis-0');
+});
+
+test('(3) on a phone the takeover is FIXED-HEIGHT — the stream slot keeps its floor and nothing else shrinks', () => {
+  // 2026-11-06 (#7248's check card): `[data-chat-takeover]` is `position: fixed; inset: 0` on a phone, so the root's
+  // automatic minimum in (1) does not hold its children — with a tool open they SHRANK instead. The stream slot said
+  // `min-h-0`, measured 0px, and its messages and day labels painted over the quick replies and the open panel.
+  // Measured at 390 px in /dev/supplier-chat-lab (?m=ask&booked=1 and ＋ → Questions for the couple) before and after.
+  const slots = classNamesWith(BOX, ['flex-1', 'flex-col', 'px-2.5']);
+  assert.equal(slots.length, 1, `expected exactly one stream slot in chat-box.tsx, found ${slots.length}`);
+  const slot = classes(slots[0]!);
+  assert.ok(
+    !slot.some((c) => c === 'min-h-0' || /^min-h-(px|\[0(px|rem)?\])$/.test(c)),
+    `the stream slot zeroed its minimum (${slots[0]}): in the fixed takeover it measures 0px with a tool open`,
+  );
+  assert.match(BOX, /data-chat-stream-area=""/, 'the stream slot lost the attribute the root exempts it by');
+  const root = classes(classNamesWith(BOX, ['flex-1', 'flex-col', 'min-w-0'])[0]!);
+  assert.ok(
+    root.includes('[&>*:not([data-chat-stream-area])]:shrink-0'),
+    'the header, notice, composer and tray may shrink again — in the fixed takeover they then overlap each other',
+  );
 });

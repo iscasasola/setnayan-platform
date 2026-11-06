@@ -304,7 +304,7 @@ export function lensCounts(
 export function lensEmptyLine(lens: AlaalaLensKey, hasAttended: boolean): string {
   switch (lens) {
     case 'recent':
-      return 'Your story starts with a celebration — photos and clips land here as they happen.';
+      return 'Your story starts with an event — photos and clips land here as they happen.';
     case 'owned':
       return 'The events you host become memories here — every frame your cameras catch.';
     case 'attended':

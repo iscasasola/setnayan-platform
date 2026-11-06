@@ -129,7 +129,7 @@ test('the saved sentence is written per rung, not assembled from the label', () 
   assert.equal(STORY_AUDIENCE_SAVED.draft, 'Saved · only me can read it.');
   assert.equal(
     STORY_AUDIENCE_SAVED.event,
-    'Saved · the people of this celebration can read it.',
+    'Saved · the people of this event can read it.',
   );
   assert.equal(STORY_AUDIENCE_SAVED.published, 'Saved · everyone can read it.');
 

@@ -1,0 +1,57 @@
+{
+ "_about": "RECORDED 2026-10-09 from the Wedding March maker AS IT STOOD BEFORE its buttons, toast and retry moved onto the ActionButton / PeekToast templates: the real MarchMaker bundled with esbuild (its draft door replaced by a recorder) and driven in Chromium at 375 px on the lab's maria-and-jose march with the sections moved — 'Put the sections back' pressed, then the toast's Undo; a refused save; a thrown save; the lab flag. `calls` = every server action called, with its FormData. `refusedRaw.toast` is what the page said when the server answered with database words — it PRINTED them; that changes on purpose (plainRefusal), everything else must not.",
+ "reset": {
+  "calls": [
+   {
+    "action": "hubDraftAction",
+    "fields": {
+     "intent": "save",
+     "patch": "{\"march\":[[{\"kind\":\"sections-default\"}]]}"
+    }
+   }
+  ],
+  "toast": "The sections are back in their usual orderUndo",
+  "undoOffered": 1
+ },
+ "undo": {
+  "calls": [
+   {
+    "action": "hubDraftAction",
+    "fields": {
+     "intent": "save",
+     "patch": "{\"marchUndo\":true}"
+    }
+   }
+  ],
+  "toast": "Put back"
+ },
+ "refusedRaw": {
+  "calls": [
+   {
+    "action": "hubDraftAction",
+    "fields": {
+     "intent": "save",
+     "patch": "{\"march\":[[{\"kind\":\"sections-default\"}]]}"
+    }
+   }
+  ],
+  "toast": "new row violates row-level security policy for table \"events\"",
+  "sectionsBack": 1
+ },
+ "thrown": {
+  "calls": [
+   {
+    "action": "hubDraftAction",
+    "fields": {
+     "intent": "save",
+     "patch": "{\"march\":[[{\"kind\":\"sections-default\"}]]}"
+    }
+   }
+  ],
+  "toast": "That did not go through — nothing was changed."
+ },
+ "lab": {
+  "calls": [],
+  "toast": "The sections are back in their usual orderUndo"
+ }
+}

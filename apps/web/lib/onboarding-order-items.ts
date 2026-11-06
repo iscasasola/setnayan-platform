@@ -5,7 +5,8 @@
  * dedicated Papic One cameras, Setnayan AI) and they are billed as a SINGLE
  * order, so the couple gets one total, one QR, one reference and one approval
  * (owner 2026-08-11). This module is the one place that answers "what is on that
- * bill?", and it has exactly three readers, each of which would otherwise assume
+ * bill?", and it has exactly three server-side readers (plus the payer's own, at
+ * the bottom), each of which would otherwise assume
  * one-product-per-order and be wrong:
  *
  *   1. ACTIVATION  — fans out over the items, running each child's own hook.
@@ -121,4 +122,70 @@ export async function eventBasketOrdersGranting(
     orderId: String(r.order_id ?? ''),
     status: typeof r.status === 'string' ? r.status : '',
   }));
+}
+
+/** One line of a basket bill, with the name the payer knows it by. */
+export type BasketLine = OnboardingOrderItem & {
+  /** The catalog's customer-facing name, or null when the catalog has none. */
+  title: string | null;
+};
+
+/**
+ * What a basket bill lists — as answered for the PERSON LOOKING AT IT.
+ *
+ * The fourth reader, and the only one that runs on the payer's own session:
+ * `/pay/[reference]` (`lib/payable-by-reference.ts`). It cannot use
+ * `readOnboardingOrderItems` above, because that one reads the TABLE, and the
+ * table is shut to every session role on purpose
+ * (`tests/db/onboarding-basket-one-bill.db.test.ts`). Measured 2026-10-13 by the
+ * Papic end-to-end tester: every /pay render logged "permission denied for
+ * table onboarding_order_items", and the `[]` that came back drew a sign-up
+ * bill — Papic + Setnayan AI + Pro on one reference — with no lines under its
+ * total.
+ *
+ * 🔑 SO THIS ASKS `public.order_basket_lines`, a SECURITY DEFINER function that
+ * checks the caller itself (the order's buyer, the couple on its event, an
+ * admin, the server client) — the same shape as `eventBasketOrdersGranting`.
+ * It also returns each line's catalog title, so the page needs no second read.
+ *
+ * ⚠ A FAILED READ IS `{ ok: false }`, NEVER `[]`. Unlike the activation and
+ * ownership readers above — where failing to an empty list is the safe,
+ * deliberate choice — a payer shown an empty bill is told something false. The
+ * page says the list could not be loaded instead (owner rule: a failure never
+ * renders like emptiness).
+ */
+export async function readBasketLinesForPayer(
+  db: SupabaseClient,
+  orderId: string,
+): Promise<{ ok: true; lines: BasketLine[] } | { ok: false }> {
+  if (!orderId) return { ok: true, lines: [] };
+  const { data, error } = await db.rpc('order_basket_lines', { p_order_id: orderId });
+  if (error || !Array.isArray(data)) {
+    console.error(
+      '[onboarding-order-items] payer bill read failed:',
+      error?.message ?? 'no rows array',
+    );
+    return { ok: false };
+  }
+  const lines = (
+    data as Array<{
+      service_code?: unknown;
+      title?: unknown;
+      quantity?: unknown;
+      unit_price_php?: unknown;
+    }>
+  )
+    .map((r) => {
+      const q = Number(r.quantity);
+      const p = Number(r.unit_price_php);
+      const title = typeof r.title === 'string' ? r.title.trim() : '';
+      return {
+        serviceCode: typeof r.service_code === 'string' ? r.service_code : '',
+        title: title.length > 0 ? title : null,
+        quantity: Number.isFinite(q) ? Math.max(1, Math.trunc(q)) : 1,
+        unitPricePhp: Number.isFinite(p) ? p : 0,
+      };
+    })
+    .filter((l) => l.serviceCode.length > 0);
+  return { ok: true, lines };
 }

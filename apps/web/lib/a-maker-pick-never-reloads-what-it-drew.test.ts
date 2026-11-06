@@ -241,8 +241,13 @@ test('the shell holds every kind the bridge draws, and compares the scene order 
   const post = SHELL.slice(SHELL.indexOf('const drawHow = '), SHELL.indexOf('const eyeWrite = '));
   assert.match(post, /sceneDrawEffect\([\s\S]*sceneFormat\?\.openBrowse/, 'the decision reads open browsing, as the page does');
   assert.match(post, /if \(how\.hide\) hideOnCanvas\(how\.hide\);\s*else if \(how\.still\) \{[\s\S]*?\} else releaseCanvas\(\);/);
-  const eye = SHELL.slice(SHELL.indexOf('const eyeWrite = '), SHELL.indexOf('const move = '));
-  assert.equal((eye.match(/drawHow\(scene, /g) ?? []).length, 4, 'the eye (three branches) and Hidden all ask drawHow');
+  /* 🔁 RE-AIMED 2026-10-11 ("WHAT GUESTS SEE", step 2): the Maker's eye writes the STAGE's value and draws it itself
+     (hide = held, show = reload — `the-eye-is-per-stage.test.ts`). What still asks `drawHow` is the EVENT-WIDE write:
+     the eye outside the Maker (`eyeWriteEverywhere`, its three branches) and Hidden. Same count, the right owner. */
+  const eye = SHELL.slice(SHELL.indexOf('const eyeWriteEverywhere = '), SHELL.indexOf('const move = '));
+  assert.equal((eye.match(/drawHow\(scene, /g) ?? []).length, 4, 'the event-wide eye (three branches) and Hidden all ask drawHow');
+  const stageEye = SHELL.slice(SHELL.indexOf('const eyeWrite = '), SHELL.indexOf('const eyeWriteEverywhere = '));
+  assert.match(stageEye, /if \(want\) releaseCanvas\(\);\s*else hideOnCanvas\(scene\);/, 'the per-stage eye: a hide is drawn and held, a show reloads');
   const chainStep = SHELL.slice(SHELL.indexOf('const runChain = '), SHELL.indexOf("} else if (op === 'up' || op === 'down')"));
   assert.match(chainStep, /drawHow\(scene, \{ isVisible: want \}\)/);
   // A write the bridge did not draw releases the hold — forms and unheld saves alike.
@@ -254,17 +259,34 @@ test('only saves the bridge drew are marked held; the shell announces every form
     'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx',
     'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
     'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
+    // ⚡ 2026-10-08: Studio › Look › Background's pick is worn by the bridge's own layer (`main-ground-preview.ts`)
+    // — one write, no render (`a-background-pick-shows-at-once.test.ts`). The shipped Maker's save there stays unheld.
+    'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
   ];
   // `{ held: true }`, or with more options beside it (the part sheet's `ok`, 2026-09-30).
   for (const f of held) assert.match(read(f), /makerSave\([\s\S]*?\{ held: true\b[^}]*\},?\s*\)/, `${f}: a drawn pick must be held`);
   for (const f of [
     // The scene inspector's save is `useSceneCanvas`, in its own module since train n.
     'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts',
-    'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
     'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
   ]) {
-    const src = read(f);
+    let src = read(f);
+    /* ↺ (2026-10-13, `rd/maker-undo-instant`) the bar's ONE held save is the undo of a step the Maker DREW back at the
+       press (`drawnIo`, sent by `lib/maker-undo-run.ts` after `undraw()` — `lib/an-older-undo-is-drawn-at-once.test.ts`
+       G3). Every other intent of the bar is judged here as before. */
+    if (f.endsWith('hub-draft-bar.tsx')) {
+      const io = src.slice(src.indexOf('const drawnIo = () =>'), src.indexOf('const drawnUndo = '));
+      assert.equal((io.match(/held: true/g) ?? []).length, 1, 'the drawn ↺ is the bar’s one held save');
+      assert.match(src.slice(src.indexOf('const drawnUndo = ')), /runner\.runDrawnUndo\(drawnIo\(\)\)/, '…sent only through the runner, which draws first');
+      src = src.replace(io, '');
+      /* ✓ (2026-10-15, rd/maker-fast-edits) Apply is held too: it changes nothing the canvas draws (the draft it shows is
+         now live) — so the canvas keeps its page, and the Maker's own render is still asked for, behind it. */
+      const apply = src.slice(src.indexOf('const applyHeld = '), src.indexOf('const slow = '));
+      assert.match(apply, /held: true, undo: 'noted'/, 'Apply is held');
+      assert.match(apply, /if \(r\.ok\) \{\s*undoJournal\.clear\(\);\s*keepCanvasForRender\(\);\s*requestMakerRefresh\(\);/, 'an Apply that landed still brings the Maker its render — with the canvas kept');
+      src = src.replace(apply, '');
+    }
     assert.match(src, /makerSave\(/, `${f}: every Maker draft save goes through makerSave`);
     assert.doesNotMatch(src, /held: true/, `${f}: nothing here is drawn by the bridge — it must release the hold`);
   }
@@ -275,7 +297,10 @@ test('only saves the bridge drew are marked held; the shell announces every form
     const rsvp = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
     const details = rsvp.slice(rsvp.indexOf('start(async () => {'), rsvp.indexOf('const saveWord = '));
     assert.match(details, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'Details’ RSVP save must stay unheld');
-    assert.equal((rsvp.match(/held: true/g) ?? []).length, 2, 'only the stage’s two saves (the config, the reply-by date) are held');
+    assert.equal((rsvp.match(/held: true/g) ?? []).length, 1, 'only the stage’s config save is held here');
+    /* The reply-by save is the shared `ReplyBy` part now (Guests › Setup mounts it too, 2026-10-07) — still held. */
+    const replyBy = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+    assert.equal((replyBy.match(/held: true/g) ?? []).length, 1, 'the reply-by date’s save is held');
   }
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.match(shell, /form\.dataset\.makerHeld !== '1'\) \{\s*announceUnheldWrite\(\);/);

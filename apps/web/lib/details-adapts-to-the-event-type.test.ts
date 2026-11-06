@@ -47,7 +47,7 @@ test('"Parents on the invitation" exists only where the type offers a parent rol
   assert.equal(detailsSwitchesFor(ctx(WAKE_PROFILE)).parents, false, 'a wake was offered the wedding parents');
   // …and the page asks the rule, never a "wedding" test of its own.
   const details = stripComments(readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'launch', '_components', 'maker-details.tsx'), 'utf8'));
-  assert.match(details, /\{switches\.parents \? \(/);
+  assert.match(details, /const parentsSwitch = switches\.parents \? \(/);
   assert.doesNotMatch(details, /=== 'wedding'|isWedding/);
 });
 

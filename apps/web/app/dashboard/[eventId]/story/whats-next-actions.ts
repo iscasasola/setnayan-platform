@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { anchorForType } from '@/lib/event-anchor';
 import { NEVER_OFFERED_AS_NEXT, NOTHING_YET, writeAnnouncement } from '@/lib/whats-next';
 import { hostUserId } from './_lib/host-authority';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * WHAT'S NEXT — the two actions, and the difference between them (`02` §7).
@@ -40,8 +40,8 @@ import { hostUserId } from './_lib/host-authority';
 
 export type NextActionResult = { ok: true } | { ok: false; error: string };
 
-const NO_ACCESS = 'You don’t have access to this celebration.';
-const NOT_OFFERED = 'That isn’t one of the celebrations we can follow this one with.';
+const NO_ACCESS = 'You don’t have access to this event.';
+const NOT_OFFERED = 'That isn’t one of the events we can follow this one with.';
 
 /**
  * ANNOUNCE IT ONLY — the back cover gains a line. Nothing is created.
@@ -54,6 +54,8 @@ export async function announceNext(
   eventId: string,
   kind: unknown,
 ): Promise<NextActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await hostUserId(eventId))) return { ok: false, error: NO_ACCESS };
 
   const value = typeof kind === 'string' ? kind.trim() : '';
@@ -112,6 +114,8 @@ export async function startTheNextCelebration(
   eventId: string,
   kind: unknown,
 ): Promise<NextActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const value = typeof kind === 'string' ? kind.trim() : '';
   if (!value || value === NOTHING_YET || NEVER_OFFERED_AS_NEXT.has(value)) {
     return { ok: false, error: NOT_OFFERED };
@@ -136,8 +140,10 @@ export async function startTheNextCelebration(
   });
   if (!authz.ok) return { ok: false, error: NO_ACCESS };
 
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return { ok: false, error: 'This account doesn’t plan celebrations.' };
+  // The one creation gate (lib/vendor-event-creation.ts — owner 2026-10-22:
+  // one account is both, so nobody is refused today).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: NO_ACCESS };
   }
 
   // Defence-in-depth only — the gate is above. `events_host`, not `events`:
@@ -160,7 +166,7 @@ export async function startTheNextCelebration(
   }
 
   const admin = createAdminClient();
-  const displayName = (source.display_name as string | null) ?? 'My Celebration';
+  const displayName = (source.display_name as string | null) ?? 'My Event';
   const slug = await generateUniqueSlug(admin, displayName);
   const anchor = anchorForType(value);
 
@@ -233,7 +239,9 @@ export async function startTheNextCelebration(
   // The new event is metered like any other (owner-locked 2026-07-27 · 2026-07-29).
   // Idempotent + non-fatal: a celebration with no camera has nothing to try.
   await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id, user.id);
-  await ensureFreePapicOneCameraAdmin(admin, inserted.event_id);
+  // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+  // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+  // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
 
   // The back cover reads the same whichever button was pressed, so the
   // announcement is written here too — the door on this story is the point.

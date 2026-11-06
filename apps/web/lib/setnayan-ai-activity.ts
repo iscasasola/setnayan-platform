@@ -58,6 +58,12 @@ export type AiActivity = {
   paymentsDue30d: number;
   /** Deadlines under watch — PH-marriage statutory pack + recommended reminders. */
   deadlinesTracked: number;
+  /**
+   * 🔒 FALSE when any read behind these figures was refused or threw. The figures are still the fail-soft ones (the
+   * studio page keeps rendering), but a surface that SAYS a number — Home's Planner card ("nothing needs a decision")
+   * — must not say it over a refusal (owner 2026-10-23, the service widgets; `lib/guests.ts` is the pattern).
+   */
+  measured: boolean;
 };
 
 /** Event fields the loader needs — passed in so we don't re-query `events`. */
@@ -117,7 +123,7 @@ export async function loadAiActivity(
           .is('archived_at', null)
           .order('created_at', { ascending: true });
       } catch {
-        return { data: [] as unknown[] };
+        return { data: [] as unknown[], error: { message: 'threw' } };
       }
     })(),
     (async () => {
@@ -127,7 +133,7 @@ export async function loadAiActivity(
           .select('sponsor_tier, invitation_status')
           .eq('event_id', eventId);
       } catch {
-        return { data: [] as unknown[] };
+        return { data: [] as unknown[], error: { message: 'threw' } };
       }
     })(),
     (async () => {
@@ -137,7 +143,7 @@ export async function loadAiActivity(
           .select('id, document_type, status, expected_completion_date')
           .eq('event_id', eventId);
       } catch {
-        return { data: [] as unknown[] };
+        return { data: [] as unknown[], error: { message: 'threw' } };
       }
     })(),
     fetchUpcomingItems({
@@ -152,6 +158,8 @@ export async function loadAiActivity(
       statutory: (event.eventType ?? 'wedding') === 'wedding',
       limit: 6,
     }).catch(() => ({
+      threw: true,
+      unreadableSources: [],
       items: [],
       paymentItemsNext30d: [],
       sourceCounts: {
@@ -211,11 +219,20 @@ export async function loadAiActivity(
     upcoming.sourceCounts.document_deadline +
     upcoming.sourceCounts.recommended_deadline;
 
+  const refused = (r: { error?: unknown }) => Boolean(r.error);
+  const measured =
+    !refused(vendorsRes) &&
+    !refused(sponsorsRes) &&
+    !refused(paperworkRes) &&
+    !('threw' in upcoming) &&
+    upcoming.unreadableSources.length === 0;
+
   return {
     cockpit,
     vendorsTracked: vendors.length,
     paymentsDue30d: upcoming.paymentItemsNext30d.length,
     deadlinesTracked,
+    measured,
   };
 }
 
@@ -255,3 +272,11 @@ export function figurePayments(a: AiActivity): string {
     ? `${n} payment${plural(n)} due in the next 30 days`
     : 'No payments due in the next 30 days';
 }
+
+/** Live per-event figures, keyed by the capability the number belongs to — the Planner page's chips and Home's Planner card (moved here 2026-10-23, so both read one list). */
+export const AI_LIVE_FIGURES: ReadonlyArray<{ label: string; of: (a: AiActivity) => string }> = [
+  { label: 'Ranked', of: figureRanked },
+  { label: 'Deadlines', of: figureDeadlines },
+  { label: 'Next', of: figureNextMove },
+  { label: 'Payments', of: figurePayments },
+];

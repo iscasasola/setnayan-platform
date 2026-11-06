@@ -8,6 +8,7 @@ import {
   type HubElementStyle,
   type HubElementStyles,
 } from '@/lib/element-style';
+import { keepReactChildren } from './react-children-keep';
 
 /**
  * ✍ RUNS LAID IN THE BROWSER — one letter, one word in its own font · colour ·
@@ -41,6 +42,7 @@ function textNodesOf(node: Node, out: Text[]): Text[] {
 /** The part's run spans unwrapped back into plain text. */
 function unwrapRuns(part: Element, doc: RunsDoc): void {
   part.querySelectorAll('[data-el-run]').forEach((span) => {
+    keepReactChildren(span.parentElement);
     span.parentNode?.replaceChild(doc.createTextNode(span.textContent ?? ''), span);
   });
   part.normalize();
@@ -66,6 +68,7 @@ export function applyPartRuns(part: Element, style: HubElementStyle | null | und
     if (segments.length === 1 && !segments[0]!.run) continue;
     const parent = node.parentNode;
     if (!parent) continue;
+    keepReactChildren(node.parentElement);
     for (const seg of segments) {
       if (!seg.run) {
         parent.insertBefore(doc.createTextNode(seg.text), node);

@@ -19,8 +19,8 @@ import {
   useReducedMotion,
 } from '@/app/[slug]/_components/editorial/living-moments';
 import { placeholderBackground } from './placeholder';
-import { captureLifeFlash } from './life-flash-analytics';
 import { formatCount } from '@/lib/format-number';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
 export type ReelMoment = {
   id: string;
@@ -69,42 +69,27 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
           <h2 className="text-base font-semibold text-ink">Your moments</h2>
           <span className="text-xs text-ink/40">{moments.length}</span>
         </div>
-        <div
-          role="group"
-          aria-label="Order the reel"
-          className="flex rounded-full border border-ink/15 p-0.5 text-xs"
-        >
-          <button
-            type="button"
-            aria-pressed={order === 'significance'}
-            onClick={() => setOrder('significance')}
-            className={`rounded-full px-3 py-1 font-medium transition-colors ${
-              order === 'significance' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
-            }`}
-          >
+        {/* The app's ONE pill selector (owner 2026-10-08). */}
+        <PillTrack role="group" aria-label="Order the reel">
+          <PillButton on={order === 'significance'} aria-pressed={order === 'significance'} onClick={() => setOrder('significance')} className="px-3">
             By significance
-          </button>
-          <button
-            type="button"
+          </PillButton>
+          <PillButton
+            on={order === 'time'}
             aria-pressed={order === 'time'}
-            onClick={() => {
-              setOrder('time');
-              void captureLifeFlash('life_flash_reel_reordered', { order: 'time' });
-            }}
-            className={`rounded-full px-3 py-1 font-medium transition-colors ${
-              order === 'time' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
-            }`}
+            onClick={() => setOrder('time')}
+            className="px-3"
           >
             By time
-          </button>
-        </div>
+          </PillButton>
+        </PillTrack>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ordered.map((m) => (
           <article
             key={m.id}
-            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm"
+            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm"
           >
             <div className="relative aspect-[4/3] overflow-hidden bg-ink/5">
               {m.url && m.type === 'clip' ? (

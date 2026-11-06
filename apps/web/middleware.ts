@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { updateSession } from '@/lib/supabase/middleware';
 import {
@@ -17,18 +17,23 @@ import {
 import { userNestingRewritePath } from '@/lib/u-nesting';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
+import { recordSiteVisit } from '@/lib/visits/record-visit';
+import { hubViewRewritePath } from '@/lib/hub-view-route';
+import { HUB_BUST_COOKIE, HUB_BUST_EXEMPT_PATHS, isHubViewPath } from '@/lib/hub-view-key';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
   STORE_SHELL_CLIENT_TYPE_COOKIE,
   STORE_SHELL_WEB_ONLY_PATH,
 } from '@/lib/store-shell';
+import { iapAvailable } from '@/lib/iap/iap-gate';
+import { REQUEST_PATH_HEADER, requestPathOf } from '@/lib/shop-console-path';
+import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import {
-  GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
+  GUEST_PASS_BOOK_COOKIE_NAME,
   GUEST_SESSION_COOKIE_NAME,
-  shouldRefreshGuestSession,
-  signGuestSession,
-  verifyGuestSessionToken,
+  guestPassRefreshFor,
+  passSwapForPath,
 } from '@/lib/guest-session';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
@@ -83,40 +88,27 @@ const RESERVED_SUBDOMAINS = new Set([
   'preview', // reserved
 ]);
 
-// Native-app login-first entry (0052 design addition · owner-locked
-// 2026-06-10). The native shells — Capacitor (iOS/Android) and the Tauri
-// desktop wrapper (macOS/Windows) — omit the marketing brochure: someone
-// who installed the app has already converted. App-originated requests to
-// any bucket-① marketing route bounce to /login (or /dashboard when a
-// session exists) so the app boots straight into the product. Bucket-③
-// shareable surfaces (guest invites, day-of, /vendors browse, /v/[slug],
-// /realstories showcase, /help) stay reachable in-app; legal pages (/privacy,
-// /terms) stay reachable because store review requires them.
-const APP_EXCLUDED_MARKETING_PATHS = new Set([
-  '/',
-  '/features',
-  '/for-suppliers',
-  '/creators',
-  '/pricing',
-  '/how-it-works',
-  '/waitlist',
-  '/download',
-]);
-
-// Two detection signals, either suffices:
-//   1. `setnayan-client-type=capacitor` cookie — set by ClientTypeDetector
-//      after the first render inside the shell's WebView.
-//   2. `SetnayanApp` user-agent marker — set by the Capacitor shell via
-//      `appendUserAgent` in apps/mobile/capacitor.config.ts and by the Tauri
-//      desktop shell via `app.windows[].userAgent` in src-tauri/tauri.conf.json.
-//      Covers the very first request of a fresh install, before the cookie
-//      exists (desktop relies on this marker; it sets no client-type cookie).
-function isCapacitorClient(request: NextRequest): boolean {
-  return (
-    request.cookies.get('setnayan-client-type')?.value === 'capacitor' ||
-    (request.headers.get('user-agent') ?? '').includes('SetnayanApp')
-  );
-}
+// 📲 THE APP OPENS EVERY PAGE THE WEBSITE OPENS (owner 2026-11-02, DECISION_LOG
+// "EVERY PAGE HELD BACK FROM THE APP FOR APPLE GOES LIVE IN THE APP TOO" —
+// verbatim: "let everything go live"). Until then a native-shell request (the
+// `SetnayanApp` user agent or the capacitor cookie — phone and desktop app
+// alike) for a brochure page — `/` (Discover), /features, /for-suppliers,
+// /creators, /pricing, /how-it-works, /waitlist, /download, and the Maria and
+// Jose sample under /sample by prefix — was sent to /dashboard or /login while
+// Apple reviewed 1.0. That bounce is gone, not emptied: the app opens those
+// pages exactly as the website does (the sample still answers to its own
+// switch, `sampleOpensHere()`). Risk accepted
+// by the owner the same day ("okay to be rejected by apple again").
+//
+// ⚠ What still applies in the app is the STORE-SHELL paid-feature gate further
+// down (`isStoreShellWebOnlyPath` — the iPhone build only, never the desktop
+// app), which is Apple's in-app-purchase rule, not this bounce. It is unchanged.
+//
+// Guards that encoded the bounce now assert it stays gone:
+// the-account-bar-is-the-ruling · every-tab-keeps-the-bar ·
+// the-app-login-has-no-dead-close · every-signed-in-menu-reaches-the-policies ·
+// store-shell · the-app-never-steers-to-the-web ·
+// the-welcome-price-never-reaches-the-app · the-sample-is-sealed · sample-event.
 
 function detectVendorSubdomain(hostname: string): string | null {
   const m = hostname.match(VENDOR_SUBDOMAIN_RE);
@@ -142,6 +134,32 @@ function detectVendorSubdomain(hostname: string): string | null {
  * Deliberately does not touch `setnayan_wall_display` (live-wall.ts) — that
  * cookie is LAU-40's other, separate finding and is S13's (#5593).
  */
+/**
+ * ONE PASS PER EVENT (2026-10-12, lib/guest-pass-book.ts). A browser that holds
+ * passes for two events keeps them in the pass book; on a request for one
+ * event's pages, THAT event's pass becomes the active one — on the REQUEST
+ * always (so this very render, its Server Actions and its pass hops read it),
+ * and on the RESPONSE only on a plain read (`mayRefreshGuestPass`), so a pass hop
+ * keeps exactly one writer. Runs BEFORE the body: `updateSession` forwards the
+ * request's cookies (`NextResponse.next({ request })`), and the `/u/` rewrite
+ * copies its headers.
+ */
+async function activatePassForEvent(
+  request: NextRequest,
+): Promise<{ value: string; maxAge: number } | null> {
+  const book = request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value;
+  if (!book) return null;
+  const { pathname } = request.nextUrl;
+  const path = pathname.startsWith('/u/') ? (userNestingRewritePath(pathname) ?? pathname) : pathname;
+  const swap = await passSwapForPath({
+    jar: { active: request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value, book },
+    pathname: path,
+  });
+  if (!swap) return null;
+  request.cookies.set(GUEST_SESSION_COOKIE_NAME, swap.value);
+  return swap;
+}
+
 async function refreshGuestSessionCookie(
   request: NextRequest,
   response: NextResponse,
@@ -151,31 +169,83 @@ async function refreshGuestSessionCookie(
   // themselves; re-signing the OLD pass onto the same response made two
   // writers of one cookie, and the phone kept whichever header came last.
   if (!mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) return;
-  const cookie = request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value;
-  if (!cookie) return;
+  const active = request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value;
+  const bookToken = request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value;
+  if (!active && !bookToken) return;
 
-  const verified = await verifyGuestSessionToken(cookie);
-  // Invalid, forged, or already-expired — leave it alone. A real page read
-  // still runs readGuestSession()'s DB-backed check and signs the guest out
-  // on its own terms; extending an unverifiable cookie here would not help.
-  if (!verified) return;
-  if (!shouldRefreshGuestSession(verified.expiresAtSeconds)) return;
-
-  const refreshed = await signGuestSession(verified.payload);
-  response.cookies.set({
-    name: GUEST_SESSION_COOKIE_NAME,
-    value: refreshed,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
-  });
+  // Invalid, forged, or already-expired — left alone. A real page read still
+  // runs readGuestSession()'s DB-backed check and signs the guest out on its own
+  // terms; extending an unverifiable cookie here would not help. A pass only the
+  // LEGACY seal accepts is re-sealed with GUEST_SESSION_SECRET (same payload,
+  // same expiry) — the rule and its retirement live in lib/guest-session.ts.
+  const next = await guestPassRefreshFor({ jar: { active, book: bookToken } });
+  if (next.active) {
+    response.cookies.set({
+      name: GUEST_SESSION_COOKIE_NAME,
+      value: next.active.value,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: next.active.maxAge,
+    });
+  }
+  // The same pass's entry in the pass book slides with it, or it would fall out
+  // of the book while the active pass lives on.
+  if (next.book !== 'keep' && next.book !== null) {
+    response.cookies.set({
+      name: GUEST_PASS_BOOK_COOKIE_NAME,
+      value: next.book.value,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: next.book.maxAge,
+    });
+  }
 }
 
 export async function middleware(request: NextRequest) {
+  const activated = await activatePassForEvent(request);
   const response = await middlewareCore(request);
+  if (activated && mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) {
+    response.cookies.set({
+      name: GUEST_SESSION_COOKIE_NAME,
+      value: activated.value,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: activated.maxAge,
+    });
+  }
   await refreshGuestSessionCookie(request, response);
+  // 🗄 A GUEST'S OWN WRITE GIVES THEM A FRESH EVENT HUB (EV1, lib/hub-view-key.ts). Any write carrying a guest pass —
+  // a reply, a plus-one's name, a photo — moves this small cookie, which is part of the cached hub's key, so that
+  // guest's next open is drawn afresh instead of from a copy made before their write. Nobody else's copy moves.
+  if (
+    request.method !== 'GET' &&
+    request.method !== 'HEAD' &&
+    request.method !== 'OPTIONS' &&
+    // 👀 …except a write no guest page shows — the Who's-here beacon fires on every open (lib/hub-view-key.ts).
+    !HUB_BUST_EXEMPT_PATHS.includes(request.nextUrl.pathname) &&
+    (request.cookies.has(GUEST_SESSION_COOKIE_NAME) || request.cookies.has(GUEST_PASS_BOOK_COOKIE_NAME))
+  ) {
+    response.cookies.set({
+      name: HUB_BUST_COOKIE,
+      value: Date.now().toString(36),
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
+  // VISITS (owner 2026-10-22: traffic in our own admin, no cookies) — one page
+  // view counted AFTER the response is on its way; never on the critical path.
+  // Everything that is not a view (store shell, bots, /admin, prefetches,
+  // redirects) is decided inside — lib/visits/visit-capture.ts.
+  if (request.method === 'GET') after(() => recordSiteVisit(request, response));
   return response;
 }
 
@@ -306,6 +376,17 @@ async function middlewareCore(request: NextRequest) {
     );
   }
 
+  // /explore/compare with no `ids` is not a comparison, and the page itself
+  // `redirect()`s to /explore. But the page STREAMS (its `loading.tsx` commits
+  // the 200 and the shell first), so that redirect arrived in-stream: the shell's
+  // links had already started prefetching, then the page navigated away and
+  // Safari logged every aborted prefetch ("Failed to fetch RSC payload … Load
+  // failed" × 8 on the 2026-10-13 quality sweep, item 10). Answered here as a
+  // real 307 before anything streams. With `ids`, the page decides as before.
+  if (pathname === '/explore/compare' && !request.nextUrl.searchParams.get('ids')) {
+    return NextResponse.redirect(new URL('/explore', request.url), 307);
+  }
+
   // Legacy /services → /add-ons. 308 (permanent + method-preserving) since
   // the rename is intentional and not coming back.
   const legacyMatch = pathname.match(LEGACY_SERVICES_RE);
@@ -357,6 +438,27 @@ async function middlewareCore(request: NextRequest) {
     }
   }
 
+  // 🗄 THE CACHED EVENT HUB (EV1 · owner 2026-10-28: "Our priority is not crash any event hub most specially during
+  // their event"). Its own address is never served to the outside — only this rewrite reaches it.
+  // (A LAB build may ask it directly — `HUB_VIEW_LAB_DIRECT=1`, never set on Vercel — to show the copy being served the
+  // way Vercel's edge serves it after this rewrite; `next start` hands the route its ORIGINAL url, so a rewrite there
+  // always renders. See scripts/load-test-event-day.mjs.)
+  if (isHubViewPath(pathname) && process.env.HUB_VIEW_LAB_DIRECT !== '1') return new NextResponse('Not found', { status: 404 });
+  // A guest's or a stranger's `/{slug}` — no session, no host preview, no one-shot flash — is answered from the copy
+  // cached for THEIR key (lib/hub-view-route.ts); everyone else falls through to the live render below. Before
+  // `updateSession` on purpose: such a request carries no Supabase session, so there is nothing for it to refresh.
+  const hubView = await hubViewRewritePath(request);
+  if (hubView) {
+    const rewrite = request.nextUrl.clone();
+    rewrite.pathname = hubView;
+    for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
+    return NextResponse.rewrite(rewrite);
+  }
+
+  // The path the person asked for, for layouts that must send them to sign in
+  // and back (Next does not hand a layout its URL). ALWAYS overwritten, so a
+  // client cannot supply its own; `updateSession` forwards request headers.
+  request.headers.set(REQUEST_PATH_HEADER, requestPathOf(request.nextUrl));
   const { response, user } = await updateSession(request);
 
   // Demo-mode URL flag bootstrap (PR brief 2026-05-22 · CLAUDE.md row
@@ -441,17 +543,6 @@ async function middlewareCore(request: NextRequest) {
     return redirect;
   }
 
-  // Native shell skips the brochure: marketing routes redirect to the
-  // product. 307 — the routes themselves stay live on the web, and the
-  // redirect target depends on session state, so nothing should cache it
-  // as permanent.
-  if (isCapacitorClient(request) && APP_EXCLUDED_MARKETING_PATHS.has(pathname)) {
-    return NextResponse.redirect(
-      new URL(user ? '/dashboard' : '/login', request.url),
-      307,
-    );
-  }
-
   // 🔒 STORE SHELL SHOWS NO PAID DIGITAL FEATURE. App Review 2026-06-30
   // rejected build 1.0 (1) under Guideline 3.1.1 / 3.1.3(b) even though the
   // in-app checkout was already hidden on native: a feature bought on the web
@@ -461,16 +552,21 @@ async function middlewareCore(request: NextRequest) {
   // by the predicate — is sent to a plain "not in the app" page whenever it
   // reaches a paid feature's home or a purchase route. The Studio hub filters
   // its own grid; this catches deep links, notifications and dashboard tiles.
-  // 307, same reasoning as the marketing bounce above. Held by
-  // lib/store-shell.test.ts.
-  if (
-    isStoreShellWebOnlyPath(pathname) &&
-    isStoreShellSignals(
-      request.headers.get('user-agent'),
-      request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value,
-    )
-  ) {
-    return NextResponse.redirect(new URL(STORE_SHELL_WEB_ONLY_PATH, request.url), 307);
+  // 307 — the route stays live on the web and the target is not permanent, so
+  // nothing should cache it. Held by lib/store-shell.test.ts.
+  // 🍎 Version 1.1: where Apple sells in this app (`iapAvailable` — the store
+  // shell, a StoreKit build announcing `SetnayanIAP/2`+ (1.1 — never build 5's `/1`), the owner's switch),
+  // the Papic and Live Watch control pages open (`IAP_OPENED_ROUTE` in
+  // lib/store-shell.ts). Any one of the three missing → refused exactly as before.
+  if (isStoreShellWebOnlyPath(pathname)) {
+    const ua = request.headers.get('user-agent');
+    const storeShell = isStoreShellSignals(ua, request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value);
+    if (
+      storeShell &&
+      isStoreShellWebOnlyPath(pathname, iapAvailable({ storeShell, userAgent: ua, enabled: isAppleIapEnabled() }))
+    ) {
+      return NextResponse.redirect(new URL(STORE_SHELL_WEB_ONLY_PATH, request.url), 307);
+    }
   }
 
   /*

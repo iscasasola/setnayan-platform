@@ -16,6 +16,7 @@
  * mobile (builder → preview → Render).
  */
 
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, ExternalLink, Moon, Music2, RotateCcw, Sparkles, Sun, Wand2 } from 'lucide-react';
@@ -25,7 +26,7 @@ import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
-import { saveAllStdContent, presignStdBackground } from '../actions';
+import { saveAllStdContent } from '../actions';
 import { LOOK_PRO_REQUIRED } from '@/lib/hub-look-pro';
 import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -39,7 +40,6 @@ import {
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { RevealPreviewCard, ColorRow } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
-import { StdBackgroundPicker } from '@/app/dashboard/[eventId]/_components/std-background-picker';
 import { StdMediaPicker, type StdVideoUpload } from '@/app/dashboard/[eventId]/_components/std-media-picker';
 import { StdBackgroundLayer } from '@/app/[slug]/_components/std-background-layer';
 import {
@@ -58,6 +58,7 @@ import {
 } from '@/app/dashboard/[eventId]/_components/device-frame';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { formatCount } from '@/lib/format-number';
+import { SwitchTrack } from '@/app/_components/switch-track';
 
 type Props = {
   eventId: string;
@@ -82,13 +83,14 @@ type Props = {
   initialRevealTemplate: RevealChoice | null;
   /** The couple's saved reveal effect toggles (resolved; defaults applied). */
   initialEffects: RevealEffects;
-  /** The couple's saved Step-1 background (resolved; defaults to plain). */
+  /**
+   * 🎞 What the film plays over — THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08), resolved by
+   * the page (`stdFilmOnMain`): its picture as `kind: 'upload'` with `initialUploadUrl`, else the page colour; the
+   * couple's Readability on it. The film keeps no background of its own — it is changed in Studio › Look ›
+   * Background, and only Readability is set here.
+   */
   initialBackground: StdBackground;
-  /** 🎞 Nothing of the film's own is stored — it follows the theme ("Same as theme"). */
-  initialFollowsTheme?: boolean;
-  /** The Event Hub theme's canvas — what "Same as theme" paints. */
-  themeCanvas?: string | null;
-  /** Presigned URL for the saved upload background (if kind === 'upload'). */
+  /** The main background's picture, signed (when `initialBackground` is a picture). */
   initialUploadUrl?: string | null;
   /** The couple's saved Step-3 media choice (resolved; defaults to gallery). */
   initialMedia: StdMedia;
@@ -159,8 +161,6 @@ export function StdBuilderClient({
   initialRevealTemplate,
   initialEffects,
   initialBackground,
-  initialFollowsTheme = false,
-  themeCanvas = null,
   initialUploadUrl,
   initialMedia,
   initialNsfwStatus,
@@ -207,7 +207,7 @@ export function StdBuilderClient({
   const [accentColor, setAccentColor] = useState<string | null>(initialFilmAccentColor ?? null);
 
   const [saving, startSave] = useTransition();
-  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro' | 'needs-pro'>('idle');
+  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro' | 'needs-pro' | 'floor'>('idle');
   /* One lock, three places — the background, film and song uploaders. Built
      here as an ELEMENT and handed down, never a component or function prop. */
   const proHref = `/dashboard/${eventId}/studio/website-pro`;
@@ -244,41 +244,13 @@ export function StdBuilderClient({
   const [revealDone, setRevealDone] = useState(false);
   // Per-opening effect toggles (butterflies / petals); saved on Render.
   const [effects, setEffects] = useState<RevealEffects>(initialEffects);
-  // Step-1 background choice (plain / paper / realistic / upload); saved on Render.
+  // 🎞 The main background the film wears, and the couple's Readability over it (the one Step-1 choice left).
   const [background, setBackground] = useState<StdBackground>(initialBackground);
-  // Presigned URL for an uploaded background (kind === 'upload') — drives the preview.
-  const [uploadUrl, setUploadUrl] = useState<string | null>(initialUploadUrl ?? null);
-  // 🎞 "Same as theme": the film wears the theme until a background of its own is picked.
-  const [followsTheme, setFollowsTheme] = useState(initialFollowsTheme);
-  const pickBackground = (bg: StdBackground) => {
-    // Keep the chosen legibility when the background itself changes.
-    setBackground({ ...bg, legibility: bg.legibility ?? background.legibility ?? 'auto' });
-    setFollowsTheme(false);
-    if (result !== 'idle') setResult('idle');
-  };
-  const followTheme = () => {
-    setFollowsTheme(true);
-    if (result !== 'idle') setResult('idle');
-  };
-  /* What the film plays over, as guests will see it — the theme's own colour
-     while it follows the theme (`stdFilmBackground`, the guest page's rule). */
-  const shownBackground: StdBackground =
-    followsTheme && themeCanvas ? { kind: 'plain', value: themeCanvas, legibility: background.legibility ?? 'auto' } : background;
+  const uploadUrl = initialUploadUrl ?? null;
+  const shownBackground: StdBackground = background;
   const setLegibility = (legibility: StdLegibility) => {
     setBackground((b) => ({ ...b, legibility }));
     if (result !== 'idle') setResult('idle');
-  };
-  // Upload picked → set it + presign the ref so the preview shows it immediately.
-  const handleUpload = (ref: string | null) => {
-    if (!ref) {
-      setUploadUrl(null);
-      pickBackground({ kind: 'plain', value: '#f3ece1' });
-      return;
-    }
-    pickBackground({ kind: 'upload', value: ref });
-    presignStdBackground(eventId, ref)
-      .then((r) => setUploadUrl(r.url))
-      .catch(() => {});
   };
 
   // Step-3 media (gallery / uploaded video); saved on Render.
@@ -457,8 +429,9 @@ export function StdBuilderClient({
             filmStory: filmStory.trim() || null,
             filmAccentColor: accentColor,
             revealEffects: effects,
+            /* Only its Readability is stored — the film follows the main background (`stdFollowTheme`). */
             background,
-            backgroundFollowsTheme: followsTheme,
+            backgroundFollowsTheme: true,
             media,
             siteMusicKey,
           }),
@@ -474,6 +447,7 @@ export function StdBuilderClient({
           ? 'ok'
           : r.error === LOOK_PRO_REQUIRED ? 'pro'
             : r.error === REVEAL_NEEDS_PRO ? 'needs-pro'
+              : r.error === EVENT_DATE_FLOOR_MESSAGE ? 'floor'
               : 'error',
       );
     });
@@ -492,19 +466,6 @@ export function StdBuilderClient({
 
         {/* LEFT: Background+Theme → Content → Video/Gallery → Music → Opening */}
         <div className="space-y-8">
-
-          {/* Step 1 · Background — the backdrop the whole film plays over */}
-          <StdBackgroundPicker
-            value={background}
-            onChange={pickBackground}
-            eventId={eventId}
-            uploadUrl={uploadUrl}
-            onUpload={handleUpload}
-            uploadLock={uploadLock('photo')}
-            followsTheme={followsTheme}
-            onFollowTheme={followTheme}
-            themeCanvas={themeCanvas}
-          />
 
           {/* Step 1 (cont.) · Readability — veil + text tone so the names always
               read over the background (Lighten = cream wash + dark text · Darken
@@ -680,6 +641,12 @@ export function StdBuilderClient({
                     <p className={helperCls}>One of the dates you chose during onboarding.</p>
                   </>
                 )}
+                {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+                {result === 'floor' ? (
+                  <p role="alert" className="mt-1.5 text-xs text-danger-700">
+                    {EVENT_DATE_FLOOR_MESSAGE}
+                  </p>
+                ) : null}
               </div>
 
               {/* Ceremony venue — auto-fills from a finalized booking; the field
@@ -779,7 +746,7 @@ export function StdBuilderClient({
                 />
                 <p className={helperCls}>
                   {!launchDate && defaultInvitationLaunchIso(dateIso)
-                    ? `Automatic: 3 months before — ${formatEventDate(defaultInvitationLaunchIso(dateIso)!)}. Set a date to override.`
+                    ? `Automatic: 90 days before — ${formatEventDate(defaultInvitationLaunchIso(dateIso)!)}. Set a date to override.`
                     : 'We’ll add a “remind me when the invite arrives” to the end-of-film calendar.'}
                 </p>
               </div>
@@ -866,17 +833,7 @@ export function StdBuilderClient({
                   {effects.music ? 'On — your song plays through the film.' : 'Off — your film plays silently.'}
                 </span>
               </span>
-              <span
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  effects.music ? 'bg-terracotta' : 'bg-ink/20'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                    effects.music ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </span>
+              <SwitchTrack on={effects.music} />
             </button>
 
             {/* Your song — inline upload (single-source: this sets the couple's
@@ -898,6 +855,7 @@ export function StdBuilderClient({
                   bucket="media"
                   pathPrefix={`events/${eventId}/site-music`}
                   acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+                  audioGuard
                   maxSizeMB={40}
                   variant="wide"
                   currentValue={siteMusicKey}

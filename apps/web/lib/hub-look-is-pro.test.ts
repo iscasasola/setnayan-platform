@@ -78,7 +78,9 @@ function writesLook(body: string): boolean {
   return COLUMN_WRITE.test(body) || CANVAS_WRITE.test(body);
 }
 
-const GATE = /\b(?:requireLookPro|lookProAllows)\s*\(/;
+/* RE-AIMED 2026-10-22 (part by part): ✓ Apply's gate is what the event owns part by part (`hubOwnershipForWrite`, the
+   look gate's own module) — each drafted item is asked for its parts. */
+const GATE = /\b(?:requireLookPro|lookProAllows|hubOwnershipForWrite)\s*\(/;
 
 /**
  * Writers that are NOT a couple changing their page's look, each with the
@@ -190,9 +192,10 @@ test('a COLOUR is free, MEDIA is Pro — the two writers encode the owner\'s lin
     return a.body;
   };
   const colors = find('app/dashboard/[eventId]/website/colors/actions.ts', 'updateSiteColors');
-  const call = colors.match(/siteLookChange\(([\s\S]*?)\)\s*,?\s*\)\s*;/);
-  assert.ok(call, 'updateSiteColors must decide through siteLookChange');
-  assert.doesNotMatch(call[1]!, /\bbg\b|site_bg_color/, 'the background colour must not feed the Pro decision');
+  // RE-AIMED 2026-10-22 (part by part): Candlelight (Style) and the travelling logo (Logo & QR) are asked apart — every call.
+  const calls = [...colors.matchAll(/siteLookChange\(([^;]*?)\)\s*[,)]/g)];
+  assert.ok(calls.length >= 2, 'updateSiteColors must decide through siteLookChange');
+  for (const call of calls) assert.doesNotMatch(call[1]!, /\bbg\b|site_bg_color/, 'the background colour must not feed the Pro decision');
   const bgGate = find('app/dashboard/[eventId]/website/widgets/actions.ts', 'setWidgetBackground');
   assert.match(bgGate, /requireLookPro\(\s*eventId,\s*sectionBackgroundChange\(/, 'section media must be classified as a background');
   // 🪤 The classifier must be handed the kind the form POSTED. A hard-coded

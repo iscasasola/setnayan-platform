@@ -16,8 +16,16 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { groups: { categories: { tile: string; services: { key: string; event_types: string[] }[] }[] }[] };
+const V2_CATEGORIES = V2.groups.flatMap((g) => g.categories);
+const V2_SERVICES = V2_CATEGORIES.flatMap((c) => c.services);
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -147,20 +155,48 @@ test('a wedding still reaches every category it reached, and nothing new', async
   // hidden tiles included: the pinned list is the whole 65, hidden four too.
   const now = await reaching('wedding', true);
   const missing = WEDDING_CATEGORIES_2026_10_02.filter((id) => !now.includes(id));
-  assert.deepEqual(missing, [], 'a wedding lost categories');
+  // ⚖ TAXONOMY V2 (2026-11-06, `20271320461004`): a category v2 FOLDED is retired (so `reaching` skips it) and forwards to
+  // the row that took its services. Such a category is not lost: the wedding must still reach where it forwards. Any
+  // other missing category is still a loss.
+  const forward = new Map(
+    (await db.query<{ id: string; to: string | null; status: string }>(
+      `SELECT id, merged_into_category_id AS to, status FROM public.service_categories WHERE id = ANY ($1::text[])`,
+      [missing],
+    )).rows.map((r) => [r.id, r.status === 'retired' ? r.to : null] as const),
+  );
+  const lost = missing.filter((id) => {
+    const to = forward.get(id);
+    return !to || !now.includes(to);
+  });
+  assert.deepEqual(lost, [], 'a wedding lost categories');
 
   // Nothing new: a category outside that list that reaches a wedding would
   // mean a thin-type append leaked a wedding in. (Later, deliberate additions
   // to the wedding belong in the list above — that is the point of pinning it.)
-  const extra = now.filter((id) => !WEDDING_CATEGORIES_2026_10_02.includes(id));
+  // ⚖ V2's two NEW categories are the only deliberate addition, and only where v2 scopes one of their services to a wedding.
+  const v2NewForWedding = V2_CATEGORIES.filter(
+    (c) => (c.tile === 'event_staffing' || c.tile === 'prayers') && c.services.some((sv) => sv.event_types.includes('wedding')),
+  ).map((c) => c.tile);
+  const extra = now.filter((id) => !WEDDING_CATEGORIES_2026_10_02.includes(id) && !v2NewForWedding.includes(id));
   assert.deepEqual(extra, [], 'a wedding gained categories this migration should not have given it');
 });
 
+// ⚖ TAXONOMY V2 (owner-approved 2026-11-06): v2 hand-sets every picker service's event list, so "no service under these
+// tiles carries a list" is obsolete by that decision. What still must hold: the only lists here are v2's own, value for
+// value — no CATEGORY list was copied onto a service, and no service that v2 does not name gained one.
 test('services keep inheriting — no category list was copied onto a service', async () => {
-  const r = await db.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM public.canonical_service_taxonomy
+  const r = await db.query<{ k: string; e: string[] }>(
+    `SELECT canonical_service AS k, applicable_event_types AS e FROM public.canonical_service_taxonomy
       WHERE applicable_event_types IS NOT NULL
-        AND tile_id IN ('reception','catering','cake','dj','florist','photo_video','dessert')`,
+        AND merged_into IS NULL -- a folded key is a tombstone: it is never shown, so its old list reaches nobody
+        AND tile_id IN ('reception','catering','cake','dj','florist','photo_video','dessert')
+      ORDER BY 1`,
   );
-  assert.equal(r.rows[0]!.n, 0, 'a service under a scoped tile carries its own list and would override the tile');
+  const v2 = new Map(V2_SERVICES.map((sv) => [sv.key, sv.event_types] as const));
+  const notV2 = r.rows.filter((x) => !v2.has(x.k) || JSON.stringify(x.e) !== JSON.stringify(v2.get(x.k)));
+  assert.deepEqual(
+    notV2.map((x) => x.k),
+    [],
+    'a service under a scoped tile carries a list that is not v2\'s own, and would override the tile',
+  );
 });

@@ -54,6 +54,8 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
@@ -74,55 +76,13 @@ after(async () => {
  * Each is a live defect with a real cost. DELETE the line in the same change
  * that fixes its data; this test fails until you do.
  */
-const KNOWN_UNFILLABLE: Record<string, string> = {
-  // ── gala_night, added 2026-07 AFTER these five leaf overrides were written.
-  // The tiles were widened to gala_night; the leaves beneath them never were,
-  // so every one of them is padlocked for gala hosts. One-line fix each (NULL
-  // the redundant leaf override, or append gala_night to it) — deliberately not
-  // bundled into the date/hangout PR that added this guard, because widening
-  // another event type's reach is its own reviewable change.
-  'av_production:gala_night':
-    "leaf av_production is scoped ['corporate','wedding','debut']; its tile also claims gala_night.",
-  'event_insurance:gala_night':
-    'leaf event_insurance predates gala_night; its tile claims it.',
-  'personal_accident_insurance:gala_night':
-    'leaf personal_accident_insurance predates gala_night; its tile claims it.',
-  'event_medic:gala_night':
-    "leaf event_medic is scoped ['tournament','wedding','corporate']; its tile also claims gala_night.",
-  'speaker_talent:gala_night':
-    "leaf speaker_talent is scoped ['corporate']; its tile also claims gala_night.",
-
-  // ── kids_entertainer: the tile serves birthday + christening, the leaf only
-  // birthday. A christening host sees "Kids' Entertainer" and no vendor can
-  // ever fill it.
-  'kids_entertainer:christening':
-    "leaf kids_entertainer is scoped ['birthday']; its tile also claims christening.",
-
-  // ── editorial: ZERO canonicals — already tracked, with its owner sign-off,
-  // in lib/taxonomy-tile-reachability.test.ts KNOWN_DEAD_TILES. Listed here
-  // too because a zero-leaf tile is unfillable for EVERY type it claims, and
-  // an unexplained silent pass would be worse than a duplicated note.
-  'editorial:wedding': 'zero canonicals — see KNOWN_DEAD_TILES (owner sign-off open).',
-  'editorial:debut': 'zero canonicals — see KNOWN_DEAD_TILES (owner sign-off open).',
-  'editorial:corporate': 'zero canonicals — see KNOWN_DEAD_TILES (owner sign-off open).',
-  'editorial:gala_night': 'zero canonicals — see KNOWN_DEAD_TILES (owner sign-off open).',
-
-  // ── filipiniana_barongs: ZERO rows in canonical_service_taxonomy name this
-  // tile — its 10 ids live under brides_attire / grooms_attire with no
-  // secondary_tiles, and the marketplace only shows it because
-  // lib/vendor-counts.ts HARD-CODES the cross-view. Documented as live and
-  // uncaught in lib/taxonomy-tile-reachability.test.ts; this guard is the first
-  // thing that actually fails on it. Needs the owner call recorded there
-  // (cross-list via secondary_tiles, or drop the hard-coded cross-view).
-  'filipiniana_barongs:wedding': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:debut': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:christening': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:celebration': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:anniversary': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:graduation': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:reunion': 'zero leaves name this tile — hard-coded cross-view only.',
-  'filipiniana_barongs:gala_night': 'zero leaves name this tile — hard-coded cross-view only.',
-};
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06, migration `20271320461004`): EMPTY. Every entry that stood here is gone:
+ * av_production, editorial and filipiniana_barongs are folded tombstones (retired — the query skips them), and the gala /
+ * christening leaf overrides were re-scoped by v2's per-service event list, after which step 8b drops any claim a
+ * category's live services cannot fill. The self-cleaning test below demanded their removal; the list only shrinks.
+ */
+const KNOWN_UNFILLABLE: Record<string, string> = {};
 
 /**
  * Every (visible tile, event type it claims) pair with no leaf that resolves to
@@ -258,14 +218,18 @@ test('travel reaches accommodation + transfers, and wedding keeps accommodation'
 
   // And the shelf it left must still be stocked — an emptied tile is pruned
   // entirely, which would delete the wedding reception shelf as a side effect.
-  const reception = await replay.db.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM public.canonical_service_taxonomy
-      WHERE tile_id = 'reception' AND COALESCE(marketplace_hidden,false) = false`,
+  // ⚖ TAXONOMY V2: the reception shelf (now "Venues") holds exactly v2's venue services — the six reception venues
+  // became Type values of one Reception venue service, so the floor "≥ 6" is re-pointed at v2's own list, not bumped.
+  const reception = await replay.db.query<{ k: string }>(
+    `SELECT canonical_service AS k FROM public.canonical_service_taxonomy
+      WHERE tile_id = 'reception' AND COALESCE(marketplace_hidden,false) = false ORDER BY 1`,
   );
-  assert.ok(
-    (reception.rows[0]?.n ?? 0) >= 6,
-    `reception must keep its own venues, has ${reception.rows[0]?.n}`,
-  );
+  const V2 = JSON.parse(
+    readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+  ) as { groups: { categories: { tile: string; services: { key: string }[] }[] }[] };
+  const v2Venues = V2.groups.flatMap((g) => g.categories).find((c) => c.tile === 'reception')!.services.map((x) => x.key).sort();
+  assert.ok(v2Venues.length > 0, 'premise: v2 has a reception category');
+  assert.deepEqual(reception.rows.map((r) => r.k), v2Venues, `reception must keep its own venues, has ${reception.rows.length}`);
 });
 
 test('the date + hangout dining tile is fillable (the defect that prompted this guard)', async () => {

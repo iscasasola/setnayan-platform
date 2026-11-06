@@ -26,7 +26,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { groups: { categories: { tile: string; services: { event_types: string[] }[] }[] }[] };
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -148,7 +154,18 @@ test('the marketplace reaches the wake — eight borrowed tiles and three of its
   // ("yes scope it"); a wake gained the hall (`reception`), the chapel
   // (`ceremony_venue`) and coffee (`coffee_espresso`). All shared with
   // celebrations, none the wake's own.
-  assert.deepEqual(ids, [
+  //
+  // 14 → 20 on 2026-11-06 (TAXONOMY V2 APPROVED): a category's scope widens to
+  // cover its v2 services and never narrows, so the list is the 14 below PLUS
+  // every v2 category with a service scoped to the wake — computed from the
+  // approved file, not typed. It gains the two new categories (Prayers & novena,
+  // the wake's own; Staff, security & registration) and four borrowed rows.
+  const V2_WAKE_TILES = V2.groups
+    .flatMap((g) => g.categories)
+    .filter((c) => c.services.some((sv) => sv.event_types.includes('wake')))
+    .map((c) => c.tile);
+  assert.ok(V2_WAKE_TILES.includes('prayers') && V2_WAKE_TILES.includes('funeral_home'), 'premise: v2 scopes its farewell rows to the wake');
+  const BEFORE_V2 = [
     // borrowed
     'catering',
     'ceremony_venue',
@@ -164,7 +181,8 @@ test('the marketplace reaches the wake — eight borrowed tiles and three of its
     'photo_video',
     'printing',
     'reception',
-  ]);
+  ];
+  assert.deepEqual(ids, [...new Set([...BEFORE_V2, ...V2_WAKE_TILES])].sort());
 });
 
 test('🚨 every farewell tile carries services — an empty shelf is an unfindable trade', async () => {
@@ -179,11 +197,18 @@ test('🚨 every farewell tile carries services — an empty shelf is an unfinda
       WHERE folder_id = 'farewell'
       GROUP BY tile_id ORDER BY tile_id`,
   );
+  // ⚖ TAXONOMY V2 (2026-11-06): Cremation folded into Memorial park (its 2 rows moved: 3 + 2 = 5), and the new
+  // Prayers & novena row holds its one new service. Rows are counted, folded keys included, so a fold MOVES a count
+  // and never loses one — and the folded tile must be a tombstone pointing at the row that took its services.
   assert.deepEqual(
     r.rows.map((x) => `${x.tile_id}:${x.n}`),
-    ['cremation:2', 'funeral_home:7', 'memorial_park:3'],
+    ['funeral_home:7', 'memorial_park:5', 'prayers:1'],
     'a farewell tile lost its services — it now renders as an empty shelf and the trade is unfindable',
   );
+  const cremation = await db.query<{ status: string; merged_into_category_id: string | null }>(
+    `SELECT status, merged_into_category_id FROM public.service_categories WHERE id = 'cremation'`,
+  );
+  assert.deepEqual(cremation.rows[0], { status: 'retired', merged_into_category_id: 'memorial_park' });
 });
 
 test('an event can BE a wake — and a community can never own one', async () => {

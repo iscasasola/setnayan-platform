@@ -260,12 +260,23 @@ test('the full replay (no prod-only services) applies the seed and skips only wh
     const missing = new Set(PROD_ONLY_SERVICES.map(([k]) => k));
     const placeable = seed.parts.filter((p) => seed.links.get(p.key)!.some((s) => !missing.has(s))).length;
     assert.equal(parts.rows[0]!.n, placeable, 'a part with a live first-or-later service was not seeded');
-    const links = await full.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM public.inspiration_part_services WHERE slot_key = ANY($1::text[])`,
+    /* ⚖ TAXONOMY V2 (2026-11-06, `20271320461004`): the merge rewrites every link to its surviving service, and two links
+       of one part that land on the same survivor become one row. So the replay's final links are the seed's links FORWARDED
+       through `merged_into` and de-duplicated — compared as the exact set of (part, service) pairs, not only a count. */
+    const fwd = new Map(
+      (await full.query<{ k: string; m: string | null }>(`SELECT canonical_service AS k, merged_into AS m FROM public.canonical_service_taxonomy`)).rows.map(
+        (r) => [r.k, r.m ?? r.k] as const,
+      ),
+    );
+    const links = await full.query<{ p: string }>(
+      `SELECT slot_key || '→' || canonical_service AS p FROM public.inspiration_part_services WHERE slot_key = ANY($1::text[]) ORDER BY 1`,
       [[...seedKeys]],
     );
-    const expected = [...seed.links].reduce((n, [, s]) => n + s.filter((k) => !missing.has(k)).length, 0);
-    assert.equal(links.rows[0]!.n, expected);
+    const expected = [
+      ...new Set([...seed.links].flatMap(([part, s]) => s.filter((k) => !missing.has(k)).map((k) => `${part}→${fwd.get(k) ?? k}`))),
+    ].sort();
+    assert.ok(expected.length > 0, 'premise: the seed has placeable links');
+    assert.deepEqual(links.rows.map((r) => r.p).sort(), expected);
   } finally {
     await full.close();
   }

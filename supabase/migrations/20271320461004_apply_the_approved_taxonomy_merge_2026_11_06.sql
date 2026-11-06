@@ -27,6 +27,11 @@
 --      applicable_event_types to cover its services (never narrows).
 --   8. Names every picker service and sets its applicable_event_types to v2's
 --      hand-set list (v2 records −0 against live everywhere).
+--      8b. Then each of the 39 categories drops any event type that NONE of its
+--      live services can serve (only when every live service has its own
+--      scope — a service with none inherits the category's and fills them all).
+--      Step 7 only ever widens; 8b removes exactly the claims step 8 left
+--      unfillable (tests/db/tile-event-type-fillable.db.test.ts).
 --   9. Writes every specialty as a pick-all-that-apply facet (Rental = yes/no),
 --      with its question and each value's event scope (option_event_types,
 --      inside the facet definition — no new column).
@@ -57,7 +62,7 @@ DECLARE
   v_tagged INT := 0; v_facets_written INT := 0;
   v_facets_refused TEXT[] := ARRAY[]::text[];
   v_schemas_added INT := 0; v_renamed_tiles INT := 0; v_renamed_trades INT := 0;
-  v_tile_scopes INT := 0; v_trade_scopes INT := 0;
+  v_tile_scopes INT := 0; v_trade_scopes INT := 0; v_tile_scopes_narrowed INT := 0;
   v_vendor UUID; v_def JSONB; v_old JSONB; v_min JSONB; v_payload JSONB;
   v_keys TEXT[];
 BEGIN
@@ -196,6 +201,29 @@ BEGIN
       v_trade_scopes := v_trade_scopes + v_n;
     END IF;
   END LOOP;
+
+  -- ── 8b · a category claims only the events its live services can fill ────
+  UPDATE service_categories sc
+     SET applicable_event_types = ARRAY(
+           SELECT x FROM unnest(sc.applicable_event_types) WITH ORDINALITY AS a(x, i)
+            WHERE x = ANY (u.types) ORDER BY i),
+         updated_at = NOW()
+    FROM (
+      SELECT c.tile_id,
+             ARRAY(SELECT DISTINCT y
+                     FROM canonical_service_taxonomy c2, unnest(c2.applicable_event_types) AS y
+                    WHERE c2.tile_id = c.tile_id AND NOT COALESCE(c2.marketplace_hidden, FALSE)) AS types
+        FROM canonical_service_taxonomy c
+       WHERE NOT COALESCE(c.marketplace_hidden, FALSE)
+       GROUP BY c.tile_id
+      HAVING bool_and(c.applicable_event_types IS NOT NULL AND cardinality(c.applicable_event_types) > 0)
+    ) u
+   WHERE sc.id = u.tile_id AND sc.tier = 2 AND sc.merged_into_category_id IS NULL
+     AND sc.id IN (SELECT e->>'t' FROM jsonb_array_elements(v_labels) e)
+     AND sc.applicable_event_types IS NOT NULL
+     AND cardinality(u.types) > 0
+     AND EXISTS (SELECT 1 FROM unnest(sc.applicable_event_types) z WHERE NOT (z = ANY (u.types)));
+  GET DIAGNOSTICS v_tile_scopes_narrowed = ROW_COUNT;
 
   -- ── 9 · every specialty as a facet ───────────────────────────────────────
   -- Shape (iteration 0044): category_specific_attributes {key: {type, label,
@@ -380,6 +408,7 @@ BEGIN
     'trades_skipped', v_trades_skipped,
     'tiles_renamed', v_renamed_tiles,
     'tile_scopes_widened', v_tile_scopes,
+    'tile_scopes_narrowed_to_fillable', v_tile_scopes_narrowed,
     'trades_renamed', v_renamed_trades,
     'trade_scopes_set', v_trade_scopes,
     'schemas_added', v_schemas_added,

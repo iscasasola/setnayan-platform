@@ -130,15 +130,19 @@ test('add a service → two tables, LAST in its category (the new sort_order); a
   assert.deepEqual(await col(`SELECT slot_key AS v FROM public.inspiration_part_services WHERE canonical_service = 'four_level_groom_cape'`), []);
 });
 
+// ⚖ TAXONOMY V2 (2026-11-06): Barong & suits is one service now (every suit is a specialty of it), so with the cape
+// added above it holds two live rows — too few for a reversal to prove anything. The reorder is asked of Stylist &
+// décor, which v2 gives three live services (stylist, balloon & backdrop, exhibit & booth).
 test('Order ▾ on services — a permutation only, written dense; anything else is refused', async () => {
-  const keys = await col(`SELECT canonical_service AS v FROM public.canonical_service_taxonomy WHERE tile_id = 'grooms_attire' AND merged_into IS NULL ORDER BY sort_order, canonical_service`);
-  assert.ok(keys.length >= 3);
+  const TILE = 'stylist_decorator';
+  const keys = await col(`SELECT canonical_service AS v FROM public.canonical_service_taxonomy WHERE tile_id = $1 AND merged_into IS NULL ORDER BY sort_order, canonical_service`, [TILE]);
+  assert.ok(keys.length >= 3, `premise: ${TILE} has ${keys.length} live services`);
   const reversed = [...keys].reverse();
-  const r = await W.reorderServicesCore(admin, ACTOR, 'grooms_attire', reversed);
+  const r = await W.reorderServicesCore(admin, ACTOR, TILE, reversed);
   assert.ok(r.ok, JSON.stringify(r));
-  assert.deepEqual(await col(`SELECT canonical_service AS v FROM public.canonical_service_taxonomy WHERE tile_id = 'grooms_attire' AND merged_into IS NULL ORDER BY sort_order`), reversed);
-  assert.equal((await W.reorderServicesCore(admin, ACTOR, 'grooms_attire', reversed.slice(1))).ok, false, 'a dropped service was accepted');
-  assert.equal((await W.reorderServicesCore(admin, ACTOR, 'grooms_attire', [...reversed, 'florals'])).ok, false, 'a foreign service was accepted');
+  assert.deepEqual(await col(`SELECT canonical_service AS v FROM public.canonical_service_taxonomy WHERE tile_id = $1 AND merged_into IS NULL ORDER BY sort_order`, [TILE]), reversed);
+  assert.equal((await W.reorderServicesCore(admin, ACTOR, TILE, reversed.slice(1))).ok, false, 'a dropped service was accepted');
+  assert.equal((await W.reorderServicesCore(admin, ACTOR, TILE, [...reversed, 'florals'])).ok, false, 'a foreign service was accepted');
 });
 
 test('add a part → home = the category, linked to the services it was born with; the key is made from the name', async () => {

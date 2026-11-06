@@ -172,7 +172,7 @@ function QrThumb({ svg }: { svg: string | null }) {
       className="block h-11 w-11 flex-none rounded-lg bg-white p-[3px] shadow-[0_1px_0_rgba(0,0,0,.04),0_4px_12px_-8px_rgba(0,0,0,.35)] [&_svg]:block [&_svg]:h-full [&_svg]:w-full"
       data-qr-thumb={svg ? 'code' : 'none'}
     >
-      {svg ? <span className="block h-full w-full" dangerouslySetInnerHTML={{ __html: svg }} /> : <QrCode className="h-full w-full p-1.5 text-[#2C2A29]/40" strokeWidth={1.5} />}
+      {svg ? <span className="block h-full w-full" dangerouslySetInnerHTML={{ __html: svg }} /> : <QrCode className="h-full w-full p-1.5 text-ink/40" strokeWidth={1.5} />}
     </span>
   );
 }

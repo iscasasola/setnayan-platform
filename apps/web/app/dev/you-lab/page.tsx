@@ -37,7 +37,8 @@ import { manilaToday } from '@/lib/std-views';
 export const dynamic = 'force-dynamic';
 
 const LAB_PHOTO_REF = 'r2://media/profile-photo/lab-user/isabel.avif';
-const LAB_PHOTO_URL = '/portraits/isabel-santos.avif';
+// One real photo, never a collage: every /portraits/*.avif is a three-panel strip, which reads as seams in the circle.
+const LAB_PHOTO_URL = '/event-types/gala_night.webp';
 
 const STATES: Record<string, { me: YouCardMe; email: string; photos: Record<string, string> }> = {
   new: { me: { display_name: 'Isabel', account_type: 'customer' }, email: 'isabel@example.com', photos: {} },
@@ -67,8 +68,9 @@ const STATES: Record<string, { me: YouCardMe; email: string; photos: Record<stri
       display_name: 'Isabel Santos',
       slug: 'isabel-santos',
       profile_photo_url: LAB_PHOTO_REF,
-      profile_photo_focal: 2,
-      profile_photo_zoom: 150,
+      profile_focal_x: 35,
+      profile_focal_y: 20,
+      profile_zoom: 150,
       account_type: 'customer',
       public_summary_consent_at: '2026-09-30T08:00:00Z',
     },

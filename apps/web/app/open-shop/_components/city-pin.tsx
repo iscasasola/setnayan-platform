@@ -2,7 +2,8 @@
 
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
-import { Check, Crosshair, Loader2, MapPin } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Check, Crosshair, Info, Loader2, MapPin } from 'lucide-react';
 
 import { addressFromPin } from '@/lib/pin-address';
 import { pinConfirmCopy } from '@/lib/pin-confirm-copy';
@@ -80,9 +81,28 @@ export function CityPin({
   defaultCity,
   defaultAddress = '',
   active = true,
+  error = null,
+  sideSlot = null,
+  onConfirmedChange,
+  onPendingChange,
+  onAddressChange,
 }: {
   defaultCity: string;
   defaultAddress?: string;
+  /** The step's refusal (pin · "Yes" · city), drawn in the step's own line under the map — never a top banner. */
+  error?: string | null;
+  /**
+   * 🪟 At ≥768 the wizard hands in its right-hand column, and "Is this your address?" opens THERE, beside the map
+   * where the eye already is (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN APPROVED" — the owner never saw the small
+   * confirm card on desktop). Null on a phone: the card sits under the map.
+   */
+  sideSlot?: HTMLElement | null;
+  /** The confirmed city (or null when the pin moves / nothing is confirmed) — the wizard's "at a glance" and button. */
+  onConfirmedChange?: (city: string | null) => void;
+  /** True while "Is this your address?" waits for an answer — the wizard turns its right column into that pane. */
+  onPendingChange?: (pending: boolean) => void;
+  /** What is in the address box — parked with the draft so a reload brings it back. */
+  onAddressChange?: (address: string) => void;
   /**
    * True once this step is the one on screen. Belt AND braces with the
    * ResizeObserver: a ResizeObserver fires on a SIZE change, and while that does
@@ -161,6 +181,8 @@ export function CityPin({
    */
   const [country, setCountry] = useState('');
   const [detecting, setDetecting] = useState(false);
+  /** "Use my location" is waiting for the phone's answer — the map says so while it waits. */
+  const [asking, setAsking] = useState(false);
   const [missed, setMissed] = useState(false);
 
   const setCityValue = (next: string) => setCity(next);
@@ -392,9 +414,11 @@ export function CityPin({
 
   const useMyLocation = () => {
     setLocationRefused(false);
+    setAsking(true);
     setDetecting(true);
     askLocationOnce(
       ({ lat, lon }) => {
+        setAsking(false);
         mapRef.current?.setView([lat, lon], 15);
         placePin(lat, lon);
       },
@@ -403,6 +427,7 @@ export function CityPin({
       // happened, which reads exactly like a broken button. A refused permission is a choice, so the line says
       // what to do next, never "error".
       () => {
+        setAsking(false);
         setDetecting(false);
         setLocationRefused(true);
       },
@@ -415,13 +440,87 @@ export function CityPin({
   // of a ternary that has to be read twice.
   const copy = pinConfirmCopy(proposed, address);
 
+  // The wizard reads the agreement too (its "at a glance" column and whether Continue is the primary action), so it
+  // is told every time the agreement changes — never polled off the hidden input.
+  useEffect(() => {
+    onConfirmedChange?.(confirmed ? city.trim() || null : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter
+  }, [confirmed, city]);
+  const pending = Boolean(pin) && !confirmed && !detecting;
+  useEffect(() => {
+    onPendingChange?.(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter
+  }, [pending]);
+  useEffect(() => {
+    onAddressChange?.(address);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter
+  }, [address]);
+
+  // The one sentence over the map while something is being looked up (owner 2026-11-06: "a clear state while the
+  // lookup runs"). The same words the status lines below always said.
+  const busy = asking
+    ? 'Asking your phone where you are…'
+    : locating
+      ? 'Finding it on the map…'
+      : detecting
+        ? 'Naming that spot…'
+        : null;
+  // 🏙 The City box appears only when the lookup cannot name the spot (prototype "Where you are"); otherwise the city
+  // the pin resolved to rides in a hidden field and is SHOWN in the confirmation, where it is read.
+  const askCity = Boolean(pin) && !detecting && !locating && (missed || !city.trim());
+
+  /* ── "IS THIS YOUR ADDRESS?" — the step's own primary action (owner 2026-11-06) ──────────────────────────────────
+     A geocoder's answer is a guess, and this one is about where the vendor's business physically is. Shown with the
+     found address IN FULL, because "Quezon City" alone cannot tell you whether it found YOUR street; and "Yes, that's
+     right" is a full-width primary button, not a small chip — the owner never saw the old one on desktop. The step
+     cannot be passed until it is answered (`location_confirmed`, read by `locationStepError` in the browser AND on
+     the server). Gated on the PIN, not the lookup: a spot the geocoder cannot name is still a pin the vendor can
+     vouch for, so the card always has something to answer. */
+  const confirmCard = (
+    <div
+      className="space-y-2.5 rounded-2xl border p-3.5"
+      style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+      data-open-shop-confirm=""
+    >
+      <h3 className="text-lg font-semibold leading-tight" style={{ color: 'var(--m-ink)' }}>
+        Is this your address?
+      </h3>
+      {/* 🔑 THE CARD MUST SHOW SOMETHING TO CHECK THE PIN AGAINST — `pinConfirmCopy` falls back to what the vendor
+          typed, then to "We couldn't name that spot…", never to an empty card. */}
+      <p className="text-sm leading-snug" style={{ color: 'var(--m-ink)' }}>
+        {copy.detail ?? copy.question}
+      </p>
+      {copy.city ? (
+        <p className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          <MapPin aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            Are you in <strong>{copy.city}</strong>?
+          </span>
+        </p>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setConfirmed(true)}
+        className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
+        data-open-shop-yes=""
+      >
+        <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+        Yes, that&rsquo;s right
+      </button>
+      <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+        Not quite? Edit the address above or drag the pin.
+      </p>
+    </div>
+  );
+
   return (
     <div className="space-y-2">
       {/* THE ADDRESS IS THE PRIMARY CONTROL (owner 2026-08-10). It leads because
           a vendor knows their address by heart and panning a map at 375px to
           find their own shop is fiddly. The map below is confirmation, not the
-          way in. */}
+          way in. Its label ("Address") is the wizard's, tied by this id. */}
       <input
+        id="open-shop-hq_address"
         name="hq_address"
         value={address}
         onChange={(e) => {
@@ -433,8 +532,9 @@ export function CityPin({
         maxLength={200}
         placeholder="Type your address"
         className="input-field"
-        aria-label="Your address"
         autoComplete="street-address"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? 'open-shop-err-location' : undefined}
       />
 
       {locating ? (
@@ -452,7 +552,7 @@ export function CityPin({
       ) : null}
 
       <div className="relative overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
-        <div ref={mapDivRef} className="h-[240px] w-full" />
+        <div ref={mapDivRef} className="h-[240px] w-full md:h-[320px]" />
         {/* 📍 data-asks-location: hidden inside the iPhone/Android app before
             first paint — it declares no location (DECISION_LOG 2026-10-19 (1));
             typing the address and tapping the map still place the pin. */}
@@ -460,13 +560,25 @@ export function CityPin({
           type="button"
           onClick={useMyLocation}
           data-asks-location=""
-          className="absolute right-2 top-2 z-[400] inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm"
+          className="absolute right-2 top-2 z-[402] inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm"
           style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
         >
           <Crosshair className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           Use my location
         </button>
-        {!pin ? (
+        {busy ? (
+          /* ⏳ THE LOOKUP-RUNNING STATE (owner 2026-11-06): the map dims and says what it is doing, so "still working"
+             never looks like "nothing happened". */
+          <div
+            className="pointer-events-none absolute inset-0 z-[401] flex flex-col items-center justify-center gap-2 text-sm font-medium"
+            style={{ background: 'color-mix(in srgb, var(--m-paper) 60%, transparent)', color: 'var(--m-ink)' }}
+            aria-live="polite"
+            data-open-shop-map-busy=""
+          >
+            <Loader2 aria-hidden className="h-5 w-5 animate-spin" strokeWidth={2} />
+            {busy}
+          </div>
+        ) : !pin ? (
           <span
             className="pointer-events-none absolute inset-x-0 bottom-0 z-[400] flex items-center justify-center gap-1.5 py-2 text-xs font-medium"
             style={{ background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)', color: 'var(--m-slate)' }}
@@ -480,18 +592,19 @@ export function CityPin({
       {locationRefused && !pin ? (
         <span
           className="flex items-start gap-1.5 text-xs"
-          style={{ color: 'var(--m-slate)' }}
+          style={{ color: 'var(--m-mulberry-deep)' }}
           aria-live="polite"
           data-location-refused=""
         >
-          <MapPin aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+          <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
           Couldn&rsquo;t get your location — type your address or drag the pin.
         </span>
       ) : null}
 
-      {/* The city is what the marketplace actually filters on, so it stays a
-          real, editable field — filled by the lookup, never locked by it. */}
+      {/* The city is what the marketplace actually filters on. It rides with the pin's answer; a box to type it
+          appears only when the lookup could not name the spot (or named it without a city). */}
       <input
+        type={askCity ? 'text' : 'hidden'}
         name="location_city"
         value={city}
         onChange={(e) => setCityValue(e.target.value)}
@@ -501,74 +614,25 @@ export function CityPin({
         aria-label="City"
       />
 
-      {/* ── CONFIRM THE PLACE (owner-locked 2026-08-10) ────────────────────────
-          A geocoder's answer is a guess, and this one is about where the
-          vendor's business physically is. Shown as a question with the matched
-          address in full, because "Quezon City" alone cannot tell you whether it
-          found YOUR street. The step cannot be passed until this is answered —
-          `location_confirmed` is what `validateStep(4)` reads.
-
-          🔑 GATED ON THE PIN, NOT ON THE LOOKUP. It used to appear only when the
-          geocoder returned something (`proposed`). Now that the pin is REQUIRED,
-          that would have been a dead end with no way out: a vendor who taps a
-          spot the geocoder cannot name gets no card, so nothing to confirm, so
-          the step can never be completed and no message explains why. Rural
-          Philippine coverage misses often enough that this is a real vendor, not
-          a hypothetical one. A pin the machine cannot name is still a pin the
-          vendor can vouch for — so the card asks "is this the right spot?" and
-          takes their word for it. */}
       {/* 🔑 NOT WHILE THE LOOKUP IS STILL RUNNING. The card used to appear the
           instant the map was tapped, showing the previous answer, with a live
           Yes button — so a fast tap answered a question that was never about
           this pin, and the agreement was overwritten a second later. Waiting
           for `detecting` to clear costs a second and removes the window
-          entirely. The spinner below already says what is happening. */}
-      {pin && !confirmed && !detecting ? (
-
-        <div
-          className="space-y-2 rounded-xl border p-3"
-          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
-        >
-          {/* 🔑 THE CARD MUST SHOW SOMETHING TO CHECK THE PIN AGAINST. It used
-              to ask "Is this the right spot?" with nothing underneath whenever
-              the geocoder returned no name — a confirmation with no information
-              in it, which does not check anything and just trains people to tap
-              yes. `pinConfirmCopy` falls back to WHAT THE VENDOR TYPED, which
-              was sitting in the box directly above this card and was being
-              ignored. */}
-          <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
-            {copy.city ? (
-              <>
-                Are you in <strong>{copy.city}</strong>?
-              </>
-            ) : (
-              <>{copy.question}</>
-            )}
-          </p>
-          {copy.detail ? (
-            <p className="text-xs leading-snug" style={{ color: 'var(--m-slate)' }}>
-              {copy.detail}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setConfirmed(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
-            style={{ background: 'var(--m-orange-deep)', color: 'white' }}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-            Yes, that&rsquo;s right
-          </button>
-          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-            Not quite? Edit the address above or drag the pin.
-          </p>
-        </div>
-      ) : null}
+          entirely. The overlay above already says what is happening. */}
+      {pin && !confirmed && !detecting ? (sideSlot ? createPortal(confirmCard, sideSlot) : confirmCard) : null}
 
       {confirmed ? (
-        <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--m-sage-deep)' }}>
-          <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-          Location confirmed
+        <span className="block space-y-0.5" data-open-shop-confirmed="">
+          <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--m-sage-deep)' }}>
+            <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+            Location confirmed{city.trim() ? ` · ${city.trim()}` : ''}
+          </span>
+          {copy.detail ? (
+            <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              {copy.detail}
+            </span>
+          ) : null}
         </span>
       ) : null}
 
@@ -587,14 +651,23 @@ export function CityPin({
         </>
       ) : null}
 
-      {detecting ? (
-        <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
-          <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" strokeWidth={2} />
-          Naming that spot…
-        </span>
-      ) : missed ? (
-        <span className="text-xs" style={{ color: 'var(--m-slate)' }} aria-live="polite">
+      {/* Asked only while the City box is EMPTY — "type your city above" beside a city already there reads as wrong. */}
+      {!detecting && missed && !city.trim() ? (
+        <span className="block text-xs" style={{ color: 'var(--m-slate)' }} aria-live="polite">
           Couldn&rsquo;t name that spot — type your city above.
+        </span>
+      ) : null}
+
+      {error ? (
+        <span
+          id="open-shop-err-location"
+          className="flex items-start gap-1.5 text-xs"
+          style={{ color: 'var(--m-mulberry-deep)' }}
+          role="alert"
+          data-open-shop-field-error="location"
+        >
+          <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+          <span>{error}</span>
         </span>
       ) : null}
     </div>

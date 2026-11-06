@@ -39,7 +39,7 @@ import {
   normalizeReligion,
   normalizeSex,
 } from '@/lib/profile-personalization';
-import { DEFAULT_PICTURE_FRAME, profilePhotoFrameColumns, readProfilePhotoFrame } from '@/lib/picture-frame';
+import { DEFAULT_PICTURE_FRAME, PICTURE_FRAME_FIELDS, profilePhotoFrameColumns, readProfilePhotoFrame } from '@/lib/picture-frame';
 
 /** Hidden inputs that say "this control is on the form" for controls that can post nothing. */
 export const PRESENCE_MARKERS = {
@@ -96,18 +96,20 @@ export function planPersonalInfoPatch(
   if (form.has(PRESENCE_MARKERS.profile_photo_url)) {
     const raw = form.get('profile_photo_url');
     patch.profile_photo_url = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
-    // 🖼 The picture's align + zoom ride with it (owner 2026-11-06: "yes, use the same control" — the logo's
-    // frame, `PictureFrameControl`). A cleared photo clears its frame; a form that shows the photo but posts no
-    // frame (a client from before the control) leaves the stored frame alone.
+    // 🖼 The picture's frame rides with it (owner 2026-11-06: "yes, use the same control" — the logo's frame,
+    // `PictureFrameControl`; 7 Nov: drag + pinch, x / y 0–100 + zoom 100–300). A cleared photo clears its frame; a
+    // form that shows the photo but posts no frame (a client from before the control) leaves the stored frame alone.
+    const fields = PICTURE_FRAME_FIELDS.profile_photo;
     if (patch.profile_photo_url === null) {
       Object.assign(patch, profilePhotoFrameColumns(DEFAULT_PICTURE_FRAME));
-    } else if (form.has('profile_photo_focal') || form.has('profile_photo_zoom')) {
+    } else if (form.has(fields.x) || form.has(fields.y) || form.has(fields.zoom)) {
       Object.assign(
         patch,
         profilePhotoFrameColumns(
           readProfilePhotoFrame({
-            profile_photo_focal: form.get('profile_photo_focal'),
-            profile_photo_zoom: form.get('profile_photo_zoom'),
+            profile_focal_x: form.get(fields.x),
+            profile_focal_y: form.get(fields.y),
+            profile_zoom: form.get(fields.zoom),
           }),
         ),
       );

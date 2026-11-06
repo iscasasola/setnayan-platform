@@ -34,8 +34,9 @@ export type YouCardMe = {
   slug?: string | null;
   phone?: string | null;
   profile_photo_url?: string | null;
-  profile_photo_focal?: number | null;
-  profile_photo_zoom?: number | null;
+  profile_focal_x?: number | null;
+  profile_focal_y?: number | null;
+  profile_zoom?: number | null;
   account_type?: string | null;
   public_summary_consent_at?: string | null;
 } & Partial<Record<FormalNameField, string | null>>;

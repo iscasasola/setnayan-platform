@@ -1,86 +1,148 @@
 /**
- * picture-frame.ts — how ONE picture sits in its round frame: the align (9-point focal) and the zoom.
+ * picture-frame.ts — how a picture sits in a round frame: drag to move, pinch to zoom (owner 7 Nov, prototype v21
+ * `open_shop_redesign_2026-11-06/open-shop-redesign.html`, the logo step: *"drag and pinch to zoom"*, *"change and
+ * save automatically"*). Shared by every round-photo surface — the shop logo (A3) and the person's profile picture (A4; owner
+ * 2026-11-06 "yes, use the same control") — through ONE control, `app/_components/picture-frame-control.tsx`.
  *
- * ⚖ Owner, 2026-11-06, asked whether a person's profile picture gets the same align + zoom as the business logo:
- * *"yes, use the same control"*. So the shop logo (`vendor_profiles.logo_focal` / `logo_zoom`) and the profile
- * picture (`users.profile_photo_focal` / `profile_photo_zoom`) share this ONE model, ONE `<img>` style and ONE
- * control (`app/_components/picture-frame-control.tsx`). The words and the sets are the Event Hub Maker photo's own
- * (`lib/hub-canvas.ts` · `scene-background-row.tsx`) — no new cropper.
+ * A frame is three whole numbers:
+ *   x, y  — object-position, 0–100 % (50 · 50 = centred)
+ *   zoom  — 100–300 % (100 = the picture just covers the circle · 300 = 3×)
  *
- * 🔑 Each picture only names its two columns (`PICTURE_FRAME_FIELDS`); the meaning of the numbers, how a bad value
- * is read (dropped to the default, never repaired — the Maker's sanitiser rule) and how it is drawn live here once.
+ * 🔑 GEOMETRY (cover). The picture is W × H with min(W, H) = the circle D. With `object-fit: cover`,
+ * `object-position: x% y%` and `transform: scale(z)` about the SAME point, the picture's left edge sits at
+ * x·(D − W·z) and its top at y·(D − H·z) — both ≤ 0 for every x, y ∈ [0, 1] and z ≥ 1. So the clamp that keeps the
+ * circle full is simply x, y ∈ [0, 100] and zoom ∈ [100, 300]: an empty edge cannot be drawn.
+ *
+ * Pure — no DOM. The control measures the circle (D) and the picture's aspect and hands them in.
  */
 import type { CSSProperties } from 'react';
 
-import {
-  HUB_DEFAULT_FOCAL,
-  HUB_DEFAULT_ZOOM,
-  HUB_FOCAL_POINTS,
-  HUB_ZOOMS,
-  focalToObjectPosition,
-  type HubFocalPoint,
-  type HubZoom,
-} from './hub-canvas';
+export type PictureFrame = { x: number; y: number; zoom: number };
 
-/** How a picture sits in its round frame. */
-export type PictureFrame = { focal: HubFocalPoint; zoom: HubZoom };
+export const PICTURE_ZOOM_MIN = 100;
+export const PICTURE_ZOOM_MAX = 300;
+/** One press of − or + (and one keyboard step). */
+export const PICTURE_ZOOM_STEP = 10;
 
-export const DEFAULT_PICTURE_FRAME: PictureFrame = { focal: HUB_DEFAULT_FOCAL, zoom: HUB_DEFAULT_ZOOM };
+export const DEFAULT_PICTURE_FRAME: PictureFrame = { x: 50, y: 50, zoom: 100 };
 
-/** The Maker's "How close" words, unchanged (`scene-background-row.tsx`). */
-export const PICTURE_ZOOM_LABEL: Record<HubZoom, string> = { 100: 'As it is', 120: 'Closer', 150: 'Closest' };
-
-/** The pictures that wear a frame, and the two columns (= form fields) each one stores it in. */
+/**
+ * Each framed picture's three stored columns — also the form fields its control posts (`PictureFrameControl
+ * picture="…"`). A new framed picture adds ONE line here and mounts the same control.
+ */
 export const PICTURE_FRAME_FIELDS = {
-  logo: { focal: 'logo_focal', zoom: 'logo_zoom' },
-  profile_photo: { focal: 'profile_photo_focal', zoom: 'profile_photo_zoom' },
+  logo: { x: 'logo_focal_x', y: 'logo_focal_y', zoom: 'logo_zoom' },
+  profile_photo: { x: 'profile_focal_x', y: 'profile_focal_y', zoom: 'profile_zoom' },
 } as const;
 
 export type FramedPicture = keyof typeof PICTURE_FRAME_FIELDS;
 
-const inSet = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v);
+/** The circle's size in px and the picture's natural width ÷ height (1 until it has loaded). */
+export type FrameBox = { size: number; aspect: number };
 
-/** Read a stored or posted pair. Anything outside the closed sets is dropped to the default. */
-export function readPictureFrame(focalRaw: unknown, zoomRaw: unknown): PictureFrame {
-  const f = Number(focalRaw);
-  const z = Number(zoomRaw);
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+/** Tenths while a finger moves (smooth); whole numbers when stored (`storedPictureFrame`). */
+const r1 = (v: number) => Math.round(v * 10) / 10;
+
+function cover(box: FrameBox) {
+  const D = box.size > 0 ? box.size : 1;
+  const a = Number.isFinite(box.aspect) && box.aspect > 0 ? box.aspect : 1;
+  return { D, W: D * Math.max(1, a), H: D * Math.max(1, 1 / a) };
+}
+
+/** Move the picture by (dx, dy) circle px — only along an axis that has slack; the picture follows the finger. */
+export function panPictureFrame(frame: PictureFrame, box: FrameBox, dx: number, dy: number): PictureFrame {
+  const { D, W, H } = cover(box);
+  const z = frame.zoom / 100;
+  const sx = W * z - D;
+  const sy = H * z - D;
   return {
-    focal: inSet(HUB_FOCAL_POINTS, f) ? f : HUB_DEFAULT_FOCAL,
-    zoom: inSet(HUB_ZOOMS, z) ? z : HUB_DEFAULT_ZOOM,
+    ...frame,
+    x: sx > 0.5 ? r1(clamp(frame.x - (dx / sx) * 100, 0, 100)) : frame.x,
+    y: sy > 0.5 ? r1(clamp(frame.y - (dy / sy) * 100, 0, 100)) : frame.y,
   };
 }
 
-/** The pair to write — NULL for a default, so an untouched picture stores nothing. */
-export function pictureFrameValues(frame: PictureFrame): { focal: number | null; zoom: number | null } {
+/** Zoom to `zoom` %, keeping the picture point under (mx, my) — circle px — still. */
+export function zoomPictureFrameAt(frame: PictureFrame, box: FrameBox, zoom: number, mx: number, my: number): PictureFrame {
+  const { D, W, H } = cover(box);
+  const z = frame.zoom / 100;
+  const z2 = clamp(Math.round(zoom), PICTURE_ZOOM_MIN, PICTURE_ZOOM_MAX);
+  const zz = z2 / 100;
+  const left = (frame.x / 100) * (D - W * z);
+  const top = (frame.y / 100) * (D - H * z);
+  const u = (mx - left) / (W * z);
+  const v = (my - top) / (H * z);
+  const sx = D - W * zz;
+  const sy = D - H * zz;
   return {
-    focal: frame.focal === HUB_DEFAULT_FOCAL ? null : frame.focal,
-    zoom: frame.zoom === HUB_DEFAULT_ZOOM ? null : frame.zoom,
+    zoom: z2,
+    x: sx < -0.5 ? r1(clamp(((mx - u * W * zz) / sx) * 100, 0, 100)) : frame.x,
+    y: sy < -0.5 ? r1(clamp(((my - v * H * zz) / sy) * 100, 0, 100)) : frame.y,
   };
 }
 
-/** The `<img>` style every framed picture uses: the Maker's object-position + the same zoom, from the same point. */
+/** The `<img>` style every framed surface uses (with `object-fit: cover`): the same point positions and scales. */
 export function pictureFrameStyle(frame: PictureFrame | null | undefined): CSSProperties {
   const f = frame ?? DEFAULT_PICTURE_FRAME;
-  const position = focalToObjectPosition(f.focal);
-  return f.zoom === HUB_DEFAULT_ZOOM
+  const position = `${f.x}% ${f.y}%`;
+  return f.zoom === PICTURE_ZOOM_MIN
     ? { objectPosition: position }
     : { objectPosition: position, transform: `scale(${f.zoom / 100})`, transformOrigin: position };
 }
 
-/* ── The profile picture's own two columns ─────────────────────────────────────────────────────────────────── */
+/** Whole numbers inside the ranges — what is posted and stored. */
+export function storedPictureFrame(frame: PictureFrame): PictureFrame {
+  return {
+    x: Math.round(clamp(frame.x, 0, 100)),
+    y: Math.round(clamp(frame.y, 0, 100)),
+    zoom: Math.round(clamp(frame.zoom, PICTURE_ZOOM_MIN, PICTURE_ZOOM_MAX)),
+  };
+}
 
-/** Read `users.profile_photo_focal` / `profile_photo_zoom` (or the two posted fields). */
-export function readProfilePhotoFrame(
-  row: { profile_photo_focal?: unknown; profile_photo_zoom?: unknown } | null | undefined,
-): PictureFrame {
-  return readPictureFrame(row?.profile_photo_focal, row?.profile_photo_zoom);
+const wholeIn = (v: unknown, lo: number, hi: number): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= lo && n <= hi ? n : null;
+};
+
+/**
+ * Read three stored values (columns or form fields). Each one outside its range — or not a whole number — is DROPPED
+ * to its default, never repaired (the Maker sanitiser's rule): a value nobody chose is not drawn as a guess.
+ */
+export function readPictureFrame(x: unknown, y: unknown, zoom: unknown): PictureFrame {
+  return {
+    x: wholeIn(x, 0, 100) ?? DEFAULT_PICTURE_FRAME.x,
+    y: wholeIn(y, 0, 100) ?? DEFAULT_PICTURE_FRAME.y,
+    zoom: wholeIn(zoom, PICTURE_ZOOM_MIN, PICTURE_ZOOM_MAX) ?? DEFAULT_PICTURE_FRAME.zoom,
+  };
+}
+
+/** The columns to write — NULL for a value at its default, so an untouched picture stores nothing. */
+export function pictureFrameValues(frame: PictureFrame): { x: number | null; y: number | null; zoom: number | null } {
+  const f = storedPictureFrame(frame);
+  return {
+    x: f.x === DEFAULT_PICTURE_FRAME.x ? null : f.x,
+    y: f.y === DEFAULT_PICTURE_FRAME.y ? null : f.y,
+    zoom: f.zoom === DEFAULT_PICTURE_FRAME.zoom ? null : f.zoom,
+  };
+}
+
+/* ── The profile picture's own three columns (A4: `users.profile_focal_x` / `profile_focal_y` / `profile_zoom`) ── */
+
+type ProfilePhotoFrameRow = { profile_focal_x?: unknown; profile_focal_y?: unknown; profile_zoom?: unknown };
+
+/** Read `users.profile_focal_x` / `profile_focal_y` / `profile_zoom` (or the three posted fields). */
+export function readProfilePhotoFrame(row: ProfilePhotoFrameRow | null | undefined): PictureFrame {
+  return readPictureFrame(row?.profile_focal_x, row?.profile_focal_y, row?.profile_zoom);
 }
 
 /** The `users` columns to write for a profile picture's frame. */
 export function profilePhotoFrameColumns(frame: PictureFrame): {
-  profile_photo_focal: number | null;
-  profile_photo_zoom: number | null;
+  profile_focal_x: number | null;
+  profile_focal_y: number | null;
+  profile_zoom: number | null;
 } {
   const v = pictureFrameValues(frame);
-  return { profile_photo_focal: v.focal, profile_photo_zoom: v.zoom };
+  return { profile_focal_x: v.x, profile_focal_y: v.y, profile_zoom: v.zoom };
 }

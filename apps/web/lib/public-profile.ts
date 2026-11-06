@@ -63,8 +63,9 @@ export type PublicProfileUser = {
   /** The stored ref — an `r2://…` object or a passthrough URL, NOT an <img src>. */
   profile_photo_url: string | null;
   /** The photo's align + zoom (owner 2026-11-06: "yes, use the same control" — the logo's frame). NULL = default. */
-  profile_photo_focal: number | null;
-  profile_photo_zoom: number | null;
+  profile_focal_x: number | null;
+  profile_focal_y: number | null;
+  profile_zoom: number | null;
   /** Public aggregate audience numbers (no graph exposure). */
   followers_count: number;
   profile_view_count: number;
@@ -234,7 +235,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
         two; folding them would make one column do two jobs and quietly widen
         the narrower one.
       */
-      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_photo_focal, profile_photo_zoom',
+      'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom',
     )
     .ilike('slug', userSlug)
     .maybeSingle();
@@ -245,7 +246,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
           await admin
             .from('users')
             .select(
-              'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_photo_focal, profile_photo_zoom',
+              'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom',
             )
             .eq('public_id', (userSlugRaw ?? '').toUpperCase())
             .maybeSingle()
@@ -266,8 +267,9 @@ async function finishResolve(
     public_profile_enabled:
       (userRow.public_profile_enabled as boolean | null) ?? null,
     profile_photo_url: (userRow.profile_photo_url as string | null) ?? null,
-    profile_photo_focal: (userRow.profile_photo_focal as number | null) ?? null,
-    profile_photo_zoom: (userRow.profile_photo_zoom as number | null) ?? null,
+    profile_focal_x: (userRow.profile_focal_x as number | null) ?? null,
+    profile_focal_y: (userRow.profile_focal_y as number | null) ?? null,
+    profile_zoom: (userRow.profile_zoom as number | null) ?? null,
     followers_count: Number(userRow.followers_count ?? 0),
     profile_view_count: Number(userRow.profile_view_count ?? 0),
   };

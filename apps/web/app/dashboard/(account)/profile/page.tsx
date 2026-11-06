@@ -81,6 +81,8 @@ import {
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row';
 import { getIapGate } from '@/lib/request-platform';
+import { PasswordField } from '@/app/_components/password-field';
+import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
 
 export const metadata = { title: 'Profile' };
 
@@ -135,7 +137,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, profile_photo_focal, profile_photo_zoom, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -1137,10 +1139,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               <input type="hidden" name="return_to" value="/dashboard/profile" />
               <TurnstileField action="reauth" />
               <Field label="Current password" htmlFor="current_password">
-                <input
+                <PasswordField
                   id="current_password"
                   name="current_password"
-                  type="password"
                   required
                   autoComplete="current-password"
                   className="input-field"
@@ -1148,10 +1149,12 @@ export default async function ProfilePage({ searchParams }: Props) {
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="New password" htmlFor="new_password">
-                  <input
+                  <PasswordField
+                    mode="new"
+                    personal={[user.email, profile?.display_name, profile?.first_name, profile?.last_name]}
+                    leaked={search.error ? decodeURIComponent(search.error) === LEAKED_PASSWORD_MESSAGE : false}
                     id="new_password"
                     name="new_password"
-                    type="password"
                     required
                     minLength={8}
                     autoComplete="new-password"
@@ -1159,10 +1162,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                   />
                 </Field>
                 <Field label="Confirm new password" htmlFor="confirm_password">
-                  <input
+                  <PasswordField
                     id="confirm_password"
                     name="confirm_password"
-                    type="password"
                     required
                     minLength={8}
                     autoComplete="new-password"

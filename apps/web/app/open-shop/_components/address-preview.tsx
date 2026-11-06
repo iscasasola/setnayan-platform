@@ -43,12 +43,15 @@ export function AddressPreview({
   shopName,
   existingSlug = null,
   initialValue = null,
+  onAddress,
 }: {
   shopName: string;
   /** Already settled — render it, do not offer to change it. */
   existingSlug?: string | null;
   /** The address a submit-time refusal sent back — held (as the vendor's own choice) and focused. */
   initialValue?: string | null;
+  /** The address that would be submitted — the wizard's "Your shop at a glance" column prints it (2026-11-06). */
+  onAddress?: (slug: string) => void;
 }) {
   const derived = previewShopAddress(shopName);
   const derivedSlug = derived.kind === 'ok' ? derived.slug : '';
@@ -67,6 +70,10 @@ export function AddressPreview({
   // emptied it. Normalised through the same mirror the database uses, so what
   // they see is what the column will hold.
   const effective = clipBusinessSlug(slugifyBusinessName(value)) ?? derivedSlug;
+  useEffect(() => {
+    onAddress?.(existingSlug ?? effective);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter
+  }, [effective, existingSlug]);
 
   useEffect(() => {
     if (!effective) {

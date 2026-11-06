@@ -122,6 +122,7 @@ import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
+import { PasswordField } from '@/app/_components/password-field';
 import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
@@ -4189,11 +4190,11 @@ export function OnboardingShell({
                 accountType="customer"
                 withTerms
               />
-              <input
-                data-password-only=""
+              <PasswordField
+                mode="new"
+                wrapperProps={{ 'data-password-only': '' }}
                 className="field"
                 name="password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"

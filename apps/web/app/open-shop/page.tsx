@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { shopConsolePath } from '@/lib/shop-console-path';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForCatalogueArt, displayUrlForStoredAsset } from '@/lib/uploads';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { fetchCategoryChipRefinementsMany } from '@/lib/vendor-service-attributes';
+import type { SpecialtyField } from './_components/service-cards';
 import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
@@ -21,8 +24,9 @@ import { categoryLadder } from '@/lib/vendor-tier-caps';
  * CTA + the vendor signup landing (owner 2026-07-03). Routes by state:
  *
  *   • logged OUT                     → the wizard, signed out (mode 'create'):
- *     step 3 also creates the account, and "Sign in" there opens the popup over
- *     the wizard (owner 2026-09-22 "account inside step 3" — supersedes the
+ *     the LAST step (5, "Your account" — owner 2026-11-06, the account goes last;
+ *     prototype v16) also creates the account, and "Sign in" opens the sign-in pane over the
+ *     wizard (owner 2026-09-22 "account inside step 3" — supersedes the
  *     2026-07-10 login-first bounce to /login?next=/open-shop&as=vendor, which
  *     survives only as the no-JavaScript fallback of that link)
  *   • logged in, shop with a NAME    → /vendor-dashboard (Today — first-timer fix 12)
@@ -30,7 +34,7 @@ import { categoryLadder } from '@/lib/vendor-tier-caps';
  *   • logged in, never-named shop    → the wizard (mode 'complete' — a fresh
  *     signup's trigger-provisioned bare shop lands here to fill the basics)
  *
- * The wizard collects the owner-locked basics (shop name · logo · primary
+ * The wizard collects the owner-locked basics (shop name · primary
  * service · owner name · contact number · company email · location); website
  * + social links and everything else continue on My Shop via the profile
  * checklist + Get-verified journey (owner 2026-07-05).
@@ -41,9 +45,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string }>;
 }) {
-  const { error, step, next, taken, check_inbox: checkInbox } = await searchParams;
+  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs } = await searchParams;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
@@ -54,7 +58,7 @@ export default async function OpenShopPage({
     data: { user },
   } = await supabase.auth.getUser();
   // Logged out is no longer a bounce (owner 2026-09-22): the wizard renders for a
-  // stranger and step 3 creates the account with the shop. Every read below that
+  // stranger and step 4 creates the account with the shop. Every read below that
   // needs an account is guarded on `user`; the vocab reads are anon-readable, and
   // the tree falls back to the flat select if a read is refused.
   const guest = !user;
@@ -106,11 +110,21 @@ export default async function OpenShopPage({
   // marketplace ?event_type= filter + the My Shop coverage editor read). Without
   // this signal a new shop is stuck at the column default ['wedding'] and is
   // invisible for every non-wedding event it actually serves.
+  // 🖼 `heroPhotoUrl` rides along (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED", call 3): the
+  // events are drawn as the SAME photos a couple picks from in Create event (`eventTypePhotoSrc`).
   const eventTypeOptions = (await getVendorServableEventTypes()).map((e) => ({
     key: e.key,
     label: e.label,
     emoji: e.emoji,
+    heroPhotoUrl: e.heroPhotoUrl ?? null,
   }));
+  // 🎟 EVERY EVENT TYPE STARTS TICKED (owner 2026-11-06: "All on, untick to remove"). The default is the FULL roster
+  // just read — never a hard-coded copy — and the column default (`wedding`) is not changed. A shop whose own row
+  // already says something richer than that column default (the coverage editor ran) keeps what it chose.
+  const allEventKeys = eventTypeOptions.map((e) => e.key);
+  const ownEvents = row?.event_types ?? [];
+  const chosenEvents =
+    ownEvents.length > 0 && !(ownEvents.length === 1 && ownEvents[0] === 'wedding') ? ownEvents : allEventKeys;
 
   // Pre-resolve a display URL for an already-uploaded logo so the <FileUpload>
   // thumbnail paints on first load (a fresh signup won't have one yet).
@@ -150,14 +164,56 @@ export default async function OpenShopPage({
     mergeForwards,
     new Set(bareTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService)))),
   );
+  // 🖼 Each CATEGORY wears its photo and its ⓘ (prototype v11 + v9; owner 6 Nov: "add (i) for each so we can define the
+  // categories"): `service_categories.sample_photo_r2_key` (resolved the way Explore resolves it) and `hint_en` (Admin ›
+  // Categories "ⓘ text"), both through the taxonomy snapshot. Fail-soft: no photo = the plain tile, no hint = no ⓘ.
+  const tax = await getTaxonomy().catch(() => null);
+  const photoOf = new Map<string, string | null>(
+    await Promise.all(
+      bareTree.flatMap((p) => p.branches).map(async (b) => {
+        const ref = tax?.categoryPhotos[b.tileId] ?? null;
+        const url = ref ? await displayUrlForCatalogueArt(ref).catch(() => null) : null;
+        return [b.tileId, url] as const;
+      }),
+    ),
+  );
   const serviceTree = bareTree.map((p) => ({
     ...p,
     branches: p.branches.map((b) => ({
       ...b,
+      photoUrl: photoOf.get(b.tileId) ?? null,
+      hint: tax?.categoryHints?.[b.tileId] ?? null,
       leaves: b.leaves.map((l) => ({ ...l, aliases: aliasesByLeaf.get(l.canonicalService) })),
     })),
   }));
-  // The signed-in account's own name — shown read-only on step 3 rather than
+  // ③ Each service's specialties — the CHIP-shaped refinements of its own schema (`canonical_service_schemas`, readable
+  // signed out), the same read the services manager makes (`fetchCategoryChipRefinementsMany`). An `enum` keeps one
+  // value; a `boolean` is one chip. Fail-soft: no schema = no "+ Specialties" on that service.
+  const specialties: Record<string, SpecialtyField[]> = {};
+  try {
+    const refinements = await fetchCategoryChipRefinementsMany(
+      supabase,
+      serviceTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService))),
+    );
+    const words = (v: string) => v.replaceAll('_', ' ');
+    for (const [svc, r] of refinements) {
+      specialties[svc] = Object.entries(r.fields).map(([key, def]) => {
+        const label = def.label ?? words(key);
+        return def.type === 'boolean'
+          ? { key, label, options: [{ value: 'true', label }], single: true }
+          : {
+              key,
+              label,
+              options: (def.options ?? []).map((o) => ({ value: o, label: words(o) })),
+              single: def.type === 'enum',
+            };
+      }).filter((f) => f.options.length > 0);
+      if (!specialties[svc]!.length) delete specialties[svc];
+    }
+  } catch {
+    // A refused read leaves the specialties out — they are optional and never block opening a shop.
+  }
+  // The signed-in account's own name — shown read-only on step 4 rather than
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.
   const accountName = await (async () => {
@@ -201,7 +257,6 @@ export default async function OpenShopPage({
       accountName={accountName}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
-      savedSinceYear={row?.in_business_since_year ?? null}
       eventTypeOptions={eventTypeOptions}
       vendorProfileId={row?.vendor_profile_id ?? null}
       logoDisplayMap={logoDisplayMap}
@@ -209,10 +264,8 @@ export default async function OpenShopPage({
         shopName: row?.business_name ?? '',
         logoUrl: row?.logo_url ?? '',
         primaryService: row?.services?.[0] ?? '',
-        // Seed from any existing selection so re-running onboarding never
-        // clobbers a richer set the vendor set via the coverage editor; a
-        // brand-new shop starts on the sensible ['wedding'] default.
-        eventTypes: row?.event_types?.length ? row.event_types : ['wedding'],
+        // Every type ticked to start (above); a re-run keeps a richer set the coverage editor already wrote.
+        eventTypes: chosenEvents,
         locationCity: row?.location_city ?? '',
         hqAddress: row?.hq_address ?? '',
         contactName: row?.business_owner_name ?? '',
@@ -221,6 +274,9 @@ export default async function OpenShopPage({
         contactEmail: row?.contact_email ?? user?.email ?? '',
       }}
       guest={guest}
+      // 🧭 `?as=coordinator` (the For Coordinators page's button): step 2 opens on the coordination services, read
+      // from COORDINATOR_TRADE_SERVICES — owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED".
+      coordinator={arrivedAs === 'coordinator'}
       oauth={gate}
       signInHref={
         '/login?next=' +
@@ -229,11 +285,12 @@ export default async function OpenShopPage({
       }
       error={error}
       planCategories={categoryLadder()}
-      // A8: the submit was refused because the email has an account → step 3 signs in, right there.
+      specialties={specialties}
+      // A8: the submit was refused because the email has an account → step 4 signs in, right there.
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
       sentTo={guest && checkInbox ? checkInbox.trim().slice(0, 254) : null}
-      initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
+      initialStep={(['1', '2', '3', '4', '5'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4 | 5}
     />
   );
 }

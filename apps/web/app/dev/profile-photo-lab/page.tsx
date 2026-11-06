@@ -6,7 +6,7 @@
  * control". This draws the REAL tile (`ProfileIdentityTile`, what the page renders) so the photo and its frame
  * control can be walked at phone width without an account. The form posts nowhere: Save is a plain GET back here.
  *
- *   ?state=framed   a photo on file, framed on area 2 at "Closest" (default)
+ *   ?state=framed   a photo on file, framed up and a little left at 1.5× (default)
  *   ?state=plain    a photo on file, never framed (centre, as uploaded)
  *   ?state=none     no photo yet — the control is not offered
  */
@@ -17,10 +17,11 @@ import { DEFAULT_PICTURE_FRAME, type PictureFrame } from '@/lib/picture-frame';
 export const dynamic = 'force-dynamic';
 
 const LAB_PHOTO_REF = 'r2://media/profile-photo/lab-user/isabel.avif';
-const LAB_PHOTO_URL = '/portraits/isabel-santos.avif';
+// One real photo, never a collage: every /portraits/*.avif is a three-panel strip, which reads as seams in the circle.
+const LAB_PHOTO_URL = '/event-types/gala_night.webp';
 
 const STATES: Record<string, { photo: string | null; frame: PictureFrame }> = {
-  framed: { photo: LAB_PHOTO_REF, frame: { focal: 2, zoom: 150 } },
+  framed: { photo: LAB_PHOTO_REF, frame: { x: 35, y: 20, zoom: 150 } },
   plain: { photo: LAB_PHOTO_REF, frame: DEFAULT_PICTURE_FRAME },
   none: { photo: null, frame: DEFAULT_PICTURE_FRAME },
 };

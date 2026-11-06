@@ -668,6 +668,60 @@
 }
 
 /*
+ * 🎞 THE SUPPLIER SIGN-UP MOVES (owner 2026-11-07, "make the signup fully animated" — prototype open-shop v19/v21
+ * `.in-r` / `.in-l` / `.rise`). A step SLIDES IN — from the right going forward (`.os-in-r`), from the left going back
+ * (`.os-in-l`) — and a new card RISES once (`.os-rise`). Each is a CSS animation, so it runs when the element is
+ * first shown (a step panel turning from `hidden` to shown, a keyed remount) and NEVER on a re-render. The wizard
+ * adds the slide only after a move, so the first paint never slides. Reduced motion: none of it.
+ */
+@keyframes os-in-r {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes os-in-l {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes os-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.os-in-r {
+  animation: os-in-r 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.os-in-l {
+  animation: os-in-l 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.os-rise {
+  animation: os-rise 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .os-in-r,
+  .os-in-l,
+  .os-rise {
+    animation: none;
+  }
+}
+
+/*
  * ⚓ THE PAGE CLEARS THE ANCHORED DOCK (2026-09-25).
  *
  * The phone's bottom chrome is ONE anchored box now — <BottomDock> in
@@ -3438,7 +3492,8 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
        nav    30  the floating bottom nav + FAB
        pop    40  tooltips and menus that must clear the chrome
        modal  50  `_components/sheet.tsx` and the centred modals
-       toast  60  stale-tab notice, report sheet
+       toast  60  stale-tab notice, report sheet, and any sheet opened from INSIDE a modal sheet (the service
+                  maker's `CanvasSheet`, opened over Today's New service sheet — z-40 hid it behind it)
        scrim  74  the side panel's dimmed backdrop (= .sn-inspector-peek)
        panel  75  the side panel itself          (= .sn-inspector-sheet) */
   --sn-z-base:   0;

@@ -1,12 +1,13 @@
 /**
- * A PROFILE PICTURE KEEPS ITS ALIGN + ZOOM — migration 20271319958455. ⚖ Owner 2026-11-06, asked whether a person's
- * profile picture gets the business logo's align + zoom: "yes, use the same control".
+ * A PROFILE PICTURE KEEPS ITS FRAME — migration 20271319958455. ⚖ Owner 2026-11-06, asked whether a person's
+ * profile picture gets the business logo's frame: "yes, use the same control"; 7 Nov: drag + pinch.
  *
  * Proves on the replayed schema, not by reading the SQL:
- *   1. the two columns exist on `users` and refuse anything outside the SAME closed sets as the logo's pair
- *      (focal 1–9 · zoom 100/120/150) — `lib/hub-canvas.ts`'s sets, read here, never retyped;
+ *   1. the three columns exist on `users` and refuse anything outside the SAME ranges as the logo's three
+ *      (x / y 0–100 · zoom 100–300) — `lib/picture-frame.ts`'s bounds, read here, never retyped; the keypad pair
+ *      the first cut stored (`profile_photo_focal` / `profile_photo_zoom`) is gone;
  *   2. the person can read AND write their own frame (`user_owns_row`, through `users`' table-level grants), so the
- *      profile save never refuses the whole update over the two new columns;
+ *      profile save never refuses the whole update over the three new columns;
  *   3. anon reaches NO row of `users` — the table-level anon SELECT this column inherits (a column REVOKE cannot
  *      subtract from a table grant) admits nothing, because `users` has no policy for anon.
  */
@@ -14,7 +15,9 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
-import { HUB_FOCAL_POINTS, HUB_ZOOMS } from '../../lib/hub-canvas';
+import { PICTURE_ZOOM_MAX, PICTURE_ZOOM_MIN } from '../../lib/picture-frame';
+
+const COLS = ['profile_focal_x', 'profile_focal_y', 'profile_zoom'] as const;
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -36,7 +39,7 @@ async function hasPriv(role: string, col: string, priv: 'SELECT' | 'UPDATE'): Pr
 }
 
 /** Does the column's CHECK accept this value? Asked of the constraint itself. */
-async function accepts(col: 'profile_photo_focal' | 'profile_photo_zoom', value: number | null): Promise<boolean> {
+async function accepts(col: (typeof COLS)[number], value: number | null): Promise<boolean> {
   const cons = (await db.query(
     `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
       WHERE conrelid = 'public.users'::regclass AND conname = $1`,
@@ -49,36 +52,40 @@ async function accepts(col: 'profile_photo_focal' | 'profile_photo_zoom', value:
   return r.rows[0]!.ok;
 }
 
-test('both columns exist on users, as SMALLINT', async () => {
+test('the three columns exist on users, as SMALLINT — and the keypad pair is gone', async () => {
   const r = (await db.query(
     `SELECT column_name, data_type FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'users'
-        AND column_name IN ('profile_photo_focal', 'profile_photo_zoom')
+        AND column_name IN ('profile_focal_x', 'profile_focal_y', 'profile_zoom', 'profile_photo_focal', 'profile_photo_zoom')
       ORDER BY column_name`,
   )) as { rows: { column_name: string; data_type: string }[] };
   assert.deepEqual(
     r.rows.map((x) => `${x.column_name}:${x.data_type}`),
-    ['profile_photo_focal:smallint', 'profile_photo_zoom:smallint'],
+    ['profile_focal_x:smallint', 'profile_focal_y:smallint', 'profile_zoom:smallint'],
   );
 });
 
-test('the CHECKs are the logo’s closed sets — and NULL (the default frame) passes', async () => {
-  for (const f of HUB_FOCAL_POINTS) assert.equal(await accepts('profile_photo_focal', f), true, `focal ${f}`);
-  for (const bad of [0, 10, -1]) assert.equal(await accepts('profile_photo_focal', bad), false, `focal ${bad} must be refused`);
-  for (const z of HUB_ZOOMS) assert.equal(await accepts('profile_photo_zoom', z), true, `zoom ${z}`);
-  for (const bad of [0, 99, 137, 200]) assert.equal(await accepts('profile_photo_zoom', bad), false, `zoom ${bad} must be refused`);
-  assert.equal(await accepts('profile_photo_focal', null), true);
-  assert.equal(await accepts('profile_photo_zoom', null), true);
+test('the CHECKs are the logo’s ranges — and NULL (the default frame) passes', async () => {
+  for (const col of ['profile_focal_x', 'profile_focal_y'] as const) {
+    for (const v of [0, 1, 50, 99, 100]) assert.equal(await accepts(col, v), true, `${col} ${v}`);
+    for (const bad of [-1, 101, 300]) assert.equal(await accepts(col, bad), false, `${col} ${bad} must be refused`);
+    assert.equal(await accepts(col, null), true);
+  }
+  for (const z of [PICTURE_ZOOM_MIN, 150, 299, PICTURE_ZOOM_MAX]) assert.equal(await accepts('profile_zoom', z), true, `zoom ${z}`);
+  for (const bad of [0, PICTURE_ZOOM_MIN - 1, PICTURE_ZOOM_MAX + 1]) {
+    assert.equal(await accepts('profile_zoom', bad), false, `zoom ${bad} must be refused`);
+  }
+  assert.equal(await accepts('profile_zoom', null), true);
 });
 
 test('a signed-in person may read and write the frame (the profile save writes it with the photo)', async () => {
-  for (const col of ['profile_photo_focal', 'profile_photo_zoom']) {
+  for (const col of COLS) {
     assert.equal(await hasPriv('authenticated', col, 'SELECT'), true, `authenticated cannot select ${col}`);
     assert.equal(await hasPriv('authenticated', col, 'UPDATE'), true, `authenticated cannot update ${col}`);
   }
   await db.exec('SET ROLE authenticated');
   try {
-    await db.query('SELECT user_id, profile_photo_url, profile_photo_focal, profile_photo_zoom FROM public.users LIMIT 1');
+    await db.query('SELECT user_id, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom FROM public.users LIMIT 1');
   } finally {
     await db.exec('RESET ROLE').catch(() => {});
   }

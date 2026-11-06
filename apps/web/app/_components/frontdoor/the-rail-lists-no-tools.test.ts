@@ -6,7 +6,7 @@
  * THE PLANNER · TOGETHER · STUDIO FEATURE LISTS". Owner, 23 Oct, on live prod: *"why
  * do i see so many menu. this is supposed to change already?"*
  *
- *   signed out  Discover · Find suppliers · Features · How it works · Sign in
+ *   signed out  Discover · Find suppliers · For suppliers · Features · How it works · Sign in
  *   signed in   Discover · Events · Memories · People · (shop) · (HQ) · Features
  *
  * 🔑 A PROPERTY, NOT A PHRASING. The shell is RENDERED — signed in and out, on the
@@ -132,14 +132,35 @@ test('no rail row opens a tool — signed in or out, on every variant', async ()
   assert.ok(rows >= 25, `only ${rows} rail links read across ${STATES.length} renders — the read is wrong`);
 });
 
-test('signed out the rail is the five things the owner named, in his order', async () => {
+test('signed out the rail is the six things the owner named, in his order', async () => {
   const links = await rail('front-door', { signedIn: false, shopName: null, isAdmin: false }, '/');
   assert.deepEqual(
     links,
-    ['/', '/explore', '/features', '/features', '/login'],
-    'signed out = Discover · Find suppliers · Features · How it works · Sign in (owner 2026-10-01); ' +
-      'How it works opens the Features hub (owner 2026-10-25)',
+    ['/', '/explore', '/for-suppliers', '/features', '/features', '/login'],
+    'signed out = Discover · Find suppliers · For suppliers · Features · How it works · Sign in (owner 2026-10-01; ' +
+      'How it works opens the Features hub 2026-10-25; For suppliers right under Find suppliers 2026-11-06)',
   );
+});
+
+test('signed out, "For suppliers" is a row right under "Find suppliers" — not in the small print (owner 2026-11-06)', async () => {
+  for (const [variant, path] of [['front-door', '/'], ['doorway', '/papic']] as const) {
+    const rows = await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
+    const find = rows.findIndex((r) => r.label === 'Find suppliers');
+    assert.ok(find > -1, `${variant}: the signed-out rail lost its "Find suppliers" row`);
+    assert.deepEqual(
+      rows[find + 1],
+      { href: '/for-suppliers', label: 'For suppliers' },
+      `${variant}: the row right under "Find suppliers" must be "For suppliers" → /for-suppliers`,
+    );
+  }
+  // Moved, not copied: one door, so the legal links no longer carry it.
+  const src = (await import('node:fs')).readFileSync(new URL('./front-door-shell.tsx', import.meta.url), 'utf8');
+  const smallPrint = src.slice(src.indexOf('className="fd-smallprint"'), src.indexOf('className="fd-copy"'));
+  assert.ok(smallPrint.length > 0, 'the small print block moved — re-anchor this read');
+  assert.doesNotMatch(smallPrint, /href="\/for-suppliers"/, '"For suppliers" is back among the legal links');
+  // Signed in it is not a rail row (your shop is the shop row).
+  const signedIn = await rail('app', { signedIn: true, shopName: null, isAdmin: false }, '/dashboard');
+  assert.ok(!signedIn.includes('/for-suppliers'), 'signed in, "For suppliers" is not a rail row');
 });
 
 test('signed out, "How it works" opens the Features hub, the same door as the hero (owner 2026-10-25)', async () => {

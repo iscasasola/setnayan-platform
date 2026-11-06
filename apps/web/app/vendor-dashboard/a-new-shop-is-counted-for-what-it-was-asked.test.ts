@@ -39,13 +39,14 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 /* ─── 1 · EST, ASKED ONCE ON STEP 2 ─────────────────────────────────────── */
 
-test('1 · "In business since" is one dropdown on step 2, "Just starting" first, never asked twice', () => {
+// 🔁 RETARGETED 2026-11-06 — owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED": "In business since" LEAVES the
+// sign-up door (Your details on Today asks it, with the same dropdown). The door must not ask it again; the choices
+// and the parser it uses everywhere are still pinned, and the action still never moves a year a shop already has.
+test('1 · "In business since" is off the sign-up door; its choices are "Just starting" first, never a year twice', () => {
   const wizard = code('app/open-shop/_components/open-shop-wizard.tsx');
   const step2 = wizard.slice(wizard.indexOf("step === 2 ? 'space-y-4'"), wizard.indexOf("step === 3 ? 'space-y-4'"));
   assert.ok(step2.length > 500, 'anti-vacuity: step 2 not found in the wizard');
-  assert.match(step2, /<PickMenu[\s\S]*?options=\{sinceChoices\}/, 'step 2 no longer asks the year as one dropdown');
-  assert.match(step2, /name="in_business_since_year"/, 'step 2 asks the year but never posts it');
-  assert.match(step2, /\{savedSinceYear \? null :/, 'a shop that already has a year is asked again');
+  assert.doesNotMatch(wizard, /in_business_since_year|sinceChoices|In business since/, 'the year is back on the sign-up door');
 
   const choices = inBusinessSinceChoices(2026);
   assert.deepEqual(choices[0], { key: '2026', label: 'Just starting' });

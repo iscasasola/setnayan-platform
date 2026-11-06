@@ -258,13 +258,21 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
   // ⑤ THE SHOP ROW.
   const pill = shopPillOf({ verified: input.verified, findable: input.findable });
   const docsWithSetnayan = input.firstSteps?.steps.find((st) => st.key === 'documents')?.state === 'waiting';
+  // 🧾 A NEW SHOP NAMES ITS SERVICE (owner 2026-11-06, the redesign's Today): "Photography · no card yet", never a
+  // bare "No service yet" beside a shop that picked one at the door — the service is the category word, the meter is
+  // what is left on it.
+  const cardMeter = input.firstSteps
+    ? (input.firstSteps.steps.find((st) => st.key === 'service_card')?.meter ?? 'no card yet')
+    : null;
   const serviceWord = input.firstSteps
-    ? (input.firstSteps.steps.find((st) => st.key === 'service_card')?.meter ?? 'No service yet')
+    ? [input.shop.categoryWord, cardMeter].filter(Boolean).join(' · ')
     : input.shop.categoryWord;
   const shopLine = input.shop.giftLine ?? [
     serviceWord,
     shopStateWords({ pill, docsWithSetnayan }),
-    input.shop.details.complete ? null : `details ${input.shop.details.done} of ${input.shop.details.total}`,
+    // Said ONCE: while the checklist is on screen, "Your details · 7 of 8 in" is its own row's meter — the Shop row
+    // repeating it was two counts for one fact (owner 2026-11-06).
+    input.firstSteps || input.shop.details.complete ? null : `details ${input.shop.details.done} of ${input.shop.details.total}`,
     input.shop.awardWord,
     input.shop.milestoneWord,
   ]

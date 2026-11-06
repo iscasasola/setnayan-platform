@@ -83,7 +83,7 @@ export type SwitcherData = {
   isAnonymous: boolean;
   photoUrl: string | null;
   /**
-   * The photo's align + zoom (`users.profile_photo_focal` / `profile_photo_zoom`) — the ONE picture frame the shop
+   * The photo's align + zoom (`users.profile_focal_x` / `profile_focal_y` / `profile_zoom`) — the ONE picture frame the shop
    * logo also wears (owner 2026-11-06: "yes, use the same control"). Optional: a fallback with no photo has none.
    */
   photoFrame?: PictureFrame | null;
@@ -159,7 +159,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
   const [userRes, roles, membershipRes] = await Promise.all([
     supabase
       .from('users')
-      .select('display_name, email, profile_photo_url, profile_photo_focal, profile_photo_zoom, is_internal, is_team_member, theme_preference')
+      .select('display_name, email, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom, is_internal, is_team_member, theme_preference')
       .eq('user_id', userId)
       .maybeSingle(),
     fetchUserRoleSummary(supabase, userId),
@@ -190,8 +190,9 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     display_name: string | null;
     email: string;
     profile_photo_url: string | null;
-    profile_photo_focal: number | null;
-    profile_photo_zoom: number | null;
+    profile_focal_x: number | null;
+    profile_focal_y: number | null;
+    profile_zoom: number | null;
     is_internal: boolean;
     is_team_member: boolean;
     theme_preference: string | null;

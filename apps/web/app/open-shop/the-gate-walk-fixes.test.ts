@@ -27,9 +27,6 @@ const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const TAKEN = read('app/open-shop/_components/taken-sign-in.tsx');
 const LOGO_SCREEN = read('app/open-shop/logo/_components/add-your-logo.tsx');
 const LOGO_PAGE = read('app/open-shop/logo/page.tsx');
-// The logo's control is the ONE picture control (owner 2026-11-06, profile picture: "yes, use the same control") —
-// `LogoFrameControl` renders `PictureFrameControl` with the logo's fields; the keypad and the menu live there.
-const LOGO_FRAME = read('app/_components/logo-frame-control.tsx');
 const FRAME = read('app/_components/picture-frame-control.tsx');
 
 /* ── A1 · email confirm on the shop door ─────────────────────────────────────────────────────────────────────── */
@@ -68,7 +65,9 @@ test('A1 · flag off → today’s behaviour: flipped, signed in, the welcome ma
 
 test('A1 · the account is created only after every field of the shop has passed', () => {
   const create = ACTIONS.indexOf('await createVendorAccountForShop(');
-  for (const refusal of ['OPEN_SHOP_ERRORS.shopName', 'OPEN_SHOP_ERRORS.slugTaken', 'OPEN_SHOP_ERRORS.service', 'OPEN_SHOP_ERRORS.locationCity']) {
+  // The location refusal is `locationStepError({…})` since 2026-11-06 (pin · yes · city, the wizard's own rule) —
+  // retargeted from the bare `OPEN_SHOP_ERRORS.locationCity` it replaced; `events` joined the same day.
+  for (const refusal of ['OPEN_SHOP_ERRORS.shopName', 'OPEN_SHOP_ERRORS.slugTaken', 'OPEN_SHOP_ERRORS.service', 'OPEN_SHOP_ERRORS.events', 'locationStepError({']) {
     const at = ACTIONS.indexOf(refusal);
     assert.ok(at > 0 && at < create, `${refusal} is checked after the account exists — a refusal then strands an unconfirmed account`);
   }
@@ -81,43 +80,40 @@ test('A2 · the signed-out wizard has no upload; a new shop goes to "Add your lo
   assert.match(ACTIONS, /if \(!logoUrl && !existingHasLogo\) redirect\(OPEN_SHOP_LOGO_PATH\);/);
 });
 
-test('A2 · the logo screen: round preview, the Maker control, Skip → Today, saved by My Shop’s own logo save', () => {
+test('A2 · the logo screen: round preview, the shared framer, Skip → Today, saved by My Shop’s own logo save', () => {
   assert.match(LOGO_SCREEN, /Add your logo/);
   assert.match(LOGO_SCREEN, /roundPreview/);
-  assert.match(LOGO_SCREEN, /<LogoFrameControl\b/);
-  assert.match(LOGO_SCREEN, /href="\/vendor-dashboard"[\s\S]{0,300}Skip for now/);
-  assert.match(LOGO_SCREEN, /useActionState<[^>]*>\(updateVendorProfileField, null\)/);
-  assert.match(LOGO_SCREEN, /name="field" value="logo"/);
+  assert.match(LOGO_SCREEN, /<PictureFrameControl\b/);
+  assert.match(LOGO_SCREEN, /label="Skip for now" href="\/vendor-dashboard"/);
+  assert.match(LOGO_SCREEN, /saveAction = updateVendorProfileField/);
+  assert.match(LOGO_SCREEN, /useActionState<[^>]*>\(saveAction, null\)/);
+  assert.match(LOGO_SCREEN, /form\.set\('field', 'logo'\)/);
   assert.match(LOGO_PAGE, /resolveOwnedActiveShop\(supabase, user\.id\)/, 'the screen reads the same shop the save writes');
+  assert.match(LOGO_PAGE, /logo_focal_x, logo_focal_y, logo_zoom/);
 });
 
-test('A2 · the control IS the Maker’s: its sets, its keypad label, its "How close" menu', () => {
-  assert.match(FRAME, /HUB_FOCAL_POINTS\.map/);
-  assert.match(FRAME, /HUB_ZOOMS\.map/);
-  assert.match(FRAME, /aria-label=\{`Keep area \$\{f\} of 9 in frame`\}/);
-  assert.match(FRAME, /label="How close"/);
-  assert.match(FRAME, /name=\{fields\.focal\}/);
-  assert.match(FRAME, /name=\{fields\.zoom\}/);
-  assert.match(LOGO_FRAME, /<PictureFrameControl\s+picture="logo"/);
-  assert.match(read('lib/picture-frame.ts'), /logo: \{ focal: 'logo_focal', zoom: 'logo_zoom' \}/);
-  const maker = read('app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx');
-  assert.match(maker, /aria-label=\{`Keep area \$\{f\} of 9 in frame`\}/, 'the Maker’s control changed — re-read this copy');
+test('A2 → A3 · the frame posts under the column names (x / y / zoom), whole numbers', () => {
+  assert.match(FRAME, /const inputNames = picture \? PICTURE_FRAME_FIELDS\[picture\] : null;/);
+  assert.match(FRAME, /name=\{inputNames\.x\}/);
+  assert.match(FRAME, /name=\{inputNames\.y\}/);
+  assert.match(FRAME, /name=\{inputNames\.zoom\}/);
+  assert.match(FRAME, /const posted = storedPictureFrame\(frame\)/);
 });
 
 test('A2 · My Shop’s logo row carries the same control, and its save writes the frame', () => {
   const row = read('app/vendor-dashboard/shop/_components/editable-row.tsx');
   assert.match(row, /<LogoRowControl data=\{data\} onDirty=\{onDirty\} \/>/);
-  assert.match(row, /<LogoFrameControl\b/);
+  assert.match(row, /<PictureFrameControl\b[\s\S]{0,200}picture="logo"/);
   const save = read('app/vendor-dashboard/actions.ts');
   const logoCase = save.slice(save.indexOf("case 'logo': {"), save.indexOf("case 'business_name': {"));
-  assert.match(logoCase, /logoFrameColumns\(/);
+  assert.match(logoCase, /formCarriesLogoFrame\(formData\)/);
+  assert.match(logoCase, /logoFrameColumns\(logoRef \? readLogoFrameFromForm\(formData\) : DEFAULT_LOGO_FRAME\)/);
 });
 
-test('A2 · the logo surfaces draw through logoFrameStyle', () => {
+test('A2 · the logo surfaces draw through logoFrameStyle (the framer through pictureFrameStyle, the same function)', () => {
   for (const f of ['app/_components/vendor-avatar.tsx', 'app/v/[slug]/page.tsx', 'app/vendor-dashboard/shop/_components/editable-row.tsx']) {
     assert.match(read(f), /logoFrameStyle\(/, `${f} draws the logo without its frame`);
   }
-  // The control's own preview draws through the one picture style that `logoFrameStyle` is.
   assert.match(FRAME, /pictureFrameStyle\(frame\)/);
   assert.match(read('lib/open-shop-logo.ts'), /return pictureFrameStyle\(frame\);/);
   assert.match(read('app/vendor-dashboard/shop/page.tsx'), /frame=\{data\.logoFrame\}/);
@@ -125,15 +121,16 @@ test('A2 · the logo surfaces draw through logoFrameStyle', () => {
 
 /* ── A3 · primary service, simpler ───────────────────────────────────────────────────────────────────────────── */
 
-test('A3 · search on top, the groups as a 2-column grid of icon tiles, a group → its services as rows', () => {
-  assert.ok(PICKER.indexOf('aria-label="Search services"') < PICKER.indexOf('data-open-shop-groups'));
-  assert.match(PICKER, /className="grid grid-cols-2 gap-1\.5" data-open-shop-groups=""/);
-  assert.match(PICKER, /const Icon = folderIcon\(p\.folderId\);/);
-  assert.match(PICKER, /data-open-shop-group-services=""/);
-  assert.doesNotMatch(PICKER, /openBranch/, 'a third tap (branch) is back between the group and its services');
+test('A3 → v11 · search on top, the CATEGORIES as photo tiles under their group headings, a category → its services as rows', () => {
+  // v11 (owner, prototype 6 Nov): "categories are photo tiles on the first screen" — the group icon grid (A3) became the
+  // category grid; one tap on a category shows its services, so there is still no third tap between.
+  assert.ok(PICKER.indexOf('aria-label="Search services"') < PICKER.indexOf('data-open-shop-categories'));
+  assert.match(PICKER, /data-open-shop-categories=""/);
+  assert.match(PICKER, /balancedRows\(cats\)/, 'rows that fill the width (4 → 2+2, 5 → 3+2)');
+  assert.match(PICKER, /data-open-shop-category-services=\{opened\.category\.tileId\}/);
+  assert.match(PICKER, /All categories/);
+  assert.doesNotMatch(PICKER, /openBranch|data-open-shop-groups/, 'the group grid (a third tap) is back');
 });
-
-/* ── A4 · search forgives spaces and typos ───────────────────────────────────────────────────────────────────── */
 
 test('A4 · the picker calls the SHARED ranker with reviewed aliases — no private substring search', () => {
   assert.match(PICKER, /rankTaxonomyOptionsWithClose\(flat, q, 30\)/);
@@ -148,10 +145,8 @@ test('A4 · the picker calls the SHARED ranker with reviewed aliases — no priv
 /* ── A5 · plan limit at the pick ─────────────────────────────────────────────────────────────────────────────── */
 
 test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
-  assert.match(
-    WIZARD,
-    /Pick your main service to start — you can add more later\. How many categories you can run depends on\s+your plan/,
-  );
+  // 🔁 Retargeted 2026-11-06 to the approved redesign's words (the prototype's `planHint2`), the ⓘ now the label's.
+  assert.match(WIZARD, /label="Add more later\. How many categories you can run depends on your plan"/);
   assert.match(WIZARD, /ariaLabel="Categories per plan"/);
   assert.match(PAGE, /planCategories=\{categoryLadder\(\)\}/);
   const ladder = categoryLadder();
@@ -163,15 +158,16 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
 
 /* ── A6 · events you serve: Select all · Clear ───────────────────────────────────────────────────────────────── */
 
-test('A6 · Select all dims when all are on, Clear when none', () => {
-  assert.match(WIZARD, /disabled=\{eventTypeOptions\.every\(\(e\) => events\.includes\(e\.key\)\)\}[\s\S]{0,120}Select all/);
-  assert.match(WIZARD, /disabled=\{events\.length === 0\}[\s\S]{0,120}Clear/);
+test('A6 → v19 · Select all dims when all shown are on, Clear when none — both act on the SHOWN events only', () => {
+  assert.match(WIZARD, /label="Select all"[\s\S]{0,400}disabled=\{shownEvents\.every\(\(e\) => events\.includes\(e\.key\)\)\}/);
+  assert.match(WIZARD, /label="Clear"[\s\S]{0,400}disabled=\{activeEvents\.length === 0\}/);
 });
 
 /* ── A7 · phone box (rules executed in lib/open-shop-phone.test.ts) ──────────────────────────────────────────── */
 
 test('A7 · the wizard draws the +63 box and refills it from a draft', () => {
-  assert.match(WIZARD, /<PhoneField digits=\{phoneDigits\} onDigits=\{setPhoneDigits\} \/>/);
+  // The box now also draws its own refusal (owner 2026-11-06: every error under its box).
+  assert.match(WIZARD, /<PhoneField digits=\{phoneDigits\} onDigits=\{setPhoneDigits\} error=\{errorFor\('contact_phone'\)\} \/>/);
   assert.match(WIZARD, /if \(d\.phone\) setPhoneDigits\(phoneDigitsFromTyped\(d\.phone\)\);/);
 });
 
@@ -210,7 +206,8 @@ test('A10 · one line, the numbers inside the ⓘ, still before "Open my shop"',
   const at = WIZARD.indexOf('data-testid="open-shop-fee-disclosure"');
   assert.ok(at > 0);
   const line = WIZARD.slice(at, WIZARD.indexOf('</p>', WIZARD.indexOf('</InfoTip>', at)));
-  assert.match(line, /Free to open, free to run\. You pay only when a couple books you through Setnayan\./);
+  // The sentence IS the ⓘ's label (2026-11-06, the prototype: "…through Setnayan ⓘ", no full stop before the ⓘ).
+  assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan"/);
   assert.match(line, /<InfoTip[\s\S]*\{feeNotice\.detail\}/, 'the numbers left the ⓘ');
   assert.ok(at < WIZARD.indexOf('Open my shop — free'), 'the fee line moved below the button');
 });

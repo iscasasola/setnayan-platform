@@ -1092,6 +1092,7 @@
         "[slug]/_components/what-to-bring-styles.tsx",
         "[slug]/_components/what-to-bring-widget.tsx",
         "[slug]/_components/when-yes-celebration.tsx",
+        "[slug]/_components/who-made-the-day.tsx",
         "[slug]/_components/you-will-be-at.tsx",
         "[slug]/_components/your-guests.tsx",
         "[slug]/_components/your-photos-widget.tsx",
@@ -1515,6 +1516,7 @@
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
         "PhotosOfYouPolaroids",
+        "PickMenu",
         "PinnedMap",
         "PlusOneSeatPanels",
         "PlusOneSeatRow",
@@ -1734,6 +1736,7 @@
         "WhatToBringList",
         "WhatToBringWidget",
         "Who",
+        "WhoMadeTheDay",
         "Words",
         "YouTag",
         "YouWillBeAt",
@@ -3591,6 +3594,7 @@
         "MayaCard",
         "OAuthCard",
         "PageMasthead",
+        "PasswordField",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -4195,6 +4199,7 @@
     },
     "/admin/reviews": {
       "files": [
+        "admin/reviews/_components/guest-reviews-queue.tsx",
         "admin/reviews/actions.ts",
         "admin/reviews/loading.tsx",
         "admin/reviews/page.tsx"
@@ -4212,6 +4217,8 @@
         "AppealCard",
         "Cell",
         "FilterChip",
+        "GuestReviewAdminRow",
+        "GuestReviewsQueue",
         "Link",
         "PageMasthead",
         "ReadFailed",
@@ -4259,6 +4266,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -4896,6 +4904,7 @@
     "/admin/verify": {
       "files": [
         "admin/verify/_components/deep-search-chat.tsx",
+        "admin/verify/_components/shared-phone-note.tsx",
         "admin/verify/actions.ts",
         "admin/verify/loading.tsx",
         "admin/verify/page.tsx"
@@ -4947,6 +4956,7 @@
         "PageMasthead",
         "PillLink",
         "PillTrack",
+        "SharedPhoneNote",
         "SlaBadge",
         "SlotDetail",
         "SlotDocuments",
@@ -5588,6 +5598,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -10498,7 +10509,11 @@
     },
     "/dashboard/[eventId]/vendors/[vendorId]/review": {
       "files": [
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/coordinator-refused-state.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/review-request-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/review-thanks.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/shown-as-row.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/actions.ts",
         "dashboard/[eventId]/vendors/[vendorId]/review/loading.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
@@ -10512,13 +10527,14 @@
         "coupleReportNonDelivery",
         "recommendVendor",
         "submitCoupleReview",
-        "submitReviewAppeal",
-        "withdrawRecommendation"
+        "submitReviewAppeal"
       ],
       "blocks": [
         "AlreadyReviewedState",
         "AppealForm",
+        "BackButton",
         "ConfirmReceiptState",
+        "CoordinatorRefusedState",
         "DisputedState",
         "FavoriteAddCard",
         "FormPageSkeleton",
@@ -10526,9 +10542,16 @@
         "NoLinkedProfileState",
         "NotEligibleState",
         "OnTimeBinaryInput",
+        "PickMenu",
         "RecommendVendorCard",
         "ReviewAxis",
+        "ReviewRequestCard",
+        "ReviewThanks",
+        "ReviewerDisplay",
+        "SaveVendorButton",
         "SelfReviewBlockedState",
+        "ShownAsRow",
+        "SmallStars",
         "StarRatingInput",
         "SubmitButton"
       ]
@@ -11496,7 +11519,8 @@
       ],
       "actions": [],
       "blocks": [
-        "CanvasMaker"
+        "CanvasMaker",
+        "SetupOfferFold"
       ]
     },
     "/dev/card-moderation-lab": {
@@ -12244,6 +12268,44 @@
         "ReceiptSlip",
         "SaveAsPdfButton",
         "ShareReceiptButton"
+      ]
+    },
+    "/dev/review-lab": {
+      "files": [
+        "dev/review-lab/lab-client-pieces.tsx",
+        "dev/review-lab/lab-guest-review-form.tsx",
+        "dev/review-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "labSend"
+      ],
+      "blocks": [
+        "CoordinatorRefusedState",
+        "GuestMeSection",
+        "GuestReviewForm",
+        "GuestReviewHeader",
+        "GuestReviewSendState",
+        "GuestReviewThanks",
+        "GuestReviewsGroup",
+        "GuestReviewsQueue",
+        "GuestStarsLine",
+        "LabCardWithReviews",
+        "LabGuestReviewForm",
+        "LabHubAfterDay",
+        "NotOnDoorList",
+        "OnTimeBinaryInput",
+        "ReviewForLine",
+        "ReviewGroupHead",
+        "ReviewRequestCard",
+        "ReviewThanks",
+        "S",
+        "Said",
+        "ServiceCardView",
+        "Shell",
+        "ShownAsRow",
+        "StarRatingInput",
+        "WhoMadeTheDay"
       ]
     },
     "/dev/schedule-lab": {
@@ -13022,6 +13084,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13127,6 +13190,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "SignInCard",
         "SignInCardModal",
         "SignInInPlaceState",
@@ -13294,6 +13358,7 @@
         "OnboardingVendorCounts",
         "OwnVenueForm",
         "PCard",
+        "PasswordField",
         "PaxCard",
         "PickCard",
         "PickMenu",
@@ -13328,10 +13393,15 @@
       "files": [
         "open-shop/_components/address-preview.tsx",
         "open-shop/_components/city-pin.tsx",
+        "open-shop/_components/event-tiles.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
         "open-shop/_components/phone-field.tsx",
+        "open-shop/_components/plan-sheet.tsx",
+        "open-shop/_components/service-cards.tsx",
         "open-shop/_components/service-picker.tsx",
+        "open-shop/_components/services-at-events.tsx",
         "open-shop/_components/taken-sign-in.tsx",
+        "open-shop/_components/use-stale-build.ts",
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
@@ -13347,16 +13417,25 @@
         "submit"
       ],
       "blocks": [
+        "ActionButton",
         "AddressCheck",
         "AddressPreview",
+        "CategoryTiles",
         "CityPin",
+        "Count",
         "DesktopOAuthButtons",
         "DetectedCity",
+        "EventTile",
+        "EventTiles",
+        "Fill",
         "FirstRunBrand",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
         "Icon",
+        "Image",
         "InfoTip",
         "LeafletMap",
         "LeafletMarker",
@@ -13365,14 +13444,28 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "Page2",
+        "PasswordField",
         "PhoneField",
         "PickMenu",
+        "PlanBody",
+        "PlanPane",
+        "PlanSheet",
+        "ServiceCards",
         "ServicePicker",
+        "ServicesAtEvents",
+        "Sheet",
         "SignInHereLink",
+        "Specialties",
+        "SpecialtiesBar",
+        "SpecialtyPicks",
         "Step",
         "SubmitButton",
+        "SwipeToDelete",
+        "T",
         "TakenSignIn",
-        "TurnstileField"
+        "TurnstileField",
+        "UndoToastHost"
       ]
     },
     "/open-shop/logo": {
@@ -13383,18 +13476,15 @@
       "destinations": [
         "/vendor-dashboard"
       ],
-      "actions": [
-        "save"
-      ],
+      "actions": [],
       "blocks": [
+        "ActionButton",
         "AddYourLogo",
         "FieldSaveResult",
         "FileUpload",
         "FirstRunBrand",
-        "Link",
         "LogoFrame",
-        "LogoFrameControl",
-        "SubmitButton"
+        "PictureFrameControl"
       ]
     },
     "/our-story": {
@@ -13926,6 +14016,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -14013,6 +14104,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "Sk",
         "SubmitButton",
         "TermsFirst",
@@ -14263,6 +14355,7 @@
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
+        "v/[slug]/_components/review-groups.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
@@ -14305,6 +14398,11 @@
         "DirectionsMenu",
         "EventsByKindButton",
         "FilterChip",
+        "GuestAtEventPill",
+        "GuestReviewItem",
+        "GuestReviewsGroup",
+        "GuestReviewsRead",
+        "GuestStarsLine",
         "HTMLDivElement",
         "Image",
         "InfoTip",
@@ -14321,6 +14419,8 @@
         "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
+        "ReviewForLine",
+        "ReviewGroupHead",
         "ReviewHeroMetrics",
         "ReviewRow",
         "ReviewWithCouple",
@@ -14341,6 +14441,7 @@
         "ShopReachMap",
         "ShopSinceLine",
         "SignInHereLink",
+        "SmallStars",
         "StarRow",
         "StartServiceInquiryResult",
         "StorytellerTile",
@@ -14409,6 +14510,35 @@
         "SignInHereLink",
         "Step",
         "SwitchRow"
+      ]
+    },
+    "/v/[slug]/guest-review": {
+      "files": [
+        "v/[slug]/guest-review/_components/guest-review-form.tsx",
+        "v/[slug]/guest-review/_components/guest-review-header.tsx",
+        "v/[slug]/guest-review/_components/guest-review-states.tsx",
+        "v/[slug]/guest-review/actions.ts",
+        "v/[slug]/guest-review/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "send",
+        "sendGuestReview"
+      ],
+      "blocks": [
+        "CouldNotLoad",
+        "GuestReviewForm",
+        "GuestReviewSendState",
+        "GuestReviewThanks",
+        "GuestShownAs",
+        "Header",
+        "Link",
+        "NotOnDoorList",
+        "PickMenu",
+        "Said",
+        "Shell",
+        "StarRatingInput",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard": {
@@ -14623,6 +14753,7 @@
         "SetupOfferFold",
         "Sheet",
         "ShopBadgePill",
+        "SidePanel",
         "Sk",
         "Spotlight",
         "SpotlightMount",
@@ -16665,7 +16796,6 @@
         "LockedIdentityFieldKey",
         "LockedLine",
         "LogoFrame",
-        "LogoFrameControl",
         "LogoRowControl",
         "ManpowerSurface",
         "MenuSettingsButton",
@@ -16674,6 +16804,7 @@
         "PairCard",
         "PaperSide",
         "PickMenu",
+        "PictureFrameControl",
         "Pill",
         "Pin",
         "PinFigures",
@@ -16988,6 +17119,10 @@
         "Fold",
         "FormPageSkeleton",
         "FormRows",
+        "GuestAtEventPill",
+        "GuestReplies",
+        "GuestReviewsRead",
+        "HostReplies",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -16998,6 +17133,7 @@
         "PickTile",
         "PlanAsk",
         "ReplyForm",
+        "ReviewGroupHead",
         "ReviewReplies",
         "RowIcon",
         "ShopBadgePill",
@@ -17013,6 +17149,7 @@
         "ThumbRow",
         "TypedRow",
         "UndoToastHost",
+        "VendorGuestReviewCard",
         "VendorReviewCard",
         "VerifiedBookingPill",
         "VerifiedWeddingPill"

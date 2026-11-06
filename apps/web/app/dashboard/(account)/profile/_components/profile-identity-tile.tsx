@@ -41,7 +41,7 @@ export function ProfileIdentityTile({
         unsavedHint="press Save below"
         slotSays="Add a photo"
         help="Your avatar across the app · PNG / JPG / WebP, up to 2 MB"
-        uploadRowClassName="grid items-center gap-5 sm:grid-cols-[11rem_minmax(0,1fr)]"
+        uploadRowClassName="grid items-center gap-5 sm:grid-cols-[17rem_minmax(0,1fr)]"
         aside={
           <div className="min-w-0 text-center sm:text-left">
             <p className="font-display text-3xl font-semibold leading-tight text-ink">{displayName ?? 'Add your name'}</p>

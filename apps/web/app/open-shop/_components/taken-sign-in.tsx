@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { PasswordField } from '@/app/_components/password-field';
 import { signInInPlace } from '@/app/login/actions';
 import { SIGN_IN_IN_PLACE_INITIAL } from '@/app/login/_components/sign-in-state';
 
@@ -38,7 +39,7 @@ export function TakenSignIn({ email, onSignedIn }: { email: string; onSignedIn: 
         This email already has a Setnayan account. Sign in to keep going — what you typed stays.
       </p>
       {state.error ? (
-        <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} role="alert">
+        <p className="text-xs" style={{ color: 'var(--m-mulberry-deep)' }} role="alert">
           {state.error}
         </p>
       ) : null}
@@ -58,7 +59,8 @@ export function TakenSignIn({ email, onSignedIn }: { email: string; onSignedIn: 
         <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
           Password
         </span>
-        <input name="password" type="password" autoComplete="current-password" className="input-field" autoFocus />
+        {/* #7344's one password box (the eye) — a sign-in, so no `mode="new"` meter or rules. */}
+        <PasswordField name="password" autoComplete="current-password" className="input-field" autoFocus />
       </label>
       <SubmitButton
         className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"

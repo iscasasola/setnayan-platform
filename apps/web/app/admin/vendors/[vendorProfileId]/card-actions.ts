@@ -326,11 +326,81 @@ async function removeServiceCardPhoto(formData: FormData): Promise<void> {
   back(shopId, 'card=photo-removed');
 }
 
+// ── Sample shop (the shop, not a card) ───────────────────────────────────────
+
+/** The audit actions for the shop-level "Sample shop" switch. */
+const SAMPLE_SHOP_AUDIT = { on: 'vendor_sample_shop_on', off: 'vendor_sample_shop_off' } as const;
+
+/**
+ * The admin's "Sample shop" switch (owner, 6 Nov 2026: *"They are demo shops. The only real shop is the wedding
+ * planner."*). It writes the EXISTING `vendor_profiles.is_demo` — no second column: every public reader already reads
+ * that one flag (`shopPageGate`, the marketplace, the sitemap, Discover's Shops shelf), so a second "sample" column
+ * would be a competing answer to one question. The shop's page and card then wear "Sample shop"
+ * (`app/_components/sample-marker.tsx`).
+ *
+ * SAVES IN PLACE: no redirect — the switch stays where it was tapped, and a failure THROWS so the switch puts itself
+ * back and says nothing changed. Explicit `on`/`off` (never a checkbox's absence). Guarded on the value it read, so a
+ * second admin's tap in between is not silently undone. Owned shops are never deleted by the demo cleanups (they
+ * delete only ownerless rows — `lib/a-demo-cleanup-never-deletes-an-owned-shop.test.ts`), so this switch hides, it
+ * never removes.
+ */
+async function setSampleShop(formData: FormData): Promise<void> {
+  const { userId } = await requireAdminAction();
+  const shopId = String(formData.get('vendor_profile_id') ?? '').trim();
+  const raw = String(formData.get('sample') ?? '').trim();
+  if (!UUID_RE.test(shopId)) throw new Error('Missing supplier.');
+  if (raw !== 'on' && raw !== 'off') throw new Error('Invalid sample-shop value.');
+  const next = raw === 'on';
+
+  const admin = createAdminClient();
+  // A refused read resolves with `{ error }`; it is not "no such shop".
+  const { data: before, error: readErr } = await admin
+    .from('vendor_profiles')
+    .select('is_demo, business_name, public_id')
+    .eq('vendor_profile_id', shopId)
+    .maybeSingle();
+  if (readErr) throw new Error('Couldn’t read this shop just now, so nothing changed.');
+  if (!before) throw new Error('Supplier not found.');
+  const row = before as { is_demo?: boolean | null; business_name?: string | null; public_id?: string | null };
+  const was = row.is_demo === true;
+  if (was === next) return;
+
+  const { data: changed, error } = await admin
+    .from('vendor_profiles')
+    .update({ is_demo: next })
+    .eq('vendor_profile_id', shopId)
+    .eq('is_demo', was)
+    .select('vendor_profile_id');
+  if (error) {
+    console.error('[setSampleShop] update failed', error.message);
+    throw new Error('The shop could not be changed — nothing changed.');
+  }
+  // Zero rows is not a save: another admin flipped it a moment ago.
+  if (!changed || changed.length === 0) throw new Error(CHANGED_MEANWHILE);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: next ? SAMPLE_SHOP_AUDIT.on : SAMPLE_SHOP_AUDIT.off,
+    target_table: 'vendor_profiles',
+    target_id: shopId,
+    actor_user_id: userId,
+    before_json: { is_demo: was },
+    after_json: { is_demo: next },
+    metadata: { business_name: row.business_name ?? null, public_id: row.public_id ?? null },
+  });
+  if (auditErr) console.error('[setSampleShop] audit log insert failed', auditErr.message);
+
+  await refreshPublic(shopId);
+}
+
 // ── The one export ───────────────────────────────────────────────────────────
 
 /**
- * The form posts `op` = take_down | put_back | remove_photo. The admin gate runs
+ * The form posts `op` = take_down | put_back | remove_photo | sample_shop. The admin gate runs
  * FIRST — before the op is even read — so a non-admin learns nothing.
+ *
+ * `sample_shop` is the one SHOP-level op (the admin page's "Sample shop" switch). It rides this dispatcher instead of a
+ * new export because every export of a "use server" file is a Vercel route and the budget
+ * (`scripts/lint-server-action-budget.mjs`) sits at its measured ceiling.
  */
 export async function moderateServiceCard(formData: FormData): Promise<void> {
   await requireAdminAction();
@@ -338,5 +408,6 @@ export async function moderateServiceCard(formData: FormData): Promise<void> {
   if (op === 'take_down') return takeDownServiceCard(formData);
   if (op === 'put_back') return putBackServiceCard(formData);
   if (op === 'remove_photo') return removeServiceCardPhoto(formData);
+  if (op === 'sample_shop') return setSampleShop(formData);
   throw new Error('Unknown card action.');
 }

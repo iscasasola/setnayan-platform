@@ -348,13 +348,16 @@ test('the two new categories sit in their groups; specialty values carry their e
 });
 
 test('a shop that held an absorbed trade is findable by the absorbed name', async () => {
-  const attr = async (vid: string, svc: string) =>
-    (
+  // `shop` is a Record, so each id reads as `string | undefined`: the fixture must have created it — asserted, not cast.
+  const attr = async (vid: string | undefined, svc: string) => {
+    assert.ok(vid, `the fixture shop for ${svc} was never created`);
+    return (
       await db.query<{ attribute_payload: Record<string, unknown> }>(
         `SELECT attribute_payload FROM vendor_service_attributes WHERE vendor_profile_id=$1 AND canonical_service=$2`,
         [vid, svc],
       )
     ).rows[0]?.attribute_payload;
+  };
 
   assert.deepEqual((await attr(shop.hotel, 'reception_venue'))?.venue_type, ['Hotel ballroom']);
   assert.equal(

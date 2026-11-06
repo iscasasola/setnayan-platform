@@ -21,6 +21,7 @@ import { personalInviteCardSvg } from '@/lib/personal-invite-card';
 import { displayServiceLabel } from '@/lib/vendors';
 import { readPersonalInvitePlanPrices as readPlanPrices } from '@/lib/personal-invite-prices.server';
 import { getLaunchOffer } from '@/lib/launch-offer.server';
+import { SHOP_NAME_MAX, SHOP_NAME_TOO_LONG } from '@/lib/business-slug';
 import { formatLaunchCap, launchOfferIsOpen } from '@/lib/launch-offer';
 import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
@@ -99,8 +100,12 @@ export async function createAdminVendorInvite(
   if (!EMAIL_REGEX.test(rawEmail)) {
     return { status: 'invalid_email' };
   }
-  if (rawBusinessName.length === 0 || rawBusinessName.length > 128) {
-    return { status: 'error', message: 'Business name must be 1–128 characters.' };
+  if (rawBusinessName.length === 0) {
+    return { status: 'error', message: 'Add the business name.' };
+  }
+  // 📏 50 AT MOST (owner 2026-11-06): this name is staged straight onto the shop row below.
+  if (rawBusinessName.length > SHOP_NAME_MAX) {
+    return { status: 'error', message: SHOP_NAME_TOO_LONG };
   }
 
   // 🎁 THE OFFER (owner 2026-10-23, prototype supplier_personal_invite_2026-10-23 frame A2): a plan free until a
@@ -311,8 +316,12 @@ export async function saveUnclaimedVendorProfile(formData: FormData) {
   if (!vendorProfileId) throw new Error('Invalid vendor_profile_id');
 
   const businessName = String(formData.get('business_name') ?? '').trim();
-  if (businessName.length === 0 || businessName.length > 128) {
-    throw new Error('Business name must be 1–128 characters.');
+  if (businessName.length === 0) {
+    throw new Error('Add the business name.');
+  }
+  // 📏 50 AT MOST (owner 2026-11-06).
+  if (businessName.length > SHOP_NAME_MAX) {
+    throw new Error(SHOP_NAME_TOO_LONG);
   }
   const tagline = nullIfBlank(formData.get('tagline'));
   const locationCity = nullIfBlank(formData.get('location_city'));

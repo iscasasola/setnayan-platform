@@ -23,6 +23,7 @@ import {
   type PickerLeafView,
 } from './service-picker';
 import { becomeVendor } from '../actions';
+import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
@@ -580,11 +581,17 @@ export function OpenShopWizard({
                 name="shop_name"
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
-                maxLength={128}
+                maxLength={SHOP_NAME_MAX}
                 placeholder="e.g. Banawe Florals"
                 className="input-field"
                 autoFocus
               />
+              {/* 📏 50 at most (owner 2026-11-06); the count shows only from 40, so short names stay quiet. */}
+              {shopNameCounter(shopName.length) ? (
+                <span className="block text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
+                  {shopNameCounter(shopName.length)}
+                </span>
+              ) : null}
               {/* The shop name IS the web address (owner 2026-08-09). Showing it
                   while they type is the only moment a vendor can still choose a
                   different name over it — afterwards the address is permanent,

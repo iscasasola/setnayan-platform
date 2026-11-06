@@ -41,6 +41,35 @@ export const BUSINESS_SLUG_MAX = 32;
 /** Below this the generator borrows from the public id instead (see below). */
 export const BUSINESS_SLUG_MIN = 3;
 
+// ── THE SHOP NAME IS 50 CHARACTERS AT MOST (owner ruling 2026-11-06: "50 characters") ──
+// `vendor_profiles.business_name`, everywhere it is typed or written: the sign-up box, My Shop, a correction
+// request, Admin's invite + edit, the correction apply — and the database itself
+// (`vendor_profiles_business_name_max_50`, a CHECK), so nothing can go around the boxes. ONE number: every box
+// reads it as `maxLength`, every server writer refuses past it with `SHOP_NAME_TOO_LONG`.
+// Held by `app/open-shop/the-shop-name-is-fifty-characters.test.ts`.
+//
+// Only SHOPS. A couple's own record of a supplier (`event_manual_vendors.business_name`) stays free text — but
+// where that record PREFILLS a shop (a supplier claiming from the couple's link), the claim clips it to this
+// length in SQL (`claim_ready_the_shop`), so a long name the couple typed never fails a claim.
+//
+// Counted in UTF-16 units, as `maxLength` counts — Postgres `char_length` counts code points, which is never more,
+// so a name these checks pass the CHECK always passes too.
+export const SHOP_NAME_MAX = 50;
+/** The counter under a shop-name box appears from this many characters ("42 / 50"). */
+export const SHOP_NAME_COUNTER_FROM = 40;
+/** The one sentence every server writer refuses a too-long shop name with. */
+export const SHOP_NAME_TOO_LONG = `Keep the shop name to ${SHOP_NAME_MAX} characters or fewer.`;
+
+/** True when a (trimmed) shop name is past the limit. */
+export function shopNameTooLong(name: string | null | undefined): boolean {
+  return (name ?? '').trim().length > SHOP_NAME_MAX;
+}
+
+/** "42 / 50" once a box holds `SHOP_NAME_COUNTER_FROM` or more characters; null before that. */
+export function shopNameCounter(length: number): string | null {
+  return length >= SHOP_NAME_COUNTER_FROM ? `${length} / ${SHOP_NAME_MAX}` : null;
+}
+
 function translateAccents(input: string): string {
   let out = '';
   for (const ch of input) {

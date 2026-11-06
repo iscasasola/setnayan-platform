@@ -9,8 +9,11 @@
  *   · Events · Discover · Memories · People — four for everyone;
  *   · Shop is a fifth tab ONLY for an account that owns a shop;
  *   · Admin is never a tab; there is no floating ＋ Create;
- *   · in the app shell, while `/` is bounced (APP_EXCLUDED_MARKETING_PATHS),
- *     no Discover — three tabs for a couple;
+ *   · Discover is a tab wherever `/` OPENS — and since the owner's 2026-11-02
+ *     ruling ("let everything go live", DECISION_LOG "EVERY PAGE HELD BACK FROM
+ *     THE APP FOR APPLE GOES LIVE IN THE APP TOO") that is the phone and desktop
+ *     apps too, so the app draws the same four tabs as the web. (While Apple
+ *     reviewed 1.0 middleware bounced `/` out of the app and the app drew three.)
  *   · the app's mark goes to Events (pinned in seam-invariants.test.ts);
  *   · the word "Setnayan" beside the mark on these screens.
  *
@@ -30,6 +33,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { AccountBottomNav } from './_components/account-bottom-nav';
 import { accountBarTabs, ownsAShop } from '@/lib/account-bar';
 import { stripComments } from '@/lib/strip-comments';
+import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 
 // tsconfig's `"jsx": "preserve"` → classic runtime under tsx (precedent:
 // the-phone-bar-is-anchored.test.ts).
@@ -62,7 +66,11 @@ test('📱 web: a couple gets four, a shop OWNER five (Shop last), a team member
   assert.deepEqual(drawn({ ...INTERNAL, discoverOpen: true }).labels, four, 'Admin is never a tab');
 });
 
-test('🍎 app shell while `/` is bounced: Events · Memories · People (a shop owner adds Shop)', () => {
+test('📲 the app opens Discover, so it draws the web\'s bar — and a shell that refused `/` would drop only that tab', () => {
+  // In the app now: Discover opens there (see the middleware test below), so the same four (five for an owner).
+  assert.deepEqual(drawn({ ...COUPLE, discoverOpen: true }).labels, ['Events', 'Discover', 'Memories', 'People']);
+  assert.deepEqual(drawn({ ...OWNER, discoverOpen: true }).labels, ['Events', 'Discover', 'Memories', 'People', 'Shop']);
+  // The rule itself is unchanged: where `/` does not open, no press to it is drawn.
   assert.deepEqual(drawn({ ...COUPLE, discoverOpen: false }).labels, ['Events', 'Memories', 'People']);
   assert.deepEqual(drawn({ ...OWNER, discoverOpen: false }).labels, ['Events', 'Memories', 'People', 'Shop']);
 });
@@ -136,24 +144,23 @@ test('wiring: both layouts draw the ruled tabs from the server-side answers', ()
   }
 });
 
-test('🍎 "Discover opens here" is the bounce middleware actually applies to `/`', () => {
-  const mw = readFileSync(join(WEB, 'middleware.ts'), 'utf8');
-  const m = mw.match(/APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([^\]]*)\]/);
-  assert.ok(m, 'APP_EXCLUDED_MARKETING_PATHS moved out of middleware.ts — point this reader at it');
-  const bounced = new Set([...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!));
+test('📲 "Discover opens here" says yes in the app — because middleware no longer bounces `/` (or anything) out of it', () => {
+  // Owner 2026-11-02, "let everything go live": the brochure bounce that sent a native-shell request for `/` to the
+  // board while Apple reviewed 1.0 is GONE. Nothing in middleware may tell the generic native shell (the
+  // `SetnayanApp` user agent / the capacitor cookie) apart from a browser any more — the only shell question it
+  // asks is the store shell's paid-feature gate (`isStoreShellSignals`), which never names `/`.
+  const mw = stripComments(readFileSync(join(WEB, 'middleware.ts'), 'utf8'));
+  assert.doesNotMatch(
+    mw,
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware asks "is this the app?" again — if it refuses `/` there, make discoverOpensHere() answer false in that ' +
+      'shell (the tab and the rail row leave with it), then update this test',
+  );
+  assert.equal(isStoreShellWebOnlyPath('/'), false, 'the store shell refuses Discover — the app bar would draw a dead tab');
+  assert.equal(isStoreShellWebOnlyPath('/', true), false, 'the store shell refuses Discover where Apple sells');
   const rp = src('lib/request-platform.ts');
   const body = rp.match(/export async function discoverOpensHere\(\): Promise<boolean> \{([\s\S]*?)\n\}/)?.[1] ?? '';
-  if (bounced.has('/')) {
-    // While `/` bounces in the native shell, Discover opens only on the web —
-    // the same "native" question /login asks (held by the-app-login-has-no-dead-close.test.ts
-    // to read the two signals middleware's bounce reads).
-    assert.match(body, /return \(await getRequestPlatform\(\)\) === 'web';/, 'discoverOpensHere no longer asks the bounce question');
-  } else {
-    assert.fail(
-      "`/` left APP_EXCLUDED_MARKETING_PATHS — Discover now opens in the app. Make discoverOpensHere() say so " +
-        '(the fourth tab and the rail row come back), then update this test.',
-    );
-  }
+  assert.match(body, /^\s*return true;\s*$/, 'discoverOpensHere() no longer says Discover opens everywhere');
 });
 
 test('🍎 the rail hides its Discover row where Discover does not open — and only that row', () => {

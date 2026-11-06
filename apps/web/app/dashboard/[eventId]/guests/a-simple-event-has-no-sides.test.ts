@@ -39,8 +39,15 @@ test('the page derives hasSides from the profile and gates the Side filter, sort
   // ⤷ Maker PR 4f: the filter row is retired; the ONE Sort (list) and the map's
   // arrange dropdown are the side controls now, and Set… ▾'s Side group.
   const screen = src('_components/guests-screen.tsx');
-  assert.match(screen, /ROSTER_VIEWS\.filter\(\(v\) => hasSides \|\| v\.key !== 'side'\)/, 'Sort offers Side on a sideless event');
-  assert.match(screen, /MAP_ARRANGE\.filter\(\(v\) => hasSides \|\| v\.key !== 'side'\)/, 'the map arranges by side on a sideless event');
+  // ⇅ R4 slice 1: the List's and the Map's Group by are the shared ⇅ (lib/guests-filter.ts), handed `hasSides`.
+  const filter = src('../../../../lib/guests-filter.ts');
+  assert.equal((filter.match(/if \(v\.key === 'side' && !opts\.hasSides\) continue;/g) ?? []).length, 2, 'Group by offers Side on a sideless event');
+  // 3 Nov: the List's ⇅ is the Show & sort sheet, handed `hasSides` the same way.
+  assert.match(screen, /<GuestsFilterSheet[\s\S]{0,120}hasSides=\{hasSides\}/, 'the List’s ⇅ is not told whether the event has sides');
+  assert.match(src('_components/guests-filter-panel.tsx'), /guestsFilterOptions\('list', filter, \{ hasSides \}\)/, 'the sheet does not pass hasSides to the options');
+  // …and the Map draws Side only where the event has sides, whatever the shared choice says (`mapGroupOf`).
+  assert.match(filter, /if \(f\.group && isMapArrange\(f\.group\) && \(hasSides \|\| f\.group !== 'side'\)\) return f\.group;\s*return hasSides \? 'side' : 'role';/, 'the map arranges by side on a sideless event');
+  assert.match(screen, /const arrange: MapArrange = mapGroupOf\(filter, hasSides\);/, 'the map does not ask the shared filter with hasSides');
   assert.match(screen, /\.\.\.\(hasSides\s*\?\s*\(\['bride', 'groom', 'both'\] as GuestSide\[\]\)/, 'Set… offers Side on a sideless event');
   assert.match(page, /hasSides && \(teamRaw === 'bride' \|\| teamRaw === 'groom'\)/, 'a ?team=bride link still filters a sideless event');
   assert.match(page, /!hasSides && sortRaw === 'side'/, 'a ?sort=side link still sorts a sideless event by side');

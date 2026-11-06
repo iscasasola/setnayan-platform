@@ -141,7 +141,9 @@ test('the walk reads the Maker: its folders, the shared rows it mounts, and the 
     assert.ok(REACH.has(f), `${f} is no longer reached from the Maker's page — the walk lost it`);
   }
   const total = FOUND.reduce((n, f) => n + f.awaits.length, 0);
-  assert.ok(FOUND.length >= 45 && total >= 100, `only ${total} transition awaits in ${FOUND.length} files — the scan is not seeing the transitions`);
+  /* 🗂 R4 (2026-10-28): the seat plan (its presses — 93 counted after it left, from 100+) is Guests › Seats now, so the
+     Maker no longer reaches it; the floor follows what the Maker really holds. */
+  assert.ok(FOUND.length >= 45 && total >= 85, `only ${total} transition awaits in ${FOUND.length} files — the scan is not seeing the transitions`);
   /* The five presses of 2026-10-11 are each SEEN (a fix the scan cannot see is not held by it). */
   const seen = (file: string, awaited: RegExp) => FOUND.find((f) => f.file === file)?.awaits.some((a) => awaited.test(a.awaited) && a.guard !== null);
   assert.ok(seen(`${EVENT}/website/editor/_components/use-scene-canvas.ts`, /^hubDraftAnswer\(/), 'useSceneCanvas.save');
@@ -179,8 +181,10 @@ test('1 · no await in a transition the Maker can reach is left to throw into it
  * call cannot hide behind "its caller probably catches". `file › function` → where the rejection is taken.
  */
 const CAUGHT_BY_THE_CALLER: Record<string, string> = {
-  [`${EVENT}/launch/_components/details-your-event.tsx › draftFactsFull`]:
-    'draftFacts / draftDate — every caller awaits in a try/catch (held by claim 1: each is in a transition), and `saveDay` answers in words',
+  [`${EVENT}/launch/_components/details-your-event.tsx › draftFacts`]:
+    'the names and the name style — every caller awaits in a try/catch (held by claim 1: each is in a transition). The date is not drafted (owner 2026-11-05): `saveDate` → `updateEventDate`, awaited in a try/catch, and `saveDay` answers in words',
+  [`${EVENT}/launch/_components/details-your-event.tsx › saveDate`]:
+    'the date (owner 2026-11-05, saved to the event at once) — `pickDay` and `month` await it in a try/catch inside their transition, and `saveDay` answers in words',
   [`${EVENT}/launch/_components/details-your-event.tsx › draftVenueChoice`]: 'VenuesEditor `choose` — `.then(…).catch(…)` puts the card back',
   [`${EVENT}/website/editor/_components/use-scene-canvas.ts › useHeldEventsSave`]: 'DressFiguresRow — `hubDraftAnswer(\'save\', () => saveEvents(…))` (held by claim 1)',
 };

@@ -59,6 +59,8 @@ import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
 import { BadgeEarnedLine } from './_components/badge-earned-line';
+import { ClaimWaitLines } from './_components/claim-wait-lines';
+import { readClaimWaits } from '@/lib/claim-access-wait.server';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -84,6 +86,8 @@ import {
   type FeeDisclosure,
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import { SupplierToast } from './_components/supplier-toast';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -271,8 +275,10 @@ export default async function VendorOverviewPage({
           <p className="mt-2 text-sm text-ink/65">
             You don&rsquo;t own a supplier profile yet. Reach the team owner to be
             added to bookings + chats, or
+            {/* /open-shop, never /signup: this reader is already signed in, and
+                /signup sends a signed-in visitor straight back here. */}
             <Link
-              href="/signup?as=vendor"
+              href="/open-shop"
               className="ml-1 font-semibold underline"
               style={{ color: 'var(--sn-gold-700)' }}
             >
@@ -297,6 +303,8 @@ export default async function VendorOverviewPage({
   // same cache()d read for the Events tab, so this is free; started here and read at the end, it adds no trip.
   // Fails closed: a refused read draws no section (`lib/events-you-run.server.ts`).
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
+  // 🔗 Joined from a couple's link and still waiting for their Approve (audit G3) — said on Today, never silent.
+  const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   /*
@@ -306,7 +314,7 @@ export default async function VendorOverviewPage({
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
-  const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile).catch(() => null) : null));
+  const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   const setupMakerP = settingUpP.then((yes) =>
     yes
       ? loadMakerContext(supabase, vendorProfileId)
@@ -383,6 +391,22 @@ export default async function VendorOverviewPage({
     needsAnswer.length,
     oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
   );
+
+  /*
+    📋 EVERY INQUIRY ROW OPENS TO ITS EVENT (supplier dashboard v13, owner 2026-10-29: "for inquiries. we can say what
+    service they are requesting for…" · "where is the expand look of these rows?"): the fixed lines, read ONCE for every
+    inquiry on the desk (`readSupplierEventLines` — one parallel round + the names), started here so it rides beside
+    wave 2. Opening a row reads nothing. Refused → the rows open to the shipped answer alone.
+  */
+  const inquiryEvents = needsAnswer.flatMap((c) => (c.kind === 'inquiry' && c.eventId ? [{ eventId: c.eventId, stage: 'asking' as const }] : []));
+  const eventLinesP: Promise<Map<string, EventLines>> =
+    inquiryEvents.length > 0
+      ? readSupplierEventLines(createAdminClient(), {
+          vendorProfileId,
+          shopServices: (profile.services ?? null) as string[] | null,
+          events: inquiryEvents,
+        }).catch(() => new Map<string, EventLines>())
+      : Promise.resolve(new Map<string, EventLines>());
 
   // S19 · can a couple see anywhere to pay this shop? Asked only when a booking ask is on screen or the shop holds
   // an upcoming booking (2026-09-19) — a booked couple owes a deposit. `unreadable` renders nothing.
@@ -609,6 +633,7 @@ export default async function VendorOverviewPage({
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
   const { events: eventsYouRun } = await eventsYouRunP;
+  const eventLines = Object.fromEntries(await eventLinesP);
 
   /*
     🧰 A NEW SHOP'S SIX STEPS, DONE IN PLACE (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
@@ -649,19 +674,21 @@ export default async function VendorOverviewPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       {/* The toast that says how an answer went (a booking ask · a date change · a payment that never arrived).
           A refusal is the whole point: without it the supplier presses Agree, is refused, and sees the same page
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
       <BadgeEarnedLine />
+      <ClaimWaitLines read={await claimWaitsP} />
       <SupplierTodayScreen
         view={view}
         outcome={outcome}
         feeForecasts={feeForecasts}
         cards={[...needsAnswer, ...nothingToAnswer]}
         eventsYouRun={eventsYouRun}
+        eventLines={eventLines}
         setup={setup}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}

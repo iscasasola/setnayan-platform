@@ -71,7 +71,7 @@ export const DELEGATE_AREAS: readonly DelegateArea[] = [
 /**
  * The area names a person reads (owner 2026-10-03, "People with access"):
  * Guest list · Seat plan · The Day (schedule + emcee script + songs) ·
- * Suppliers · Event Hub · Mood Board (palette + dress code) · Budget &
+ * Suppliers · Event Hub · Mood Board (its photos) · Budget &
  * payments · Photos. The KEYS are the database's and never change.
  */
 export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
@@ -96,7 +96,7 @@ export const DELEGATE_AREA_DOES: Readonly<Record<DelegateArea, string>> = {
   schedule: 'The schedule of the day, the emcee script and the songs.',
   vendors: 'Your suppliers — their details, milestones and status.',
   invitations: 'Your Event Hub — what your guests see.',
-  mood_board: 'The palette and the dress code.',
+  mood_board: 'Add, replace, move and remove the board’s photos. The palette and the dress code stay with you.',
   budget: 'Your budget and payments. Never Edit — View at most.',
   photos: 'The event’s photos. View at most.',
 };
@@ -120,11 +120,19 @@ export type AreaChoice = 'edit' | 'view' | 'off';
  *   · Budget & payments → View · Off. Edit is never offered (locked D1).
  *   · Photos → View · Off. The guests' likenesses; deleting them was never
  *     decided (owner 2026-08-06: "only upon approval").
- *   · Event Hub · Mood Board → null: NOT SETTABLE YET. Nothing anywhere asks
- *     the database for these two areas — the Maker and the Mood Board save for
- *     the hosts alone, and every delegate can open both. A dropdown there
- *     would be a switch wired to nothing, so the row shows what is true
- *     ({@link FIXED_AREA_LEVEL}) until their gates are built.
+ *   · Mood Board → Edit · View (owner 2026-10-30: *"Only the host and whoever
+ *     supplier they give access to and not all"* · *"The rest can view but not
+ *     edit"*). Edit lets the person add, replace, move and remove the board's
+ *     PHOTOS — the write policies on `event_inspiration_assets` ask
+ *     `current_moderator_area_levels('mood_board') … = 'edit'` (migration
+ *     20271297714074) and the actions ask `can_change_mood_board_photos` first.
+ *     No Off: every delegate READS the board whatever the area says, so an Off
+ *     would be a switch wired to nothing. The palette, theme and dress code
+ *     stay the hosts' (`couple_can_update_event` does not move).
+ *   · Event Hub → null: NOT SETTABLE YET. Nothing anywhere asks the database
+ *     for this area — the Maker saves for the hosts alone, and every delegate
+ *     can open it. A dropdown there would be a switch wired to nothing, so the
+ *     row shows what is true ({@link FIXED_AREA_LEVEL}) until its gate is built.
  */
 export function areaChoices(area: DelegateArea): readonly AreaChoice[] | null {
   switch (area) {
@@ -133,11 +141,12 @@ export function areaChoices(area: DelegateArea): readonly AreaChoice[] | null {
     case 'schedule':
     case 'vendors':
       return ['edit', 'view', 'off'];
+    case 'mood_board':
+      return ['edit', 'view'];
     case 'budget':
     case 'photos':
       return ['view', 'off'];
     case 'invitations':
-    case 'mood_board':
       return null;
   }
 }
@@ -145,7 +154,6 @@ export function areaChoices(area: DelegateArea): readonly AreaChoice[] | null {
 /** What an area the host cannot set yet actually gives every delegate. */
 export const FIXED_AREA_LEVEL: Readonly<Partial<Record<DelegateArea, AreaChoice>>> = {
   invitations: 'view',
-  mood_board: 'view',
 };
 
 /** An AreaLevel as the dropdown's key ('off' for null). */

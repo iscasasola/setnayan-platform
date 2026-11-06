@@ -24,13 +24,18 @@ import { keepParamsFrom } from '../../_components/list-pager';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { MoneyView, type MoneyLegacyPayout } from './money-view';
+import { CustomersPin } from './customers-pin';
+import { CustomersFigures } from './customers-figures';
+import { CustomersSettings } from './customers-settings';
+import { CustomersSettingsBody } from './customers-settings-body';
+import { CUSTOMER_SEGMENT_HREFS } from '../segments';
+import { moneyFiguresOf } from '../money-pin-figures';
 import { MoneyLog, type MoneyLogCustomer } from './money-log';
 import { ShopWalletSheet, type ShopWalletSheetData } from './shop-wallet-sheet';
 import { fetchShopWallet, fetchShopWalletEventPots, fetchShopWalletPackMeta } from '@/lib/shop-wallet.server';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SHOP_WALLET_HREF, eventPotSub, eventPotTitle, walletHistoryLines, walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
-import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
-import { VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS } from '@/lib/vendor-papic-credits';
+import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
@@ -198,6 +203,13 @@ export async function CustomersMoney({ search }: { search: SP }) {
 
   return (
     <>
+      {/* 📌 Money's pinned row: the view ▾ · Received · To come in · Overdue · ⚙ (v13) — folds to one slim line on scroll. */}
+      <CustomersPin
+        seg="money"
+        hrefs={CUSTOMER_SEGMENT_HREFS}
+        figures={<CustomersFigures figures={moneyFiguresOf(picture.totals)} label="Your money" />}
+        gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="money" search={gearSearch(search)} /> : null} />}
+      />
       <MoneyView
         data={{
           today,
@@ -235,6 +247,12 @@ export async function CustomersMoney({ search }: { search: SP }) {
   );
 }
 
+/** The ⚙ sheet's own params (its saves come back with `gnotice` / `gmsg` / `gerror`), as single strings. */
+function gearSearch(search: SP): { m?: string; gnotice?: string; gmsg?: string; gerror?: string } {
+  const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
+  return { m: one(search.m), gnotice: one(search.gnotice), gmsg: one(search.gmsg), gerror: one(search.gerror) };
+}
+
 /** Everything the wallet sheet draws, read and worded on the server (`lib/shop-wallet.ts`). */
 async function readWalletSheet(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -243,10 +261,10 @@ async function readWalletSheet(
   wallet: Awaited<ReturnType<typeof fetchShopWallet>>,
 ): Promise<ShopWalletSheetData> {
   const packOrderIds = wallet.entries.filter((e) => e.kind === 'pack_order' && e.orderId).map((e) => e.orderId as string);
-  const [packMeta, rooms, pricePhp, settings, storeShell, papicOn] = await Promise.all([
+  const [packMeta, rooms, packs, settings, storeShell, papicOn] = await Promise.all([
     fetchShopWalletPackMeta(supabase, packOrderIds),
     fetchVendorRoomEvents(supabase, vendorProfileId).catch(() => null),
-    fetchVendorPapicPackPricePhp(admin),
+    fetchShopPapicPacks(admin),
     fetchPlatformSettings(supabase),
     isStoreShellRequest(),
     isVendorPapicCaptureEnabled(),
@@ -275,7 +293,7 @@ async function readWalletSheet(
         sub: eventPotSub(pot),
         href: `/vendor-dashboard/on-the-day/live/${pot.eventId}/papic`,
       })) ?? null,
-    buy: { openRails: openRailOptions(settings), pricePhp, packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS, papicOn },
+    buy: { openRails: openRailOptions(settings), packs, papicOn },
     storeShell,
   };
 }

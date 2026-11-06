@@ -35,7 +35,10 @@ const SCREEN = stripComments(readFileSync(join(HERE, 'guests-screen.tsx'), 'utf8
 const SHEET = stripComments(readFileSync(join(HERE, 'add-guest-sheet.tsx'), 'utf8'));
 const WAYS = ['From your people', 'Import a file'];
 
-test('no round ＋ on the thumb row — list or map; the field is the add', async () => {
+/* 3 Nov (owner, "so fix their locations"): the List's ＋ is back as ＋ Add ▾ — a MENU of the ways in (Type a name · From
+   your people · Import a file), never the bare round that opened the add sheet. This guard still holds that the field is
+   the add and that no bare ＋ round (`thumb-add`) returns. */
+test('no bare round ＋ on the thumb row — list or map; the field is the add', async () => {
   for (const gview of ['list', 'map'] as const) {
     const html = await renderGuestsScreen({ guests: [guestRow({ first_name: 'Ben', last_name: 'Cruz' })], gview });
     assert.ok(html.includes('data-one-thumb-row') || html.includes('data-thumb'), `${gview}: the thumb row is not drawn — re-aim this guard`);
@@ -106,15 +109,20 @@ test('a view-only helper (owner 2026-09-28 · 2026-10-26) is offered no add — 
   assert.ok(count(host, 'data-typed-ways=""') + count(host, 'data-search-add=""') > 0, 'the host lost the add');
 });
 
-test('≡ holds the same ways — ONE list, the imported openers — on the list AND the map', () => {
+test('the same ways — ONE list, the imported openers — in the List’s ＋ Add ▾ AND the Map’s ≡', () => {
   for (const w of WAYS) assert.ok(SHEET.includes(`label: '${w}'`), `ADD_WAYS lost "${w}"`);
-  assert.match(SCREEN, /ADD_WAYS\.map\(\(w\) =>/, 'the ≡ items are not read from the one list');
-  const sort = SCREEN.slice(SCREEN.indexOf('const sortMenu: ThumbMenu'), SCREEN.indexOf('const arrangeMenu: ThumbMenu'));
+  assert.match(SCREEN, /ADD_WAYS\.map\(\(w\) =>/, 'the ways are not read from the one list');
+  // 3 Nov (owner, "so fix their locations" — the filter only filters): the List's ways left the ≡ for ＋ Add ▾ beside the
+  // field, where hosts type new guests: Type a name · From your people · Import a file.
+  const add = SCREEN.slice(SCREEN.indexOf('const addMenu: ThumbMenu | null'), SCREEN.indexOf('const arrangeMenu: ThumbMenu'));
   const map = SCREEN.slice(SCREEN.indexOf('const arrangeMenu: ThumbMenu'), SCREEN.indexOf('const [picks, setPicks]'));
-  for (const [name, menu] of [['Sort', sort], ['Arrange', map]] as const) {
-    assert.match(menu, /addWays,?\s*\)/, `${name} ≡ does not list the ways to add`);
-    assert.match(menu, /if \(pickedAddWay\(k\)\) return;/, `${name} ≡ does not open a picked way`);
-  }
+  assert.ok(add.length > 0, 'the List’s ＋ Add ▾ moved — re-aim this guard');
+  assert.match(add, /\.\.\.addWays\.map\(/, '＋ Add ▾ does not list the ways to add');
+  assert.match(add, /pickedAddWay\(k\);/, '＋ Add ▾ does not open a picked way');
+  assert.match(add, /fieldRef\.current\?\.focus\(\)/, '“Type a name” does not put the cursor in the field (the field is still the add)');
+  assert.match(SCREEN, /right=\{\[\{ node: filterSheet \}\]\}\s*action=\{addMenu\}/, 'the List’s thumb row does not seat ＋ Add ▾');
+  assert.match(map, /extras: addWays,/, 'Arrange ≡ does not list the ways to add');
+  assert.match(map, /onExtra: \(k\) => void pickedAddWay\(k\),/, 'Arrange ≡ does not open a picked way');
   assert.match(SCREEN, /openAddWay\(k\.slice\(4\) as AddWayKey, eventId,/, 'a picked way is not opened by the shared opener');
   // The opener imports each sheet's own opener — never an event name typed by hand (capture-bar.tsx says why).
   const opener = SHEET.slice(SHEET.indexOf('export function openAddWay('));
@@ -129,7 +137,7 @@ test('≡ holds the same ways — ONE list, the imported openers — on the list
 test('Enter with no match still adds, and the typed Add row runs the same addTyped', () => {
   assert.match(SCREEN, /if \(typedLineIsAFilter\(v, facts, filterLabels\)\) return;\s*addTyped\(v\);/, 'Enter no longer adds');
   assert.match(SCREEN, /const addTypedOrSheet = \(v: string\) => \{\s*if \(addTyped\(v\) === NEEDS_BOTH_NAMES\) openAddGuest\(v\);/);
-  assert.match(SCREEN, /<SearchAddRow query=\{q\} as="a guest" onAdd=\{addTypedOrSheet\} \/>/, 'the typed Add row does not add the way Enter does');
+  assert.match(SCREEN, /<SearchAddRow query=\{q\} as="a guest" onAdd=\{addTypedOrSheet\}[^>]*\/>/, 'the typed Add row does not add the way Enter does');
   assert.match(SCREEN, /onClick=\{\(\) => addTypedOrSheet\(q\)\}/, 'the no-match Add does not add the way Enter does');
 });
 

@@ -5,8 +5,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { isShopLive } from '@/lib/vendor-visibility';
-import { shopPageGate } from '@/lib/own-shop-preview';
-import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { selfPublishedLive, shopPageGate } from '@/lib/own-shop-preview';
+import { fetchReviewStats, fetchReviewsForVendorWithCouple, type ReviewWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -15,9 +17,8 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
-import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { badgeTracker, nextToEarnLine, shopBadges, trackerSummary } from '@/lib/shop-badges';
-import type { BadgeTrackerData } from './_components/badge-tracker';
+import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { shopBadges, trackerSummary, type ShopBadge } from '@/lib/shop-badges';
 
 /**
  * YOUR PAGE — what the page editor needs, read once (simpler supplier dashboard step 5).
@@ -29,6 +30,10 @@ import type { BadgeTrackerData } from './_components/badge-tracker';
  * Every optional read degrades to "not read" (null), never to an empty list that would claim "no reviews yet" to a
  * shop that has forty.
  */
+
+/** The reply list's ceiling — the retired /reviews page's own (`{ limit: 200 }`). */
+const REPLY_LIST_MAX = 200;
+
 export type PagePlanLine = { plan: string; line: string; pro: boolean };
 
 export type PageData = {
@@ -36,8 +41,14 @@ export type PageData = {
   businessName: string;
   slug: string | null;
   publicPath: string | null;
-  /** Couples can see it (`isShopLive`) — the badge on the face says so either way. */
+  /** Couples can see it (`isShopLive`, or shown before verification — `selfPublishedLive`) — the badge says so either way. */
   live: boolean;
+  /**
+   * 🏪 Show my page before verification (owner 2026-11-02): `offer` = bookings are closed and the shop is not verified-
+   * live, so the switch is drawn; `shown` = the shop has pressed it. `null` = the read failed (the switch is not drawn —
+   * an unread switch is never shown as off).
+   */
+  showBeforeVerified: { offer: boolean; shown: boolean } | null;
   /** The owner can open it (visible), even before couples can. */
   visible: boolean;
   isVerified: boolean;
@@ -47,6 +58,8 @@ export type PageData = {
   yearsLabel: string | null;
   rating: number | null;
   reviewCount: number | null;
+  /** 📌 Couples who opened the page in the last 30 days (v13 Shop › Page's first figure). null = unread, never 0. */
+  views30: number | null;
   saved: PageSaved;
   services: { key: string; label: string }[];
   portfolio: { key: string; url: string }[];
@@ -54,6 +67,10 @@ export type PageData = {
   videoCount: number;
   /** null = could not be read. */
   reviews: { id: string; label: string }[] | null;
+  /** 💬 The reviews themselves, for replying in place (owner 2026-11-06) — the same read as the pin options; null = not read. */
+  replyRows: ReviewWithCouple[] | null;
+  /** The reply list stops at REPLY_LIST_MAX — said under it, never silently. */
+  replyCapped: boolean;
   stories: { id: string; label: string }[] | null;
   domains: DomainRow[];
   domainsMeasured: boolean;
@@ -62,7 +79,7 @@ export type PageData = {
   storeShell: boolean;
   plans: PagePlanLine[];
   /** 🏅 Awards and badges (`lib/shop-badges.ts`), read on every visit — nothing about a badge is stored. */
-  badges: BadgeTrackerData & { summary: string };
+  badges: { summary: string; pills: ShopBadge[] };
 };
 
 type OwnRow = Record<string, unknown> & {
@@ -85,8 +102,10 @@ export function pagePlanLines(): PagePlanLine[] {
   const photos = `${TIER_CAPS.free.portfolioPhotos.toLocaleString('en-PH')} photos free`;
   return [
     { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
-    { plan: 'Solo', line: 'Your About · your colour · what shows', pro: true },
-    { plan: 'Pro', line: 'A cover photo · a pinned review · stories', pro: true },
+    // 🌐 Your own web address sits on the first plan that has it — Solo since owner 2026-11-04 ("website applies to
+    // solo as well"); read from `customWebsiteName`, never typed onto a line.
+    { plan: 'Solo', line: `Your About · your colour · what shows${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    { plan: 'Pro', line: `A cover photo · a pinned review · stories${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
   ];
 }
 
@@ -112,14 +131,17 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     logQueryError('VendorPage.reviewStats', err, { vendorId });
     return undefined;
   });
+  // 💬 ONE read for the pin picker (its first 20, as before) AND the reply-in-place list (owner 2026-11-06: Page ›
+  // Reviews and stories = read + reply to reviews in place; the retired /reviews page read 200 the same way).
   const reviewsRead = (async () => {
     try {
-      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, { limit: 20, offset: 0 });
-      return rows.map((r) => {
+      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, { limit: REPLY_LIST_MAX, offset: 0 });
+      const options = rows.slice(0, 20).map((r) => {
         const name = r.couple_display_name ?? 'A couple';
         const snippet = r.body ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”` : `${r.rating_overall}★`;
         return { id: r.review_id, label: `${name} · ${snippet}` };
       });
+      return { options, rows };
     } catch (err) {
       logQueryError('VendorPage.reviewOptions', err, { vendorId });
       return null;
@@ -158,6 +180,25 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     logQueryError('VendorPage.domains', err, { vendorId });
     return { measured: false, rows: [] as DomainRow[] };
   });
+  // 🏪 Show my page before verification: the shop's own choice (no session grant on the column — service role, this
+  // shop's row only) and the bookings switch, together.
+  const showRead = Promise.all([
+    createAdminClient().from('vendor_profiles').select('self_published_at, is_demo').eq('vendor_profile_id', vendorId).maybeSingle(),
+    areBookingsOpen(),
+  ]).then(
+    ([r, bookingsOpen]) => {
+      if (r.error) {
+        logQueryError('VendorPage.selfPublished', r.error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const row = r.data as { self_published_at?: string | null; is_demo?: boolean | null } | null;
+      return { selfPublishedAt: row?.self_published_at ?? null, isDemo: row?.is_demo === true, bookingsOpen };
+    },
+    (err) => {
+      logQueryError('VendorPage.selfPublished', err, { vendorId });
+      return null;
+    },
+  );
   const vocabRead = fetchVendorServicePickerVocab();
   const portfolioKeys = (profile.portfolio_r2_keys ?? []) as string[];
   const portfolioRead = Promise.all(
@@ -174,9 +215,23 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   ).then((xs) => xs.filter((x): x is { key: string; url: string } => x !== null));
   const shellRead = isStoreShellRequest();
   // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
-  const badgesRead = readShopTrackerFacts(vendorId);
+  // Page keeps the pills only (owner 2026-11-06) — the tracker's extra read (couples not yet asked) is Analytics'.
+  const badgesRead = readShopBadgeFacts(createAdminClient(), vendorId);
+  // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
+  const views30Read = (async (): Promise<number | null> => {
+    const { count, error } = await supabase
+      .from('vendor_profile_views')
+      .select('view_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorId)
+      .gte('viewed_at', new Date(Date.now() - 30 * 86_400_000).toISOString());
+    if (error) logQueryError('VendorPage.views30', error, { vendorId }, 'graceful_degrade');
+    return error || count === null ? null : count;
+  })().catch((err) => {
+    logQueryError('VendorPage.views30', err, { vendorId });
+    return null;
+  });
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts] = await Promise.all([
+  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30] = await Promise.all([
     ownRead,
     statsRead,
     reviewsRead,
@@ -186,6 +241,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     portfolioRead,
     shellRead,
     badgesRead,
+    views30Read,
   ]);
 
   const microsite = micrositeFromRow(own);
@@ -202,7 +258,22 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     { public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null },
     { isTeam: true, adminDemoMode: false },
   ).open !== 'nobody';
-  const live = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
+  const verifiedLive = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
+  const show = await showRead;
+  const gateRow = {
+    public_visibility: profile.public_visibility,
+    verification_state: own?.verification_state ?? null,
+    is_demo: show?.isDemo ?? null,
+    self_published_at: show?.selfPublishedAt ?? null,
+  };
+  const live = verifiedLive || (show !== null && selfPublishedLive(gateRow, show.bookingsOpen));
+  const showBeforeVerified =
+    show === null
+      ? null
+      : {
+          offer: !verifiedLive && !show.bookingsOpen && selfPublishedLive({ ...gateRow, self_published_at: 'offer' }, false),
+          shown: show.selfPublishedAt !== null,
+        };
 
   const saved: PageSaved = pageSavedFrom(
     microsite,
@@ -216,6 +287,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     slug,
     publicPath: slug ? `/${slug}` : null,
     live,
+    showBeforeVerified,
     visible,
     isVerified: profile.public_visibility === 'verified',
     kindWord: services[0]?.label ?? null,
@@ -226,12 +298,15 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
       : null,
     rating: stats === undefined ? null : Number(stats?.avg_rating_overall ?? 0) || 0,
     reviewCount: stats === undefined ? null : Number(stats?.total_count ?? 0) || 0,
+    views30,
     saved,
     services,
     portfolio,
     photoCount: portfolioKeys.length,
     videoCount: ((profile.gallery_video_links ?? []) as string[]).length,
-    reviews,
+    reviews: reviews?.options ?? null,
+    replyRows: reviews?.rows ?? null,
+    replyCapped: (reviews?.rows.length ?? 0) >= REPLY_LIST_MAX,
     stories,
     domains: domains.rows,
     domainsMeasured: domains.measured,
@@ -241,8 +316,6 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     badges: {
       summary: trackerSummary(badgeFacts),
       pills: shopBadges(badgeFacts),
-      next: nextToEarnLine(badgeFacts.completedEvents),
-      rows: badgeTracker(badgeFacts),
     },
   };
 }

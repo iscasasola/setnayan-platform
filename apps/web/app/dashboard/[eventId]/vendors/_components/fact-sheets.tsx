@@ -17,13 +17,18 @@
  *          pills) · a place typed by hand = its name and its pin (kind 25, `AddressPinField`) FOR GUESTS — it is not
  *          added to the couple's suppliers (answer 9) · "Find in <venue>" opens Find on that row.
  *
- * 💾 EVERYTHING WAITS FOR APPLY (answer 7): each write goes through the one draft door (`hubDraftAction` intent
- * `save`) — the same columns and checks the Maker's Details uses — and the sheet says so. A date change is the
- * shipped request (intent `date_change`). The sheet opens with ONE read (`openFactSheet`) and draws nothing before
- * it; when it closes after a write, the page is drawn again ONCE so Find, Build and the line re-run on the new date.
+ * 🗓 THE DATE SAVES TO THE EVENT AT ONCE (owner 2026-11-05, verbatim *"it shouldn't rely on the hub."* — DECISION_LOG
+ * 2026-11-05 "THE DATE SAVES TO THE EVENT", amending answer 7 for the date only): a pick goes through the event's one
+ * date door (`updateEventDate`) — the floor, the clash refusal at the pick and the booked suppliers' clearance — and is
+ * live for Home, Find, Build and the published Event Hub with no Apply. A date change is the shipped request (intent
+ * `date_change`).
+ * 💾 THE PLACE STILL WAITS FOR APPLY (answer 7): its writes go through the one draft door (`hubDraftAction` intent
+ * `save`) — the same columns and checks the Maker's Details uses. The sheet opens with ONE read (`openFactSheet`) and
+ * draws nothing before it; when it closes after a write, the page is drawn again ONCE so Find, Build and the line re-run.
  *
  * Lab: `FactSheetStandInCtx` answers the read and the writes from fixtures (`/dev/suppliers-lab?sheet=…`).
  */
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
 import { CalendarDays, Check, RotateCcw, Search, Star, X } from 'lucide-react';
@@ -37,6 +42,7 @@ import type { DateClash } from '@/lib/date-fits-booked';
 import { dateChangeAnswerLine, dateChangeWhen } from '@/lib/date-change';
 import { formatCount } from '@/lib/format-number';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
+import { updateEventDate, type EventDateSaveResult } from '../../actions';
 import { noDayWords } from '@/lib/help-me-choose';
 import type { MatrixDate } from '@/lib/schedule-matrix';
 import {
@@ -61,12 +67,15 @@ import { ManualVenuePin, ShopPinNote, type ManualVenuePinSave } from '../../_com
 import { saveManualVenuePin } from '../[vendorId]/workspace/actions';
 import { shopPinLine, venuePinDoor } from '@/lib/venue-pin-door';
 import { CityPick } from '../../launch/_components/details-city-pick';
+import { lockedPlaceWhy, placeLockedByReception } from '@/lib/your-place';
 
 /* ── THE DOORS (the real ones; the lab stands in) ─────────────────────────────────────────────────────────────── */
 
 export type FactSheetStandIns = {
   open: (which: FactSheetKey, month: string | null) => Promise<FactSheetData>;
-  /** A draft patch through the one draft door (`hubDraftAction` intent `save`). */
+  /** 🗓 The date, straight to the event — its one live door (`updateEventDate`; owner 2026-11-05). */
+  date: (date: string, precision: 'day' | 'month') => Promise<EventDateSaveResult>;
+  /** A place patch through the one draft door (`hubDraftAction` intent `save`). */
   draft: (patch: Record<string, unknown>) => Promise<HubDraftActionResult>;
   /** The date-change request (J51): withdraw it. */
   withdraw: () => Promise<HubDraftActionResult>;
@@ -77,10 +86,21 @@ export const FactSheetStandInCtx = createContext<FactSheetStandIns | null>(null)
 
 function useDoors(eventId: string, priced: readonly string[]): FactSheetStandIns {
   const lab = useContext(FactSheetStandInCtx);
+  /* A saved date draws the page again while the sheet is open (`updateEventDate` revalidates), and that render hands
+     a NEW `priced` array with the same ids. Keyed on the ids, the doors — and the sheet's read — stay as they are, so a
+     save never resets the screen (the month Help me choose shows stays shown). */
+  const pricedKey = priced.join(',');
   return useMemo(
     () =>
       lab ?? {
-        open: (which, month) => openFactSheet(eventId, { which, month, priced: [...priced] }),
+        open: (which, month) => openFactSheet(eventId, { which, month, priced: pricedKey ? pricedKey.split(',') : [] }),
+        date: (date, precision) => {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('event_date', date);
+          fd.set('precision', precision);
+          return updateEventDate(fd);
+        },
         draft: (patch) => {
           const fd = new FormData();
           fd.set('intent', 'save');
@@ -95,7 +115,7 @@ function useDoors(eventId: string, priced: readonly string[]): FactSheetStandIns
         },
         manualPin: saveManualVenuePin,
       },
-    [lab, eventId, priced],
+    [lab, eventId, pricedKey],
   );
 }
 
@@ -120,7 +140,8 @@ export function FactSheet({
   which: FactSheetKey;
   helpFirst: boolean;
   priced: readonly string[];
-  onWrote: () => void;
+  /** A write landed. `redrawn` — the server already drew the page again (a date); else the page owes one redraw. */
+  onWrote: (redrawn?: boolean) => void;
   onClose: () => void;
 }) {
   const doors = useDoors(eventId, priced);
@@ -175,7 +196,7 @@ export function FactSheet({
             doors={doors}
             onMonth={(m) => load(m)}
             onWrote={(text) => {
-              onWrote();
+              onWrote(true);
               if (text) say(text);
             }}
             onFail={(text) => say(text, 'bad')}
@@ -239,7 +260,7 @@ function DateBody({
   onReload: () => void;
 }) {
   const [mode, setMode] = useState<'have' | 'help'>(helpFirst ? 'help' : 'have');
-  /* The date as it now stands in the draft — shown at once after a save (the ladder, the row). */
+  /* The date as it now stands on the event — shown at once after a save (the ladder, the row). */
   const [shown, setShown] = useState({ date: data.date, precision: data.precision });
   const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[]; pick: { date: string; precision: string } } | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -247,15 +268,15 @@ function DateBody({
   const [rowKey, setRowKey] = useState(0);
   const booked = data.bookedNames.length;
 
-  /** A day (or a month) → the DRAFT. A day a booked supplier cannot do comes back refused, with who. */
+  /** A day (or a month) → the EVENT, at once. A day a booked supplier cannot do comes back refused, with who. */
   const save = async (date: string, precision: 'day' | 'month'): Promise<SaveAnswer> => {
     setClash(null);
     setNote(null);
     try {
-      const r = await doors.draft({ events: { event_date: date, event_date_precision: precision } });
+      const r = await doors.date(date, precision);
       if (r.ok) {
         setShown({ date, precision });
-        setNote(savedDateNote(booked));
+        setNote(r.note ?? savedDateNote(booked));
         onWrote(precision === 'day' ? `Your date is ${dayWords(date)}` : `Your date is ${dateChangeWhen(date, 'month')} for now`);
         return { ok: true };
       }
@@ -294,7 +315,7 @@ function DateBody({
             name={shown.precision === 'day' ? 'Change the day' : 'The day'}
             value={shown.precision === 'day' ? shown.date : null}
             empty="Pick the day"
-            min={todayKey()}
+            min={eventDateMinFor(todayKey(), false)}
             onKeep={(day) => save(day, 'day')}
             pillAttrs={{ 'data-fact-date-row': '' }}
           />
@@ -310,7 +331,7 @@ function DateBody({
             });
           }}
           onMonth={(m) => {
-            /* No day yet → the month IS the date for now (drafted, as the prototype); a day already set → compare only. */
+            /* No day yet → the month IS the date for now (saved, as the prototype); a day already set → compare only. */
             if (shown.precision !== 'day') {
               start(async () => {
                 const r = await save(`${m}-01`, 'month');
@@ -600,6 +621,9 @@ function PlaceBody({
   const [city, setCity] = useState(data.city ?? '');
   const reception = slots.find((s) => s.slot === 'reception') ?? null;
   const pinNear = reception ? (reception.booked && reception.choice.source !== 'own' ? null : reception.pin) : null;
+  /* 🔒 A BOOKED RECEPTION SETS THE PLACE (owner 2026-10-30, final Suppliers design: "once a reception is booked, location
+     changed to the receptions location") — its city, read-only, and one line why. The picker is for before booking. */
+  const locked = placeLockedByReception({ city: data.city, slots: data.slots });
 
   const writeEvents = async (events: Record<string, unknown>): Promise<boolean> => {
     try {
@@ -619,13 +643,27 @@ function PlaceBody({
 
   return (
     <>
-      <Ladder rungs={placeLadder({ city: data.city === null ? null : city, slots })} />
-      {data.city !== null ? (
+      <Ladder rungs={placeLadder({ city: data.city === null ? null : locked ? locked.where : city, slots })} />
+      {locked ? (
+        <section className="flex flex-col gap-1.5" data-place-locked="">
+          <div className="flex items-center justify-between gap-3">
+            <span className={SECTION_HEAD}>Where</span>
+            <span className="min-w-0 text-right text-[15px] font-medium text-ink" data-place-locked-where="">
+              {locked.where}
+            </span>
+          </div>
+          <p className="text-[12.5px] text-ink/60" data-place-locked-why="">
+            {lockedPlaceWhy(locked)}
+          </p>
+        </section>
+      ) : data.city !== null ? (
         <section className="flex flex-col gap-1.5" data-place-city="">
-          {/* CityPick names itself ("City or area") — no second heading over it. */}
+          {/* CityPick names itself ("City or area") — no second heading over it. Nothing typed → the Top 10 in the
+              Philippines (owner 2026-10-30); search finds any city; Near me measures from the phone. */}
           <CityPick
             value={city}
             near={pinNear}
+            start="top10"
             onPick={(name) => {
               const was = city;
               setCity(name);
@@ -634,6 +672,9 @@ function PlaceBody({
               });
             }}
           />
+          <p className="text-[12.5px] text-ink/60" data-place-before-booking="">
+            Once you book a reception, your place becomes its city.
+          </p>
         </section>
       ) : null}
       {slots.map((s) => (

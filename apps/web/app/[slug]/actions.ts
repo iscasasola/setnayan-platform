@@ -54,6 +54,10 @@ import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { REPLY_WINDOW_EVENT_COLUMNS } from '@/lib/reply-window';
 import { replyWindowOfRow } from '@/lib/reply-window.server';
 import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer, stripInviteFaceFields } from '@/lib/face-tagging-wish';
+import { CANT_CHAPTER_FIELD, resolveChapterReply } from '@/lib/invitation-chapters';
+import { readInvitationChapters, writeChapterReplies } from '@/lib/invitation-chapters.server';
+import { answerOneChapter } from './_lib/chapter-reply.server';
+import { CHAPTER_ONLY_FIELD } from './_lib/chapter-reply-fields';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -289,6 +293,34 @@ export async function submitRsvp(
   stripInviteFaceFields(formData);
 
   /*
+    ✉ BY CHAPTER (owner 2026-11-01: *"Rsvp will depend on what chapters we make."* — plan §3, Step 5). Only the chapters
+    ON THE INVITATION are replied to, re-read here and never taken from the form: a posted tick for any other block is
+    ignored (`resolveChapterReply`). Yes = all of them. "I can't make it" with some ticked = a yes to the rest, so the
+    guest is COMING (`attending`); none or all ticked = a plain no. A chapter with no venue is replied to like any other
+    (Venue TBA still sends). The read happens before anything is written: if it fails while the guest ticked parts,
+    nothing is saved and they are told — a partial "no" is never stored as a whole one.
+  */
+  // Only a post that carries an answer is a reply (a checklist tick, a seat name, one chapter's answer carry none).
+  const postedAnswer = String(formData.get('rsvp_status') ?? '').trim();
+  const chapterAdmin = createAdminClient();
+  // ✉ THIS guest's invitation (owner 2026-11-02, "Invited to"): a chapter the hosts took them off is never answered.
+  const replyChapters = postedAnswer ? await readInvitationChapters(chapterAdmin, eventId, guestId) : null;
+  const cantTicks = formData.getAll(CANT_CHAPTER_FIELD).map(String);
+  if (postedAnswer && replyChapters === null && cantTicks.length > 0) {
+    const { data: evNoChapters } = await chapterAdmin.from('events').select('slug').eq('event_id', eventId).maybeSingle();
+    const slugNoChapters = evNoChapters?.slug ?? null;
+    if (toInvite && slugNoChapters) redirect(`${inviteReplyPath(slugNoChapters)}?rsvp=error`);
+    redirect(slugNoChapters ? `/${slugNoChapters}?rsvp=error` : eventAddressUnread('submitRsvp · chapters'));
+  }
+  const chapterReply = replyChapters ? resolveChapterReply(postedAnswer, cantTicks, replyChapters) : null;
+  // The answer the rest of this action reads: "can't make SOME" arrives as a no and is stored as the yes it is.
+  // The guest typed their details on the DECLINE arm, so they are taken from there first (as a no's would be).
+  if (chapterReply && chapterReply.status !== postedAnswer) {
+    adoptDeclinedContactArm(formData, 'declined');
+    formData.set('rsvp_status', chapterReply.status);
+  }
+
+  /*
     ☑ "YOUR CHECKLIST" — ONE TICK (owner 2026-09-26: ticks saved to the GUEST,
     private to them, and the save must reuse an existing guest save action — +0
     server actions). This IS the guest's own save, already bound to THIS guest on
@@ -351,6 +383,17 @@ export async function submitRsvp(
     revalidatePath(`/dashboard/${eventId}/guests`);
     // Me re-renders with the seat NAMED — "Send their invite · Show pass".
     if (evAsk.slug) revalidatePath(`/${evAsk.slug}`);
+    return;
+  }
+
+  /*
+    ✉ ONE CHAPTER, ON ITS OWN (owner 2026-11-01, plan §9 #7): a chapter added after this guest replied asks "Yes / Can't
+    make it" for that chapter alone, and a chapter taken off the invitation is acknowledged with one OK. The same
+    guest's own save, already matched to THIS guest on THIS event above — +0 server actions, the checklist tick's
+    precedent — and it returns before anything else of the reply is read or written.
+  */
+  if (clean(formData.get(CHAPTER_ONLY_FIELD)) === '1') {
+    await answerOneChapter(eventId, guestId, formData);
     return;
   }
 
@@ -676,6 +719,15 @@ export async function submitRsvp(
     redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : `/${replySlug}?rsvp=error`);
   }
 
+  // ✉ …AND WHICH CHAPTERS (see "BY CHAPTER" above). Only with an answer that was written: a closed list froze the
+  // answer, so it freezes the chapters with it. A write that did not land is said, never shown as sent.
+  if (!replyLocked && chapterReply && chapterReply.replies.length > 0) {
+    if (!(await writeChapterReplies(admin, guestId, chapterReply.replies))) {
+      if (toInvite) redirect(`${inviteReplyPath(replySlug)}?rsvp=error`);
+      redirect(`/${replySlug}?rsvp=error`);
+    }
+  }
+
   // Smart seat-plan Phase 5 (gap G2): a guest confirming from their own invite
   // should get a seat if they don't have one (e.g. added before any tables
   // existed, or self-joined). Gap-fill only — NO reseat, so a confirmed guest's
@@ -857,17 +909,32 @@ export async function submitRsvp(
       // ⚠ Two rows can carry the same user_id. Without this the couple gets the
       // same allergy twice.
       const seen = new Set<string>();
+      const hosts: string[] = [];
       for (const m of coupleMembers ?? []) {
         if (!m.user_id || seen.has(m.user_id as string)) continue;
         seen.add(m.user_id as string);
-        await emitNotification({
-          userId: m.user_id,
-          type: 'rsvp_received',
-          title,
-          body: parts.length ? parts.join(' ') : null,
-          relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
-        });
+        hosts.push(m.user_id as string);
       }
+      // 📱 AFTER THE REPLY IS SAVED, NEVER IN FRONT OF IT (owner 2026-10-31: every
+      // RSVP pushes at once — "instant, but each new RSVP notification replaces
+      // the last one on the lock screen"). The bell row and the phone notice go
+      // out once the response has left, so a slow push service can never hold a
+      // guest on a spinner. Fire-and-forget; a failure is logged, never thrown.
+      after(async () => {
+        for (const userId of hosts) {
+          try {
+            await emitNotification({
+              userId,
+              type: 'rsvp_received',
+              title,
+              body: parts.length ? parts.join(' ') : null,
+              relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
+            });
+          } catch (e) {
+            console.error('[rsvp] notifying a host failed:', e);
+          }
+        }
+      });
     } catch {
       // Notification failures must not break the guest-side RSVP submit.
     }

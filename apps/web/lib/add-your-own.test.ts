@@ -143,7 +143,9 @@ test('the first add opens the walk in the one-screen shape; editing stays the on
   const modal = code(MODAL);
   assert.ok(modal.includes('{OWN_RECORD_PILL}'));
   assert.match(modal, /<RecordLinkBlock eventId=\{eventId\} vendorId=\{edit\.vendorId\}/);
-  assert.match(modal, /readSupplierInvite\(eventId, vendorId\)/, 'opening the record must READ the link, never make one');
+  // Owner 2026-10-30, verbatim: "no need to wait to create link. create an automatic link" — opening the record now
+  // makes the link if there is none, through the ONE idempotent writer (never a second token mechanism).
+  assert.match(modal, /makeLink = createManualVendorInvite,[\s\S]*makeLink\(\{ eventId, vendorId \}\)/, 'opening the record no longer gets their link ready');
 });
 
 test('a name typed in the thumb row rides into the walk', () => {

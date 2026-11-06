@@ -55,10 +55,30 @@ export type OfferProgress = {
 /**
  * Every service the shop offers (its profile's services first, then any service it already made a card for), each
  * with its cards and what is left. A shop with no service at all has one whole service to go.
+ *
+ * 🔢 EACH REAL SERVICE ONCE (owner 2026-10-29, "fix her shop and service card"). `vendor_profiles.services` holds the
+ * coarse profile category AND the taxonomy leaves (`/open-shop` writes `[coarse, leaf]`; `syncProfileFromCoverages`
+ * keeps "coarse preserved + covered canonical leaves"), and the maker files a card under its LEAF — so counting the
+ * coarse key as a second service asked a one-service shop for six cards, three of them for a "service" no card can
+ * ever be filed under. A coarse key (`coarse`) is therefore NOT a service of its own when
+ * the shop offers any leaf — unless a card is actually filed under it (a legacy card), when it is real and counted.
+ * A shop whose services are ALL coarse (nothing finer chosen yet) keeps them, as before.
  */
-export function offerProgress(offered: readonly string[], cards: readonly SetupCard[]): OfferProgress {
+export function offerProgress(
+  offered: readonly string[],
+  cards: readonly SetupCard[],
+  /**
+   * The coarse profile categories — `new Set(VENDOR_CATEGORIES)` (`lib/vendors.ts`), the same set
+   * `syncProfileFromCoverages` preserves beside the leaves. Handed in (REQUIRED) so this file stays light for the
+   * client folds that import it, and so no caller can forget it.
+   */
+  coarse: ReadonlySet<string>,
+): OfferProgress {
+  const hasLeaf = offered.some((s) => s && !coarse.has(s));
+  const carded = new Set(cards.map((c) => c.service));
+  const real = offered.filter((s) => !hasLeaf || !coarse.has(s) || carded.has(s));
   const order: string[] = [];
-  for (const s of [...offered, ...cards.map((c) => c.service)]) if (s && !order.includes(s)) order.push(s);
+  for (const s of [...real, ...cards.map((c) => c.service)]) if (s && !order.includes(s)) order.push(s);
   const services = order.map((service) => {
     const mine = cards
       .filter((c) => c.service === service)

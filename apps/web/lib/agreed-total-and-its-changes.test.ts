@@ -869,7 +869,12 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
       'lib/supplier-find-read.ts',
     ],
   },
-  buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
+  buildPlanBudgetModel: {
+    folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
+    // `/dev/swipe-rows-lab/suppliers` draws the real Your team on two FIXTURE candidates priced NULL (`./fixtures`) —
+    // no event, no database, 404 in production — so it prints no price at all.
+    readsNoPrice: ['app/dev/swipe-rows-lab/suppliers/page.tsx'],
+  },
   bucketVendorsByGroup: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'lib/vendors-plan-budget.ts'],
     readsNoPrice: ['lib/setnayan-ai-cockpit.ts', 'lib/todays-one-thing.ts'],
@@ -882,10 +887,16 @@ const NOT_A_PRICE_SHOWN: Record<string, string> = {
     'FIXTURE rows for /dev/suppliers-lab (no event, no database, 404 in production) — typed in the lab, never read from event_vendors',
   'app/dev/suppliers-lab/booked-fixtures.ts':
     'FIXTURE rows for the Booked body of /dev/suppliers-lab, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
+  'app/dev/add-your-own-lab/lab-client.tsx':
+    'NOT A READ — the lab’s stand-in save reads the price the sheet POSTED (its own form field), to check the plan against it the way the real save does; no table is queried and the lab 404s in production',
+  'app/dev/swipe-rows-lab/suppliers/fixtures.ts':
+    'FIXTURE rows for /dev/swipe-rows-lab/suppliers (no event, no database, 404 in production) — priced NULL, so the lab prints no price; never read from event_vendors',
   'app/dev/budget-lab/fixture.ts':
     'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/_components/record-card-folds.tsx':
+    'WRITES the HEADLINE price of a supplier the couple added (the record card, 2026-10-29) — its field starts from `loadSelfAddedSupplier`’s headline on purpose (pre-filling the agreed total would fold change lines into the headline on save), and the closed fold only echoes what is typed in that field; no table is queried here',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':
     'WRITES the price the couple agreed with a supplier they added themselves (there is nobody to quote it) — the input starts EMPTY and the control unmounts once a price exists, so it never shows a total back',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx':

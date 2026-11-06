@@ -14,8 +14,9 @@
  *       Automatic, IS the reset (one control per answer; no separate button); a message opens the taller box. No
  *       box, no native field, no switch, no Save and no "Saved" in ANY door's rows — the two after-screens included.
  *   (3) THE SHARED PARTS, IN THE MAKER'S FRAME — Reply by is the date pill, How guests get in a dropdown in a row
- *       (its sentence behind the ⓘ), the six asks chips in a row; each still carries its part's own marks, and no
- *       part wraps its row. The chips are the SAME markup in Guests › Setup.
+ *       (its sentence behind the ⓘ), the six asks ONE dropdown with ticks in a row (owner 2026-11-01, "Dropdown with
+ *       ticks" — they were chips); each still carries its part's own marks, and no part wraps its row. The asks' row is
+ *       the SAME markup in Guests › Setup.
  *   (4) A PRESS IN STUDIO = ONE DRAFT WRITE, NO RENDER OF THE MAKER — held, the newest of a burst winning, the Apply
  *       count in the answer, on the Maker's own copy; typing in a row sends NOTHING until the row is left, and the
  *       page still shows the words as they are typed.
@@ -225,13 +226,12 @@ test('(2) each row is its kind: a pill selector, typed pills with Start from ▾
 
 /* ── (3) the shared parts, in the Maker's frame ───────────────────────── */
 
-test('(3) the shared parts in the Maker’s frame: a date pill, a dropdown in a row, chips in a row — the part’s marks kept, and the SAME chips in Guests › Setup', async () => {
+test('(3) the shared parts in the Maker’s frame: a date pill, a dropdown in a row, the asks a dropdown with ticks in a row — the part’s marks kept, and the SAME row in Guests › Setup', async () => {
   const { replyByFrame, getInFrame, asksFrame } = await import(`../${PANEL}`);
   const { FormRows } = await import(`../${ROW}`);
   const { ReplyBy } = await import(`../${G}/reply-by`);
   const { GuestsGetIn } = await import(`../${G}/guests-get-in`);
   const { RsvpAsks } = await import(`../${G}/rsvp-asks`);
-  const { PILL_ON_CLASS } = await import(`../${PILL}`);
   const list = (...rows: React.ReactElement[]) => paint(h(FormRows, { data: 'rsvp' } as Record<string, unknown>, ...rows));
   // REPLY BY — the date pill; the 30-day default is read while there is no date of their own.
   const replyBy = await list(h(ReplyBy, { layout: 'frame', frame: replyByFrame, eventId: 'ev-1', own: null, pricingMode: 'realtime', fallback: '2026-11-18', action: async () => ({ ok: true }), draft: true } as Record<string, unknown>));
@@ -246,22 +246,24 @@ test('(3) the shared parts in the Maker’s frame: a date pill, a dropdown in a 
   assert.match(getIn, /Only my list · They reply/);
   assert.doesNotMatch(getIn, /You list every guest\. They answer yes or no\./, 'the choice’s sentence is printed under the row');
   assert.match(read(PANEL), /about=\{\{ words: row\.hint \}\}/);
-  // THE SIX ASKS — a row named by the part, its sentence behind the ⓘ, the chips under it.
+  // THE SIX ASKS (owner 2026-11-01, "Dropdown with ticks") — a row named by the part, its sentence behind the ⓘ, its
+  // answer ONE dropdown with ticks in the row's pill (the shared PickMenu with `picked`): its face says how many are on.
   const asks = await list(h(RsvpAsks, { frame: asksFrame, config: { meal: false, mobile: false }, onToggle: () => {} } as Record<string, unknown>));
-  assert.match(asks, /^<div data-form-rows="rsvp"[^>]*><div data-setup-row="asks" data-made-once="rsvp-ask" data-form-row="asks"/, 'the asks’ row is wrapped, or lost its part’s marks');
+  assert.match(asks, /^<div data-form-rows="rsvp"[^>]*><div data-setup-row="asks" data-made-once="rsvp-ask" data-rsvp-asks-on="plus_ones dietary song_request note" data-form-row-kind="chosen" data-form-row="asks"/, 'the asks’ row is wrapped, lost its part’s marks, or is not the dropdown row');
   assert.match(asks, /aria-label="About RSVP asks"/);
   assert.doesNotMatch(asks, /Yes or no is always asked\./, 'the asks’ sentence is printed on the panel');
-  const chips = [...asks.matchAll(/<button type="button" aria-pressed="(true|false)" data-chip="(\w+)" data-testid="rsvp-ask-(\w+)" class="([^"]*)"><span data-chip-label="" class="whitespace-nowrap">([^<]+)</g)];
-  assert.deepEqual(chips.map((m) => `${m[2]}:${m[1]}:${m[5]}`), ['plus_ones:true:Plus-ones', 'meal:false:Meal', 'dietary:true:Dietary', 'song_request:true:Song request', 'note:true:A note', 'mobile:false:Mobile']);
-  for (const m of chips) assert.equal(PILL_ON_CLASS.split(' ').every((c: string) => m[4]!.split(' ').includes(c)), m[1] === 'true', `${m[2]}: the chip's look is not its state`);
-  // EVEN (owner 2026-10-08: *"make RSVP ask buttons even"*): one grid — two across on a phone, "Song request" being
-  // too long for three — every chip its column's width.
-  assert.match(asks, /data-chips="rsvp-asks" data-chips-columns="2" style="grid-template-columns:repeat\(2, minmax\(0, 1fr\)\)" class="grid gap-2 "/, 'the six asks are not an even grid');
-  for (const m of chips) assert.ok(m[4]!.split(' ').includes('w-full'), `${m[2]}: the chip hugs its word`);
-  // ONE LOOK IN BOTH DOORS: Guests › Setup's own row holds the very same chips.
+  const pills = [...asks.matchAll(/<button type="button" aria-label="RSVP asks: ([^"]+)" aria-haspopup="listbox" aria-expanded="false" data-rsvp-asks=""/g)];
+  assert.equal(pills.length, 1, 'the six asks are not ONE dropdown');
+  assert.equal(pills[0]![1], '4 of 6 on', 'the dropdown’s face does not say how many are on');
+  assert.doesNotMatch(asks, /aria-pressed|data-chip=|data-chips=/, 'the six asks are chips (or toggles) again');
+  // ONE LOOK IN BOTH DOORS: Guests › Setup's frame draws the very same row.
+  const { asksFrame: setupAsksFrame } = await import(`../${G}/setup-frames`);
+  const setupFramed = await list(h(RsvpAsks, { frame: setupAsksFrame, config: { meal: false, mobile: false }, onToggle: () => {} } as Record<string, unknown>));
+  assert.equal(setupFramed, asks, 'the six asks look different in Guests › Setup');
+  // …and the part's own row (unframed) is the same dropdown with ticks, its sentence beside it.
   const setup = await paint(h(RsvpAsks, { config: { meal: false, mobile: false }, onToggle: () => {} } as Record<string, unknown>));
-  assert.match(setup, /^<section [^>]*data-setup-row="asks"[^>]*>[\s\S]*Yes or no is always asked\./, 'anti-vacuity: Guests › Setup’s row was not drawn');
-  assert.equal(block(setup, '<div role="group" aria-label="RSVP asks"'), block(asks, '<div role="group" aria-label="RSVP asks"'), 'the six asks look different in Guests › Setup');
+  assert.match(setup, /^<section [^>]*data-setup-row="asks"[^>]*>[\s\S]*Yes or no is always asked\./, 'anti-vacuity: the part’s own row was not drawn');
+  assert.match(setup, /aria-label="RSVP asks: 4 of 6 on" aria-haspopup="listbox"[^>]*data-rsvp-asks=""/, 'the part’s own row is not the dropdown with ticks');
 });
 
 /* ── (4) a press = one draft write, no Maker render ───────────────────── */
@@ -366,7 +368,7 @@ const HAND_MADE: Array<{ what: string; re: RegExp }> = [
   { what: 'a switch of its own', re: /role="switch"|peer-checked:|<Switch\b/ },
   { what: 'a dropdown outside a row (`<PickMenu>` — use `ChosenRow`)', re: /<PickMenu\b/ },
   { what: 'a bare `<button>` (the quiet action is `ActionButton`)', re: /<button\b/ },
-  { what: 'a toggle made of buttons (`aria-pressed` — the six asks are the part’s chips)', re: /aria-pressed/ },
+  { what: 'a toggle made of buttons (`aria-pressed` — the six asks are the part’s dropdown with ticks)', re: /aria-pressed/ },
   { what: 'the Studio’s old row skin', re: /STUDIO_ROW\b|STUDIO_ROW_PICK|STUDIO_GROUP_HEAD/ },
   { what: 'a Save button', re: />\s*Save\s*</ },
   { what: 'a "Saved" word', re: />\s*Saved\b/ },

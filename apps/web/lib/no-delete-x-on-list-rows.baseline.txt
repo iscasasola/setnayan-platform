@@ -1,0 +1,40 @@
+# List rows that still draw a visible delete/remove ✕ — not yet moved onto the swipe (owner 2026-11-03).
+# Guard: lib/no-delete-x-on-list-rows.test.ts. `path count` — this list ONLY SHRINKS. Move a row onto
+# SwipeToDelete (app/_components/swipe-to-delete.tsx) and lower its line; never add one or raise one.
+app/[slug]/find-seat/_components/name-search.tsx 1
+app/_components/auth/sign-in-here-panel.tsx 1
+app/_components/file-upload.tsx 3
+app/_components/home/HomeOverlays.tsx 1
+app/_components/paper-picker.tsx 1
+app/dashboard/(account)/create-event/_components/create-location-picker.tsx 1
+app/dashboard/(account)/people/_components/people-roster-view.tsx 2
+app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx 1
+app/dashboard/[eventId]/_components/payment-plan-rows.tsx 1
+app/dashboard/[eventId]/_components/vendor-itemization-card.tsx 2
+app/dashboard/[eventId]/budget/_components/budget-sheets.tsx 1
+app/dashboard/[eventId]/guests/_components/guest-group-picker.tsx 1
+app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx 1
+app/dashboard/[eventId]/guests/_components/guests-screen.tsx 1
+app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx 1
+app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx 1
+app/dashboard/[eventId]/launch/_components/maker-logo.tsx 3
+app/dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx 1
+app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
+app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
+app/dashboard/[eventId]/monogram/studio.tsx 1
+app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
+app/dashboard/[eventId]/sponsors/page.tsx 1
+app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6
+app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx 1
+app/dashboard/[eventId]/vendors/_components/build-body.tsx 3
+app/dashboard/[eventId]/vendors/_components/build-compare.tsx 1
+app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx 2
+app/dashboard/[eventId]/website/editor/_components/background-colour-wells.tsx 1
+app/login/_components/sign-in-card-modal.tsx 1
+app/monogram/public-monogram-studio.tsx 1
+app/onboarding/wedding/_components/location-step.tsx 1
+app/onboarding/wedding/_components/onboarding-shell.tsx 2
+app/papic/_components/camera-controls.tsx 1
+app/papic/guest/_components/guest-camera-tools.tsx 1
+app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx 1
+app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 1

@@ -1,3 +1,4 @@
+import { onlyTimedBlocks } from './schedule';
 import 'server-only';
 
 /**
@@ -218,11 +219,11 @@ function bareTime(iso: string): string {
 export async function readEventDayFacts(admin: SupabaseClient, eventId: string, nowMs: number): Promise<EventDayFacts> {
   const nowWall = new Date(nowMs + 8 * 3_600_000).toISOString();
   const [blocksRes, checkinsRes] = await Promise.all([
-    admin
-      .from('event_schedule_blocks')
-      .select('label, start_at')
-      .eq('event_id', eventId)
-      .order('start_at', { ascending: true }),
+    // ⏰ A Time-TBA chapter's 00:00 is only its day — never "started 12:00 AM" (onlyTimedBlocks).
+    onlyTimedBlocks(admin.from('event_schedule_blocks').select('label, start_at').eq('event_id', eventId)).order(
+      'start_at',
+      { ascending: true },
+    ),
     admin.from('guest_checkins').select('checkin_id', { count: 'exact', head: true }).eq('event_id', eventId),
   ]);
   if (blocksRes.error) logQueryError('supplier-today: event-day schedule', blocksRes.error, { event_id: eventId }, 'graceful_degrade');

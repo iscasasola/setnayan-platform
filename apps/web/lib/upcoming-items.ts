@@ -61,7 +61,7 @@ import {
   type PlanGroupId,
 } from './wedding-plan-groups';
 import { fetchPlanGroupScope, planGroupsForEventType } from './plan-groups-by-event-type';
-import { venueNowMs, DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { venueNowMs, DEFAULT_EVENT_TZ, onlyTimedBlocks } from '@/lib/schedule';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { plannedInstant } from '@/lib/run-of-show';
 
@@ -229,7 +229,7 @@ async function fetchAppointments(
     const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
     const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
     const name = vendor?.name ?? 'your supplier';
-    const where = row.location ? ` · ${row.location}` : ` with ${name}`;
+    const where = row.kind === 'in_person' && row.location ? ` · ${row.location}` : ` with ${name}`;
     return {
       id: `appointment:${row.appointment_id}`,
       source: 'meeting' as const,
@@ -295,10 +295,10 @@ async function fetchScheduleBlockItems(
   eventId: string,
   now: Date,
 ): Promise<UpcomingItem[]> {
-  const { data, error } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id, label, start_at, end_at, location, block_type')
-    .eq('event_id', eventId)
+  // ⏰ A Time-TBA chapter is not "next" at 12:00 AM — its 00:00 is only its day (onlyTimedBlocks).
+  const { data, error } = await onlyTimedBlocks(
+    supabase.from('event_schedule_blocks').select('block_id, label, start_at, end_at, location, block_type').eq('event_id', eventId),
+  )
     // The VENUE'S clock, pushed into the query. `start_at` holds the venue's
     // wall clock inside a UTC column, so filtering it against a real instant
     // kept every moment of the day in "What's next" for eight hours after it

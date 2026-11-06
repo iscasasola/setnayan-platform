@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArchiveRestore, Ban, ExternalLink, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
+import { Archive, ArchiveRestore, Ban, CalendarDays, ClipboardList, Flag, FolderOpen, MoreVertical, Receipt, RotateCcw, UserRound, Wallet, X, type LucideIcon } from 'lucide-react';
 import { archiveThread, blockUser, reportUser, unarchiveThread, unblockUser } from '@/lib/chat-actions';
 import { useOneOpen } from '@/lib/one-open';
 
@@ -19,6 +19,23 @@ const REPORT_REASONS: { value: string; label: string }[] = [
   { value: 'not_my_event', label: 'Not related to my event' },
   { value: 'other', label: 'Something else' },
 ];
+
+/**
+ * EACH ROW WEARS ITS OWN PICTURE (owner 2026-10-29, live in the iPhone app: *"when i press the ... on upper right i see
+ * quote payments files, etc with the same icon"*). Every link used to wear the same ↗, so the rows read as one thing
+ * five times. A link now names WHAT it opens (`icon`), and the menu draws that picture — from the shipped set, never a
+ * second ↗. Plain strings, because the pages that fill this are server components. Held by
+ * `lib/the-chat-menu-rows-wear-their-own-icons.test.ts` (every key distinct, and distinct from Report and Block).
+ */
+export const CHAT_MENU_ICONS = {
+  quote: Receipt,
+  payments: Wallet,
+  files: FolderOpen,
+  schedule: CalendarDays,
+  details: ClipboardList,
+  customer: UserRound,
+} as const satisfies Record<string, LucideIcon>;
+export type ChatMenuIcon = keyof typeof CHAT_MENU_ICONS;
 
 export function ChatThreadMenu({
   threadId,
@@ -42,7 +59,7 @@ export function ChatThreadMenu({
    * that is a page rather than a tool lives behind it. Plain strings — this is
    * a client component and the pages that fill it are server components.
    */
-  links?: readonly { href: string; label: string }[];
+  links?: readonly { href: string; label: string; icon: ChatMenuIcon }[];
 }) {
   const [open, setOpen] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -86,17 +103,20 @@ export function ChatThreadMenu({
           >
             {!showReport ? (
               <>
-                {links.map((l) => (
+                {links.map((l) => {
+                  const Icon = CHAT_MENU_ICONS[l.icon];
+                  return (
                   <Link
                     key={l.href}
                     href={l.href}
                     role="menuitem"
                     className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                   >
-                    <ExternalLink aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                    <Icon aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} data-chat-menu-icon={l.icon} />
                     {l.label}
                   </Link>
-                ))}
+                  );
+                })}
                 {archive ? (
                   <form action={archive.archived ? unarchiveThread : archiveThread}>
                     <input type="hidden" name="thread_id" value={threadId} />

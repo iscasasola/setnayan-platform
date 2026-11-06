@@ -668,96 +668,6 @@
 }
 
 /*
- * Journey view (event-lifecycle arc, /schedule ?view=journey) — entrance
- * choreography. Pure CSS so the Journey mode stays a server component. Every
- * animation here is frozen to instant by the global prefers-reduced-motion
- * block above, so reduced-motion users still get the fully-rendered page (no
- * JS gate). Stagger is driven by an inline `--journey-delay` custom property
- * the component sets per element, so the arc → phase headers → rows cascade in
- * top-to-bottom.
- *
- *   .journey-rise      — fade + lift for the arc, phase headers, and each row
- *   .journey-rail-fill — the progress bar grows left→right once on mount
- *   .journey-today     — the "you are here" marker pops in, then breathes
- *   .journey-node-pop  — milestone nodes scale-in (uses the `scale` PROPERTY so
- *                        it composes with the node's left/top positioning)
- */
-@keyframes journey-rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.journey-rise {
-  animation: journey-rise 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--journey-delay, 0ms);
-}
-
-@keyframes journey-rail-grow {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-.journey-rail-fill {
-  transform-origin: left center;
-  animation: journey-rail-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 160ms;
-}
-
-@keyframes journey-today-in {
-  from {
-    opacity: 0;
-    scale: 0.3;
-  }
-  to {
-    opacity: 1;
-    scale: 1;
-  }
-}
-@keyframes journey-beacon {
-  0%,
-  100% {
-    scale: 1;
-    box-shadow: 0 0 0 0 rgb(var(--color-mulberry) / 0.4);
-  }
-  50% {
-    scale: 1.14;
-    box-shadow: 0 0 0 5px rgb(var(--color-mulberry) / 0);
-  }
-}
-.journey-today {
-  animation:
-    journey-today-in 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both 900ms,
-    journey-beacon 2.6s ease-in-out infinite 1500ms;
-}
-
-@keyframes journey-node-pop {
-  0% {
-    opacity: 0;
-    scale: 0.2;
-  }
-  70% {
-    opacity: 1;
-    scale: 1.18;
-  }
-  100% {
-    opacity: 1;
-    scale: 1;
-  }
-}
-.journey-node-pop {
-  animation: journey-node-pop 440ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: var(--journey-delay, 0ms);
-}
-
-/*
  * ⚓ THE PAGE CLEARS THE ANCHORED DOCK (2026-09-25).
  *
  * The phone's bottom chrome is ONE anchored box now — <BottomDock> in
@@ -839,6 +749,21 @@ html.guests-subnav-docked [data-shell-main] {
   html.guests-subnav-docked [data-shell-main] {
     padding-bottom: var(--sn-thumb-room, 0px);
   }
+}
+/* 🗺 A PLAN THAT IS THE WHOLE SCREEN LEAVES NOTHING TO SCROLL (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE
+   MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"): on Guests › Map · Seats › 2D · 3D the surface already stops at
+   the bottom nav and the thumb row floats over it, so the column's clearance would only add a scroll that slides the
+   top nav away — and so would the page wrapper's own foot (`pb-6`, the column's direct child), measured as a 24-px scroll
+   on a desk where the dock is gone. 🔒 lib/maps-are-always-full-screen.test.ts
+   📏 Seats › List's row surface (`data-guests-row-surface`) stops at the bottom nav too — the same: nothing to scroll, so
+   the list starts and stays right under the pinned row. 🔒 lib/guests-top-row-and-full-screen.test.ts (7) */
+html [data-shell-main]:has([data-guests-full]),
+html.guests-subnav-docked [data-shell-main]:has([data-guests-full]),
+html [data-shell-main]:has([data-guests-full]) > *,
+html [data-shell-main]:has([data-guests-row-surface]),
+html.guests-subnav-docked [data-shell-main]:has([data-guests-row-surface]),
+html [data-shell-main]:has([data-guests-row-surface]) > * {
+  padding-bottom: 0;
 }
 
 @layer components {
@@ -3526,6 +3451,17 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-z-scrim:  74;
   --sn-z-panel:  75;
 
+  /* 🌫 THE SCRIM — the dark behind anything popped up over the page (`.sn-popup-dark`, `<OverlayBackdrop>`, the side
+     panel's and the guest card's scrims all read these; nothing else may draw one — `lib/one-scrim.test.ts`). The
+     page's ink at 42 % under a 6-px blur: the house popup dark's own figures (owner 2026-10-08, INTERACTION_RULES § 9),
+     now one value instead of six. `-solid` = the deeper dark ALONE where blur is unsupported or the device asks for
+     less transparency. `-blur` = the partial blur that keeps the eye on the pop-up (owner 2026-10-29). `-fade` = how
+     long it takes to fade out on a tap. Dark mode flips them on `html.dark` just below. */
+  --sn-scrim: rgb(var(--color-ink) / 0.42);
+  --sn-scrim-solid: rgb(var(--color-ink) / 0.55);
+  --sn-scrim-blur: 6px;
+  --sn-scrim-fade: 200ms;
+
   /* The one continuous canvas — the same warm white `.sn-ambient` paints
      (owner 2026-07-28). Named so a page can reach for the ground by name. */
   --sn-canvas: #F7F5F0;
@@ -3568,6 +3504,11 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 html.dark {
+  /* 🌙 The scrim in dark mode: `--color-ink` turns LIGHT under html.dark, so the ink-based dark would LIGHTEN the
+     page behind a pop-up. A fixed black instead, a little deeper (the ground is already dark). */
+  --sn-scrim: rgb(0 0 0 / 0.55);
+  --sn-scrim-solid: rgb(0 0 0 / 0.68);
+
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
      dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04; the
      switch, PR 3, only sets it on routes an area PR has swept).
@@ -5939,46 +5880,65 @@ html[data-maker-guest] [data-maker-opening-tag] { display: none !important; }
  * still ends `.sn-popup-dark {`. Held by `lib/every-stages-popup-follows-the-rule.test.ts`. */
 div:has(> [data-apply-pro-sheet]),
 .sn-popup-dark {
-  background-color: rgb(var(--color-ink) / 0.42);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background-color: var(--sn-scrim);
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
+  backdrop-filter: blur(var(--sn-scrim-blur));
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   div:has(> [data-apply-pro-sheet]),
   .sn-popup-dark {
-    background-color: rgb(var(--color-ink) / 0.55);
+    background-color: var(--sn-scrim-solid);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
   div:has(> [data-apply-pro-sheet]),
   .sn-popup-dark {
-    background-color: rgb(var(--color-ink) / 0.55);
+    background-color: var(--sn-scrim-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 }
-/* 🌙 DARK MODE (2026-10-12): `--color-ink` turns LIGHT under html.dark, so the ink-based dark above would LIGHTEN the
- * page behind a pop-up. In dark it is a fixed black, a little deeper (the ground is already dark). Light is unchanged. */
-html.dark div:has(> [data-apply-pro-sheet]),
-html.dark .sn-popup-dark {
-  background-color: rgb(0 0 0 / 0.55);
+/* 🌙 DARK MODE: the values flip on the TOKENS (`html.dark { --sn-scrim … }` beside `:root`'s), so every scrim follows
+ * with no html.dark rule of its own. */
+
+/* 🌫 THE ONE SCRIM — NO EDGE, NO FLASH, ONE BLUR (owner 2026-10-29, verbatim: *"our scrim when tapped sometime show that
+ * the corners/edges brighten showing it is a frame of the screen that pressed. And the darkness of each scrims from
+ * different places are different."* · *"make sure future scrims are connected to our design. So i dont want it to show
+ * edges. Tapping on it will just fade cleanly. When the scrim is on, i want a partial blur to keep focus on the pop
+ * up."*). The edges were the press DIP: the scrim is a full-screen <button>, `PressFeel` scaled it to .93 on the tap,
+ * and the shrunken dark bared an undimmed frame of the page round the screen. `PressFeel` now skips a scrim
+ * (`SCRIM_SELECTOR`), and here the stylesheet takes off everything else that could outline it: the press scale and
+ * dimming, a focus ring, a tap highlight, a border, a radius, a shadow, a text selection. Every scrim wears
+ * `.sn-popup-dark` (or is one of the two named panels' scrims below, which read the same tokens).
+ * A SECOND scrim over a first (`[data-scrim-stacked]`, set by `OverlayBackdrop`) dims but does not blur again — one
+ * blurred layer at a time, so two sheets never stack two blurs on a phone.
+ * 🔒 `lib/one-scrim.test.ts`. Recorded: corpus `INTERACTION_RULES.md` § 9 "Anything popped up over the page". */
+.sn-popup-dark, .sn-side-panel-scrim, .sn-inspector-peek {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
 }
-/* The side panel's and the guest card's backdrops are the same dark in dark mode (2026-10-25). */
-html.dark .sn-inspector-peek,
-html.dark .sn-side-panel-scrim {
-  background-color: rgb(0 0 0 / 0.55);
+.sn-popup-dark:is(:active, :focus, :focus-visible),
+.sn-side-panel-scrim:is(:active, :focus, :focus-visible),
+.sn-inspector-peek:is(:active, :focus, :focus-visible) {
+  scale: none !important;
+  filter: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  html.dark div:has(> [data-apply-pro-sheet]),
-  html.dark .sn-popup-dark {
-    background-color: rgb(0 0 0 / 0.68);
-  }
+.sn-popup-dark[data-scrim-stacked] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
-@media (prefers-reduced-transparency: reduce) {
-  html.dark div:has(> [data-apply-pro-sheet]),
-  html.dark .sn-popup-dark {
-    background-color: rgb(0 0 0 / 0.68);
-  }
+/* The fade the scrim leaves on: `OverlayBackdrop` lays a still copy where it was and fades THAT out over
+ * `--sn-scrim-fade` (an unmounted element cannot animate), so a tap closes the pop-up and the dark melts away. */
+.sn-popup-dark[data-scrim-leaving] {
+  pointer-events: none;
 }
 
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
@@ -6037,6 +5997,11 @@ html.dark .sn-side-panel-scrim {
   z-index: var(--sn-z-pop);
   width: max-content;
   max-width: min(18rem, calc(100vw - 32px));
+  /* The bubble wraps in its own width, whatever its trigger does. A tip inside a `whitespace-nowrap` heading (the
+     Categories map's column heads) inherited `nowrap`: its text ran one 1,300-px line out of the 18rem box — off
+     screen when open, and while CLOSED (hidden, still laid out) it widened the page to 1,856 px at 1,280.
+     🔒 lib/a-tip-wraps-in-its-own-width.test.ts */
+  white-space: normal;
   padding-top: 8px;
   opacity: 0;
   visibility: hidden;
@@ -6057,6 +6022,9 @@ html.dark .sn-side-panel-scrim {
 .sn-tip[data-align='center'] { left: 50%; --sn-tip-x: -50%; }
 .sn-tip[data-align='start'] { left: -4px; }
 .sn-tip[data-align='end'] { right: -4px; }
+/* A PickMenu row that cannot be picked yet (`pick-menu-off-row.tsx`, owner 2026-10-31): its reason hangs from the ROW,
+   inside the list's width — the list scrolls (overflow clips), so an 18rem popover from a 200-px list would be cut. */
+[data-pick-off] .sn-tip { left: 0; right: 0; width: auto; max-width: none; }
 .sn-tip-body {
   border-radius: var(--m-r-md);
   padding: 10px 12px;
@@ -6080,9 +6048,9 @@ html.dark .sn-side-panel-scrim {
   inset: 0;
   z-index: var(--sn-z-scrim);
   border: 0;
-  background: rgb(var(--color-ink) / 0.42);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--sn-scrim);
+  backdrop-filter: blur(var(--sn-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
   /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
   touch-action: none;
   overscroll-behavior: none;
@@ -6643,9 +6611,9 @@ html.dark .sn-side-panel-scrim {
   inset: 0;
   z-index: 74;
   border: 0;
-  background: rgb(var(--color-ink) / 0.42);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--sn-scrim);
+  backdrop-filter: blur(var(--sn-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
   /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
   touch-action: none;
   overscroll-behavior: none;
@@ -6722,10 +6690,11 @@ html.dark .sn-side-panel-scrim {
   z-index: var(--sn-z-base);
   isolation: isolate;
 }
-/* 👤 The face, left of the name (owner 2026-10-26), and a long eyebrow / name is cut before it ever meets ✕ or the pin. */
+/* 👤 The face, left of the name (owner 2026-10-26); a long eyebrow / name wraps beside ✕ and the pin. */
 .sn-inspector-lead { display: inline-flex; flex: none; }
 .sn-inspector-shell--card .sn-inspector-head .sn-eye,
-.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; overflow: clip; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+/* ✂ …WRAPS, never cut (owner 2026-10-29, "GROOM'S…" on a seat's card — Guests v15: names and their words wrap). */
+.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 /* 📌 The pinned Invite (`useHeadPin`): a slot that takes no room until something is drawn in it, and a short fade in. */
 .sn-inspector-pin-slot { display: inline-flex; flex: none; align-items: center; }
 .sn-inspector-pin-slot:empty { display: none; }
@@ -6801,6 +6770,31 @@ html.dark .sn-side-panel-scrim {
 }
 /* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
  * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+/* 📱 …and on a PHONE it is the whole screen (owner, live iPhone 2026-10-29: a seat's card sat offset with a dim strip on
+ * its left). The peek strip is the list's way back — "tap that space returns to the guestlist" — and with no list behind
+ * this card it was a strip of nothing; ✕, Escape and the phone's Back close it (`InspectorSheetAlone`). */
+@media (max-width: 700.98px) {
+  .sn-inspector-sheet.sn-inspector-sheet--alone {
+    left: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding-left: max(1.25rem, var(--sn-safe-l));
+  }
+}
+/* 🧰 A surface's verbs on the card (Guests › Seats: Remove · Swap) — pinned to the sheet's foot, in the thumb zone, on
+ * the paper, bleeding to the sheet's edges like the header does at its top. */
+.sn-inspector-sheet [data-guest-card-actions] {
+  position: sticky;
+  bottom: calc(-1 * max(1.25rem, env(safe-area-inset-bottom)));
+  z-index: var(--sn-z-sticky);
+  margin: 16px calc(-1 * max(1.25rem, var(--sn-safe-r))) calc(-1 * max(1.25rem, env(safe-area-inset-bottom))) -1.25rem;
+  padding: 12px max(1.25rem, var(--sn-safe-r)) max(12px, env(safe-area-inset-bottom)) 1.25rem;
+  background: var(--sn-paper, #fffdf8);
+  border-top: 1px solid var(--sn-hairline);
+}
+@media (max-width: 700.98px) {
+  .sn-inspector-sheet--alone [data-guest-card-actions] { margin-left: calc(-1 * max(1.25rem, var(--sn-safe-l))); padding-left: max(1.25rem, var(--sn-safe-l)); }
+}
 @media (min-width: 1280px) {
   .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
   .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }
@@ -6962,7 +6956,7 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * template inherits the fix — copy BOTH lines if you duplicate the pattern. */
 
 /* ---------- overlays ---------- */
-.sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
+.sn-scrim { background:var(--sn-scrim); backdrop-filter:blur(var(--sn-scrim-blur)); -webkit-backdrop-filter:blur(var(--sn-scrim-blur)); animation:sn-fade var(--sn-scrim-fade) both; }
 .sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
 /* route change: main { animation:sn-fade .32s both; } */
 
@@ -7029,6 +7023,14 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * suppress the rise. Browsers without :active-view-transition also lack
  * startViewTransition, so the plain rise is all they ever run. */
 html:active-view-transition .sn-page-enter { animation: none; }
+
+/* 💬 AN OPEN CHAT THREAD DOES NOT RISE ON A PHONE (2026-10-29, one chat for both sides). The rise is a TRANSFORM, and
+ * any transform on an ancestor is the containing block for a fixed child — so for those 400ms the thread's full-screen
+ * takeover (`[data-chat-takeover]`, the open-thread rule further down) drew INSIDE the page, under
+ * the top bar, then jumped to full screen. The thread arrives as the screen it is. */
+@media (max-width: 1023.98px) {
+  .sn-page-enter:has([data-chat-takeover]) { animation: none; }
+}
 
 /* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
  * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
@@ -7998,11 +8000,63 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-today-arrow svg { width: 16px; height: 16px; }
 .hc-today.hc-calm :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-ok)); }
 .hc-today.hc-calm .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-ok)) 12%, transparent); }
+/* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — prototype `.ecard`): the countdown and NOW ride
+   the cover band. Every colour is the band's own ink (currentColor), so a paper, image or colour ground all read. */
+.hc-ecard-cd { display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; margin-top: 6px; color: inherit; text-decoration: none; }
+.hc-ecard-n { font-family: Georgia, "Times New Roman", serif; font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-ecard-n.hc-ecard-word { font-size: 34px; }
+.hc-ecard-w { min-width: 0; font-size: 14px; }
+.hc-ecard-d { display: block; margin-top: 2px; font-size: 12px; opacity: 0.8; }
+.hc-now { display: flex; align-items: center; gap: 10px; min-height: 48px; margin-top: 10px; padding: 4px 4px 4px 14px; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); border: 1px solid color-mix(in srgb, currentColor 18%, transparent); text-align: left; }
+.hc-now-k { flex: none; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
+.hc-now-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; }
+.hc-now-w { font-weight: 400; opacity: 0.8; }
+.hc-now > :last-child:not(.hc-now-t) { flex: none; }
+.hc-now.hc-calm { padding-right: 14px; }
+/* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
+   the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
+.hc-ecard-plain { background: linear-gradient(180deg, #201d1b 0%, #3a3230 100%); color: #f6efe7; }
+html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); }
+.hc-ecard-plain .hc-ecard-name { color: #e7c9b6; }
+.hc-ecard-plain .hc-now-k { color: #f0b490; opacity: 1; }
+.hc-now.hc-today-later { gap: 8px; font-size: 13px; }
+/* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
+.hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }
+.hc-k2 em { margin-left: auto; font-style: normal; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.hc-k2-name { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+/* ✅ Home's one To do (prototype `.nx` · `.todoline`): rows on the page, a hairline between, the plan's own tick. */
+.hc-todo { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.hc-todo-row { display: flex; align-items: center; gap: 6px; min-height: 48px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-todo-row:first-child { border-top: 0; }
+.hc-todo-dot { width: 36px; display: grid; place-items: center; flex: none; }
+.hc-todo-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: color-mix(in srgb, rgb(var(--color-ink)) 30%, transparent); }
+.hc-todo-words { flex: 1; min-width: 0; padding: 6px 0; color: inherit; text-decoration: none; }
+.hc-todo-k { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 14.5px; font-weight: 500; }
+.hc-todo-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-todo-v.hc-todo-late { color: rgb(var(--color-danger)); }
+.hc-todoline { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 4px 0 2px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 70%, transparent); text-decoration: none; }
+.hc-todoline b { color: rgb(var(--color-ink)); font-weight: 600; }
+.hc-todoline-chev, .hc-memline-chev { margin-left: auto; width: 18px; height: 18px; flex: none; color: rgb(var(--color-mulberry)); }
+/* ✨ Memories — one slim line of its own (prototype `.memline`). */
+.hc-memline { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 6px 0; color: inherit; text-decoration: none; }
+.hc-memline-mark { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--sn-gold-100); color: var(--sn-gold-800, rgb(var(--color-ink))); }
+.hc-memline-k { display: block; font-size: 14.5px; font-weight: 500; }
+.hc-memline-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hc-today-later { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 @media (min-width: 768px) {
   .hc-today { height: 48px; padding-left: 16px; font-size: 15px; }
   .hc-today-k { font-size: 10.5px; }
   .hc-today-arrow { width: 34px; height: 34px; }
+}
+/* ☀ A TODAY ITEM (owner 2026-10-29) — the Today line's pill for a prompt that waits on the hosts; it WRAPS, so a
+   shop's full name is never cut (the Today line itself stays one line). `hc-warn` = a read that failed, said. */
+.hc-today.hc-today-item { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; border-radius: 22px; }
+.hc-today.hc-today-item .hc-today-t { overflow: visible; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.3; }
+.hc-today.hc-today-item:disabled { opacity: 0.6; }
+.hc-today.hc-warn :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-warn)); }
+.hc-today.hc-warn .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-warn)) 12%, transparent); }
+@media (min-width: 768px) {
+  .hc-today.hc-today-item { min-height: 48px; border-radius: 24px; }
 }
 /* The ring the Today line leaves on the widget it names (1.8 s). */
 [data-home-spot] { outline: 2px solid rgb(var(--color-mulberry)) !important; outline-offset: 3px; }
@@ -8115,6 +8169,39 @@ html.dark .hc-tiny.hc-tiny-main { color: #161513; }
 /* 🔗 A checklist task opened by its address (Home's Checklist widget → /checklist#task-<id>) is ringed while targeted. */
 [data-checklist-task]:target { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 .hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
+/* 🧱 FRAMES ONLY WHERE YOU ACT (owner 2026-11-01, DECISION_LOG "EVENT HOME: FRAMES ONLY WHERE YOU ACT"; approved
+ * prototype `home_frames_where_you_act_2026-11-01/`): a heading plus plain tiles sits on the page, unframed (Safari's
+ * Favorites); only a block you act on is a card (Schedule · Budget · Papic). `hc-plain` takes the frame off any Home
+ * widget — the list of which is framed lives in `HOME_FRAMED_WIDGETS` (home-control-faces.ts), never here.
+ * Producers: home-tile.tsx, home-control-row.tsx, home-prints-line.tsx, home-whos-here-card.tsx, home-first-screen.tsx. */
+.hc-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Both selectors: the dark card fill (`html.dark :is(.hc-today, .hc-tile)`, 0-2-1) outranks a bare 0-2-0. */
+:is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain, html.dark :is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+.hc-tile.hc-plain { padding-top: 6px; padding-bottom: 4px; }
+.hc-tile.hc-plain.hc-count { padding: 14px 8px 6px; }
+.hc-tile.hc-plain .hc-chip { right: 0; top: 5px; }
+.hc-tile.hc-plain :is(.hc-acts, .hc-side) { right: 0; bottom: 6px; }
+.hc-glance { gap: 10px 14px; }
+.hc-glance > .hc-tile { min-height: 96px; }
+.hc-rule { height: 1px; margin: 4px 0; border: 0; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-ruled { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); padding-top: 4px; }
+/* Your services — plain rows with dividers; the row's own control (a switch, a door) is its frame. */
+.home-svc.hc-plain-list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.home-svc.hc-plain-list > *:not(:first-child) { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.home-svc.hc-plain-list :is(.sg-row, .home-tile, .hc-tile, .home-card) { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+.home-svc.hc-plain-list .hc-tiny-slot { right: 0; }
+@media (min-width: 768px) { .home-svc.hc-plain-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; } .home-svc.hc-plain-list > :nth-child(2) { border-top: 0; } }
+/* A section on the page: its small heading, then its content (Who's here). */
+.hc-sect-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+/* 📅 THE SCHEDULE CARD (plan §5): a kicker over up to three lines a face, then the doors the owner kept. */
+.hc-sched .hc-faces { margin-top: 2px; }
+.hc-kick { display: block; padding: 4px 0 2px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-line { display: block; min-height: 44px; padding: 7px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-kick + .hc-line { border-top: 0; }
+.hc-line-k { display: block; font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-line-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-sdoors { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-sdoors .ab { height: 36px; min-height: 36px; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */
   .hc-track, .hc-dot, .hc-tile, .hc-today { transition: none; }
@@ -10399,6 +10486,12 @@ html.dark .sn-acc-head[data-open] {
   }
 }
 
+/* ✕ IN EVERY TYPE BOX (owner 2026-10-31, "We want every type box too have the clear button";
+   `app/_components/global-clear-field.tsx`). While the app-wide ✕ stands inside a box, the box gives it room at its end
+   (`--sn-clear-room`, never less than the box's own padding) and the browser's own search ✕ steps aside — never two. */
+input[data-clearing] { padding-right: var(--sn-clear-room) !important; }
+input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -10545,3 +10638,4 @@ html.dark .sn-acc-head[data-open] {
     animation-range: normal;
   }
 }
+

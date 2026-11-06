@@ -21,7 +21,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { homeServices, pickHomeNext, type HomeNextInput } from '@/lib/home-first-screen';
 import { papicGlance } from '@/lib/papic-glance';
-import { fixtureControl } from '@/lib/home-control-fixture';
+import { fixtureControl, fixturePays } from '@/lib/home-control-fixture';
 import { manilaCaptureCloseIso } from '@/lib/papic-window';
 import type { HomeFirstScreenProps } from './_components/home-first-screen';
 
@@ -71,7 +71,9 @@ function home(tile: { shotsLeft: number; shotsTotal: number; photosGathered: num
     eventId: 'e1',
     cover: { eyebrow: 'Wedding', name: 'Maria & Jose' },
     next,
-    control: fixtureControl('e1', { next }),
+    // Nothing else waits (no late payment, no quote to answer): what waits outranks a setup step since the Home redraw
+    // (2026-11-02, round 3), and this check is about Papic being Now.
+    control: fixtureControl('e1', { next, budget: { paidPhp: 1, owingPhp: 1, pays: fixturePays().filter((p) => p.state !== 'overdue') }, suppliers: { booked: 2, of: 6, toDecide: [], replied: 0 } }),
     papicLeft: g.count,
     // The page's own shape: `next: 'plan'` and no `whileNext` (page.tsx `homeServicesInput`).
     services: homeServices({ next: 'plan', storeShell: false, papic: g.status, papicDoors: { glance: g, line: g.line, buy: g.buy }, ai: 'Try it' }),

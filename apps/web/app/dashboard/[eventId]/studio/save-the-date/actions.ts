@@ -1,5 +1,7 @@
 'use server';
 
+import { eventDateFloorRefusal, isBeforeFirstEventDay } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { forgetDraftedEventColumn } from '@/lib/hub-draft-store';
@@ -202,6 +204,18 @@ export async function saveAllStdContent(
         ? rawFilmDate
         : undefined;
   if (filmDate === undefined) return { ok: false, error: 'bad-film-date' };
+
+  /* 💍 NO EVENT BEFORE DECEMBER 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts). The film
+     date becomes the event's date when it has none (the backfill below) — so a day before the
+     first event day is refused HERE, before anything is written, in the owner's words. A film
+     date on an event that already holds its date writes no date and is never refused. */
+  if (filmDate && isBeforeFirstEventDay(filmDate)) {
+    const { data: dated } = await supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle();
+    if (!(dated as { event_date?: string | null } | null)?.event_date) {
+      const floor = eventDateFloorRefusal({ date: filmDate, exempt: await eventDateFloorExempt(supabase, { eventId }) });
+      if (floor) return { ok: false, error: floor };
+    }
+  }
 
   /* ⛔ THEIR OWN PHOTO, FILM OR SONG ON THE PAGE IS PRO (owner 2026-09-24, "A"
      — "Save-the-Date video" is one of the eight Event Hub Pro items, and the

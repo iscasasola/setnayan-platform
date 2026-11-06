@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // app/vendor-dashboard/subscription
-const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+// 🏪 The Plan screen moved into `_components/plan-screen.tsx` (2026-10-31) — the page and the Shop ⚙ both mount it.
+const PAGE = stripComments(readFileSync(join(HERE, '_components', 'plan-screen.tsx'), 'utf8'));
 const PICKER = stripComments(readFileSync(join(HERE, '_components/plan-picker.tsx'), 'utf8'));
 const ROWS = stripComments(readFileSync(join(HERE, '_components/plan-rows.tsx'), 'utf8'));
 

@@ -23,6 +23,10 @@ import { YearMomentsStrip } from './_components/year-moments-strip';
 import { Spotlight } from '@/app/_components/spotlight';
 import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
+import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
+import { guestMePath } from '@/lib/offline-copy-addresses';
+import { offlineSavingOpen } from '@/lib/offline-copies';
+import { QUIET_MAX_COPIES, type QuietCopy } from '@/lib/quiet-schedule-refresh';
 import { publicEventPath } from '@/lib/public-event-url';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, type EventWithRole } from '@/lib/events';
@@ -49,13 +53,8 @@ import {
   fetchUserCommunities,
   type CommunityWithRole,
 } from '@/lib/communities';
-import {
-  readChecklistItems,
-  checklistAnchorDateFor,
-  checklistRunwayFor,
-  daysUntilEvent,
-  dueDateForItem,
-} from '@/lib/checklist';
+import { daysUntilEvent } from '@/lib/checklist';
+import { readPlanningProgress } from '@/lib/planning-progress.server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import {
   readEventDecisionCounts,
@@ -466,33 +465,28 @@ export default async function LauncherPage({
         try {
           // 🔑 UNKNOWN IS NOT ZERO (collection template, 2026-09-24). A refused
           // read used to arrive here as `[]` and leave the card saying nothing
-          // needs you. `readChecklistItems` returns `null` for "could not read",
-          // and the card then says so.
-          const items = await readChecklistItems(supabase, e.event_id);
-          if (items === null) return [e.event_id, { pct: null, overdue: null, failed: true }];
-          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0, failed: false }];
-          const done = items.filter((i) => i.status === 'done').length;
-          // Same deadline ANCHOR the checklist page dates by — locked date, else
-          // earliest candidate, else window start; weddings on the locked date
-          // alone. This card used to pass `e.event_date` straight through, so a
-          // non-wedding event whose date isn't locked yet resolved no due dates
-          // at all and the card claimed 0 overdue while the page it links to
-          // listed real deadlines. One helper, both surfaces, no drift.
-          const anchorDate = checklistAnchorDateFor(e);
-          // Same runway rule the checklist page renders with — an event whose
-          // template is longer than its runway must not report every task as
-          // overdue on the card either. Null runway ⇒ authored offsets stand.
-          // Measured from the SAME anchor: the runway is (creation → anchor), so
-          // it has to move with the anchor or the compression would disagree too.
-          const runway = checklistRunwayFor(items, anchorDate, e.created_at ?? null);
-          const overdue = items.filter((i) => {
-            if (i.status !== 'pending') return false;
-            const due = dueDateForItem(anchorDate, i.due_offset_days, runway);
-            return !!due && due < todayISO;
-          }).length;
+          // needs you. The read answers `null` for "could not read", and the
+          // card then says so.
+          //
+          // ✅ THE ONE LIST (owner 2026-11-01, "Checklist merges into Planning
+          // Stage"): the card counts Planning Stage's To do filter through the
+          // same reader and rule as the list and Home's To do tile
+          // (`readPlanningProgress` → `fetchPreparationAgenda` · `planningProgress`)
+          // — the same deadline ANCHOR (`checklistAnchorDateFor`, inside the
+          // reader: locked date, else earliest candidate, else window start) and
+          // the same runway, measured from this row's own date fields.
+          const p = await readPlanningProgress(supabase, e.event_id, {
+            event_type: e.event_type ?? null,
+            event_date: e.event_date ?? null,
+            date_candidates: e.date_candidates ?? null,
+            date_window_start: e.date_window_start ?? null,
+            created_at: e.created_at ?? null,
+          }, new Date(`${todayISO}T12:00:00`));
+          if (p === null) return [e.event_id, { pct: null, overdue: null, failed: true }];
+          if (p.total === 0) return [e.event_id, { pct: null, overdue: 0, failed: false }];
           return [
             e.event_id,
-            { pct: Math.round((done / items.length) * 100), overdue, failed: false },
+            { pct: Math.round((p.done / p.total) * 100), overdue: p.overdue, failed: false },
           ];
         } catch {
           return [e.event_id, { pct: null, overdue: null, failed: true }];
@@ -1154,8 +1148,23 @@ export default async function LauncherPage({
       )[0]
     : undefined;
 
+  // 🔕 QUIET SCHEDULE REFRESH (owner-approved 5 Nov, item 1) — Home re-renders, in the background, the saved "Your
+  // schedule" copy (Event Hub › Me) of each event this account is INVITED to that is around its day (T-3 → the day
+  // after). The worker keeps only copies this account already saved on Me; nothing is drawn here.
+  const quietNow = Date.now();
+  const quietCopies: QuietCopy[] = invitedEvents
+    .filter((e) => e.slug && offlineSavingOpen(e.event_date ?? null, quietNow, e.event_end_date ?? null))
+    .flatMap((e) => {
+      const path = guestMePath(e.slug as string);
+      return path
+        ? [{ eventKey: path.slice(1, path.indexOf('?')), eventDate: e.event_date ?? null, eventEndDate: e.event_end_date ?? null, path }]
+        : [];
+    })
+    .slice(0, QUIET_MAX_COPIES);
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+      {quietCopies.length > 0 ? <QuietScheduleRefresh viewer={user.id} copies={quietCopies} /> : null}
       {/* 🔍 ONE THUMB ROW (owner 2026-10-22): "Search events" · ＋ Create event — the top bar has no search now. */}
       <EventsThumbRow />
       {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).

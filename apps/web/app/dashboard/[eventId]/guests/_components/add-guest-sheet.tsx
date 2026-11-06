@@ -25,7 +25,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import type { GuestSide } from '@/lib/guests';
+import type { GuestRole, GuestSide } from '@/lib/guests';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GuestPopup } from './guest-popup';
 import { CaptureBar } from './capture-bar';
@@ -114,12 +114,15 @@ export function AddGuestSheet({
   eventId,
   defaultSide,
   tips,
+  offeredRoles,
 }: {
   eventId: string;
   /** A new guest's side (the shipped CaptureBar's `defaultSide`). */
   defaultSide: GuestSide;
-  /** One example line + the Tips ▾ fold (`lib/quick-add-tips.ts`). */
-  tips?: { example: string; tips: string[] };
+  /** One example line + the Tips ▾ fold, and the name box's rotating examples (`lib/quick-add-tips.ts`). */
+  tips?: { example: string; examples?: readonly string[]; tips: string[] };
+  /** The roles this event offers — the name box reads "+Groomsmen" as the role only when it is one. */
+  offeredRoles?: readonly GuestRole[];
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -163,6 +166,8 @@ export function AddGuestSheet({
             withDoors={false}
             placeholder="Type a name…"
             initialValue={name}
+            hints={tips?.examples?.map((l) => `e.g. ${l}`)}
+            offeredRoles={offeredRoles}
           />
         </div>
         {/* ⚡ Every name typed here, drawn the moment Enter is pressed — "Adding…", then "Added", or why not with Retry

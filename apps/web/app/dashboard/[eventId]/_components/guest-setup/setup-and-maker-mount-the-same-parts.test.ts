@@ -57,7 +57,7 @@ test('the Maker mounts the parts in its Studio, its stage form and its Details e
   assert.ok(!/layout="print"/.test(MAKER), 'Studio › RSVP prints Reply by read-only again');
 });
 
-test('a door may draw the ROW — the part still owns the value, the choices and the writer; the six asks are the part’s own chips', () => {
+test('a door may draw the ROW — the part still owns the value, the choices and the writer; the six asks are ONE dropdown with ticks', () => {
   const part = (file: string) => read(file);
   // The Maker hands each part a frame; what the frame is given comes from the part, never spelled in the Maker.
   assert.match(MAKER, /const getInRow = <GuestsGetIn frame=\{getInFrame\} value=\{getInNow\} onPick=\{pickGetIn\} \/>;/);
@@ -67,12 +67,18 @@ test('a door may draw the ROW — the part still owns the value, the choices and
   assert.match(getIn, /const pick = \(next: string\) => \(next === value \|\| !isGuestsGetIn\(next\) \? undefined : onPick\(next\)\);/, 'a framed pick of the stored choice (or of a made-up one) is sent');
   const replyBy = part('reply-by.tsx');
   assert.match(replyBy, /frame\(\{ name: REPLY_BY_LABEL, own: value, fallback, keep: pick, attrs: /, 'the framed row is handed something other than the part’s own value and writer');
-  // The six asks: the CHIPS are drawn by the part in both doors (one look); only the row around them is the door's.
+  // The six asks (owner 2026-11-01, "Dropdown with ticks"): ONE shared PickMenu with ticks (`picked`) in every door —
+  // the part's own row draws it, and each door's frame draws the app's Form row with the same ticks, face and pick.
   const asks = part('rsvp-asks.tsx');
-  assert.match(asks, /<Chips<RsvpAskField>\s+label=\{RSVP_ASKS_TITLE\}/);
-  assert.equal(count(asks, /<Chips\b/g), 1, 'the asks are drawn twice (a look per door)');
-  assert.match(asks, /value=\{RSVP_ASK_FIELDS\.filter\(\(field\) => rsvpAsks\(config, field\)\)\}\s*onToggle=\{onToggle\}/);
-  assert.doesNotMatch(asks, /ActionButton|<button\b/, 'the asks are hand-made toggles again');
+  assert.doesNotMatch(asks, /<Chips\b/, 'the asks are chips again');
+  assert.equal(count(asks, /<PickMenu\b/g), 1, 'the part draws the asks other than as one dropdown');
+  assert.match(asks, /<PickMenu\s+label=\{RSVP_ASKS_TITLE\}\s+value=\{null\}\s+picked=\{on\}\s+options=\{asks\}\s+buttonText=\{rsvpAsksFace\(on\.length, asks\.length\)\}\s+onPick=\{rsvpAsksPick\(\{ asks, on, onToggle \}\)\}/);
+  assert.match(asks, /const on = RSVP_ASK_FIELDS\.filter\(\(field\) => rsvpAsks\(config, field\)\);/, 'the ticks are not what the config asks');
+  assert.doesNotMatch(asks, /ActionButton|<button\b|aria-pressed/, 'the asks are hand-made toggles again');
+  const TICKED_ROW = /export const asksFrame = \(row: RsvpAsksFrame\) => \(\s*<ChosenRow data="asks" name=\{row\.name\} about=\{\{ words: row\.line \}\} attrs=\{row\.attrs\} value=\{null\} picked=\{row\.on\} options=\{row\.asks\} buttonText=\{rsvpAsksFace\(row\.on\.length, row\.asks\.length\)\} onPick=\{rsvpAsksPick\(row\)\}/;
+  for (const [name, src] of [['Setup', part('setup-frames.tsx')], ['Maker', MAKER]] as const) {
+    assert.match(src, TICKED_ROW, `${name}'s asks row is not the Form row's dropdown with ticks`);
+  }
   // No part wraps a framed row (a row must stay a direct child of its list — its hairline is `first:`'s).
   for (const src of [getIn, replyBy, asks]) assert.doesNotMatch(src, /className="contents"/, 'a part wraps the row its frame draws');
   // …and neither of the two parts whose row the Maker draws carries a template: Guests › Setup downloads none.

@@ -55,6 +55,8 @@ export function focusPointFromTap(input: {
   videoH: number;
   crop: number;
   mirrored: boolean;
+  /** How the video is fitted in the box: `cover` for photos, `contain` while Snippet / a recording shows the whole frame. */
+  fit?: 'cover' | 'contain';
 }): { x: number; y: number } | null {
   const { boxW, boxH, videoW, videoH } = input;
   if (!(boxW > 0 && boxH > 0 && videoW > 0 && videoH > 0)) return null;
@@ -64,8 +66,8 @@ export function focusPointFromTap(input: {
   const y = boxH / 2 + (input.tapY - boxH / 2) / crop;
   // Undo the selfie mirror.
   if (input.mirrored) x = boxW - x;
-  // Undo object-cover.
-  const scale = Math.max(boxW / videoW, boxH / videoH);
+  // Undo object-cover (or object-contain — the tap may then land on the bars, which are no picture → null).
+  const scale = input.fit === 'contain' ? Math.min(boxW / videoW, boxH / videoH) : Math.max(boxW / videoW, boxH / videoH);
   const dw = videoW * scale;
   const dh = videoH * scale;
   const fx = (x - (boxW - dw) / 2) / dw;

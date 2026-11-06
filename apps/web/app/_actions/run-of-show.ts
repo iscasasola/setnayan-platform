@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runAdvance } from '@/lib/run-of-show-advance';
 import type { RunOfShowBlock, RunState } from '@/lib/run-of-show';
+import { withoutSkipped } from '@/lib/change-the-schedule';
 import { onlyWhatGuestsMaySee } from '@/lib/schedule';
 
 /**
@@ -78,13 +79,17 @@ export async function fetchRunOfShowBlocks(
     .select(
       'block_id, label, start_at, end_at, location, run_state, actual_start_at, block_type, is_public',
     )
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    // ⏰ A Time-TBA chapter cannot be run (no clock): left out, never a 12:00 AM line on the desk — the same fence as
+    // `onlyTimedBlocks` (lib/schedule.ts), chained here because `read` is pinned by the guests' fence test.
+    .eq('time_tba', false);
   const { data, error } = await (forGuests ? onlyWhatGuestsMaySee(read) : read)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) console.error('[supabase-error] app/_actions/run-of-show.ts · from:event_schedule_blocks.select', error);
   if (error) return null;
-  return (data ?? []).map((b) => ({
+  // 🎟 A skipped part is not on a guest's schedule (`withoutSkipped`) — after the read, so the fence chain stays pinned.
+  return (forGuests ? withoutSkipped(data ?? []) : (data ?? [])).map((b) => ({
     block_id: b.block_id as string,
     label: b.label as string,
     start_at: b.start_at as string,

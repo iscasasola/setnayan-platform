@@ -143,6 +143,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'Feeds resolveVendorDisplayName only (a creator surface\'s vendor credit) — no badge field on the result.' },
   ],
   [
+    'lib/check-a-date.server.ts',
+    { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal on /v/[slug]/dates). The page\'s Verified badge (shop.verified) calls hasVerifiedBadge.' },
+  ],
+  [
     'lib/creator-offers.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only — same shape as creator-public.ts.' },
   ],
@@ -188,7 +192,7 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   ],
   [
     'lib/vendor-corrections.ts',
-    { count: 1, why: "fetchVerifiedLock — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
+    { count: 2, why: "fetchVerifiedLock + identityLockOf (2026-10-29, a shop Setnayan set up asks to rename) — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
   ],
 ]);
 

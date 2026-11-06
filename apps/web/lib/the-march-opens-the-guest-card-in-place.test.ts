@@ -39,6 +39,7 @@ const MARCH = read(`${L}/details-march.tsx`);
 const G = 'app/dashboard/[eventId]/guests';
 const SHEET = read(`${G}/_components/guest-card-sheet.tsx`);
 const ACTION = read(`${G}/open-guest-card.tsx`);
+const IN_PLACE = read(`${G}/_components/guest-card-in-place.tsx`);
 
 test('1 · a tap (let go where it was pressed, never having wandered) on a walking name or a tray chip opens their card; Enter too; Space still moves', () => {
   const up = MARCH.slice(MARCH.indexOf('const onUp = useCallback('), MARCH.indexOf('const onCancel = useCallback('));
@@ -69,7 +70,7 @@ test('1 · a tap (let go where it was pressed, never having wandered) on a walki
 test('1b · the march draws the card for the tapped person, with the reader it was handed (the lab’s) or the shipped one', async () => {
   assert.match(MARCH, /openCard = openCardShipped,/);
   assert.match(MARCH, /const openCardShipped = SHIPPED_GUEST_CARD\.march;/);
-  assert.match(SHEET, /march: async \(eventId: string, guestId: string\): Promise<GuestCardResult> => \(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'march'\)/, 'the card’s read is no longer loaded at the first tap');
+  assert.match(SHEET, /march: async \(eventId: string, guestId: string\): Promise<GuestCardResult> => \(await import\('\.\/guest-card-in-place'\)\)\.openGuestCardInPlace\(eventId, guestId, 'march'\)/, 'the card’s read is no longer loaded at the first tap');
   assert.match(MARCH, /<GuestCardSheet eventId=\{eventId\} person=\{card\} open=\{openCard\} onClose=\{\(\) => setCard\(null\)\} onSaved=\{onCardSaved\} \/>/);
   // OUTSIDE the drag's section: a key typed in the card must never reach the drag's handlers.
   assert.match(MARCH, /<\/section>\s*(?:\{\s*\}\s*)?\{card && card\.id \? \(\s*<GuestCardSheet/, 'the card is drawn inside the march’s section — its keys and presses would reach the drag');
@@ -90,12 +91,17 @@ test('1b · the march draws the card for the tapped person, with the reader it w
 
 test('2 · the card is THE guest card — `GuestCard`, the Guest list’s panel — read by the one card reader, once', () => {
   assert.match(ACTION, /^'use server';/);
-  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, user\.id\);/, 'the card is not read by the one card reader');
-  assert.match(ACTION, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.read\}/, 'the march draws a card other than THE guest card');
-  assert.doesNotMatch(ACTION, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');
+  // The viewer rides beside the card's reads (a promise of their id — the-card-opens-at-the-tap.test.ts 6).
+  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, userRead\.then\(/, 'the card is not read by the one card reader');
+  /* The action answers the card's DATA; the browser draws THE card from it (a drawn answer cannot be sent on the routes the
+     march opens on — the-settings-sheet-is-in-homes-graph.test.ts). */
+  assert.match(ACTION, /return \{ ok: true, read, returnTo: RETURN_TO\[at\]\(eventId, guestId\) \};/, 'the action no longer answers the card’s data');
+  assert.doesNotMatch(stripComments(ACTION), /(?<![\w$.])<[A-Z]/, 'the action draws again — its answer cannot be sent on the Maker, the editor, a Details field or Home');
+  assert.match(IN_PLACE, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.r\.read\}/, 'the march draws a card other than THE guest card');
+  for (const src of [ACTION, IN_PLACE]) assert.doesNotMatch(src, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');
   assert.match(ACTION, /if \(!isUuid\(eventId\) \|\| !isUuid\(guestId\) \|\| !\(at in RETURN_TO\)\)/);
   // The address a failed save lands on is the server's, never the browser's.
-  assert.match(ACTION, /returnTo=\{RETURN_TO\[at\]\(eventId\)\}/);
+  assert.match(IN_PLACE, /returnTo=\{r\.returnTo\}/);
   // A refusal is a sentence, never the database's words.
   assert.match(ACTION, /catch \{\s*return \{ ok: false, reason: COULD_NOT_OPEN \};/);
   assert.doesNotMatch(ACTION, /\.message\b/, 'a thrown error’s words could reach the couple');
@@ -134,7 +140,16 @@ test('5 · out of the Maker’s first load: only lazy Details pieces import the 
   walk('app');
   assert.deepEqual(
     importers.sort(),
-    [`${L}/details-march.tsx`, `${L}/details-people.tsx`, `${L}/parent-cards.tsx`, `${L}/studio-prints-six.tsx`].sort(),
+    /* 🗂 R4: Guests › Seats' faces open the card too — from the seat plan's own lazy chunk (`seating-lazy.tsx`). */
+    [
+      `${L}/details-march.tsx`,
+      `${L}/details-people.tsx`,
+      `${L}/parent-cards.tsx`,
+      `${L}/studio-prints-six.tsx`,
+      'app/dashboard/[eventId]/seating/_components/seating-editor.tsx',
+      // Home › Who's here (2026-10-29) — not the Maker; loaded by next/dynamic on the first tap of a guest's face.
+      'app/dashboard/[eventId]/_components/home-cards/home-whos-here-guest-sheet.tsx',
+    ].sort(),
     'the card sheet is imported outside the (lazy) Details pieces that open a guest’s card',
   );
   assert.doesNotMatch(read('app/dashboard/[eventId]/launch/page.tsx'), /guest-card|loadGuestCard|GuestCardBody/, 'the Maker’s page reads or draws a guest card up front');
@@ -153,7 +168,8 @@ test('6 · the card is drawn OVER the Maker — its layer sits above the full-sc
      set the card open (the name wore its ring) and the screen did not change. The NUMBERS are read from each file — a
      shell raised, a layer lowered, or the layer dropped from the portal turns this red. */
   const SHELL = read(`${L}/maker-shell.tsx`);
-  const shellCls = SHELL.match(/className="fixed inset-x-0 top-0 (z-\[\d+\]) flex h-\[100dvh\] flex-col bg-cream text-ink"/);
+  /* Since 2026-10-30 the shell sits in the room the app's nav leaves (`MAKER_IN_THE_APP_CSS`): `fixed z-[…]`, no inset. */
+  const shellCls = SHELL.match(/className="fixed (z-\[\d+\]) flex flex-col bg-cream text-ink"/);
   assert.ok(shellCls, 'the Maker’s full-screen shell is no longer found — re-anchor this test on it');
   const shellZ = zOf(shellCls[1]!)!;
   const { GUEST_CARD_LAYER: MARCH_CARD_LAYER } = await import(`../${G}/_components/guest-card-sheet`);
@@ -161,12 +177,13 @@ test('6 · the card is drawn OVER the Maker — its layer sits above the full-sc
   assert.ok(layerZ !== null, 'the card’s layer has no z-index — the sheet falls back under the Maker');
   assert.match(MARCH_CARD_LAYER as string, /(?:^|\s)(?:relative|fixed|absolute)(?:\s|$)/, 'the card’s layer is not positioned — its z-index would do nothing');
   assert.ok(layerZ! > shellZ, `the card’s layer (z ${layerZ}) is not above the Maker (z ${shellZ}) — the card opens behind it`);
-  // The sheet is the Guest list's (`.sn-inspector-sheet` / its peek, globals.css) — under the Maker on its own.
+  // The sheet is the Guest list's (`.sn-inspector-sheet` / its peek, globals.css). It sat UNDER the Maker's z-[80] on its
+  // own; since the Maker sits in the app's room at z-[40] (2026-10-30) it clears it by itself too — the layer above
+  // stays, as the one thing this test holds (a lower shell is never the card's only guarantee).
   const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   for (const cls of ['sn-inspector-sheet', 'sn-inspector-peek']) {
     const rule = CSS.match(new RegExp(`\\.${cls} \\{[^}]*z-index: (\\d+);`));
     assert.ok(rule, `.${cls}'s z-index is no longer found — re-anchor this test on it`);
-    assert.ok(Number(rule[1]) < shellZ, `.${cls} itself now clears the Maker — this layer may be retired, update this test`);
   }
   // The card's own dropdowns (portalled to <body>) must still draw over the card.
   const PICK = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');

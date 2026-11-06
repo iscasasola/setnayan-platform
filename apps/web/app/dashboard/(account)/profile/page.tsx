@@ -1318,7 +1318,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               profile?.is_internal
                 ? 'Yes (§ 10a — owner)'
                 : profile?.is_team_member
-                  ? 'Yes (§ 10b — team pool)'
+                  ? 'Yes (§ 10b — team member)'
                   : 'No'
             }
           />

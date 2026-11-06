@@ -5,6 +5,9 @@
  * months from the fixtures alone (no month fetcher).
  */
 import { renderUrlQrSvg } from '@/lib/qr';
+import { DOOR_STICKER_CODES, DOOR_STICKER_SIZES, doorStickerKey } from '@/lib/door-sticker';
+import { doorStickerPdf, doorStickerSvg } from '@/lib/door-sticker-print';
+import { badgesForPrint } from '@/lib/shop-badges';
 import type { SchedulePool } from '@/lib/vendor-schedule';
 import { clockWords, dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
@@ -12,12 +15,16 @@ import { CheckADate } from '@/app/vendor-dashboard/customers/_components/check-a
 import { formatPhp } from '@/lib/orders';
 import { CustomersCalendar } from '@/app/vendor-dashboard/customers/_components/customers-calendar';
 import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersFigures } from '@/app/vendor-dashboard/customers/_components/customers-figures';
+import { datesFiguresOf } from '@/app/vendor-dashboard/customers/dates-figures';
+import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
 import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { DatesFolds, DaysSettings, type DatesWaitlist } from '@/app/vendor-dashboard/customers/_components/dates-folds';
 import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates-sheets';
 import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_components/day-sheet';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
+import { PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -36,7 +43,7 @@ import {
   updateWaitlistSettings,
 } from '@/app/vendor-dashboard/calendar/actions';
 
-export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
+export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail', 'qr-page', 'qr-dates'] as const;
 export type DatesState = (typeof DATES_STATES)[number];
 
 const TODAY = '2026-10-02'; // Fri Oct 2 in Manila (the lab's NOW)
@@ -223,15 +230,71 @@ const LAB_TOASTS = {
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad' as const, retry: true },
 };
 
-export async function DatesLab({ state, toast, open, gear = false }: { state: DatesState; toast?: string; open?: string; gear?: boolean }) {
+/**
+ * `place` — 📣 `&place=promote` draws the Shortlist code as Shop › Promote draws it (2026-11-05: the shop's marketing
+ * codes moved there; `place="promote"`, Promote's own dropdown). Without it, the Customers › QR codes look.
+ */
+export async function DatesLab({
+  state,
+  toast,
+  open,
+  gear = false,
+  place = 'customers',
+}: {
+  state: DatesState;
+  toast?: string;
+  open?: string;
+  gear?: boolean;
+  place?: 'customers' | 'promote';
+}) {
   const base = `/dev/supplier-lab?s=${state}`;
   const t = toast && toast in LAB_TOASTS ? LAB_TOASTS[toast as keyof typeof LAB_TOASTS] : null;
 
   if (state.startsWith('qr')) {
-    const modeOptions = [
-      { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
-      { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
-    ];
+    // 📣 Shop › Promote's own dropdown (2026-11-05): Shortlist · Check a date · My page, each to its lab state.
+    const LAB_PROMOTE_HREF = { shortlist: '/dev/supplier-lab?s=qr&place=promote', dates: '/dev/supplier-lab?s=qr-dates', page: '/dev/supplier-lab?s=qr-page' } as const;
+    const promoteOptions = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: LAB_PROMOTE_HREF[key] }));
+    const modeOptions =
+      place === 'promote'
+        ? promoteOptions
+        : [
+            { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
+            { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
+          ];
+    if (state === 'qr-page' || state === 'qr-dates') {
+      // 🚪 The shop's two permanent codes + the door sticker under them, on fixtures: the sticker's real files (SVG +
+      // PDF, every code × size) as data: URIs, drawn by the shipped `lib/door-sticker-print.ts` with a lab shop's badges.
+      const pageUrl = 'https://www.setnayan.com/v/lumina';
+      const datesUrl = 'https://www.setnayan.com/v/lumina/dates';
+      const badges = badgesForPrint({ verified: true, completedEvents: 57, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2015, awards: [], nowYear: 2026 });
+      const files: Record<string, string> = {};
+      for (const code of DOOR_STICKER_CODES) {
+        for (const size of DOOR_STICKER_SIZES) {
+          const input = { shopName: 'Lumina Studio', url: code === 'dates' ? datesUrl : pageUrl, code, size, badges };
+          files[doorStickerKey(code, size, 'svg')] = `data:image/svg+xml;base64,${Buffer.from(doorStickerSvg(input)).toString('base64')}`;
+          files[doorStickerKey(code, size, 'pdf')] = `data:application/pdf;base64,${Buffer.from(await doorStickerPdf(input)).toString('base64')}`;
+        }
+      }
+      const url = state === 'qr-page' ? pageUrl : datesUrl;
+      const card = { url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' };
+      return (
+        <div className="min-h-screen bg-cream" data-supplier-lab={state}>
+          <QrCodes
+            mode={state === 'qr-page' ? 'page' : 'dates'}
+            place="promote"
+            backHref="/dev/supplier-lab?s=dates"
+            modeOptions={promoteOptions}
+            canShare
+            setupHref="/dev/supplier-lab?s=qr"
+            shortlist={null}
+            booked={null}
+            myPage={state === 'qr-page' ? card : null}
+            checkADate={state === 'qr-dates' ? card : null}
+            doorStickerFiles={files}
+          />
+        </div>
+      );
+    }
     const shortUrl = 'https://www.setnayan.com/vendor-invite/lumina?et=wedding';
     const lockUrl = 'https://www.setnayan.com/vendor/lock/lab-token';
     const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(state === 'qr-issued' ? lockUrl : shortUrl, 220);
@@ -240,6 +303,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
         {state === 'qr' || state === 'qr-fail' ? (
           <QrCodes
             mode="shortlist"
+            place={place}
             backHref="/dev/supplier-lab?s=dates"
             modeOptions={modeOptions}
             canShare
@@ -348,12 +412,41 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
   const venue = state === 'dates-halls';
   const pools = venue ? HALLS : state === 'dates-empty' ? [] : state === 'dates-free' ? [MAIN] : [MAIN, SECOND];
   const shown = new Set(pools.map((p) => p.poolId));
+  const labBookings = venue ? HALL_BOOKINGS : BOOKINGS.filter((b) => shown.has(b.poolId));
+  const labBlocks = venue ? HALL_BLOCKS : state === 'dates-empty' ? [] : BLOCKS.filter((b) => b.poolId === null || shown.has(b.poolId));
+  const labDayStates = state === 'dates' ? [{ dayStateId: 'ds-1', poolId: 'p-second', stateDate: '2026-10-21', dayState: 'locked' as const, note: null }] : [];
+  const labWaitlist = state === 'dates' ? WAITLIST : [];
+  const labAsks = state === 'dates-empty' ? [] : ASKS;
+  const labMonth = venue ? '2026-12' : '2026-10';
+  // The pinned row's first figures — the page's own count (`dates-figures.ts`) over the lab's month.
+  const labFigures = datesFiguresOf(buildCustomerCalendarMonth(pools, labBookings, labBlocks, labDayStates, labWaitlist, labMonth, TODAY, labAsks).days, true);
+  const folds = (
+    <DatesFolds
+      today={TODAY}
+      month="2026-10"
+      open={open ?? null}
+      closures={
+        state === 'dates-empty'
+          ? []
+          : [
+              { blockId: 'blk-1', label: 'Masses', startDate: '2026-09-06', endDate: '2026-09-06', scope: 'every schedule', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
+              { blockId: 'blk-0', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule' },
+            ]
+      }
+      closuresIncomplete={false}
+      waitlist={state === 'dates' ? WAIT_ON : WAIT_FREE}
+      qrHref="/dev/supplier-lab?s=qr"
+      blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
+      actions={ACTIONS}
+    />
+  );
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
       <div className="space-y-4">
         <CustomersPin
           seg="dates"
-          hrefs={{ people: '/dev/supplier-lab?s=people', dates: base, money: '/dev/supplier-lab?s=money' }}
+          hrefs={{ events: '/dev/supplier-lab?s=events', dates: base, money: '/dev/supplier-lab?s=money' }}
+          figures={<CustomersFigures live figures={labFigures} label="This month" />}
           gear={
             <CustomersSettings
               body={
@@ -401,40 +494,23 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
             </p>
           ) : null}
           <CustomersCalendar
-            initialDayStates={state === 'dates' ? [{ dayStateId: 'ds-1', poolId: 'p-second', stateDate: '2026-10-21', dayState: 'locked', note: null }] : []}
-            initialWaitlist={state === 'dates' ? WAITLIST : []}
-            inquiries={state === 'dates-empty' ? [] : ASKS}
-            initialMonth={venue ? '2026-12' : '2026-10'}
+            initialDayStates={labDayStates}
+            initialWaitlist={labWaitlist}
+            inquiries={labAsks}
+            initialMonth={labMonth}
             initialDay={venue ? '2026-12-12' : '2026-10-03'}
             halls={venue}
             todayIso={TODAY}
             pools={pools}
-            bookings={venue ? HALL_BOOKINGS : BOOKINGS.filter((b) => shown.has(b.poolId))}
-            blocks={venue ? HALL_BLOCKS : state === 'dates-empty' ? [] : BLOCKS.filter((b) => b.poolId === null || shown.has(b.poolId))}
+            bookings={labBookings}
+            blocks={labBlocks}
             agents={state === 'dates' ? [{ value: 'tm-marco', label: 'Marco' }] : []}
             agentCategories={{ 'tm-marco': ['styling'] }}
             fetchMonth={null}
             dayActions={{ addManualBlock: ACTIONS_DAY.addManualBlock, removeBlock: ACTIONS_DAY.removeBlock }}
+            after={folds}
           />
         </div>
-        <DatesFolds
-          today={TODAY}
-          month="2026-10"
-          open={open ?? null}
-          closures={
-            state === 'dates-empty'
-              ? []
-              : [
-                  { blockId: 'blk-1', label: 'Masses', startDate: '2026-09-06', endDate: '2026-09-06', scope: 'every schedule', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
-                  { blockId: 'blk-0', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule' },
-                ]
-          }
-          closuresIncomplete={false}
-          waitlist={state === 'dates' ? WAIT_ON : WAIT_FREE}
-          qrHref="/dev/supplier-lab?s=qr"
-          blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
-          actions={ACTIONS}
-        />
       </div>
       <SupplierThumbRow name="dates" label="Date tools">
         {pools.length > 0 ? <CheckADate /> : null}

@@ -37,7 +37,9 @@ test('1 · every failed widget says so, offers Reload, and draws no 0 / ₱0 —
   const html = drawHome({ control: fixtureControlUnread('e1') });
   const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
   const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
-  const failing = HOME_CONTROL_KEYS.filter((k) => k !== 'count');
+  // 🎴 The Countdown is the event card's figure and the plan is the To do list under the card (Home redraw 2026-11-02):
+  // neither is a widget, so the To do list is checked on its own below.
+  const failing = HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan');
   for (const key of failing) {
     const tile = slice(compact, `data-home-tile="${key}"`, HOME_CONTROL_KEYS.map((k) => `data-home-tile="${k}"`).filter((m) => m !== `data-home-tile="${key}"`));
     assert.ok(tile.length > 0, `compact: the ${key} tile is not drawn`);
@@ -54,6 +56,11 @@ test('1 · every failed widget says so, offers Reload, and draws no 0 / ₱0 —
     assert.match(card, /aria-label="Reload"/, `detail: the failed ${key} card offers no Reload`);
     assert.doesNotMatch(figures(card), /(^|\s)0(\s|$)|₱0/, `detail: the failed ${key} card prints a zero`);
   }
+  // ✅ The To do list under the card: said, with ⟳ — never an empty list.
+  const todo = slice(html, 'data-home-todo="unread"', ['data-home-your-event']);
+  assert.ok(todo.length > 0, 'a failed plan read is not said on the To do list');
+  assert.match(text(todo), /couldn.t load/i, 'the failed To do does not say it could not load');
+  assert.match(todo, /data-home-todo-reload=""/, 'the failed To do offers no Reload');
   // …and the Today line names the failure, never "on track".
   assert.doesNotMatch(text(html), /Nothing waits on you|on track/i, 'a failed read reads as calm');
 });
@@ -77,7 +84,8 @@ test('3 · each reader answers "unread" on a refusal, and the page hands it on �
   const reads = read('lib/home-control.server.ts');
   assert.match(reads, /if \(vendorsRes\.error \|\| threadsRes\.error\) \{[\s\S]{0,200}?return 'unread';/, 'Suppliers: a refused read is not "unread"');
   assert.match(reads, /if \(!standings\) return 'unread';/, 'Suppliers: a refused standing read is not "unread"');
-  assert.match(reads, /const raw = await readChecklistItems\(supabase, eventId\)[^;]*;\s*if \(raw === null\) return 'unread';/, 'Checklist: a refused read is not "unread"');
+  // To do (owner 2026-11-01): the one list's reader reports a refused task read in `unread` — Home says so.
+  assert.match(reads, /if \(agenda === null \|\| agenda\.unread\.length > 0\) return 'unread';/, 'To do: a refused read is not "unread"');
   const page = read('app/dashboard/[eventId]/page.tsx');
   assert.match(page, /roster: guestsMeasured \? homeRoster : null,/, 'Guests: an unmeasured read reaches the widget as a count');
   assert.match(page, /money: moneyNow,/);
@@ -93,4 +101,49 @@ test('3 · each reader answers "unread" on a refusal, and the page hands it on �
   for (const r of ['homeSuppliersRead', 'homeChecklistRead', 'homeHubRead']) {
     assert.match(page, new RegExp(`const ${r} = startAhead\\([\\s\\S]*?\\.catch\\(\\(\\): 'unread' => 'unread'\\),\\s*\\);`), `${r}: a throw is not "unread"`);
   }
+});
+
+/**
+ * 4 · 📅 THE SCHEDULE WIDGET (owner 2026-11-01) — a refused read of ANY of its four (blocks · tasks · supplier requests ·
+ * suppliers) is 'unread', and Home then says "Schedule couldn't load" with ⟳ Reload: never "No chapters yet", never a
+ * door that reads 0 ("0 to approve"), never a face to swipe.
+ *
+ * SABOTAGE (seen red, 2026-11-01): drop `tasksRes.error` from the refusal (4 red) · draw the failed Schedule with its
+ * doors (4 red).
+ */
+test('4 · the Schedule widget: a refused read says so — never "No chapters yet", never a door that reads 0', async () => {
+  const { readHomeSchedule } = await import('@/lib/home-schedule.server');
+  const TABLES = ['event_schedule_blocks', 'event_schedule_tasks', 'event_schedule_suggestions', 'event_vendors'] as const;
+  /** A client whose `refuse` table answers `{ error }` (Supabase RESOLVES a refusal) and the rest answer empty. */
+  const client = (refuse: string | null, countNull = false) =>
+    ({
+      from(table: string) {
+        const res = table === refuse ? { data: null, error: { message: 'permission denied', code: '42501' }, count: null } : { data: [], error: null, count: countNull ? null : 0 };
+        const q: Record<string, unknown> = {};
+        for (const m of ['select', 'eq', 'is', 'or', 'order', 'in']) q[m] = () => q;
+        q.then = (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(res).then(ok, bad);
+        return q;
+      },
+    }) as never;
+  for (const t of TABLES) assert.equal(await readHomeSchedule(client(t), 'e1', { show: true, tz: 'Asia/Manila' }), 'unread', `a refused ${t} read is not "unread"`);
+  assert.equal(await readHomeSchedule(client(null, true), 'e1', { show: true, tz: 'Asia/Manila' }), 'unread', 'a request count that did not come back reads as 0');
+  const measured = await readHomeSchedule(client(null), 'e1', { show: true, tz: 'Asia/Manila' });
+  assert.ok(measured && measured !== 'unread' && measured.chapters === 0, 'an answered, empty read is not a measured zero');
+  assert.equal(await readHomeSchedule(client(null), 'e1', { show: false, tz: null }), null, 'a viewer who does not plan gets a widget');
+
+  const html = drawHome({ control: fixtureControl('e1', { schedule: 'unread' }) });
+  for (const [where, part] of [
+    ['phone', slice(slice(html, 'data-home-control="compact"', ['data-home-control="detail"']), 'data-home-tile="sched"', ['data-home-glance'])],
+    ['md', slice(slice(html, 'data-home-control="detail"', ['data-home-services']), 'data-home-tile="sched"', ['data-home-card-key="hub"'])],
+  ] as const) {
+    assert.ok(part.length > 0, `${where}: the failed Schedule is not drawn`);
+    assert.match(text(part), /Schedule couldn.t load/, `${where}: the failed Schedule does not say so`);
+    assert.match(part, /aria-label="Reload"/, `${where}: the failed Schedule offers no Reload`);
+    assert.doesNotMatch(text(part), /No chapters yet/, `${where}: a refused read reads as an empty schedule`);
+    assert.doesNotMatch(part, /data-home-sched-door/, `${where}: the failed Schedule draws its doors`);
+    assert.doesNotMatch(figures(part), /(^|\s)0(\s|$)/, `${where}: the failed Schedule prints a zero`);
+    assert.equal(count(part, 'data-hc-dot'), 0, `${where}: the failed Schedule has faces to swipe`);
+  }
+  const page = read('app/dashboard/[eventId]/page.tsx');
+  assert.match(page, /const homeScheduleRead = startAhead\([\s\S]*?\.catch\(\(\): 'unread' => 'unread'\),\s*\);/, 'homeScheduleRead: a throw is not "unread"');
 });

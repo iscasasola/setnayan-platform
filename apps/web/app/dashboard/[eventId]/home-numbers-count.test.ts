@@ -34,7 +34,8 @@ test('every numeric face, and the cards’ money, render through Count — each 
   assert.equal(value('home-paid'), '₱120,450');
   assert.equal(value('home-owing'), '₱44,550');
   assert.equal(value('home-paid-pct'), '73%');
-  assert.equal(value('home-pay-li-1'), '₱8,000', 'a payment face');
+  // 🎴 The late ₱8,000 is Now's (Home redraw 2026-11-02, "Now never repeats below") — the next payment face counts.
+  assert.equal(value('home-pay-li-2'), '₱22,275', 'a payment face');
   // Every face that HAS a number counts it; the words-only faces ("Couldn't load", "Invitation") do not.
   const { tiles } = homeControlTiles(fixtureControl('e1'));
   for (const t of tiles) for (const f of t.faces) {

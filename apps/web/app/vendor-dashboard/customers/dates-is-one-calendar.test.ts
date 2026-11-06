@@ -341,7 +341,14 @@ test('7 · the Counter (kind 17): 44-px signs, the minus greys at the lowest, it
 test('8 · the shop’s codes are ONE page — one dropdown, the QR card (Share before Download, dark on white), the ledger inside', async () => {
   const page = code(join(VD, 'invite', 'page.tsx'));
   const view = code(join(VD, 'invite', '_components', 'qr-codes.tsx'));
-  assert.match(page, /\{ key: 'shortlist', label: 'Shortlist · free'[\s\S]{0,120}\{ key: 'locked', label: 'Booked · one-use'/);
+  // The dropdown's list lives in one place since 2026-11-01 (Check a date · My page · Crew joined it) — the two live
+  // codes still lead it.
+  // 📣 Two homes since 2026-11-05 (owner: the marketing codes belong in Shop › Promote) — each builds ITS dropdown from
+  // its slice of the one list; the shared view draws both.
+  assert.match(page, /CUSTOMERS_QR_MODES\.map\(/);
+  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /PROMOTE_QR_MODES\.map\(/);
+  assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /\['shortlist', 'locked',[^\]]*\]/);
+  assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /shortlist: 'Shortlist · free',\s*locked: 'Booked · one-use'/);
   assert.match(view, /<CustomersPick label="Which code"/, 'the two codes are not ONE dropdown');
   assert.doesNotMatch(view + page, /<PillTrack|role="tablist"/, 'the QR type is a pill track again');
   assert.match(code(join(VD, 'locked-qr', 'page.tsx')), /redirect\('\/vendor-dashboard\/invite\?mode=locked&ledger=1#issued'\)/, '/locked-qr does not land on the Issued fold');

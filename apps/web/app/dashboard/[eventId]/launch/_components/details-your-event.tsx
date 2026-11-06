@@ -6,6 +6,8 @@ import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import type { ScheduleMatrix } from '@/lib/schedule-matrix';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { updateEventDate } from '../../actions';
+import { savedDateNote } from '@/lib/suppliers-fact-sheets';
 import { AddressPinField } from '../../_components/address-pin-field';
 import type { LatLng } from '@/app/vendor-dashboard/_components/branch-pin-map';
 import { CityPick, nearestCity } from './details-city-pick';
@@ -36,6 +38,7 @@ import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { coupleNameColumns, nameOrderOf } from '@/lib/typed-names';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { DateClashNote } from './details-date-clash';
+import { TIME_TBA } from '@/lib/time-tba';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,
@@ -54,10 +57,13 @@ import { DateClashNote } from './details-date-clash';
  *     birth-data section is live the page still mounts the shipped form whole
  *     (`maker-details.tsx`).
  *   · Date   → `GovernedFields` (only its date row): the booked-supplier
- *     conflict preview, then the DRAFT (`saveDate`) — Apply asks
- *     `updateEventDate`'s own gates (`eventDateRefusal`) when it goes live.
+ *     conflict preview, then THE EVENT, at once — the event's one date door
+ *     (`updateEventDate`: the floor, the clash refusal at the pick, the booked
+ *     suppliers' clearance). Owner 2026-11-05, verbatim *"it shouldn't rely on
+ *     the hub."* — the date is a fact of the event, never a draft, so Home,
+ *     the suppliers and the published Event Hub read it with no Apply.
  *     "Help me choose" is the shipped Find your date, opened in place; "Use
- *     <day>" hands the day to that row. A month is drafted the same way.
+ *     <day>" saves that day. A month saves the same way.
  *   · Venues → the DRAFT too (owner 2026-10-04, design "venues get a pin and
  *     a picked city"): the typed venue names, street addresses and map pins
  *     the Event Hub, the prints and the Save-the-Date read
@@ -68,8 +74,8 @@ import { DateClashNote } from './details-date-clash';
  *   · Ceremony time → the DRAFT (`ceremony_time`): at Apply it creates or
  *     moves the Schedule's Ceremony block — the one the invitation prints.
  *
- * Everything here waits for Apply (guests, Home and suppliers read the live
- * row until then). Opening an item never writes.
+ * Everything here but the date waits for Apply (guests, Home and suppliers
+ * read the live row until then). Opening an item never writes.
  */
 
 /**
@@ -81,22 +87,21 @@ import { DateClashNote } from './details-date-clash';
  */
 const AUTO_DRAFT_MS = 900;
 
+/** 🗓 The date's save brings its own render (`updateEventDate` revalidates) — `makerSave` is asked for no second one. */
+const NO_SECOND_RENDER = () => {};
+
 /**
- * ✍ A typed name or date → the Event Hub DRAFT, through the one draft door
+ * ✍ A typed name (never the date) → the Event Hub DRAFT, through the one draft door
  * (`hubDraftAction` intent=save — the same door `who-can-reply-ask.tsx` and
  * every Maker pick use). The Maker then draws once with the draft laid on.
  * Resolves null when saved, else the reason in words.
  */
-async function draftFactsFull(eventId: string, events: Record<string, unknown>): Promise<{ error: string; clash?: DateClash[] } | null> {
+async function draftFacts(eventId: string, events: Record<string, unknown>): Promise<string | null> {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ events }));
   const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
-  if (r.ok) return null;
-  return { error: r.error || 'That did not save. Nothing changed — please try again.', ...('clash' in r && r.clash ? { clash: r.clash } : {}) };
-}
-async function draftFacts(eventId: string, events: Record<string, unknown>): Promise<string | null> {
-  return (await draftFactsFull(eventId, events))?.error ?? null;
+  return r.ok ? null : r.error || 'That did not save. Nothing changed — please try again.';
 }
 
 // ── NAMES ─────────────────────────────────────────────────────────────────────
@@ -321,11 +326,14 @@ export function DateEditor({
   nudge = null,
   helpFirst = false,
   ceremonyTime = null,
+  ceremonyTba = false,
 }: {
   eventId: string;
   governed: GovernedDate;
   /** 🕒 The Ceremony block's start, `HH:MM` on the venue's wall clock — as drafted, else live (null = none yet). */
   ceremonyTime?: string | null;
+  /** ⏰ The live ceremony's time is TBA — the box says "Time TBA" and stays empty. */
+  ceremonyTba?: boolean;
   /** Open on "Help me choose" — where the old /find-date lands. */
   helpFirst?: boolean;
   /** The shipped Find your date's matrix, still loading — read only when "Help me choose" opens. */
@@ -339,46 +347,49 @@ export function DateEditor({
   const [proposal, setProposal] = useState<{ field: 'date'; value: string; n: number } | null>(null);
   const [monthError, setMonthError] = useState<string | null>(null);
   /* 🗓 A day or month a BOOKED supplier cannot do is refused at the pick — it
-     never reaches the draft — and the supplier is named with one way to ask
-     them (owner 2026-10-01). `note` is a pick that was kept. */
+     is never saved — and the supplier is named with one way to ask them (owner
+     2026-10-01). `note` is a pick that was saved. */
   const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[]; pick: { date: string; precision: string } } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   /**
-   * A date to the draft. Null when saved; else the reason in words — and when a
-   * booked supplier clashes, `clashed` is true and the supplier note below says
-   * it (with who and where to ask), so a caller does not say it twice.
+   * A date to THE EVENT, at once (`updateEventDate` — owner 2026-11-05). Null
+   * when saved; else the reason in words — and when a booked supplier clashes,
+   * `clashed` is true and the supplier note below says it (with who and where to
+   * ask), so a caller does not say it twice. It rides `makerSave` (the Maker's
+   * count of saves in flight and its canvas hold) with NO refresh of its own:
+   * the action already draws the Maker again once (it revalidates).
    */
-  const draftDate = async (events: Record<string, unknown>): Promise<{ error: string; clashed: boolean } | null> => {
+  const saveDate = async (date: string, precision: 'day' | 'month'): Promise<{ error: string; clashed: boolean } | null> => {
     setClash(null);
     setNote(null);
-    const refused = await draftFactsFull(eventId, events);
-    if (!refused) return null;
-    if (refused.clash?.length) {
-      setClash({
-        reason: refused.error,
-        list: refused.clash,
-        pick: { date: String(events.event_date ?? ''), precision: String(events.event_date_precision ?? 'day') },
-      });
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('event_date', date);
+    fd.set('precision', precision);
+    const r = await makerSave(() => updateEventDate(fd), NO_SECOND_RENDER);
+    if (r.ok) {
+      setNote(r.note ?? savedDateNote(governed.confirmedVendorCount));
+      return null;
     }
-    return { error: refused.error, clashed: Boolean(refused.clash?.length) };
+    if (r.clash?.length) setClash({ reason: r.error, list: r.clash, pick: { date, precision } });
+    return { error: r.error, clashed: Boolean(r.clash?.length) };
   };
 
   const pickDay = (dateKey: string) => {
     setClash(null);
     setNote(null);
     setMonthError(null);
-    // Booked suppliers hold the date row (read-only): the pick goes to the draft
-    // itself, where a clash is refused with its reason — never silently dropped.
+    // Booked suppliers hold the date row (read-only): the pick saves itself,
+    // where a clash is refused with its reason — never silently dropped.
     if (governed.confirmedVendorCount > 0) {
       start(async () => {
         try {
-          const refused = await draftDate({ event_date: dateKey, event_date_precision: 'day' });
           // Q8 (owner 2026-10-02): a day every booked supplier can do goes live at
-          // Apply, and each of them is told "The date moved to <date>".
-          if (!refused) setNote('Saved to your draft — your booked suppliers can do this day. They are told when you Apply.');
-          else if (!refused.clashed) setMonthError(refused.error);
+          // once, and each of them is told "The date moved to <date>".
+          const refused = await saveDate(dateKey, 'day');
+          if (refused && !refused.clashed) setMonthError(refused.error);
         } catch {
           setMonthError('That day did not save. Please try again.');
         }
@@ -393,21 +404,21 @@ export function DateEditor({
     setMonthError(null);
     start(async () => {
       try {
-        // Drafted — a month a booked supplier cannot do is refused here, with the
-        // reason; Apply asks the date's other gates (a past month, a held date).
-        const refused = await draftDate({ event_date: `${m}-01`, event_date_precision: 'month' });
+        // Saved — a month a booked supplier cannot do (or one gone by, or before
+        // the first event day) is refused here, with the reason.
+        const refused = await saveDate(`${m}-01`, 'month');
         if (refused && !refused.clashed) setMonthError(refused.error);
       } catch {
         setMonthError('That month did not save. Please try again.');
       }
     });
   };
-  /** The governed row's day → the draft (after its booked-supplier preview). */
+  /** The governed row's day → the event (after its booked-supplier preview). */
   /* 📵 Handed to the governed row, which awaits it inside its own transition: a save that never answered (no signal,
      a 5xx) comes back as a reason in words, never a throw — a throw there replaced the whole Maker. */
   const saveDay = async (value: string) => {
     try {
-      return (await draftDate({ event_date: value, event_date_precision: 'day' }))?.error ?? null;
+      return (await saveDate(value, 'day'))?.error ?? null;
     } catch {
       return 'That day did not save. Please try again.';
     }
@@ -446,7 +457,7 @@ export function DateEditor({
           embedded
           saveDate={saveDay}
         />
-        <CeremonyTimeEditor eventId={eventId} initial={ceremonyTime} hasDay={Boolean(governed.dateValue)} />
+        <CeremonyTimeEditor eventId={eventId} initial={ceremonyTime} tba={ceremonyTba} hasDay={Boolean(governed.dateValue)} />
         </>
       ) : (
         <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>
@@ -473,7 +484,7 @@ export function DateEditor({
  * block is made on the day if there is none, else its time moves. Ceremony
  * only — the reception's time stays in the Schedule (owner, answer 3).
  */
-function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; initial: string | null; hasDay: boolean }) {
+function CeremonyTimeEditor({ eventId, initial, tba = false, hasDay }: { eventId: string; initial: string | null; tba?: boolean; hasDay: boolean }) {
   const [time, setTime] = useState(initial ?? '');
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -493,7 +504,12 @@ function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; ini
   return (
     <section data-details-ceremony-time="" className="flex flex-col gap-2">
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs font-medium text-ink/70">Ceremony time</span>
+        <span className="text-xs font-medium text-ink/70">
+          Ceremony time
+          {/* ⏰ TIME TBA (follow-up to #7158): the Schedule has no time yet. The box stays empty — never its
+              placeholder 00:00 — and nothing is saved until a time is typed, which clears the TBA at Apply. */}
+          {tba && !time ? <span data-ceremony-time-tba="" className="font-normal text-ink/60"> · {TIME_TBA}</span> : null}
+        </span>
         <input
           type="time"
           value={time}

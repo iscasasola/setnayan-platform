@@ -19,6 +19,15 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
  * The box is 3 : 4 before a byte arrives (width/height attributes + aspect), so
  * the page does not jump when the picture lands.
  */
+/**
+ * ⬛ THE SHADOW GETS ITS OWN LAYER, OR SAFARI PAINTS A BLACK SQUARE AT THE TOP-LEFT OF THE PAGE (walk 2026-11-01,
+ * Event Hub › Me at 390). WebKit draws a CSS `filter: drop-shadow` on this picture while it sits BELOW the fold as a
+ * solid black tile at the page's origin — measured on /dev/me-lab: the square came and went with the second ticket's
+ * filter alone, and the on-screen ticket's filter never drew it. Promoting the picture to its own compositing layer
+ * (`translateZ(0)`) keeps the shadow and loses the square. Pinned by `ticket-shadow-has-its-own-layer.test.ts`.
+ */
+export const TICKET_SHADOW_LAYER = '[transform:translateZ(0)]';
+
 export function TicketPicture({
   src,
   alt,
@@ -50,7 +59,7 @@ export function TicketPicture({
       data-ticket-picture={state}
       onLoad={() => setState('shown')}
       onError={() => setState('failed')}
-      className={`mx-auto block aspect-[3/4] h-auto w-[min(300px,100%)] drop-shadow-md ${
+      className={`mx-auto block aspect-[3/4] h-auto w-[min(300px,100%)] drop-shadow-md ${TICKET_SHADOW_LAYER} ${
         state === 'loading' ? 'motion-safe:animate-pulse rounded-2xl bg-ink/[0.06]' : ''
       }`}
     />

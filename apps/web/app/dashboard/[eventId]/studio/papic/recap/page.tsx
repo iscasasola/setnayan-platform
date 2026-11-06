@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -119,11 +120,16 @@ export default async function CoupleRecapPage({
       {/* What's in your recap */}
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="text-base font-semibold text-ink">What&rsquo;s in your recap</h2>
-        <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
-          <Stat n={summary.privatePhotos} label="photos" />
-          <Stat n={summary.approvedKwentos} label="messages" />
-          <Stat n={summary.guests ?? 0} label="guests" />
-        </dl>
+        {summary.unreadable ? (
+          /* 🔌 A refused count is never "0 photos" (reads-are-honest, 2026-11-02 audit #18). */
+          <ReadRefusedNotice what="what is in your recap" className="mt-3" />
+        ) : (
+          <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
+            <Stat n={summary.privatePhotos} label="photos" />
+            <Stat n={summary.approvedKwentos} label="messages" />
+            <Stat n={summary.guests ?? 0} label="guests" />
+          </dl>
+        )}
       </section>
 
       {/* Publish state */}

@@ -41,10 +41,37 @@
  *                  are the concierge-flavored derived planning dates. Same
  *                  thresholds as lib/upcoming-items.ts PAPERWORK_DEADLINES.
  *
+ *  5. Task       · event_checklist_items — the old Checklist's template tasks
+ *                  (owner 2026-11-01, "CHECKLIST MERGES INTO PLANNING STAGE").
+ *                  Each carries a real date: the host's own (`due_date_set`)
+ *                  or the template's (event date − offset, runway-compressed).
+ *                  They keep auto-ticking (checklist-actions
+ *                  `ensureChecklistSeeded`) and the host can tick them.
+ *  6. Manual     · event_preparation_items — hand-added rows, now with a done
+ *                  tick (`completed_at`).
+ *
+ * 🔑 ONE LIST. This module is the ONLY reader of the plan's tasks: Planning
+ * Stage, its "To do" filter (the old /checklist address forwards there), Home's
+ * To do tile and the events board's "% planned · N overdue" all read
+ * `fetchPreparationAgenda` and count with `planningProgress`. Held by
+ * `lib/the-plan-is-one-list.test.ts`.
+ *
+ * 🔁 A task and an autofill row that are the same work show ONCE
+ * (`lib/planning-twins.ts`, folded in `foldTwins`). A fold never moves or
+ * removes a task, so the To do filter is the same with or without the
+ * autofill — which is why `only: 'todo'` may skip the autofill reads.
+ *
  * ── Deliberately NOT wired (documented gaps) ────────────────────────────
- *  • Manual prep items — would require a NEW table (user-authored agenda
- *    rows). DEFERRED to a documented fast-follow per the live-app additive
- *    constraint. This module is read-only aggregation only.
+ *  • Chapters dated before the day (Step 2, PR #7143 — not on main when the
+ *    merge shipped). A chapter is an `event_schedule_blocks` top-level row; one
+ *    dated before the event day belongs in this list. THE SEAM: add a
+ *    `fetchPreDayChapterItems` source beside the others in
+ *    `fetchPreparationAgenda` (a new `PreparationSource`, its rows dated by the
+ *    block's start), never a second list.
+ *  • Meet-up — one of the plan's six kinds (Task · Meeting · Payment · Site
+ *    visit · Document · Meet-up). Site visits come from appointments and
+ *    documents from paperwork; Meet-up has no meaning in code or corpus yet, so
+ *    it is not invented here (a hand-added Meeting covers it until ruled).
  *  • Orders due dates — the `orders` table has NO due-date column (only
  *    created_at / paid_at / reviewed_at / expires_at). `expires_at` is a
  *    subscription-renewal date, surfaced on Home + Orders already; it is
@@ -56,7 +83,20 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { CONFIRMED_VENDOR_STATUSES } from './events';
 import { completeByDate, DOCUMENT_META, type PaperworkDocumentType } from './paperwork';
+import {
+  CHECKLIST_CATEGORY_LABELS,
+  checklistAnchorDateFor,
+  checklistItemAllowedForProfile,
+  checklistItemHref,
+  checklistRunwayFor,
+  dueDateForItem,
+  readChecklistItems,
+  type ChecklistItemRow,
+} from './checklist';
+import { checklistTaskAnchor } from './checklist-anchor';
+import { foldsIntoDoneTask, twinTaskKey, type PlanningTwinSignal } from './planning-twins';
 import {
   resolveAppointmentLabel,
   APPOINTMENT_KIND_LABEL,
@@ -76,6 +116,7 @@ import {
  * via `sourceLabel` ("Added by you" vs "From {vendor}").
  */
 export type PreparationSource =
+  | 'task'
   | 'payment'
   | 'paperwork'
   | 'meeting'
@@ -83,6 +124,7 @@ export type PreparationSource =
   | 'manual';
 
 export const PREPARATION_SOURCE_LABEL: Record<PreparationSource, string> = {
+  task: 'To do',
   payment: 'Payment',
   paperwork: 'Paperwork',
   meeting: 'Meeting',
@@ -112,10 +154,13 @@ export type PreparationItem = {
    * 'task' → the plain manual style). Undefined on autofill rows.
    */
   kind?: PreparationItemKind;
-  /** The date this item is anchored to (a due date, deadline, or start). */
-  date: Date;
-  /** Whole-day diff between `now` and `date` (negative = overdue/past). */
-  daysFromNow: number;
+  /**
+   * The date this item is anchored to (a due date, deadline, or start). NULL only on a TASK with no date yet (the event
+   * has no date to count back from and the host has not set one) — those sort last, under "No date yet".
+   */
+  date: Date | null;
+  /** Whole-day diff between `now` and `date` (negative = overdue/past). NULL when `date` is. */
+  daysFromNow: number | null;
   /** Headline copy — short, no jargon. */
   title: string;
   /** Supporting context — vendor name, document helper, etc. */
@@ -141,7 +186,40 @@ export type PreparationItem = {
   isManual?: boolean;
   /** The `event_preparation_items.item_id` — present iff `isManual`. */
   itemId?: string;
+  /**
+   * ✅ Tickable rows only (a task, a hand-added row): ticked done. Undefined on autofill rows — their "done" is the
+   * fact on their own surface (paid, received), and a done fact drops the row.
+   */
+  done?: boolean;
+  /** Task rows: the `event_checklist_items.item_id`. */
+  taskItemId?: string;
+  /** Task rows: the template key (null for a host-added custom task). */
+  templateKey?: string | null;
+  /** Task rows: the date as yyyy-mm-dd (what the date sheet edits) — null when undated. */
+  dateIso?: string | null;
+  /** Task rows: the template's own date (event date − offset), what "Back to the plan's date" restores. */
+  planDateIso?: string | null;
+  /** Task rows: the host moved this task (`due_date_set` is set). */
+  dateSet?: boolean;
+  /** Task rows: a task for after the day (a negative offset) — its date is not capped at the event day. */
+  afterDay?: boolean;
+  /** Autofill rows: what the row says about itself, for the one-row-per-piece-of-work fold (`lib/planning-twins.ts`). */
+  twin?: PlanningTwinSignal;
+  /** Task rows: the autofill rows folded into this one (the same work, shown once). */
+  folded?: Array<Pick<PreparationItem, 'id' | 'source' | 'title' | 'subtitle' | 'date' | 'amountPhp' | 'href'>>;
 };
+
+/** A row the host ticks — a task or a hand-added row. THE "To do" filter, and everything counted off it. */
+export function isTodoItem(item: Pick<PreparationItem, 'source'>): boolean {
+  return item.source === 'task' || item.source === 'manual';
+}
+
+/** The id a tickable row is addressed by (`#task-<id>`): the checklist item id, or the hand-added row's id. */
+export function planningRowId(item: Pick<PreparationItem, 'taskItemId' | 'itemId'>): string | null {
+  return item.taskItemId ?? item.itemId ?? null;
+}
+
+export { planningTodoHref } from './checklist-anchor';
 
 export type PreparationGroup = {
   /** YYYY-MM key for stable sort. */
@@ -158,6 +236,11 @@ export type PreparationAgenda = {
   groups: PreparationGroup[];
   /** Per-source counts — surfaced in the page header + PR/debug logs. */
   sourceCounts: Record<PreparationSource, number>;
+  /**
+   * 🛑 Sources whose read was REFUSED: the tickable sources ('task', 'manual') and the payment steps ('payment') — they are counted
+   * (Home, the events board), and a refused read must say so, never count as "nothing to do".
+   */
+  unread: PreparationSource[];
 };
 
 // ----------------------------------------------------------------------------
@@ -180,6 +263,9 @@ type EventVendorPaymentRow = {
 type EventVendorNameRow = {
   vendor_id: string;
   vendor_name: string;
+  category?: string | null;
+  status?: string | null;
+  archived_at?: string | null;
 };
 
 type PaperworkSourceRow = {
@@ -199,6 +285,8 @@ type PreparationItemRow = {
   // `select('*')` (columns absent) still type-checks; we coalesce below.
   kind?: string | null;
   amount_php?: string | number | null;
+  // Added by 20271300250517 (the merge): the done tick.
+  completed_at?: string | null;
 };
 
 // ----------------------------------------------------------------------------
@@ -240,7 +328,9 @@ async function fetchPaymentItems(
   supabase: SupabaseClient,
   eventId: string,
   now: Date,
-): Promise<PreparationItem[]> {
+): Promise<PreparationItem[] | null> {
+  // 🔌 HONEST (reads-are-honest, 2026-11-02 audit #17): `null` = refused. A refused PAYMENTS read used to count as
+  // "nothing paid", so a paid milestone came back as owed or overdue — money invented on the plan.
   const [lineItemsRes, paymentsRes] = await Promise.all([
     supabase
       .from('event_vendor_line_items')
@@ -256,7 +346,11 @@ async function fetchPaymentItems(
   if (lineItemsRes.error) {
     if (isMissingRelation(lineItemsRes.error)) return [];
     console.error('[preparation] payment line items:', lineItemsRes.error.message);
-    return [];
+    return null;
+  }
+  if (paymentsRes.error && !isMissingRelation(paymentsRes.error)) {
+    console.error('[preparation] payments:', paymentsRes.error.message);
+    return null;
   }
   const lineItems = (lineItemsRes.data ?? []) as VendorLineItemRow[];
   if (lineItems.length === 0) return [];
@@ -271,17 +365,40 @@ async function fetchPaymentItems(
 
   // Batched vendor-name lookup; RLS already scopes event_vendors to the host.
   const vendorIds = Array.from(new Set(lineItems.map((r) => r.vendor_id)));
-  const { data: vendors } = await supabase
+  const { data: vendors, error: vendorsError } = await supabase
     .from('event_vendors')
-    .select('vendor_id, vendor_name')
+    .select('vendor_id, vendor_name, category, status, archived_at')
     .in('vendor_id', vendorIds);
+  if (vendorsError) {
+    console.error('[preparation] payment suppliers:', vendorsError.message);
+    return null;
+  }
+  // Only a REAL booking owes money on the plan — a milestone of a shortlisted or archived supplier is not owed.
+  const booked = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
+  const owingVendor = new Set(
+    ((vendors as EventVendorNameRow[]) ?? [])
+      .filter((v) => booked.has(v.status ?? '') && !v.archived_at)
+      .map((v) => v.vendor_id),
+  );
   const vendorName = new Map<string, string>(
     ((vendors as EventVendorNameRow[]) ?? []).map((v) => [v.vendor_id, v.vendor_name]),
   );
+  const vendorCategory = new Map<string, string | null>(
+    ((vendors as EventVendorNameRow[]) ?? []).map((v) => [v.vendor_id, v.category ?? null]),
+  );
+  // Each supplier's FIRST still-owed line (its earliest due) — the one a booking task stands for (planning-twins).
+  const firstLineOf = new Map<string, { id: string; due: string }>();
+  for (const row of lineItems) {
+    if (!row.due_date || !owingVendor.has(row.vendor_id)) continue;
+    const amt = toPhp(row.amount_php);
+    if (amt > 0 && (paidByLine.get(row.line_item_id) ?? 0) >= amt) continue;
+    const cur = firstLineOf.get(row.vendor_id);
+    if (!cur || row.due_date < cur.due) firstLineOf.set(row.vendor_id, { id: row.line_item_id, due: row.due_date });
+  }
 
   const items: PreparationItem[] = [];
   for (const row of lineItems) {
-    if (!row.due_date) continue;
+    if (!row.due_date || !owingVendor.has(row.vendor_id)) continue;
     const amountPhp = toPhp(row.amount_php);
     const paid = paidByLine.get(row.line_item_id) ?? 0;
     if (amountPhp > 0 && paid >= amountPhp) continue; // fully paid → skip
@@ -298,6 +415,11 @@ async function fetchPaymentItems(
       subtitle: row.label,
       amountPhp,
       href: `/dashboard/${eventId}/budget`,
+      twin: {
+        kind: 'payment',
+        category: vendorCategory.get(row.vendor_id) ?? null,
+        firstLine: firstLineOf.get(row.vendor_id)?.id === row.line_item_id,
+      },
     });
   }
   return items;
@@ -344,6 +466,7 @@ async function fetchPaperworkItems(
       title: `Complete ${meta.label}`,
       subtitle: meta.processingHint,
       href: `/dashboard/${eventId}/paperwork`,
+      twin: { kind: 'paperwork', documentType: row.document_type },
     });
   }
   return items;
@@ -428,7 +551,7 @@ async function fetchAppointmentItems(
     const title = resolveAppointmentLabel(row, {});
     const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
     const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
-    const where = row.location ? ` · ${row.location}` : ` with ${vendor?.name ?? 'your supplier'}`;
+    const where = row.kind === 'in_person' && row.location ? ` · ${row.location}` : ` with ${vendor?.name ?? 'your supplier'}`;
     return {
       id: `appointment:${row.appointment_id}`,
       source: 'meeting' as const,
@@ -439,6 +562,7 @@ async function fetchAppointmentItems(
       href: vendor
         ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace`
         : `/dashboard/${eventId}/vendors`,
+      twin: { kind: 'meeting' as const, appointmentType: row.type },
     };
   });
 }
@@ -503,6 +627,7 @@ function buildStatutoryMilestones(
       title: m.title,
       subtitle: m.subtitle,
       href: `/dashboard/${eventId}/paperwork`,
+      twin: { kind: 'milestone' as const, key: m.key },
     };
   });
 }
@@ -527,7 +652,7 @@ async function fetchManualItems(
   supabase: SupabaseClient,
   eventId: string,
   now: Date,
-): Promise<PreparationItem[]> {
+): Promise<PreparationItem[] | null> {
   // SELECT * (not an explicit column list) so the new `kind` / `amount_php`
   // columns don't error on a pre-migration deploy where they don't exist yet
   // — we read them defensively below (kind ?? 'task', amount ?? null).
@@ -540,10 +665,12 @@ async function fetchManualItems(
     // Missing table on a pre-migration deploy → autofill-only. Any other
     // error (RLS edge, transient) also degrades to [] rather than throwing
     // the whole agenda; we log non-missing errors for diagnosis.
-    if (!isMissingRelation(error)) {
-      console.error('[preparation] manual items:', error.message);
-    }
-    return [];
+    // 🛑 Since the merge these rows carry a done tick and are COUNTED (Home, the events board): a refused read is
+    // `null` — "couldn't load" — never an empty list that reads as "nothing to do". A missing table (a stale deploy)
+    // is still genuinely none.
+    if (isMissingRelation(error)) return [];
+    console.error('[preparation] manual items:', error.message);
+    return null;
   }
   const rows = (data ?? []) as PreparationItemRow[];
   if (rows.length === 0) return [];
@@ -614,9 +741,187 @@ async function fetchManualItems(
       sourceLabel,
       isManual: true,
       itemId: row.item_id,
+      done: row.completed_at != null,
     });
   }
   return items;
+}
+
+// ----------------------------------------------------------------------------
+// Source 6 — the old Checklist's tasks (event_checklist_items), owner 2026-11-01
+//
+// The rows the Checklist page used to list, through the ONE reader of them
+// (`readChecklistItems`, honest: null = refused), the same profile gate
+// (`checklistItemAllowedForProfile`), the same deadline anchor
+// (`checklistAnchorDateFor`) and the same runway compression
+// (`checklistRunwayFor`) — so a task lands on the day it always did, unless the
+// host moved it (`due_date_set`).
+// ----------------------------------------------------------------------------
+
+/** The event's date fields a task's template date is counted back from. */
+export type PlanningTaskEvent = {
+  event_type: string | null;
+  event_date: string | null;
+  date_candidates?: string[] | null;
+  date_window_start?: string | null;
+  created_at?: string | null;
+};
+
+/** The profile slice the task gate reads (`checklistItemAllowedForProfile`). */
+export type PlanningProfile = Parameters<typeof checklistItemAllowedForProfile>[2];
+
+/** Pure: checklist rows → Planning Stage task rows. Exported for the labs and the guards. */
+export function taskItemsFrom(
+  rawRows: ReadonlyArray<ChecklistItemRow>,
+  opts: { eventId: string; event: PlanningTaskEvent; profile?: PlanningProfile | null; now: Date },
+): PreparationItem[] {
+  const rows = opts.profile
+    ? rawRows.filter((r) => checklistItemAllowedForProfile(r.category, r.template_key, opts.profile!))
+    : [...rawRows];
+  const anchor = checklistAnchorDateFor({
+    event_type: opts.event.event_type,
+    event_date: opts.event.event_date,
+    date_candidates: opts.event.date_candidates ?? null,
+    date_window_start: opts.event.date_window_start ?? null,
+  });
+  // Measured over ALL rows (as the Checklist did): the span is a property of the plan, not of what is left open.
+  const runway = checklistRunwayFor(rows, anchor, opts.event.created_at ?? null);
+  return rows.map((r) => {
+    const planDateIso = dueDateForItem(anchor, r.due_offset_days, runway);
+    const set = typeof r.due_date_set === 'string' && /^\d{4}-\d{2}-\d{2}/.test(r.due_date_set) ? r.due_date_set.slice(0, 10) : null;
+    const dateIso = set ?? planDateIso;
+    const date = dateIso ? new Date(`${dateIso}T12:00:00`) : null;
+    const category = CHECKLIST_CATEGORY_LABELS[r.category] ?? 'To do';
+    return {
+      id: `task:${r.item_id}`,
+      source: 'task' as const,
+      date: date && !Number.isNaN(date.getTime()) ? date : null,
+      daysFromNow: date && !Number.isNaN(date.getTime()) ? daysBetween(date, opts.now) : null,
+      title: r.title,
+      subtitle: category,
+      sourceLabel: category,
+      href: checklistItemHref(opts.eventId, r.template_key, r.category) ?? undefined,
+      done: r.status === 'done',
+      taskItemId: r.item_id,
+      templateKey: r.template_key,
+      dateIso,
+      planDateIso,
+      dateSet: set !== null,
+      afterDay: (r.due_offset_days ?? 0) < 0,
+    };
+  });
+}
+
+async function fetchTaskItems(
+  supabase: SupabaseClient,
+  eventId: string,
+  event: PlanningTaskEvent,
+  profile: PlanningProfile | null | undefined,
+  now: Date,
+): Promise<PreparationItem[] | null> {
+  const raw = await readChecklistItems(supabase, eventId).catch(() => null);
+  if (raw === null) return null;
+  return taskItemsFrom(raw, { eventId, event, profile, now });
+}
+
+// ----------------------------------------------------------------------------
+// One piece of work shows once — the fold (lib/planning-twins.ts)
+// ----------------------------------------------------------------------------
+
+function shortDate(d: Date | null): string | null {
+  if (!d) return null;
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d);
+}
+
+/**
+ * Pure: fold every autofill row that is the same work as a task INTO that task. The task stays (its tick, its date);
+ * the twin leaves the list and its fact rides on the task's second line, its link becomes the task's link.
+ * Never adds, removes or re-dates a task — see `lib/planning-twins.ts` for why that matters.
+ */
+export function foldTwins(items: ReadonlyArray<PreparationItem>): PreparationItem[] {
+  const taskByKey = new Map<string, PreparationItem>();
+  for (const it of items) {
+    if (it.source === 'task' && it.templateKey && !taskByKey.has(it.templateKey)) taskByKey.set(it.templateKey, { ...it });
+  }
+  if (taskByKey.size === 0) return [...items];
+  const absorbed = new Set<string>();
+  for (const it of items) {
+    if (it.source === 'task' || !it.twin) continue;
+    const key = twinTaskKey(it.twin);
+    const task = key ? taskByKey.get(key) : undefined;
+    if (!task) continue;
+    if (task.done && !foldsIntoDoneTask(it.twin)) continue;
+    task.folded = [
+      ...(task.folded ?? []),
+      { id: it.id, source: it.source, title: it.title, subtitle: it.subtitle, date: it.date, amountPhp: it.amountPhp, href: it.href },
+    ];
+    absorbed.add(it.id);
+  }
+  return items
+    .filter((it) => !absorbed.has(it.id))
+    .map((it) => {
+      if (it.source !== 'task' || !it.templateKey) return it;
+      const t = taskByKey.get(it.templateKey);
+      if (!t || t.id !== it.id || !t.folded || t.folded.length === 0) return it;
+      const [first, ...rest] = t.folded;
+      const when = shortDate(first!.date);
+      const money = t.folded.find((f) => f.amountPhp !== undefined)?.amountPhp;
+      return {
+        ...t,
+        subtitle: [first!.title, when, rest.length > 0 ? `+${rest.length} more` : null].filter(Boolean).join(' · '),
+        href: first!.href ?? t.href,
+        ...(money !== undefined ? { amountPhp: money } : {}),
+      };
+    });
+}
+
+// ----------------------------------------------------------------------------
+// What the one list counts — Home's To do tile, the events board
+// ----------------------------------------------------------------------------
+
+export type PlanningProgress = {
+  /** Ticked rows of the To do filter. */
+  done: number;
+  /** Every row of the To do filter. */
+  total: number;
+  /** Rows still open. */
+  open: number;
+  /** Open rows whose date has passed. */
+  overdue: number;
+  /** Open rows due within seven days, the overdue ones included. */
+  dueThisWeek: number;
+  /** The open rows soonest first (undated last) — `id` is the row's address (`planningRowId`). */
+  next: Array<{ id: string; title: string; dueDate: string | null; daysUntilDue: number | null }>;
+};
+
+function isoOf(d: Date | null): string | null {
+  if (!d) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Pure: the counts of the To do filter. THE one counting rule — Home and the board read nothing else. */
+export function planningProgress(items: ReadonlyArray<PreparationItem>, limit = 3): PlanningProgress {
+  const todo = items.filter(isTodoItem);
+  const open = todo.filter((t) => !t.done);
+  const ranked = [...open].sort((a, b) => {
+    if (a.daysFromNow === null && b.daysFromNow === null) return 0;
+    if (a.daysFromNow === null) return 1;
+    if (b.daysFromNow === null) return -1;
+    return a.daysFromNow - b.daysFromNow;
+  });
+  return {
+    done: todo.length - open.length,
+    total: todo.length,
+    open: open.length,
+    overdue: open.filter((t) => t.daysFromNow !== null && t.daysFromNow < 0).length,
+    dueThisWeek: open.filter((t) => t.daysFromNow !== null && t.daysFromNow <= 7).length,
+    next: ranked.slice(0, Math.max(0, limit)).map((t) => ({
+      id: planningRowId(t) ?? t.id,
+      title: t.title,
+      dueDate: t.dateIso ?? isoOf(t.date),
+      daysUntilDue: t.daysFromNow,
+    })),
+  };
 }
 
 // ----------------------------------------------------------------------------
@@ -696,63 +1001,50 @@ export type FetchPreparationInput = {
   // that omits it keeps today's wedding behaviour byte-identical; a non-wedding
   // event passes false → no PSA/CENOMAR/marriage-license milestones.
   statutory?: boolean;
+  /**
+   * The event's date fields the TASKS count back from (`checklistAnchorDateFor` + the runway). Omitted → the locked
+   * `eventDate` alone (a wedding's anchor), no runway compression.
+   */
+  event?: PlanningTaskEvent;
+  /** The profile gate the tasks pass through (a vendor-free event shows no "Book a photographer"). */
+  profile?: PlanningProfile | null;
+  /**
+   * `'todo'` — read only the tickable sources (tasks + hand-added rows): the To do filter, for a caller that only
+   * COUNTS (Home, the events board). Safe because a fold never changes the To do filter (`lib/planning-twins.ts`).
+   */
+  only?: 'todo';
 };
 
 /**
- * Aggregate every dated preparation item for an event into one
- * chronologically-sorted, month-grouped agenda. Unlike the Home
- * "Upcoming" stream this KEEPS overdue items (negative daysFromNow) so a
- * couple sees what they've slipped on, and it omits subscription renewals.
- *
- * Each source graceful-degrades independently — a missing table or query
- * error yields [] for that source, never a thrown agenda.
+ * Pure: every source's rows → the one list. Folds twins, sorts (dated rows by date, undated tasks last), buckets by
+ * month. Exported so the labs draw the REAL list on fixture rows.
  */
-export async function fetchPreparationAgenda(
-  input: FetchPreparationInput,
-): Promise<PreparationAgenda> {
-  const { supabase, eventId, eventDate, ceremonyType, now, statutory = true } = input;
-
-  const [payments, paperwork, manual, appointments] = await Promise.all([
-    fetchPaymentItems(supabase, eventId, now),
-    fetchPaperworkItems(supabase, eventId, eventDate, now),
-    // Source 5 — hybrid manual + vendor-added rows. Graceful-degrades to []
-    // when event_preparation_items doesn't exist yet (pre-migration deploy).
-    fetchManualItems(supabase, eventId, now),
-    // Source 3b — confirmed appointments from the two-sided scheduler. Folded
-    // into the 'meeting' source so they share the Meeting chip/vocabulary.
-    fetchAppointmentItems(supabase, eventId, now),
-  ]);
-  // Confirmed appointments are the "meeting" rows.
-  const meetings = appointments;
-  // Iteration 0053 P4 Unit 1: PH-marriage statutory milestones only for events
-  // whose profile has the statutory pack (weddings). statutory defaults TRUE so
-  // weddings are byte-identical; non-weddings pass false → no milestones.
-  const milestones = statutory
-    ? buildStatutoryMilestones(eventId, eventDate, ceremonyType, now)
-    : [];
-
-  const items = [
-    ...payments,
-    ...paperwork,
-    ...meetings,
-    ...milestones,
-    ...manual,
-  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+export function assemblePlanningList(
+  rows: ReadonlyArray<PreparationItem>,
+  unread: PreparationSource[] = [],
+): PreparationAgenda {
+  const items = foldTwins(rows).sort((a, b) => {
+    if (a.date === null && b.date === null) return 0;
+    if (a.date === null) return 1;
+    if (b.date === null) return -1;
+    return a.date.getTime() - b.date.getTime();
+  });
 
   // Bucket by calendar month, months ascending (matches the already-sorted
   // items order). Overdue items land in their real month so the couple can
-  // still see "this was due back in January".
+  // still see "this was due back in January". Undated tasks gather last.
   const groupMap = new Map<string, PreparationGroup>();
   for (const item of items) {
-    const key = `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}`;
+    const key = item.date
+      ? `${item.date.getFullYear()}-${String(item.date.getMonth() + 1).padStart(2, '0')}`
+      : UNDATED_GROUP_KEY;
     let group = groupMap.get(key);
     if (!group) {
       group = {
         key,
-        label: new Intl.DateTimeFormat('en-US', {
-          month: 'long',
-          year: 'numeric',
-        }).format(item.date),
+        label: item.date
+          ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(item.date)
+          : 'No date yet',
         items: [],
       };
       groupMap.set(key, group);
@@ -762,12 +1054,63 @@ export async function fetchPreparationAgenda(
   const groups = Array.from(groupMap.values()).sort((a, b) => a.key.localeCompare(b.key));
 
   const sourceCounts: Record<PreparationSource, number> = {
-    payment: payments.length,
-    paperwork: paperwork.length,
-    meeting: meetings.length,
-    milestone: milestones.length,
-    manual: manual.length,
+    task: 0,
+    payment: 0,
+    paperwork: 0,
+    meeting: 0,
+    milestone: 0,
+    manual: 0,
   };
+  for (const it of items) sourceCounts[it.source] += 1;
 
-  return { items, groups, sourceCounts };
+  return { items, groups, sourceCounts, unread };
+}
+
+/** The undated group sorts after every `YYYY-MM` key. */
+const UNDATED_GROUP_KEY = '9999-99';
+
+/**
+ * Aggregate every dated preparation item for an event into one
+ * chronologically-sorted, month-grouped agenda. Unlike the Home
+ * "Upcoming" stream this KEEPS overdue items (negative daysFromNow) so a
+ * couple sees what they've slipped on, and it omits subscription renewals.
+ *
+ * Autofill sources graceful-degrade independently — a missing table or query
+ * error yields [] for that source. The two TICKABLE sources (tasks, hand-added
+ * rows) are counted, so a refused read of either is reported in `unread`.
+ */
+export async function fetchPreparationAgenda(
+  input: FetchPreparationInput,
+): Promise<PreparationAgenda> {
+  const { supabase, eventId, eventDate, ceremonyType, now, statutory = true, only } = input;
+  const taskEvent: PlanningTaskEvent = input.event ?? { event_type: 'wedding', event_date: eventDate };
+  const todoOnly = only === 'todo';
+
+  const [tasks, manual, payments, paperwork, appointments] = await Promise.all([
+    // Source 6 — the old Checklist's tasks (owner 2026-11-01). Honest: null = refused.
+    fetchTaskItems(supabase, eventId, taskEvent, input.profile, now),
+    // Source 5 — hybrid manual + vendor-added rows. Honest: null = refused.
+    fetchManualItems(supabase, eventId, now),
+    todoOnly ? Promise.resolve([] as PreparationItem[]) : fetchPaymentItems(supabase, eventId, now),
+    todoOnly ? Promise.resolve([] as PreparationItem[]) : fetchPaperworkItems(supabase, eventId, eventDate, now),
+    // Source 3b — confirmed appointments from the two-sided scheduler. Folded
+    // into the 'meeting' source so they share the Meeting chip/vocabulary.
+    todoOnly ? Promise.resolve([] as PreparationItem[]) : fetchAppointmentItems(supabase, eventId, now),
+  ]);
+  // Iteration 0053 P4 Unit 1: PH-marriage statutory milestones only for events
+  // whose profile has the statutory pack (weddings). statutory defaults TRUE so
+  // weddings are byte-identical; non-weddings pass false → no milestones.
+  const milestones =
+    statutory && !todoOnly ? buildStatutoryMilestones(eventId, eventDate, ceremonyType, now) : [];
+  // ⏭ THE SEAM FOR CHAPTERS (Step 2, #7143): pre-day chapters join HERE as one more source, never a second list.
+
+  const unread: PreparationSource[] = [];
+  if (tasks === null) unread.push('task');
+  if (manual === null) unread.push('manual');
+  if (payments === null) unread.push('payment');
+
+  return assemblePlanningList(
+    [...(tasks ?? []), ...(payments ?? []), ...paperwork, ...appointments, ...milestones, ...(manual ?? [])],
+    unread,
+  );
 }

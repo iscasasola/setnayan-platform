@@ -23,6 +23,12 @@
  * THE PASS BAR (EV1, written in the PR): 500 guests over 2 minutes · hub p95 < 1.5 s · 0 errors · the database
  * stand-in never has 40 or more requests open at once (prod max_connections = 60).
  *
+ * `--beacon 1` (Who's here, 2026-10-29) — each guest also does what `hub-seen-beacon.tsx` does after the hub draws: ONE
+ *   `POST /api/hub/seen`, and on the re-open NOTHING (the browser's 30 minutes) — except `--storageless` of them (default
+ *   0.2), browsers with no storage, which post again and must be stopped by the database's own 30 minutes. `--strangers N`
+ *   open the hub with no pass and post once each. The report's `beacon` block: posts made vs skipped in the browser,
+ *   the stand-in's outcomes (`guest` · `debounced` · `visitor`), the real row writes, how many beacon answers tried to
+ *   set the cache-bust cookie (must be 0), and the RE-OPEN's cache hits (with `--edge 1`, the copy must still be HIT).
  * Run (from apps/web, with the stub and `next start` up):
  *   GUEST_SESSION_SECRET=… node scripts/load-test-event-day.mjs --base http://localhost:3000 --stub http://127.0.0.1:54321 \
  *     --slug lab-public --guests 500 --ramp 120 --hold 60 --mode after --next-dir .next --out /tmp/run.json
@@ -51,6 +57,16 @@ const NEXT_DIR = args['next-dir'] ?? '.next';
  * Needs the server started with HUB_VIEW_LAB_DIRECT=1 (a lab switch — never set on Vercel).
  */
 const EDGE = args.edge === '1';
+const BEACON = args.beacon === '1';
+const STORAGELESS = Number(args.storageless ?? 0.2);
+const STRANGERS = Number(args.strangers ?? 0);
+const beacon = { posted: 0, skippedInBrowser: 0, bustCookieSet: 0, codes: {} };
+async function postBeacon(cookie) {
+  beacon.posted += 1;
+  const r = await hit('beacon', `${BASE}/api/hub/seen`, { method: 'POST', headers: cookie ? { cookie, 'content-type': 'text/plain;charset=UTF-8' } : { 'content-type': 'text/plain;charset=UTF-8' }, body: JSON.stringify({ slug: SLUG }) });
+  beacon.codes[r.status] = (beacon.codes[r.status] ?? 0) + 1;
+  if (/sn_hub_bust=/.test(r.headers.get('set-cookie') ?? '')) beacon.bustCookieSet += 1;
+}
 /** The event's stamp — part of the cached copy's key (`--edge 1`), read from the stand-in before the run. */
 let REV = '0';
 const SECRET = process.env.GUEST_SESSION_SECRET ?? '';
@@ -174,6 +190,7 @@ async function guest(g, i) {
   await sleep((RAMP * 1000 * i) / Math.max(GUESTS, 1));
   const cookie = passCookie(g);
   await hit('hub', hubUrl(g), { headers: { cookie } });
+  if (BEACON) await postBeacon(cookie);
   noteSeen(g, await announcementRead(g, cookie));
   let wallOpen = true;
   const reopenAt = Date.now() + (until - Date.now()) * Math.random();
@@ -187,7 +204,12 @@ async function guest(g, i) {
     if (Date.now() >= until) break;
     if (!reopened && Date.now() >= reopenAt) {
       reopened = true;
-      await hit('hub', hubUrl(g), { headers: { cookie } });
+      await hit(BEACON ? 'hub-reopen' : 'hub', hubUrl(g), { headers: { cookie } });
+      if (BEACON) {
+        // The browser remembers its half hour — unless it has no storage, and then the database's 30 minutes hold.
+        if (i % Math.max(1, Math.round(1 / Math.max(STORAGELESS, 0.0001))) === 0 && STORAGELESS > 0) await postBeacon(cookie);
+        else beacon.skippedInBrowser += 1;
+      }
     }
     if (Date.now() >= nextPulse) {
       await hit('pulse', `${BASE}/${SLUG}/live-pulse`, { headers: { cookie } });
@@ -256,7 +278,13 @@ const stamp = setInterval(async () => {
   }
 }, 15_000);
 
-await Promise.all([...guests.map((g, i) => guest(g, i)), ...Array.from({ length: SCANNERS }, (_, s) => scanner(s)), announcer()]);
+async function stranger(n) {
+  await sleep((RAMP * 1000 * n) / Math.max(STRANGERS, 1));
+  await hit('hub-stranger', EDGE ? `${BASE}/${SLUG}/cached/v1.${REV}.a.000x.-.-` : `${BASE}/${SLUG}`);
+  await postBeacon(null);
+}
+
+await Promise.all([...Array.from({ length: BEACON ? STRANGERS : 0 }, (_, n) => stranger(n)), ...guests.map((g, i) => guest(g, i)), ...Array.from({ length: SCANNERS }, (_, s) => scanner(s)), announcer()]);
 stopping = true;
 clearInterval(stamp);
 
@@ -300,11 +328,25 @@ const report = {
     p95SeenMs: pct(seen, 95),
   },
 };
+if (BEACON) {
+  report.beacon = {
+    ...beacon,
+    outcomes: db.hubViews ?? null,
+    reopenCacheHit: routes['hub-reopen']?.cacheHit ?? null,
+    strangerCacheHit: routes['hub-stranger']?.cacheHit ?? null,
+  };
+}
 const hub = routes.hub ?? { p95: Infinity, n: 0 };
 report.passBar = {
   hubP95Under1500: hub.p95 !== null && hub.p95 < 1500,
   zeroErrors: errors.length === 0,
   dbOpenUnder40: db.maxInFlight < 40,
+  ...(BEACON
+    ? {
+        beaconNeverBustsTheCache: beacon.bustCookieSet === 0,
+        beaconWritesAtMostOncePerGuest: (db.hubViews?.guest ?? Infinity) <= guests.length,
+      }
+    : {}),
 };
 report.pass = Object.values(report.passBar).every(Boolean);
 if (args.out) fs.writeFileSync(args.out, JSON.stringify(report, null, 1));

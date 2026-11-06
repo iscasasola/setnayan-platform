@@ -30,7 +30,8 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 
 const here = (...p: string[]) => join(import.meta.dirname, '..', ...p);
-const EDITOR = here('app', 'dashboard', '[eventId]', 'seating', 'lab', '_components', 'reception-design-editor.tsx');
+/* The People choice moved with every reception choice into the Accents sheet (owner 2026-10-30, the room is view-only). */
+const EDITOR = here('app', 'dashboard', '[eventId]', 'seating', 'lab', '_components', 'accents-sheet.tsx');
 const WALK = here('app', '[slug]', 'venue', '_components', 'guest-venue-3d.tsx');
 const LAB3D = here('app', 'dashboard', '[eventId]', 'seating', 'lab', '_components', 'seating-lab-3d.tsx');
 const SCENE = here('lib', 'reception-scene.ts');
@@ -75,7 +76,7 @@ test('`people` really does drive the concept illustration', () => {
 
 test('the editor tells the couple which surface this control governs', () => {
   const s = read(EDITOR);
-  assert.match(s, /activePart === 'people'/, 'the note must be scoped to the People zone');
+  assert.match(s, /partId === 'people'/, 'the note must be scoped to the People zone');
   assert.match(
     s,
     /concept\s*\n?\s*image/,

@@ -8,8 +8,7 @@ import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
@@ -60,7 +59,7 @@ export type VendorDeepSearchActionState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   /** Free search ran instantly — the dossier is ready to review now. */
-  | { status: 'ran'; dossier: VendorDossier; wasFree: boolean; message: string }
+  | { status: 'ran'; dossier: VendorDossier; wasFree: boolean; message: string; dossierId: number; searchedAt: string }
   /** Paid search — an apply-then-pay order was created; runs on admin approval. */
   | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string };
 
@@ -83,6 +82,7 @@ function generateReferenceCode(): string {
 
 
 const DEEP_SEARCH_PAGE = '/vendor-dashboard/deep-search';
+const DETAILS_PAGE = '/vendor-dashboard/profile';
 
 export async function runVendorDeepSearch(
   _prev: VendorDeepSearchActionState,
@@ -143,13 +143,13 @@ export async function runVendorDeepSearch(
   const cycleStartIso = new Date(deepSearchCycleStartMs(tierExpiresAt, Date.now())).toISOString();
   const usesThisCycle = await countDeepSearchUsesSince(admin, vendorProfileId, cycleStartIso);
 
-  // Re-read the authoritative ₱500 price + is_active from the admin-managed
-  // catalog (mirrors the AI-addon is_active guard). A retired SKU (row exists,
-  // is_active=false) blocks the sale; a missing row falls back to ₱500.
+  // Re-read the authoritative price + is_active from the admin-managed catalog — THIS shop's band row (owner
+  // 2026-11-04, "DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN": Pro/Ultra one row, Free/Verified/Solo another).
+  // A retired row (is_active=false) blocks the sale. The ORDER still carries `VENDOR_DEEP_SEARCH_SKU_CODE`.
   const { data: skuRow } = await supabase
     .from('vendor_billing_catalog')
     .select('price_php, is_active')
-    .eq('sku_code', VENDOR_DEEP_SEARCH_SKU_CODE)
+    .eq('sku_code', vendorAddonSkuCode('deep_search_about_you', tier))
     .maybeSingle();
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('Deep Search is temporarily unavailable. Please try again later.');
@@ -158,19 +158,10 @@ export async function runVendorDeepSearch(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  // 2026-07-25 tiered add-on model: the per-search price comes from the code SSOT
-  // band for the About-You variant (₱1,000 Free/Solo · ₱500 Pro/Ent) instead of
-  // the flat catalog row. Today's Deep Search IS "About You" — it researches the
-  // vendor's own business — so it keeps the `vendor_deep_search` SKU; Market Scan
-  // will be a separate, new SKU.
-  //
-  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveDeepSearchPricePhp
-  // returns ₱0 for a Pro+ vendor's first run of the cycle BEFORE it reads this
-  // value — overwriting `pricePhp` afterwards would silently DELETE the Pro+ free
-  // search. Same shape as booth-addon-actions.ts.
-  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
-    ? resolveVendorAddonPricePhp('deep_search_about_you', tier)
-    : catalogCyclePricePhp;
+  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveDeepSearchPricePhp returns ₱0 for a Pro+ vendor's
+  // first run of the cycle BEFORE it reads this value — overwriting `pricePhp` afterwards would silently DELETE the
+  // Pro+ free search.
+  const cyclePricePhp = catalogCyclePricePhp;
   let pricePhp = resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp });
 
   const inputs = buildVendorDeepSearchInputs({
@@ -220,9 +211,14 @@ export async function runVendorDeepSearch(
         return err(result.error);
       }
       revalidatePath(DEEP_SEARCH_PAGE);
+      // 🔎 Shop › Details carries the Deep Search card too (Supplier dashboard v13): its "Last search" line redraws.
+      revalidatePath(DETAILS_PAGE);
       return {
         status: 'ran',
         dossier: result.dossier,
+        // 📄 The result's id — its PDF is made from it (`/api/vendor/deep-search-pdf`).
+        dossierId: result.dossierId,
+        searchedAt: new Date().toISOString(),
         wasFree: true,
         message: 'Deep Search finished — review what we learned and apply it to your profile.',
       };

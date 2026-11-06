@@ -200,7 +200,7 @@ const FAQ = [
   },
   {
     q: 'What happens to the photos after the event?',
-    a: 'They are kept for life, free, with nothing to renew. Nothing is ever deleted — after three months the original file is compressed, and the photograph stays.',
+    a: 'They are kept for life, free, with nothing to renew. Nothing is ever deleted — three months after the event’s last day the original file is replaced by a 720p copy, and the photograph stays.',
   },
   {
     q: 'What if the venue has no signal?',

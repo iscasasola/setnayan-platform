@@ -9,6 +9,7 @@ import {
   HALF_SHEET_UP,
   SLIM_BAR_SEAT,
   elementSheetStep,
+  aGroundTapStows,
   isCanvasTapOutside,
   slimBarWords,
   type ElementSheetEvent,
@@ -135,6 +136,8 @@ export function MakerHalfSheet({
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || !isCanvasTapOutside(e.data) || !onPhone()) return;
+      /* 🫥 On the Stages side the toolbar stows instead, the tool kept (owner 2026-10-30, `aGroundTapStows`). */
+      if (aGroundTapStows()) return;
       /* In the Maker a tap on the empty page closes the tool — the navigator comes back. */
       if (foldedRef.current || inMakerRef.current) closeRef.current();
       else dispatch({ t: 'tapOutside' });

@@ -57,7 +57,9 @@ function roster(n: number): GuestRow[] {
         // Not counted: a request to join, and the passed-away — in no count, so in no filter.
         entry_source: i % 5 === 3 ? 'self_added_unlisted' : 'host_seeded',
         passed_away: i % 7 === 6,
-        invitation_sent_at: i % 3 === 0 ? null : '2026-10-01T00:00:00Z',
+        // 💬 Two in three never stamped, so every roster holds a guest still TO INVITE (nothing sent AND no answer —
+        // owner 2026-10-29: a guest who replied is not "to invite") beside unstamped guests who did answer.
+        invitation_sent_at: i % 3 !== 2 ? null : '2026-10-01T00:00:00Z',
       }),
     );
   }

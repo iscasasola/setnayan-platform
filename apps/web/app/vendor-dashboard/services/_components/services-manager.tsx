@@ -39,7 +39,7 @@ import {
   formatLeanMonths,
   suggestPromoExpiry,
 } from '@/lib/vendor-lean-months';
-import { tierCaps, isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { tierCaps, planHasBranches } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
@@ -345,7 +345,8 @@ export async function VendorServicesManager({
     // The service-role ORDER reader matters here: a shop's second manager
     // cannot see the order its owner paid, so without it every branch would
     // read as unpaid to them and the gate below would refuse a live branch.
-    isTierAtLeast(tier, 'enterprise')
+    // Branches on Pro (included) and Ultra (included + bought) — owner 2026-11-04, "branches 0,0,3,10".
+    planHasBranches(tier)
       ? (
           await fetchVendorBranches(
             supabase,

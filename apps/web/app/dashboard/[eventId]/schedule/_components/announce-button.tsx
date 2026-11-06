@@ -27,10 +27,12 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { Megaphone, Send } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Megaphone, Send, Volume2 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
-import { sendCoordinatorBroadcast } from '../../_actions/day-of-broadcast';
+import { sendCoordinatorBroadcast, type ReleaseScheduleResult } from '../../_actions/day-of-broadcast';
+import { PaidMark } from '@/app/_components/paid-mark';
+import Link from 'next/link';
 import {
   BROADCAST_MAX_LENGTH,
   type BroadcastSenderRole,
@@ -65,7 +67,13 @@ export function AnnounceButton({
   eventId,
   isEventDay,
   recent,
+  round = false,
+  release = null,
 }: {
+  /** 📣 Release (plan §3, §3b): the full schedule's state for this event; null = not offered here (the Maker). */
+  release?: ReleaseState | null;
+  /** 🔊 A 44-px round at the end of Booked › Schedule's one line (frame 19, owner 2026-10-31) — the word is its name. */
+  round?: boolean;
   eventId: string;
   /** Inside the day-of window — guests see it at once. Before: on the day. */
   isEventDay: boolean;
@@ -73,7 +81,9 @@ export function AnnounceButton({
   recent: CoordinatorBroadcastItem[] | null;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // 📣 `?announce=1` — the supplier's "Message everyone" door (S9, owner 2026-10-29) lands with the sheet open.
+  const arrivedToAnnounce = useSearchParams()?.get('announce') === '1';
+  const [open, setOpen] = useState(arrivedToAnnounce);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -117,10 +127,20 @@ export function AnnounceButton({
           setSent(false);
           setError(null);
         }}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20 hover:bg-ink/[0.05]"
+        aria-label={round ? 'Announce to your guests' : undefined}
+        data-announce-door={round ? 'round' : 'word'}
+        className={
+          round
+            ? 'sn-press inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.05]'
+            : 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20 hover:bg-ink/[0.05]'
+        }
       >
-        <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-        Announce
+        {round ? (
+          <Volume2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        ) : (
+          <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+        )}
+        {round ? null : 'Announce'}
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById="announce-title" wide rise>
         <div className="space-y-4 px-5 pb-6 pt-5">
@@ -174,6 +194,8 @@ export function AnnounceButton({
             </button>
           </div>
 
+          {release ? <ReleaseRow eventId={eventId} release={release} /> : null}
+
           <div className="pt-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">Latest</p>
             {recent === null ? (
@@ -198,5 +220,134 @@ export function AnnounceButton({
         </div>
       </Sheet>
     </>
+  );
+}
+
+/** What the 🔊 sheet knows about Release — `lib/schedule-release.server.ts` `readScheduleRelease`, as drawn. */
+export type ReleaseState =
+  | { kind: 'unread' }
+  | { kind: 'ok'; releasedAt: string | null; pro: boolean; proHref: string | null };
+
+/**
+ * 📣 RELEASE (owner 2026-11-01: *"Coordinator or host presses release"* · *"Just norifications please"*; plan §3, §3b).
+ * Until it is pressed guests see the chapters they are invited to (role holders an Estimated call time); after, each
+ * guest sees their own full schedule and exact call time. Pressing asks once, then notifies every guest with an account
+ * in-app — never by email — and it cannot be taken back.
+ *
+ * 💎 On Free the row wears ◆ Pro and its button opens the upgrade: Release never works on Free (the action refuses
+ * too). Free's guests keep the before view for good — nothing breaks.
+ */
+function ReleaseRow({ eventId, release }: { eventId: string; release: ReleaseState }) {
+  const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [releasedAt, setReleasedAt] = useState<string | null>(release.kind === 'ok' ? release.releasedAt : null);
+  const [told, setTold] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function press() {
+    setError(null);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      // Release rides the sheet's one action (`intent=release`) — the same press, one route.
+      fd.set('intent', 'release');
+      let result: ReleaseScheduleResult;
+      try {
+        result = (await sendCoordinatorBroadcast(fd)) as ReleaseScheduleResult;
+      } catch {
+        setError('We couldn’t confirm the release. Open this again to see whether it went through.');
+        return;
+      }
+      if (result.ok) {
+        setReleasedAt(result.releasedAt);
+        setTold(result.already ? null : result.told);
+        setAsking(false);
+      } else {
+        setError(result.error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-2 border-t border-ink/10 pt-4" data-release-row={release.kind === 'unread' ? 'unread' : releasedAt ? 'released' : release.pro ? 'ready' : 'free'}>
+      <div className="flex items-center gap-2">
+        <p className="text-[15px] font-semibold text-ink">Full schedule</p>
+        <Tip align="end">
+          Until you release it, guests see the chapters they are invited to, and people with a role see an estimated
+          call time. After you release it, each guest sees their own full schedule and exact call time on Me. Guests
+          with an account get a notification; there is no email.
+        </Tip>
+      </div>
+      {release.kind === 'unread' ? (
+        <p className="text-sm text-ink/60">We couldn’t load whether the schedule is released. Refresh in a moment.</p>
+      ) : releasedAt ? (
+        <p role="status" className="text-sm text-ink/70">
+          Released {when(releasedAt)}. Each guest sees their own schedule on Me.
+          {told !== null ? ` ${formatCount(told)} ${told === 1 ? 'guest was' : 'guests were'} notified.` : ''}
+        </p>
+      ) : !release.pro ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-ink/60">Guests see their chapters and an estimated call time.</p>
+          {release.proHref ? (
+            <Link
+              href={release.proHref}
+              data-release-pro
+              aria-label="Release — part of Pro"
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20"
+            >
+              Release
+              <PaidMark state="try" label="Part of Pro" size="xs" />
+            </Link>
+          ) : (
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-ink/55">
+              Release
+              <PaidMark state="try" label="Part of Pro" size="xs" />
+            </span>
+          )}
+        </div>
+      ) : asking ? (
+        <div className="space-y-2" data-release-ask>
+          <p className="text-sm text-ink/75">
+            Release the full schedule now? Every guest sees their own lines and call time, and guests with an account
+            get a notification. This can’t be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setAsking(false)}
+              className="inline-flex h-10 items-center rounded-full px-4 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20"
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              onClick={press}
+              disabled={pending}
+              data-release-confirm
+              className="inline-flex h-10 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
+            >
+              {pending ? 'Releasing…' : 'Release'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-ink/60">Guests see their chapters and an estimated call time.</p>
+          <button
+            type="button"
+            onClick={() => setAsking(true)}
+            data-release-press
+            className="inline-flex h-10 shrink-0 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
+          >
+            Release
+          </button>
+        </div>
+      )}
+      {error ? (
+        <p role="alert" className="text-sm font-medium text-danger-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

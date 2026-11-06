@@ -1577,7 +1577,7 @@ h2.fd-sechead,
   .fd-scrim {
     position: fixed;
     inset: 0;
-    background: rgba(30, 28, 26, 0.38);
+    /* The colour and blur are the one scrim's (`.sn-popup-dark` on the element, owner 2026-10-29). */
     z-index: 39;
   }
   .fd-grid {
@@ -2028,13 +2028,15 @@ button.fd-ask.quiet {
 }
 
 /* ══ WHERE DISCOVER DOES NOT OPEN, THE RAIL DOES NOT OFFER IT (2026-10-21) ══
-   In the app shell middleware bounces `/` to the board while Apple reviews
-   1.0 (`APP_EXCLUDED_MARKETING_PATHS`), so the rail's Discover row — the drawer
-   on a phone, the rail on an iPad — was a press that went nowhere. The server
-   renders `[data-discover-bounced]` into the shell on exactly those requests
-   (app-rail-shell.tsx · `discoverOpensHere()`), and the row and the divider
-   under it leave. `display: none` takes the row out of the tab order and the
-   accessibility tree as well as the paint — a real removal, not a look. */
+   While Apple reviewed 1.0 the app shell bounced `/` to the board, so the
+   rail's Discover row — the drawer on a phone, the rail on an iPad — was a
+   press that went nowhere. Since the owner's 2026-11-02 ruling ("let everything
+   go live") `/` opens in the apps too, `discoverOpensHere()` answers yes on
+   every request, and the server never renders `[data-discover-bounced]` — so
+   the row shows everywhere. The rule stays as the one answer for a shell that
+   ever refuses `/` again: the row and the divider under it leave, and
+   `display: none` takes the row out of the tab order and the accessibility
+   tree as well as the paint — a real removal, not a look. */
 .fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'],
 .fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'] + .fd-rdiv {
   display: none;
@@ -2382,6 +2384,26 @@ button.fd-ask.quiet {
    instead of being sliced; `max-width: 100%` keeps the box inside the slot on
    a narrow strip, where `shrink-0` on the mark would otherwise let a wide lockup
    push past it. The viewBox is untouched, so the lockup still scales whole. */
+/* ⚙ THE MARK IS A DOOR (owner 2026-10-30, *"tapping monogram not working"*): a real link to Home's ⚙ Event Settings,
+   never smaller than a thumb — 44 × 44 at least, the mark centred in it — with the rail's own focus ring. */
+.fd[data-chrome='app'] .fd-rctx-door {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  border-radius: var(--m-r-sm);
+  -webkit-tap-highlight-color: transparent;
+}
+.fd[data-chrome='app'] .fd-rctx-door:active {
+  opacity: 0.7;
+}
+.fd[data-chrome='app'] .fd-rctx-door:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 .fd[data-chrome='app'] .fd-rctx-mark svg {
   overflow: visible;
   max-width: 100%;
@@ -3095,4 +3117,105 @@ html.dark .fd {
   font-size: 14px;
   line-height: 1.45;
   color: var(--fd-m1);
+}
+
+/* ── 📌 THE BAR IS THE PAGE'S PINNED ROW (supplier dashboard v13, owner 2026-10-29) ─────────────────────────────────
+   Owner: "desktop mode is wrong" · "and tablet"; prototype v13 approved ("Approved."), DECISION_LOG 2026-10-29
+   "SUPPLIER DASHBOARD — LAST ROUND OF OWNER NOTES" item 12. OPT-IN by one attribute, `data-pinned-bar`, written on
+   `.fd` by the shell's `pinnedBar` prop — one tree today (`vendor-dashboard/layout.tsx`).
+
+     · ≥1100   the full rail (240, icon + word) · the bar over the content column only: page menu ▾ LEFT, the page's
+               search · ⇅ · ＋ and the action rounds RIGHT, no wordmark, no centre title.
+     · 701–1099 the same, with the 72-px icon strip.
+     · <701    NOTHING here applies — the phone keeps its bar, its search and its bottom tabs as shipped.
+
+   🔑 STILL ONE BAR: the same `<header>` changes its seat; nothing is drawn twice. The rail rises to the top of the
+   window (`margin-top: -bar`, sticky at 0) because the bar no longer spans it.
+   🔒 vendor-dashboard/_components/the-supplier-frame-holds.test.ts */
+.fd-pinlead,
+.fd-pintools {
+  display: none;
+}
+@media (min-width: 701px) {
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topwrap {
+    margin-left: var(--fd-rail);
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 16px;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topleft,
+  .fd[data-chrome='app'][data-pinned-bar] .fd-searchwrap {
+    display: none;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-pinlead {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-pintools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topright {
+    flex: none;
+  }
+  /* The shop's name is the rail's first line now; the bar carries rounds only. */
+  .fd[data-chrome='app'][data-pinned-bar] [data-supplier-shell-shop] {
+    display: none;
+  }
+  /* The rail is its own column, top to bottom of the window. Specific enough to beat the tab band's
+     `.fd[data-boundary='tab'] .fd-rail[data-open='…']` and the app's `min-height` floor. */
+  .fd[data-chrome='app'][data-pinned-bar] .fd-rail,
+  .fd[data-chrome='app'][data-pinned-bar] .fd-rail[data-open] {
+    position: sticky;
+    top: 0;
+    margin-top: calc(-1 * var(--fd-bar));
+    max-height: 100vh;
+    min-height: 100vh;
+  }
+  /* A page's own sticky rows ride UNDER the bar (it never hides from 701), never behind it. */
+  .fd[data-chrome='app'][data-pinned-bar] main [data-pinned-row] {
+    top: var(--fd-bar);
+  }
+}
+/* ≥1100: the full rail — icon + word — a band earlier than the app's 1280 (the prototype's line). The 1024–1279 strip
+   rules above hide the words; this undoes exactly those, for the opted-in tree only. */
+@media (min-width: 1100px) and (max-width: 1279.98px) {
+  .fd[data-pinned-bar] {
+    --fd-rail: 240px;
+  }
+  .fd[data-pinned-bar] .fd-rail {
+    padding: 10px 8px 40px;
+  }
+  .fd[data-pinned-bar] .fd-rlabel {
+    display: flex;
+  }
+  .fd[data-pinned-bar] .fd-rail .fd-label-text,
+  .fd[data-pinned-bar] .fd-rail .fd-ct,
+  .fd[data-pinned-bar] .fd-rctx,
+  .fd[data-pinned-bar] .fd-rail .fd-mchev,
+  .fd[data-pinned-bar] .fd-notice,
+  .fd[data-pinned-bar] .fd-smallprint {
+    display: revert;
+  }
+  .fd[data-pinned-bar] .fd-row {
+    flex-direction: row;
+    gap: 12px;
+    padding: 0 12px;
+    font-size: 14px;
+    min-height: 44px;
+    text-align: left;
+    justify-content: flex-start;
+  }
+  .fd[data-pinned-bar] .fd-row .fd-icon-caption {
+    display: none;
+  }
 }

@@ -6,7 +6,7 @@ import {
 } from '@/lib/supabase/error-detect';
 import { roleNameOne, type RoleNames } from '@/lib/role-names';
 import { styledName, type NameStyle } from '@/lib/name-style';
-import { realNameParts } from '@/lib/seat-placeholder-words';
+import { isPlaceholderNameWord, realNameParts } from '@/lib/seat-placeholder-words';
 
 export type GuestRole =
   | 'guest'
@@ -1129,6 +1129,60 @@ export function guestFullName(guest: {
   /* Only a row with NO name parts at all falls back to "Shown as" — there is
      no full name for it to replace, and dropping the person is worse. */
   return guest.display_name?.trim() || null;
+}
+
+/**
+ * 🖨 THE NAME A PRINTOUT GIVES A GUEST — the full name (`guestFullName`), and their "Shown as" nickname beside it in
+ * quotes when the couple set one that the full name does not already say: `Ramon Francisco Dela Cruz-Villanueva
+ * “Monching”` (owner 2026-10-29, on the printouts: full names, the nickname beside them). Falls back to the compact
+ * name (`guestDisplayName`) for a row with no parts. Printed WHOLE — never cut (`lib/print-name-fit.ts`).
+ */
+export function guestPrintName(
+  guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+  /** The event's Name style (`lib/name-style.ts`) — omitted = Full, as `guestFullName`. */
+  style?: NameStyle,
+): string {
+  // An unnamed extra seat ("TBA" / "+1") has no name to print in full — it reads as the list reads it ("+1 · TBA").
+  if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) return guestDisplayName(guest);
+  const full = guestFullName(guest, style);
+  if (!full) return guestDisplayName(guest);
+  const nick = guestNickBeside(guest, full);
+  return nick ? `${full} “${nick}”` : full;
+}
+
+/**
+ * 💬 THE NICKNAME THAT SITS BESIDE A FULL NAME — the couple's "Shown as" (`guests.display_name`, no new column), or
+ * null when there is none or `full` already says it ("Monching" beside "Ramon “Monching” Cruz" would say it twice).
+ * The one rule behind `guestPrintName` and `guestNameWithNick`.
+ */
+export function guestNickBeside(guest: { display_name?: string | null }, full: string | null | undefined): string | null {
+  const nick = guest.display_name?.replace(/\s+/g, ' ').trim();
+  if (!nick || !full) return null;
+  // WHOLE WORDS: "Ramon" is said by "Atty. Ramon Dela Cruz"; "Dan" is NOT said by "Daniel Ramos" (a substring is not a name).
+  const said = new RegExp(`(?:^|[\\s“"'(])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s”"'),.])`, 'i');
+  return said.test(full) ? null : nick;
+}
+
+/**
+ * 🪪 THE NAME IN GUESTS (owner, Guests prototype v24–v26, 2026-10-29): wherever Guests names a person — the list row,
+ * a March chip, a Seats list face, the guest card's head, a search result — the FULL name (`guestFullName`: title ·
+ * first · middle · last · suffix) with the nickname (`guestNickBeside`) BESIDE it, drawn muted in quotes by
+ * `<GuestNick>` (app/_components/guest-nick.tsx). A row with no name parts keeps its compact name and no nickname.
+ * An unnamed +1 seat reads as the list reads it ("+1 · TBA"). Never cut: the caller wraps.
+ * 🔒 lib/guests-names-wear-the-nickname.test.ts
+ */
+export function guestNameWithNick(
+  guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+  style?: NameStyle,
+): { name: string; nick: string | null } {
+  if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) {
+    return { name: guestDisplayName(guest), nick: null };
+  }
+  const full = guestFullName(guest, style);
+  // No parts at all: guestFullName fell back to the "Shown as" itself — it IS the name, not a nickname beside it.
+  const parts = [guest.name_prefix, guest.first_name, guest.middle_name, guest.last_name, guest.name_suffix].some((p) => p?.trim());
+  if (!full || !parts) return { name: guestDisplayName(guest), nick: null };
+  return { name: full, nick: guestNickBeside(guest, full) };
 }
 
 /**

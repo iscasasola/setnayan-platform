@@ -5,11 +5,10 @@
  *
  * Reuses the shipped scanner machinery rather than adding any: `makeQrDetector`
  * (lib/qr-scan.ts — native BarcodeDetector, falling back to jsqr) and
- * `parsePapicTagScan` via `classifyScan`. The camera lifecycle copies
- * `patiktok/_components/tag-sheet.tsx`, the only scanner in the app that
- * already handles BOTH guest cards and table signs plus the iOS
- * one-camera-at-a-time contract: acquire the stream BEFORE flipping `scanning`
- * true (the <video> is not mounted yet), and always release it on unmount.
+ * `parsePapicTagScan` via `classifyScan`. The camera lifecycle (copied from
+ * `patiktok/_components/tag-sheet.tsx`, with the iOS one-camera-at-a-time
+ * contract) now lives in `lib/use-live-qr-scan.ts`, shared with the guest
+ * door's "Scan QR" (2026-11-03).
  *
  * ALL authorisation is server-side in `coordinator_seat_by_guest_qr` — booked +
  * coordinator tile + the host having SHARED the seat plan + a PUBLISHED plan.
@@ -22,38 +21,31 @@ import { Camera, CameraOff, Loader2, MapPin, ScanLine } from 'lucide-react';
 
 import { classifyScan, resolveSeatScan, type SeatScanOutcome } from '@/lib/floor-command';
 import { floorSeatByQr } from './actions';
-import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
+import { useLiveQrScan } from '@/lib/use-live-qr-scan';
 
-export function SeatScanner({ eventId }: { eventId: string }) {
-  const [scanning, setScanning] = useState(false);
+export function SeatScanner({
+  eventId,
+  via = 'floor',
+}: {
+  eventId: string;
+  /**
+   * 📱 Whose door asks (owner 2026-10-29, crew passes): `floor` — the booked coordinator, through
+   * `coordinator_seat_by_guest_qr`; `crew` — a crew phone the shop Allowed, through `crew_seat_by_guest_qr`, which asks
+   * the SAME gates of the shop plus an allowed, unexpired pass. Same scanner, same one-label answer.
+   */
+  via?: 'floor' | 'crew';
+}) {
   const [busy, setBusy] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SeatScanOutcome | null>(null);
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const detectRef = useRef<((v: HTMLVideoElement) => Promise<string | null>) | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const lastRef = useRef<string>('');
-
-  const stop = useCallback(() => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setScanning(false);
-  }, []);
-
-  // Releasing the camera on unmount is not optional on iOS — a stream left
-  // running blocks every other capture surface in the app.
-  useEffect(() => stop, [stop]);
+  // Set right below: the camera half is shared (`lib/use-live-qr-scan.ts`) and `handle` needs its `stop`.
+  const stopRef = useRef<() => void>(() => undefined);
 
   const handle = useCallback(
     async (raw: string) => {
       const scan = classifyScan(raw);
       if (scan.kind === 'unreadable') return; // keep looking; not every frame is a code
-      stop();
+      stopRef.current();
       setBusy(true);
       setLookupError(null);
       try {
@@ -67,7 +59,7 @@ export function SeatScanner({ eventId }: { eventId: string }) {
         let res: Awaited<ReturnType<typeof floorSeatByQr>>;
         try {
           if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('offline');
-          res = await floorSeatByQr(eventId, scan.token);
+          res = await floorSeatByQr(eventId, scan.token, via);
         } catch {
           setLookupError('No signal — finding a seat needs signal. The printed seat chart has every table.');
           setOutcome(null);
@@ -85,71 +77,20 @@ export function SeatScanner({ eventId }: { eventId: string }) {
         setBusy(false);
       }
     },
-    [eventId, stop],
+    [eventId, via],
   );
 
+  // 📷 THE CAMERA HALF IS SHARED (2026-11-03) with the guest door's "Scan QR": stream before the <video>, released
+  // on unmount (iOS: one camera at a time), and it comes back when iOS or a Duo takes it — `lib/use-live-qr-scan.ts`.
+  const { scanning, cameraError, videoRef, start: openCamera, stop } = useLiveQrScan(handle);
+  useEffect(() => {
+    stopRef.current = stop;
+  }, [stop]);
   const start = useCallback(async () => {
-    setCameraError(null);
     setLookupError(null);
     setOutcome(null);
-    try {
-      // Stream first — the <video> does not exist until `scanning` is true.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-      });
-      streamRef.current = stream;
-      detectRef.current = detectRef.current ?? (await (await import('@/lib/qr-scan')).makeQrDetector());
-      setScanning(true);
-    } catch {
-      setCameraError('No camera access. Check the browser’s permission for this site.');
-    }
-  }, []);
-
-  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
-  // or a dead track takes the scanner's camera, reopen it through the same
-  // start path (same rear camera) instead of leaving a frozen viewfinder.
-  useCameraThatComesBack({
-    streamRef,
-    live: scanning,
-    restart: () => {
-      stop();
-      void start();
-    },
-  });
-
-  // Attach the stream and run the decode loop once the video is mounted.
-  useEffect(() => {
-    if (!scanning) return;
-    const video = videoRef.current;
-    const stream = streamRef.current;
-    const detect = detectRef.current;
-    if (!video || !stream || !detect) return;
-
-    video.srcObject = stream;
-    void video.play().catch(() => undefined);
-
-    let cancelled = false;
-    const tick = async () => {
-      if (cancelled) return;
-      try {
-        const raw = await detect(video);
-        if (raw && raw !== lastRef.current) {
-          lastRef.current = raw;
-          await handle(raw);
-          return;
-        }
-      } catch {
-        // A single bad frame is not a failure — keep scanning.
-      }
-      rafRef.current = requestAnimationFrame(() => void tick());
-    };
-    void tick();
-
-    return () => {
-      cancelled = true;
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [scanning, handle]);
+    await openCamera();
+  }, [openCamera]);
 
   return (
     <section className="space-y-3">

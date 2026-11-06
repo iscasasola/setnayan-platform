@@ -37,9 +37,9 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   /* The names the context carries — read from its source (importing it would import every server action). */
   const ctx = read(join(GUESTS, 'guest-actions-context.tsx'));
-  // 🧍 21 since the card's Proxy ▾ (`setGuestProxy`, 2026-10-27) — the count moves with the context, never a cap that hides one.
-  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 21);
-  assert.equal(real.length, 21, 'the context’s names could not be read');
+  // 🪪 22 since a tap reads its card alone (`openGuestCard`, 2026-10-28) — the count moves with the context, never a cap that hides one.
+  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 22);
+  assert.equal(real.length, 22, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_GUEST_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-stand-ins.ts', 'lab-guest-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|groups-actions|inline-actions/, `${f} imports a real action module`);
@@ -89,7 +89,9 @@ test('(2) the call sites take their action from the context and import no action
   assert.match(setup, /const \{ hubDraftAction, updatePaxSettings \} = useGuestActions\(\);/, 'Setup’s save no longer takes its writes from the context');
   assert.match(setup, /const \{ setGuestListFinalized \} = useGuestActions\(\);/, 'Finalize no longer takes its write from the context');
   assert.match(setup, /const \{ setupDoorHref \} = useGuestActions\(\);/, 'Setup’s two doors no longer come from the context');
-  assert.match(setup, /href=\{setupDoorHref\(eventId, 'send'\)\}[\s\S]*href=\{setupDoorHref\(eventId, 'pick-who'\)\}/, 'Send to N / Pick who are not the context’s doors');
+  // 🗂 R4 slice 11: the Invitations row (Send to N · Pick who) left the ⚙; Requests to join is the door that stays.
+  assert.match(setup, /href=\{setupDoorHref\(eventId, 'requests'\)\}/, 'Requests to join is not the context’s door');
+  assert.doesNotMatch(setup, /setupDoorHref\(eventId, '(?:send|pick-who)'\)/, 'the ⚙ sends invitations again');
   assert.doesNotMatch(setup, /href=\{`\/dashboard/, 'a Setup door is a real route again');
   assert.doesNotMatch(setup, /from '[^']*(?:hub-draft-actions|finalize-actions)'|from '\.\.\/\.\.\/actions'/, 'Setup imports a real action module again');
   for (const [file, names] of sites) {

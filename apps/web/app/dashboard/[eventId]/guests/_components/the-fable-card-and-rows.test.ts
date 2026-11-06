@@ -235,6 +235,13 @@ test('list head: the filter row is gone — ONE Sort dropdown regroups the secti
   assert.doesNotMatch(PAGE, /<RosterFilters\b|<RosterSort\b|<FindAddRow\b/, 'a retired head control is on the page again');
   const SCREEN = read('guests-screen.tsx');
   // The Sort is ONE dropdown — the shared row's ≡ seat (a `ThumbMenu`, drawn as a PickMenu by components/thumb-row.tsx).
-  assert.match(SCREEN, /const sortMenu: ThumbMenu = \{\s*mark: 'data-thumb-sort',/, 'the Sort is not one dropdown');
-  assert.match(SCREEN, /menu: views\s*\.map\(/, 'the Sort no longer lists the five views');
+  // ⇅ R4 slice 1: the ONE dropdown is the shared ⇅ (`guestsFilterMenu`), whose Group by lists the five shipped views.
+  // 3 Nov (owner approved the "Show & sort" sheet): the List's ≡ opens a sheet whose Group by is ONE dropdown
+  // (`ChosenRow`, a PickMenu) — options still from `guestsFilterOptions('list', …)`, so the five views stay listed.
+  assert.match(SCREEN, /const filterSheet = \(\s*<GuestsFilterSheet\b/, 'the List’s ≡ is not the Show & sort sheet');
+  const SHEET_SRC = read('guests-filter-panel.tsx');
+  assert.match(SHEET_SRC, /guestsFilterOptions\('list', filter/, 'the sheet does not read the shared options');
+  assert.match(SHEET_SRC, /name="Group by"[\s\S]{0,200}options=\{of\('Group by'\)\}/, 'Group by is not one dropdown');
+  const LIB = readFileSync(join(HERE, '../../../../../lib/guests-filter.ts'), 'utf8');
+  assert.match(LIB, /for \(const v of ROSTER_VIEWS\) \{[\s\S]{0,160}group: 'Group by'/, 'the Sort no longer lists the five views');
 });

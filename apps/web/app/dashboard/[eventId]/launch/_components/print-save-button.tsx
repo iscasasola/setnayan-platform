@@ -44,7 +44,7 @@ import { StatusLine } from '@/app/_components/status-line';
  * `href` + `download` stay on the anchor so a click before hydration (or with
  * scripting off) still gets the file the old way.
  */
-export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download' } | { k: 'error'; message: string };
+export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download'; file: File } | { k: 'error'; message: string };
 type State = PrintSaveState;
 
 /** A phone or tablet that can share this file. A desktop browser that can also
@@ -77,7 +77,7 @@ function downloadBlob(file: File) {
  * plain error · "Saved."), for a control that is not this button: the Prints carousel's Download ▾, whose pick names the file
  * (This one · All guests) and whose one button then wears the state (`studio-prints-carousel.tsx`). One save, two looks.
  */
-export function usePrintSave(): { state: PrintSaveState; save: (href: string, fileName: string) => Promise<void> } {
+export function usePrintSave(): { state: PrintSaveState; save: (href: string, fileName: string, body?: string) => Promise<void> } {
   /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
   const printFetch = usePrintFetch();
   const [state, setState] = useState<State>({ k: 'idle' });
@@ -89,7 +89,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
     if (canShare(file)) {
       try {
         await navigator.share({ files: [file] });
-        setState({ k: 'saved', via: 'share' });
+        setState({ k: 'saved', via: 'share', file });
         return;
       } catch (e) {
         // Dismissed — they saw the sheet; nothing to say.
@@ -105,10 +105,11 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
       }
     }
     downloadBlob(file);
-    setState({ k: 'saved', via: 'download' });
+    setState({ k: 'saved', via: 'download', file });
   };
 
-  const save = async (href: string, fileName: string) => {
+  /** `body` — a file drawn from what the screen holds (one person's day, slice 6) is POSTed; otherwise a GET. */
+  const save = async (href: string, fileName: string, body?: string) => {
     if (busy.current) return;
     const now = held.current;
     if (now.k === 'ready' && now.file.name === fileName) {
@@ -120,7 +121,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
     busy.current = true;
     setState({ k: 'working' });
     try {
-      const res = await printFetch(href, { credentials: 'same-origin' });
+      const res = await printFetch(href, body === undefined ? { credentials: 'same-origin' } : { credentials: 'same-origin', method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) {
         const text = (await res.text().catch(() => '')).trim();
         setState({ k: 'error', message: text && text.length < 200 && !text.startsWith('<') ? text : 'That file could not be made just now. Please try again.' });

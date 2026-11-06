@@ -226,6 +226,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   // shelf as the manager above, posted through the same `saveEgiftMethod`
   // (`pabuyaQrPolicy`); its readers are already the manager's.
   'app/dashboard/[eventId]/launch/_components/studio-tools.tsx': 1, // thread-files → event_egift_methods.qr_r2_key
+  // The record card's "How to pay them" (2026-10-29) — a supplier's QR in the event's own private payment folder,
+  // kept by `saveSelfAddedServiceCard` only through `budgetPaymentProofPolicy`, read back only through
+  // `displayUrlForPrivateStoredAsset(…, budgetPaymentProofPolicy)` (`lib/self-added-pay-ways.server.ts`).
+  'app/dashboard/[eventId]/_components/pay-ways-editor.tsx': 1, // thread-files → event_manual_vendors.pay_ways[].qr
 };
 
 test('the private-bucket UPLOADERS are exactly the known ones (a new one names its reader first)', () => {

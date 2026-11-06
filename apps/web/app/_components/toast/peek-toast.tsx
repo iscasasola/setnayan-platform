@@ -65,23 +65,36 @@ export const PEEK_TOAST_PILL =
 /** The words: the whole sentence on one line or two (balanced, so two lines are two halves); a third line is cut. */
 export const PEEK_TOAST_WORDS = 'min-w-0 line-clamp-2 [text-wrap:balance]';
 /**
- * A screen's OWN top bar — the toast sits under it, never over its buttons. Today: the Maker's toolbar. A screen that
- * grows a bar of its own at the very top marks it `data-peek-toast-under` and the toast follows.
+ * A screen's OWN top bar — the toast sits under it, never over its buttons. The Maker's toolbar; the shell's own top bar
+ * (`.shell-topbar` — identity · ⌘K · bell · account) WHILE IT IS ON SCREEN (2026-10-29, Guests › March: "Amara Lim now
+ * walks in Flower Parade · Undo" was drawn on top of it — every toast was, wherever the bar showed). A bar slid away on
+ * a phone (`translateY(-100%)`) ends at 0 and moves nothing; one hidden (`display:none`) has no height and moves nothing.
+ * A screen that grows a bar of its own at the very top marks it `data-peek-toast-under` and the toast follows.
  */
-export const PEEK_TOAST_UNDER = '[data-maker-toolbar], [data-peek-toast-under]';
+export const PEEK_TOAST_UNDER = '[data-maker-toolbar], .shell-topbar, [data-peek-toast-under]';
 /** The gap between that bar and the toast. */
 export const PEEK_TOAST_UNDER_GAP = 8;
 
 /**
  * Where the screen's own top bar ends (0 = it has none): the lowest bottom edge of a marked bar that is DRAWN, starts
  * at the top of the screen and is a bar (not a sheet that happens to start there). Read once, as the toast is drawn.
+ * Bars STACK (2026-10-29): a marked bar that starts where the one above it ends (within `PEEK_TOAST_STACK_SLACK`) is
+ * part of the head too — the shell's bar, then a screen's pinned row under it (Guests' View row) — so the toast clears
+ * the whole head and lands on the content, never on a control.
  */
+export const PEEK_TOAST_STACK_SLACK = 16;
 export function peekToastUnder(doc: Pick<Document, 'querySelectorAll'>): number {
-  let bottom = 0;
+  const bars: { top: number; bottom: number }[] = [];
   doc.querySelectorAll(PEEK_TOAST_UNDER).forEach((el) => {
     const r = (el as Element).getBoundingClientRect();
-    if (r.height > 0 && r.top <= 8 && r.bottom <= 160) bottom = Math.max(bottom, r.bottom);
+    if (r.height > 0 && r.height <= 160) bars.push({ top: r.top, bottom: r.bottom });
   });
+  bars.sort((a, b) => a.top - b.top);
+  let bottom = 0;
+  for (const r of bars) {
+    const reach = bottom > 0 ? bottom + PEEK_TOAST_STACK_SLACK : 8;
+    if (r.top <= reach && r.bottom <= bottom + 160) bottom = Math.max(bottom, r.bottom);
+  }
   return Math.round(bottom);
 }
 /** The two looks — the accent for a good result; the danger token, darkened, for a failure. In dark (PR 4, 2026-10-13) the

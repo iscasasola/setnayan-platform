@@ -216,9 +216,10 @@ test('3 · the open field hears Tab before anything else and ends through the ON
   assert.ok(keys.length > 100, 'the open field’s keys moved — re-read this guard');
   assert.match(keys, /if \(e\.key === 'Tab' && !e\.altKey && !e\.ctrlKey && !e\.metaKey\) \{\s*e\.preventDefault\(\);\s*end\(e\.shiftKey \? 'tab-back' : 'tab'\);/, 'Tab no longer ends the field through its exit');
   assert.ok(keys.indexOf("'Tab'") < keys.indexOf("'Enter'"), 'Tab is heard after Enter');
-  /* 📱 The phone's "next" key is its Enter: it goes on only when there IS a next row, and says so on the key. */
-  assert.match(keys, /end\(onwards && window\.matchMedia\('\(pointer: coarse\)'\)\.matches \? 'tab' : 'enter'\)/, 'the phone’s next key does not go on');
-  assert.match(field, /enterKeyHint=\{onwards \? 'next' : 'done'\}/, 'the one-line field’s key does not say "next"');
+  /* 📱 The phone's "next" key is its Enter: it goes on only when there IS a next row, and says so on the key. (An add box
+     — `entersAdd`, owner 1 Nov "ENTER STILL ADDS" — opts out: its Enter adds. 🔒 lib/enter-still-adds.test.ts) */
+  assert.match(keys, /end\((?:!entersAdd && )?onwards && window\.matchMedia\('\(pointer: coarse\)'\)\.matches \? 'tab' : 'enter'\)/, 'the phone’s next key does not go on');
+  assert.match(field, /enterKeyHint=\{(?:entersAdd \? 'go' : )?onwards \? 'next' : 'done'\}/, 'the one-line field’s key does not say "next"');
 });
 
 test('4 · it moves on only from a row that is FINE — after its ONE keep landed; a wrong, unfinished or refused keep stays', () => {

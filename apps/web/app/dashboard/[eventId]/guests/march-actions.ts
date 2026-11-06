@@ -40,22 +40,17 @@
  * ⛔ Touches no chair. The seat plan is a different ordering on purpose.
  */
 
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import {
   MARCH_READ_FAILED,
   pinLineOrder,
+  readAllGroups,
   readMarchLines,
   revalidateMarch,
+  writeSectionOrder,
 } from '@/lib/entourage-write';
-import {
-  ENTOURAGE_COLUMNS,
-  MARCH_ROLES,
-  entourageLines,
-  orderedGroupKeys,
-  type EntourageGuestRow,
-} from '@/lib/entourage';
+import { MARCH_ROLES } from '@/lib/entourage';
 import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
 import type { MarchResult } from '@/lib/march-result';
 
@@ -193,35 +188,4 @@ export async function resetEntourageSections(eventId: string): Promise<MarchResu
   await refuseLimitedHelper(eventId, 'guest_list');
   await requireHostMembership(eventId);
   return writeSectionOrder(eventId, null);
-}
-
-async function readAllGroups(
-  eventId: string,
-): Promise<{ ok: true; full: string[]; visible: Set<string> } | { ok: false; reason: string }> {
-  const admin = createAdminClient();
-  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }] = await Promise.all([
-    admin.from('events').select('entourage_section_order').eq('event_id', eventId).maybeSingle(),
-    admin.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
-  ]);
-  if (evErr || rowsErr || !ev) return { ok: false, reason: MARCH_READ_FAILED };
-
-  const saved = (ev as { entourage_section_order: string[] | null }).entourage_section_order;
-  const all = (rows ?? []) as EntourageGuestRow[];
-  const full = orderedGroupKeys(saved);
-  return { ok: true, full, visible: new Set(full.filter((k) => entourageLines(all, k).length > 0)) };
-}
-
-async function writeSectionOrder(eventId: string, order: string[] | null): Promise<MarchResult> {
-  const admin = createAdminClient();
-  // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
-  const { data, error } = await admin
-    .from('events')
-    .update({ entourage_section_order: order })
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (error || !data || data.length === 0) {
-    return { ok: false, reason: 'The new section order was not saved — nothing was changed.' };
-  }
-  await revalidateMarch(eventId);
-  return { ok: true, written: data.length };
 }

@@ -22,6 +22,7 @@
  * `CARDS_PER_SERVICE` 3 → 1 · `nextOpenAfter` returning the open key · the slot's `aria-haspopup` dropped · the
  * in-place branch's `return` removed (falls through to the redirect) — each RED.
  */
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
@@ -64,9 +65,12 @@ async function rail(o: { cards?: number; details?: boolean; logo?: boolean; docs
     submitMissing: [],
     customerCount: 0,
     notAvailableCount: o.daysOff ?? 0,
-    offer: o.offerRead === false ? null : offerProgress(['catering'], cards),
+    offer: o.offerRead === false ? null : offerProgress(['catering'], cards, COARSE),
   });
 }
+
+/** The coarse profile categories, as the server read hands them in (`lib/vendor-first-steps.server.ts`). */
+const COARSE: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORIES);
 
 test('1 · the six steps, in order and in the prototype’s words — each ✓ the saved fact', async () => {
   const { assembleSetup, setupHeadline } = await import('@/lib/supplier-setup');
@@ -93,15 +97,16 @@ test('2 · Good · Better · Best — three cards per service, "N to go", lowest
   const { offerProgress, CARDS_PER_SERVICE, SERVICE_TIERS } = await import('@/lib/supplier-setup');
   assert.equal(CARDS_PER_SERVICE, 3);
   assert.deepEqual([...SERVICE_TIERS], ['Good', 'Better', 'Best']);
+  // (2026-10-29: the coarse set is now handed in — `catering` is coarse but has cards of its own, so it stays.)
   const p = offerProgress(['catering', 'grazing_table'], [
     { id: 'a', service: 'catering', title: 'Premium', pricePhp: 650 },
     { id: 'b', service: 'catering', title: 'Classic', pricePhp: 450 },
     { id: 'c', service: 'catering', title: 'Unpriced', pricePhp: null },
-  ]);
+  ], COARSE);
   assert.deepEqual(p.services.map((s) => [s.service, s.cards.length, s.toGo]), [['catering', 3, 0], ['grazing_table', 0, 3]]);
   assert.deepEqual(p.services[0]!.cards.map((c) => c.title), ['Classic', 'Premium', 'Unpriced'], 'Good is not the lowest price');
   assert.equal(p.toGo, 3);
-  assert.equal(offerProgress([], []).toGo, 3, 'a shop with no service at all has nothing to go');
+  assert.equal(offerProgress([], [], COARSE).toGo, 3, 'a shop with no service at all has nothing to go');
 
   const { assembleSetup } = await import('@/lib/supplier-setup');
   for (const [cards, done, word] of [[1, false, '2 to go'], [2, false, '1 to go'], [3, true, null]] as const) {

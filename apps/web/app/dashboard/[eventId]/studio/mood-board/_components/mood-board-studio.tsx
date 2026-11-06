@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, Clock, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, Clock, PenLine, Plus, Search, Send, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
@@ -70,6 +70,7 @@ import { RoleMoreRow } from './role-more-row';
 import { GalleryPicker } from './gallery-picker';
 import { StudioDos } from './studio-dos';
 import { KeepFullSheet, SuggestionsNotice } from './suggestion-parts';
+import { SharePhotoSheet } from './share-photo-sheet';
 import type { InspirationItem } from './inspiration-board';
 import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
 
@@ -250,7 +251,7 @@ function boardUndo(put: (undone: boolean) => void): UndoStep {
 export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const { eventId } = props;
   const router = useRouter();
-  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion, updateScheduleBlock, createScheduleBlock } = useMoodBoardActions();
+  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoMoodBoardChange, updateScheduleBlock, createScheduleBlock } = useMoodBoardActions();
   const [tab, setTab] = useState<Tab>(props.startTab ?? 'colours');
   const [sheet, setSheet] = useState<Sheet>(null);
   useOneOpen(sheet !== null, () => setSheet(null));
@@ -584,6 +585,12 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
   /* ✕ asks once (the centred confirm box): a photo that comes off is gone — there is no Undo for it. */
   const [askRemove, setAskRemove] = useState<{ slot: string; pos: number; label: string } | null>(null);
+  /* 📸 The couple's OWN photos of a part, shared with a linked supplier's service card (owner 2026-10-30). */
+  const [sharing, setSharing] = useState<{ slot: string; label: string } | null>(null);
+  const ownPhotosOf = (slot: string) =>
+    MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: tiles[slot]?.[p - 1] }))
+      .filter((x) => x.tile?.url && !x.tile.fromShop && !x.tile.credit)
+      .map((x) => ({ pos: x.pos, url: x.tile!.url }));
   const removePhoto = async (slot: string, pos: number) => {
     const before = tiles[slot]?.[pos - 1];
     setTile(slot, pos, undefined);
@@ -702,7 +709,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
   const undoKeep = async (sg: CoupleSuggestion, pos: number, before: Tile | undefined) => {
     try {
-      const r = await undoKeptInspirationSuggestion(eventId, sg.id);
+      const r = await undoMoodBoardChange(eventId, { suggestionId: sg.id });
       if (r.status !== 'ok') {
         failed(DECIDE_NOT_SAVED);
         return;
@@ -856,8 +863,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const secondNow = (row: StudioAttireRow): string[] => {
     const def = attireRow(row.tier as AttireTier, row.key);
     const own = def ? picksOf(dress, def)[1]?.colours : null;
-    return own ? [...own] : row.paletteKey ? roleColours(row.paletteKey) : [];
+    return own ? [...own] : row.paletteKey ? roleColours(row.paletteKey) : celebrantMain(row);
   };
+  /** 🎂 The celebrant's figures are drawn in the event's MAIN colours (owner 2026-11-05, (K)) — no palette of their own. */
+  const celebrantMain = (row: StudioAttireRow): string[] => (row.key === 'celebrant' ? [...five] : []);
 
   /* 👗 A ROLE'S OWN PHOTOS, IN ATTIRE (prototype `ideasHTML`): its photos small, how many, ＋ (the couple's own) and
      Search ideas › (the suppliers' — the shipped picker). A photo comes off through the same confirm box; the photos'
@@ -905,6 +914,13 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           <p className={`-mt-0.5 text-[12px] text-ink/55 ${at === 'fold' ? 'hidden lg:block' : ''}`} data-mood-board-count={slot.slotKey}>
             {named ? `${slot.label} · ${count}` : count}
           </p>
+        ) : null}
+        {/* 📸 THEIR OWN PHOTO, TO THE SUPPLIER WHO MADE IT (owner 2026-10-30): one quiet line under the photos, only when the
+            part holds a photo the couple uploaded — the sheet picks the photo, the card, the credit and asks consent. */}
+        {ownPhotosOf(slot.slotKey).length > 0 ? (
+          <div className={`${at === 'fold' ? 'hidden lg:flex' : 'flex'} min-h-11 items-center`} data-mood-board-share={slot.slotKey}>
+            <ActionButton tone="neutral" quiet icon={Send} label="Share with your supplier" name={`Share a ${slot.label} photo with your supplier`} onClick={() => setSharing({ slot: slot.slotKey, label: slot.label })} />
+          </div>
         ) : null}
         {/* 🤝🖼 A SUPPLIER'S PHOTO, WAITING beside the couple's own (prototype frame 3): "From Bloom & Co." · "A photo for
             Bridal bouquet", then the shipped notice's two buttons — ✓ Keep · ✕ No thanks. Nothing moves until one is tapped. */}
@@ -1214,7 +1230,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 ) : null}
                 <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col [@container(min-width:640px)]:flex-row [@container(min-width:640px)]:gap-8 [@container(min-width:640px)]:[&>*]:flex-1' : ''}`} data-mood-board-picks={drawn.length}>
                   {drawn.map(({ pick, pi }) => {
-                    const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
+                    const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : celebrantMain(row)) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
                     const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;
                     /* 👔 A ROLE WITH ITS OWN DESIGNS (owner 2026-10-16): its own drawing of the design, dyed zone by zone,
@@ -1471,7 +1487,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                       >
                         {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
                         <div className="flex justify-start">{figure}</div>
-                        {swatches}
+                        {swatches ?? (row.key === 'celebrant' ? (
+                          <small className="text-[12px] leading-snug text-ink/65" data-mood-board-celebrant-colours="">In your main colours</small>
+                        ) : null)}
                         {wearRow}
                       </div>
                     );
@@ -1529,6 +1547,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             </p>
           )}
         </div>
+      ) : null}
+
+      {sharing ? (
+        <SharePhotoSheet eventId={eventId} slotKey={sharing.slot} partLabel={sharing.label} photos={ownPhotosOf(sharing.slot)} onClose={() => setSharing(null)} />
       ) : null}
 
       {askRemove ? (

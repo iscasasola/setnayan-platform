@@ -1,44 +1,33 @@
 /**
- * plan3d-control.test.ts — the control centre's decisions are honest.
- * Unread is not empty; the ladder of next steps has one rung per state; the
- * finalize date is shown, never enforced.
+ * plan3d-control.test.ts — the 3D Plan's facts are honest (restored 2026-10-29 with the facts, behind ⓘ in Guests › Seats).
+ * Unread is not empty: a refused read is "—", never a zero, and a delegate who was not shared the list is told so.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  resolvePlan3dStanding,
-  resolvePlan3dFacts,
-  resolvePlan3dNextStep,
-  resolvePlan3dSources,
-  resolveGuestListFinalize,
-  type Plan3dEventRead,
-  type Plan3dPlanRead,
-  type Plan3dGuestRead,
-} from './plan3d-control';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+import { resolvePlan3dStanding, resolvePlan3dFacts, type Plan3dEventRead, type Plan3dPlanRead, type Plan3dGuestRead } from './plan3d-control';
 
 const NOW = new Date('2026-09-05T04:00:00Z').getTime(); // noon in Manila
-const ev = (o: Partial<Plan3dEventRead> = {}): Plan3dEventRead => ({
-  measured: true, slug: 'maria-and-jose', eventDate: '2026-12-12', timezone: 'Asia/Manila',
-  guestListEditDeadline: null, guestListLockedAt: null, ...o,
-});
-const plan = (o: Partial<Plan3dPlanRead> = {}): Plan3dPlanRead => ({
-  measured: true, published: false, publishedAt: null, tables: 22, seated: 174, boothCount: 3, brandedBooths: 1, photoVisibility: 'table', autoplace: true, ...o,
-});
+const ev = (o: Partial<Plan3dEventRead> = {}): Plan3dEventRead => ({ measured: true, slug: 'maria-and-jose', eventDate: '2026-12-12', timezone: 'Asia/Manila', ...o });
+const plan = (o: Partial<Plan3dPlanRead> = {}): Plan3dPlanRead => ({ measured: true, published: false, publishedAt: null, tables: 22, seated: 174, ...o });
 const guests = (o: Partial<Plan3dGuestRead> = {}): Plan3dGuestRead => ({ shared: true, measured: true, total: 178, withAvatar: 12, ...o });
-const BASE = '/dashboard/E';
 
 test('standing: draft / live / after — and null when the gate was not read', () => {
   assert.deepEqual(resolvePlan3dStanding(ev(), plan(), NOW), { state: 'draft', measured: true });
   assert.deepEqual(resolvePlan3dStanding(ev(), plan({ published: true, publishedAt: '2026-09-01T00:00:00Z' }), NOW), { state: 'live', measured: true });
   assert.deepEqual(resolvePlan3dStanding(ev({ eventDate: '2026-08-01' }), plan({ published: true }), NOW), { state: 'after', measured: true });
-  // 🔑 a refused gate read is NOT a draft
   assert.deepEqual(resolvePlan3dStanding(ev(), plan({ measured: false, published: false }), NOW), { state: null, measured: false });
 });
 
 test('facts: every unread fact is known:false with a null value — never a zero', () => {
   const f = resolvePlan3dFacts(ev({ measured: false }), plan({ measured: false }), guests({ measured: false }), NOW);
   assert.equal(f.length, 4);
-  for (const x of f) { assert.equal(x.known, false, x.label); assert.equal(x.value, null, x.label); }
+  for (const x of f) {
+    assert.equal(x.known, false, x.label);
+    assert.equal(x.value, null, x.label);
+  }
 });
 
 test('facts: the four cells, measured', () => {
@@ -48,72 +37,33 @@ test('facts: the four cells, measured', () => {
   assert.equal(f[1]!.value, '174 of 178 · 22 tables');
   assert.equal(f[2]!.value, '12 guests · at setnayan.com/maria-and-jose/avatar');
   assert.match(f[3]!.value!, /^98 · 12 Dec$/);
+  assert.equal(resolvePlan3dFacts(ev(), plan(), guests(), NOW)[0]!.value, 'Opens on the day');
   assert.equal(resolvePlan3dFacts(ev({ eventDate: '2026-09-05' }), plan(), guests(), NOW)[3]!.value, 'Today');
   assert.equal(resolvePlan3dFacts(ev({ eventDate: '2026-09-02' }), plan(), guests(), NOW)[3]!.value, 'Was 3 days ago');
   assert.equal(resolvePlan3dFacts(ev({ eventDate: null }), plan(), guests(), NOW)[3]!.value, 'No date yet');
 });
 
-test('next step: one rung per state, in order', () => {
-  const step = (e = ev(), p = plan(), g = guests()) => resolvePlan3dNextStep(e, p, g, BASE, NOW);
-  assert.equal(step(ev(), plan({ measured: false })).tone, 'failed');
-  assert.equal(step(ev(), plan({ tables: 0 })).headline, 'Place your first table');
-  // auto-seating ON (the default): a guest with no seat means not enough
-  // tables — the act is ADD A TABLE, never "seat them by hand"
-  const short = step(ev(), plan({ seated: 174 }), guests({ total: 178 }));
-  assert.equal(short.headline, '4 guests have no seat yet');
-  assert.equal(short.cta, 'Add a table');
-  assert.match(short.blurb, /seats fill themselves/);
-  assert.equal(step(ev(), plan({ seated: 177 }), guests({ total: 178 })).headline, '1 guest has no seat yet');
-  // auto-seating OFF: they really are the couple's to place
-  const manual = step(ev(), plan({ seated: 174, autoplace: false }), guests({ total: 178 }));
-  assert.equal(manual.headline, '4 guests have no seat');
-  assert.equal(manual.cta, 'Seat them');
-  // fully seated, draft, list STILL OPEN (deadline = event − 14d) → PUBLISH.
-  // Owner 2026-09-06: "seating can always change in the last minute and even
-  // during the event" — there is no wait step and no gate, ever.
-  const pub = step(ev(), plan({ seated: 178 }), guests({ total: 178 }));
-  // 2026-09-30 (owner: "seatplan will show on the date of the event"): the
-  // walk opens by itself on the day; the switch only opens it EARLY.
-  assert.equal(pub.headline, 'Your guests walk the room on the day');
-  assert.equal(pub.tone, 'act');
-  assert.match(pub.blurb, /right up to and during the day/);
-  assert.doesNotMatch(pub.blurb, /wait|settled/i);
-  assert.equal(pub.href, null, 'the act is the switch on the page — not a door');
-  assert.equal(step(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), plan({ seated: 178 }), guests({ total: 178 })).headline, 'Your guests walk the room on the day');
-  // live → print
-  assert.equal(step(ev(), plan({ published: true, seated: 178 }), guests({ total: 178 })).headline, 'Print your table signs');
-  // after → nothing to do, quietly
-  assert.equal(step(ev({ eventDate: '2026-08-01' }), plan({ published: true, seated: 178 }), guests({ total: 178 })).tone, 'quiet');
+test('an unread avatar count is "—" on its own — the seated count still counts', () => {
+  const f = resolvePlan3dFacts(ev(), plan(), guests({ withAvatar: null }), NOW);
+  assert.deepEqual(f[2], { label: 'Made an avatar', known: false, value: null });
+  assert.equal(f[1]!.value, '174 of 178 · 22 tables');
 });
 
 test('a delegate without the guest list is told so — a third state, not a zero and not a dash', () => {
   const f = resolvePlan3dFacts(ev(), plan(), guests({ shared: false, measured: false }), NOW);
   assert.deepEqual(f[1], { label: 'Seated', known: true, value: 'Not shared with you' });
   assert.deepEqual(f[2], { label: 'Made an avatar', known: true, value: 'Not shared with you' });
-  const s = resolvePlan3dSources(ev(), plan(), guests({ shared: false, measured: false }), BASE, NOW);
-  assert.equal(s[0]!.value, 'Not shared with you');
-  assert.match(s[1]!.value!, /174 seated/, 'the seat plan row must not print "with no seat" from a list it cannot read');
-  // and the next step never sends them to seat guests they cannot see
-  const step = resolvePlan3dNextStep(ev(), plan(), guests({ shared: false, measured: false }), BASE, NOW);
-  assert.notEqual(step.href, `${BASE}/seating`);
 });
 
-test('guest-list finalize: only the host Finalize closes it — never a date (owner 2026-09-30)', () => {
-  assert.equal(resolveGuestListFinalize(ev({ guestListLockedAt: '2026-09-01T00:00:00Z' }), NOW).label, 'finalized');
-  assert.equal(resolveGuestListFinalize(ev(), NOW).label, 'open');
-  assert.equal(resolveGuestListFinalize(ev({ eventDate: null }), NOW).label, 'open');
-  // A reply-by date long past still does not close it.
-  assert.equal(resolveGuestListFinalize(ev({ guestListEditDeadline: '2020-01-01' }), NOW).label, 'open');
-  assert.equal(resolveGuestListFinalize(ev({ measured: false }), NOW).label, 'Couldn’t read it just now');
-});
-
-test('sources: three doors, each carrying its state, unread rows say so', () => {
-  const s = resolvePlan3dSources(ev(), plan(), guests(), BASE, NOW);
-  assert.deepEqual(s.map((r) => r.key), ['guests', 'seatplan', 'moodboard']);
-  assert.equal(s[0]!.value, '178 guests · open');
-  assert.equal(s[1]!.value, '22 tables · 4 with no seat · 3 supplier booths (1 branded) · auto-seating on');
-  assert.match(resolvePlan3dSources(ev(), plan({ autoplace: false }), guests(), BASE, NOW)[1]!.value!, /auto-seating off$/);
-  assert.deepEqual(s.map((r) => r.href), [`${BASE}/guests`, `${BASE}/seating`, `${BASE}/studio/mood-board`]);
-  const unread = resolvePlan3dSources(ev(), plan({ measured: false }), guests({ measured: false }), BASE, NOW);
-  assert.equal(unread[0]!.known, false); assert.equal(unread[1]!.known, false);
+test('the facts are drawn behind ⓘ in the Seats ⋯ menu, and an unread avatar count reaches the render as unread', () => {
+  const read = (rel: string) => stripComments(readFileSync(join(__dirname, '..', rel), 'utf8'));
+  const editor = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  const more = editor.slice(editor.indexOf('const phoneMore = ('), editor.indexOf('const phoneTrailing = ('));
+  assert.match(more, /\{doorStrip\}\s*\{plan3dFactsRow\}/, 'the facts left the Seats ⋯ menu, beside the switch');
+  assert.match(editor, /withAvatar: plan3d\?\.withAvatar \?\? null/, 'an unread avatar count is no longer "unread"');
+  const facts = read('app/dashboard/[eventId]/seating/_components/seat-plan-facts.tsx');
+  assert.match(facts, /<InfoTip[^>]*label="3D Plan"/, 'the facts are not behind an ⓘ');
+  assert.match(facts, /f\.known && f\.value != null \? f\.value : '—'/, 'an unread fact no longer says —');
+  const page = read('app/dashboard/[eventId]/seating/page.tsx');
+  assert.match(page, /withAvatar: avatarCount\.error \? null : avatarCount\.count \?\? 0/, 'a refused avatar count would print 0');
 });

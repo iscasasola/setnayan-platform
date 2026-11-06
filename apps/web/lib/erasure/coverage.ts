@@ -577,6 +577,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Nulling anonymises the feedback; the review itself is product data the platform acts on, not a record about the person.',
   },
   {
+    table: 'booking_fee_disputes',
+    column: 'opened_by_user_id',
+    why: 'The shop account that disputed a booking fee (2026-11-05). The dispute is the SHOP’s record of a fee and Setnayan’s answer — it must survive the person leaving, exactly as the fee it is about does.',
+  },
+  {
+    table: 'booking_fee_disputes',
+    column: 'decided_by_user_id',
+    why: 'The admin who decided the dispute. An admin actor stamp on the shop’s fee record.',
+  },
+  {
     table: 'vendor_disputes',
     column: 'opened_by_user_id',
     why: 'Who raised the dispute. The dispute is a two-party record and the vendor’s side of it must survive the complainant leaving.',
@@ -717,6 +727,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin ruled on the appeal. A staff stamp; the appeal itself is the reviewer’s and is deleted.',
   },
   {
+    table: 'vendor_crew_codes',
+    column: 'created_by',
+    why: 'Which shop admin issued the crew QR. The QR is the SHOP’s; deleting on this would end every crew pass of a third party.',
+  },
+  {
+    table: 'vendor_crew_passes',
+    column: 'decided_by',
+    why: 'Which shop admin allowed or removed a crew phone. An actor stamp on the CREW MEMBER’s row; nulling it removes nobody.',
+  },
+  {
     table: 'vendor_event_access_grants',
     column: 'granted_by',
     why: 'Who issued the access grant. Deleting on this would revoke a THIRD PARTY’s access — the event_delegates lesson.',
@@ -757,6 +777,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'shop_papic_wallet_entries',
     column: 'created_by',
     why: 'Who pressed a shop-wallet spend or wrote an admin credit row. The ledger is the SHOP’s money record (owner 2026-10-23, option A) and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_purchases',
+    column: 'created_by',
+    why: 'Who pressed Buy on a shop’s gift stock. The purchase is the SHOP’s money record and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_stock_entries',
+    column: 'created_by',
+    why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
   },
   {
     table: 'hub_music_tracks',
@@ -829,6 +859,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which partner pressed Keep / No thanks on a supplier\u2019s photo (or which supplier account withdrew it). An actor stamp on the same row; the decision (state, decided_at) stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
   },
   {
+    table: 'event_mood_board_changes',
+    column: 'actor_user_id',
+    why: 'Who changed a couple\u2019s Mood Board photos under Mood Board Edit (2026-10-30, migration 20271299051148). 🔑 THE ROW IS THE COUPLE\u2019S RECORD, NOT THE ACTOR\u2019S \u2014 the same shape as event_colour_changes: it is the owners\u2019 24-hour Undo for a change still live on their board, so deleting it because the coordinator left would take the Undo away. Readable without the uuid: `actor_label` denormalises the role and name AS IT READ. The trigger only matches an OPEN change by this uuid for 5 minutes; a NULL just means a later write opens a new change. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_mood_board_changes',
+    column: 'undone_by_user_id',
+    why: 'Which owner pressed Undo on a Mood Board change (2026-10-30). An actor stamp on the same couple-owned row; `undone_at` stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
     table: 'event_date_change_requests',
     column: 'asked_by_user_id',
     why: 'Which partner pressed "Ask them to move or unlock?" (the clashing-date flow, 2026-10-01). The REQUEST belongs to the EVENT and is answered by its booked suppliers: a still-open one is what their Move / Unlock card and the couple\u2019s Home card stand on, so deleting it because one partner left would silently withdraw an ask other people are mid-way through answering. The uuid is a stamp read by no screen and no RLS policy (the gate is current_couple_event_ids()). Nullable with ON DELETE SET NULL from the day it shipped.',
@@ -886,6 +926,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   column: string;
   why: string;
 }> = [
+  {
+    table: 'couple_photo_shares',
+    column: 'shared_by_user_id',
+    why: '📸 The subject’s consent and credit line for THEIR OWN photo on a supplier’s service card (#7089) — CASCADE + NOT NULL: the row is about them. Before the row goes, purge.ts deletes each share’s FROZEN COPY (couple-looks/<share_id>/… in whichever bucket its audience put it) through the cleanup executor, scoped to that share’s folder; the photo then leaves every card at once. A share SENT TO the subject’s shop is the COUPLE’s, so it is withdrawn and its copy deleted, not erased (purge.ts, same step).',
+  },
   {
     table: 'vendor_feature_recommendations',
     column: 'recommended_by_user_id',
@@ -980,6 +1025,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_review_appeals',
     column: 'reviewer_user_id',
     why: 'CASCADE + NOT NULL — the appeal is a dossier about this reviewer’s own review. Nulling is impossible and would void the statement.',
+  },
+  {
+    table: 'vendor_crew_passes',
+    column: 'crew_user_id',
+    why: 'CASCADE + NOT NULL — the row is THIS person’s crew pass for one event (the name they typed, their role). Its decided_by side is an actor stamp and is nulled instead.',
   },
   {
     table: 'vendor_event_access_grants',
@@ -1296,6 +1346,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'event_type_requests',
+    column: 'user_id',
+    why: 'The subject’s own asks for an event type we do not have (“Can’t find yours? Ask us to add it”, 2026-10-28) — what they typed, theirs alone; no audit, money or shared-record role. The type an admin made from it lives on in event_type_vocab, which carries no trace of who asked.',
+  },
+  {
     table: 'notifications',
     column: 'user_id',
     why: 'The subject’s own notification feed — titles/bodies quote payment amounts and deep-link into their dashboard.',
@@ -1525,6 +1580,8 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
   dependents: ['owner_user_id'],
   godparents: ['owner_user_id'],
   guest_face_enrollments: ['guest_id'],
+  // Who's here (2026-10-29): when the subject's guest rows last opened an Event Hub — deleted by guest id in purge.ts.
+  hub_guest_views: ['guest_id'],
   // ⚠ Was `event_id` — event-wide, which revoked the CO-PARTNER's Google
   // credential. Now the account that actually completed the consent.
   oauth_grants: ['granted_by_user_id'],

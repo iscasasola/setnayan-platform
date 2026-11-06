@@ -17,6 +17,8 @@ import { feeDueCopy, type DueFeeBill, type WaivedFeeCharge } from '@/lib/booking
 import { moneyPicture, moneyWindowOf, moneyYear, type MoneyWindow } from '@/lib/vendor-money';
 import { paginate } from '@/lib/paginate';
 import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersFigures } from '@/app/vendor-dashboard/customers/_components/customers-figures';
+import { moneyFiguresOf } from '@/app/vendor-dashboard/customers/money-pin-figures';
 import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { MoneyView } from '@/app/vendor-dashboard/customers/_components/money-view';
 import { MoneyLog } from '@/app/vendor-dashboard/customers/_components/money-log';
@@ -33,6 +35,7 @@ import {
   type ShopWalletEntry,
 } from '@/lib/shop-wallet';
 import { formatPhp } from '@/lib/php';
+import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 
 /** The prototype's wallet: two ₱500 packs in, 72 portfolio credits out → 128. */
 const WALLET_ENTRIES: ShopWalletEntry[] = [
@@ -61,6 +64,14 @@ function labWallet(state: string | undefined): ShopWallet {
   return { balance: 128, entries: WALLET_ENTRIES, pendingPack };
 }
 
+/** Lab fixture (dev-only route): the couple's three Papic packs as the shop sheet reads them. A real page reads
+ *  `platform_retail_catalog_v2` + `papic_pass_tiers` — these mirror the 2026-11-04 sheet and are never charged. */
+const LAB_SHOP_PACKS: readonly ShopPapicPack[] = [
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 }, // gitleaks:allow — catalog service_code
+  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
+];
+
 function labSheet(open: string, wallet: ShopWallet): ShopWalletSheetData {
   const empty = open === 'wallet-empty';
   const p = wallet.pendingPack;
@@ -71,8 +82,7 @@ function labSheet(open: string, wallet: ShopWallet): ShopWalletSheetData {
     pots: (empty ? POTS.slice(1) : POTS).map((pot) => ({ key: pot.eventId, title: eventPotTitle(pot), sub: eventPotSub(pot), href: '/dev/supplier-lab?s=money' })),
     buy: {
       openRails: open === 'wallet-paused' ? [] : [{ id: 'gcash', label: 'GCash' }, { id: 'bdo', label: 'BDO' }],
-      pricePhp: open === 'wallet-unavailable' ? null : 500,
-      packCredits: 100,
+      packs: open === 'wallet-unavailable' ? null : LAB_SHOP_PACKS,
       papicOn: open !== 'wallet-papic-off',
     },
     storeShell: false,
@@ -155,10 +165,10 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
       <div className="space-y-4">
         <CustomersPin
           seg="money"
-          hrefs={{ people: '/dev/supplier-lab?s=people', dates: '/dev/supplier-lab?s=dates', money: base }}
+          hrefs={{ events: '/dev/supplier-lab?s=events', dates: '/dev/supplier-lab?s=dates', money: base }}
+          figures={<CustomersFigures figures={moneyFiguresOf(picture.totals)} label="Your money" />}
           gear={<CustomersSettings body={null} />}
         />
-      </div>
       <MoneyView
         data={{
           today: TODAY,
@@ -182,6 +192,7 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
           wallet: { read: wallet.balance != null, title: walletRowTitle(wallet.balance), line: walletRowSubline(wallet, formatPhp), href: `${base}&open=wallet` },
         }}
       />
+      </div>
       {open?.startsWith('wallet') ? <ShopWalletSheet data={labSheet(open, wallet)} closeHref={base} /> : null}
       <SupplierThumbRow
         name="money"

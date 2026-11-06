@@ -10,12 +10,14 @@ import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
 import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
-import { replayMarch, type MarchOut, type MarchSection, type MarchStep } from '@/lib/march-drag';
+import type { MarchStep } from '@/lib/march-drag';
+import { marchAsDrafted } from '@/lib/march-as-drafted';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { coord } from '@/lib/event-venues';
-import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
+import { readLiveCeremony } from '@/lib/ceremony-time.server';
+import { ceremonyTimeBox } from '@/lib/ceremony-time';
 
 /**
  * Everything Details › Your event reads, for the couple's own Maker (Details
@@ -61,18 +63,18 @@ export async function loadYourEvent({
   /** ⛪ Event Hub Pro as the viewer is shown it — the venue card's "Our drawing ◆" mark. */
   venuePro?: { owns: boolean; storeShell: boolean };
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
+  const [base, confirmedVendorCount, nameStyle, liveCeremony, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
     // 🕒 The Schedule's Ceremony start (owner 2026-10-04) — unread is "none yet", never a guess written back.
-    readLiveCeremonyTime(admin, eventId).catch(() => null),
+    readLiveCeremony(admin, eventId).catch(() => null),
     // 🚶 The section order the march's header drag steps through (the same cached read the entourage uses).
     loadEntourageSectionOrder(admin, eventId),
   ]);
-  const ceremonyTime =
-    drafted && typeof drafted.ceremony_time === 'string' ? drafted.ceremony_time : liveCeremonyTime;
+  /* ⏰ A Time-TBA ceremony shows "Time TBA" in an empty box — never its placeholder 00:00 (`ceremonyTimeBox`). */
+  const { time: ceremonyTime, tba: ceremonyTba } = ceremonyTimeBox(drafted?.ceremony_time, liveCeremony);
   /* …shown as DRAFTED when the couple picked one in the Maker (owner 2026-10-01,
      "in event hub maker will only take effect when pressed apply"). */
   const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
@@ -188,6 +190,7 @@ export async function loadYourEvent({
       nudge: chinese ? <ChineseSpecialistNudge /> : null,
       helpFirst,
       ceremonyTime,
+      ceremonyTba,
     },
     venues: {
       resolved: venues,
@@ -209,25 +212,6 @@ export async function loadYourEvent({
       marchUnread,
     ),
   };
-}
-
-/**
- * 🚶 The march as the couple is arranging it: the live march (what guests see)
- * with the draft's moves laid on, step by step, the way each shipped action
- * leaves it (`replayMarch`). An unread draft is said — never drawn as "no moves",
- * which would let the next drop plan against a march the couple did not draft.
- */
-function marchAsDrafted(
-  live: { sections: MarchSection[]; printed: string[]; out: MarchOut[] | null },
-  drafted: MarchStep[][] | null | undefined,
-  marchUnread = false,
-): YourEventInput['march'] {
-  // An unread MARCH is the same refusal as an unread draft: a full march must never read "Nobody walks yet".
-  if (marchUnread) return { ...live, draftUnread: true, marchUnread: true };
-  if (drafted === null) return { ...live, draftUnread: true };
-  if (!drafted?.length) return live;
-  const shown = replayMarch({ sections: live.sections, printed: live.printed, out: live.out ?? [] }, drafted.flat());
-  return { sections: shown.sections, printed: shown.printed, out: live.out === null ? null : shown.out };
 }
 
 /** 📍 Where each venue card's own details draft into (`HUB_DRAFT_VENUE_COLUMNS`). */

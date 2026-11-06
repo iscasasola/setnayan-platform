@@ -16,12 +16,24 @@ import {
   type CleanupScope,
 } from '@/lib/cleanup-delete-scope';
 
-/** Free full-res window before OUR R2 original is dropped (owner 2026-07-11). */
-export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
+/**
+ * Days counted from the event's FIRST CAPTURE before an original may be dropped.
+ *
+ * ⚖ 0 SINCE 2026-11-03 — THE PHOTO RULE (DECISION_LOG "THE PHOTO RULE"). Owner,
+ * verbatim: *"after 3 months, we compress to 720p download and 400px for
+ * thumbnail"* · *"3 months after the event date"* · multi-day: *"last day"*.
+ * Originals are kept until 3 months after the event's LAST day and nothing else
+ * — so the first-capture clock (183 days, owner 2026-07-11; it held an
+ * early-capture event's originals past three months) no longer adds anything,
+ * and `papic_events_past_fullres_clock(0, FULL_RES_POST_EVENT_GRACE_DAYS)` is
+ * exactly the rule. The env override `PAPIC_FULLRES_RETENTION_DAYS` still exists
+ * and can only HOLD originals longer, never drop them sooner.
+ */
+export const DEFAULT_FULL_RES_RETENTION_DAYS = 0;
 
 /**
- * Days after the EVENT DATE before an original may be dropped, whatever the
- * 6-month clock says.
+ * Days after the event's LAST day before an original may be dropped — since
+ * 2026-11-03 this is THE whole rule (see DEFAULT_FULL_RES_RETENTION_DAYS).
  *
  * 🔒 RAISED 30 → 92 (one month → three) by the owner on 2026-08-07, verbatim:
  * *"still preserve 3 months all their photos in high res before we compress it."*

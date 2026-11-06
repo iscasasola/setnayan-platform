@@ -157,8 +157,10 @@ test('🔑 5 · the sheet opens panels through revealThreadTool, never a hash �
 });
 
 test('🔑 6 · the hash opener is mounted, so a deep link from elsewhere still opens', () => {
+  // The opener is in the ONE thread frame the page returns (`ChatThreadFrame`, 2026-10-29).
+  assert.match(page, /<ChatThreadFrame\b/, 'the page does not return the one thread frame');
   assert.equal(
-    (page.match(/<ThreadToolHashReveal\s*\/>/g) ?? []).length,
+    ((page + read('app/_components/chat/chat-thread-frame.tsx')).match(/<ThreadToolHashReveal\s*\/>/g) ?? []).length,
     1,
     'nothing honours the hash on arrival — every cross-page deep link lands on a closed panel',
   );

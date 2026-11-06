@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { SHOP_SEGMENT_HREF, type ShopSegment } from '../shop/_components/shop-segments';
+import { SHOP_SEGMENT_HREF, type ShopSegment } from '../shop/_components/shop-sections';
 import { bottomNavItemMatches } from '@/app/_components/nav/bottom-nav';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import { VENDOR_BOTTOM_NAV_ITEMS } from './vendor-bottom-nav';
@@ -59,9 +59,17 @@ function pageFor(path: string): string {
   return join(VD, path.replace(/^\/vendor-dashboard\/?/, ''), 'page.tsx');
 }
 
+/**
+ * Where a segment's page draws its switcher — the page file, or the one screen it hands its whole body to (Details:
+ * `profile/page.tsx` renders `<DetailsScreen>`, which draws the row; the dev lab draws the same screen).
+ */
+const SCREEN_FOR: Partial<Record<ShopSegment, string>> = {
+  details: join(VD, 'profile', '_components', 'details-screen.tsx'),
+};
+
 test('every page a Shop segment opens draws the Shop switcher with that segment on', () => {
   for (const [seg, href] of Object.entries(SHOP_SEGMENT_HREF) as [ShopSegment, string][]) {
-    const src = stripComments(readFileSync(pageFor(pathOf(href)), 'utf8'));
+    const src = stripComments(readFileSync(SCREEN_FOR[seg] ?? pageFor(pathOf(href)), 'utf8'));
     const on = (src.match(new RegExp(`<ShopSegments\\s+on="${seg}"`, 'g')) ?? []).length;
     assert.ok(on >= 1, `${href} draws no <ShopSegments on="${seg}"> — the supplier lands with no way back to Shop`);
   }

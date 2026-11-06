@@ -6,6 +6,11 @@
  * A source guard: it reads the component, never a DOM. Each assertion names a
  * PROPERTY the owner approved (a word, a door, a rule) — the look itself is
  * held by the side-by-sides taken in `/dev/suppliers-lab?tab=build`.
+ *
+ * 2026-10-31 — the words are the APPROVED FINAL frames' now (`carry-2026-10-29/suppliers-final-proto/`, frames 12 ·
+ * 12b · 13 · 14; owner 2026-10-30 "that is the last rule for the suppliers"): This build ▾ · ＋ New build · the
+ * budget line + meter · Compare builds (a sheet on a phone, All builds from 1024). The shape itself is held by
+ * `lib/the-build-is-the-approved-frame.test.ts`.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,39 +29,52 @@ const ACTION = read('build-actions.ts');
 /** The words the prototype prints in Build mode — fixed, no synonyms. */
 const WORDS = [
   "'This build'",
-  '· edited',
-  'categories',
-  'same as “',
-  'Nothing in your build yet — add suppliers in Find.',
-  "'Pick one'",
+  ' · edited',
+  'label="New build"',
+  'Pick one',
   'Nobody shortlisted with a price yet',
   '`Find in ${line.label}`',
   'label="Set price"',
-  'k="Booked"',
-  'k="If you book these"',
-  'k="Budget"',
-  'k="Buffer"',
+  ' budget ·',
+  ' buffer',
+  ' over',
+  'buffer not knowable',
+  '· no budget set yet',
+  'booked <Count',
+  'if you book these <Count',
+  "row('Booked'",
+  "row('If you book these'",
+  "row('Budget'",
+  "row('Buffer'",
   "'Not knowable'",
   'priced picks are free on',
   'Pick suppliers to check your date',
   "'Help me choose'",
   "'Set the date'",
-  'All builds',
-  'Compared side by side, with the dates each one is free on.',
+  "'All builds'",
+  "'Compare builds'",
+  'Side by side, with the dates each one is free on.',
   'Save this build to compare it with another.',
-  'builds · swipe to compare ›',
+  'builds · the dates each is free on',
+  '`Compare ${formatCount(view.cards.length)} builds`',
+  ' at a time on a phone · green = lowest total',
+  'Hide what’s the same',
+  'Total',
+  'Budget left',
+  'Free on',
+  ' · now',
+  ' · booked',
   'without a price',
-  "'all priced'",
   'Free: ',
   'No shared free date',
-  "'Buffer: not knowable'",
   'label="Use this build"',
+  'label="Rename"',
   'label="Delete this build"',
+  'label="Done"',
   'label="Saved"',
   'label="Save"',
-  'label="Save as new"',
   'label="Save this build"',
-  'label="Save build"',
+  "'Save build'",
   "'Nothing changed'",
   "'Already saved'",
   'already has exactly these suppliers.',
@@ -66,7 +84,7 @@ const WORDS = [
   '`Updated "${target.name}"`',
   '`Using "${card.name}"`',
   '`Deleted "${card.name}"`',
-  '— see All builds`',
+  '— see Compare builds`',
 ];
 
 test('the prototype’s words are the body’s words', () => {
@@ -131,7 +149,7 @@ test('a set of choices is ONE dropdown, and the buttons are the shipped button',
   assert.match(BODY, /<PickMenu\s/);
   assert.doesNotMatch(BODY, /<select|<button/, 'a hand-made control — use PickMenu / ActionButton');
   assert.match(BODY, /import \{ ActionButton, useFitRow \} from '@\/components\/action-button';/);
-  assert.match(BODY, /import \{ Sheet \} from '@\/app\/_components\/sheet';/);
+  assert.match(BODY, /import \{ ScheduleSheet, SheetField, SheetFoot \} from '@\/app\/dashboard\/\[eventId\]\/schedule\/_components\/schedule-sheet';/);
   assert.match(BODY, /import \{ PeekToast \} from '@\/app\/_components\/toast\/peek-toast';/);
 });
 
@@ -144,8 +162,9 @@ test('every number a person reads counts, and money is formatted by the one form
 });
 
 test('the buffer refuses while a price is missing — never a number', () => {
-  assert.match(BODY, /money\.unpriced > 0 \? \(\s*'Not knowable'/);
-  assert.match(BODY, /card\.unpriced > 0 \? \(\s*'Buffer: not knowable'/);
+  assert.match(BODY, /money\.unpriced > 0 \? \(\s*<span data-build-buffer="unknown">buffer not knowable<\/span>/);
+  assert.match(BODY, /money\.unpriced > 0 \? 'Not knowable'/);
+  assert.match(BODY, /c\.unpriced > 0 \? \(\s*'Not knowable'/);
 });
 
 test('the saved builds that could not be read are not called "none"', () => {
@@ -166,7 +185,9 @@ test('"Book this build" stays mounted, so its toast outlives the last pick it bo
   const BOOK = read('_components/book-this-build.tsx');
   assert.match(BODY, /bookSlot=\{bookSlot\}/);
   assert.doesNotMatch(BODY, /bar\.book \? bookSlot/, 'the bar unmounts the booking with its button — the toast is lost');
-  assert.match(BOOK, /\{picks\.length > 0 \? \(\s*<ActionButton tone="ok" icon=\{CalendarCheck\} label="Book this build"/);
+  // Always on the bar now (frame 12); with nothing to book it says so instead of disappearing.
+  assert.match(BOOK, /<ActionButton tone="brand" main icon=\{CalendarCheck\} label="Book this build" onClick=\{press\}/);
+  assert.match(BOOK, /if \(picks\.length === 0\) \{\s*setToast\(NOTHING_TO_BOOK\);/);
 });
 
 test('the shell draws the Build body whole, and keeps both anchors', () => {

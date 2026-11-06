@@ -6,8 +6,9 @@
  * dimming the background anywhere"): this renders the SAME greige "Sign in to
  * Setnayan." card visitors see from the marketing top-nav — via the shared
  * SignInCardModal — instead of a bespoke full-page layout. Close/Escape/backdrop
- * go home (dismissHref="/") since there's no page behind on a hard load, and the
- * dim sits over a paper base.
+ * go home (dismissHref="/") since there's no page behind on a hard load — or,
+ * for a guest sent here from their event, back to that event — and the dim sits
+ * over a paper base.
  *
  * The auth wiring (signInWithPassword server action, OAuth gating, the
  * error/check_email/ready/next searchParams contract + safeNext()) is unchanged —
@@ -18,7 +19,6 @@ import type { Metadata } from 'next';
 import { SignInCardModal } from './_components/sign-in-card-modal';
 import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
-import { getRequestPlatform } from '@/lib/request-platform';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -34,14 +34,20 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const view = await getLoginView(params);
-  // 🍎 Inside the phone or desktop app there is nothing behind this card: the
-  // app opens HERE, and middleware (`APP_EXCLUDED_MARKETING_PATHS`) sends "/"
-  // straight back, so a ✕ pointing home did nothing — a dead button on the
-  // first screen App Review sees (Apple check 2026-10-19, row #3). In the app
-  // the card draws no ✕ at all. `getRequestPlatform()` asks the same question
-  // middleware's bounce asks (a `SetnayanApp` user agent or the capacitor
-  // cookie), so the two cannot disagree. The web keeps its ✕ to "/".
-  const inApp = (await getRequestPlatform()) !== 'web';
+  // ✕ (and Escape, and the backdrop) go to Discover ("/") — on the web AND in
+  // the phone and desktop apps. The apps open ON this page; while Apple
+  // reviewed 1.0 middleware bounced "/" straight back here inside them, so a ✕
+  // pointing home did nothing (Apple check 2026-10-19, row #3) and the app drew
+  // no ✕ at all. Since the owner's 2026-11-02 ruling ("let everything go live")
+  // the apps open "/" like the website, so the ✕ is a real way out everywhere.
+  // Held by the-app-login-has-no-dead-close.test.ts, which reads middleware.
+  //
+  // 🚪 A GUEST'S ✕ GOES BACK TO THEIR EVENT (2026-11-05). "Lost QR? Login" on an
+  // Event Hub opens this card with `next` = that event; closing it sent the
+  // guest to the marketing front page, away from the invitation they were
+  // holding. `forGuest` is true only when `next` (already `safeNext`-checked, so
+  // same-site) opens a real event — so the ✕ returns there; anyone else still
+  // goes to Discover. Held by app/login/a-guests-close-returns-to-the-event.test.ts.
 
   // A paper base under the translucent greige dim so a hard load never flashes a
   // stark void behind the backdrop before the card settles.
@@ -51,7 +57,7 @@ export default async function LoginPage({
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
       <SignInCardModal
-        dismissHref={inApp ? null : '/'}
+        dismissHref={view.forGuest ? view.next : '/'}
         next={view.next}
         signupHref={view.signupHref}
         showOAuth={view.showOAuth}

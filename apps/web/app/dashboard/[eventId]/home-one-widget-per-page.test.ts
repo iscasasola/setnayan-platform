@@ -6,13 +6,13 @@
  *   1 · RENDERED, both versions (the phone's tiles and the md+ cards): every door inside a widget — the tile, each
  *       face, each tiny action, each card button — lands on THAT widget's one page, and no page is the door of two
  *       widgets. Countdown → Event Settings · Guests → Guests · Event Hub → the Hub (Maker or public page) · Suppliers
- *       → Suppliers · Budget → Budget · Checklist → Checklist.
+ *       → Suppliers · Budget → Budget · To do → Planning Stage (its To do filter, since 2026-11-01).
  *   2 · THE TABLE ("A face opens the EXACT item"): each face's href, as the notes list it.
  *   3 · THE OTHER CALLERS STILL WORK: the params Home leans on are read by their pages as before (`?q=` by the
- *       Guests search, `?inspect=v:` and `?open=` by Suppliers, `?part=budget`, `?tab=`, the Maker's `?stage=`).
+ *       Guests search, `?inspect=v:` and `?open=` by Suppliers, the Budget page's `?pay=`, `?tab=`, the Maker's `?stage=`).
  *
  * SABOTAGE (seen red): point the Guests "no reply" face at `/vendors` (1 red) · give Suppliers' tile door
- * `/vendors?part=budget` (1 red: two widgets on one page) · drop `?q=declined` from the can't-come face (2 red).
+ * `/budget` (1 red: two widgets on one page) · drop `?q=declined` from the can't-come face (2 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,14 +39,22 @@ function pageOf(href: string): string {
   const h = href.replace(/&amp;/g, '&');
   if (h.startsWith(PUBLIC)) return 'Event Hub';
   const path = h.replace(/^\/dashboard\/e1/, '');
-  if (/^\/(details|date-selection)\b/.test(path)) return 'Event Details';
+  // 📅 The Countdown's page is the Date Finder since 2026-10-30 (owner: *"date finder. because we want them to find the
+  // date for their event"*), opened in place on Home (`?date=find`). `/details` itself would be a door to the page that
+  // was combined into Event Settings: it is counted as elsewhere.
+  if (/^\?date=find$/.test(path)) return 'Date Finder';
   if (/^\/guests\b/.test(path)) return 'Guests';
   if (/^\/launch\b/.test(path)) return 'Event Hub';
-  if (/^\/vendors\?part=budget\b/.test(path)) return 'Budget';
+  // 💰 The Budget is its own page under Home since 2026-11-01 (owner: *"Okay place it in home"*).
+  if (/^\/budget\b/.test(path)) return 'Budget';
   if (/^\/vendors\b/.test(path)) return 'Suppliers';
-  if (/^\/checklist\b/.test(path)) return 'Checklist';
+  // ✅ To do opens Planning Stage's To do filter since the Checklist merged into it (owner 2026-11-01).
+  if (/^\/schedule\?view=preparation&filter=todo\b/.test(path)) return 'Planning Stage';
   return `elsewhere (${h})`;
 }
+/** 🎴 The grid's widgets — the Countdown is the event card's figure and the plan is the To do list under it (Home
+ *  redraw 2026-11-02, round 3); both still open their one page, checked where they are drawn. */
+const GRID_KEYS = HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan');
 const hrefs = (html: string) => [...html.matchAll(/(?:href|data-home-face-href)="([^"]*)"/g)].map((m) => m[1]!);
 
 test('1 · every door inside a widget opens THAT widget’s one page — on the phone and from md up', () => {
@@ -59,7 +67,7 @@ test('1 · every door inside a widget opens THAT widget’s one page — on the 
     ['detail', detail, 'data-home-card-key="'],
   ] as const) {
     const owners = new Map<string, HomeControlKey>();
-    for (const key of HOME_CONTROL_KEYS) {
+    for (const key of GRID_KEYS) {
       const one = slice(part, `${marker}${key}"`, HOME_CONTROL_KEYS.filter((k) => k !== key).map((k) => `${marker}${k}"`));
       assert.ok(one.length > 0, `${version}: the ${key} widget is not drawn`);
       const doors = hrefs(one);
@@ -72,15 +80,21 @@ test('1 · every door inside a widget opens THAT widget’s one page — on the 
         owners.set(page, key);
       }
     }
-    assert.equal(owners.size, HOME_CONTROL_KEYS.length, `${version}: six widgets, six pages`);
+    assert.equal(owners.size, GRID_KEYS.length, `${version}: one page per widget`);
   }
+  // The card's countdown opens the Date Finder; the To do list's rows and line open Planning Stage.
+  const card = slice(html, 'data-home-card-countdown', ['data-home-today=']);
+  assert.deepEqual(hrefs(card).map(pageOf), ['Date Finder'], 'the card’s countdown opens another page');
+  const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
+  const todoDoors = hrefs(todo);
+  assert.ok(todoDoors.length > 0, 'the To do list has no door');
+  for (const d of todoDoors) assert.equal(pageOf(d), 'Planning Stage', `the To do list opens ${d}`);
 });
 
 test('2 · each face opens the exact item the notes name', () => {
   const { tiles } = homeControlTiles(fixtureControl('e1'));
   const face = (key: HomeControlKey, id: string) => tiles.find((t) => t.key === key)?.faces.find((f) => f.id === id);
   const table: Array<[HomeControlKey, string, string]> = [
-    ['count', 'count', '/dashboard/e1/details'],
     ['guests', 'guests-coming', '/dashboard/e1/guests?q=coming'],
     ['guests', 'guests-noreply', '/dashboard/e1/guests?q=no+reply'],
     ['guests', 'guests-toinvite', '/dashboard/e1/guests/send'],
@@ -93,11 +107,10 @@ test('2 · each face opens the exact item the notes name', () => {
     // PR-E: the exact quote — that supplier's workspace on its Quote tab.
     ['sup', 'sup-decide', '/dashboard/e1/vendors/v-lumiere/workspace?tab=quote'],
     ['sup', 'sup-replied', '/dashboard/e1/vendors?tab=shortlist'],
-    ['budget', 'budget-summary', '/dashboard/e1/vendors?part=budget'],
+    ['budget', 'budget-summary', '/dashboard/e1/budget'],
     // PR-E: the exact payment (its Pay sheet opens) and the exact task.
-    ['budget', 'pay-li-1', '/dashboard/e1/vendors?part=budget&pay=li-1'],
-    ['plan', 'plan-open', '/dashboard/e1/checklist#task-t1'],
-    ['plan', 'plan-pct', '/dashboard/e1/checklist'],
+    // (₱8,000 · li-1 is late, so it is Now's — the card's Pay opens it; the Budget card starts at the next one.)
+    ['budget', 'pay-li-2', '/dashboard/e1/budget?pay=li-2'],
   ];
   for (const [key, id, href] of table) {
     const f = face(key, id);
@@ -128,9 +141,9 @@ test('3 · the params Home leans on still answer for every caller', () => {
   const vendors = src('vendors/page.tsx');
   assert.match(vendors, /sp\.inspect\.startsWith\('v:'\)/, 'Suppliers no longer reads ?inspect=v:');
   assert.match(vendors, /initialOpenTile=\{sp\.open \?\? null\}/, 'Suppliers no longer reads ?open=');
-  // ?part=budget — the Budget part.
+  // ?pay= — the Budget page opens that payment's sheet; an old `?part=budget` Suppliers link forwards there.
   assert.equal(YOUR_TEAM_BUDGET_PART, 'budget');
-  assert.match(vendors, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)/, 'Suppliers no longer opens its Budget part from ?part=');
+  assert.match(vendors, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\);/, 'an old ?part=budget link no longer reaches the Budget page');
   // ?stage= — the Maker opens the named stage.
   assert.equal(resolveHubStageSelection({ param: 'event', live: 'rsvp' }), 'event');
 });

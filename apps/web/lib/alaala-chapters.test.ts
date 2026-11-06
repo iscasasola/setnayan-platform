@@ -12,7 +12,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupIntoChapters, timeOfDayLabel, type ChapterBlock } from './alaala-chapters';
+import { timeOfDayLabel, type ChapterBlock } from './alaala-chapters';
+// The grouping is the ONE engine (`lib/papic-chapters.ts`, 2026-11-01 "two copies → one"); the schedule's rules stay here.
+import { chapterDays as groupIntoChapters } from './papic-chapters';
 
 const TZ = 'Asia/Manila';
 

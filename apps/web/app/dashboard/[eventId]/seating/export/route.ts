@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
-import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
+import { fetchGuestsByEventMeasured, guestPrintName } from '@/lib/guests';
 import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchSigns, fetchTables } from '@/lib/seating';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -53,19 +54,23 @@ export async function GET(
   // 🪑 The A3 seat plan (owner 2026-10-01): the SAME layout as the 2D and 3D
   // plan — every placed element (booths and signs included), every table with
   // its chairs, who sits where, and who still needs a seat.
-  const [tables, assignments, guests, floorPlan, booths, signs, roleSet] = await Promise.all([
+  const [tables, assignments, guestsRead, floorPlan, booths, signs, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
     fetchSigns(supabase, eventId),
     resolveRoleSetForEvent(eventId),
   ]);
+  // 🔌 A refused guest read is never a seat plan of empty tables (audit #14).
+  if (!guestsRead.measured) return guestListUnreadResponse();
+  const guests = guestsRead.rows;
 
   const pdfGuests: SeatingPdfGuest[] = guests.map((g) => ({
     guest_id: g.guest_id,
-    name: guestDisplayName(g),
+    // 🖨 The full name, the nickname beside it — never cut on the plan (owner 2026-10-29).
+    name: guestPrintName(g),
     role: g.role,
     rsvp_status: g.rsvp_status,
   }));

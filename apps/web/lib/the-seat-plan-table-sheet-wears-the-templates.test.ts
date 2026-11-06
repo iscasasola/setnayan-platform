@@ -93,14 +93,16 @@ test('2 · the handlers are the editor’s own — each press called the one it 
   assert.deepEqual(calls('renameEnter'), [['rename', 'Table Eleven']]);
   assert.deepEqual(golden.viewOnly, ['Rotate', 'Edit chairs…', 'Link…', 'Delete this table']);
   const ed = read(`${S}/seating-editor.tsx`);
-  const use = ed.slice(ed.indexOf('<PhoneTableDock'), ed.indexOf('/>', ed.indexOf('onDelete={')) + 2);
+  const use = ed.slice(ed.indexOf('<PhoneTableDock'), ed.indexOf('/>', ed.indexOf('onDelete={', ed.indexOf('<PhoneTableDock'))) + 2);
   for (const want of [
     'onRename={(label) => renameTable(st.table_id, label)}',
     "onPickType={(k) => changeStyle(st, k as TableType)}",
     'onRotate={() => rotateTable(st, 90)}',
     'onEditChairs={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }}',
     'onUnlink={() => doUnlink(st.table_id)}',
-    'onDone={() => { setLinkFrom(null); clearSelection(); }}',
+    // ⇄ Swap with another table… (moved here from the view-only 3D room, 2026-10-30) — Done also ends a waiting swap.
+    'onSwap={() => armSwap(st)}',
+    'onDone={() => { setLinkFrom(null); setSwapFrom(null); clearSelection(); }}',
     'onDelete={() => requestRemoveTable(st)}',
   ]) assert.ok(use.includes(want), `the editor hands another handler: ${want}`);
   const phone = read(`${S}/seat-plan-phone.tsx`);
@@ -112,7 +114,10 @@ test('3 · Delete confirms in the centred box (the template), the same two answe
   const ed = read(`${S}/seating-editor.tsx`);
   assert.match(ed, /<GuestPopup kind="confirm" onClose=\{\(\) => setConfirmDelete\(null\)\}/);
   assert.match(ed, /keep=\{<ActionButton tone="neutral" icon=\{X\} label="Cancel" onClick=\{\(\) => setConfirmDelete\(null\)\} \/>\}/);
-  assert.match(ed, /tone="danger"\s+main\s+icon=\{Trash2\}\s+label=\{joined \? 'Delete unit' : 'Delete table'\}\s+onClick=\{\(\) => \{\s*confirmDelete\.members\.forEach\(\(m\) => removeTable\(m\.table_id\)\);\s*setConfirmDelete\(null\);/);
+  assert.match(ed, /tone="danger"\s+main\s+icon=\{Trash2\}\s+label=\{joined \? 'Delete unit' : 'Delete table'\}\s+onClick=\{\(\) => \{\s*removeTables\(confirmDelete\.members\.map\(\(m\) => m\.table_id\), confirmDelete\.label\);\s*setConfirmDelete\(null\);/);
+  /* ↩ 2026-11-03 ("SWIPE LEFT TO DELETE ON EVERY LIST ROW"): the confirmed delete keeps an Undo — the tables leave the
+     plan at once and are deleted when the window closes (`removeTables` → `deleteWithUndo`). */
+  assert.match(ed, /const removeTables = [\s\S]*?deleteWithUndo\(\{[\s\S]*?runGated\(\(\) => deleteTable\(fd\)\)/);
   assert.doesNotMatch(ed, /fixed inset-0 z-\[60\] flex items-end justify-center bg-ink\/40/, 'the old bottom-sheet confirm is back');
   assert.match(ed, /<ActionButton tone="neutral" quiet iconOnly icon=\{UserMinus\} label="Unseat" name=\{`Unseat \$\{g\.name\}`\} className="!w-11" onClick=\{\(\) => unseat\(g\.guest_id\)\} \/>/, 'Unseat is not the icon-only ActionButton (44 px, named for the guest) with the same handler');
   /* An empty table still deletes in one tap; one with seated guests asks first (the editor's own rule — untouched). */

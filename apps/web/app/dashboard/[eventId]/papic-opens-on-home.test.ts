@@ -111,6 +111,9 @@ test('5 · closed, the card is the head only — mark · Papic · Guest photos �
   const props = c.match(/export function PapicHomeCard\(\{([\s\S]*?)\}: \{/)?.[1] ?? '';
   const names = props.split(',').map((p) => p.trim().split(/\s|=/)[0]).filter(Boolean).sort();
   // 🔢 + `counts` and `buy` (owner 2026-10-26: "the count of the total, taken, remaining and a button to add more") —
-  // the face's one line and Add more; nothing else (no strip, no meter, no photos).
-  assert.deepEqual(names, ['brand', 'buy', 'counts', 'defaultOpen', 'headControl', 'icon', 'marker', 'name', 'phase', 'settings', 'thankYouHref'], 'the card takes a prop beyond the head, its face and its settings (a strip, a meter, an action row?)');
+  // the face's one line and Add more; nothing else (no strip, no meter, no photos). 📷 + `headLine` (owner 2026-10-30):
+  // the line under the title that says what "Let everybody shoot now" has saved — a word in the head, not a face part.
+  // 📷 + `chapter` (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER"): the one added row under the
+  // counts — which chapter it shoots into and "This chapter: N photos". Drawn on the face, never on the closed head.
+  assert.deepEqual(names, ['brand', 'buy', 'chapter', 'counts', 'defaultOpen', 'headControl', 'headLine', 'icon', 'marker', 'name', 'phase', 'settings', 'thankYouHref'], 'the card takes a prop beyond the head, its face and its settings (a strip, a meter, an action row?)');
 });

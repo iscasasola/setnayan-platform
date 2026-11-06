@@ -136,7 +136,8 @@ test('3 · every guest door asks the rule before it writes a membership', () => 
   const bind = join.indexOf('bindMemberToSeed(admin');
   assert.ok(gate > 0 && gate < bind, 'the join door binds an emailed couple seat again');
   // The couple's own Link on a request.
-  const link = fn(code('app/dashboard/[eventId]/guests/claims/actions.ts'), 'linkGuestAction');
+  // (The body is `linkRequest` — the page's `linkGuestAction` and Guests' in-place door both run it, R4 slice 11.)
+  const link = fn(code('app/dashboard/[eventId]/guests/claims/actions.ts'), 'linkRequest');
   const linkGate = link.indexOf('if (isCoupleSeat(target.role');
   const move = link.indexOf(".update({ guest_id: targetId");
   assert.ok(linkGate > 0 && linkGate < move, 'a request can be linked onto a couple seat again');

@@ -10,15 +10,20 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
-import {
-  VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
-  VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
-} from '@/lib/vendor-papic-credits';
+import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
+import { shopPapicPackServiceKey } from '@/lib/vendor-papic-credits';
 import { formatCount } from '@/lib/format-number';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
+import { giftUnitPrice, shopGiftPacksFrom, shopGiftServiceKey, SHOP_GIFT_MAX_QUANTITY } from '@/lib/shop-gifts';
 
 /**
+ * 🛍 2026-11-04 — THE SHOP BUYS THE COUPLE'S PACKS (owner, "SIX OWNER ANSWERS" (4)). The form names a pack
+ * (`pack` = `PAPIC_GUEST_150` · `PAPIC_GUEST_1K` · `PAPIC_GUEST`); its price and credits are READ from the couple
+ * catalogue (`fetchShopPapicPacks`), never sent by the client, and the order is keyed
+ * `shopPapicPackServiceKey(code)` so the activation hook lands that rung's credits in the shop wallet. The ₱500
+ * `vendor_papic_portfolio_pack` is retired and is no longer minted here.
+ *
  * Buy ONE Papic credit pack INTO THE SHOP WALLET — apply-then-pay, the same
  * shape every vendor add-on order uses (mirrors booth-addon-actions.ts /
  * photo-challenge-actions.ts). The activation hook (`grantVendorPapicPortfolioPack`,
@@ -41,6 +46,12 @@ import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
  * No tier or verification gate: any shop with an open rail may buy — but only
  * while the owner's Papic switch is on (owner 2026-10-25: "No. Papic needs to
  * be on."). Off ⇒ refused here, not just hidden in the sheet.
+ *
+ * 🎁 2026-11-04 — THE SAME DOOR BUYS GIFTS (owner, "SUPPLIER GIFTS: BOUGHT IN QUANTITY, KEPT AS STOCK"). `for=gift`
+ * mints `vendor_gift__<code>` for `quantity` packs into the shop's GIFT STOCK (`shop_gift_stock_entries`, landed on
+ * approval from the `shop_gift_purchases` row written here — `orders` has no quantity). The unit price is the
+ * pack's `gift_price_php` for a Verified-and-up shop and its list price for Free ("GIFT PRICES"), both READ here.
+ * One export for both on purpose: the server-action budget is at its ceiling (lint-server-action-budget.mjs).
  */
 
 export type BuyVendorPapicPortfolioPackState =
@@ -94,13 +105,25 @@ export async function buyVendorPapicPortfolioPack(
     return err('Papic credit packs are not on sale right now.');
   }
 
-  // Re-read the authoritative price from the admin-managed catalog — the
-  // client never sends a price. `null` covers missing/inactive/unreadable.
+  // Re-read the authoritative price + credits from the admin-managed catalog — the
+  // client names a pack, never a price. `null` covers missing/inactive/unreadable.
   const admin = createAdminClient();
-  const pricePhp = await fetchVendorPapicPackPricePhp(admin);
-  if (pricePhp == null) {
-    return err('The Papic credit pack is temporarily unavailable. Please try again later.');
+  const packs = await fetchShopPapicPacks(admin);
+  const asked = String(formData.get('pack') ?? '').trim();
+  const pack = packs?.find((p) => p.code === asked) ?? null;
+  if (!pack) {
+    return err('That Papic pack is not on sale right now. Please try again later.');
   }
+  // 🎁 A GIFT order: how many, and the price this shop pays for one (read, never sent).
+  const forGift = String(formData.get('for') ?? '') === 'gift';
+  const quantity = forGift ? Math.trunc(Number(formData.get('quantity') ?? 1)) : 1;
+  if (forGift && (!Number.isInteger(quantity) || quantity < 1 || quantity > SHOP_GIFT_MAX_QUANTITY)) {
+    return err(`Choose between 1 and ${SHOP_GIFT_MAX_QUANTITY}.`);
+  }
+  const giftPack = forGift ? shopGiftPacksFrom([pack])[0] ?? null : null;
+  if (forGift && !giftPack) return err('That gift is not on sale right now. Please try again later.');
+  const giftUnit = giftPack ? giftUnitPrice(giftPack, await fetchVendorPaysGiftPrice(admin, vendorProfileId)) : null;
+  const pricePhp = giftUnit ? (giftUnit.centavos * quantity) / 100 : pack.pricePhp;
 
   // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
   // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
@@ -115,10 +138,12 @@ export async function buyVendorPapicPortfolioPack(
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+          service_key: forGift ? shopGiftServiceKey(pack.code) : shopPapicPackServiceKey(pack.code),
           // The /pay page's title (lib/payable-by-reference.ts reads
-          // orders.description) — the prototype's pay-page words.
-          description: `Papic credit pack — ${formatCount(VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS)} credits for your shop`,
+          // orders.description) — the pack's own name.
+          description: forGift
+            ? `Gifts for your couples — ${quantity} × ${pack.title} (${formatCount(pack.credits * quantity)} credits)`
+            : `${pack.title} — ${formatCount(pack.credits)} credits for your shop`,
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,
@@ -131,6 +156,32 @@ export async function buyVendorPapicPortfolioPack(
     return err('Could not start the order. Please try again.');
   }
   const orderId = (orderRow as { order_id: string }).order_id;
+  // Takes the just-minted order back when a later write fails. Same client that minted it — a mixed-client
+  // compensation is how a rollback silently stops rolling back. A failed undo leaves an unpaid order with no
+  // payment behind it; it is logged so somebody sees it, and the customer is told the order did not start.
+  const undoOrder = async (why: string) => {
+    const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    if (undoErr) console.error(`[shop-pack] could not take back order ${orderId} after ${why}:`, undoErr.message);
+  };
+
+  // 🎁 What this gift order bought — approval reads it to land the credits in the gift stock.
+  if (forGift && giftUnit) {
+    const { error: gErr } = await moneyWriter.from('shop_gift_purchases').insert({
+      order_id: orderId,
+      vendor_profile_id: vendorProfileId,
+      service_code: pack.code,
+      gift_kind: 'papic',
+      quantity,
+      credits_each: pack.credits,
+      unit_price_php: giftUnit.centavos / 100,
+      price_basis: giftUnit.basis,
+      created_by: user.id,
+    });
+    if (gErr) {
+      await undoOrder('the gift row failed');
+      return err('Could not start the order. Please try again.');
+    }
+  }
 
   const { error: pErr } = await moneyWriter.from('payments').insert(
     paymentRowFor(
@@ -145,13 +196,13 @@ export async function buyVendorPapicPortfolioPack(
     ),
   );
   if (pErr) {
-    // Same client that minted it — a mixed-client compensation is how a
-    // rollback silently stops rolling back.
-    await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    await undoOrder('the payment row failed');
     return err('Could not start the payment. Please try again.');
   }
 
   revalidatePath('/vendor-dashboard/customers');
+  // 🎁 Gifts live on Shop › Promote since 2026-11-05 (they left the Plan page).
+  if (forGift) revalidatePath('/vendor-dashboard/shop/promote');
   if (fromEventId) revalidatePath(`/vendor-dashboard/on-the-day/live/${fromEventId}/papic`);
   redirect(payPath(referenceCode));
 }

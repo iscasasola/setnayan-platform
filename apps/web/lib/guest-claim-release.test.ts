@@ -96,7 +96,12 @@ test('authorisation is the RLS session client, matching the sibling delete actio
 test('the couple actually has a button, and it is not a nested form', () => {
   const p = read(PAGE);
   assert.match(p, /releaseGuestClaim/, 'the page must import the action');
-  assert.match(p, /Take this seat back/);
+  // 🔁 Take back sits in the seat doors' line since 2026-11-02 — the card hands it the same release action.
+  const doors = read('app/dashboard/[eventId]/guests/_components/guest-seat-doors.tsx');
+  assert.match(doors, /Take this seat back/);
+  assert.match(doors, /<form action=\{releaseAction\}/);
+  const seatDoors = p.indexOf('<GuestSeatDoors');
+  assert.ok(seatDoors > p.indexOf('</AutosaveForm>'), 'the seat doors sit inside the autosave form — a nested form');
   /*
     ⤷ 2026-09-22: this used to require `formAction={releaseAction}` on the ONE
     form the page had. The card now has an autosaving form, and a destructive

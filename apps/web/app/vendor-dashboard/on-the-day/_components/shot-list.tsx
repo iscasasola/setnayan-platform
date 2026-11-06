@@ -23,7 +23,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, CloudOff, Plus, RotateCcw, Trash2, Users } from 'lucide-react';
+import { Camera, Check, CloudOff, Plus, RotateCcw, Users } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { shopEmptyInlineClass } from '../../_components/kit';
 import {
   DEFAULT_SHOTS,
@@ -150,9 +152,33 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
     void commit(next, () => setShotCaptured(eventId, id, !target.done));
   }
 
-  function remove(id: string) {
-    const next = shots.filter((s) => s.id !== id);
-    void commit(next, () => removeShot(eventId, id));
+  // The latest `commit`, for a delete whose write lands after its Undo window (the list may have been saved since).
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+
+  /**
+   * 👈 A shot's delete is its SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
+   * VISIBLE ✕ ON ROWS"), with Undo: the row leaves at once, Undo puts it back where it was, and only when the window
+   * closes is the same write sent (`removeShot`, or the whole list when it is not saved yet) — so Undo writes nothing.
+   * A failed write says so in the list's own status line, as every other edit here does.
+   */
+  function remove(shot: Shot) {
+    let at = -1;
+    deleteWithUndo({
+      label: `“${shot.label}” removed`,
+      hide: () => {
+        at = shotsRef.current.findIndex((s) => s.id === shot.id);
+        setShots(shotsRef.current.filter((s) => s.id !== shot.id));
+      },
+      restore: () => {
+        const cur = shotsRef.current;
+        if (cur.some((s) => s.id === shot.id)) return;
+        const next = [...cur];
+        next.splice(at < 0 ? next.length : Math.min(at, next.length), 0, shot);
+        setShots(next);
+      },
+      commit: () => commitRef.current(shotsRef.current, () => removeShot(eventId, shot.id)),
+    });
   }
 
   function add() {
@@ -202,10 +228,17 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
 
       <ul className="mt-4 space-y-1.5" aria-busy={loading}>
         {shots.map((s) => (
-          <li
+          <SwipeToDelete
             key={s.id}
-            className="group flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
+            as="li"
+            label={`Remove "${s.label}"`}
+            word="Remove"
+            onDelete={() => remove(s)}
+            disabled={loading}
+            radiusClass="rounded-xl"
+            surfaceClass="bg-white"
           >
+          <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5" data-shot-row="">
             <button
               type="button"
               onClick={() => toggle(s.id)}
@@ -224,15 +257,8 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
             >
               {s.label}
             </span>
-            <button
-              type="button"
-              onClick={() => remove(s.id)}
-              aria-label={`Remove "${s.label}"`}
-              className="shrink-0 rounded-md p-1 text-ink/30 opacity-0 transition hover:bg-ink/5 hover:text-warn-600 focus:opacity-100 group-hover:opacity-100"
-            >
-              <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-          </li>
+          </div>
+          </SwipeToDelete>
         ))}
         {!loading && shots.length === 0 ? (
           <li className={shopEmptyInlineClass}>

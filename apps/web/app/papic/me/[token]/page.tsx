@@ -188,18 +188,33 @@ export default async function PapicMyCameraPage({ params }: Props) {
       }
     | null = null;
   if (cleanToken) {
-    const { data } = await admin
+    // 🔌 A REFUSED READ IS NOT A REPLACED LINK (reads-are-honest, 2026-11-05).
+    // Supabase RESOLVES with `{ error }`, so a blip used to arrive here as "no
+    // guest" and the page told a guest holding their own QR "This link isn't
+    // active… it may have been replaced". A refusal now THROWS, so the guest
+    // error page (./error.tsx — the invitation's own) says "Your link is fine"
+    // and tries again. Only a read that ANSWERED "no such guest" reaches the
+    // dead end below.
+    const { data, error: guestError } = await admin
       .from('guests')
       .select('guest_id, event_id, first_name')
       .eq('qr_token', cleanToken)
       .is('deleted_at', null)
       .maybeSingle();
+    if (guestError) {
+      throw new Error(`PapicMyCameraPage: could not read the guest for this QR: ${guestError.message}`);
+    }
     if (data) {
-      const { data: ev } = await admin
+      const { data: ev, error: eventError } = await admin
         .from('events')
         .select('slug, event_date, event_type, papic_window_start')
         .eq('event_id', data.event_id as string)
         .maybeSingle();
+      // The guest IS real; a refused event read would drop their "Back to your
+      // invitation" link and chapter their photos wrongly — say it, don't guess.
+      if (eventError) {
+        throw new Error(`PapicMyCameraPage: could not read the event ${String(data.event_id)}: ${eventError.message}`);
+      }
       guest = {
         guest_id: data.guest_id as string,
         event_id: data.event_id as string,

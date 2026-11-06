@@ -14,10 +14,19 @@
  *   3 · THE DRAWER never asks for (or shows) a welcome price in the shell.
  *   4 · A CLOSED ROSTER of every app/ or components/ file that can render a
  *       set-up or welcome price — each with the fence that keeps it out of the
- *       app, CHECKED (the route is bounced by middleware, or is a store-shell
- *       web-only path, or the file asks the shell detector in code). A new
- *       file that starts rendering one fails here until someone writes down
- *       how the app is kept away from it.
+ *       app, CHECKED (the route is a store-shell web-only path, or the file asks
+ *       the shell detector in code, or its data is drawn only by a component
+ *       that does). A new file that starts rendering one fails here until
+ *       someone writes down how the app is kept away from it.
+ *
+ * 📲 "Bounced by middleware" is NO LONGER a fence (owner 2026-11-02, DECISION_LOG
+ * "EVERY PAGE HELD BACK FROM THE APP FOR APPLE GOES LIVE IN THE APP TOO" — "let
+ * everything go live"): the app opens `/` and /pricing like the website now. The
+ * two roster rows that leaned on that bounce were re-fenced on what actually
+ * keeps the welcome price out of the iPhone app today — /pricing is still a
+ * store-shell web-only path, and the home price data is drawn only by
+ * HomeOverlays, which shows the store shell nothing but Sign in. This ruling
+ * did NOT lift "but only via website" — the welcome price stays off the app.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,17 +89,14 @@ test('3 · the checkout drawer never asks for, nor shows, a welcome price in the
   assert.ok(!/Display|href|welcome/i.test(chip), 'the in-app chip must show no price and point nowhere');
 });
 
-/** Middleware's marketing-bounce set, read from source so a change there is seen here. */
-function bouncedPaths(): Set<string> {
-  const mw = read('middleware.ts');
-  const m = /const APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([\s\S]*?)\]\)/.exec(mw);
-  assert.ok(m, 'APP_EXCLUDED_MARKETING_PATHS is gone from middleware.ts');
-  return new Set([...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!));
-}
-
 type Fence =
-  | { kind: 'bounced'; route: string }
   | { kind: 'web-only'; route: string }
+  /**
+   * A data module with no screen of its own: EVERY file that imports it is listed, and the prices reach a screen only
+   * through `drawnBy`, which refuses the store shell before it draws anything but Sign in. The other importers are
+   * a roster row of their own, the chrome that hands the data to `drawnBy`, or the JSON route that chrome fetches.
+   */
+  | { kind: 'drawn-only-by'; drawnBy: string; importers: string[] }
   | { kind: 'asks-shell' }
   | { kind: 'admin' }
   | { kind: 'dev-lab' };
@@ -103,8 +109,19 @@ type Fence =
  */
 const ROSTER: Record<string, Fence> = {
   'app/(shell)/papic/page.tsx': { kind: 'web-only', route: '/papic' },
-  'app/(shell)/pricing/_pricing-reads.ts': { kind: 'bounced', route: '/pricing' },
-  'app/_components/home/pricing-data.ts': { kind: 'bounced', route: '/' },
+  // /pricing opens in the desktop app since 2026-11-02; the iPhone app still refuses it (store-shell doorway).
+  'app/(shell)/pricing/_pricing-reads.ts': { kind: 'web-only', route: '/pricing' },
+  // `/` opens in the app since 2026-11-02 — but these prices only ever reach a screen through HomeOverlays.
+  'app/_components/home/pricing-data.ts': {
+    kind: 'drawn-only-by',
+    drawnBy: 'app/_components/home/HomeOverlays.tsx',
+    importers: [
+      'app/(shell)/pricing/_pricing-reads.ts',
+      'app/_components/home/HomeOverlays.tsx',
+      'app/_components/marketing/site-chrome.tsx',
+      'app/api/home-pricing/route.ts',
+    ],
+  },
   'app/onboarding/[type]/page.tsx': { kind: 'asks-shell' },
   'app/onboarding/simple/page.tsx': { kind: 'asks-shell' },
   'app/onboarding/wedding/page.tsx': { kind: 'asks-shell' },
@@ -147,13 +164,37 @@ test('4 · every surface that can render a set-up or welcome price is fenced fro
   const stale = Object.keys(ROSTER).filter((f) => !touching.includes(f));
   assert.deepEqual(stale, [], 'roster entries no longer touch the price — prune them');
 
-  const bounced = bouncedPaths();
   for (const [file, fence] of Object.entries(ROSTER)) {
     const code = codeOnly(read(file));
     switch (fence.kind) {
-      case 'bounced':
-        assert.ok(bounced.has(fence.route), `${file}: ${fence.route} is no longer bounced out of the app by middleware`);
+      case 'drawn-only-by': {
+        const base = file.replace(/^app\//, '').replace(/\.tsx?$/, '');
+        const leaf = base.split('/').pop()!;
+        const importsIt = new RegExp(`from '(?:@/app/${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|\\./${leaf})'`);
+        const importers = files.filter((f) => f !== file && importsIt.test(codeOnly(read(f)))).sort();
+        assert.deepEqual(importers, [...fence.importers].sort(), `${file} gained (or lost) an importer the roster does not fence`);
+        // The one component that DRAWS these prices shows the store shell nothing but Sign in.
+        assert.match(
+          codeOnly(read(fence.drawnBy)),
+          /const storeShell = useIsStoreShell\(\);\s*if \(storeShell\) \{\s*return current === 'signin' \? <SignInHerePanel[^;]*: null;\s*\}/,
+          `${fence.drawnBy} no longer refuses the store shell before it draws a price`,
+        );
+        for (const f of fence.importers) {
+          if (f === fence.drawnBy) continue;
+          const c = codeOnly(read(f));
+          if (f in ROSTER) continue; // fenced by its own row
+          if (f.startsWith('app/api/')) {
+            // A JSON route draws nothing; its only reader is the chrome below, which hands the data to `drawnBy`.
+            assert.match(c, /return NextResponse\.json\(pricing,/, `${f} does more than return the prices as JSON`);
+            continue;
+          }
+          // The chrome: it may only hand the prices to `drawnBy`, never draw them itself.
+          assert.equal((c.match(/\bpricing=\{pricing\}/g) ?? []).length, 1, `${f} hands the prices to more than one place`);
+          assert.match(c, /<HomeOverlays [^>]*pricing=\{pricing\} \/>/, `${f} hands the prices to something other than ${fence.drawnBy}`);
+          assert.doesNotMatch(c, /\{pricing\.|pricing\?\./, `${f} draws a price itself`);
+        }
         break;
+      }
       case 'web-only':
         assert.equal(isStoreShellWebOnlyPath(fence.route), true, `${file}: ${fence.route} is no longer a store-shell web-only path`);
         break;

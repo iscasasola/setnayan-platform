@@ -13,6 +13,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 
 function backToLock(token: string, status: string): never {
   redirect(`/vendor/lock/${encodeURIComponent(token)}?status=${status}`);
@@ -77,11 +78,17 @@ export async function claimLockedQr(formData: FormData): Promise<void> {
     redirect(`/signup?as=couple&next=${encodeURIComponent(`/vendor/lock/${token}`)}`);
   }
 
+  // 🚪 DOOR 7b · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). A code printed before bookings closed
+  // stays unused (single-use, so nothing is lost) — the couple is told why instead of a generic error.
+  if (!(await areBookingsOpen())) backToLock(token, 'bookings_closed');
+
   const { data, error } = await supabase.rpc('vendor_claim_locked_qr', {
     p_token: token,
     p_event_id: eventId,
   });
-  if (error) backToLock(token, 'error');
+  // ✅ A shop that is not verified cannot be booked (`enforce_booking_requires_verified_vendor` raises
+  // `vendor_not_verified`) — said by name, not as "something went wrong" (audit G8).
+  if (error) backToLock(token, /vendor_not_verified/.test(error.message ?? '') ? 'not_verified' : 'error');
 
   const result = data as { status?: string; event_vendor_id?: string } | null;
   const verdict = result?.status ?? 'error';

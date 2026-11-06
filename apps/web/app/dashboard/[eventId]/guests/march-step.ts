@@ -6,7 +6,7 @@
  * steps when a name is dropped — it drafts them (`lib/march-draft.ts`), and the
  * ✓ Apply of the Event Hub draft (`website/hub-draft-actions.ts`) replays them,
  * in order, through THIS dispatch. It is the maker's old `callStep`, moved to
- * the server: the same five shipped actions, one per step kind, and no other
+ * the server: the shipped actions, one per step kind, and no other
  * door to the march.
  *
  * 🔑 NOT A SERVER ACTION. No `'use server'` here: this is a plain function the
@@ -25,6 +25,7 @@ import type { MarchResult } from '@/lib/march-result';
 import { setEntourageLineOrder } from './entourage-order-actions';
 import { joinEntourageLine, moveEntourageSection, resetEntourageSections, setMarchWalking, swapEntouragePlaces } from './march-actions';
 import { unpairGuestAction } from './pair-actions';
+import { addMarchGroup, dropMarchGroup, nameMarchGroup, regroupWalker } from './march-group-step';
 
 /** The words for an unpair the server would not make (its own refusal is a thrown error). */
 const UNPAIR_REFUSED = 'That did not go through — nothing was changed.';
@@ -51,5 +52,14 @@ export async function callMarchStep(eventId: string, step: MarchStep): Promise<M
         return { ok: false, reason: UNPAIR_REFUSED };
       }
       return { ok: true, written: 1 };
+    /* 🏷 The couple's own groups (owner 2026-10-29) — `march-group-step.ts`. */
+    case 'group-add':
+      return addMarchGroup(eventId, step.section, step.label, step.after);
+    case 'group-name':
+      return nameMarchGroup(eventId, step.section, step.label);
+    case 'group-drop':
+      return dropMarchGroup(eventId, step.section);
+    case 'regroup':
+      return regroupWalker(eventId, step.section, step.guest);
   }
 }

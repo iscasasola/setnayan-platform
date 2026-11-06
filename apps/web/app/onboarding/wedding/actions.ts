@@ -1,5 +1,7 @@
 'use server';
 
+import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { initialLandingVisibility } from '@/lib/onboarding/initial-visibility';
 import { createClient } from '@/lib/supabase/server';
@@ -516,6 +518,11 @@ export async function commitOnboardingWedding(
       : [];
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
   const windowEnd = dateMode === 'window' ? payload.windowEnd : null;
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — refused
+  // before anything is written; the client walks back to the date and says the owner's words.
+  if (eventDatesFloorRefusal([...candidates, windowStart, windowEnd], await eventDateFloorExempt(null))) {
+    return { ok: false, error: 'event_date_before_first_event' };
+  }
 
   // venue_setting from the couple's first reception "setting" pick (drives the
   // marketplace reception filter); fall back to banquet_hall if none picked.

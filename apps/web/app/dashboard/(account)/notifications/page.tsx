@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnNotifications } from '@/lib/notifications';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 
 export const metadata = { title: 'Notifications' };
 
@@ -24,6 +25,8 @@ export default async function CoupleNotificationsPage() {
     */
     <div className="mx-auto w-full max-w-3xl pb-10 pt-4 lg:pt-7" data-notifications-page="">
       <NotificationsHead unreadCount={unreadCount} returnTo={returnTo} level="page" />
+      {/* ‹ from a group (or a chat) opened here comes back to this list, in place (owner 2026-10-29). */}
+      <ChatOriginMark />
 
       <NotificationsList
         items={items}

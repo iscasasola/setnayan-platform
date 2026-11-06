@@ -21,8 +21,32 @@ export function businessSentence(t: { views: number; inquiries: number; booked: 
   };
 }
 
-/** How fast you reply — the verdict couples see, said to the supplier. Never a figure the badge would not print. */
-export function replyLine(v: ReplyTimeVerdict): { line: string; good: boolean } {
+/**
+ * The `vendor_activity_stats` row, WITH whether the read actually happened — the supplier's half of the house rule
+ * `vendor-dashboard/reads-are-honest.test.ts` pins (and `MeasuredGuests` in `lib/guests.ts` on the couple's side).
+ *
+ * 🆕 A NEW SHOP HAS NO ROW. Measured 6 Nov: 1 of 4 shops had one, so SetnaProd's Analytics said "Couldn’t load" —
+ * a brand-new shop told its data FAILED, because the page collapsed `{ data, error }` into `data` and a missing row
+ * and a refused read both arrived as `null`. Three cases, kept apart:
+ *   `measured: false`              → the read was REFUSED (an `error`, or a throw) — "Couldn’t load"
+ *   `measured: true`, `row: null`  → NO ROW — a shop with no activity yet, its honest empty state
+ *   `measured: true`, `row: {…}`   → as before
+ * ⚠ `measured: false` means "we do not know", NOT "a new shop". A caller that treats it as empty has reintroduced
+ * the defect in the other direction.
+ */
+export type MeasuredStatsRow<T> = { measured: true; row: T | null } | { measured: false; row: null };
+
+/** The value of a stats read that did NOT happen (refused, or threw). */
+export function unmeasuredStats<T>(): MeasuredStatsRow<T> {
+  return { measured: false, row: null };
+}
+
+/**
+ * How fast you reply — the verdict couples see, said to the supplier. Never a figure the badge would not print.
+ * `null` = the stats read was REFUSED, so there is no verdict to say (never "No inquiry yet" to a shop we could not read).
+ */
+export function replyLine(v: ReplyTimeVerdict | null): { line: string; good: boolean } {
+  if (!v) return { line: 'Couldn’t load', good: false };
   if (v.shown) return { line: `${v.label} · couples see this`, good: true };
   switch (v.reason) {
     case 'not_enough_replies':
@@ -36,9 +60,16 @@ export function replyLine(v: ReplyTimeVerdict): { line: string; good: boolean } 
   }
 }
 
-/** What couples say — the review average and count off `vendor_activity_stats`; null = the read failed. */
-export function ratingLine(stats: { review_avg_bayesian?: number | null; review_count?: number | null } | null): string {
-  if (!stats) return 'Couldn’t load';
+/**
+ * What couples say — the review average and count off `vendor_activity_stats`. REFUSED → "Couldn’t load"; NO ROW
+ * (a new shop) → "No reviews yet"; a row → its figures.
+ */
+export function ratingLine(
+  read: MeasuredStatsRow<{ review_avg_bayesian?: number | null; review_count?: number | null }>,
+): string {
+  if (!read.measured) return 'Couldn’t load';
+  const stats = read.row;
+  if (!stats) return 'No reviews yet';
   const count = Number(stats.review_count ?? 0);
   const avg = Number(stats.review_avg_bayesian);
   if (!(count > 0) || !Number.isFinite(avg)) return 'No reviews yet';

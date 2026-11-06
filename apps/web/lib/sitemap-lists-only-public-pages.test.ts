@@ -138,3 +138,76 @@ test('the matcher can actually see a gate — proven on a sample, not on a page'
     assert.doesNotMatch(sample, ANON_REDIRECT, `should NOT match: ${sample}`);
   }
 });
+
+/*
+ * ── A sitemap may not advertise a REDIRECT either (live walk 2026-11-01) ─────
+ * `/explore/compare` sat in STATIC_ROUTES while the middleware answers a bare
+ * `/explore/compare` (no `?ids=`) with 307 → /explore — and every sitemap URL is
+ * bare. Google is handed a URL whose only content is "go somewhere else".
+ *
+ * Three places can redirect a path before its page renders, and each is read
+ * here the way the request meets it:
+ *   1. `legacyRedirectTarget` — the middleware's retired-page map, EXECUTED.
+ *   2. `next.config.ts` → `redirects()` — every `source:` pattern, matched.
+ *   3. `middleware.ts` — every `if (… pathname === '<x>' …)` whose first
+ *      `return` is `NextResponse.redirect`. A sitemap URL carries no query, so a
+ *      redirect conditioned on a MISSING param (`!…get('ids')`) is a redirect.
+ * ⚠ Not covered: a `redirect()` inside a page.tsx, or a middleware redirect
+ * keyed on a prefix/regex rather than an equality. Stated rather than implied.
+ */
+
+/** next.config `redirects()` sources, as regexes (`:param` = one segment, `:param*` = any rest). */
+function nextConfigRedirectSources(): RegExp[] {
+  const src = stripComments(readFileSync(join(WEB, 'next.config.ts'), 'utf8'));
+  const start = src.indexOf('async redirects()');
+  assert.ok(start >= 0, 'next.config.ts has no `async redirects()` — has its shape changed?');
+  const block = src.slice(start, src.indexOf('async ', start + 10) > 0 ? src.indexOf('async ', start + 10) : undefined);
+  return [...block.matchAll(/source:\s*'([^']+)'/g)].map((m) => {
+    const pattern = m[1]!
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\/:\w+\*/g, '(?:/.*)?')
+      .replace(/:\w+/g, '[^/]+');
+    return new RegExp(`^${pattern}$`);
+  });
+}
+
+/** Exact paths the middleware redirects: an `if` naming `pathname === '<x>'` whose first return redirects. */
+function middlewareRedirectedPaths(): string[] {
+  const src = stripComments(readFileSync(join(WEB, 'middleware.ts'), 'utf8'));
+  const out: string[] = [];
+  for (const m of src.matchAll(/if \(([^)]*?)pathname === '([^']+)'/g)) {
+    const after = src.slice(m.index!);
+    const ret = after.search(/\breturn\b/);
+    if (ret >= 0 && /^return\s+NextResponse\.redirect\(/.test(after.slice(ret))) out.push(m[2]!);
+  }
+  return out;
+}
+
+test('every page the sitemap advertises is a page, not a redirect', async () => {
+  const { legacyRedirectTarget } = await import('./legacy-redirects');
+  const paths = sitemapPaths();
+  const configSources = nextConfigRedirectSources();
+  const mwPaths = middlewareRedirectedPaths();
+  console.log(
+    `[sitemap-redirects] ${paths.length} path(s) vs ${configSources.length} next.config redirect(s), ` +
+      `${mwPaths.length} middleware equality redirect(s) [${mwPaths.join(', ')}], and the legacy map`,
+  );
+  // Prove each reader can see what it is reading — a blind reader passes silently.
+  assert.ok(configSources.length >= 8, `only ${configSources.length} next.config redirect sources read`);
+  assert.ok(mwPaths.includes('/explore/compare'), 'the middleware reader no longer sees the bare /explore/compare 307');
+  assert.ok(configSources.some((r) => r.test('/how-it-works')), 'the next.config reader no longer matches /how-it-works');
+
+  const bad: string[] = [];
+  for (const p of paths) {
+    const legacy = legacyRedirectTarget(p, '');
+    if (legacy) bad.push(`${p} → ${legacy} (lib/legacy-redirects.ts)`);
+    if (configSources.some((r) => r.test(p))) bad.push(`${p} (next.config.ts redirects())`);
+    if (mwPaths.includes(p)) bad.push(`${p} (middleware.ts redirects it bare)`);
+  }
+  assert.deepEqual(
+    bad,
+    [],
+    'The static sitemap advertises a URL that only redirects. List the destination instead, or ' +
+      'nothing:\n  ' + bad.join('\n  '),
+  );
+});

@@ -18,7 +18,9 @@ import {
   COORDINATOR_SWITCH_WHY,
   FIXED_AREA_WHY,
   SUPPLIERS_BY_CATEGORY,
+  accessDayLabel as dayLabel,
   accessGroupOf,
+  askedRowWords,
   coordinatorHasHostAccess,
   coordinatorSwitchWrites,
   type AreaCell,
@@ -26,6 +28,7 @@ import {
 } from '@/lib/people-with-access';
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
+import { ACCESS_LEVEL_AREA, COORDINATOR_ACCESS_LEVELS, LEVEL_WORD, type CoordinatorAccessLevel } from '@/lib/coordinator-access-level';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { ClaimAccessCard } from '@/app/dashboard/[eventId]/access-requests/_components/claim-access-card';
 import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
@@ -55,10 +58,21 @@ import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
  * (`ACCESS_GROUPS`). Plain rows and dividers like every other fold: no box of
  * its own (the fold is the tile).
  *   · HELPER — per area: name + ⓘ, then ONE three-way toggle Edit · Off · View.
- *   · COORDINATOR — ONE switch, "Same access as you", ON by default.
+ *   · COORDINATOR — ONE switch, "Same access as you", ON by default, until the
+ *     hosts pick Limited · Full access; on Limited, the helper's per-area
+ *     toggles (Mood Board Edit · View among them, owner 2026-10-30).
  *   · BOOKED SUPPLIER — name and category; what they see is set by their
  *     category (`SUPPLIERS_BY_CATEGORY`); nothing to switch.
+ *
+ * ⚙ AND HOME'S ⚙ EVENT SETTINGS MOUNTS THIS SAME SECTION, as its last one
+ * (owner 2026-10-30, *"no. that shoud be inside home settings"* → *"move them
+ * all in the event settings"*; `event-settings-rows.tsx`). One component, one
+ * set of actions — never a second editor; `returnTo` only says where a Remove
+ * lands (`lib/seat-return-path.ts`).
  */
+
+/** The screen the section is drawn on — what a Remove posts as `return_to` (`lib/seat-return-path.ts`). */
+type AccessReturnTo = 'details' | 'home';
 
 const REASONS: PickOption[] = [
   { key: 'no_longer_availing', label: 'No longer availing their services' },
@@ -67,17 +81,13 @@ const REASONS: PickOption[] = [
   { key: 'other', label: 'Other' },
 ];
 
-function dayLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
-
 /**
  * 🎚 ONE AREA'S THREE-WAY TOGGLE (owner 2026-10-07: *"no edit. Guestlist (i)
  * toggle. so it is easy to control"* → *"3 way toggle Edit - OFF - View"*) —
  * Edit · Off · View, Off in the middle, one segmented switch. This OVERRIDES
  * the standing "any set of choices is a dropdown" rule for this control only.
  * A position the area cannot take (Budget / Photos never Edit) is drawn and
- * disabled; a fixed area (Event Hub, Mood Board) is drawn at its value,
+ * disabled; a fixed area (Event Hub) is drawn at its value,
  * disabled, with an ⓘ saying why.
  *
  * Drawn by the app's ONE pill selector (owner 2026-10-08, `app/_components/pill-track.tsx`): the picked position is
@@ -259,6 +269,55 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
   );
 }
 
+/**
+ * 🔑 THE COORDINATOR'S LEVEL — Limited · Full access (owner 2026-10-29, "only TWO levels"). Where Home's one-time
+ * answer stays changeable: the same door (`setDelegateArea`, area `access_level`). Full access moves her onto the
+ * co-host seat; Limited back onto the coordinator's seat with view on every part. A refusal puts the pick back.
+ */
+function CoordinatorLevelPick({ eventId, row }: { eventId: string; row: PersonRow }) {
+  const start = row.coordinatorLevel === 'limited' || row.coordinatorLevel === 'full' ? row.coordinatorLevel : null;
+  const [level, setLevel] = useState<CoordinatorAccessLevel | null>(start);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  if (!row.moderatorId || row.coordinatorLevel === undefined) return null;
+  const moderatorId = row.moderatorId;
+  const pick = (key: string) => {
+    const next = key as CoordinatorAccessLevel;
+    if (next === level) return;
+    const before = level;
+    setLevel(next);
+    setError(null);
+    startTransition(async () => {
+      const res = await setDelegateArea(eventId, moderatorId, ACCESS_LEVEL_AREA, next);
+      if (!res.ok) {
+        setLevel(before);
+        setError(res.error);
+      }
+    });
+  };
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-3" data-coordinator-level-pick="">
+      <span className="text-[13px] text-ink/75">Access</span>
+      <span className="flex flex-col items-end gap-0.5">
+        <PickMenu
+          label={`${row.name}'s access to this event`}
+          value={level ?? ''}
+          options={COORDINATOR_ACCESS_LEVELS.map((k) => ({ key: k, label: LEVEL_WORD[k] }))}
+          onPick={pick}
+          dataAttr="data-coordinator-level-menu"
+          buttonText={level ? undefined : 'Pick one'}
+          compact
+        />
+        {error ? (
+          <span role="alert" className="max-w-[16rem] text-right text-[11px] text-terracotta-700">
+            {error}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   const [level, setLevel] = useState<GuestAccessLevel>(row.access?.level ?? 'none');
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +361,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   );
 }
 
-function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }) {
+function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: PersonRow; returnTo: AccessReturnTo }) {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
   if (!row.moderatorId) return null;
@@ -324,7 +383,7 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
         <form action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="moderator_id" value={row.moderatorId} />
-          <input type="hidden" name="return_to" value="details" />
+          <input type="hidden" name="return_to" value={returnTo} />
           <input type="hidden" name="reason" value={reason} />
           <PickMenu
             label={`Why ${row.name} is leaving`}
@@ -385,13 +444,15 @@ function PersonItem({
   eventId,
   row,
   readOnly,
+  returnTo,
 }: {
   eventId: string;
   row: PersonRow;
   readOnly: boolean;
+  returnTo: AccessReturnTo;
 }) {
   return (
-    <li className="space-y-2 py-3" data-person={row.kind}>
+    <li className="space-y-2 py-3" data-person={row.kind} data-person-id={row.moderatorId ?? undefined}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">
@@ -404,9 +465,15 @@ function PersonItem({
             {!row.live ? ' · waiting to join' : ''}
             {row.ended ? ' · access ended' : row.lastDay ? ` · until ${dayLabel(row.lastDay)}` : ''}
           </p>
+          {/* 🪪 What this helper asked the hosts for (owner 2026-10-31, "Ask the hosts") — the notice lands here. */}
+          {row.asked ? (
+            <p className="text-[12px] font-medium text-terracotta-700" data-person-asked="">
+              {askedRowWords(row.asked)}
+            </p>
+          ) : null}
         </div>
         {readOnly ? null : row.kind === 'coordinator' && !row.isViewer ? (
-          <RemoveCoordinator eventId={eventId} row={row} />
+          <RemoveCoordinator eventId={eventId} row={row} returnTo={returnTo} />
         ) : row.kind === 'supplier' && row.canInviteAsCoordinator && row.vendorId ? (
           <Link
             href={`/dashboard/${eventId}/vendors/${row.vendorId}/workspace?tab=details#promote-coordinator`}
@@ -418,8 +485,18 @@ function PersonItem({
           <AccessPick eventId={eventId} row={row} />
         )}
       </div>
+      {/* 🔑 Limited · Full access — the coordinator's level, changeable here (owner 2026-10-29). */}
+      {row.coordinatorLevel !== undefined && !row.isViewer && !readOnly ? <CoordinatorLevelPick eventId={eventId} row={row} /> : null}
       {row.kind === 'coordinator' && !row.isViewer ? (
-        <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
+        // The old one switch stays only until the hosts answer the level (a recorded level replaces it).
+        row.coordinatorLevel === 'unanswered' || row.coordinatorLevel === undefined ? (
+          <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
+        ) : row.coordinatorLevel === 'limited' && row.areas ? (
+          /* 🖼 LIMITED = "changes only what you allow" (LEVEL_MORE: "…until you allow a part in Event details ›
+             Access"). This is that place — the helper's own per-part toggles on the coordinator's seat, Mood Board
+             among them (owner 2026-10-30: "Only the host and whoever supplier they give access to"). */
+          <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly} />
+        ) : null
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />
       ) : null}
@@ -437,6 +514,7 @@ export function PeopleWithAccess({
   failed,
   flash,
   claims = null,
+  returnTo = 'details',
 }: {
   eventId: string;
   rows: PersonRow[];
@@ -448,6 +526,8 @@ export function PeopleWithAccess({
   flash: string | null;
   /** 🤝 Suppliers who joined from the couple's link and wait for Approve (owner 2026-10-20). Null: not the couple. */
   claims?: { measured: boolean; asks: ClaimAccessAsk[] } | null;
+  /** Where a Remove lands (`seatReturnPath`): Event Details, or Home with its ⚙ Event Settings sheet open on access. */
+  returnTo?: AccessReturnTo;
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
@@ -497,6 +577,7 @@ export function PeopleWithAccess({
                         eventId={eventId}
                         row={row}
                         readOnly={readOnly}
+                        returnTo={returnTo}
                       />
                     ))}
                   </ul>

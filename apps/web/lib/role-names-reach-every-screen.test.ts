@@ -149,8 +149,11 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['lib/guest-search.ts', 'out.push(ROLE_LABELS[r], guestRoleLabel(r, names),', 'search matches the usual word AND theirs'],
   ['lib/guest-search.ts', 'out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));', 'search matches the usual group heading AND theirs'],
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
-  // 🏷 2026-10-19: "Rename this role" shows the usual word as the empty pill and placeholder — "empty = the usual word".
-  ['app/dashboard/[eventId]/guests/_components/guest-card-rows.tsx', 'usual: ROLE_LABELS[role as GuestRole]', 'the rename row’s usual word, beside the couple’s (`roleNameOne`)'],
+  // 🏷 2026-10-29 (R4 slice 4): the List header's Rename — the usual word is the box's "empty = the usual word", beside theirs.
+  ['app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx', 'usual: ROLE_GROUP_LABELS[', 'the header rename’s usual word, beside the couple’s (`roleNameMany`)'],
+  // 💡 2026-11-01 (type-ahead hints): a typed "+Groomsmen" is read against the usual word AND the couple's (`wordsForRole`).
+  ['lib/guest-parse.ts', 'const label = ROLE_LABELS[role] ?? role;', 'the add box READS the usual word as well as theirs — nothing is shown'],
+  ['lib/quick-add-tips.ts', 'const label = ROLE_LABELS[role];', 'an example’s +Word is the couple’s word first (`mine ??`), the usual one only when they kept it'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {

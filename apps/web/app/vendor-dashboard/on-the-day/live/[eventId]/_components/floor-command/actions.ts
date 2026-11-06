@@ -11,16 +11,17 @@
  * instead of an opaque policy violation.
  */
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
-import { fetchScheduleBlocks } from '@/lib/schedule';
-import { computeRetimePatches } from '@/lib/schedule-ros';
-import { checkRetime } from '@/lib/floor-command';
-import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
+import { changeTheSchedule } from '@/lib/change-the-schedule.server';
+import { mayAdvance } from '@/lib/run-of-show-advance';
+import type { ScheduleChange } from '@/lib/change-the-schedule';
+import { liveDayTag } from '@/lib/live-day-cache';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
@@ -86,80 +87,57 @@ export async function floorAdvanceBlock(
 }
 
 /**
- * Push the rest of the run-of-show by N minutes, from `fromBlockId` onward.
+ * 🗓 CHANGE THE SCHEDULE — move a part ± minutes (the later parts follow) or skip one (owner 2026-11-04: it replaces
+ * Hold 10 min / the +5 · +10 · +15 · +30 row; supplier prototype v59 `rosMoveSheet`). The rule and the words are
+ * `lib/change-the-schedule.ts`; the write and the notices `lib/change-the-schedule.server.ts`.
  *
- * Reuses `computeRetimePatches` — the same pure cascade the couple-side bulk
- * retime uses (PR #3412) — so the floor and the couple dashboard can never
- * disagree about what "+15 minutes" means. Not a fork: only the entry point is
- * new, because that panel lives solely on the couple's schedule page today.
+ * ONE ACTION, TWO DOORS — every export is a Vercel route (`lint-server-action-budget.mjs`), so the crew's phone rides
+ * this one the way the crew scanner rides `floorSeatByQr`:
+ *   · `floor` — a CHANGE: the booked coordinator, the couple, or a delegate the hosts lent The Day = Edit (an emcee,
+ *     within the access window) — the shipped "Done · next" gate (`mayAdvance`), asked here for a sentence; RLS and
+ *     the running-late door decide the write (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…" (A)(C));
+ *   · `crew`  — a crew Member's phone ASKS (D): signed in (an anonymous account is enough), and
+ *     `crew_request_schedule_move` holds every gate itself and files requests the coordinator / hosts approve.
  *
- * Writes go through the caller's own client, so RLS decides. A coordinator who
- * is a delegate moderator with schedule:'edit' lands; a booked-vendor-only
- * coordinator does not, and gets told so rather than half-applying.
+ * One revalidate per change for the guests (`liveDayTag` — the cached Event Hub copies wear it; the schedule write
+ * moves the event's stamp too). No live connection is opened for anyone.
  */
-export async function floorRetimeFrom(
+export async function floorChangeSchedule(
   eventId: string,
-  fromBlockId: string,
-  deltaMinutes: number,
-): Promise<FloorActionResult> {
-  const check = checkRetime(deltaMinutes);
-  if (!check.ok) {
-    return {
-      ok: false,
-      error: check.reason === 'too_large' ? 'That is more than 12 hours.' : 'Pick a delay first.',
-    };
+  change: ScheduleChange,
+  via: 'floor' | 'crew' = 'floor',
+): Promise<FloorActionResult & { locked?: string | null; moved?: readonly string[] }> {
+  let supabase;
+  let userId: string;
+  if (via === 'crew') {
+    supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'Scan the crew QR again to sign this phone in.' };
+    userId = user.id;
+  } else {
+    supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'Not signed in.' };
+    userId = user.id;
+    // A supplier's booking fee still unlocks the event (owner 2026-09-20) — no-op while the flag is off.
+    const profile = await fetchOwnVendorProfile(supabase, user.id);
+    const feeBlocked = profile ? await eventFeeBlocksAction(profile.vendor_profile_id, eventId) : null;
+    if (feeBlocked) return { ok: false, error: feeBlocked as string };
+    const allowed = await mayAdvance({ user: supabase as never, admin: createAdminClient() as never }, user.id, eventId);
+    if (!allowed) return { ok: false, error: 'The hosts haven’t lent you the schedule to change — ask them for The Day = Edit.' };
   }
 
-  const ctx = await requireCoordinator(eventId);
-  if ('error' in ctx) return { ok: false, error: ctx.error };
+  const res = await changeTheSchedule(supabase, userId, eventId, change, via);
+  if (!res.ok) return { ok: false, error: res.error, locked: res.locked ?? null };
 
-  const blocks = await fetchScheduleBlocks(ctx.supabase, eventId);
-  if (blocks.length === 0) return { ok: false, error: 'No schedule to move.' };
-
-  let patches;
-  try {
-    patches = computeRetimePatches(blocks, fromBlockId, check.minutes);
-  } catch {
-    return { ok: false, error: 'Could not work out the new times.' };
-  }
-  if (patches.length === 0) return { ok: false, error: 'Nothing after that block to move.' };
-
-  let moved = 0;
-  for (const p of patches) {
-    const { data: changed, error } = await ctx.supabase
-      .from('event_schedule_blocks')
-      .update({ start_at: p.start_at, end_at: p.end_at })
-      .eq('block_id', p.block_id)
-      .eq('event_id', eventId)
-      .select('block_id');
-    // RLS answers a refused UPDATE with ZERO rows and no error (a booked coordinator without The Day = Edit) —
-    // counted as refused, so the floor never says "Moved 6 blocks." over an unmoved day.
-    if (error || !changed?.length) {
-      // Report what actually happened rather than claiming a clean run.
-      return {
-        ok: false,
-        error:
-          moved === 0
-            ? 'Nothing moved — the host has not given you edit access to the schedule.'
-            : `Only ${moved} of ${patches.length} blocks moved — reload and check the timeline.`,
-      };
-    }
-    moved += 1;
-  }
-
-  /* ⏱ The floor's +N is a shift of the day: every OTHER booked supplier is told, once (owner 2026-10-23). */
-  const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
-  await notifyScheduleShifted({
-    eventId,
-    deltaMinutes: check.minutes,
-    fromStartAt: anchor?.start_at ?? null,
-    fromLabel: anchor?.label ?? null,
-    actorUserId: ctx.user.id,
-  });
-
+  revalidateTag(liveDayTag(eventId));
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/schedule`);
-  return { ok: true, message: `Moved ${moved} ${moved === 1 ? 'block' : 'blocks'}.` };
+  return { ok: true, message: res.message, moved: res.moved };
 }
 
 export type SeatLookupResponse =
@@ -177,12 +155,30 @@ export type SeatLookupResponse =
 export async function floorSeatByQr(
   eventId: string,
   token: string,
+  /**
+   * 📱 `crew` — a crew phone the shop Allowed (owner 2026-10-29, crew passes): the SAME lookup through
+   * `crew_seat_by_guest_qr`, which asks the coordinator scanner's gates of the SHOP plus an allowed, unexpired pass.
+   * One action for both doors — every export is a Vercel route (`lint-server-action-budget.mjs`).
+   */
+  via: 'floor' | 'crew' = 'floor',
 ): Promise<SeatLookupResponse> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Not signed in.' };
+  if (!user) return { ok: false, error: via === 'crew' ? 'Scan the crew QR again to sign this phone in.' : 'Not signed in.' };
+  if (via === 'crew') {
+    const { data, error } = await supabase.rpc('crew_seat_by_guest_qr', { p_event_id: eventId, p_token: token });
+    if (error) {
+      if (error.message?.includes('no_crew_pass')) return { ok: false, error: 'This phone is not on the crew for this event right now.' };
+      if (error.message?.includes('not_published')) return { ok: false, error: 'The seating plan has not been published yet.' };
+      if (error.message?.includes('seat_plan_not_shared')) return { ok: false, error: 'The hosts haven’t shared the seat plan with the shop yet.' };
+      if (error.message?.includes('not_the_coordinator')) return { ok: false, error: 'Finding seats is for the coordinator’s crew.' };
+      return { ok: false, error: 'Could not look that up.' };
+    }
+    const row = (data ?? {}) as { found?: boolean; table_label?: string | null };
+    return { ok: true, found: row.found === true, tableLabel: row.table_label ?? null };
+  }
 
   const { data, error } = await supabase.rpc('coordinator_seat_by_guest_qr', {
     p_event_id: eventId,

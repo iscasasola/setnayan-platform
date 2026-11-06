@@ -51,10 +51,17 @@ const uniq = () => `insp-parts-${(seq += 1)}`;
 
 type PartRow = { slot_key: string; label_en: string; kind: string; home_category_id: string | null; hidden: boolean; sort_order: number };
 
+/*
+ * Step ①'s 29 parts only. 🌱 Since 2026-10-29 the table also holds the owner-approved starter looks
+ * (20271296836679, 272 more parts — held by `the-starter-inspiration-parts-seed-once.db.test.ts`), so
+ * "the seed equals the consts" is asked of the consts' own keys: an extra part is not a fault of step ①.
+ */
 async function parts(): Promise<PartRow[]> {
   return (
     await db.query<PartRow>(
-      `SELECT slot_key, label_en, kind, home_category_id, hidden, sort_order FROM public.inspiration_parts ORDER BY sort_order, slot_key`,
+      `SELECT slot_key, label_en, kind, home_category_id, hidden, sort_order FROM public.inspiration_parts
+        WHERE slot_key = ANY($1::text[]) ORDER BY sort_order, slot_key`,
+      [[...MOODBOARD_SLOT_KEYS]],
     )
   ).rows;
 }
@@ -165,7 +172,10 @@ test('⭐ every part has a home on a tier-2 category, so at least one category; 
        JOIN public.service_categories sc ON sc.id = l.category_id WHERE sc.tier <> 2`,
   );
   assert.deepEqual(badAlso.rows, []);
-  const homeless = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_parts WHERE kind = 'part'`);
+  const homeless = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.inspiration_parts WHERE kind = 'part' AND slot_key = ANY($1::text[])`,
+    [[...MOODBOARD_SLOT_KEYS]],
+  );
   assert.equal(homeless.rows[0]!.n, MOODBOARD_SLOT_KEYS.length - 1, 'the fixture does not hold every part');
 });
 
@@ -225,6 +235,8 @@ test('the key is permanent — a rename is a label change', async () => {
 
 test('a signed-in account reads every part; anon reaches nothing; nobody signed in writes', async () => {
   const { userId } = await newCouple();
+  const total = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_parts`)).rows[0]!.n;
+  assert.ok(total >= MOODBOARD_SLOT_KEYS.length, 'the table holds fewer parts than the consts');
   try {
     await db.exec('SET ROLE anon');
     assert.match(await refused(() => db.query(`SELECT count(*) FROM public.inspiration_parts`)), /permission denied/, 'anon reads the parts');
@@ -233,7 +245,7 @@ test('a signed-in account reads every part; anon reaches nothing; nobody signed 
     await setAuthUid(db, userId);
     await db.exec('SET ROLE authenticated');
     const n = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_parts`)).rows[0]!.n;
-    assert.equal(n, MOODBOARD_SLOT_KEYS.length, 'a signed-in account does not read every part');
+    assert.equal(n, total, 'a signed-in account does not read every part');
     assert.match(
       await refused(() => db.query(`INSERT INTO public.inspiration_parts (slot_key, label_en, home_category_id) VALUES ('sneak', 'Sneak', 'florist')`)),
       /permission denied/,

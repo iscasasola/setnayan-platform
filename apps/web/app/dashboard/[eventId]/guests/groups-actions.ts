@@ -24,6 +24,7 @@ import {
 } from '@/lib/guests';
 import type { ReleasedSeat } from '@/lib/guest-optimistic';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
+import { placedByCouple } from '@/lib/seat-why';
 
 // Side enum values — owner directive 2026-05-23 added bulk Side
 // assignment to the SelectionBar. Mirrors the existing per-guest side
@@ -146,7 +147,7 @@ async function setTableForGuests(
     const { error } = await supabase
       .from('event_seat_assignments')
       .upsert(
-        move.map((guest_id) => ({ event_id: eventId, guest_id, table_id: tableId, seat_number: null })),
+        move.map((guest_id) => ({ event_id: eventId, guest_id, table_id: tableId, seat_number: null, ...placedByCouple() })),
         { onConflict: 'event_id,guest_id' },
       );
     if (error) return { ok: false, error: 'The table could not be set just now. Please try again.' };

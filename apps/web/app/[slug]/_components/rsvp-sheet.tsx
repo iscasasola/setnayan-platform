@@ -81,7 +81,6 @@ const SHEET_CSS = `
 [data-sn-sheet] .sn-rsvp-sheet{display:none}
 [data-sn-sheet] .sn-rsvp-scrim[data-open="1"]{
   display:block;position:fixed;inset:0;z-index:40;width:100%;padding:0;border:0;
-  background:rgba(30,34,41,0.45);
 }
 [data-sn-sheet] .sn-rsvp-sheet[data-open="1"]{
   display:block;position:fixed;left:0;right:0;bottom:var(--sn-kb,0px);z-index:50;
@@ -307,7 +306,7 @@ export function RsvpSheet({
         aria-hidden
         tabIndex={-1}
         data-open={open ? '1' : '0'}
-        className="sn-rsvp-scrim"
+        className="sn-rsvp-scrim sn-popup-dark"
         onClick={closeSheet}
       />
       <div

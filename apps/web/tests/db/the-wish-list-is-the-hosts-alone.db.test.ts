@@ -525,12 +525,18 @@ test('the gift limits: amount, message, giver name', async () => {
 // ── 9 · the policy is event_egift_methods' own, not a new pattern ──────────
 
 test('both host policies carry exactly the E-Gifts ways-to-give predicate', async () => {
-  const pol = await db.query<{ tablename: string; cmd: string; roles: string[]; qual: string; with_check: string }>(
-    `SELECT tablename, cmd, roles::text[] AS roles, qual, with_check FROM pg_policies
+  const all = await db.query<{ tablename: string; permissive: string; cmd: string; roles: string[]; qual: string; with_check: string }>(
+    `SELECT tablename, permissive, cmd, roles::text[] AS roles, qual, with_check FROM pg_policies
       WHERE schemaname = 'public'
         AND tablename IN ('event_egift_methods', 'event_wish_items', 'event_gift_records')
       ORDER BY tablename`,
   );
+  // A DOOR is a PERMISSIVE policy. The RESTRICTIVE ones only narrow — and the only kind allowed here is the
+  // limited-seat refusal (migration 20271302707661: a Limited coordinator or a limited helper changes nothing).
+  const pol = { rows: all.rows.filter((p) => p.permissive === 'PERMISSIVE') };
+  for (const r of all.rows.filter((p) => p.permissive !== 'PERMISSIVE')) {
+    assert.match(`${r.qual ?? ''} ${r.with_check ?? ''}`, /^\s*\(?NOT is_limited_helper\(event_id\)\)?\s*(null)?\s*$/i, `${r.tablename} ${r.cmd}: a RESTRICTIVE policy that is not the limited-seat refusal`);
+  }
   assert.equal(pol.rows.length, 3, 'one policy per table — no second door');
   const methods = pol.rows.find((p) => p.tablename === 'event_egift_methods')!;
   for (const t of ['event_wish_items', 'event_gift_records']) {

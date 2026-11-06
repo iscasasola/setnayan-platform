@@ -29,10 +29,11 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const CSS = read('app/globals.css');
 const order = (html: string, marker: string) => [...html.matchAll(new RegExp(`${marker}="([a-z]+)"`, 'g'))].map((m) => m[1]);
 
+// 🎴 Home redraw 2026-11-02 (round 3): the Countdown rides the event card and To do is the list under it.
 test('1 · the phone reads the tiles row by row, in the order drawn', () => {
   const html = drawHome();
   const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
-  assert.deepEqual(order(compact, 'data-home-tile'), ['count', 'guests', 'hub', 'sup', 'plan', 'budget']);
+  assert.deepEqual(order(compact, 'data-home-tile'), ['guests', 'hub', 'sup', 'budget']);
 });
 
 test('2 · from md, the two columns are read column by column, as seen', () => {
@@ -40,8 +41,8 @@ test('2 · from md, the two columns are read column by column, as seen', () => {
   const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
   const cols = detail.split('class="hc-col"').slice(1);
   assert.equal(cols.length, 2, 'the detail version is not two columns');
-  assert.deepEqual(order(cols[0]!, 'data-home-card-key'), ['count', 'hub', 'budget'], 'the left column');
-  assert.deepEqual(order(cols[1]!, 'data-home-card-key'), ['guests', 'sup', 'plan'], 'the right column');
+  assert.deepEqual(order(cols[0]!, 'data-home-card-key'), ['hub', 'budget'], 'the left column');
+  assert.deepEqual(order(cols[1]!, 'data-home-card-key'), ['guests', 'sup'], 'the right column');
   // The Today line comes first, the services after the control row.
   assert.ok(html.indexOf('data-home-today=') < html.indexOf('data-home-control="compact"'), 'Today is not first');
   assert.ok(html.indexOf('data-home-control="detail"') < html.indexOf('data-home-services'), 'Your services come before the control row');

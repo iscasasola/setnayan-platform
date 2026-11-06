@@ -115,8 +115,12 @@ export default async function DownloadPage() {
                     variant="secondary"
                   />
                 ) : null}
+                {/* 📲 The app opens this page since the owner's 2026-11-02 ruling ("let everything go live"); a line
+                    pointing out of the iPhone app to the web is hidden there before first paint (`data-web-only`,
+                    held by lib/the-app-never-steers-to-the-web.test.ts). The web and the desktop app keep it. */}
                 <Link
                   href="https://setnayan.com"
+                  data-web-only=""
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 underline-offset-4 transition-colors hover:text-ink hover:underline"
                 >
                   <Globe aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -128,11 +132,16 @@ export default async function DownloadPage() {
               // lib/desktop-release.ts: resolveDesktopRelease() returns null when
               // R2 hasn't published a release yet or can't be reached.
               <div data-reveal-item className="max-w-md rounded-xl border border-ink/12 bg-ink/[0.03] px-4 py-3 text-sm text-ink/65">
-                The desktop download isn&rsquo;t available right now. Try again shortly, or{' '}
-                <Link href="https://setnayan.com" className="text-terracotta underline-offset-4 hover:underline">
-                  use Setnayan on the web
-                </Link>{' '}
-                in the meantime.
+                The desktop download isn&rsquo;t available right now. Try again shortly
+                {/* Hidden in the iPhone app (`data-web-only`) — the same rule as the link above. */}
+                <span data-web-only="">
+                  , or{' '}
+                  <Link href="https://setnayan.com" className="text-terracotta underline-offset-4 hover:underline">
+                    use Setnayan on the web
+                  </Link>{' '}
+                  in the meantime
+                </span>
+                .
               </div>
             )}
 

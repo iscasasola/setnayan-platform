@@ -135,6 +135,6 @@ test('5 · the You card: the photo row, then the Display name at full width', ()
   assert.ok(fu, 'the You card has no photo upload');
   assert.match(fu, /row=\{\{/, 'the You card photo is not the row');
   const after = CARD.slice(CARD.indexOf(fu) + fu.length, CARD.indexOf(fu) + fu.length + 300);
-  assert.match(after, /^\s*<div className="hr-si-field">\s*<label htmlFor="hr-you-name"/, 'the Display name is not the full-width field right under the row');
+  assert.match(after, /^\s*(?:\{\s*\}\s*)?<FormRows\b[^>]*>\s*<DisplayNameField\b/, 'the Display name is not the Field row right under the photo row');
   assert.doesNotMatch(CARD, /width:\s*96|display: 'flex', alignItems: 'center', gap: 14/, 'the 96 px side-by-side is back');
 });

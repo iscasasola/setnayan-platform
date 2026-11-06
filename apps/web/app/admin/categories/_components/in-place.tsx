@@ -16,30 +16,23 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import type { Choice } from './pickers';
 import { reordered } from './model';
+import { INPUT_IN_PLACE, SaidLine as Said, useInPlace } from './drawer-kit';
+
+const DANGER_BUTTON =
+  'sn-press inline-flex min-h-11 items-center justify-center rounded-full border border-danger-700/50 px-4 text-sm font-semibold text-danger-700 hover:bg-danger-700/5 disabled:opacity-40';
 
 type Result = { ok: true; message: string } | { ok: false; error: string };
 
-function Said({ said }: { said: { ok: boolean; text: string } | null }) {
-  if (!said) return null;
-  return (
-    <p role={said.ok ? 'status' : 'alert'} className={`mt-1 text-xs ${said.ok ? 'text-success-700' : 'text-danger-700'}`}>
-      {said.ok ? '✓ ' : '⚠ '}
-      {said.text}
-    </p>
-  );
-}
-
+/**
+ * ⚡ Every write here revalidates /admin/categories: its own answer redraws the page — no refresh after it. Inside the
+ * drawer the answer is the drawer's toast (with Undo where the old value is known); elsewhere it is said beside the
+ * control.
+ */
 function useRun() {
-  const [pending, start] = useTransition();
-  const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
-  const run = (fn: () => Promise<Result>, after?: (r: Result) => void) =>
-    start(async () => {
-      const res = await fn();
-      // ⚡ Every write here revalidates /admin/categories: its own answer redraws the page — no refresh after it.
-      setSaid(res.ok ? { ok: true, text: res.message } : { ok: false, text: res.error });
-      after?.(res);
-    });
-  return { pending, said, run };
+  const ip = useInPlace();
+  const run = (fn: () => Promise<Result>, what: string, undo?: () => Promise<Result>) =>
+    ip.run(fn, { what, said: (m) => m, undo });
+  return { pending: ip.pending, said: ip.local, run };
 }
 
 /** Group ▾ — move a category to another group. */
@@ -62,7 +55,7 @@ export function MoveGroupPick({
         compact
         className="border border-ink/15"
         onPick={(key) => {
-          if (key !== groupId) run(() => move(key));
+          if (key !== groupId) run(() => move(key), 'Group', () => move(groupId));
         }}
       />
       <Said said={said} />
@@ -99,7 +92,7 @@ export function OrderPick({
         className="border border-ink/15"
         onPick={(how) => {
           const next = reordered(siblings, id, how);
-          if (next.join() !== siblings.join()) run(() => save(next));
+          if (next.join() !== siblings.join()) run(() => save(next), 'Order', () => save([...siblings]));
         }}
       />
       <Said said={said} />
@@ -163,7 +156,7 @@ export function DeleteCategory({
             }
           });
         }}
-        className="rounded-full border border-danger-300 bg-white px-3 py-1.5 text-xs font-semibold text-danger-700 hover:bg-danger-50 disabled:opacity-40"
+        className={DANGER_BUTTON}
       >
         {pending ? 'Deleting…' : `Delete ${label}`}
       </button>
@@ -188,12 +181,14 @@ export function CombineService({
   combine: (destinationKey: string) => Promise<Result>;
 }) {
   const { pending, said, run } = useRun();
+  const { confirm, dialog } = useConfirm();
   const [dest, setDest] = useState('');
   const [typed, setTyped] = useState('');
   if (targets.length === 0) return <p className="text-xs text-ink/60">No other service in this category to combine with.</p>;
   const armed = dest !== '' && typed.trim() === name;
   return (
     <div className="space-y-2">
+      {dialog}
       <PickMenu
         label="Combine into"
         value={dest}
@@ -209,14 +204,23 @@ export function CombineService({
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           placeholder={name}
-          className="mt-1 block w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink"
+          className={`mt-1 ${INPUT_IN_PLACE}`}
         />
       </label>
       <button
         type="button"
         disabled={!armed || pending}
-        onClick={() => run(() => combine(dest))}
-        className="rounded-full bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream disabled:opacity-40"
+        onClick={async () => {
+          const into = targets.find((t) => t.key === dest)?.label ?? dest;
+          const ok = await confirm({
+            title: `Combine ${name} into ${into}?`,
+            body: 'Every supplier moves. This cannot be undone.',
+            destructive: true,
+            confirmLabel: 'Combine',
+          });
+          if (ok) run(() => combine(dest), 'Combine');
+        }}
+        className={DANGER_BUTTON}
       >
         {pending ? 'Combining…' : 'Combine'}
       </button>

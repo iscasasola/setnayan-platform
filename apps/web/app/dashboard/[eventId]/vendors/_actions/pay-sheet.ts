@@ -25,6 +25,8 @@
  * Nothing is written here. Recording a payment is the card's own
  * `recordDeposit` / `logScheduledPayment`.
  */
+import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
+import { lastPlanReplot } from '@/lib/plan-replot';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -58,7 +60,7 @@ export async function loadPaySheet(input: {
   const [booking, event] = await Promise.all([
     supabase
       .from('event_vendors')
-      .select('vendor_id, marketplace_vendor_id')
+      .select('vendor_id, marketplace_vendor_id, manual_vendor_id')
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .maybeSingle(),
@@ -73,7 +75,8 @@ export async function loadPaySheet(input: {
   const eventDate = (event.data as { event_date?: string | null } | null)?.event_date ?? null;
   const own = (booking.data as { marketplace_vendor_id: string | null }).marketplace_vendor_id == null;
 
-  const [money, methods, plan] = await Promise.all([
+  const manualVendorId = (booking.data as { manual_vendor_id?: string | null }).manual_vendor_id ?? null;
+  const [money, methods, plan, ownWays, planRow] = await Promise.all([
     readBookedMoney(supabase, { eventId, eventVendorId: vendorId, eventDate, viewer: 'couple', otherName: vendorName }),
     readPublishedMethodsForCouple({
       authedClient: supabase,
@@ -84,6 +87,17 @@ export async function loadPaySheet(input: {
     fetchPlanProgressForCouple({ authedClient: supabase, eventId, eventVendorId: vendorId }).catch(
       () => 'unreadable' as const,
     ),
+    // How to pay them — the couple's own record, only for a supplier they added.
+    own
+      ? readPayWaysForRecord(supabase, eventId, manualVendorId).catch(() => ({ status: 'error' as const }))
+      : Promise.resolve({ status: 'ok' as const, ways: [] }),
+    // The newest plan a price change replaced (`replot_history`) — one line on the plan.
+    supabase
+      .from('event_vendor_payment_plan')
+      .select('replot_history')
+      .eq('event_id', eventId)
+      .eq('event_vendor_id', vendorId)
+      .maybeSingle(),
   ]);
   if (money.step.kind === 'not_booked') return { status: 'not_booked' };
   // The booking row could not be read: the card would have nothing true to say.
@@ -120,6 +134,15 @@ export async function loadPaySheet(input: {
       depositDeclineReason: money.deposit.declineReason,
       payMethods: methods.methods,
       payMethodsState: methods.state,
+      ownWays: ownWays.status === 'ok' ? ownWays.ways : 'unreadable',
+      planChange: (() => {
+        if (planRow.error) {
+          logQueryError('loadPaySheet.replotHistory', planRow.error, { event_id: eventId }, 'graceful_degrade');
+          return null;
+        }
+        const last = lastPlanReplot((planRow.data as { replot_history?: unknown } | null)?.replot_history);
+        return last ? { fromPhp: last.fromPhp, toPhp: last.toPhp } : null;
+      })(),
       requestedFirstPaymentCentavos: money.terms?.firstPaymentCentavos ?? null,
       requestedFirstPaymentSentence: firstPaymentSentence(money.terms),
       requestedTermsUnreadable: money.termsUnreadable,

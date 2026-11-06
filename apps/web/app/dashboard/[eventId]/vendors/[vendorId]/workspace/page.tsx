@@ -34,9 +34,8 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
-import { resolveProfileByEvent } from '@/lib/event-type-profile';
-import { eventNoun } from '@/lib/event-noun';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
+import { feedsCrews } from '@/lib/crew-meals';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -64,7 +63,6 @@ import {
   Circle,
   FileText,
   Info,
-  LinkIcon,
   MessageCircle,
   Package as PackageIcon,
   PiggyBank,
@@ -96,7 +94,6 @@ import {
   type AppointmentView,
 } from '@/lib/appointments';
 import { updateVendorCosts } from '../../actions';
-import { createAutoShareInviteAction } from './actions';
 import { manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import { HostServiceDetails } from './_components/host-service-details';
 import { SelfAddedContactCard } from './_components/self-added-contact-card';
@@ -133,6 +130,7 @@ type CouplePaymentAskRow = {
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
+import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -160,12 +158,11 @@ import { ReservationTermsAck } from './_components/reservation-terms-ack';
 // the service's own studio page — from an admin-priced catalog SKU. This page is
 // now only ever a THIRD-PARTY vendor relationship: a deal the couple records and
 // settles off-platform.
-import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
+import { fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import {
   canInviteSupplier,
   isOffPlatformSupplier,
 } from '@/lib/supplier-invite-eligibility';
-import { ClaimLinkShare } from './_components/claim-link-share';
 import { VendorProposalsCard } from './_components/vendor-proposals-card';
 // Working folder — private-vs-shared per-vendor notes (Coordinator P4).
 // Flag-gated (NEXT_PUBLIC_COORDINATOR_VENDOR_NOTES_ENABLED, default OFF): the
@@ -534,7 +531,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     r.crew_size ??
     (r.marketplace_vendor_id ? listingCrewByProfile.get(r.marketplace_vendor_id) ?? null : null);
 
-  const hasCrewMealProvider = crewRows.some((r) => r.category === 'crew_meals');
+  // 🍱 Who feeds the crews (owner 2026-11-02, 4 additions (4)): the crew-meal provider — or the caterer, who plates them
+  // on the day and now sees this count on their production sheet (`get_vendor_crew_meals`, 20271303132255).
+  const hasCrewMealProvider = crewRows.some((r) => feedsCrews(r.category));
+  const feederWords = crewRows.some((r) => r.category === 'crew_meals') ? 'your crew-meal provider' : 'your caterer';
   const coveredCrewMeals = crewRows.reduce(
     (sum, r) => sum + (r.crew_meal_covered ? effectiveCrew(r) ?? 0 : 0),
     0,
@@ -659,40 +659,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
-  // The share text the couple sends an off-platform supplier says what the
-  // celebration IS — a debut's invite no longer reads "for our wedding".
-  const inviteEventWord = autoShareInvite
-    ? eventNoun((await resolveProfileByEvent(eventId)).eventType)
-    : 'wedding';
-  // ── THE LINK MUST STILL BE THERE TOMORROW (owner, 2026-09-20: "i failed the
-  // qr code to import the vendor. i dont have access for this qr and link to
-  // share to the vendor.") ─────────────────────────────────────────────────
-  //
-  // The add-a-contact modal offers the claim QR the moment a supplier is added
-  // — at status 'considering', per the owner's 2026-07-01 directive. That panel
-  // is ONE-SHOT: close the modal and it is gone. This page, the only other
-  // door, then demanded `status` be contracted+ before it would even offer to
-  // MAKE a link. So between "added" and "locked" the couple had nowhere at all
-  // to get the QR back, and the modal's own offer contradicted the page that
-  // is supposed to own it.
-  //
-  // Measured on prod 2026-09-20: `Seda Vertis North`, added that morning,
-  // category `venue`, status `considering`, `manual_vendor_id` set,
-  // `marketplace_vendor_id` NULL — and ZERO rows in `vendor_invites`. Exactly
-  // the dead end reported. Re-measure, never trust this line:
-  //   select ev.vendor_name, ev.status,
-  //          (select count(*) from vendor_invites vi where vi.vendor_id = ev.vendor_id)
-  //     from public.event_vendors ev where ev.archived_at is null;
-  //
-  // 🔑 STATUS WAS NEVER THE QUESTION. `canInviteSupplier` already answers the
-  // only one that matters — do they have an account to be invited to — and its
-  // own docblock says so: "OFF-PLATFORM AND FINALIZED ARE INDEPENDENT AXES
-  // (owner, 2026-09-02: 'Adding them to their shortlist does not mean it is
-  // final, it just means they are not on the app.')". Minting a claim link
-  // early costs nothing: `ensureAutoShareInvite` is idempotent, so the lock-time
-  // path still finds the same invite, and a supplier who claims early simply
-  // arrives with an account before the booking is settled — which is the point.
-  const canOfferInvite = needsInvite && !autoShareInvite;
+  // 🔗 THE CLAIM LINK HAS ONE DOOR NOW: their row on Suppliers › Booked › Team (corpus SCHEDULE_CHAPTERS_BUILD_PLAN
+  // "Sync: … Move its door to the Team row"; `ClaimDoor` in booked-row.tsx, held by
+  // `the-claim-link-has-one-door.test.ts`). The link is still made by the one idempotent writer, so it never dies with
+  // the add modal (the 2026-09-20 dead end — Share there makes it when there is none). This page only says when they
+  // have JOINED.
 
   // Couple-visibility fix (2026-07-01): the couple's OWN picked-vendor
   // marketplace HEADER (business_name / logo / city / slug),
@@ -1360,7 +1331,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id, room_created_at',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', ev.marketplace_vendor_id)
@@ -1980,6 +1951,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             vendorId={ev.vendor_id}
             vendorName={displayName}
             changeOrders={changeOrders}
+            readFailed={Boolean(changeOrderRowsError)}
           />
 
           {/*
@@ -2385,6 +2357,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               derived meal count. On every OTHER vendor: its crew size + a toggle
               to have the provider feed this crew (supersedes its food allowance,
               so the cost is counted once — in the provider's package). */}
+          {/* The caterer's own row says how many crews it feeds (the crew-meal provider's row below already does). */}
+          {ev.category === 'catering' ? (
+            <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70" data-crew-meals-covering="">
+              Feeding{' '}
+              <span className="font-medium text-ink">
+                {coveredCrewMeals} crew meal{coveredCrewMeals === 1 ? '' : 's'}
+              </span>{' '}
+              across the suppliers you&rsquo;ve marked as fed — they see this count on their production sheet.
+            </p>
+          ) : null}
           {ev.category === 'crew_meals' ? (
             <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
               Covering{' '}
@@ -2417,7 +2399,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                     className="mt-0.5 h-4 w-4 accent-mulberry"
                   />
                   <span>
-                    Crew fed by your crew-meal provider
+                    Crew fed by {feederWords}
                     <span className="block text-xs text-ink/50">
                       Covers this crew&rsquo;s meals in that booking — its food allowance
                       above won&rsquo;t be counted again.
@@ -2592,47 +2574,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       ) : null;
 
   const claimContent =
-      needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
-        <section
-          aria-labelledby="claim-invite-heading"
-          className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
-        >
-          <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn-100 text-warn-800">
-              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
-                Bring this supplier onto Setnayan
-              </p>
-              <h2
-                id="claim-invite-heading"
-                className="text-sm font-semibold text-ink"
-              >
-                Send {displayName} this link
-              </h2>
-              <p className="text-xs text-ink/70">
-                They don&rsquo;t have a Setnayan account yet. Share this link
-                so they can register a free supplier account and see the
-                schedule you&rsquo;ve booked for them.
-              </p>
-            </div>
-          </header>
-
-          <div className="mt-4">
-            <ClaimLinkShare
-              claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
-              shareTitle={`Setnayan invite for ${displayName}`}
-              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free supplier account here:`}
-            />
-          </div>
-
-          <p className="mt-3 text-[11px] text-ink/55">
-            Free supplier account · launch promo runs through 30 Jan 2027 ·
-            Link expires in 90 days
-          </p>
-        </section>
-      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'claimed' ? (
+      needsInvite && autoShareInvite && autoShareInvite.status === 'claimed' ? (
         <section
           aria-labelledby="claim-linked-heading"
           className="rounded-2xl border border-success-200/80 bg-success-50/60 p-5"
@@ -2658,76 +2600,22 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
           </header>
         </section>
-      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'expired' ? (
-        <section
-          aria-labelledby="claim-expired-heading"
-          className="rounded-2xl border border-ink/15 bg-cream/60 p-5"
-        >
-          <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5 text-ink/55">
-              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-                Invite link expired
-              </p>
-              <h2
-                id="claim-expired-heading"
-                className="text-sm font-semibold text-ink/85"
-              >
-                The previous invite link is no longer active
-              </h2>
-              <p className="text-xs text-ink/65">
-                Re-book this supplier to generate a fresh link, or reach out to
-                them using the contact details above.
-              </p>
-            </div>
-          </header>
-        </section>
-      ) : canOfferInvite ? (
-        <section
-          aria-labelledby="claim-create-heading"
-          className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
-        >
-          <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn-100 text-warn-800">
-              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
-                Bring this supplier onto Setnayan
-              </p>
-              <h2 id="claim-create-heading" className="text-sm font-semibold text-ink">
-                Invite {displayName} with a free account
-              </h2>
-              <p className="text-xs text-ink/70">
-                They don&rsquo;t have a Setnayan account yet. Create a shareable
-                link to send them — they register free and can see the schedule
-                you&rsquo;ve booked for them.
-              </p>
-            </div>
-          </header>
-          <form action={createAutoShareInviteAction} className="mt-4">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
-            {/* The name and category are re-read from the row by the action
-                (never trusted from the form), so they are not posted. */}
-            <SubmitButton pendingLabel="Creating…" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warn-400/60 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
-              <LinkIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Create a shareable invite link
-            </SubmitButton>
-          </form>
-        </section>
       ) : null;
 
-  // Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote
-  // it."). Stable anchor so the vendors-list nudge
-  // (plan-budget-accordion.tsx `.invite-cta`) can deep-link straight to
-  // whichever of the four claim-state sections above is currently showing,
-  // instead of dropping the couple at the top of this long page. `null` when
-  // none of the four branches matched (e.g. the invite already expired with
-  // no re-lock) — no id renders, and there is nothing to scroll a link to.
-  const claimSection = claimContent ? <div id="invite-vendor">{claimContent}</div> : null;
+  const claimSection = claimContent;
+
+  // ❓ "{SHOP} ASKS" — every supplier's questions for the couple, answered here (owner 2026-11-04, verbatim "Yes,
+  // every supplier"). Only a supplier with a Setnayan shop can ask; the card renders nothing unless they ask something
+  // AND are booked or sent their set from the chat. Lives on Details (flag-on) / after the inclusions (flag-off).
+  const supplierQuestionsSection = ev.marketplace_vendor_id ? (
+    <SupplierQuestionsCard
+      supabase={supabase}
+      eventId={eventId}
+      eventVendorId={ev.vendor_id}
+      vendorProfileId={ev.marketplace_vendor_id}
+      shopName={displayName}
+    />
+  ) : null;
 
   // ------------------------------------------------------------------------
   // Flag OFF — the current long-scroll page, byte-identical to before: the
@@ -2740,6 +2628,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {backNav}
         {heroSection}
         {selfAddedContactSection}
+        {supplierQuestionsSection}
         {includedSection}
         {choicesSection}
         {addOnsSection}
@@ -3008,6 +2897,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       node: (
         <div className="space-y-6">
           {coupleCompletionSection}
+          {supplierQuestionsSection}
           {colourAccessSection}
           {selfAddedContactSection}
           {includedSection}

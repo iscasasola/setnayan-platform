@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { blockRelevance } from '@/lib/vendor-timeline';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
-import { icsDocument, icsEscape } from '@/lib/ics-text';
+import { icsDocument } from '@/lib/ics-text';
+import { timelineIcsEvents, type TimelineIcsBlock } from '@/lib/supplier-timeline-ics';
 
 /**
  * Per-vendor .ics feed of the shared day-of timeline — feature-access
@@ -21,21 +22,6 @@ import { icsDocument, icsEscape } from '@/lib/ics-text';
  *  ARE instants, like DTSTAMP. */
 function icsStamp(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-}
-
-/**
- * A schedule time → an ICS **local** stamp, no `Z`, paired with `TZID=` below.
- *
- * `event_schedule_blocks.start_at` holds the venue's WALL CLOCK in a UTC
- * column. Emitting it as `…Z` told every calendar app the 2 PM ceremony was at
- * 2 PM UTC — so the photographer's phone put the wedding in their diary at
- * **10 PM**, eight hours after everyone else arrived.
- */
-function icsLocalStamp(iso: string): string | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
-  if (!m) return null;
-  const [, y, mo, d, h, mi] = m;
-  return `${y}${mo}${d}T${h}${mi}00`;
 }
 
 /**
@@ -67,7 +53,7 @@ export async function GET(req: Request, { params }: Params) {
 
   const { data, error } = await supabase
     .from('event_schedule_blocks')
-    .select('block_id, label, block_type, start_at, end_at, location')
+    .select('block_id, label, block_type, start_at, end_at, location, time_tba')
     .eq('event_id', eventId)
     .not('start_at', 'is', null)
     .order('start_at', { ascending: true });
@@ -79,14 +65,8 @@ export async function GET(req: Request, { params }: Params) {
     });
   }
 
-  let blocks = (data ?? []) as {
-    block_id: string;
-    label: string;
-    block_type: string;
-    start_at: string;
-    end_at: string | null;
-    location: string | null;
-  }[];
+  // `time_tba` travels so a Time-TBA chapter is written as an all-day item, never at 12:00 AM (lib/supplier-timeline-ics.ts).
+  let blocks = (data ?? []) as (TimelineIcsBlock & { block_type: string })[];
 
   if (new URL(req.url).searchParams.get('mine') === '1' && blocks.length > 0) {
     const { data: brief } = await supabase.rpc('get_vendor_event_brief', {
@@ -111,21 +91,7 @@ export async function GET(req: Request, { params }: Params) {
     'METHOD:PUBLISH',
     ...VTIMEZONE,
   ];
-  for (const b of blocks) {
-    const dtstart = icsLocalStamp(b.start_at);
-    if (!dtstart) continue;
-    const dtend = b.end_at ? icsLocalStamp(b.end_at) : null;
-    lines.push(
-      'BEGIN:VEVENT',
-      `UID:${b.block_id}@setnayan.com`,
-      `DTSTAMP:${now}`,
-      `DTSTART;TZID=${DEFAULT_EVENT_TZ}:${dtstart}`,
-      ...(dtend ? [`DTEND;TZID=${DEFAULT_EVENT_TZ}:${dtend}`] : []),
-      `SUMMARY:${icsEscape(b.label)}`,
-      ...(b.location ? [`LOCATION:${icsEscape(b.location)}`] : []),
-      'END:VEVENT',
-    );
-  }
+  lines.push(...timelineIcsEvents(blocks, now));
   lines.push('END:VCALENDAR');
 
   return new NextResponse(icsDocument(lines), {

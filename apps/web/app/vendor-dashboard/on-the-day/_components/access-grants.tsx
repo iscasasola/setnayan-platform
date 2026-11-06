@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2, UserCheck } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
+import { Explain } from '@/app/_components/explain';
+import { FormRow, FormRows } from '@/app/_components/form-row';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { setEventAccessGrant } from '../actions';
 
 export type GrantableMember = {
@@ -17,6 +20,8 @@ export type GrantableMember = {
  * day-of app. Owner/admin accounts always have access (shown, not toggleable);
  * other teammates are granted per-event. Optimistic toggles persisted to
  * vendor_event_access_grants via setEventAccessGrant.
+ *
+ * 🗓 v13 (owner "Approved." 2026-10-29): Hub › Crew — one hairline row per teammate with the house switch. Same action.
  */
 export function AccessGrants({
   eventId,
@@ -46,60 +51,53 @@ export function AccessGrants({
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-2">
-        <UserCheck aria-hidden className="h-4 w-4" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-        <h2 className="sn-sec">Who can open this app</h2>
-        {pending ? (
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
-        ) : null}
+    <div data-hub-team="">
+      <div className="flex items-center justify-between gap-2 pt-4">
+        <p className="home-k2">Your team on this event</p>
+        <span className="flex items-center gap-1.5">
+          {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-ink/55" strokeWidth={1.75} /> : null}
+          <Explain title="Your team on this event">
+            You always have access. Switch a teammate on to let them open just this event’s Event Hub — nothing else
+            of your shop changes.
+          </Explain>
+        </span>
       </div>
-      <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-        You always have access. Grant a teammate access to just this event’s day-of app.
-      </p>
       {error ? (
-        <p className="mt-2 text-sm" style={{ color: 'var(--sn-danger, #b42318)' }}>
+        <p role="alert" className="py-2 text-[13px] font-semibold text-danger-700">
           {error}
         </p>
       ) : null}
-      <ul className="mt-3 space-y-2">
+      <FormRows data="hub-team">
         {members.map((m) => {
           const on = m.isOwnerAdmin ? true : (state[m.userId] ?? false);
           return (
-            <li key={m.userId} className="sn-tile flex items-center justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  {m.name}
-                </span>
-                <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                  {m.roleLabel}
-                  {m.isOwnerAdmin ? ' · always has access' : ''}
-                </span>
-              </span>
+            <FormRow
+              key={m.userId}
+              name={m.name}
+              line={`${m.roleLabel}${m.isOwnerAdmin ? ' · always has access' : on ? ' · can open this event' : ''}`}
+              attrs={{ 'data-hub-team-member': m.userId }}
+            >
               {m.isOwnerAdmin ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--sn-success, #157347)' }}>
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Access
+                <span className="inline-flex items-center gap-1 text-[13px] font-medium text-success-700 dark:text-success-600">
+                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> In
                 </span>
               ) : (
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={on}
+                  aria-label={`${m.name} can open this event`}
                   onClick={() => toggle(m.userId)}
-                  aria-pressed={on}
                   disabled={pending}
-                  className="inline-flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition"
-                  style={{
-                    background: on ? 'var(--m-ink)' : 'var(--m-line)',
-                    justifyContent: on ? 'flex-end' : 'flex-start',
-                    cursor: 'pointer',
-                  }}
+                  className={SWITCH_BUTTON}
                 >
-                  <span className="h-5 w-5 rounded-full" style={{ background: 'var(--m-paper)' }} />
+                  <SwitchTrack on={on} />
                 </button>
               )}
-            </li>
+            </FormRow>
           );
         })}
-      </ul>
+      </FormRows>
     </div>
   );
 }

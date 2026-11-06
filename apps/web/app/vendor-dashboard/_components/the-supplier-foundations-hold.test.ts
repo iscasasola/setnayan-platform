@@ -118,7 +118,7 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   assert.match(env[0], /initialUnread=\{threadsUnread\}/, 'the envelope is seeded from something other than the unread MESSAGES count');
   assert.match(env[0], /href=\{customerLandingHref\('messages'\)\}/, 'the envelope does not land on the inbox through the anchors table');
   // 2026-10-28: the envelope lands on People's list itself — one row per event, each its chat (no Messages fold).
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people#customers');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=events#customers'); // People → Events 2026-10-30
   assert.ok(cluster.indexOf('<UnreadMessagesBadge') < cluster.indexOf('<AccountSwitcher'), 'the envelope sits after the avatar');
   // The supplier's own rows ride along (step 5's rows + step 6's sheet, prototype SHEETS.avatar).
   assert.match(cluster, /<AccountSwitcher\s+data=\{switcherData\}\s+shopRows=\{switcherShopRows\}[^>]*\/>/, 'the avatar — and the only Sign out — left the bar');

@@ -15,7 +15,7 @@
  * ── THE PROPERTIES (none of them is a phrase) ───────────────────────────────
  *   1. Every door that takes an email to make or recover an account shows ONE example, and it is not on a domain
  *      we own. The sign-up card names no account tier.
- *   2. Every " · " part of the Settings Email line maps to notification types that ARE on the email allowlist
+ *   2. Every " · " part of the Email line (Shop ⚙ › Notifications) maps to notification types that ARE on the email allowlist
  *      (`EMAIL_ENABLED_TYPES`, read from source) — a part that maps to nothing fails, so a new promise must say
  *      which email it means. The line fits a 375 px row (it renders in a `truncate` span).
  *   3. The welcome email's "What's next" link is the route `becomeVendor` actually lands a new shop on.
@@ -59,7 +59,7 @@ test('the sign-up card names no account tier (it serves a host and a shop owner 
   assert.equal(tier, null, `the sign-up card says "${tier?.[0]}" — a tier the person never chose`);
 });
 
-// ── 2 · the Settings Email line ───────────────────────────────────────────
+// ── 2 · the Email line (Shop ⚙ › Notifications) ───────────────────────────────────────────
 /** What each part of the line promises, as the notification types that carry it. A new part must be added here. */
 const PART_TYPES: Record<string, readonly string[]> = {
   Bookings: ['lock_request_received', 'lock_request_nudge', 'lock_request_expired', 'booking_confirmed'],
@@ -74,14 +74,22 @@ function emailAllowlist(): Set<string> {
   return new Set([...m[1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]!));
 }
 
+/**
+ * The Email line MOVED with the push switch from the account menu's Settings › Notifications into the Shop ⚙ ›
+ * Notifications (owner 2026-10-31, "Yes follow your recommendation" — DECISION_LOG "SHOP ⚙ — WHAT A SUPPLIER SETS
+ * ONCE"); the same words, held where they now draw — inside that fold.
+ */
 function settingsEmailLine(): string {
-  const src = read('app/vendor-dashboard/settings/settings-view.tsx');
-  const m = src.match(/<DatesRow\b[^>]*data="settings-email"[^>]*line="([^"]*)"/);
-  assert.ok(m, 'the Settings Email row (data="settings-email") with a literal line was not found');
+  const src = read('app/vendor-dashboard/shop/_components/shop-settings-rows.tsx');
+  const at = src.indexOf('<Fold anchor="notifications"');
+  assert.ok(at >= 0, 'the Shop ⚙ has no Notifications fold');
+  const fold = src.slice(at, src.indexOf('</Fold>', at));
+  const m = fold.match(/<DatesRow\b[^>]*data="shop-gear-email"[^>]*line="([^"]*)"/);
+  assert.ok(m, 'the Shop ⚙ › Notifications Email row (data="shop-gear-email") with a literal line was not found');
   return m[1]!;
 }
 
-test('every part of the Settings Email line is a notification we really email', () => {
+test('every part of the Shop ⚙ › Notifications Email line is a notification we really email', () => {
   const allow = emailAllowlist();
   assert.ok(allow.size > 10, `parsed only ${allow.size} allowlisted types — the parser is broken`);
   const parts = settingsEmailLine().split(' · ').map((p) => p.trim());
@@ -93,7 +101,7 @@ test('every part of the Settings Email line is a notification we really email', 
   }
 });
 
-test('the Settings Email line fits one 375 px row (it renders in a truncate span)', () => {
+test('the Shop ⚙ › Notifications Email line fits one 375 px row (it renders in a truncate span)', () => {
   const line = settingsEmailLine();
   // 375 − 2×16 gutter = 343 px of 13 px text ≈ 52 characters; 48 leaves room for a wide glyph run.
   assert.ok(line.length <= 48, `the line is ${line.length} characters and ends in "…" on a phone: "${line}"`);

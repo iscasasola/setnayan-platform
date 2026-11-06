@@ -42,9 +42,12 @@ const STATIC_ROUTES: ReadonlyArray<{
   // verification + new tile lands. Daily.
   { path: '/explore', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
 
-  // /explore/compare — side-by-side vendor comparison. Was orphaned (indexable
-  // but in no sitemap); added 2026-07-10.
-  { path: '/explore/compare', lastmod: '2026-07-10', changefreq: 'weekly', priority: '0.6' },
+  // /explore/compare is NOT listed (removed 2026-11-01, live walk). Added
+  // 2026-07-10 as "orphaned — indexable", but bare it is not a page: with no
+  // `?ids=` the middleware answers 307 → /explore (2026-10-13), so the sitemap
+  // advertised a redirect. A comparison only exists for a couple's own picks.
+  // `lib/sitemap-lists-only-public-pages.test.ts` refuses any listed path that
+  // middleware or next.config redirects.
 
   // /pricing — locked at v2.1 brief (CLAUDE.md tenth + eleventh 2026-05-28
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.

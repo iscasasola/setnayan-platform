@@ -27,9 +27,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 
+/* The zone's photo moved with the zone's choices into the Accents sheet (owner 2026-10-30, the room is view-only). */
 const EDITOR = join(
   import.meta.dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', 'lab',
-  '_components', 'reception-design-editor.tsx',
+  '_components', 'accents-sheet.tsx',
 );
 const src = () => stripComments(readFileSync(EDITOR, 'utf8'));
 
@@ -73,12 +74,12 @@ test('an unknown part id is null, not a crash', () => {
 
 /* ── the wiring: it reaches the zone, and only as reference ───────────────── */
 
-test('the photo shown follows the ACTIVE zone', () => {
-  // Keyed on activePart, not a fixed slot: otherwise every zone shows the
+test('the photo shown follows ITS zone', () => {
+  // Keyed on the row's own part, not a fixed slot: otherwise every zone shows the
   // ceiling photo, which is worse than showing none — it is confidently wrong.
   assert.match(
     src(),
-    /inspirationByPart\?\.\[activePart\]/,
+    /inspirationByPart\?\.\[partId\]/,
     'the reference strip must key off the part the couple is currently dressing',
   );
 });
@@ -86,7 +87,7 @@ test('the photo shown follows the ACTIVE zone', () => {
 test('an absent photo renders nothing — never a placeholder', () => {
   assert.match(
     src(),
-    /\(inspirationByPart\?\.\[activePart\]\?\.length \?\? 0\) > 0/,
+    /photos\.length > 0 \?/,
     'five of ten parts have no slot at all, so "nothing here" is the common case ' +
       'and must render as nothing.',
   );
@@ -98,6 +99,9 @@ test('REFERENCE ONLY — the photo never enters the render', () => {
   // would stop being a drawing of what the couple chose and become a collage of
   // what they liked — and every "the room shows X" guarantee would be false.
   const s2 = src();
-  const svgCall = s2.slice(s2.indexOf('renderVenueSvg('), s2.indexOf('renderVenueSvg(') + 160);
-  assert.doesNotMatch(svgCall, /inspiration/i, 'inspiration data must not feed renderVenueSvg');
+  assert.doesNotMatch(s2, /renderVenueSvg\(/, 'the sheet draws no render of its own');
+  // The photos are shown and never written: no save, commit or onChange carries them.
+  for (const call of s2.matchAll(/(?:commit|choose|onChange|saveReceptionDesign)\(([^)]*)\)/g)) {
+    assert.doesNotMatch(call[1]!, /photo|inspiration/i, `a write carries the reference photo: ${call[0]}`);
+  }
 });

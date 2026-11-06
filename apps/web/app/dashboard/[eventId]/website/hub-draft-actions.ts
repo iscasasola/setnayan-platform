@@ -40,8 +40,16 @@
  *
  * Address, who can view, what guests get and open browsing are NOT drafted —
  * they stay live (the build plan's rule), in `editor/actions.ts`. The NAMES
- * and the DATE typed in the Maker ARE (owner 2026-10-01, "wait for apply";
- * `HUB_DRAFT_FACT_COLUMNS`), and Apply asks the date's own gates.
+ * typed in the Maker ARE (owner 2026-10-01, "wait for apply";
+ * `HUB_DRAFT_FACT_COLUMNS`).
+ *
+ * 🗓 THE DATE IS NEVER DRAFTED (owner 2026-11-05, verbatim *"it shouldn't rely
+ * on the hub."* — amends answer 7 of 2026-10-01 for the date only). It is a
+ * fact of the event, saved at once by its one live door (`updateEventDate`,
+ * `../actions.ts`), which carries the floor, the clash refusal at the pick and
+ * the booked suppliers' clearance that used to sit here. A save that still
+ * carries a date is REFUSED in words (an old screen), never quietly dropped;
+ * a date an older draft still holds is not read at all (`sanitizeState`).
  *
  * ⛔ A SAVE NEVER TOUCHES `events`: `intent === 'save'` writes the draft row
  * and nothing else (`tap-to-type-is-instant.test.ts` holds that on source,
@@ -70,7 +78,6 @@ import { isRenamableSection } from '@/lib/entourage';
 import { revalidateMarch } from '@/lib/entourage-write';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
-import { datePickClash } from '@/lib/date-clash.server';
 import { requireHostMembershipOrThrow, refuseLimitedHelper } from '@/lib/host-gate';
 import { hubOwnershipForWrite } from '@/lib/hub-look-gate';
 import { NO_HUB_PARTS } from '@/lib/hub-parts';
@@ -86,6 +93,7 @@ import {
   type SectionContentEvent,
 } from '@/lib/website-section-content';
 import {
+  HUB_DRAFT_DATE_IS_LIVE_MESSAGE,
   HUB_DRAFT_MAIN_COLOURS,
   HUB_DRAFT_SAVE_FAILED_MESSAGE,
   HUB_DRAFT_TOO_LARGE_MESSAGE,
@@ -139,10 +147,10 @@ import { storyProExtrasOf } from '@/lib/story-pro-extras';
 import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
-import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
+import { eventDatePrecisionOf } from '@/lib/events';
 import { isDateChangeAction } from '@/lib/date-change';
-import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
-import { moveScheduleWithDate, placeCeremonyBlock } from '@/lib/ceremony-time.server';
+import { askDateChange, settleDateChange } from '@/lib/date-change.server';
+import { placeCeremonyBlock } from '@/lib/ceremony-time.server';
 import { exactDayOf } from '@/lib/schedule-datetime-local';
 import { isListedPlaceName } from '@/lib/listed-place';
 import { readVenueChoices, VENUE_CHOICES_KEY } from '@/lib/event-venues';
@@ -250,28 +258,11 @@ export async function hubDraftAction(
       if (typeof city === 'string' && city.trim() && !isListedPlaceName(city)) {
         return { ok: false, intent, error: 'Pick the city or area from the list.' };
       }
-      /* 🗓 A DAY OR MONTH A BOOKED SUPPLIER CANNOT DO IS NEVER ACCEPTED INTO THE
-         DRAFT (owner 2026-10-01, "refused at the pick"): asked here, in the one
-         door every date goes through (typed, picked, month), with the shipped
-         availability read (`datePickClash`) — never a second check. The
-         supplier's name and where to ask them to move or unlock go back with
-         the refusal. Apply's `eventDateRefusal` stays as the backstop. */
-      const asksDate = Boolean(patch.events && ('event_date' in patch.events || 'event_date_precision' in patch.events));
-      const mergedDate = asksDate ? mergeHubDraft(current, patch).events : null;
-      if (mergedDate && typeof mergedDate.event_date === 'string') {
-        const { data: liveDate } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
-        const pickedPrecision = eventDatePrecisionOf(mergedDate.event_date_precision ?? liveDate?.event_date_precision) ?? 'day';
-        /* …unless every supplier it clashes with already answered Move for
-           exactly this date (the clashing-date flow) — `clashStillOpen`. */
-        const asked = await clashStillOpen(supabase, eventId, { date: mergedDate.event_date, precision: pickedPrecision }, await datePickClash({
-          supabase,
-          admin: createAdminClient(),
-          eventId,
-          date: mergedDate.event_date,
-          precision: pickedPrecision,
-          live: { date: (liveDate?.event_date as string | null | undefined) ?? null, precision: liveDate?.event_date_precision },
-        }));
-        if (asked) return { ok: false, intent, error: asked.reason, clash: asked.clash };
+      /* 🗓 THE DATE IS NOT A DRAFT (owner 2026-11-05, "it shouldn't rely on the hub"): it saves to the event at once
+         through `updateEventDate`. A patch that still carries one comes from a screen older than that ruling — said
+         in words, so the couple never reads "saved" over a date that went nowhere. */
+      if (patch.events && ('event_date' in patch.events || 'event_date_precision' in patch.events)) {
+        return { ok: false, intent, error: HUB_DRAFT_DATE_IS_LIVE_MESSAGE };
       }
       /* 🚶 A drafted march holds a bounded number of moves (every Undo state
          carries the list) — past it, the couple is told to Apply first, never
@@ -477,74 +468,14 @@ export async function hubDraftAction(
       return refs.every((r) => liveRefs.has(r) || parseClientRef(r, eventMediaPolicy(eventId)) !== null || r === ourSong);
     };
 
-    /* 🗓 A DRAFTED DATE ASKS `updateEventDate`'S OWN GATES (owner 2026-10-01,
-       "wait for apply": a date typed in the Maker is drafted, so the rules its
-       live writer asks are asked HERE, against live, at the moment it would go
-       live) — never a day gone by; a booked supplier's date never moves. ONE
-       rule (`eventDateRefusal`, lib/events.ts). A refused date STAYS in the
-       draft and is said by name. The supplier count is read fail-CLOSED: an
-       unread count is not "no suppliers". */
-    const isDateItem = (i: HubDraftItem) => i.kind === 'event' && (i.column === 'event_date' || i.column === 'event_date_precision');
-    let dateHeld: HubDraftRefusal | null = null;
-    /* 🗓 THE BOOKED SUPPLIERS HAVE CLEARED IT (owner 2026-10-02, Q8; the
-       clashing-date flow 2026-10-01): a day every booked supplier can do — or
-       every one that clashes answered Move — is not "locked". Asked only when
-       the refusal would be `locked`, through the SAME availability read as the
-       pick, FAIL-CLOSED (`dateApplyClearance`). Each booked supplier then gets
-       the plain notice "The date moved to <date>" (`afterDateApplied`). */
-    let dateMove: { next: { date: string; precision: 'day' | 'month' | 'year' }; requestId: string | null } | null = null;
-    if (plan.apply.some(isDateItem)) {
-      const priorDate = { date: (live.events.event_date as string | null | undefined) ?? null, precision: live.events.event_date_precision };
-      const nextDate = {
-        date: 'event_date' in current.events ? ((current.events.event_date as string | null) ?? null) : priorDate.date,
-        precision:
-          eventDatePrecisionOf('event_date_precision' in current.events ? current.events.event_date_precision : priorDate.precision) ?? 'day',
-      };
-      let confirmed = 0;
-      if (eventDateChangeIsGoverned(priorDate, nextDate)) {
-        const { count, error: countErr } = await supabase
-          .from('event_vendors')
-          .select('vendor_id', { count: 'exact', head: true })
-          .eq('event_id', eventId)
-          .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
-        if (countErr) return { ok: false, intent, error: 'Could not check your booked suppliers. Nothing was applied.' };
-        confirmed = count ?? 0;
-      }
-      let refusal = eventDateRefusal(priorDate, nextDate, confirmed);
-      let requestId: string | null = null;
-      if (refusal === 'locked' && nextDate.date) {
-        const clearance = await dateApplyClearance({ supabase, eventId, prior: priorDate, next: { date: nextDate.date, precision: nextDate.precision } });
-        if (!clearance.ok) return { ok: false, intent, error: 'Could not check your booked suppliers’ calendars. Nothing was applied.' };
-        refusal = eventDateRefusal(priorDate, nextDate, confirmed, new Date(), clearance.cleared);
-        requestId = clearance.requestId;
-      }
-      dateHeld = refusal === 'in_past' ? 'date_in_past' : refusal ? 'date_locked' : null;
-      if (!dateHeld && confirmed > 0 && nextDate.date && nextDate.date !== priorDate.date) {
-        dateMove = { next: { date: nextDate.date, precision: nextDate.precision }, requestId };
-      }
-    }
-
-    /* 🕒 THE CEREMONY TIME STANDS ON THE EVENT'S DAY — the day as it will be
-       after this Apply (a drafted date that goes live now, else the live one).
-       No single day yet (a month, a year) → the time waits in the draft, said
-       by name. `priorDay` is the day the event stood on: when the date
-       moves, the whole Schedule follows it from there (owner 2026-10-04).
-       ONE exact-day rule (`exactDayOf`) for both. */
-    const priorDay = exactDayOf(live.events.event_date, live.events.event_date_precision);
-    const dateGoes = !dateHeld && plan.apply.some(isDateItem);
-    const nextDay = dateGoes
-      ? exactDayOf(
-          'event_date' in current.events ? current.events.event_date : live.events.event_date,
-          'event_date_precision' in current.events ? current.events.event_date_precision : live.events.event_date_precision,
-        )
-      : priorDay;
+    /* 🕒 THE CEREMONY TIME STANDS ON THE EVENT'S DAY — the live one (the date is
+       never drafted: owner 2026-11-05). No single day yet (a month, a year) →
+       the time waits in the draft, said by name. ONE exact-day rule
+       (`exactDayOf`). */
+    const nextDay = exactDayOf(live.events.event_date, live.events.event_date_precision);
 
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
-      if (dateHeld && isDateItem(item)) {
-        held.push({ item, reason: dateHeld });
-        continue;
-      }
       if (item.kind === 'event' && item.column === 'ceremony_time' && !nextDay) {
         held.push({ item, reason: 'needs_a_day' });
         continue;
@@ -659,7 +590,6 @@ export async function hubDraftAction(
        write time (below, after the theme's fill), every other key kept. */
     const mainColoursWrite = HUB_DRAFT_MAIN_COLOURS in eventsPatch ? sanitizeMainColourDraft(eventsPatch[HUB_DRAFT_MAIN_COLOURS]) : undefined;
     delete eventsPatch[HUB_DRAFT_MAIN_COLOURS];
-    const dateWritten = 'event_date' in eventsPatch;
     /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
        only; `style_preferences` also carries the couple's onboarding answers,
        so it is MERGED into the blob as it stands at write time — through the
@@ -762,10 +692,6 @@ export async function hubDraftAction(
         .select('event_id');
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
-      }
-      // The date went live over booked suppliers — close the request, tell each one.
-      if (dateMove && eventsPatch.event_date === dateMove.next.date) {
-        await afterDateApplied({ supabase, eventId, next: dateMove.next, requestId: dateMove.requestId });
       }
       /* 🗂 Papic turned back ON in Your info (owner 2026-10-02): arm what the
          commit did not when the answer was No — the free pool and the one free
@@ -912,29 +838,9 @@ export async function hubDraftAction(
       }
     }
 
-    /* 📅 THE WHOLE SCHEDULE FOLLOWS THE DATE (owner 2026-10-04, DECISION_LOG
-       "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", *"Yes if possible"*):
-       the date went live above, so every block — the ceremony, its parts and
-       the rest of the day — moves by the same number of days, each keeping its
-       time. Only when both days are exact and differ (a month or a year has no
-       day to measure from). ONE SQL function moves every block in one
-       statement — all or nothing — and only once per move, so a second Apply
-       racing this one shifts nothing. The couple's own session. */
-    if (dateWritten) {
-      const shifted = await moveScheduleWithDate({ supabase, eventId, fromDay: priorDay, toDay: nextDay });
-      if (!shifted.ok) {
-        console.error('[hub-draft] the schedule did not follow the date:', shifted.error);
-        // Said as it is: NO block moved (all or nothing), so Apply again would
-        // not move it — the Schedule can. `stale`: the date changed again meanwhile.
-        return shifted.error === 'stale'
-          ? { ok: false, intent, error: 'Your date changed again while this was applying. Open your Schedule to check its times.' }
-          : { ok: false, intent, error: 'Your new date is live, but your Schedule stayed on the old day. Open your Schedule to move it.' };
-      }
-    }
-
     /* 🕒 THE CEREMONY BLOCK (owner 2026-10-04, "YES TO ALL" (2)): a typed time
        creates the Ceremony on the event's day, or moves the one there is. (A
-       date that moved already took it along, with the whole Schedule, above.) */
+       date that moves takes it along, with the whole Schedule, in `updateEventDate`.) */
     if (nextDay && ceremonyTimeWrite !== undefined) {
       const placed = await placeCeremonyBlock({ supabase, eventId, day: nextDay, time: ceremonyTimeWrite });
       if (!placed.ok) {
@@ -1171,7 +1077,7 @@ export async function hubDraftAction(
       const preset = postEventPreset(presetSceneOf(drafted !== undefined ? (drafted ?? {}) : sanitizeHubCanvas(row?.config_json)));
       return preset ? `Post Event · your scene “${preset.name}”` : (WIDGET_CATALOG_BY_TYPE[t]?.label ?? 'A section');
     };
-    // A fact held across several columns (the date's day and precision) is said once.
+    // A fact held across several columns (the venues' nine) is said once.
     const heldSaid = held
       .map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason }))
       .filter((h, i, all) => all.findIndex((o) => o.label === h.label && o.reason === h.reason) === i);

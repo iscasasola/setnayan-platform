@@ -180,7 +180,8 @@ test('the render draws 20 rows, each one door, and "41–60 of 1,000"', async ()
 test('a search says how many it found OF EVERYONE (kind 30: "3 of 5 guests")', async () => {
   const needle = derived[987]!.title;
   const html = await renderPage('1', undefined, needle);
-  assert.ok(html.includes('1 of 1,000 customers'), 'the found line does not count against the whole list');
+  // 2026-10-30: the list counts EVENTS (owner 2026-10-29, "Customers are events, not people").
+  assert.ok(html.includes('1 of 1,000 events'), 'the found line does not count against the whole list');
   assert.match(html, /data-search-hit=""[^>]*>[^<]+<\/mark>/, 'the matching letters are not marked');
 });
 
@@ -203,13 +204,13 @@ test('anti-vacuity: the stripped sources still hold their code', () => {
 });
 
 test('the page hands the roster the SLICE and the WHOLE-LIST counts', () => {
-  // 2026-10-28: one roster per DOOR (Asking · Talking · Booked · Done), each through rosterView over its own lanes —
-  // the doors count EVERY listed customer; each panel renders only its page.
+  // 2026-10-28: one roster per DOOR, each through rosterView over its own lanes — the doors count EVERY listed customer;
+  // each panel renders only its page. 2026-10-30: every event + Asking · Booked · Done; no door named = every event.
   assert.match(pageSrc, /const lanes = groupByLane\(listed\)/, 'lanes are not grouped from every listed customer');
   assert.match(pageSrc, /rosterView\(subset, \{/, 'the page no longer composes each door through rosterView');
   assert.match(pageSrc, /const laneCounts = Object\.fromEntries\(CUSTOMER_LANES\.map\(\(l\) => \[l, lanes\[l\]\.length\]\)\)/, 'the door counts do not come from the whole lanes');
   assert.match(pageSrc, /rows=\{v\.paged\.items\}/, 'a door is not rendered from its page slice');
-  assert.match(pageSrc, /page: urlDoor === k \? search\.page : undefined/, 'the ?page= param no longer reaches the door it names');
+  assert.match(pageSrc, /page: \(urlDoor \?\? 'all'\) === k \? search\.page : undefined/, 'the ?page= param no longer reaches the door it names');
   assert.match(pageSrc, /q: search\.q/, 'the ?q= search no longer reaches the roster');
   // The box itself lives in the thumb row now (kind 30) — the shared one, on `?q=`.
   assert.match(pageSrc, /<SearchBox\b[\s\S]{0,200}defaultValue=\{search\.q \?\? ''\}/, 'the thumb row lost the customer search');

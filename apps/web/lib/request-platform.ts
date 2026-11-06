@@ -21,7 +21,7 @@ import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store
 import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
 import { iapAvailable } from '@/lib/iap/iap-gate';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { onTheCachedHub } from '@/lib/hub-request';
 
 export type RequestPlatform = 'web' | 'ios' | 'android';
 
@@ -50,7 +50,7 @@ export type { ClientShell } from '@/lib/oauth-shell-gate';
 async function readShellSignals(): Promise<{ ua: string; clientType: string } | null> {
   // 🗄 The cached Event Hub is only ever a web browser's (the middleware keeps the native shells live) — the
   // same answer as outside a request, without asking it (lib/hub-request.ts).
-  if (cachedHubViewer()) return null;
+  if (onTheCachedHub()) return null;
   try {
     const h = await headers();
     const c = await cookies();
@@ -82,7 +82,7 @@ export async function getOAuthGate(flags: OAuthFlags): Promise<OAuthGate> {
 }
 
 export async function getRequestPlatform(): Promise<RequestPlatform> {
-  if (cachedHubViewer()) return 'web';
+  if (onTheCachedHub()) return 'web';
   let ua = '';
   let clientType = '';
   try {
@@ -100,24 +100,24 @@ export async function getRequestPlatform(): Promise<RequestPlatform> {
 }
 
 /**
- * Does Discover (`/`, the public feed) OPEN on this request — or does the native
- * shell bounce it to the board?
+ * Does Discover (`/`, the public feed) OPEN on this request?
  *
- * Middleware sends every native-shell request for a path in
- * `APP_EXCLUDED_MARKETING_PATHS` to /dashboard (signed in) or /login, and `/` is
- * in that set while Apple reviews 1.0. "Native shell" there is ANY `SetnayanApp`
- * user agent or the capacitor cookie — the phone app and the desktop app alike —
- * which is exactly `getRequestPlatform() !== 'web'` (the same question /login
- * asks for its ✕). So a door to Discover — the account bar's tab, the rail's
- * row — is drawn only where this is true, and is never a press that lands back
- * on the page you were on (owner "yes to all", 2026-10-21).
+ * YES — on the web and in the phone and desktop apps alike (owner 2026-11-02,
+ * DECISION_LOG "EVERY PAGE HELD BACK FROM THE APP FOR APPLE GOES LIVE IN THE
+ * APP TOO", verbatim: "let everything go live"). Until that day middleware sent
+ * a native-shell request for `/` to /dashboard or /login while Apple reviewed
+ * 1.0, so this answered `getRequestPlatform() === 'web'` and the account bar's
+ * Discover tab and the rail's Discover row were drawn on the web only. The
+ * bounce is gone, so both doors show in the app too.
  *
- * ⚠ When `/` leaves the bounce list, this must change with it:
- * `the-account-bar-is-the-ruling.test.ts` reads the set from middleware.ts and
- * fails the day the two disagree.
+ * It stays the ONE question the account bar (`accountBarTabs`), the front door's
+ * bar and the rail ask, so a door to Discover can never again be a press that
+ * lands back where you stood: if `/` is ever refused in a shell, this answers
+ * false there in the same change. `the-account-bar-is-the-ruling.test.ts`
+ * reads middleware.ts and fails the day the two disagree.
  */
 export async function discoverOpensHere(): Promise<boolean> {
-  return (await getRequestPlatform()) === 'web';
+  return true;
 }
 
 /**
@@ -131,7 +131,7 @@ export async function discoverOpensHere(): Promise<boolean> {
  * (build / cron) → false.
  */
 export async function isStoreShellRequest(): Promise<boolean> {
-  if (cachedHubViewer()) return false;
+  if (onTheCachedHub()) return false;
   try {
     const h = await headers();
     const c = await cookies();

@@ -5,27 +5,19 @@
 //
 // Server actions for the per-service workspace page.
 //
-// createAutoShareInviteAction — explicitly generates the auto-share claim link
-//   for a manual (off-platform) vendor the host has locked. This REPLACES the
-//   prior render-time self-heal: generating an invite is a write, and a server-
-//   component GET render (including Next.js prefetch) must never write. The
-//   workspace page now renders a "Create a shareable invite link" button that
-//   posts here instead.
+// 🔗 createAutoShareInviteAction is GONE (2026-11-02): the claim link's one door is the supplier's row on
+//   Suppliers › Booked › Team (`ClaimDoor`, booked-row.tsx), whose Share asks the one idempotent link writer
+//   (`createManualVendorInvite` → `ensureAutoShareInvite`, gated on `canInviteSupplier`).
 //
 // (The previous advanceWorkspaceStatus / advanceWorkspaceStatusForm exports were
 //  removed — they had zero callers and the status stepper is driven off the
 //  vendor_status enum, so workspace_status was never written.)
 //
-// Auth: gate on signed-in user, then rely on RLS — ensureAutoShareInvite runs
-// under the host's session client, which can only touch their own event_vendors
-// rows.
 // ============================================================================
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { ensureAutoShareInvite } from '@/lib/vendor-invites';
-import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { COVER_TILE_PREFIX, tileForCover } from '@/lib/shortlist-taxonomy';
@@ -41,62 +33,9 @@ import {
   type WorkingNoteViewer,
 } from '@/lib/vendor-working-notes';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
+import { PAY_WAYS_PRESENT_FIELD, parsePostedPayWays } from '@/lib/self-added-pay-ways';
+import { budgetPaymentProofPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
-
-/**
- * Idempotently create (or re-read) the auto-share claim link for a locked
- * off-platform supplier. Form-only — returns void and revalidates so the
- * freshly created link renders on the next paint. Silently no-ops on bad
- * input; the unique index in ensureAutoShareInvite makes repeat submits safe.
- *
- * ⚠ THIS WAS THE FOURTH ANSWER TO ONE QUESTION, AND IT WAS "NO CONDITION AT
- * ALL" — it minted an invite for whatever vendor_id the form named, including a
- * marketplace-linked supplier who already has an account and for whom the
- * invite is a no-op. It now asks `canInviteSupplier`, the same predicate the
- * page above it and both vendor actions ask.
- *
- * 🔑 AND THE INVITE'S IDENTITY NOW COMES FROM THE ROW, NOT THE FORM. The
- * denormalized `business_name` on `vendor_invites` is what the public claim
- * page shows the supplier; taking it from a hidden input let a caller stamp any
- * name onto it. Reading it here costs one query that the gate needs anyway.
- */
-export async function createAutoShareInviteAction(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
-  const eventId = formData.get('event_id');
-  const vendorId = formData.get('vendor_id');
-
-  if (typeof eventId !== 'string' || typeof vendorId !== 'string') return;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // RLS scopes this to the caller's own events, so the read is the ownership
-  // check as well as the gate's input.
-  const { data: row } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name, category, marketplace_vendor_id')
-    .eq('event_id', eventId)
-    .eq('vendor_id', vendorId)
-    .maybeSingle();
-  if (!row || !canInviteSupplier(row)) return;
-
-  await ensureAutoShareInvite(supabase, {
-    eventVendorId: vendorId,
-    invitedByUserId: user.id,
-    businessName:
-      typeof row.vendor_name === 'string' && row.vendor_name.trim().length > 0
-        ? row.vendor_name.trim()
-        : 'Supplier',
-    serviceCategory: typeof row.category === 'string' && row.category.length > 0
-      ? row.category
-      : null,
-  });
-
-  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
-}
 
 // ============================================================================
 // updateHostServiceDetails (2026-06-11 · dual-path DIY parity, owner doctrine:
@@ -606,6 +545,14 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
   // Details sheet would have silently erased the GCash number the couple wrote
   // on the workspace. Same class of bug as the crew reset in updateVendorCosts.
   const carriesMethodNote = formData.has('payment_method_note');
+  // "How to pay them" (the record card, 2026-10-29) — the same rule: written only when the posting form carried the
+  // editor, and REFUSED, before anything is written, when a way cannot be kept as typed (a QR that is not this
+  // event's own private object). Inert words and a picture: nothing here reads or writes a money table.
+  const carriesPayWays = formData.get(PAY_WAYS_PRESENT_FIELD) === '1';
+  const payWays = carriesPayWays
+    ? parsePostedPayWays(formData, (ref) => parseClientRef(ref, budgetPaymentProofPolicy(eventId)) != null)
+    : null;
+  if (payWays && !payWays.ok) throw new Error(payWays.message);
   // A pin is BOTH-OR-NEITHER (the table CHECKs it) and only posted once placed,
   // so absence means "this form did not set one" — never "clear it".
   const pinLat = Number(formData.get('address_latitude'));
@@ -627,6 +574,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
       updated_at: new Date().toISOString(),
     };
     if (carriesMethodNote) update.payment_method_note = paymentMethodNote;
+    if (payWays?.ok) update.pay_ways = payWays.ways;
     if (carriesPin) {
       update.address_latitude = pinLat;
       update.address_longitude = pinLng;
@@ -665,6 +613,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
         contact_number: contactNumber,
         address: address.value,
         payment_method_note: paymentMethodNote,
+        ...(payWays?.ok ? { pay_ways: payWays.ways } : {}),
           created_by_user_id: user.id,
       })
       .select('manual_vendor_id')

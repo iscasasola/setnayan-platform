@@ -6,6 +6,8 @@ import type { GuestRow } from '../_lib/types';
 import { guestRoleLabel, isAPlusOne, plusOneSeats } from '@/lib/guests';
 import { holdsARole, roleOfRecord, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
+import { RsvpCantPick, RsvpChapterList } from './rsvp-chapters';
+import { chapterAnswers, type InvitationChapter, type StoredChapterReply } from '@/lib/invitation-chapters';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
 import { rsvpFormWord, type RsvpFormWordKey } from '@/lib/rsvp-form-words';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
@@ -68,7 +70,17 @@ export function RsvpWidget({
   sceneStyle = null,
   lines = null,
   pictures,
+  chapters = null,
+  chapterReplies = null,
 }: {
+  /**
+   * ✉ THE INVITATION'S CHAPTERS (owner 2026-11-01, plan §3 "RSVP depends on chapters", Step 5) — read by the page
+   * (`readInvitationChapters`). Given: the card names them (time, and the venue or "Venue TBA") above the answer, and
+   * "I can't make it" asks which (two or more). `null`/empty: the card as it always was — one answer to the invitation.
+   */
+  chapters?: readonly InvitationChapter[] | null;
+  /** This guest's own answers per chapter (`readGuestChapterReplies`); `null` = none read. */
+  chapterReplies?: readonly StoredChapterReply[] | null;
   /**
    * 🧱 THE CARD'S LINES IN THE COUPLE'S ORDER, with the lines they added and their groups (the Maker's RSVP stage —
    * ＋, drag, Group; `rsvpScreenLayout(readRsvpLook(config), 'rsvp')`, `lib/rsvp-look.ts`). `null` — a couple who
@@ -216,6 +228,17 @@ export function RsvpWidget({
 }) {
   const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
   const onDoor = Boolean(doorAction);
+  /* ✉ By chapter: each chapter's answer, and whether this guest is coming to only SOME — then the card reopens on
+     "I can't make it" with those still ticked, so an unrelated Save (a phone number) can never turn a partial answer
+     into a yes to everything. */
+  const inviteChapters = chapters ?? [];
+  const answersByChapter = chapterAnswers(inviteChapters, chapterReplies, guest.rsvp_status);
+  const comingToSome =
+    guest.rsvp_status === 'attending' &&
+    [...answersByChapter.values()].some((a) => a === 'no') &&
+    [...answersByChapter.values()].some((a) => a === 'yes');
+  const shownAnswer = comingToSome ? 'declined' : guest.rsvp_status;
+  const chapterList = inviteChapters.length > 0 ? <RsvpChapterList chapters={inviteChapters} answers={answersByChapter} /> : null;
 
   // The answer is on record and only details are missing → ask ONLY those.
   if (gate && gate.missing.length > 0 && !gate.missing.includes('attending') && !replyLocked) {
@@ -290,6 +313,15 @@ export function RsvpWidget({
      only for a guest not on record as coming. */
   const declineArm = !revealAll && (!replyLocked || guest.rsvp_status !== 'attending');
   const declineReveal = replyLocked ? '' : 'declined-reveal ';
+  const cantPick =
+    replyLocked || inviteChapters.length < 2 ? null : (
+      <RsvpCantPick
+        chapters={inviteChapters}
+        answers={answersByChapter}
+        className={revealAll ? '' : 'declined-reveal '}
+        questionClassName={questionClass(oneAtATime)}
+      />
+    );
 
   const mobileField = (
     <>
@@ -614,10 +646,18 @@ export function RsvpWidget({
           attending — this is the "your place is reserved" confirmation. */}
       {/* 🧍‍♀️➡️🧍 THE PROXY ON THE REPLY (owner 2026-10-27) rides THIS slot, so a card with no proxy keeps every React id it
           had (`the-reply-card-is-todays-page`): a proxy reads whom they stand in for; the role holder, who stands in. */}
+      {/* ✉ WHAT THE GUEST IS ANSWERING — the invitation's chapters (Step 5) ride the same slot, so a card without
+          chapters keeps every byte and React id it had (`the-reply-card-is-todays-page`). */}
       {proxyBanner ? (
         <>
           {proxyBanner}
           {placeFacts}
+          {chapterList}
+        </>
+      ) : chapterList ? (
+        <>
+          {placeFacts}
+          {chapterList}
         </>
       ) : (
         placeFacts
@@ -641,7 +681,7 @@ export function RsvpWidget({
             sceneStyle={answerStyle}
             legend={words.solemn ? 'Will you be with us?' : 'Will you be there?'}
             options={answerShown}
-            current={guest.rsvp_status}
+            current={shownAnswer}
             required={termsOnSend || guest.rsvp_status === 'maybe'}
             legendShown={onDoor}
           />
@@ -679,7 +719,7 @@ export function RsvpWidget({
                   type="radio"
                   name="rsvp_status"
                   value={option.key}
-                  defaultChecked={guest.rsvp_status === option.key}
+                  defaultChecked={shownAnswer === option.key}
                   required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
                   className="sr-only"
                 />
@@ -718,7 +758,25 @@ export function RsvpWidget({
           their nickname and mobile, then (below) the +1 names, then the tagging question (decision 2) and the rest.
           🔒 THE NAME STAYS HOST-ONLY (2026-08-01, `seedBindAllowed`): the link may be printed on a poster, and a
           stranger who can rename a seat-holder is the harm that rule closed. Shown, never posted. */}
-      {yesSteps ? (
+      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's FIRST step, right after the answer (two or
+          more chapters only), riding the Seats slot so a card without chapters keeps every byte and id it had. */}
+      {cantPick ? (
+        <>
+          {cantPick}
+          {yesSteps ? (
+        <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
+          <RsvpSeats
+            seats={seatsHeld}
+            youLabel={(guest.display_name ?? '').trim() || guest.first_name}
+            extraNames={seatSlots ? seatSlots.map((slot) => slot.name) : []}
+            namesNext={bringsPlusOnes}
+            organizer={words.theOrganizer}
+            question={oneAtATime}
+          />
+        </div>
+          ) : null}
+        </>
+      ) : yesSteps ? (
         <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
           <RsvpSeats
             seats={seatsHeld}

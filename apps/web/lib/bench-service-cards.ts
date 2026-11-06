@@ -8,8 +8,9 @@ import 'server-only';
  *   · `fetchBenchServiceCards`   — the cards the couple's OWN picks point at
  *     (`event_vendors.service_id`, read through the couple's own session by the
  *     caller, so membership is proved before this is asked anything);
- *   · `fetchMarketServiceCards`  — one card per marketplace supplier inside a
- *     category, for the "More to compare" list under a row.
+ *   · `fetchMarketCategoryCards` — EVERY card of the marketplace suppliers inside
+ *     a category, for the "More to compare" list under a row (Find v4, 2026-10-29);
+ *     `firstCardPerSupplier` derives the one-per-supplier record from it.
  *
  * 🔑 THE ADMIN CLIENT IS PASSED IN, AND ONLY PUBLISHED CARDS LEAVE. A couple
  * holds no RLS read on `vendor_services`; the fields read here are the ones the
@@ -35,6 +36,8 @@ import {
 } from '@/lib/vendor-services';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import { benchServiceCard, type BenchServiceCard } from '@/lib/bench-service-card';
+import { cheapestStartsAt } from '@/lib/smart-sort';
+import type { FindCardRow } from '@/lib/find-service-cards';
 
 type CardRow = {
   vendor_service_id: string;
@@ -54,6 +57,10 @@ type CardRow = {
   exclusive_perk_text: string | null;
   includes_setnayan_gift: boolean | null;
   primary_photo_r2_key: string | null;
+  base_pax?: number | null;
+  added_pax_block?: number | null;
+  added_pax_price_php?: number | null;
+  created_at?: string | null;
 };
 
 /** What the bench card prints from a service card — nothing else is read. */
@@ -135,45 +142,64 @@ export async function fetchBenchServiceCards(
 }
 
 /**
- * One card per marketplace supplier inside a category: profile id → their
- * card for it. When a supplier has several active cards in the category the
- * OLDEST is shown — the one a Save from this list attaches (`vendors/actions`
- * takes the category's first active row). `null` = the read failed.
+ * EVERY card of the given suppliers inside a category (owner 2026-10-29, Find v4: *"all service cards of all services
+ * inside a category will share the same spot"*) — one row per `vendor_services` row, each under its ONE home service
+ * (`category`), oldest first. `null` = the read failed (the list then says it could not load the cards, never "none").
+ *
+ * `fromPhp` is the card's own starting price for the ⇅ Price choice — read only where the card PRINTS a price, so a
+ * shop that hides its prices is never placed in a price band by a figure it chose not to show.
  */
-export async function fetchMarketServiceCards(
+export async function fetchMarketCategoryCards(
   admin: SupabaseClient,
   vendorProfileIds: readonly string[],
   categories: readonly string[],
   now: Date,
-): Promise<Record<string, BenchServiceCard> | null> {
+): Promise<FindCardRow[] | null> {
   const profileIds = [...new Set(vendorProfileIds)].filter(Boolean);
   const cats = [...new Set(categories)].filter(Boolean);
-  if (profileIds.length === 0 || cats.length === 0) return {};
+  if (profileIds.length === 0 || cats.length === 0) return [];
   try {
     const { data, error } = await admin
       .from('vendor_services')
-      .select(BENCH_CARD_FIELDS)
+      .select(`${BENCH_CARD_FIELDS},base_pax,added_pax_block,added_pax_price_php,created_at`)
       .in('vendor_profile_id', profileIds)
       .in('category', cats)
       .eq('is_active', true)
+      .eq('is_linked_only', false)
       .order('created_at', { ascending: true });
     if (error) {
-      console.error('[bench-service-cards] market: vendor_services read failed', error);
+      console.error('[bench-service-cards] category: vendor_services read failed', error);
       return null;
     }
-    const first = new Map<string, CardRow>();
-    for (const row of (data ?? []) as unknown as CardRow[]) {
-      if (!first.has(row.vendor_profile_id)) first.set(row.vendor_profile_id, row);
-    }
-    const cards = await cardsForRows(admin, [...first.values()], now);
-    const out: Record<string, BenchServiceCard> = {};
-    for (const [profileId, row] of first) {
+    const rows = (data ?? []) as unknown as CardRow[];
+    const cards = await cardsForRows(admin, rows, now);
+    const out: FindCardRow[] = [];
+    for (const row of rows) {
       const card = cards.get(row.vendor_service_id);
-      if (card) out[profileId] = card;
+      if (!card || !row.category) continue;
+      out.push({
+        serviceId: row.vendor_service_id,
+        profileId: row.vendor_profile_id,
+        service: row.category,
+        card,
+        fromPhp: card.priceText ? cheapestStartsAt([row], null).startsAtPhp : null,
+      });
     }
     return out;
   } catch (err) {
-    console.error('[bench-service-cards] market: read threw', err);
+    console.error('[bench-service-cards] category: read threw', err);
     return null;
   }
+}
+
+/**
+ * One card per marketplace supplier inside a category, FROM the category's cards already read
+ * (`fetchMarketCategoryCards`): profile id → their oldest card — the one a Save that names no card attaches
+ * (`vendors/actions` takes the category's first active row). No read of its own. `null` in → `null` out.
+ */
+export function firstCardPerSupplier(cards: readonly FindCardRow[] | null): Record<string, BenchServiceCard> | null {
+  if (!cards) return null;
+  const out: Record<string, BenchServiceCard> = {};
+  for (const c of cards) if (c.card && !(c.profileId in out)) out[c.profileId] = c.card;
+  return out;
 }

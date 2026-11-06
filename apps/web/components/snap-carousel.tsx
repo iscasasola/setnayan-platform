@@ -14,6 +14,10 @@
  *     holds each card ONCE (so every door is in the page exactly once).
  *   · Auto-advances one card every `advanceMs` (≈3 s), continuing the loop; a touch, hover, wheel or focus inside it
  *     pauses it for `pauseMs` (6 s) — and it never moves while off screen or while the page is hidden.
+ *   · ✋ HELD (`holdKey`, owner 2026-11-01, on Guests' summary: *"when i press it it should stop auto scroll and stays
+ *     there until the picked item … is unpicked"*): while a card is held — it carries the filter the list is showing —
+ *     the carousel brings it to the centre and NEVER advances. A swipe still works; after the touch pause it comes back
+ *     and rests on the held card. Cleared, the rotation resumes. With no `holdKey` nothing changes.
  *   · Dots show the position (decorative — each card is labelled "N of M").
  *   · Reduced motion: no auto-advance and no smooth scrolling; a swipe still loops.
  *
@@ -38,6 +42,18 @@ export const CAROUSEL_PAUSE_MS = 6000;
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
+/**
+ * What the next tick does. Pure — tested. `held` / `at` are REAL card indexes (a copy counts as its card).
+ *   · paused (a touch, a wheel, the pause after it) → stay;
+ *   · nothing held → advance one card (the rotation);
+ *   · a card held → stay on it, or return to it if a swipe moved away — never advance.
+ */
+export function carouselMove(o: { held: number | null; at: number; paused: boolean }): 'advance' | 'return' | 'stay' {
+  if (o.paused) return 'stay';
+  if (o.held === null) return 'advance';
+  return o.at === o.held ? 'stay' : 'return';
+}
+
 /** The slots in the track: copies of the last cards, the real cards, copies of the first ones. Pure — tested. */
 export function carouselSlots(n: number, looping: boolean): { real: number; copy: boolean }[] {
   const real = Array.from({ length: n }, (_, i) => ({ real: i, copy: false }));
@@ -55,6 +71,7 @@ export function SnapCarousel({
   advanceMs = CAROUSEL_ADVANCE_MS,
   pauseMs = CAROUSEL_PAUSE_MS,
   attrs,
+  holdKey = null,
 }: {
   cards: CarouselCard[];
   /** The region's name ("Guest summary"). */
@@ -64,8 +81,14 @@ export function SnapCarousel({
   pauseMs?: number;
   /** Data hooks for the host's own guards (`data-…`). */
   attrs?: Record<string, string>;
+  /** ✋ The card to hold in the centre (its `key`) — no rotation while set. `null`/absent: the usual rotation. */
+  holdKey?: string | null;
 }) {
   const n = cards.length;
+  const heldIndex = holdKey === null ? -1 : cards.findIndex((c) => c.key === holdKey);
+  /* Read by the ticking effect without restarting it (a ref, not a dependency). */
+  const heldRef = useRef<number | null>(null);
+  heldRef.current = heldIndex >= 0 ? heldIndex : null;
   const trackRef = useRef<HTMLDivElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
   // The copies are added once the page is live — the server draws every card once.
@@ -104,6 +127,16 @@ export function SnapCarousel({
     track.setAttribute('data-at', '0');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the copies arrive
   }, [looping]);
+
+  // ✋ A card newly held comes to the centre (at once under reduced motion — it answers a press, it is not a rotation).
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || heldIndex < 0 || n < 2) return;
+    const el = track.children[looping ? heldIndex + CAROUSEL_COPIES : heldIndex] as HTMLElement | undefined;
+    if (!el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    track.scrollTo({ left: el.offsetLeft + el.offsetWidth / 2 - track.clientWidth / 2, behavior: reduce ? 'auto' : 'smooth' });
+  }, [heldIndex, looping, n]);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -177,14 +210,18 @@ export function SnapCarousel({
           }, { threshold: [0, 0.5, 1] })
         : null;
     io?.observe(track);
-    // ⏱ One card every `advanceMs`, onward round the loop — never under reduced motion, off screen or on a hidden page.
+    // ⏱ One card every `advanceMs`, onward round the loop — never under reduced motion, off screen or on a hidden page;
+    // ✋ never while a card is held: then the tick only brings the held card back after a swipe (`carouselMove`).
     const tick = window.setInterval(() => {
       if (reduce.matches || !looping || !onScreen || hovering || focused) return;
-      if (document.visibilityState === 'hidden' || Date.now() < pausedUntil) return;
+      if (document.visibilityState === 'hidden') return;
       const slot = nearest(track);
-      const next = track.children[slot + 1] as HTMLElement | undefined;
-      if (!next) return;
-      track.scrollTo({ left: next.offsetLeft + next.offsetWidth / 2 - track.clientWidth / 2, behavior: 'smooth' });
+      const held = heldRef.current;
+      const move = carouselMove({ held, at: realOf(slot), paused: Date.now() < pausedUntil });
+      if (move === 'stay') return;
+      const to = (move === 'return' ? track.children[held! + CAROUSEL_COPIES] : track.children[slot + 1]) as HTMLElement | undefined;
+      if (!to) return;
+      track.scrollTo({ left: to.offsetLeft + to.offsetWidth / 2 - track.clientWidth / 2, behavior: 'smooth' });
     }, advanceMs);
     paint();
     return () => {
@@ -212,6 +249,7 @@ export function SnapCarousel({
       aria-roledescription="carousel"
       aria-label={label}
       data-snap-carousel=""
+      data-snap-held={heldIndex >= 0 ? holdKey! : undefined}
       {...attrs}
     >
       <div ref={trackRef} className={styles.track} data-snap-track="" data-looping={looping ? '' : undefined}>

@@ -155,7 +155,9 @@ test('the deal menu is a tool panel, not a card of its own — and no call launc
       /open=\{\s*\(?t\.id === affordancePanelId\('deal'\) && composeMode === 'deal'\)?\s*(\}|\|\|)/,
       `${name}: ?compose=deal does not open the panel`,
     );
-    assert.equal(count(s, /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
+    // The hash opener is in the ONE thread frame both pages return (`ChatThreadFrame`, 2026-10-29).
+    assert.match(s, /<ChatThreadFrame\b/, `${name}: the page does not return the one thread frame`);
+    assert.equal(count(s + read('app/_components/chat/chat-thread-frame.tsx'), /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
   }
   assert.match(read(COUPLE), /COUPLE_THREAD_PANELS\.filter\(/, "the couple's tray is not drawn from the shared list");
   assert.equal(count(read(VENDOR), /VENDOR_THREAD_PANELS\.map\(/g), 1);
@@ -197,7 +199,7 @@ test('the header keeps the counterparty, one muted line with the service, and th
   ] as const) {
     assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
   }
-  assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
+  assert.match(head, /\[&>\*(?:\+\*)?\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const [rel, name] of PAGES) {
     const s = read(rel);
     assert.equal(count(s, /<ChatThreadHead\b/g), 1, `${name}: the head is not the shared ChatThreadHead`);
@@ -230,7 +232,9 @@ test('the notice is one line: the couple may dismiss it and it is remembered; th
 
 test('the frame and the panel: one scroll region, tools cost nothing closed', () => {
   const box = read(BOX);
-  assert.match(box, /className="flex min-h-0 flex-1 flex-col px-2\.5 pt-1">\{children\}/, 'the conversation slot is no longer the flex-1 / min-h-0 child');
+  // 2026-11-06: the slot is the flex-1 child WITHOUT `min-h-0` — in the phone's fixed takeover a zeroed slot measured
+  // 0px with a tool open and the messages painted over the panel (`an-open-tool-cannot-flatten-the-stream.test.ts` (3)).
+  assert.match(box, /className="flex flex-1 flex-col px-2\.5 pt-1" data-chat-stream-area="">\{children\}/, 'the conversation slot is no longer the flex-1 child');
   assert.doesNotMatch(box, /overflow-hidden/, 'a frame that hides overflow clips its own composer on a short phone');
   const panel = read(PANEL);
   assert.match(panel, /\[&:not\(\[open\]\)\]:hidden/, 'a closed panel takes space again');

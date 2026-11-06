@@ -31,6 +31,39 @@ export const ACCESS_LEVEL_LABEL: Readonly<Record<GuestAccessLevel, string>> = {
 };
 
 /**
+ * 🔑 THE GUEST CARD'S Access ▾ (owner 2026-11-02: *"simplify access just like the rest of the guest card"*) — ONE
+ * dropdown, in this order and these words; what each means is the row's ⓘ (`accessNote`). The level written is the same
+ * `GuestAccessLevel` every other door writes, so only the card's words differ.
+ */
+export const CARD_ACCESS_CHOICES: ReadonlyArray<{ key: GuestAccessLevel; label: string }> = [
+  { key: 'none', label: 'None' },
+  { key: 'limited_helper', label: 'Helper (can view)' },
+  { key: 'co_host', label: 'Co-host' },
+];
+
+/**
+ * WHAT THE GUEST CARD DRAWS FOR ACCESS (owner 2026-11-02, verbatim: *"Only for guests with setnayan accounts
+ * already"* — the 24 Oct rule restored after the three-lines pass widened it to unlinked guests):
+ *   · `pick` — Access ▾, ONLY for a guest whose Setnayan account is linked, to someone who may change it, never on
+ *     the creator's own row;
+ *   · `word` — the read-only word on one row: a viewer who may not change access (`linked === null`), a linked row
+ *     the viewer cannot change, or an unlinked guest who already holds something (a level set earlier that waits for
+ *     them, the creator's own row, a celebrant) — a fact is never hidden;
+ *   · `none` — an unlinked guest with no access: no Access row at all. The card's "Account · Not linked" line (and
+ *     its ⓘ) says what linking opens.
+ * Pure, so the card, its fold summary and the guard ask the same question.
+ */
+export function cardAccessView(
+  state: Pick<GuestAccessState, 'level' | 'lock'>,
+  linked: boolean | null,
+  canManage: boolean,
+): 'pick' | 'word' | 'none' {
+  if (linked === true && canManage && state.lock !== 'creator') return 'pick';
+  if (linked === false && state.level === 'none' && state.lock === null) return 'none';
+  return 'word';
+}
+
+/**
  * THE CREATOR'S WORD — "Host", never "Co-host" (owner 2026-10-04: the account
  * that created the event read "Co-host" on its own row). A co-host is someone
  * the host CHOSE; the person who made the event is the host. Every surface that
@@ -67,7 +100,7 @@ export const ACCESS_SEAT_KIND: Readonly<Record<Exclude<GuestAccessLevel, 'none'>
 };
 
 /** Mirrors public.seat_is_full_cohost (20271251336140). Keep the two in step. */
-const FULL_COHOST_KINDS: ReadonlySet<string> = new Set([
+export const FULL_COHOST_SEAT_KINDS = [
   'co_host',
   'host',
   'bride',
@@ -75,7 +108,8 @@ const FULL_COHOST_KINDS: ReadonlySet<string> = new Set([
   'partner1',
   'partner2',
   'celebrant',
-]);
+] as const;
+const FULL_COHOST_KINDS: ReadonlySet<string> = new Set(FULL_COHOST_SEAT_KINDS);
 
 /** Mirrors lib/role-groups HONOREE_ORDER and the SQL's celebrant list. */
 const CELEBRANT_ROLES: ReadonlySet<string> = new Set(['celebrant', 'bride', 'groom']);

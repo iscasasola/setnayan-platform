@@ -180,6 +180,9 @@ const NAMES_BEST_MAN_ONLY_ON_PURPOSE: Record<string, string> = {
   // a maid of honour and a best man. It is a row of sample data fed to the real `buildEntourage`, not a place where
   // the role vocabulary is decided — a best woman would be one more sample row, not a missing branch.
   'app/dev/maker-lab/guest/lab-sample.ts': 'lab fixture — one sample cast, not a vocabulary',
+  // The Maria and Jose sample's fixture cast (S2): the brief lists a best man; it is sample data fed to the real
+  // builders, not a place where the role vocabulary is decided.
+  'lib/sample-event/snapshot.ts': 'sample fixture — one cast, not a vocabulary',
 };
 
 test('every file that names best_man also names best_woman — or says why not', () => {

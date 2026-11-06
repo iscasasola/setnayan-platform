@@ -37,9 +37,12 @@ import {
   type RosMetaMap,
 } from '@/lib/schedule-ros';
 import { SCHEDULE_TEMPLATES, type ScheduleTemplate } from '@/lib/schedule-templates';
+import { RIGHT_AFTER } from '@/lib/moment-order';
+import { TIME_TBA } from '@/lib/time-tba';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { SupplierStandingWord } from '@/lib/booked-by-payment';
 import { supplierOnItem } from './day-types';
+import type { TimesMark } from '@/lib/supplier-schedule-marks';
 import {
   bulkRetimeScheduleBlocks,
   loadScheduleTemplate,
@@ -52,6 +55,8 @@ export type EventVendorOption = {
   vendor_name: string;
   /** "Booked" · "Shortlisted" — the one booked-if-paid resolver (owner 2026-10-20). */
   standing?: SupplierStandingWord;
+  /** ✅ Seen / Times confirmed — the supplier's own press (`lib/supplier-schedule-marks.ts`). */
+  times?: TimesMark;
 };
 
 /** Parse the `?ros=` search param into a lens. Unknown values → master. */
@@ -169,9 +174,14 @@ export function RosLensPreview({
             <li key={b.block_id} className={`py-2 ${b.parent_block_id ? 'pl-6' : ''}`}>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                 <span className="w-40 shrink-0 font-mono text-xs tabular-nums text-ink/60">
-                  {b.end_at
-                    ? formatBlockTimeRange(b.start_at, b.end_at)
-                    : formatBlockTime(b.start_at)}
+                  {/* ⏭ A TBA row has no clock: a chapter is "Time TBA", a moment "Right after" — never its stored start. */}
+                  {b.time_tba === true
+                    ? b.parent_block_id
+                      ? RIGHT_AFTER
+                      : TIME_TBA
+                    : b.end_at
+                      ? formatBlockTimeRange(b.start_at, b.end_at)
+                      : formatBlockTime(b.start_at)}
                 </span>
                 <span className="text-sm font-medium text-ink">{b.label}</span>
                 {meta.get(b.block_id)?.responsible_party ? (

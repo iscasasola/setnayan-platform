@@ -281,7 +281,15 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
     case 'settings': {
       const settings = await loadEventSettings({ supabase, eventId, userId: ctx.userId });
       if (!settings) return <CouldNotOpen />;
-      return <EventSettingsEditor eventId={eventId} form={settings.form} governed={settings.governed} pax={settings.pax} />;
+      return (
+        <EventSettingsEditor
+          eventId={eventId}
+          form={settings.form}
+          governed={settings.governed}
+          pax={settings.pax}
+          kind={settings.kind}
+        />
+      );
     }
   }
 }

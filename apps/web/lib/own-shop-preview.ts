@@ -30,7 +30,27 @@ export type ShopPageGateRow = {
   public_visibility?: unknown;
   verification_state?: unknown;
   is_demo?: unknown;
+  /** 🏪 The shop chose to show its page before it is verified (`setShopPublished`, owner 2026-11-02). */
+  self_published_at?: unknown;
 };
+
+/**
+ * 🏪 A SHOP SHOWS ITS PAGE BEFORE IT IS VERIFIED — WHILE BOOKINGS ARE CLOSED (owner 2026-11-02: "we offer them space to
+ * create their website … and apply for verified account"; controller: "the website can go live; verified stays a
+ * badge"). True when the shop pressed Show my page (`self_published_at`), is not archived and not a demo shop, and
+ * bookings are closed (`platform_settings.bookings_open`, `lib/bookings-open.ts`) — so nothing on the page can be
+ * booked. The page only: the marketplace, search and every database door stay verified-only (migration
+ * 20271303245624). When bookings open, such a page goes back to its team until Setnayan verifies the shop.
+ */
+export function selfPublishedLive(row: ShopPageGateRow, bookingsOpen: boolean): boolean {
+  return (
+    !bookingsOpen &&
+    typeof row.self_published_at === 'string' &&
+    row.self_published_at.length > 0 &&
+    parseVisibility(row.public_visibility) !== 'archived' &&
+    row.is_demo !== true
+  );
+}
 
 /** What couples are waiting on — the banner's "Couples will see it once …". */
 export type ShopPreviewReason =
@@ -50,7 +70,12 @@ export type ShopPageGate =
 
 export function shopPageGate(
   row: ShopPageGateRow,
-  viewer: { isTeam: boolean; adminDemoMode: boolean },
+  viewer: {
+    isTeam: boolean;
+    adminDemoMode: boolean;
+    /** 🚪 `areBookingsOpen()`. Omitted = open — today's rule exactly, so no caller changes unless it passes it. */
+    bookingsOpen?: boolean;
+  },
 ): ShopPageGate {
   const visibility = parseVisibility(row.public_visibility);
   if (visibility === 'archived') return { open: 'nobody' };
@@ -62,6 +87,7 @@ export function shopPageGate(
   if (viewer.adminDemoMode ? visibility === 'verified' : isShopLive(row) && !demo) {
     return { open: 'public' };
   }
+  if (selfPublishedLive(row, viewer.bookingsOpen ?? true)) return { open: 'public' };
   if (!viewer.isTeam) return { open: 'nobody' };
 
   if (demo) return { open: 'team', reason: 'demo' };

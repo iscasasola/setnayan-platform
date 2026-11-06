@@ -6,6 +6,7 @@
  *
  *   ?reason=documents|in_review|listing|demo   which banner (default: demo — SetnaProd's state)
  *   ?view=stranger                             the not-found page a stranger gets for the same address
+ *   ?view=inspiration                          🔗🖼 Services (each card's looks strip) + the Inspiration section (2026-10-30)
  *   ?events=N                                  the shop's badge pills under its name, as the page draws them
  *                                              (`lib/shop-badges.ts`: Verified · the step N reached · ★ 4.8 from 31)
  */
@@ -17,6 +18,9 @@ import SlugNotFound from '@/app/[slug]/not-found';
 import { TEAM_PREVIEW_COPY, type ShopPreviewReason } from '@/lib/own-shop-preview';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { shopBadges } from '@/lib/shop-badges';
+import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
+import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
+import { LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
 
 export default async function ShopPreviewLabPage({
   searchParams,
@@ -26,6 +30,24 @@ export default async function ShopPreviewLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   if (sp.view === 'stranger') return <SlugNotFound />;
+  if (sp.view === 'inspiration') {
+    /* 🔗🖼 The shop page's Services (each card with its looks strip) + the Inspiration section, on lab data — the REAL
+       components the page mounts (owner 2026-10-30, "connected four ways"). */
+    return (
+      <main className="min-h-dvh bg-cream" data-lab-inspiration="">
+        <article className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+          <section className="space-y-6 border-b border-ink/10 py-8">
+            <header className="space-y-1">
+              <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Services &amp; pricing</h2>
+              <p className="text-sm text-ink/65">Starting prices set by Bloom &amp; Co. Final quotes happen in chat.</p>
+            </header>
+            <ServicesGallery groups={[{ key: 'florist', label: 'Flowers & styling', cards: LAB_INSPIRATION_CARDS }]} />
+          </section>
+          <ShopInspirationSection tiles={LAB_INSPIRATION_TILES} shopName="Bloom & Co." />
+        </article>
+      </main>
+    );
+  }
   const reason: ShopPreviewReason =
     sp.reason && sp.reason in TEAM_PREVIEW_COPY ? (sp.reason as ShopPreviewReason) : 'demo';
 

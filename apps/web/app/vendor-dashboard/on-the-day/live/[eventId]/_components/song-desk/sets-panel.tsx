@@ -29,7 +29,10 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, ChevronRight, Pencil, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
 import {
   PLAYLIST_SLOT_LABELS,
@@ -71,6 +74,39 @@ export function SetsPanel({
     });
   }
 
+  /**
+   * 👈 DELETES WAIT OUT AN UNDO (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕
+   * ON ROWS"). A song leaves its set by its swipe; a whole set is deleted from its rename editor. Either leaves the
+   * screen at once and is written only when the Undo window closes (`deleteWithUndo`) — which matters most for a set,
+   * whose songs CASCADE with it: Undo there brings the whole setlist back, because nothing was ever sent.
+   */
+  const [hiddenSets, setHiddenSets] = useState<ReadonlySet<string>>(() => new Set());
+  const [hiddenSongs, setHiddenSongs] = useState<ReadonlySet<string>>(() => new Set());
+  const without = (h: ReadonlySet<string>, id: string) => {
+    const next = new Set(h);
+    next.delete(id);
+    return next;
+  };
+  const removeSong = (set: VendorSet, setSongId: string, title: string) =>
+    deleteWithUndo({
+      label: `${title} removed from ${set.name}`,
+      hide: () => setHiddenSongs((h) => new Set(h).add(setSongId)),
+      restore: () => setHiddenSongs((h) => without(h, setSongId)),
+      commit: () => removeSongFromVendorEventSet(eventId, setSongId),
+      failed: `Couldn’t take ${title} out of ${set.name}. It’s back — try again.`,
+    });
+  const deleteSet = (set: VendorSet) =>
+    deleteWithUndo({
+      label: `${set.name} deleted`,
+      hide: () => setHiddenSets((h) => new Set(h).add(set.setId)),
+      restore: () => setHiddenSets((h) => without(h, set.setId)),
+      commit: () => deleteVendorEventSet(eventId, set.setId),
+      failed: `Couldn’t delete ${set.name}. It’s back — try again.`,
+    });
+  const shownSets = sets
+    .filter((set) => !hiddenSets.has(set.setId))
+    .map((set) => ({ ...set, songs: set.songs.filter((s) => !hiddenSongs.has(s.setSongId)) }));
+
   const full = sets.length >= MAX_SETS;
 
   return (
@@ -97,7 +133,7 @@ export function SetsPanel({
           </p>
         ) : null}
 
-        {sets.map((set) => (
+        {shownSets.map((set) => (
           <SetCard
             key={set.setId}
             eventId={eventId}
@@ -105,6 +141,8 @@ export function SetsPanel({
             repertoire={repertoire}
             pending={pending}
             run={run}
+            onRemoveSong={(setSongId, title) => removeSong(set, setSongId, title)}
+            onDeleteSet={() => deleteSet(set)}
           />
         ))}
 
@@ -178,6 +216,7 @@ export function SetsPanel({
           </button>
         )}
       </div>
+      <UndoToastHost />
     </details>
   );
 }
@@ -189,12 +228,16 @@ function SetCard({
   repertoire,
   pending,
   run,
+  onRemoveSong,
+  onDeleteSet,
 }: {
   eventId: string;
   set: VendorSet;
   repertoire: Song[];
   pending: boolean;
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void;
+  onRemoveSong: (setSongId: string, title: string) => void;
+  onDeleteSet: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const available = repertoireAvailableForSet({ repertoire, setSongs: set.songs });
@@ -208,6 +251,7 @@ function SetCard({
           pending={pending}
           run={run}
           onDone={() => setEditing(false)}
+          onDelete={onDeleteSet}
         />
       ) : (
         <header className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
@@ -227,15 +271,6 @@ function SetCard({
             >
               <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => run(() => deleteVendorEventSet(eventId, set.setId))}
-              aria-label={`Delete set ${set.name}`}
-              className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
-            >
-              <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
           </span>
         </header>
       )}
@@ -243,21 +278,23 @@ function SetCard({
       {set.songs.length > 0 ? (
         <ul>
           {set.songs.map((s) => (
-            <li key={s.setSongId} className="flex min-w-0 items-baseline gap-2 py-0.5">
-              <span className="min-w-0 flex-1 truncate text-sm text-ink/85">{s.title}</span>
-              {s.artist ? (
-                <span className="min-w-0 shrink truncate text-xs text-ink/55">{s.artist}</span>
-              ) : null}
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => run(() => removeSongFromVendorEventSet(eventId, s.setSongId))}
-                aria-label={`Remove ${s.title} from ${set.name}`}
-                className="shrink-0 rounded-full p-0.5 text-ink/35 hover:text-ink/70 disabled:opacity-60"
-              >
-                <X aria-hidden className="h-3 w-3" strokeWidth={2} />
-              </button>
-            </li>
+            <SwipeToDelete
+              key={s.setSongId}
+              as="li"
+              label={`Remove ${s.title} from ${set.name}`}
+              word="Remove"
+              onDelete={() => onRemoveSong(s.setSongId, s.title)}
+              disabled={pending}
+              radiusClass=""
+              surfaceClass="bg-paper-deep"
+            >
+              <div className="flex min-h-11 min-w-0 items-center gap-2 py-0.5" data-set-song="">
+                <span className="min-w-0 flex-1 truncate text-sm text-ink/85">{s.title}</span>
+                {s.artist ? (
+                  <span className="min-w-0 shrink truncate text-xs text-ink/55">{s.artist}</span>
+                ) : null}
+              </div>
+            </SwipeToDelete>
           ))}
         </ul>
       ) : (
@@ -334,12 +371,15 @@ function SetHeaderEditor({
   pending,
   run,
   onDone,
+  onDelete,
 }: {
   eventId: string;
   set: VendorSet;
   pending: boolean;
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void;
   onDone: () => void;
+  /** Delete the whole set (its songs go with it) — with Undo, from the panel. */
+  onDelete: () => void;
 }) {
   const [name, setName] = useState(set.name);
   const [slot, setSlot] = useState<PlaylistSlotType>(set.slot);
@@ -407,6 +447,21 @@ function SetHeaderEditor({
         className="rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70 disabled:opacity-60"
       >
         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      </button>
+      {/* The set's own Delete lives in its editor (owner 2026-11-03: no ✕ on the card). Its songs go with it, so it
+          waits out the Undo window before anything is written. */}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => {
+          onDone();
+          onDelete();
+        }}
+        aria-label={`Delete set ${set.name}`}
+        className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-danger-700 hover:bg-danger-50 disabled:opacity-60"
+      >
+        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Delete set
       </button>
     </div>
   );

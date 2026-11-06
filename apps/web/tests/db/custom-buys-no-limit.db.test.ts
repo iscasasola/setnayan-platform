@@ -225,11 +225,11 @@ test('THE WAITLIST IS LIFTED TOO — one axis, both ceilings', async () => {
        FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
     [shop.vendorProfileId],
   );
-  assert.equal(r.rows[0]!.n, 9, 'not clamped to Custom’s 5 — the shop paid for no ceiling');
+  assert.equal(r.rows[0]!.n, 9, 'not clamped to Custom’s 3 — the shop paid for no ceiling');
   assert.equal(r.rows[0]!.on, true);
 });
 
-test('CONTROL: a Custom shop WITHOUT the axis is still clamped to 5', async () => {
+test('CONTROL: a Custom shop WITHOUT the axis is still clamped to its plan (3 since 2026-11-04)', async () => {
   // Without this control the test above passes whether or not the axis is read.
   const shop = await newVendor('waitlist-capped', 'custom');
   await activePlan(shop.vendorProfileId, false);
@@ -244,7 +244,7 @@ test('CONTROL: a Custom shop WITHOUT the axis is still clamped to 5', async () =
       WHERE vendor_profile_id = $1`,
     [shop.vendorProfileId],
   );
-  assert.equal(r.rows[0]!.n, 5, 'Custom holds 5 without the axis');
+  assert.equal(r.rows[0]!.n, 3, 'Custom holds 3 without the axis (runs as Ultra, trimmed 2026-11-04)');
 });
 
 test('the axis raises a ceiling — it never conjures a waiting list from nothing', async () => {

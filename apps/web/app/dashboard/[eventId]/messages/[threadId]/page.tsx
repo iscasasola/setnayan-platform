@@ -31,12 +31,14 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
@@ -489,6 +491,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     });
   })();
 
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
+  // check; the shop's number is read only once it says yes (bookedCounterpartyPhone returns null without it).
+  const shopBookedRead = shopIsBookedOnEvent(thread.event_id, thread.vendor_profile_id);
+  const shopPhoneRead = shopBookedRead.then((booked) =>
+    bookedCounterpartyPhone({ booked, viewer: 'couple', eventId: thread.event_id, vendorProfileId: thread.vendor_profile_id }),
+  );
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
@@ -506,6 +515,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     conversationRows,
     receipts,
     eventDay,
+    shopBooked,
+    shopPhone,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -522,6 +533,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     conversationRowsRead,
     receiptsRead,
     eventDayRead,
+    shopBookedRead,
+    shopPhoneRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -658,24 +671,22 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   };
 
   return (
-    <div className="flex h-[calc(100dvh-12rem)] min-h-[27rem] gap-4">
-      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
-          xl, where there is room for it without squeezing the conversation —
-          giving the conversation back its space was the whole point. */}
-      <ConversationColumn
-        rows={conversationRows}
-        activeThreadId={threadId}
-        side="couple"
-        hrefBase={`/dashboard/${eventId}/messages`}
-        heading="Suppliers you’re talking to"
-        backHref={`/dashboard/${eventId}/vendors`}
-        backLabel="‹ Saved"
-      />
-      {/* Honours `#deal-or-meeting` on arrival and on change. */}
-      <ThreadToolHashReveal />
-      {/* The column scrolls ITSELF when the frame outgrows it (a tool open on a
-          short phone) — the frame never clips its own composer. */}
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+    // THE ONE THREAD PAGE (`ChatThreadFrame`) — the supplier's thread returns the same frame, holding one ChatBox.
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08). The list appears at xl, where there is room for it without squeezing the
+      // conversation — giving the conversation back its space was the whole point.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="couple"
+          hrefBase={`/dashboard/${eventId}/messages`}
+          heading="Suppliers you’re talking to"
+          backHref={`/dashboard/${eventId}/vendors`}
+          backLabel="‹ Saved"
+        />
+      }
+    >
         <ChatBox
           header={
             <ChatThreadHead
@@ -699,6 +710,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 </>
               }
               actions={
+                <>
+                <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/dashboard/${eventId}/messages/${threadId}`}
@@ -712,15 +725,16 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   links={
                     workspaceHref
                       ? [
-                          { href: `${workspaceHref}?tab=quote`, label: 'Quote' },
-                          { href: `${workspaceHref}?tab=payments`, label: 'Payments' },
-                          { href: `${workspaceHref}?tab=files`, label: 'Files' },
-                          { href: `${workspaceHref}?tab=schedule`, label: 'Schedule' },
-                          { href: `${workspaceHref}?tab=details`, label: 'Booking details' },
+                          { href: `${workspaceHref}?tab=quote`, label: 'Quote', icon: 'quote' },
+                          { href: `${workspaceHref}?tab=payments`, label: 'Payments', icon: 'payments' },
+                          { href: `${workspaceHref}?tab=files`, label: 'Files', icon: 'files' },
+                          { href: `${workspaceHref}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
+                          { href: `${workspaceHref}?tab=details`, label: 'Booking details', icon: 'details' },
                         ]
                       : []
                   }
                 />
+                </>
               }
             />
           }
@@ -847,7 +861,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             }}
           />
         </ChatBox>
-      </section>
-    </div>
+    </ChatThreadFrame>
   );
 }

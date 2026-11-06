@@ -67,6 +67,12 @@ test('the shell switches stage and page as state — nothing in it navigates', (
   assert.match(press, /select\(\{ kind: 'tool', key: 'details' \}\)/);
   // The stage is never written into the address — it would re-key the page.
   assert.doesNotMatch(SHELL, /searchParams\.set\(|[?&]stage=/);
+  /* 🖨 R8 (2026-10-27): the shell's one way to ANOTHER page of the app is the Prints forward (`prints-forward.ts`) — not a
+     switch: it fires only when an item crosses between the Maker and the Prints page, never on a stage, a page or a door. */
+  assert.equal((SHELL.match(/usePrintsForward\(/g) ?? []).length, 1, 'the Prints forward is called more than once, or not at all');
+  const fwd = read('app/dashboard/[eventId]/launch/_components/prints-forward.ts');
+  assert.match(fwd, /return hasWork && detailsItem !== null && isPrintsItem\(detailsItem\) !== printsPage \? detailsItem : null;/, 'the Prints forward fires on something other than an item crossing the Prints line');
+  assert.doesNotMatch(fwd, /\bstage\b|\bselection\b|router\./, 'the Prints forward reads a stage or a selection — it would navigate on a switch');
 });
 
 test('the work area follows the stage by props alone — no router, no document reload on a switch', () => {
@@ -175,6 +181,11 @@ test('the warm budget: 3 frames; none on a phone with ≤ 4 GB, none on save-dat
   assert.equal(warmCanvasBudget({ phone: false, deviceMemory: 4 }), MAX_WARM_FRAMES, 'a laptop is not a phone');
   assert.equal(warmCanvasBudget({ phone: false, saveData: true }), 0);
   assert.equal(warmCanvasBudget({ phone: true, deviceMemory: 8, saveData: true }), 0);
+  /* 📱 1 Nov 2026: iPhone / iPad WebKit never says its memory — it keeps no hidden stage (the iOS web view reloads,
+     "resetting the whole page", when its content process runs out). */
+  assert.equal(warmCanvasBudget({ phone: true }), 0, 'an iPhone (no deviceMemory) keeps a hidden guest page behind the canvas');
+  assert.equal(warmCanvasBudget({ phone: true, deviceMemory: null }), 0, 'an iPhone (no deviceMemory) keeps a hidden guest page behind the canvas');
+  assert.equal(warmCanvasBudget({ phone: false, deviceMemory: null }), MAX_WARM_FRAMES, 'a laptop that does not say its memory still keeps stages warm');
 });
 
 test('the buffer never re-orders a mounted iframe (moving one reloads it), and hears every frame’s ready', () => {

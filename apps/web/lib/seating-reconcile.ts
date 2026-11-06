@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { placedByAuto } from '@/lib/seat-why';
 import {
   fetchTables,
   fetchAssignments,
@@ -146,6 +147,7 @@ export async function reconcilePass(
     reseatGuestIds: reseat,
     groupAdjacency,
     roleSeating: floorPlan.role_seating,
+    vipPlusOnes: floorPlan.vip_plus_ones,
   });
 
   // Delete stale rows first (a displaced guest whose seat got reused), then
@@ -165,6 +167,8 @@ export async function reconcilePass(
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 The live auto-seat — placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
       { onConflict: 'event_id,guest_id' },
     );

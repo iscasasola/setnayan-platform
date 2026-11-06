@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { pushWireBody, type PushMessage } from '@/lib/push-message';
 
 /**
  * Server-only Web Push fan-out (compliance/push-offline — Apple guideline 4.2).
@@ -20,14 +21,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * isn't configured.
  */
 
-export type WebPushPayload = {
-  title: string;
-  body?: string | null;
-  /** Path to open when the notification is clicked (e.g. /dashboard/...). */
-  url?: string | null;
-  /** Collapses replacing notifications on the device (browser `tag`). */
-  tag?: string | null;
-};
+/*
+  🔑 THERE IS NO PAYLOAD TYPE HERE ANY MORE. A push is a `PushMessage`, and only
+  `pushMessage()` in lib/push-message.ts can make one (owner 2026-10-31, "fix the
+  way how the notification messages the phones") — so a sender cannot hand this
+  file a title it wrote inline. Callers go through lib/push-send.server.ts.
+*/
 
 export function isWebPushConfigured(): boolean {
   return Boolean(
@@ -42,7 +41,7 @@ export function isWebPushConfigured(): boolean {
  */
 export async function sendWebPush(
   userId: string,
-  payload: WebPushPayload,
+  message: PushMessage,
 ): Promise<void> {
   if (!isWebPushConfigured()) return;
 
@@ -51,7 +50,10 @@ export async function sendWebPush(
     const { data: subs, error } = await admin
       .from('push_subscriptions')
       .select('id,endpoint,p256dh,auth')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      // The iPhone app's APNs tokens share this table (kind = 'apns') and go
+      // through lib/apns.ts — never through the Web Push service.
+      .eq('kind', 'web');
 
     if (error) {
       console.error('[web-push] subscription lookup failed:', error.message);
@@ -67,12 +69,15 @@ export async function sendWebPush(
       process.env.VAPID_PRIVATE_KEY!,
     );
 
-    const body = JSON.stringify({
-      title: payload.title,
-      body: payload.body ?? '',
-      url: payload.url ?? '/',
-      tag: payload.tag ?? undefined,
-    });
+    // `Topic` (RFC 8030 §5.4): the push service itself replaces an undelivered
+    // message with the same topic — the network half of "replaces, never stacks";
+    // the service worker's `tag` + `renotify` is the device half.
+    const options = {
+      topic: message.topic,
+      TTL: 24 * 60 * 60,
+      // RFC 8030: an Urgent notice is not held back for a phone saving its battery.
+      urgency: message.level === 'urgent' ? ('high' as const) : ('normal' as const),
+    };
 
     const staleIds: string[] = [];
 
@@ -82,9 +87,10 @@ export async function sendWebPush(
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
-              keys: { p256dh: sub.p256dh, auth: sub.auth },
+              keys: { p256dh: sub.p256dh ?? '', auth: sub.auth ?? '' },
             },
-            body,
+            pushWireBody(message),
+            options,
           );
         } catch (e: unknown) {
           // 404 / 410 = the Push Service dropped this endpoint; prune it so we

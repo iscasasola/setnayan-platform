@@ -20,7 +20,7 @@
  */
 
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
-import { isHardSinglePickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
+import { isOnePerEventGroup } from '@/lib/one-per-event';
 import type { LockRequestState } from '@/lib/lock-request-state';
 import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 import type { DateFit } from './calendar-truth';
@@ -357,8 +357,8 @@ export function resolveBenchCardActions(args: {
  * The affordance shipped in #3789 on the LEGACY accordion only; slice D carries
  * it to the live bench. It appears once the category HAS a lock and the group
  * still allows more picks — the "at least 1 is the floor, not the ceiling"
- * decision. A hard-single group (venue · officiant · coordinator · host ·
- * LED) is done at one, so it keeps "Find more" and never invites a second.
+ * decision. A One per event group (the category's switch, owner 2026-10-29) is
+ * done at one, so it keeps "Find more" and never invites a second.
  *
  * `planGroupId` here is the TILE's group (the category the couple is looking
  * at), not a vendor's — the question is about the category, not a card.
@@ -367,11 +367,13 @@ export function railEndIsAddAnother(args: {
   enabled: boolean;
   lockedCount: number;
   planGroupId: string | null;
+  /** The plan groups that are One per event — the categories' switch, read on the server (lib/one-per-event.ts). */
+  onePerEventGroups: readonly string[];
 }): boolean {
   if (!args.enabled) return false;
   if (args.lockedCount <= 0) return false;
   if (args.planGroupId == null) return false;
-  return !isHardSinglePickGroup(args.planGroupId as PlanGroupId);
+  return !isOnePerEventGroup(args.planGroupId, new Set(args.onePerEventGroups));
 }
 
 /** Why a build pick cannot be locked right now — for surfaces OTHER than the

@@ -8,7 +8,9 @@
  * website", "buy at setnayan.com") fails, unless the app can never show it:
  *
  *   · the file lives under a route the app refuses EVEN WITH THE GATE ON (`isStoreShellWebOnlyPath(route, true)` —
- *     a page Apple's build opens is read), or under admin / api / dev, or is a brochure route middleware bounces;
+ *     a page Apple's build opens is read), or under admin / api / dev. (A brochure route middleware bounced out of
+ *     the app was skipped too, until the owner opened every one of them on 2026-11-02 — "let everything go live" —
+ *     so `/`, /features, /creators, /how-it-works, /waitlist and /download are read like any page the app opens.)
  *   · the string sits inside a `data-web-only` element (hidden before first paint in the store shell);
  *   · its file is listed in `NEVER_IN_THE_APP` below WITH the reason and the gate that keeps it out — asserted to be
  *     still there, so a reason cannot rot.
@@ -21,6 +23,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isStoreShellWebOnlyPath } from './store-shell';
+import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 const src = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -65,10 +68,8 @@ const NEVER_IN_THE_APP = new Map<string, Why>([
     'app/llms.txt/route.ts',
     { why: '/llms.txt is a plain-text file for crawlers (a GET route, no page) — nothing in the app links to or draws it', gate: { file: 'app/llms.txt/route.ts', re: /export async function GET\(\): Promise<Response>/ } },
   ],
-  [
-    'app/download/page.tsx',
-    { why: '/download is the brochure middleware bounces out of the app (APP_EXCLUDED_MARKETING_PATHS)', gate: { file: 'middleware.ts', re: /APP_EXCLUDED_MARKETING_PATHS = new Set\(\[[^\]]*'\/download'/ } },
-  ],
+  // (app/download/page.tsx left this list on 2026-11-02: the app opens /download now, so its two "on the web" lines
+  // are marked data-web-only instead — read, not excused.)
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -95,9 +96,13 @@ function routeOf(rel: string): string | null {
 
 test('no string the app can show steers to the web (every app/ and lib/ file read)', () => {
   const ts = require('typescript') as typeof import('typescript');
-  const mw = src('middleware.ts').match(/APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([^\]]*)\]/);
-  assert.ok(mw, 'APP_EXCLUDED_MARKETING_PATHS moved out of middleware.ts');
-  const bounced = new Set([...mw![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!));
+  // No page is skipped for being "bounced out of the app" any more (owner 2026-11-02). If middleware starts bouncing
+  // the app again, this scan must be taught which pages — never silently keep skipping or reading the wrong ones.
+  assert.doesNotMatch(
+    stripComments(src('middleware.ts')),
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware bounces the app again — the owner opened every brochure page in the app on 2026-11-02',
+  );
 
   const files = [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))];
   assert.ok(files.length > 2000, `read only ${files.length} files — the walker is blind`);
@@ -110,7 +115,7 @@ test('no string the app can show steers to the web (every app/ and lib/ file rea
     const route = routeOf(rel);
     // Skipped only when the app can NEVER open it — refused even where Apple sells (gate ON opens more: the studio
     // homes Apple sells, Papic, the Live Watch controller), so those pages are read too (review of #6844).
-    if (route && (isStoreShellWebOnlyPath(route, true) || bounced.has(route))) continue;
+    if (route && isStoreShellWebOnlyPath(route, true)) continue;
     const text = readFileSync(abs, 'utf8');
     if (!/web|setnayan\.com/i.test(text)) continue;
     const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);

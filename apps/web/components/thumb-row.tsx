@@ -32,7 +32,7 @@
  * SEARCH BAND (`app/_components/typing-band.tsx`): a cream plate behind it
  * down to the keyboard — no "Typing ·" and no Done since the owner's 2026-10-24
  * *"can this be gone? just tap away and keyboard should disappear"*; the field
- * takes the whole row, wears the accent ring and gains ✕ (clear); ⇕ · ≡ · ＋
+ * takes the whole row and wears the accent ring (its ✕ is inside the field, as always — 2026-10-30); ⇕ · ≡ · ＋
  * FOLD and come back when the keyboard closes — a tap or a drag away, Escape,
  * or the keyboard's own key (the keyboard's Enter does the row's verb). The row itself does not
  * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
@@ -43,11 +43,13 @@
  * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
  * bottom padding for the row.
  */
-import { useCallback, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
-import { CalendarDays, Search, X } from 'lucide-react';
-import { ActionButton, type ActionButtonProps } from '@/components/action-button';
+import { useCallback, useId, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { CalendarDays, Plus, Search } from 'lucide-react';
+import { ClearButton, clearTyped } from '@/components/clear-field';
+import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
+import { useRotatingHint } from '@/lib/use-rotating-hint';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
 
@@ -79,6 +81,14 @@ export type ThumbMenu = {
   mark?: string;
   /** 🔦 A spotlight tour's anchor token, stamped on the menu's seat as `data-tour`. */
   tour?: string;
+  /**
+   * ⇅ The round's own face instead of the current option's icon — a menu of SEVERAL sections (Guests' Show · Group by ·
+   * Sort, `guests-filter-menu.tsx`) has no one current option to wear. Wrap it in an `aria-hidden` span; the menu's
+   * `label` stays its name.
+   */
+  face?: ReactNode;
+  /** 📏 The open list's floor width (`PickMenuProps.menuMinWidth`) — so a menu's rows stay on one line at 390 px. */
+  menuMinWidth?: number;
 };
 
 /**
@@ -97,7 +107,18 @@ export type ThumbField = {
   inputRef?: Ref<HTMLInputElement>;
   /** Anything else the host's input already does (value, onInput, onKeyDown, data-*). */
   input?: InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | undefined>;
+  /**
+   * ✕ was pressed — the box is already empty and its `onInput`/`onChange` has heard it. A host whose search waits
+   * after the last letter (`SEARCH_WAIT_MS`) cancels that wait here and searches for nothing AT ONCE, so the list is
+   * whole the moment the words are gone (owner 2026-10-31).
+   */
+  onClear?: () => void;
   tour?: string;
+  /**
+   * 💡 Example lines the empty box cycles through after its name (owner 2026-11-01: every search and add box shows
+   * rotating example hints) — `lib/use-rotating-hint.ts`. Each from what THIS box does and this event's own data.
+   */
+  hints?: readonly string[];
 };
 
 /** A shipped control in a round seat — a PickMenu (drawn as the 44 round, its option's icon the face) or an icon
@@ -132,15 +153,17 @@ function Round({ r }: { r: ThumbRound }) {
   );
 }
 
+/** ＋ — a main-verb menu's face when it names none. */
+function ActionFace() {
+  return (
+    <span aria-hidden className="inline-flex">
+      <Plus className="h-5 w-5" strokeWidth={2} />
+    </span>
+  );
+}
+
 /** ⌨ The riding decision — the shared row's (`useRidingRow`, typing-band.tsx); kept under this name for the guard. */
 export const thumbRowRides = rowRides;
-
-/** Put words in a React-controlled input as a person would (its `onChange` / `onInput` hear it). */
-function setTyped(input: HTMLInputElement, value: string) {
-  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  set?.call(input, value);
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-}
 
 export function ThumbRow({
   name,
@@ -157,10 +180,11 @@ export function ThumbRow({
   /** ≤ 2 neutral rounds before the field — ⇕ then ☑. */
   left?: readonly (ThumbRound | ThumbNode)[];
   field?: ThumbField | ThumbNode | null;
-  /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown. */
-  right?: readonly (ThumbRound | ThumbMenu)[];
-  /** THE one main verb — terracotta, last. */
-  action?: ThumbRound | ThumbNode | null;
+  /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown; a `ThumbNode` a shipped control that owns its own sheet
+   *  (Guests' "Show & sort", `guests-filter-sheet.tsx`). */
+  right?: readonly (ThumbRound | ThumbMenu | ThumbNode)[];
+  /** THE one main verb — terracotta, last. A `ThumbMenu` is a ＋ that opens its choices (Seats' Add ▾ Table · Entrance…). */
+  action?: ThumbRound | ThumbNode | ThumbMenu | null;
   /** A mode row's own buttons, in place of the seats. */
   children?: ReactNode;
   className?: string;
@@ -173,6 +197,10 @@ export function ThumbRow({
   const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   const rowRef = useRef<HTMLDivElement>(null);
   const ownInput = useRef<HTMLInputElement | null>(null);
+  /* The field's label holds the ✕ button too, so it names its input outright (a bare <label> controls its FIRST
+     labelable child — the button would take the row's press). The host's own id wins. */
+  const ownId = useId();
+  const inputId = (field && !('node' in field) && field.input?.id) || ownId;
   /* ⌨ The ONE riding row (`useRidingRow`): the search band, and a tap away closes the keyboard. */
   const ride = useRidingRow(rowRef, { rides, mode: Boolean(children), place: field && !('node' in field) ? field.placeholder : undefined });
   /* ⬇ A FLOATING ROW LEAVES ROOM FOR ITSELF (owner 2026-10-25, *"the suppliers page does not scroll up anymore"*): it
@@ -184,6 +212,8 @@ export function ThumbRow({
   const onFieldBlur = ride.rowProps.onBlur;
   /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */
   const onFieldInput = ride.rowProps.onInput;
+  /* 💡 The empty box's hint cycles its examples — the placeholder attribute only, never a render (rotating-hint.ts). */
+  useRotatingHint(ownInput, field && !('node' in field) ? field.placeholder : '', field && !('node' in field) ? field.hints : null);
   const setInputRef = useCallback(
     (el: HTMLInputElement | null) => {
       ownInput.current = el;
@@ -193,9 +223,6 @@ export function ThumbRow({
     },
     [field],
   );
-  /* A press on the band or ✕ never takes the focus from the field (it would close the band under the finger) — on
-     `mousedown` only: a cancelled `pointerdown` also cancels a touch's click in WebKit (measured 2026-10-24). */
-  const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
     <div ref={rowRef} role="toolbar" aria-label={`${name} tools`} data-riding={riding ? '' : undefined} data-thumb-row={name} className={`${styles.row} ${className}`}>
       {/* The band first in the reading order — it is drawn above the row (Done before the field, as seen). */}
@@ -216,49 +243,76 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}
                 autoComplete="off"
                 {...field.input}
+                id={inputId}
                 ref={setInputRef}
                 placeholder={field.placeholder}
                 aria-label={field.label ?? field.placeholder}
                 className={styles.input}
               />
+              {/* ✕ INSIDE THE FIELD, ONE TAP CLEARS IT (owner 2026-10-30, final Suppliers design: "this search bar needs to
+                  have an x inside to clear the text with one click") — on every thumb-row search, riding the keyboard or
+                  not. Shown only while there are words: CSS `:placeholder-shown`, so a programmatic fill or a reset by the
+                  host keeps it right without the row knowing the value. The press keeps the focus where it was — it never
+                  raises the keyboard (an empty, focused Find box opens "Go to a category"), and never drops it while
+                  typing. The search hears the empty words through the input's own event, and a host that waits after the
+                  last letter hears `onClear` at once. It is the ONE shared ✕ (`components/clear-field.tsx`). */}
+              {field.kind === 'date' ? null : (
+                <ClearButton
+                  label="Clear the search"
+                  data-thumb-clear=""
+                  className={styles.clearIn}
+                  discClassName={styles.clearDisc}
+                  onClear={() => {
+                    const el = ownInput.current;
+                    if (!el) return;
+                    clearTyped(el);
+                    field.onClear?.();
+                  }}
+                />
+              )}
             </label>
           ) : (
             <span className={styles.gap} aria-hidden />
           )}
-          {/* ✕ — clears the words while typing (the typed row's ✕); the field keeps its focus. */}
-          {riding && field && !('node' in field) ? (
-            <span className={`sn-glass-row ${styles.round} ${styles.clear}`} data-thumb-seat="clear" onMouseDown={keepFocus}>
-              <ActionButton
-                tone="neutral"
-                iconOnly
-                icon={X}
-                label="Clear"
-                className={styles.btn}
-                onClick={() => {
-                  const el = ownInput.current;
-                  if (!el) return;
-                  setTyped(el, '');
-                  el.focus();
-                }}
-              />
-            </span>
-          ) : null}
-          {right.map((r) =>
-            'menu' in r ? (
+          {right.map((r, i) =>
+            'node' in r ? (
+              <NodeRound key={`node-${i}`} node={r.node} />
+            ) : 'menu' in r ? (
               <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
-                <PickMenu label={r.label} value={r.value} options={r.menu} onPick={r.onPick} buttonText={r.buttonText} />
+                <PickMenu
+                  label={r.label}
+                  value={r.value}
+                  options={r.menu}
+                  onPick={r.onPick}
+                  buttonText={r.buttonText}
+                  trigger={r.face}
+                  menuMinWidth={r.menuMinWidth}
+                  className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
+                />
               </span>
             ) : (
               <Round key={r.label} r={r} />
             ),
           )}
-          {action && 'node' in action ? (
+          {action && 'menu' in action ? (
+            <span className={styles.round} data-thumb-seat="action" data-tour={action.tour} {...(action.mark ? { [action.mark]: '' } : {})}>
+              <PickMenu
+                label={action.label}
+                value={action.value}
+                options={action.menu}
+                onPick={action.onPick}
+                buttonText={action.buttonText}
+                trigger={action.face ?? <ActionFace />}
+                className={actionButtonClass('brand', { filled: true, iconOnly: true, extra: styles.btn })}
+              />
+            </span>
+          ) : action && 'node' in action ? (
             <span className={`${styles.round} ${styles.actionNode}`} data-thumb-seat="action">
               {action.node}
             </span>

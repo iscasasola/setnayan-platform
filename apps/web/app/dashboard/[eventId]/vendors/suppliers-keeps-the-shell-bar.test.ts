@@ -85,10 +85,17 @@ test('the pinned block sits UNDER the bar — at its measured height — and row
   assert.match(shared, /matchMedia\('\(min-width: 1024px\)'\)\.matches\) return true;/, 'on a desk the bar stays put — the shared read must say so');
   assert.match(src, /root\.style\.setProperty\('--sup-top', `\$\{top\}px`\)/);
   assert.match(src, /root\.style\.setProperty\('--stick-h', `\$\{top \+ stick\.offsetHeight\}px`\)/);
-  // A bench doorway and a `#svc-*` section land below the bar AND the block.
+  // A bench doorway and a `#svc-*` section land below the bar AND the block. A folder card keeps 14 px of air; an
+  // opened category's row lands ON the line, where its head pins (2026-10-29 — `lib/pin-landing.ts`; the 14 px strip
+  // was what the head jumped across, held by `lib/an-opened-category-never-covers-its-card.test.ts`).
   assert.match(
     src,
-    /\[data-budget-build-takeover\] \.slcat \[id\^="slfold-"\],\[data-budget-build-takeover\] \.slcat \[id\^="sltile-"\]\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ 14px\)\}/,
+    /\[data-budget-build-takeover\] \.slcat \[id\^="slfold-"\]\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ 14px\)\}/,
+    'a bench doorway would land its folder under the pinned block',
+  );
+  assert.match(
+    src,
+    /\[data-budget-build-takeover\] \.slcat \[id\^="sltile-"\]\{scroll-margin-top:var\(--stick-h,150px\)\}/,
     'a bench doorway would land its row under the pinned block',
   );
   assert.match(src, /\[data-budget-build-takeover\] \[id\^="svc-"\]\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ 8px\)\}/);

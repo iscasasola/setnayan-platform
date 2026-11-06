@@ -13,6 +13,8 @@ import { releaseGuestClaim } from '../[guestId]/actions';
 import { editGuestGroupInPlace } from '../group-edit-actions';
 import { setGuestAllotment } from '../../studio/papic/actions';
 import { setGuestProxy } from '../proxy-actions';
+import { openGuestCard } from '../open-guest-card';
+import type { GuestCardResult } from './guest-card';
 
 /**
  * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -57,6 +59,15 @@ export type GuestActions = {
   setGuestAllotment: typeof setGuestAllotment;
   /** 🧍 The card's "Proxy ▾" (owner 2026-10-27) — link · add · remove · keep, on the role holder's row. */
   setGuestProxy: typeof setGuestProxy;
+  /**
+   * 🪪 ONE guest's card, read alone — what a tap on a row opens (guest card opens fast, owner 2026-10-27: ~2 s on his
+   * iPhone). The shipped card-only reader (`openGuestCard`, the Wedding March's), never the whole Guests page: opening a
+   * card used to re-render the entire list on the server and send all of it back (~312 KB for 182 guests) before the
+   * card could show. The action is imported statically, so the first tap asks at once; the action answers the card's
+   * DATA (main, 2026-10-29: a drawn answer cannot cross every route's manifest) and THE card is drawn here from it — its
+   * code fetched BESIDE the read (`guest-card-in-place.tsx`), never in front of it, and never on a first load.
+   */
+  openGuestCard: (eventId: string, guestId: string) => Promise<GuestCardResult>;
 };
 
 export const REAL_GUEST_ACTIONS: GuestActions = {
@@ -86,6 +97,10 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   restoreGuestRsvpAndSeat,
   setGuestAllotment,
   setGuestProxy,
+  openGuestCard: async (eventId, guestId) => {
+    const [opened, inPlace] = await Promise.all([openGuestCard(eventId, guestId, 'list'), import('./guest-card-in-place')]);
+    return inPlace.drawOpenedGuestCard(eventId, opened);
+  },
 };
 
 export const GuestActionsContext = createContext<Partial<GuestActions> | null>(null);
@@ -110,6 +125,30 @@ export function useGuestActions(): GuestActions {
  */
 export const PickWhoContext = createContext<(() => void) | null>(null);
 
+/**
+ * 📥 ⚙ › REQUESTS TO JOIN, IN PLACE (R4 slice 11; house rule "a save never resets the screen"). The Guests screen
+ * provides this for the couple: the row's press closes the sheet and opens Asking to join on the List — the requests
+ * drawn in place, each Accept · Decline answered there with Undo. Absent (the ⚙ rows drawn outside the Guests screen,
+ * or a helper) → the row keeps its link to the Requests page. 🔒 lib/requests-are-inside-guests.test.ts
+ */
+export const OpenRequestsContext = createContext<(() => void) | null>(null);
+
+export function useOpenRequests(): (() => void) | null {
+  return useContext(OpenRequestsContext);
+}
+
 export function usePickWho(): (() => void) | null {
   return useContext(PickWhoContext);
+}
+
+/**
+ * 📤 ⚙ › DOWNLOAD AS EXCEL (owner 3 Nov, "so fix their locations" — the filter only filters). The Guests screen hands its
+ * shipped save (`useGuestsExcel`: the phone's share sheet / a download) to the ⚙ rows; the row draws only where this is
+ * provided — not on the phone's failed copy (there is no fresh list to write), not outside the Guests screen.
+ * 🔒 guests/_components/the-filter-sheet-only-filters.test.ts
+ */
+export const GuestsExcelContext = createContext<{ label: string; save: () => void } | null>(null);
+
+export function useGuestsExcelSave(): { label: string; save: () => void } | null {
+  return useContext(GuestsExcelContext);
 }

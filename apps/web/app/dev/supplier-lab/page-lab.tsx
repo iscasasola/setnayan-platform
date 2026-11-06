@@ -4,8 +4,12 @@
  * the caterer, the studio). Drawn only by `/dev/supplier-lab` (404 in production).
  *
  *   ?s=details&who=parish|caterer|studio      Your details (the parish: 4 of 6 · left: documents · how clients pay you)
+ *   ?s=details&invited=1[&asked=1]            🏷 a shop Setnayan set up: the name asks to change (asked = waiting)
  *   ?s=page&who=…                             Your page   (&draft=1 seeds a waiting change, as if one were made)
- *   ?s=collections&who=…                      Your collections
+ *   ?s=collections&who=…                      Your collections (Shop › Gallery since v13)
+ *   ?s=services&who=…[&fail=1]                🧰 Shop › Services (v13, S5): the pinned row's figures + one row per service
+ *                                             with its tools; &fail=1 = the read refused — "—", never 0
+ *   ?s=analytics[&fail=1]                     📌 Shop › Analytics' pinned row (the cards below read the database)
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
  *
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
@@ -17,10 +21,17 @@ import { pageSavedFrom } from '@/lib/supplier-page-draft';
 import { DEFAULT_MICROSITE } from '@/lib/vendor-microsite';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { VendorPaymentMethodRow } from '@/lib/vendor-payment-methods';
+import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
+import { VerifySection } from '@/app/vendor-dashboard/shop/_components/verify-section';
+import { walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
+import { formatPhp } from '@/lib/php';
 import { DetailsScreen } from '@/app/vendor-dashboard/profile/_components/details-screen';
 import type { DetailsData } from '@/app/vendor-dashboard/profile/details-data';
 import { BranchPanel } from '@/app/vendor-dashboard/shop/_components/branch-panel';
 import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segments';
+import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
+import { servicesFigures, shopServiceRows, type ShopCardLite } from '@/lib/shop-services-summary';
+import { analyticsFigures, galleryFigures, pageFigures } from '@/lib/shop-section-figures';
 import { PageParts, type PageClientData } from '@/app/vendor-dashboard/website/_components/page-parts';
 import { pagePlanLines } from '@/app/vendor-dashboard/website/page-data';
 import { DomainManager } from '@/app/vendor-dashboard/website/_domain-manager';
@@ -32,14 +43,23 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
-import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
+import { PORTFOLIO_FREE_BASE, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
-import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
+import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
+import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review-replies';
+import type { ReviewWithCouple } from '@/lib/reviews';
 
-export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers'] as const;
+/** 💬 The lab's two reviews for Page › Reviews and stories' reply-in-place list — one waiting, one answered. */
+const LAB_REVIEWS: ReviewWithCouple[] = [
+  { review_id: 'r1', public_id: 'S89R-LAB0000001', vendor_profile_id: 'lab', event_id: null, couple_user_id: null, rating_overall: 5, rating_communication: 5, rating_quality: 5, rating_value: 4, rating_on_time: 5, body: 'Beautiful ceremony, very organised.', vendor_reply: null, vendor_reply_at: null, created_at: '2026-10-20T08:00:00Z', booked_through_setnayan: true, via_vendor_import: false, couple_display_name: 'Reyes' },
+  { review_id: 'r2', public_id: 'S89R-LAB0000002', vendor_profile_id: 'lab', event_id: null, couple_user_id: null, rating_overall: 4, rating_communication: 4, rating_quality: 5, rating_value: 4, rating_on_time: 4, body: 'They caught moments we never saw.', vendor_reply: 'Thank you — it was a joy to be there.', vendor_reply_at: '2026-10-02T08:00:00Z', created_at: '2026-10-01T08:00:00Z', booked_through_setnayan: false, via_vendor_import: true, couple_display_name: 'Cruz' },
+];
+
+export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers', 'services', 'analytics'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -117,7 +137,7 @@ const FIX: Record<Who, Fixture> = {
       { label: 'BDO', provider: 'BDO' },
     ],
     about: 'Home-style Filipino buffet since 2014.',
-    outerKm: 60,
+    outerKm: 30,
     tier: 'solo',
     rating: 4.7,
     reviews: 19,
@@ -151,7 +171,7 @@ const FIX: Record<Who, Fixture> = {
       { label: 'GCash', provider: 'GCash' },
     ],
     about: 'Documentary wedding films and stills since 2019.',
-    outerKm: 300,
+    outerKm: 50,
     tier: 'pro',
     rating: 4.8,
     reviews: 31,
@@ -168,6 +188,49 @@ const FIX: Record<Who, Fixture> = {
     },
   },
 };
+
+/** 🔎 The Deep Search card's offer, as `loadDeepSearchOffer` would answer for this plan (band on, nothing run yet). */
+function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
+  // Lab fixture (dev-only route): a two-sided band shaped like the catalogue's, never read by a real page.
+  const band = { entryPhp: 799, growthPhp: 499 };
+  const pro = tier === 'pro' || tier === 'enterprise' || tier === 'custom';
+  const price = pro ? band.growthPhp : band.entryPhp;
+  return {
+    eligible: verified,
+    tier,
+    isFreeNow: verified && pro,
+    hasFreeAllowance: pro,
+    pricePhp: price,
+    cyclePricePhp: price,
+    band,
+    periodDays: 28,
+    openRails: [{ id: 'gcash', label: 'GCash' }] as unknown as DeepSearchOffer['openRails'],
+  };
+}
+
+/** The studio ran one search (its PDF is offered); the caterer never has; the parish is not verified. */
+function labLastDeepSearch(who: Who): LastDeepSearch {
+  if (who !== 'studio') return { measured: true, last: null };
+  return {
+    measured: true,
+    last: {
+      usedAt: '2026-10-20T03:00:00Z',
+      status: 'complete',
+      dossierId: 1,
+      createdAt: '2026-10-20T03:00:00Z',
+      dossier: {
+        business_summary: 'Documentary wedding films and stills, Makati.',
+        detected_services: ['Wedding film', 'Same-day edit', 'Photo coverage', 'Prenup shoot'],
+        price_signals: [{ label: 'Full-day film', price: 'PHP 85,000', source_url: null }],
+        web_presence: [{ platform: 'Instagram', url: null, note: '4,120 followers' }],
+        ads_findings: null,
+        consistency_flags: ['An old phone number on a 2023 listing'],
+        category_match: 'match',
+        confidence: 'high',
+      },
+    },
+  };
+}
 
 function detailsFixture(who: Who): DetailsData {
   const f = FIX[who];
@@ -245,6 +308,8 @@ function detailsFixture(who: Who): DetailsData {
     socialFeatureOptOut: false,
     socialAlreadyFeatured: false,
     openCorrections: [],
+    requestOnly: ['business_slug'],
+    setUpBySetnayan: false,
     pendingCoverageSuggestion: null,
     verify,
     verifyMeasured: true,
@@ -256,15 +321,21 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      reachKm: 50,
-      innerRadiusKm: f.outerKm ? 30 : null,
+      // The plan's own reach (Free 0 · Solo 30 · Pro 50) — the lab draws what the shop's plan really allows.
+      reachKm: tierCaps(f.tier).serviceRadiusKm,
+      innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,
+      isVerified: f.verified,
+      tierMeasured: true,
       branches: [],
       branchFeePhp: 0,
       branchAutoRadius: 25,
       branchPay: { accounts: [], open: [] } as unknown as DetailsData['branch']['branchPay'],
     },
     pay: { methods, measured: true },
+    deepSearch: labDeepSearchOffer(f.tier, f.verified),
+    lastDeepSearch: labLastDeepSearch(who),
+    onSetnayanSince: '2026-10-03T02:00:00Z',
     logoUnavailable: false,
     progress: detailsProgress({
       checklist,
@@ -302,7 +373,7 @@ export function labSetupDetails(docs: 'none' | 'checking' | 'fix' = 'none', stag
   };
 }
 
-function invitedDetailsFixture(): DetailsData {
+function invitedDetailsFixture(asked = false): DetailsData {
   const base = detailsFixture('caterer');
   const has = new Set(['business_name', 'contact_email', 'services']);
   const checklist = base.checklist.map((i) => ({ ...i, ok: has.has(i.key) }));
@@ -339,6 +410,27 @@ function invitedDetailsFixture(): DetailsData {
     }),
     fromInvite: true,
     hasLogo: false,
+    // 🏷 Setnayan set this shop up (owner 2026-10-29): the name it typed changes by request; the blank address is
+    // hers to create. `&asked=1` — a name change already waiting on Setnayan.
+    requestOnly: ['business_slug', 'business_name'],
+    setUpBySetnayan: true,
+    openCorrections: asked
+      ? [
+          {
+            id: 1,
+            public_id: 'S89C-LABASKED01',
+            vendor_profile_id: 'lab-invited',
+            field_key: 'business_name',
+            current_value: 'Tita Nena’s Catering',
+            requested_value: 'Tita Nena’s Kitchen',
+            note: null,
+            status: 'open',
+            created_at: '2026-10-29T01:00:00Z',
+            resolved_at: null,
+            resolved_by: null,
+          },
+        ]
+      : [],
   };
 }
 
@@ -431,9 +523,12 @@ function pageFixture(who: Who): PageClientData {
     // The same question the real page asks — false for every plan while the owner's switch is off.
     personalizeAsks: vendorPaywallApplies(f.tier !== 'free'),
     proAsks: vendorPaywallApplies(f.tier === 'pro'),
+    addressAsks: vendorPaywallApplies(tierCaps(f.tier).customWebsiteName),
+    addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
-    badges: { summary: trackerSummary(bf), pills: shopBadges(bf), next: nextToEarnLine(bf.completedEvents), rows: badgeTracker(bf), saveHref: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg(badgesForPrint(bf))).toString('base64')}` },
+    // Page keeps the pills only (owner 2026-11-06); the tracker is Analytics › Your badges (`?s=coord-badges`).
+    badges: { summary: trackerSummary(bf), pills: shopBadges(bf) },
   };
 }
 
@@ -441,6 +536,42 @@ function pageFixture(who: Who): PageClientData {
  * 💳 `&port=48|50|spend|short|unread` on collections — the portfolio priced by the free room, then the shop wallet
  * (frames port-48 · port-50 · port-spend · F3 · F1). Fake refs with flat tile images; nothing is stored.
  */
+/** 🧰 The lab shops' services and cards (v13 S5) — two services for the caterer, one with no card yet for the parish. */
+function labServiceRows(who: Who) {
+  const card = (id: string, cov: number | null, category: string, price: number, on = true): ShopCardLite => ({
+    vendor_service_id: id,
+    coverage_id: cov,
+    category,
+    is_active: on,
+    starting_price_php: price,
+  });
+  const fx: Record<Who, { cov: { id: number; canonical_service: string }[]; cards: ShopCardLite[]; labels: Record<string, string> }> = {
+    parish: {
+      cov: [
+        { id: 1, canonical_service: 'reception' },
+        { id: 2, canonical_service: 'officiants' },
+      ],
+      cards: [card('c1', 1, 'church', 25_000), card('c2', 1, 'church', 38_000, false)],
+      labels: { reception: 'Church wedding', officiants: 'Officiant' },
+    },
+    caterer: {
+      cov: [
+        { id: 1, canonical_service: 'catering' },
+        { id: 2, canonical_service: 'cake' },
+      ],
+      cards: [card('c1', 1, 'catering', 45_000), card('c2', 1, 'catering', 65_000), card('c3', 1, 'catering', 95_000), card('c4', 2, 'cake', 8_500, false)],
+      labels: { catering: 'Catering', cake: 'Wedding cake' },
+    },
+    studio: {
+      cov: [{ id: 1, canonical_service: 'photographer' }],
+      cards: [card('c1', 1, 'photographer', 55_000)],
+      labels: { photographer: 'Photo & video' },
+    },
+  };
+  const f = fx[who];
+  return shopServiceRows(f.cov, f.cards, (cs) => f.labels[cs] ?? cs);
+}
+
 function labPortfolio(who: string, port: string | undefined) {
   // One flat 1×1 PNG stands in for every photo (a still raster — never an SVG, which would read as a logo draw).
   const tile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4dm4fAATgAmPxoKUWAAAAAElFTkSuQmCC';
@@ -453,7 +584,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, port }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -496,6 +627,32 @@ export function PageLab({ state, who: rawWho, draft, invited = false, port }: { 
       </div>
     );
   }
+  if (state === 'services') {
+    const rows = fail ? null : labServiceRows(who);
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-services="">
+        <ShopSegments on="services" figures={servicesFigures(rows)} />
+        <ShopServiceRows rows={rows} />
+        <p className="text-[13px] text-ink/55" data-lab-stand-in="cards">
+          The cards list (the shipped services manager) draws here — it reads the database itself.
+        </p>
+      </section>
+    );
+  }
+  if (state === 'analytics') {
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-analytics="">
+        <ShopSegments
+          on="insights"
+          figures={analyticsFigures(fail ? null : { views: 86, inquiries: 9, booked: 3 }, fail ? null : { views: 77, inquiries: 6, booked: 2 })}
+        />
+        <h1 className="sn-h1">How is my business doing</h1>
+        <p className="text-[13px] text-ink/55" data-lab-stand-in="analytics">
+          The funnel, the comparison and the badges draw here — they read the database themselves.
+        </p>
+      </section>
+    );
+  }
   if (state === 'avatar') {
     return (
       <div className="flex justify-end p-4" data-lab-avatar="">
@@ -516,10 +673,46 @@ export function PageLab({ state, who: rawWho, draft, invited = false, port }: { 
     );
   }
   if (state === 'details') {
-    const d = invited ? invitedDetailsFixture() : detailsFixture(who);
+    const d = invited ? invitedDetailsFixture(asked) : detailsFixture(who);
     return (
       <DetailsScreen
         d={d}
+        gearBody={
+          gear ? (
+            <ShopSettingsRows
+              planLine="Solo · Papic credits · receipts"
+              wallet={{ title: walletRowTitle(fail ? null : 128), line: fail ? walletRowSubline({ balance: null, pendingPack: null }, formatPhp) : 'Portfolio and any event · packs you bought' }}
+              plan={
+                <p className="text-sm text-ink/60" data-lab-stand-in="plan">
+                  The Plan screen draws here — your plan, what it gives you, receipts (it reads the database itself; see
+                  /dev/supplier-plan-lab?s=plan for the same screen on fixtures).
+                </p>
+              }
+              team={
+                <p className="text-sm text-ink/60" data-lab-stand-in="team">
+                  The Helpers screen draws here (it reads the database itself; see /dev/supplier-plan-lab?s=helpers).
+                </p>
+              }
+              docs={{
+                isVerified: d.isVerified,
+                docsIn: d.docsIn,
+                docsTotal: d.docsTotal,
+                measured: d.verifyMeasured,
+                row: d.progress.rows.find((r) => r.key === 'docs')!,
+                section: (
+                  <VerifySection
+                    businessName={d.businessName}
+                    vendorProfileId={d.vendorId}
+                    isVerified={d.isVerified}
+                    profileComplete={d.profileComplete}
+                    profileFieldsLeft={d.fieldsLeft}
+                    verify={d.verify}
+                  />
+                ),
+              }}
+            />
+          ) : null
+        }
         branchBody={<BranchPanel {...d.branch} />}
         payBody={
           <p className="text-sm text-ink/60" data-lab-stand-in="pay">
@@ -534,12 +727,23 @@ export function PageLab({ state, who: rawWho, draft, invited = false, port }: { 
     const d = pageFixture(who);
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-page="" data-lab-draft={draft ? '' : undefined}>
-        <ShopSegments on="page" />
+        <ShopSegments on="page" figures={pageFigures({ views30: fail ? null : 86, reviewCount: fail ? null : d.reviewCount, rating: d.rating })} />
         <h1 className="sr-only">Your page</h1>
         {draft ? <LabSeedDraft vendorId={d.vendorId} /> : null}
         <PageParts
           d={d}
-          domainBody={<DomainManager initial={[]} />}
+          domainBody={
+            <DomainManager
+              initial={
+                domains
+                  ? [
+                      { domain_id: 'lab-domain-1', domain: 'sny.lightsandlace.ph', verified: true },
+                      { domain_id: 'lab-domain-2', domain: 'book.lightsandlace.com', verified: false },
+                    ]
+                  : []
+              }
+            />
+          }
           autoReplyBody={
             <AutoReplyCard
               initialEnabled
@@ -547,6 +751,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, port }: { 
               initialAutoAcceptThreshold={80}
             />
           }
+          reviewsBody={<ReviewReplies reviews={fail ? null : LAB_REVIEWS} vendorName={d.businessName} capped={false} />}
         />
       </section>
     );
@@ -557,7 +762,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, port }: { 
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
-        <ShopSegments on="page" />
+        <ShopSegments on="gallery" figures={galleryFigures({ photos: f.collections.page?.photos ?? 0, videos: f.collections.page?.videos ?? 0, credits: fail ? null : lp.walletBalance })} />
         <h1 className="sn-h1">Your collections</h1>
         <CollectionsList
           vendorId={`lab-${who}`}

@@ -262,3 +262,21 @@ test('the guest seat functions ask the SQL rule, not published_at', () => {
     assert.equal(fpPublished.length, 0, `${fn} must not read event_floor_plan.published_at by itself`);
   }
 });
+
+// 🪑 THE SUPPLIER READERS ASK THE SAME RULE (supplier go-live audit E2, 2026-11-02). A booked caterer or venue was
+// still told `not_published` on the event day when the couple never flipped "early", while every guest at the door
+// could see their table. The seat plan's gate and the brief's "Published" pill now ask `guests_may_see_seats()`.
+test('the supplier seat readers ask the SQL rule, not the early switch alone', () => {
+  const cases: Array<[string, RegExp]> = [
+    ['get_vendor_seat_plan', /v_plan\.published_at IS NULL/],
+    ['get_vendor_event_brief', /fp\.published_at IS NOT NULL/],
+  ];
+  for (const [fn, switchAlone] of cases) {
+    const f = latestDefining(fn);
+    const sql = readFileSync(join(MIGRATIONS, f), 'utf8');
+    const a = sql.search(new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\s*\\(`, 'i'));
+    const body = sql.slice(a, sql.indexOf('$$;', a)).replace(/--[^\n]*/g, '');
+    assert.match(body, /public\.guests_may_see_seats\(p_event_id\)/, `${fn} (${f}) asks the one rule`);
+    assert.doesNotMatch(body, switchAlone, `${fn} (${f}) still gates on the early switch alone`);
+  }
+});

@@ -109,17 +109,16 @@ test('6 · the route never sends an empty file for a refused read, and keeps the
   assert.match(route, /'Cache-Control': 'private, no-store'/);
   assert.match(route, /assignmentsRead\.measured && tablesRead\.measured/, 'an unread seat plan drops the Table column');
   const screen = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'), 'utf8'));
-  // 📤 Since the summary carousel (owner 2026-10-27) the counts strip is gone; the file is a ≡ choice on the List's thumb
-  // row, wearing the SHARE icon (owner 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON") — one tap from the list still.
+  // 📤 Since the summary carousel (owner 2026-10-27) the counts strip is gone; the file wears the SHARE icon (owner
+  // 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON"). 3 Nov ("so fix their locations" — the filter only filters): it left
+  // the List's ≡ for Guests ⚙ as "Download as Excel", the screen handing its save to the ⚙ rows.
   assert.match(screen, /const excel = useGuestsExcel\(eventId, toast\);/, 'the list lost its Excel');
-  assert.match(
-    screen,
-    /\{ key: GUESTS_EXCEL_KEY, label: excel\.label, group: 'File', icon: <Share\b/,
-    'Save as Excel is not a ≡ choice wearing the share icon',
-  );
-  const sortMenu = screen.slice(screen.indexOf('const sortMenu: ThumbMenu = {'), screen.indexOf('const arrangeMenu: ThumbMenu = {'));
-  assert.match(sortMenu, /\bfileOptions,/, 'the List’s ≡ does not offer Save as Excel');
-  assert.match(sortMenu, /if \(k === GUESTS_EXCEL_KEY\) return excel\.save\(\);/, 'picking Save as Excel does not save the file');
+  assert.match(screen, /<GuestsExcelContext\.Provider value=\{copy\?\.freshness === 'failed' \? null : excel\}>\s*<OpenRequestsContext\.Provider[^>]*>\{setupRows\}/, 'the ⚙ rows are not handed the Excel save (or the failed copy offers one)');
+  const rows = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', '_components', 'guest-setup', 'guest-setup-rows.tsx'), 'utf8'));
+  const row = rows.slice(rows.indexOf('function DownloadExcelRow('));
+  assert.match(row, /name="Download as Excel"/, 'Guests ⚙ has no Download as Excel');
+  assert.match(row, /icon=\{Share\}[^/]*onClick=\{excel\.save\}/, 'Download as Excel does not wear the share icon and save the file');
+  assert.match(rows, /<FinalizeRow [^/]*\/>\s*<DownloadExcelRow \/>/, 'Download as Excel is not in the ⚙ sheet');
   // 🐞 Owner 27 Oct (iPhone app): the bare `<a download>` RENDERED the CSV in the app's only view, no close button,
   // nothing saved. The pick must be SAVED (share sheet / download) through the shared save — never a link at all.
   const button = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-excel-button.tsx'), 'utf8'));

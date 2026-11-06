@@ -155,7 +155,7 @@ export const EVENT_TYPE_PHOTO_FACES: Readonly<Record<string, FaceSpan>> = {
   reunion: [0.46, 0.63], // the elder walking in + the near end of the table
   simple_event: [0.15, 0.36],
   tournament: [0.14, 0.38],
-  travel: [0.09, 0.24],
+  travel: [0.48, 0.60],
   // No faces near the casket: the span is the mourners standing behind it.
   wake: [0.21, 0.28],
   wedding: [0.47, 0.53], // the couple walking in

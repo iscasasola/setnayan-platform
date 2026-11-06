@@ -29,3 +29,4 @@ Owner, 7 Nov: "update the photos", in create event, the front page and everywher
 
 SPEC IMPACT: None. This swaps the photo assets with no product decision. A follow-up sets
 `service_categories.sample_photo_r2_key` for event_staffing and prayers after #7355.
+- 7 Nov (later): travel.webp replaced too (owner's round-6 keeper, family in linen on a limestone-cliff beach; face span [0.48, 0.60]). Tournament still waits for a clean keeper.

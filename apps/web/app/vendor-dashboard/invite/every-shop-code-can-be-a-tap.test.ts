@@ -7,7 +7,7 @@
  * device explanation (iPhone browser → the Setnayan app or an Android phone) is the shared sheet's own words. This file
  * pins the two halves that make that true for the supplier's QR codes page, with the COUNT printed:
  *
- *   1. every code the page can show (Shortlist · Booked · Check a date · My page · Crew) is drawn by `QrCard`;
+ *   1. every code the page can show (Shortlist · Booked · Check a date · My page · Reviews · Crew) is drawn by `QrCard`;
  *   2. `QrCard` hands the strip the card's own `url`.
  *
  * And the one place the owner kept NFC OFF stays off: the couple's supplier-connect panel (build plan 2026-10-07).
@@ -29,6 +29,7 @@ const CARD_OF_MODE: Record<(typeof SUPPLIER_QR_MODES)[number], string> = {
   dates: 'check-a-date',
   page: 'my-page',
   crew: 'crew',
+  reviews: 'reviews',
 };
 
 test('every shop code is drawn by QrCard — so each carries Write to NFC', () => {
@@ -59,12 +60,18 @@ test('the couple’s supplier-connect panel stays without Write to NFC (2026-10-
   assert.doesNotMatch(src, /NfcWriteButton|<QrActions|<QrCard/);
 });
 
-test('the door sticker has ONE home — Shop › Promote, never Customers › QR codes (2026-11-05)', () => {
-  // Promote is the home of the shop's prints (owner 2026-11-05). `QrCodes` draws in both homes, so the sticker must ask
-  // for `place === 'promote'` — without it, Customers (Booked · Crew) would carry a second copy of the same print.
-  const src = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
-  const mounts = [...src.matchAll(/\{([^{}]*)\?\s*<DoorSticker\b/g)].map((m) => m[1] ?? '');
-  console.log(`door sticker mounts: ${mounts.length} · gated on Promote: ${mounts.filter((g) => /place === 'promote'/.test(g)).length}`);
-  assert.equal(mounts.length, 1, 'the door sticker is drawn exactly once');
-  assert.match(mounts[0] ?? '', /place === 'promote'/, 'the door sticker must draw only on Shop › Promote');
+test('the door piece has ONE home — Prints, reached from a code’s “Put it on…” (Option B, 2026-11-06)', () => {
+  // Retargeted from “the door sticker has ONE home — Shop › Promote” (2026-11-05). Owner 2026-11-06, ONE HOME FOR EVERY
+  // PROMOTE TOOL: the door print is a piece INSIDE Prints, so the cream door-sticker fold under QR codes is gone; a
+  // code's sheet hands its code to the Prints sheet's door piece instead (`putOn(key, 'door')`).
+  const codes = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  const list = read('app/vendor-dashboard/invite/_components/qr-code-list.tsx');
+  const mounts = [...codes.matchAll(/<DoorSticker\b/g)].length + [...list.matchAll(/<DoorSticker\b/g)].length;
+  const putOnDoor = [...list.matchAll(/putOn\([^)]*'door'\)/g)].length;
+  console.log(`door sticker mounts in QR codes: ${mounts} · “Put it on… › Door print” hand-offs: ${putOnDoor}`);
+  assert.equal(mounts, 0, 'the door sticker fold is back under QR codes — the door piece lives in Prints');
+  assert.equal(fs.existsSync(path.join(WEB, 'app/vendor-dashboard/invite/_components/door-sticker.tsx')), false, 'the old door-sticker fold component is back');
+  assert.equal(putOnDoor, 1, 'a code’s sheet must offer “Put it on… › Door print” exactly once');
+  const prints = read('app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx');
+  assert.match(prints, /ask\.piece === 'door'/, 'the Prints sheet must open its door piece when a code is put on it');
 });

@@ -256,12 +256,13 @@ export function groundCss(d: PrintDesign): string {
 /**
  * ⭐ REVIEWS joins the print codes (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL", a controller call
  * under the owner's "use fable to decide": *"a Reviews QR (`/v/<slug>#reviews`) joins the prints QR ▾ (For Suppliers
- * promises a printable review QR)"*). It opens the shop's own page at its reviews (`printQrUrl`). Print-only: the
- * Promote screen's code picker stays Check a date · Shortlist · My page.
- * ⚠ Its title and caption are NOT in the prototype (its QR table has three rows) — "Reviews" / "Scan to read our
- * reviews" are this build's words, flagged for the owner.
+ * promises a printable review QR)"*). It opens the shop's own page at its reviews (`printQrUrl`). Since QR codes
+ * Option B (owner 2026-11-06, *"B"*) the Promote list carries it too — the prints and the list pick from ONE list of
+ * four (`PROMOTE_QR_MODES`), so a print's code is always one of the codes the list shows.
+ * ⚠ Its title and caption are NOT in the prints prototype (its QR table has three rows) — "Reviews" / "Scan to read
+ * our reviews" are this build's words, flagged for the owner.
  */
-export type PrintQrMode = PromoteQrMode | 'reviews';
+export type PrintQrMode = PromoteQrMode;
 
 export const PRINT_QR: Readonly<Record<PrintQrMode, { t: string; sub: string; cap: string }>> = {
   dates: { t: 'Check a date', sub: 'free', cap: 'Scan to check our dates' },
@@ -428,4 +429,20 @@ export function printFilename(piece: PrintPiece, design: PrintDesign, who?: stri
   const slug = (s: string) => s.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const me = who ? slug(who) : '';
   return `setnayan-${slug(piece.name)}${me ? `-${me}` : ''}-${slug(design.name)}.svg`;
+}
+
+/**
+ * SAVE ALL (the prints prototype's head button, 5 Nov): every piece's print-ready file in ONE zip, drawn by the same
+ * route with the same look, code and `hide` — `piece=all` (the route answers it with `application/zip`).
+ */
+export const PRINT_ALL = 'all';
+export function printAllHref(o: { design: string; qr: PrintQrMode; base?: string; hide?: readonly PrintBlock[] }): string {
+  const q = new URLSearchParams({ piece: PRINT_ALL, design: o.design, qr: o.qr, save: '1' });
+  const hidden = printHidden(o.hide ?? []);
+  if (hidden.length) q.set('hide', hidden.join(','));
+  return `${o.base ?? PRINTS_API}?${q.toString()}`;
+}
+export function printAllFilename(design: PrintDesign): string {
+  const slug = design.name.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `setnayan-prints-${slug}.zip`;
 }

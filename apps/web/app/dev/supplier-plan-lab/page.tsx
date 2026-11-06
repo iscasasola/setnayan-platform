@@ -282,6 +282,14 @@ function businessFixture(who: Who, fresh: boolean) {
   );
 }
 
+/** YOUR FACTS' Verified seal + the badges piece read these on the lab — the fixture shop's facts as a data: URI (no route). */
+function labBadgeFactsUrl(long: boolean): string {
+  const facts = long
+    ? { verified: true, completedEvents: 100, trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 }, inBusinessSinceYear: 2014, awards: [], nowYear: 2026 }
+    : { verified: false, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 };
+  return `data:application/json;base64,${Buffer.from(JSON.stringify({ facts })).toString('base64')}`;
+}
+
 export default async function SupplierPlanLabPage({
   searchParams,
 }: {
@@ -343,6 +351,8 @@ export default async function SupplierPlanLabPage({
         setupHref="/dev/supplier-plan-lab?s=prints"
         artBase={`/dev/supplier-plan-lab/prints-art/${sp.long === '1' ? 'long' : 'plain'}`}
         member={sp.noname === '1' ? null : { name: 'Juan dela Cruz', role: sp.long === '1' ? 'Head chef' : null }}
+        facts={sp.long === '1' ? { name: 'Casa Buenaventura Catering & Events Services', line: 'Catering' } : { name: 'Setnayan Productions', line: 'Weddings & Events' }}
+        badgeFactsUrl={labBadgeFactsUrl(sp.long === '1')}
       />
     );
   else if (s === 'gifts-couple')

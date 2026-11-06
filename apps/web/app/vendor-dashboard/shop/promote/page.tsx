@@ -8,10 +8,12 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import type { VendorCategory } from '@/lib/vendors';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { siteOrigin } from '@/lib/site-origin';
-import { PROMOTE_HREF, PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL, myPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { PROMOTE_HREF, PROMOTE_QR_MODES, myPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { ShopSegments } from '../_components/shop-segments';
 import { shopGearBody } from '../_components/shop-settings-body';
-import { QrCodes, type QrPick } from '../../invite/_components/qr-codes';
+import { QrCodes } from '../../invite/_components/qr-codes';
+import { PromoteBridge } from './_components/promote-bridge';
 import { promoteFigures } from '@/lib/shop-section-figures';
 import { ShopGiftsSection } from './_components/shop-gifts-section';
 import { loadShopGiftsSection } from './_components/shop-gifts-data';
@@ -29,7 +31,9 @@ export const dynamic = 'force-dynamic';
  * belong under Customers; they belong in Shop, beside the website, print materials and gifts. Owner, verbatim: "So the
  * location of our for page is correct" — the For Suppliers page already presents them that way).
  *
- * PART 1 — the three marketing codes MOVED here from Customers › QR codes, same component, same words, same behaviour:
+ * PART 1 — 🔳 QR CODES, ONE LIST (Option B, owner 2026-11-06 *"B"*): a row per code — Check a date · Shortlist · My page
+ * · Reviews — each opening its sheet (Share · Copy link · Download · Write to NFC · Put it on… Door print / Prints).
+ * The three below were the dropdown's choices before it; they MOVED here from Customers › QR codes:
  *   • Shortlist · free     — stateless slug invite; a scan imports the shop onto the couple's shortlist under the picked
  *                            event type + service (`buildVendorInviteUrl`).
  *   • Check a date · free  — the shop's one permanent code → `/v/<slug>/dates` (`lib/check-a-date-qr.ts`).
@@ -85,26 +89,34 @@ export default async function ShopPromotePage({
   // 🪪 The signed-in member's own calling card (owner 2026-11-06, "Yes") — their account name and Team label; no name =
   // no card. Read beside the gifts and the share read (a refused read = no personal card, never a broken sheet).
   const memberPromise = canShare ? readPrintMember(createAdminClient(), profile.vendor_profile_id, user.id).catch(() => null) : Promise.resolve(null);
-  const modeOptions: QrPick[] = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${PROMOTE_HREF}?mode=${key}` }));
-  const common = { place: 'promote' as const, backHref: PROMOTE_HREF, modeOptions, setupHref: '/vendor-dashboard/shop', booked: null };
+  // 🔳 OPTION B (owner 2026-11-06, *"B"*): ONE LIST of the shop's four codes, every one drawn on this visit (each row
+  // shows its code). `?mode=` names the code whose sheet opens on arrival (an old "Which code ▾" link, a Shortlist pick).
+  const opened: PromoteQrMode | null = search.mode && (PROMOTE_QR_MODES as readonly string[]).includes(search.mode) ? mode : null;
+  const common = { place: 'promote' as const, open: opened, backHref: PROMOTE_HREF, setupHref: '/vendor-dashboard/shop', booked: null };
+
+  const kindLabel = await cardKindLabeller();
+  const profileServices = ((profile as { services?: string[] | null }).services ?? []) as string[];
+  // 🖨 YOUR FACTS (prints prototype, 5 Nov): the name and the line every print carries — the SAME builder the renderer uses.
+  const printFacts = { name: shopName, line: printLine(profileServices, (profile as { tagline?: string | null }).tagline ?? null, kindLabel) };
 
   let body;
   if (!canShare) {
-    body = <QrCodes {...common} mode={mode} canShare={false} shortlist={null} />;
-  } else if (mode === 'dates') {
-    body = <QrCodes {...common} mode="dates" canShare shortlist={null} checkADate={{ ...(await checkADateQr(slug!)), shopName }} />;
-  } else if (mode === 'page') {
-    const url = myPageUrl(siteOrigin(), slug!);
-    body = <QrCodes {...common} mode="page" canShare shortlist={null} myPage={{ url, svg: await renderUrlQrSvg(url, 220).catch(() => null), shopName }} />;
+    body = <QrCodes {...common} canShare={false} shortlist={null} />;
   } else {
-    const kindLabel = await cardKindLabeller();
-    const profileServices = ((profile as { services?: string[] | null }).services ?? []) as string[];
+    const origin = siteOrigin();
     const eventTypes = await getCreatableEventTypes();
     const coverage = vendorCoverageCategories(profileServices);
     const selectedCat = search.cat && coverage.includes(search.cat as VendorCategory) ? (search.cat as VendorCategory) : null;
     const selectedEt = search.et && eventTypes.some((t) => t.key === search.et) ? search.et : null;
-    const url = buildVendorInviteUrl(slug!, { eventType: selectedEt, category: selectedCat });
-    const svg = await renderUrlQrSvg(url, 220).catch(() => null);
+    const shortUrl = buildVendorInviteUrl(slug!, { eventType: selectedEt, category: selectedCat });
+    const pageUrl = myPageUrl(origin, slug!);
+    const reviewsUrl = printQrUrl('reviews', origin, slug!);
+    const [dates, shortSvg, pageSvg, reviewsSvg] = await Promise.all([
+      checkADateQr(slug!),
+      renderUrlQrSvg(shortUrl, 220).catch(() => null),
+      renderUrlQrSvg(pageUrl, 220).catch(() => null),
+      renderUrlQrSvg(reviewsUrl, 220).catch(() => null),
+    ]);
     const href = (et: string | null, cat: string | null) => {
       const q = new URLSearchParams({ mode: 'shortlist' });
       if (et) q.set('et', et);
@@ -115,11 +127,13 @@ export default async function ShopPromotePage({
     body = (
       <QrCodes
         {...common}
-        mode="shortlist"
         canShare
+        checkADate={{ ...dates, shopName }}
+        myPage={{ url: pageUrl, svg: pageSvg, shopName }}
+        reviews={{ url: reviewsUrl, svg: reviewsSvg, shopName }}
         shortlist={{
-          url,
-          svg,
+          url: shortUrl,
+          svg: shortSvg,
           shopName,
           eventPick: {
             value: selectedEt ?? 'any',
@@ -141,8 +155,11 @@ export default async function ShopPromotePage({
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
       <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.balance : null })} gearBody={shopGearBody(search)} />
-      {body}
-      <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} />
+      {/* 🔗 A code's "Put it on…" hands THAT code to the Prints sheet (Option B) — one ask, held while the page is open. */}
+      <PromoteBridge>
+        {body}
+        <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} facts={printFacts} />
+      </PromoteBridge>
       <ShopGiftsSection data={gifts} />
       <ShareYourWork data={share} />
     </section>

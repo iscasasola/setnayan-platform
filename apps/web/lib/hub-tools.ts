@@ -196,7 +196,7 @@ export function isHubToolKey(v: unknown): v is HubToolKey {
   return typeof v === 'string' && LIBRARY_KEYS.has(v);
 }
 
-/** The code library as records — the SEED of `hub_tools` (migration 20271316572565 inserts exactly these). */
+/** The code library as records — the SEED of `hub_tools` (migration 20271320088321 inserts exactly these). */
 export const HUB_TOOL_RECORDS: readonly HubToolRecord[] = HUB_TOOL_LIBRARY.map((t) => ({ key: t.key, label: t.label, template: t.template }));
 
 export function isHubToolTemplate(v: unknown): v is HubToolTemplate {

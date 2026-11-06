@@ -1,8 +1,8 @@
 # HANDOVER — Builder AS · admin supplier slice · STOPPED 2026-10-29 (controller: Mac out of memory)
 
 PR **#7006** — draft · `do-not-auto-merge` · auto-merge off · branch `claude/admin-supplier-slice`.
-2 migrations (NOT applied; the pipeline applies on merge): `20271315895259_notification_type_supplier_request_answered.sql`,
-`20271316572565_admin_supplier_slice.sql`. Write-up: `changelog.d/admin-supplier-slice.md`. PR body = the summary.
+2 migrations (NOT applied; the pipeline applies on merge): `20271320070113_notification_type_supplier_request_answered.sql`,
+`20271320088321_admin_supplier_slice.sql`. Write-up: `changelog.d/admin-supplier-slice.md`. PR body = the summary.
 
 ## Built (all in Work, Categories › Hub tools, /admin/help)
 Documents · Name/address requests (+ `decline_reason`) · Flagged cards (repost match · unverified shop; no price reason) ·

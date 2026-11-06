@@ -40,8 +40,8 @@ Owner, verbatim: *"A"* (DECISION_LOG 2026-10-28 "ADMIN SUPPLIER SLICE APPROVED �
   route — it had no admin gate of its own.
 - In-app only: new notification type `supplier_request_answered` (NOT on the email allowlist). Server actions: +0 net
   (`setCategoryHubTools` +1, `applyApplicationDecision` −1; the verify settle moved files).
-- Migrations: `20271315895259_notification_type_supplier_request_answered.sql` (enum value, own file) ·
-  `20271316572565_admin_supplier_slice.sql` (`decline_reason` + `hub_tools` · `category_hub_tool_switches` ·
+- Migrations: `20271320070113_notification_type_supplier_request_answered.sql` (enum value, own file) ·
+  `20271320088321_admin_supplier_slice.sql` (`decline_reason` + `hub_tools` · `category_hub_tool_switches` ·
   `category_hub_settings`, RLS at CREATE: read signed-in, write `is_admin()`). Not applied — the pipeline applies on merge.
 - Screen shape (owner-approved admin redesign, 28 Oct — the 5-tab shell itself is a separate PR): a supplier row
   opens IN PLACE on a phone and as a RIGHT-SIDE PANEL at tablet (768) and desktop (1280), never a stretched phone

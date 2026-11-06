@@ -147,6 +147,12 @@ CREATE TABLE IF NOT EXISTS public.supplier_scan_claims (
   method             TEXT NOT NULL CHECK (method IN ('supplier_qr', 'supplier_nfc')),
   scanned_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
   claimed_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- A Once claim is received the moment it is made. The column exists from this slice on because the one guest-review
+  -- writer (`vendor_guest_review_submit`, #7337) reads `state = 'received'` as soon as this table exists — without it
+  -- every guest review from a guest the door never checked in fails with "column c.state does not exist" until slice 2
+  -- ships. Slice 2 (ordered → received) widens this CHECK by name; its ADD COLUMN IF NOT EXISTS is then a no-op.
+  state              TEXT NOT NULL DEFAULT 'received'
+                       CONSTRAINT supplier_scan_claims_state_check CHECK (state IN ('received')),
   FOREIGN KEY (event_id, guest_id)
     REFERENCES public.guests (event_id, guest_id) ON DELETE CASCADE
 );

@@ -12,6 +12,10 @@ QR vs NFC) and 2026-10-29 "A SUPPLIER'S TOOLS + SCANNER ARE SET ONCE PER SERVICE
   `supplier_scan_services` · `supplier_scan_shop_for` (SECURITY DEFINER): shop or its day-of grantee · booked · the
   booked service · scanner ON · a listed guest of THIS event; anything else writes nothing. RLS at CREATE; suppliers have
   no read of the claim rows.
+- `supplier_scan_claims.state` exists from this slice (`'received'` only; slice 2 widens it). #7337's one guest-review
+  writer reads `state = 'received'` as soon as the table exists, so without it, shipping this slice alone would make
+  every review from a guest the door never checked in fail with "column c.state does not exist" — caught by #7337's
+  own `host-and-guest-reviews.db.test.ts` in this PR's DB replay.
 - **Shop › Services**: each service row gets ONE dropdown under it — Scanner: Off · Once (`ServiceScannerPick`); the save
   runs behind the choice and a refusal puts it back.
 - **Event Hub › Scanner** (`EventHubScanner` → `SupplierClaimScanner`): the service, its mode, the last number and

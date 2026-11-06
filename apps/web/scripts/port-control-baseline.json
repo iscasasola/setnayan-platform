@@ -12506,6 +12506,7 @@
         "PageParts",
         "PeopleLab",
         "QrCodes",
+        "ReviewReplies",
         "RosterRow",
         "RunOfShowHeader",
         "ScanLab",
@@ -12563,7 +12564,8 @@
         "QuoteShopGiftNote",
         "SettingsView",
         "ShopGiftsLedger",
-        "ShopGiftsSection"
+        "ShopGiftsSection",
+        "ShopPrintsSection"
       ]
     },
     "/dev/suppliers-lab": {
@@ -14392,7 +14394,6 @@
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
         "/vendor-dashboard/profile",
-        "/vendor-dashboard/reviews",
         "/vendor-dashboard/settings",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription",
@@ -16040,7 +16041,6 @@
         "ReplyClaimCard",
         "ReputationCard",
         "RoiAttributionCard",
-        "SaveFileLink",
         "SectionEyebrow",
         "ServiceScopeSelectClient",
         "ServiceScopeSelector",
@@ -16138,32 +16138,17 @@
       "files": [
         "vendor-dashboard/real-stories/page.tsx"
       ],
-      "destinations": [
-        "/[seg]",
-        "/realstories"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Link",
-        "SaveStoryCardButton",
-        "ShareButtons"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/recaps": {
       "files": [
         "vendor-dashboard/recaps/page.tsx"
       ],
-      "destinations": [
-        "/[seg]/recap"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Link",
-        "SaveStoryCardButton",
-        "ShareButtons",
-        "ShopEmpty",
-        "VendorTierGate"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/recommendations": {
       "files": [
@@ -16217,30 +16202,11 @@
     "/vendor-dashboard/reviews": {
       "files": [
         "vendor-dashboard/reviews/actions.ts",
-        "vendor-dashboard/reviews/loading.tsx",
         "vendor-dashboard/reviews/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "postVendorReply",
-        "submitFlagAsFake"
-      ],
-      "blocks": [
-        "AxisStat",
-        "ExistingReplySection",
-        "FlagForm",
-        "ListPageSkeleton",
-        "ReplyForm",
-        "ReviewAxis",
-        "StarRow",
-        "StatsOverview",
-        "SubmitButton",
-        "TrackRecord",
-        "VendorCompletedEventRow",
-        "VendorReviewCard",
-        "VerifiedBookingPill",
-        "VerifiedWeddingPill"
-      ]
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/services": {
       "files": [
@@ -16514,11 +16480,8 @@
         "/vendor-dashboard/packages",
         "/vendor-dashboard/partnerships",
         "/vendor-dashboard/profile",
-        "/vendor-dashboard/real-stories",
-        "/vendor-dashboard/recaps",
         "/vendor-dashboard/recommendations",
         "/vendor-dashboard/repertoire",
-        "/vendor-dashboard/reviews",
         "/vendor-dashboard/services",
         "/vendor-dashboard/team",
         "/vendor-dashboard/theft-watch",
@@ -16661,8 +16624,11 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/share-your-work-data.ts",
+        "vendor-dashboard/shop/promote/_components/share-your-work.tsx",
         "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
         "vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx",
+        "vendor-dashboard/shop/promote/_components/shop-prints-section.tsx",
         "vendor-dashboard/shop/promote/page.tsx"
       ],
       "destinations": [],
@@ -16671,18 +16637,40 @@
       ],
       "blocks": [
         "ActionButton",
+        "Art",
+        "ArtBase.Provider",
+        "BadgeRead",
+        "BadgesPiece",
+        "Big",
+        "BigPiece",
+        "BigScene",
         "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
         "Counter",
         "DatesRow",
         "Fold",
+        "HTMLDivElement",
         "InfoTip",
+        "Link",
         "PaymentsPausedNote",
         "PickMenu",
+        "PiecePicture",
+        "PrintQrMode",
+        "PrintsSheet",
         "QrCodes",
+        "SaveButton",
+        "SaveFileLink",
+        "SaveStoryCardButton",
+        "Scene",
+        "ShareButtons",
+        "ShareRow",
+        "ShareYourWork",
+        "ShareYourWorkData",
         "Sheet",
+        "ShopBadgePill",
         "ShopGiftsSection",
         "ShopGiftsSectionData",
+        "ShopPrintsSection",
         "ShopSegments",
         "SupplierSubmit"
       ]
@@ -16849,6 +16837,7 @@
     "/vendor-dashboard/website": {
       "files": [
         "vendor-dashboard/website/_components/page-parts.tsx",
+        "vendor-dashboard/website/_components/review-replies.tsx",
         "vendor-dashboard/website/_components/use-page-draft.ts",
         "vendor-dashboard/website/_domain-manager.tsx",
         "vendor-dashboard/website/actions.ts",
@@ -16859,18 +16848,23 @@
       "destinations": [
         "/vendor-dashboard/collections",
         "/vendor-dashboard/profile",
-        "/vendor-dashboard/reviews",
         "/vendor-dashboard/subscription"
       ],
-      "actions": [],
+      "actions": [
+        "postVendorReply",
+        "submitFlagAsFake"
+      ],
       "blocks": [
         "ActionButton",
         "AutoReplySection",
+        "AxisStat",
         "Badge",
         "ColourPickerSheet",
         "DatesRow",
         "DomainActionResult",
         "DomainManager",
+        "ExistingReplySection",
+        "FlagForm",
         "Fold",
         "FormPageSkeleton",
         "FormRows",
@@ -16883,18 +16877,25 @@
         "PickMenu",
         "PickTile",
         "PlanAsk",
+        "ReplyForm",
+        "ReviewReplies",
         "RowIcon",
         "ShopBadgePill",
         "ShopSegments",
         "ShowBeforeVerifiedRow",
         "ShowPageResult",
+        "StarRow",
+        "SubmitButton",
         "SupplierThumbRow",
         "SwipeToDelete",
         "SwitchRow",
         "SwitchTrack",
         "ThumbRow",
         "TypedRow",
-        "UndoToastHost"
+        "UndoToastHost",
+        "VendorReviewCard",
+        "VerifiedBookingPill",
+        "VerifiedWeddingPill"
       ]
     },
     "/vendor-invite/[slug]": {

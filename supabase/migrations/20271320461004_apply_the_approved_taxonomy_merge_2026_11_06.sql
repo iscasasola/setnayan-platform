@@ -27,16 +27,16 @@
 --      applicable_event_types to cover its services (never narrows).
 --   8. Names every picker service and sets its applicable_event_types to v2's
 --      hand-set list (v2 records −0 against live everywhere).
---      8b. Then each of the 39 categories drops any event type that NONE of its
---      live services can serve (only when every live service has its own
---      scope — a service with none inherits the category's and fills them all).
---      Step 7 only ever widens; 8b removes exactly the claims step 8 left
---      unfillable (tests/db/tile-event-type-fillable.db.test.ts).
 --   9. Writes every specialty as a pick-all-that-apply facet (Rental = yes/no),
 --      with its question and each value's event scope (option_event_types,
 --      inside the facet definition — no new column).
 --  10. Tags every shop holding a folded key with that key's specialty value,
 --      folding the key's own attribute row in first, then merges the trade.
+--      10b. Then each of the 39 categories drops any event type that NONE of
+--      its live services can serve (only when every live service has its own
+--      list — a service with none inherits the category's and fills them all).
+--      Step 7 only ever widens; 10b removes exactly the claims steps 8 and 10
+--      left unfillable (tests/db/tile-event-type-fillable.db.test.ts).
 --  11. Keeps each one-person attire board on its own half (Bride · Bridesmaids
 --      · Flower girl → Gowns & dresses; Groom · Groomsmen · Ring bearer →
 --      Barong & suits).
@@ -202,29 +202,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- ── 8b · a category claims only the events its live services can fill ────
-  UPDATE service_categories sc
-     SET applicable_event_types = ARRAY(
-           SELECT x FROM unnest(sc.applicable_event_types) WITH ORDINALITY AS a(x, i)
-            WHERE x = ANY (u.types) ORDER BY i),
-         updated_at = NOW()
-    FROM (
-      SELECT c.tile_id,
-             ARRAY(SELECT DISTINCT y
-                     FROM canonical_service_taxonomy c2, unnest(c2.applicable_event_types) AS y
-                    WHERE c2.tile_id = c.tile_id AND NOT COALESCE(c2.marketplace_hidden, FALSE)) AS types
-        FROM canonical_service_taxonomy c
-       WHERE NOT COALESCE(c.marketplace_hidden, FALSE)
-       GROUP BY c.tile_id
-      HAVING bool_and(c.applicable_event_types IS NOT NULL AND cardinality(c.applicable_event_types) > 0)
-    ) u
-   WHERE sc.id = u.tile_id AND sc.tier = 2 AND sc.merged_into_category_id IS NULL
-     AND sc.id IN (SELECT e->>'t' FROM jsonb_array_elements(v_labels) e)
-     AND sc.applicable_event_types IS NOT NULL
-     AND cardinality(u.types) > 0
-     AND EXISTS (SELECT 1 FROM unnest(sc.applicable_event_types) z WHERE NOT (z = ANY (u.types)));
-  GET DIAGNOSTICS v_tile_scopes_narrowed = ROW_COUNT;
-
   -- ── 9 · every specialty as a facet ───────────────────────────────────────
   -- Shape (iteration 0044): category_specific_attributes {key: {type, label,
   -- options[]}} + filter_facets [keys]. Pick-all-that-apply = multi_select;
@@ -377,6 +354,31 @@ BEGIN
       END LOOP;
     END IF;
   END LOOP;
+
+  -- ── 10b · a category claims only the events its live services can fill ───
+  -- Runs AFTER the trades fold (step 10): before it, a key about to fold is still a visible leaf here
+  -- with its old (or no) list, and would keep claims alive that nothing will serve.
+  UPDATE service_categories sc
+     SET applicable_event_types = ARRAY(
+           SELECT x FROM unnest(sc.applicable_event_types) WITH ORDINALITY AS a(x, i)
+            WHERE x = ANY (u.types) ORDER BY i),
+         updated_at = NOW()
+    FROM (
+      SELECT c.tile_id,
+             ARRAY(SELECT DISTINCT y
+                     FROM canonical_service_taxonomy c2, unnest(c2.applicable_event_types) AS y
+                    WHERE c2.tile_id = c.tile_id AND NOT COALESCE(c2.marketplace_hidden, FALSE)) AS types
+        FROM canonical_service_taxonomy c
+       WHERE NOT COALESCE(c.marketplace_hidden, FALSE)
+       GROUP BY c.tile_id
+      HAVING bool_and(c.applicable_event_types IS NOT NULL AND cardinality(c.applicable_event_types) > 0)
+    ) u
+   WHERE sc.id = u.tile_id AND sc.tier = 2 AND sc.merged_into_category_id IS NULL
+     AND sc.id IN (SELECT e->>'t' FROM jsonb_array_elements(v_labels) e)
+     AND sc.applicable_event_types IS NOT NULL
+     AND cardinality(u.types) > 0
+     AND EXISTS (SELECT 1 FROM unnest(sc.applicable_event_types) z WHERE NOT (z = ANY (u.types)));
+  GET DIAGNOSTICS v_tile_scopes_narrowed = ROW_COUNT;
 
   -- ── 11 · the one-person boards keep their half (owner ruling 2026-10-08) ──
   -- Bride, Bridesmaids and Flower girl are dressed by the WOMEN's half; Groom,

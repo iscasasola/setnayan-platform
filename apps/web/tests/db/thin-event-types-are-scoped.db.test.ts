@@ -120,10 +120,31 @@ async function reaching(type: string, includeHidden = false): Promise<string[]> 
   return r.rows.map((x) => x.id);
 }
 
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): `simple_event` (Get-together) is v2's one `no_marketplace_event_types`
+ * entry, and no v2 service is scoped to it — so step 10b of `20271320461004` takes it off every category, and its
+ * floor of 5 (2026-10-02 "yes scope it") is superseded. It is asserted below as the v2 rule instead: no category is
+ * SCOPED to it (an unscoped category, open to every type, still shows — that is not a placement).
+ */
+const V2_NO_MARKETPLACE = (JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { no_marketplace_event_types: string[] }).no_marketplace_event_types;
+
+test('v2: an event type with no marketplace is scoped onto no category', async () => {
+  assert.deepEqual(V2_NO_MARKETPLACE, ['simple_event'], 'premise: v2 names exactly one no-marketplace type');
+  const r = await db.query<{ id: string }>(
+    `SELECT id FROM public.service_categories
+      WHERE tier = 2 AND status = 'active' AND applicable_event_types && $1::text[]
+        AND id = ANY ($2::text[]) -- the marketplace = v2's picker categories (Setnayan's own rows are not suppliers)
+      ORDER BY id`,
+    [V2_NO_MARKETPLACE, V2_CATEGORIES.map((c) => c.tile)],
+  );
+  assert.deepEqual(r.rows.map((x) => x.id), [], 'a category is still scoped to a no-marketplace event type');
+});
+
 const FLOORS: Record<string, number> = {
   birthday: 8,
   wake: 5,
-  simple_event: 5,
   hangout: 3,
   date: 3,
 };
@@ -140,8 +161,9 @@ test('a few named placements the owner asked for are really there', async () => 
   assert.ok(await has('wake', 'funeral_home'), 'a wake finds funeral services');
   assert.ok(await has('wake', 'catering'));
   assert.ok(await has('wake', 'chairs_tents'));
-  assert.ok(await has('simple_event', 'catering'));
-  assert.ok(await has('simple_event', 'chairs_tents'));
+  // ⚖ v2: a Get-together has no marketplace (see the no-marketplace test) — these two 2026-10-02 placements are superseded.
+  assert.ok(!(await has('simple_event', 'catering')), 'v2: a Get-together is offered Catering');
+  assert.ok(!(await has('simple_event', 'chairs_tents')), 'v2: a Get-together is offered Chairs');
   assert.ok(await has('hangout', 'restaurant_reservation'));
   assert.ok(await has('date', 'florist'));
   assert.ok(await has('birthday', 'cake'));
@@ -173,10 +195,9 @@ test('a wedding still reaches every category it reached, and nothing new', async
   // Nothing new: a category outside that list that reaches a wedding would
   // mean a thin-type append leaked a wedding in. (Later, deliberate additions
   // to the wedding belong in the list above — that is the point of pinning it.)
-  // ⚖ V2's two NEW categories are the only deliberate addition, and only where v2 scopes one of their services to a wedding.
-  const v2NewForWedding = V2_CATEGORIES.filter(
-    (c) => (c.tile === 'event_staffing' || c.tile === 'prayers') && c.services.some((sv) => sv.event_types.includes('wedding')),
-  ).map((c) => c.tile);
+  // ⚖ V2 is the one deliberate addition: a category reaches a wedding when v2 scopes one of its services to a wedding
+  // (step 7 widens the category to cover them) — the two NEW categories, and e.g. Chairs and Restaurant reservation.
+  const v2NewForWedding = V2_CATEGORIES.filter((c) => c.services.some((sv) => sv.event_types.includes('wedding'))).map((c) => c.tile);
   const extra = now.filter((id) => !WEDDING_CATEGORIES_2026_10_02.includes(id) && !v2NewForWedding.includes(id));
   assert.deepEqual(extra, [], 'a wedding gained categories this migration should not have given it');
 });

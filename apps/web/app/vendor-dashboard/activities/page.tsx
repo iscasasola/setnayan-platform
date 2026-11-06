@@ -6,6 +6,7 @@ import { SCHEDULE_BLOCK_LABEL, SCHEDULE_BLOCK_TYPES } from '@/lib/schedule';
 import { offeredCatalogue, totalMinutes, type VendorActivity } from '@/lib/vendor-activities';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { QuestionsSection } from './questions-section';
+import { startersForShopServices } from '@/lib/supplier-question-starters.server';
 import {
   addActivity,
   reorderActivity,
@@ -227,8 +228,14 @@ export default async function VendorActivitiesPage({
         </details>
       ) : null}
 
-      {/* DAY-7 · what only the couple can tell him — his reusable questions. */}
-      <QuestionsSection supabase={supabase} vendorProfileId={profile.vendor_profile_id} />
+      {/* DAY-7 · what only the couple can tell them — the supplier's reusable questions. ❓ Every supplier since
+          2026-11-04 (owner "Yes, every supplier"): the shop's own doorway lands on `#questions`, and the starting
+          suggestions follow the shop's trade through the live taxonomy. */}
+      <QuestionsSection
+        supabase={supabase}
+        vendorProfileId={profile.vendor_profile_id}
+        starters={await startersForShopServices(profile.services)}
+      />
     </section>
   );
 }

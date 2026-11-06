@@ -43,17 +43,30 @@ import { fileURLToPath } from 'node:url';
 // `guestSeatView` — the Seats ⚙ write and the guest card's preview read) instead of the two exports it would have been;
 // the only unimported exports left are the two kept on purpose above. No fresh `vercel build` count for this +1 — the
 // SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// 1227 → 1228 (2026-11-05, booking-fee disputes, owner "build dispute"): ONE dispatcher
+// (`app/_actions/booking-fee-dispute-actions.ts`, `bookingFeeDispute`, op=open|decide — the supplier's dispute and the
+// admin's decision) instead of the two exports it would have been; no unimported export was left to drop (the two kept
+// on purpose above). No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on
+// this PR's production build; read that job before merging.
 // 1227 → 1228 (2026-11-05, admin service-card moderation for the 7 Nov supplier registration): ONE dispatcher
 // (`admin/vendors/[vendorProfileId]/card-actions.ts`, `moderateServiceCard` — take down · put back · remove photo)
 // instead of the three exports it would have been; the only unimported exports left are the two kept on purpose above.
 // No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production
 // build; read that job before merging.
-// 1228 → 1229 (2026-11-04, the supplier claim scanner): ONE dispatcher (`app/_actions/supplier-scan-actions.ts`,
+// MERGED (2026-11-06): both +1s above landed on one tree; the real merged count measured 1228, so the ceiling stays
+// 1228 — the limit is the measured count, never the sum of the two arrows.
+// 1228 → 1229 (2026-11-06, "Questions for the couple — every supplier", #7248; owner OK 5 Nov): two new in-place
+// actions, one per side (`messages/[threadId]/questions-actions.ts` · `sendQuestionsToEvent` for the supplier, and
+// `workspace/question-answers-actions.ts` · `saveSupplierAnswers` for the couple), less one dead export removed
+// (`studio/papic/actions.ts` · `reissuePapicSeat`). Measured on the tree merged with main after #7287: 1229. The route
+// SUM stays gated by check-vercel-route-count.mjs — read that job before merging.
+// 1229 → 1230 (2026-11-04; re-measured 2026-11-06 after #7248 shipped — the supplier claim scanner): ONE dispatcher
+// (`app/_actions/supplier-scan-actions.ts`,
 // `supplierScan` — the per-service scanner setting, the scan itself and admin's fix, plus the ops of the four slices
 // stacked on it: Ordered → Received, group sessions, roaming, the guest's review) instead of the eight-plus exports it
 // would have been. No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on this
 // PR's production build; read that job before merging.
-export const CEILING = 1229;
+export const CEILING = 1230;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

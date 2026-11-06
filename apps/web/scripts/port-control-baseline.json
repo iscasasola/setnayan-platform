@@ -235,6 +235,7 @@
         "PageLink",
         "Pagination",
         "PartnershipBadge",
+        "PickMenu",
         "ReadsResults",
         "ReligionBanner",
         "ReviewCard",
@@ -936,6 +937,7 @@
         "[slug]/_components/hub-scrub-place.ts",
         "[slug]/_components/hub-scrub.tsx",
         "[slug]/_components/hub-seen-beacon.tsx",
+        "[slug]/_components/hub-suppliers-made-this-day.tsx",
         "[slug]/_components/hub-tab-dom.ts",
         "[slug]/_components/hub/hub-shell.tsx",
         "[slug]/_components/in-app-bar.tsx",
@@ -1395,6 +1397,7 @@
         "HubSeenBeacon",
         "HubShell",
         "HubStageFrame",
+        "HubSuppliersMadeThisDay",
         "Icon",
         "InfoTip",
         "InvitationBody",
@@ -5294,6 +5297,7 @@
       "files": [
         "dashboard/(account)/library/_components/challenges-tab.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
+        "dashboard/(account)/library/_components/favorite-rows.tsx",
         "dashboard/(account)/library/_components/gallery-doors.tsx",
         "dashboard/(account)/library/_components/memories-chapters.tsx",
         "dashboard/(account)/library/_components/memories-thumb.tsx",
@@ -5325,6 +5329,7 @@
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
+        "FavoriteRows",
         "GalleryDoor",
         "HTMLElement",
         "Heading",
@@ -5340,14 +5345,17 @@
         "PhotoViewer",
         "PhotosTab",
         "PickMenu",
+        "Row",
         "SavedVendorCardItem",
         "Section",
         "SharePanel",
         "Spotlight",
         "StatusChip",
+        "SwipeToDelete",
         "ThumbField",
         "ThumbTool",
         "Tile",
+        "UndoToastHost",
         "VendorsTab",
         "ViewReport",
         "WallOpen",
@@ -10307,6 +10315,7 @@
         "FactSheetData",
         "FactSheetStandIns",
         "FallbackPanel",
+        "FavoriteHeart",
         "Fill",
         "FillableCategory",
         "FilterFace",
@@ -10520,6 +10529,7 @@
         "AppealForm",
         "ConfirmReceiptState",
         "DisputedState",
+        "FavoriteAddCard",
         "FormPageSkeleton",
         "Link",
         "NoLinkedProfileState",
@@ -11691,6 +11701,23 @@
         "StudioActions",
         "StudioActionsProvider",
         "UploadOutcome"
+      ]
+    },
+    "/dev/favorites-lab": {
+      "files": [
+        "dev/favorites-lab/page.tsx"
+      ],
+      "destinations": [
+        "/v/bloom-and-co",
+        "/v/casa-luna",
+        "/v/lumen-lights"
+      ],
+      "actions": [],
+      "blocks": [
+        "FavoriteAddCard",
+        "FavoriteRows",
+        "HubSuppliersMadeThisDay",
+        "SaveVendorButton"
       ]
     },
     "/dev/group-lab": {

@@ -34,7 +34,6 @@ import {
   Flower2,
   Gem,
   Gift,
-  Handshake,
   HardHat,
   Lightbulb,
   Mail,
@@ -162,7 +161,6 @@ export type SpecialistTool = {
  *   /vendor-dashboard/moodboard-library — the stylist moodboard designer
  *   /vendor-dashboard/repertoire        — the music-act song bank / setlist
  *   /vendor-dashboard/on-the-day        — the category-tuned day-of console
- *   /vendor-dashboard/recaps            — post-event highlight recaps
  *   /vendor-dashboard/manpower          — host-paid crew gigs on linked events
  */
 export const SPECIALIST_TOOLS: ReadonlyArray<SpecialistTool> = [
@@ -211,15 +209,9 @@ export const SPECIALIST_TOOLS: ReadonlyArray<SpecialistTool> = [
       'choir',
     ],
   },
-  {
-    key: 'recaps',
-    title: 'Event recaps',
-    description:
-      'Turn a delivered event into a shareable highlight couples can re-post.',
-    href: '/vendor-dashboard/recaps',
-    icon: Handshake,
-    categories: ['photographer', 'videographer'],
-  },
+  // 📣 'recaps' (Event recaps → /vendor-dashboard/recaps) left this catalog 2026-11-06 (owner, "ONE HOME FOR EVERY
+  // PROMOTE TOOL"): recaps are shared from Shop › Promote › Share your work, and the old route forwards there — a
+  // second door from Services would be the "jump to another menu" the ruling removes.
   {
     key: 'manpower',
     title: 'Manpower gigs',

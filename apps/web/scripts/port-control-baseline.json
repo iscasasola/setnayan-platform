@@ -1527,6 +1527,7 @@
         "PublicEventDayBar",
         "PublicHideableWidget",
         "PublicPageActions",
+        "QuietScheduleRefresh",
         "R",
         "ReactElement",
         "ReactNode",
@@ -5750,6 +5751,7 @@
         "PermanenceWarning",
         "PlanningHeaderActions",
         "PutAwaySwitch",
+        "QuietScheduleRefresh",
         "ReasonNote",
         "ReasonPicker",
         "RemoveDialog",
@@ -5917,7 +5919,6 @@
         "/dashboard/[seg]/guests?q=declined",
         "/dashboard/[seg]/guests?q=no+reply",
         "/dashboard/[seg]/launch",
-        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/memories",
@@ -5957,7 +5958,8 @@
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "savePatiktokBoothTemplates",
-        "updatePaxSettings"
+        "updatePaxSettings",
+        "useDate"
       ],
       "blocks": [
         "AccessAsksRead",
@@ -6028,6 +6030,7 @@
         "EffectToggle",
         "EmailCallTimesResult",
         "EventDashboard",
+        "EventDateSaveResult",
         "EventDayPrepCta",
         "EventMenuChild",
         "EventMonogram",
@@ -6817,6 +6820,7 @@
         "dashboard/[eventId]/guests/_components/guest-access-pick.tsx",
         "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-add-queue.ts",
+        "dashboard/[eventId]/guests/_components/guest-call-buttons.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
@@ -6996,6 +7000,7 @@
         "GuestAccessState",
         "GuestActions",
         "GuestActionsContext.Provider",
+        "GuestCallButtons",
         "GuestCamera",
         "GuestCard",
         "GuestCardAvatar",
@@ -8297,6 +8302,7 @@
       ],
       "blocks": [
         "BackButton",
+        "BookedCallButtons",
         "ChatBox",
         "ChatMessageStream",
         "ChatSafetyBanner",
@@ -10240,6 +10246,7 @@
         "DigitalServicesRail",
         "Done",
         "DownpaymentModal",
+        "EventDateSaveResult",
         "EventVendorRowInput",
         "ExceptionModal",
         "Explain",
@@ -15316,6 +15323,7 @@
     },
     "/vendor-dashboard/invite": {
       "files": [
+        "vendor-dashboard/invite/_components/door-sticker.tsx",
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
@@ -15333,14 +15341,19 @@
         "CrewQr",
         "CustomersPick",
         "DatesRow",
+        "DoorSticker",
+        "DoorStickerCode",
+        "DoorStickerSize",
         "Fold",
         "HTMLInputElement",
         "Icon",
         "Link",
         "LockedQrGenerator",
+        "PickMenu",
         "QrCard",
         "QrCodes",
         "Row",
+        "SaveFileLink",
         "SubmitButton"
       ]
     },
@@ -15443,6 +15456,7 @@
       "blocks": [
         "AnswerAskButton",
         "BackButton",
+        "BookedCallButtons",
         "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailTrigger",
@@ -16575,6 +16589,34 @@
         "VoiceSuggestResult"
       ]
     },
+    "/vendor-dashboard/shop/promote": {
+      "files": [
+        "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
+        "vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx",
+        "vendor-dashboard/shop/promote/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction"
+      ],
+      "blocks": [
+        "ActionButton",
+        "BuyGiftsSheet",
+        "BuyVendorPapicPortfolioPackState",
+        "Counter",
+        "DatesRow",
+        "Fold",
+        "InfoTip",
+        "PaymentsPausedNote",
+        "PickMenu",
+        "QrCodes",
+        "Sheet",
+        "ShopGiftsSection",
+        "ShopGiftsSectionData",
+        "ShopSegments",
+        "SupplierSubmit"
+      ]
+    },
     "/vendor-dashboard/subscription": {
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
@@ -16584,7 +16626,6 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
-        "vendor-dashboard/subscription/_components/shop-gifts-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -16609,16 +16650,12 @@
         "AiAddonCard",
         "BookingFeeStanding",
         "BoothAddonCard",
-        "BuyGiftsSheet",
-        "BuyVendorPapicPortfolioPackState",
         "Column",
-        "Counter",
         "Cycle",
         "DatesRow",
         "Fold",
         "GridPageSkeleton",
         "Icon",
-        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16630,8 +16667,6 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
-        "Sheet",
-        "ShopGiftsSection",
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",

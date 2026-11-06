@@ -13,9 +13,10 @@ import { inviteLinkHref, INVITE_LINK_PATH } from './_components/vendor-grow-sect
 
 test('"Get your invite link" goes to the invite page for a supplier, and through /open-shop for everyone else', () => {
   assert.equal(inviteLinkHref(true), INVITE_LINK_PATH);
-  assert.equal(INVITE_LINK_PATH, '/vendor-dashboard/invite');
+  // 📣 Shop › Promote since 2026-11-05 — the Shortlist invite code moved there from Customers › QR codes.
+  assert.equal(INVITE_LINK_PATH, '/vendor-dashboard/shop/promote');
   const href = inviteLinkHref(false);
-  assert.equal(href, '/open-shop?next=%2Fvendor-dashboard%2Finvite');
+  assert.equal(href, '/open-shop?next=%2Fvendor-dashboard%2Fshop%2Fpromote');
   // …and /open-shop accepts exactly that next.
   const next = new URL(href, 'https://x.invalid').searchParams.get('next');
   assert.equal(shopConsolePath(next), INVITE_LINK_PATH);

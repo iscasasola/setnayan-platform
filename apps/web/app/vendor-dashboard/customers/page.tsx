@@ -1159,7 +1159,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
                 pickedMeasured: !pickedRead.error,
                 dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
               }}
-              qrHref="/vendor-dashboard/invite"
+              qrHref="/vendor-dashboard/invite?mode=locked"
               blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
               actions={DATES_ACTIONS}
             />

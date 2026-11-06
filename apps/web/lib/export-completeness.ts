@@ -265,7 +265,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
     why:
       'The SHOP\'s gift-stock ledger (bought · given · reversed), keyed to the shop like ' +
       'shop_papic_wallet_entries. `created_by` is an actor stamp on who caused the entry; the row says nothing ' +
-      'about that person, the shop owner reads it on Plan › Your gifts, and erasure clears the stamp ' +
+      'about that person, the shop owner reads it on Shop › Promote › Your gifts, and erasure clears the stamp ' +
       '(lib/erasure/coverage.ts).',
   },
   {

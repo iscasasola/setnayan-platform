@@ -6,6 +6,7 @@
  *   Details    verified · documents in · details done                 (`profile/details-data.ts`)
  *   Page       opened your page · 30 d · reviews · rating             (`website/page-data.ts`)
  *   Gallery    photos · videos · credits left                         (`collections/collections-data.ts`, the shop wallet)
+ *   Promote    gift credits                                           (`shop_gift_stock_status`, the Your gifts section's own read)
  *   Analytics  opened your page · asked · booked, last 30 d vs before (`lib/vendor-funnel.ts`, the funnel's own counts)
  *   (Services is `lib/shop-services-summary.ts`.)
  *
@@ -42,6 +43,23 @@ export function galleryFigures(f: { photos: number; videos: number; credits: num
     { key: 'photos', value: n(f.photos), word: plural(f.photos, 'photo', 'photos'), href: '/vendor-dashboard/collections#gallery-media' },
     { key: 'videos', value: n(f.videos), word: plural(f.videos, 'video', 'videos'), href: '/vendor-dashboard/collections#gallery-media' },
     { key: 'credits', value: f.credits === null ? null : n(f.credits), word: 'credits left', short: 'credits', href: '/vendor-dashboard/collections#gallery-media' },
+  ];
+}
+
+/**
+ * 📣 PROMOTE (owner 2026-11-05) — the gift stock, the ONE count Promote has: its QR codes are not counted (nothing records
+ * a scan per code yet), so the row carries one figure, not three invented ones. It is `stock.balance` from the SAME read
+ * the Your gifts section draws (`loadShopGiftsSection`), so the row and the section can never disagree; unread → "—".
+ */
+export function promoteFigures(f: { giftCredits: number | null }): PinFigure[] {
+  return [
+    {
+      key: 'gifts',
+      value: f.giftCredits === null ? null : n(f.giftCredits),
+      word: plural(f.giftCredits, 'gift credit', 'gift credits'),
+      short: 'gifts',
+      href: '/vendor-dashboard/shop/promote#gifts',
+    },
   ];
 }
 

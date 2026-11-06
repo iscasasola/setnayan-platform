@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { daysFreeForPricedPicks, helpMonthOf, noDayWords } from './help-me-choose';
 import { buildScheduleMatrix, type MatrixDate } from './schedule-matrix';
-import { dateLadder, draftedEventDate, placeLadder, savedDateNote } from './suppliers-fact-sheets';
+import { dateLadder, placeLadder, savedDateNote } from './suppliers-fact-sheets';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const day = (dateKey: string, vendors: Array<[string, 'open' | 'booked' | 'unknown']>): MatrixDate => ({
@@ -90,15 +90,6 @@ test('the matrix reads the calendar truth when given it: refused → booked, no 
   );
 });
 
-test('the date the page plans on is the draft’s — only when it differs from what guests see', () => {
-  const live = { event_date: '2026-12-12', event_date_precision: 'day' };
-  assert.equal(draftedEventDate(live, null), null);
-  assert.equal(draftedEventDate(live, { events: {} }), null);
-  assert.equal(draftedEventDate(live, { events: { event_date: '2026-12-12', event_date_precision: 'day' } }), null);
-  assert.deepEqual(draftedEventDate(live, { events: { event_date: '2026-12-19', event_date_precision: 'day' } }), { date: '2026-12-19', precision: 'day' });
-  assert.deepEqual(draftedEventDate(live, { events: { event_date: '2027-01-01', event_date_precision: 'month' } }), { date: '2027-01-01', precision: 'month' });
-});
-
 test('the ladders say what is known, and a typed place says it is for guests', () => {
   const rungs = dateLadder({ date: '2026-12-12', precision: 'day', ceremonyTime: '15:00', bookedNames: ['Seda Vertis North'], bookedDay: '2026-12-12' });
   assert.deepEqual(rungs.map((r) => r.on), [true, true, true, true]);
@@ -128,6 +119,8 @@ test('the ladders say what is known, and a typed place says it is for guests', (
   });
   assert.equal(place[0]!.value, 'Quezon City');
   assert.match(place[1]!.note ?? '', /for guests/);
-  assert.match(savedDateNote(0), /when you Apply your Event Hub/);
-  assert.match(savedDateNote(1), /told when you Apply/);
+  // 🗓 The date is the event's at once (owner 2026-11-05, "it shouldn't rely on the hub") — the note never says Apply.
+  assert.match(savedDateNote(0), /^Saved — this is your date now/);
+  assert.match(savedDateNote(1), /told it moved/);
+  for (const n of [0, 1, 3]) assert.doesNotMatch(savedDateNote(n), /Apply|draft/i);
 });

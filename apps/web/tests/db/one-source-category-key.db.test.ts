@@ -21,6 +21,8 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
@@ -33,6 +35,11 @@ import {
   eventVendorCategoryKeyForCardKind,
 } from '../../lib/event-vendor-category';
 import { deletionWouldBreakCoupleLinks } from '../../lib/vendor-category-taxonomy';
+
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { groups: { categories: { tile: string; services: { key: string; status: string }[] }[] }[] };
+const V2_SERVICES = V2.groups.flatMap((g) => g.categories).flatMap((c) => c.services);
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -82,7 +89,9 @@ test('every resolver answers the same from the database as from the code snapsho
     `SELECT canonical_service, tile_id FROM public.canonical_service_taxonomy WHERE NOT marketplace_hidden`,
   );
   const tiles = await db.query<{ id: string }>(`SELECT id FROM public.service_categories WHERE tier = 2`);
-  assert.ok(leaves.rows.length > 100 && tiles.rows.length > 50, 'premise');
+  // ⚖ TAXONOMY V2 (2026-11-06): the premise floor is v2's own picker size (84 services), no longer "> 100" — the merge
+  // folded 212 trades into their survivors. The tiles floor is unchanged (live + tombstoned rows are all still tier 2).
+  assert.ok(leaves.rows.length >= V2_SERVICES.length && tiles.rows.length > 50, `premise: ${leaves.rows.length} leaves, ${tiles.rows.length} tiles`);
   const diff: string[] = [];
   for (const l of leaves.rows) {
     const a = vendorCategoryForLeaf(l.canonical_service, l.tile_id, live);

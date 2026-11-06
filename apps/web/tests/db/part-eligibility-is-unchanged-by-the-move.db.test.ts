@@ -20,6 +20,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 import { MOODBOARD_SLOT_KEYS } from '../../lib/moodboard-slots';
 import { canonicalServicesForSlot } from '../../lib/moodboard-gallery';
@@ -33,6 +35,11 @@ import {
   type InspirationPartServiceRow,
   type InspirationPartsSnapshot,
 } from '../../lib/inspiration-parts';
+
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { groups: { categories: { tile: string; services: { key: string; status: string }[] }[] }[] };
+const V2_SERVICES = V2.groups.flatMap((g) => g.categories).flatMap((c) => c.services);
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -91,6 +98,46 @@ async function assertDoubleWriteHolds(when: string): Promise<void> {
 
 /* ══ 1 · old = new ═══════════════════════════════════════════════════════════ */
 
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06; migration `20271320461004`). ③a's ship-day equality — a part's links ARE its
+ * categories' expansion — is, by design, no longer the replay's final state, for two reasons, and only those two:
+ *   · the FOLD widens a category (Ceremony venue into Venues, LED wall into Lights & sound, …) while the MERGE keeps each
+ *     part's links, rewritten to the surviving service — so no shop gains a photo right it did not have (decision (3)
+ *     of this very file's ruling, from the other side: "no shop loses a right", and none gains one);
+ *   · v2's NEW services are linked to no part (③a: "a service added to the taxonomy that nobody links" changes no part).
+ * So the assertion is now: on every part, the links are a SUBSET of the expansion; the parts where they are not EQUAL are
+ * exactly the named list below (a new divergence anywhere else is red); and each service the expansion has but the part
+ * does not link is either a v2 NEW service or sits on a category the fold merged another into. Test 2's fallback check
+ * follows the same rule (the fallback can only ever be WIDER, by those services — never narrower).
+ */
+const V2_NEW_SERVICES = new Set(V2_SERVICES.filter((s) => s.status === 'NEW').map((s) => s.key));
+const NARROWER_THAN_ITS_CATEGORIES_SINCE_V2 = new Set([
+  'venue', 'reception_venue', 'backdrop', 'tunnel', 'stage', 'table', 'ceiling', 'flowers', 'centrepieces', 'chairs',
+  'ribbons_candles', 'lights', 'flower_accents', 'overall', 'bride', 'principal_sponsor', 'entourage', 'bridesmaids',
+  'flower_girl', 'parents', 'guests',
+]);
+
+/** links ⊆ wide; equal unless the part is named; every extra is NEW or on a fold survivor. */
+async function assertNarrowedOnlyByTheFold(slot: string, links: readonly string[], wide: readonly string[], how: string): Promise<void> {
+  const extra = wide.filter((s) => !links.includes(s));
+  assert.deepEqual(links.filter((s) => !wide.includes(s)), [], `${slot}: a shop may add a photo that its categories do not reach (${how})`);
+  if (!NARROWER_THAN_ITS_CATEGORIES_SINCE_V2.has(slot)) {
+    assert.deepEqual([...links], [...wide], `${slot}: the shops that may add a photo changed on ship day (${how})`);
+    return;
+  }
+  assert.ok(extra.length > 0, `${slot} is listed as narrowed by the fold but equals its categories — take it off the list (${how})`);
+  const survivors = new Set(
+    (await db.query<{ id: string }>(`SELECT DISTINCT merged_into_category_id AS id FROM public.service_categories WHERE merged_into_category_id IS NOT NULL`)).rows.map((r) => r.id),
+  );
+  const tileOf = new Map(
+    (await db.query<{ canonical_service: string; tile_id: string | null }>(`SELECT canonical_service, tile_id FROM public.canonical_service_taxonomy`)).rows.map(
+      (r) => [r.canonical_service, r.tile_id] as const,
+    ),
+  );
+  const unexplained = extra.filter((s) => !V2_NEW_SERVICES.has(s) && !survivors.has(tileOf.get(s) ?? ''));
+  assert.deepEqual(unexplained, [], `${slot}: the categories reach a service that is neither new in v2 nor on a folded category (${how})`);
+}
+
 test('⭐ 1 · old = new for every part — the backfilled services are exactly what its categories reached', async (t) => {
   /* (a) the JS expansion of the replayed category rows — independent of every SQL function in the migration. */
   const svc = (await db.query<{ canonical_service: string; tile_id: string | null; secondary_tiles: string[] | null; marketplace_hidden: boolean | null }>(
@@ -110,8 +157,8 @@ test('⭐ 1 · old = new for every part — the backfilled services are exactly 
     /* (b) what the pre-③a app answered: the TS expansion of the consts' categories. */
     const before = [...canonicalServicesForSlot(slot, seed)].sort();
     const fromRows = [...new Set(partCategories(part).flatMap(byCategory))].sort();
-    assert.deepEqual(now, before, `${slot}: the shops that may add a photo changed on ship day (TS expansion)`);
-    assert.deepEqual(now, fromRows, `${slot}: the shops that may add a photo changed on ship day (the category rows)`);
+    await assertNarrowedOnlyByTheFold(slot, now, before, 'TS expansion');
+    await assertNarrowedOnlyByTheFold(slot, now, fromRows, 'the category rows');
     if (part.kind === 'part') assert.ok(now.length > 0, `${slot} lost every supplier`);
     total += now.length;
     counts.push(`${slot}=${now.length}`);
@@ -147,10 +194,11 @@ test('2 · the derived categories equal the stored ones and the consts, in order
     assert.deepEqual(await derivedAlso(slot), [...part.alsoCategoryIds], `${slot}: the derived also-categories are not today's`);
     assert.deepEqual(await storedAlso(slot), [...part.alsoCategoryIds], `${slot}: the stored also-categories moved`);
     assert.deepEqual(partCategories(inspirationPart(app, slot)), partCategories(part), `${slot}: the app's categories (credit, "Book a …") moved`);
-    assert.deepEqual(
+    await assertNarrowedOnlyByTheFold(
+      slot,
       [...canonicalServicesForSlot(slot, app)].sort(),
       [...canonicalServicesForSlot(slot, seed)].sort(),
-      `${slot}: the app's DB snapshot and the fallback disagree about who may add a photo`,
+      "the app's DB snapshot against the fallback",
     );
   }
   assert.equal(app.source, 'db');

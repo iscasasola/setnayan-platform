@@ -179,3 +179,5 @@ ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic
 # keyword plus a high-entropy value. Catalogue codes, not credentials. Pinned for their introducing commits.
 80efd14f272d23d6476a2d133302382894bc52c0:apps/web/app/dev/supplier-chat-lab/page.tsx:generic-api-key:109
 80efd14f272d23d6476a2d133302382894bc52c0:apps/web/lib/shop-gifts.test.ts:generic-api-key:127
+# #7367 (2026-11-07): Papic pack code PAPIC_GUEST_500 in the bundle-gift db test. A catalogue code, not a credential.
+22775754a112ca11e0f2d99ac02ce0d18393d13f:apps/web/tests/db/a-bundle-carries-its-cards-and-a-gift.db.test.ts:generic-api-key:114

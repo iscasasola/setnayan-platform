@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import { createContext, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -117,6 +117,15 @@ const SHEET_AT: Record<
     full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none max-tab:border-0',
   },
 };
+
+/**
+ * 🧭 "YOU ARE INSIDE A SHEET" — true for everything drawn in a `Sheet`'s body (context crosses the portal). For a part
+ * that floats itself at the foot of the screen by portalling to <body> (the supplier's thumb row) and would otherwise
+ * land UNDER the sheet: the service maker's Preview · Create row, opened in Today's New service sheet (live
+ * 2026-11-06), was drawn on <body> at z 25, behind the sheet's z-50 — no Create to press. Inside a sheet it stays in
+ * place, inside the sheet's own layer. 🔒 `vendor-dashboard/services/the-maker-sheets-open-on-top.test.ts`.
+ */
+export const InSheet = createContext(false);
 
 export type SheetProps = {
   open: boolean;
@@ -284,7 +293,7 @@ export function Sheet({
           </button>
         )}
         <div className={`flex-1 overflow-y-auto overscroll-contain${foot ? '' : ' pb-[max(env(safe-area-inset-bottom),16px)]'}`}>
-          {children}
+          <InSheet.Provider value>{children}</InSheet.Provider>
         </div>
         {foot ? (
           <div data-sheet-foot="" className="shrink-0 pb-[env(safe-area-inset-bottom)]">

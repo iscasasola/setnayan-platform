@@ -7,6 +7,8 @@
  *
  *   ?exp=verified|self|none     "In business since 2019" ✓ DTI · self-reported · never said
  *   ?events=full|declared|none  receipt-backed rows by kind + the shop's own wedding count · the own count only · nothing
+ *   ?sample=1                   the shop is marked `is_demo`: "Sample shop" + its ⓘ beside the name (owner, 6 Nov 2026)
+ *   ?view=card                  the shop's marketplace card instead (the REAL `VendorCard` from /explore), same `?sample`
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -20,6 +22,8 @@ import { shopBadges, verifiedBadge } from '@/lib/shop-badges';
 import { eventsByKind } from '@/lib/shop-events-by-kind';
 import { onSetnayanSinceLine } from '@/lib/in-business-since';
 import { formatEventTypeLabel } from '@/lib/reviews';
+import { SampleShopMarker } from '@/app/_components/sample-marker';
+import { VendorCard } from '@/app/(shell)/explore/_components/vendor-card';
 
 const NAME = 'Sampaguita Table';
 const LABELS: Record<string, string> = { wedding: 'Wedding', debut: 'Debut', corporate: 'Corporate event', birthday: 'Birthday' };
@@ -27,10 +31,12 @@ const LABELS: Record<string, string> = { wedding: 'Wedding', debut: 'Debut', cor
 export default async function ShopPageLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ exp?: string; events?: string }>;
+  searchParams: Promise<{ exp?: string; events?: string; sample?: string; view?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  const sample = sp.sample === '1';
+  if (sp.view === 'card') return <LabCard sample={sample} />;
   const exp = sp.exp === 'self' || sp.exp === 'none' ? sp.exp : 'verified';
   const ev = sp.events === 'declared' || sp.events === 'none' ? sp.events : 'full';
 
@@ -71,6 +77,7 @@ export default async function ShopPageLabPage({
           <div className="min-w-0 space-y-2">
             <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">{NAME}</h1>
             <p className="text-base text-ink/70">Filipino feasts, plated or family-style</p>
+            {sample ? <SampleShopMarker /> : null}
             <ShopBadgePill badge={verifiedBadge()} className="w-fit" />
             {pills.map((b) => (
               <ShopBadgePill key={b.key} badge={b} className="w-fit" />
@@ -103,6 +110,53 @@ export default async function ShopPageLabPage({
           </div>
         </section>
       </article>
+    </main>
+  );
+}
+
+/** The shop's marketplace card — the REAL `VendorCard` /explore draws, on a fixture row (no database). */
+function LabCard({ sample }: { sample: boolean }) {
+  return (
+    <main className="min-h-dvh bg-cream">
+      <ul className="mx-auto grid w-full max-w-5xl gap-4 px-4 py-8 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
+        <li>
+          <VendorCard
+            vendor={{
+              vendor_profile_id: '00000000-0000-4000-8000-000000000001',
+              public_id: 'S89V-LAB0000001',
+              business_name: NAME,
+              business_slug: 'sampaguita-table',
+              tagline: 'Filipino feasts, plated or family-style',
+              logo_url: null,
+              services: ['catering'],
+              location_city: 'Tagaytay',
+              hq_latitude: null,
+              hq_longitude: null,
+              public_visibility: 'verified',
+              created_at: '2026-10-02T03:00:00Z',
+              avg_rating_overall: 4.5,
+              review_count: 2,
+              is_demo: sample,
+              starting_price_php: 45000,
+              primary_photo_url: null,
+              name_revealed_at: '2026-10-03T03:00:00Z',
+              tier_state: 'pro',
+              verification_state: 'verified',
+              anonymity_resolved: true,
+            }}
+            rating={4.5}
+            reviewCount={2}
+            ratingUnknown={false}
+            isAuthenticated={false}
+            isFollowing={false}
+            isSaved={false}
+            eventId={null}
+            venueAnchor={null}
+            badges={[]}
+            reviews={[]}
+          />
+        </li>
+      </ul>
     </main>
   );
 }

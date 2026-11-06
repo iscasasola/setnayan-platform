@@ -167,3 +167,35 @@ test('7 · the page lock gives the body back exactly, and only on the LAST pop-u
     g.window = saved.window;
   }
 });
+
+test('8 · a bar that mounts LATER (portalled to <body> after a null first commit) still publishes its room', () => {
+  // Owner 2026-11-04, the Schedule's chapter page: the floating Edit / + Add a moment covered the last lines. Measured
+  // in WebKit at 390 px: the bar floated and `--sn-thumb-room` read "" — the hook ran once, when the portal had not
+  // drawn the row yet, and depended on the ref OBJECT (which never changes), so it never measured again.
+  const lib = stripComments(read('lib/thumb-room.ts'));
+  const hook = lib.slice(lib.indexOf('export function useThumbRoom('));
+  assert.match(
+    hook,
+    /useEffect\(\(\) => \{\s*const now = rowRef\.current;[\s\S]*?\}\);/,
+    'the hook no longer re-reads which element the ref holds after each commit',
+  );
+  const measuring = hook.slice(hook.indexOf('new ResizeObserver('));
+  const deps = /\}, \[([^\]]*)\]\);/.exec(measuring)?.[1]?.trim();
+  assert.ok(deps, 'the measuring effect lost its dependency list');
+  assert.notEqual(deps, 'rowRef', 'the measuring effect depends on the ref object again — a late-mounted row is never measured');
+  // The two portalled bars on the Schedule are the ones that mount late; both must still publish.
+  for (const f of [
+    'app/dashboard/[eventId]/schedule/_components/chapters-host.tsx',
+    'app/dashboard/[eventId]/schedule/_components/schedule-sheet.tsx',
+  ]) {
+    const src = stripComments(read(f));
+    assert.match(src, /useThumbRoom\(rowRef\);/, `${f}: a floating Schedule bar no longer leaves room for itself`);
+    assert.match(src, /ref=\{rowRef\}/, `${f}: the measured element is not the row`);
+  }
+  // …and the chapters lab wears the real column, so a walk sees the room (no column, no padding — it hid this bug).
+  assert.match(
+    read('app/dev/chapters-lab/page.tsx'),
+    /<main data-shell-main=""/,
+    'the chapters lab dropped the event column — a walk cannot see the room',
+  );
+});

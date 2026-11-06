@@ -34,9 +34,12 @@ export function AskSupplierSection({
   ask,
   onAsked,
   askLabel = 'Ask a supplier to change their times',
+  bare = false,
   opener,
   noOpenButton = false,
 }: {
+  /** On a held chapter (frame 2): just the button under the hours — no "Asked of suppliers" heading until one is asked. */
+  bare?: boolean;
   /** The button's words — "Ask Blue Leaf to change" on a chapter a venue holds (2026-11-04). */
   askLabel?: string;
   moment: Pick<ChapterMoment, 'block_id' | 'start_at' | 'end_at' | 'vendor_ids'>;
@@ -115,11 +118,13 @@ export function AskSupplierSection({
   };
 
   return (
-    <section data-moment-asks={mine.length} aria-label="Asked of suppliers" className="mt-2 border-t border-ink/10 pt-3">
+    <section data-moment-asks={mine.length} aria-label="Asked of suppliers" className={bare ? '' : 'mt-2 border-t border-ink/10 pt-3'}>
+      {bare && mine.length === 0 ? null : (
       <InfoTip label="Asked of suppliers" labelAs="h4" labelClassName="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55" align="start">
         Ask a booked supplier to change their times on this moment. They answer Accept or Decline on their schedule; a
         Yes moves the moment for you, and either way you get a notice here in the app.
       </InfoTip>
+      )}
       {asks === null ? (
         <p role="alert" data-moment-asks-failed="" className="mt-2 text-[13px] font-semibold text-danger-700">
           What you asked suppliers couldn’t be read just now. Nothing is lost — close and open the moment again.

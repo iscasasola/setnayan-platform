@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { customerLandingHref } from '../../customers/anchors';
+import { customerLandingHref, SUPPLIER_CHATS_HREF } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -57,6 +57,10 @@ import {
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
+import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
+import { SupplierCountTile } from './_components/supplier-count-tile';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -73,6 +77,7 @@ import {
   type CustomerCardTab,
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
+import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
 // same component, same action, same host-side answering screen.
@@ -110,7 +115,9 @@ import {
   vendorWithdrawChangeOrder,
   vendorAgreeToLock,
   vendorDeclineLock,
+  vendorWaitlistTheAsk,
 } from './actions';
+import { readDayCheck } from '@/lib/day-check.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
@@ -198,11 +205,15 @@ import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
-import { VENUE_CATEGORIES } from '@/lib/supplier-where';
+import { VENUE_CATEGORIES, supplierOwnWhere, whereChaptersFrom, type OwnBooking } from '@/lib/supplier-where';
+import { readTradeChapters, suggestedChapters } from '@/lib/trade-chapters';
 import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierContactRow, type SupplierTaskRow } from '@/lib/supplier-schedule';
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/offline-copies';
+import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
 
@@ -402,7 +413,7 @@ type LiveBlock = {
   start_at: string | null;
   end_at: string | null;
   location: string | null;
-  run_state?: 'upcoming' | 'live' | 'done' | null;
+  run_state?: 'upcoming' | 'live' | 'done' | 'skipped' | null;
   actual_start_at?: string | null;
   // 📖 Chapters (Step 4b): a top-level block is a chapter, a child its moment — never `notes` (couple-private).
   parent_block_id?: string | null;
@@ -437,7 +448,10 @@ type HandoverRow = {
 type SuggestionRow = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
+  /** 📍 A Where request (migration 20271308641275): their booking and the chapters asked. */
+  where_vendor_id?: string | null;
+  proposed_block_ids?: string[] | null;
   /** For a 'remove', the moment's label as it was when asked — the block may be gone. */
   proposed_label: string | null;
   proposed_start_at: string | null;
@@ -676,6 +690,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myMarksRes,
     myScheduleFacts,
     myContactsRes,
+    headcountRule,
+    headcountNames,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -727,7 +743,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_suggestions')
         .select(
-          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id, proposed_ingress_minutes, proposed_egress_minutes',
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id, proposed_ingress_minutes, proposed_egress_minutes, where_vendor_id, proposed_block_ids',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -754,7 +770,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
         admin
           .from('event_vendors')
-          .select('vendor_id, category')
+          .select('vendor_id, category, status, vendor_name')
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .is('archived_at', null),
@@ -762,6 +778,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
       // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
       supabase.from('event_schedule_task_contacts').select('task_id, block_id, name, phone').eq('event_id', eventId),
+      // 🧮 WHO THEY COUNT (owner 2026-11-04) — a per-head booked supplier's count and its why, NUMBERS only
+      // (`get_vendor_headcount_rule`). Null for a flat-priced service: the Headcount card then draws what it always did.
+      isBooked && feeUnlocked ? readVendorHeadcountRule(supabase, eventId) : Promise.resolve(null),
+      // …and the rule in the couple's words ("Only Bride's Crew") — admin-read like the event row above (a supplier has no
+      // read on `events`), behind the same booking gate. A failed read is the usual words, logged (`loadRoleNames`).
+      isBooked && feeUnlocked ? loadRoleNames(admin, eventId, 'vendorClientCard.roleNames') : Promise.resolve(null),
     ]),
   );
 
@@ -841,12 +863,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
   // sentence that belongs beside the Agree button, and nowhere else on this
   // page is a decision being made about money.
-  const feeForecast: FeeDisclosure | null = lockRequest?.event_vendor_id
-    ? await forecastForBooking(admin, {
-        vendorProfileId: profile.vendor_profile_id,
-        eventVendorId: lockRequest.event_vendor_id,
-      })
-    : null;
+  // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
+  const [feeForecast, dayCheck]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null] = lockRequest?.event_vendor_id
+    ? await Promise.all([
+        forecastForBooking(admin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockRequest.event_vendor_id,
+        }),
+        readDayCheck(supabase, lockRequest.event_vendor_id),
+      ])
+    : [null, null];
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1295,6 +1322,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         status: r.status,
         answer_note: r.answer_note ?? null,
         created_at: r.created_at,
+        // 📍 A host's Where ask (migration 20271308641275) — the chapters they ask this supplier to serve.
+        kind: r.kind,
+        proposed_block_ids: r.proposed_block_ids ?? null,
       }));
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
@@ -1334,6 +1364,35 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
       })
     : null;
+  /* 📍 WHERE — the chapters they serve, picked by them as a request (owner 2026-11-04, migration 20271308641275). Their
+     trade's usual chapters (`service_categories.default_chapters`) prefill an empty pick — read only when one is empty. */
+  const myBookings: OwnBooking[] = ((factsBookings.data ?? []) as { vendor_id: string; category: string | null; status: string | null; vendor_name: string | null }[]).map(
+    (b) => ({ vendorId: b.vendor_id, category: b.category, status: b.status, label: b.vendor_name }),
+  );
+  const whereChapters = whereChaptersFrom(
+    everyBlock.map((b) => ({
+      block_id: b.block_id,
+      parent_block_id: b.parent_block_id ?? null,
+      label: b.label,
+      start_at: b.start_at,
+      location: b.location,
+      responsible_vendor_ids: b.responsible_vendor_ids ?? [],
+      block_type: b.block_type,
+      time_tba: b.time_tba === true,
+    })),
+  );
+  let ownWhere = liveBlocks && !factsBookings.error ? supplierOwnWhere({ bookings: myBookings, chapters: whereChapters, requests: suggestions }) : null;
+  if (ownWhere?.some((w) => w.draft.length === 0)) {
+    const trade = await readTradeChapters(admin);
+    if (trade.ok) {
+      ownWhere = supplierOwnWhere({
+        bookings: myBookings,
+        chapters: whereChapters,
+        requests: suggestions,
+        tradeDefault: (category) => suggestedChapters(whereChapters, trade.byCategory.get(category ?? '')),
+      });
+    }
+  }
   const scheduleMarks = myMarksRes.error
     ? null
     : {
@@ -1343,6 +1402,28 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         lockedAt: (myMarksRes.data as { locked_at: string | null } | null)?.locked_at ?? null,
       };
   const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
+  // 🚗 ONE CREW, TWO EVENTS (slice 5, owner 2026-11-04): their crews' moments here, against the same crews on their
+  // other events that day. Only when this event's crews were read — an unread crew list is never "no clash".
+  const timedHere = new Map(blocksWithAClock(everyBlock).map((b) => [b.block_id, b]));
+  const crewHere = myTasksRes.error
+    ? []
+    : ((myTasksRes.data ?? []) as Array<SupplierTaskRow & { call_at: string | null }>).flatMap((t) => {
+        const b = timedHere.get(t.block_id);
+        const startIso = t.call_at ?? b?.start_at ?? null;
+        return b && t.crew && t.vendor_id && myBookingIds.includes(t.vendor_id) && startIso
+          ? [{ blockId: t.block_id, crew: t.crew, startIso, endIso: b.end_at ?? null }]
+          : [];
+      });
+  const crewElsewhere = myTasksRes.error || factsEvent.error
+    ? null
+    : await readCrewElsewhere({
+        admin,
+        supabase,
+        vendorProfileId: profile.vendor_profile_id,
+        eventId,
+        eventDate: factsRow?.event_date ?? null,
+        here: crewHere,
+      });
   const supplierPart = {
     day: supplierDay,
     autoAgree: factsRow?.supplier_requests_auto_agree === true,
@@ -1352,6 +1433,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     tasksRead: !myTasksRes.error,
     answered: suggestions.filter((r) => r.status !== 'open').slice(0, 6),
     asked: askedOfThem,
+    where: ownWhere,
+    elsewhere: crewElsewhere,
   };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link
@@ -1564,7 +1647,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id, room_created_at',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -1641,6 +1724,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             returnTo={`/vendor-dashboard/clients/${eventId}`}
             agreeLock={vendorAgreeToLock}
             declineLock={vendorDeclineLock}
+            dayCheck={dayCheck}
+            waitlistAsk={vendorWaitlistTheAsk}
           />
         ) : askOutcome ? (
           <BookingAskOutcomeLine outcome={askOutcome} />
@@ -1786,6 +1871,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     <OverviewTab
       eventId={eventId}
       brief={brief}
+      headcountRule={headcountRule}
+      headcountNames={headcountNames}
       threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
@@ -1892,8 +1979,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
 
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — this supplier's (a Host/MC's) own day, kept on their phone for the venue
+     (`lib/offline-copies.ts`). The version is what this tab draws of the day; a read that failed is `unread`, which is
+     never kept over the older copy. */
+  const scheduleCopyPath = supplierSchedulePath(eventId);
+  const scheduleCopyVersion = supplierDay ? copyVersionOf([supplierDay, runOfShowBlocks, callTime]) : OFFLINE_COPY_UNREAD;
   const scheduleNode = (
     <>
+      {scheduleCopyPath ? (
+        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={factsRow?.event_date ?? null} path={scheduleCopyPath} version={scheduleCopyVersion} className="mb-3" />
+      ) : null}
       <ScheduleTab
         eventId={eventId}
         preAgreement={preAgreement}
@@ -1950,6 +2045,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       coupleName={eventName}
     />
   ) : null;
+
+  // ❓ WHAT THEY TOLD YOU — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"). The host reads the
+  // couple's answers inside the Script tab above; every other trade reads them here, on Details (flag-on) / the
+  // overview (flag-off). One place per role: never both — a supplier holding the Script tab reads them there.
+  // Fee-gated like the Script tab: the answers are the couple's own words, so they open with the event.
+  const coupleAnswersNode =
+    !showScript && feeUnlocked ? (
+      <CoupleAnswers
+        supabase={supabase}
+        eventId={eventId}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={eventName}
+      />
+    ) : null;
 
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
@@ -2014,6 +2123,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
+            {tab === 'overview' ? coupleAnswersNode : null}
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? gated(filesNode) : null}
             {tab === 'schedule' ? gated(scheduleNode) : null}
@@ -2099,7 +2209,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF,
       node: null,
     },
     {
@@ -2159,6 +2269,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : null}
           {/* The brief, from the REDACTED payload at every locked stage. */}
           {overviewNode}
+          {coupleAnswersNode}
           {feeUnlocked ? activityNode : null}
         </div>
       ),
@@ -2217,7 +2328,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
@@ -2456,6 +2567,10 @@ function ReturningMarkerAndActions({
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
+  headcountRule: SupplierHeadcount | null;
+  /** The couple's words for roles, for the rule's line. */
+  headcountNames: RoleNames | null;
   threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
@@ -2521,6 +2636,8 @@ function OverviewTab(props: {
     eventId,
     depositReturnTo,
     brief,
+    headcountRule,
+    headcountNames,
     threadId,
     returningFlag,
     isBooked,
@@ -2626,7 +2743,11 @@ function OverviewTab(props: {
           <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
             <Users aria-hidden className="h-4 w-4 text-terracotta" /> Headcount
           </h2>
-          {brief.pax.invited > 0 ? (
+          {/* 🧮 WHO THEY COUNT (owner 2026-11-04, the approved prototype's "Supplier · their count"): a per-head service
+              reads ITS number — the couple's rule and ticks applied — with the why in the ⓘ. Numbers only, never names. */}
+          {headcountRule ? (
+            <SupplierCountTile count={headcountRule} names={headcountNames} />
+          ) : brief.pax.invited > 0 ? (
             <>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
                 {brief.pax.attending}

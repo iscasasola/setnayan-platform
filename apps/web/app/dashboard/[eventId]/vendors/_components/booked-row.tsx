@@ -77,9 +77,12 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { SupplierShareButton } from '../../_components/supplier-share-button';
 import { CancelBookingButton } from './cancel-booking-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
+import { FavoriteHeart } from '@/app/_components/favorite-heart';
 
 import { BookedStandInCtx } from './booked-stand-ins';
 import { BookedWhere, BookedWhereLine } from './booked-where';
+import { BookedCountRule } from './booked-count-rule';
+import type { ServiceCounts } from '@/lib/supplier-count';
 
 export { BookedStandInCtx, type BookedStandIns } from './booked-stand-ins';
 
@@ -339,7 +342,18 @@ export function NextPayButton({
  * final Suppliers design: *"Booked does not collapse"*). Opening another closes the one before; the fold animates
  * (`.bk-exp`'s grid track, `booked-body.tsx`).
  */
-export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: string; rows: readonly BookedRow[]; firstOpen?: string | null }) {
+export function BookedRowList({
+  eventId,
+  rows,
+  firstOpen = null,
+  counts = null,
+}: {
+  eventId: string;
+  rows: readonly BookedRow[];
+  firstOpen?: string | null;
+  /** 🧮 The event's per-head services and their rules (`readEventServiceCounts`). Null = not read / refused: no row. */
+  counts?: ServiceCounts | null;
+}) {
   const [openId, setOpenId] = useState<string | null>(firstOpen);
   // 🖥 From a tablet (768) the list sits left and the opened supplier on the right (the prototype's wide Team, "from
   // 820 wide: … list left, the opened item right" — "Tap a supplier to see their payments, call time and tools
@@ -357,6 +371,7 @@ export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: st
           open={openId === r.vendorId}
           onToggle={() => toggle(r.vendorId)}
           foldInline={!wide}
+          counts={counts}
         />
       ))}
     </ul>
@@ -382,7 +397,7 @@ export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: st
                 {[openRow.service, openRow.money ? formatPhp(openRow.money.agreedPhp) : null].filter(Boolean).join(' · ')}
               </span>
             </p>
-            <BookedFold eventId={eventId} row={openRow} />
+            <BookedFold eventId={eventId} row={openRow} counts={counts} />
           </>
         ) : (
           <p className="pt-2 text-[14px] text-ink/55">Tap a supplier to see their call time, payments and tools here.</p>
@@ -525,9 +540,11 @@ export function BookedRowItem({
   open: openProp,
   onToggle,
   foldInline = true,
+  counts = null,
 }: {
   eventId: string;
   row: BookedRow;
+  counts?: ServiceCounts | null;
   defaultOpen?: boolean;
   /** Held by `BookedRowList` (one open at a time). Absent → the row holds its own. */
   open?: boolean;
@@ -541,9 +558,12 @@ export function BookedRowItem({
   const n = row.next;
   return (
     <li className="bk-row" data-booked-row={row.vendorId} data-open={open ? '' : undefined}>
+      {/* ♡ After the day, a host's booked service carries its heart at the row's end (owner 2026-11-06, prototype
+          §E) — a sibling of the row's own button, never inside it. Absent before the day and for a coordinator. */}
+      <div className={row.favorite ? 'flex items-center gap-2' : undefined}>
       <button
         type="button"
-        className="grid w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
+        className="grid min-w-0 flex-1 w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
         aria-expanded={open}
         onClick={toggle}
       >
@@ -594,6 +614,16 @@ export function BookedRowItem({
         </span>
         <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
       </button>
+      {row.favorite ? (
+        <FavoriteHeart
+          eventId={eventId}
+          shopId={row.favorite.shopId}
+          serviceId={row.favorite.serviceId}
+          name={row.name}
+          initiallyOn={row.favorite.on}
+        />
+      ) : null}
+      </div>
       {row.dateAsk ? (
         <p className="ml-14 mt-1 text-[13px] text-ink/70" data-booked-date-ask={row.dateAsk.waiting ? 'waiting' : 'answered'}>
           Date change to {row.dateAsk.when}:{' '}
@@ -603,7 +633,7 @@ export function BookedRowItem({
       {foldInline ? (
         <div className="bk-exp" inert={!open}>
           <div>
-            <BookedFold eventId={eventId} row={row} />
+            <BookedFold eventId={eventId} row={row} counts={counts} />
           </div>
         </div>
       ) : null}
@@ -615,7 +645,9 @@ export function BookedRowItem({
  * WHAT AN OPENED TEAM ROW SHOWS — call time · payment plan · room size · "Used across your event" · ONE row of equal
  * tiles (the prototype's `teamFold`). Drawn under the row on a phone, in the right column from 768.
  */
-function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
+function BookedFold({ eventId, row, counts = null }: { eventId: string; row: BookedRow; counts?: ServiceCounts | null }) {
+  // 🧮 "Who they count" — only a service priced per head is in `counts.services` (owner 2026-11-04).
+  const counted = counts?.services.find((s) => s.id === row.vendorId) ?? null;
   return (
     <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
       {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
@@ -624,6 +656,7 @@ function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
+      {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">
         <span className="text-ink/55">Used across your event:</span>
         {row.feeds.map((u) => (

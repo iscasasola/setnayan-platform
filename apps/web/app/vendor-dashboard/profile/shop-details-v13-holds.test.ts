@@ -21,11 +21,9 @@ import { stripComments } from '@/lib/strip-comments';
 import { BUSINESS_PROFILE_LABELS } from '@/lib/vendor-profile';
 import { inBusinessSinceLine, onSetnayanSinceLine } from '@/lib/in-business-since';
 import { nextPlanReach, reachLadderWords, TIER_CAPS } from '@/lib/vendor-tier-caps';
-import { VENDOR_ADDON_TIER_PRICES_PHP } from '@/lib/vendor-addon-tier-pricing';
 import {
   DEEP_SEARCH_FINDINGS,
   DEEP_SEARCH_KEEP_DAYS,
-  deepSearchBand,
   deepSearchBandWords,
   deepSearchStillKept,
 } from '@/lib/deep-search-findings';
@@ -54,7 +52,8 @@ test('1 · Where you work says WHY at 0 km, saves in place, and names the next p
   assert.match(s, /!tierMeasured \? \(/, 'an unread plan is not told apart from a 0 km plan');
   assert.doesNotMatch(s, /\b(20|30|50|100) km\b/, 'a plan reach is typed into the component');
 
-  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Solo ${TIER_CAPS.solo.serviceRadiusKm} · Pro ${TIER_CAPS.pro.serviceRadiusKm} · Ultra ${TIER_CAPS.enterprise.serviceRadiusKm}`);
+  // Ultra is nationwide (`Infinity`) since owner 2026-11-04 — said in words, never "Infinity".
+  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Solo ${TIER_CAPS.solo.serviceRadiusKm} · Pro ${TIER_CAPS.pro.serviceRadiusKm} · Ultra nationwide`);
   assert.deepEqual(nextPlanReach('free'), { plan: 'Verified', km: TIER_CAPS.verified.serviceRadiusKm });
   assert.deepEqual(nextPlanReach('solo'), { plan: 'Pro', km: TIER_CAPS.pro.serviceRadiusKm });
   assert.equal(nextPlanReach('enterprise'), null, 'the top plan has no farther plan to name');
@@ -88,11 +87,10 @@ test('4a · Deep Search is priced from the run’s own source — never a typed 
   for (const f of [CARD, 'lib/deep-search-findings.ts']) {
     assert.doesNotMatch(src(f), /₱\s?\d/, `${f} types a price`);
   }
-  const b = VENDOR_ADDON_TIER_PRICES_PHP.deep_search_about_you;
-  assert.deepEqual(deepSearchBand({ tiered: true, catalogPhp: 1 }), { entryPhp: b.entry, growthPhp: b.growth }, 'the band is not the matrix the run charges');
-  assert.deepEqual(deepSearchBand({ tiered: false, catalogPhp: 777 }), { entryPhp: 777, growthPhp: 777 }, 'flat pricing is not the catalogue read');
-  const words = deepSearchBandWords({ entryPhp: 1000, growthPhp: 500 }, 28);
-  assert.equal(words, '₱1,000 a search on Free and Solo · ₱500 on Pro and Ultra, with 1 free every 28 days on Pro and Ultra.');
+  // 2026-11-04: both sides of the band are catalogue rows, read by the offer — never a typed matrix.
+  assert.match(src('lib/vendor-deep-search-offer.ts'), /fetchVendorAddonBandPrices\(supabase, 'deep_search_about_you'\)/, 'the band is not read from the catalogue');
+  const words = deepSearchBandWords({ entryPhp: 777, growthPhp: 333 }, 28);
+  assert.equal(words, '₱777 a search on Free, Verified and Solo · ₱333 on Pro and Ultra, with 1 free every 28 days on Pro and Ultra.');
   assert.doesNotMatch(words, /free[^.]*Solo\./i);
   // One resolver for the page and the card.
   assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /await loadDeepSearchOffer\(/, 'the Deep Search page prices itself again');

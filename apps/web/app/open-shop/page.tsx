@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
+import { shopConsolePath } from '@/lib/shop-console-path';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -36,9 +37,14 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string }>;
 }) {
-  const { error, step } = await searchParams;
+  const { error, step, next } = await searchParams;
+  // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
+  // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
+  // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
+  // general-purpose redirector. Default: Today.
+  const landing = shopConsolePath(next);
   const supabase = await createClient();
   const {
     data: { user },
@@ -53,7 +59,7 @@ export default async function OpenShopPage({
   const gate = await getOAuthGate(OAUTH_FLAGS);
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
-  const { data: owned } = user ? await supabase
+  const { data: owned, error: ownedError } = user ? await supabase
     // `vendor_profiles_self` (migration 20271217955839), never the table: the
     // projection names `business_owner_name`, off `authenticated`'s column
     // allowlist, and one denied column refuses the whole query — which here
@@ -64,7 +70,13 @@ export default async function OpenShopPage({
       'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address, in_business_since_year',
     )
     .eq('user_id', user.id)
-    .maybeSingle() : { data: null };
+    .maybeSingle() : { data: null, error: null };
+  // 🔒 A REFUSED READ IS NOT "NO SHOP". Read as empty, it re-opens the wizard
+  // over a shop that already has a name — the restart the view above exists to
+  // prevent. Throw to the error screen, which says the truth: try again.
+  if (ownedError) {
+    throw new Error(`open-shop: could not read your shop (${ownedError.message})`);
+  }
   const row = owned as {
     vendor_profile_id?: string | null;
     business_name?: string | null;
@@ -80,7 +92,7 @@ export default async function OpenShopPage({
     contact_phone?: string | null;
     contact_email?: string | null;
   } | null;
-  if (row?.business_name?.trim()) redirect('/vendor-dashboard');
+  if (row?.business_name?.trim()) redirect(landing);
 
   // Taxonomy-driven labels for the primary-service picker (degrades to the
   // in-code names on a hiccup).
@@ -187,7 +199,11 @@ export default async function OpenShopPage({
       }}
       guest={guest}
       oauth={gate}
-      signInHref={'/login?next=' + encodeURIComponent('/open-shop') + '&as=vendor'}
+      signInHref={
+        '/login?next=' +
+        encodeURIComponent(landing === '/vendor-dashboard' ? '/open-shop' : '/open-shop?next=' + encodeURIComponent(landing)) +
+        '&as=vendor'
+      }
       error={error}
       initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
     />

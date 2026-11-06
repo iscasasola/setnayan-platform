@@ -242,7 +242,9 @@ test('robots: answer engines may read /features; the AI-training block is unchan
     assert.ok(allow.includes('/'), `${ua} must be allowed the site root (which covers /features)`);
     assert.ok(!disallow.some((d) => '/features/papic'.startsWith(d) || '/tl/features'.startsWith(d)), `${ua} is blocked from /features`);
   }
-  for (const ua of ['GPTBot', 'Google-Extended', 'Applebot-Extended', 'Amazonbot', 'cohere-ai', 'Bytespider', 'Diffbot']) {
+  // Google-Extended left this list 2026-11-02 (owner: "Be findable by AI") — it may
+  // read public pages now; app/robots-lets-gemini-read.test.ts pins that.
+  for (const ua of ['GPTBot', 'Applebot-Extended', 'Amazonbot', 'cohere-ai', 'Bytespider', 'Diffbot']) {
     const disallow = ([] as string[]).concat(forAgent(ua)?.disallow ?? []);
     assert.ok(disallow.includes('/'), `${ua} must stay blocked from training on the site`);
   }

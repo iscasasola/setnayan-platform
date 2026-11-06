@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import { sentrySourcemapsCanUpload } from './lib/sentry-sourcemaps-can-upload';
 import { findLayoutAnchors, oneCopyPerLayoutGroups } from './lib/one-copy-per-layout';
+import { keepWebpackCache } from './lib/build-webpack-cache';
 
 function getHostnameFromEnv(url: string | undefined): string | null {
   if (!url) return null;
@@ -409,6 +410,9 @@ const nextConfig: NextConfig = {
       // nft can't statically trace them — force-include the set).
       './assets/npc-docs/*.pdf',
     ],
+    // 🖨 The supplier's prints (lib/supplier-prints-svg.ts) outline every letter from these faces — read by a dynamic
+    // path, so nft cannot see them. Only the one route that draws a print carries them.
+    '/api/vendor/prints': ['./public/print-fonts/*.ttf'],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required
@@ -443,6 +447,20 @@ const nextConfig: NextConfig = {
     config.resolve.alias.jsdom = false;
     config.resolve.alias.canvas = false;
     config.resolve.alias['jsdom/lib/jsdom/living/generated/utils'] = false;
+    // ⏱ NO WEBPACK DISK CACHE IN A PRODUCTION BUILD (2026-11-04).
+    // Next writes webpack's filesystem cache to .next/cache/webpack when the
+    // compile ends. Measured on main 78112195 (clean build, 4 cores): the
+    // server cache write alone took 2.0 min, ran BEFORE the edge and client
+    // compiles could start, and was the build's memory peak (7.8 GB → 11.4 GB
+    // while serialising). The result was 5.6 GB on disk, and Vercel keeps at
+    // most 3 GB of build cache on an Enhanced machine, so the cache it paid
+    // for could not be kept for the next build. Every build starts cold either
+    // way, so writing the cache is pure cost. Dev (`next dev`) keeps its cache.
+    // Set NEXT_BUILD_WEBPACK_CACHE=1 to keep it for repeated local builds.
+    // 🛡 lib/the-build-stays-fast.test.ts + scripts/check-build-budget.mjs (CI).
+    if (!keepWebpackCache(dev, process.env)) {
+      config.cache = false;
+    }
     // 📦 ONE COPY PER LAYOUT (2026-10-13) — a module a layout already ships is
     // not shipped again by a page beneath it. The app router makes every
     // layout / loading / page its own webpack entry, and Next's client
@@ -471,8 +489,17 @@ const nextConfig: NextConfig = {
     // matches the service worker's content-hashed rule (`IMMUTABLE_PATH`, ≥ 8
     // hex). Client production build only. Without it the Next 15.5.28 security
     // bump is 507 B over the 202KB lock (`scripts/check-bundle-size.mjs`).
+    //
+    // 9 hex since 2026-11-04 (#7244). Moving supabase-js (~43KB gz) OUT of every
+    // signed-in page's first load made its three chunks lazy, and every lazy
+    // chunk is one more entry in this runtime: +42 B gzipped, which put the
+    // shared bundle 16 B over the lock while the pages themselves shrank (the
+    // Maker 507.4 → 453.6KB). Measured on that build: 10 → 9 hex takes the
+    // runtime 4,999 → 4,860 B (−139 B) with nothing else changed. 9 hex = 36 bits
+    // (~1 in 7×10^10 that a changed chunk reuses its old name); still above the
+    // service worker's ≥ 8 hex rule.
     if (!isServer && !dev && config.output) {
-      const CHUNK_HASH = '[contenthash:10]';
+      const CHUNK_HASH = '[contenthash:9]';
       const { filename, chunkFilename } = config.output;
       if (typeof filename === 'string' && filename.startsWith('static/chunks/')) {
         config.output.filename = filename.replace('[contenthash]', CHUNK_HASH);

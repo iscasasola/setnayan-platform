@@ -152,3 +152,30 @@ f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.t
 # test ('0123456789abcdef' twice), the shape the door desk's parser requires.
 # Not a credential. Pinned by its introducing commit.
 13aa65a0ce04aea9379d0b42c90a0fa1cb1af730:apps/web/lib/wallet-pass-is-the-ticket.test.ts:generic-api-key:40
+#
+# Papic is three packs (2026-11-03): the App Store pack test rows pair a product id with a catalog
+# service_code ('PAPIC_GUEST_1K', 'PAPIC_GUEST') — gitleaks reads the pair as a keyword + high-entropy
+# value. Not credentials. The rows carry `gitleaks:allow` since 692cc1a2; pinned here for the
+# introducing commit.
+118399277a6312d88f9884098254bea75e7d6366:apps/web/lib/iap/products.test.ts:generic-api-key:116
+118399277a6312d88f9884098254bea75e7d6366:apps/web/lib/iap/products.test.ts:generic-api-key:117
+#
+# The final price sheet (2026-11-04): the same pack service_code list — the migration's catalogue UPDATE filter and
+# the IAP test's list of on-sale couple products — read as a keyword + high-entropy value. Catalogue codes, not
+# credentials. Pinned for the introducing commit (gitleaks-action scans every commit in the PR range).
+d209b39a72bf3b56fb1a108fac1b04c4e724550f:supabase/migrations/20271308555594_the_final_price_sheet.sql:generic-api-key:117
+d209b39a72bf3b56fb1a108fac1b04c4e724550f:apps/web/lib/iap/products.test.ts:generic-api-key:258
+#
+# Supplier gifts slice 1 (2026-11-05): lists of Papic pack service codes in the gift tests and the chat lab's
+# fixture (PAPIC_GUEST_150 / _1K and the like), read as a keyword plus a high-entropy value. Catalogue codes,
+# not credentials. Pinned for their introducing commits.
+35a51bda60308dd5499e274d9805ec28d53d24d6:apps/web/lib/shop-gifts.test.ts:generic-api-key:107
+35a51bda60308dd5499e274d9805ec28d53d24d6:apps/web/lib/shop-gifts.test.ts:generic-api-key:53
+ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/app/dev/supplier-chat-lab/page.tsx:generic-api-key:104
+ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic-api-key:106
+ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic-api-key:52
+
+# #7297 (2026-11-05): Papic pack service codes (PAPIC_GUEST_1K / _150) in a test and a dev-lab fixture, read as a
+# keyword plus a high-entropy value. Catalogue codes, not credentials. Pinned for their introducing commits.
+80efd14f272d23d6476a2d133302382894bc52c0:apps/web/app/dev/supplier-chat-lab/page.tsx:generic-api-key:109
+80efd14f272d23d6476a2d133302382894bc52c0:apps/web/lib/shop-gifts.test.ts:generic-api-key:127

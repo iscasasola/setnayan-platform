@@ -127,11 +127,15 @@ test('the pill actually reads the standing it was handed — a locked pill is di
 
 test('the search excludes every kind already on screen, not only the exact coverage match', () => {
   const src = read(MAKER);
+  // Since 2026-11-04 the "Something else" folds hold EVERY live trade, so excluding them would empty the band. The
+  // set is the kinds ALWAYS on screen (the "Common for" band); a fold hides whatever the band shows (`rankedKeys`).
   assert.match(
     src,
-    /const existingKindValues = useMemo\(\s*\(\) => new Set\(allChoices\.map\(\(o\) => o\.value\)\),/,
-    'the dedupe set stopped being built from every kind already on this screen',
+    /const existingKindValues = useMemo\(\s*\(\) => new Set\(coveredChoices\.map\(\(o\) => o\.value\)\),/,
+    'the dedupe set stopped being built from the kinds always on this screen',
   );
+  assert.match(src, /const rankedKeys = useMemo\(\(\) => new Set\(rankedTrades\.map\(\(\{ key \}\) => key\)\)/);
+  assert.match(src, /\.filter\(\(o\) => o\.standing !== 'covered' && !rankedKeys\.has\(o\.value\)\)/, 'a fold lists a trade the search band already shows');
   // It must be the SAME set fed to the ranker — a set built and never used
   // would pass this file's earlier assertion while doing nothing.
   assert.match(
@@ -180,8 +184,10 @@ test('the legacy list — the one holding Miscellaneous — still renders uncond
   const legacyAt = src.indexOf('categoryOptions.map((group) => {');
   assert.ok(tradeAt > 0 && legacyAt > 0, 'one of the two render sites is missing');
   assert.ok(tradeAt < legacyAt, 'the ranked-trade band stopped sitting ahead of (additive to) the legacy groups');
+  // Since 2026-11-04 the folds are the live taxonomy (lib/service-card-kind-groups.ts), which keeps Miscellaneous
+  // reachable on purpose (MISC_KIND) — proven in lib/service-card-kind-groups.test.ts.
   const loader = read(LOADER);
-  assert.match(loader, /SERVICE_GROUPS\.map/, 'the legacy groups — which carry Miscellaneous — stopped being built');
+  assert.match(loader, /liveKindGroups\(\{/, 'the folds — which carry Miscellaneous — stopped being built');
 });
 
 // ---------------------------------------------------------------------------

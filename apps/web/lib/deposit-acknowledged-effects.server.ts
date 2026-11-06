@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
+import { deliverShopGiftUnlocksForBooking, deliverShopGiftsForBooking } from '@/lib/shop-gifts.server';
 import {
   judgeDepositEffects,
   type DepositEffectsDoor,
@@ -126,6 +127,19 @@ export async function runDepositAcknowledgedEffects(
         // booking and tell a real second couple the date is "fully booked".
         outcome.pool = await acquireSchedulePoolsForBooking(admin, outcome.eventId, outcome.anchorId);
       }
+
+      // 🎁 SUPPLIER GIFTS (owner 2026-11-04): the gifts this shop put on the couple's accepted quote leave its gift
+      // stock NOW — "they leave your stock only when that couple's first payment clears" — and land in the event's
+      // Papic pool. Independent of the fee: a waived first-five booking still carries the shop's own gift. The SQL
+      // door gives only what this event still lacks from this shop, so a repeat call is a no-op.
+      recordShopGiftDelivery(eventVendorId, door, await deliverShopGiftsForBooking(admin, eventVendorId));
+      // 💎 …and its Event Plus / Event Pro gifts unlock the event (slice 2; a second Plus becomes Pro, owner 2026-11-05).
+      recordShopGiftDelivery(
+        eventVendorId,
+        door,
+        await deliverShopGiftUnlocksForBooking(admin, eventVendorId, outcome.eventId),
+        'unlocks',
+      );
     }
   } catch (e) {
     outcome.thrown = e instanceof Error ? e.message : String(e);
@@ -133,6 +147,35 @@ export async function runDepositAcknowledgedEffects(
 
   recordDepositEffects(outcome);
   return outcome;
+}
+
+/**
+ * The gift door's own record. `short` (the stock was spent or refunded after the quote was accepted) and `error`
+ * page Sentry — a couple was promised a gift that did not land. Every other answer is the expected shape.
+ */
+function recordShopGiftDelivery(
+  eventVendorId: string,
+  door: DepositEffectsDoor,
+  delivery: Awaited<ReturnType<typeof deliverShopGiftsForBooking>>,
+  which: 'papic' | 'unlocks' = 'papic',
+): void {
+  try {
+    // The counts travel as data, never inside the sentence — a log line is grepped, not read.
+    const summary = `[shop-gifts] ${which} ${delivery.status} · booking ${eventVendorId} · door ${door}`;
+    const facts = { credits: delivery.credits, detail: delivery.detail };
+    if (delivery.status !== 'short' && delivery.status !== 'error') {
+      console.info(summary, facts);
+      return;
+    }
+    console.error(summary, facts);
+    Sentry.captureMessage(summary, {
+      level: 'error',
+      tags: { feature: 'shop-gifts', door, which },
+      extra: { eventVendorId, ...delivery },
+    });
+  } catch {
+    // telemetry never breaks the money path
+  }
 }
 
 /**

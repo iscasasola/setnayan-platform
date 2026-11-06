@@ -40,6 +40,8 @@
  *   ?s=dates-free     one calendar, no waiting list on the plan (frame 29)   ?s=dates-empty  no calendar yet ("Not set")
  *   ?s=dates-day      one day (frame 35)   ?s=dates-dayblocked  a blocked day with a hold and a waiting list
  *   ?s=qr · qr-booked · qr-issued · qr-fail   the one QR codes page (frames 10 · 40) &open=issued
+ *                     &place=promote  the Shortlist code as Shop › Promote draws it (2026-11-05)
+ *   ?s=qr-page · qr-dates                    My page / Check a date + the door sticker (2026-11-05)
  *   ?s=money          Customers › Money (S-PR4): Received · To come in · meter, Next in ▾ rows, Setnayan fee rows,
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
@@ -58,8 +60,9 @@
  *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
  *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=event-hub      🧭 the supplier's Event Hub (the live page, v13 frame, `event-hub-lab.tsx`): &view=day|scanner|announce
+ *                     · &state=moved|skipped (the run of show after a Change the schedule, 2026-11-04)
  *   ?s=schedule       🤝 the supplier's part of the schedule (Step 4b, `schedule-lab.tsx`): + My moment · My times · Suggest ·
- *                     Take back · Seen · Confirm my times; &state=week|confirmed|auto|seen|unlinked|fail · 🏛 venue|held (venue hours)
+ *                     Take back · Seen · Confirm my times; &state=week|confirmed|auto|seen|unlinked|fail · 🏛 venue|held (venue hours) · 🚗 clash|clashfail
  *   ?s=crew-phone     📱 the crew phone (`hub-lab.tsx` CrewPhoneLab): &state=name|waiting|member|helper|helper-shop|ended
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
@@ -318,7 +321,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string; place?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -328,6 +331,7 @@ export default async function SupplierLabPage({
     const s = q.s ?? '';
     if (/^(events|people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
     if (s === 'chat-ask') return '/vendor-dashboard/customers';
+    if ((s.startsWith('qr') && q.place === 'promote') || s === 'qr-page' || s === 'qr-dates') return '/vendor-dashboard/shop/promote';
     if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
     if (s === 'page') return '/vendor-dashboard/website';
@@ -357,7 +361,7 @@ export default async function SupplierLabPage({
   }
   if (q.s === 'event-hub') {
     /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
-    return wrap(<EventHubLab view={q.view} />, 'own');
+    return wrap(<EventHubLab view={q.view} state={q.state} />, 'own');
   }
   if (q.s === 'crew-phone') {
     /* 📱 The crew phone's screens (owner 2026-10-29) — no shell: crew never see the supplier's frame. */
@@ -423,7 +427,7 @@ export default async function SupplierLabPage({
     return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} door={q.door} block={q.block} gear={q.gear === '1'} />, 'own');
   }
   if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} />, 'wide');
+    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} place={q.place === 'promote' ? 'promote' : 'customers'} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
     return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} fail={q.fail === '1'} gear={q.gear === '1'} domains={q.domains === '1'} />, 'own');

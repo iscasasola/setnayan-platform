@@ -11,7 +11,7 @@ import {
   vendorAiBasicActive,
   vendorAiLevelForServiceKey,
 } from './vendor-ai-level';
-import { resolveVendorAddonPricePhp } from './vendor-addon-tier-pricing';
+import { vendorAddonSkuCode } from './vendor-addon-tier-pricing';
 import { isVendorAiAddonActive } from './vendor-addon-pricing';
 
 /**
@@ -99,22 +99,16 @@ test('buying Advanced promotes; buying Basic while Advanced does NOT demote', ()
 
 // ── the price bands the rungs map to ────────────────────────────────────────
 
-test('each rung maps to its locked price band', () => {
+test('each rung maps to its catalogue rows by plan band (prices live only in vendor_billing_catalog)', () => {
   assert.equal(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'ai_chatbot_basic');
   assert.equal(VENDOR_AI_LEVEL_PRICING_SKU.advanced, 'ai_chatbot_advanced');
-  // Owner-locked § 2: Free/Solo 2000/3000 · Pro/Ent 1500/2500.
-  assert.equal(resolveVendorAddonPricePhp(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'free'), 2000);
-  assert.equal(resolveVendorAddonPricePhp(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'pro'), 1500);
-  assert.equal(resolveVendorAddonPricePhp(VENDOR_AI_LEVEL_PRICING_SKU.advanced, 'free'), 3000);
-  assert.equal(resolveVendorAddonPricePhp(VENDOR_AI_LEVEL_PRICING_SKU.advanced, 'pro'), 2500);
-});
-
-test('Advanced always costs MORE than Basic on the same tier', () => {
-  for (const tier of ['free', 'solo', 'pro', 'enterprise', 'custom', null]) {
-    const basic = resolveVendorAddonPricePhp('ai_chatbot_basic', tier);
-    const advanced = resolveVendorAddonPricePhp('ai_chatbot_advanced', tier);
-    assert.ok(advanced > basic, `tier ${tier}: ${advanced} must exceed ${basic}`);
-  }
+  // Owner 2026-11-04: two prices by plan — Free/Verified/Solo one row, Pro/Ultra another.
+  assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'free'), 'vendor_ai_addon_entry');
+  assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'verified'), 'vendor_ai_addon_entry');
+  assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'solo'), 'vendor_ai_addon_entry');
+  assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'pro'), 'vendor_ai_addon');
+  assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.basic, 'enterprise'), 'vendor_ai_addon');
+  assert.equal(vendorAddonSkuCode(VENDOR_AI_LEVEL_PRICING_SKU.advanced, 'free'), 'vendor_ai_addon_advanced');
 });
 
 test('the rung list is exactly the two CHECKed values', () => {

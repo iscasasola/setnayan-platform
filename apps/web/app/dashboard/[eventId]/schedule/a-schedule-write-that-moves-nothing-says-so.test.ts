@@ -8,7 +8,7 @@
  *
  *   ⓵ Running late (`bulkRetimeScheduleBlocks`): the sheet closed as if the day had moved; a span with nothing the
  *      caller could see to move `return`ed quietly.
- *   ⓶ The floor's +5/+10/+15 (`floorRetimeFrom`): "Moved 6 blocks." in green to a booked coordinator who does not
+ *   ⓶ The floor's +5/+10/+15 (then `floorRetimeFrom`, now `changeTheSchedule`): "Moved 6 blocks." in green to a booked coordinator who does not
  *      hold Edit on the schedule — the day did not move.
  *   ⓷ "Who's responsible" (`setBlockResponsibleParty`) and an approved change (`resolveScheduleSuggestion`): "saved".
  *   ⓸ In the Event Hub Maker the shift is a QUIET write (no render follows), and the sheet closed over the OLD times —
@@ -33,7 +33,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const ACTIONS = 'app/dashboard/[eventId]/schedule/actions.ts';
 // The one accept path moved to lib in Step 4b (2026-11-02) so Auto-agree runs the same code as Approve.
 const DECIDE = 'lib/schedule-suggestion-decide.server.ts';
-const FLOOR = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts';
+// The floor's Change the schedule (2026-11-04, it replaced `floorRetimeFrom`): its skip is the one row UPDATE.
+const CHANGE = 'lib/change-the-schedule.server.ts';
 const SHEETS = 'app/dashboard/[eventId]/schedule/_components/day-sheets.tsx';
 const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
 
@@ -70,7 +71,7 @@ const WRITERS: [file: string, fn: string][] = [
   [ACTIONS, 'setBlockResponsibleParty'],
   // One Approve and Approve all share one accept path (2026-11-01) — the write lives there.
   [DECIDE, 'decideSuggestion'],
-  [FLOOR, 'floorRetimeFrom'],
+  [CHANGE, 'changeTheSchedule'],
 ];
 
 test('⓵⓶⓷ every UPDATE of a schedule row reads back what it changed and refuses an empty answer', () => {

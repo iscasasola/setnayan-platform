@@ -33,6 +33,7 @@ import {
   type BookedView,
 } from '@/lib/booked-rows';
 import { BookedRowList, WaitingRowItem } from './booked-row';
+import type { ServiceCounts } from '@/lib/supplier-count';
 import { WhereAsk } from './booked-where';
 import { GoToFind } from './go-to-find';
 
@@ -81,8 +82,11 @@ export function BookedBody({
   state,
   dateChangeUnread = false,
   firstOpen = null,
+  counts = null,
   children,
 }: {
+  /** 🧮 Each per-head service's "Who they count" (`readEventServiceCounts`); null = no rows drawn. */
+  counts?: ServiceCounts | null;
   eventId: string;
   state: BookedBodyState;
   /** A row open on arrival (a lab's `&open=`) — the rest stay closed. */
@@ -164,7 +168,7 @@ export function BookedBody({
                 We couldn’t check whether a date change is waiting.
               </p>
             ) : null}
-            <BookedRowList eventId={eventId} rows={booked} firstOpen={firstOpen} />
+            <BookedRowList eventId={eventId} rows={booked} firstOpen={firstOpen} counts={counts} />
             {/* 📖 "Which chapters will they serve?" — for the first booked supplier on no chapter yet (2026-11-04). */}
             <WhereAsk eventId={eventId} rows={booked} />
           </>

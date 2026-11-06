@@ -11,10 +11,11 @@
  *   • Show fullscreen — an in-page dark overlay that blows the QR up so guests
  *     can scan it off a phone/laptop screen at the event. Esc / tap closes it.
  *
- * The QR encodes the vendor's public Setnayan page (/v/[slug]#reviews) — where a
- * couple who booked them can leave a verified review. There is no no-login
- * public-review capture endpoint in V1, so the copy stays honest: it points
- * guests to the vendor's Setnayan page, not a promise of anonymous review.
+ * The QR encodes THE GUEST FORM for this shop at today's event
+ * (/v/[slug]/guest-review?event=<id>, owner 6 Nov · prototype § 8 Door 1). A
+ * guest the door checked in rates what they saw; anyone else is told plainly
+ * they are not on the door list and offered the shop's page. The guest is
+ * named by the pass in their phone — never typed.
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -64,7 +65,7 @@ export function GuestReviewQr({
       <div class="sheet">
         <div class="qr">${qrSvg}</div>
         <h1>Loved working with <span class="biz">${safeName}</span>?</h1>
-        <p>Scan this code to open their Setnayan page and leave a review.</p>
+        <p>Were you there? Tell others what stood out.</p>
         <div class="url">${reviewUrl}</div>
       </div>
       </body></html>`);
@@ -90,8 +91,8 @@ export function GuestReviewQr({
         />
         <div className="min-w-0 flex-1 text-center sm:text-left">
           <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-            Display it or print it at the event — guests scan to open your Setnayan page and review
-            you on the spot. No app, no login to see it.
+            Display it or print it at the event — guests the door checked in scan it and rate what they saw.
+            No app to install.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
             <button

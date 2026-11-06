@@ -17,6 +17,7 @@
  *   &buy=1          the real floating "Add credits" doorway over the camera (one fixture rung)
  *   ?lane=challenges the REAL Challenges-page rows on fixture missions — a couple's own deletes by its swipe (2026-11-03)
  *   &chapter=1      📷 the camera shoots into a chapter ("Meeting with caterer", owner 2026-11-01) — named on it
+ *   &ceiling=0      🔒 the host gave this guest NO shots (a ceiling of 0) — "The host hasn't opened your camera yet"
  */
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
@@ -37,7 +38,7 @@ export default async function PapicCameraLabPage({
   // &spot=1 — the camera's first-visit spotlight (guest_papic_camera_v2), first run, nothing recorded.
   return (
     <>
-      <LabCamera lane={lane} pro={sp.pro === '1'} buy={sp.buy === '1'} chapter={sp.chapter === '1'} />
+      <LabCamera lane={lane} pro={sp.pro === '1'} buy={sp.buy === '1'} chapter={sp.chapter === '1'} ceilingZero={sp.ceiling === '0'} />
       {sp.spot === '1' && lane === 'guest' ? <LabPageSpotlight tourKey="guest_papic_camera_v2" script={TOURS.guest_papic_camera_v2.spotlight!} /> : null}
     </>
   );

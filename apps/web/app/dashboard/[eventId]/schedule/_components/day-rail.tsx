@@ -80,6 +80,7 @@ import type {
 import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
 import { ScheduleAddPill, ScheduleSheet } from './schedule-sheet';
 import type { RetimePatch } from '@/lib/schedule-ros';
@@ -89,7 +90,9 @@ import { useChapters } from './chapters-context';
 import { SwipeDeleteButton, SwipeToDelete, useSwipeReveal } from '@/app/_components/swipe-to-delete';
 import { lockedShopOnMoments } from '@/lib/supplier-part-lock';
 import { lockedLine } from '@/lib/supplier-schedule-marks';
-import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
+import { TIME_TBA, chapterStage, chapterSuppliers, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
+import { dayList } from '@/lib/day-list';
+import { DayList } from './day-list';
 import { EVERYONE, lensAllowed, type ViewLens } from '@/lib/schedule-view-as';
 import { ViewAsBody, ViewAsMenu } from './schedule-view-as';
 
@@ -197,6 +200,18 @@ export function ScheduleDay({
   const chaptersApi = useChapters();
   const ch = live ? null : chaptersApi;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  /* 👈 A moment's row swiped to Delete (owner 2026-11-03): its inspector opens at the warning. */
+  const [askDelete, setAskDelete] = useState<{ id: string; n: number } | null>(null);
+  /** ↩ A confirmed delete hides the moment for its Undo window; Undo (or a refusal) shows it again. Its own set, so a
+   *  fresh server answer in the window (which clears `gone`) never brings it back early. */
+  const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
+  const hideMoment = (id: string, hide: boolean) =>
+    setHeld((g) => {
+      const next = new Set(g);
+      if (hide) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   /* ➕ Studio's "Add a moment": a moment added in place is on the timeline at once — no render of the Maker brings
      it (its write is quiet) — and cannot be edited until its add has landed (`pending`). */
   const [added, setAdded] = useState<readonly DayMoment[]>([]);
@@ -211,6 +226,10 @@ export function ScheduleDay({
   const hourPx = isDesktop ? 68 : 64;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /* 👈 An ask belongs to the swipe that made it: once the moment closes, ⋯ opens it at its fields again. */
+  useEffect(() => {
+    if (selectedId === null) setAskDelete(null);
+  }, [selectedId]);
   const [overrides, setOverrides] = useState<Record<string, Partial<DayMoment>>>({});
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -220,7 +239,10 @@ export function ScheduleDay({
   /* 👁 VIEW AS on the Schedule page (Step 3c, `schedule-view-as.tsx`): a guest · a role · a supplier or crew · Suppliers
      by time, drawn in place of the rail. Only where the page drew chapters; the Maker keeps the shipped lens above. */
   const viewAs = ch?.viewAs ?? null;
-  const [asLens, setAsLens] = useState<ViewLens>(EVERYONE);
+  // 👤 On the chapters page the lens is the PAGE's (Event Day and a chapter's page share one View as, 2026-11-04).
+  const [localLens, setLocalLens] = useState<ViewLens>(EVERYONE);
+  const asLens = ch?.lens ?? localLens;
+  const setAsLens = ch?.setLens ?? setLocalLens;
   // A Free event draws only the free views (Suppliers by time — owner 2026-11-02); `lensAllowed` is the one question.
   const viewingAs = viewAs !== null && asLens.kind !== 'everyone' && lensAllowed(viewAs.pro, asLens);
   const [notice, setNotice] = useState<string | null>(null);
@@ -280,9 +302,9 @@ export function ScheduleDay({
   const merged = useMemo(
     () =>
       withChapters([...moments, ...added.filter((a) => !moments.some((m) => m.block_id === a.block_id))], ch?.chapters ?? null)
-        .filter((m) => !gone.has(m.block_id) && !(m.parent_block_id && gone.has(m.parent_block_id)))
+        .filter((m) => !gone.has(m.block_id) && !held.has(m.block_id) && !(m.parent_block_id && (gone.has(m.parent_block_id) || held.has(m.parent_block_id))))
         .map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
-    [moments, added, overrides, gone, ch?.chapters],
+    [moments, added, overrides, gone, held, ch?.chapters],
   );
   const topLevel = useMemo(() => merged.filter((m) => m.parent_block_id === null), [merged]);
   const partsOf = useMemo(() => {
@@ -597,6 +619,8 @@ export function ScheduleDay({
                 onRevert={revert}
                 onConfirm={confirm}
                 live={live}
+                askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+                onGone={hideMoment}
               />
             ) : (
               <Glance
@@ -633,9 +657,65 @@ export function ScheduleDay({
       />
   );
 
+  /* ⚙ THE DAY'S TOOLS LIVE IN SCHEDULE SETTINGS on the chapters page (owner 2026-11-04, "Match the 4 Nov prototype":
+     the one line is Event Day ▾ · N chapters · 👤 · ⚙). The same tools, the same sheets — handed up as rows. */
+  const settingsTools =
+    ch && booked ? (
+      <div className="flex flex-col border-t border-ink/10" data-schedule-settings-tools="">
+        {canEdit && requests.length > 0 ? (
+          <SettingsRow label={`Supplier requests · ${requests.length}`} onClick={() => setSheet({ kind: 'requests' })}>
+            <MessageSquare aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </SettingsRow>
+        ) : null}
+        {hostPanel ? (
+          <SettingsRow label="Host / MC — segments, questions, a note" onClick={() => setSheet({ kind: 'host' })}>
+            <Mic aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </SettingsRow>
+        ) : null}
+        {topLevel.length > 0 && emcee ? (
+          <div data-settings-closes="" className="flex min-h-14 items-center border-b border-ink/10">
+            {emcee}
+          </div>
+        ) : null}
+        {canEdit && topLevel.length > 0 ? (
+          <SettingsRow label="Running late — shift the day" onClick={() => setSheet({ kind: 'shift', fromId: null })}>
+            <MoveVertical aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </SettingsRow>
+        ) : null}
+        <p className="pt-2 text-[13px] text-ink/60">
+          Moments shown to guests appear on the Event Hub with a live “happening now” on the day. Hidden moments stay
+          between you, your coordinator and the suppliers you tag.
+        </p>
+      </div>
+    ) : null;
+  const handTools = ch && booked ? ch.setSettingsPart : null;
+  /* 👥 What needs you, for the desktop's people column (slice 10) — the same requests sheet. */
+  useEffect(() => {
+    if (!handTools) return;
+    handTools(
+      'needs',
+      canEdit && requests.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => setSheet({ kind: 'requests' })}
+          data-people-needs={requests.length}
+          className="sn-press flex min-h-12 w-full items-center justify-between border-b border-ink/10 text-left text-[14px] text-ink"
+        >
+          <span>Supplier requests</span>
+          <span className="font-semibold text-sn-accent">{formatCount(requests.length)} need you ›</span>
+        </button>
+      ) : null,
+    );
+  }, [handTools, canEdit, requests.length]);
+  useEffect(() => {
+    if (handTools) handTools('tools', settingsTools);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handed up when what it offers changes
+  }, [handTools, canEdit, requests.length, hostPanel, emcee, topLevel.length]);
+
   if (studio) {
     return (
       <DayActionsContext.Provider value={dayActions}>
+
         <StudioDay
           eventId={eventId}
           dateKey={lastDateKey}
@@ -651,6 +731,14 @@ export function ScheduleDay({
           onCreate={lastDateKey && !canStage ? createInline : null}
           pendingIds={pending}
           onMore={(id) => setSelectedId(id)}
+          onAskDelete={
+            canEdit
+              ? (id) => {
+                  setAskDelete((a) => ({ id, n: (a?.n ?? 0) + 1 }));
+                  setSelectedId(id);
+                }
+              : null
+          }
         />
         {/* ⋯ — the shipped inspector (length, notes, show to guests, suppliers, remove): a desk keeps it in
             Details' right column, as the rail did; a phone opens it from the bottom. */}
@@ -680,6 +768,8 @@ export function ScheduleDay({
                 onRevert={revert}
                 onConfirm={confirm}
                 live={live}
+                askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+                onGone={hideMoment}
               />
             </div>
           ) : null}
@@ -700,16 +790,52 @@ export function ScheduleDay({
           requests={requests}
           moments={merged}
         />
-      </DayActionsContext.Provider>
+        {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
+      <UndoToastHost />
+    </DayActionsContext.Provider>
     );
   }
 
   return (
     <DayActionsContext.Provider value={dayActions}>
+
     <div className="space-y-3" data-schedule-day="">
       {/* THE DAY'S TOOLS — one row; names live in aria-label/title, the
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
       <InSlot id={booked ? toolsSlot : null}>
+      {ch && booked ? (
+        /* 👤 The round View as (prototype frame 1) — the rest of the day's tools are in ⚙ Schedule settings. */
+        <div className="relative flex min-w-0 items-center gap-1" data-schedule-day-tools={frame}>
+          {viewAs && topLevel.length > 0 ? (
+            <ViewAsMenu
+              input={viewAs}
+              lens={asLens}
+              round
+              onLens={(l) => {
+                setSelectedId(null);
+                setAsLens(l);
+              }}
+            />
+          ) : null}
+          {/* ✋ THE ROW'S ONE ACTION (slice 8, "Changed 3"): the supplier requests waiting on you — the same requests
+              sheet ⚙ holds. While a filter is on it shrinks to a badge so the row still fits. */}
+          {canEdit && requests.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setSheet({ kind: 'requests' })}
+              data-schedule-need-you={requests.length}
+              aria-label={`${formatCount(requests.length)} supplier request${requests.length === 1 ? '' : 's'} need you`}
+              className={
+                viewingAs || ch.dayFilter
+                  ? 'sn-press grid h-7 min-w-7 flex-none place-items-center rounded-full bg-sn-accent px-1.5 text-[13px] font-bold tabular-nums text-sn-on-accent'
+                  : 'sn-press flex h-11 flex-none items-center whitespace-nowrap px-0.5 text-[13px] font-semibold text-sn-accent'
+              }
+            >
+              {viewingAs || ch.dayFilter ? formatCount(requests.length) : `${formatCount(requests.length)} need you ›`}
+            </button>
+          ) : null}
+        </div>
+      ) : (
       <div className={booked ? 'relative flex items-center gap-0.5' : 'relative flex flex-wrap items-center gap-1'} data-schedule-day-tools={frame}>
         {viewAs && topLevel.length > 0 ? (
           <div className="flex items-center gap-1">
@@ -803,6 +929,7 @@ export function ScheduleDay({
           ) : null}
         </div>
       </div>
+      )}
       </InSlot>
 
       {notice ? (
@@ -824,7 +951,15 @@ export function ScheduleDay({
         </p>
       ) : null}
 
-      {viewingAs && viewAs && ch ? <ViewAsBody input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} /> : null}
+      {viewingAs && viewAs && ch ? <ViewAsBody
+          eventId={eventId}
+          input={viewAs}
+          chapters={ch.chapters}
+          lens={asLens}
+          onLens={setAsLens}
+          pill={!booked}
+          nowIso={isEventDay && now ? `${now.key}T${String(Math.floor(now.min / 60)).padStart(2, '0')}:${String(now.min % 60).padStart(2, '0')}:00.000Z` : null}
+        /> : null}
 
       <div className={viewingAs ? 'hidden' : 'lg:flex lg:items-start lg:gap-6'}>
         <div className="min-w-0 flex-1 space-y-8">
@@ -832,6 +967,61 @@ export function ScheduleDay({
             <NoDateYet canEdit={canEdit} onAdd={() => openAdd(null, 14 * 60)} />
           ) : null}
           {rails.map(({ dateKey, rows }) => {
+            // The hour grid below is drawn only without chapters; this alias keeps its (now unused) chapter doors typed.
+            const railChapters: typeof ch = ch;
+            /* 📋 SLICE 8 — where chapters are drawn, the day is a LIST of content-sized chapter rows (the prototype's
+               "Changed 4"); the hour grid below stays only where no chapters are drawn (the Maker, a failed read). */
+            if (ch) {
+              const facts = new Map(ch.chapters.map((c) => [c.block_id, c]));
+              const names = new Map<string, string>([
+                ...suppliers.map((v) => [v.vendor_id, v.vendor_name] as [string, string]),
+                ...ch.suppliers.map((v) => [v.id, v.name] as [string, string]),
+              ]);
+              const shown = ch.dayFilter ? rows.filter((m) => m.block_id === ch.dayFilter) : rows;
+              const nowIso =
+                isEventDay && now && now.key === dateKey
+                  ? `${dateKey}T${String(Math.floor(now.min / 60)).padStart(2, '0')}:${String(now.min % 60).padStart(2, '0')}:00.000Z`
+                  : null;
+              const list = dayList({
+                chapters: shown.map((m) => ({
+                  block_id: m.block_id,
+                  label: m.label,
+                  block_type: facts.get(m.block_id)?.block_type ?? m.block_type,
+                  start_at: m.start_at,
+                  end_at: m.end_at,
+                  location: facts.get(m.block_id)?.location ?? m.location,
+                })),
+                moments: ch.moments.map((x) => ({
+                  block_id: x.block_id,
+                  parent_block_id: x.parent_block_id,
+                  label: x.label,
+                  start_at: x.start_at,
+                  end_at: x.end_at,
+                  time_tba: x.time_tba,
+                  responsible_vendor_ids: x.vendor_ids,
+                })),
+                names,
+                vendorsOf: (id) => {
+                  const c = facts.get(id);
+                  return c ? chapterSuppliers(c, ch.moments, ch.tasks, ch.suppliers).filter((v) => !v.everyChapter).map((v) => v.id) : [];
+                },
+                pickingOf: (id) => ch.picking[id] ?? [],
+                nowIso,
+              });
+              return (
+                <section key={dateKey} aria-label={formatDateHeading(dateKey)} data-day-list-day={dateKey}>
+                  {rails.length > 1 ? <h2 className="pb-1 font-display text-base text-ink">{formatDateHeading(dateKey)}</h2> : null}
+                  <DayList
+                    rows={list}
+                    canEdit={canEdit && lens.kind === 'all'}
+                    onOpen={(id) => ch.open(id)}
+                    onDelete={(id) => ch.askDelete(id)}
+                    onMove={(id, min) => ch.moveChapter(id, min)}
+                    onAdd={canEdit ? () => ch.add() : undefined}
+                  />
+                </section>
+              );
+            }
             const spans = new Map(rows.map((m) => [m.block_id, spanOf(m.start_at, m.end_at)]));
             const liveSpans = new Map(spans);
             if (drag && drag.moved && liveSpans.has(drag.id)) {
@@ -1024,7 +1214,7 @@ export function ScheduleDay({
                         label={`Delete ${m.label}`}
                         top={top(span.startMin)}
                         height={height}
-                        onDelete={() => ch?.askDelete(m.block_id)}
+                        onDelete={() => railChapters?.askDelete(m.block_id)}
                       >
                       {(sw) => (
                       <div
@@ -1037,7 +1227,7 @@ export function ScheduleDay({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            if (ch) return ch.open(m.block_id);
+                            if (railChapters) return railChapters.open(m.block_id);
                             setSelectedId((cur) => (cur === m.block_id ? null : m.block_id));
                           }
                         }}
@@ -1056,7 +1246,7 @@ export function ScheduleDay({
                               : 'bg-ink/[0.03] ring-1 ring-inset ring-ink/[0.07]'
                         } ${isSel || isDragging ? 'z-[5] translate-x-0.5 ring-2 ring-terracotta' : ''} ${
                           isDragging ? 'cursor-grabbing shadow-2xl' : canEdit ? 'cursor-pointer' : ''
-                        } ${faded ? 'pointer-events-none opacity-[0.14]' : isEventDay && m.run_state === 'done' ? 'opacity-60' : ''} ${
+                        } ${faded ? 'pointer-events-none opacity-[0.14]' : isEventDay && (m.run_state === 'done' || m.run_state === 'skipped') ? 'opacity-60' : ''} ${
                           isEventDay && m.run_state === 'live' ? 'ring-[1.5px] ring-mulberry' : ''
                         }`}
                         style={{
@@ -1108,6 +1298,12 @@ export function ScheduleDay({
                           {isEventDay && m.run_state === 'done' ? (
                             <Check aria-label="done" className="ml-1.5 inline h-3 w-3 text-success-700" strokeWidth={2.5} />
                           ) : null}
+                          {/* 🗓 Skipped on the day by the coordinator or their crew (Change the schedule) — said, never a ✓. */}
+                          {m.run_state === 'skipped' ? (
+                            <span className="ml-2 align-[1px] text-[9px] font-extrabold tracking-[0.16em] text-ink/60" data-moment-skipped="">
+                              SKIPPED
+                            </span>
+                          ) : null}
                           {m.staged ? (
                             <span className="ml-2 align-[1px] text-[9px] font-extrabold tracking-[0.14em] text-terracotta-700">
                               STAGED · ONLY YOU
@@ -1118,17 +1314,23 @@ export function ScheduleDay({
                           <span>
                             {span.hasEnd || drag?.id === m.block_id
                               ? formatClockRange(span.startMin, span.endMin)
-                              : formatClock(span.startMin)}
+                              : `${formatClock(span.startMin)}${ch ? ' onward' : ''}`}
                           </span>
                           {!short && m.responsible_party ? (
                             <span className="hidden truncate font-sans text-ink/60 sm:inline">
                               · {m.responsible_party}
                             </span>
                           ) : null}
-                          {!short && m.location ? (
+                          {!short && m.location && !ch ? (
                             <span className="hidden truncate font-sans text-ink/55 lg:inline">{m.location}</span>
                           ) : null}
                         </p>
+                        {/* 📍 A chapter says where it is, on a phone too (prototype frame 1) — "Venue TBA" until it has one. */}
+                        {ch && !short ? (
+                          <p className="truncate text-[12.5px] text-ink/60" data-rail-where="">
+                            {chapterWhere({ location: m.location, spot: null })}
+                          </p>
+                        ) : null}
                         {/* 🗓 The suppliers this item is given to — shop name ·
                             Booked / Shortlisted (owner 2026-10-20). One line, on
                             the phone too: it is who answers for the moment. */}
@@ -1223,7 +1425,8 @@ export function ScheduleDay({
         {/* THE SIDE — a wide screen only. Nothing selected: the day in
             numbers. Selected: the one inspector. On a phone the inspector is
             the panel below instead, so it is reachable at every width. */}
-        {isDesktop && !inspectorSlot && !(booked && selected) ? (
+        {/* 🖥 Where chapters are drawn, a desktop's side is the page's own people column (slice 10), not this. */}
+        {isDesktop && !inspectorSlot && !(booked && selected) && !ch ? (
           <aside className="sticky top-20 w-[380px] flex-none self-start">
             {side}
           </aside>
@@ -1266,6 +1469,8 @@ export function ScheduleDay({
             onConfirm={confirm}
             live={live}
             inSheet
+            askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+            onGone={hideMoment}
           />
         </ScheduleSheet>
       ) : null}
@@ -1277,6 +1482,7 @@ export function ScheduleDay({
           data={ch ? 'chapter' : 'moment'}
           view="event-day"
           hidden={selected !== null || Boolean(ch?.openId)}
+          inlineOnDesktop={Boolean(ch)}
           onPress={() => openAdd(lastDateKey, topLevel.length > 0 ? snapMinutes(lastEnd, 15) : 14 * 60)}
         />
       ) : null}
@@ -1308,6 +1514,8 @@ export function ScheduleDay({
         </Sheet>
       ) : null}
     </div>
+      {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
+      <UndoToastHost />
     </DayActionsContext.Provider>
   );
 }
@@ -1463,6 +1671,21 @@ function EmptyRail({
   );
 }
 
+/** One row of ⚙ Schedule settings: an icon, the tool's words, the whole row pressable. Closes the settings first. */
+function SettingsRow({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      data-settings-closes=""
+      onClick={onClick}
+      className="sn-press flex min-h-14 w-full items-center gap-3 border-b border-ink/10 text-left text-[15px] text-ink"
+    >
+      <span className="grid h-9 w-9 flex-none place-items-center rounded-full border border-ink/15 text-ink/75">{children}</span>
+      <span className="min-w-0 flex-1">{label}</span>
+    </button>
+  );
+}
+
 /**
  * 🗑 A CHAPTER ON THE RAIL SWIPES LEFT TO DELETE (owner 2026-11-03, prototype frame 3) — the shared gesture
  * (`app/_components/swipe-to-delete.tsx`) on a block that places itself: the revealed Delete sits behind it at the
@@ -1523,7 +1746,7 @@ function withChapters(blocks: DayMoment[], chapters: readonly Chapter[] | null):
     out.push({
       block_id: c.block_id,
       label: c.label,
-      block_type: 'custom',
+      block_type: (c.block_type as DayMoment['block_type'] | null | undefined) ?? 'custom',
       start_at: c.start_at,
       end_at: c.end_at,
       location: c.location,

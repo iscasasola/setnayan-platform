@@ -6,8 +6,9 @@
  * dimming the background anywhere"): this renders the SAME greige "Sign in to
  * Setnayan." card visitors see from the marketing top-nav — via the shared
  * SignInCardModal — instead of a bespoke full-page layout. Close/Escape/backdrop
- * go home (dismissHref="/") since there's no page behind on a hard load, and the
- * dim sits over a paper base.
+ * go home (dismissHref="/") since there's no page behind on a hard load — or,
+ * for a guest sent here from their event, back to that event — and the dim sits
+ * over a paper base.
  *
  * The auth wiring (signInWithPassword server action, OAuth gating, the
  * error/check_email/ready/next searchParams contract + safeNext()) is unchanged —
@@ -40,6 +41,13 @@ export default async function LoginPage({
   // no ✕ at all. Since the owner's 2026-11-02 ruling ("let everything go live")
   // the apps open "/" like the website, so the ✕ is a real way out everywhere.
   // Held by the-app-login-has-no-dead-close.test.ts, which reads middleware.
+  //
+  // 🚪 A GUEST'S ✕ GOES BACK TO THEIR EVENT (2026-11-05). "Lost QR? Login" on an
+  // Event Hub opens this card with `next` = that event; closing it sent the
+  // guest to the marketing front page, away from the invitation they were
+  // holding. `forGuest` is true only when `next` (already `safeNext`-checked, so
+  // same-site) opens a real event — so the ✕ returns there; anyone else still
+  // goes to Discover. Held by app/login/a-guests-close-returns-to-the-event.test.ts.
 
   // A paper base under the translucent greige dim so a hard load never flashes a
   // stark void behind the backdrop before the card settles.
@@ -49,7 +57,7 @@ export default async function LoginPage({
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
       <SignInCardModal
-        dismissHref="/"
+        dismissHref={view.forGuest ? view.next : '/'}
         next={view.next}
         signupHref={view.signupHref}
         showOAuth={view.showOAuth}

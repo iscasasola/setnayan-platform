@@ -7,14 +7,19 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 /** Supplier website by plan (owner-approved 2026-10-30) — the card column's plan pieces, read off the shipped caps. */
 
 test('reach follows the plan caps — never a second copy of them', () => {
-  for (const tier of ['verified', 'solo', 'pro', 'enterprise'] as const) {
+  for (const tier of ['verified', 'solo', 'pro'] as const) {
     const r = shopReach({ verified: true, tier, declaredOuterKm: null });
     assert.deepEqual(r, { kind: 'ring', km: TIER_CAPS[tier].serviceRadiusKm }, tier);
   }
-  // The approved table's numbers, as the caps say them today (20 · 30 · 50 · 100).
+  // Ultra reaches nationwide (owner 2026-11-04, "pro reach 100, ultra nationwide") — said in words, no ring.
+  assert.deepEqual(shopReach({ verified: true, tier: 'enterprise', declaredOuterKm: null }), { kind: 'nationwide' });
+  assert.equal(shopReachLine({ kind: 'nationwide' }, 'Tagaytay'), 'Tagaytay · serves nationwide');
+  // …unless the shop drew a narrower ring of its own.
+  assert.deepEqual(shopReach({ verified: true, tier: 'enterprise', declaredOuterKm: 150 }), { kind: 'ring', km: 150 });
+  // The owner's numbers, as the caps say them today (owner 2026-11-04: 20 · 30 · 100 · nationwide).
   assert.deepEqual(
     (['verified', 'solo', 'pro', 'enterprise'] as const).map((t) => TIER_CAPS[t].serviceRadiusKm),
-    [20, 30, 50, 100],
+    [20, 30, 100, Infinity],
   );
 });
 
@@ -37,14 +42,17 @@ test('verified with no ring says the city only — never "0 km"', () => {
   assert.equal(shopReachLine({ kind: 'ring', km: 20 }, 'Tagaytay'), 'Serves up to 20 km around Tagaytay');
 });
 
-test('the own web address shows on Pro+ for a verified domain only', () => {
+test('the own web address shows on Solo+ for a verified domain only (owner 2026-11-04)', () => {
   assert.equal(ownWebAddress({ planAllows: true, domain: 'SampaguitaTable.com', verifiedAt: '2026-10-01' }), 'sampaguitatable.com');
   assert.equal(ownWebAddress({ planAllows: true, domain: 'https://shop.example.ph/', verifiedAt: '2026-10-01' }), 'shop.example.ph');
   assert.equal(ownWebAddress({ planAllows: true, domain: 'sampaguitatable.com', verifiedAt: null }), null);
   assert.equal(ownWebAddress({ planAllows: false, domain: 'sampaguitatable.com', verifiedAt: '2026-10-01' }), null);
   assert.equal(ownWebAddress({ planAllows: true, domain: 'not a domain', verifiedAt: '2026-10-01' }), null);
-  assert.equal(TIER_CAPS.pro.customWebsiteName && TIER_CAPS.enterprise.customWebsiteName, true);
-  assert.equal(TIER_CAPS.solo.customWebsiteName || TIER_CAPS.verified.customWebsiteName || TIER_CAPS.free.customWebsiteName, false);
+  assert.equal(TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName && TIER_CAPS.enterprise.customWebsiteName, true);
+  assert.equal(TIER_CAPS.verified.customWebsiteName || TIER_CAPS.free.customWebsiteName, false);
+  // The Pro page parts did NOT move down with the address — they read `premiumPage`.
+  assert.equal(TIER_CAPS.solo.premiumPage, false);
+  assert.equal(TIER_CAPS.pro.premiumPage && TIER_CAPS.enterprise.premiumPage, true);
 });
 
 test('the pinned quote keeps whole words and never invents text', () => {

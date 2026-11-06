@@ -330,6 +330,10 @@ test('/pay/<reference>: the store shell may pay a booking fee and nothing else',
   assert.equal(storeShellRefusesPayable({ isBookingFee: true }, true), false, 'a booking fee, in the app');
   assert.equal(storeShellRefusesPayable({ isBookingFee: false }, false), false, 'web / desktop pay anything');
   assert.equal(storeShellRefusesPayable({ isBookingFee: true }, false), false);
+  // 💝 2026-11-04: a fee bill that carries the Setnayan gift (digital Papic credits) is refused in the app, paid on the web.
+  assert.equal(storeShellRefusesPayable({ isBookingFee: true, carriesGift: true }, true), true, 'a gift-carrying fee, in the app');
+  assert.equal(storeShellRefusesPayable({ isBookingFee: true, carriesGift: false }, true), false, 'a fee with no gift, in the app');
+  assert.equal(storeShellRefusesPayable({ isBookingFee: true, carriesGift: true }, false), false, 'a gift-carrying fee, on the web');
   // And the path is NOT refused wholesale — the fee lane runs through it.
   assert.equal(isStoreShellWebOnlyPath('/pay/SN-ABC123'), false);
 });
@@ -918,6 +922,11 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', { why: 'the event dashboard mounts it only off the store shell', gate: { file: 'app/dashboard/[eventId]/page.tsx', re: /aiOffer && aiOfferSettings && !storeShell \? \(\s*<SetnayanAiComebackOffer\b/ } }],
     ['app/dashboard/[eventId]/monogram/animate-rows.tsx', { why: 'its "Unlock Animation & Apply" drawer needs a `checkout`, which the page builds only off the store shell', gate: { file: 'app/dashboard/[eventId]/monogram/page.tsx', re: /if \(!ownsAnimated && !storeShell\) \{/ } }],
     ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', { why: 'mounted only off the store shell', gate: { file: 'app/dashboard/[eventId]/monogram/page.tsx', re: /unlock=\{!storeShell && ownsAnimated \? <AnimatedMonogramUpgrade\b/ } }],
+    ['app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-credits-card.tsx', { why: 'its Buy form renders only with offerPack, which the Papic page passes false in the store shell', gate: { file: 'app/vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx', re: /offerPack=\{portfolioCredits\.offerPack && !\(await isStoreShellRequest\(\)\)\}/ } }],
+    // 🎁 Your gifts moved off the Plan page (refused in the app) to Shop › Promote (open in the app) on 2026-11-05. Its
+    // "Buy gifts" button and sheet draw only when `canOffer`, which needs `canBuy` — false in the store shell, read
+    // with the section's own data. In the app the stock and the Bought list still show; nothing sells.
+    ['app/vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx', { why: '"Buy gifts" (button + sheet) renders only when canBuy, which the loader sets false in the store shell', gate: { file: 'app/vendor-dashboard/shop/promote/_components/shop-gifts-data.ts', re: /isStoreShellRequest\(\),[^]*canBuy: !storeShell,/ } }],
     ['app/vendor-dashboard/shop/_components/voice-match-card.tsx', { why: 'drawn only by voice-match-section, which returns null in the store shell', gate: { file: 'app/vendor-dashboard/shop/_components/voice-match-section.tsx', re: /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/ } }],
   ]);
 

@@ -106,6 +106,31 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
 };
 
 /**
+ * 🚪 A SHOP'S OWN PRINTS — kept OUT of `PRINT_PIECES` on purpose: that record is the couple's Prints & Tickets
+ * (`isPrintPieceKey` opens `/api/hub-print/<piece>`), and a supplier piece there would become a couple print.
+ * The same `PrintDoc` and the same two backends (`renderPrintSvg`, `renderPrintPdf`) draw it.
+ *
+ *   · door-sticker — "We are part of Setnayan" (owner 2026-11-05, *"add them to the marketing tools"*):
+ *     `lib/door-sticker-print.ts`, saved from Customers › QR codes.
+ */
+export type ShopPrintPieceKey = 'door-sticker';
+
+export const SHOP_PRINT_PIECES: Record<ShopPrintPieceKey, { key: ShopPrintPieceKey; label: string; kind: 'shop' }> = {
+  'door-sticker': { key: 'door-sticker', label: 'Door sticker', kind: 'shop' },
+};
+
+/** Any piece a `PrintDoc` can be: a couple's (`PRINT_PIECES`) or a shop's (`SHOP_PRINT_PIECES`). */
+export type AnyPrintPieceKey = PrintPieceKey | ShopPrintPieceKey;
+
+/**
+ * Does this piece print as a PLAIN sheet (no bleed, no crop marks, no die line)? Only the couple's free utility
+ * sheets do. A shop piece goes to a sign or sticker printer, so it carries bleed, crop marks and its die line.
+ */
+export function isPlainPrintSheet(piece: AnyPrintPieceKey): boolean {
+  return piece in PRINT_PIECES ? PRINT_PIECES[piece as PrintPieceKey].kind === 'free' : false;
+}
+
+/**
  * CLASSIC IS FREE (owner 2026-09-25, DECISION_LOG "EVERY PRINT IS FREE IN THE
  * CLASSIC LOOK; THE THEMED VERSION IS PRO"): *"let's allow free for all? but if
  * they want to print with theme is pro?"* → *"oaky build it that way."* Every

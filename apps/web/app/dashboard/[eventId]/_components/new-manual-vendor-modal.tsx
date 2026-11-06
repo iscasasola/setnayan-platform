@@ -28,6 +28,7 @@ import { priceDigitsForSheet, type PaidAtAdd } from '@/lib/self-added-payment-pl
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { storageForRow, tileForCategory } from '@/lib/shortlist-taxonomy';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { LINES_BOX_CLASS, LINE_INPUT_CLASS, LineGrip } from './sheet-lines';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { formatPhp } from '@/lib/php';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
@@ -733,8 +734,8 @@ export function NewManualVendorModal({
                   Address Pin · Services Covered · Inclusions · Price ·
                   Payment Plan. */}
               <div className="space-y-1.5 border-t border-ink/10 py-3">
-                <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-                  Services <span className="font-normal normal-case tracking-normal text-ink/50">what the price covers · tick several</span>
+                <p className={SECTION_LABEL_CLASS}>
+                  Services <span className={SECTION_NOTE_CLASS}>what the price covers · tick several</span>
                 </p>
                 {/* ONE multi-select of service names — no categories (owner 2026-11-07). The Suppliers page's own rows,
                     handed in by a caller that already holds them, else read for this event; the row the sheet was
@@ -776,8 +777,8 @@ export function NewManualVendorModal({
               </div>
 
               <div className="space-y-1 border-t border-ink/10 py-3">
-                <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-                  Payment plan <span className="font-normal normal-case tracking-normal text-ink/50">optional · adds up to the price</span>
+                <p className={SECTION_LABEL_CLASS}>
+                  Payment plan <span className={SECTION_NOTE_CLASS}>optional · adds up to the price</span>
                 </p>
                 {/* The payment lines — name · due date · amount, the record card's own rows — each with an "Already
                     paid" tick and, ticked, the optional proof (makers-match § 1). The running total reads the price
@@ -826,18 +827,25 @@ export function NewManualVendorModal({
               sentence naming why their plan was refused sat a screen below
               (owner: "did not save properly"). Pinned with the button, it is in
               view wherever the sheet is scrolled. */}
-          <div data-record-sheet-footer="" className="sticky bottom-0 z-10 -mx-5 border-t border-ink/10 bg-cream px-5 py-3">
+          {/* 🧊 FROSTED, FULL WIDTH (makers-match § 1 `.bbar`): the sheet's paper at 84% over a 16px blur, a hairline on
+              top — the fields scroll visibly under it, the way every thumb row in the house reads. */}
+          <div
+            data-record-sheet-footer=""
+            className="sticky bottom-0 z-10 -mx-5 border-t border-ink/10 bg-cream/[0.84] px-4 pb-6 pt-2.5 sm:px-5 sm:pb-4"
+            style={{ WebkitBackdropFilter: 'blur(16px) saturate(1.3)', backdropFilter: 'blur(16px) saturate(1.3)' }}
+          >
           {errorMsg ? (
             <p role="alert" data-record-sheet-said="" className="flex items-start gap-1.5 pb-2.5 text-[12.5px] font-medium leading-snug text-danger-800 dark:text-danger-200">
               <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               <span className="min-w-0">{errorMsg}</span>
             </p>
           ) : null}
-          {/* The thumb row (makers-match § 1): Cancel grey · the save terracotta, equal height, the full width. */}
-          {/* A grid, not `flex-1`: `.ab` sets `flex: 0 0 auto`, which a flex utility does not override — measured, the two
-              pills sat at their word widths. `.ab` sets no width, so `w-full` fills each half. */}
-          <div className="grid grid-cols-2 gap-2" data-add-manual-thumb-row="">
-            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} className="w-full" />
+          {/* The thumb row (makers-match § 1, `.bbar`): the shipped ActionButton AS DRAWN — 44px pills at their own word
+              width (`.ab` is `flex: 0 0 auto`, never stretched), side by side from the start of the row: Cancel neutral
+              grey, then the save, brand terracotta and filled (`main`). Green is only the Done that closes the
+              Services dropdown. */}
+          <div className="flex items-center gap-2.5" data-add-manual-thumb-row="">
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} />
             <ActionButton
               tone="brand"
               main
@@ -855,7 +863,6 @@ export function NewManualVendorModal({
                       : 'Save & add'
               }
               disabled={pending}
-              className="w-full"
             />
           </div>
           </div>
@@ -866,6 +873,10 @@ export function NewManualVendorModal({
     portalHost,
   );
 }
+
+/** A section's label on the add sheet — the prototype's `.f .lab` (14px · 500, sentence case) and its muted note. */
+const SECTION_LABEL_CLASS = 'block text-[14px] font-medium text-ink';
+const SECTION_NOTE_CLASS = 'ml-1.5 text-[12px] font-normal text-ink/50';
 
 /** The add's two starting payment lines (makers-match § 1) — named, undated, no amount: a line with no amount is
  *  no payment, so leaving them as they are asks nothing of the save (`addManualSupplier`). */
@@ -913,17 +924,18 @@ function InclusionLines({ disabled }: { disabled?: boolean }) {
   return (
     <div className="space-y-1.5 border-t border-ink/10 py-3" data-add-manual-inclusions="">
       <input type="hidden" name="inclusions" value={filled.join('\n')} />
-      <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
+      <p className={SECTION_LABEL_CLASS}>
         Inclusions{' '}
-        <span className="font-normal normal-case tracking-normal text-ink/50">
-          {filled.length ? `${filled.length} ${filled.length === 1 ? 'line' : 'lines'}` : 'what the price covers'}
+        <span className={SECTION_NOTE_CLASS}>
+          {lines.length ? `${lines.length} ${lines.length === 1 ? 'line' : 'lines'}` : 'what the price covers'}
         </span>
       </p>
       {lines.length > 0 ? (
-        <ul className="space-y-1">
+        <ul className={LINES_BOX_CLASS}>
           {lines.map((l, i) => (
-            <SwipeToDelete key={l.key} as="li" label={`Remove inclusion ${i + 1}`} word="Remove" disabled={disabled} onDelete={() => remove(l.key)}>
-              <div className="py-1">
+            <SwipeToDelete key={l.key} as="li" label={`Remove inclusion ${i + 1}`} word="Remove" disabled={disabled} radiusClass="rounded-none" onDelete={() => remove(l.key)}>
+              <div className="flex items-center pr-3">
+                <LineGrip />
                 <input // field-ok: one line of a lines editor — the line itself swipes away (SwipeToDelete), which a Form row cannot
                   type="text"
                   value={l.text}
@@ -942,7 +954,7 @@ function InclusionLines({ disabled }: { disabled?: boolean }) {
                       add();
                     }
                   }}
-                  className="min-h-10 w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60" // no-card-ok: worn only by an <input> field
+                  className={LINE_INPUT_CLASS}
                 />
               </div>
             </SwipeToDelete>
@@ -951,7 +963,7 @@ function InclusionLines({ disabled }: { disabled?: boolean }) {
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={add} disabled={disabled} />
-        <span className="text-[11.5px] text-ink/50">{lines.length > 0 ? 'Swipe a line left to remove it.' : 'One per line.'}</span>
+        <span className="text-[12.5px] text-ink/55">One per line.</span>
       </div>
       {toast ? (
         <PeekToast key={toast.n} tone="ok" data="inclusion-removed" onGone={() => setToast((t) => (t?.n === toast.n ? null : t))} action={{ label: 'Undo', onPress: toast.undo }}>

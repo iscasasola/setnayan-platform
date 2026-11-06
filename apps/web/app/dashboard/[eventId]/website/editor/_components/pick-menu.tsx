@@ -3,6 +3,7 @@
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as KE } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { PickDoneRow } from './pick-done-row';
 import { useOneOpen } from '@/lib/one-open';
 import { PickOffRow, PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, pickViewport, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
@@ -22,6 +23,7 @@ export function PickMenu({
   stickyGroups = false,
   grid,
   doneNote,
+  doneButton = false,
   head,
   trigger,
   menuMinWidth,
@@ -131,20 +133,14 @@ export function PickMenu({
         ),
       )}
       {picked ? (
-        <li role="none" className="mt-1 border-t border-ink/10 pt-1">
-          <button
-            type="button"
-            data-pick-done=""
-            onClick={() => {
-              setOpen(false);
-              btnRef.current?.focus();
-            }}
-            className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
-          >
-            <span>{doneNote ?? 'Tick as many as apply.'}</span>
-            <span className="font-semibold text-ink">Done ✓</span>
-          </button>
-        </li>
+        <PickDoneRow
+          note={doneNote}
+          button={doneButton}
+          onDone={() => {
+            setOpen(false);
+            btnRef.current?.focus();
+          }}
+        />
       ) : null}
     </>
   );

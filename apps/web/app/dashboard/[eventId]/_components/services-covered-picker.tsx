@@ -57,6 +57,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, Lock, Search, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { LINES_BOX_CLASS, LineGrip } from './sheet-lines';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { coverKeyForTile, coversByRow, tileForCategory, type CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
@@ -279,6 +280,7 @@ function ServiceLines({
           buttonText={n > 0 ? `${n} ${n === 1 ? 'service' : 'services'} · ${picked.map(labelOf).join(', ')}` : 'Pick their services'}
           dataAttr="data-service-pick"
           doneNote="Tick all that apply."
+          doneButton
           head={<SearchHead word="services" query={query} onQuery={setQuery} empty={q.length > 0 && shown.length === 0} />}
           options={shown.map((o) => ({ key: o.tile, label: o.label }))}
           onPick={toggle}
@@ -287,7 +289,7 @@ function ServiceLines({
       )}
 
       {n > 0 ? (
-        <ul className="space-y-1" data-service-lines-list="">
+        <ul className={LINES_BOX_CLASS} data-service-lines-list="">
           {picked.map((tile) => (
             <SwipeToDelete
               key={tile}
@@ -295,13 +297,15 @@ function ServiceLines({
               label={`Remove ${labelOf(tile)}`}
               word="Remove"
               disabled={disabled}
+              radiusClass="rounded-none"
               onDelete={() => remove(tile)}
             >
-              <div className="flex min-h-11 items-center gap-2 border-b border-ink/10 px-1 py-2" data-service-line={tile}>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-medium text-ink">{labelOf(tile)}</span>
+              <div className="flex min-h-12 items-center pr-3" data-service-line={tile}>
+                <LineGrip />
+                <span className="min-w-0 flex-1 py-2">
+                  <span className="block text-[15px] text-ink">{labelOf(tile)}</span>
                   {tile === openedFrom ? (
-                    <span className="block text-[11.5px] text-ink/55">the row you opened this from</span>
+                    <span className="block text-[12px] text-ink/55">the row you opened this from</span>
                   ) : null}
                 </span>
               </div>
@@ -309,7 +313,7 @@ function ServiceLines({
           ))}
         </ul>
       ) : null}
-      {n > 0 ? <p className="text-[11.5px] text-ink/50">Swipe a service left to remove it.</p> : null}
+      {n > 0 ? <p className="text-[12.5px] text-ink/55">Swipe a service left to remove it.</p> : null}
 
       {toast ? (
         <PeekToast

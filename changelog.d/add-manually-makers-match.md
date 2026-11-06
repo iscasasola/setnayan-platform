@@ -25,9 +25,9 @@ ARE APPROVED") and ruled that every change is a fix to the shipped sheet, never 
   receipt that cannot be stored costs the receipt, never the payment; the saved step says what was logged ("Logged as
   already paid: Reservation ₱20,000 (with proof)").
 - **The heads-up moves into an ⓘ** ("Suppliers you add yourself").
-- **The thumb row is full width:** Cancel grey (neutral) · Save & add terracotta (`tone="brand" main`, unchanged —
-  BUTTON_RULE: a save that adds is the forward step), equal halves. `.ab`'s `flex: 0 0 auto` beat the old `flex-1`, so
-  the row is a two-column grid with `w-full` buttons.
+- **The thumb row is the drawing's `.bbar`:** a frosted, full-width strip (the sheet's paper at 84 % over a 16 px blur,
+  a hairline on top) holding the shipped ActionButtons at their own word width, side by side from the start — Cancel
+  grey (neutral) · Save & add terracotta (`tone="brand" main`). Green is only the Done that closes the services list.
 - The send is checked against the server action's 6 MB limit before it leaves, so photo + receipts too big together are
   said in the sheet rather than failing the press.
 - Dev lab: `/dev/add-your-own-lab?s=add` draws the add sheet (no session) and answers its save through the same pure
@@ -35,5 +35,27 @@ ARE APPROVED") and ruled that every change is a fix to the shipped sheet, never 
 - Guard: `lib/an-already-paid-line-is-a-logged-payment.test.ts` (the seq/amount truth table, the insert writes only
   columns `logPayment` writes, the proof goes through the private folder, the rows post the tick and mount the shipped
   proof field). `scripts/port-control-baseline.json` regenerated.
+
+### Local verification fixes (same day, builder-verifier against the prototype)
+
+The first cloud build differed from § 1 in five places; each is fixed on this branch and held by the new guard
+`lib/the-add-sheet-is-the-approved-drawing.test.ts` (sabotaged twice to prove it fires):
+
+- the thumb row was split into two stretched equal halves (`grid-cols-2` + `w-full`) on an opaque footer → content-width
+  pills on a frosted row, as drawn;
+- every payment line carried a ✕ row button → the add sheet's payment lines now swipe left to remove with Undo
+  ("Swipe a payment left to remove it."), like services and inclusions; the record card's rows are untouched;
+- the "Already paid" box was green → ink, as drawn (green is only Done);
+- the services list closed on a plain-text "Done ✓" → `PickMenu` gains an opt-in `doneButton` that draws the shipped
+  ActionButton `tone="ok"` "Done" with the hint beside it (every other PickMenu is unchanged);
+- the three lists were loose rows/boxed inputs, the section labels uppercase eyebrows, and the proof a bare browser file
+  input → one lines drawing (`_components/sheet-lines.tsx`: one bordered box, hairlines, a grip column, 48 px lines),
+  sentence-case 14 px labels, and `ChosenProofField` gains an opt-in `look="button"` (dashed thumb · "Add payment
+  proof" · "optional — screenshot/receipt", then "Replace"); once a file is picked it still shows the shipped legible
+  preview (owner 2026-09-20, "too small"), so the same input and the same upload path carry the file.
+- Smaller deltas, same pass: the plan's sum line reads as drawn ("2 payments · 1 already paid … ₱ — of ₱ —"), the
+  inclusions note counts its lines ("1 line"), and the Done row lives in `website/editor/_components/pick-done-row.tsx` so `pick-menu.tsx`
+  stays under the inlined-size cap (`the-dropdown-wears-the-accent.test.ts`).
+- `scripts/port-control-baseline.json` regenerated again for the two new component files.
 
 SPEC IMPACT: None — implements the already-logged 2026-11-07 DECISION_LOG row; no corpus file changes.

@@ -58,7 +58,7 @@ export function DatesRow({
         </Badge>
       ) : null}
       {end ?? null}
-      {(href || onOpen) && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : null}
+      {href && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : onOpen && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : null}
     </>
   );
   const rowClass = 'flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';

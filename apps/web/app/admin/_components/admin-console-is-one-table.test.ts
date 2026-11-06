@@ -132,6 +132,7 @@ const CONVERTED = [
   // read and the page turns that into `rows: null` + `readError`.
   'gifts/_components/shop-gifts-ledger.tsx',
   'gifts/_components/badge-rewards-ledger.tsx',
+  'gifts/_components/badge-upgrades-ledger.tsx',
   // The judgement queues + the money desks, 2026-08-17.
   // ⚠ ON TWO OF THESE THE TABLE WAS NOT WHERE THE LIE WAS: /admin/fraud's queue and
   // /admin/approvals' pending list are <ul>s of cards; their <table> is the audit

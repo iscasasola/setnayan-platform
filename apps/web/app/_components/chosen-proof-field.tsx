@@ -61,6 +61,10 @@ export type ChosenProofFieldProps = {
   look?: 'field' | 'button';
 };
 
+/** The empty receipt's slot in the button look — the drawing's dashed thumb (makers-match § 1). */
+const PROOF_THUMB_CLASS =
+  'inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/30 bg-ink/[0.04] text-ink/45'; // no-card-ok: a picture slot (the receipt goes here), not a box around content
+
 export function ChosenProofField({
   name,
   id,
@@ -144,7 +148,7 @@ export function ChosenProofField({
           {chosen ? null : (
             <span
               aria-hidden
-              className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/30 bg-ink/[0.04] text-ink/45"
+              className={PROOF_THUMB_CLASS}
             >
               <ImagePlus className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </span>

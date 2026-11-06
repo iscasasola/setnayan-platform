@@ -495,7 +495,9 @@ export function NewManualVendorModal({
   // never reaches for a `document` it does not have.
   if (!portalHost) return null;
   return createPortal(
-    <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise>
+    /* 📄 Add manually is a FORM PAGE on a tablet and a computer (makers-match § 1, 2026-11-07): centred and wide, not
+       the 440 drawer — `page`. The record card (edit) keeps the drawer. */
+    <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise page={!edit}>
       <div className="px-5 pt-5" data-add-manual-sheet="">
         {edit && !created ? (
           /* ── THE RECORD CARD'S HEAD (Booked prototype v4, owner-approved 2026-10-29) — like the guest card's top:
@@ -725,6 +727,7 @@ export function NewManualVendorModal({
                   disabled={pending}
                   initialAddress={undefined}
                   initialPin={null}
+                  mapFolded
                 />
               </div>
 

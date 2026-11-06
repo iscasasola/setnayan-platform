@@ -58,4 +58,28 @@ The first cloud build differed from § 1 in five places; each is fixed on this b
   stays under the inlined-size cap (`the-dropdown-wears-the-accent.test.ts`).
 - `scripts/port-control-baseline.json` regenerated again for the two new component files.
 
+### Controller review fixes (same day)
+
+- **A form page, not a drawer, on a tablet and a computer.** At 820 and 1440, the add sheet was the 440 px drawer
+  pinned right, leaving most of the screen dark. `Sheet` now takes an opt-in `page` geometry, declared per surface in
+  `SHEET_AT` and held by `sheet-agrees-with-the-nav`. With `page`, from the dock point up the sheet is centred and
+  `min(50rem, 100vw − 3.5rem)` wide, which is the drawing's form column. On a phone it is the same bottom sheet. Only
+  the add sheet uses it (`page={!edit}`). The record card and every other sheet keep the drawer.
+  ⚠ This is a deliberate exception to "every sheet the 440-px right panel" (owner 2026-10-19, `shell-boundary.tsx`),
+  taken on the approved makers-match drawing and "always maximize the screen" (owner 2026-10-29). Flagged for the
+  owner.
+- **The map waits behind the pin.** `AddressPinField` takes an opt-in `mapFolded`. When folded it draws the address
+  row, a "Pin on map" press and the hint "The pin follows the address." The press opens Find and the map, and looks up
+  the typed address straight away. A pin that is already set opens the map. Only the add sheet folds it; every other
+  caller keeps the map open as shipped. The map itself (the 2026-09-20 "Address Pin" ruling) is unchanged.
+- **The field shape stays the house template.** The label-left pills with the Required line are the `TypedRow` form
+  row. `scripts/lint-field-template.mjs` enforces it: "EVERY TYPED ANSWER IS THE ONE FIELD TEMPLATE", owner
+  2026-11-01. The template has no prefix slot, so `+63` stays in the number's placeholder and `₱` comes from
+  `TypedRow amount`.
+- The dev lab draws the add sheet under the couple tree's `tab` boundary (701), so its 820 and 1440 frames match what
+  the Suppliers page shows. The guard gains §5 (page sheet) and §6 (folded map). Both were sabotaged and both fired.
+- `lint:no-card`: the page panel (the sheet's own surface) and the empty receipt's dashed slot are each marked
+  `no-card-ok` with a reason. The folded hint keeps the address field's shipped hint markup, which
+  `the-venues-and-ceremony-time-wait-for-apply` pins; only the words change.
+
 SPEC IMPACT: None — implements the already-logged 2026-11-07 DECISION_LOG row; no corpus file changes.

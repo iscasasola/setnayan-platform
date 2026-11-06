@@ -20,6 +20,7 @@ import {
   type CouplePlanRowInput,
 } from '@/lib/self-added-payment-plan';
 import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
+import { ShellBoundaryProvider } from '@/app/_components/shell-boundary';
 import { SupplierShareStandInCtx } from '@/app/dashboard/[eventId]/_components/supplier-share-button';
 import type { SupplierSharePayload } from '@/lib/supplier-share';
 
@@ -93,7 +94,10 @@ export function LabAdd({
   coverCatalog: readonly CoverCatalogFolder[];
   link?: { url: string; qrSvg: string };
 }) {
+  /* The couple's event tree answers "is this a phone?" at 701 (`tab`, owner 2026-10-19) — the lab draws the sheet under
+     the same answer, so 820 and 1440 here are what the Suppliers page shows. */
   return (
+    <ShellBoundaryProvider value="tab">
     <NewManualVendorModal
       eventId={eventId}
       category="catering"
@@ -106,6 +110,7 @@ export function LabAdd({
       onClose={() => {}}
       onCreated={() => {}}
     />
+    </ShellBoundaryProvider>
   );
 }
 

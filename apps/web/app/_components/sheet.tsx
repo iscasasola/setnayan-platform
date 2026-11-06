@@ -95,7 +95,7 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
  */
 const SHEET_AT: Record<
   ShellBoundary,
-  { root: string; panel: string; narrow: string; wide: string; full: string }
+  { root: string; panel: string; narrow: string; wide: string; full: string; page: string }
 > = {
   lg: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none',
@@ -104,6 +104,8 @@ const SHEET_AT: Record<
     narrow: 'lg:w-[22rem]',
     wide: 'lg:w-[min(34rem,92vw)]',
     full: 'max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:rounded-t-none max-lg:border-0',
+    page:
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:mx-auto lg:my-6 lg:h-[calc(100dvh-3rem)] lg:max-h-none lg:w-[min(50rem,calc(100vw-3.5rem))] lg:rounded-3xl lg:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
   },
   tab: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-stretch tab:justify-end focus:outline-none',
@@ -115,6 +117,11 @@ const SHEET_AT: Record<
     narrow: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     wide: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none max-tab:border-0',
+    /* 📄 A FORM THAT IS A PAGE (makers-match § 1, approved 2026-11-07 — the Add manually sheet draws a wide form
+       column on a tablet and a computer, and "always maximize the screen", owner 2026-10-29): centred, as wide as
+       the drawing's column (50rem) or the screen allows, never the 440 drawer pinned right. Opt-in (`page`). */
+    page:
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] tab:mx-auto tab:my-6 tab:h-[calc(100dvh-3rem)] tab:max-h-none tab:w-[min(50rem,calc(100vw-3.5rem))] tab:rounded-3xl tab:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
   },
 };
 
@@ -173,6 +180,12 @@ export type SheetProps = {
   pinned?: { level: string; name: string; more?: ReactNode };
   /** On a phone the sheet IS the screen — full height, no rounded top (the pinned row's drawer). Default false. */
   full?: boolean;
+  /**
+   * 📄 The sheet is a FORM PAGE from the dock point up: centred, as wide as a readable form column (50rem) or the
+   * screen allows, instead of the right-hand drawer (makers-match § 1, the couple's Add manually — 2026-11-07). On a
+   * phone it is the same bottom sheet. Default false: every other caller renders byte-identically.
+   */
+  page?: boolean;
   children: ReactNode;
 };
 
@@ -187,6 +200,7 @@ export function Sheet({
   back,
   pinned,
   full = false,
+  page = false,
   children,
 }: SheetProps) {
   // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
@@ -219,7 +233,7 @@ export function Sheet({
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
         data-sheet-panel=""
-        className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}${full ? ` ${at.full}` : ''}`}
+        className={`${rise ? 'sn-rise ' : ''}${page ? at.page : `${at.panel} ${wide ? at.wide : at.narrow}`}${full ? ` ${at.full}` : ''}`}
       >
         {pinned && back ? (
           <header data-sheet-pinned="" data-peek-toast-under="" className="flex min-h-14 shrink-0 items-center gap-1 border-b border-ink/10 pl-2 pr-2 pt-[env(safe-area-inset-top)]">

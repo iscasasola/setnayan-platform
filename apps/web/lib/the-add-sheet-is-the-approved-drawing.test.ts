@@ -14,7 +14,10 @@
  *   1. thumb row — `.bbar`: content-width pills (no grid, no `w-full`), Cancel neutral, the save brand + `main`;
  *   2. payment lines — swipe left to remove with Undo; no row button; the paid box is ink, not green;
  *   3. the services list — one multi-select PickMenu whose Done is the shipped ActionButton `tone="ok"` (the ONLY green);
- *   4. every list on the sheet is the one lines drawing (`sheet-lines.tsx`).
+ *   4. every list on the sheet is the one lines drawing (`sheet-lines.tsx`);
+ *   5. on a tablet and a computer the sheet is a centred wide FORM PAGE (`Sheet page`), not the 440 drawer pinned right
+ *      with most of the screen dark (controller review 2026-11-07: "always maximize the screen");
+ *   6. the address is one row with a Pin press — the map waits behind it (`mapFolded`), never pushing the form down.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,6 +35,8 @@ const EDITOR = path.resolve(HERE, '..', 'app', 'dashboard', '[eventId]', 'websit
 const PICK_MENU = read(path.join(EDITOR, 'pick-menu.tsx'));
 const PICK_DONE = read(path.join(EDITOR, 'pick-done-row.tsx'));
 const PROOF = read(path.resolve(HERE, '..', 'app', '_components', 'chosen-proof-field.tsx'));
+const SHEET = read(path.resolve(HERE, '..', 'app', '_components', 'sheet.tsx'));
+const PIN = read(path.join(C, 'address-pin-field.tsx'));
 
 /** The text from `start` up to the first `end` after it — fails loudly when an anchor is gone. */
 function between(src: string, start: string, end: string, what: string): string {
@@ -118,5 +123,37 @@ describe('4 · one lines drawing for the three lists', () => {
       assert.match(src, /className=\{LINES_BOX_CLASS\}/, `${name} is not in the lines box`);
       assert.match(src, /<LineGrip \/>/, `${name} lost its grip column`);
     }
+  });
+});
+
+describe('5 · a form page, not a drawer, on a tablet and a computer', () => {
+  it('the add sheet opens with `page` (the record card keeps the drawer)', () => {
+    assert.match(MODAL, /<Sheet\b[^>]*\bpage=\{!edit\}/, 'the add sheet is the 440 drawer again');
+  });
+  it('the page geometry is centred and wide on every surface', () => {
+    const at = between(SHEET, 'const SHEET_AT', '\n};', 'SHEET_AT');
+    const pages = [...at.matchAll(/\n {4}page:\s*'([^']+)'/g)].map((m) => m[1]!);
+    assert.equal(pages.length, 2, 'each surface (lg, tab) carries its own page geometry');
+    for (const g of pages) {
+      assert.match(g, /\b(lg|tab):mx-auto\b/, 'the page sheet is no longer centred');
+      assert.match(g, /\b(lg|tab):w-\[min\(50rem,/, 'the page sheet lost its wide column');
+      assert.doesNotMatch(g, /rounded-l-3xl|w-\[min\(27\.5rem|w-\[22rem\]/, 'the page sheet is drawn as the drawer');
+    }
+    assert.match(SHEET, /page \? at\.page :/, 'Sheet no longer draws the page geometry for `page`');
+  });
+});
+
+describe('6 · the map waits behind the pin', () => {
+  it('the add sheet folds the map', () => {
+    const field = between(MODAL, '<AddressPinField', '/>', 'the address field');
+    assert.match(field, /\bmapFolded\b/, 'the add sheet draws the map open again');
+  });
+  it('folded, the map and its pin line are drawn only once the Pin press opened them', () => {
+    assert.match(PIN, /useState\(!mapFolded \|\| initialPin != null\)/, 'the fold no longer starts closed');
+    const open = between(PIN, '{mapOpen ? (\n        <>', '      ) : null}', 'the opened map');
+    assert.match(open, /<BranchPinMap\b/, 'the map is drawn outside the fold');
+    assert.equal(PIN.split('<BranchPinMap').length - 1, 1, 'a second map is drawn');
+    assert.match(PIN, /label="Pin on map"[\s\S]*?setMapOpen\(true\)/, 'the Pin press no longer opens the map');
+    assert.match(PIN, /The pin follows the address\./, 'the folded hint is gone');
   });
 });

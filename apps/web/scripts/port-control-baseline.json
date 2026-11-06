@@ -11387,6 +11387,7 @@
         "LabCard",
         "LabRecord",
         "NewManualVendorModal",
+        "ShellBoundaryProvider",
         "SupplierShareStandInCtx.Provider",
         "UpdateSelfAddedSupplierResult"
       ]

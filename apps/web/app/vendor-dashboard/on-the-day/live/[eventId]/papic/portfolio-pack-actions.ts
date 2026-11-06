@@ -214,7 +214,8 @@ export async function buyVendorPapicPortfolioPack(
   }
 
   revalidatePath('/vendor-dashboard/customers');
-  if (forGift) revalidatePath('/vendor-dashboard/subscription');
+  // 🎁 Gifts live on Shop › Promote since 2026-11-05 (they left the Plan page).
+  if (forGift) revalidatePath('/vendor-dashboard/shop/promote');
   if (fromEventId) revalidatePath(`/vendor-dashboard/on-the-day/live/${fromEventId}/papic`);
   redirect(payPath(referenceCode));
 }

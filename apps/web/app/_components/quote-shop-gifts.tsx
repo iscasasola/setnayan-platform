@@ -6,7 +6,7 @@ import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { BuyGiftsSheet } from '@/app/vendor-dashboard/subscription/_components/shop-gifts-section';
+import { BuyGiftsSheet } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { bookingFeePhp } from '@/lib/booking-fee';
 import { formatCentavos } from '@/lib/vendor-proposals';
 import { GIFT_SHARE_OF_FEE_PCT } from '@/lib/setnayan-gift';

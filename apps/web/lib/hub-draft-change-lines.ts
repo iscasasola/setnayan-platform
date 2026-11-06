@@ -98,8 +98,6 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   display_name: { place: DETAILS, what: 'Event title' },
   bride_name: { place: DETAILS, what: 'Event title' },
   groom_name: { place: DETAILS, what: 'Event title' },
-  event_date: { place: DETAILS, what: 'Date' },
-  event_date_precision: { place: DETAILS, what: 'Date' },
   print_details: { place: DETAILS, what: 'Name style' },
   // 🏷 The entourage's section headings, named in the Wedding March's Edit (owner 2026-10-19).
   role_names: { place: 'Wedding March', what: 'Section headings' },

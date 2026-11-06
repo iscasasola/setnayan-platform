@@ -4,14 +4,15 @@
  * openFactSheet — the ONE read behind the date sheet and the place sheet on the Suppliers page (PR5). It runs when a
  * sheet OPENS (never with the page): the page's first paint pays nothing for two sheets most visits never open.
  *
- * 🔒 READ-ONLY. Every write the sheets make goes through the doors that already exist — the Event Hub draft
- * (`hubDraftAction` intent `save`, which refuses a day a booked supplier cannot do and names them) and the date-change
- * request (intent `date_change`). Nothing here writes.
+ * 🔒 READ-ONLY. Every write the sheets make goes through the doors that already exist — the event's one date door
+ * (`updateEventDate`, which refuses a day a booked supplier cannot do and names them; owner 2026-11-05), the Event Hub
+ * draft for the place (`hubDraftAction` intent `save`) and the date-change request (intent `date_change`). Nothing here
+ * writes.
  *
  * Who: the couple only, on an event whose type has an Event Hub — the same rule as the Event Details record's sheet
- * (`record-field-slot.tsx`): the date and the venues are Event Hub publications that wait for Apply.
+ * (`record-field-slot.tsx`): the venues are Event Hub publications that wait for Apply.
  *
- * The date is shown AS THE COUPLE IS WORKING ON IT — the draft over the live row — and Help me choose compares a
+ * The date is the EVENT'S own (owner 2026-11-05, "it shouldn't rely on the hub": it is never drafted) — and Help me choose compares a
  * month's Saturdays through the ONE calendar truth (`lib/calendar-truth.ts`), offering only the days every PRICED
  * pick can take (owner 2026-10-10 answer 8). `priced` comes from the page that drew the build; it only narrows what
  * is SHOWN, and is checked to be this event's own suppliers before it is used.
@@ -102,12 +103,11 @@ export async function openFactSheet(
       if (row.error) logQueryError('suppliers fact sheet: event', row.error, { event_id: eventId }, 'graceful_degrade');
       return { ok: false, error: NOT_OPENED };
     }
+    // 🗓 The event's own date — never a drafted one (owner 2026-11-05, "it shouldn't rely on the hub").
     const live = row.data as { event_date: string | null; event_date_precision: string | null };
-    const hasDraftDate = 'event_date' in drafted || 'event_date_precision' in drafted;
-    const date = (hasDraftDate ? (drafted.event_date as string | null) : live.event_date) ?? null;
-    const rawPrecision = String((hasDraftDate ? drafted.event_date_precision : live.event_date_precision) ?? 'day');
+    const date = live.event_date ?? null;
+    const rawPrecision = String(live.event_date_precision ?? 'day');
     const precision = date ? ((PRECISIONS.has(rawPrecision) ? rawPrecision : 'day') as DateSheetData['precision']) : null;
-    const isDrafted = hasDraftDate && (date !== live.event_date || precision !== (live.event_date_precision ?? 'day'));
     const ceremonyTime = typeof drafted.ceremony_time === 'string' ? drafted.ceremony_time : liveTime;
     const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
     const bookedNames = vendors.filter((v) => confirmed.has(v.status)).map((v) => v.vendor_name);
@@ -139,10 +139,9 @@ export async function openFactSheet(
       date: {
         date,
         precision,
-        drafted: isDrafted,
         ceremonyTime,
         bookedNames,
-        // The day the bookings hold: the LIVE date (a draft books nobody).
+        // The day the bookings hold — the event's date when it is one day.
         bookedDay: bookedNames.length > 0 && live.event_date && (live.event_date_precision ?? 'day') === 'day' ? live.event_date : null,
         change: change.ok ? change.view : null,
         help,

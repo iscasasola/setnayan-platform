@@ -71,11 +71,6 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
-import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import { isStoreShellRequest } from '@/lib/request-platform';
-import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
-import { ShopGiftsSection } from './shop-gifts-section';
 
 
 /**
@@ -457,17 +452,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     !gift && !isPaid && invited?.tier && invited.untilDay && invited.untilDay < todayDay
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
-  // 🎁 YOUR GIFTS (owner 2026-11-04) — the shop's gift stock, read with the shop's own client (RLS: its own rows);
-  // the catalogue and the tier with the service role, as the buy action prices them.
-  const giftsAdmin = createAdminClient();
-  const [giftStock, giftBought, giftPacks, giftPaysGiftPrice, giftPapicOn, giftStoreShell] = await Promise.all([
-    fetchShopGiftStock(supabase, profile.vendor_profile_id, null),
-    fetchShopGiftBought(supabase, profile.vendor_profile_id),
-    fetchShopGiftPacks(giftsAdmin),
-    fetchVendorPaysGiftPrice(giftsAdmin, profile.vendor_profile_id),
-    isVendorPapicCaptureEnabled(),
-    isStoreShellRequest(),
-  ]);
 
   // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
   const photosLine = allowance.ok
@@ -554,17 +538,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         photosLine={photosLine}
       />
 
-      <ShopGiftsSection
-        data={{
-          stock: giftStock,
-          // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (slice 2).
-          packs: giftPapicOn ? giftPacks : (giftPacks?.filter((p) => p.kind !== 'papic') ?? null),
-          paysGiftPrice: giftPaysGiftPrice,
-          bought: giftBought,
-          openRails,
-          canBuy: !giftStoreShell,
-        }}
-      />
+      {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE
+          SUPPLIER QR CODES, PRINTS AND GIFTS") — one place for every marketing tool. Not linked from here: the Plan is
+          what the shop pays Setnayan; gifts are what it gives its couples. 🔒 shop/promote/gifts-live-on-promote.test.ts */}
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
       <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">

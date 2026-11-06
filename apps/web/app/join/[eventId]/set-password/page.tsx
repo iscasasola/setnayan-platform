@@ -77,6 +77,12 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
             New password
           </label>
           <PasswordField
+            mode="new"
+            personal={[
+              isPlaceholderEmail(user.email) ? null : user.email,
+              typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null,
+            ]}
+            leaked={sp.error === 'leaked'}
             id="password"
             name="password"
             required

@@ -117,11 +117,13 @@
 
 /* ===== HERO: full-bleed, scroll-driven, five people ===== */
 .heroTrack { position: relative; }
+.heroSticky { position: relative; height: min(78svh, 760px); min-height: 520px; }
+/* With motion allowed the five people cross-fade as you scroll: the stage sticks under the shell's bar. With reduced
+   motion it is one still frame and the dots switch the person. */
 @media (prefers-reduced-motion: no-preference) {
   .heroTrack { height: calc(100svh + 250svh); }
-  .heroSticky { position: sticky; top: var(--sf-head); height: calc(100svh - var(--sf-head)); }
+  .heroSticky { position: sticky; top: var(--sf-head); height: calc(100svh - var(--sf-head)); min-height: 0; }
 }
-.heroSticky { position: relative; height: min(78svh, 760px); min-height: 520px; }
 .stage { position: absolute; inset: 0; overflow: hidden; background: #2a2420; }
 .stage::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(0, 0, 0, .28), transparent 32%); }
 .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1s var(--sf-ease); margin: 0; }

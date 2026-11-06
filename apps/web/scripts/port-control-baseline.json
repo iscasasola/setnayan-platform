@@ -11502,7 +11502,8 @@
       ],
       "actions": [],
       "blocks": [
-        "CanvasMaker"
+        "CanvasMaker",
+        "SetupOfferFold"
       ]
     },
     "/dev/card-moderation-lab": {

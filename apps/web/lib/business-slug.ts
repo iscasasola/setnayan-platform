@@ -32,6 +32,8 @@
  * so a hyphenated slug in the wild is correct history, not drift.
  */
 
+import { formatCount } from './format-number';
+
 /** Exactly the pairs `slugify_business_name` passes to `translate()`. */
 const ACCENTS = 'áàâäãåéèêëíìîïóòôöõúùûüýñçÁÀÂÄÃÅÉÈÊËÍÌÎÏÓÒÔÖÕÚÙÛÜÝÑÇ';
 const PLAIN = 'aaaaaaeeeeiiiiooooouuuuyncaaaaaaeeeeiiiiooooouuuuync';
@@ -67,7 +69,7 @@ export function shopNameTooLong(name: string | null | undefined): boolean {
 
 /** "42 / 50" once a box holds `SHOP_NAME_COUNTER_FROM` or more characters; null before that. */
 export function shopNameCounter(length: number): string | null {
-  return length >= SHOP_NAME_COUNTER_FROM ? `${length} / ${SHOP_NAME_MAX}` : null;
+  return length >= SHOP_NAME_COUNTER_FROM ? `${formatCount(length)} / ${formatCount(SHOP_NAME_MAX)}` : null;
 }
 
 function translateAccents(input: string): string {

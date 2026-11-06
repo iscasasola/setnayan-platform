@@ -87,7 +87,7 @@ const READERS: ReadonlyArray<{ file: string; scope: RegExp; applies: RegExp; min
   },
   {
     file: 'app/onboarding/wedding/actions.ts',
-    scope: /const ONBOARDING_DEMO_SCOPE = demoScopeOfEvent\(\{ is_sample: false \}\);/g,
+    scope: /const ONBOARDING_DEMO_SCOPE = demoScopeOfEvent\(null\);/g,
     applies: /demoScope: ONBOARDING_DEMO_SCOPE,|\.eq\('is_demo', ONBOARDING_DEMO_SCOPE\.is_demo\)/g,
     min: 3,
   },

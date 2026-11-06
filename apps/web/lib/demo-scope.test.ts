@@ -10,6 +10,7 @@ import {
   demoRefusalFromDbError,
   demoScopeOfEvent,
   eventMayMeetShop,
+  shopFitsScope,
   DEMO_CROSS_BOOKING_DB_MARKER,
   DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY,
   DEMO_SHOP_CANNOT_BE_BOOKED,
@@ -32,6 +33,14 @@ test('the pairing is an equality', () => {
   assert.equal(eventMayMeetShop(DEMO_EVENT, DEMO_SHOP), true);
   assert.equal(eventMayMeetShop(REAL_EVENT, DEMO_SHOP), false);
   assert.equal(eventMayMeetShop(DEMO_EVENT, REAL_SHOP), false);
+});
+
+test('a shop fits a scope only when read and on the same side', () => {
+  assert.equal(shopFitsScope({ is_demo: false }, REAL_SHOP), true);
+  assert.equal(shopFitsScope({ is_demo: false }, DEMO_SHOP), false);
+  assert.equal(shopFitsScope({ is_demo: true }, DEMO_SHOP), true);
+  assert.equal(shopFitsScope({ is_demo: true }, REAL_SHOP), false);
+  assert.equal(shopFitsScope({ is_demo: false }, undefined), false, 'an unread shop never fits');
 });
 
 test('a write is refused with the couple-facing line, and refused when either side is unread', () => {

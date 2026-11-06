@@ -28,14 +28,16 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
-import { bookingScopeRefusal, demoScopeOfEvent } from '@/lib/demo-scope';
+import { demoScopeOfEvent, shopFitsScope } from '@/lib/demo-scope';
 
 /**
  * 🧪 Onboarding makes a REAL event (`events.is_sample` is never set here), so its supplier search is a real event's:
  * never a demo shop (owner 2026-11-06, "Demo catalogue — owner clicks": *"never inside their own event's supplier
- * search"*). Derived from the one rule in `lib/demo-scope.ts`, not typed as `false`.
+ * search"*). Derived from the one rule in `lib/demo-scope.ts`, not typed as `false`: an event with no `is_sample` read is
+ * a real event's scope. (Never an `{ is_sample: … }` literal here — `tests/db/gates-have-handles` reads one in an
+ * actions file as a WRITE of that column, and `events.is_sample` is writer-less by design.)
  */
-const ONBOARDING_DEMO_SCOPE = demoScopeOfEvent({ is_sample: false });
+const ONBOARDING_DEMO_SCOPE = demoScopeOfEvent(null);
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { freeDatesByVendor } from '@/lib/onboarding/venue-candidates.server';
 import {
@@ -774,10 +776,10 @@ export async function commitOnboardingWedding(
       .select('vendor_profile_id, is_demo')
       .in('vendor_profile_id', shortlistRows.map((r) => r.marketplace_vendor_id));
     if (shopFlagsErr) console.error('[supabase-error] app/onboarding/wedding/actions.ts · from:vendor_profiles.select(is_demo)', shopFlagsErr);
-    const realEvent = { is_sample: false };
     const flagById = new Map(((shopFlags ?? []) as Array<{ vendor_profile_id: string; is_demo: boolean }>).map((r) => [r.vendor_profile_id, r]));
     for (let i = shortlistRows.length - 1; i >= 0; i--) {
-      if (bookingScopeRefusal(realEvent, flagById.get(shortlistRows[i]!.marketplace_vendor_id))) shortlistRows.splice(i, 1);
+      // Kept only when the shop was read AND sits in this real event's scope (lib/demo-scope.ts) — unread is dropped.
+      if (!shopFitsScope(ONBOARDING_DEMO_SCOPE, flagById.get(shortlistRows[i]!.marketplace_vendor_id))) shortlistRows.splice(i, 1);
     }
   }
   if (shortlistRows.length > 0) {

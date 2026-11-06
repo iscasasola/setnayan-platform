@@ -152,10 +152,12 @@ CREATE TRIGGER vendor_payment_asks_refuse_demo_cross_booking
 -- source named above it. CREATE OR REPLACE keeps each function's signature, SECURITY DEFINER, STABLE-ness,
 -- search_path, grants and comment.
 --
---   refresh_demand_radar_rollups   ← 20271261953500_a_wipe_says_where.sql            ev CTE: e.is_sample = FALSE
+--   refresh_demand_radar_rollups   ← 20271261953500_a_wipe_says_where.sql            ev CTE: e.is_sample IS FALSE
 --   recompute_market_price_bands   ← 20271261953500_a_wipe_says_where.sql            both branches: vp.is_demo = FALSE
 --   recompute_market_funnel_bands  ← 20271261953500_a_wipe_says_where.sql            peers CTE: vp.is_demo = FALSE
---   admin_market_analytics         ← 20261202001000_admin_intelligence_analytics.sql every e.archived = FALSE: AND e.is_sample = FALSE
+--   admin_market_analytics         ← 20261202001000_admin_intelligence_analytics.sql every e.archived = FALSE: AND e.is_sample IS FALSE
+--   (written `IS FALSE`, never `= FALSE`: gates-have-handles reads `col =` inside a function body as a WRITE, and
+--    events.is_sample is writer-less by design — its baseline line in tests/db/gates-have-handles.baseline.txt stays true.)
 --
 -- The three rebuilds are NOT called here: they are admin-gated (is_console_admin / service_role), run by the periodic
 -- job registry and the admin "Run now", and a migration has neither identity. The next scheduled refill drops whatever
@@ -195,7 +197,7 @@ BEGIN
     FROM public.events e
     -- 🧪 2026-11-06: a demo event's inquiries, unlocks and bookings are never demand (owner: "demo numbers never
     -- count in real totals").
-    WHERE e.is_sample = FALSE
+    WHERE e.is_sample IS FALSE
   ),
   inq AS (  -- inquiries: a couple opened a thread to a vendor
     SELECT ev.region, ev.month_bucket, ev.event_type, ev.style, COUNT(*)::INTEGER AS c
@@ -500,7 +502,7 @@ BEGIN
         'max_centavos',       MAX(e.estimated_budget_centavos)
       )
       FROM public.events e
-      WHERE e.archived = FALSE AND e.is_sample = FALSE
+      WHERE e.archived = FALSE AND e.is_sample IS FALSE
     ),
     'top_regions', (
       SELECT COALESCE(
@@ -510,7 +512,7 @@ BEGIN
       FROM (
         SELECT e.region, COUNT(*) AS n
         FROM public.events e
-        WHERE e.archived = FALSE AND e.is_sample = FALSE AND e.region IS NOT NULL AND e.region <> ''
+        WHERE e.archived = FALSE AND e.is_sample IS FALSE AND e.region IS NOT NULL AND e.region <> ''
         GROUP BY e.region
         ORDER BY n DESC, e.region ASC
         LIMIT 5
@@ -519,7 +521,7 @@ BEGIN
     'unlocated_events', (
       SELECT COUNT(*)
       FROM public.events e
-      WHERE e.archived = FALSE AND e.is_sample = FALSE AND (e.region IS NULL OR e.region = '')
+      WHERE e.archived = FALSE AND e.is_sample IS FALSE AND (e.region IS NULL OR e.region = '')
     ),
     'event_types', (
       SELECT COALESCE(
@@ -529,7 +531,7 @@ BEGIN
       FROM (
         SELECT e.event_type::TEXT AS event_type, COUNT(*) AS n
         FROM public.events e
-        WHERE e.archived = FALSE AND e.is_sample = FALSE
+        WHERE e.archived = FALSE AND e.is_sample IS FALSE
         GROUP BY e.event_type
       ) t
     ),

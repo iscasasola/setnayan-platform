@@ -33,7 +33,7 @@ function bodyOf(src: string, fn: string): string {
   return next < 0 ? src.slice(start) : src.slice(start, start + 1 + next);
 }
 
-const ASKS = /\b(demoBookingRefusal|bookingScopeRefusal)\(/;
+const ASKS = /\b(demoBookingRefusal|bookingScopeRefusal|shopFitsScope)\(/;
 
 /** [file, function] — every write path that pairs an event with a marketplace shop. */
 const WRITE_PATHS: ReadonlyArray<readonly [string, string, string]> = [

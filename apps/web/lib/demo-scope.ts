@@ -49,6 +49,15 @@ export function eventMayMeetShop(
 }
 
 /**
+ * PURE. Does this shop sit in this scope? An unread shop (null/undefined) never does — fail closed, for a write path
+ * that already holds its event's scope (e.g. onboarding, which only ever makes a real event).
+ */
+export function shopFitsScope(scope: DemoScope, shop: { is_demo?: unknown } | null | undefined): boolean {
+  if (!shop) return false;
+  return (shop.is_demo === true) === scope.is_demo;
+}
+
+/**
  * PURE. Why a write between this event and this shop is refused, or `null` when it may go ahead.
  * An unread event or shop (null) is refused — never assumed real.
  */

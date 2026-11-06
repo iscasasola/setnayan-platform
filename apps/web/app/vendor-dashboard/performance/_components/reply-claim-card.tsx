@@ -36,7 +36,15 @@ import {
 
 type Copy = { value: string; title: string; body: string };
 
-function copyFor(verdict: ReplyTimeVerdict): Copy {
+function copyFor(verdict: ReplyTimeVerdict | null): Copy {
+  // `null` = the activity-stats read was REFUSED. Never "0 of 3 · answer 3 more" to a shop we could not read.
+  if (!verdict) {
+    return {
+      value: '—',
+      title: 'We couldn’t load your reply time just now.',
+      body: 'Refresh to try again.',
+    };
+  }
   if (verdict.shown) {
     return {
       value: formatReplyMinutes(verdict.medianMinutes),
@@ -87,7 +95,7 @@ function copyFor(verdict: ReplyTimeVerdict): Copy {
   }
 }
 
-export function ReplyClaimCard({ verdict }: { verdict: ReplyTimeVerdict }) {
+export function ReplyClaimCard({ verdict }: { verdict: ReplyTimeVerdict | null }) {
   const copy = copyFor(verdict);
   return (
     <div className="sn-tile p-5">
@@ -106,7 +114,7 @@ export function ReplyClaimCard({ verdict }: { verdict: ReplyTimeVerdict }) {
       <p className="mt-1 max-w-[68ch] text-sm" style={{ color: 'var(--m-slate-2)' }}>
         {copy.body}
       </p>
-      {verdict.shown ? null : (
+      {!verdict || verdict.shown ? null : (
         <Link
           href="/vendor-dashboard/customers"
           className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"

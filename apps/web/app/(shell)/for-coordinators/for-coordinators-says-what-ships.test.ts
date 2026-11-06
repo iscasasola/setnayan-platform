@@ -10,7 +10,7 @@
  *
  * SABOTAGE (run 2026-11-06 before the PR): type "₱2,490" into the page → RED; drop `needs: 'announcements'`
  * from the announcement cap → RED; set COORDINATOR_AREAS.mood_board to 'edit' → RED (the ⓘ sentence lies);
- * replace `tag: deskTag` with a hard "Free" pill → RED; drop the route from DOORWAY_BLEED_PATHS → RED.
+ * replace the inbox's `tag: deskTag` with a hard "Free" pill → RED.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -148,11 +148,36 @@ test('ONE FACT, ONE PLACE — the stars line takes the rating pill’s place; th
     const d = draw(piece(id), FULL);
     assert.ok(SHOWS.stars(d) && !d.svg.includes('data-print-badge="rating"'), `${id}: the rating is printed twice`);
     assert.ok(SHOWS.since(d) && !d.svg.includes('data-print-badge="years"'), `${id}: the years are printed twice`);
-    // without the line, the pill carries the fact
-    assert.ok(draw(piece(id), FULL, { hide: ['stars'] }).svg.includes('data-print-badge="rating"'), `${id}: the rating vanished with its line`);
-    assert.ok(draw(piece(id), FULL, { hide: ['since'] }).svg.includes('data-print-badge="years"'), `${id}: the years vanished with their line`);
   }
-  // the standee and table draw no since line, so the years pill stays
+  // a shop with NO stars line to draw (no reviews read as a line) still shows its rating pill — the pill is the one place
+  const noLine = draw(piece('tarp'), { ...FULL, rating: null });
+  assert.ok(noLine.svg.includes('data-print-badge="rating"'), 'with no stars line the rating pill is the fact’s one place');
+});
+
+test('SWITCHED OFF IS GONE — "Stars and reviews" off takes the rating pill too, on every piece', () => {
+  for (const p of PRINT_PIECES) {
+    const d = draw(p, FULL, { hide: ['stars'] });
+    assert.ok(!SHOWS.stars(d), `${p.name}: the stars line is still drawn`);
+    assert.ok(!d.svg.includes('data-print-badge="rating"'), `${p.name}: the rating came back as a pill`);
+    const rating = BASE.badges.find((b) => b.kind === 'rating')!;
+    assert.ok(!has(d.text, rating.label), `${p.name}: the rating came back as a badge word`);
+  }
+  // the other badges stay — only the switched-off fact leaves
+  assert.ok(draw(piece('tarp'), FULL, { hide: ['stars'] }).svg.includes('data-print-badge='), 'every badge left with the rating');
+});
+
+test('SWITCHED OFF IS GONE — "In business since" off takes the years pill too, on every piece', () => {
+  const years = BASE.badges.find((b) => b.kind === 'years')!;
+  for (const p of PRINT_PIECES) {
+    const d = draw(p, FULL, { hide: ['since'] });
+    assert.ok(!SHOWS.since(d), `${p.name}: the since line is still drawn`);
+    assert.ok(!d.svg.includes('data-print-badge="years"'), `${p.name}: the years came back as a pill`);
+    assert.ok(!has(d.text, years.label), `${p.name}: the years came back as a badge word`);
+  }
+  assert.ok(draw(piece('tarp'), FULL, { hide: ['since'] }).svg.includes('data-print-badge='), 'every badge left with the years');
+});
+
+test('one fact, one place — continued: the standee and table draw no since line, so the years pill stays', () => {
   for (const id of ['standee', 'table']) {
     const d = draw(piece(id), FULL);
     assert.ok(!d.svg.includes('data-print-badge="rating"') && d.svg.includes('data-print-badge="years"'), id);

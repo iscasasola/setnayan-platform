@@ -334,7 +334,9 @@ export function onPrint(shop: PrintShop, hidden: readonly PrintBlock[]): { shop:
       tagline: off.has('tagline') ? null : txt(shop.tagline),
       services: off.has('services') ? [] : [...new Set((shop.services ?? []).map((t) => txt(t)).filter((t): t is string => !!t))],
       rating: off.has('stars') ? null : shop.rating,
-      badges: off.has('badges') ? [] : shop.badges,
+      // a fact switched off leaves EVERY place it prints (controller 2026-11-06): "Stars and reviews" off takes the rating
+      // pill too, "In business since" off the years pill — they never come back as a badge
+      badges: off.has('badges') ? [] : shop.badges.filter((b) => !(off.has('stars') && b.kind === 'rating') && !(off.has('since') && b.kind === 'years')),
       since: off.has('since') ? null : txt(shop.since),
       area: off.has('area') ? null : txt(shop.area),
       photo: off.has('photo') ? null : (shop.photo ?? null),

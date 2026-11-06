@@ -13,12 +13,13 @@ Owner, 6 Nov 2026 ("Yes ship it" · DECISION_LOG "PRINTS BY PURPOSE AND SIZE"). 
   - web address: the verified custom domain, then `setnayan.com/v/<slug>`.
   A missing fact drops its block. A print never shows a zero or an empty frame.
 - **One fact, one place.** Where the stars line is drawn, the rating pill is not. Where "since" is drawn, the years pill is not.
+- **A block switched off is gone everywhere** (controller, 6 Nov). With "Stars and reviews" off, the rating does not come back as a pill. With "In business since" off, the years pill does not come back.
 - **`On your prints ▾`** is one PickMenu multi-pick (`picked`) over the 10 blocks; name and QR are always on. The picture, the Save file and "See it in use" all honour it (`hide=`).
 - **🪪 Your own calling card** (owner "Yes", 6 Nov). The front carries the member's account name, their Team label only when set (never the access level), and the shop logo and name small. The back is the shop card's. The card is offered only to the signed-in member, and only when they have a name (`who=me`).
 - **🔒 No price, no phone, no email on any print.**
   - Services print as names only.
   - `printSafe` strips any ₱ amount, phone or email that a supplier typed into a tagline, About, service title or role.
-- New guard `lib/prints-by-purpose-and-size.test.ts` (14 tests). It checks:
+- New guard `lib/prints-by-purpose-and-size.test.ts` (17 tests). It checks:
   - the blocks each piece carries;
   - that missing facts drop their blocks;
   - every switch on every piece;

@@ -68,11 +68,11 @@ test('v18 ② · no text-link actions left on the step-2 surfaces — grey pills
 /* ── ③ v19 · "Events you serve" shows only the events their services are offered for ───────────────────────────── */
 
 test('v19 ③ · eventsTheyCanServe — nothing picked → every event; else only where some service is offered', () => {
-  const events = [
-    { key: 'wedding', label: 'Wedding' },
-    { key: 'birthday', label: 'Birthday' },
-    { key: 'corporate', label: 'Corporate' },
-  ] as Parameters<typeof eventsTheyCanServe>[0];
+  const events: Parameters<typeof eventsTheyCanServe>[0] = [
+    { key: 'wedding', label: 'Wedding', emoji: '' },
+    { key: 'birthday', label: 'Birthday', emoji: '' },
+    { key: 'corporate', label: 'Corporate', emoji: '' },
+  ];
   const allowed: Record<string, string[] | null> = { cake: ['wedding', 'birthday'], gown: ['wedding'], any: null };
   const of = (k: string) => allowed[k] ?? null;
   assert.deepEqual(eventsTheyCanServe(events, [], of).map((e) => e.key), ['wedding', 'birthday', 'corporate']);

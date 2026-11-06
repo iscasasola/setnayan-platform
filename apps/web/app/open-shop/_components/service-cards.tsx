@@ -540,7 +540,6 @@ function SpecialtiesBar({
   return (
     <div ref={row} className="-mt-1 flex flex-nowrap items-center gap-2" data-open-shop-specialties-bar="">
       <ActionButton tone="neutral" icon={ChevronUp} label={word} name={`Close ${word.toLowerCase()}`} onClick={onClose} aria-expanded />
-      <span className="min-w-0 flex-1" />
       <ActionButton tone="danger" icon={Trash2} label="Remove" name={`Remove ${service.label}`} onClick={() => onRemove(service.key)} />
       <ActionButton tone="ok" icon={Check} label="Done" onClick={onClose} />
     </div>

@@ -43,7 +43,7 @@ test('3 · the row’s gift figure is the section’s own read', () => {
   const src = read(PROMOTE);
   // 2026-11-06: awaited beside Share your work (row 4) — still ONE gifts read.
   assert.match(src, /const \[gifts, share\] = await Promise\.all\(\[giftsPromise, sharePromise\]\);/);
-  assert.match(src, /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock \? gifts\.stock\.balance : null\s*\}\)\}/, 'the figure is not the section’s stock (or an unread stock is not null)');
+  assert.match(src, /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock \? gifts\.stock\.papic\.balance : null\s*\}\)\}/, 'the figure is not the section’s stock (or an unread stock is not null)');
   assert.equal([...src.matchAll(/fetchShopGiftStock/g)].length, 0, 'a second stock read beside the section’s');
 });
 
@@ -61,5 +61,5 @@ test('6 · nothing sells inside the iPhone app — Promote is open there, the Pl
   // The Plan page is refused in the store shell; Promote is not. Buy (button + sheet) hangs off `canOffer`, which needs
   // `canBuy`, which the loader sets false in the store shell (`lib/store-shell.test.ts` cites the same gate).
   assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx'), /const canOffer = data\.canBuy && /);
-  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-data.ts'), /canBuy: papicOn && !storeShell,/);
+  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-data.ts'), /canBuy: !storeShell,/);
 });

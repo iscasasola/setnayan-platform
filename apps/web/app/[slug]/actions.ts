@@ -75,41 +75,10 @@ function clean(value: FormDataEntryValue | null): string {
 }
 
 /**
- * Invite/Join v2 — a guest saves a vendor they liked at this event to THEIR own
- * account, for future planning (`guest_saved_vendors`). Account-required: it's a
- * personal bookmark, so an accountless guest is routed to make one (the
- * claim-account box on the page). Idempotent (one bookmark per vendor per user).
+ * The guest's after-event "keep this supplier" moved to `favoriteAction` (app/_actions/favorite-actions.ts, op
+ * 'guest') on 2026-11-06: a favorite now needs a door check-in and names the service (owner, "Favorites after an
+ * event"). One dispatcher, so the server-action count did not move.
  */
-export async function saveAttendedVendorAction(
-  eventId: string,
-  slug: string,
-  vendorProfileId: string,
-) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user || user.is_anonymous) {
-    // No real account (signed-out OR an unsecured anon-draft) → can't bookmark
-    // for "their future plans" yet; nudge them to make/secure one. Saving a
-    // vendor persists vendor-discovery intent to the user, so an anon guest
-    // converts first via the page's claim-account box.
-    return redirect(`/${slug}?save=needs_account`);
-  }
-  if (!vendorProfileId) {
-    return redirect(`/${slug}?save=error`);
-  }
-
-  const admin = createAdminClient();
-  const { error } = await admin.from('guest_saved_vendors').upsert(
-    { user_id: user.id, vendor_profile_id: vendorProfileId, source_event_id: eventId },
-    { onConflict: 'user_id,vendor_profile_id', ignoreDuplicates: true },
-  );
-  if (error) console.error('[supabase-error] app/[slug]/actions.ts · from:guest_saved_vendors.upsert', error);
-
-  return redirect(`/${slug}?save=${error ? 'error' : 'ok'}`);
-}
 
 /** The event's own address, from the DATABASE — never a bound or posted value. */
 async function eventHome(eventId: string): Promise<string> {

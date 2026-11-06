@@ -28,6 +28,14 @@ import { formatCount } from '@/lib/format-number';
  *
  * ✎ opens "Message a supplier" — THIS EVENT's suppliers only (frame K; owner: *"users can only chat a supplier inside an
  * event"*). The list itself is the page's (`newMessage`), so the action that opens a thread stays the shipped one.
+ *
+ * 💬 THE SUPPLIER'S CHATS READ THIS SAME INBOX (owner 2026-11-06: *"The chat page is a full screen page, correct?
+ * Independent of any other menus? Why is it still jumping to customer events"* — `vendor-dashboard/messages`). Three
+ * props let the one component serve both sides without a second copy:
+ *   · `newMessage` is optional — a supplier answers chats, it does not start them, so no ✎ and no sheet;
+ *   · `peerFilter` names the third chip ("Suppliers" for the couple) — `null` draws All · Unread only;
+ *   · `dock="foot"` — on a FULL-SCREEN page (`data-chat-takeover`, which covers the shell and its bottom dock) the thumb
+ *     row stands at the page's own foot instead of being portalled onto a dock the takeover covers.
  */
 
 export type InboxRow = {
@@ -53,15 +61,22 @@ export function ChatInbox({
   newMessage,
   empty,
   unreadMeasured = true,
+  peerFilter = 'Suppliers',
+  dock = 'float',
 }: {
   rows: InboxRow[];
   /** 🔌 False when the unread read was refused — the Unread filter then says it could not check, never "Nothing unread." */
   unreadMeasured?: boolean;
   viewerId: string;
-  /** The ✎ sheet's body — this event's suppliers. */
-  newMessage: ReactNode;
+  /** The ✎ sheet's body — this event's suppliers. Absent = no ✎ (the supplier's Chats: it answers, it does not start). */
+  newMessage?: ReactNode;
   /** What an inbox with no chats says (the page's own words and door). */
   empty: ReactNode;
+  /** The third chip's word ("Suppliers"); `null` = All · Unread only. */
+  peerFilter?: string | null;
+  /** `float` — portalled onto the bottom dock (a page inside the shell); `foot` — at the page's own foot (a full-screen
+   *  page whose takeover covers that dock). */
+  dock?: 'float' | 'foot';
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
@@ -118,7 +133,9 @@ export function ChatInbox({
         <ThreadListAvatar logoUrl={r.logoUrl} name={r.name} size="lg" />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-1.5">
-            <span className={`min-w-0 shrink-0 truncate text-[16px] text-ink ${r.unread ? 'font-bold' : 'font-medium'}`} style={{ maxWidth: '70%' }}>{r.name}</span>
+            {/* With an event line beside it the name keeps 70 %; a name that IS the event line (the supplier's chat title,
+                "Ana's Wedding (Dec 12)") takes the whole width, so its date is not the part that gets cut. */}
+            <span className={`min-w-0 ${r.eventLine ? 'shrink-0' : 'shrink'} truncate text-[16px] text-ink ${r.unread ? 'font-bold' : 'font-medium'}`} style={r.eventLine ? { maxWidth: '70%' } : undefined}>{r.name}</span>
             {/* Frame L (owner 2026-10-28, "i want isolation per event"): each row says WHICH event — "· Dec 18 · …". */}
             {r.eventLine ? (
               <span className="min-w-0 shrink truncate text-[11px] font-semibold text-sn-accent" data-inbox-event-line="">
@@ -147,35 +164,42 @@ export function ChatInbox({
     </Sheet>
   );
 
+  const thumb = (
+    <div ref={dockRef} className="transition-opacity duration-300 data-[scrolling]:opacity-70 motion-reduce:transition-none" data-chat-inbox-thumb="">
+      <ThumbRow
+        name="chats"
+        field={{
+          placeholder: 'Search chats',
+          label: 'Search chats by name',
+          input: {
+            type: 'search',
+            value: query,
+            onChange: (e) => setQuery(e.currentTarget.value),
+            'data-chat-inbox-search': '',
+          },
+        }}
+        action={
+          newMessage
+            ? { icon: SquarePen, label: 'New message', onClick: () => setComposing(true), testId: 'chat-new-message' }
+            : null
+        }
+      />
+    </div>
+  );
+
   return (
-    <div data-chat-inbox="">
+    <div data-chat-inbox="" className={dock === 'foot' ? 'flex min-h-full flex-1 flex-col' : undefined}>
       <ChatOriginMark />
       {/* Mounted FIRST: from 1024 the row is the column's first line (ThumbDock draws it in place); on a phone it is
-          portalled onto the bottom dock, where it arrives last. */}
-      <ThumbDock>
-        <div ref={dockRef} className="transition-opacity duration-300 data-[scrolling]:opacity-70 motion-reduce:transition-none" data-chat-inbox-thumb="">
-          <ThumbRow
-            name="chats"
-            field={{
-              placeholder: 'Search chats',
-              label: 'Search chats by name',
-              input: {
-                type: 'search',
-                value: query,
-                onChange: (e) => setQuery(e.currentTarget.value),
-                'data-chat-inbox-search': '',
-              },
-            }}
-            action={{ icon: SquarePen, label: 'New message', onClick: () => setComposing(true), testId: 'chat-new-message' }}
-          />
-        </div>
-      </ThumbDock>
+          portalled onto the bottom dock, where it arrives last. On a full-screen page (`foot`) it is the page's own
+          last line instead — see the foot below. */}
+      {dock === 'float' ? <ThumbDock>{thumb}</ThumbDock> : null}
       <div className="mb-2 mt-1">
         <div role="group" aria-label="Show" className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} w-full`}>
           <PillThumb />
           {chip('all', 'All')}
           {chip('unread', 'Unread', unreadCount)}
-          {chip('suppliers', 'Suppliers')}
+          {peerFilter ? chip('suppliers', peerFilter) : null}
         </div>
       </div>
 
@@ -204,7 +228,17 @@ export function ChatInbox({
         </details>
       ) : null}
 
-      {mounted ? createPortal(sheet, document.body) : null}
+      {/* 🦶 THE FOOT — a full-screen page's thumb row, pinned to the bottom of the page itself (the takeover is the
+          scroller, so `sticky` holds it at the screen's foot; `mt-auto` takes it there when the list is short). Drawn
+          once mounted, like the floating dock: the row's field ids come from `useId`, and a server-drawn row
+          hydrated with mismatched ids (measured in the lab, 2026-11-06). */}
+      {dock === 'foot' && mounted ? (
+        <div className="sticky bottom-0 z-10 mt-auto pb-[max(10px,env(safe-area-inset-bottom))] pt-2" data-chat-inbox-foot="">
+          {thumb}
+        </div>
+      ) : null}
+
+      {mounted && newMessage ? createPortal(sheet, document.body) : null}
     </div>
   );
 }

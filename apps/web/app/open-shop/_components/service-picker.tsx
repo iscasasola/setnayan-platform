@@ -175,6 +175,14 @@ export function ServicePicker({
       tree={tree}
       exclude={excludeCategories}
       onOpen={(id) => {
+        // Owner 7 Nov (prototype v16 updated in place, specs f15a3a7, DECISION_LOG 2026-11-07): a category with only ONE
+        // service adds that service on the tap — no drill-in row. Its optional specialties are never auto-picked.
+        const only = tree.flatMap((p) => p.branches).find((b) => b.tileId === id)?.leaves;
+        if (only && only.length === 1 && offered(only[0]!)) {
+          setQuery('');
+          onPick(only[0]!);
+          return;
+        }
         setOpenCategory(id);
         setQuery('');
       }}

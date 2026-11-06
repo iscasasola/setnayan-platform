@@ -93,8 +93,10 @@ export const OPEN_SHOP_ERRORS = {
   // Owner-locked 2026-08-10: the number must belong to where the shop is. Names
   // both accepted shapes, because "invalid" alone leaves someone re-typing the
   // same number wondering what is wrong with it.
+  // Owner 2026-11-07 (PR #7351): the box already shows a fixed +63, so the example never starts with 0 — mobile after
+  // +63 is 10 digits, a Metro Manila landline 9.
   contactPhoneNotPh:
-    'That doesn’t look like a Philippine number. Use 09XX XXX XXXX, or your landline with its area code.',
+    'That doesn’t look like a Philippine number. Use 9XX XXX YYYY, or a landline like 2 8XXX YYYY.',
   contactEmail: 'Add a valid company email.',
   // ⚠ WAS "Add the city you serve." — a coverage question, on a step headed
   // "Where you are", for a box that is checked against the vendor's DTI, BIR
@@ -119,7 +121,7 @@ export const OPEN_SHOP_ERRORS = {
 
 /**
  * The phone sentence UNDER the fixed +63 box on the door (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN APPROVED",
- * call 2). The box already shows +63, so its own sentence starts at the 9. The shared `contactPhoneNotPh` sentence
+ * call 2; words revised 2026-11-07). The box already shows +63, so its own sentence starts at the 9. The shared `contactPhoneNotPh` sentence
  * (with `09XX`) is unchanged everywhere else, including the server's redirect — the door draws THIS one for it.
  */
-export const OPEN_SHOP_PHONE_BOX_ERROR = 'Use 9XX XXX XXXX, or your landline with its area code.';
+export const OPEN_SHOP_PHONE_BOX_ERROR = 'Use 9XX XXX YYYY, or a landline like 2 8XXX YYYY.';

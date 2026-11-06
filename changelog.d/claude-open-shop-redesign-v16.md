@@ -34,6 +34,11 @@ the last fixes"*). Only the delta is built; the shipped picker, `EventTiles`, `P
   `business_owner_position`), then **Your account**: Continue with Google / Apple / Email as three equal buttons; Email
   opens Email + Password in place with ONE hint "At least 8 characters" (`PasswordField mode="new" quiet` — the bar and
   rules are not drawn; the leak check still answers on submit, under the box). Terms, "Open my shop — free".
+- **Owner 7 Nov, folded in (PR comments):** a category with only ONE service adds that service on the tile tap — no
+  drill-in row, its specialties never auto-picked (v16 updated in place, specs `f15a3a7`); and the phone sentence no
+  longer starts with 0 beside the fixed +63 — `contactPhoneNotPh` "That doesn’t look like a Philippine number. Use 9XX
+  XXX YYYY, or a landline like 2 8XXX YYYY." and the box's own "Use 9XX XXX YYYY, or a landline like 2 8XXX YYYY."
+  (also read by My Shop's details save). The v18/v19 rulings wait for the controller's go — the PR is on hold.
 - The shipped fee disclosure line stays on the account step (`the-fee-finds-the-supplier.test.ts`, owner 2026-09-20).
 - `/dev/open-shop-lab` (dev-only): steps 1–5, category photos from `public/taxonomy/tiles`, and a few services' event
   scopes and specialties taken from the prototype's own `SVC_EVENTS` / `FILTERS`.

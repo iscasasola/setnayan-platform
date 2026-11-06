@@ -21,8 +21,8 @@ import { OPEN_SHOP_PHONE_BOX_ERROR } from '@/lib/open-shop-validation';
  *
  * 🆕 THE REDESIGN'S WORDS (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN APPROVED", call 2): under the box, always,
  * "Mobile, or a landline with its area code."; when the number cannot be one (once the person leaves the box, or
- * Continue / Open my shop refused it), ONE sentence in the box's own line — "Use 9XX XXX XXXX, or your landline with
- * its area code." The shared `09XX` sentence stays everywhere else.
+ * Continue / Open my shop refused it), ONE sentence in the box's own line — "Use 9XX XXX YYYY, or a landline like
+ * 2 8XXX YYYY." (owner 2026-11-07: no leading 0 beside the fixed +63).
  *
  * Posts `contact_phone` as E.164 (`+639178888889`) from a hidden input, so the wizard's step gate and
  * `becomeVendor` read the same value they always read.

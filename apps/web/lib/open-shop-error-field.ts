@@ -61,7 +61,7 @@ export function openShopErrorField(error: string | null | undefined): OpenShopFi
 
 /**
  * What the box SAYS for a refusal. Identical to the refusal, with one exception the owner ruled: under the fixed +63
- * box the shared `09XX` sentence reads as the door's own "Use 9XX XXX XXXX, …" (the +63 is already on screen).
+ * box the shared `09XX` sentence reads as the door's own "Use 9XX XXX YYYY, …" (the +63 is already on screen).
  */
 export function openShopErrorWords(error: string): string {
   return error === OPEN_SHOP_ERRORS.contactPhoneNotPh ? OPEN_SHOP_PHONE_BOX_ERROR : error;

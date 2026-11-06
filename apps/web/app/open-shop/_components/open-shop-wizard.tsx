@@ -347,7 +347,7 @@ export function OpenShopWizard({
     if (n === 4) {
       if (!read('contact_name').trim()) return OPEN_SHOP_ERRORS.contactName;
       if (!read('contact_phone').trim()) return OPEN_SHOP_ERRORS.contactPhone;
-      // The box's own sentence (owner 2026-11-06): "Use 9XX XXX XXXX, or your landline with its area code."
+      // The box's own sentence (owner 2026-11-07): "Use 9XX XXX YYYY, or a landline like 2 8XXX YYYY."
       if (!isPhPhone(read('contact_phone'))) return OPEN_SHOP_PHONE_BOX_ERROR;
       return null;
     }

@@ -70,7 +70,9 @@ test('the box a refusal belongs to is on the step the server redirects to', () =
 });
 
 test('the phone box says the approved sentence, whichever way the number was refused', () => {
-  assert.equal(OPEN_SHOP_PHONE_BOX_ERROR, 'Use 9XX XXX XXXX, or your landline with its area code.');
+  // Words revised by the owner 2026-11-07 (PR #7351): no leading 0 beside the fixed +63.
+  assert.equal(OPEN_SHOP_PHONE_BOX_ERROR, 'Use 9XX XXX YYYY, or a landline like 2 8XXX YYYY.');
+  assert.doesNotMatch(OPEN_SHOP_ERRORS.contactPhoneNotPh, /09XX/);
   assert.equal(openShopErrorWords(OPEN_SHOP_ERRORS.contactPhoneNotPh), OPEN_SHOP_PHONE_BOX_ERROR);
   assert.equal(OPEN_SHOP_ERRORS.events, 'Pick at least one event.');
   assert.match(PHONE, /state\.state === 'error' \? OPEN_SHOP_PHONE_BOX_ERROR/);
@@ -185,6 +187,12 @@ test('v16 ① · one plain card per CATEGORY; a blank "Also do …?" row; a dash
   assert.match(CARDS, /data-\[flash\]:shadow-/);
   // The v8 shapes are gone.
   assert.doesNotMatch(WIZARD + CARDS, /More in \{|A different category|Add another service|Same events as/);
+});
+
+test('owner 7 Nov · a category with ONE service adds it on the tap — no drill-in row, no specialty auto-picked', () => {
+  const tap = PICKER.slice(PICKER.indexOf('<CategoryTiles'), PICKER.indexOf('const coordinatorView'));
+  assert.match(tap, /if \(only && only\.length === 1 && offered\(only\[0\]!\)\) \{[\s\S]*?onPick\(only\[0\]!\);\s*return;/);
+  assert.doesNotMatch(tap, /setPicks|onPicksChange/, 'the tap picks a specialty for them');
 });
 
 test('v16 ② · Continue opens "Before you continue" only past Free and before the box is ticked; the box gates it', () => {

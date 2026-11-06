@@ -8,7 +8,7 @@ Owner, 2026-11-06: *"yes merge them"* · *"combine the services in the events ru
 - **Tea ceremony master is its own service** under Hosts & talent, wedding only. It is not a Host / emcee specialty.
 - **Specialties are facets:** `category_specific_attributes` plus `filter_facets`, with the v2 keys prepended. Each value's event scope rides in the facet definition as `option_event_types`, alongside the `question` text. There is no new column. Rental is a yes/no `is_rental`.
 - **Shops are tagged before their trade folds**, so no shop loses the value it held.
-- **Categories:** surviving categories take the v2 labels. A category's event scope first widens to cover its services. It then drops any event type that none of its live services can fill (step 8b, when every live service has its own list), so no category advertises an event no supplier can serve (`tile-event-type-fillable`). This removes, for example, Get-together (v2 lists it under `no_marketplace_event_types`) and several concert, gala and christening claims.
+- **Categories:** surviving categories take the v2 labels. A category's event scope first widens to cover its services. It then drops any event type that none of its live services can fill (step 10b, when every live service has its own list), so no category advertises an event no supplier can serve (`tile-event-type-fillable`). This removes, for example, Get-together (v2 lists it under `no_marketplace_event_types`) and several concert, gala and christening claims.
 - **"Everything else" is left untouched** (hidden, active, no forward). Neither approved source names it, and it is the home of a self-added supplier.
 - **Setnayan products are never folded.**
 - **Code mirrors follow the database:**

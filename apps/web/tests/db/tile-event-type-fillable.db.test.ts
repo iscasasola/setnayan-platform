@@ -79,7 +79,7 @@ after(async () => {
 /*
  * ⚖ TAXONOMY V2 (owner-approved 2026-11-06, migration `20271320461004`): EMPTY. Every entry that stood here is gone:
  * av_production, editorial and filipiniana_barongs are folded tombstones (retired — the query skips them), and the gala /
- * christening leaf overrides were re-scoped by v2's per-service event list, after which step 8b drops any claim a
+ * christening leaf overrides were re-scoped by v2's per-service event list, after which step 10b drops any claim a
  * category's live services cannot fill. The self-cleaning test below demanded their removal; the list only shrinks.
  */
 const KNOWN_UNFILLABLE: Record<string, string> = {};

@@ -1531,7 +1531,7 @@ export default async function WebsiteEditorPage({
       return { canvas: colours.canvas, ink: colours.ink, accent: colours.accent };
     })(),
     facts: {
-      // ✍ As the couple is editing them — the names and the date are drafted until Apply.
+      // ✍ As the couple is editing them — the names are drafted until Apply (the date never is: owner 2026-11-05).
       names: (drafted.display_name as string | null) ?? null,
       dateLabel: drafted.event_date ? formatEventDate(drafted.event_date as string) : null,
       daysToGo: countdownMs === null ? null : Math.max(0, Math.ceil((countdownMs - Date.now()) / 86_400_000)),

@@ -43,11 +43,18 @@ import { fileURLToPath } from 'node:url';
 // `guestSeatView` — the Seats ⚙ write and the guest card's preview read) instead of the two exports it would have been;
 // the only unimported exports left are the two kept on purpose above. No fresh `vercel build` count for this +1 — the
 // SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// 1227 → 1228 (2026-11-05, booking-fee disputes, owner "build dispute"): ONE dispatcher
+// (`app/_actions/booking-fee-dispute-actions.ts`, `bookingFeeDispute`, op=open|decide — the supplier's dispute and the
+// admin's decision) instead of the two exports it would have been; no unimported export was left to drop (the two kept
+// on purpose above). No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on
+// this PR's production build; read that job before merging.
 // 1227 → 1228 (2026-11-05, admin service-card moderation for the 7 Nov supplier registration): ONE dispatcher
 // (`admin/vendors/[vendorProfileId]/card-actions.ts`, `moderateServiceCard` — take down · put back · remove photo)
 // instead of the three exports it would have been; the only unimported exports left are the two kept on purpose above.
 // No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production
 // build; read that job before merging.
+// MERGED (2026-11-06): both +1s above landed on one tree; the real merged count measured 1228, so the ceiling stays
+// 1228 — the limit is the measured count, never the sum of the two arrows.
 export const CEILING = 1228;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');

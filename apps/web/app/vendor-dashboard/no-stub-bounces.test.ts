@@ -17,7 +17,8 @@ import { customerLandingHref } from './customers/anchors';
 const WEB = join(import.meta.dirname, '..', '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-const STUB = /['"`]\/vendor-dashboard\/(proposals|contracts|messages|verify)['"`]/;
+// `messages` left 2026-11-06 — `/vendor-dashboard/messages` is the supplier's Chats page now, not a stub.
+const STUB = /['"`]\/vendor-dashboard\/(proposals|contracts|verify)['"`]/;
 
 test('the named doors no longer point at a forwarding stub', () => {
   for (const f of [
@@ -34,7 +35,7 @@ test('the named doors no longer point at a forwarding stub', () => {
 
 test('each door is the stub’s OWN target', () => {
   // The stubs forward through the same anchors table — so the door and the stub can never disagree.
-  for (const stub of ['proposals', 'contracts', 'messages'] as const) {
+  for (const stub of ['proposals', 'contracts'] as const) {
     const page = src(`app/vendor-dashboard/${stub}/page.tsx`);
     assert.match(page, new RegExp(`customerLandingAnchor\\('${stub}'\\)`), `the ${stub} stub no longer forwards through the anchors table`);
   }

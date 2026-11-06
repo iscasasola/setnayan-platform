@@ -18,6 +18,7 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { checkShopNameHold } from '@/lib/shop-name-hold';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../_components/read-failed';
@@ -100,6 +101,33 @@ export default async function AdminCorrectionsPage({
     );
   }
 
+  // ── HELD NAMES (owner 2026-11-06, "A HELD SHOP NAME HOLDS ITS CORE") ──────
+  // An OPEN shop-name request whose core is held — an "It's my business" claim, or a verified shop's correction —
+  // shows the admin WHICH shop holds it and WHY, so the papers can be checked against the right business. Admin-only:
+  // the vendor is never told this. Asked of the same function every writer asks; a check that could not run says so.
+  const heldBy: Record<number, HeldBy> = {};
+  for (const r of rows) {
+    if (r.status !== 'open' || r.field_key !== 'business_name' || !r.requested_value) continue;
+    const hold = await checkShopNameHold(admin, r.requested_value, { vendorProfileId: r.vendor_profile_id });
+    if (hold.state === 'unverified') {
+      heldBy[r.id] = { unverified: true };
+      continue;
+    }
+    if (hold.state !== 'held') continue;
+    let holderName: string | null = null;
+    if (hold.holder) {
+      const { data: holderRow, error: holderErr } = await admin
+        .from('vendor_profiles')
+        .select('business_name,business_slug,public_id')
+        .eq('vendor_profile_id', hold.holder)
+        .maybeSingle();
+      if (holderErr) logQueryError('AdminCorrectionsPage (held-name holder)', holderErr);
+      const h = holderRow as { business_name?: string | null; business_slug?: string | null; public_id?: string | null } | null;
+      holderName = (h?.business_name ?? '').trim() || h?.business_slug || h?.public_id || null;
+    }
+    heldBy[r.id] = { core: hold.core, reason: hold.reason, holderName };
+  }
+
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
@@ -168,6 +196,7 @@ export default async function AdminCorrectionsPage({
             <li key={r.id}>
               <RequestCard
                 request={r}
+                heldBy={heldBy[r.id] ?? null}
                 vendorName={vendorNames[r.vendor_profile_id] ?? (vendorNamesFailed ? 'Name couldn’t load' : 'Unnamed supplier')}
               />
             </li>
@@ -178,12 +207,20 @@ export default async function AdminCorrectionsPage({
   );
 }
 
+type HeldBy =
+  | { unverified: true }
+  | { core: string; reason: 'closed' | 'banned' | 'suspended' | null; holderName: string | null };
+
+const HOLD_REASON_LABEL = { closed: 'closed (address still held)', banned: 'banned', suspended: 'suspended' } as const;
+
 function RequestCard({
   request,
   vendorName,
+  heldBy,
 }: {
   request: VendorCorrectionRequestRow;
   vendorName: string;
+  heldBy: HeldBy | null;
 }) {
   const fieldLabel = LOCKED_FIELD_LABEL[request.field_key] ?? request.field_key;
   return (
@@ -215,6 +252,21 @@ function RequestCard({
           {request.requested_value || <em className="font-normal text-ink/45">empty</em>}
         </span>
       </div>
+
+      {heldBy ? (
+        <p className="rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900" data-held-name-holder>
+          {'unverified' in heldBy ? (
+            <>Couldn&rsquo;t check whether this name is held — reload before applying.</>
+          ) : (
+            <>
+              <span className="font-medium">Held name.</span> Its core &ldquo;{heldBy.core}&rdquo; is held by{' '}
+              <strong>{heldBy.holderName ?? 'a shop'}</strong>
+              {heldBy.reason ? <> ({HOLD_REASON_LABEL[heldBy.reason]})</> : null}. Check this supplier&rsquo;s papers
+              prove it is the same business before you apply. Applying also frees this core for this shop.
+            </>
+          )}
+        </p>
+      ) : null}
 
       {request.note ? (
         <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">

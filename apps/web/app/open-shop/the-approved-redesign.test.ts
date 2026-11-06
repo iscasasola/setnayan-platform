@@ -171,7 +171,8 @@ test('v16 ① · one plain card per CATEGORY; a blank "Also do …?" row; a dash
   assert.match(WIZARD, /\{service \? 'Your services' : 'Main service'\}/);
   // The card is the tier-2 category (the tree's branch), never the group.
   assert.match(CARDS, /categoryId: b\.tileId,\s*categoryLabel: b\.label,/);
-  assert.match(CARDS, /<option value="">Also do \{remain\.map\(\(x\) => x\.label\)\.join\(', '\)\}\?<\/option>/);
+  assert.match(CARDS, /buttonText=\{`Also do \$\{remain\.map\(\(x\) => x\.label\)\.join\(', '\)\}\?`\}/);
+  assert.match(CARDS, /<PickMenu\b/, 'the blank row is the house dropdown, never a raw <select>');
   assert.match(CARDS, /Every \{cat\} service is on your list/);
   assert.match(CARDS, /data-open-shop-another-category=""[\s\S]{0,200}Another category/);
   // "Another category" never offers a category already on the list, nor a service already picked.

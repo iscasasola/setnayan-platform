@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, LockOpen, Plus } from 'lucide-react';
+import { Check, LockOpen, Plus } from 'lucide-react';
 
 import { InfoTip } from '@/app/_components/info-tip';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FIRST_BOOKING_FREE_LABEL, coverageLine, holdsMoreThanFree, whatEachPlanHolds, type MeterService } from '@/lib/open-shop-more-services';
 import { ServicePicker, type PickerLeafView, type PickerParentView } from './service-picker';
 
@@ -199,7 +201,7 @@ export function ServiceCards({
           return (
             <div
               key={id}
-              className="grid min-w-0 rounded-xl border transition-shadow duration-500 data-[flash]:shadow-[0_0_0_2px_var(--m-orange-3)]" // no-card-ok: the owner-approved "one plain card per category" (prototype v14 → v16, 6 Nov)
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)] rounded-xl border transition-shadow duration-500 data-[flash]:shadow-[0_0_0_2px_var(--m-orange-3)]" // no-card-ok: the owner-approved "one plain card per category" (prototype v14 → v16, 6 Nov)
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
               data-open-shop-card={id}
               data-open-shop-card-has={services.map((s) => s.key).join(' ')}
@@ -276,38 +278,21 @@ export function ServiceCards({
                     </div>
                   ))}
                   {remain.length ? (
-                    /* The blank row (owner 6 Nov: "a blank row under the wine row. to pick more?") — a native select:
-                       one tap opens the remaining services of THIS category. */
-                    <div className="py-2.5 pl-[66px] pr-3">
-                      <span
-                        className="relative flex h-10 items-center rounded-[var(--m-r-sm)] border border-dashed"
-                        style={{ borderColor: 'var(--m-slate-3)', background: 'var(--m-paper)' }}
-                      >
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            const hit = remain.find((x) => x.key === e.target.value);
-                            if (hit) addOne(hit);
-                          }}
-                          className="h-full w-full appearance-none bg-transparent pl-2.5 pr-8 text-sm outline-none"
-                          style={{ color: 'var(--m-slate-3)' }}
-                          aria-label={`Also do ${remain.map((x) => x.label).join(', ')}?`}
-                          data-open-shop-also-do={id}
-                        >
-                          <option value="">Also do {remain.map((x) => x.label).join(', ')}?</option>
-                          {remain.map((x) => (
-                            <option key={x.key} value={x.key}>
-                              {x.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          aria-hidden
-                          className="pointer-events-none absolute right-2.5 h-4 w-4"
-                          strokeWidth={1.75}
-                          style={{ color: 'var(--m-slate-3)' }}
-                        />
-                      </span>
+                    /* The blank row (owner 6 Nov: "a blank row under the wine row. to pick more?") — the house dropdown
+                       (`PickMenu`): one tap opens the remaining services of THIS category. */
+                    <div className="min-w-0 py-2.5 pl-[66px] pr-3" data-open-shop-also-do={id}>
+                      <PickMenu
+                        label={`Also do ${remain.map((x) => x.label).join(', ')}?`}
+                        buttonText={`Also do ${remain.map((x) => x.label).join(', ')}?`}
+                        value={null}
+                        options={remain.map((x) => ({ key: x.key, label: x.label }))}
+                        onPick={(key) => {
+                          const hit = remain.find((x) => x.key === key);
+                          if (hit) addOne(hit);
+                        }}
+                        // The blank row's dashed outline (prototype `.srow.blank .pick`); the long name truncates.
+                        className="w-full justify-between border border-dashed !font-normal"
+                      />
                     </div>
                   ) : siblings.length ? (
                     <div className="flex items-center gap-1.5 px-3 py-2.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -417,6 +402,9 @@ function Specialties({
   onOpen: (key: string | null) => void;
 }) {
   const mine = picks[service.key] ?? {};
+  // The opened chips are revealed the house way (owner 2026-11-04, app-wide reveal-on-open): the head is this block.
+  const headRef = useRef<HTMLDivElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: headRef.current }));
   const word = fields.every((f) => f.single) ? 'Specialty' : 'Specialties';
   const summary = fields.flatMap((f) =>
     (mine[f.key] ?? []).map((v) => f.options.find((o) => o.value === v)?.label ?? v),
@@ -442,7 +430,10 @@ function Specialties({
           type="button"
           className={`${quiet} gap-0.5`}
           style={{ color: 'var(--m-slate-3)' }}
-          onClick={() => onOpen(service.key)}
+          onClick={() => {
+            intend();
+            onOpen(service.key);
+          }}
           aria-expanded={false}
         >
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -451,14 +442,23 @@ function Specialties({
       </div>
     ) : (
       <div className="-mt-1" data-open-shop-specialties={service.key}>
-        <button type="button" className={quiet} style={{ color: 'var(--m-slate-3)' }} onClick={() => onOpen(service.key)} aria-expanded={false}>
+        <button
+          type="button"
+          className={quiet}
+          style={{ color: 'var(--m-slate-3)' }}
+          onClick={() => {
+            intend();
+            onOpen(service.key);
+          }}
+          aria-expanded={false}
+        >
           + {word}&nbsp;<small className="text-xs">(optional)</small>
         </button>
       </div>
     );
   }
   return (
-    <div className="grid gap-2.5" data-open-shop-specialties={service.key} data-open="">
+    <div ref={headRef} className="grid gap-2.5" data-open-shop-specialties={service.key} data-open="">
       <div className="-mt-1 flex items-center gap-2.5">
         <button type="button" className={quiet} style={{ color: 'var(--m-slate-3)' }} onClick={() => onOpen(null)} aria-expanded>
           – {word}&nbsp;<small className="text-xs">(optional)</small>

@@ -6,9 +6,14 @@
  * The art is a picture of badges, so the counts on the faces (23 · 13 · 12 · 25 · 20) are a sample shelf. The two
  * ladder captions that NAME a tier are read from `lib/badge-tiers.ts` (`TIERS`), so a renamed material follows.
  * Gradient ids carry an `sfp-` prefix: they are document-global and the page draws other SVG.
+ *
+ * The app ships no image-badge drawing — `ShopBadgePill` is the long pill, which DECISION_LOG 2026-11-06 keeps off
+ * marketing — so the art is drawn here, and every colour is a named `--bdg-*` token from
+ * `supplier-badge-shelf.module.css` (never a raw #rrggbb in this file: the design-rules colour ratchet).
  */
 import { TIERS } from '@/lib/badge-tiers';
 import { formatCount } from '@/lib/format-number';
+import s from './supplier-badge-shelf.module.css';
 
 /** "5,000 events · Ruby" — the step and its material, both from the ladder. */
 function ladderCaption(step: number): string {
@@ -18,8 +23,8 @@ function ladderCaption(step: number): string {
 
 export function SupplierBadgeShelf({ className }: { className?: string }) {
   return (
-    <div className={className} aria-label="Setnayan supplier badges">
-<svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true"><defs><radialGradient id="sfp-face-black" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#3E4047"/><stop offset="1" stopColor="#08080A"/></radialGradient><radialGradient id="sfp-face-bronze" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#F9E8D8"/><stop offset="1" stopColor="#D09A70"/></radialGradient><radialGradient id="sfp-face-first" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#FFFCF0"/><stop offset="1" stopColor="#EDD08A"/></radialGradient><radialGradient id="sfp-face-gold" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#FFF9E4"/><stop offset="1" stopColor="#E3BF68"/></radialGradient><radialGradient id="sfp-face-ivory" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#FFFEFA"/><stop offset="1" stopColor="#ECE1CB"/></radialGradient><radialGradient id="sfp-face-month" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#AA2539"/><stop offset="1" stopColor="#520A18"/></radialGradient><radialGradient id="sfp-face-navy" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#335282"/><stop offset="1" stopColor="#101C36"/></radialGradient><radialGradient id="sfp-face-plat" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#F5F8FB"/><stop offset="1" stopColor="#B2C0CB"/></radialGradient><radialGradient id="sfp-face-ruby" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#CF3552"/><stop offset="1" stopColor="#560817"/></radialGradient><radialGradient id="sfp-face-silver" cx=".38" cy=".3" r=".85"><stop offset="0" stopColor="#FBFCFD"/><stop offset="1" stopColor="#C0C6CC"/></radialGradient><linearGradient id="sfp-faceGloss" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".5"/><stop offset=".5" stopColor="#fff" stopOpacity="0"/></linearGradient><linearGradient id="sfp-gloss" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".62"/><stop offset=".42" stopColor="#fff" stopOpacity="0"/></linearGradient><linearGradient id="sfp-rim-black" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#8E949A"/><stop offset=".28" stopColor="#FFFFFF"/><stop offset=".5" stopColor="#5C6269"/><stop offset=".74" stopColor="#F0F2F4"/><stop offset="1" stopColor="#8E949A"/></linearGradient><linearGradient id="sfp-rim-bronze" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#4E2A10"/><stop offset=".28" stopColor="#E8B088"/><stop offset=".5" stopColor="#8C4F22"/><stop offset=".74" stopColor="#D08C5A"/><stop offset="1" stopColor="#4E2A10"/></linearGradient><linearGradient id="sfp-rim-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#7A5C22"/><stop offset=".28" stopColor="#FBEFC4"/><stop offset=".5" stopColor="#B88D3B"/><stop offset=".74" stopColor="#EBD08A"/><stop offset="1" stopColor="#7A5C22"/></linearGradient><linearGradient id="sfp-rim-plat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#35404A"/><stop offset=".28" stopColor="#F4F8FA"/><stop offset=".5" stopColor="#8A98A4"/><stop offset=".74" stopColor="#D8E0E6"/><stop offset="1" stopColor="#35404A"/></linearGradient><linearGradient id="sfp-rim-ruby" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#4E0A16"/><stop offset=".28" stopColor="#F7B9C3"/><stop offset=".5" stopColor="#A0203A"/><stop offset=".74" stopColor="#DC607A"/><stop offset="1" stopColor="#4E0A16"/></linearGradient><linearGradient id="sfp-rim-silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#4F555C"/><stop offset=".28" stopColor="#F7F9FB"/><stop offset=".5" stopColor="#8E959C"/><stop offset=".74" stopColor="#DCE0E4"/><stop offset="1" stopColor="#4F555C"/></linearGradient><linearGradient id="sfp-shade" x1="0" y1="0" x2=".8" y2="1"><stop offset=".55" stopColor="#000" stopOpacity="0"/><stop offset="1" stopColor="#000" stopOpacity=".34"/></linearGradient><filter id="sfp-shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="2.2" stdDeviation="2.4" floodColor="#2C2A29" floodOpacity=".3"/></filter><filter id="sfp-shadowSoft" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="1.2" stdDeviation="1.4" floodColor="#2C2A29" floodOpacity=".25"/></filter><linearGradient id="sfp-tail" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#B8324A"/><stop offset="1" stopColor="#7A1426"/></linearGradient></defs></svg><svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true"><defs><linearGradient id="sfp-foil" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FBEFC4"/><stop offset=".45" stopColor="#D9B463"/><stop offset=".6" stopColor="#F6E4A6"/><stop offset="1" stopColor="#B88D3B"/></linearGradient></defs></svg>
+    <div className={className ? `${s.shelf} ${className}` : s.shelf} aria-label="Setnayan supplier badges">
+<svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true"><defs><radialGradient id="sfp-face-black" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-black-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-black-1)' }}/></radialGradient><radialGradient id="sfp-face-bronze" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-bronze-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-bronze-1)' }}/></radialGradient><radialGradient id="sfp-face-first" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-first-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-first-1)' }}/></radialGradient><radialGradient id="sfp-face-gold" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-gold-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-gold-1)' }}/></radialGradient><radialGradient id="sfp-face-ivory" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-ivory-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-ivory-1)' }}/></radialGradient><radialGradient id="sfp-face-month" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-month-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-month-1)' }}/></radialGradient><radialGradient id="sfp-face-navy" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-navy-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-navy-1)' }}/></radialGradient><radialGradient id="sfp-face-plat" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-plat-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-plat-1)' }}/></radialGradient><radialGradient id="sfp-face-ruby" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-ruby-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-ruby-1)' }}/></radialGradient><radialGradient id="sfp-face-silver" cx=".38" cy=".3" r=".85"><stop offset="0" style={{ stopColor: 'var(--bdg-face-silver-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-face-silver-1)' }}/></radialGradient><linearGradient id="sfp-faceGloss" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".5"/><stop offset=".5" stopColor="#fff" stopOpacity="0"/></linearGradient><linearGradient id="sfp-gloss" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".62"/><stop offset=".42" stopColor="#fff" stopOpacity="0"/></linearGradient><linearGradient id="sfp-rim-black" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-black-0)' }}/><stop offset=".28" style={{ stopColor: 'var(--bdg-white)' }}/><stop offset=".5" style={{ stopColor: 'var(--bdg-rim-black-1)' }}/><stop offset=".74" style={{ stopColor: 'var(--bdg-rim-black-2)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-black-0)' }}/></linearGradient><linearGradient id="sfp-rim-bronze" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-bronze-0)' }}/><stop offset=".28" style={{ stopColor: 'var(--bdg-rim-bronze-1)' }}/><stop offset=".5" style={{ stopColor: 'var(--bdg-rim-bronze-2)' }}/><stop offset=".74" style={{ stopColor: 'var(--bdg-rim-bronze-3)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-bronze-0)' }}/></linearGradient><linearGradient id="sfp-rim-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-gold-0)' }}/><stop offset=".28" style={{ stopColor: 'var(--bdg-rim-gold-1)' }}/><stop offset=".5" style={{ stopColor: 'var(--bdg-rim-gold-2)' }}/><stop offset=".74" style={{ stopColor: 'var(--bdg-rim-gold-3)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-gold-0)' }}/></linearGradient><linearGradient id="sfp-rim-plat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-plat-0)' }}/><stop offset=".28" style={{ stopColor: 'var(--bdg-rim-plat-1)' }}/><stop offset=".5" style={{ stopColor: 'var(--bdg-rim-plat-2)' }}/><stop offset=".74" style={{ stopColor: 'var(--bdg-rim-plat-3)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-plat-0)' }}/></linearGradient><linearGradient id="sfp-rim-ruby" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-ruby-0)' }}/><stop offset=".28" style={{ stopColor: 'var(--bdg-rim-ruby-1)' }}/><stop offset=".5" style={{ stopColor: 'var(--bdg-rim-ruby-2)' }}/><stop offset=".74" style={{ stopColor: 'var(--bdg-rim-ruby-3)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-ruby-0)' }}/></linearGradient><linearGradient id="sfp-rim-silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-silver-0)' }}/><stop offset=".28" style={{ stopColor: 'var(--bdg-rim-silver-1)' }}/><stop offset=".5" style={{ stopColor: 'var(--bdg-rim-silver-2)' }}/><stop offset=".74" style={{ stopColor: 'var(--bdg-rim-silver-3)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-silver-0)' }}/></linearGradient><linearGradient id="sfp-shade" x1="0" y1="0" x2=".8" y2="1"><stop offset=".55" stopColor="#000" stopOpacity="0"/><stop offset="1" stopColor="#000" stopOpacity=".34"/></linearGradient><filter id="sfp-shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="2.2" stdDeviation="2.4" floodOpacity=".3" style={{ floodColor: 'var(--bdg-shadow)' }}/></filter><filter id="sfp-shadowSoft" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="1.2" stdDeviation="1.4" floodOpacity=".25" style={{ floodColor: 'var(--bdg-shadow)' }}/></filter><linearGradient id="sfp-tail" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-tail-0)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-tail-1)' }}/></linearGradient></defs></svg><svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true"><defs><linearGradient id="sfp-foil" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: 'var(--bdg-rim-gold-1)' }}/><stop offset=".45" style={{ stopColor: 'var(--bdg-foil-1)' }}/><stop offset=".6" style={{ stopColor: 'var(--bdg-foil-2)' }}/><stop offset="1" style={{ stopColor: 'var(--bdg-rim-gold-2)' }}/></linearGradient></defs></svg>
 <figure className="ib"><div className="ibs"><svg className="sv sv-seal" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><path d="M50,4 A6.4,6.4 0 0 1 61.9,5.6 A6.4,6.4 0 0 1 73,10.2 A6.4,6.4 0 0 1 82.5,17.5 A6.4,6.4 0 0 1 89.8,27 A6.4,6.4 0 0 1 94.4,38.1 A6.4,6.4 0 0 1 96,50 A6.4,6.4 0 0 1 94.4,61.9 A6.4,6.4 0 0 1 89.8,73 A6.4,6.4 0 0 1 82.5,82.5 A6.4,6.4 0 0 1 73,89.8 A6.4,6.4 0 0 1 61.9,94.4 A6.4,6.4 0 0 1 50,96 A6.4,6.4 0 0 1 38.1,94.4 A6.4,6.4 0 0 1 27,89.8 A6.4,6.4 0 0 1 17.5,82.5 A6.4,6.4 0 0 1 10.2,73 A6.4,6.4 0 0 1 5.6,61.9 A6.4,6.4 0 0 1 4,50 A6.4,6.4 0 0 1 5.6,38.1 A6.4,6.4 0 0 1 10.2,27 A6.4,6.4 0 0 1 17.5,17.5 A6.4,6.4 0 0 1 27,10.2 A6.4,6.4 0 0 1 38.1,5.6 A6.4,6.4 0 0 1 50,4Z" fill="url(#sfp-rim-gold)"/></g>
 <path d="M50,4 A6.4,6.4 0 0 1 61.9,5.6 A6.4,6.4 0 0 1 73,10.2 A6.4,6.4 0 0 1 82.5,17.5 A6.4,6.4 0 0 1 89.8,27 A6.4,6.4 0 0 1 94.4,38.1 A6.4,6.4 0 0 1 96,50 A6.4,6.4 0 0 1 94.4,61.9 A6.4,6.4 0 0 1 89.8,73 A6.4,6.4 0 0 1 82.5,82.5 A6.4,6.4 0 0 1 73,89.8 A6.4,6.4 0 0 1 61.9,94.4 A6.4,6.4 0 0 1 50,96 A6.4,6.4 0 0 1 38.1,94.4 A6.4,6.4 0 0 1 27,89.8 A6.4,6.4 0 0 1 17.5,82.5 A6.4,6.4 0 0 1 10.2,73 A6.4,6.4 0 0 1 5.6,61.9 A6.4,6.4 0 0 1 4,50 A6.4,6.4 0 0 1 5.6,38.1 A6.4,6.4 0 0 1 10.2,27 A6.4,6.4 0 0 1 17.5,17.5 A6.4,6.4 0 0 1 27,10.2 A6.4,6.4 0 0 1 38.1,5.6 A6.4,6.4 0 0 1 50,4Z" fill="url(#sfp-gloss)"/>
@@ -30,7 +35,7 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <circle cx="50" cy="50" r="39.5" fill="url(#sfp-faceGloss)"/>
 <circle cx="50" cy="50" r="37.6" fill="none" stroke="url(#sfp-foil)" strokeOpacity=".5" strokeWidth=".7"/>
 <circle cx="50" cy="50" r="35.4" fill="none" stroke="url(#sfp-foil)" strokeOpacity=".38" strokeWidth=".6" strokeDasharray="1 2.1"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#000000" opacity=".55" dy=".9">✓</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-black)' }}>✓</text>
 <text className="num" x="50" y="53.5" textAnchor="middle" fill="url(#sfp-foil)">✓</text>
 <text className="mini" x="50" y="66" textAnchor="middle" fill="url(#sfp-foil)">VERIFIED</text>
 </svg></div><figcaption>Setnayan Verified</figcaption></figure>
@@ -42,11 +47,11 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <circle cx="50" cy="50" r="40.6" fill="none" stroke="#000" strokeOpacity=".28" strokeWidth=".9"/>
 <circle cx="50" cy="50" r="39.5" fill="url(#sfp-face-ivory)"/>
 <circle cx="50" cy="50" r="39.5" fill="url(#sfp-faceGloss)"/>
-<circle cx="50" cy="50" r="37.6" fill="none" stroke="#7F5F20" strokeOpacity=".5" strokeWidth=".7"/>
-<circle cx="50" cy="50" r="35.4" fill="none" stroke="#7F5F20" strokeOpacity=".38" strokeWidth=".6" strokeDasharray="1 2.1"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#FFFFFF" opacity=".55" dy=".9">23</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#7F5F20">23</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#7F5F20">SINCE</text>
+<circle cx="50" cy="50" r="37.6" fill="none" strokeOpacity=".5" strokeWidth=".7" style={{ stroke: 'var(--bdg-years-ink)' }}/>
+<circle cx="50" cy="50" r="35.4" fill="none" strokeOpacity=".38" strokeWidth=".6" strokeDasharray="1 2.1" style={{ stroke: 'var(--bdg-years-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-white)' }}>23</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-years-ink)' }}>23</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-years-ink)' }}>SINCE</text>
 </svg></div><figcaption>In business since</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-hex" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="100,50 75,93.3 25,93.3 0,50 25,6.7 75,6.7" fill="url(#sfp-rim-bronze)"/></g>
@@ -55,10 +60,10 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-face-bronze)"/>
 <g opacity="0"><polygon className="fl" opacity=".18" points="87.5,50 68.75,82.5 50,50"/><polygon className="fl" opacity=".18" points="31.25,82.5 12.5,50 50,50"/><polygon className="fl" opacity=".18" points="31.25,17.5 68.75,17.5 50,50"/><polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".6"/><path d="M87.5,50 L12.5,50 M68.75,82.5 L31.25,17.5 M31.25,82.5 L68.75,17.5" stroke="#fff" strokeOpacity=".45" strokeWidth=".6"/></g>
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-faceGloss)"/>
-<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" stroke="#4A2810" strokeOpacity=".4" strokeWidth=".7"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#FFF3E6" opacity=".55" dy=".9">13</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#4A2810">13</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#4A2810">EVENTS</text>
+<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" strokeOpacity=".4" strokeWidth=".7" style={{ stroke: 'var(--bdg-bronze-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-bronze-glow)' }}>13</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-bronze-ink)' }}>13</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-bronze-ink)' }}>EVENTS</text>
 </svg></div><figcaption>Events · Bronze</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-hex" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="100,50 75,93.3 25,93.3 0,50 25,6.7 75,6.7" fill="url(#sfp-rim-silver)"/></g>
@@ -67,10 +72,10 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-face-silver)"/>
 <g opacity="0"><polygon className="fl" opacity=".18" points="87.5,50 68.75,82.5 50,50"/><polygon className="fl" opacity=".18" points="31.25,82.5 12.5,50 50,50"/><polygon className="fl" opacity=".18" points="31.25,17.5 68.75,17.5 50,50"/><polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".6"/><path d="M87.5,50 L12.5,50 M68.75,82.5 L31.25,17.5 M31.25,82.5 L68.75,17.5" stroke="#fff" strokeOpacity=".45" strokeWidth=".6"/></g>
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-faceGloss)"/>
-<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" stroke="#363C43" strokeOpacity=".4" strokeWidth=".7"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#FFFFFF" opacity=".55" dy=".9">12</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#363C43">12</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#363C43">REVIEWS</text>
+<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" strokeOpacity=".4" strokeWidth=".7" style={{ stroke: 'var(--bdg-silver-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-white)' }}>12</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-silver-ink)' }}>12</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-silver-ink)' }}>REVIEWS</text>
 </svg></div><figcaption>Reviews · Silver</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-hex" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="100,50 75,93.3 25,93.3 0,50 25,6.7 75,6.7" fill="url(#sfp-rim-gold)"/></g>
@@ -79,10 +84,10 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-face-gold)"/>
 <g opacity="0"><polygon className="fl" opacity=".18" points="87.5,50 68.75,82.5 50,50"/><polygon className="fl" opacity=".18" points="31.25,82.5 12.5,50 50,50"/><polygon className="fl" opacity=".18" points="31.25,17.5 68.75,17.5 50,50"/><polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".6"/><path d="M87.5,50 L12.5,50 M68.75,82.5 L31.25,17.5 M31.25,82.5 L68.75,17.5" stroke="#fff" strokeOpacity=".45" strokeWidth=".6"/></g>
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-faceGloss)"/>
-<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" stroke="#5A400E" strokeOpacity=".4" strokeWidth=".7"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#FFFBEA" opacity=".55" dy=".9">25</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#5A400E">25</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#5A400E">1ST PICK</text>
+<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" strokeOpacity=".4" strokeWidth=".7" style={{ stroke: 'var(--bdg-first-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-first-glow)' }}>25</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-first-ink)' }}>25</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-first-ink)' }}>1ST PICK</text>
 </svg></div><figcaption>1st Pick · Gold</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-hex" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="100,50 75,93.3 25,93.3 0,50 25,6.7 75,6.7" fill="url(#sfp-rim-plat)"/></g>
@@ -91,10 +96,10 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-face-plat)"/>
 <g opacity="0"><polygon className="fl" opacity=".18" points="87.5,50 68.75,82.5 50,50"/><polygon className="fl" opacity=".18" points="31.25,82.5 12.5,50 50,50"/><polygon className="fl" opacity=".18" points="31.25,17.5 68.75,17.5 50,50"/><polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".6"/><path d="M87.5,50 L12.5,50 M68.75,82.5 L31.25,17.5 M31.25,82.5 L68.75,17.5" stroke="#fff" strokeOpacity=".45" strokeWidth=".6"/></g>
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-faceGloss)"/>
-<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" stroke="#1F2A33" strokeOpacity=".4" strokeWidth=".7"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#FFFFFF" opacity=".55" dy=".9">20</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#1F2A33">20</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#1F2A33">CARDS</text>
+<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" strokeOpacity=".4" strokeWidth=".7" style={{ stroke: 'var(--bdg-plat-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-white)' }}>20</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-plat-ink)' }}>20</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-plat-ink)' }}>CARDS</text>
 </svg></div><figcaption>Service cards · Platinum</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-hex" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="100,50 75,93.3 25,93.3 0,50 25,6.7 75,6.7" fill="url(#sfp-rim-ruby)"/></g>
@@ -103,10 +108,10 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-face-ruby)"/>
 <g opacity="0"><polygon className="fl" opacity=".18" points="87.5,50 68.75,82.5 50,50"/><polygon className="fl" opacity=".18" points="31.25,82.5 12.5,50 50,50"/><polygon className="fl" opacity=".18" points="31.25,17.5 68.75,17.5 50,50"/><polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".6"/><path d="M87.5,50 L12.5,50 M68.75,82.5 L31.25,17.5 M31.25,82.5 L68.75,17.5" stroke="#fff" strokeOpacity=".45" strokeWidth=".6"/></g>
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-faceGloss)"/>
-<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" stroke="#FFE6EA" strokeOpacity=".4" strokeWidth=".7"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#2A0309" opacity=".55" dy=".9">5k</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#FFE6EA">5k</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#FFE6EA">EVENTS</text>
+<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" strokeOpacity=".4" strokeWidth=".7" style={{ stroke: 'var(--bdg-ruby-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-ruby-glow)' }}>5k</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-ruby-ink)' }}>5k</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-ruby-ink)' }}>EVENTS</text>
 </svg></div><figcaption>{ladderCaption(5000)}</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-hex" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="100,50 75,93.3 25,93.3 0,50 25,6.7 75,6.7" fill="url(#sfp-rim-black)"/></g>
@@ -115,25 +120,25 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-face-black)"/>
 <g opacity="0.35"><polygon className="fl" opacity=".18" points="87.5,50 68.75,82.5 50,50"/><polygon className="fl" opacity=".18" points="31.25,82.5 12.5,50 50,50"/><polygon className="fl" opacity=".18" points="31.25,17.5 68.75,17.5 50,50"/><polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".6"/><path d="M87.5,50 L12.5,50 M68.75,82.5 L31.25,17.5 M31.25,82.5 L68.75,17.5" stroke="#fff" strokeOpacity=".45" strokeWidth=".6"/></g>
 <polygon points="87.5,50 68.75,82.5 31.25,82.5 12.5,50 31.25,17.5 68.75,17.5" fill="url(#sfp-faceGloss)"/>
-<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" stroke="#F4F6F8" strokeOpacity=".4" strokeWidth=".7"/>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#000000" opacity=".55" dy=".9">10k</text>
-<text className="num" x="50" y="53.5" textAnchor="middle" fill="#F4F6F8">10k</text>
-<text className="mini" x="50" y="66" textAnchor="middle" fill="#F4F6F8">EVENTS</text>
+<polygon points="84.5,50 67.25,79.9 32.75,79.9 15.5,50 32.75,20.1 67.25,20.1" fill="none" strokeOpacity=".4" strokeWidth=".7" style={{ stroke: 'var(--bdg-black-ink)' }}/>
+<text className="num" x="50" y="53.5" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-black)' }}>10k</text>
+<text className="num" x="50" y="53.5" textAnchor="middle" style={{ fill: 'var(--bdg-black-ink)' }}>10k</text>
+<text className="mini" x="50" y="66" textAnchor="middle" style={{ fill: 'var(--bdg-black-ink)' }}>EVENTS</text>
 </svg></div><figcaption>{ladderCaption(10000)}</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-star" viewBox="0 0 100 100">
 <g filter="url(#sfp-shadow)"><polygon points="50,0 60.1,12.3 75,6.7 77.6,22.4 93.3,25 87.7,39.9 100,50 87.7,60.1 93.3,75 77.6,77.6 75,93.3 60.1,87.7 50,100 39.9,87.7 25,93.3 22.4,77.6 6.7,75 12.3,60.1 0,50 12.3,39.9 6.7,25 22.4,22.4 25,6.7 39.9,12.3" fill="url(#sfp-rim-gold)"/></g>
 <g className="fl" opacity=".5"><polygon points="39.9,12.3 50,0 50,50"/><polygon points="60.1,12.3 75,6.7 50,50"/><polygon points="77.6,22.4 93.3,25 50,50"/><polygon points="87.7,39.9 100,50 50,50"/><polygon points="87.7,60.1 93.3,75 50,50"/><polygon points="77.6,77.6 75,93.3 50,50"/><polygon points="60.1,87.7 50,100 50,50"/><polygon points="39.9,87.7 25,93.3 50,50"/><polygon points="22.4,77.6 6.7,75 50,50"/><polygon points="12.3,60.1 0,50 50,50"/><polygon points="12.3,39.9 6.7,25 50,50"/><polygon points="22.4,22.4 25,6.7 50,50"/></g>
-<g fill="#4A2E08" opacity=".34"><polygon points="50,0 60.1,12.3 50,50"/><polygon points="75,6.7 77.6,22.4 50,50"/><polygon points="93.3,25 87.7,39.9 50,50"/><polygon points="100,50 87.7,60.1 50,50"/><polygon points="93.3,75 77.6,77.6 50,50"/><polygon points="75,93.3 60.1,87.7 50,50"/><polygon points="50,100 39.9,87.7 50,50"/><polygon points="25,93.3 22.4,77.6 50,50"/><polygon points="6.7,75 12.3,60.1 50,50"/><polygon points="0,50 12.3,39.9 50,50"/><polygon points="6.7,25 22.4,22.4 50,50"/><polygon points="25,6.7 39.9,12.3 50,50"/></g>
+<g opacity=".34" style={{ fill: 'var(--bdg-rosette-ink)' }}><polygon points="50,0 60.1,12.3 50,50"/><polygon points="75,6.7 77.6,22.4 50,50"/><polygon points="93.3,25 87.7,39.9 50,50"/><polygon points="100,50 87.7,60.1 50,50"/><polygon points="93.3,75 77.6,77.6 50,50"/><polygon points="75,93.3 60.1,87.7 50,50"/><polygon points="50,100 39.9,87.7 50,50"/><polygon points="25,93.3 22.4,77.6 50,50"/><polygon points="6.7,75 12.3,60.1 50,50"/><polygon points="0,50 12.3,39.9 50,50"/><polygon points="6.7,25 22.4,22.4 50,50"/><polygon points="25,6.7 39.9,12.3 50,50"/></g>
 <polygon points="50,0 60.1,12.3 75,6.7 77.6,22.4 93.3,25 87.7,39.9 100,50 87.7,60.1 93.3,75 77.6,77.6 75,93.3 60.1,87.7 50,100 39.9,87.7 25,93.3 22.4,77.6 6.7,75 12.3,60.1 0,50 12.3,39.9 6.7,25 22.4,22.4 25,6.7 39.9,12.3" fill="url(#sfp-shade)"/>
 <circle cx="50" cy="50" r="36.5" fill="none" stroke="#fff" strokeOpacity=".6" strokeWidth=".9"/>
 <circle cx="50" cy="50" r="35.2" fill="none" stroke="#000" strokeOpacity=".3" strokeWidth=".9"/>
 <circle cx="50" cy="50" r="34.2" fill="url(#sfp-face-first)"/>
 <circle cx="50" cy="50" r="34.2" fill="url(#sfp-faceGloss)"/>
-<circle cx="50" cy="50" r="31.8" fill="none" stroke="#6B4D14" strokeOpacity=".45" strokeWidth=".7"/>
-<circle cx="50" cy="50" r="30.2" fill="none" stroke="#6B4D14" strokeOpacity=".32" strokeWidth=".55" strokeDasharray="1 2"/>
-<text className="num sm" x="50" y="52" textAnchor="middle" fill="#FFFFFF" opacity=".55" dy=".8">1st</text>
-<text className="num sm" x="50" y="52" textAnchor="middle" fill="#6B4D14">1st</text>
-<text className="mini sm" x="50" y="63.5" textAnchor="middle" fill="#6B4D14">BOOKING</text>
+<circle cx="50" cy="50" r="31.8" fill="none" strokeOpacity=".45" strokeWidth=".7" style={{ stroke: 'var(--bdg-rosette-line)' }}/>
+<circle cx="50" cy="50" r="30.2" fill="none" strokeOpacity=".32" strokeWidth=".55" strokeDasharray="1 2" style={{ stroke: 'var(--bdg-rosette-line)' }}/>
+<text className="num sm" x="50" y="52" textAnchor="middle" opacity=".55" dy=".8" style={{ fill: 'var(--bdg-white)' }}>1st</text>
+<text className="num sm" x="50" y="52" textAnchor="middle" style={{ fill: 'var(--bdg-rosette-line)' }}>1st</text>
+<text className="mini sm" x="50" y="63.5" textAnchor="middle" style={{ fill: 'var(--bdg-rosette-line)' }}>BOOKING</text>
 </svg></div><figcaption>First booking</figcaption></figure>
 <figure className="ib"><div className="ibs"><svg className="sv sv-ros" viewBox="0 0 100 125">
 <g filter="url(#sfp-shadowSoft)"><polygon points="27,64 45,67 41,122 34,113 25,121" fill="url(#sfp-tail)"/><polygon points="73,64 55,67 59,122 66,113 75,121" fill="url(#sfp-tail)"/></g>
@@ -150,7 +155,7 @@ export function SupplierBadgeShelf({ className }: { className?: string }) {
 <circle cx="50" cy="50" r="36.3" fill="url(#sfp-faceGloss)"/>
 <circle cx="50" cy="50" r="33.8" fill="none" stroke="url(#sfp-foil)" strokeOpacity=".5" strokeWidth=".7"/>
 <circle cx="50" cy="50" r="32.2" fill="none" stroke="url(#sfp-foil)" strokeOpacity=".35" strokeWidth=".55" strokeDasharray="1 2"/>
-<text className="num md" x="50" y="53" textAnchor="middle" fill="#000000" opacity=".55" dy=".9">★</text>
+<text className="num md" x="50" y="53" textAnchor="middle" opacity=".55" dy=".9" style={{ fill: 'var(--bdg-black)' }}>★</text>
 <text className="num md" x="50" y="53" textAnchor="middle" fill="url(#sfp-foil)">★</text>
 <text className="mini" x="50" y="65.5" textAnchor="middle" fill="url(#sfp-foil)">NOV</text>
 </svg></div><figcaption>Supplier of the month</figcaption></figure>

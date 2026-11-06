@@ -252,7 +252,7 @@
 .qsCode svg { display: block; width: min(240px, 64vw); height: auto; }
 .qsD { max-width: 30em; font-size: .98rem; }
 .qsU { font-family: var(--sf-mono); font-size: .78rem; color: var(--sf-muted); word-break: break-all; }
-.qsX { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--sf-soft); color: var(--sf-ink); font: 400 1.6rem/1 var(--font-hanken), sans-serif; cursor: pointer; }
+.qsX { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--sf-soft); color: var(--sf-ink); cursor: pointer; }
 
 /* notices */
 .notices { display: grid; gap: 12px; }

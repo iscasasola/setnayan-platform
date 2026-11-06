@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import Image from 'next/image';
+import { X } from 'lucide-react';
 import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_SLIDER, type GrowLine, type GrowTier } from './supplier-front-data';
 import s from './supplier-front.module.css';
@@ -315,7 +316,7 @@ export function QrSheetProvider({ entries, kicker, children }: { entries: Record
         >
           <div className={s.qsCard}>
             <button ref={closeBtn} type="button" className={s.qsX} aria-label="Close" onClick={close}>
-              ×
+              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>
             <p className={s.qsK}>{kicker}</p>
             <h3 id="sf-qr-title">{d.title}</h3>

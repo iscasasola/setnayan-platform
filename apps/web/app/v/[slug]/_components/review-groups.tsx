@@ -62,7 +62,7 @@ export function ReviewForLine({ card }: { card: ReviewCardLink | null }) {
   );
 }
 
-function SmallStars({ value }: { value: number }) {
+export function SmallStars({ value }: { value: number }) {
   return (
     <span className="inline-flex items-center gap-0.5" aria-label={`${value} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map((n) => (
@@ -138,7 +138,7 @@ export function GuestReviewsGroup({
   if (read.state === 'none') return null;
   if (read.state === 'refused') {
     return (
-      <div className="space-y-2" data-guest-reviews="unread">
+      <div id="guest-reviews" className="scroll-mt-24 space-y-2" data-guest-reviews="unread">
         <ReviewGroupHead>From guests</ReviewGroupHead>
         <p role="alert" className="text-sm text-ink/65">
           We couldn&rsquo;t load the guests&rsquo; reviews just now.
@@ -149,7 +149,7 @@ export function GuestReviewsGroup({
   const visible = read.rows.slice(0, shown);
   const more = Math.max(0, read.stats.count - visible.length);
   return (
-    <div className="space-y-2" data-guest-reviews="rows">
+    <div id="guest-reviews" className="scroll-mt-24 space-y-2" data-guest-reviews="rows">
       <ReviewGroupHead>From guests</ReviewGroupHead>
       <div className="flex items-center gap-2 text-xs">
         <SmallStars value={Math.round(read.stats.average)} />

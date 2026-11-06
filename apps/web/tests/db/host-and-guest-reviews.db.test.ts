@@ -280,3 +280,154 @@ test('the shop replies to a guest review once, and only its own team can', async
   const r = await db.query<{ vendor_reply: string }>(`SELECT vendor_reply FROM public.vendor_guest_reviews WHERE review_id = $1`, [reviewId]);
   assert.equal(r.rows[0]!.vendor_reply, 'Thank you, Gabriel!', 'the first reply is final');
 });
+
+/* ── ✅ THE FLOOR: the REVIEWED supplier's booking must be complete, not any supplier's on the event ────────────── */
+
+async function secondShop(tag: string, eventId: string, opts: { status: string; link: 'marketplace' | 'email' }) {
+  const ownerId = await user(`gr-shop2-${tag}@example.com`);
+  const email = `bookings-${tag}@shop2.example.com`;
+  const vp = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, contact_email)
+     VALUES ($1, 'Lights & Co.', 'Manila', ARRAY['photographer']::text[], 'verified', NOW(), $2)
+     RETURNING vendor_profile_id`,
+    [ownerId, email],
+  );
+  const id = vp.rows[0]!.vendor_profile_id;
+  if (opts.link === 'marketplace') {
+    await db.query(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+       VALUES ($1,'photographer','Lights & Co.',$2,$3)`,
+      [eventId, opts.status, id],
+    );
+  } else {
+    await db.query(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, contact_email)
+       VALUES ($1,'photographer','Lights & Co.',$2,$3)`,
+      [eventId, opts.status, email.toUpperCase()],
+    );
+  }
+  return id;
+}
+
+test('the floor: a supplier whose OWN booking is not complete cannot be reviewed, even when another supplier delivered', async () => {
+  const s = await seed('floor'); // Bloom & Co. is delivered on this event
+  const notDone = await secondShop('floor', s.eventId, { status: 'contracted', link: 'marketplace' });
+  await assert.rejects(
+    asUser(s.coupleUserId, () => db.query(HOST_INSERT, [notDone, s.eventId, s.coupleUserId, 1, null])),
+    /row-level security/i,
+    'before this migration, Bloom & Co.’s delivery let the couple review a supplier still working',
+  );
+  assert.equal(await hostReviewCount(notDone), 0, 'nothing was written for the unfinished supplier');
+  // …and the delivered one is still reviewable on the same event.
+  await asUser(s.coupleUserId, () => db.query(HOST_INSERT, [s.vendorProfileId, s.eventId, s.coupleUserId, 5, s.serviceId]));
+  assert.equal(await hostReviewCount(s.vendorProfileId), 1);
+});
+
+test('the floor: an older booking linked only by contact email is still found (case-insensitive), as the page finds it', async () => {
+  const s = await seed('floor-email');
+  const byEmail = await secondShop('floor-email', s.eventId, { status: 'delivered', link: 'email' });
+  await asUser(s.coupleUserId, () => db.query(HOST_INSERT, [byEmail, s.eventId, s.coupleUserId, 4, null]));
+  assert.equal(await hostReviewCount(byEmail), 1, 'a delivered email-linked booking stays reviewable');
+});
+
+test('the floor: a disputed booking freezes the review even when its status says delivered', async () => {
+  const s = await seed('floor-dispute');
+  await db.query(`UPDATE public.event_vendors SET completion_status = 'disputed' WHERE event_id = $1`, [s.eventId]);
+  await assert.rejects(
+    asUser(s.coupleUserId, () => db.query(HOST_INSERT, [s.vendorProfileId, s.eventId, s.coupleUserId, 5, s.serviceId])),
+    /row-level security/i,
+  );
+  assert.equal(await hostReviewCount(s.vendorProfileId), 0);
+});
+
+test('the floor helper answers nothing about an event the caller does not host', async () => {
+  const s = await seed('floor-oracle');
+  const stranger = await user('gr-stranger-floor@example.com');
+  const r = await asUser(stranger, () =>
+    db.query<{ ok: boolean }>(`SELECT public.host_review_booking_is_complete($1,$2) AS ok`, [s.eventId, s.vendorProfileId]),
+  );
+  assert.equal(r.rows[0]!.ok, false, 'a delivered booking on somebody else’s event reads as false to a stranger');
+});
+
+/* ── § 2 Shown as ─────────────────────────────────────────────────────────────────────────────────────────────── */
+
+test('Shown as: names by default, initials on request, and nothing else is accepted', async () => {
+  const s = await seed('shownas');
+  await asUser(s.coupleUserId, () => db.query(HOST_INSERT, [s.vendorProfileId, s.eventId, s.coupleUserId, 5, s.serviceId]));
+  const r = await db.query<{ reviewer_display: string }>(
+    `SELECT reviewer_display FROM public.vendor_reviews WHERE vendor_profile_id = $1`,
+    [s.vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.reviewer_display, 'names', 'every review before today reads exactly as it did');
+  await db.query(`UPDATE public.vendor_reviews SET reviewer_display = 'initials' WHERE vendor_profile_id = $1`, [s.vendorProfileId]);
+  await assert.rejects(
+    db.query(`UPDATE public.vendor_reviews SET reviewer_display = 'anonymous' WHERE vendor_profile_id = $1`, [s.vendorProfileId]),
+    /check constraint/i,
+    'no anonymous review (owner, 6 Nov)',
+  );
+});
+
+/* ── § 4 the card's own numbers ───────────────────────────────────────────────────────────────────────────────── */
+
+test('the card’s numbers: the hosts’ trusted review lands on its card, a guest’s on the guests’ line — never crossed', async () => {
+  const s = await seed('cardstats');
+  await asUser(s.coupleUserId, () => db.query(HOST_INSERT, [s.vendorProfileId, s.eventId, s.coupleUserId, 4, s.serviceId]));
+  await submit(s, s.checkedIn, 2);
+  const host = await asServiceRole(() =>
+    db.query<{ trusted_review_count: number; trusted_avg_rating: string }>(
+      `SELECT trusted_review_count, trusted_avg_rating FROM public.vendor_service_trusted_review_stats
+        WHERE vendor_profile_id = $1 AND service_id = $2`,
+      [s.vendorProfileId, s.serviceId],
+    ),
+  );
+  assert.equal(host.rows[0]?.trusted_review_count, 1);
+  assert.equal(Number(host.rows[0]?.trusted_avg_rating), 4, 'the guest’s 2 stars never pull the card’s host number');
+  const guests = await asServiceRole(() =>
+    db.query<{ guest_review_count: number; guest_avg_rating: string }>(
+      `SELECT guest_review_count, guest_avg_rating FROM public.vendor_guest_review_service_stats
+        WHERE vendor_profile_id = $1 AND service_id = $2`,
+      [s.vendorProfileId, s.serviceId],
+    ),
+  );
+  assert.equal(guests.rows[0]?.guest_review_count, 1);
+  assert.equal(Number(guests.rows[0]?.guest_avg_rating), 2);
+
+  await db.exec(`SET ROLE anon`);
+  try {
+    await assert.rejects(
+      db.query(`SELECT 1 FROM public.vendor_service_trusted_review_stats`),
+      /permission denied/i,
+      'server-only: the view reads tables the public cannot',
+    );
+  } finally {
+    await db.exec(`RESET ROLE`);
+  }
+});
+
+/* ── 🎁 the souvenir door: a guest the door never checked in, but whom THIS supplier's scanner gave a souvenir ──── */
+
+test('a guest with only a SOUVENIR from this supplier’s scanner may review that supplier (and only that supplier)', async () => {
+  const s = await seed('souvenir');
+  // Before the scanner series (#7277) adds the supplier column, a souvenir proves nothing for any supplier.
+  await db.query(`INSERT INTO public.guest_souvenir_claims (event_id, guest_id) VALUES ($1,$2)`, [s.eventId, s.notCheckedIn]);
+  await assert.rejects(submit(s, s.notCheckedIn), /not_at_event/, 'a souvenir from the couple’s own desk names no supplier');
+
+  // The column #7277 adds (`20271320327933_supplier_claim_scanner_once.sql` § 4) — installed here as it will be in prod.
+  await db.exec(`ALTER TABLE public.guest_souvenir_claims
+                   ADD COLUMN IF NOT EXISTS vendor_profile_id UUID
+                     REFERENCES public.vendor_profiles (vendor_profile_id) ON DELETE SET NULL`);
+  await assert.rejects(submit(s, s.notCheckedIn), /not_at_event/, 'still the couple’s desk (vendor_profile_id NULL)');
+
+  // Another supplier's scanner handed it out → still not THIS supplier's proof.
+  const otherShop = await secondShop('souvenir', s.eventId, { status: 'contracted', link: 'marketplace' });
+  await db.query(`UPDATE public.guest_souvenir_claims SET vendor_profile_id = $1 WHERE guest_id = $2`, [otherShop, s.notCheckedIn]);
+  await assert.rejects(submit(s, s.notCheckedIn), /not_at_event/, 'another supplier’s souvenir is not proof for this one');
+
+  // THIS supplier's scanner handed it out → the guest may review this supplier, with the door recorded as souvenir.
+  await db.query(`UPDATE public.guest_souvenir_claims SET vendor_profile_id = $1 WHERE guest_id = $2`, [s.vendorProfileId, s.notCheckedIn]);
+  const made = await submit(s, s.notCheckedIn, 5, 'Loved the favour.');
+  assert.ok(made.rows[0]!.id);
+  const row = await db.query<{ door: string }>(`SELECT door FROM public.vendor_guest_reviews WHERE review_id = $1`, [made.rows[0]!.id]);
+  assert.equal(row.rows[0]!.door, 'souvenir');
+});

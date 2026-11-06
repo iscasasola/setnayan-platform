@@ -19,7 +19,7 @@
 --   1. vendor_reviews (the HOST review) — the INSERT gate admits member_type = 'couple' ONLY (the couple + their
 --      co-hosts; `current_couple_event_ids()`), so a coordinator's INSERT is refused by the database, not only by the
 --      server action. DELETE follows the same helper (it was couple-or-coordinator since 20270206186005).
---      The event_vendors predicate is kept EXACTLY as live (see ⚠ below) — this migration changes WHO, not WHEN.
+--      WHEN is tightened too: the booking checked is THIS supplier's (see ✅ below), not any supplier's.
 --   2. vendor_reviews.service_id — the service card the review is for ("A review shows the service, not its price",
 --      6 Nov). Nullable: every review written before today has no card and shows no "For" line; nothing is guessed.
 --   3. vendor_guest_reviews — the GUEST review. Its own table (a guest row would have to NULL four required host
@@ -30,12 +30,14 @@
 --      through the admin console (service role).
 --   4. vendor_guest_review_stats — a view beside, never inside, `vendor_trusted_review_stats` (owner ruling 1).
 --
--- ⚠ FOUND, NOT FIXED HERE: the live `vendor_reviews_couple_insert` (as re-created by 20270321252758 and rewritten by
--- 20271281556823) checks that SOME supplier on the event is delivered/complete — it does not correlate the
--- event_vendors row to the supplier being reviewed (20270206186005 did; 20270321252758 dropped it). The review page
--- and `submitCoupleReview` gate per supplier through the completion handshake, so the app is correct; the database
--- floor is looser than the app. Restoring the correlation also needs the contact-email-linked bookings (no
--- `marketplace_vendor_id`) handled, so it is surfaced to the controller rather than changed in a review-kind PR.
+-- ✅ THE FLOOR IS TIGHTENED HERE (coordinator, 6 Nov — found by this PR). The live `vendor_reviews_couple_insert`
+-- (20270321252758, rewritten by 20271281556823) checked that SOME supplier on the event was delivered/complete — not the
+-- supplier being reviewed (20270206186005 did; 20270321252758 dropped it). The app gated each supplier, the database did
+-- not. Now the policy asks `host_review_booking_is_complete(event, supplier)`: THIS supplier's booking on THIS event has
+-- passed the completion handshake — the SAME rule as `reviewState()` in lib/completion-handshake.ts (confirmed by the
+-- couple · confirmed/auto_confirmed · status delivered/complete · marked complete 7+ days ago · event 30+ days ago; a
+-- dispute freezes it). The booking is found the way the review page finds it: the marketplace link, the invite link, or
+-- (older rows with neither) the supplier's contact email.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -43,6 +45,54 @@ BEGIN;
 -- ---------------------------------------------------------------------------
 -- 1. Host review — couples and co-hosts only (owner ruling 3).
 -- ---------------------------------------------------------------------------
+
+-- THIS supplier's booking on THIS event has passed the completion handshake (lib/completion-handshake.ts
+-- `reviewState`, word for word). SECURITY DEFINER so the email fallback can read an unpublished shop's contact email,
+-- which vendor_profiles' RLS hides from the couple; it answers only for an event the caller hosts as a couple, so it is
+-- not an oracle about other people's bookings.
+CREATE OR REPLACE FUNCTION public.host_review_booking_is_complete(p_event_id UUID, p_vendor_profile_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT p_event_id IN (SELECT public.current_couple_event_ids())
+     AND EXISTS (
+       SELECT 1
+         FROM public.event_vendors ev
+         JOIN public.events e ON e.event_id = ev.event_id
+        WHERE ev.event_id = p_event_id
+          AND (
+            p_vendor_profile_id IN (ev.marketplace_vendor_id, ev.linked_vendor_profile_id)
+            OR (
+              ev.marketplace_vendor_id IS NULL
+              AND ev.linked_vendor_profile_id IS NULL
+              AND ev.contact_email IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM public.vendor_profiles vp
+                 WHERE vp.vendor_profile_id = p_vendor_profile_id
+                   AND lower(vp.contact_email) = lower(ev.contact_email)
+              )
+            )
+          )
+          -- An open non-delivery dispute freezes the gate until it resolves.
+          AND ev.completion_status IS DISTINCT FROM 'disputed'
+          AND (
+            ev.customer_confirmed_received_at IS NOT NULL
+            OR ev.completion_status IN ('confirmed', 'auto_confirmed')
+            OR ev.status IN ('delivered', 'complete')
+            OR (ev.service_marked_complete_at IS NOT NULL
+                AND now() >= ev.service_marked_complete_at + interval '7 days')
+            OR now() >= (e.event_date + interval '30 days')::timestamptz
+          )
+     );
+$$;
+
+REVOKE ALL ON FUNCTION public.host_review_booking_is_complete(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.host_review_booking_is_complete(UUID, UUID) FROM anon;
+-- A policy's functions run as the INSERTing role, so the couple's role needs EXECUTE.
+GRANT EXECUTE ON FUNCTION public.host_review_booking_is_complete(UUID, UUID) TO authenticated;
 
 DROP POLICY IF EXISTS vendor_reviews_couple_insert ON public.vendor_reviews;
 CREATE POLICY vendor_reviews_couple_insert
@@ -53,11 +103,8 @@ CREATE POLICY vendor_reviews_couple_insert
     -- 🔒 member_type = 'couple' only: the couple and their co-hosts. A coordinator is a supplier too and must not
     -- rate the other suppliers on an event they run (owner, 6 Nov: conflict of interest).
     AND event_id IN (SELECT public.current_couple_event_ids())
-    AND EXISTS (
-      SELECT 1 FROM public.event_vendors ev
-       WHERE ev.event_id = vendor_reviews.event_id
-         AND ev.status IN ('delivered', 'complete')
-    )
+    -- ✅ THE REVIEWED supplier's booking on this event is complete — not any supplier's.
+    AND public.host_review_booking_is_complete(vendor_reviews.event_id, vendor_reviews.vendor_profile_id)
   );
 
 DROP POLICY IF EXISTS vendor_reviews_couple_delete ON public.vendor_reviews;
@@ -79,6 +126,18 @@ CREATE INDEX IF NOT EXISTS vendor_reviews_service_id_idx
 
 COMMENT ON COLUMN public.vendor_reviews.service_id IS
   'The service card this host review is for — the booking''s event_vendors.service_id, or the card the couple picked when they booked several from one shop. NULL for reviews written before 2026-11-06 (no "For" line; nothing guessed). One review per supplier per event still (UNIQUE (vendor_profile_id, event_id)).';
+
+-- 2b. "Shown as" (prototype § 2): the couple's full name (events.display_name, what every review shows today) or their
+-- initials. Initials are DERIVED at read from events.display_name, never stored, so a renamed event stays right. No
+-- anonymous choice (owner, 6 Nov). The ✓ Verified booking chip is the platform's and stays either way.
+ALTER TABLE public.vendor_reviews
+  ADD COLUMN IF NOT EXISTS reviewer_display TEXT NOT NULL DEFAULT 'names';
+ALTER TABLE public.vendor_reviews DROP CONSTRAINT IF EXISTS vendor_reviews_reviewer_display_check;
+ALTER TABLE public.vendor_reviews
+  ADD CONSTRAINT vendor_reviews_reviewer_display_check CHECK (reviewer_display IN ('names', 'initials'));
+
+COMMENT ON COLUMN public.vendor_reviews.reviewer_display IS
+  'How the couple is shown on this review: names (events.display_name) or initials (derived from it at read). Default names — every review before 2026-11-06 reads exactly as it did.';
 
 -- ---------------------------------------------------------------------------
 -- 3. vendor_guest_reviews — what a guest who was there saw.
@@ -110,10 +169,11 @@ ALTER TABLE public.vendor_guest_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendor_guest_reviews DROP CONSTRAINT IF EXISTS vendor_guest_reviews_shown_as_check;
 ALTER TABLE public.vendor_guest_reviews
   ADD CONSTRAINT vendor_guest_reviews_shown_as_check CHECK (shown_as IN ('name', 'initials'));
--- Which proof admitted the guest: the door's check-in, or a supplier scanner claim marked received.
+-- Which proof admitted the guest: the door's check-in, a supplier scanner claim marked received, or a souvenir that
+-- supplier's scanner handed them.
 ALTER TABLE public.vendor_guest_reviews DROP CONSTRAINT IF EXISTS vendor_guest_reviews_door_check;
 ALTER TABLE public.vendor_guest_reviews
-  ADD CONSTRAINT vendor_guest_reviews_door_check CHECK (door IN ('checkin', 'scan'));
+  ADD CONSTRAINT vendor_guest_reviews_door_check CHECK (door IN ('checkin', 'scan', 'souvenir'));
 
 CREATE INDEX IF NOT EXISTS vendor_guest_reviews_vendor_idx
   ON public.vendor_guest_reviews (vendor_profile_id, created_at DESC) WHERE hidden_at IS NULL;
@@ -216,6 +276,25 @@ BEGIN
       USING p_event_id, p_guest_id, p_vendor_profile_id;
     IF v_found THEN
       v_door := 'scan';
+    END IF;
+  END IF;
+  -- … or this supplier's scanner handed them a SOUVENIR (coordinator, 6 Nov: a guest who got a souvenir but was never
+  -- checked in at the door may still review that supplier — #7291 allowed it, and #7291 now writes through here).
+  -- `guest_souvenir_claims.vendor_profile_id` is the supplier whose scanner recorded it (NULL = the couple's own desk,
+  -- which proves presence for nobody's scanner). That column ships with the scanner series (PR #7277), so the check is
+  -- dynamic and simply absent where the column is not yet installed.
+  IF v_door IS NULL AND EXISTS (
+       SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = to_regclass('public.guest_souvenir_claims')
+          AND a.attname = 'vendor_profile_id' AND NOT a.attisdropped
+     ) THEN
+    EXECUTE
+      'SELECT EXISTS (SELECT 1 FROM public.guest_souvenir_claims s
+                       WHERE s.event_id = $1 AND s.guest_id = $2 AND s.vendor_profile_id = $3)'
+      INTO v_found
+      USING p_event_id, p_guest_id, p_vendor_profile_id;
+    IF v_found THEN
+      v_door := 'souvenir';
     END IF;
   END IF;
   IF v_door IS NULL THEN
@@ -322,5 +401,80 @@ REVOKE ALL ON public.vendor_guest_review_stats FROM anon, authenticated;
 
 COMMENT ON VIEW public.vendor_guest_review_stats IS
   'Guest reviews per shop (not hidden): count + average. Shown as its own line under the hosts'' overall — never blended into vendor_trusted_review_stats (owner 2026-11-06: the shop''s stars are hosts / co-hosts only).';
+
+-- ---------------------------------------------------------------------------
+-- 5. Per CARD (prototype § 4 / § 9): the hosts' trusted number and the guests' own, for one service card.
+-- ---------------------------------------------------------------------------
+
+-- 🔁 THE HOSTS' PER-CARD NUMBER uses the SAME arm's-length filter as `vendor_trusted_review_stats`
+-- (20271164950523_the_public_numbers_keep_the_record.sql), copied word for word and held to it by
+-- apps/web/lib/card-review-stats-mirror-the-shop.test.ts — a looser per-card filter would let a self-dealt review
+-- show on a card while the shop's overall refuses it. Reviews with no card (service_id NULL) are not on any card.
+-- An owner-rights view (it reads event_members / users / comp_grants, which the public cannot), served by the server.
+DROP VIEW IF EXISTS public.vendor_service_trusted_review_stats;
+CREATE VIEW public.vendor_service_trusted_review_stats AS
+SELECT vr.vendor_profile_id,
+       vr.service_id,
+       COALESCE(avg(vr.rating_overall)::numeric(3,2), 0::numeric) AS trusted_avg_rating,
+       count(vr.review_id)::integer AS trusted_review_count
+  FROM public.vendor_profiles vp
+  JOIN public.vendor_reviews vr
+    ON vr.vendor_profile_id = vp.vendor_profile_id
+   AND vr.service_id IS NOT NULL
+      AND vr.booked_through_setnayan = true
+      AND vr.voided_by_fraud = false
+      AND (vr.event_id IS NULL OR EXISTS (
+            SELECT 1 FROM public.events e WHERE e.event_id = vr.event_id))
+      AND NOT EXISTS (
+            SELECT 1 FROM public.event_members em
+             WHERE em.event_id = vr.event_id AND em.member_type = 'couple'
+               AND em.user_id = vp.user_id)
+      AND NOT EXISTS (
+            SELECT 1 FROM public.event_members em
+              JOIN public.vendor_team_members vtm
+                ON vtm.user_id = em.user_id AND vtm.vendor_profile_id = vp.vendor_profile_id
+             WHERE em.event_id = vr.event_id AND em.member_type = 'couple')
+      AND NOT EXISTS (
+            SELECT 1 FROM public.event_members em
+              JOIN public.users u ON u.user_id = em.user_id
+             WHERE em.event_id = vr.event_id AND em.member_type = 'couple'
+               AND u.is_internal = true
+               AND (u.user_id = vp.user_id OR EXISTS (
+                     SELECT 1 FROM public.vendor_team_members vtm2
+                      WHERE vtm2.vendor_profile_id = vp.vendor_profile_id
+                        AND vtm2.user_id = u.user_id)))
+      AND NOT EXISTS (
+            SELECT 1 FROM public.comp_grants cg
+             WHERE cg.vendor_profile_id = vp.vendor_profile_id
+               AND cg.source = 'vendor_self_comp'
+               AND EXISTS (
+                     SELECT 1 FROM public.event_members em3
+                      WHERE em3.event_id = vr.event_id AND em3.member_type = 'couple'
+                        AND em3.user_id = cg.created_by_user_id))
+ GROUP BY vr.vendor_profile_id, vr.service_id;
+
+REVOKE ALL ON public.vendor_service_trusted_review_stats FROM PUBLIC;
+REVOKE ALL ON public.vendor_service_trusted_review_stats FROM anon, authenticated;
+GRANT SELECT ON public.vendor_service_trusted_review_stats TO service_role;
+
+COMMENT ON VIEW public.vendor_service_trusted_review_stats IS
+  'The hosts'' trusted average and count PER SERVICE CARD — the card''s own review line (prototype 6 Nov § 4). Same arm''s-length filter as vendor_trusted_review_stats (held by card-review-stats-mirror-the-shop.test.ts). Server-only.';
+
+DROP VIEW IF EXISTS public.vendor_guest_review_service_stats;
+CREATE VIEW public.vendor_guest_review_service_stats
+WITH (security_invoker = true) AS
+SELECT
+  r.vendor_profile_id,
+  r.service_id,
+  COUNT(*)::INT                                   AS guest_review_count,
+  COALESCE(AVG(r.rating_overall)::NUMERIC(3,2), 0) AS guest_avg_rating
+FROM public.vendor_guest_reviews r
+WHERE r.hidden_at IS NULL AND r.service_id IS NOT NULL
+GROUP BY r.vendor_profile_id, r.service_id;
+
+REVOKE ALL ON public.vendor_guest_review_service_stats FROM anon, authenticated;
+
+COMMENT ON VIEW public.vendor_guest_review_service_stats IS
+  'Guest reviews per service card (not hidden): the card''s "From guests" line. Never blended into the hosts'' number.';
 
 COMMIT;

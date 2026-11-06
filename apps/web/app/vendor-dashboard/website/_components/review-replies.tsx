@@ -8,7 +8,6 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
 import { postVendorReply, submitFlagAsFake } from '../../reviews/actions';
-import { postGuestReviewReply } from '../../reviews/actions';
 import { FlagReasonPick } from './flag-reason-pick';
 import { GUEST_REVIEW_REPLY_MAX, type GuestReviewRow, type GuestReviewsRead } from '@/lib/guest-reviews';
 import { GuestAtEventPill, ReviewGroupHead } from '@/app/v/[slug]/_components/review-groups';
@@ -30,7 +29,7 @@ import { GuestAtEventPill, ReviewGroupHead } from '@/app/v/[slug]/_components/re
  * Server component, handed to the client `PageParts` as `reviewsBody` (the same slot pattern as `domainBody`).
  *
  * ⭐ TWO LABELLED GROUPS (owner, 6 Nov · prototype § 9: "the same two groups"): **From the hosts** — the list above,
- * unchanged — then **From guests**, each with the same one public reply (`postGuestReviewReply`). Guest reviews cannot
+ * unchanged — then **From guests**, each with the same one public reply (`postVendorReply`, `kind=guest`). Guest reviews cannot
  * be flagged here: they are public at once and Setnayan hides one from Admin › Reviews (owner ruling A).
  */
 export function ReviewReplies({
@@ -145,7 +144,8 @@ function VendorGuestReviewCard({ row, vendorName }: { row: GuestReviewRow; vendo
           <p className="mt-2 text-[11px] text-ink/45">Your public reply is final — it can’t be edited once posted.</p>
         </div>
       ) : (
-        <form action={postGuestReviewReply} className="space-y-2 border-t border-ink/10 pt-3" data-guest-review-reply="form">
+        <form action={postVendorReply} className="space-y-2 border-t border-ink/10 pt-3" data-guest-review-reply="form">
+          <input type="hidden" name="kind" value="guest" />
           <input type="hidden" name="review_id" value={row.review_id} />
           <label htmlFor={`guest_reply_${row.review_id}`} className="block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             Public reply

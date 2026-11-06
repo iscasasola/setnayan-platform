@@ -299,6 +299,30 @@ export async function readGuestReviewStats(
   return { count: Number(row?.guest_review_count ?? 0) || 0, average: Number(row?.guest_avg_rating ?? 0) || 0 };
 }
 
+/**
+ * The guests' line PER CARD (prototype 6 Nov § 4 / § 9 — "4.9 · 40 guests" inside the card). Not hidden; never blended
+ * into the hosts' number. null = the read failed: the card draws no guests' line rather than "none".
+ */
+export async function readCardGuestReviewStats(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Map<string, GuestReviewStats> | null> {
+  const { data, error } = await admin
+    .from('vendor_guest_review_service_stats')
+    .select('service_id, guest_review_count, guest_avg_rating')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    console.error('[supabase-error] lib/guest-reviews.ts · from:vendor_guest_review_service_stats.select', error);
+    return null;
+  }
+  const m = new Map<string, GuestReviewStats>();
+  for (const r of (data ?? []) as Array<{ service_id: string | null; guest_review_count: number | null; guest_avg_rating: number | string | null }>) {
+    const count = Number(r.guest_review_count ?? 0);
+    if (r.service_id && count > 0) m.set(r.service_id, { count, average: Number(r.guest_avg_rating ?? 0) });
+  }
+  return m;
+}
+
 async function readGuestNames(
   admin: SupabaseClient,
   guestIds: string[],

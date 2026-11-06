@@ -7,7 +7,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StarRatingInput } from '@/app/_components/star-rating-input';
 import { OnTimeBinaryInput } from '@/app/_components/on-time-binary-input';
-import { fetchOwnReviewForVendor, REVIEW_AXIS_LABEL, REVIEW_ON_TIME_LABEL, type ReviewAxis } from '@/lib/reviews';
+import {
+  coupleInitials,
+  fetchOwnReviewForVendor,
+  REVIEW_AXIS_LABEL,
+  REVIEW_ON_TIME_LABEL,
+  shownCoupleName,
+  type ReviewAxis,
+} from '@/lib/reviews';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import {
   detectSelfReviewSignal,
@@ -21,6 +28,8 @@ import { reviewState, type CompletionFields } from '@/lib/completion-handshake';
 import { RecommendVendorCard } from './_components/recommend-vendor-card';
 import { ReviewRequestCard, type ReviewRequestCardItem } from './_components/review-request-card';
 import { CoordinatorRefusedState } from './_components/coordinator-refused-state';
+import { ReviewThanks } from './_components/review-thanks';
+import { ShownAsRow } from './_components/shown-as-row';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { formatEventTypeLabel } from '@/lib/reviews';
 
@@ -44,7 +53,7 @@ const STAR_AXES: ReadonlyArray<ReviewAxis> = [
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
-  searchParams: Promise<{ blocked?: string; appeal_filed?: string; recommend?: string; refused?: string }>;
+  searchParams: Promise<{ blocked?: string; appeal_filed?: string; recommend?: string; refused?: string; sent?: string }>;
 };
 
 type EventVendorLookup = {
@@ -308,6 +317,32 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     user.id,
   );
 
+  const coupleName = evt?.display_name?.trim() || null;
+  const shownInitials = coupleInitials(coupleName);
+
+  // 💌 Just sent (prototype 6 Nov § 3): the thank-you, drawn from the row as written — not the "already reviewed" note.
+  if (existing && search.sent === '1') {
+    const cardTitle = existing.service_id ? (requestCards.find((c) => c.serviceId === existing.service_id)?.title ?? null) : null;
+    return (
+      <ReviewThanks
+        eventId={eventId}
+        vendorId={vendorId}
+        coupleName={coupleName}
+        shownName={shownCoupleName(coupleName, existing.reviewer_display)}
+        shopName={vendorProfile.business_name || eventVendor.vendor_name}
+        slug={vendorProfile.business_slug ?? null}
+        vendorProfileId={vendorProfile.vendor_profile_id}
+        cardTitle={cardTitle}
+        review={{
+          ratingOverall: existing.rating_overall,
+          body: existing.body,
+          createdAt: existing.created_at,
+          bookedThroughSetnayan: existing.booked_through_setnayan,
+        }}
+      />
+    );
+  }
+
   if (existing) {
     return (
       <AlreadyReviewedState
@@ -417,6 +452,10 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
           />
           <p className="text-xs text-ink/50">Up to 500 characters.</p>
         </section>
+
+        {/* 🪪 "Shown as" (prototype 6 Nov § 2) — the one dropdown above Submit. No name on the event → nothing to
+            abbreviate; the review shows "Verified couple" either way. */}
+        {coupleName && shownInitials ? <ShownAsRow names={coupleName} initials={shownInitials} /> : null}
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
           <p className="inline-flex items-center gap-2 text-xs text-ink/60">

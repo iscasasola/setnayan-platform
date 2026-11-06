@@ -66,6 +66,9 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
+import { readWhoMadeTheDay } from '@/lib/who-made-the-day.server';
+import { isAfterTheDay } from '@/lib/who-made-the-day';
+import { WhoMadeTheDay } from './_components/who-made-the-day';
 import { PASS_ANCHOR, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
@@ -2613,6 +2616,14 @@ async function invitationBody({
   const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
   const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
   const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
+  /* 🚪 "WHO MADE THE DAY?" (prototype 6 Nov § 8, door 2) — after the day only, and only for a guest the door checked in
+     with at least one delivered supplier on this event (`readWhoMadeTheDay`); otherwise absent. Read only after the
+     day, so every page before it pays nothing. Never in the Maker's canvas. */
+  const whoMadeTheDay =
+    !isEditorCanvas && isAfterTheDay(event.event_date, manilaToday())
+      ? await readWhoMadeTheDay(admin, event.event_id, guest.guest_id)
+      : null;
+  const afterDayNode = whoMadeTheDay ? <WhoMadeTheDay eventId={event.event_id} suppliers={whoMadeTheDay} /> : null;
   timer.flush();
   return wearDraft(
     <>
@@ -2673,7 +2684,7 @@ async function invitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab afterDay={afterDayNode} />
             )
           ) : null
         }
@@ -2709,6 +2720,7 @@ async function invitationBody({
         meSlot={guestPageTabbed ? null : meSlot}
         mePhotosHref={photosLeftThePage ? myPhotosHref : null}
         meInPage={guestPageTabbed}
+        meAfterDay={afterDayNode}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)

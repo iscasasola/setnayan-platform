@@ -9,13 +9,15 @@
  * (`review/page.tsx`, `v/[slug]/page.tsx` — a Next page cannot export it); they hold no new logic.
  *
  *   ?s=request | request2 | coordinator | guest | thanks | nodoor | said | shop | shop-refused | admin
+ *      | shownas (§ 2) | hostthanks (§ 3) | card (§ 4 / § 9) | hub (§ 8 door 2)
+ *   § 6 (Promote › Your gifts › Next event with us) is drawn by the shipped lab: /dev/supplier-plan-lab?s=gifts
  */
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Star } from 'lucide-react';
 import { ReviewRequestCard } from '@/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/review-request-card';
 import { CoordinatorRefusedState } from '@/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/coordinator-refused-state';
 import { GuestReviewHeader } from '@/app/v/[slug]/guest-review/_components/guest-review-header';
-import { GuestReviewForm, GuestReviewThanks } from '@/app/v/[slug]/guest-review/_components/guest-review-form';
+import { GuestReviewThanks } from '@/app/v/[slug]/guest-review/_components/guest-review-form';
 import { NotOnDoorList, Said, Shell } from '@/app/v/[slug]/guest-review/_components/guest-review-states';
 import {
   GuestReviewsGroup,
@@ -25,7 +27,14 @@ import {
 } from '@/app/v/[slug]/_components/review-groups';
 import { GuestReviewsQueue } from '@/app/admin/reviews/_components/guest-reviews-queue';
 import { GUEST_REVIEW_REFUSAL_LINE, type GuestReviewRow, type GuestReviewsRead } from '@/lib/guest-reviews';
-import { labSendGuestReview } from './actions';
+import { LabGuestReviewForm } from './lab-guest-review-form';
+import { LabCardWithReviews, LabHubAfterDay } from './lab-client-pieces';
+import { ShownAsRow } from '@/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/shown-as-row';
+import { ReviewThanks } from '@/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/review-thanks';
+import { StarRatingInput } from '@/app/_components/star-rating-input';
+import { OnTimeBinaryInput } from '@/app/_components/on-time-binary-input';
+import { REVIEW_AXIS_LABEL, REVIEW_ON_TIME_LABEL } from '@/lib/reviews';
+import { ShieldCheck } from 'lucide-react';
 
 const SHOP = 'Bloom & Co.';
 const EVENT_LINE = 'Dec 12, 2026 · Ana & Miguel’s wedding';
@@ -55,8 +64,13 @@ const GABRIEL: GuestReviewRow = {
 };
 const GUESTS: GuestReviewsRead = { state: 'rows', stats: { count: 40, average: 4.9 }, rows: [GABRIEL] };
 
-type S = 'request' | 'request2' | 'coordinator' | 'guest' | 'thanks' | 'nodoor' | 'said' | 'shop' | 'shop-refused' | 'admin';
-const STATES: ReadonlyArray<S> = ['request', 'request2', 'coordinator', 'guest', 'thanks', 'nodoor', 'said', 'shop', 'shop-refused', 'admin'];
+type S =
+  | 'request' | 'request2' | 'coordinator' | 'guest' | 'thanks' | 'nodoor' | 'said' | 'shop' | 'shop-refused' | 'admin'
+  | 'shownas' | 'hostthanks' | 'card' | 'hub';
+const STATES: ReadonlyArray<S> = [
+  'request', 'request2', 'coordinator', 'guest', 'thanks', 'nodoor', 'said', 'shop', 'shop-refused', 'admin',
+  'shownas', 'hostthanks', 'card', 'hub',
+];
 
 export default async function ReviewLabPage({ searchParams }: { searchParams: Promise<{ s?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -96,6 +110,85 @@ export default async function ReviewLabPage({ searchParams }: { searchParams: Pr
     );
   }
 
+  if (s === 'shownas') {
+    // Shell: a copy of review/page.tsx's form (Ratings · the message · Shown as · the foot). Inputs and the Shown-as
+    // row are the real components.
+    return (
+      <main className="mx-auto w-full max-w-3xl bg-cream px-4 py-6">
+        <form className="space-y-6 rounded-2xl border border-ink/10 bg-cream p-6" /* no-card-ok: a copy of the shipped form frame */>
+          <section className="space-y-3">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Ratings</h2>
+            <ul className="divide-y divide-ink/10">
+              {(['overall', 'communication', 'quality', 'value'] as const).map((axis) => (
+                <li key={axis} className="py-2">
+                  <StarRatingInput name={`rating_${axis}`} label={REVIEW_AXIS_LABEL[axis]} required />
+                </li>
+              ))}
+              <li className="py-2">
+                <OnTimeBinaryInput name="rating_on_time" label={REVIEW_ON_TIME_LABEL} required />
+              </li>
+            </ul>
+          </section>
+          <section className="space-y-2">
+            <label className="block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55" htmlFor="body">
+              Tell other couples about your experience (optional)
+            </label>
+            <textarea /* field-ok: a copy of the shipped review form's message box */ id="body" name="body" rows={5} maxLength={500} placeholder="What stood out? Anything future couples should know?" className="input-field min-h-[120px] py-2" />
+            <p className="text-xs text-ink/50">Up to 500 characters.</p>
+          </section>
+          <ShownAsRow names="Ana & Miguel" initials="A. & M." />
+          <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
+            <p className="inline-flex items-center gap-2 text-xs text-ink/60">
+              <ShieldCheck className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
+              Verified couple — review tied to a delivered service.
+            </p>
+            <span className="button-primary">Submit review</span>
+          </div>
+        </form>
+      </main>
+    );
+  }
+
+  if (s === 'hostthanks') {
+    return (
+      <main className="mx-auto w-full max-w-3xl bg-cream px-4 py-6">
+        <ReviewThanks
+          eventId="lab"
+          vendorId="lab"
+          coupleName="Ana & Miguel"
+          shownName="A. & M."
+          shopName={SHOP}
+          slug="bloom-and-co"
+          vendorProfileId="00000000-0000-4000-8000-000000000001"
+          cardTitle="Garden bridal bouquet"
+          review={{
+            ratingOverall: 5,
+            body: '[Example — the first words of what you wrote.]',
+            createdAt: '2026-12-14T08:00:00Z',
+            bookedThroughSetnayan: true,
+          }}
+        />
+      </main>
+    );
+  }
+
+  if (s === 'card') {
+    return (
+      <main className="mx-auto w-full max-w-3xl bg-cream px-4 py-6">
+        <LabCardWithReviews shotUrl={SHOT_A} />
+      </main>
+    );
+  }
+
+  if (s === 'hub') {
+    return (
+      <main className="mx-auto w-full max-w-3xl bg-cream px-4 py-6">
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Guest Hub · after the day · Me</p>
+        <LabHubAfterDay />
+      </main>
+    );
+  }
+
   if (s === 'coordinator') {
     return (
       <main className="mx-auto w-full max-w-3xl bg-cream px-4 py-6">
@@ -111,8 +204,7 @@ export default async function ReviewLabPage({ searchParams }: { searchParams: Pr
           <GuestReviewHeader shopName={SHOP} eventTitle="Ana & Miguel’s wedding" />
           {s === 'guest' ? (
             <>
-              <GuestReviewForm
-                action={labSendGuestReview}
+              <LabGuestReviewForm
                 slug="bloom-and-co"
                 eventId="00000000-0000-4000-8000-000000000000"
                 shopName={SHOP}

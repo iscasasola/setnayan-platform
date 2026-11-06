@@ -23,12 +23,20 @@ async function requireVendorProfile(supabase: Awaited<ReturnType<typeof createCl
  * Post or edit a vendor reply on a review.
  * The DB trigger stamps vendor_reply_at on first write and refreshes it on
  * subsequent edits. RLS enforces the vendor owns the review's vendor_profile.
+ *
+ * 💬 `kind=guest` — the reply to a GUEST review (owner, 6 Nov · prototype § 9): one public reply, final once posted,
+ * the same rule as the hosts'. Folded into this one action (not a second export) to hold the server-action budget
+ * (`scripts/lint-server-action-budget.mjs`); it goes through `vendor_guest_review_reply`, never vendor_reviews.
  */
 export async function postVendorReply(formData: FormData) {
   const reviewId = formData.get('review_id');
   const reply = formData.get('reply');
   if (typeof reviewId !== 'string' || typeof reply !== 'string') {
     throw new Error('Invalid input');
+  }
+  if (formData.get('kind') === 'guest') {
+    await postGuestReviewReply(reviewId, reply);
+    return;
   }
   /*
     WHERE THE REPLY WAS WRITTEN. The Answers Desk (`/vendor-dashboard`) takes
@@ -96,16 +104,8 @@ export async function submitFlagAsFake(formData: FormData) {
   revalidatePath('/vendor-dashboard/website');
 }
 
-/**
- * 💬 Reply to a GUEST review (owner, 6 Nov · prototype § 9) — one public reply, final once posted, the same rule as the
- * hosts'. Written in place on Shop › Page › Reviews and stories: no redirect, the page re-reads with the reply shown.
- */
-export async function postGuestReviewReply(formData: FormData) {
-  const reviewId = formData.get('review_id');
-  const reply = formData.get('reply');
-  if (typeof reviewId !== 'string' || typeof reply !== 'string') {
-    throw new Error('Invalid input');
-  }
+/** The guest-review half of `postVendorReply` (`kind=guest`). Not exported: one route, two kinds. */
+async function postGuestReviewReply(reviewId: string, reply: string) {
   const supabase = await createClient();
   const { profile } = await requireVendorProfile(supabase);
   const posted = await submitGuestReviewReply(supabase, reviewId, reply);

@@ -1,5 +1,5 @@
 /**
- * 🎟 UNLIMITED and GROUP SESSION — asserted against the DATABASE (migration 20271317711533; DECISION_LOG 2026-09-25
+ * 🎟 UNLIMITED and GROUP SESSION — asserted against the DATABASE (migration 20271321530399; DECISION_LOG 2026-09-25
  * "…A THIRD MODE: UNLIMITED" · "GROUP SESSIONS (photo booth group shots) — print count = guests scanned, adjustable").
  *
  *   1 · UNLIMITED: every scan counts with a new number, the same guest too; served ≠ unique;

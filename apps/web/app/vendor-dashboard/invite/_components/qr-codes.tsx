@@ -5,8 +5,10 @@ import { Fold } from '@/app/_components/fold';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
 import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
+import { doorStickerCodeFor } from '@/lib/door-sticker';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
+import { DoorSticker } from './door-sticker';
 
 /**
  * QR CODES — ONE page for the shop's two codes (S-PR3; plan § 2 "`/invite` (Shortlist / Locked QR toggle) +
@@ -19,6 +21,15 @@ import { DatesRow } from '../../customers/_components/dates-row';
  *               ledger that was `/locked-qr`: each code claimed / pending / void, a pending one shown again).
  *   Check a date · My page · Crew for an event — added 2026-10-29/11-01 ("THE QR DROPDOWN ALREADY EXISTS; EXTEND IT"):
  *               one code each under the same dropdown (`lib/supplier-qr-codes.ts`).
+ *   Every card carries Write to NFC (`QrCard` → `QrActions` → `NfcWriteButton`): the tag holds the card's own URL.
+ *   Door sticker ⌄ — under the codes on Shop › Promote only (owner 2026-11-05, *"add them to the marketing tools"*;
+ *               Promote is the home of the shop's prints): "We are part of Setnayan" with My page or Check a date
+ *               (`door-sticker.tsx`, `lib/door-sticker-print.ts`). Customers › QR codes (Booked · Crew) never draws it.
+ *
+ * 📣 TWO HOMES since 2026-11-05 (owner: the QR codes do not belong under Customers — Shop › Promote, beside the website,
+ * print materials and gifts): Shortlist · Check a date · My page draw here under Shop › Promote (`place="promote"`: the
+ * Shop row is the page's head, so no ‹ Dates and the title is the section's); Booked · Crew stay on Customers › QR codes
+ * (`place="customers"`). Same component, same words — each home hands in only its own codes (`lib/supplier-qr-codes.ts`).
  *
  * Reached from Customers › Dates (the QR codes row); `/locked-qr` forwards to Booked with Issued open.
  * Server component: every word arrives read.
@@ -61,6 +72,7 @@ const STATUS_BADGE = {
 } as const;
 
 export function QrCodes({
+  place = 'customers',
   mode,
   backHref,
   modeOptions,
@@ -71,7 +83,10 @@ export function QrCodes({
   checkADate = null,
   myPage = null,
   crew = null,
+  doorStickerFiles,
 }: {
+  /** Which home draws it: Customers › QR codes (‹ Dates + the page title) or Shop › Promote (a section under the Shop row). */
+  place?: 'customers' | 'promote';
   mode: SupplierQrMode;
   backHref: string;
   modeOptions: QrPick[];
@@ -104,17 +119,25 @@ export function QrCodes({
   /** 🔳 My page (owner 2026-10-29): the shop's own Setnayan page → `/v/<slug>` (`lib/supplier-qr-codes.ts`). */
   myPage?: { url: string; svg: string | null; shopName: string } | null;
   crew?: CrewQr | null;
+  /** /dev only — the sticker's files as data: URIs (`DoorSticker`'s `labFiles`). */
+  doorStickerFiles?: Record<string, string>;
 }) {
   const ledger = booked?.ledger ?? null;
   const claimed = ledger?.filter((r) => r.status === 'claimed').length ?? 0;
   const voided = ledger?.filter((r) => r.status === 'void').length ?? 0;
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-3 sm:px-6" data-qr-codes={mode}>
-      <Link href={backHref} className="sn-press -ml-1 inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-ink" data-qr-back="">
-        <ChevronLeft aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
-        Dates
-      </Link>
-      <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink">QR codes</h1>
+    <div className={place === 'promote' ? 'w-full max-w-xl' : 'mx-auto w-full max-w-xl px-4 pb-16 pt-3 sm:px-6'} data-qr-codes={mode} data-qr-place={place}>
+      {place === 'promote' ? (
+        <h2 className="mt-2 text-[20px] font-semibold leading-tight tracking-tight text-ink">QR codes</h2>
+      ) : (
+        <>
+          <Link href={backHref} className="sn-press -ml-1 inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-ink" data-qr-back="">
+            <ChevronLeft aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
+            Dates
+          </Link>
+          <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink">QR codes</h1>
+        </>
+      )}
       <div className="mt-3">
         <CustomersPick label="Which code" value={mode} options={modeOptions} dataAttr="data-qr-mode" className="!min-h-11" />
       </div>
@@ -219,6 +242,8 @@ export function QrCodes({
           </div>
         </>
       ) : null}
+
+      {canShare && place === 'promote' ? <DoorSticker initialCode={doorStickerCodeFor(mode)} labFiles={doorStickerFiles} /> : null}
     </div>
   );
 }

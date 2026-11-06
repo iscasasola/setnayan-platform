@@ -130,6 +130,7 @@ type CouplePaymentAskRow = {
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
+import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -1330,7 +1331,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id, room_created_at',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', ev.marketplace_vendor_id)
@@ -2603,6 +2604,19 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
   const claimSection = claimContent;
 
+  // ❓ "{SHOP} ASKS" — every supplier's questions for the couple, answered here (owner 2026-11-04, verbatim "Yes,
+  // every supplier"). Only a supplier with a Setnayan shop can ask; the card renders nothing unless they ask something
+  // AND are booked or sent their set from the chat. Lives on Details (flag-on) / after the inclusions (flag-off).
+  const supplierQuestionsSection = ev.marketplace_vendor_id ? (
+    <SupplierQuestionsCard
+      supabase={supabase}
+      eventId={eventId}
+      eventVendorId={ev.vendor_id}
+      vendorProfileId={ev.marketplace_vendor_id}
+      shopName={displayName}
+    />
+  ) : null;
+
   // ------------------------------------------------------------------------
   // Flag OFF — the current long-scroll page, byte-identical to before: the
   // same section variables, in the same order, inside the same wrappers (incl.
@@ -2614,6 +2628,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {backNav}
         {heroSection}
         {selfAddedContactSection}
+        {supplierQuestionsSection}
         {includedSection}
         {choicesSection}
         {addOnsSection}
@@ -2882,6 +2897,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       node: (
         <div className="space-y-6">
           {coupleCompletionSection}
+          {supplierQuestionsSection}
           {colourAccessSection}
           {selfAddedContactSection}
           {includedSection}

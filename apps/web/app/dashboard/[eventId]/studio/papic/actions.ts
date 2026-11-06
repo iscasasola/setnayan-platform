@@ -1008,11 +1008,10 @@ export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string)
 // that backend, from the /crew management surface:
 //   • provisionPapicSeats — materialize the 5 seats (idempotent RPC) once the
 //     event owns a paid PAPIC_SEATS order.
-//   • reissuePapicSeat — mint a fresh claim token + clear the claimer on one
-//     seat (a friend dropped out / the link leaked). The couple has full RLS
-//     on their event's seats, so this is a plain UPDATE under their session.
+//   (`reissuePapicSeat` was removed 2026-11-04: nothing called it once the
+//   per-seat cards left /crew — see lib/papic-sells-only-credits.test.ts.)
 //
-// Both go through `getCoupleEventId` above (signed-in + couple-on-event), and
+// It goes through `getCoupleEventId` above (signed-in + couple-on-event), and
 // provisioning calls the RPC under the COUPLE's session (createClient · the
 // SECURITY DEFINER fn re-checks auth.uid() is a couple + the event owns
 // PAPIC_SEATS, so a forged call can't provision someone else's seats).
@@ -1047,73 +1046,6 @@ export async function provisionPapicSeats(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
   redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=provisioned`);
-}
-
-
-/**
- * Reissue one seat: clear the claimer + claimed_at, lift any revoke, and mint
- * a fresh claim_qr_token so the old link/QR stops working and the couple can
- * hand the seat to someone new. The couple's paparazzi_seats_couple_full RLS
- * permits the UPDATE under their own session.
- */
-export async function reissuePapicSeat(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'photos');
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const rawSeatId = formData.get('seat_id');
-  const seatId = typeof rawSeatId === 'string' ? rawSeatId.trim() : '';
-  if (!seatId) {
-    redirect(`/dashboard/${eventId}/studio/papic/crew?seat_error=missing_seat`);
-  }
-
-  // 18 crypto-random bytes → 36 hex chars · same entropy posture as the RPC's
-  // gen_random_bytes(18) seed and the guest qr_token format.
-  const bytes = new Uint8Array(18);
-  crypto.getRandomValues(bytes);
-  const freshToken = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from('paparazzi_seats')
-    .update({
-      claim_qr_token: freshToken,
-      claimer_user_id: null,
-      claimed_at: null,
-      revoked_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('seat_id', seatId)
-    .eq('event_id', eventId);
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic/crew?seat_error=${encodeURIComponent(
-        error.message.slice(0, 80),
-      )}`,
-    );
-  }
-
-  // Reissue hands the seat to a NEW friend — reset the per-seat capture caps so
-  // they start clean. Mark the prior claimer's captures superseded (excluded
-  // from the new claimer's per-seat count) WITHOUT deleting
-  // them: every photo still belongs to the event and still appears in the
-  // couple's gallery (untagged-/superseded-still-delivered). Best-effort and
-  // result-ignored — the token is already rotated, so a stamping hiccup (or a
-  // pre-migration DB without superseded_at) must not fail the reissue.
-  await supabase
-    .from('papic_photos')
-    .update({ superseded_at: new Date().toISOString() })
-    .eq('paparazzi_seat_id', seatId)
-    .is('superseded_at', null);
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
-  redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=reissued`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

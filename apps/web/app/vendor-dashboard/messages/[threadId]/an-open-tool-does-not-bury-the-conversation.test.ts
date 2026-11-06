@@ -128,13 +128,18 @@ test('the stream keeps a floor, so an open tool cannot flatten it to zero', () =
   assert.ok(open !== -1 && close > open, 'the page no longer renders one <ChatBox>…</ChatBox>');
   assert.equal(count(SRC, /<ChatMessageStream\b/g), 1, 'the stream is mounted more or less than once');
   assert.ok(stream > open && stream < close, 'the stream is not the ChatBox child — the slot below cannot size it');
-  // (2) The slot fills the frame and may shrink to let the list scroll.
+  // (2) The slot fills the frame. It may shrink down to the list's FLOOR, never to zero: the list scrolls inside it
+  // because every view scroller is `basis-0` with a ≥14rem floor (`an-open-tool-cannot-flatten-the-stream.test.ts`
+  // (2)), so the slot's automatic minimum is that floor, not the thread. 2026-11-06: this line used to require
+  // `min-h-0` on the slot — on a phone the takeover is fixed-height, and a zeroed slot measured 0px with a tool open,
+  // its messages painting over the quick replies and the panel (#7248's check card; measured at 390 px in
+  // /dev/supplier-chat-lab, before and after, the list scrolling inside the slot in both the open and closed states).
   const slotAt = BOX.indexOf('{children}');
   assert.ok(slotAt !== -1, 'ChatBox has no children slot');
   const slotOpen = BOX.lastIndexOf('<div className="', slotAt);
   const slot = BOX.slice(slotOpen + '<div className="'.length, BOX.indexOf('"', slotOpen + '<div className="'.length));
   assert.ok(has(slot, 'flex-1'), `the stream slot does not fill the frame (${slot})`);
-  assert.ok(has(slot, 'min-h-0'), `the stream slot has no min-h-0 (${slot}) — the list cannot scroll inside it`);
+  assert.ok(!has(slot, 'min-h-0'), `the stream slot zeroed its minimum (${slot}) — with a tool open it flattens to 0px`);
   // (3) The list itself carries the floor — the thing an open tool cannot push through.
   const olOpen = STREAM.indexOf('<ol');
   const olEnd = STREAM.indexOf('>', olOpen);

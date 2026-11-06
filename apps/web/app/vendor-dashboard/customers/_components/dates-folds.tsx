@@ -269,12 +269,13 @@ export function DatesFolds({
         </Fold>
       </div>
 
-      {/* ── QR CODES › (frames 10 · 40) ── */}
+      {/* ── QR CODES › (frames 10 · 40) — Booked · one-use and Crew since 2026-11-05; the marketing codes (Shortlist ·
+          Check a date · My page) moved to Shop › Promote, so the line names what is here now. ── */}
       <DatesRow
         data="qr"
         lead={<RowTile><QrCode strokeWidth={1.75} /></RowTile>}
         title="QR codes"
-        line="They scan · they are listed"
+        line="Booked · one use each"
         href={qrHref}
       />
 

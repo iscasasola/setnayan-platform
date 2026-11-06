@@ -78,10 +78,12 @@ test('a tile finer than every plan group still gets a real scope', () => {
   const withoutCanonicals = orphan.filter(
     (t) => !ADMIN_ONLY_TILES.has(t as never) && canonicalServicesForTile(t as never).length === 0,
   );
+  // `editorial` was the one known empty shelf; taxonomy v2 (2026-11-06) folded it into Photo & Video,
+  // so it is no row at all and the list is now empty — any entry here is a new empty sheet.
   assert.deepEqual(
     withoutCanonicals,
-    ['editorial'],
-    'only `editorial` has no canonical services; a new empty tile needs a decision, not a silent empty sheet',
+    [],
+    'no bench row may have zero canonical services; a new empty tile needs a decision, not a silent empty sheet',
   );
 });
 
@@ -123,7 +125,10 @@ test('the action scopes by TILE first — the group hint would search a fraction
 test('the group scope really is narrower than the row for the categories named above', () => {
   // Guards the REASON for the ordering above, so a future "simplify" can't
   // quietly flip it back on the grounds that the two scopes are equivalent.
-  for (const tile of ['coordinator', 'catering', 'hmua']) {
+  // `hmua` left this list with taxonomy v2 (2026-11-06): Hair, makeup & grooming is ONE service
+  // (`bridal_hmua`) with specialties, so its hint and its row are the same scope. Lights, sound &
+  // effects took its place — its group's hint is one service of the five the row holds.
+  for (const tile of ['coordinator', 'catering', 'lights_sound']) {
     const id = benchSearchGroupForTile(tile);
     const g = PLAN_GROUPS.find((p) => p.id === id);
     assert.ok(g?.subcategoryHint, `${tile}'s group is expected to carry a subcategoryHint`);

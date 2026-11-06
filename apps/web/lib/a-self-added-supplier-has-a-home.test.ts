@@ -69,10 +69,12 @@ test('the fallback category maps to Everything else, not Escort', () => {
     'escort',
     'the fallback must not be filed under Cars & transport › Escort any more',
   );
-  // `security` legitimately IS an escort detail — only the FALLBACK moved.
+  // `security` keeps a REAL tile of its own — only the FALLBACK goes to Everything else.
+  // (Taxonomy v2, 2026-11-06: Escort folded into Bridal car & escort, and security got its own
+  // home, Staff, security & registration.)
   assert.equal(
     tileForCategory('security' as VendorCategory),
-    'escort',
+    'event_staffing',
     'first-writer-wins: a real security category keeps its real tile',
   );
   assert.equal(WEDDING_TILE_LABEL.everything_else, 'Everything else');

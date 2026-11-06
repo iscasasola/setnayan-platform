@@ -30,6 +30,13 @@
  *   5. the claim link names the same category #6712's move keeps it at;
  *   6. every add path posts the row, and both add actions write the checked key.
  */
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): the owner's Food Truck row folded into "Food carts &
+ * stations" (`food_cart`), Mocktail into Bars & drinks, DJ into Music — so his case is re-pointed
+ * at the row that now holds it (`food_cart`, still stored as `misc` + `category_key`), and the walk
+ * floors count the 43 rows the page draws (39 v2 categories + 4 hidden filing rows), not the 60+
+ * that no longer exist.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -93,15 +100,15 @@ function cards(rows: EventVendorRowInput[]) {
 
 test('the walk is not vacuous', () => {
   const rows = benchRows();
-  assert.ok(rows.length >= 60, `only ${rows.length} rows on the page`);
-  assert.ok(ALL_TILES.includes('food_truck') && ALL_TILES.includes('mocktail') && ALL_TILES.includes('everything_else'));
+  assert.ok(rows.length >= 42, `only ${rows.length} rows on the page`);
+  assert.ok(ALL_TILES.includes('food_cart') && ALL_TILES.includes('chairs_tents') && ALL_TILES.includes('everything_else'));
   // The reason this file exists: rows whose enum label alone draws them elsewhere.
   const unnamed = ALL_TILES.filter((t) => homeTileForRow({ category: categoryForTile(t as never) }) !== t);
-  assert.ok(unnamed.includes('food_truck'), 'Food Truck now has an enum label — re-read why category_key is written');
+  assert.ok(unnamed.includes('food_cart'), 'Food Truck now has an enum label — re-read why category_key is written');
   assert.ok(unnamed.length >= 10, `only ${unnamed.length} rows need category_key`);
   // Before the fix the add wrote the enum alone: Food Truck's supplier was drawn under Everything else.
-  const enumOnly = { ...addedFrom('food_truck'), category_key: null };
-  assert.deepEqual(cards([enumOnly]).get('v-food_truck')!.map((c) => c[0]), ['everything_else']);
+  const enumOnly = { ...addedFrom('food_cart'), category_key: null };
+  assert.deepEqual(cards([enumOnly]).get('v-food_cart')!.map((c) => c[0]), ['everything_else']);
 });
 
 test('1–2 · for EVERY row: an added supplier is drawn once, as its own card, there — money in the move’s bucket', () => {
@@ -130,7 +137,7 @@ test('1–2 · for EVERY row: an added supplier is drawn once, as its own card, 
     assert.equal(drawn.filter((c) => c[2] != null).length, 1, `${tile}: the price is drawn twice`);
     checked += 1;
   }
-  assert.ok(checked >= 60, `only ${checked} rows checked`);
+  assert.ok(checked >= 42, `only ${checked} rows checked`);
 });
 
 test('3 · rows sharing one enum value never collapse — one dropdown entry and one card per row', () => {
@@ -143,7 +150,7 @@ test('3 · rows sharing one enum value never collapse — one dropdown entry and
   for (const r of rows) byCategory.set(r.t.category, [...(byCategory.get(r.t.category) ?? []), r.t.tile]);
   const shared = [...byCategory.values()].filter((tiles) => tiles.length > 1);
   assert.ok(shared.length >= 1, 'no two rows share a stored category — the merge case is not exercised');
-  assert.ok(byCategory.get('misc')!.includes('food_truck') && byCategory.get('misc')!.includes('mocktail'));
+  assert.ok(byCategory.get('misc')!.includes('food_cart') && byCategory.get('misc')!.includes('chairs_tents'));
 
   let pairs = 0;
   for (const tiles of shared) {
@@ -165,7 +172,7 @@ test('4 · Everything else, no row, a contradicting or unknown row: no key — t
   assert.equal(addedFrom('everything_else').category_key, null);
   assert.equal(categoryKeyForAdd('misc', null, isTile), null);
   assert.equal(categoryKeyForAdd('misc', '', isTile), null);
-  assert.equal(categoryKeyForAdd('catering', 'food_truck', isTile), null, 'a key contradicting the category was kept');
+  assert.equal(categoryKeyForAdd('catering', 'food_cart', isTile), null, 'a key contradicting the category was kept');
   assert.equal(categoryKeyForAdd('misc', 'no_such_row', isTile), null, 'a row the page does not draw was kept');
   // A row the enum names stores byte-for-byte as before.
   assert.equal(categoryKeyForAdd('catering', 'catering', isTile), null);

@@ -32,6 +32,7 @@ import { bucketVendorsByGroup, planGroupForCategory } from './wedding-plan-group
 import { pickTodaysOneThing, countUnlockedCategories } from './todays-one-thing';
 import { fallbackSnapshot } from './taxonomy-snapshot';
 import {
+  MERGED_TILE_INTO,
   TILE_PARENT,
   WEDDING_TILE_ORDER,
   WEDDING_FOLDER_ORDER,
@@ -61,6 +62,10 @@ const GAP_LEAF_PARENT: Record<string, WeddingFolder> = {
   restaurant_reservation: 'dining',
 };
 const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
+/** Taxonomy v2 (2026-11-06) folded seven gap leaves into a neighbour; a folded leaf lands on the
+ *  tile it folded into (MERGED_TILE_INTO) — still never on a WEDDING tile. Same table as
+ *  lib/taxonomy-gap-leaves.test.ts. */
+const live = (leaf: WeddingTile): WeddingTile => MERGED_TILE_INTO[leaf] ?? leaf;
 
 test('every VendorCategory bridges to a tile (no considered pick is ever dropped)', () => {
   // 49 → 52 on 2026-08-27 (second change that day): a wake gained three trades
@@ -117,10 +122,10 @@ test('the 14 non-wedding gap leaves land on their OWN tile, under a non-wedding 
   for (const leaf of GAP_LEAVES) {
     assert.equal(
       tileForCategory(leaf as unknown as VendorCategory),
-      leaf,
-      `${leaf}: must anchor 1:1 to its same-named tile, never be re-filed onto a wedding tile`,
+      live(leaf),
+      `${leaf}: must anchor 1:1 to its same-named tile (or the one it folded into), never be re-filed onto a wedding tile`,
     );
-    assert.equal(TILE_PARENT[leaf], GAP_LEAF_PARENT[leaf], `${leaf}: wrong tier-1 family`);
+    if (!MERGED_TILE_INTO[leaf]) assert.equal(TILE_PARENT[leaf], GAP_LEAF_PARENT[leaf], `${leaf}: wrong tier-1 family`);
   }
 });
 
@@ -152,7 +157,7 @@ test('gap-leaf FORWARD bridge is intact (the #3466 fix is not undone)', () => {
   // only for categories no plan group claims.
   for (const leaf of GAP_LEAVES) {
     const tile = tileForCategory(leaf as unknown as VendorCategory);
-    assert.equal(tile, leaf, `${leaf}: forward bridge broken`);
+    assert.equal(tile, live(leaf), `${leaf}: forward bridge broken`);
     // …and the inverse deliberately does NOT echo the leaf back, precisely
     // because these 14 are unbucketable. Assert the INVARIANT (the write-back
     // is bucketable), not the current literal value: the day the owner takes
@@ -423,7 +428,10 @@ test('canonically-EXEMPT categories still get a Shortlist home', () => {
   // still park them somewhere or the pick disappears. This assertion is the
   // tripwire — a future refactor to `= primaryTileForVendorCategory` fails here
   // instead of silently dropping four categories' worth of picks.
-  for (const c of ['officiant', 'church_fees', 'security', 'misc'] as VendorCategory[]) {
+  // `security` left this list with taxonomy v2 (2026-11-06): it has a canonical home now — Staff,
+  // security & registration (`event_staffing`) — so it is no longer canonically exempt.
+  assert.equal(primaryTileForVendorCategory('security' as VendorCategory), 'event_staffing');
+  for (const c of ['officiant', 'church_fees', 'misc'] as VendorCategory[]) {
     assert.equal(primaryTileForVendorCategory(c), null, `${c}: expected canonically exempt`);
     assert.ok(tileForCategory(c), `${c}: exempt canonically, but the Shortlist must still place it`);
   }

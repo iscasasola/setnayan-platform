@@ -6,12 +6,17 @@
  * — bridged by six separate maps. Nothing else asserts they stay in lockstep, so
  * a future edit to any one map could silently make crew-meal vendors
  * undiscoverable or mis-priced. These tests pin the load-bearing links.
+ *
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): the Crew Meals category FOLDED into Catering, and the
+ * `crew_meal_supply` trade became Catering's "Service: Crew meals" specialty (its shops were tagged
+ * with that value, then the trade merged into `catering`). The links pinned below are the same
+ * links re-pointed at where v2 put them — the couple-side `crew_meals` category and plan group stay.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { PLAN_GROUPS } from './wedding-plan-groups';
-import { TILE_PARENT, WEDDING_TILE_LABEL, TAXONOMY_MAP } from './taxonomy';
+import { MERGED_TILE_INTO, TILE_PARENT, WEDDING_TILE_LABEL, TAXONOMY_MAP } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 import { VENDOR_CATEGORIES, VENDOR_CATEGORY_LABEL, serviceGroupOf } from './vendors';
 import {
@@ -21,16 +26,18 @@ import {
 
 // ── The taxonomy tile + canonical exist and are bridged ──────────────────────
 
-test('crew_meals tile lives under Feast with a Crew Meals label', () => {
+test('crew_meals tile lives under Feast with a Crew Meals label — folded into Catering', () => {
   assert.equal(TILE_PARENT.crew_meals, 'feast');
   assert.equal(WEDDING_TILE_LABEL.crew_meals, 'Crew Meals');
+  assert.equal(MERGED_TILE_INTO.crew_meals, 'catering', 'v2 folds Crew Meals into Catering');
 });
 
-test('crew_meal_supply canonical maps to the crew_meals tile under Feast', () => {
+test('crew_meal_supply canonical maps to the catering tile under Feast (a merged tombstone)', () => {
   const e = TAXONOMY_MAP.crew_meal_supply;
-  assert.ok(e, 'crew_meal_supply must exist in TAXONOMY_MAP');
+  assert.ok(e, 'crew_meal_supply must exist in TAXONOMY_MAP — an old key still resolves');
   assert.equal(e.folder, 'feast');
-  assert.equal(e.tile, 'crew_meals');
+  assert.equal(e.tile, 'catering');
+  assert.equal(e.marketplaceHidden, true, 'the trade merged into catering — it is not its own shelf');
 });
 
 // ── THE load-bearing discovery link ──────────────────────────────────────────
@@ -43,7 +50,7 @@ test('the crew_meals plan group resolves to the crew_meal_supply canonical', () 
   assert.ok(g, 'a crew_meals plan group must exist');
   assert.equal(g.catalogFolder, 'feast');
   assert.equal(g.catalogTile, 'crew_meals');
-  assert.equal(g.subcategoryHint, 'crew_meal_supply');
+  assert.equal(g.subcategoryHint, 'catering', 'crew meals are found among caterers (v2)');
   assert.equal(g.tier, 'extras');
   assert.ok(
     g.categories.includes('crew_meals'),
@@ -52,8 +59,8 @@ test('the crew_meals plan group resolves to the crew_meal_supply canonical', () 
   // The tile the group points at must actually contain the canonical discovery
   // matches on — the exact link that surfaces crew-meal vendors by proximity.
   assert.ok(
-    canonicalServicesForTile(g.catalogTile!).includes('crew_meal_supply'),
-    'crew_meals tile must expose the crew_meal_supply canonical',
+    canonicalServicesForTile(g.catalogTile!).includes('catering'),
+    'the crew_meals tile must forward to Catering and expose the catering canonical',
   );
 });
 
@@ -67,8 +74,8 @@ test('crew_meals is a first-class VendorCategory', () => {
   assert.equal(serviceGroupOf('crew_meals'), 'reception');
 });
 
-test('the crew_meals VendorCategory bridges to the crew_meals tile', () => {
+test('the crew_meals VendorCategory bridges to the tile Crew Meals folded into (Catering)', () => {
   const m = VENDOR_CATEGORY_CANONICAL.crew_meals;
-  assert.deepEqual(m, { kind: 'tile', tile: 'crew_meals' });
-  assert.ok(tilesForVendorCategory('crew_meals').includes('crew_meals'));
+  assert.deepEqual(m, { kind: 'tile', tile: 'catering' });
+  assert.ok(tilesForVendorCategory('crew_meals').includes('catering'));
 });

@@ -76,7 +76,8 @@ test('the bench shows the supplier in every category they cover — with no seco
 
   for (const tile of ['catering', 'cake']) {
     const copy = placed.find((p) => p.tile === tile)!.v;
-    assert.equal(copy.includedWith, 'Reception', `${tile}: copy does not say where it is included`);
+    // The home row's own name — "Venues" since taxonomy v2 (2026-11-06) renamed the reception tile.
+    assert.equal(copy.includedWith, 'Venues', `${tile}: copy does not say where it is included`);
     // One booking, one price — a copy that carried money would read as a second bill.
     assert.equal(copy.totalCostPhp, null, `${tile}: the copy carries a price`);
     assert.equal(copy.priceBasisPhp, null, `${tile}: the copy carries a price basis`);

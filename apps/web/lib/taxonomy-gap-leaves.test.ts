@@ -22,6 +22,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  MERGED_TILE_INTO,
   TAXONOMY_MAP,
   TILE_PARENT,
   WEDDING_FOLDER_ORDER,
@@ -64,13 +65,29 @@ const GAP_LEAF_PARENT: Record<string, WeddingFolder> = {
   restaurant_reservation: 'dining',
 };
 const GAP_LEAVES = Object.keys(GAP_LEAF_PARENT) as WeddingTile[];
+/**
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06) folded seven of the fourteen into a neighbour
+ * (Tour guide → Tours & activities, AV → Lights, sound & effects, Speakers → Hosts & talent, Kids'
+ * entertainer + Choreographer → Entertainment & dance, both insurances → Insurance). A folded leaf
+ * is a tombstone that forwards (MERGED_TILE_INTO); the claim is now that EVERY gap leaf still lands
+ * on a live tile — its own, or the one it folded into — and nothing is re-filed anywhere else.
+ */
+const live = (leaf: WeddingTile): WeddingTile => MERGED_TILE_INTO[leaf] ?? leaf;
+const FOLDED = GAP_LEAVES.filter((l) => MERGED_TILE_INTO[l]);
 const NET_NEW = GAP_LEAVES.filter((l) => l !== 'performers' && l !== 'choreographer');
 
 test('all 14 gap leaves are live tier-2 tiles under their Part-A family', () => {
   assert.equal(GAP_LEAVES.length, 14, 'the doc lists exactly 14 gap leaves');
+  assert.deepEqual(
+    FOLDED.sort(),
+    ['av_production', 'choreographer', 'kids_entertainer', 'personal_accident_insurance', 'speaker_talent', 'tour_guide', 'travel_insurance'],
+    'exactly the seven v2 folds',
+  );
   for (const leaf of GAP_LEAVES) {
-    assert.ok(WEDDING_TILE_ORDER.includes(leaf), `${leaf}: not in WEDDING_TILE_ORDER`);
-    assert.equal(TILE_PARENT[leaf], GAP_LEAF_PARENT[leaf], `${leaf}: wrong parent family`);
+    assert.ok(WEDDING_TILE_ORDER.includes(live(leaf)), `${leaf}: lands on ${live(leaf)}, which is not in WEDDING_TILE_ORDER`);
+    if (!MERGED_TILE_INTO[leaf]) {
+      assert.equal(TILE_PARENT[leaf], GAP_LEAF_PARENT[leaf], `${leaf}: wrong parent family`);
+    }
     assert.ok(WEDDING_TILE_LABEL[leaf], `${leaf}: missing tile label`);
     assert.ok(WEDDING_TILE_SLUG[leaf], `${leaf}: missing tile slug`);
   }
@@ -83,9 +100,11 @@ test('the 12 net-new canonicals place at their same-named tile (the admin Studio
   for (const leaf of NET_NEW) {
     const entry = TAXONOMY_MAP[leaf];
     assert.ok(entry, `${leaf}: no TAXONOMY_MAP canonical`);
-    assert.equal(entry.tile, leaf, `${leaf}: canonical must place at its same-named tile`);
-    assert.equal(entry.folder, GAP_LEAF_PARENT[leaf], `${leaf}: canonical folder mismatch`);
-    assert.notEqual(entry.marketplaceHidden, true, `${leaf}: gap leaf must be marketplace-visible`);
+    assert.equal(entry.tile, live(leaf), `${leaf}: canonical must place at its same-named tile (or the one it folded into)`);
+    assert.equal(entry.folder, TILE_PARENT[live(leaf)], `${leaf}: canonical folder mismatch`);
+    if (!MERGED_TILE_INTO[leaf]) {
+      assert.notEqual(entry.marketplaceHidden, true, `${leaf}: gap leaf must be marketplace-visible`);
+    }
   }
 });
 
@@ -97,7 +116,7 @@ test('performers + choreographer are reconciled, not duplicated (no new canonica
   assert.equal(TAXONOMY_MAP['choreographer'], undefined);
   // But they remain live tiles a couple-side category can anchor to.
   assert.ok(WEDDING_TILE_ORDER.includes('performers'));
-  assert.ok(WEDDING_TILE_ORDER.includes('choreographer'));
+  assert.ok(WEDDING_TILE_ORDER.includes(live('choreographer')), 'choreographer folds into a live tile');
 });
 
 test('couple-side VendorCategory carries all 14 keys with labels + a service group', () => {
@@ -110,7 +129,7 @@ test('couple-side VendorCategory carries all 14 keys with labels + a service gro
     // 1:1 tile anchor (bucket A) — the marketplace deep-link target.
     const anchor = VENDOR_CATEGORY_CANONICAL[cat];
     assert.equal(anchor.kind, 'tile', `${leaf}: must anchor to a single tile`);
-    assert.deepEqual(tilesForVendorCategory(cat), [leaf], `${leaf}: anchor tile mismatch`);
+    assert.deepEqual(tilesForVendorCategory(cat), [live(leaf)], `${leaf}: anchor tile mismatch`);
   }
 });
 
@@ -124,13 +143,14 @@ test('no vendor-category drift against the taxonomy snapshot (what /admin/taxono
 test('fallback snapshot renders every gap leaf (tile order + label + parent bucket)', () => {
   const snap = fallbackSnapshot();
   for (const leaf of GAP_LEAVES) {
-    assert.ok(snap.tileOrder.includes(leaf), `${leaf}: missing from snapshot tileOrder`);
-    assert.ok(snap.tileLabel[leaf], `${leaf}: missing snapshot label`);
-    const parent = GAP_LEAF_PARENT[leaf];
-    assert.ok(parent, `${leaf}: no expected parent in the test fixture`);
+    const t = live(leaf);
+    assert.ok(snap.tileOrder.includes(t), `${leaf}: ${t} missing from snapshot tileOrder`);
+    assert.ok(snap.tileLabel[leaf], `${leaf}: missing snapshot label (a folded id keeps its label)`);
+    if (MERGED_TILE_INTO[leaf]) assert.equal(snap.tileForward?.[leaf], t, `${leaf}: the fallback does not forward it`);
+    const parent = TILE_PARENT[t];
     assert.ok(
-      (snap.tilesByParent[parent] ?? []).includes(leaf),
-      `${leaf}: not bucketed under "${parent}" in the snapshot`,
+      (snap.tilesByParent[parent] ?? []).includes(t),
+      `${leaf}: ${t} not bucketed under "${parent}" in the snapshot`,
     );
   }
 });

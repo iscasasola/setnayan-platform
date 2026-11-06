@@ -72,23 +72,10 @@ import { canonicalServicesForTile } from './vendor-counts';
  * change that seeds its canonicals; this test will fail until you do.
  */
 const KNOWN_DEAD_TILES: Record<string, string> = {
-  // Documentary › Editorial. STILL DEAD ON PURPOSE.
-  //
-  // The owner defined the CATEGORY on 2026-07-21 — magazines and content
-  // companies a couple hires and pays directly, explicitly NOT photographers
-  // ("editorials are not photographers, these are companies that create
-  // content for weddings") — but not its GRAIN.
-  // `Editorial_and_Content_Creator_Coverage_2026-07-21.md` §7 #1 is the open
-  // sign-off: ONE canonical with facets, or TWO
-  // (`wedding_editorial_feature` + `content_creation_team`)? §6 of that doc
-  // says in terms: "Do not seed until it is made; a canonical is cheap to add
-  // and awkward to remove." The verbatim follow-up "couple requests from
-  // magazine, or content creators" reads like two, but the doc quotes that
-  // same line and still leaves the question open — so it is not a resolution.
-  //
-  // This line comes out in the follow-up PR that seeds the answer.
-  editorial:
-    'Zero canonicals. Category is owner-defined (editorial/content companies, not photographers) but the GRAIN is an open sign-off — Editorial_and_Content_Creator_Coverage_2026-07-21.md §7 #1: one canonical with facets, or two. Do not seed ahead of it.',
+  // (empty) Documentary › Editorial left this list with taxonomy v2 (owner-approved 2026-11-06):
+  // the category FOLDED into Photo & Video (`MERGED_TILE_INTO.editorial`), so it is no shelf at all —
+  // the open grain question in Editorial_and_Content_Creator_Coverage_2026-07-21.md §7 #1 is now a
+  // question about a Photo & Video specialty, not about an empty branch.
 };
 
 test('every marketplace tile resolves to at least one canonical service', () => {

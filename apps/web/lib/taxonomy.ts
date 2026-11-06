@@ -383,7 +383,9 @@ export const ADMIN_ONLY_TILES: ReadonlySet<WeddingTile> = new Set([
   //   wedding_paperwork   OPENED · *"marriage-paper helper yes"*.
   //   travel_honeymoon    OPENED · *"honeymoon planner yes"*.
   'officiants',
-  'counseling_seminars',
+  // `counseling_seminars` left this set with taxonomy v2 (2026-11-06): it FOLDED into
+  // `officiants` (MERGED_TILE_INTO), so it is no branch at all — hidden as a tombstone, not as
+  // an admin-only filing cabinet. Its seminars are filed under Officiants, still hidden.
   /*
     ── `everything_else` (2026-09-22) — A FILING CABINET, WITH ONE DIFFERENCE ──
     It belongs here for the same reason the four above do: it holds no canonical

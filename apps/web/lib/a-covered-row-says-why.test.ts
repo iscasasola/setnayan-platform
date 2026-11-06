@@ -27,6 +27,13 @@
  * `buildLinesOf` input · print `line.booked.name` in the Build line · put the
  * Find row back on `.map((v) => v.name)`.
  */
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): the owner's Food Truck row folded into "Food carts &
+ * stations" (`food_cart`), Mocktail into Bars & drinks, DJ into Music — so his case is re-pointed
+ * at the row that now holds it (`food_cart`, still stored as `misc` + `category_key`), and the walk
+ * floors count the 43 rows the page draws (39 v2 categories + 4 hidden filing rows), not the 60+
+ * that no longer exist.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -63,7 +70,7 @@ const foldersFor = (rows: object[]) =>
   buildShortlistFolders({ vendorRows: rows as never, eventType: 'wedding', faithSet: new Set(), eventId: 'e' });
 
 test('the walk is not vacuous', () => {
-  assert.ok(ALL_TILES.length >= 60, `only ${ALL_TILES.length} rows`);
+  assert.ok(ALL_TILES.length >= 42, `only ${ALL_TILES.length} rows`);
   const folders = foldersFor([venueCovering(['cake', 'catering'])]);
   const copies = folders.flatMap((f) => f.tiles.flatMap((t) => t.vendors.filter((v) => v.includedWith != null)));
   assert.ok(copies.length >= 2, 'the venue was not drawn again under Cake and Catering');
@@ -97,7 +104,7 @@ test('1 · every covered Find row names the row the supplier was booked under', 
       );
     }
   }
-  assert.ok(covered >= 50, `only ${covered} covered rows were walked`);
+  assert.ok(covered >= 42, `only ${covered} covered rows were walked`);
 });
 
 test("2 · the Build line and the build's card name a covered supplier the same way", () => {

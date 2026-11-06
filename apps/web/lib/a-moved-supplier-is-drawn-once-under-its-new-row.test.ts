@@ -28,6 +28,13 @@
  *      (a zero-row update is not a move), refuses a supplier with a shop, and
  *      keeps a pending claim link's category in step.
  */
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): the owner's Food Truck row folded into "Food carts &
+ * stations" (`food_cart`), Mocktail into Bars & drinks, DJ into Music — so his case is re-pointed
+ * at the row that now holds it (`food_cart`, still stored as `misc` + `category_key`), and the walk
+ * floors count the 43 rows the page draws (39 v2 categories + 4 hidden filing rows), not the 60+
+ * that no longer exist.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -60,7 +67,7 @@ function dunkin(extraCovers: string[] = []): EventVendorRowInput {
     manual_vendor_id: 'm-dunkin',
     total_cost_php: 18_000,
     category_key: null,
-    covers_plan_groups: [coverKeyForTile(OTHER), coverKeyForTile('food_truck'), ...extraCovers],
+    covers_plan_groups: [coverKeyForTile(OTHER), coverKeyForTile('food_cart'), ...extraCovers],
   };
 }
 
@@ -94,11 +101,11 @@ const plan = (row: EventVendorRowInput, to: string, restore: string[] = []): Sup
 };
 
 test('the walk is not vacuous', () => {
-  assert.ok(ALL_TILES.length >= 60, `only ${ALL_TILES.length} rows`);
-  assert.ok(ALL_TILES.includes('food_truck') && ALL_TILES.includes(OLD_HOME));
+  assert.ok(ALL_TILES.length >= 42, `only ${ALL_TILES.length} rows`);
+  assert.ok(ALL_TILES.includes('food_cart') && ALL_TILES.includes(OLD_HOME));
   // The reason category_key exists here: many rows have no enum label.
   const unnamed = ALL_TILES.filter((t) => homeTileForRow({ category: categoryForTile(t as never) }) !== t);
-  assert.ok(unnamed.includes('food_truck'), 'Food Truck now has an enum label — re-read why category_key is written');
+  assert.ok(unnamed.includes('food_cart'), 'Food Truck now has an enum label — re-read why category_key is written');
   assert.ok(unnamed.length >= 10, `only ${unnamed.length} rows need category_key`);
   // Before: the owner's card is under Everything else.
   assert.deepEqual(cards(dunkin()).filter((c) => c[1] === 'own').map((c) => c[0]), [OLD_HOME]);
@@ -140,20 +147,20 @@ test('1–3 · after a move to ANY row: drawn once there, not at the old home, m
     }
     checked += 1;
   }
-  assert.ok(checked >= 60, `only ${checked} moves checked`);
+  assert.ok(checked >= 42, `only ${checked} moves checked`);
 });
 
 test('the owner’s case, by name: Dunkin’ under Food Truck as its own row, not “included with”', () => {
-  const p = plan(dunkin(), 'food_truck');
+  const p = plan(dunkin(), 'food_cart');
   assert.equal(p.category, 'misc', 'Food Truck has no enum label — the category stays misc');
-  assert.equal(p.category_key, 'food_truck');
-  assert.deepEqual(p.removedCovers, [coverKeyForTile('food_truck')], 'the Food Truck tick was not taken off');
+  assert.equal(p.category_key, 'food_cart');
+  assert.deepEqual(p.removedCovers, [coverKeyForTile('food_cart')], 'the Food Truck tick was not taken off');
   const drawn = cards(moved(dunkin(), p));
-  assert.deepEqual(drawn.filter((c) => c[0] === 'food_truck'), [['food_truck', 'own', 18_000]]);
+  assert.deepEqual(drawn.filter((c) => c[0] === 'food_cart'), [['food_cart', 'own', 18_000]]);
 });
 
 test('4 · Undo puts the card back where it was, ticks included', () => {
-  for (const to of ['food_truck', 'cake', 'dj', 'catering']) {
+  for (const to of ['food_cart', 'cake', 'live_band', 'catering']) {
     const before = dunkin();
     const p = plan(before, to);
     const back = plan(moved(before, p), p.from!, p.removedCovers);
@@ -169,13 +176,13 @@ test('4 · Undo puts the card back where it was, ticks included', () => {
 
 test('a move to the row it is already in is refused, not written', () => {
   assert.deepEqual(planSupplierMove(dunkin(), OLD_HOME), { refused: 'same_row' });
-  const p = plan(dunkin(), 'food_truck');
-  assert.deepEqual(planSupplierMove(moved(dunkin(), p), 'food_truck'), { refused: 'same_row' });
+  const p = plan(dunkin(), 'food_cart');
+  assert.deepEqual(planSupplierMove(moved(dunkin(), p), 'food_cart'), { refused: 'same_row' });
 });
 
 test('5 · a category_key that contradicts the category, or names an undrawn row, is never the home', () => {
   // Contradicts: says Food Truck (misc) on a caterer row → the caterer row wins, and the money agrees.
-  assert.equal(homeTileForRow({ category: 'catering', category_key: 'food_truck' }), 'catering');
+  assert.equal(homeTileForRow({ category: 'catering', category_key: 'food_cart' }), 'catering');
   // Undrawn: a key the taxonomy does not draw falls back to the category's row, so the pick stays visible.
   const ghost = { ...dunkin(), category_key: 'no_such_row' };
   assert.deepEqual(cards(ghost).filter((c) => c[1] === 'own').map((c) => c[0]), [OLD_HOME]);
@@ -209,7 +216,7 @@ test('6 · the action writes the plan in one read-back update, refuses a supplie
 });
 
 test('7 · the confirm line says what moves — and, for a supplier waiting for Approve, what Approve will give', () => {
-  const base = { name: "Dunkin' Donuts", fromLabel: 'Everything else', toLabel: 'Food Truck', toTile: 'food_truck' };
+  const base = { name: "Dunkin' Donuts", fromLabel: 'Everything else', toLabel: 'Food Truck', toTile: 'food_cart' };
   assert.equal(
     moveConfirmLine(base),
     "Dunkin' Donuts moves from Everything else to Food Truck. Its price and payments move with it.",

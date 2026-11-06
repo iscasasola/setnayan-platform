@@ -67,22 +67,22 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   Record<MoodboardSlotKey, readonly WeddingTile[]>
 > = {
   // ── the place ──
-  venue: ['ceremony_venue'],
+  venue: ['reception'],
   reception_venue: ['reception'],
   // ── what the room is dressed with ──
-  backdrop: ['stylist_decorator', 'led_wall'],
+  backdrop: ['stylist_decorator', 'lights_sound'],
   tunnel: ['stylist_decorator'],
-  stage: ['stylist_decorator', 'av_production', 'lights_sound'],
+  stage: ['stylist_decorator', 'lights_sound'],
   table: ['stylist_decorator', 'florist'],
   ceiling: ['stylist_decorator', 'lights_sound'],
   flowers: ['florist', 'stylist_decorator'],
-  cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
-  cake: ['cake', 'dessert'],
+  cocktail: ['mobile_bar'],
+  cake: ['cake', 'food_cart'],
   // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
   bridal_bouquet: ['florist'],
-  centrepieces: ['florist', 'stylist_decorator', 'catering'],
+  centrepieces: ['florist', 'stylist_decorator', 'accommodation', 'catering'],
   // 🎨🖼 The Palette's five parts with photos of their own (2026-10-19), on the tiles that dress them.
-  chairs: ['chairs_tents', 'stylist_decorator'],
+  chairs: ['chairs_tents', 'lights_sound', 'stylist_decorator'],
   ribbons_candles: ['stylist_decorator'],
   lights: ['lights_sound', 'stylist_decorator'],
   entourage_bouquets: ['florist'],
@@ -93,10 +93,16 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   palette: [],
   // ── what people wear. HMUA rides with `bride` because a bridal-hair photo
   //    and a gown photo are the same picture. ──
-  bride: ['brides_attire', 'filipiniana_barongs', 'hmua'],
-  groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
-  principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  // ⚖ TAXONOMY V2 (2026-11-06): Women's Attire and Filipiniana & Barongs folded into Gowns &
+  // dresses (`brides_attire`), Men's Attire into Barong & suits (`grooms_attire`). Every list
+  // below is what migration 20271320461004 leaves in `inspiration_parts` + the derived
+  // categories — the parts' SERVICES did not change, so a barong service a part already linked
+  // now brings Barong & suits as its "also from", and Centrepieces' hotel catering brings
+  // Accommodation (the fall-back-to-own-tile half of `inspiration_part_derived_categories_all`).
+  bride: ['brides_attire', 'grooms_attire', 'hmua'],
+  groom: ['grooms_attire', 'brides_attire'],
+  principal_sponsor: ['brides_attire', 'grooms_attire'],
+  entourage: ['brides_attire', 'grooms_attire'],
   // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN
   // tiles and nothing invented: the women's half for the bridesmaids, the men's
   // half for the groomsmen. 🧒 THERE IS NO CHILDREN'S-ATTIRE TILE in the taxonomy
@@ -105,12 +111,12 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // (`ring_bearer_suit`) — so those two boards name the tile that holds theirs.
   // `filipiniana_barongs` rides with all four (a barong or a Filipiniana is cut
   // for a page boy and a flower girl too), as it does with the entourage.
-  bridesmaids: ['womens_attire', 'filipiniana_barongs'],
-  groomsmen: ['mens_attire', 'filipiniana_barongs'],
-  flower_girl: ['womens_attire', 'filipiniana_barongs'],
-  ring_bearer: ['mens_attire', 'filipiniana_barongs'],
-  parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  bridesmaids: ['brides_attire', 'grooms_attire'],
+  groomsmen: ['grooms_attire', 'brides_attire'],
+  flower_girl: ['brides_attire', 'grooms_attire'],
+  ring_bearer: ['grooms_attire', 'brides_attire'],
+  parents: ['brides_attire', 'grooms_attire'],
+  guests: ['brides_attire', 'grooms_attire'],
 };
 
 

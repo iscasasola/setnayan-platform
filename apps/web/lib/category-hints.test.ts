@@ -46,7 +46,9 @@ test('EVERY tile the BENCH renders explains itself', () => {
     `tiles with no ⓘ: ${missing.join(', ')} — add to TILE_HINTS, or give the ` +
       'plan group that claims them a hint',
   );
-  assert.ok(tiles.length >= 70, 'the bench tile set collapsed — the taxonomy changed shape');
+  // Taxonomy v2 (owner-approved 2026-11-06) is 39 categories + the four hidden filing rows = 43.
+  // The floor is that count, so a further collapse still fails here.
+  assert.ok(tiles.length >= 43, 'the bench tile set collapsed — the taxonomy changed shape');
 });
 
 test('and every tile a considered vendor can LAND on is inside that set', () => {

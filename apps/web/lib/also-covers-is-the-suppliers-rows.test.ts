@@ -35,7 +35,7 @@ import {
   tileForPlanGroup,
 } from '@/lib/shortlist-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import { WEDDING_TILES_BY_PARENT, WEDDING_TILE_LABEL } from '@/lib/taxonomy';
+import { MERGED_TILE_INTO, WEDDING_TILES_BY_PARENT, WEDDING_TILE_LABEL } from '@/lib/taxonomy';
 import { EVENT_TYPE_BADGE } from '@/lib/event-vocabulary';
 import { attributeCommitted } from '@/lib/checklist-budget-attribution';
 import { bucketForVendor } from '@/lib/budget-truth';
@@ -43,6 +43,13 @@ import { bucketForVendor } from '@/lib/budget-truth';
 const EVENT_TYPES = Object.keys(EVENT_TYPE_BADGE);
 const ALL_TILES = Object.values(WEDDING_TILES_BY_PARENT).flat() as string[];
 const PLAN_GROUP_IDS = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+/**
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): the owner's Food Truck row FOLDED into "Food carts
+ * & stations" (`food_cart`) — so his case now reads: the doughnut cart is ticked onto Food carts
+ * & stations. The picker draws the 39 v2 categories plus the four hidden filing rows (43); the
+ * old floor of 60 counted rows that no longer exist.
+ */
+const LIVE_ROWS = 43;
 
 /** The owner's card: a doughnut cart the couple added under Everything else. */
 const dunkin = (covers: string[]) => ({
@@ -57,10 +64,13 @@ const dunkin = (covers: string[]) => ({
 
 test('the walk is not vacuous', () => {
   assert.ok(EVENT_TYPES.length >= 5, `only ${EVENT_TYPES.length} event types`);
-  assert.ok(ALL_TILES.length >= 60, `only ${ALL_TILES.length} tiles`);
-  for (const t of ['food_truck', 'food_cart', 'dessert', 'massage_chair']) {
+  assert.ok(ALL_TILES.length >= LIVE_ROWS, `only ${ALL_TILES.length} tiles`);
+  for (const t of ['food_cart', 'massage_chair']) {
     assert.ok(ALL_TILES.includes(t), `${t} is not a tile any more — re-read the owner's case`);
   }
+  // …and the rows he named that v2 folded land on the row they folded into.
+  assert.equal(MERGED_TILE_INTO.food_truck, 'food_cart');
+  assert.equal(MERGED_TILE_INTO.dessert, 'food_cart');
 });
 
 test('1 · every row the Suppliers page can draw is offered — same name, folder and order', () => {
@@ -77,7 +87,7 @@ test('1 · every row the Suppliers page can draw is offered — same name, folde
   const wedding = coverCatalogFromFolders(
     buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: 'e' }),
   ).flatMap((f) => f.options.map((o) => o.label));
-  for (const name of ['Food Truck', 'Food Cart', 'Dessert', 'Massage Chair']) {
+  for (const name of ['Food carts & stations', 'Pampering stations']) {
     assert.ok(wedding.includes(name), `"${name}" is a Suppliers-page row and is not offered`);
   }
 });
@@ -98,7 +108,7 @@ test('2 · the key a ticked row is stored as reads back as THAT row — every ti
   ).map((g) => `${g.id}→${tileForPlanGroup(g.id)}`);
   assert.deepEqual(collisions, ['accommodation→reception']);
   assert.ok(prefixed.includes('accommodation'), 'Accommodation (the row) must not be stored as the plan group');
-  assert.ok(prefixed.includes('food_truck'));
+  assert.ok(prefixed.includes('food_cart'));
 });
 
 test('3 · ticking a row draws the card under it, as "also covers", with no second price — every tile', () => {
@@ -120,13 +130,16 @@ test('3 · ticking a row draws the card under it, as "also covers", with no seco
     assert.equal(copy.totalCostPhp, null, `${tile}: the copy carries a price — a second bill`);
     walked += 1;
   }
-  assert.ok(walked >= 60, `walked ${walked}`);
+  assert.ok(walked >= LIVE_ROWS - 1, `walked ${walked}`);
 });
 
-test('the owner’s Dunkin’ card: Food Truck ticked → under Food Truck; home stays Everything else', () => {
-  const key = coverKeyForTile('food_truck');
-  assert.equal(key, 'tile:food_truck');
-  assert.deepEqual(linkedTilesForRow(dunkin(['guest_booth', key]) as never), ['massage_chair', 'food_truck']);
+test('the owner’s Dunkin’ card: Food carts ticked → under Food carts & stations; home stays Everything else', () => {
+  const key = coverKeyForTile('food_cart');
+  assert.equal(key, 'tile:food_cart');
+  assert.deepEqual(linkedTilesForRow(dunkin(['guest_booth', key]) as never), ['massage_chair', 'food_cart']);
+  // A key stored BEFORE the fold (production held `tile:mocktail` ×2, `tile:stations` ×1) draws
+  // under the row it folded into — never under a row the page no longer draws.
+  assert.deepEqual(linkedTilesForRow(dunkin(['tile:food_truck', 'tile:mocktail']) as never), ['food_cart', 'mobile_bar']);
   const folders = buildShortlistFolders({
     vendorRows: [dunkin(['guest_booth', key])] as never,
     eventType: 'wedding',
@@ -137,12 +150,14 @@ test('the owner’s Dunkin’ card: Food Truck ticked → under Food Truck; home
     .flatMap((f) => f.tiles)
     .filter((t) => t.vendors.some((v) => v.vendorId === 'v-dunkin'))
     .map((t) => t.tile);
-  assert.deepEqual(holding.sort(), ['everything_else', 'food_truck', 'massage_chair']);
+  assert.deepEqual(holding.sort(), ['everything_else', 'food_cart', 'massage_chair']);
 });
 
 test('4 · a stored plan-group key reads the row it always did, and the sheet keeps it byte-for-byte', () => {
   for (const g of PLAN_GROUPS) {
-    assert.equal(tileForCover(g.id), tileForPlanGroup(g.id), `${g.id} moved rows`);
+    // A group that opens on a folded tile reads the row that tile folded into (taxonomy v2).
+    const t = tileForPlanGroup(g.id);
+    assert.equal(tileForCover(g.id), t ? (MERGED_TILE_INTO[t] ?? t) : null, `${g.id} moved rows`);
   }
   // Two legacy keys on one row, one key that names no row, and the own row.
   const { byTile, unplaced } = coversByRow(

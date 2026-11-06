@@ -6,6 +6,7 @@ import { createAdminClient } from './supabase/admin';
 import { type WeddingFolder, type WeddingTile } from './taxonomy';
 import { getTaxonomy, type TaxonomySnapshot } from './taxonomy-db';
 import { fallbackSnapshot } from './taxonomy-snapshot';
+import { resolveMergedTile } from './tile-merge-forward';
 import type { VendorPublicVisibility } from './vendor-visibility';
 
 /**
@@ -219,6 +220,12 @@ export type VendorPreviewRow = {
 export type CanonicalBuckets = {
   byFolder: Map<WeddingFolder, string[]>;
   byTile: Map<WeddingTile, string[]>;
+  /**
+   * Folded tile → the tile it now lives on (`TaxonomySnapshot.tileForward`). A folded tile holds
+   * no services of its own; `servicesInTile` follows this so an old id (a plan group's
+   * `catalogTile`, an inspiration part's trade, a bookmarked link) reads its replacement's shelf.
+   */
+  tileForward?: Record<string, string>;
 };
 
 /**
@@ -257,7 +264,7 @@ export function deriveBuckets(tax: TaxonomySnapshot): CanonicalBuckets {
       }
     }
   }
-  return { byFolder, byTile };
+  return { byFolder, byTile, tileForward: tax.tileForward };
 }
 
 /** Live canonical→folder / canonical→tile buckets from the DB snapshot (fallback-safe). Cached per request. */
@@ -269,7 +276,11 @@ export const getCanonicalBuckets = cache(async (): Promise<CanonicalBuckets> => 
  * must still resolve.
  */
 export function servicesInTile(buckets: CanonicalBuckets, tile: string): string[] {
-  return buckets.byTile.get(tile as WeddingTile) ?? [];
+  const own = buckets.byTile.get(tile as WeddingTile);
+  if (own) return own;
+  // A folded category (taxonomy v2) is a tombstone with no services — read the one it folded into.
+  const live = resolveMergedTile(tile, buckets.tileForward);
+  return live === tile ? [] : (buckets.byTile.get(live as WeddingTile) ?? []);
 }
 
 /** The marketplace-visible services under a folder (group), cross-listings included. */

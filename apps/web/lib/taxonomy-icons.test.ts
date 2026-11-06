@@ -37,7 +37,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { TILE_PARENT, WEDDING_FOLDER_ORDER, WEDDING_TILE_ORDER } from './taxonomy';
+import { MERGED_TILE_INTO, TILE_PARENT, WEDDING_FOLDER_ORDER, WEDDING_TILE_ORDER } from './taxonomy';
 import { passesEventTypeFilter } from './taxonomy-filters';
 import { ANCHOR_BY_TYPE } from './event-anchor';
 import {
@@ -72,8 +72,11 @@ test('every taxonomy TILE has a Lucide icon (no iconless leaf row)', () => {
 test('the icon maps cover the taxonomy exactly — no orphan keys', () => {
   // Guards the other direction: a tile renamed in taxonomy.ts but left behind
   // in the icon map is dead weight that hides the fact the NEW name has none.
+  // A FOLDED tile (taxonomy v2, MERGED_TILE_INTO) is out of the order but still a WeddingTile — an
+  // old id keeps resolving, and the Record is exhaustive over the union — so it is not an orphan.
+  // Anything else outside the order still is.
   const tileOrder = new Set<string>(WEDDING_TILE_ORDER);
-  const orphanTiles = Object.keys(WEDDING_TILE_ICON).filter((k) => !tileOrder.has(k));
+  const orphanTiles = Object.keys(WEDDING_TILE_ICON).filter((k) => !tileOrder.has(k) && !(k in MERGED_TILE_INTO));
   assert.deepEqual(orphanTiles, [], `icon keys not in WEDDING_TILE_ORDER: ${orphanTiles.join(', ')}`);
 
   const folderOrder = new Set<string>(WEDDING_FOLDER_ORDER);

@@ -318,14 +318,23 @@ export function coverKeyForTile(tile: string): string {
   return planGroupForTile(tile) ?? `${COVER_TILE_PREFIX}${tile}`;
 }
 
-/** The Suppliers-page row a stored cover key draws the card under, or null. */
+/**
+ * The Suppliers-page row a stored cover key draws the card under, or null.
+ *
+ * ⚖ TAXONOMY V2 (2026-11-06): a stored key may name a FOLDED row — production held
+ * `tile:mocktail` ×2 and `tile:stations` ×1 on the day of the fold, and a plan group may still
+ * open on a folded tile (`ceremony` → `ceremony_venue`). A folded row is drawn nowhere, so the
+ * card would silently leave the bench; it is drawn under the row it folded into instead. The
+ * stored key itself is untouched (the sheet keeps it byte-for-byte).
+ */
 export function tileForCover(key: string): WeddingTile | null {
   if (typeof key !== 'string' || key.length === 0) return null;
   if (key.startsWith(COVER_TILE_PREFIX)) {
     const t = key.slice(COVER_TILE_PREFIX.length);
-    return t.length > 0 ? (t as WeddingTile) : null;
+    return t.length > 0 ? liveTileOf(t as WeddingTile) : null;
   }
-  return tileForPlanGroup(key);
+  const t = tileForPlanGroup(key);
+  return t ? liveTileOf(t) : null;
 }
 
 /** The plan group a stored cover key means for the Budget readers, or null. */

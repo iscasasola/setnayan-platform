@@ -205,16 +205,18 @@ test('a merged tile leaves tileOrder + tilesByParent but still resolves', () => 
 });
 
 test('a couple-side category anchored on a MERGED tile is not reported as drift', () => {
-  const rows: CategoryRow[] = [cat('program', 1, null), cat('live_band', 2, 'program')];
+  // Taxonomy v2 re-anchored every couple-side category on a LIVE tile (band_dj no longer names
+  // `dj`), so the witness is built here: host_emcee anchors on `host_mc`; fold host_mc away.
+  const rows: CategoryRow[] = [cat('program', 1, null), cat('performers', 2, 'program')];
   const merged = snapshotFromRows(
-    [...rows, cat('dj', 2, 'program', { merged_into_category_id: 'live_band' })],
-    [mapRow('band_live_music', 'live_band')],
+    [...rows, cat('host_mc', 2, 'program', { merged_into_category_id: 'performers' })],
+    [mapRow('performers', 'performers')],
   );
-  const deleted = snapshotFromRows(rows, [mapRow('band_live_music', 'live_band')]);
+  const deleted = snapshotFromRows(rows, [mapRow('performers', 'performers')]);
   const driftOn = (t: typeof merged) =>
-    validateVendorCategoryMapping(t).find((d) => d.category === 'band_dj')?.missingTiles ?? [];
-  assert.ok(!driftOn(merged).includes('dj' as never), 'dj forwards to live_band — band_dj is still anchored');
-  assert.ok(driftOn(deleted).includes('dj' as never), 'control: a DELETED dj tile is still drift');
+    validateVendorCategoryMapping(t).find((d) => d.category === 'host_emcee')?.missingTiles ?? [];
+  assert.ok(!driftOn(merged).includes('host_mc' as never), 'host_mc forwards to performers — host_emcee is still anchored');
+  assert.ok(driftOn(deleted).includes('host_mc' as never), 'control: a DELETED host_mc tile is still drift');
 });
 
 // ── 11 · THE READERS ARE WIRED ─────────────────────────────────────────────

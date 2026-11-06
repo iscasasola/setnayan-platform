@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 
 import {
   ADMIN_ONLY_TILES,
+  MERGED_TILE_INTO,
   TAXONOMY_MAP,
   TILE_PARENT,
   WEDDING_FAITH_KEYS,
@@ -101,10 +102,12 @@ test('fallback snapshot: empty icon/photo maps, source=fallback, hidden = the ad
   // promoted to ordinary visible ones. Now asserted in BOTH directions against
   // the set itself, so the fallback and `ADMIN_ONLY_TILES` cannot drift apart
   // and a fifth admin-only tile needs no edit here.
+  // Taxonomy v2 (2026-11-06): a FOLDED tile is hidden too — exactly as `snapshotFromRows` hides a
+  // row carrying `merged_into_category_id` — so the set is the admin-only tiles + the folded ones.
   assert.deepEqual(
     Object.keys(snap.hiddenCategories).sort(),
-    [...ADMIN_ONLY_TILES].sort(),
-    'fallback hiddenCategories must be exactly the admin-only tiles',
+    [...ADMIN_ONLY_TILES, ...Object.keys(MERGED_TILE_INTO)].sort(),
+    'fallback hiddenCategories must be exactly the admin-only tiles and the folded tiles',
   );
   for (const tile of ADMIN_ONLY_TILES) {
     assert.equal(snap.hiddenCategories[tile], true, `${tile} must be flagged hidden in the fallback`);

@@ -286,7 +286,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     monthsBefore: 1,
     catalogFolder: 'feast',
     catalogTile: 'crew_meals',
-    subcategoryHint: 'crew_meal_supply',
+    // Taxonomy v2 (2026-11-06): Crew meal supply is now Catering › Service: Crew meals — the old key is a merged tombstone.
+    subcategoryHint: 'catering',
   },
   {
     id: 'photography',
@@ -373,7 +374,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     monthsBefore: 6,
     catalogFolder: 'program',
     catalogTile: 'live_band',
-    subcategoryHint: 'live_band',
+    // Taxonomy v2 (2026-11-06): Live band is now Live music › Act: Full band — the old key is a merged tombstone.
+    subcategoryHint: 'band_live_music',
     countsTowardLockable: false,
   },
   {
@@ -568,7 +570,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     monthsBefore: 3,
     catalogFolder: 'look',
     catalogTile: 'jewelleries_accessories',
-    subcategoryHint: 'wedding_ring',
+    // Taxonomy v2 (2026-11-06): Wedding ring is now Jewellery & rings › Item: Wedding bands — the old key is a merged tombstone.
+    subcategoryHint: 'bridal_jewellery',
   },
   {
     id: 'accommodation',

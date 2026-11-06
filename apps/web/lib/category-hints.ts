@@ -47,6 +47,11 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
     "Sound, lights, LED wall, mics — so every speech lands in the back row. Ask your venue what is in-house before you rent.",
   event_medic:
     "A nurse or paramedic quietly on standby at outdoor, sports, or large events. Many venues and tournaments require one.",
+  // Taxonomy v2 (2026-11-06) — the two new categories.
+  event_staffing:
+    "Security marshals, ushers, registration and ticketing desks, a clean-up crew — the people who keep the day running. Book once your headcount is firm.",
+  prayers:
+    "A prayer leader for the wake, the nine nights of novena, or a death anniversary. Ask which prayers they lead and which nights they can come.",
   everything_else:
     "Someone you added yourself whose trade we could not place. They stay here so you can still see them, price them and book them.",
   tour_activity:

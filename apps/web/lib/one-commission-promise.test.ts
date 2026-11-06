@@ -38,16 +38,13 @@ const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) ??
 
 /**
  * Surfaces a SUPPLIER reads. Each must name the booking fee wherever it names
- * commission — through the shared module, or (for `/pricing` and
- * `vendor-grow-sections`, which said both sentences before this module existed)
- * in their own already-correct prose.
+ * commission — through the shared module, or (for `/pricing`, which said both
+ * sentences before this module existed) in its own already-correct prose.
  */
 const SUPPLIER_SURFACES = [
-  'app/for-suppliers/_components/vendor-grow-hero.tsx',
-  'app/for-suppliers/_components/vendor-tier-matrix.tsx',
-  'app/for-suppliers/_components/vendor-tier-deltas.tsx',
-  'app/for-suppliers/_components/vendor-grow-sections.tsx',
   'app/vendor/claim/[token]/page.tsx',
+  // …and the parts it draws, where the commission perk is rendered.
+  'app/vendor/claim/[token]/_components/claim-parts.tsx',
   'app/_components/home/HomeOverlays.tsx',
   'app/_components/home/vendor-benefits.ts',
   'app/_components/frontdoor/front-door-feed.tsx',
@@ -66,11 +63,22 @@ const SUPPLIER_SURFACES = [
   // its `_components/`) was never on this list; llms.txt said "no per-lead fee,
   // no listing fee, 0% commission" in five places and never once named the fee.
   'app/(shell)/for-suppliers/page.tsx',
-  // The approved page of 2026-11-06 — what /for-suppliers draws now.
+  // The approved page of 2026-11-06 — what /for-suppliers draws now. It
+  // replaced vendor-grow-hero/-sections and vendor-tier-matrix/-deltas, which
+  // were deleted, so these three files carry the page's commission words.
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-front-data.ts',
   'lib/llms-txt.ts',
 ];
+
+/**
+ * Does this source make the zero-commission claim? The approved /for-suppliers
+ * page (2026-11-06) words it as "Setnayan never takes a cut of the deal" — the
+ * same promise without the word, so it is read as the claim too and owes the
+ * fee sentence like every other wording.
+ */
+const MAKES_THE_CLAIM = /commission|never takes a cut/i;
 
 /** Does this source name the booking fee at all — derived or in prose? */
 function namesTheFee(src: string): boolean {
@@ -85,7 +93,7 @@ function namesTheFee(src: string): boolean {
 test('every supplier surface that says "commission" also says what the fee is', () => {
   for (const f of SUPPLIER_SURFACES) {
     const src = readCode(f);
-    if (!/commission/i.test(src)) continue; // said nothing, owes nothing
+    if (!MAKES_THE_CLAIM.test(src)) continue; // said nothing, owes nothing
     assert.ok(
       namesTheFee(src),
       `${f}: tells a supplier there is no commission and never mentions the booking fee — the ruling is that both sentences are true at once, but ONLY if the second one is actually said`,
@@ -167,7 +175,7 @@ test('a help topic couples read never names the supplier fee; a supplier-only on
 test('the supplier list still covers what it claims to', () => {
   assert.ok(SUPPLIER_SURFACES.length >= 13, 'floored: a shrinking list guards less while looking the same');
   let saying = 0;
-  for (const f of SUPPLIER_SURFACES) if (/commission/i.test(readCode(f))) saying += 1;
+  for (const f of SUPPLIER_SURFACES) if (MAKES_THE_CLAIM.test(readCode(f))) saying += 1;
   assert.ok(
     saying >= 10,
     `only ${saying} of the listed surfaces still mention commission — if the claim moved, this list is pointed at the wrong files`,

@@ -9,17 +9,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { shopConsolePath } from '@/lib/shop-console-path';
-import { inviteLinkHref, INVITE_LINK_PATH } from './_components/vendor-grow-sections';
 
-test('"Get your invite link" goes to the invite page for a supplier, and through /open-shop for everyone else', () => {
-  assert.equal(inviteLinkHref(true), INVITE_LINK_PATH);
-  // 📣 Shop › Promote since 2026-11-05 — the Shortlist invite code moved there from Customers › QR codes.
-  assert.equal(INVITE_LINK_PATH, '/vendor-dashboard/shop/promote');
-  const href = inviteLinkHref(false);
+/*
+ * The invite page itself. Until 2026-11-06 this file also pinned `inviteLinkHref` / `INVITE_LINK_PATH`, which lived in
+ * `_components/vendor-grow-sections.tsx` — the old page's "Get your invite link" button. The approved page replaced that
+ * section and the file was deleted with it (it had no importer left), so the button half of the promise no longer
+ * exists on the page; the second test below holds that it does not come back unwired. What still exists is /open-shop
+ * carrying a supplier on to the invite page when it is asked to, and that is kept.
+ */
+const INVITE_PAGE = '/vendor-dashboard/shop/promote';
+
+test('/open-shop still carries a supplier on to the invite page when asked to', () => {
+  const href = `/open-shop?next=${encodeURIComponent(INVITE_PAGE)}`;
   assert.equal(href, '/open-shop?next=%2Fvendor-dashboard%2Fshop%2Fpromote');
-  // …and /open-shop accepts exactly that next.
   const next = new URL(href, 'https://x.invalid').searchParams.get('next');
-  assert.equal(shopConsolePath(next), INVITE_LINK_PATH);
+  assert.equal(shopConsolePath(next), INVITE_PAGE);
 });
 
 /*

@@ -17,7 +17,7 @@
  *
  * SABOTAGE (run 2026-11-04, see the PR): put '/for-suppliers' back in
  * NAV_ROUTES → RED; move page.tsx back to app/for-suppliers/ → RED; import
- * SiteChrome into vendor-grow-hero.tsx → RED; drop it from
+ * SiteChrome into supplier-front-page.tsx → RED; drop it from
  * DOORWAY_BLEED_PATHS → RED.
  */
 import { test } from 'node:test';
@@ -73,7 +73,7 @@ test('nothing on the page mounts a chrome of its own', () => {
   };
   walk(join(SECTIONS, '_components'));
   assert.ok(
-    files.some((f) => f.endsWith('vendor-grow-sections.tsx')),
+    files.some((f) => f.endsWith('supplier-front-page.tsx')),
     'anti-vacuity: the sections were not walked',
   );
 

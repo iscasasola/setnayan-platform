@@ -162,9 +162,10 @@ export async function saveBookingFeeSchedule(
   // (Written without the literal call: lint-vendor-layout-revalidate.mjs scans raw
   // source and does not strip comments, so quoting it here re-trips the guard.)
   //
-  // Measured, not assumed: the only component that renders the SCHEDULE in words is
-  // app/for-suppliers/_components/vendor-tier-deltas.tsx, and it is mounted on /for-suppliers
-  // ALONE — so the line below covers the entire public claim. Nothing under
+  // Measured, not assumed: the only public component that renders the SCHEDULE in words is
+  // app/for-suppliers/_components/supplier-front-page.tsx (the approved page of 2026-11-06,
+  // which replaced vendor-tier-deltas.tsx), and it is mounted on /for-suppliers ALONE (plus the
+  // /dev lab, which is not public) — so the line below covers the entire public claim. Nothing under
   // /vendor-dashboard renders the schedule; the fee figures there are per-order
   // amounts already computed and stored at charge time, which a reprice does not
   // move. (booking-fees/page.tsx quotes "5% … then 1%" in a DOCBLOCK, not in JSX.)

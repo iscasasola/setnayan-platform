@@ -32,9 +32,9 @@ import { readFileSync } from 'node:fs';
 const SWEPT_FILES = [
   '../app/_components/home/vendor-benefits.ts',
   '../app/vendor-dashboard/booking-fees/page.tsx',
-  '../app/for-suppliers/_components/vendor-grow-sections.tsx',
-  '../app/for-suppliers/_components/vendor-tier-matrix.tsx',
   '../app/(shell)/for-suppliers/page.tsx',
+  // The approved page of 2026-11-06 — it replaced vendor-grow-sections.tsx and
+  // vendor-tier-matrix.tsx (both deleted) and now carries the page's fee sentence.
   '../app/for-suppliers/_components/supplier-front-page.tsx',
   './booking-fee-lock.ts',
 ] as const;

@@ -18,6 +18,11 @@
  * SABOTAGE (run 2026-11-04): hand-type "5% up to ₱100,000" into
  * booking-fee-line.tsx → RED; drop the minimum from the ⓘ → RED; put the old
  * "only on couples we source" back in vendor-grow-sections.tsx → RED.
+ * (2026-11-06: vendor-grow-sections.tsx and vendor-tier-deltas.tsx were deleted
+ * with the old /for-suppliers page. The approved page says the fee in its own
+ * approved sentence, placed by `bookingFeeFigures` and held by
+ * `app/for-suppliers/supplier-front-reads-its-numbers.test.ts`; here it is held
+ * to never say the OLD sentence.)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,6 +40,14 @@ import { FIRST_BOOKING_FREE, FREE_BOOKING_LIMIT } from './booking-fee-lock';
 
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+
+/** The approved /for-suppliers page of 2026-11-06 — the files that draw it. */
+const FOR_SUPPLIERS = [
+  'app/(shell)/for-suppliers/page.tsx',
+  'app/for-suppliers/_components/supplier-front-page.tsx',
+  'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-front-data.ts',
+] as const;
 
 test('the bands line and the minimum render the CURRENT schedule in the owner’s words', () => {
   assert.equal(bookingFeeBandsLine(BOOKING_FEE), '5% up to ₱100,000, 1% above');
@@ -74,25 +87,20 @@ test('<BookingFeeLine> derives every number and keeps the minimum behind its ⓘ
 });
 
 test('every surface that drew the old sentence draws the one line', () => {
-  for (const rel of [
-    'app/for-suppliers/_components/vendor-grow-sections.tsx',
-    'app/for-suppliers/_components/vendor-tier-deltas.tsx',
-    'app/vendor-dashboard/booking-fees/page.tsx',
-  ]) {
+  const OLD_SENTENCE = /first booking from Setnayan is on us|FIRST_BOOKING_ON_US_CLAUSE\} — after that/;
+  for (const rel of ['app/vendor-dashboard/booking-fees/page.tsx']) {
     const src = code(rel);
     assert.match(src, /<BookingFeeLine\b/, `${rel} does not draw <BookingFeeLine>`);
-    assert.doesNotMatch(
-      src,
-      /first booking from Setnayan is on us|FIRST_BOOKING_ON_US_CLAUSE\} — after that/,
-      `${rel} still says the old fee sentence`,
-    );
+    assert.doesNotMatch(src, OLD_SENTENCE, `${rel} still says the old fee sentence`);
+  }
+  // The approved /for-suppliers page (2026-11-06) replaced the two old page
+  // sections that drew <BookingFeeLine>; it places the live figures in its own
+  // approved sentence instead. It must never say the old one.
+  for (const rel of FOR_SUPPLIERS) {
+    assert.doesNotMatch(code(rel), OLD_SENTENCE, `${rel} still says the old fee sentence`);
   }
   // The old wording's tail is gone from every surface.
-  for (const rel of [
-    'app/for-suppliers/_components/vendor-grow-sections.tsx',
-    'app/for-suppliers/_components/vendor-tier-deltas.tsx',
-    'app/_components/frontdoor/front-door-feed.tsx',
-  ]) {
+  for (const rel of [...FOR_SUPPLIERS, 'app/_components/frontdoor/front-door-feed.tsx']) {
     assert.doesNotMatch(code(rel), /only on couples we source/, `${rel} still says "only on couples we source"`);
   }
 });

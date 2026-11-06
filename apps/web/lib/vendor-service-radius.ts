@@ -83,7 +83,7 @@ export function normalizeRadiusKm(value: unknown): number | null {
  * The tier's ceiling on the outer radius, in km.
  *
  * `tierCaps().serviceRadiusKm` is the SAME number the public plans page
- * advertises as "Service reach" (`vendor-tier-matrix.tsx`): free 0 · verified
+ * advertises as reach (`growSpec` in `supplier-front-data.ts`): free 0 · verified
  * 20 · solo 20 · pro 50 · enterprise 100 · custom 100. Under the inner/outer
  * model that number stops being a CLAIM about the vendor and becomes the CAP on
  * what the vendor may claim — which is what makes the published feature honest

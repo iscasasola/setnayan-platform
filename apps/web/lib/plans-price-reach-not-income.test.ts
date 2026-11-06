@@ -101,7 +101,7 @@ test('2a · no tier carries a bookings-a-day limit or a weekly answering limit',
 const CAP_READERS: Record<string, string> = {
   'lib/vendor-tier-caps.ts': 'the table itself',
   'lib/vendor-effective-caps.ts': 'carries the axis through the Custom overlay (max with the base, which is Infinity)',
-  'app/for-suppliers/_components/vendor-tier-deltas.tsx': 'display — the base rung says "You set it" / "No limit" once',
+  // (vendor-tier-deltas.tsx, which displayed both caps on /for-suppliers, was deleted 2026-11-06 with the old page.)
 };
 
 test('2b · no shipped code reads the per-day or weekly cap to refuse anything', () => {

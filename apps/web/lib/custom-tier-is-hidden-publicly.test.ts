@@ -38,11 +38,17 @@ const WEB = join(HERE, '..');
 const strip = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
-const MATRIX = strip(
-  readFileSync(join(WEB, 'app/for-suppliers/_components/vendor-tier-matrix.tsx'), 'utf8'),
-);
-const DELTAS = strip(
-  readFileSync(join(WEB, 'app/for-suppliers/_components/vendor-tier-deltas.tsx'), 'utf8'),
+// /for-suppliers is the owner-approved page of 2026-11-06. It replaced the old
+// tier matrix + deltas (vendor-tier-matrix.tsx / vendor-tier-deltas.tsx, both
+// deleted), which were two of this file's four render sites. The new page draws
+// its plans from these three files.
+const SUPPLIER_PAGE_FILES = [
+  'app/for-suppliers/_components/supplier-front-page.tsx',
+  'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-front-data.ts',
+] as const;
+const SUPPLIER_PAGE = SUPPLIER_PAGE_FILES.map(
+  (rel) => [rel, strip(readFileSync(join(WEB, rel), 'utf8'))] as const,
 );
 const OVERLAY = strip(
   readFileSync(join(WEB, 'app/_components/home/HomeOverlays.tsx'), 'utf8'),
@@ -92,31 +98,33 @@ test('THE TRAP: the public benefit count excludes Custom while Custom is hidden'
   }
 });
 
-test('all four public render sites are gated on the one flag', () => {
-  // 🔑 FOUR, NOT THREE. `/vendors` quotes a Custom figure in TWO places — the
-  // matrix column AND a separate dark "beyond Enterprise" band lower down. An
-  // earlier survey of this page listed only the column; hiding just that one
-  // would have left the price on the page.
-  const matrixGates = MATRIX.split('CUSTOM_TIER_OFFERED_PUBLICLY').length - 1;
-  assert.ok(
-    matrixGates >= 3,
-    `the matrix has ${matrixGates} references to the flag — expected 3 ` +
-      '(the column list, the "Custom adds" group, and the beyond-Enterprise band)',
+test('every public render site is gated on the one flag', () => {
+  // The old /vendors page quoted a Custom figure in TWO places (the matrix
+  // column and a "beyond Enterprise" band), each gated on the flag. The
+  // approved /for-suppliers page that replaced it (2026-11-06) shows only the
+  // three public paid plans — its Grow step is `GROW_TIERS`. Pin that, so a
+  // fourth (Custom) step cannot be added to the page without the flag.
+  const data = SUPPLIER_PAGE.find(([rel]) => rel.endsWith('supplier-front-data.ts'))![1];
+  assert.match(
+    data,
+    /export const GROW_TIERS = \['solo', 'pro', 'enterprise'\] as const;/,
+    'the /for-suppliers Grow step no longer lists exactly Solo · Pro · Ultra — if Custom ' +
+      'was added, it must be gated on CUSTOM_TIER_OFFERED_PUBLICLY',
   );
-  assert.match(DELTAS, /CUSTOM_TIER_OFFERED_PUBLICLY \? \(/, 'the deltas Custom card is not gated');
   assert.match(OVERLAY, /CUSTOM_TIER_OFFERED_PUBLICLY/, 'the overlay count is not gated');
 });
 
 test('no public surface quotes a Custom price while it is hidden', () => {
-  // Every `prices.customFrom` render must sit behind the flag. This catches a
-  // NEW public site being added without one.
-  for (const [name, src] of [['matrix', MATRIX], ['deltas', DELTAS]] as const) {
-    const uses = src.split('prices.customFrom').length - 1;
+  // Every Custom price or Custom dial render must sit behind the flag. This
+  // catches a NEW public site being added without one.
+  for (const [name, src] of SUPPLIER_PAGE) {
+    const uses =
+      src.split('customFrom').length - 1 + (src.split('VENDOR_CUSTOM_TIER').length - 1);
     if (uses === 0) continue;
     assert.match(
       src,
       /CUSTOM_TIER_OFFERED_PUBLICLY/,
-      `${name} renders prices.customFrom with no flag in the file`,
+      `${name} renders a Custom price or dial with no flag in the file`,
     );
   }
 });

@@ -26,12 +26,9 @@ const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const PAGE_FILES = [
-  'app/for-suppliers/_components/vendor-grow-sections.tsx',
-  'app/for-suppliers/_components/vendor-grow-hero.tsx',
-  'app/for-suppliers/_components/vendor-tier-deltas.tsx',
-  'app/for-suppliers/_components/vendor-tier-matrix.tsx',
   'app/_components/home/vendor-benefits.ts',
-  // The approved page of 2026-11-06 — what /for-suppliers draws now.
+  // The approved page of 2026-11-06 — what /for-suppliers draws now (the old
+  // vendor-grow-* / vendor-tier-* sections it replaced were deleted).
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
   'app/for-suppliers/_components/supplier-front-data.ts',

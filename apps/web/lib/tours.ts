@@ -1243,27 +1243,36 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_event_menu_v1: {
     key: 'customer_event_menu_v1',
     label: 'Your event menu',
-    blurb: 'The four places that hold everything for an event — the same on phone and laptop.',
+    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    /* 🗺 Re-worded 2026-11-06 for the event-menu reorganisation (DECISION_LOG 2026-10-28 "EACH REORG MOVE UPDATES ITS
+       OWN ⓘ, TOURS AND 'WHERE TO FIND IT' — ONE SWEEP AFTER THE LAST MOVE"): Memories is the fifth tab (23 Oct); the
+       Schedule and Budget are Home's pages (1–2 Nov); Guests = List · Map · Seats · March with replies in its ⚙ (R1 ·
+       R4); Find holds the inspiration board (R5); Studio is look and words only; the Thank-You Video is in Memories (R3). */
     slides: [
       {
         Icon: Sparkles,
-        title: 'Four places for your whole event',
-        body: 'Home, Guests, Suppliers and Hub. The same four sit at the bottom of your phone and down the side of your laptop.',
+        title: 'Five places for your whole event',
+        body: 'Home, Guests, Suppliers, Hub and Memories. The same five sit at the bottom of your phone and down the side of your laptop.',
       },
       {
         Icon: Users,
         title: 'Guests',
-        body: 'Your guests, your hosts and, on the day, check-in. Switch between them from the menu at the top of the page.',
+        body: 'Your list, its map, the seat plan and the march — pick one from the top of the page. How guests reply is under its ⚙.',
       },
       {
         Icon: Briefcase,
         title: 'Suppliers',
-        body: 'The suppliers you book and your budget, in one place.',
+        body: 'Find, build and book your suppliers. Your inspiration board sits on top of Find.',
       },
       {
         Icon: Wand2,
         title: 'Hub',
-        body: 'Where you make your Event Hub and its invitation. Names, date, schedule, mood board and logo are all in its Details. Your prints open from Home.',
+        body: 'Where you make your Event Hub and its invitation. Its Studio holds the look and the words — logo, palette and dress code, love story. Your schedule, budget and prints open from Home.',
+      },
+      {
+        Icon: Images,
+        title: 'Memories',
+        body: 'Every photo and clip from your event in one place — and your Thank-You Video.',
       },
       {
         Icon: Camera,

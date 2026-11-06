@@ -2,6 +2,7 @@ import { sampleShowcaseNote } from '@/lib/a-sample-says-what-it-is';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import { SampleMarker } from '@/app/_components/sample-marker';
 import { EditorialContent } from '@/app/[slug]/_components/editorial/editorial-content';
 import { SAMPLE_EDITORIAL_IDS } from '@/app/[slug]/_components/editorial/data';
 import {
@@ -284,11 +285,8 @@ export default async function WeddingShowcasePage({ params }: Props) {
             Stories
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            {wedding.isSample ? (
-              <span className="rounded-full border border-ink/15 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/55">
-                Sample showcase
-              </span>
-            ) : null}
+            {/* The ONE sample marker (app/_components/sample-marker.tsx) — the demo shops wear this same chip. */}
+            {wedding.isSample ? <SampleMarker>Sample showcase</SampleMarker> : null}
           </div>
         </div>
       </div>

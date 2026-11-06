@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7163
+# facts: 7164
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     597
-#   col       5197
+#   col       5198
 #   policy    1046
 #   view      9
 #   func      310
@@ -2644,6 +2644,7 @@ col	public.guest_saved_vendors.saved_at	anon=SIU authenticated=SIU
 col	public.guest_saved_vendors.source_event_id	anon=SIU authenticated=SIU
 col	public.guest_saved_vendors.user_id	anon=SIU authenticated=SIU
 col	public.guest_saved_vendors.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.guest_saved_vendors.vendor_service_id	anon=SIU authenticated=SIU
 col	public.guest_souvenir_claims.claim_id	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.claimed_at	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.claimed_by_user_id	anon=- authenticated=SIU
@@ -4187,6 +4188,7 @@ col	public.shop_gift_stock_entries.note	anon=- authenticated=S
 col	public.shop_gift_stock_entries.order_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
 col	public.shop_gift_stock_entries.vendor_profile_id	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.clips	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.created_at	anon=- authenticated=S

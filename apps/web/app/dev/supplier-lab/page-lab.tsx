@@ -50,6 +50,14 @@ import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
+import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review-replies';
+import type { ReviewWithCouple } from '@/lib/reviews';
+
+/** 💬 The lab's two reviews for Page › Reviews and stories' reply-in-place list — one waiting, one answered. */
+const LAB_REVIEWS: ReviewWithCouple[] = [
+  { review_id: 'r1', public_id: 'S89R-LAB0000001', vendor_profile_id: 'lab', event_id: null, couple_user_id: null, rating_overall: 5, rating_communication: 5, rating_quality: 5, rating_value: 4, rating_on_time: 5, body: 'Beautiful ceremony, very organised.', vendor_reply: null, vendor_reply_at: null, created_at: '2026-10-20T08:00:00Z', booked_through_setnayan: true, via_vendor_import: false, couple_display_name: 'Reyes' },
+  { review_id: 'r2', public_id: 'S89R-LAB0000002', vendor_profile_id: 'lab', event_id: null, couple_user_id: null, rating_overall: 4, rating_communication: 4, rating_quality: 5, rating_value: 4, rating_on_time: 4, body: 'They caught moments we never saw.', vendor_reply: 'Thank you — it was a joy to be there.', vendor_reply_at: '2026-10-02T08:00:00Z', created_at: '2026-10-01T08:00:00Z', booked_through_setnayan: false, via_vendor_import: true, couple_display_name: 'Cruz' },
+];
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers', 'services', 'analytics'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -747,6 +755,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
               initialAutoAcceptThreshold={80}
             />
           }
+          reviewsBody={<ReviewReplies reviews={fail ? null : LAB_REVIEWS} vendorName={d.businessName} capped={false} />}
         />
       </section>
     );

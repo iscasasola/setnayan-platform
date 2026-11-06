@@ -52,6 +52,7 @@
  *   &chapters=none|fail 📍 Where: no chapter yet · the Schedule read refused (`LAB_CHAPTERS` otherwise)
  *   &covers=1           📍 …and Seda's in-house Cake (Reception only) and Catering (follows Seda) under its Where
  *   &wherefail=1        📍 a tick in a Where dropdown is refused (said in place, the ticks go back)
+ *   &favorites=1        ♡ after the day: the host's heart on each booked row with a shop (owner 2026-11-06)
  *   &date=set|conflict  the date banner under "Cover your event": a settled date (the calm header draws NO banner for it
  *                       — owner 2026-10-26; "free that day" is in the ⓘ) · a build with no shared day (still a banner)
  *
@@ -214,6 +215,7 @@ export default async function SuppliersLabPage({
     today: one('today') ?? null,
     callTimesFail: one('calltimes') === 'fail',
     ask: one('ask') === '1',
+    favorites: one('favorites') === '1',
     chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,
     covers: one('covers') === '1',
   };

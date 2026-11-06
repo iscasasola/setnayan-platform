@@ -22,7 +22,7 @@ import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
-import { customerLandingHref } from './customers/anchors';
+import { SUPPLIER_CHATS_HREF } from './customers/anchors';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -499,8 +499,9 @@ export default async function VendorDashboardLayout({
         page: … envelope (unread badge) · avatar"). The SAME live badge the
         couple's event bar carries (`UnreadMessagesBadge`, not a second one),
         seeded from the `countUnreadMessages` read this layout already makes
-        for the phone bar — no new query. It lands on the inbox through the
-        anchors table, never the bare stub.
+        for the phone bar — no new query. It lands on CHATS, the supplier's
+        full-screen inbox (`SUPPLIER_CHATS_HREF`, owner 2026-11-06: "Why is it
+        still jumping to customer events") — never Customers › Events again.
 
         🔔 THE BELL STAYS BESIDE IT FOR NOW. The redesign's shell draws the
         envelope and the avatar only, and files the notification list under
@@ -512,7 +513,7 @@ export default async function VendorDashboardLayout({
       <UnreadMessagesBadge
         userId={user.id}
         initialUnread={threadsUnread}
-        href={customerLandingHref('messages')}
+        href={SUPPLIER_CHATS_HREF}
         tour="supplier-messages"
       />
       <UnreadBellBadge

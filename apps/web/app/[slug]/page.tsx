@@ -192,6 +192,7 @@ import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
+import { readCheckedInEvents, readOwnFavoriteKeys } from '@/lib/favorites.server';
 
 /* 🗄 THIS ROUTE IS THE LIVE RENDER — AND IT ALWAYS WAS (EV1, 2026-10-28).
 
@@ -2325,9 +2326,26 @@ async function invitationBody({
                 }
               : null;
 
+  /* ♡ FAVORITES AFTER AN EVENT (owner 2026-11-06, prototype §F): only a guest the app can place at the event — a
+     door check-in on THEIR OWN guest row — may keep the services that made the day. Read only for a signed-in viewer,
+     once the day has come, and only when there is a supplier to keep. The press re-checks all of it on the server. */
+  const hubFavorites =
+    viewerAccount && !viewerAccount.is_anonymous && eventVendorCredits.length > 0 &&
+    Boolean(event.event_date) && String(event.event_date).slice(0, 10) <= manilaToday()
+      ? await Promise.all([
+          readCheckedInEvents(admin, viewerAccount.id, [event.event_id]),
+          readOwnFavoriteKeys(admin, viewerAccount.id, eventVendorCredits.map((c) => c.vendorProfileId)),
+        ]).then(([checked, kept]) => ({
+          door: checked === null ? ('unread' as const) : checked.has(event.event_id) ? ('open' as const) : ('closed' as const),
+          kept: kept ? [...kept] : [],
+        }))
+      : null;
+
   const saveFlash =
     search.save === 'ok'
-      ? 'Saved to your account — find it in your Library for your own plans.'
+      ? 'Added to your favorites — find it in your Library for your own plans.'
+      : search.save === 'not_there'
+        ? 'Favorites open for guests who checked in at the door.'
       : search.save === 'needs_account'
         ? 'Make a free account (the box above) to save suppliers for your future plans.'
         : search.save === 'error'
@@ -2664,6 +2682,7 @@ async function invitationBody({
           showClaimAccountCta: !viewerAccount,
           account,
           eventVendorCredits,
+          hubFavorites,
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,

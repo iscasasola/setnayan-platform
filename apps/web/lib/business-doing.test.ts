@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine, unmeasuredStats } from './business-doing';
 import { buildVendorHealthComposite, unmeasuredVendorHealthComposite } from './vendor-health-composite';
+import { stripComments } from './strip-comments';
 
 test('the sentence: counts when found, a next step when not', () => {
   assert.deepEqual(businessSentence({ views: 48, inquiries: 6, booked: 2 }), { lead: '48 couples looked at you', rest: '6 asked · 2 booked' });
@@ -71,11 +72,6 @@ test('bars: relative to the busiest; none when nothing booked', () => {
  * because the page's own comment quotes the old line.
  */
 const PAGE = join(dirname(fileURLToPath(import.meta.url)), '../app/vendor-dashboard/performance/page.tsx');
-const stripComments = (src: string): string =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
 
 test('the Analytics page keeps the stats read’s refusal apart from a missing row', () => {
   const page = stripComments(readFileSync(PAGE, 'utf8'));

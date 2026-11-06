@@ -263,6 +263,47 @@ const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = 
         'text is the shipped invite message the share sheet already hands over. No shop, no contact field.',
     },
   ],
+  // ⤷ 2026-11-04 (owner, verbatim: "Guest card 1. Yes."): Call (tel:) and Viber call (viber://chat?number=) next to
+  // a guest's saved mobile — on the couple's guest card only. The test below holds that ONLY that card imports it.
+  [
+    'lib/guest-call-links.ts',
+    {
+      count: 2,
+      why:
+        'Call and Viber-call a GUEST from the couple\'s own guest card (owner 2026-11-04 "Guest card 1. Yes."): the ' +
+        'mobile the couple typed in themselves. Imported only by guest-call-buttons.tsx, mounted only by the guest ' +
+        'card (couple + coordinators with guest_list access) — never a guest-facing or public surface, never a shop.',
+    },
+  ],
+]);
+
+/**
+ * BOOKED_HANDOFF_BILL — Rule 1's SECOND, NARROWER exemption: a shop ↔ couple Call / Viber call, ONLY once that shop
+ * holds a confirmed booking on the event.
+ *
+ * Owner, 2026-11-04 (DECISION_LOG "SIX OWNER ANSWERS"), verbatim: *"Viber and phone call booked suppliers"* · *"We can
+ * call and video call suppliers as well on the chat"*. The 2026-09-10 harm is the booking fee lost on a couple who
+ * leaves the app BEFORE booking; after the booking it is earned, and a phone call between the two is the work itself.
+ *
+ * ⚠ KEYED ON THE BOOKING CHECK, NOT ON A FILE'S GOOD INTENTIONS. Each billed file must refuse without it: every
+ * function that computes a scheme there takes `booked` and opens with `if (booked !== true …) return null` (counted
+ * here — `gate` must match exactly `count` times), and the tests below EXECUTE the refusal: an unbooked call returns
+ * null, an unbooked thread head renders no tel:/viber link. `booked` comes from `shopIsBookedOnEvent`
+ * (lib/shop-booking.server.ts) — `event_vendors.status` in `CONFIRMED_VENDOR_STATUSES`, the database's own
+ * `current_vendor_booked_event_ids()` set. Exact in both directions, like the other bills.
+ */
+const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gate: RegExp }> = new Map([
+  [
+    'lib/booked-handoff.ts',
+    {
+      count: 2,
+      gate: /\bif \(booked !== true\b/g,
+      why:
+        'A Call (tel:) and a Viber call (viber://chat?number=) between a couple and a shop, made ONLY when the booking ' +
+        'check says the shop is booked on the event (owner 2026-11-04 "Viber and phone call booked suppliers"). Both ' +
+        'builders return null without it. Its one caller is the booked chat head (meetings are Jitsi only and dial nothing).',
+    },
+  ],
 ]);
 
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
@@ -301,6 +342,15 @@ const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }
       why:
         'Server-side only: matches a legacy row whose email the COUPLE typed to a shop ' +
         'profile id (a Map key). The address it reads is one the couple already wrote.',
+    },
+  ],
+  [
+    'lib/shop-booking.server.ts',
+    {
+      count: 1,
+      why:
+        'server-only: reads a shop\'s phone ONLY after shopIsBookedOnEvent says the shop is booked on the event ' +
+        '(owner 2026-11-04 "Viber and phone call booked suppliers") — for the booked chat head\'s Call / Video call.',
     },
   ],
 ]);
@@ -489,6 +539,21 @@ test('Rule 1 — no couple-facing or public surface computes a mailto:/tel:/sms:
   const billedSeen = new Map<string, number>();
   for (const [f, src] of STRIPPED) {
     const found = dynamicSchemes(src);
+    const booked = BOOKED_HANDOFF_BILL.get(f);
+    if (booked) {
+      billedSeen.set(f, found.length);
+      if (found.length !== booked.count) {
+        hits.push(`${f}  →  billed for ${booked.count} BOOKED hand-off(s), found ${found.length}. Reason: ${booked.why}`);
+      }
+      const gates = count(src, booked.gate);
+      if (gates !== booked.count) {
+        hits.push(
+          `${f}  →  ${booked.count} booked hand-off(s) but ${gates} booking refusal(s) (\`if (booked !== true\`). ` +
+            'Every link here must refuse an unbooked shop.',
+        );
+      }
+      continue;
+    }
     const billed = GUEST_CONTACT_BILL.get(f);
     if (billed) {
       billedSeen.set(f, found.length);
@@ -506,7 +571,7 @@ test('Rule 1 — no couple-facing or public surface computes a mailto:/tel:/sms:
   }
   // Exact in the other direction too: a bill line that no longer matches real
   // code is a permission nobody is using, and it must be deleted on purpose.
-  for (const [f, billed] of GUEST_CONTACT_BILL) {
+  for (const [f, billed] of [...GUEST_CONTACT_BILL, ...BOOKED_HANDOFF_BILL]) {
     if (!billedSeen.has(f)) {
       hits.push(
         `${f}  →  billed for ${billed.count} contact link(s) but the file is not ` +
@@ -738,5 +803,68 @@ test('no couple-facing or public surface still promises the retired sentences', 
 test('the bill and the exclusions carry reasons', () => {
   for (const [f, b] of CONTACT_TEXT_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const [f, b] of SHOP_CONTACT_READ_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
+  for (const [f, b] of GUEST_CONTACT_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
+  for (const [f, b] of BOOKED_HANDOFF_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const t of STAFF_OR_SHOP_OWN_TREES) assert.ok(t.why.length > 20, `${t.prefix} has no reason`);
+});
+
+// ── THE TWO 2026-11-04 EXEMPTIONS, EXECUTED — a bill line says a file MAY; these say it REFUSES ────────────────────
+
+test('BOOKED hand-offs: an unbooked shop gets no tel:/viber link — from the builders, a meeting, or the thread head', async () => {
+  const { bookedTelHref, bookedViberHref } = await import('./booked-handoff');
+  const { virtualHandoff, parseVirtualLocation } = await import('./virtual-meeting');
+  for (const phone of ['0917 123 4567', '+639171234567', '02 8123 4567']) {
+    assert.equal(bookedTelHref(false, phone), null, `unbooked tel: for ${phone}`);
+    assert.equal(bookedViberHref(false, phone), null, `unbooked viber: for ${phone}`);
+  }
+  assert.equal(bookedTelHref(true, '0917 123 4567'), 'tel:+639171234567');
+  assert.equal(bookedViberHref(true, '0917 123 4567'), 'viber://chat?number=%2B639171234567');
+  // Meetings are Jitsi only (owner 2026-11-04) — an older row's number is shown, never dialled.
+  assert.equal(virtualHandoff(parseVirtualLocation('viber|+639171234567')), null, 'a meeting opened Viber');
+  assert.equal(virtualHandoff(parseVirtualLocation('phone|+639171234567')), null, 'a meeting dialled');
+
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { BookedCallButtons } = await import('../app/_components/chat/booked-call-buttons');
+  const head = (booked: boolean, phone: string | null) =>
+    renderToStaticMarkup(React.createElement(BookedCallButtons, { booked, phone, who: 'Lumière Studio' }));
+  const unbooked = head(false, '0917 123 4567');
+  assert.doesNotMatch(unbooked, /tel:|viber:/, 'an UNBOOKED thread head renders a phone or Viber link');
+  assert.equal(unbooked, '', 'an unbooked thread head renders anything at all');
+  assert.equal(head(true, null), '', 'a booked thread with no saved number renders a button');
+  const booked = head(true, '0917 123 4567');
+  assert.match(booked, /href="tel:\+639171234567"/);
+  assert.match(booked, /href="viber:\/\/chat\?number=%2B639171234567"/);
+});
+
+test('BOOKED hand-offs: the thread pages pass the ONE booking check, never a literal', () => {
+  for (const rel of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {
+    const src = stripComments(readFileSync(path.join(WEB, rel), 'utf8'));
+    assert.match(src, /shopIsBookedOnEvent\(/, `${rel} no longer asks the booking check`);
+    for (const m of src.matchAll(/<BookedCallButtons\b[^>]*>/g)) {
+      assert.match(m[0], /\bbooked=\{shopBooked\}/, `${rel}: the head's buttons are not keyed on the booking check`);
+    }
+  }
+  // Meetings dial nothing: no meeting file reaches the booked hand-offs.
+  for (const rel of ['lib/virtual-meeting.ts', 'app/_components/appointment-join.tsx', 'app/_components/appointments-actions.ts', 'app/_components/negotiation-actions.ts']) {
+    assert.doesNotMatch(readFileSync(path.join(WEB, rel), 'utf8'), /booked-handoff/, `${rel} reaches the booked tel:/viber builders`);
+  }
+});
+
+test('GUEST calls: only the couple\'s guest card reaches lib/guest-call-links.ts, and it needs a saved mobile', async () => {
+  const importers = (target: string) =>
+    FILES.filter((f) => {
+      const src = stripComments(readFileSync(path.join(WEB, f), 'utf8'));
+      return [...src.matchAll(EDGE_RE)].some((m) => resolveImport(f, m[1] ?? m[2] ?? m[3] ?? '') === target);
+    });
+  assert.deepEqual(importers('lib/guest-call-links.ts'), ['app/dashboard/[eventId]/guests/_components/guest-call-buttons.tsx']);
+  assert.deepEqual(importers('app/dashboard/[eventId]/guests/_components/guest-call-buttons.tsx'), [
+    'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
+  ]);
+  const { guestTelHref, guestViberHref } = await import('./guest-call-links');
+  assert.equal(guestTelHref(null), null);
+  assert.equal(guestViberHref(''), null);
+  assert.equal(guestViberHref('02 8123 4567'), null, 'Viber needs a mobile');
+  assert.equal(guestTelHref('0917 123 4567'), 'tel:+639171234567');
 });

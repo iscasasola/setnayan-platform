@@ -11,8 +11,9 @@
  * the radar. S26's both-ends guard named it `component-no-mount`; S34 mounted it.
  *
  * Pins, each against the mistake it would catch:
- *   1. the page mounts <PricePositionCard> exactly once, INSIDE the canMarket
- *      branch (not above it, where every free shop would see a Pro feature);
+ *   1. the meter (since 6 Nov 2026: §6's <PriceRail>, drawn from the one growth
+ *      view) is read and drawn only on the canMarket side (not above it, where
+ *      every free shop would see a Pro feature);
  *   2. the fetcher's failure lands on 'unreadable', never on the 'no_data'
  *      copy — a failed read must not say the market is empty;
  *   3. every read in fetchVendorPricePosition checks its error;
@@ -31,23 +32,32 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PAGE = 'app/vendor-dashboard/performance/page.tsx';
 const CARD = 'app/vendor-dashboard/performance/_components/price-position-card.tsx';
 const LIB = 'lib/price-position.ts';
+const TREE = 'app/vendor-dashboard/performance/_components/analytics-growing.tsx';
+const RAIL = 'app/vendor-dashboard/performance/_components/price-rail.tsx';
 
 test('the page mounts the meter once, inside the Pro market-intel branch', () => {
+  /* 📈 "Analytics, growing" (owner-approved 6 Nov 2026) draws the meter as §6's price rail (`<PriceRail>`) and its
+     "Where your price sits" row, from the ONE view the page builds. The gate moved with it, and is pinned in three places:
+     the read itself only runs for `canMarket`, the view is told `showMarket: canMarket`, and the tree draws the rail only
+     under `view.price.show`. The teaser stays the page's own `canMarket ? null : (…)` arm — the other side of one gate. */
   const src = read(PAGE);
-  const mounts = src.match(/<PricePositionCard\b/g) ?? [];
-  assert.equal(mounts.length, 1, `expected one <PricePositionCard> mount, found ${mounts.length}`);
-
-  // The Pro branch is `{canMarket ? ( … ) : ( <VendorTierTeaser feature="Demand Radar & Price-Position" … )}`.
-  // The mount must sit between the ternary's opening and its teaser arm.
+  assert.match(
+    src,
+    /canMarket\s*\?\s*safeRead<[^>]*>\(\s*fetchVendorPricePosition\(profile\)/,
+    'the price read must run only for canMarket (Pro-and-up)',
+  );
+  assert.match(src, /\bprice:\s*pricePosition\b/, 'the price read is never handed to the view');
+  assert.match(src, /\bshowMarket:\s*canMarket\b/, 'the view lost the canMarket gate');
   const teaserAt = src.indexOf('feature="Demand Radar & Price-Position"');
   assert.ok(teaserAt > 0, 'the Pro teaser moved — re-anchor this test');
-  const branchOpen = src.lastIndexOf('{canMarket ? (', teaserAt);
-  assert.ok(branchOpen > 0, 'the canMarket branch moved — re-anchor this test');
-  const mountAt = src.indexOf('<PricePositionCard');
-  assert.ok(
-    mountAt > branchOpen && mountAt < teaserAt,
-    'the meter must render inside the canMarket (Pro) arm, before the teaser',
-  );
+  const otherArm = src.lastIndexOf('{canMarket ? null : (', teaserAt);
+  assert.ok(otherArm > 0 && teaserAt - otherArm < 400, 'the teaser must be the canMarket gate’s free arm');
+
+  const tree = read(TREE);
+  const rails = tree.match(/<PriceRail\b/g) ?? [];
+  assert.equal(rails.length, 1, `expected one <PriceRail> mount, found ${rails.length}`);
+  const gateAt = tree.lastIndexOf('view.price.show ?', tree.indexOf('<PriceRail'));
+  assert.ok(gateAt > 0 && tree.indexOf('<PriceRail') - gateAt < 300, 'the rail must render inside the view.price.show arm');
 });
 
 test("a failed read becomes 'unreadable', and the card says so", () => {
@@ -60,6 +70,11 @@ test("a failed read becomes 'unreadable', and the card says so", () => {
   const card = read(CARD);
   assert.match(card, /result\.status === 'unreadable'/);
   assert.match(card, /couldn&apos;t load your price position/);
+  // …and the screen that is mounted says so too: the view marks it unread, the rail and the row draw "Couldn’t load".
+  const tree = read(TREE);
+  assert.match(tree, /unread=\{view\.price\.unread\}/);
+  assert.match(tree, /view\.price\.unread \? 'Couldn’t load the market just now\.'/);
+  assert.match(read(RAIL), /unread/);
 });
 
 test('every read in fetchVendorPricePosition checks its error', () => {

@@ -66,8 +66,20 @@ const IMPACT_LABEL: Record<GrowthImpact, string> = {
  * Build the ranked growth recommendations from the vendor's own stats. When
  * there is no stats row yet (brand-new vendor), returns the universal starter
  * set so the block is never empty — every card still routes somewhere real.
+ *
+ * `opts` — TWO RULE CHANGES (Analytics redesign, owner-approved 6 Nov 2026; controller, the honest-reads rule
+ * "never advise on something that hasn't happened"):
+ *   · `askedInWindow` — the inquiries the page already shows for its window (the pinned row's "asked"). Reply advice
+ *     fires only once at least one couple has asked: a shop nobody has messaged is never told to reply faster.
+ *     Absent (`undefined`) = a caller with no window (the rule as it was); `null` = the count could not be read —
+ *     then no reply advice either (no advice on a number we do not have).
+ *   · `unopenedSaturdays` — how many Saturdays a reader says the shop has not opened. `open_saturdays` fires only
+ *     above 0. No shipped reader says this yet, so callers pass nothing and the rec does not fire.
  */
-export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
+export function buildGrowthRecs(
+  stats: GrowthRecStats | null,
+  opts: { askedInWindow?: number | null; unopenedSaturdays?: number | null } = {},
+): GrowthRec[] {
   const recs: GrowthRec[] = [];
 
   const responseRate = Number(stats?.response_rate_pct ?? 0);
@@ -79,7 +91,8 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
   // Reply within the hour — fires when reply time is slow OR response rate is
   // sub-90%. avg===0 means "no data yet" (not instant), so we lean on the rate
   // in that case. Highest lever: fast repliers earn the First-Look head-start.
-  if (!hasStats || responseRate < 90 || avgMinutes > 60) {
+  const someoneAsked = opts.askedInWindow === undefined || (opts.askedInWindow !== null && opts.askedInWindow >= 1);
+  if (someoneAsked && (!hasStats || responseRate < 90 || avgMinutes > 60)) {
     const weight = !hasStats ? 70 : Math.max(90 - responseRate, avgMinutes > 60 ? 40 : 0) + 30;
     recs.push({
       key: 'reply_faster',
@@ -152,19 +165,21 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
     });
   }
 
-  // Open more Saturdays — a calendar-availability nudge. There's no per-day
-  // open-slot signal wired into this surface yet, so it's shown as a steady
-  // low-weight prompt that routes to the calendar rather than claiming a number.
-  recs.push({
-    key: 'open_saturdays',
-    title: 'Open more Saturdays',
-    body: 'Saturdays are the most-requested wedding day. Opening more dates puts you in front of more couples.',
-    impact: 'low',
-    impactLabel: IMPACT_LABEL.low,
-    ctaLabel: 'Open calendar',
-    ctaHref: '/vendor-dashboard/calendar',
-    weight: 5,
-  });
+  // Open more Saturdays — a calendar-availability nudge. ⚠ It used to be pushed for EVERY shop, unconditionally (there
+  // was no per-day open-slot signal), so a shop with every Saturday open was told to open more. RULE CHANGE (6 Nov
+  // 2026): it fires only when a reader says the shop HAS Saturdays it has not opened. None does today → it does not fire.
+  if (opts.unopenedSaturdays != null && opts.unopenedSaturdays > 0) {
+    recs.push({
+      key: 'open_saturdays',
+      title: 'Open more Saturdays',
+      body: 'Saturdays are the most-requested wedding day. Opening more dates puts you in front of more couples.',
+      impact: 'low',
+      impactLabel: IMPACT_LABEL.low,
+      ctaLabel: 'Open calendar',
+      ctaHref: '/vendor-dashboard/calendar',
+      weight: 5,
+    });
+  }
 
   return recs.sort((a, b) => b.weight - a.weight);
 }

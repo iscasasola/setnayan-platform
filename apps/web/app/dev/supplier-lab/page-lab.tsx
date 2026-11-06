@@ -9,7 +9,7 @@
  *   ?s=collections&who=…                      Your collections (Shop › Gallery since v13)
  *   ?s=services&who=…[&fail=1]                🧰 Shop › Services (v13, S5): the pinned row's figures + one row per service
  *                                             with its tools; &fail=1 = the read refused — "—", never 0
- *   ?s=analytics[&fail=1]                     📌 Shop › Analytics' pinned row (the cards below read the database)
+ *   ?s=analytics[&shop=sample|new][&win=12][&fail=1]  📈 Shop › Analytics — the real screen on fixture shops (`analytics-lab.tsx`)
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
  *
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
@@ -31,7 +31,7 @@ import { BranchPanel } from '@/app/vendor-dashboard/shop/_components/branch-pane
 import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segments';
 import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
 import { servicesFigures, shopServiceRows, type ShopCardLite } from '@/lib/shop-services-summary';
-import { analyticsFigures, galleryFigures, pageFigures } from '@/lib/shop-section-figures';
+import { galleryFigures, pageFigures } from '@/lib/shop-section-figures';
 import { PageParts, type PageClientData } from '@/app/vendor-dashboard/website/_components/page-parts';
 import { pagePlanLines } from '@/app/vendor-dashboard/website/page-data';
 import { DomainManager } from '@/app/vendor-dashboard/website/_domain-manager';
@@ -43,6 +43,7 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
+import { AnalyticsLab } from './analytics-lab';
 import { PORTFOLIO_FREE_BASE, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
@@ -584,7 +585,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false, shop, win }: { state: PageLabState; /** 📈 `&shop=setnaprod|sample|new` on analytics. */ shop?: string; /** 📈 `&win=12` on analytics — the 12-month window open first. */ win?: string; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -640,18 +641,8 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     );
   }
   if (state === 'analytics') {
-    return (
-      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-analytics="">
-        <ShopSegments
-          on="insights"
-          figures={analyticsFigures(fail ? null : { views: 86, inquiries: 9, booked: 3 }, fail ? null : { views: 77, inquiries: 6, booked: 2 })}
-        />
-        <h1 className="sn-h1">How is my business doing</h1>
-        <p className="text-[13px] text-ink/55" data-lab-stand-in="analytics">
-          The funnel, the comparison and the badges draw here — they read the database themselves.
-        </p>
-      </section>
-    );
+    /* 📈 The real "Analytics, growing" screen on the approved prototype's fixture shops (`analytics-lab.tsx`). */
+    return <AnalyticsLab shop={shop} win={win} fail={fail} />;
   }
   if (state === 'avatar') {
     return (

@@ -28,6 +28,7 @@
  * PURE — no I/O, no clock, no `server-only`. Reads, grants and Start: `lib/badge-upgrades.server.ts`.
  */
 
+import { formatCount } from '@/lib/format-number';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS, VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
 import { VENDOR_3D_BOOTH_PERIOD_DAYS, VENDOR_3D_BOOTH_SKU_CODE } from '@/lib/vendor-3d-booth-pricing';
@@ -148,7 +149,7 @@ export function upgradeSourceWords(key: string): string {
     case 'first_booking':
       return 'First booking through Setnayan';
     case 'reviews':
-      return `${Number(a) || 0} reviews`;
+      return `${formatCount(Number(a) || 0)} reviews`;
     case 'award': {
       const word = AWARD_WORD[a as SpotlightAwardType] ?? 'Monthly award';
       const d = b ? new Date(`${b.slice(0, 10)}T00:00:00Z`) : null;
@@ -194,7 +195,7 @@ export function upgradeLineFor(
     const base = `Top Pick or Most Booked also → ${upgradeWords(choices)}`;
     return ready > 0 ? `${base} · ${ready} ready to start in Plan` : base;
   }
-  const when = badge === 'reviews' ? `At ${BADGE_UPGRADES.reviews.step} reviews also → ` : 'Also → ';
+  const when = badge === 'reviews' ? `At ${formatCount(BADGE_UPGRADES.reviews.step)} reviews also → ` : 'Also → ';
   const words = mine[0] ? upgradeWords(mine[0].startedChoice ? [mine[0].startedChoice] : mine[0].startable) : upgradeWords(choices);
   if (!mine[0]) return `${when}${words}`;
   return `${when}${words} · ${mine[0].startedAt ? 'started' : 'ready to start in Plan'}`;

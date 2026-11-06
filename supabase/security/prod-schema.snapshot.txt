@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1745
+# ledger: 1747
 # tables: 452
-# columns: 5577
+# columns: 5579
 # notnull: 3372
 [ledger]
 20260512000000
@@ -1757,6 +1757,8 @@
 20271309211124
 20271309260178
 20271309403755
+20271311598756
+20271311895322
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2538,6 +2540,8 @@ event_appointments.location
 event_appointments.note
 event_appointments.previous_scheduled_at
 event_appointments.proposed_by_user_id
+event_appointments.room_created_at
+event_appointments.room_created_by
 event_appointments.scheduled_at
 event_appointments.status
 event_appointments.thread_id

@@ -51,7 +51,7 @@ import { tierCaps } from './vendor-tier-caps';
  * `custom-sits-above-enterprise.db.test.ts` now compares every declared fallback
  * against its live catalog row and fails the build on drift.
  */
-export const BRANCH_FEE_PHP = 1990; // fallback only — the catalogue row (owner 2026-11-04) wins
+export const BRANCH_FEE_PHP = 990; // fallback only — the catalogue row wins (owner 2026-11-06 "ULTRA ADD-ON PRICES": ₱990, was ₱1,990)
 export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
 
 /** The catalog sku_code the branch fee is read from (seeded by migration). */

@@ -219,6 +219,11 @@ const ORDER_MINTERS: Record<string, string> = {
     'Extra vendor seat. feePhp from fetchSeatFeePhp() — catalog, not form. ' +
     'SEC-4b: now service-role (`moneyWriter`). Authorized by ensureAdmin() (vendorProfileId ' +
     'resolved from a vendor_team_members owner/admin row) + canBuyExtraSeats.',
+  'app/vendor-dashboard/subscription/ultra-addon-actions.ts':
+    'Ultra add-ons (owner 2026-11-06: +1 category · +1 service card · +1 wait list · +1 booking per date). pricePhp ' +
+    'from fetchCountAddOnPricePhp() — the ACTIVE vendor_billing_catalog row, null refuses (no fallback); the form posts ' +
+    'only the add-on kind. Service-role (`moneyWriter`), the seat\'s mint. Authorized by fetchOwnVendorProfile + ' +
+    'resolveVendorRoleForProfile/canManageVendor + canBuyUltraAddOn on the session-read tier_state.',
   'app/vendor-dashboard/deep-search/actions.ts':
     'Vendor Deep Search SKU. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: now reuses the `admin` client the allowance count already created. Authorized by ' +

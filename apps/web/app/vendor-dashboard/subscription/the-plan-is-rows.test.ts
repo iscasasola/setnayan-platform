@@ -38,7 +38,8 @@ test('Pay posts only the SKU — never an amount', () => {
 });
 
 test('no peso is typed on the plan screen', () => {
-  for (const [name, src] of [['page.tsx', PAGE], ['plan-picker.tsx', PICKER], ['plan-rows.tsx', ROWS]] as const) {
+  const ULTRA = stripComments(readFileSync(join(HERE, '_components/ultra-addons-card.tsx'), 'utf8'));
+  for (const [name, src] of [['page.tsx', PAGE], ['plan-picker.tsx', PICKER], ['plan-rows.tsx', ROWS], ['ultra-addons-card.tsx', ULTRA]] as const) {
     assert.doesNotMatch(src, /₱\s?\d/, `${name} types a peso amount`);
   }
 });
@@ -62,6 +63,9 @@ test('every job keeps its door', () => {
   assert.match(PAGE, /<AiAddonCard/);
   assert.match(PAGE, /<BoothAddonCard/);
   assert.match(PAGE, /<PapicChallengeCard/);
+  // Every Ultra add-on, from the catalogue (owner 2026-11-06, "ULTRA ADD-ON PRICES").
+  assert.match(PAGE, /<UltraAddonsCard rows=\{ultraRows\}/);
+  assert.match(PAGE, /ultraAddOns\(supabase\)/);
   assert.match(ROWS, /href="\/vendor-dashboard\/on-the-day"/);
   assert.match(PAGE, /<PlanChangeNotice/);
 });

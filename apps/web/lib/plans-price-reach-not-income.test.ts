@@ -36,6 +36,8 @@ import {
   capPortfolioRefs,
   canAcceptInAppInquiries,
   isTrueNameTier,
+  BOOKINGS_PER_DATE_NOT_RULED,
+  bookingsPerDateIsPending,
 } from './vendor-tier-caps';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -116,6 +118,25 @@ test('2b · no shipped code reads the per-day or weekly cap to refuse anything',
   );
   // Teeth: the scan must actually find the table, or a broken scan passes everything.
   assert.ok(readers.includes('lib/vendor-tier-caps.ts'), 'the reader scan found nothing — it is not scanning');
+});
+
+test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06) — the shop’s day is still not', () => {
+  // Owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: "Solo has 1 per
+  // date/service, pro has 3 per date/service, ultra has 5 per date/service". It caps ONE card's day; 2a above (no limit
+  // on a SHOP's bookings a day, `slotsPerDay`) stands, and every plan can still take a booking on every card.
+  assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1);
+  assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3);
+  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 5);
+  assert.equal(TIER_CAPS.custom.bookingsPerDatePerService, TIER_CAPS.enterprise.bookingsPerDatePerService);
+  for (const t of VENDOR_TIERS) {
+    assert.ok(TIER_CAPS[t].bookingsPerDatePerService >= 1, `${t}: a card could take no booking at all`);
+  }
+  // ⏳ Free and Verified are NOT ruled — they keep their pre-ruling behaviour (no plan cap on a card's day).
+  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, BOOKINGS_PER_DATE_NOT_RULED);
+  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, BOOKINGS_PER_DATE_NOT_RULED);
+  assert.equal(bookingsPerDateIsPending('free'), true);
+  assert.equal(bookingsPerDateIsPending('verified'), true);
+  assert.equal(bookingsPerDateIsPending('solo'), false);
 });
 
 // ── 3 · the portfolio free base, grandfathered ─────────────────────────────────

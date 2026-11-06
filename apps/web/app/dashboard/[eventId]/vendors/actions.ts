@@ -1812,13 +1812,19 @@ export async function finalizeVendor(
       // the acquire having booked it.
     } else {
       // ── #2 DAILY-CAPACITY PATH (service has no active slots). ──
-      const { data: svcRow } = await supabase
-        .from('vendor_services')
-        .select('daily_capacity')
-        .eq('vendor_service_id', targetVendor.service_id)
-        .maybeSingle();
-      const capacity =
-        (svcRow as { daily_capacity?: number | null } | null)?.daily_capacity ?? null;
+      // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
+      // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified not ruled, so the
+      // card's own number as before). ONE server-only definer answers it — `service_card_daily_limit`, the SAME limit
+      // the supplier's yes and the bench search read — and returns only a number. Its input is the card on the
+      // couple's own booking row, read through their session above. Degrades OPEN on a read error, like every
+      // capacity read here (the supplier's yes still refuses on it) — but never silently.
+      const { data: capacityRaw, error: capacityErr } = await createAdminClient().rpc('service_card_daily_limit', {
+        p_service_id: targetVendor.service_id,
+      });
+      if (capacityErr) {
+        console.error('[finalizeVendor] #2 daily-limit: limit read failed', capacityErr.message);
+      }
+      const capacity = typeof capacityRaw === 'number' ? capacityRaw : null;
       if (typeof capacity === 'number' && capacity > 0) {
         // event_date is the canonical DATE column; wedding_date is a generated
         // mirror with NO migration DDL, so it can silently no-op on a fresh DB

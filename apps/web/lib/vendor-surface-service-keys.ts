@@ -59,6 +59,7 @@ import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from './booking-fee-lock';
 import { BRANCH_SERVICE_KEY_PREFIX } from './vendor-branches';
 import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
 import { CUSTOM_PLAN_SERVICE_KEY_PREFIX } from './vendor-custom-catalog';
+import { COUNT_ADDON_SERVICE_KEY_PREFIXES } from './vendor-ultra-addons';
 
 /**
  * Every service-key prefix whose suffix names an object owned by a vendor.
@@ -71,6 +72,9 @@ export const VENDOR_SURFACE_SERVICE_KEY_PREFIXES: readonly string[] = Object.fre
   BRANCH_SERVICE_KEY_PREFIX,
   SEAT_SERVICE_KEY_PREFIX,
   CUSTOM_PLAN_SERVICE_KEY_PREFIX,
+  // vendor_extra_{category,service_card,waitlist,booking_per_date}__<vendor_profile_id> → recompute a paid Ultra
+  // add-on count (owner 2026-11-06).
+  ...COUNT_ADDON_SERVICE_KEY_PREFIXES,
 ]);
 
 /** Does this key target a vendor-owned object (and therefore need an owner)? */

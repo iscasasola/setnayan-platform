@@ -78,8 +78,9 @@ export const CUSTOM_SKU_CODES = Object.freeze({
  */
 export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   base: 11000,
-  // 2026-11-04 FINAL SHEET: the Custom card prices a branch from `vendor_additional_branch`, now ₱1,990.
-  branch: 1990,
+  // The Custom card prices a branch from `vendor_additional_branch`: ₱990 since 2026-11-06 (owner, "ULTRA ADD-ON
+  // PRICES": "seat, branch + 990"; was ₱1,990 on the 2026-11-04 final sheet).
+  branch: 990,
   // Rounded off their -1 charm endings 2026-08-27 (owner: "make the whole
   // number 500, 2500") — the third such rounding that day, after Live Studio
   // ₱2,999 -> ₱3,000 and Thank You ₱2,499 -> ₱2,500. These move WITH their

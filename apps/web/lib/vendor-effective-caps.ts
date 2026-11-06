@@ -6,6 +6,8 @@ import {
   type VendorTier,
 } from './vendor-tier-caps';
 import type { CustomComposition } from './vendor-custom-pricing';
+import { applyAddOnExtras, fetchAddOnExtras } from './vendor-ultra-addons';
+import { canBuyExtraCategories } from './vendor-tier-caps';
 
 /**
  * Effective vendor capability caps = the static tier caps, with an ACTIVE
@@ -87,10 +89,14 @@ export function vendorEffectiveCaps(
 
 /**
  * DB-backed effective caps: reads the vendor's ACTIVE Custom plan (if any) and
- * overlays its composition. Soft: any read failure (table missing pre-migration,
- * RLS, no active plan) falls back to the base tier caps rather than throwing.
+ * overlays its composition, then adds the ULTRA ADD-ONS the shop has bought
+ * (owner 2026-11-06, "ULTRA ADD-ON PRICES" — +1 category · +1 service card ·
+ * +1 wait list · +1 booking per date; lib/vendor-ultra-addons.ts). Soft: any read
+ * failure (table missing pre-migration, RLS, no active plan) falls back to the
+ * base tier caps rather than throwing — withholding bought room, never granting
+ * room nobody paid for.
  *
- * Non-`custom` tiers skip the read entirely — they can never have an overlay.
+ * Only Ultra and Custom can BUY add-ons, so every other tier skips both reads.
  */
 export async function fetchEffectiveCaps(
   supabase: SupabaseClient,
@@ -98,6 +104,21 @@ export async function fetchEffectiveCaps(
   tier: string | null | undefined,
 ): Promise<TierCaps> {
   const t = asVendorTier(tier);
+  // The four count add-ons share one gate (Ultra and up) — `canBuyExtraCategories` stands for all of them.
+  if (!canBuyExtraCategories(t)) return tierCaps(t);
+  const [base, extras] = await Promise.all([
+    fetchCustomOverlaidCaps(supabase, vendorProfileId, t),
+    fetchAddOnExtras(supabase, vendorProfileId),
+  ]);
+  return applyAddOnExtras(base, extras);
+}
+
+/** The tier's caps with an active Custom plan overlaid (Custom only; every other tier: its base caps). */
+async function fetchCustomOverlaidCaps(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  t: VendorTier,
+): Promise<TierCaps> {
   if (t !== 'custom') return tierCaps(t);
   try {
     const { data, error } = await supabase

@@ -59,6 +59,8 @@ import { AiAddonCard } from './ai-addon-card';
 import { BoothAddonCard } from './booth-addon-card';
 import { PapicChallengeCard } from './papic-challenge-card';
 import { PlanChangeNotice } from './plan-change-notice';
+import { UltraAddonsCard } from './ultra-addons-card';
+import { ultraAddOns, fetchAddOnExtras, canBuyUltraAddOn } from '@/lib/vendor-ultra-addons';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
@@ -196,6 +198,14 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // Paid (Solo+) + verified only. Soft reads (fetchVendorAiAddonState is
   // try/catch) so a pre-migration DB degrades to "not activated, trial
   // available" instead of blanking the page.
+  // ── Ultra add-ons (owner 2026-11-06) — every row and price from vendor_billing_catalog; what this shop bought ──
+  const ultraCanBuy = canBuyUltraAddOn('category', currentTier);
+  const [ultraRows, ultraExtras] = await Promise.all([
+    ultraAddOns(supabase),
+    ultraCanBuy ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
+  ]);
+  const ultraOwned = ultraExtras ?? {};
+
   const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
   // 2026-11-04 ("DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN"): each band is its own catalogue row — the card
   // reads THIS shop's row, exactly as ai-addon-actions.ts / deep-search/actions.ts charge it.
@@ -546,6 +556,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">
         Add-ons
       </h2>
+
+      {/* Every Ultra add-on, from the catalogue (owner 2026-11-06, "ULTRA ADD-ON PRICES") — Ultra buys here; every
+          other plan reads "Only Ultra can add these". */}
+      <UltraAddonsCard rows={ultraRows} canBuy={ultraCanBuy} owned={ultraOwned} />
 
       {/* Vendor AI ("the AI Chatbot") add-on — free first 28-day cycle, then
           ₱1,500/28d, on paid + verified shops (owner 2026-07-22). */}

@@ -14,6 +14,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canBuyExtraBranches,
+  canBuyExtraCategories,
+  canBuyExtraServiceCards,
+  canBuyExtraWaitlist,
+  canBuyExtraBookingsPerDate,
   canSeeMarketIntel,
   canUseEditorialFeatures,
   isTierAtLeast,
@@ -57,6 +61,11 @@ test('allowances · Custom stays in lockstep with Ultra on every numeric allowan
 test('branches · only Ultra (and Custom) may buy more', () => {
   for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise' || t === 'custom', t);
   assert.equal(canBuyExtraBranches(null), false);
+  // The four Ultra add-ons of 2026-11-06 ("ULTRA ADD-ON PRICES") share the same gate.
+  for (const can of [canBuyExtraCategories, canBuyExtraServiceCards, canBuyExtraWaitlist, canBuyExtraBookingsPerDate]) {
+    for (const t of VENDOR_TIERS) assert.equal(can(t), t === 'enterprise' || t === 'custom', `${can.name} ${t}`);
+    assert.equal(can(null), false);
+  }
 });
 
 test('calls · the stale capability is gone from every plan', () => {

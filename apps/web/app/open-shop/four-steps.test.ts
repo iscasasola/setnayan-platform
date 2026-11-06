@@ -44,10 +44,11 @@ const OWNS: Record<string, number> = {
   service: 2,
   // "Pick at least one event." (owner 2026-11-06) — the same screen as the tiles it is about.
   events: 2,
-  // "Pick at least one event for each added service." (owner 2026-11-06, v7/v8) — the services list on step 2.
+  // "Pick at least one event for each service." (owner 2026-11-06, v16 ④) — step 2's events page.
   extraEvents: 2,
   // 🔁 RE-ORDERED 2026-11-06 (owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED": the account step goes LAST).
-  // "Where you are" is now step 3 and "You" (name · number · email · the account) is step 4.
+  // "Where you are" is step 3; prototype v16 ⑤ split "You": 4 · About you (name · number · role), 5 · Your account
+  // (email · password · Terms · Open my shop).
   locationPin: 3,
   locationConfirm: 3,
   locationCity: 3,
@@ -57,15 +58,17 @@ const OWNS: Record<string, number> = {
   // step as the number itself — a refusal that sends someone to a different
   // screen than the box it is about is a refusal they cannot act on.
   contactPhoneNotPh: 4,
-  contactEmail: 4,
+  contactEmail: 5,
   // The account is created inside the LAST step: every refusal about the password
   // or the email's account belongs to the screen that asked for them.
   // lib/open-shop-account.ts owns these strings; the step is owned HERE.
-  password: 4,
-  passwordLeaked: 4,
-  blacklisted: 4,
-  emailTaken: 4,
-  accountFailed: 4,
+  password: 5,
+  passwordLeaked: 5,
+  blacklisted: 5,
+  emailTaken: 5,
+  accountFailed: 5,
+  // "Pick how you’ll sign in." — the browser's own (step 5's three buttons); the server never sends it.
+  way: 5,
 };
 
 test('META: every error the action redirects with is accounted for here', () => {
@@ -114,7 +117,7 @@ test('each rejection carries the step that owns its field', () => {
 test('the page accepts every step the action can send', () => {
   // The other half: the action can emit step=4, but if the page only parses
   // '1' | '2' it silently falls back to 1 and the redirect achieves nothing.
-  for (const n of ['1', '2', '3', '4']) {
+  for (const n of ['1', '2', '3', '4', '5']) {
     assert.ok(
       PAGE.includes(`'${n}'`),
       `page.tsx does not parse step=${n} — the action's redirect would fall back to step 1`,
@@ -122,14 +125,15 @@ test('the page accepts every step the action can send', () => {
   }
 });
 
-test('the wizard renders exactly four panels, and only the last one submits', () => {
-  for (const n of [1, 2, 3, 4]) {
+test('the wizard renders exactly five panels, and only the last one submits', () => {
+  for (const n of [1, 2, 3, 4, 5]) {
     assert.ok(
       WIZARD.includes(`step === ${n} ? 'space-y-4' : 'hidden'`),
       `panel for step ${n} is missing`,
     );
   }
-  assert.ok(!WIZARD.includes('step === 5'), 'a fifth panel appeared without updating TOTAL_STEPS');
+  assert.ok(!WIZARD.includes('step === 6'), 'a sixth panel appeared without updating TOTAL_STEPS');
+  assert.match(WIZARD, /const TOTAL_STEPS = 5;/);
   // A SubmitButton on an earlier step would post a half-filled form. It must sit
   // in the `step < TOTAL_STEPS ? … : …` false branch — i.e. after the Continue.
   const cont = WIZARD.indexOf('step < TOTAL_STEPS');

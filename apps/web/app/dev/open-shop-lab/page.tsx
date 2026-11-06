@@ -7,9 +7,9 @@
  * (`TAXONOMY_MAP`) — the same shape `getOpenShopServiceTree` hands the page. Never press "Open my shop" or "Save logo"
  * here: both call the real server actions.
  *
- *   ?step=1..4     which step is shown first
- *   ?guest=0       signed in (the account half of step 4 hidden); default signed out
- *   ?taken=1       step 4 after a "this email already has an account" refusal (A8)
+ *   ?step=1..5     which step is shown first
+ *   ?guest=0       signed in (the account half of step 5 hidden); default signed out
+ *   ?taken=1       step 5 after a "this email already has an account" refusal (A8)
  *   ?as=coordinator  the For Coordinators door (step 2 opens on the coordination services)
  *   ?error=<sentence>  a server refusal, drawn under the box that owns it
  *   ?check_inbox=<email>  the check-your-email state (A1)
@@ -21,6 +21,7 @@ import { notFound } from 'next/navigation';
 
 import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
 import type { PickerParentView } from '@/app/open-shop/_components/service-picker';
+import type { SpecialtyField } from '@/app/open-shop/_components/service-cards';
 import { AddYourLogo } from '@/app/open-shop/logo/_components/add-your-logo';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
 import { OPEN_SHOP_ACCOUNT_ERRORS } from '@/lib/open-shop-account';
@@ -46,14 +47,56 @@ const labelFor = (key: string) =>
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
     .join(' ');
 
+/**
+ * Lab-only fixtures for v16 (never shipped — production reads `canonical_service_schemas`, the taxonomy's
+ * `allowed_event_types` and the categories' photos). Words and event lists are the PROTOTYPE's (`FILTERS`,
+ * `SVC_EVENTS`), so the lab's frames read like the contract's.
+ */
+const LAB_TILE_PHOTOS = new Set(['dance_floor', 'date_specialist', 'digital_services', 'editorial', 'fireworks', 'host_mc', 'led_wall', 'lights_sound', 'orchestra', 'trophies_awards', 'wellness_fitness']);
+const LAB_ALLOWED: Record<string, string[]> = {
+  reception_venue: ['anniversary', 'birthday', 'celebration', 'christening', 'corporate', 'debut', 'gala_night', 'gender_reveal', 'graduation', 'reunion', 'wedding'],
+  catering: ['anniversary', 'birthday', 'celebration', 'christening', 'concert', 'corporate', 'debut', 'gala_night', 'gender_reveal', 'graduation', 'grand_opening', 'open_house', 'reunion', 'tournament', 'wake', 'wedding'],
+  drone: ['anniversary', 'birthday', 'celebration', 'concert', 'corporate', 'debut', 'gala_night', 'graduation', 'grand_opening', 'open_house', 'reunion', 'tournament', 'travel', 'wedding'],
+  tea_ceremony_master: ['wedding'],
+  hearse_funeral_transport: ['wake'],
+};
+const chips = (key: string, label: string, values: string[]): SpecialtyField => ({
+  key,
+  label,
+  options: values.map((v) => ({ value: v, label: v })),
+  single: false,
+});
+const LAB_SPECIALTIES: Record<string, SpecialtyField[]> = {
+  photography: [
+    chips('shoot', 'Shoot', ['Boudoir', 'Engagement', 'Day-2 / family', 'Pre-nup', 'Studio portrait', 'Wedding day', 'Graduation / toga', 'Sports & action', 'Maternity / newborn']),
+    chips('deliverable', 'Deliverable', ['Album', 'Save-the-date']),
+    chips('look', 'Look', ['Photojournalistic', 'Classic', 'Editorial', 'Fine-art / film']),
+  ],
+  videography: [
+    chips('deliverable', 'Deliverable', ['Highlight reel', 'Same-day edit', 'Save-the-date', 'Full film', 'Livestream', 'Tribute / memorial video']),
+    chips('look', 'Look', ['Cinematic', 'Photojournalistic', 'Fine-art / film']),
+  ],
+  reception_venue: [
+    chips('type', 'Type', ['Events place', 'Function hall', 'Garden', 'Hotel ballroom', 'Resort / destination', 'Heritage', 'Restaurant', 'Beach']),
+    chips('also', 'Also', ['In-house catering', 'Outside caterers allowed', 'Overnight rooms']),
+  ],
+  catering: [
+    chips('service_style', 'Service style', ['Plated', 'Buffet', 'Family-style', 'Stations']),
+    chips('cuisine', 'Cuisine', ['Chinese lauriat', 'Filipino', 'Asian', 'International', 'Spanish', 'Italian', 'Fusion']),
+  ],
+};
+
 function fixtureTree(): PickerParentView[] {
-  const byFolder = new Map<string, Map<string, { canonicalService: string; label: string; tileId: string }[]>>();
+  const byFolder = new Map<
+    string,
+    Map<string, { canonicalService: string; label: string; tileId: string; allowedEventTypes: string[] | null }[]>
+  >();
   for (const [key, meta] of Object.entries(TAXONOMY_MAP)) {
     const m = meta as { folder: string; tile: string };
     if (key.startsWith('setnayan_')) continue;
     const tiles = byFolder.get(m.folder) ?? new Map();
     const leaves = tiles.get(m.tile) ?? [];
-    leaves.push({ canonicalService: key, label: labelFor(key), tileId: m.tile });
+    leaves.push({ canonicalService: key, label: labelFor(key), tileId: m.tile, allowedEventTypes: LAB_ALLOWED[key] ?? null });
     tiles.set(m.tile, leaves);
     byFolder.set(m.folder, tiles);
   }
@@ -62,6 +105,7 @@ function fixtureTree(): PickerParentView[] {
     label: WEDDING_FOLDER_LABEL[f as WeddingFolder],
     branches: [...byFolder.get(f)!.entries()].map(([tile, leaves]) => ({
       tileId: tile,
+      photoUrl: LAB_TILE_PHOTOS.has(tile) ? `/taxonomy/tiles/${tile}.webp` : null,
       label: WEDDING_TILE_LABEL[tile as WeddingTile] ?? labelFor(tile),
       leaves: leaves.sort((a, b) => a.label.localeCompare(b.label)),
     })),
@@ -111,7 +155,7 @@ export default async function OpenShopLabPage({
       />
     );
   }
-  const step = (['1', '2', '3', '4'].includes(q.step ?? '') ? Number(q.step) : 1) as 1 | 2 | 3 | 4;
+  const step = (['1', '2', '3', '4', '5'].includes(q.step ?? '') ? Number(q.step) : 1) as 1 | 2 | 3 | 4 | 5;
   const guest = q.guest !== '0';
   return (
     <OpenShopWizard
@@ -137,6 +181,7 @@ export default async function OpenShopLabPage({
       coordinator={q.as === 'coordinator'}
       oauth={{ show: true, desktop: false, native: false }}
       planCategories={categoryLadder()}
+      specialties={LAB_SPECIALTIES}
       emailTaken={q.taken === '1'}
       error={q.taken === '1' ? OPEN_SHOP_ACCOUNT_ERRORS.emailTaken : (q.error ?? undefined)}
       sentTo={q.check_inbox ?? null}

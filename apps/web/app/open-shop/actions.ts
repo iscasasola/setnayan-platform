@@ -22,9 +22,15 @@ import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   EXTRA_SERVICES_FIELD,
+  MAIN_SERVICE_EVENTS_FIELD,
+  SPECIALTIES_FIELD,
   eventsForAddedService,
+  parseEventListField,
   parseExtraServicesField,
+  parseSpecialtiesField,
 } from '@/lib/open-shop-more-services';
+import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write';
+import { ATTRIBUTE_FIELD_NAME_PREFIX } from '@/lib/vendor-service-attributes';
 import { insertCoverage } from '@/lib/vendor-coverage-write';
 import {
   OPEN_SHOP_EMAIL_RE,
@@ -277,13 +283,27 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (submittedEventTypes.length === 0)
     redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.events));
   const eventTypes = Array.from(new Set(submittedEventTypes));
+  // ── EACH SERVICE'S OWN EVENTS (owner 2026-11-06, prototype v16 ④ "Events you serve") ─────────────────────────
+  // Under every ticked event the supplier sees each picked service as a chip — all on, untick per event, greyed where
+  // the service is not offered. So each service posts ITS events: the main in `primary_service_events`, every added
+  // one inside `extra_services`. Each is read like the coverage editor reads them (roster ∩ the leaf's allowed set),
+  // and kept inside the ticked set; a service left on for NO ticked event is refused, like an empty event set.
+  // An older page that posts no per-service list falls back to the ticked events (the v8 "same events" rule).
+  const tickedSet = new Set(eventTypes);
+  const withinTicked = (list: readonly string[]) => list.filter((k) => tickedSet.has(k));
+  let mainEvents = eventTypes;
+  if (pickedLeaf) {
+    const posted = parseEventListField(formData.get(MAIN_SERVICE_EVENTS_FIELD));
+    const ev = eventsForAddedService(withinTicked(posted ?? eventTypes), eventVocabKeys, pickedLeafAllowed);
+    if (!ev) redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
+    mainEvents = ev;
+  }
   // ── AND THE SERVICES ADDED UNDER THE MAIN (owner 2026-11-06, "SERVICES SIT TOGETHER, A METER NAMES THE PLAN";
-  //    prototype v8) ────────────────────────────────────────────────────────────────────────────────────────────
+  //    prototype v14–v16 category cards) ───────────────────────────────────────────────────────────────────────
   // Each is RE-RESOLVED against the same filtered tree the main is (never a first-party SKU, a retired leaf or a
-  // smuggled key — an unknown one is dropped), de-duplicated, never the main again. Its events are "the same as the
-  // main" (`events: null`) or its own, read like the coverage editor reads them; one ticked to NOTHING is refused,
-  // like the main. ⚠ NO PLAN CAP HERE: every service added at sign-up stays on until the first booking on Setnayan
-  // is done (DECISION_LOG 2026-11-06, "SERVICES LIFE CYCLE") — the meter on screen names the plan, the door refuses none.
+  // smuggled key — an unknown one is dropped), de-duplicated, never the main again. ⚠ NO PLAN CAP HERE: every service
+  // added at sign-up stays on until the first booking on Setnayan is done (DECISION_LOG 2026-11-06, "SERVICES LIFE
+  // CYCLE") — the meter and the "Before you continue" sheet name the plan; the door refuses none.
   const addedServices: { leaf: PickerLeaf; events: string[] }[] = [];
   const postedExtras = pickedLeaf ? parseExtraServicesField(formData.get(EXTRA_SERVICES_FIELD)) : [];
   if (postedExtras.length > 0) {
@@ -295,7 +315,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       const leaf = leafByKey.get(x.service);
       if (!leaf || seen.has(leaf.canonicalService)) continue;
       seen.add(leaf.canonicalService);
-      const ev = eventsForAddedService(x.events ?? eventTypes, eventVocabKeys, leaf.allowedEventTypes);
+      const ev = eventsForAddedService(withinTicked(x.events ?? eventTypes), eventVocabKeys, leaf.allowedEventTypes);
       if (!ev) redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
       addedServices.push({ leaf, events: ev });
     }
@@ -329,8 +349,9 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     redirect(
       '/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhoneNotPh),
     );
+  // ⑤ The email is the account step's (5 · Your account, prototype v16) — name and number are 4 · About you.
   if (!contactEmail)
-    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
+    redirect('/open-shop?step=5&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
 
   // ── THE ACCOUNT IS CREATED ONLY ONCE EVERY FIELD ABOVE HAS PASSED (2026-11-06) ──────────────────────────────
   // It used to be created FIRST. With email verification on (A1) that ordering is a trap: a refusal on step 1/2/4
@@ -373,7 +394,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!user) {
     // Unreachable by construction (every non-existing decision above either
     // redirected or produced a user); kept so the type narrows honestly.
-    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
+    redirect('/open-shop?step=5&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
   }
 
 
@@ -464,7 +485,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     const rows = [
       {
         canonicalService: pickedLeaf,
-        eventTypes: eventsForAddedService(eventTypes, eventVocabKeys, pickedLeafAllowed) ?? eventTypes,
+        eventTypes: mainEvents,
       },
       ...addedServices.map((a) => ({ canonicalService: a.leaf.canonicalService, eventTypes: a.events })),
     ];
@@ -524,7 +545,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     contact_email: contactEmail,
     services,
     // The main's events ∪ every added service's — what `syncProfileFromCoverages` would compute from the rows above.
-    event_types: Array.from(new Set([...eventTypes, ...addedServices.flatMap((a) => a.events)])),
+    // An event where the supplier unticked EVERY service (④) is not served, so it is not listed.
+    event_types: Array.from(new Set([...mainEvents, ...addedServices.flatMap((a) => a.events)])),
     updated_at: new Date().toISOString(),
   };
   // Guarded like location_city: now that the logo is optional here, an
@@ -639,6 +661,26 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     vendorProfileId,
     shopName,
   });
+
+  // ── ③ THE SPECIALTIES PICKED AT SIGN-UP — through THE ONE refinement merge ──────────────────────────────────────
+  // Each service's chips are the chip-shaped refinements of its own schema (`canonical_service_schemas`), so they are
+  // written exactly as the card maker's "Details" fold writes them: `mergeServiceRefinements`, which re-validates every
+  // key and value against the live schema and MERGES (never wipes). Only the services this submit opened the shop
+  // with. ⚠ Best-effort, like the coverages: a refusal is logged and never costs the vendor their shop — the chips are
+  // optional, and Shop › Services edits them later.
+  const specialties = parseSpecialtiesField(formData.get(SPECIALTIES_FIELD));
+  const opened = new Set([pickedLeaf, ...addedServices.map((a) => a.leaf.canonicalService)].filter(Boolean) as string[]);
+  for (const [svc, fields] of Object.entries(specialties)) {
+    if (!opened.has(svc)) continue;
+    const fd = new FormData();
+    fd.set('refinement_keys', Object.keys(fields).join(','));
+    for (const [key, values] of Object.entries(fields))
+      for (const v of values) fd.append(`${ATTRIBUTE_FIELD_NAME_PREFIX}${key}`, v);
+    const err = await mergeServiceRefinements(admin, vendorProfileId as string, svc, fd).catch((e: unknown) =>
+      e instanceof Error ? e.message : String(e),
+    );
+    if (err) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_service_attributes.upsert', err);
+  }
 
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');

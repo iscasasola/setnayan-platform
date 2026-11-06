@@ -25,6 +25,7 @@ export type OpenShopField =
   | 'contact_email'
   | 'password'
   | 'terms'
+  | 'way'
   | 'submit';
 
 const OWNER: ReadonlyArray<readonly [string, OpenShopField]> = [
@@ -48,6 +49,7 @@ const OWNER: ReadonlyArray<readonly [string, OpenShopField]> = [
   [OPEN_SHOP_ACCOUNT_ERRORS.password, 'password'],
   [OPEN_SHOP_ACCOUNT_ERRORS.passwordLeaked, 'password'],
   [TERMS_REQUIRED_MESSAGE, 'terms'],
+  [OPEN_SHOP_ACCOUNT_ERRORS.way, 'way'],
 ];
 
 /** The box a refusal belongs under; `submit` (above the button) when no box owns it. */
@@ -66,15 +68,18 @@ export function openShopErrorWords(error: string): string {
 }
 
 /** The step that owns a box — the redirect's `?step=` must agree with it (`four-steps.test.ts`). */
-export const OPEN_SHOP_FIELD_STEP: Readonly<Record<Exclude<OpenShopField, 'submit'>, 1 | 2 | 3 | 4>> = {
+export const OPEN_SHOP_FIELD_STEP: Readonly<Record<Exclude<OpenShopField, 'submit'>, 1 | 2 | 3 | 4 | 5>> = {
   shop_name: 1,
   service: 2,
   events: 2,
   extras: 2,
   location: 3,
+  // 4 · About you (prototype v16 ⑤)
   contact_name: 4,
   contact_phone: 4,
-  contact_email: 4,
-  password: 4,
-  terms: 4,
+  // 5 · Your account
+  contact_email: 5,
+  password: 5,
+  terms: 5,
+  way: 5,
 };

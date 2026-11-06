@@ -50,12 +50,15 @@ export const OPEN_SHOP_ACCOUNT_ERRORS = {
   emailTaken:
     'That email already has a Setnayan account. Sign in to keep going — what you typed stays.',
   accountFailed: 'We could not create your account just now. Try again in a moment.',
+  /** ⑤ Prototype v16 (`v4`): signed out, none of Google / Apple / Email was picked yet. The browser's own — the server
+   *  never sends it (a POST without a way is an email POST). */
+  way: 'Pick how you’ll sign in.',
 } as const;
 
 export type OpenShopAccountDecision =
   | { kind: 'existing' }
   | { kind: 'create'; email: string; password: string }
-  | { kind: 'refuse'; step: 4; error: string };
+  | { kind: 'refuse'; step: 5; error: string };
 
 export type OpenShopAccountInput = {
   /** A signed-in user exists for this request. */
@@ -72,17 +75,17 @@ export type OpenShopAccountInput = {
 
 /**
  * Order of refusals follows the order of the boxes: a missing email or password is reported before the
- * agreement. All three now sit on step 4 — "You + Open my shop" (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN —
- * FOUR CALLS ANSWERED": the account step is LAST, so the Terms, the sign-in-in-place and the commit share one
- * screen; supersedes the 2026-09-22 "account inside step 3" order).
+ * agreement. All three sit on step 5 — "Your account" (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS
+ * ANSWERED": the account step is LAST, so the Terms, the sign-in-in-place and the commit share one screen; prototype
+ * v16 moved name · number · role to their own step 4, "About you", before it).
  */
 export function decideOpenShopAccount(input: OpenShopAccountInput): OpenShopAccountDecision {
   if (input.hasSession) return { kind: 'existing' };
-  if (!input.email) return { kind: 'refuse', step: 4, error: OPEN_SHOP_ERRORS.contactEmail };
+  if (!input.email) return { kind: 'refuse', step: 5, error: OPEN_SHOP_ERRORS.contactEmail };
   if (input.password.length < OPEN_SHOP_PASSWORD_MIN) {
-    return { kind: 'refuse', step: 4, error: OPEN_SHOP_ACCOUNT_ERRORS.password };
+    return { kind: 'refuse', step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.password };
   }
-  if (!input.termsAgreed) return { kind: 'refuse', step: 4, error: input.termsError };
+  if (!input.termsAgreed) return { kind: 'refuse', step: 5, error: input.termsError };
   return { kind: 'create', email: input.email, password: input.password };
 }
 

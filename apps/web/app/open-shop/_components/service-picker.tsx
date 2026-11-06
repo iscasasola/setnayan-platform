@@ -1,10 +1,10 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Search, Check, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Search, X } from 'lucide-react';
 
 import { rankTaxonomyOptionsWithClose } from '@/lib/taxonomy-search-rank';
-import { folderIcon } from '@/lib/taxonomy-icons';
+import { InfoTip } from '@/app/_components/info-tip';
 import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
 
 const COORDINATOR_TRADE_SET: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SERVICES);
@@ -15,8 +15,18 @@ export type PickerLeafView = {
   tileId: string;
   /** Reviewed aliases (`canonical_service_aliases`), the same words Explore and the card maker search by. */
   aliases?: readonly string[];
+  /** The events this service may serve (`canonical_service_taxonomy.allowed_event_types`); null / empty = every one. */
+  allowedEventTypes?: string[] | null;
 };
-export type PickerBranchView = { tileId: string; label: string; leaves: PickerLeafView[] };
+export type PickerBranchView = {
+  tileId: string;
+  label: string;
+  leaves: PickerLeafView[];
+  /** The category's photo (`service_categories.sample_photo_r2_key`, resolved on the server) — null = the plain tile. */
+  photoUrl?: string | null;
+  /** The category's ⓘ line (`service_categories.hint_en`, Admin › Categories "ⓘ text") — null = no ⓘ. */
+  hint?: string | null;
+};
 export type PickerParentView = { folderId: string; label: string; branches: PickerBranchView[] };
 
 /**
@@ -51,20 +61,15 @@ export type PickerParentView = { folderId: string; label: string; branches: Pick
  */
 export function ServicePicker({
   tree,
-  value,
-  labelForValue,
   onPick,
   coordinatorOnly = false,
   onSearchAll,
-  chosenSubline = null,
-  startParent = null,
+  excludeCategories,
+  excludeServices,
+  autoFocus = false,
 }: {
   tree: PickerParentView[];
-  /** Currently chosen leaf key, or '' when nothing is picked yet. */
-  value: string;
-  /** Display label for the current value (server-resolved on a re-run). */
-  labelForValue: string | null;
-  onPick: (leaf: PickerLeafView | null) => void;
+  onPick: (leaf: PickerLeafView) => void;
   /**
    * 🧭 `/open-shop?as=coordinator` (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED"): open on
    * the coordination services — the leaves whose key is in `COORDINATOR_TRADE_SERVICES`, READ FROM THE CONSTANT,
@@ -73,12 +78,19 @@ export function ServicePicker({
   coordinatorOnly?: boolean;
   /** "Not a coordinator? Search all services" — the wizard drops the coordinator view. */
   onSearchAll?: () => void;
-  /** The chosen row's small second line — the service's group (prototype v7/v8 `chosenRow`). */
-  chosenSubline?: string | null;
-  /** 🧺 "More in ‹group›" (owner 2026-11-06, prototype v7/v8) opens the picker already inside that group (folderId). */
-  startParent?: string | null;
+  /**
+   * "Another category" (prototype v14.1, owner 6 Nov: *"venue is picked, so venue should not show anymore when we look
+   * for more category"*): a category already on the list is not offered as a tile — more of it comes from its card's
+   * blank row. A group left empty drops out.
+   */
+  excludeCategories?: ReadonlySet<string>;
+  /** Services already on the list — never offered again (search or rows). */
+  excludeServices?: ReadonlySet<string>;
+  /** "Another category" puts the cursor in the search box (prototype `add-svc`). */
+  autoFocus?: boolean;
 }) {
-  const [openParent, setOpenParent] = useState<string | null>(startParent);
+  /** The category (tree branch `tileId`) whose services are open — `null` = the category tiles. */
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   /** The coordination services, from the constant, in the tree's own order. */
@@ -89,8 +101,12 @@ export function ServicePicker({
       ),
     [tree],
   );
+  const offered = (l: PickerLeafView) => !excludeServices?.has(l.canonicalService);
 
-  const parent = tree.find((p) => p.folderId === openParent) ?? null;
+  const opened = useMemo(() => {
+    for (const p of tree) for (const b of p.branches) if (b.tileId === openCategory) return { group: p, category: b };
+    return null;
+  }, [tree, openCategory]);
 
   /**
    * Flat index for search — built once, not per keystroke. Shaped for the SHARED ranker (`key` · `label` ·
@@ -114,35 +130,20 @@ export function ServicePicker({
 
   const q = query.trim().toLowerCase();
   // 🔤 ONE RANKER (owner 2026-11-06: "search that finds the compatible and most likely compatible (to help solve
-  // space, typo errors…)"). This box used to keep a private startsWith/contains search, so "photobooth" and every
-  // typo found nothing here while Explore found them. `matches` = the shipped tiers; `close` = typos, shown apart
-  // under "Close matches" and never picked for the vendor.
-  const { matches: hits, close } = useMemo(
+  // space, typo errors…)"). `matches` = the shipped tiers; `close` = typos, shown apart under "Close matches" and
+  // never picked for the vendor.
+  const { matches: rawHits, close: rawClose } = useMemo(
     () =>
       q.length < 2 ? { matches: [], close: [] } : rankTaxonomyOptionsWithClose(flat, q, 30),
     [flat, q],
   );
-
-  // ── Chosen state — one line, with a way back out ──────────────────────────
-  if (value) {
-    return (
-      <ChosenServiceRow
-        label={labelForValue || value}
-        subline={chosenSubline}
-        action="Change"
-        onAction={() => {
-          onPick(null);
-          setOpenParent(null);
-          setQuery('');
-        }}
-      />
-    );
-  }
+  const hits = rawHits.filter((h) => offered(h.leaf));
+  const close = rawClose.filter((h) => offered(h.leaf));
 
   // The prototype's rows: one line, the path under it when it teaches where a trade lives, a › at the right.
   const rowStyle = 'flex min-h-[50px] w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-[15px]';
   const row = (leaf: PickerLeafView, path?: string) => (
-    <button type="button" className={rowStyle} onClick={() => onPick(leaf)}>
+    <button type="button" className={rowStyle} onClick={() => onPick(leaf)} data-open-shop-service-row={leaf.canonicalService}>
       <span className="min-w-0">
         <span className="block truncate" style={{ color: 'var(--m-ink)' }}>
           {leaf.label}
@@ -169,9 +170,18 @@ export function ServicePicker({
   );
   const listFrame = 'overflow-hidden rounded-xl border';
 
-  const groups = <GroupTiles tree={tree} onOpen={setOpenParent} />;
+  const tiles = (
+    <CategoryTiles
+      tree={tree}
+      exclude={excludeCategories}
+      onOpen={(id) => {
+        setOpenCategory(id);
+        setQuery('');
+      }}
+    />
+  );
 
-  const coordinatorView = coordinatorOnly && q.length < 2 && !parent;
+  const coordinatorView = coordinatorOnly && q.length < 2 && !opened;
 
   return (
     <div className="space-y-2">
@@ -189,11 +199,13 @@ export function ServicePicker({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            setOpenParent(null);
+            setOpenCategory(null);
           }}
           placeholder="Search what you do"
           className="min-h-8 w-full bg-transparent text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
           aria-label="Search services"
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- "Another category" opens on the search, as drawn
+          autoFocus={autoFocus}
         />
         {query ? (
           <button
@@ -214,7 +226,7 @@ export function ServicePicker({
             <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
               <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-coordinator-services="">
                 {heading('Coordination services')}
-                {coordinatorLeaves.map((l) => (
+                {coordinatorLeaves.filter(offered).map((l) => (
                   <li key={l.canonicalService}>{row(l)}</li>
                 ))}
               </ul>
@@ -246,7 +258,7 @@ export function ServicePicker({
             </ul>
           </div>
         ) : close.length > 0 ? (
-          /* Typos: shown apart under "Close matches — did you mean", never picked for the vendor; the groups stay
+          /* Typos: shown apart under "Close matches — did you mean", never picked for the vendor; the categories stay
              underneath so a wrong guess is never a dead end. */
           <>
             <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
@@ -258,58 +270,61 @@ export function ServicePicker({
               </ul>
             </div>
             <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Not it? Browse the groups.
+              Not it? Browse the categories.
             </p>
-            {groups}
+            {tiles}
           </>
         ) : (
           <>
             <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Nothing by that name — browse the groups.
+              Nothing by that name — browse the categories.
             </p>
-            {groups}
+            {tiles}
           </>
         )
-      ) : !parent ? (
-        groups
+      ) : !opened ? (
+        tiles
       ) : (
-        /* A tapped group → its services as rows, one list (its branches as small headings, not another tap). */
+        /* A tapped category → its services as rows (prototype v11 `zSvcList`): the category's photo and name, "All
+           categories" back, then its group with the category's ⓘ. */
         <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
-          <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-group-services="">
-            <li
-              className="flex items-center justify-between gap-2 px-3.5 py-1"
-              style={{ background: 'var(--m-paper-2)' }}
-            >
-              <span className="text-[10.5px] font-medium uppercase tracking-[0.14em]" style={{ color: 'var(--m-slate-3)' }}>
-                {parent.label}
+          <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-category-services={opened.category.tileId}>
+            <li className="flex items-center justify-between gap-2 px-3.5 py-1.5" style={{ background: 'var(--m-paper-2)' }}>
+              <span className="flex min-w-0 items-center gap-2">
+                {opened.category.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset
+                  <img src={opened.category.photoUrl} alt="" className="h-[27px] w-9 shrink-0 rounded-md object-cover" />
+                ) : null}
+                <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  {opened.category.label}
+                </span>
               </span>
               <button
                 type="button"
-                onClick={() => setOpenParent(null)}
-                className="inline-flex min-h-9 items-center gap-1 text-[13px] font-medium"
+                onClick={() => setOpenCategory(null)}
+                className="inline-flex min-h-9 shrink-0 items-center gap-1 text-[13px] font-medium"
                 style={{ color: 'var(--m-orange-deep)' }}
               >
                 <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                All groups
+                All categories
               </button>
             </li>
-            {parent.branches.map((b) => (
-              <li key={b.tileId}>
-                {parent.branches.length > 1 ? (
-                  <p
-                    className="px-3.5 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-[0.12em]"
-                    style={{ color: 'var(--m-slate-3)' }}
-                  >
-                    {b.label}
-                  </p>
-                ) : null}
-                <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
-                  {b.leaves.map((l) => (
-                    <li key={l.canonicalService}>{row(l)}</li>
-                  ))}
-                </ul>
+            <li className="px-3.5 pb-1 pt-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              {opened.category.hint ? (
+                <InfoTip label={opened.group.label} labelClassName="text-xs" ariaLabel={`What is ${opened.category.label}?`} align="start">
+                  {opened.category.hint}
+                </InfoTip>
+              ) : (
+                opened.group.label
+              )}
+            </li>
+            {opened.category.leaves.filter(offered).length > 0 ? (
+              opened.category.leaves.filter(offered).map((l) => <li key={l.canonicalService}>{row(l)}</li>)
+            ) : (
+              <li className="px-3.5 py-3 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                All of this category is on your list
               </li>
-            ))}
+            )}
           </ul>
         </div>
       )}
@@ -317,78 +332,82 @@ export function ServicePicker({
   );
 }
 
-/**
- * One chosen service — ✓, its name, its group under it, and one action at the right ("Change" for the main, "Remove"
- * for a service added under it). The main's row and every added row are the SAME row (owner 2026-11-06: "put them all
- * together with main service").
- */
-export function ChosenServiceRow({
-  label,
-  subline,
-  action,
-  onAction,
-}: {
-  label: string;
-  subline?: string | null;
-  action: 'Change' | 'Remove';
-  onAction: () => void;
-}) {
-  return (
-    <div
-      className="flex items-center justify-between gap-3 rounded-xl border p-3"
-      style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
-      data-open-shop-chosen-service=""
-    >
-      <span className="flex min-w-0 items-center gap-2">
-        <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} style={{ color: 'var(--m-orange-deep)' }} />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-            {label}
-          </span>
-          {subline ? (
-            <span className="block truncate text-xs" style={{ color: 'var(--m-orange-deep)' }}>
-              {subline}
-            </span>
-          ) : null}
-        </span>
-      </span>
-      <button
-        type="button"
-        onClick={onAction}
-        className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium underline underline-offset-2"
-        style={{ color: 'var(--m-slate)' }}
-        aria-label={`${action} ${label}`}
-      >
-        {action}
-      </button>
-    </div>
-  );
+/** Balanced rows of at most three: 4 → 2+2, 5 → 3+2, 7 → 3+2+2 (prototype v11 `balRows`), every tile one height. */
+export function balancedRows<T>(items: readonly T[]): T[][] {
+  const rows = Math.ceil(items.length / 3);
+  const out: T[][] = [];
+  let i = 0;
+  for (let k = 0; k < rows; k++) {
+    const n = Math.ceil((items.length - i) / (rows - k));
+    out.push(items.slice(i, i + n));
+    i += n;
+  }
+  return out;
 }
 
-/* ── THE 16 GROUPS AS TILES, TWO COLUMNS (owner 2026-11-06: "present this better and simpler"; the redesign's tiles
-   carry the group's own name, as the prototype draws them). The group's icon (`folderIcon`, the one Explore draws) is
-   read before its name. Drawn UNDER the search box — this component is placed after the picker so the source reads
-   in screen order too. */
-function GroupTiles({ tree, onOpen }: { tree: PickerParentView[]; onOpen: (folderId: string) => void }) {
+/* ── THE CATEGORIES AS PHOTO TILES, UNDER SMALL GROUP HEADINGS (prototype v11 `catTiles`): the events grid's own tile —
+   the category's photo with its name on the scrim; a category with no photo is the plain tile. Each row fills the
+   width. Drawn UNDER the search box — this component is placed after the picker so the source reads in screen order. */
+function CategoryTiles({
+  tree,
+  exclude,
+  onOpen,
+}: {
+  tree: PickerParentView[];
+  exclude?: ReadonlySet<string>;
+  onOpen: (tileId: string) => void;
+}) {
+  const groups = tree
+    .map((p) => ({ group: p, cats: p.branches.filter((b) => !exclude?.has(b.tileId)) }))
+    .filter((g) => g.cats.length > 0);
   return (
-    <div className="grid grid-cols-2 gap-1.5" data-open-shop-groups="">
-      {tree.map((p) => {
-        const Icon = folderIcon(p.folderId);
-        return (
-          <button
-            key={p.folderId}
-            type="button"
-            onClick={() => onOpen(p.folderId)}
-            aria-label={p.label}
-            title={p.label}
-            className="flex min-h-[58px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm leading-tight" // no-card-ok: a pressable group tile — this line is a <button>'s own className
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)', background: 'var(--m-paper)' }}
+    <div className="grid gap-0.5" data-open-shop-categories="">
+      {groups.map(({ group, cats }) => (
+        <div key={group.folderId} className="grid gap-2">
+          <span
+            className="px-0.5 pb-0.5 pt-2.5 text-[10.5px] font-medium uppercase tracking-[0.14em]"
+            style={{ color: 'var(--m-slate-3)' }}
           >
-            <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />
-            <span className="line-clamp-2 min-w-0">{p.label}</span>
-          </button>
-        );
-      })}
+            {group.label}
+          </span>
+          {balancedRows(cats).map((rowCats, r) => (
+            <div key={r} className="flex gap-2">
+              {rowCats.map((b) => (
+                <button
+                  key={b.tileId}
+                  type="button"
+                  onClick={() => onOpen(b.tileId)}
+                  aria-label={b.label}
+                  className="relative isolate block h-24 min-w-0 flex-1 overflow-hidden rounded-[var(--m-r-sm)] text-left"
+                  style={{
+                    background: b.photoUrl
+                      ? 'var(--m-paper-2)'
+                      : 'linear-gradient(135deg, var(--m-orange-deep), var(--m-ink))',
+                  }}
+                  data-open-shop-category-tile={b.tileId}
+                >
+                  {b.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset
+                    <img src={b.photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+                  ) : null}
+                  {/* 🌗 A scrim over a PHOTO stays dark in both themes (the event tiles' rule). */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={{ background: 'linear-gradient(to top, rgba(23,22,15,.88) 0%, rgba(23,22,15,.5) 55%, transparent 100%)' }}
+                  />
+                  <span
+                    className="absolute inset-x-2 bottom-[7px] text-[12.5px] font-semibold leading-[1.1] text-white"
+                    style={{ textShadow: '0 1px 6px rgba(0,0,0,.5)' }}
+                  >
+                    {b.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

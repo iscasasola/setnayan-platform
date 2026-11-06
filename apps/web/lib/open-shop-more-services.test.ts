@@ -1,6 +1,7 @@
 /**
- * The step-2 meter and the posted list (owner 2026-11-06, prototype v8 `planFits` / `coverLine`): a "category" is the
- * tier-2 Category, each plan holds categories × services per category, every number read from TIER_CAPS.
+ * The step-2 meter, the plan ladder and the posted lists (owner 2026-11-06, prototype v8 → v16 `planFits` /
+ * `coverLine` / `LADDER` / `zXEv`): a "category" is the tier-2 Category, each plan holds categories × services per
+ * category, every number read from TIER_CAPS.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,8 +12,14 @@ import {
   carriesFirstBookingLabel,
   coverageLine,
   eventsForAddedService,
+  eventsForService,
   firstPlanThatHolds,
+  holdsMoreThanFree,
+  offeredAt,
+  parseEventListField,
   parseExtraServicesField,
+  parseSpecialtiesField,
+  planLadder,
   whatEachPlanHolds,
   type MeterService,
 } from '@/lib/open-shop-more-services';
@@ -26,7 +33,7 @@ test('the owner’s own example: four Reception venues + a hotel is NOT "Free an
   assert.notEqual(firstPlanThatHolds(four), 'free');
   const line = coverageLine([...rec(3), acc]);
   assert.equal(line.tally, '2 categories · 4 services');
-  assert.equal(line.verdict, 'Solo covers this — free until your first booking on Setnayan is done');
+  assert.equal(line.verdict, 'Solo covers this');
   assert.equal(line.split, 'Reception 3 · Accommodation 1');
 });
 
@@ -41,9 +48,13 @@ test('one service: Free and Verified cover this, no split line, no label', () =>
   assert.equal(TIER_CAPS.free.servicesPerLeaf, TIER_CAPS.verified.servicesPerLeaf);
 });
 
-test('every service after the first carries the label — Free and Verified hold one service', () => {
+test('past what Free holds, the explainer is due — and its line is the v16 one', () => {
   assert.equal(carriesFirstBookingLabel(rec(2)), true);
-  assert.equal(FIRST_BOOKING_FREE_LABEL, 'Free until your first booking on Setnayan is done');
+  assert.equal(holdsMoreThanFree(rec(1)), false);
+  assert.equal(holdsMoreThanFree(rec(2)), true);
+  assert.equal(holdsMoreThanFree([...rec(1), acc]), true);
+  assert.equal(holdsMoreThanFree([]), false);
+  assert.equal(FIRST_BOOKING_FREE_LABEL, 'Your first booking is free once you’re verified');
 });
 
 test('the plan is the FIRST where categories AND services per category both fit — read from TIER_CAPS', () => {
@@ -54,23 +65,67 @@ test('the plan is the FIRST where categories AND services per category both fit 
   // One category more than Solo holds, one service each → the next plan.
   const many = Array.from({ length: solo.parentCategories + 1 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
   assert.equal(firstPlanThatHolds(many), 'pro');
-  // Past the top plan → Custom, said in the person's plan word ("Ultra", never "Enterprise").
+  // Past the top plan: no Custom plan (retired from the app) — the line says what stays after the first booking, in
+  // the person's plan word ("Ultra", never "Enterprise"), the number read from TIER_CAPS.
   const past = rec(TIER_CAPS.enterprise.servicesPerLeaf + 1);
   assert.equal(firstPlanThatHolds(past), null);
-  assert.match(coverageLine(past).verdict, /^more than Ultra holds — Custom plan \(Talk to us\)$/);
+  assert.equal(
+    coverageLine(past).verdict,
+    `more than Ultra holds — all on until your first booking, then Ultra keeps ${TIER_CAPS.enterprise.parentCategories} categories you choose`,
+  );
+  assert.doesNotMatch(coverageLine(past).verdict, /Custom|Talk to us/);
   assert.match(coverageLine(rec(TIER_CAPS.pro.servicesPerLeaf + 1)).verdict, /^Ultra covers this/);
 });
 
-test('the ⓘ composes "What each plan holds" from TIER_CAPS', () => {
-  const t = whatEachPlanHolds();
-  assert.equal(t.title, 'What each plan holds');
-  assert.equal(
-    t.plans,
-    `Free and Verified: 1 service · Solo: ${TIER_CAPS.solo.parentCategories} categories, ${TIER_CAPS.solo.servicesPerLeaf} services each · ` +
-      `Pro: ${TIER_CAPS.pro.parentCategories} categories, ${TIER_CAPS.pro.servicesPerLeaf} each · ` +
-      `Ultra: ${TIER_CAPS.enterprise.parentCategories} categories, ${TIER_CAPS.enterprise.servicesPerLeaf} each.`,
+test('the ladder (Free · Verified → Solo → Pro → Ultra adds) is composed from TIER_CAPS — no number typed, no peso', () => {
+  const l = planLadder();
+  assert.deepEqual(
+    l.map((r) => r.name),
+    ['Free · Verified', 'Solo adds', 'Pro adds', 'Ultra adds'],
   );
-  assert.equal(t.firstBooking, 'Your first booking from Setnayan is on us.');
+  // The prototype's own words, rebuilt from the caps (Free reaches what Verified does once verified).
+  assert.equal(
+    l[0]!.caps,
+    `1 category · 1 service · reach ${TIER_CAPS.verified.serviceRadiusKm} km · basic search listing`,
+  );
+  assert.equal(
+    l[1]!.caps,
+    `${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.servicesPerLeaf} per category · reach ${TIER_CAPS.solo.serviceRadiusKm} km · enhanced search`,
+  );
+  assert.equal(
+    l[2]!.caps,
+    `${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.servicesPerLeaf} per category · reach ${TIER_CAPS.pro.serviceRadiusKm} km · AI answers can quote your offers`,
+  );
+  assert.match(l[3]!.caps, /· nationwide · top search priority$/);
+  assert.doesNotMatch(JSON.stringify(l), /₱|PHP|\bpeso/i);
+  const t = whatEachPlanHolds();
+  assert.equal(t.title, 'What each plan adds');
+  assert.deepEqual(t.ladder, l);
+  assert.equal(t.firstBooking, 'Your first booking is free once you’re verified.');
+});
+
+test('④ a service is on for the ticked events it is offered at, minus the ones unticked under that event', () => {
+  assert.equal(offeredAt(null, 'wake'), true);
+  assert.equal(offeredAt([], 'wake'), true, 'an empty allowed set is no restriction (coverage-allowed-events)');
+  assert.equal(offeredAt(['wedding'], 'wake'), false);
+  const ticked = ['wedding', 'debut', 'wake'];
+  assert.deepEqual(eventsForService('cake', null, ticked, {}), ticked);
+  assert.deepEqual(eventsForService('cake', ['wedding', 'debut'], ticked, {}), ['wedding', 'debut']);
+  assert.deepEqual(eventsForService('cake', null, ticked, { debut: ['cake'], wake: ['hearse'] }), ['wedding', 'wake']);
+  // Offered nowhere it is ticked → on for no event (Continue refuses it).
+  assert.deepEqual(eventsForService('tea', ['wedding'], ['debut'], {}), []);
+});
+
+test('the posted per-service lists: shape only, malformed reads as nothing', () => {
+  assert.equal(parseEventListField(''), null);
+  assert.equal(parseEventListField('nope'), null);
+  assert.deepEqual(parseEventListField(JSON.stringify(['wedding', 3, ' debut '])), ['wedding', 'debut']);
+  assert.deepEqual(parseSpecialtiesField(''), {});
+  assert.deepEqual(parseSpecialtiesField('[1]'), {});
+  assert.deepEqual(
+    parseSpecialtiesField(JSON.stringify({ photography: { shoot: ['Pre-nup', 7], look: [] }, x: 'y' })),
+    { photography: { shoot: ['Pre-nup'] } },
+  );
 });
 
 test('the posted list: shape only, malformed adds nothing', () => {

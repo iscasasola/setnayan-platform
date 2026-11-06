@@ -60,6 +60,13 @@ export type PasswordFieldProps = InputProps & {
   personal?: ReadonlyArray<string | null | undefined>;
   /** The server's breach check refused the password this box holds. */
   leaked?: boolean;
+  /**
+   * 🤫 `mode="new" quiet` — a create-password box that shows NO bar and NO rules: one hint under it, said by the door
+   * ("At least 8 characters"), and the leak check speaks only if it fails, on submit, under the box. The supplier
+   * sign-up's account step (owner, prototype open-shop v16, 6 Nov: *"one hint, no strength bar, no checklist"*). The
+   * box is still a NEW-password box (`autoComplete="new-password"`, the same server rules) — only the meter is not drawn.
+   */
+  quiet?: boolean;
 };
 
 /** The form boxes whose words a new password must not contain. */
@@ -86,12 +93,13 @@ export function PasswordField({
   mode,
   personal,
   leaked,
+  quiet = false,
   ...input
 }: PasswordFieldProps) {
   const autoId = useId();
   const id = idProp ?? autoId;
   const meterId = `${id}-strength`;
-  const isNew = mode === 'new';
+  const isNew = mode === 'new' && !quiet;
   // What the box holds (mode="new" only) and the name/email words around it.
   const [typed, setTyped] = useState('');
   const [formPersonal, setFormPersonal] = useState<string[]>([]);

@@ -1,4 +1,3 @@
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import { formatCount } from '@/lib/format-number';
 import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
@@ -20,8 +19,11 @@ import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  * 10", and cards per `vendor_services.category`) — reconciling the two belongs to the hold build, not this file.
  */
 
-/** The label every service after the first carries (the prototype's `UNLOCK_LABEL`, verbatim). */
-export const FIRST_BOOKING_FREE_LABEL = 'Free until your first booking on Setnayan is done';
+/**
+ * The unlock line (the prototype's `UNLOCK_LABEL`, verbatim — v16, owner 6 Nov: *"their first booking free once
+ * verified"*). Said once under the cards when the picks are more than Free holds, and as the lead of the plan sheet.
+ */
+export const FIRST_BOOKING_FREE_LABEL = 'Your first booking is free once you’re verified';
 
 /** The plans the meter walks, smallest first. Verified holds what Free holds (`TIER_CAPS`), so Free stands for both. */
 const METER_PLANS: readonly VendorTier[] = ['free', 'solo', 'pro', 'enterprise'];
@@ -66,12 +68,15 @@ export function coverageLine(list: readonly MeterService[]): { tally: string; ve
   const n = list.length;
   const plan = firstPlanThatHolds(list);
   const top = METER_PLANS[METER_PLANS.length - 1]!;
+  // v14.4 (owner 6 Nov: "we should allow them to keep adding another category"): no cap at sign-up, and the Custom
+  // plan is retired from the app — so past Ultra the line says what happens after the first booking, never "Talk to us".
+  const topCats = TIER_CAPS[top].parentCategories;
   const verdict =
     plan === 'free'
       ? 'Free and Verified cover this'
       : plan === null
-        ? `more than ${planWord(top)} holds — Custom plan (Talk to us)`
-        : `${planWord(plan)} covers this — ${FIRST_BOOKING_FREE_LABEL.charAt(0).toLowerCase()}${FIRST_BOOKING_FREE_LABEL.slice(1)}`;
+        ? `more than ${planWord(top)} holds — all on until your first booking, then ${planWord(top)} keeps ${formatCount(topCats)} categories you choose`
+        : `${planWord(plan)} covers this`;
   return {
     tally: `${formatCount(c)} ${c === 1 ? 'category' : 'categories'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`,
     verdict,
@@ -84,31 +89,93 @@ export function carriesFirstBookingLabel(list: readonly MeterService[]): boolean
   return !planHolds('free', list);
 }
 
+/** Search-listing words per `seoLevel` — the prototype's ladder (`LADDER`, v14–v16), one per level, never a price. */
+const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> = {
+  basic: 'basic search listing',
+  enhanced: 'enhanced search',
+  aeo: 'AI answers can quote your offers',
+  priority: 'top search priority',
+};
+
+/** Reach in words: "reach 20 km" · "nationwide" (Ultra's `Infinity`). */
+const reachWords = (km: number) => (Number.isFinite(km) ? `reach ${formatCount(km)} km` : 'nationwide');
+
 /**
- * The ⓘ beside the line — "What each plan holds", composed from `TIER_CAPS` (the prototype's `unlockTip`).
- * Free and Verified: 1 service · Solo: 2 categories, 3 services each · Pro: 8 categories, 10 each · Ultra: …
+ * 🪜 THE LADDER THE PLAN SHEET SHOWS — "Free · Verified → Solo adds → Pro adds → Ultra adds" (prototype v16 `LADDER`,
+ * the shape of `for-suppliers/_components/vendor-tier-deltas.tsx`: each plan says what it ADDS, once). Every number
+ * is read from `TIER_CAPS`; Free's reach is Verified's (Free is not searchable until verified). No peso anywhere.
  */
-export function whatEachPlanHolds(): { title: string; plans: string; after: string; firstBooking: string; fine: string } {
-  const parts: string[] = [];
-  let first = true;
-  for (const t of METER_PLANS) {
-    const { parentCategories: c, servicesPerLeaf: v } = TIER_CAPS[t];
-    const who = t === 'free' ? 'Free and Verified' : planWord(t);
-    if (c === 1 && v === 1) {
-      parts.push(`${who}: 1 service`);
-      continue;
-    }
-    parts.push(`${who}: ${c} ${c === 1 ? 'category' : 'categories'}, ${v} ${first ? (v === 1 ? 'service each' : 'services each') : 'each'}`);
-    first = false;
-  }
-  return {
-    title: 'What each plan holds',
-    plans: `${parts.join(' · ')}.`,
-    after:
-      'Everything you add stays on until your first booking on Setnayan. Then keep one free, or upgrade to keep them all. Nothing is deleted.',
-    firstBooking: FIRST_BOOKING_ON_US,
-    fine: 'No booking fee on it. One per business.',
+export function planLadder(): { name: string; caps: string }[] {
+  const rung = (t: VendorTier, first: boolean) => {
+    const c = TIER_CAPS[t];
+    const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
+    const per = first
+      ? `${formatCount(c.servicesPerLeaf)} ${c.servicesPerLeaf === 1 ? 'service' : 'services'}`
+      : `${formatCount(c.servicesPerLeaf)} per category`;
+    const reach = first ? reachWords(TIER_CAPS.verified.serviceRadiusKm) : reachWords(c.serviceRadiusKm);
+    return [cats, per, reach, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
+  return [
+    { name: 'Free · Verified', caps: rung('free', true) },
+    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({ name: `${planWord(t)} adds`, caps: rung(t, false) })),
+  ];
+}
+
+/**
+ * The ⓘ beside the coverage line — "What each plan adds" (the prototype's `unlockTip`, v16): the ladder once, then
+ * what happens to the services after the first booking. Composed from `TIER_CAPS` via `planLadder`.
+ */
+export function whatEachPlanHolds(): {
+  title: string;
+  lead: string;
+  ladder: { name: string; caps: string }[];
+  listing: string;
+  after: string;
+  firstBooking: string;
+  fine: string;
+} {
+  return {
+    title: 'What each plan adds',
+    lead: 'Each plan says what it adds. Once.',
+    ladder: planLadder(),
+    listing:
+      'Each service is its own listing in its category — more services means you appear in more couples’ searches. Reach is how far from you couples search.',
+    after:
+      'Everything you add stays on until your first booking on Setnayan is done. Then keep one free, or pick a plan to keep them all. Nothing is deleted.',
+    firstBooking: `${FIRST_BOOKING_FREE_LABEL}.`,
+    fine: 'No booking fee on it. One per business — checked when Setnayan verifies you.',
+  };
+}
+
+/**
+ * The plan explainer is due — the picks hold more than Free does (prototype v16 `overFree`). Continue then opens the
+ * "Before you continue" sheet until its box is ticked.
+ */
+export function holdsMoreThanFree(list: readonly MeterService[]): boolean {
+  return list.length > 0 && !planHolds('free', list);
+}
+
+/* ── EVENTS YOU SERVE · WHAT YOU OFFER AT EACH EVENT (prototype v16 `zXEv`) ──────────────────────────────────────── */
+
+/**
+ * Is `service` offered for `event` at all? Its leaf's `allowedEventTypes` — null or EMPTY = no restriction, the ONE
+ * rule `lib/coverage-allowed-events.ts` and the server's `parseEventTypes` both run.
+ */
+export function offeredAt(allowed: readonly string[] | null | undefined, event: string): boolean {
+  return !allowed || allowed.length === 0 || allowed.includes(event);
+}
+
+/**
+ * The events one service is ON for: every ticked event where it is offered and the supplier did not untick it
+ * (`off[event]` = the services unticked under that event). Order = the ticked order.
+ */
+export function eventsForService(
+  service: string,
+  allowed: readonly string[] | null | undefined,
+  ticked: readonly string[],
+  off: Readonly<Record<string, readonly string[]>>,
+): string[] {
+  return ticked.filter((k) => offeredAt(allowed, k) && !(off[k] ?? []).includes(service));
 }
 
 /* ── THE POSTED FIELD ──────────────────────────────────────────────────────────────────────────────────────────── */
@@ -162,4 +229,56 @@ export function eventsForAddedService(
   const fit = known.filter((k) => !allowSet || allowSet.has(k));
   if (fit.length) return fit;
   return allowed && allowed[0] ? [allowed[0]] : known;
+}
+
+/**
+ * The main service's OWN events (v16, per event): the ticked events it is on for. Posted beside `extra_services` so
+ * the server writes the same per-service set the screen showed. Shape only — the server filters against the roster,
+ * the ticked set and the leaf's allowed set. Absent / malformed → null (the server then reads the ticked events).
+ */
+export const MAIN_SERVICE_EVENTS_FIELD = 'primary_service_events';
+
+export function parseEventListField(raw: unknown): string[] | null {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 4_000) return null;
+  try {
+    const data: unknown = JSON.parse(raw);
+    if (!Array.isArray(data)) return null;
+    return data.filter((e): e is string => typeof e === 'string').map((e) => e.trim().slice(0, 64));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🏷 THE SPECIALTIES PICKED AT SIGN-UP (v14.2 → v16 "specialties compile"): `{ service: { field: [values] } }`, the
+ * chip-shaped refinements of each service's own schema (`canonical_service_schemas`, read by
+ * `fetchCategoryChipRefinementsMany`). Shape only; the server writes them through THE ONE refinement merge
+ * (`mergeServiceRefinements`), which re-validates every key and value against the live schema. Optional — nothing
+ * here ever blocks Continue.
+ */
+export const SPECIALTIES_FIELD = 'service_specialties';
+
+export type PostedSpecialties = Record<string, Record<string, string[]>>;
+
+export function parseSpecialtiesField(raw: unknown): PostedSpecialties {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 20_000) return {};
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const out: PostedSpecialties = {};
+  for (const [svc, fields] of Object.entries(data as Record<string, unknown>).slice(0, 64)) {
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) continue;
+    const kept: Record<string, string[]> = {};
+    for (const [key, vals] of Object.entries(fields as Record<string, unknown>).slice(0, 32)) {
+      if (!Array.isArray(vals)) continue;
+      const v = vals.filter((x): x is string => typeof x === 'string').map((x) => x.slice(0, 128)).slice(0, 64);
+      if (v.length) kept[key.slice(0, 64)] = v;
+    }
+    if (Object.keys(kept).length) out[svc.slice(0, 64)] = kept;
+  }
+  return out;
 }

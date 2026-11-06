@@ -30,7 +30,10 @@ const PANE = read('app/_components/auth/sign-in-here-panel.tsx');
 const LINK = read('app/_components/auth/sign-in-here-link.tsx');
 const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const PHONE = read('app/open-shop/_components/phone-field.tsx');
-const MORE = read('app/open-shop/_components/more-services.tsx');
+const CARDS = read('app/open-shop/_components/service-cards.tsx');
+const AT_EVENTS = read('app/open-shop/_components/services-at-events.tsx');
+const SHEET = read('app/open-shop/_components/plan-sheet.tsx');
+const LAB = read('app/dev/open-shop-lab/page.tsx');
 const METER = read('lib/open-shop-more-services.ts');
 
 /* ── every sentence has a box, and the box is on the step the server sends you to ─────────────────────────────── */
@@ -73,19 +76,30 @@ test('the phone box says the approved sentence, whichever way the number was ref
   assert.match(PHONE, /state\.state === 'error' \? OPEN_SHOP_PHONE_BOX_ERROR/);
 });
 
-/* ── the order: 1 Name · 2 What you do · 3 Where you are · 4 You ──────────────────────────────────────────────── */
+/* ── the order: 1 Name · 2 What you do · 3 Where you are · 4 About you · 5 Your account (prototype v16) ──────────── */
 
-test('four steps in the approved order, the account LAST', () => {
+test('five steps in the approved order, the account LAST', () => {
   const at = (n: number) => WIZARD.indexOf(`step === ${n} ? 'space-y-4' : 'hidden'`);
-  const panel = (n: number) => WIZARD.slice(at(n), n < 4 ? at(n + 1) : WIZARD.indexOf('data-open-shop-bar'));
+  const panel = (n: number) => WIZARD.slice(at(n), n < 5 ? at(n + 1) : WIZARD.indexOf('data-open-shop-bar'));
   assert.match(panel(1), /name="shop_name"/);
   assert.match(panel(2), /<ServicePicker\b/);
+  assert.match(panel(2), /<ServiceCards\b/);
   assert.match(panel(2), /<EventTiles\b/);
+  assert.match(panel(2), /<ServicesAtEvents\b/);
   assert.match(panel(3), /<CityPin\b/);
-  for (const name of ['contact_name', 'contact_email', 'password']) assert.match(panel(4), new RegExp(`name="${name}"`));
+  // ⑤ About you: name · number · role (free text → the shipped `contact_position`, optional).
+  assert.match(panel(4), /name="contact_name"/);
   assert.match(panel(4), /<PhoneField\b/);
-  // Gone from the door: the logo upload, Position, "In business since".
-  assert.doesNotMatch(WIZARD, /<FileUpload\b|contact_position"|in_business_since_year|<PickMenu\b/);
+  assert.match(panel(4), /name="contact_position"/);
+  assert.match(panel(4), /Your role at the shop/);
+  for (const name of ['contact_email', 'password']) assert.match(panel(5), new RegExp(`name="${name}"`));
+  assert.match(panel(5), /name=\{TERMS_FIELD\}/);
+  // Gone from the door: the logo upload, "In business since", any role LIST (none exists to reuse).
+  assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year|<PickMenu\b/);
+  assert.match(WIZARD, /'About you', 'Who couples will talk to\.'/);
+  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : null/);
+  // Five segments in the step bar.
+  assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<span key=\{n\} className="h-1 flex-1/);
 });
 
 test('the server runs the same order, and refuses what the browser refuses', () => {
@@ -122,7 +136,7 @@ test('?as=coordinator opens on COORDINATOR_TRADE_SERVICES — read from the cons
   assert.match(PICKER, /Coordination services/);
   assert.match(PICKER, /Not a coordinator\?/);
   assert.match(PICKER, /Search all services/);
-  assert.match(WIZARD, /'What you coordinate', 'Your main coordination service, and the events you serve\.'/);
+  assert.match(WIZARD, /\['What you coordinate', service \? 'Your services\. Add more if you do more\.' : 'Pick your main coordination service\.'\]/);
   assert.match(WIZARD, /onSearchAll=\{\(\) => setAllServices\(true\)\}/);
 });
 
@@ -151,45 +165,90 @@ test('"Is this your address?" — the full address, a full-width "Yes, that’s 
   assert.match(WIZARD, /'Where you are', 'Type your address; the pin follows\. Then confirm it\.'/);
 });
 
-/* ── step 2, v8: the services sit together, a meter names the plan (owner 2026-11-06) ─────────────────────────── */
+/* ── step 2, v14 → v16: one card per category, the plan explained on Continue, events per service ─────────────── */
 
-test('v8 · main + added services are ONE "Your services" list above the events, each with its own events', () => {
+test('v16 ① · one plain card per CATEGORY; a blank "Also do …?" row; a dashed "Another category" frame → tile → row', () => {
   assert.match(WIZARD, /\{service \? 'Your services' : 'Main service'\}/);
-  // The list sits in the service block, BEFORE "Events you serve".
-  assert.ok(WIZARD.indexOf('<MoreServices') > 0 && WIZARD.indexOf('<MoreServices') < WIZARD.indexOf('Events you serve'));
-  assert.match(MORE, /Same events as \{mainLabel\}/);
-  assert.match(MORE, /Use the same events as \{mainLabel\}/);
-  assert.match(MORE, /Pick at least one event for \{a\.label\}\./);
-  // The same chosen row for the main and every added one.
-  assert.match(PICKER, /<ChosenServiceRow[\s\S]{0,120}action="Change"/);
-  assert.match(MORE, /<ChosenServiceRow[\s\S]{0,200}action="Remove"/);
-  // Refused in the browser AND on the server.
-  assert.match(WIZARD, /if \(added\.some\(\(a\) => \(a\.events \?\? events\)\.length === 0\)\) return OPEN_SHOP_ERRORS\.extraEvents;/);
+  // The card is the tier-2 category (the tree's branch), never the group.
+  assert.match(CARDS, /categoryId: b\.tileId,\s*categoryLabel: b\.label,/);
+  assert.match(CARDS, /<option value="">Also do \{remain\.map\(\(x\) => x\.label\)\.join\(', '\)\}\?<\/option>/);
+  assert.match(CARDS, /Every \{cat\} service is on your list/);
+  assert.match(CARDS, /data-open-shop-another-category=""[\s\S]{0,200}Another category/);
+  // "Another category" never offers a category already on the list, nor a service already picked.
+  assert.match(CARDS, /excludeCategories=\{new Set\(byCat\.map\(\(c\) => c\.id\)\)\}/);
+  assert.match(CARDS, /excludeServices=\{pickedKeys\}/);
+  assert.match(PICKER, /cats: p\.branches\.filter\(\(b\) => !exclude\?\.has\(b\.tileId\)\)/);
+  // The card a pick lands in scrolls into view and flashes once.
+  assert.match(CARDS, /setFlash\(leaf\.canonicalService\)/);
+  assert.match(CARDS, /scrollIntoView\(\{ block: 'center', behavior: 'smooth' \}\)/);
+  assert.match(CARDS, /data-\[flash\]:shadow-/);
+  // The v8 shapes are gone.
+  assert.doesNotMatch(WIZARD + CARDS, /More in \{|A different category|Add another service|Same events as/);
+});
+
+test('v16 ② · Continue opens "Before you continue" only past Free and before the box is ticked; the box gates it', () => {
+  const next = WIZARD.slice(WIZARD.indexOf('const next = () => {'), WIZARD.indexOf('const back = () => {'));
+  assert.match(next, /if \(overFree && !planAgreed\) \{[\s\S]*?setPlanOpen\(true\);/);
+  const cont = WIZARD.slice(WIZARD.indexOf('const planContinue'), WIZARD.indexOf('const submitGate'));
+  assert.match(cont, /if \(!planAgreed\) \{\s*setPlanErr\(PLAN_AGREE_ERROR\);/);
+  assert.match(SHEET, /Before you continue/);
+  assert.match(SHEET, /Back to my services/);
+  assert.match(SHEET, /tip\.ladder\.map\(/);
+  // A sheet on a phone (the shipped Sheet), the right pane when wide.
+  assert.match(SHEET, /<Sheet open=\{open\}/);
+  assert.match(WIZARD, /<PlanSheet open=\{planOpen && !wide && step === 2\}/);
+  assert.match(WIZARD, /planPane \? \(\s*<PlanPane \{\.\.\.planProps\} \/>/);
+  // No number or peso typed on this screen — the ladder is TIER_CAPS'.
+  assert.doesNotMatch(SHEET + CARDS, /₱|\b\d+ (categories|per category|km)\b/);
+  assert.match(METER, /export function planLadder\(\)/);
+  // The one-line hint + ⓘ stays inline under the cards.
+  assert.match(CARDS, /What each plan adds shows before you continue\./);
+});
+
+test('v16 ③ · specialties compile: picks in ink + "+ Add" when closed, every chip + Done when open, one open at a time', () => {
+  assert.match(CARDS, /summary\.join\(' · '\)/);
+  assert.match(CARDS, /Add\s*<\/button>/);
+  assert.match(CARDS, />\s*Done\s*<\/button>/);
+  assert.match(CARDS, /\+ \{word\}&nbsp;<small className="text-xs">\(optional\)<\/small>/);
+  // ONE open key, held by the wizard — opening one closes the others.
+  assert.match(WIZARD, /const \[openSpecialty, setOpenSpecialty\] = useState<string \| null>\(null\)/);
+  // From the shipped refinement schema, written through the ONE merge.
+  assert.match(PAGE, /fetchCategoryChipRefinementsMany\(/);
+  assert.match(ACTIONS, /await mergeServiceRefinements\(admin, vendorProfileId as string, svc, fd\)/);
+});
+
+test('v16 ④ · under each ticked event, the picked services as chips; greyed where not offered; none on → refused', () => {
+  assert.match(AT_EVENTS, /isn’t offered for \$\{e\.label\}/);
+  assert.match(AT_EVENTS, /\{formatCount\(onCount\)\} of \{formatCount\(services\.length\)\}/);
+  assert.match(AT_EVENTS, /aria-disabled="true"/);
+  assert.match(WIZARD, /if \(serviceOnNoEvent\) return OPEN_SHOP_ERRORS\.extraEvents;/);
+  // Events are step 2's second page.
+  assert.match(WIZARD, /\['Events you serve', 'Couples find you by event\.'\]/);
+  // The server keeps each service's own events and refuses one on no event.
+  assert.match(ACTIONS, /parseEventListField\(formData\.get\(MAIN_SERVICE_EVENTS_FIELD\)\)/);
   assert.match(ACTIONS, /if \(!ev\) redirect\('\/open-shop\?step=2&error=' \+ encodeURIComponent\(OPEN_SHOP_ERRORS\.extraEvents\)\)/);
+  assert.equal(OPEN_SHOP_ERRORS.extraEvents, 'Pick at least one event for each service.');
 });
 
-test('v8 · two buttons after a pick: "More in ‹group›" (the picker opened in that group) and "A different category"', () => {
-  assert.match(MORE, /More in \{lastGroup\.groupLabel\}/);
-  assert.match(MORE, /A different category/);
-  assert.match(MORE, /startParent=\{adding \|\| null\}/);
-  assert.match(PICKER, /useState<string \| null>\(startParent\)/);
-  assert.doesNotMatch(WIZARD + MORE, /Add another service/, 'the single "Add another service" is back');
+test('v16 ⑤ · three equal buttons; Email opens email + password in place with ONE hint; the leak check speaks on submit', () => {
+  assert.match(WIZARD, /className=\{OAUTH_BUTTON_CLASS\}[\s\S]{0,900}\{OAUTH_VERB\} Email/);
+  assert.match(WIZARD, /<PasswordField\s+id="open-shop-password"\s+mode="new"\s+quiet\b/);
+  assert.match(WIZARD, /At least 8 characters\s*<\/span>/);
+  assert.doesNotMatch(WIZARD, /or with email/, 'the "or with email" divider is back');
+  assert.match(WIZARD, /Open my shop — free/);
 });
 
-test('v8 · the meter counts tier-2 CATEGORIES (the tree’s branch), never groups; numbers from TIER_CAPS', () => {
-  // The branch (tileId) is the category; the folder is only the chosen row's second line.
-  assert.match(MORE, /out\.set\(l\.canonicalService, \{ categoryId: b\.tileId, categoryLabel: b\.label, groupId: p\.folderId, groupLabel: p\.label \}\)/);
-  assert.match(METER, /by\.length <= caps\.parentCategories && by\.every\(\(c\) => c\.count <= caps\.servicesPerLeaf\)/);
-  assert.doesNotMatch(METER, /parentCategories:\s*\d|servicesPerLeaf:\s*\d/, 'a plan number is typed into the meter');
-  // "Add more later…" is said only BEFORE the pick — once picked, the meter says it with the real numbers.
-  assert.match(WIZARD, /\{service \|\| coordinating \? null : \(\s*<span className="block text-xs"[^>]*data-open-shop-plan-hint=""/);
-});
-
-test('v8 · the door never refuses a service for the plan, and writes each one’s events to vendor_coverages', () => {
+test('the door never refuses a service for the plan, and writes each one’s events to vendor_coverages', () => {
   assert.match(ACTIONS, /await insertCoverage\(admin, vendorProfileId as string, \{ \.\.\.row, faiths: \[\] \}\)/);
   assert.doesNotMatch(ACTIONS, /addCoverageForCardKind|parentCategories/, 'a plan cap reached the door');
   // Coverages first, the profile patch last — the patch keeps index 0 the coarse category.
   assert.ok(ACTIONS.indexOf('await insertCoverage(') < ACTIONS.indexOf(".update(patch)"));
+  assert.match(METER, /by\.length <= caps\.parentCategories && by\.every\(\(c\) => c\.count <= caps\.servicesPerLeaf\)/);
+  assert.doesNotMatch(METER, /parentCategories:\s*\d|servicesPerLeaf:\s*\d/, 'a plan number is typed into the meter');
+  // "Add more later…" is said only BEFORE the pick — once picked, the meter says it with the real numbers.
+  assert.match(WIZARD, /\{service \|\| coordinating \? null : \(\s*<span className="block text-xs"[^>]*data-open-shop-plan-hint=""/);
+  // The lab never ships.
+  assert.match(LAB, /if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
 });
 
 /* ── errors under their box; the stale build; the sign-in pane ────────────────────────────────────────────────── */
@@ -198,7 +257,7 @@ test('no banner at the top — each error is drawn under its box and tied to it'
   assert.doesNotMatch(WIZARD, /\{banner && !taken &&/, 'the top banner is back');
   assert.match(WIZARD, /id=\{`open-shop-err-\$\{field\}`\}/);
   for (const f of ['shop_name', 'contact_name', 'contact_email', 'password']) {
-    assert.match(WIZARD, new RegExp(`aria-describedby=\\{describedBy\\('${f}'\\)\\}`), `${f} is not tied to its error`);
+    assert.match(WIZARD, new RegExp(`aria-describedby=\\{describedBy\\('${f}'[,)]`), `${f} is not tied to its error`);
   }
   assert.match(WIZARD, /error=\{errorFor\('location'\)\}/);
   assert.match(CITY_PIN, /aria-describedby=\{error \? 'open-shop-err-location' : undefined\}/);

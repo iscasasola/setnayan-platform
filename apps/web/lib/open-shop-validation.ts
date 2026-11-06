@@ -112,9 +112,9 @@ export const OPEN_SHOP_ERRORS = {
   // 🎟 Owner 2026-11-06 ("SUPPLIER SIGN-UP REDESIGN APPROVED", call 3): every event type starts ticked, and at least
   // one must stay — a shop that serves no event would never show to a couple. Refused in the browser AND here.
   events: 'Pick at least one event.',
-  // 🧺 Owner 2026-11-06 (prototype v7/v8, "SERVICES SIT TOGETHER"): each added service keeps its own events — "Same
-  // events as ‹main›" to start, Change to pick its own — and an added service serving NO event is refused, like the main.
-  extraEvents: 'Pick at least one event for each added service.',
+  // 🧺 Owner 2026-11-06 (prototype v16, "Events you serve"): under each ticked event every picked service is a chip,
+  // all on, untick per event — and a service left on for NO picked event is refused (the prototype's `v2e` sentence).
+  extraEvents: 'Pick at least one event for each service.',
 } as const;
 
 /**

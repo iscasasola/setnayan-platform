@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { shopConsolePath } from '@/lib/shop-console-path';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
-import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForCatalogueArt, displayUrlForStoredAsset } from '@/lib/uploads';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { fetchCategoryChipRefinementsMany } from '@/lib/vendor-service-attributes';
+import type { SpecialtyField } from './_components/service-cards';
 import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
@@ -21,8 +24,8 @@ import { categoryLadder } from '@/lib/vendor-tier-caps';
  * CTA + the vendor signup landing (owner 2026-07-03). Routes by state:
  *
  *   • logged OUT                     → the wizard, signed out (mode 'create'):
- *     the LAST step (4, "You" — owner 2026-11-06, the account goes last) also
- *     creates the account, and "Sign in" opens the sign-in pane over the
+ *     the LAST step (5, "Your account" — owner 2026-11-06, the account goes last;
+ *     prototype v16) also creates the account, and "Sign in" opens the sign-in pane over the
  *     wizard (owner 2026-09-22 "account inside step 3" — supersedes the
  *     2026-07-10 login-first bounce to /login?next=/open-shop&as=vendor, which
  *     survives only as the no-JavaScript fallback of that link)
@@ -161,13 +164,55 @@ export default async function OpenShopPage({
     mergeForwards,
     new Set(bareTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService)))),
   );
+  // 🖼 Each CATEGORY wears its photo and its ⓘ (prototype v11 + v9; owner 6 Nov: "add (i) for each so we can define the
+  // categories"): `service_categories.sample_photo_r2_key` (resolved the way Explore resolves it) and `hint_en` (Admin ›
+  // Categories "ⓘ text"), both through the taxonomy snapshot. Fail-soft: no photo = the plain tile, no hint = no ⓘ.
+  const tax = await getTaxonomy().catch(() => null);
+  const photoOf = new Map<string, string | null>(
+    await Promise.all(
+      bareTree.flatMap((p) => p.branches).map(async (b) => {
+        const ref = tax?.categoryPhotos[b.tileId] ?? null;
+        const url = ref ? await displayUrlForCatalogueArt(ref).catch(() => null) : null;
+        return [b.tileId, url] as const;
+      }),
+    ),
+  );
   const serviceTree = bareTree.map((p) => ({
     ...p,
     branches: p.branches.map((b) => ({
       ...b,
+      photoUrl: photoOf.get(b.tileId) ?? null,
+      hint: tax?.categoryHints?.[b.tileId] ?? null,
       leaves: b.leaves.map((l) => ({ ...l, aliases: aliasesByLeaf.get(l.canonicalService) })),
     })),
   }));
+  // ③ Each service's specialties — the CHIP-shaped refinements of its own schema (`canonical_service_schemas`, readable
+  // signed out), the same read the services manager makes (`fetchCategoryChipRefinementsMany`). An `enum` keeps one
+  // value; a `boolean` is one chip. Fail-soft: no schema = no "+ Specialties" on that service.
+  const specialties: Record<string, SpecialtyField[]> = {};
+  try {
+    const refinements = await fetchCategoryChipRefinementsMany(
+      supabase,
+      serviceTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService))),
+    );
+    const words = (v: string) => v.replaceAll('_', ' ');
+    for (const [svc, r] of refinements) {
+      specialties[svc] = Object.entries(r.fields).map(([key, def]) => {
+        const label = def.label ?? words(key);
+        return def.type === 'boolean'
+          ? { key, label, options: [{ value: 'true', label }], single: true }
+          : {
+              key,
+              label,
+              options: (def.options ?? []).map((o) => ({ value: o, label: words(o) })),
+              single: def.type === 'enum',
+            };
+      }).filter((f) => f.options.length > 0);
+      if (!specialties[svc]!.length) delete specialties[svc];
+    }
+  } catch {
+    // A refused read leaves the specialties out — they are optional and never block opening a shop.
+  }
   // The signed-in account's own name — shown read-only on step 4 rather than
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.
@@ -240,11 +285,12 @@ export default async function OpenShopPage({
       }
       error={error}
       planCategories={categoryLadder()}
+      specialties={specialties}
       // A8: the submit was refused because the email has an account → step 4 signs in, right there.
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
       sentTo={guest && checkInbox ? checkInbox.trim().slice(0, 254) : null}
-      initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
+      initialStep={(['1', '2', '3', '4', '5'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4 | 5}
     />
   );
 }

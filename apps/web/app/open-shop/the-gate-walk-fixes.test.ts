@@ -119,15 +119,16 @@ test('A2 · the logo surfaces draw through logoFrameStyle', () => {
 
 /* ── A3 · primary service, simpler ───────────────────────────────────────────────────────────────────────────── */
 
-test('A3 · search on top, the groups as a 2-column grid of icon tiles, a group → its services as rows', () => {
-  assert.ok(PICKER.indexOf('aria-label="Search services"') < PICKER.indexOf('data-open-shop-groups'));
-  assert.match(PICKER, /className="grid grid-cols-2 gap-1\.5" data-open-shop-groups=""/);
-  assert.match(PICKER, /const Icon = folderIcon\(p\.folderId\);/);
-  assert.match(PICKER, /data-open-shop-group-services=""/);
-  assert.doesNotMatch(PICKER, /openBranch/, 'a third tap (branch) is back between the group and its services');
+test('A3 → v11 · search on top, the CATEGORIES as photo tiles under their group headings, a category → its services as rows', () => {
+  // v11 (owner, prototype 6 Nov): "categories are photo tiles on the first screen" — the group icon grid (A3) became the
+  // category grid; one tap on a category shows its services, so there is still no third tap between.
+  assert.ok(PICKER.indexOf('aria-label="Search services"') < PICKER.indexOf('data-open-shop-categories'));
+  assert.match(PICKER, /data-open-shop-categories=""/);
+  assert.match(PICKER, /balancedRows\(cats\)/, 'rows that fill the width (4 → 2+2, 5 → 3+2)');
+  assert.match(PICKER, /data-open-shop-category-services=\{opened\.category\.tileId\}/);
+  assert.match(PICKER, /All categories/);
+  assert.doesNotMatch(PICKER, /openBranch|data-open-shop-groups/, 'the group grid (a third tap) is back');
 });
-
-/* ── A4 · search forgives spaces and typos ───────────────────────────────────────────────────────────────────── */
 
 test('A4 · the picker calls the SHARED ranker with reviewed aliases — no private substring search', () => {
   assert.match(PICKER, /rankTaxonomyOptionsWithClose\(flat, q, 30\)/);
@@ -156,8 +157,8 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
 /* ── A6 · events you serve: Select all · Clear ───────────────────────────────────────────────────────────────── */
 
 test('A6 · Select all dims when all are on, Clear when none', () => {
-  assert.match(WIZARD, /disabled=\{eventTypeOptions\.every\(\(e\) => events\.includes\(e\.key\)\)\}[\s\S]{0,120}Select all/);
-  assert.match(WIZARD, /disabled=\{events\.length === 0\}[\s\S]{0,120}Clear/);
+  assert.match(WIZARD, /disabled=\{eventTypeOptions\.every\(\(e\) => events\.includes\(e\.key\)\)\}[\s\S]{0,200}Select all/);
+  assert.match(WIZARD, /disabled=\{events\.length === 0\}[\s\S]{0,200}Clear/);
 });
 
 /* ── A7 · phone box (rules executed in lib/open-shop-phone.test.ts) ──────────────────────────────────────────── */

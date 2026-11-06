@@ -474,7 +474,7 @@ function SaveAllButton({ d, qr }: { d: PrintDesign; qr: PrintQrMode }) {
     <SaveFileLink
       href={printAllHref({ design: d.id, qr, base, hide })}
       filename={printAllFilename(d)}
-      className="sn-press inline-flex h-9 flex-none items-center justify-center rounded-full bg-sn-accent px-3.5 text-[14px] font-medium text-white"
+      className="sn-press inline-flex h-9 flex-none items-center justify-center rounded-full bg-sn-accent px-3.5 text-[14px] font-medium text-sn-on-accent"
       data-prints-save="all"
     >
       {(s) => (s === 'saving' ? 'Saving…' : 'Save all')}
@@ -516,7 +516,7 @@ function SaveButton({ piece, d, qr, small = false, member = null }: { piece: Pri
       className={
         small
           ? 'sn-press inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink'
-          : 'sn-press inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-sn-accent px-4 text-[14px] font-medium text-white'
+          : 'sn-press inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-sn-accent px-4 text-[14px] font-medium text-sn-on-accent'
       }
       data-prints-save={piece.id}
     >

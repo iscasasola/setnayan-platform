@@ -35,6 +35,8 @@
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
  *   ?view=papic&need=1               the sheet reads its sizes on the tap, as the page does
  *                                    (`papicBuySizes`) — against whatever the lab's Supabase URL answers (a walk's stub)
+ *   ?moved=1|unread                  🏠 the lines for what moved: Guests' "N without a seat" (→ Guests › Seats) and
+ *                                    Suppliers' "N looks on your board" (→ Find's board) — or both reads refused
  *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
  *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
  *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
@@ -373,7 +375,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string; moved?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -677,6 +679,15 @@ export default async function HomeLab({
        preparation` draws, counted by the SAME rule (`planningProgress`) — so the tile here and the list there agree. */
     ...(unread ? {} : { checklist: labTodoFacts() }),
   });
+  /* 🏠 `&moved=1|unread` — the lines for what moved (event-menu reorganisation): Guests' "N without a seat" (→ Guests ›
+     Seats) and Suppliers' "N looks on your board" (→ Find's board), or both reads refused. */
+  if (q.moved === '1' || q.moved === 'unread') {
+    const refused = q.moved === 'unread';
+    if (labControl.guests && labControl.guests !== 'unread') labControl.guests = { ...labControl.guests, unseated: refused ? 'unread' : 12 };
+    if (labControl.suppliers && labControl.suppliers !== 'unread') {
+      labControl.suppliers = { ...labControl.suppliers, inspiration: refused ? 'unread' : { photos: 24, parts: 6 } };
+    }
+  }
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
        sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws

@@ -4188,6 +4188,7 @@ col	public.shop_gift_stock_entries.note	anon=- authenticated=S
 col	public.shop_gift_stock_entries.order_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
 col	public.shop_gift_stock_entries.vendor_profile_id	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.clips	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.created_at	anon=- authenticated=S

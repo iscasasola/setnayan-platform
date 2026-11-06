@@ -123,6 +123,28 @@ test('a cleared photo on the Profile form nulls it; a form without the photo lea
   assert.equal('profile_photo_url' in patchOf(GUEST_FORM), false);
 });
 
+test("the photo's frame rides with it: posted -> written; default -> NULLs; cleared photo -> NULLs; no photo -> untouched", () => {
+  // 🖼 Owner 2026-11-06, profile picture: "yes, use the same control" (the logo's align + zoom).
+  const framed = patchOf({ ...PROFILE_FORM, profile_photo_focal: '3', profile_photo_zoom: '150' });
+  assert.equal(framed.profile_photo_focal, 3);
+  assert.equal(framed.profile_photo_zoom, 150);
+  const centred = patchOf({ ...PROFILE_FORM, profile_photo_focal: '5', profile_photo_zoom: '100' });
+  assert.equal(centred.profile_photo_focal, null);
+  assert.equal(centred.profile_photo_zoom, null);
+  // Outside the closed sets -> dropped to the default, never repaired into a guess.
+  const forged = patchOf({ ...PROFILE_FORM, profile_photo_focal: '11', profile_photo_zoom: '137' });
+  assert.equal(forged.profile_photo_focal, null);
+  assert.equal(forged.profile_photo_zoom, null);
+  const { profile_photo_url: _drop, ...cleared } = PROFILE_FORM;
+  const clearedPatch = patchOf({ ...cleared, profile_photo_focal: '3', profile_photo_zoom: '150' });
+  assert.equal(clearedPatch.profile_photo_focal, null, 'a cleared photo keeps no frame');
+  assert.equal(clearedPatch.profile_photo_zoom, null);
+  // A form that shows the photo but posts no frame leaves the stored frame alone.
+  assert.equal('profile_photo_focal' in patchOf(PROFILE_FORM), false);
+  // A form without the photo never writes its frame, even if a forged frame is posted.
+  assert.equal('profile_photo_focal' in patchOf({ ...GUEST_FORM, profile_photo_focal: '3' }), false);
+});
+
 test('Guest details keeps the RA 10173 consent transitions for what it posts', () => {
   const patch = patchOf(GUEST_FORM, { religion: null, dietary_restrictions: 'halal', civil_status: 'married' });
   assert.equal(patch.religion_consent_at, NOW, 'first religion value must stamp consent');

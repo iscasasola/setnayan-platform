@@ -10,57 +10,42 @@
  *     migration 20271316444107), so moving the frame never needs a re-upload;
  *   • every logo surface draws through `logoFrameStyle` → `focalToObjectPosition` + zoom.
  *
- * 🔑 NO NEW CROPPER. The sets, their meaning and the object-position math are `lib/hub-canvas.ts`'s; this file only
- * reads the two columns into those types (drop, never repair — the Maker's own sanitiser rule).
+ * 🔑 NO NEW CROPPER. The model, the read rule and the style are `lib/picture-frame.ts`'s — the ONE frame the logo
+ * shares with the profile picture (owner 2026-11-06: *"yes, use the same control"*); this file only names the logo's
+ * two columns.
  */
-import type { CSSProperties } from 'react';
-
 import {
-  HUB_DEFAULT_FOCAL,
-  HUB_DEFAULT_ZOOM,
-  HUB_FOCAL_POINTS,
-  HUB_ZOOMS,
-  focalToObjectPosition,
-  type HubFocalPoint,
-  type HubZoom,
-} from './hub-canvas';
+  DEFAULT_PICTURE_FRAME,
+  PICTURE_ZOOM_LABEL,
+  pictureFrameStyle,
+  pictureFrameValues,
+  readPictureFrame,
+  type PictureFrame,
+} from './picture-frame';
 
 /** The screen right after "Open my shop": "Add your logo". */
 export const OPEN_SHOP_LOGO_PATH = '/open-shop/logo';
 
-/** How a logo sits in its round frame. */
-export type LogoFrame = { focal: HubFocalPoint; zoom: HubZoom };
+/** How a logo sits in its round frame — the ONE picture frame (`lib/picture-frame.ts`), shared with the profile picture. */
+export type LogoFrame = PictureFrame;
 
-export const DEFAULT_LOGO_FRAME: LogoFrame = { focal: HUB_DEFAULT_FOCAL, zoom: HUB_DEFAULT_ZOOM };
+export const DEFAULT_LOGO_FRAME: LogoFrame = DEFAULT_PICTURE_FRAME;
 
 /** The Maker's "How close" words, unchanged (`scene-background-row.tsx`). */
-export const LOGO_ZOOM_LABEL: Record<HubZoom, string> = { 100: 'As it is', 120: 'Closer', 150: 'Closest' };
-
-const inSet = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v);
+export const LOGO_ZOOM_LABEL = PICTURE_ZOOM_LABEL;
 
 /** Read the two columns (or two form fields). Anything outside the closed sets is dropped to the default. */
 export function readLogoFrame(row: { logo_focal?: unknown; logo_zoom?: unknown } | null | undefined): LogoFrame {
-  const f = Number(row?.logo_focal);
-  const z = Number(row?.logo_zoom);
-  return {
-    focal: inSet(HUB_FOCAL_POINTS, f) ? f : HUB_DEFAULT_FOCAL,
-    zoom: inSet(HUB_ZOOMS, z) ? z : HUB_DEFAULT_ZOOM,
-  };
+  return readPictureFrame(row?.logo_focal, row?.logo_zoom);
 }
 
 /** The columns to write for a frame — NULL for a default, so an untouched logo stores nothing. */
 export function logoFrameColumns(frame: LogoFrame): { logo_focal: number | null; logo_zoom: number | null } {
-  return {
-    logo_focal: frame.focal === HUB_DEFAULT_FOCAL ? null : frame.focal,
-    logo_zoom: frame.zoom === HUB_DEFAULT_ZOOM ? null : frame.zoom,
-  };
+  const v = pictureFrameValues(frame);
+  return { logo_focal: v.focal, logo_zoom: v.zoom };
 }
 
-/** The `<img>` style every logo surface uses: the Maker's object-position + the same zoom, from the same point. */
-export function logoFrameStyle(frame: LogoFrame | null | undefined): CSSProperties {
-  const f = frame ?? DEFAULT_LOGO_FRAME;
-  const position = focalToObjectPosition(f.focal);
-  return f.zoom === HUB_DEFAULT_ZOOM
-    ? { objectPosition: position }
-    : { objectPosition: position, transform: `scale(${f.zoom / 100})`, transformOrigin: position };
+/** The `<img>` style every logo surface uses — the one picture-frame style (`pictureFrameStyle`). */
+export function logoFrameStyle(frame: LogoFrame | null | undefined) {
+  return pictureFrameStyle(frame);
 }

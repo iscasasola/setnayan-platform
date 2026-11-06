@@ -61,6 +61,20 @@ const STATES: Record<string, { me: YouCardMe; email: string; photos: Record<stri
     email: 'isabel@example.com',
     photos: { [LAB_PHOTO_REF]: LAB_PHOTO_URL },
   },
+  // 🖼 A returning photo with its align + zoom set (owner 2026-11-06: "yes, use the same control").
+  framed: {
+    me: {
+      display_name: 'Isabel Santos',
+      slug: 'isabel-santos',
+      profile_photo_url: LAB_PHOTO_REF,
+      profile_photo_focal: 2,
+      profile_photo_zoom: 150,
+      account_type: 'customer',
+      public_summary_consent_at: '2026-09-30T08:00:00Z',
+    },
+    email: 'isabel@example.com',
+    photos: { [LAB_PHOTO_REF]: LAB_PHOTO_URL },
+  },
 };
 
 export default async function YouLabPage({ searchParams }: { searchParams: Promise<{ state?: string; door?: string; behind?: string; loved?: string }> }) {

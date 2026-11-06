@@ -5,6 +5,7 @@ import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { readProfilePhotoFrame, type PictureFrame } from '@/lib/picture-frame';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -81,6 +82,11 @@ export type SwitcherData = {
    */
   isAnonymous: boolean;
   photoUrl: string | null;
+  /**
+   * The photo's align + zoom (`users.profile_photo_focal` / `profile_photo_zoom`) — the ONE picture frame the shop
+   * logo also wears (owner 2026-11-06: "yes, use the same control"). Optional: a fallback with no photo has none.
+   */
+  photoFrame?: PictureFrame | null;
   events: SwitcherEvent[];
   /**
    * False when the EVENT-MEMBERSHIP read was refused. `events` is then empty
@@ -153,7 +159,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
   const [userRes, roles, membershipRes] = await Promise.all([
     supabase
       .from('users')
-      .select('display_name, email, profile_photo_url, is_internal, is_team_member, theme_preference')
+      .select('display_name, email, profile_photo_url, profile_photo_focal, profile_photo_zoom, is_internal, is_team_member, theme_preference')
       .eq('user_id', userId)
       .maybeSingle(),
     fetchUserRoleSummary(supabase, userId),
@@ -184,6 +190,8 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     display_name: string | null;
     email: string;
     profile_photo_url: string | null;
+    profile_photo_focal: number | null;
+    profile_photo_zoom: number | null;
     is_internal: boolean;
     is_team_member: boolean;
     theme_preference: string | null;
@@ -282,6 +290,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     email: isPlaceholderEmail(profile?.email) ? '' : (profile?.email ?? ''),
     isAnonymous: isPlaceholderEmail(profile?.email),
     photoUrl: photoUrl ?? null,
+    photoFrame: profile ? readProfilePhotoFrame(profile) : null,
     events,
     eventsMeasured: !membershipRes.error,
     context,

@@ -39,6 +39,7 @@ import {
   normalizeReligion,
   normalizeSex,
 } from '@/lib/profile-personalization';
+import { DEFAULT_PICTURE_FRAME, profilePhotoFrameColumns, readProfilePhotoFrame } from '@/lib/picture-frame';
 
 /** Hidden inputs that say "this control is on the form" for controls that can post nothing. */
 export const PRESENCE_MARKERS = {
@@ -95,6 +96,22 @@ export function planPersonalInfoPatch(
   if (form.has(PRESENCE_MARKERS.profile_photo_url)) {
     const raw = form.get('profile_photo_url');
     patch.profile_photo_url = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+    // 🖼 The picture's align + zoom ride with it (owner 2026-11-06: "yes, use the same control" — the logo's
+    // frame, `PictureFrameControl`). A cleared photo clears its frame; a form that shows the photo but posts no
+    // frame (a client from before the control) leaves the stored frame alone.
+    if (patch.profile_photo_url === null) {
+      Object.assign(patch, profilePhotoFrameColumns(DEFAULT_PICTURE_FRAME));
+    } else if (form.has('profile_photo_focal') || form.has('profile_photo_zoom')) {
+      Object.assign(
+        patch,
+        profilePhotoFrameColumns(
+          readProfilePhotoFrame({
+            profile_photo_focal: form.get('profile_photo_focal'),
+            profile_photo_zoom: form.get('profile_photo_zoom'),
+          }),
+        ),
+      );
+    }
   }
   // Birthday: empty → NULL; anything that is not a clean YYYY-MM-DD is
   // refused rather than half-saved.

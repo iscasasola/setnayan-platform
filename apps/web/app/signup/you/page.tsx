@@ -52,7 +52,7 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
   const { data: profile } = await supabase
     .from('users')
     .select(
-      'display_name, slug, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, public_summary_consent_at',
+      'display_name, slug, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, profile_photo_focal, profile_photo_zoom, account_type, public_summary_consent_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();

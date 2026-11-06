@@ -12,6 +12,9 @@ import { PROMOTE_HREF, PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL, myPageUrl, prom
 import { ShopSegments } from '../_components/shop-segments';
 import { shopGearBody } from '../_components/shop-settings-body';
 import { QrCodes, type QrPick } from '../../invite/_components/qr-codes';
+import { promoteFigures } from '@/lib/shop-section-figures';
+import { ShopGiftsSection } from './_components/shop-gifts-section';
+import { loadShopGiftsSection } from './_components/shop-gifts-data';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -27,9 +30,15 @@ export const dynamic = 'force-dynamic';
  *   • Check a date · free  — the shop's one permanent code → `/v/<slug>/dates` (`lib/check-a-date-qr.ts`).
  *   • My page              — the shop's own Setnayan page → `/v/<slug>` (`lib/supplier-qr-codes.ts`).
  * Booked · one-use and Crew for an event stay on Customers › QR codes (`/vendor-dashboard/invite`), which forwards any
- * of these three here. Gifts stock + Buy and Prints join this section in later parts.
+ * of these three here.
  *
- * Server component: every word arrives read. 🔒 lib/supplier-qr-codes.test.ts · shop/the-shop-sections-are-v13.test.ts
+ * PART 2 — 🎁 YOUR GIFTS MOVED here from the Plan page, same component, same words, same behaviour (`ShopGiftsSection`:
+ * the gift stock, Buy gifts, Bought). Its reads moved with it (`loadShopGiftsSection`), and the pinned row's ONE figure is
+ * that read's `stock.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
+ * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts. Prints join in a later part.
+ *
+ * Server component: every word arrives read. 🔒 lib/supplier-qr-codes.test.ts · shop/the-shop-sections-are-v13.test.ts ·
+ * shop/promote/gifts-live-on-promote.test.ts
  */
 export default async function ShopPromotePage({
   searchParams,
@@ -52,6 +61,10 @@ export default async function ShopPromotePage({
   const slug = (profile as { business_slug?: string | null }).business_slug ?? null;
   const canShare = Boolean(slug);
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
+  // 🎁 Read alongside the codes (part 2): the gifts section and the row's figure share this one result.
+  const giftsPromise = loadShopGiftsSection(supabase, profile.vendor_profile_id);
+  // Awaited below; this only keeps a throw from being "unhandled" while the codes are drawn — it still surfaces there.
+  giftsPromise.catch(() => undefined);
   const modeOptions: QrPick[] = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${PROMOTE_HREF}?mode=${key}` }));
   const common = { place: 'promote' as const, backHref: PROMOTE_HREF, modeOptions, setupHref: '/vendor-dashboard/shop', booked: null };
 
@@ -102,10 +115,13 @@ export default async function ShopPromotePage({
     );
   }
 
+  const gifts = await giftsPromise;
+
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
-      <ShopSegments on="promote" gearBody={shopGearBody(search)} />
+      <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.balance : null })} gearBody={shopGearBody(search)} />
       {body}
+      <ShopGiftsSection data={gifts} />
     </section>
   );
 }

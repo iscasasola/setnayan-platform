@@ -1,37 +1,39 @@
-## 2026-11-04 · feat(for-coordinators): the For Coordinators page, ported from the 4 Nov prototype
+## 2026-11-06 · feat(for-coordinators): the For Coordinators page, built from the 6 Nov approved prototype
 
 New public page `/for-coordinators` (`app/(shell)/for-coordinators/`), inside the shared shell and
-full-bleed. Sections in the prototype's order: the photo hero (three photos cross-fading, the whole
-photo shown from 1024 px wide with its `--dr` push), the free kit, up to twelve problems ("With Setnayan"),
-how it works with the couple (four steps, each drawn from the couple's real screen), one login for
-every event, and the close. Both calls to action open `/open-shop` — a coordinator is a supplier.
+full-bleed, built section by section from the owner-approved prototype of 6 Nov
+(`prototypes/for_coordinators_2026-11-06/`, corpus — owner: "Coordinator approved"). It replaces the
+4 Nov page this branch first carried. Sections, in the prototype's order and words: the scroll-driven
+hero (five coordinators) · why · the hard truth · one place, every tool · couples check your dates + one
+QR for every moment · four notices · Full Event Access · on the day, you move the show forward (the
+couple can too, the emcee can't) · the portfolio · grow your business, not your fees (fee slider, gifts,
+the badge shelf) · three honest questions · everything you get (the fold) · plans Free → Verified → Grow ·
+the close with the sample shop "Setnayan Weddings". Every call to action opens `/open-shop`.
 
-- Shared pieces for the 4 Nov marketing pages, in `app/_components/marketing/`: `photo-hero.tsx`
-  (`PhotoHeroSlides`), `problem-scenes.tsx` (`ProblemScenes`) and `photo-page.css`. Motion reuses
-  `_pa-motion.tsx` (`LineRevealHeading`, `RevealBand`, `RevealList`).
-- Copy follows the code where the prototype did not (owner accepted all of it 2026-11-04): no in-app
-  calls (removed 2026-10-28), so the kit is at most nine tools; the show is moved forward by the
-  coordinator and the couple; prep-then-release releases to the couple; no "Recommend an add-on" (no screen since 2026-10-02). The demo links (`/sample/coordinator`)
-  do not exist, so the scenes link to `/schedule`, `/seat-plan`, `/guest-list` or `#how`, or show only
-  their tag.
-- The day-of desk (cue the show · requests inbox · seat scanner) reads "Free" only while
-  `specializationFreeWindowActive` says the floor-command kit is free (board 5 Nov "TRUE-CLAIMS CHECK":
-  `lib/vendor-specialization-gate.ts` still charges Solo+ while `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is
-  unset, fix pending the owner). Until then those tools leave the free kit and free line and carry
-  `TIER_LABEL[SPECIALIZATION_MIN_TIER]` + " plan and up"; the hero drops "the tools to run the day". No
-  price typed, no end date written.
-- 16 photos copied to `public/marketing/2026-11-04/` under their prototype names.
-- Registered: sitemap, robots, `DOORWAY_BLEED_PATHS`, `TOP_LEVEL_SEGMENTS`, the generated reserved-slug
-  half, Ugat screens, the port baseline, the sideways-scroll e2e list.
-- Migration `20271308786674`: `for-coordinators` added to `business_slug_is_reserved` (the last body,
-  word for word, plus the one word) and to `DB_MIRRORED_RESERVED_SLUGS` — owner 2026-11-04, "add it".
-  `KNOWN_DB_MINT_GAP` stays empty.
-- Four lines show only while their switch is on (owner 2026-11-04): each supplier sees only their rows
-  (`coordinator_run_of_show`), announcements (`coordinator_day_of_broadcast`), prepare-then-release
-  (`coordinator_prep_release`) and private notes (`NEXT_PUBLIC_COORDINATOR_VENDOR_NOTES_ENABLED`). Read
-  live through the features' own gates; an unreadable switch reads OFF. The headings count what is
-  shown ("Nine tools" … "Eight tools").
-- Guard: `app/(shell)/for-coordinators/for-coordinators-says-what-ships.test.ts`.
+- Nothing that is a number is typed. Plan and add-on prices: `vendor_billing_catalog`
+  (`_prices.server.ts`, no peso fallback). Reach · categories · cards · seats · branches · photos:
+  `lib/vendor-tier-caps.ts` (`_facts.ts`). The booking fee: the live schedule
+  (`getLiveBookingFeeSchedule`); unreadable → no rate is named and the slider is left out.
+- Full Event Access: the parts, the levels each may take and a coordinator's starting levels come from
+  `lib/delegate-areas.ts` (`DELEGATE_AREAS` · `areaChoices` · `COORDINATOR_AREAS`).
+- The day-of desk reads "Free" while `FREE_SPECIALIZATION_SETS` holds `floor_command` (or the dated
+  window is open) — `_claims.server.ts` now asks the same two questions as the paywall.
+- The four switched lines (run of show, announcements, prepare-then-release, private notes) still show
+  only while their switch is on; an unreadable switch reads OFF.
+- QR codes are real (`renderUrlQrSvg`) and point at `setnayan.com/v/setnayan-weddings/…`.
+- `/for-coordinators` joins `STORE_SHELL_WEB_ONLY_DOORWAYS` and its footer link gets `data-web-only`
+  — the page now shows the supplier plan prices.
+- Photos and the Setnayan Weddings logo copied to `public/marketing/2026-11-06/coordinators/`; five 4 Nov
+  photos and the 4 Nov shared pieces (`photo-hero.tsx`, `problem-scenes.tsx`, `photo-page.css`), used by
+  no other page, are removed. `vendor-grow-sections.tsx` no longer styles `[aria-expanded]` (the fold
+  guard): it reads the InfoTip's own `data-open`.
+- Migration `20271308786674` (the reserved slug) is unchanged from the 4 Nov build.
+- Guard: `app/(shell)/for-coordinators/for-coordinators-says-what-ships.test.ts`, rewritten for the
+  6 Nov page.
 
-SPEC IMPACT: None to the corpus — this ports `prototypes/for_coordinators_2026-11-04.html` (corpus);
-the copy differences and the switched lines are the owner's 2026-11-04 answers, recorded in the PR.
+⛔ Ships draft + `do-not-auto-merge`: the page goes live only after the five promised features are live
+(prints/NFC, the scanner, event photos on the card, badge rewards, meetings) and the sample shop
+`setnayan-weddings` exists.
+
+SPEC IMPACT: None — this ports `prototypes/for_coordinators_2026-11-06/` (corpus) as approved; the
+differences are listed in the PR.

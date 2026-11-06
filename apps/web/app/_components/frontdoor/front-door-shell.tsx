@@ -1721,8 +1721,8 @@ export function FrontDoorShell({
             <Link href="/blog">Articles</Link>
             <Link href="/creators">For storytellers</Link>
             <Link href="/for-suppliers" data-web-only="">For suppliers</Link>
-            {/* No `data-web-only`: /for-coordinators shows no price, so the app may open it too. */}
-            <Link href="/for-coordinators">For coordinators</Link>
+            {/* `data-web-only`: since 6 Nov /for-coordinators shows the supplier plan prices too. */}
+            <Link href="/for-coordinators" data-web-only="">For coordinators</Link>
             <div className="fd-copy">© 2026 Setnayan</div>
             <div className="fd-tag2">Set na &rsquo;yan — that&rsquo;s all set.</div>
           </div>

@@ -192,7 +192,7 @@ export function VendorGrowThesis({ fee }: FeeProp) {
         ))}
       </div>
       {/* The house ⓘ is ink-on-light; on this dark band it gets the band's own ink until hovered or open. */}
-      <style>{`@media(max-width:720px){ .m-thesis-in{grid-template-columns:1fr !important} } .m-thesis-in .sn-dot-btn:not(:hover):not([aria-expanded='true']){border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.75)}`}</style>
+      <style>{`@media(max-width:720px){ .m-thesis-in{grid-template-columns:1fr !important} } .m-thesis-in .sn-dot-btn:not(:hover):not(:has(+ .sn-tip[data-open='true'])){border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.75)}`}</style>
     </div>
   );
 }

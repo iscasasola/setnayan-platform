@@ -300,28 +300,39 @@
     },
     "/(shell)/for-coordinators": {
       "files": [
+        "(shell)/for-coordinators/_badges.generated.ts",
         "(shell)/for-coordinators/_claims.server.ts",
         "(shell)/for-coordinators/_claims.ts",
+        "(shell)/for-coordinators/_facts.ts",
+        "(shell)/for-coordinators/_fc-client.tsx",
+        "(shell)/for-coordinators/_prices.server.ts",
         "(shell)/for-coordinators/loading.tsx",
         "(shell)/for-coordinators/page.tsx"
       ],
       "destinations": [
-        "/guest-list",
         "/open-shop",
-        "/schedule",
-        "/seat-plan"
+        "/v/[seg]"
       ],
       "actions": [],
       "blocks": [
+        "AccessCard",
+        "CheckADate",
+        "ChipIcon",
         "ClaimSwitches",
+        "CoordinatorPrices",
+        "FcEffects",
+        "FeeSlider",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HeroStage",
         "Image",
-        "InfoTip",
-        "LineRevealHeading",
+        "InfoToggle",
         "Link",
-        "PhotoHeroSlides",
-        "ProblemScenes",
-        "RevealBand",
-        "RevealList",
+        "Pill",
+        "PlanTiers",
+        "QrMoments",
+        "RunTheDay",
         "T"
       ]
     },
@@ -6906,6 +6917,7 @@
         "dashboard/[eventId]/guests/_components/guest-access-pick.tsx",
         "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-add-queue.ts",
+        "dashboard/[eventId]/guests/_components/guest-call-buttons.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
@@ -7085,6 +7097,7 @@
         "GuestAccessState",
         "GuestActions",
         "GuestActionsContext.Provider",
+        "GuestCallButtons",
         "GuestCamera",
         "GuestCard",
         "GuestCardAvatar",
@@ -8386,6 +8399,7 @@
       ],
       "blocks": [
         "BackButton",
+        "BookedCallButtons",
         "ChatBox",
         "ChatMessageStream",
         "ChatSafetyBanner",
@@ -15356,6 +15370,7 @@
     },
     "/vendor-dashboard/invite": {
       "files": [
+        "vendor-dashboard/invite/_components/door-sticker.tsx",
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
@@ -15373,14 +15388,19 @@
         "CrewQr",
         "CustomersPick",
         "DatesRow",
+        "DoorSticker",
+        "DoorStickerCode",
+        "DoorStickerSize",
         "Fold",
         "HTMLInputElement",
         "Icon",
         "Link",
         "LockedQrGenerator",
+        "PickMenu",
         "QrCard",
         "QrCodes",
         "Row",
+        "SaveFileLink",
         "SubmitButton"
       ]
     },
@@ -15483,6 +15503,7 @@
       "blocks": [
         "AnswerAskButton",
         "BackButton",
+        "BookedCallButtons",
         "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailTrigger",

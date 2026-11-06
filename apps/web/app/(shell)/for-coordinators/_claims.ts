@@ -11,15 +11,13 @@
  *   announcements · one announcement on every guest's Event Hub ....... Data Privacy `coordinator_day_of_broadcast`
  *   prepRelease   · prepare in private, then release to the couple ..... Data Privacy `coordinator_prep_release`
  *   privateNotes  · private notes + notes the couple can read .......... env `NEXT_PUBLIC_COORDINATOR_VENDOR_NOTES_ENABLED`
- *   dayOfFree     · cue the show · requests inbox · seat scanner are FREE  `specializationFreeWindowActive` (lib/vendor-specialization-gate.ts)
+ *   dayOfFree     · cue the show · requests inbox · seat scanner are FREE  `FREE_SPECIALIZATION_SETS` (lib/vendor-specialization-gate.ts)
  *
- * 🎚 `dayOfFree` IS THE FIFTH, AND IT DECIDES A PRICE TAG, NOT ONLY WHETHER A LINE SHOWS (board, 5 Nov
- * "TRUE-CLAIMS CHECK"). The owner ruled the day-of desks free with no end date (DECISION_LOG
- * 2026-11-04), but `lib/vendor-specialization-gate.ts` still keeps the coordinator's floor-command kit
- * (live schedule updater · find-my-seat scanner · requests inbox) behind the Solo plan while
- * `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is unset — a fix pending the owner's OK. Until it lands those
- * tools are tagged with the plan that opens them, never "Free"; once it lands the page says "Free" by
- * itself, because it asks the same function the gate does.
+ * 🎚 `dayOfFree` IS THE FIFTH, AND IT DECIDES A PRICE TAG, NOT ONLY WHETHER A LINE SHOWS. The owner ruled
+ * the day-of desks free with no end date (DECISION_LOG 2026-11-04), and since 2026-11-05 the gate holds
+ * the floor-command set free for any booked supplier (`FREE_SPECIALIZATION_SETS`, board "✅ RESOLVED on
+ * main 6 Nov"). The page asks the same set the gate asks, so if the set ever leaves it, those tools are
+ * tagged with the plan that opens them instead of "Free" — with no edit here.
  *
  * Pure: no I/O, so the guard beside the page can run it with every switch on and off.
  */

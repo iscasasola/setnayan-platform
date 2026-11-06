@@ -1,78 +1,118 @@
 /**
- * /for-coordinators — "Run every event from one place — free."
+ * /for-coordinators — "Your business’s new home." For coordinators and wedding planners.
  *
- * NEW 2026-11-04. Ported from the owner-approved prototype `prototypes/for_coordinators_2026-11-04.html`
- * (corpus, with photos the owner generated in `prototypes/marketing_photos_2026-11-04/`, copied to
- * `public/marketing/2026-11-04/` under the same names). Sections, top to bottom, as drawn:
- *   hero (three photos) → the free kit → twelve problems → how it works with the couple (four steps, each
- *   with a drawing of the couple's real screen) → one login, every event → the close.
+ * BUILT FROM THE OWNER-APPROVED PROTOTYPE OF 6 NOV 2026 — `prototypes/for_coordinators_2026-11-06/`
+ * (corpus; claude.ai/artifact/T4UfJ2G3QiYEf5K3sfto3D). Owner: *"Approved"*, then, with the Setnayan Weddings
+ * sample shop and Fable's keystone-arch logo, *"Coordinator approved"*. It REPLACES the 4 Nov page this route
+ * first shipped with. Section for section, top to bottom, with the prototype's words:
  *
- * A coordinator is a SUPPLIER (DECISION_LOG 2026-05-12; the `planner_coordinator` category), so every
- * call to action is the supplier door, `/open-shop` — there is no separate coordinator sign-up.
+ *   1 hero (five coordinators, scroll-driven) · 2 why · 3 the hard truth (dark) · 4 one place, every tool ·
+ *   5 couples check your dates + one QR for every moment · 6 talking is easy (four notices) ·
+ *   7 Full Event Access · 8 on the day, you move the show forward · 9 your portfolio builds itself ·
+ *   10 grow your business, not your fees (fee slider · gifts · badge shelf) · 11 three honest questions ·
+ *   12 everything you get (the fold) · 13 plans: Free → Verified → Grow · 14 the close.
  *
- * 🔑 EVERY TOOL THIS PAGE NAMES IS IN THE APP, AND THE PAGE SAYS ONLY WHAT IT DOES.
- * `for-coordinators-says-what-ships.test.ts` beside this file pins each one to its code. Where the
- * prototype's words and the code disagreed, the words follow the code (each is listed in the PR):
- *   · in-app voice and video calls are gone from the chat (owner 2026-10-28, "remove both voice and
- *     video call") — so the kit is at most nine tools, not ten, and no line offers calls;
- *   · moving the show forward is the coordinator's AND the couple's (`decideMayAdvance` in
- *     `lib/run-of-show-advance-gate.ts`), never the emcee's;
- *   · prep-then-release releases to the couple (`setBlockPrepVisibility`);
- *   · "Recommend an add-on" has had no screen since 2026-10-02 (`studio/recommend-actions.ts`), so the
- *     one-login block does not offer it.
+ * A coordinator is a SUPPLIER (DECISION_LOG 2026-05-12; the `planner_coordinator` category), so every call
+ * to action is the supplier door, `/open-shop`.
  *
- * 🎚 FOUR LINES SHOW ONLY WHILE THEIR SWITCH IS ON (owner 2026-11-04: *"show each line only when its
- * switch is on"*) — each supplier seeing only their rows, announcements, prepare-then-release and
- * private notes. The page reads the live switches (`_claims.server.ts`) on every request and an
- * unreadable switch reads OFF, so it can never promise a thing that is switched off. The headings'
- * counts ("Nine tools", "Twelve problems") are counted from what is shown, never typed.
+ * 🔑 NOTHING THAT IS A NUMBER IS TYPED HERE.
+ *   · plan and add-on prices ........ `vendor_billing_catalog` per request (`_prices.server.ts`); unreadable → left out
+ *   · reach · seats · cards · photos . `lib/vendor-tier-caps.ts` (`_facts.ts`)
+ *   · the booking fee ............... the LIVE schedule (`getLiveBookingFeeSchedule`); unreadable → no rate is named
+ *   · Full Event Access parts ....... `DELEGATE_AREAS` · `areaChoices` · `COORDINATOR_AREAS` (lib/delegate-areas.ts)
+ *   · the free day-of desk .......... `FREE_SPECIALIZATION_SETS` (lib/vendor-specialization-gate.ts), switch `dayOfFree`
  *
- * 🆓 THE DAY-OF DESK IS "FREE" ONLY WHILE THE APP SAYS SO. The owner ruled it free with no end date
- * (DECISION_LOG 2026-11-04 "DAY-OF DESKS STAY FREE — NO END DATE"), but the coordinator's floor-command
- * kit (cue the show · requests inbox · seat scanner) is still behind the Solo plan in
- * `lib/vendor-specialization-gate.ts` while `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is unset — a fix
- * pending the owner's OK (board, 5 Nov "TRUE-CLAIMS CHECK"). So the page asks the gate's own
- * `specializationFreeWindowActive` (switch `dayOfFree`): while it says no, those tools leave the free
- * kit and the free line and are tagged with the plan that opens them; once the fix lands they read
- * "Free" with no edit here. Never write an end date here.
+ * 🎚 FOUR LINES SHOW ONLY WHILE THEIR SWITCH IS ON (owner 2026-11-05, board decision 3): each supplier seeing
+ * only their rows · announcements · prepare-then-release · private notes. `_claims.server.ts` reads them live
+ * and an unreadable switch reads OFF, so the page can never promise a thing that is switched off.
  *
- * NO PRICE IS TYPED HERE. The page shows no price; a plan is named from `TIER_LABEL`, and the one
- * "not free" line names the couple's add-ons without a number. If a price is ever added, read it from the catalogue
- * (`platform_retail_catalog_v2`), never type it.
+ * ⛔ THIS PAGE MUST NOT GO LIVE UNTIL THE FIVE PROMISED FEATURES ARE LIVE (owner 6 Nov: "remove all coming soon
+ * … because we will finish everything until sat"): NFC tags + door sticker + ready-made prints · the supplier
+ * scanner · event photos on the card · badge rewards · meetings. And the sample shop `setnayan-weddings` must
+ * exist first, or every QR on the page scans to a dead address. The PR ships draft + `do-not-auto-merge`.
  *
- * The page sits in the shared shell (`app/(shell)/layout.tsx` owns the bar, the rail and
- * `force-dynamic`) and runs full-bleed (`DOORWAY_BLEED_PATHS`), so the photo hero reaches the edges.
+ * The page sits in the shared shell (`app/(shell)/layout.tsx` owns the bar, the rail and `force-dynamic`) and
+ * runs full-bleed (`DOORWAY_BLEED_PATHS`). Look: `_for-coordinators.css`, the prototype's CSS on the app's tokens.
  */
 
-import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { InfoTip } from '@/app/_components/info-tip';
-import { LineRevealHeading, RevealBand, RevealList } from '@/app/_components/marketing/_pa-motion';
-import { PhotoHeroSlides, type HeroSlide } from '@/app/_components/marketing/photo-hero';
-import { ProblemScenes, type ProblemScene } from '@/app/_components/marketing/problem-scenes';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
-import { DELEGATE_GRACE_DAYS } from '@/lib/delegate-access-window';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { checkADateUrl } from '@/lib/check-a-date';
+import {
+  COORDINATOR_AREAS,
+  DELEGATE_AREAS,
+  DELEGATE_AREA_LABEL,
+  areaChoices,
+  choiceOfLevel,
+  type DelegateArea,
+} from '@/lib/delegate-areas';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { siteOrigin } from '@/lib/site-origin';
+import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 import { SPECIALIZATION_MIN_TIER } from '@/lib/vendor-specialization-gate';
-import { TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_PRICE_PHP, canBuyExtraBranches, firstPlanWith } from '@/lib/vendor-tier-caps';
 
-import { countWord, shownWith, type ClaimSwitch, type ClaimSwitches } from './_claims';
+import { BADGES, BADGE_DEFS } from './_badges.generated';
+import { countWord, shownWith, type ClaimSwitch } from './_claims';
 import { readClaimSwitches } from './_claims.server';
+import {
+  AccessCard,
+  CheckADate,
+  FcEffects,
+  FeeSlider,
+  HeroStage,
+  InfoToggle,
+  PlanTiers,
+  QrMoments,
+  RunTheDay,
+  type AccessLevel,
+  type AccessRow,
+  type HeroPerson,
+  type QrCode,
+  type QrMoment,
+  type TierCard,
+} from './_fc-client';
+import {
+  DELEGATE_GRACE_DAYS,
+  FREE_HELPER_SEATS,
+  GROW_TIERS,
+  PORTFOLIO_FREE_BASE,
+  badgeRungs,
+  badgeSpan,
+  foldGroups,
+  freeSpec,
+  growSpec,
+  pctWords,
+  pesoWords,
+  planName,
+  planPill,
+  reachLadderSentence,
+  reachWords,
+  verifiedSpec,
+  type FoldGroup,
+} from './_facts';
+import { readCoordinatorPrices } from './_prices.server';
 
-import '@/app/_components/marketing/photo-page.css';
 import './_for-coordinators.css';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PHOTOS = '/marketing/2026-11-04';
+/** The photos the 4 Nov page already shipped (same bytes as the 6 Nov prototype's `whole-assets/`). */
+const SHOT = '/marketing/2026-11-04';
+/** The photos new with the 6 Nov prototype (`whole-assets/`, `in-use-weddings/`, `in-use-suppliers/`, `logo/out/`). */
+const SHOT6 = '/marketing/2026-11-06/coordinators';
 
-/** The plan that opens the coordinator's day-of desk while it is not free — from the gate, never typed. */
-const DAY_OF_PLAN_TAG = `${TIER_LABEL[SPECIALIZATION_MIN_TIER]} plan and up`;
+/** The sample shop every code on this page points at. ⚠ Not created in prod yet — an owner task (see the PR). */
+const SAMPLE_SHOP = { slug: 'setnayan-weddings', name: 'Setnayan Weddings' } as const;
 
-const TITLE = 'For Coordinators — Run every event from one place, free';
+
+const TITLE = 'For Coordinators — Your business’s new home';
 const DESCRIPTION =
-  'Open your coordinator shop free. With the couple’s say-so, run their event from one place — the guest list, the seat plan, the run-of-show and door check-in. Your own clients never carry a fee.';
+  'For coordinators and wedding planners: your schedule, bookings, client chats, planning and the event day itself, all in one place. Free to start.';
 
 export const metadata = {
   title: TITLE,
@@ -107,7 +147,7 @@ const PAGE_LD = {
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
         '@type': 'BusinessAudience',
-        audienceType: 'Wedding and event coordinators in the Philippines',
+        audienceType: 'Wedding and event coordinators and wedding planners in the Philippines',
         geographicArea: { '@type': 'Country', name: 'Philippines' },
       },
     },
@@ -122,553 +162,1003 @@ const PAGE_LD = {
   ],
 };
 
-/** The hero's three photos. `dr` = how far right the photo is pushed at ≥1024 px (prototype `--dr`). */
-const HERO: readonly HeroSlide[] = [
-  { src: `${PHOTOS}/coord-hero.webp`, width: 1600, height: 900, dr: '25%' },
-  { src: `${PHOTOS}/problem-09-entourage.webp`, width: 960, height: 720, dr: '14%' },
-  { src: `${PHOTOS}/supplier-team-hero.webp`, width: 1600, height: 1200, dr: '19%' },
+/* ── 1 · the hero's five people ─────────────────────────────────────────────────────────────────── */
+
+const HERO: readonly HeroPerson[] = [
+  {
+    src: `${SHOT}/coord-03-prep-private.webp`,
+    width: 960,
+    height: 720,
+    alt: 'A coordinator at an empty reception table with her notebook',
+    focal: 'p1',
+    line: "You've always run other people's big days.",
+    dot: 'The dreamer',
+  },
+  {
+    src: `${SHOT}/problem-11-five-apps.webp`,
+    width: 960,
+    height: 720,
+    alt: 'A coordinator working from home on her laptop',
+    focal: 'p2',
+    line: 'You just took your first client.',
+    dot: 'The starter',
+  },
+  {
+    src: `${SHOT}/coord-multi-events.webp`,
+    width: 960,
+    height: 720,
+    alt: 'A coordinator walking a venue hallway with a tablet',
+    focal: 'p3',
+    line: 'Three events this month, and one of you.',
+    dot: 'Still fighting',
+  },
+  {
+    src: `${SHOT}/coord-05-cue-the-show.webp`,
+    width: 960,
+    height: 720,
+    alt: 'A coordinator with an earpiece cueing the next part',
+    focal: 'p4',
+    line: 'On the day, everyone looks to you.',
+    dot: 'The established',
+  },
+  {
+    src: `${SHOT}/coord-06-announcement.webp`,
+    width: 960,
+    height: 720,
+    alt: 'A coordinator at a garden reception with her phone',
+    focal: 'p5',
+    line: 'Couples ask for you by name.',
+    dot: 'The trusted name',
+  },
 ];
+
+/* ── 3 · the hard truth ──────────────────────────────────────────────────────────────────────────── */
+
+const PROBLEMS: readonly { src: string; alt: string; title: string; body: string }[] = [
+  {
+    src: `${SHOT6}/problem-02-phones.webp`,
+    alt: 'A coordinator at a dinner table reading her phone',
+    title: 'Working from the couple’s screenshots.',
+    body: 'Forwarded screenshots and a password they texted you.',
+  },
+  {
+    src: `${SHOT}/problem-06-coordinator.webp`,
+    alt: 'A coordinator on a call in a venue hallway',
+    title: 'The timeline lives in your head.',
+    body: 'Every supplier has a different version of the day.',
+  },
+  {
+    src: `${SHOT}/problem-seatplan.webp`,
+    alt: 'A coordinator crouched over seat cards',
+    title: 'The seat plan redrawn at midnight.',
+    body: 'A family arrives with three more people, and the chart is paper.',
+  },
+  {
+    src: `${SHOT}/problem-03-door.webp`,
+    alt: 'A coordinator at the door with a guest list',
+    title: 'A line at the door.',
+    body: 'Guests wait while someone searches a printed list.',
+  },
+  {
+    src: `${SHOT}/problem-09-entourage.webp`,
+    alt: 'A coordinator on the phone while the entourage gets ready',
+    title: 'Everyone thinks they run the show.',
+    body: 'The emcee, the band and the venue each move on when they think it’s time.',
+  },
+  {
+    src: `${SHOT}/supplier-12-time-changes.webp`,
+    alt: 'A supplier checking his watch at the door',
+    title: 'Times changed in the group chat.',
+    body: 'A supplier moves their call time. You find out when they arrive late.',
+  },
+];
+
+/* ── 7 · Full Event Access ───────────────────────────────────────────────────────────────────────── */
+
+/** The small line under a part's name, as the prototype words it. "View at most" is derived from the choices. */
+const AREA_SMALL: Partial<Record<DelegateArea, string>> = {
+  schedule: 'The schedule and the run of show',
+  vendors: 'Who is booked, who is paid',
+};
+
+/**
+ * The parts the couple can share with a coordinator, in the app's order, with the levels the app lets them
+ * set and a coordinator's starting levels. "Event Hub" (`invitations`) is left out — it is not settable yet
+ * (`areaChoices` returns null) and these pages do not name it.
+ */
+function accessRows(): AccessRow[] {
+  const rows: AccessRow[] = [];
+  for (const area of DELEGATE_AREAS) {
+    const choices = areaChoices(area);
+    if (!choices) continue;
+    rows.push({
+      key: area,
+      label: DELEGATE_AREA_LABEL[area],
+      small: AREA_SMALL[area] ?? (choices.includes('edit') ? undefined : 'View at most'),
+      choices: choices as readonly AccessLevel[],
+      start: choiceOfLevel(COORDINATOR_AREAS[area] ?? null),
+    });
+  }
+  return rows;
+}
+
+/* ── 13 · the Grow plans' lists (the prototype's words; the numbers are in `growSpec`) ──────────── */
+
+const GROW_ITEMS: Readonly<Record<(typeof GROW_TIERS)[number], TierCard['items']>> = {
+  solo: [
+    { text: 'Your own web address', bold: true },
+    { text: 'Personalize your page: intro, accent colour, featured services, sections' },
+    { text: 'Quote-to-booking funnel' },
+    { text: 'Won and lost reasons' },
+    { text: 'Your own reply and booking metrics' },
+    { text: 'Earnings dashboard' },
+    { text: 'Recap sharing to your Facebook Page' },
+    { text: 'Your logo on the couple’s 3D seat plan (3D Booth add-on)' },
+  ],
+  pro: [
+    { text: 'Premium two-column page', bold: true, rest: 'with a sticky Inquire rail' },
+    { text: 'One business identity for your whole crew' },
+    { text: 'Demand Radar' },
+    { text: 'Reverse-image theft watch' },
+    { text: 'Custom /your-name address and full written reviews' },
+    { text: 'Featured in Stories' },
+    { text: 'Editorial and article spotlights' },
+    { text: 'Priority support' },
+  ],
+  enterprise: [
+    { text: 'Flagship page with video films', bold: true },
+    { text: 'Multi-admin for your team' },
+    { text: 'Market Intelligence: your category vs peers' },
+    { text: 'Front-of-line dispute handling' },
+  ],
+};
+
+/** The current month in Manila, for the Check-a-date sample. */
+function sampleMonth() {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric' }).formatToParts(new Date());
+  const y = Number(parts.find((p) => p.type === 'year')?.value);
+  const m = Number(parts.find((p) => p.type === 'month')?.value) - 1;
+  const first = new Date(Date.UTC(y, m, 1));
+  return {
+    month: first.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' }).toUpperCase(),
+    monthShort: first.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
+    offset: first.getUTCDay(),
+    days: new Date(Date.UTC(y, m + 1, 0)).getUTCDate(),
+  };
+}
+
+const FOLD_ICON: Readonly<Record<FoldGroup['icon'], JSX.Element>> = {
+  find: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-4-4" />
+    </svg>
+  ),
+  book: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 10h17M8 3v4M16 3v4M9 14l2 2 4-4" />
+    </svg>
+  ),
+  together: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-5-6.3" />
+    </svg>
+  ),
+  day: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  ),
+  grow: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />
+    </svg>
+  ),
+};
 
 /** A line that is true only while a switch is on carries `needs` — see `_claims.ts`. */
 type Gated<T> = T & { needs?: ClaimSwitch };
 
-const FREE_LINE: readonly Gated<{ text: string }>[] = [
-  { text: 'Shop + dashboard' },
-  { text: 'Host access, part by part' },
-  { text: 'One run-of-show', needs: 'runOfShow' },
-  { text: 'Door check-in' },
-  { text: 'Day-of desk', needs: 'dayOfFree' },
-  { text: 'Auto-arrange seats' },
-  { text: 'One-tap invites' },
-  { text: 'One free helper' },
-  { text: 'Events you run' },
-];
-
-/** Icon strokes from the prototype (24 × 24, drawn with `currentColor`). */
-const KIT: readonly Gated<{ title: string; body: string; icon: ReactNode }>[] = [
-  {
-    title: 'Your shop and dashboard',
-    body: 'Couples find you under coordinators. The clients you bring yourself never carry a fee.',
-    icon: (
-      <>
-        <path d="M4 9l1.5-5h13L20 9" />
-        <path d="M4 9h16v11H4z" />
-        <path d="M9 20v-6h6v6" />
-      </>
-    ),
-  },
-  {
-    title: 'Host access, part by part',
-    body: 'The couple invites you; you ask for the parts you need; they approve each one.',
-    icon: (
-      <>
-        <circle cx="8" cy="15" r="4" />
-        <path d="M11 12l9-9M16 7l3 3" />
-      </>
-    ),
-  },
-  {
-    title: 'One run-of-show',
-    body: 'Each supplier sees only their rows. They ask to move a time; you approve.',
-    needs: 'runOfShow',
-    icon: (
-      <>
-        <path d="M9 6h11M9 12h11M9 18h11" />
-        <circle cx="4.5" cy="6" r="1" />
-        <circle cx="4.5" cy="12" r="1" />
-        <circle cx="4.5" cy="18" r="1" />
-      </>
-    ),
-  },
-  {
-    title: 'Door check-in',
-    body: 'Scan each guest’s pass at the door and send them to their seat.',
-    icon: (
-      <>
-        <path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3" />
-        <path d="M4 12h16" />
-      </>
-    ),
-  },
-  {
-    title: 'The day-of desk',
-    body: 'Cue the show, the requests inbox and the seat scanner, in one place on the day.',
-    needs: 'dayOfFree',
-    icon: (
-      <>
-        <rect x="3" y="4" width="18" height="12" rx="2" />
-        <path d="M8 20h8M12 16v4" />
-        <path d="M8 10l3 2-3 2" />
-      </>
-    ),
-  },
-  {
-    title: 'Auto-arrange seats',
-    body: 'One tap seats everyone; move anyone by hand after.',
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="4" />
-        <circle cx="12" cy="3.5" r="1.5" />
-        <circle cx="12" cy="20.5" r="1.5" />
-        <circle cx="3.5" cy="12" r="1.5" />
-        <circle cx="20.5" cy="12" r="1.5" />
-      </>
-    ),
-  },
-  {
-    title: 'One-tap invites',
-    body: 'Invitations go out through Messenger, Viber or WhatsApp.',
-    icon: (
-      <>
-        <path d="M21 3L10 14" />
-        <path d="M21 3l-7 18-4-7-7-4z" />
-      </>
-    ),
-  },
-  {
-    title: 'One helper, free',
-    body: 'A teammate gets their own login under your shop.',
-    icon: (
-      <>
-        <circle cx="9" cy="8" r="3.5" />
-        <path d="M2.5 20a6.5 6.5 0 0113 0" />
-        <circle cx="17.5" cy="9" r="2.5" />
-        <path d="M16 14.5a5 5 0 016 5" />
-      </>
-    ),
-  },
-  {
-    title: 'Events you run',
-    body: 'Every client’s event, one tap from your supplier dashboard.',
-    icon: (
-      <>
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M3 10h18M8 3v4M16 3v4" />
-      </>
-    ),
-  },
-];
-
-/**
- * `addWhen` appends one sentence to the answer, only while its switch is on. `freeWhen` makes the tag
- * "Free" only while its switch is on, and the plan that opens the tool otherwise.
- */
-const PROBLEMS: readonly Gated<
-  ProblemScene & { addWhen?: { needs: ClaimSwitch; text: string }; freeWhen?: ClaimSwitch }
->[] = [
-  {
-    photo: `${PHOTOS}/problem-11-five-apps.webp`,
-    alt: 'A coordinator juggling a laptop and two phones',
-    title: 'Working from the couple’s screenshots',
-    pain: 'You run their event from forwarded screenshots and a password they texted you.',
-    answer:
-      'The couple invites you into their own event. You ask for the parts you need — guest list, seat plan, schedule, suppliers, invitations — and they approve each one. Their budget and photos stay closed unless they open them.',
-    link: { href: '#how', label: 'See how access works' },
-    tag: 'Free',
-  },
-  {
-    photo: `${PHOTOS}/problem-06-coordinator.webp`,
-    alt: 'A coordinator checking her watch at a reception',
-    title: 'The timeline lives in your head',
-    pain: 'Every supplier has a different version of the day, and the only full copy is yours.',
-    answer:
-      'One run-of-show for the whole event. Each supplier sees only their own rows; the couple and the guests see theirs.',
-    link: { href: '/schedule', label: 'See the run-of-show' },
-    tag: 'Free',
-    needs: 'runOfShow',
-  },
-  {
-    photo: `${PHOTOS}/problem-seatplan.webp`,
-    alt: 'A couple arranging coloured cards for their seat plan',
-    title: 'The seat plan redrawn at midnight',
-    pain: 'A family arrives with three more people, and the chart is paper.',
-    answer:
-      'Auto-arrange the seats in one tap, then move anyone by hand. Everyone with the plan open sees each change.',
-    link: { href: '/seat-plan', label: 'See the seat plan' },
-    tag: 'Free',
-  },
-  {
-    photo: `${PHOTOS}/problem-08-invites.webp`,
-    alt: 'Hands sealing an invitation envelope',
-    title: 'Invites across five apps',
-    pain: 'You send the invitation from one app, chase the replies in another and lose the thread in a third.',
-    answer: 'Invitations go to Messenger, Viber or WhatsApp in one tap, straight from the couple’s guest list.',
-    link: { href: '/guest-list', label: 'See the guest list' },
-    tag: 'Free',
-  },
-  {
-    photo: `${PHOTOS}/problem-03-door.webp`,
-    alt: 'A queue of guests at the reception door',
-    title: 'A line at the door',
-    pain: 'Guests wait while someone searches a printed list for their name and table.',
-    answer:
-      'Check guests in at the door by scanning their pass, and send them to their seat. With the couple’s approval you see the full guest details.',
-    addWhen: { needs: 'dayOfFree', text: 'On the day-of desk, the seat scanner finds any guest’s table.' },
-    tag: 'Free',
-  },
-  {
-    photo: `${PHOTOS}/coord-05-cue-the-show.webp`,
-    alt: 'A coordinator with an earpiece cueing the next part of the programme',
-    title: 'Everyone thinks they are running the show',
-    pain: 'The emcee, the band and the venue each move to the next part when they think it is time.',
-    answer:
-      'On the day, only you and the couple move the show forward, part by part. The emcee and the other suppliers cannot.',
-    tag: 'Free',
-    freeWhen: 'dayOfFree',
-  },
-  {
-    photo: `${PHOTOS}/supplier-02-inquiries.webp`,
-    alt: 'A crew member overwhelmed by messages on his phone',
-    title: 'Ten suppliers, ten chats, one evening',
-    pain: 'Requests and problems arrive by text, call and tap on the shoulder, all at once.',
-    answer: 'One requests inbox for the day. Every supplier’s request and issue lands in one list that you sort.',
-    tag: 'Free',
-    freeWhen: 'dayOfFree',
-  },
-  {
-    photo: `${PHOTOS}/supplier-12-time-changes.webp`,
-    alt: 'A supplier checking his watch during set-up',
-    title: 'Times changed in the group chat',
-    pain: 'A supplier moves their own call time, and you find out when they arrive late.',
-    answer:
-      'Suppliers ask for a new time; you or the couple approve or decline it. A supplier never edits the timeline.',
-    link: { href: '/schedule', label: 'See the Schedule' },
-    tag: 'Free',
-  },
-  {
-    photo: `${PHOTOS}/coord-06-announcement.webp`,
-    alt: 'A coordinator speaking quietly into her phone at the side of a reception',
-    title: 'Announcements shouted across the hall',
-    pain: 'Dinner is moved, the shuttle is late — and half the guests never hear it.',
-    answer: 'Send one announcement and it appears on every guest’s Event Hub, on their phone.',
-    tag: 'Free',
-    needs: 'announcements',
-  },
-  {
-    photo: `${PHOTOS}/supplier-team.webp`,
-    alt: 'A coordinator’s team checking an event together on a tablet',
-    title: 'Many clients, many logins',
-    pain: 'Each client’s event is a different chat, a different file and a different login.',
-    answer:
-      'One login opens every event you run. Your team works under your shop, each with their own login — one helper seat is free.',
-    tag: 'Free · one helper',
-  },
-  {
-    photo: `${PHOTOS}/coord-03-prep-private.webp`,
-    alt: 'A coordinator drafting the programme alone before the client meeting',
-    title: 'Plans leak before they are ready',
-    pain: 'A draft time reaches the caterer before the couple has even said yes.',
-    answer:
-      'Prepare schedule items in private and release them to the couple when they are ready. Until then, nobody else sees them.',
-    tag: 'Free',
-    needs: 'prepRelease',
-  },
-  {
-    photo: `${PHOTOS}/problem-receipts.webp`,
-    alt: 'A tired couple with a pile of receipts',
-    title: 'Supplier deposits on scraps of paper',
-    pain: 'Who is booked, who is paid and who still needs a first payment lives in a notebook.',
-    answer:
-      'Track every booked supplier and payment for the couple. You book a supplier or handle a payment only where the couple allowed it.',
-    addWhen: { needs: 'privateNotes', text: 'Keep private notes for yourself and notes the couple can read.' },
-    tag: 'Free',
-  },
-];
-
-const ONE_LOGIN = [
-  { title: 'Events you run', body: 'Each client’s event, one tap from your supplier dashboard.' },
-  { title: 'Your team', body: 'Each person with their own login under your shop. One helper seat is free.' },
-  { title: 'Your own shop page', body: 'Couples find you under coordinators, like every supplier.' },
-] as const;
-
-/** The problems whose switches are on, each answer completed by its `addWhen` line when that is on too. */
-function problemsFor(on: ClaimSwitches): ProblemScene[] {
-  return shownWith(PROBLEMS, on).map(({ needs: _needs, addWhen, freeWhen, ...scene }) => ({
-    ...scene,
-    answer: addWhen && on[addWhen.needs] ? `${scene.answer} ${addWhen.text}` : scene.answer,
-    tag: freeWhen && !on[freeWhen] ? DAY_OF_PLAN_TAG : scene.tag,
-  }));
+function Pill({ kind, children }: { kind: 'free' | 'ver' | 'plan'; children: string }) {
+  return <span className={`fc-pill fc-${kind}`}>{children}</span>;
 }
 
 export default async function ForCoordinatorsPage() {
-  // The four switches some lines depend on, read live; an unreadable one reads OFF (`_claims.ts`).
-  const on = await readClaimSwitches();
-  const freeLine = shownWith(FREE_LINE, on);
-  const kit = shownWith(KIT, on);
-  const problems = problemsFor(on);
+  const origin = siteOrigin();
+  const [on, prices, fee] = await Promise.all([
+    readClaimSwitches(),
+    readCoordinatorPrices(),
+    getLiveBookingFeeSchedule().catch(() => null),
+  ]);
+
+  // ── the four real codes, drawn by the app's own QR renderer ──
+  const shortlistUrl = buildVendorInviteUrl(SAMPLE_SHOP.slug);
+  const datesUrl = checkADateUrl(origin, SAMPLE_SHOP.slug);
+  const pageUrl = myPageUrl(origin, SAMPLE_SHOP.slug);
+  const reviewUrl = `${pageUrl}#reviews`;
+  const [shortlistSvg, datesSvg, pageSvg, reviewSvg] = await Promise.all(
+    [shortlistUrl, datesUrl, pageUrl, reviewUrl].map((u) => renderUrlQrSvg(u, 240).catch(() => undefined)),
+  );
+  const codes: QrCode[] = [
+    { key: 'shortlist', chip: 'Shortlist', title: 'Shortlist', desc: 'They scan, sign up free, and their event starts with you on it.', url: shortlistUrl, svg: shortlistSvg, go: 'Open it' },
+    { key: 'dates', chip: 'Check a date', title: 'Check a date', desc: 'They see your free and taken days, then ask about one in your chat.', url: datesUrl, svg: datesSvg, go: 'Check a date' },
+    { key: 'page', chip: 'My page', title: 'My page', desc: 'Your whole shop: services, prices, portfolio and reviews.', url: pageUrl, svg: pageSvg, go: 'Open the page' },
+    {
+      key: 'booked',
+      chip: 'Booked · one-use',
+      title: 'Booked · one-use',
+      desc: 'You make this one in your QR codes screen, for one client only. They scan it, and their event is created with you already booked. It works once.',
+      icon: 'lock',
+    },
+    {
+      key: 'crew',
+      chip: 'Crew',
+      title: 'Crew',
+      desc: 'One code per event, made in Hub › Crew. Your team scans it and joins once you tap Allow. It ends when the event ends.',
+      icon: 'people',
+    },
+    { key: 'review', chip: 'Review', title: 'Review', desc: 'Guests scan it at the table and leave you a review on the spot.', url: reviewUrl, svg: reviewSvg, go: 'See the reviews' },
+  ];
+  const moments: QrMoment[] = [
+    {
+      photo: { src: `${SHOT6}/07-expo-booth.webp`, width: 800, height: 450, alt: 'A backdrop with a QR code at an expo booth' },
+      step: 'At a bazaar, an expo, your studio',
+      title: 'They find you',
+      codes: ['shortlist', 'dates', 'page'],
+      body: 'Shortlist is made by you for one kind of event and one service. They scan, sign up free, and their event starts with you on it.',
+      fine: 'Printed on your card, standee, backdrop, tarp, table-front and door print.',
+    },
+    {
+      photo: { src: `${SHOT6}/08-card-and-phone-scan.webp`, width: 600, height: 800, alt: 'A couple scans the back of a calling card at the counter' },
+      step: 'The deal is closed',
+      title: 'They book you',
+      codes: ['booked'],
+      body: 'You fill in the deal once. One code, for that client only. They scan, and their event is created with you booked on it.',
+      fine: 'On the back of your card, or shown on your phone.',
+    },
+    {
+      photo: { src: `${SHOT6}/02-guest-scans-table-tent.webp`, width: 800, height: 450, alt: 'A guest scans a table tent at the welcome table' },
+      step: 'For your team and the guests',
+      title: "You're at their event",
+      codes: ['crew', 'review'],
+      body: 'Your team scans Crew and joins once you tap Allow. Guests scan Review on a table sign and leave you a review on the spot.',
+      fine: 'On a crew card, and a table tent at the welcome table.',
+    },
+  ];
+
+  // ── the fee, in words, from the live schedule (null → no rate is named) ──
+  const feeRates = fee
+    ? { head: pctWords(fee.rate), tail: pctWords(fee.tailRate), band: pesoWords(fee.tier1LimitPhp) }
+    : null;
+
+  // ── the day-of desk: "Free" while the floor-command set is free; otherwise the plan that opens it ──
+  const deskTag = on.dayOfFree ? <Pill kind="free">Free</Pill> : <Pill kind="plan">{planPill(SPECIALIZATION_MIN_TIER)}</Pill>;
+  const seatsFrom = firstPlanWith((c) => c.agentAccounts > 0);
+  const addOnPlan = (['solo', 'pro', 'enterprise'] as const).find((t) => canBuyExtraBranches(t)) ?? 'enterprise';
+
+  const caps: Gated<{ key: string; title: string; tag: JSX.Element; body: JSX.Element }>[] = [
+    {
+      key: 'inbox',
+      title: 'One requests inbox.',
+      tag: deskTag,
+      body: <p>Every supplier’s request and issue lands in one list that you sort.</p>,
+    },
+    {
+      key: 'times',
+      title: 'Times change only with your OK.',
+      tag: <Pill kind="free">Free</Pill>,
+      body: (
+        <div className="fc-flow">
+          <span className="fc-chip">Setnayan Productions asks: 5:45 PM</span>
+          <span className="fc-arr">→</span>
+          <span>you or the couple approve</span>
+          <span className="fc-arr">→</span>
+          <span>on every guest’s schedule</span>
+        </div>
+      ),
+    },
+    {
+      key: 'door',
+      title: 'No line at the door.',
+      tag: deskTag,
+      body: <p>Scan a guest’s pass, mark them arrived, and the seat scanner finds their table.</p>,
+    },
+    {
+      key: 'announce',
+      title: 'One announcement, every phone.',
+      tag: <Pill kind="free">Free</Pill>,
+      body: <p>Dinner moved? It appears on every guest’s event page.</p>,
+      needs: 'announcements',
+    },
+  ];
+  const deskParagraph: Gated<{ text: string }>[] = [
+    { text: 'Prepare items in private and release them when they’re ready.', needs: 'prepRelease' },
+    { text: 'Keep private notes for yourself, and notes the couple can read.', needs: 'privateNotes' },
+    { text: 'Track every booked supplier and deposit for the couple.' },
+  ];
+  const groups = foldGroups().map((g) => ({ ...g, items: shownWith(g.items, on) }));
+
+  const tiers: TierCard[] = GROW_TIERS.map((t, i) => ({
+    key: t,
+    name: planName(t),
+    month: prices.plans[t].month,
+    year: prices.plans[t].year ? `${prices.plans[t].year} a year` : null,
+    spec: growSpec(t),
+    plus: `Everything in ${i === 0 ? planName('verified') : planName(GROW_TIERS[i - 1]!)}, plus`,
+    items: GROW_ITEMS[t],
+  }));
+  const ctools: Gated<{ text: string }>[] = [
+    { text: 'Full Event Access' },
+    { text: 'Day-of desks', needs: 'dayOfFree' },
+    { text: 'Run of show' },
+    { text: 'Guest door and seating' },
+    { text: 'Dashboard access and invites' },
+  ];
+  const helperWord = countWord(FREE_HELPER_SEATS).toLowerCase();
+
   return (
-    <>
+    <div className="fc" id="fc-root">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_LD) }} />
-      <main className="pp-page min-h-dvh">
-        {/* ════ 1 · HERO ════ */}
-        <section className="pp-hero" aria-labelledby="fc-h1">
-          <PhotoHeroSlides slides={HERO} />
-          <div className="pp-hero-copy">
-            <p className="pp-eyebrow">For coordinators</p>
-            <h1 id="fc-h1">Run every event from one place — free.</h1>
-            <p className="pp-lede">
-              <b>
-                {on.dayOfFree
-                  ? 'Your shop, your dashboard and the tools to run the day cost you nothing.'
-                  : 'Your shop and your dashboard cost you nothing.'}
-              </b>{' '}
-              With the
-              couple’s say-so, step into their event — the guest list, the seat plan, the run-of-show and every
-              supplier.
-            </p>
-            <ul className="fc-freeline" aria-label="Free for coordinators">
-              {freeLine.map((t) => (
-                <li key={t.text}>{t.text}</li>
+      <FcEffects rootId="fc-root" />
+      <main>
+        {/* 1 · HERO */}
+        <section id="hero-section" aria-label="For coordinators and wedding planners">
+          <HeroStage people={HERO} label="Five coordinators and wedding planners" />
+          <div className="fc-wrap fc-hero-landing">
+            <div className="fc-hl-a">
+              <p className="fc-kicker">For coordinators and wedding planners</p>
+              <h1>Your business’s new home.</h1>
+            </div>
+            <div className="fc-hl-b">
+              <p className="fc-lede">
+                Your schedule, bookings, client chats, planning and the event day itself, all in one place. Free to start.
+              </p>
+              <div className="fc-actions">
+                <Link className="fc-btn" href="/open-shop">
+                  Open your shop free
+                </Link>
+                <a className="fc-tlink" href="#close">
+                  See a real shop
+                </a>
+              </div>
+              <div className="fc-facts">
+                <span>Free to join</span>
+                {on.dayOfFree ? <span>Day-of tools free</span> : null}
+                <span>Couples pay you directly</span>
+              </div>
+              <InfoToggle id="fc-i1" label="How the fee works">
+                <p>
+                  Free to join and free to run your bookings. Your first booking through Setnayan is free too. Couples pay
+                  you straight to your GCash or bank; Setnayan never takes a cut of the deal.{' '}
+                  {feeRates
+                    ? `You pay a booking fee of ${feeRates.head} on the first ${feeRates.band} of a booking and ${feeRates.tail} after.`
+                    : 'You pay a booking fee on the couples Setnayan brings you; its rate is shown in full before you agree to any booking.'}{' '}
+                  Your own clients, the ones you bring or import, never carry a fee.
+                </p>
+              </InfoToggle>
+            </div>
+          </div>
+        </section>
+
+        {/* 2 · WHY */}
+        <section className="fc-beat">
+          <div className="fc-wrap fc-split">
+            <div className="fc-beat-head">
+              <h2>We know running other people’s days is hard.</h2>
+              <p className="fc-lede">
+                You hold the whole day together, and nobody sees it. We built the place where your work is seen, and where
+                your business lives.
+              </p>
+              <InfoToggle id="fc-i2" label="What stays yours">
+                <p>
+                  Everything you build here is yours: your page, your reviews, your client list, your badges. The couple’s
+                  event stays theirs; you work in the parts they open. Nothing here is rented. Nothing resets when you grow.
+                </p>
+              </InfoToggle>
+            </div>
+            <div className="fc-real fc-ph fc-ratio-54 fc-bleed" role="img" aria-label="A coordinator in a cream suit in a dining room while the band sets up">
+              <Image src={`${SHOT6}/coord-band.webp`} alt="" width={720} height={900} sizes="(min-width: 960px) 50vw, 100vw" />
+            </div>
+          </div>
+        </section>
+
+        {/* 3 · HARD TRUTH */}
+        <section className="fc-beat fc-dark">
+          <div className="fc-wrap fc-stack">
+            <div className="fc-beat-head">
+              <h2>This is what coordinating and planning look like today.</h2>
+              <p className="fc-lede">{"Say it plainly. We've all been there."}</p>
+            </div>
+            <div className="fc-probs">
+              {PROBLEMS.map((p) => (
+                <div className="fc-prob" key={p.title}>
+                  <div className="fc-real fc-ph" role="img" aria-label={p.alt}>
+                    <Image src={p.src} alt="" width={960} height={720} sizes="(min-width: 960px) 30vw, 104px" />
+                  </div>
+                  <div>
+                    <h3>{p.title}</h3>
+                    <p>{p.body}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
-            <div className="pp-ctas">
-              <Link href="/open-shop" className="m-btn m-btn-primary">
-                Open your coordinator shop — free
-              </Link>
-              <a href="#how" className="m-btn m-btn-ghost">
-                How it works with the couple
-              </a>
             </div>
-            <div className="pp-truths">
-              <span>Free to join</span>
-              <span className="pp-sep" aria-hidden="true">
-                ·
-              </span>
-              <span>Full dashboard free</span>
-              <span className="pp-sep" aria-hidden="true">
-                ·
-              </span>
-              <InfoTip label="Your own clients never carry a fee" ariaLabel="About the fee" align="start">
-                A coordinator opens a supplier shop, like every supplier. The booking fee applies only to
-                clients Setnayan brings you. The clients you bring yourself are free, always.
-              </InfoTip>
+            <InfoToggle id="fc-i3" label="Six more we hear">
+              <p>
+                Six more we hear every week: calls and invites across five apps · ten suppliers, ten chats, one evening ·
+                announcements shouted across the hall · many clients, many logins · plans that leak before they are ready ·
+                supplier deposits on scraps of paper.
+              </p>
+              <p>Every one of these has a tool in the dashboard below.</p>
+            </InfoToggle>
+          </div>
+        </section>
+
+        {/* 4 · ONE PLACE */}
+        <section className="fc-beat fc-relief">
+          <div className="fc-wrap fc-split">
+            <div className="fc-beat-head">
+              <h2>One place. Every tool.</h2>
+              <p className="fc-lede">{"Whether you're starting, growing or already established, the same shop grows with you."}</p>
+              <InfoToggle id="fc-i4" label="What Free includes">
+                <p>
+                  Free gives you the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts,
+                  your public page and {PORTFOLIO_FREE_BASE} portfolio photos.
+                  {on.dayOfFree ? ' Your day-of desks are free too, with no end date.' : null}
+                </p>
+                <p>
+                  Verified (free, once your DTI/SEC, BIR 2303, permit and bank proof are approved) puts you in search{' '}
+                  {reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you. Paid plans add reach, categories, team seats
+                  and branches. See Plans below.
+                </p>
+              </InfoToggle>
+            </div>
+            <div className="fc-rows">
+              <div className="fc-row">
+                <h3>Starting?</h3>
+                <p>Open your shop in two steps. Your first booking through Setnayan is free.</p>
+                <div className="fc-meta">
+                  <Pill kind="free">Free</Pill>
+                </div>
+              </div>
+              <div className="fc-row">
+                <h3>Growing?</h3>
+                <p>Get Verified free. Couples and search engines can find you.</p>
+                <div className="fc-meta">
+                  <Pill kind="ver">Verified ✓</Pill>
+                  <Pill kind="free">Free</Pill>
+                </div>
+              </div>
+              <div className="fc-row">
+                <h3>Established?</h3>
+                <p>Bring your clients in free and keep them free. One login opens every event you run.</p>
+                <div className="fc-meta">
+                  <Pill kind="free">Free</Pill>
+                  {seatsFrom ? <Pill kind="plan">{`More seats from ${planName(seatsFrom)}`}</Pill> : null}
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ════ 1b · THE FREE KIT ════ */}
-        <section className="pp-sec" id="free" aria-labelledby="fc-h-free">
-          <RevealBand className="pp-sec-head">
-            <p className="pp-kicker" data-reveal-item="">
-              Free for every coordinator
-            </p>
-            <LineRevealHeading>
-              <span id="fc-h-free">{countWord(kit.length)} tools you get the day you open your shop.</span>
-            </LineRevealHeading>
-            <p className="pp-lede" data-reveal-item="">
-              No plan to buy. They work inside the couple’s event and your supplier dashboard today.
-            </p>
-          </RevealBand>
-          <RevealList className="fc-kit" stagger={0.04}>
-            {kit.map((k) => (
-              <li key={k.title} data-reveal-item="">
-                <i aria-hidden="true">
-                  <svg viewBox="0 0 24 24">{k.icon}</svg>
-                </i>
-                <b>{k.title}</b>
-                <span>{k.body}</span>
-              </li>
-            ))}
-          </RevealList>
-        </section>
-
-        {/* ════ 2 · PROBLEMS ════ */}
-        <section className="pp-sec" id="solves" aria-labelledby="fc-h-solves">
-          <RevealBand className="pp-sec-head">
-            <p className="pp-kicker" data-reveal-item="">
-              What it solves
-            </p>
-            <LineRevealHeading>
-              <span id="fc-h-solves">
-                {countWord(problems.length)} problems coordinators face. And what Setnayan does instead.
-              </span>
-            </LineRevealHeading>
-            <p className="pp-lede" data-reveal-item="">
-              Every one of these is a tool that works today, inside the couple’s event and your supplier
-              dashboard.
-            </p>
-          </RevealBand>
-          <ProblemScenes items={problems} initial={4} />
-          <p className="fc-notfree">
-            <b>Not free, said plainly.</b> Papic guest cameras and the Live Photo Wall are add-ons the couple
-            buys for their event.
-            {on.dayOfFree
-              ? null
-              : ` The day-of desk — cue the show, the requests inbox and the seat scanner — comes with the ${DAY_OF_PLAN_TAG}.`}
-          </p>
-        </section>
-
-        {/* ════ 3 · HOW IT WORKS WITH THE COUPLE ════ */}
-        <section className="pp-sec" id="how" aria-labelledby="fc-h-how">
-          <RevealBand className="pp-sec-head">
-            <p className="pp-kicker" data-reveal-item="">
-              How it works with the couple
-            </p>
-            <LineRevealHeading>
-              <span id="fc-h-how">Their event stays theirs. You get the parts they open.</span>
-            </LineRevealHeading>
-          </RevealBand>
-          <ol className="fc-flow">
-            <li className="fc-fs">
-              <span className="fc-dot" aria-hidden="true">
-                1
-              </span>
-              <div className="fc-ft">
-                <b>The couple invites you</b>
-                <span>
-                  From your booking in their event — or the invite is made for them when they mark your first
-                  payment.
-                </span>
-              </div>
-              <div className="fc-ui" aria-hidden="true">
-                <p className="fc-ui-h">Promote your coordinator</p>
-                <p className="fc-ui-p">
-                  Your booked coordinator can plan WITH you — edit the guest list, seat plan, schedule, and
-                  supplier records, with every change logged. Publishing the seat plan and the first invitation
-                  send always stay with you.
+        {/* 5 · GET FOUND */}
+        <section className="fc-beat">
+          <div className="fc-wrap fc-stack">
+            <div className="fc-split">
+              <div className="fc-beat-head">
+                <h2>Couples check your free dates themselves.</h2>
+                <p className="fc-lede">
+                  From your QR, your page or your shop. They see only two things: available, or not bookable. Never who
+                  booked.
                 </p>
-                <span className="fc-ui-btn fc-ui-dark">Invite as delegate</span>
-              </div>
-            </li>
-            <li className="fc-fs">
-              <span className="fc-dot" aria-hidden="true">
-                2
-              </span>
-              <div className="fc-ft">
-                <b>You ask for the parts you need</b>
-                <span>One part at a time. They get a notice in the app.</span>
-              </div>
-              <div className="fc-ui" aria-hidden="true">
-                <p className="fc-ui-h">Ask the hosts</p>
-                <p className="fc-ui-p">Pick a part — they get a notice in the app.</p>
-                <div className="fc-chips">
-                  <span data-on="">Guest list</span>
-                  <span data-on="">Seat plan</span>
-                  <span data-on="">The Day</span>
-                  <span>Suppliers</span>
-                  <span>Event Hub</span>
-                </div>
-              </div>
-            </li>
-            <li className="fc-fs">
-              <span className="fc-dot" aria-hidden="true">
-                3
-              </span>
-              <div className="fc-ft">
-                <b>They approve each part</b>
-                <span>Budget and photos stay closed unless they open them.</span>
-              </div>
-              <div className="fc-ui" aria-hidden="true">
-                <p className="fc-ui-h">Ana Reyes is asking for access</p>
-                <div className="fc-arow">
-                  <span>
-                    <b>Guest list</b> <em>can make changes</em>
-                    <small>See who is coming.</small>
-                  </span>
-                  <span className="fc-yn">
-                    <i data-ok="">✓ Share</i>
-                    <i>✕ Decline</i>
-                  </span>
-                </div>
-                <div className="fc-arow">
-                  <span>
-                    <b>The Day</b> <em>can make changes</em>
-                    <small>Start each part of the day and push the timings when you run late.</small>
-                  </span>
-                  <span className="fc-yn">
-                    <i data-ok="">✓ Share</i>
-                    <i>✕ Decline</i>
-                  </span>
-                </div>
-                <div className="fc-arow" data-shut="">
-                  <span>
-                    <b>Budget &amp; payments</b>
-                    <small>Your budget and payments. Never Edit — View at most.</small>
-                  </span>
-                  <span className="fc-lock">🔒 Off</span>
-                </div>
-                <div className="fc-arow" data-shut="">
-                  <span>
-                    <b>Photos</b>
-                    <small>The event’s photos. View at most.</small>
-                  </span>
-                  <span className="fc-lock">🔒 Off</span>
-                </div>
-                <p className="fc-ui-fine">You can take any of this back later, and they lose it straight away.</p>
-              </div>
-            </li>
-            <li className="fc-fs">
-              <span className="fc-dot" aria-hidden="true">
-                4
-              </span>
-              <div className="fc-ft">
-                <b>Access ends after the event</b>
-                <span>{DELEGATE_GRACE_DAYS} days after the event day. The couple can end it sooner.</span>
-              </div>
-              <div className="fc-ui" aria-hidden="true">
-                <p className="fc-ui-h">
-                  Ana Reyes <small>Coordinator · until Feb 13, 2027</small>
+                <p className="fc-muted fc-small">
+                  Tap a day. The ask lands in your chat with the date and the services attached. <Pill kind="free">Free</Pill>
                 </p>
-                <div className="fc-track">
-                  <i />
-                  <i />
-                  <i />
+                <div className="fc-pagebit">
+                  <h3>
+                    Your page is your marketing tool. <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>Verified seal, photos, service cards, reviews and badges in one link. Put it on your posts, your booth, your table.</p>
                 </div>
-                <div className="fc-tlabels">
-                  <span>Until the event · Feb 6</span>
-                  <span>+{DELEGATE_GRACE_DAYS} days</span>
-                  <span>Ends</span>
-                </div>
-                <span className="fc-ui-btn">Remove…</span>
               </div>
-            </li>
-          </ol>
-          <p className="fc-flow-src">
-            Drawn from the couple’s real screens: Promote your coordinator · Access requests · People with
-            access. Sample names and dates.
-          </p>
+              <div className="fc-media">
+                <div className="fc-phone">
+                  <div className="fc-screen">
+                    <div className="fc-abar">
+                      <span className="fc-mark">
+                        SET<b>NA</b>YAN
+                      </span>
+                    </div>
+                    <CheckADate {...sampleMonth()} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="fc-sub">
+              <h3>
+                One QR for every moment <Pill kind="free">Free</Pill>
+              </h3>
+              <p>{"You don't pick \"a QR code\". You pick the moment."}</p>
+              <QrMoments moments={moments} codes={codes} shop={SAMPLE_SHOP.name} />
+              <InfoToggle id="fc-i5" label="Codes and search reach">
+                <p>
+                  Every code downloads, shares or copies as a link from your QR codes screen. Only a Verified shop is shown
+                  in search: {reachLadderSentence()}. Your page is ready for Google the moment you set an address.
+                </p>
+                <p>NFC tags, the door sticker and ready-made printed pieces.</p>
+              </InfoToggle>
+            </div>
+          </div>
         </section>
 
-        {/* ════ 4 · ONE LOGIN, EVERY EVENT ════ */}
-        <section className="pp-sec" id="many" aria-labelledby="fc-h-many">
-          <div className="fc-many">
-            <Image
-              src={`${PHOTOS}/coord-multi-events.webp`}
-              alt="A coordinator moving between two events on one evening"
-              width={960}
-              height={720}
-              sizes="(min-width: 701px) 50vw, 100vw"
-            />
-            <div className="fc-many-copy">
-              <p className="pp-kicker">Your business</p>
-              <LineRevealHeading>
-                <span id="fc-h-many">One login. Every event you run.</span>
-              </LineRevealHeading>
-              <RevealList className="fc-lines">
-                {ONE_LOGIN.map((l) => (
-                  <li key={l.title} data-reveal-item="">
-                    <b>{l.title}</b>
-                    <span>{l.body}</span>
-                  </li>
+        {/* 6 · CUSTOMERS */}
+        <section className="fc-beat fc-soft">
+          <div className="fc-wrap fc-stack">
+            <div className="fc-split">
+              <div className="fc-beat-head">
+                <h2>Talking is easy. The personal touch is yours.</h2>
+                <p className="fc-lede">One chat per client, with the quote, the files and the schedule attached. The rest is you.</p>
+                <InfoToggle id="fc-i6" label="Returning couples and discounts">
+                  <p>
+                    A returning couple reads “— a returning client” on the inquiry. Discounts you set (early booking,
+                    off-peak, bundle, promo, returning couple) show on your card as one pill, like “10% off · early
+                    booking”. A perk you keep off the public card is revealed in the chat once you say yes.
+                  </p>
+                  <p>Meetings: in person, or a call on your own phone or Viber, booked inside the chat.</p>
+                </InfoToggle>
+              </div>
+              <div className="fc-real fc-ph fc-ratio-54" role="img" aria-label="A coordinator and a couple in a consultation">
+                <Image src={`${SHOT6}/15-consultation.webp`} alt="" width={800} height={450} sizes="(min-width: 960px) 50vw, 100vw" />
+              </div>
+            </div>
+            <div className="fc-notices">
+              <div className="fc-notice">
+                <span className="fc-ic">1</span>
+                <div>
+                  <h3>
+                    “New booking inquiry.” <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>With their date, place and headcount attached. Nothing is booked yet.</p>
+                </div>
+              </div>
+              <div className="fc-notice">
+                <span className="fc-ic">2</span>
+                <div>
+                  <h3>
+                    Send the quote from the chat. <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>Package, per guest or per hour. They accept or counter.</p>
+                </div>
+              </div>
+              <div className="fc-notice">
+                <span className="fc-ic">3</span>
+                <div>
+                  <h3>
+                    “First payment submitted — please confirm.” <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>The receipt is attached. Confirm, and the date is held.</p>
+                </div>
+              </div>
+              <div className="fc-notice">
+                <span className="fc-ic">4</span>
+                <div>
+                  <h3>
+                    “Their wedding invites you to coordinate.” <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>Made for you when they mark your downpayment. Accept, and you run their schedule and day-of requests.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 7 · FULL EVENT ACCESS (coordinator only) */}
+        <section className="fc-beat" id="full-event-access">
+          <div className="fc-wrap fc-split">
+            <div className="fc-beat-head">
+              <p className="fc-kicker">Full Event Access</p>
+              <h2>Their event stays theirs. You get the parts they open.</h2>
+              <p className="fc-lede">
+                No more screenshots and borrowed passwords. The couple invites you into their own event and picks, part by
+                part, what you can edit, view, or not see at all.
+              </p>
+              <div className="fc-caps">
+                <div className="fc-cap">
+                  <h3>
+                    Ask for what you need. <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>Pick the parts, add why, send. The couple decides each one.</p>
+                </div>
+                <div className="fc-cap">
+                  <h3>
+                    Every change is logged. <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>Publishing the seat plan and sending the first invitation always stay with the couple.</p>
+                </div>
+              </div>
+              <InfoToggle id="fc-i7" label="How access works">
+                <p>
+                  A coordinator starts with Edit on the guest list, seat plan, the day and suppliers; the mood board at View;
+                  budget and photos Off. Budget and photos can be opened to View at most, never Edit.
+                </p>
+                <p>
+                  Two ways to ask: from your event screen (“Ask the host for access”), or from your access page, one part at a
+                  time. The couple sees “Your coordinator is asking for access” and decides.
+                </p>
+                <p>Access ends {DELEGATE_GRACE_DAYS} days after the event. The couple can end it sooner.</p>
+              </InfoToggle>
+            </div>
+            <AccessCard rows={accessRows()} foot="Tap Edit, View or Off. Budget and photos open to View at most." />
+          </div>
+        </section>
+
+        {/* 8 · RUN THE DAY */}
+        <section className="fc-beat fc-soft" id="run-the-day">
+          <div className="fc-wrap fc-split fc-flip">
+            <div className="fc-beat-head">
+              <h2>On the day, you move the show forward.</h2>
+              <p className="fc-lede">
+                Part by part, from your phone, and every guest’s screen follows. The couple can too. The emcee can’t.
+              </p>
+              <div className="fc-caps">
+                {shownWith(caps, on).map((c) => (
+                  <div className="fc-cap" key={c.key}>
+                    <h3>
+                      {c.title} {c.tag}
+                    </h3>
+                    {c.body}
+                  </div>
                 ))}
-              </RevealList>
+              </div>
+              <InfoToggle id="fc-i8" label="Your day-of desk">
+                {on.dayOfFree ? (
+                  <p>
+                    Your day-of desks are free, with no end date: cue the show, the requests inbox, the check-in desk and the
+                    seat scanner.
+                  </p>
+                ) : null}
+                <p>
+                  Your event screen and the day’s schedule are saved on your phone. The saved mark reads “Saved for offline ·
+                  updated 2:10 PM” and turns amber when it’s old on the event day.
+                </p>
+                <p>{shownWith(deskParagraph, on).map((d) => d.text).join(' ')}</p>
+                <p>
+                  Your team works under your shop, each with their own login; {helperWord} helper seat
+                  {FREE_HELPER_SEATS === 1 ? ' is' : 's are'} free.
+                </p>
+              </InfoToggle>
+            </div>
+            <RunTheDay
+              parts={[
+                { at: '5:00 PM', name: 'Cocktails' },
+                { at: '6:05 PM', name: 'Grand entrance' },
+                { at: '6:20 PM', name: 'First dance' },
+                { at: '6:40 PM', name: 'Dinner' },
+                { at: '8:00 PM', name: 'Same-day edit' },
+              ]}
+              arrived="132 / 150"
+              request={{ initials: 'SP', from: 'Setnayan Productions', what: 'Running late 10 min' }}
+            />
+          </div>
+        </section>
+
+        {/* 9 · PORTFOLIO */}
+        <section className="fc-beat fc-pf">
+          <div className="fc-wrap">
+            <div className="fc-beat-head">
+              <h2>Your portfolio builds itself.</h2>
+              <p className="fc-lede">
+                Every event you run here adds to your page: photos, reviews, badges. Couples see it. Search engines see it.
+              </p>
+              <div className="fc-caps">
+                <div className="fc-cap">
+                  <h3>
+                    Photos from couples. <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>A couple shares, you approve, it lands on your card with the Verified booking mark.</p>
+                  <div className="fc-sgal" aria-label="Sample gallery">
+                    <span className="fc-stag">Sample</span>
+                    <div className="fc-sgrid">
+                      <figure>
+                        <Image src={`${SHOT}/coord-06-announcement.webp`} alt="A garden reception at dusk" width={960} height={720} sizes="180px" />
+                        <span className="fc-appr">
+                          <small>Shared by the couple</small>
+                          <b>Approve</b>
+                        </span>
+                      </figure>
+                      {[
+                        { src: `${SHOT6}/04-floor-standee.webp`, w: 600, h: 800, alt: 'Guests at a garden wedding' },
+                        { src: `${SHOT6}/09-tablet-at-booth.webp`, w: 800, h: 450, alt: 'A couple at a reception table' },
+                        { src: `${SHOT}/coord-05-cue-the-show.webp`, w: 960, h: 720, alt: 'The entrance being cued' },
+                        { src: `${SHOT6}/03-nfc-dessert-table.webp`, w: 600, h: 800, alt: 'Champagne glasses at a reception table' },
+                        { src: `${SHOT6}/coord-band.webp`, w: 720, h: 900, alt: 'A dining room set for the reception' },
+                      ].map((f) => (
+                        <figure key={f.src}>
+                          <Image src={f.src} alt={f.alt} width={f.w} height={f.h} sizes="180px" />
+                          <span className="fc-vbm">✓ Verified booking</span>
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="fc-cap">
+                  <h3>
+                    Reviews with proof. <Pill kind="free">Free</Pill>
+                  </h3>
+                  <p>
+                    Each one carries “Verified booking”. You can reply. Self-reviews are blocked. Guests leave one from the
+                    Review table sign.
+                  </p>
+                  <p className="fc-trust">No fake reviews. No paid stars. Ever.</p>
+                </div>
+              </div>
+              <InfoToggle id="fc-i10" label="Your page and Google">
+                <p>
+                  Your page is auto-built and ready for Google the moment you set an address. {PORTFOLIO_FREE_BASE} portfolio
+                  photos free.
+                </p>
+                <p>Event photos placed on your card by themselves.</p>
+              </InfoToggle>
             </div>
           </div>
         </section>
 
-        {/* ════ 5 · CLOSE ════ */}
-        <section className="pp-close" aria-labelledby="fc-h-close">
-          <h2 id="fc-h-close">
-            Set na ’yan.<em>Every event, one desk.</em>
-          </h2>
-          <div className="pp-ctas">
-            <Link href="/open-shop" className="m-btn m-btn-primary">
-              Open your coordinator shop — free
-            </Link>
+        {/* 10 · GROW */}
+        <section className="fc-beat">
+          <div className="fc-wrap">
+            <div className="fc-split fc-money">
+              <div className="fc-beat-head">
+                <h2>Grow your business, not your fees.</h2>
+                <p className="fc-lede">
+                  {"Couples pay you directly, to your GCash or bank. It never passes through us. That's your money, and it's yours to keep."}
+                </p>
+                <p>
+                  Setnayan never takes a cut of the deal.{' '}
+                  {feeRates
+                    ? `You pay a booking fee: ${feeRates.head} on the first ${feeRates.band} of a booking, ${feeRates.tail} after.`
+                    : 'You pay a booking fee only on the couples Setnayan brings you.'}
+                </p>
+              </div>
+              {fee && feeRates ? (
+                <FeeSlider
+                  schedule={{ rate: fee.rate, tailRate: fee.tailRate, tier1LimitPhp: fee.tier1LimitPhp, minPhp: fee.minPhp }}
+                  ratePct={feeRates.head}
+                  firstStep={{ lead: 'Start with day-of coordination.', rest: `One small booking. The fee is ${feeRates.head}.` }}
+                  secondStep={{ lead: 'Add full wedding planning, styling, hosting.', rest: 'Same shop. More categories as you grow.' }}
+                  payoff="The bigger you grow, the smaller our share."
+                />
+              ) : null}
+            </div>
+
+            <div className="fc-sub">
+              <h3>
+                Gifts in your package <Pill kind="free">Free to give</Pill> <Pill kind="plan">You buy the gifts</Pill>
+              </h3>
+              <p className="fc-lede">
+                Put Setnayan in your package. Buy Setnayan services as gifts, like Papic 150, Event Plus or Event Pro, and add
+                them to your quote. Your client gets more from your package than they would buying alone, and it arrives
+                with their first payment.
+              </p>
+            </div>
+
+            <div className="fc-sub fc-shelf fc-dark">
+              <h3>
+                Badges <Pill kind="free">Free</Pill>
+              </h3>
+              <p>Every event you run here earns a badge couples see on your page. From {badgeSpan()}.</p>
+              <div className="fc-ladder fc-ibgrid" aria-label="Setnayan supplier badges">
+                <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: BADGE_DEFS }} />
+                {BADGES.map((b) => (
+                  <figure className="fc-ib" key={b.caption}>
+                    <div className="fc-ibs" dangerouslySetInnerHTML={{ __html: b.svg }} />
+                    <figcaption>{b.caption}</figcaption>
+                  </figure>
+                ))}
+              </div>
+              <p>Climb a badge, and we reward you, free.</p>
+              <InfoToggle id="fc-i11" label="Fees, badges and rewards">
+                <p>
+                  The fee counts only on couples Setnayan brings you. Your own clients, imported or returning, never carry a
+                  fee. Your first bookings through Setnayan are free.
+                </p>
+                <p>
+                  Badges climb at {badgeRungs()} finished events; stars come from trusted reviews; years count from the year
+                  you started; Top Pick and Most Booked are monthly. Save to print gives you the badge file.
+                </p>
+                <p>
+                  {"Rewards per badge: Papic photo credits for your client's guests, an event upgrade, a free booking fee from 1,000 events."}
+                </p>
+              </InfoToggle>
+            </div>
           </div>
-          <p className="pp-fine">Free to join · Full dashboard free · Your own clients never carry a fee</p>
+        </section>
+
+        {/* 11 · WORTH IT */}
+        <section className="fc-beat fc-ivory">
+          <div className="fc-wrap fc-stack">
+            <div className="fc-beat-head">
+              <h2>Three honest questions.</h2>
+              <InfoToggle id="fc-i12" label="Returning couples">
+                <p>
+                  {"A couple who booked you keeps you in their Setnayan. When their next event comes, you're already there, marked “Returning client · you've worked together before”, with your Returning Couple discount ready."}
+                </p>
+              </InfoToggle>
+            </div>
+            <div className="fc-qs">
+              <div className="fc-q">
+                <h3>Is it worth learning?</h3>
+                <p>{"It's free, and Free is built to be very easy. Your page builds itself from what you add."}</p>
+              </div>
+              <div className="fc-q">
+                <h3>{"What's in it for me?"}</h3>
+                <p>Found. Booked. Paid directly. One login for every event. A calm event day.</p>
+              </div>
+              <div className="fc-q">
+                <h3>Will I still be here in 10 years?</h3>
+                <p>What you build here stays: your reviews, your portfolio, your returning clients, your badges. It adds up.</p>
+              </div>
+            </div>
+            <p className="fc-promise">{"We don't promise you our future. We promise that what you build here is yours."}</p>
+          </div>
+        </section>
+
+        {/* 12 · EVERYTHING */}
+        <section className="fc-beat">
+          <div className="fc-wrap">
+            <details className="fc-fold" id="fold">
+              <summary>
+                <h2>Everything you get</h2>
+                <span className="fc-see">See the full list</span>
+                <div className="fc-fold-sum">
+                  {groups.map((g) => (
+                    <span className="fc-fchip" key={g.name}>
+                      {FOLD_ICON[g.icon]}
+                      {g.name}
+                      <b>{g.items.length}</b>
+                    </span>
+                  ))}
+                </div>
+              </summary>
+              <div className="fc-fold-body">
+                {groups.map((g) => (
+                  <div className="fc-fold-group" key={g.name}>
+                    <h3>
+                      {FOLD_ICON[g.icon]}
+                      {g.name}
+                    </h3>
+                    <ul>
+                      {g.items.map((it) => (
+                        <li key={it.text}>
+                          <span>{it.text}</span>
+                          <span className="fc-tags">
+                            <Pill kind={it.tag.kind}>{it.tag.text}</Pill>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        </section>
+
+        {/* 13 · PLANS */}
+        <section className="fc-beat fc-soft" id="plans">
+          <div className="fc-wrap fc-stack">
+            <div className="fc-beat-head">
+              <h2>{"Free to join. Verified free. Grow when you're ready."}</h2>
+              <p className="fc-lede">
+                Every tool to run your bookings is free. Paid plans add reach, a bigger team and more branches. Prices are per
+                4 weeks.
+              </p>
+            </div>
+            <div className="fc-plans fc-steps3">
+              <div className="fc-planstep">
+                <span className="fc-n">STEP 1</span>
+                <h3>{planName('free')}</h3>
+                <p className="fc-pzero">{pesoWords(TIER_PRICE_PHP.free.monthly)}, always</p>
+                <p>Every tool to run your bookings.</p>
+                <p className="fc-spec">{freeSpec()}</p>
+              </div>
+              <div className="fc-planstep">
+                <span className="fc-n">STEP 2</span>
+                <h3>
+                  {planName('verified')} <Pill kind="ver">✓</Pill>
+                </h3>
+                <p className="fc-pzero">{pesoWords(TIER_PRICE_PHP.verified.monthly)}, once your papers are approved</p>
+                <p>Couples can find you.</p>
+                <p className="fc-spec">{verifiedSpec()}</p>
+                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit · Bank proof</p>
+              </div>
+              <div className="fc-planstep fc-grow">
+                <span className="fc-n">STEP 3</span>
+                <h3>Grow</h3>
+                <p>Pick the size that fits. Prices are per 4 weeks.</p>
+                <PlanTiers tiers={tiers} start="pro" />
+                {prices.branch || prices.seat ? (
+                  <div className="fc-addons">
+                    <p className="fc-ak">Bigger than {planName(addOnPlan)}? Add more.</p>
+                    {prices.branch ? (
+                      <p>
+                        <span>+1 branch</span>
+                        <b>{prices.branch}</b>
+                      </p>
+                    ) : null}
+                    {prices.seat ? (
+                      <p>
+                        <span>+1 team seat</span>
+                        <b>{prices.seat}</b>
+                      </p>
+                    ) : null}
+                    <p className="fc-fine">Per 4 weeks. Only {planName(addOnPlan)} can add these.</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="fc-ctools">
+              <p className="fc-ak">Coordinators and wedding planners also get, on every plan</p>
+              <ul>
+                {shownWith(ctools, on).map((t) => (
+                  <li key={t.text}>{t.text}</li>
+                ))}
+              </ul>
+              <p className="fc-fine">
+                Free, with no end date. Every plan also comes with {helperWord} free Helper{FREE_HELPER_SEATS === 1 ? '' : 's'} for
+                the event day.
+              </p>
+            </div>
+            <div className="fc-plans-cta">
+              <Link className="fc-btn" href="/open-shop">
+                Open your shop free
+              </Link>
+              <InfoToggle id="fc-i13" label="About prices">
+                <p>Only Verified shops are shown in search. Couples pay you directly; Setnayan never holds a peso.</p>
+              </InfoToggle>
+            </div>
+          </div>
+        </section>
+
+        {/* 14 · CLOSE */}
+        <section className="fc-close" id="close">
+          <Image className="fc-close-bg" src={`${SHOT}/coord-hero.webp`} alt="" fill sizes="100vw" />
+          <div className="fc-wrap">
+            <p className="fc-kicker">Set na &rsquo;yan</p>
+            <h2>Your business’s new home.</h2>
+            <p className="fc-lede">{"Open your shop. It takes two steps, and it's free."}</p>
+            <div>
+              <Link className="fc-btn fc-close-cta" href="/open-shop">
+                Open your shop free
+              </Link>
+            </div>
+            <div>
+              <Link className="fc-realshop" href={`/v/${SAMPLE_SHOP.slug}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- a 44 px SVG mark; next/image adds nothing */}
+                <img className="fc-mark" src={`${SHOT6}/sw-logo-round-dark.svg`} alt="" width={44} height={44} />
+                <span className="fc-t">
+                  <small>SEE THE SAMPLE SHOP</small>
+                  <b style={{ fontSize: '1.02rem', letterSpacing: '.01em' }}>{SAMPLE_SHOP.name}</b>
+                  <span className="fc-mono">setnayan.com/v/{SAMPLE_SHOP.slug}</span>
+                </span>
+              </Link>
+            </div>
+            <p className="fc-smallprint">
+              <span>Free to join</span>
+              {on.dayOfFree ? <span>Day-of desks free</span> : null}
+              <span>Your own clients never carry a fee</span>
+            </p>
+          </div>
         </section>
       </main>
-    </>
+
+      <div className="fc-dock" aria-hidden="true">
+        <Link className="fc-btn" href="/open-shop" tabIndex={-1}>
+          Open your shop free
+        </Link>
+      </div>
+    </div>
   );
 }

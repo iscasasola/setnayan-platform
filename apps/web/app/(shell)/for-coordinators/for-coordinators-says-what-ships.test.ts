@@ -1,17 +1,16 @@
 /**
  * for-coordinators-says-what-ships.test.ts — /for-coordinators names only tools the app has, promises
- * nothing the code does not do, and wears the one shared shell.
+ * nothing the code does not do, types no number the app owns, and wears the one shared shell.
  *
- * The page is a port of the owner-approved prototype `prototypes/for_coordinators_2026-11-04.html`.
- * Building it found four places where the prototype's words and the code disagreed (calls, who moves
- * the show forward, prep-then-release, "Recommend an add-on"); the page follows the code. This file
- * keeps it that way: each tool the page names is pinned to the symbol that does it, and each corrected
- * claim is pinned shut with the fact that makes it false — so a session that genuinely ships the thing
- * knows exactly what to delete here, and why.
+ * The page is a port of the owner-approved prototype of 6 Nov 2026 (`prototypes/for_coordinators_2026-11-06/`,
+ * corpus), which replaced the 4 Nov one. Each tool it names is pinned to the symbol that does it; each claim
+ * the code contradicts is pinned shut with the fact that makes it false; each number (price, reach, seats,
+ * the fee, the access levels) is pinned to its source — so a session that changes one of those knows exactly
+ * what moved, and why.
  *
- * SABOTAGE (run 2026-11-04 before the PR): rename `FREE_HELPER_SEATS` in lib/vendor-free-helper.ts →
- * RED; write "Free voice and video calls" into the page → RED; link `/sample/coordinator` → RED; drop
- * the route from DOORWAY_BLEED_PATHS → RED; type "₱990" into the page → RED.
+ * SABOTAGE (run 2026-11-06 before the PR): type "₱2,490" into the page → RED; drop `needs: 'announcements'`
+ * from the announcement cap → RED; set COORDINATOR_AREAS.mood_board to 'edit' → RED (the ⓘ sentence lies);
+ * replace `tag: deskTag` with a hard "Free" pill → RED; drop the route from DOORWAY_BLEED_PATHS → RED.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,6 +18,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
+import { COORDINATOR_AREAS, areaChoices } from '@/lib/delegate-areas';
 
 import { ALL_SWITCHES_OFF, CLAIM_SWITCHES, countWord, shownWith, type ClaimSwitches } from './_claims';
 
@@ -26,24 +26,33 @@ const HERE = import.meta.dirname; // app/(shell)/for-coordinators
 const APP = join(HERE, '..', '..');
 const WEB = join(APP, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const own = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
+const PAGE = own('page.tsx');
+const FACTS = own('_facts.ts');
+const CLIENT = own('_fc-client.tsx');
+/** Everything a visitor can read: the page, the fold's words, the client pieces' words. */
+const WORDS = [PAGE, FACTS, CLIENT].join('\n');
 
 /** Every tool the page names → the file and the symbol that does it. */
 const TOOLS: readonly { tool: string; file: string; symbol: RegExp }[] = [
-  { tool: 'Host access, part by part (the couple invites you)', file: 'lib/coordinator-grant.ts', symbol: /export async function autoInviteCoordinator\b/ },
-  { tool: 'Host access, part by part (the parts)', file: 'lib/delegate-areas.ts', symbol: /export const COORDINATOR_AREAS\b/ },
-  { tool: 'Access ends seven days after the event', file: 'lib/delegate-access-window.ts', symbol: /export const DELEGATE_GRACE_DAYS = 7;/ },
-  { tool: 'One run-of-show, each supplier sees their rows', file: 'lib/schedule-ros.ts', symbol: /export function filterBlocksForAudience\b/ },
-  { tool: 'Door check-in by scanning the pass', file: 'app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx', symbol: /export function CheckinDesk\b/ },
-  { tool: 'Day-of desk · cue the show', file: 'app/_actions/run-of-show.ts', symbol: /export async function advanceScheduleBlock\b/ },
-  { tool: 'Day-of desk · the requests inbox', file: 'app/vendor-dashboard/on-the-day/_components/requests-inbox.tsx', symbol: /export function RequestsInbox\b/ },
-  { tool: 'Day-of desk · the seat scanner', file: 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx', symbol: /export function SeatScanner\b/ },
-  { tool: 'Day-of desk · free, no end date', file: 'lib/vendor-dayof-free-until.ts', symbol: /export function isVendorDayOfStillFree\b/ },
-  { tool: 'Auto-arrange seats', file: 'app/dashboard/[eventId]/seating/actions.ts', symbol: /export async function autoArrange\b/ },
-  { tool: 'One-tap invites (Messenger · Viber · WhatsApp)', file: 'app/dashboard/[eventId]/guests/_components/send-invite.tsx', symbol: /WhatsApp[\s\S]*Viber[\s\S]*Messenger|Messenger[\s\S]*Viber[\s\S]*WhatsApp/ },
-  { tool: 'One helper, free', file: 'lib/vendor-free-helper.ts', symbol: /export const FREE_HELPER_SEATS = 1;/ },
-  { tool: 'Events you run', file: 'lib/events-you-run.ts', symbol: /export function eventsYouRun\b/ },
-  { tool: 'Announcements on every guest’s Event Hub', file: 'lib/coordinator-broadcasts-server.ts', symbol: /export async function fetchLatestBroadcasts\b/ },
+  { tool: 'The couple invites you (Full Event Access)', file: 'lib/coordinator-grant.ts', symbol: /export async function autoInviteCoordinator\b/ },
+  { tool: 'The parts, their levels, a coordinator’s defaults', file: 'lib/delegate-areas.ts', symbol: /export const COORDINATOR_AREAS\b/ },
+  { tool: '“Ask the host for access”', file: 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx', symbol: /Ask the host for access/ },
+  { tool: '“Your coordinator is asking for access”', file: 'app/dashboard/[eventId]/_components/access-requests-doorway.tsx', symbol: /Your coordinator is asking/ },
+  { tool: 'Access ends N days after the event', file: 'lib/delegate-access-window.ts', symbol: /export const DELEGATE_GRACE_DAYS = \d+;/ },
+  { tool: 'Each supplier sees only their rows', file: 'lib/schedule-ros.ts', symbol: /export function filterBlocksForAudience\b/ },
+  { tool: 'Check-in desk (scan a guest’s pass)', file: 'app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx', symbol: /export function CheckinDesk\b/ },
+  { tool: 'Cue the show, part by part', file: 'app/_actions/run-of-show.ts', symbol: /export async function advanceScheduleBlock\b/ },
+  { tool: 'One requests inbox', file: 'app/vendor-dashboard/on-the-day/_components/requests-inbox.tsx', symbol: /export function RequestsInbox\b/ },
+  { tool: 'The seat scanner', file: 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx', symbol: /export function SeatScanner\b/ },
+  { tool: 'The day-of desks are free (the set held free)', file: 'lib/vendor-specialization-gate.ts', symbol: /export const FREE_SPECIALIZATION_SETS\b/ },
+  { tool: '“Saved for offline · updated …”', file: 'app/_components/offline-ready/schedule-saved-mark.tsx', symbol: /Saved for offline/ },
+  { tool: 'Check a date (the code and the page)', file: 'lib/check-a-date.ts', symbol: /export function checkADateUrl\b/ },
+  { tool: 'Shortlist code', file: 'lib/vendor-couple-invite.ts', symbol: /export function buildVendorInviteUrl\b/ },
+  { tool: 'Review code → the reviews on the page', file: 'app/v/[slug]/page.tsx', symbol: /id="reviews"/ },
+  { tool: '“— a returning client”', file: 'lib/chat-actions.ts', symbol: /a returning client/ },
+  { tool: 'One helper seat free', file: 'lib/vendor-free-helper.ts', symbol: /export const FREE_HELPER_SEATS = \d+;/ },
+  { tool: 'Announcements on every guest’s phone', file: 'lib/coordinator-broadcasts-server.ts', symbol: /export async function fetchLatestBroadcasts\b/ },
   { tool: 'Prepare in private, then release', file: 'app/dashboard/[eventId]/schedule/actions.ts', symbol: /export async function setBlockPrepVisibility\b/ },
   { tool: 'Private notes and notes the couple can read', file: 'lib/vendor-working-notes.ts', symbol: /'coordinator_private', 'shared'/ },
 ];
@@ -56,58 +65,99 @@ test('every tool the page names is in the app', () => {
   assert.deepEqual(missing, [], 'the page names a tool whose code is gone or renamed:\n  ' + missing.join('\n  '));
 });
 
-test('only the coordinator and the couple move the show forward — never the emcee', () => {
+test('the coordinator AND the couple move the show forward — never the emcee', () => {
   const gate = read('lib/run-of-show-advance-gate.ts');
   assert.match(gate, /memberType === 'couple'\) return \{ allowed: true/, 'the couple no longer advances the show');
-  assert.match(PAGE, /only you and the couple move the show forward/, 'the page lost the corrected line');
+  assert.match(PAGE, /The couple can too\. The emcee can’t\./, 'the page lost the line that the couple can move the show too');
 });
 
-/** Claims the prototype made that the code contradicts — each with the fact that makes it false. */
+/** Claims the code contradicts, or house words the owner retired — each with the fact that makes it false. */
 const FALSE_CLAIMS: readonly { claim: RegExp; why: string }[] = [
   {
     claim: /(voice|video)[^.]{0,40}call|call[^.]{0,20}(voice|video)/i,
     why: 'in-app calls left the chat (owner 2026-10-28, "remove both voice and video call"); no screen calls startThreadCall',
   },
   { claim: /Recommend an add-on/i, why: 'studio/recommend-actions.ts: "NO SCREEN POSTS THESE SINCE 2026-10-02"' },
-  { claim: /\/sample\/coordinator/, why: 'app/sample/[...rest] 404s it — there is no coordinator demo yet' },
-  { claim: /If there is no coordinator, the couple/i, why: 'decideMayAdvance lets the couple advance at any time' },
-  { claim: /₱\s?\d/, why: 'no price is typed here — a price comes from the catalogue (platform_retail_catalog_v2)' },
+  { claim: /coming soon/i, why: 'owner 6 Nov: "remove all coming soon" — the page waits for the feature instead' },
+  { claim: /\/sample\/coordinator/, why: 'app/sample/[...rest] 404s it — there is no coordinator demo' },
+  { claim: /₱\s?\d/, why: 'no price is typed — prices come from vendor_billing_catalog, the fee from the live schedule' },
   {
-    claim: /free (until|through|till)|until (Dec|December|2026-12-31)/i,
-    why: 'the day-of desks stay free with NO end date (DECISION_LOG 2026-11-04 "DAY-OF DESKS STAY FREE")',
+    claim: /free (until|through|till)|until (Jan|Dec|December)|(?<!\/)20\d\d-\d\d-\d\d/i,
+    why: 'the day-of desks stay free with NO end date (DECISION_LOG 2026-11-04/05); no dated wording on a doorway',
   },
   { claim: /celebration/i, why: 'say "event" (owner 2026-10-04)' },
 ];
 
 test('the page makes none of the claims the code contradicts', () => {
-  const hits = FALSE_CLAIMS.filter(({ claim }) => claim.test(PAGE)).map(
-    ({ claim, why }) => `${claim} — ${why}`,
-  );
+  const hits = FALSE_CLAIMS.filter(({ claim }) => claim.test(WORDS)).map(({ claim, why }) => `${claim} — ${why}`);
   assert.deepEqual(hits, [], 'the page says something the app does not do:\n  ' + hits.join('\n  '));
 });
 
-test('every link on the page opens a real page or an anchor on it', () => {
-  const hrefs = [...PAGE.matchAll(/href[:=]\s*[{]?\s*['"`]([^'"`]+)['"`]/g)].map((m) => m[1] ?? '');
-  assert.ok(hrefs.length >= 6, `anti-vacuity: only ${hrefs.length} links were read`);
-  const pageOnDisk = (route: string) =>
-    [join(APP, route, 'page.tsx'), join(APP, '(shell)', route, 'page.tsx')].some((p) => existsSync(p));
-  const dead = hrefs.filter((h) => {
-    if (h.startsWith('#')) return !PAGE.includes(`id="${h.slice(1)}"`);
-    if (!h.startsWith('/') || h.startsWith('/marketing/')) return false;
-    return !pageOnDisk(h.split(/[?#]/)[0] ?? h);
-  });
-  assert.deepEqual(dead, [], 'a link on /for-coordinators goes nowhere: ' + dead.join(', '));
+// ── NUMBERS ARE READ, NEVER TYPED ─────────────────────────────────────────────────────────────────────
+
+test('prices are read from the catalogue that charges them, with no peso fallback', () => {
+  const prices = own('_prices.server.ts');
+  assert.match(prices, /fetchV2VendorCatalog\(\)/);
+  assert.match(prices, /BRANCH_SKU_CODE/);
+  assert.match(prices, /SEAT_SKU_CODE/);
+  assert.doesNotMatch(prices, /\b\d{3,}\b/, 'a number is typed into the price reader');
+  assert.match(PAGE, /readCoordinatorPrices\(\)/, 'the page does not read the prices');
 });
 
-test('the call to action is the supplier door — a coordinator opens a supplier shop', () => {
-  const ctas = PAGE.match(/href="\/open-shop"/g) ?? [];
-  assert.equal(ctas.length, 2, 'the hero and the close each open /open-shop');
+test('the fee is named only from the live schedule; unreadable → no rate is named', () => {
+  assert.match(PAGE, /getLiveBookingFeeSchedule\(\)\.catch\(\(\) => null\)/);
+  assert.match(PAGE, /const feeRates = fee\s*\?/);
+  assert.doesNotMatch(WORDS, /fee[^.]{0,60}\b\d+(\.\d+)?%/i, 'a fee percent is typed');
 });
 
-test('every photo the page shows is in public/marketing/2026-11-04', () => {
-  const photos = [...PAGE.matchAll(/\$\{PHOTOS\}\/([a-z0-9-]+\.webp)/g)].map((m) => m[1] ?? '');
-  assert.ok(photos.length >= 15, `anti-vacuity: only ${photos.length} photos were read`);
-  const missing = photos.filter((f) => !existsSync(join(WEB, 'public', 'marketing', '2026-11-04', f)));
+test('reach, seats, cards and photos come from lib/vendor-tier-caps.ts', () => {
+  assert.match(FACTS, /from '@\/lib\/vendor-tier-caps'/);
+  assert.doesNotMatch(WORDS, /\b\d+\s?km\b/, 'a reach is typed');
+  assert.doesNotMatch(WORDS, /'(Solo|Pro|Ultra) plan|from (Solo|Pro|Ultra)\b|on (Solo|Pro|Ultra)\b|Only Ultra\b/, 'a plan name is typed');
+});
+
+// ── FULL EVENT ACCESS FOLLOWS THE APP ─────────────────────────────────────────────────────────────────
+
+test('the access card is drawn from lib/delegate-areas.ts — parts, levels and defaults', () => {
+  for (const sym of ['DELEGATE_AREAS', 'DELEGATE_AREA_LABEL', 'areaChoices(area)', 'choiceOfLevel(COORDINATOR_AREAS[area]']) {
+    assert.ok(PAGE.includes(sym), `the access card does not read ${sym}`);
+  }
+  for (const label of ['Guest list', 'Seat plan', 'Budget & payments', 'Mood board', 'Mood Board']) {
+    assert.ok(!PAGE.includes(`'${label}'`), `"${label}" is typed instead of read from DELEGATE_AREA_LABEL`);
+  }
+});
+
+test('“How access works” says what COORDINATOR_AREAS and areaChoices actually do', () => {
+  assert.match(PAGE, /A coordinator starts with Edit on the guest list, seat plan, the day and suppliers; the mood board at View;\s+budget and photos Off\. Budget and photos can be opened to View at most, never Edit\./);
+  for (const a of ['guest_list', 'seat_plan', 'schedule', 'vendors'] as const) assert.equal(COORDINATOR_AREAS[a], 'edit', a);
+  assert.equal(COORDINATOR_AREAS.mood_board, 'view');
+  assert.equal(COORDINATOR_AREAS.budget ?? null, null);
+  assert.equal(COORDINATOR_AREAS.photos ?? null, null);
+  for (const a of ['budget', 'photos'] as const) assert.ok(!areaChoices(a)?.includes('edit'), `${a} can now be opened to Edit`);
+});
+
+// ── LINKS · PHOTOS · SHELL ────────────────────────────────────────────────────────────────────────────
+
+test('every call to action is the supplier door — a coordinator opens a supplier shop', () => {
+  assert.ok(existsSync(join(APP, 'open-shop', 'page.tsx')) || existsSync(join(APP, '(shell)', 'open-shop', 'page.tsx')), '/open-shop is gone');
+  assert.equal((PAGE.match(/href="\/open-shop"/g) ?? []).length, 4, 'the hero, the plans, the close and the dock each open /open-shop');
+});
+
+test('every anchor on the page lands on an id on it; the sample shop link is the shop page', () => {
+  const anchors = [...PAGE.matchAll(/href="#([a-z-]+)"/g)].map((m) => m[1] ?? '');
+  assert.ok(anchors.length >= 1, 'anti-vacuity: no anchor read');
+  const dead = anchors.filter((a) => !PAGE.includes(`id="${a}"`));
+  assert.deepEqual(dead, [], 'an anchor goes nowhere: ' + dead.join(', '));
+  assert.match(PAGE, /href=\{`\/v\/\$\{SAMPLE_SHOP\.slug\}`\}/);
+  assert.ok(existsSync(join(APP, 'v', '[slug]', 'page.tsx')), '/v/[slug] is gone');
+  assert.doesNotMatch(PAGE, /href="https?:/, 'an absolute link — the page links inside the app');
+});
+
+test('every photo and mark the page shows is in public/', () => {
+  const bases: Record<string, string> = { SHOT: '2026-11-04', SHOT6: '2026-11-06/coordinators' };
+  const files = [...PAGE.matchAll(/\$\{(SHOT6?)\}\/([a-z0-9-]+\.(?:webp|svg))/g)].map((m) => join(bases[m[1] ?? ''] ?? '', m[2] ?? ''));
+  assert.ok(files.length >= 20, `anti-vacuity: only ${files.length} photos were read`);
+  const missing = files.filter((f) => !existsSync(join(WEB, 'public', 'marketing', f)));
   assert.deepEqual(missing, [], 'a photo the page shows is not in public/: ' + missing.join(', '));
 });
 
@@ -126,44 +176,47 @@ test('it wears the one shared shell, full-bleed, and is findable', () => {
   assert.match(read('app/robots.ts'), /'\/for-coordinators'/, 'robots.txt does not allow it');
 });
 
-// ── THE FOUR SWITCHED LINES (owner 2026-11-04: "show each line only when its switch is on") ──────────
+test('the page shows prices, so the iPhone app does not open it', () => {
+  assert.match(read('lib/store-shell.ts'), /'\/for-coordinators'/, 'not in STORE_SHELL_WEB_ONLY_DOORWAYS');
+});
 
+// ── THE SWITCHED LINES (owner 2026-11-05: "show each line only when its switch is on") ─────────────────
 
-/** Each switch-dependent sentence → the switch it needs. The guard finds the item that holds it. */
-const SWITCHED_LINES: readonly { line: string; needs: string }[] = [
-  { line: "text: 'One run-of-show'", needs: 'runOfShow' },
-  { line: "title: 'One run-of-show'", needs: 'runOfShow' },
-  { line: 'Each supplier sees only their own rows', needs: 'runOfShow' },
-  { line: 'Send one announcement', needs: 'announcements' },
-  { line: 'Prepare schedule items in private', needs: 'prepRelease' },
-  { line: 'Keep private notes for yourself', needs: 'privateNotes' },
-  { line: "text: 'Day-of desk'", needs: 'dayOfFree' },
-  { line: "title: 'The day-of desk'", needs: 'dayOfFree' },
-  { line: 'the seat scanner finds any guest’s table', needs: 'dayOfFree' },
+/** Each switch-dependent sentence → the switch it needs → the file that holds it. */
+const SWITCHED_LINES: readonly { line: string; needs: string; src: 'PAGE' | 'FACTS' }[] = [
+  { line: "title: 'One announcement, every phone.'", needs: 'announcements', src: 'PAGE' },
+  { line: "text: 'Prepare items in private", needs: 'prepRelease', src: 'PAGE' },
+  { line: "text: 'Keep private notes for yourself", needs: 'privateNotes', src: 'PAGE' },
+  { line: "text: 'Day-of desks'", needs: 'dayOfFree', src: 'PAGE' },
+  { line: "text: 'One run of show; each supplier sees only their rows'", needs: 'runOfShow', src: 'FACTS' },
+  { line: "text: 'Prepare in private, release when ready'", needs: 'prepRelease', src: 'FACTS' },
+  { line: "text: 'Private notes, and notes the couple can read'", needs: 'privateNotes', src: 'FACTS' },
+  { line: "text: 'Cue the show, part by part'", needs: 'dayOfFree', src: 'FACTS' },
+  { line: "text: 'Requests inbox for every supplier'", needs: 'dayOfFree', src: 'FACTS' },
+  { line: "text: 'Check-in desk and seat scanner'", needs: 'dayOfFree', src: 'FACTS' },
+  { line: "text: 'Announcements on every guest’s phone'", needs: 'announcements', src: 'FACTS' },
 ];
 
-/** The `{ … }` object literal (one item of a list) that contains `at`. */
-function itemAround(src: string, at: number): string {
-  const open = src.lastIndexOf('\n  {', at);
-  const close = src.indexOf('\n  }', at);
-  return src.slice(open, close);
+/** From `at` to the start of the next list item (or the end of the list): the rest of this item. */
+function restOfItem(src: string, at: number): string {
+  const ends = [src.indexOf("key: '", at + 1), src.indexOf("{ text: '", at + 1), src.indexOf('];', at)].filter((i) => i > 0);
+  return src.slice(at, Math.min(...ends));
 }
 
-// One test per switched line (owner 2026-11-04: "add a test per line"), each naming its switch.
-for (const { line, needs } of SWITCHED_LINES) {
-  test(`"${line}" is on the page once, and shows only while ${needs} is on`, () => {
-    const hits = [...PAGE.matchAll(new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))];
+for (const { line, needs, src } of SWITCHED_LINES) {
+  test(`"${line}" is said once, and shows only while ${needs} is on`, () => {
+    const body = src === 'PAGE' ? PAGE : FACTS;
+    const hits = [...body.matchAll(new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))];
     assert.equal(hits.length, 1, `"${line}" appears ${hits.length}× — expected exactly once`);
-    const item = itemAround(PAGE, hits[0]?.index ?? 0);
     assert.ok(
-      item.includes(`needs: '${needs}'`),
+      restOfItem(body, hits[0]?.index ?? 0).includes(`needs: '${needs}'`),
       `"${line}" is not gated on ${needs}: it would show while that switch is off — a promise the app does not keep`,
     );
   });
 }
 
 test('the switches are read with the gates the features themselves use, and fail closed', () => {
-  const reader = stripComments(readFileSync(join(HERE, '_claims.server.ts'), 'utf8'));
+  const reader = own('_claims.server.ts');
   for (const gate of [
     "isDataPrivacyControlActive('coordinator_run_of_show')",
     'isCoordinatorP3Enabled()',
@@ -173,17 +226,11 @@ test('the switches are read with the gates the features themselves use, and fail
     assert.ok(reader.includes(gate), `_claims.server.ts does not read ${gate}`);
   }
   assert.equal((reader.match(/\.catch\(\(\) => false\)/g) ?? []).length, 3, 'a DB-read switch is not failing closed');
-  assert.match(PAGE, /const on = await readClaimSwitches\(\);/, 'the page does not read the live switches');
-  for (const list of ['FREE_LINE', 'KIT', 'PROBLEMS']) {
-    assert.match(PAGE, new RegExp(`shownWith\\(${list}, on\\)`), `${list} is rendered without its switches`);
+  assert.match(PAGE, /const \[on, prices, fee\] = await Promise\.all\(\[\s*readClaimSwitches\(\),/, 'the page does not read the live switches');
+  for (const list of ['caps', 'deskParagraph', 'ctools', 'g.items']) {
+    assert.ok(PAGE.includes(`shownWith(${list}, on)`), `${list} is rendered without its switches`);
   }
-  assert.doesNotMatch(PAGE, /\{(FREE_LINE|KIT|PROBLEMS)\.map\(/, 'a list is rendered whole, skipping its switches');
-});
-
-test('the headings count what is shown — "Nine tools", "Twelve problems" are never typed', () => {
-  assert.doesNotMatch(PAGE, /\b(Nine|Ten|Twelve|Eleven) (tools|problems)\b/, 'a heading types its count');
-  assert.match(PAGE, /countWord\(kit\.length\)/);
-  assert.match(PAGE, /countWord\(problems\.length\)/);
+  assert.doesNotMatch(PAGE, /\{(caps|deskParagraph|ctools)\.map\(/, 'a list is rendered whole, skipping its switches');
 });
 
 test('a switched item shows only when its switch is on; an unswitched one always shows', () => {
@@ -192,42 +239,39 @@ test('a switched item shows only when its switch is on; an unswitched one always
   assert.deepEqual(shownWith(items, ALL_SWITCHES_OFF).map((i) => i.id), ['always']);
   assert.deepEqual(shownWith(items, allOn).map((i) => i.id), ['always', 'ros', 'notes']);
   assert.deepEqual(shownWith(items, { ...ALL_SWITCHES_OFF, runOfShow: true }).map((i) => i.id), ['always', 'ros']);
-  assert.equal(countWord(9), 'Nine');
-  assert.equal(countWord(12), 'Twelve');
+  assert.equal(countWord(1), 'One');
   assert.equal(countWord(21), '21');
 });
 
-// ── THE DAY-OF DESK IS "FREE" ONLY WHILE THE GATE SAYS SO (board, 5 Nov "TRUE-CLAIMS CHECK") ──────────
+// ── THE DAY-OF DESK IS "FREE" ONLY WHILE THE GATE SAYS SO ─────────────────────────────────────────────
 
-test('cue-the-show and the requests inbox read "Free" only while the floor-command kit is free', () => {
-  for (const line of ['only you and the couple move the show forward', 'One requests inbox for the day']) {
-    const at = PAGE.indexOf(line);
-    assert.ok(at > 0, `"${line}" not found — this check would pass vacuously`);
-    assert.ok(
-      itemAround(PAGE, at).includes("freeWhen: 'dayOfFree'"),
-      `"${line}" is tagged Free while lib/vendor-specialization-gate.ts may still charge for it`,
-    );
-  }
-  assert.match(PAGE, /tag: freeWhen && !on\[freeWhen\] \? DAY_OF_PLAN_TAG : scene\.tag/, 'freeWhen is not applied');
+test('the requests inbox and the door read "Free" only while the floor-command desk is free', () => {
   assert.match(
     PAGE,
-    /const DAY_OF_PLAN_TAG = `\$\{TIER_LABEL\[SPECIALIZATION_MIN_TIER\]\} plan and up`;/,
-    'the plan tag is not derived from the gate',
+    /const deskTag = on\.dayOfFree \? <Pill kind="free">Free<\/Pill> : <Pill kind="plan">\{planPill\(SPECIALIZATION_MIN_TIER\)\}<\/Pill>;/,
+    'the desk tag is not derived from the gate',
   );
-  assert.doesNotMatch(PAGE, /'(Solo|Pro|Ultra) plan/, 'a plan name is typed');
+  for (const key of ["key: 'inbox'", "key: 'door'"]) {
+    const at = PAGE.indexOf(key);
+    assert.ok(at > 0, `${key} not found — this check would pass vacuously`);
+    assert.ok(restOfItem(PAGE, at).includes('tag: deskTag'), `${key} is tagged Free while the gate may still charge for it`);
+  }
 });
 
-test('the hero says the day’s tools cost nothing only while they do', () => {
-  const at = PAGE.indexOf('the tools to run the day cost you nothing');
-  assert.ok(at > 0, 'anti-vacuity: the sentence was not found');
-  assert.match(PAGE.slice(at - 120, at), /on\.dayOfFree\s*\?\s*'Your shop, your dashboard and $/, 'the claim is not behind dayOfFree');
-  assert.equal((PAGE.match(/the tools to run the day cost you nothing/g) ?? []).length, 1);
+test('the hero and the close say the day’s tools are free only while they are', () => {
+  assert.match(PAGE, /\{on\.dayOfFree \? <span>Day-of tools free<\/span> : null\}/);
+  assert.match(PAGE, /\{on\.dayOfFree \? <span>Day-of desks free<\/span> : null\}/);
+  assert.equal((PAGE.match(/Day-of tools free|Day-of desks free/g) ?? []).length, 2);
 });
 
-test('dayOfFree asks the same function the floor-command paywall asks', () => {
-  const reader = stripComments(readFileSync(join(HERE, '_claims.server.ts'), 'utf8'));
-  assert.match(reader, /dayOfFree: specializationFreeWindowActive\(vendorDayOfFreeUntilIso\(\), Date\.now\(\)\)/);
+test('dayOfFree asks the same two questions the floor-command paywall asks', () => {
+  const reader = own('_claims.server.ts');
+  assert.match(
+    reader,
+    /dayOfFree:\s*FREE_SPECIALIZATION_SETS\.has\('floor_command'\) \|\|\s*specializationFreeWindowActive\(vendorDayOfFreeUntilIso\(\), Date\.now\(\)\)/,
+  );
   const gate = read('lib/vendor-specialization-gate.ts');
+  assert.match(gate, /export const FREE_SPECIALIZATION_SETS\b/);
   assert.match(gate, /export function specializationFreeWindowActive\b/);
   assert.match(gate, /export const SPECIALIZATION_MIN_TIER\b/);
 });

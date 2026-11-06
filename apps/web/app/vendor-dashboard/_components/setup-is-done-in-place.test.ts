@@ -75,17 +75,18 @@ const COARSE: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORIES);
 test('1 · the six steps, in order and in the prototype’s words — each ✓ the saved fact', async () => {
   const { assembleSetup, setupHeadline } = await import('@/lib/supplier-setup');
   const r = await rail({});
-  const v = assembleSetup({ checklist: CHECKLIST((k) => k === 'business_name' || k === 'business_owner_name' || k === 'in_business_since_year'), rail: r, offer: r.offer, docs: { status: null, docsIn: 0, docsTotal: 4 }, shopName: 'Tita Nena’s Catering' });
+  const v = assembleSetup({ checklist: CHECKLIST((k) => k === 'business_name' || k === 'business_owner_name' || k === 'in_business_since_year'), rail: r, offer: r.offer, docs: { status: null, docsIn: 0, docsTotal: 4 }, shopName: 'Tita Nena’s Catering', qrSaved: false });
   assert.deepEqual(
     v.folds.map((f) => f.title),
-    ['Name your shop', 'Your details', 'Add your logo', 'What you offer', 'Send your documents', 'Your QR + days off'],
+    // Step 6 is "Download your QR" since 7 Nov 2026 (owner, Track C2 — prototype open-shop-redesign v21).
+    ['Name your shop', 'Your details', 'Add your logo', 'What you offer', 'Send your documents', 'Download your QR'],
   );
   assert.deepEqual(v.folds.map((f) => f.done), [true, false, false, false, false, false], 'a ✓ that is not the saved fact');
   assert.equal(v.firstOpen, 'details', 'the first step not done is not the one that opens');
   assert.equal(setupHeadline(v), '1 of 6 done');
 
   const all = await rail({ cards: 3, details: true, logo: true, docs: 'pending_review', daysOff: 1 });
-  const done = assembleSetup({ checklist: CHECKLIST(() => true), rail: all, offer: all.offer, docs: { status: 'pending_review', docsIn: 4, docsTotal: 4 }, shopName: 'x' });
+  const done = assembleSetup({ checklist: CHECKLIST(() => true), rail: all, offer: all.offer, docs: { status: 'pending_review', docsIn: 4, docsTotal: 4 }, shopName: 'x', qrSaved: true });
   assert.equal(done.done, 6, 'six saved facts do not make six ✓');
   assert.equal(done.firstOpen, null);
   assert.equal(setupHeadline(done), 'All done — Setnayan checks you next');
@@ -113,13 +114,13 @@ test('2 · Good · Better · Best — three cards per service, "N to go", lowest
     const r = await rail({ cards });
     const step = r.steps.find((s) => s.key === 'service_card')!;
     assert.equal(step.state === 'done', done, `${cards} card(s): the rail's "What you offer" disagrees with Good · Better · Best`);
-    const fold = assembleSetup({ checklist: CHECKLIST(() => false), rail: r, offer: r.offer, docs: { status: null, docsIn: 0, docsTotal: 4 }, shopName: null }).folds.find((f) => f.key === 'offer')!;
+    const fold = assembleSetup({ checklist: CHECKLIST(() => false), rail: r, offer: r.offer, docs: { status: null, docsIn: 0, docsTotal: 4 }, shopName: null, qrSaved: false }).folds.find((f) => f.key === 'offer')!;
     assert.equal(fold.done, done);
     assert.equal(fold.badge?.word ?? null, word);
   }
   // Unread cards: never "0 of 3", never ticked.
   const unread = await rail({ cards: 3, offerRead: false });
-  const fold = assembleSetup({ checklist: CHECKLIST(() => false), rail: unread, offer: null, docs: { status: null, docsIn: 0, docsTotal: 4 }, shopName: null }).folds.find((f) => f.key === 'offer')!;
+  const fold = assembleSetup({ checklist: CHECKLIST(() => false), rail: unread, offer: null, docs: { status: null, docsIn: 0, docsTotal: 4 }, shopName: null, qrSaved: false }).folds.find((f) => f.key === 'offer')!;
   assert.equal(fold.badge?.word, 'Couldn’t load');
 });
 

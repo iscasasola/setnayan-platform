@@ -7,7 +7,13 @@
  * such as the service maker as a SHEET over Today); step 4 counts Good · Better · Best (≥ 3 cards per Service,
  * 'N to go'); step 5 documents in place …; step 6 opens the shop's Anyone-QR fold."
  *
- *   1 Name your shop · 2 Your details · 3 Add your logo · 4 What you offer · 5 Send your documents · 6 Your QR + days off
+ *   1 Name your shop · 2 Your details · 3 Add your logo · 4 What you offer · 5 Send your documents · 6 Download your QR
+ *
+ * 🧾📥 STEPS 5 AND 6, 7 NOV 2026 (owner, build-sessions/PLAN-SUPPLIER-GO-LIVE-BUILD-2026-11-07.md Track C; prototype
+ * `open-shop-redesign.html` v21): step 5 is one row per required paper (`lib/setup-papers.ts`); step 6 is "Download
+ * your QR" — the shop's own page, `/v/<slug>` (`myPageUrl`), never the couple Event Hub root — and the house spotlight
+ * runs once after it (`SETUP_TOUR_KEY`). Step 6's ✓ is THAT TOUR'S RECORD in `users.tour_seen_keys` (written by the
+ * shipped `completeTour` when it ends or is skipped): a download is a press, and the record is the saved fact.
  *
  * NOTHING HERE RE-DECIDES A RULE THAT LIVES ELSEWHERE. Each fold's ✓ is read off what the shipped rail
  * (`buildFirstStepsRail`) or the shipped checklist (`businessProfileChecklist`) already measured — a fold is never
@@ -21,6 +27,7 @@
 import type { BadgeTone } from '@/app/_components/badge';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
+import type { TourKey } from '@/lib/tours';
 import { DETAILS_CHECKLIST_KEYS } from '@/lib/supplier-details';
 import { formatCount } from '@/lib/format-number';
 
@@ -94,6 +101,9 @@ export function toGoWord(toGo: number): string {
   return `${formatCount(toGo)} to go`;
 }
 
+/** The tour that runs once after step 6 — and whose record is step 6's ✓ (`lib/tours.ts`). */
+export const SETUP_TOUR_KEY = 'vendor_setup_tour_v1' as const satisfies TourKey;
+
 export type SetupFoldKey = 'name' | 'details' | 'logo' | 'offer' | 'docs' | 'qr';
 
 export type SetupFold = {
@@ -122,6 +132,11 @@ export type SetupInput = {
   offer: OfferProgress | null;
   docs: SetupDocs;
   shopName: string | null;
+  /**
+   * Step 6: whether the QR's tour is on record (`users.tour_seen_keys` holds `SETUP_TOUR_KEY`). NULL when that read
+   * was refused — the step then says it could not load, and is never ticked.
+   */
+  qrSaved: boolean | null;
 };
 
 export type SetupView = {
@@ -195,7 +210,7 @@ export function assembleSetup(input: SetupInput): SetupView {
       key: 'docs',
       n: 5,
       title: 'Send your documents',
-      line: 'DTI or SEC · BIR · permit · bank proof',
+      line: 'Setnayan checks them before you go live',
       // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing").
       done: step('documents')?.state === 'done' || checking,
       badge: docsBadge,
@@ -203,10 +218,10 @@ export function assembleSetup(input: SetupInput): SetupView {
     {
       key: 'qr',
       n: 6,
-      title: 'Your QR + days off',
-      line: 'Share it · mark days you can’t take',
-      done: step('not_available')?.state === 'done',
-      badge: null,
+      title: 'Download your QR',
+      line: 'Scan it → your page · put it on your photos, posts and cards',
+      done: input.qrSaved === true,
+      badge: input.qrSaved === null ? { word: 'Couldn’t load', tone: 'no' } : null,
     },
   ];
   const done = folds.filter((f) => f.done).length;

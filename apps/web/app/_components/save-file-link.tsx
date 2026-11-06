@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { usePrintSave, type PrintSaveState } from '@/app/dashboard/[eventId]/launch/_components/print-save-button';
 
 export type SaveFileState = 'idle' | 'saving' | 'ready';
@@ -37,16 +38,26 @@ export function SaveFileLink({
   filename,
   className,
   children,
+  onSaved,
   ...rest
 }: {
   href: string;
   filename: string;
   className?: string;
+  /** Called once each time the file is actually handed over (shared or downloaded) — never on the tap alone, never
+      on a failure or a dismissed share sheet (a new shop's Today: the QR's download starts its tour, 7 Nov 2026). */
+  onSaved?: () => void;
   /** Plain content, or a render prop so a CLIENT caller can swap icon/label while saving. */
   children: React.ReactNode | ((state: SaveFileState) => React.ReactNode);
 } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'download' | 'onClick' | 'className' | 'children'>) {
   const { state, save } = usePrintSave();
   const shown: SaveFileState = state.k === 'working' ? 'saving' : state.k === 'ready' ? 'ready' : 'idle';
+  const said = useRef<PrintSaveState | null>(null);
+  useEffect(() => {
+    if (state.k !== 'saved' || said.current === state) return;
+    said.current = state;
+    onSaved?.();
+  }, [state, onSaved]);
   return (
     <>
       <a

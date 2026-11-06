@@ -19,7 +19,7 @@ export const LAB_COUPLE_PHOTOS: ShopCouplePhoto[] = [
   { shareId: 'lab-share-3', state: 'approved', imageUrl: LAB_SUGGEST_PHOTO.bq2, creditLine: 'Maria & Jose · Dec 2026', serviceTitle: 'Garden bridal bouquet' },
 ];
 
-const LAB_CARD: ServiceCard = {
+export const LAB_CARD: ServiceCard = {
   id: 'lab-card-bouquet',
   label: 'Garden bridal bouquet',
   priceLabel: 'from ₱8,500',

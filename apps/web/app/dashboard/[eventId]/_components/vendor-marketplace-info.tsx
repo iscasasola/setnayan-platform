@@ -65,6 +65,8 @@ import {
   type ReviewAxis,
   formatStarRating,
   fetchTrustedReviewStats,
+  parseReviewerDisplay,
+  shownCoupleName,
   type ReviewWithCouple,
   type ReviewStatsRow,
   type TrustedReviewStatsRow,
@@ -267,7 +269,7 @@ export async function fetchMarketplaceReviews(
     const reviewsRes = await supabase
       .from('vendor_reviews')
       .select(
-        'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at',
+        'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,reviewer_display',
       )
       .eq('vendor_profile_id', vendorProfileId)
       .order('created_at', { ascending: false })
@@ -292,6 +294,7 @@ export async function fetchMarketplaceReviews(
         vendor_reply: string | null;
         vendor_reply_at: string | null;
         created_at: string;
+        reviewer_display?: string | null;
       }>;
 
       // Attribute each review to the EVENT's couple (events.display_name), never
@@ -325,7 +328,9 @@ export async function fetchMarketplaceReviews(
 
       reviews = baseReviews.map((r) => ({
         ...r,
-        couple_display_name: nameByEvent.get(r.event_id) ?? null,
+        // "Shown as" (6 Nov): the couple's name, or its initials when they chose so.
+        reviewer_display: parseReviewerDisplay(r.reviewer_display),
+        couple_display_name: shownCoupleName(nameByEvent.get(r.event_id) ?? null, parseReviewerDisplay(r.reviewer_display)),
       }));
     }
   } catch (e) {

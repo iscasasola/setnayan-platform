@@ -661,7 +661,7 @@ export function SupplierFrontPage({
                     Photos from couples. <Pill kind="free">Free</Pill>
                   </h3>
                   <p>A couple shares, you approve, it lands on your card with the Verified booking mark.</p>
-                  <div className={s.sgal} aria-label="Sample gallery">
+                  <div className={s.sgal} aria-label="Sample photos from couples">
                     <span className={s.stag}>Sample</span>
                     <div className={s.sgrid}>
                       <figure>

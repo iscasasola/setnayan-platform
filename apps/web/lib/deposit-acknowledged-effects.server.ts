@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
-import { deliverShopGiftsForBooking } from '@/lib/shop-gifts.server';
+import { deliverShopGiftUnlocksForBooking, deliverShopGiftsForBooking } from '@/lib/shop-gifts.server';
 import {
   judgeDepositEffects,
   type DepositEffectsDoor,
@@ -133,6 +133,13 @@ export async function runDepositAcknowledgedEffects(
       // Papic pool. Independent of the fee: a waived first-five booking still carries the shop's own gift. The SQL
       // door gives only what this event still lacks from this shop, so a repeat call is a no-op.
       recordShopGiftDelivery(eventVendorId, door, await deliverShopGiftsForBooking(admin, eventVendorId));
+      // 💎 …and its Event Plus / Event Pro gifts unlock the event (slice 2; a second Plus becomes Pro, owner 2026-11-05).
+      recordShopGiftDelivery(
+        eventVendorId,
+        door,
+        await deliverShopGiftUnlocksForBooking(admin, eventVendorId, outcome.eventId),
+        'unlocks',
+      );
     }
   } catch (e) {
     outcome.thrown = e instanceof Error ? e.message : String(e);
@@ -150,10 +157,11 @@ function recordShopGiftDelivery(
   eventVendorId: string,
   door: DepositEffectsDoor,
   delivery: Awaited<ReturnType<typeof deliverShopGiftsForBooking>>,
+  which: 'papic' | 'unlocks' = 'papic',
 ): void {
   try {
     // The counts travel as data, never inside the sentence — a log line is grepped, not read.
-    const summary = `[shop-gifts] ${delivery.status} · booking ${eventVendorId} · door ${door}`;
+    const summary = `[shop-gifts] ${which} ${delivery.status} · booking ${eventVendorId} · door ${door}`;
     const facts = { credits: delivery.credits, detail: delivery.detail };
     if (delivery.status !== 'short' && delivery.status !== 'error') {
       console.info(summary, facts);
@@ -162,7 +170,7 @@ function recordShopGiftDelivery(
     console.error(summary, facts);
     Sentry.captureMessage(summary, {
       level: 'error',
-      tags: { feature: 'shop-gifts', door },
+      tags: { feature: 'shop-gifts', door, which },
       extra: { eventVendorId, ...delivery },
     });
   } catch {

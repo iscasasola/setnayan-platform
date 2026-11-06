@@ -40,6 +40,7 @@ import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
 import { SaveVendorButton } from './_components/save-vendor-button';
+import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
 // 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
 // Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
 // non-focused catalog + vendor-grid render branches in favor of IconTileFolderStrip
@@ -2285,6 +2286,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // save it twice or conclude they lost it. Unlike the card enrichment below,
   // this is a false statement about something the person themselves did.
   let viewerStateFailed = false;
+  // 🗂 "Save to which event?" (owner 2026-11-06): with 2+ events of their own still ahead, the card's Save asks.
+  // The rows and their filter are the shop page's picker (`resolveAddShopToEvent`), untouched.
+  const saveChoices: HostEventChoice[] = user
+    ? await resolveHostEventChoices().then((c) => (c.signedIn && c.options.length >= 2 ? c.options : []))
+    : [];
   const [followedSet, savedSet] = await Promise.all([
     (async (): Promise<Set<string>> => {
       if (!user || visibleIds.length === 0) return new Set<string>();
@@ -3845,6 +3851,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
+                    saveEvents={saveChoices}
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}

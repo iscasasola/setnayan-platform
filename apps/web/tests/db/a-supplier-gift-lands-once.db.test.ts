@@ -13,8 +13,16 @@
  *   4 · RLS — a shop reads only its own stock, purchases and quote gift lines (a couple who is not on the event reads
  *       none); no session writes a row or calls the door.
  *
+ *   5 · 💎 EVENT PLUS / EVENT PRO (slice 2, migration `supplier_gifts_event_plus_and_pro`) — counted in units from
+ *       their own stock; `shop_gift_deliver_unlocks_for_booking` unlocks the EVENT once (the gifted-access readers
+ *       answer for it), a second Plus becomes Pro (owner 2026-11-05), an event that already has Pro takes nothing and
+ *       the unit stays in stock, Setnayan AI goes on and the included Papic credits are topped up (never added twice),
+ *       and an unlock stops being held once that booking's first payment has cleared.
+ *
  * Sabotage (2026-11-04): dropping `AND e.event_id = v_event` from the door's "given" sum turns test 3 red (a second
  * event's gift is answered 'already'); dropping `- COALESCE(gv.credits, 0)` from `held` turns test 2 red.
+ * Sabotage (2026-11-05): `WHEN v_has = 'plus' THEN 'COUPLE_WEBSITE_PRO'` → `'EVENT_PLUS'` turns test 5 red (two Plus
+ * stay Plus); dropping the shop-gift branch of `event_has_comp_for_sku` turns test 5 red (the event is not unlocked).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -79,9 +87,17 @@ async function stockIn(shop: string, credits: number, orderId: string | null = n
 }
 
 async function status(shop: string, except: string | null = null): Promise<{ balance: number; held: number }> {
+  return statusOf(shop, 'papic', except);
+}
+
+async function statusOf(
+  shop: string,
+  kind: 'papic' | 'event_plus' | 'event_pro',
+  except: string | null = null,
+): Promise<{ balance: number; held: number }> {
   const r = await db.query<{ balance: number; held: number }>(
-    `SELECT balance, held FROM public.shop_gift_stock_status($1, $2)`,
-    [shop, except],
+    `SELECT balance, held FROM public.shop_gift_stock_status($1, $2) WHERE gift_kind = $3`,
+    [shop, except, kind],
   );
   return { balance: Number(r.rows[0]!.balance), held: Number(r.rows[0]!.held) };
 }
@@ -291,6 +307,132 @@ test('4 · 🚨 RLS: own stock only; strangers read nothing; no session writes o
       db.query(`SELECT public.shop_gift_deliver_for_booking($1)`, [b.eventVendorId]),
       /permission denied/,
       'a session called the delivery door',
+    );
+  } finally {
+    await db.exec(`RESET ROLE`);
+    await setAuthUid(db, null);
+  }
+});
+
+/* ═══ 5 · 💎 EVENT PLUS / EVENT PRO ═══════════════════════════════════════ */
+
+type UnlockDoor = { status: string; given?: Array<{ gift_kind: string; unlocks_sku: string }>; already_has?: number; short?: number };
+async function deliverUnlocks(eventVendorId: string, eventHas: 'none' | 'plus' | 'pro'): Promise<UnlockDoor> {
+  return one<UnlockDoor>(`SELECT public.shop_gift_deliver_unlocks_for_booking($1, $2) AS v`, [eventVendorId, eventHas]);
+}
+
+async function unlockStock(shop: string, kind: 'event_plus' | 'event_pro', units: number): Promise<void> {
+  await db.query(
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind) VALUES ($1, $2, $3, 'bought')`,
+    [shop, kind, units],
+  );
+}
+
+async function addUnlockLine(proposalId: string, shop: string, code: 'EVENT_PLUS' | 'COUPLE_WEBSITE_PRO'): Promise<void> {
+  await db.query(
+    `INSERT INTO public.vendor_proposal_shop_gifts (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title)
+     VALUES ($1, $2, $3, $4, 1, 2990, $5)`,
+    [proposalId, shop, code, code === 'EVENT_PLUS' ? 'event_plus' : 'event_pro', code === 'EVENT_PLUS' ? 'Event Plus' : 'Event Pro'],
+  );
+}
+
+const hasComp = (eventId: string, sku: string) =>
+  one<boolean>(`SELECT public.event_has_comp_for_sku($1, $2) AS v`, [eventId, sku]);
+const compSkus = (eventId: string) => one<string[]>(`SELECT public.event_comp_active_skus($1) AS v`, [eventId]);
+const includedOf = async (sku: string) =>
+  Number(
+    (await db.query<{ n: number | null }>(
+      `SELECT included_papic_credits AS n FROM public.platform_retail_catalog_v2 WHERE service_code = $1`,
+      [sku],
+    )).rows[0]?.n ?? 0,
+  );
+const planIncluded = async (eventId: string) =>
+  Number(
+    await one<string>(
+      `SELECT COALESCE(SUM(points), 0)::text AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'plan_included'`,
+      [eventId],
+    ),
+  );
+
+test('5 · 💎 Event Plus / Pro: one each, unlocks the event once, a second Plus is Pro, an event with Pro takes nothing', async () => {
+  const userC = await newUser('shop-c-gifts@test.test', 'vendor');
+  const shopC = await shopOf(userC, 'Gift Shop C');
+
+  // A unit is one: an unlock line of 2 is refused.
+  const probe = await bookingWithQuote(shopC, 'sent', 0);
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.vendor_proposal_shop_gifts (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title)
+       VALUES ($1, $2, 'EVENT_PLUS', 'event_plus', 2, 2990, 'Event Plus')`,
+      [probe.proposalId, shopC],
+    ),
+    /vendor_proposal_shop_gifts_unlock_is_one/,
+  );
+
+  await unlockStock(shopC, 'event_plus', 3);
+  const b = await bookingWithQuote(shopC, 'accepted', 0);
+  await addUnlockLine(b.proposalId, shopC, 'EVENT_PLUS');
+  await addUnlockLine(b.proposalId, shopC, 'EVENT_PLUS');
+
+  // Held while the quote waits for its first payment — counted apart from the Papic credits.
+  assert.deepEqual(await statusOf(shopC, 'event_plus'), { balance: 3, held: 2 });
+  assert.deepEqual(await statusOf(shopC, 'papic'), { balance: 0, held: 0 });
+  assert.equal((await deliverUnlocks(b.eventVendorId, 'none')).status, 'not_paid');
+  assert.equal(await hasComp(b.eventId, 'EVENT_PLUS'), false);
+
+  await pay(b.eventVendorId);
+  const first = await deliverUnlocks(b.eventVendorId, 'none');
+  assert.equal(first.status, 'ok');
+  assert.deepEqual(
+    (first.given ?? []).map((g) => g.unlocks_sku),
+    ['EVENT_PLUS', 'COUPLE_WEBSITE_PRO'],
+    'the second Event Plus did not become Event Pro',
+  );
+  assert.equal(await hasComp(b.eventId, 'COUPLE_WEBSITE_PRO'), true, 'the gifted Pro does not unlock the event');
+  assert.equal(await hasComp(b.eventId, 'EVENT_PLUS'), true);
+  assert.deepEqual([...(await compSkus(b.eventId))].sort(), ['COUPLE_WEBSITE_PRO', 'EVENT_PLUS']);
+  // What buying it does: Setnayan AI on, the included credits topped up to Pro's number — never Plus + Pro.
+  assert.equal(await one<boolean>(`SELECT setnayan_ai_active AS v FROM public.events WHERE event_id = $1`, [b.eventId]), true);
+  assert.equal(await planIncluded(b.eventId), await includedOf('COUPLE_WEBSITE_PRO'));
+  // Out of stock, and no longer held once the payment cleared.
+  assert.deepEqual(await statusOf(shopC, 'event_plus'), { balance: 1, held: 0 });
+
+  // A repeat gives nothing more.
+  const again = await deliverUnlocks(b.eventVendorId, 'pro');
+  assert.equal(again.status, 'nothing_to_give');
+  assert.equal(await planIncluded(b.eventId), await includedOf('COUPLE_WEBSITE_PRO'));
+  assert.equal((await statusOf(shopC, 'event_plus')).balance, 1);
+
+  // An event that already has Event Pro takes nothing — the unit stays the shop's.
+  const hasPro = await bookingWithQuote(shopC, 'accepted', 0);
+  await addUnlockLine(hasPro.proposalId, shopC, 'EVENT_PLUS');
+  await pay(hasPro.eventVendorId);
+  const skipped = await deliverUnlocks(hasPro.eventVendorId, 'pro');
+  assert.equal(skipped.status, 'nothing_to_give');
+  assert.equal(skipped.already_has, 1);
+  assert.equal((await statusOf(shopC, 'event_plus')).balance, 1, 'a gift to an event that has Pro left the stock');
+  assert.deepEqual(await compSkus(hasPro.eventId), []);
+
+  // Short: an Event Pro with no Pro in stock — nothing written.
+  const short = await bookingWithQuote(shopC, 'accepted', 0);
+  await addUnlockLine(short.proposalId, shopC, 'COUPLE_WEBSITE_PRO');
+  await pay(short.eventVendorId);
+  const s = await deliverUnlocks(short.eventVendorId, 'none');
+  assert.equal(s.status, 'nothing_to_give');
+  assert.equal(s.short, 1);
+  assert.equal(await hasComp(short.eventId, 'COUPLE_WEBSITE_PRO'), false);
+
+  // A bad answer about the event is refused, not guessed.
+  assert.equal((await deliverUnlocks(short.eventVendorId, 'maybe' as 'none')).status, 'bad_input');
+
+  // No session calls the door.
+  await db.exec(`SET ROLE authenticated`);
+  try {
+    await setAuthUid(db, userC);
+    await assert.rejects(
+      db.query(`SELECT public.shop_gift_deliver_unlocks_for_booking($1, 'none')`, [short.eventVendorId]),
+      /permission denied/,
+      'a session called the unlock door',
     );
   } finally {
     await db.exec(`RESET ROLE`);

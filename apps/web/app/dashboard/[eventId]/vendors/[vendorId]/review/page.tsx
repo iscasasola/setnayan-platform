@@ -19,6 +19,10 @@ import {
 import { submitCoupleReview, submitReviewAppeal, coupleConfirmReceived, coupleReportNonDelivery } from './actions';
 import { reviewState, type CompletionFields } from '@/lib/completion-handshake';
 import { RecommendVendorCard } from './_components/recommend-vendor-card';
+import { FavoriteAddCard } from '@/app/_components/favorite-heart';
+import { offerHostFavorites } from '@/lib/favorites.server';
+import { favoriteDay, favoriteEventPhrase } from '@/lib/favorites';
+import { resolveProfile } from '@/lib/event-type-profile';
 
 function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   if (!raw) return null;
@@ -90,7 +94,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   // 20270101000000) so the page and the DB agree.
   const { data: evtRow, error: evtRowError } = await supabase
     .from('events')
-    .select('event_date')
+    .select('event_date, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   if (evtRowError) {
@@ -233,12 +237,36 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   );
 
   if (existing) {
+    // ♡ "Add <shop> to your favorites" (owner 2026-11-06, prototype §D) — only where the server already says this
+    // person may: a host of this event (never a coordinator), the day behind us, this booking a shop on Setnayan.
+    const offer = (await offerHostFavorites(admin, user.id, eventId))?.get(eventVendor.vendor_id) ?? null;
+    const shopName = vendorProfile.business_name || eventVendor.vendor_name;
+    let favoriteCard: React.ReactNode = null;
+    if (offer) {
+      // The event's own word ("wedding", "birthday") — from the events row read above (its error is already logged).
+      const profile = await resolveProfile((evtRow as { event_type?: string | null } | null)?.event_type ?? 'wedding');
+      const from = [
+        `From ${favoriteEventPhrase({ role: 'host', hostsName: null, eventWord: profile.terminology?.eventWord ?? null })}`,
+        favoriteDay(eventDate),
+      ].filter(Boolean).join(' · ');
+      favoriteCard = (
+        <FavoriteAddCard
+          from={from}
+          eventId={eventId}
+          shopId={offer.shopId}
+          serviceId={offer.serviceId}
+          name={shopName}
+          initiallyOn={offer.on}
+        />
+      );
+    }
     return (
       <AlreadyReviewedState
         eventId={eventId}
-        vendorName={vendorProfile.business_name || eventVendor.vendor_name}
+        vendorName={shopName}
         slug={vendorProfile.business_slug ?? null}
         recommendCard={recommendCard}
+        favoriteCard={favoriteCard}
       />
     );
   }
@@ -657,11 +685,14 @@ function AlreadyReviewedState({
   vendorName,
   slug,
   recommendCard,
+  favoriteCard = null,
 }: {
   eventId: string;
   vendorName: string;
   slug: string | null;
   recommendCard?: React.ReactNode;
+  /** ♡ The favorites door (prototype §D) — null when this person may not favorite here. */
+  favoriteCard?: React.ReactNode;
 }) {
   return (
     <section className="space-y-4">
@@ -683,6 +714,8 @@ function AlreadyReviewedState({
           Open supplier profile
         </Link>
       ) : null}
+
+      {favoriteCard}
 
       {recommendCard}
     </section>

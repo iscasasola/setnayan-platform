@@ -39,7 +39,7 @@ export const dynamic = 'force-dynamic';
  *
  * PART 2 — 🎁 YOUR GIFTS MOVED here from the Plan page, same component, same words, same behaviour (`ShopGiftsSection`:
  * the gift stock, Buy gifts, Bought). Its reads moved with it (`loadShopGiftsSection`), and the pinned row's ONE figure is
- * that read's `stock.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
+ * that read's `stock.papic.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
  * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts.
  *
  * PART 3 — 🖨 PRINTS (owner APPROVED the 15 looks, 5 Nov 2026 — Setnayan-specs `prototypes/supplier_prints_2026-11-05/`):
@@ -140,7 +140,7 @@ export default async function ShopPromotePage({
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
-      <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.balance : null })} gearBody={shopGearBody(search)} />
+      <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.papic.balance : null })} gearBody={shopGearBody(search)} />
       {body}
       <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} />
       <ShopGiftsSection data={gifts} />

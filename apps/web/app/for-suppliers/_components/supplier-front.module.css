@@ -436,6 +436,8 @@
 .tier small { font-size: .7rem; color: var(--sf-muted); text-align: center; }
 .tier[aria-selected="true"] { border: 2px solid var(--sf-accent); background: color-mix(in srgb, var(--sf-accent) 7%, var(--sf-paper)); padding: 11px 5px; }
 .tdetail { display: grid; gap: 8px; padding-top: 6px; animation: panelIn .3s var(--sf-ease); }
+/* A closed tab, ⓘ or note keeps `hidden` even where a rule above gives it a display. */
+.root [hidden] { display: none !important; }
 .tplus { font-weight: 700; color: var(--sf-ink); font-size: .92rem; }
 .tlist { list-style: none; margin: 0; padding: 0; }
 .tlist li { padding: 7px 0 7px 18px; position: relative; font-size: .92rem; color: var(--sf-text); border-top: 1px solid var(--sf-line); }

@@ -10,6 +10,7 @@ import {
 } from '@/app/_components/card-record-section';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
+import { CardReviewsBlock } from '@/app/_components/card-reviews-block';
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 
@@ -201,6 +202,9 @@ export function ServiceCardView({
           </ul>
         </div>
       ) : null}
+
+      {/* ⭐ THIS CARD'S REVIEWS (prototype 6 Nov § 4 / § 9) — under From couples; absent unless the page read them. */}
+      {c.reviews ? <CardReviewsBlock reviews={c.reviews} /> : null}
 
       {c.videoUrl ? (
         /* Poster-first: preload="metadata" shows the first frame without

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { createReview, type ReviewAxis } from '@/lib/reviews';
+import { createReview, isHostReviewer, parseReviewerDisplay, type ReviewAxis } from '@/lib/reviews';
 import {
   parseSelfReviewBlock,
   SELF_REVIEW_SIGNALS,
@@ -161,13 +161,11 @@ function parseOnTimeRating(raw: FormDataEntryValue | null): number {
  * the review URL with `?blocked=<signal>` so the page renders the disabled
  * + appeal flow instead of a generic error.
  *
- * "Host" = the couple OR a delegated coordinator. The host ★ review is the
- * event's verdict on the vendor; the coordinator acts on the couple's behalf.
- * We admit both with the canonical `.in('member_type', ['couple','coordinator'])`
- * membership check used verbatim by the sibling host-side actions
- * (coupleConfirmReceived / coupleReportNonDelivery). The DB-level RLS
- * (current_couple_or_coordinator_event_ids) is the real gate; this fails fast
- * with a clean redirect for non-members instead of bubbling an RLS error.
+ * "Host" = the couple and their CO-HOSTS (event_members.member_type = 'couple') — and NOT a coordinator. Owner,
+ * 6 Nov 2026: "Coordinators do NOT write host reviews of other suppliers" (conflict of interest — the coordinator is
+ * a supplier on the same event). This replaced the 2026-06-20 rule that admitted coordinators (#1922). The INSERT
+ * policy says the same (`vendor_reviews_couple_insert` → `current_couple_event_ids()`, migration 20271316933967); this
+ * check sends a coordinator back to the page's own "the couple reviews them" state instead of bubbling an RLS error.
  */
 export async function submitCoupleReview(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), null);
@@ -206,8 +204,7 @@ export async function submitCoupleReview(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Host gate — the couple OR a delegated coordinator of THIS event may submit
-  // the host review. Matches the sibling handshake actions verbatim.
+  // 🔒 Host gate — the couple and co-hosts of THIS event only. A coordinator is refused (owner, 6 Nov).
   const { data: membership } = await supabase
     .from('event_members')
     .select('member_type')
@@ -216,6 +213,22 @@ export async function submitCoupleReview(formData: FormData) {
     .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
+  if (!isHostReviewer((membership as { member_type: string }).member_type)) {
+    redirect(`/dashboard/${eventId}/vendors/${eventVendorId}/review?refused=coordinator`);
+  }
+
+  // 🃏 The card this review is for — only kept when it is THIS shop's (a forged id from another shop is dropped).
+  const serviceIdRaw = formData.get('service_id');
+  let serviceId: string | null = null;
+  if (typeof serviceIdRaw === 'string' && serviceIdRaw.length > 0) {
+    const { data: svc } = await createAdminClient()
+      .from('vendor_services')
+      .select('vendor_service_id')
+      .eq('vendor_service_id', serviceIdRaw)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    serviceId = svc ? serviceIdRaw : null;
+  }
 
   let createdReviewId: string | null = null;
   try {
@@ -225,6 +238,9 @@ export async function submitCoupleReview(formData: FormData) {
       coupleUserId: user.id,
       ratings,
       body,
+      serviceId,
+      // "Shown as" (6 Nov § 2): names unless the couple picked initials; anything else reads as names.
+      reviewerDisplay: parseReviewerDisplay(formData.get('reviewer_display')),
     });
     createdReviewId = created.review_id;
   } catch (err) {
@@ -328,7 +344,9 @@ export async function submitCoupleReview(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
-  redirect(`/dashboard/${eventId}/vendors?reviewed=${eventVendorId}`);
+  // 💌 THE THANK-YOU (prototype 6 Nov § 3): the same route, `?sent=1`. It used to land on the Suppliers list with a
+  // `?reviewed=` nothing read — no thank-you, no sign of the review.
+  redirect(`/dashboard/${eventId}/vendors/${eventVendorId}/review?sent=1`);
 }
 
 /**
@@ -585,6 +603,9 @@ export async function coupleReportNonDelivery(formData: FormData) {
  * key so re-submitting edits the one-line endorsement instead of erroring.
  */
 export async function recommendVendor(formData: FormData) {
+  // 🔀 ONE ROUTE FOR THE TOGGLE (server-action budget, PR #7337): Withdraw posts here with `mode=withdraw`, the
+  // way the reply and visibility actions fold their guest halves — one exported action per on/off pair.
+  if (formData.get('mode') === 'withdraw') return withdrawRecommendation(formData);
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -663,8 +684,9 @@ export async function recommendVendor(formData: FormData) {
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=on`);
 }
 
-/** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. */
-export async function withdrawRecommendation(formData: FormData) {
+/** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. Reached through `recommendVendor`
+ *  with `mode=withdraw` — not exported, so it is not a route of its own. */
+async function withdrawRecommendation(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');

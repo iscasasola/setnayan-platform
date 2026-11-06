@@ -117,11 +117,11 @@ function coordLabRewards(f: TrackerFacts): TrackerRewardInput {
   const tier = 'pro';
   const facts: BadgeRewardFacts = {
     verified: f.verified,
-    completedEvents: f.completedEvents,
+    completedEvents: f.completedEvents ?? 0,
     trustedReviews: f.trusted?.trusted_review_count ?? 0,
-    firstSourcedBooking: f.completedEvents > 0,
+    firstSourcedBooking: (f.completedEvents ?? 0) > 0,
     branchIds: [],
-    bookedCardIds: f.completedEvents > 0 ? ['lab-card-1'] : [],
+    bookedCardIds: (f.completedEvents ?? 0) > 0 ? ['lab-card-1'] : [],
     awards: [],
   };
   const at = (i: number) => `2026-11-0${1 + (i % 5)}T02:00:00Z`;

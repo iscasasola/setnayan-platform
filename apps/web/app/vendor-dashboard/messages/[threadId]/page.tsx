@@ -87,7 +87,8 @@ import {
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
-import { vendorAgreeToLock, vendorDeclineLock } from '../../clients/[eventId]/actions';
+import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '../../clients/[eventId]/actions';
+import { readDayCheck } from '@/lib/day-check.server';
 import {
   forecastForBooking,
   resolveBookingFeeStanding,
@@ -105,6 +106,8 @@ import { ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
 import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
@@ -745,6 +748,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       : null;
   })();
 
+  // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
+  // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
+  const dayCheckRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.state === 'requested' && lockHandshake.eventVendorId
+      ? await readDayCheck(supabase, lockHandshake.eventVendorId)
+      : null;
+  })();
+
   // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
   // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
   // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
@@ -1003,8 +1016,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     });
   })();
 
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
+  // check; the couple's number is read only once it says yes, and only if they saved one (else no buttons).
+  const shopBookedRead = shopIsBookedOnEvent(thread.event_id, profile.vendor_profile_id);
+  const couplePhoneRead = shopBookedRead.then((booked) =>
+    bookedCounterpartyPhone({ booked, viewer: 'vendor', eventId: thread.event_id, vendorProfileId: profile.vendor_profile_id }),
+  );
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
+    shopBooked,
+    couplePhone,
     composerFeeStanding,
     composerPapicStanding,
     [
@@ -1037,6 +1059,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBands,
     lockHandshake,
     chatFeeForecast,
+    dayCheck,
     bookedMoney,
     payoutReadiness,
     standingExtras,
@@ -1045,6 +1068,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     receipts,
     eventFileDay,
   ] = await Promise.all([
+    shopBookedRead,
+    couplePhoneRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
     batchRead,
@@ -1063,6 +1088,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBandsRead,
     lockHandshakeRead,
     chatFeeForecastRead,
+    dayCheckRead,
     bookedMoneyRead,
     payoutReadinessRead,
     standingExtrasRead,
@@ -1375,6 +1401,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           returnTo={`/vendor-dashboard/messages/${threadId}`}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}
+          dayCheck={dayCheck}
+          waitlistAsk={vendorWaitlistTheAsk}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
@@ -1635,6 +1663,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     the chat keeping the whole column (the card was a docked column from 1024 until 2026-10-29). The
                     private inquiry-source and returning chips are on that card now, not a second row under the name. */}
                 <ChatInfoRailTrigger {...railProps} />
+                <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}

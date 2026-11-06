@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Radio, Square, AlertCircle, Link2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { GO_LIVE_CONFIRM } from '@/lib/live-studio-go-live-confirm';
 import { automaticGoLiveAvailable, endOnAirTarget } from '@/lib/live-studio-manual-air';
 import { liveStudioPoolOnly, ownChannelNoRouteNotice } from '@/lib/live-studio-pool-only';
 import {
@@ -111,6 +113,13 @@ export function TransportRow({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
+  const { confirm, dialog } = useConfirm();
+
+  // Owner 2026-11-05 (item 11): ask once before going on air — see lib/live-studio-go-live-confirm.ts.
+  async function goLive() {
+    if (!(await confirm(GO_LIVE_CONFIRM))) return;
+    run(() => goLivePanood(eventId), 'Going live');
+  }
 
   function run(fn: () => Promise<GoLiveResult>, step: string) {
     setError(null);
@@ -138,6 +147,7 @@ export function TransportRow({
 
   return (
     <div className="space-y-2">
+      {dialog}
       {blocked ? (
         <Link
           href={connectHref}
@@ -180,7 +190,7 @@ export function TransportRow({
       ) : (
         <button
           type="button"
-          onClick={() => run(() => goLivePanood(eventId), 'Going live')}
+          onClick={() => void goLive()}
           disabled={pending}
           className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 font-mono text-sm font-bold uppercase tracking-[0.08em] text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60"
         >

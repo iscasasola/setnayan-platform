@@ -97,7 +97,7 @@ test('2 · the library upload, the event import and the suggestion sheet each ca
 
 test('2b · every door re-checks the card against the shop it PROVED — never the id as sent', () => {
   const actions = code('app/vendor-dashboard/moodboard-library/actions.ts');
-  for (const fn of ['export async function uploadStylistAsset(', 'export async function importEditorialMediaToGallery(', 'async function importSuggestionToGallery(']) {
+  for (const fn of ['async function uploadStylistAssetOrThrow(', 'export async function importEditorialMediaToGallery(', 'async function importSuggestionToGallery(']) {
     const at = actions.indexOf(fn);
     assert.notEqual(at, -1, fn);
     const next = actions.indexOf('\n}\n', at);
@@ -137,7 +137,7 @@ test('3 · a suggestion reaches the pool only through storeScreenedAsset, PENDIN
 test('3b · the suggestion quota counts suggestion pool copies too (an event link is not a quota exemption here)', () => {
   const actions = code('app/vendor-dashboard/moodboard-library/actions.ts');
   assert.match(actions, /\.not\('source_suggestion_id', 'is', null\)/);
-  const upload = actions.slice(actions.indexOf('export async function uploadStylistAsset('));
+  const upload = actions.slice(actions.indexOf('async function uploadStylistAssetOrThrow('));
   assert.match(upload.slice(0, upload.indexOf('\n}\n')), /await countQuotaUsed\(admin, profile\.vendor_profile_id, slot\.slotKey\)/);
 });
 

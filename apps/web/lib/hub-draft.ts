@@ -43,9 +43,10 @@
  *           own public page in the Maker, and every "Saves immediately" there
  *           was a half-finished edit a guest could read. See
  *           `HUB_DRAFT_EVENT_COLUMNS` for how the host's preview shows each.
- *         — and (2026-10-01, "wait for apply") the NAMES and the DATE typed in
- *           the Maker (`HUB_DRAFT_FACT_COLUMNS`): the host's preview reads both
- *           off the overlaid row, and Apply re-asks the date's own gates.
+ *         — and (2026-10-01, "wait for apply") the NAMES typed in the Maker
+ *           (`HUB_DRAFT_FACT_COLUMNS`): the host's preview reads them off the
+ *           overlaid row. 🗓 NEVER THE DATE (owner 2026-11-05, "it shouldn't
+ *           rely on the hub"): it saves to the event at once (`updateEventDate`).
  * widgets — per section: `mode` (Auto · Shown · Hidden), `is_visible` (the
  *           navigator's eye — the legacy gate `mode: 'auto'` falls back to),
  *           `display_order`, and the section's whole `canvas` (background, crop,
@@ -433,26 +434,31 @@ export const HUB_DRAFT_MEDIA_COLUMNS = [
 export const HUB_DRAFT_GALLERY_MAX = 24;
 
 /**
- * ✍ THE NAMES AND THE DATE TYPED IN THE MAKER (owner 2026-10-01, verbatim
- * *"wait for apply"* — DECISION_LOG "ELEVEN OWNER ANSWERS" #1). Typed on the
- * hero (tap-to-type, the `names` part) or in Details › Your event, each is a
- * DRAFT until Apply like every Maker edit. They join because the host's
- * preview CAN show them (`app/[slug]/page.tsx` overlays the whole drafted row
- * before the masthead reads `display_name` and `event_date`):
+ * ✍ THE NAMES TYPED IN THE MAKER (owner 2026-10-01, verbatim *"wait for
+ * apply"* — DECISION_LOG "ELEVEN OWNER ANSWERS" #1). Typed on the hero
+ * (tap-to-type, the `names` part) or in Details › Your event, each is a DRAFT
+ * until Apply like every Maker edit. They join because the host's preview CAN
+ * show them (`app/[slug]/page.tsx` overlays the whole drafted row before the
+ * masthead reads `display_name`):
  *
  *   · `display_name` — the page's names: the hero, every print and every pass;
  *   · `bride_name` · `groom_name` — the two people's "First Last", drafted by
  *     Details' Names editor through `coupleNameColumns` (lib/typed-names.ts),
  *     the composition `updateEventMatchCriteria` writes live;
- *   · `event_date` · `event_date_precision` — `updateEventDate`'s two columns.
- *     Apply re-asks that writer's gates (`eventDateRefusal`, lib/events.ts):
- *     never a past date, and a booked supplier's date never moves — a refused
- *     date STAYS in the draft, said by name.
  *
- * Never Pro. Each is also a fact other screens read (Home, the dashboard, a
- * supplier's calendar) — and those keep reading the LIVE row until Apply, which
- * is the point. The list stays narrow: venues, the programme's times, the
- * march and the people are NOT here (each has its own writer and its own rule).
+ * 🗓 THE DATE IS NOT HERE (owner 2026-11-05, verbatim *"it shouldn't rely on
+ * the hub."* — amends answer 7 for the date only). `event_date` ·
+ * `event_date_precision` drive suppliers, booking clashes, Home, Papic and Live
+ * Watch, so a pick saves to the event at once through its one live door
+ * (`updateEventDate`). Off this list, a date an older draft still holds is
+ * dropped by `sanitizeState` on every read — it is never laid over the preview,
+ * counted by the bar or written by Apply — and a save that still carries one
+ * is refused in words (`HUB_DRAFT_DATE_IS_LIVE_MESSAGE`).
+ *
+ * Never Pro. The names are also a fact other screens read — and those keep
+ * reading the LIVE row until Apply, which is the point. The list stays narrow:
+ * venues, the programme's times, the march and the people are NOT here (each
+ * has its own writer and its own rule).
  *
  * 🔤 …and (2026-10-01, "in event hub maker will only take effect when pressed
  * apply") the NAME STYLE — Full · Middle initial · Surname first — picked in the
@@ -471,10 +477,11 @@ export const HUB_DRAFT_FACT_COLUMNS = [
   'display_name',
   'bride_name',
   'groom_name',
-  'event_date',
-  'event_date_precision',
   'print_details',
 ] as const;
+
+/** 🗓 What a save that still carries a date hears (owner 2026-11-05) — an old screen; the date saves on its own now. */
+export const HUB_DRAFT_DATE_IS_LIVE_MESSAGE = 'Your date now saves on its own, straight to your event. Reload this page and pick it again.';
 
 /**
  * ⏳ "DRAFT 1-3" (owner 2026-10-08, verbatim *"draft 1-3"*): three settings the Maker used to save
@@ -589,8 +596,6 @@ export const HUB_DRAFT_FACT_GROUP: Readonly<
   display_name: 'names',
   bride_name: 'names',
   groom_name: 'names',
-  event_date: 'date',
-  event_date_precision: 'date',
   print_details: 'name-style',
   // 📍 The venues are ONE change however many of their nine columns moved.
   // ⚖ WRITTEN OUT, never computed from `HUB_DRAFT_VENUE_COLUMNS` (the type above refuses a missing or
@@ -609,8 +614,8 @@ export const HUB_DRAFT_FACT_GROUP: Readonly<
   ceremony_time: 'ceremony-time',
 };
 
-/** The typed facts a draft counts once each: the names, the date, the name style (and, in the same blob, the ticket style), the venues, the ceremony time. */
-export type HubDraftFact = 'names' | 'date' | 'name-style' | 'venues' | 'ceremony-time';
+/** The typed facts a draft counts once each: the names, the name style (and, in the same blob, the ticket style), the venues, the ceremony time. (Never the date — it is not drafted, owner 2026-11-05.) */
+export type HubDraftFact = 'names' | 'name-style' | 'venues' | 'ceremony-time';
 
 /** The draft's `events` keys that ARE `events` columns — what a live read selects. */
 export const HUB_DRAFT_EVENT_READ_COLUMNS = [
@@ -871,11 +876,10 @@ export function sanitizeHubDraftEventValue(
   column: HubDraftEventColumn,
   raw: unknown,
 ): unknown | undefined {
-  // A page is never nameless, a date always says how precise it is, and a
-  // ceremony time is moved, never erased, from here.
+  // A page is never nameless, and a ceremony time is moved, never erased, from here.
   // 🎨 …and the Mood Board palette is only ever FILLED from here, never cleared.
   if (raw === null)
-    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours' || column === 'role_names'
+    return column === 'display_name' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours' || column === 'role_names'
       ? undefined
       : null;
   switch (column) {
@@ -1029,10 +1033,6 @@ export function sanitizeHubDraftEventValue(
     case 'bride_name':
     case 'groom_name':
       return cleanPersonName(raw);
-    case 'event_date':
-      return isCalendarDay(raw) ? raw : undefined;
-    case 'event_date_precision':
-      return raw === 'year' || raw === 'month' || raw === 'day' ? raw : undefined;
     // 🔤 The Name style — ONLY that key of `print_details`, and only one of the
     // three styles (`NAME_STYLES`); anything else is dropped, never repaired.
     case 'print_details': {
@@ -1523,8 +1523,14 @@ export function overlayHubDraftWidgets(
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /** What the live page holds, as Apply reads it just before writing. */
+/**
+ * 🗓 The live date, read beside the drafted columns but never drafted (owner 2026-11-05): Apply stands a drafted
+ * ceremony time on the event's live day (`exactDayOf`), so the live read carries it.
+ */
+export const HUB_LIVE_DATE_COLUMNS = ['event_date', 'event_date_precision'] as const;
+
 export type HubLiveState = {
-  events: Partial<Record<HubDraftEventColumn, unknown>>;
+  events: Partial<Record<HubDraftEventColumn | (typeof HUB_LIVE_DATE_COLUMNS)[number], unknown>>;
   widgets: ReadonlyArray<
     Pick<InvitationWidgetRow, 'widget_id' | 'widget_type' | 'is_always_on' | 'display_order' | 'config_json' | 'mode'> &
       // Optional so a live read from before the eye was draftable still types;
@@ -3187,12 +3193,6 @@ export type HubDraftRefusal =
   | 'song_off_the_list'
   | 'empty_section'
   | 'missing_section'
-  /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
-  | 'date_in_past'
-  /** 💍 A drafted date before the first event day, December 19, 2026 (`lib/event-date-floor.ts`). */
-  | 'date_before_first_event'
-  /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */
-  | 'date_locked'
   /** 🕒 A ceremony time with no day to stand on (the event's date is not a single day). */
   | 'needs_a_day'
   /** 🚶 A drafted march move the server refused at Apply — the moves before it went live, the rest were dropped. */
@@ -3335,12 +3335,10 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   dress_code_config: 'Your dress code',
   photo_moments_config: 'Your camera cues',
   rsvp_ask_config: 'What you ask your guests',
-  // The names and the date are ONE change each, however many columns carry them.
+  // The names are ONE change, however many columns carry them.
   display_name: 'Your names',
   bride_name: 'Your names',
   groom_name: 'Your names',
-  event_date: 'Your date',
-  event_date_precision: 'Your date',
   print_details: 'Your name style',
   role_names: 'Your entourage headings',
   pabuya_message: 'Your thank-you message',

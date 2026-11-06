@@ -19,6 +19,7 @@ import {
 } from 'react';
 import Image from 'next/image';
 import { X } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_SLIDER, type GrowLine, type GrowTier } from './supplier-front-data';
 import s from './supplier-front.module.css';
@@ -280,25 +281,12 @@ export function QrSheetProvider({ entries, kicker, children }: { entries: Record
     last.current = from;
     setKey(k);
   }, []);
+  const sheet = useRef<HTMLDivElement>(null);
   const close = useCallback(() => {
     setKey(null);
-    last.current?.focus();
   }, []);
-  useEffect(() => {
-    if (!key) return;
-    const html = document.documentElement;
-    const was = html.style.overflow;
-    html.style.overflow = 'hidden';
-    closeBtn.current?.focus();
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    document.addEventListener('keydown', esc);
-    return () => {
-      html.style.overflow = was;
-      document.removeEventListener('keydown', esc);
-    };
-  }, [key, close]);
+  // The shared modal hook: Escape, Tab trap, scroll lock, focus back to the chip that opened it.
+  useModalA11y({ open: key !== null, onClose: close, containerRef: sheet, initialFocusRef: closeBtn });
   const ctx = useMemo(() => ({ open, entries }), [open, entries]);
   const d = key ? entries[key] : null;
   return (
@@ -306,6 +294,7 @@ export function QrSheetProvider({ entries, kicker, children }: { entries: Record
       {children}
       {d ? (
         <div
+          ref={sheet}
           className={s.qsheet}
           role="dialog"
           aria-modal="true"

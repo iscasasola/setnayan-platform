@@ -5,8 +5,8 @@
  *
  * Why it exists: a local checkout runs on a dummy env (never production's — `a-builders-lab-env-points-at-production`),
  * so `getVendorPrices()` reads nothing and the real page shows "Price unavailable" in Plans — the honest state, but
- * not the one the owner approved. Here the prices are LAB FIXTURES: the prototype's own figures, never read by any
- * shipped page. The fee is the code default schedule. The codes are drawn from the same real addresses as the page.
+ * not the one the owner approved. Here the prices are LAB PLACEHOLDERS (₱ · · ·) so the layout matches; no figure is
+ * typed. The fee is the code default schedule. The codes are drawn from the same real addresses as the page.
  */
 import { notFound } from 'next/navigation';
 import { SupplierFrontPage, type SupplierFrontCodes } from '@/app/for-suppliers/_components/supplier-front-page';
@@ -18,16 +18,19 @@ import { checkADateUrl } from '@/lib/check-a-date';
 import { myPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 
-/** LAB FIXTURE — the prototype's figures (prototypes/for_suppliers_2026-11-06/index.html, Plans), not the catalog. */
+/**
+ * LAB FIXTURE — a visible placeholder, never a typed price (house rule: prices come only from the admin catalog;
+ * `public-price-literals.test.ts` holds it). The live page reads `getVendorPrices()`; the dummy env has none.
+ */
 const LAB_PRICES = {
-  soloMonthly: '₱990',
-  soloAnnual: '₱9,900',
-  proMonthly: '₱2,490',
-  proAnnual: '₱24,900',
-  enterpriseMonthly: '₱5,990',
-  enterpriseAnnual: '₱59,900',
-  branch: '₱1,990',
-  seat: '₱990',
+  soloMonthly: '₱ · · ·',
+  soloAnnual: '₱ · · ·',
+  proMonthly: '₱ · · ·',
+  proAnnual: '₱ · · ·',
+  enterpriseMonthly: '₱ · · ·',
+  enterpriseAnnual: '₱ · · ·',
+  branch: '₱ · · ·',
+  seat: '₱ · · ·',
 };
 
 export default async function ForSuppliersLabPage() {

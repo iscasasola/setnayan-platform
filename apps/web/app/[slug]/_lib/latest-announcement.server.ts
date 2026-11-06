@@ -101,7 +101,7 @@ export async function holdsThisEventsCurrentPass(eventId: string): Promise<boole
 
 /**
  * 🎟 THIS GUEST'S OWN LATEST NOTICE — a supplier's "#0042 is ready — claim it at Photo booth" (`target_guest_id`,
- * migration 20271317406591; DECISION_LOG 2026-09-25 "ALL ANNOUNCEMENTS GO THROUGH THE ONE COORDINATOR ANNOUNCEMENT
+ * migration 20271320900784; DECISION_LOG 2026-09-25 "ALL ANNOUNCEMENTS GO THROUGH THE ONE COORDINATOR ANNOUNCEMENT
  * CHANNEL"). Never remembered across phones — it is one guest's. null = none; throws on a refused read.
  */
 export async function latestNoticeForGuest(eventId: string, guestId: string): Promise<LatestAnnouncement | null> {

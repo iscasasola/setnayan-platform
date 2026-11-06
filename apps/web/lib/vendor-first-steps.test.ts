@@ -261,5 +261,5 @@ test('the seven steps a supplier can do, in the prototype’s words — and the 
   const href = (k: string) => rail.steps.find((s) => s.key === k)?.href;
   assert.equal(href('not_available'), '/vendor-dashboard/customers?seg=dates&open=block');
   assert.equal(href('outside_bookings'), '/vendor-dashboard/customers?add=outside');
-  assert.equal(href('own_customers'), '/vendor-dashboard/invite');
+  assert.equal(href('own_customers'), '/vendor-dashboard/shop/promote');
 });

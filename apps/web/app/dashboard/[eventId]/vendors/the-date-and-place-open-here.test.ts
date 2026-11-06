@@ -34,11 +34,14 @@ test('the sheets load when opened — the page’s first paint carries only the 
   assert.doesNotMatch(page, /openFactSheet\(/, 'the page never runs the sheet’s read');
 });
 
-test('answer 7 — every write is the one draft door (or the date-change request); nothing writes past Apply', () => {
+test('answer 7, amended 2026-11-05 — the PLACE is the one draft door; the DATE saves to the event at once', () => {
   const intents = [...sheets.matchAll(/fd\.set\('intent', '([a-z_]+)'\)/g)].map((m) => m[1]);
   assert.deepEqual([...new Set(intents)].sort(), ['date_change', 'save']);
   assert.match(sheets, /hubDraftAction\(eventId, fd\)/);
-  for (const banned of ['updateEventDate', 'addManualSupplier', 'saveVendorToPicks', "from('events')", 'event_vendors']) {
+  // 🗓 "it shouldn't rely on the hub" (owner 2026-11-05): the date's one live door, never a draft patch.
+  assert.match(sheets, /return updateEventDate\(fd\);/);
+  assert.doesNotMatch(sheets, /doors\.draft\(\{\s*events: \{\s*event_date/);
+  for (const banned of ['addManualSupplier', 'saveVendorToPicks', "from('events')", 'event_vendors']) {
     assert.ok(!sheets.includes(banned), `the sheets never call ${banned}`);
   }
   assert.doesNotMatch(action, /\.(insert|update|upsert|delete)\(/, 'the sheet’s read writes nothing');
@@ -70,11 +73,12 @@ test('answer 10 — an open date change shows on the line and in the sheet, with
   assert.match(sheets, /fd\.set\('action', 'withdraw'\)/);
 });
 
-test('the page plans on the drafted date; bookings keep the live row', () => {
+test('the page plans on the EVENT’S date — one date, never a drafted second one (owner 2026-11-05)', () => {
   assert.match(page, /const ev = \(eventCtx\.data as EventBudgetRow \| null\) \?\? null;/, '`ev` stays the live row');
-  assert.match(page, /const draftedDate = draftedEventDate\(ev, hubDraft\)/);
+  assert.match(page, /const planDate = ev\?\.event_date \?\? null;/);
+  assert.doesNotMatch(page, /draftedEventDate|readHubDraft/, 'the page still reads a drafted date');
   assert.match(page, /suppliersDateFact\(planDate, planPrecision\)/);
-  assert.match(page, /planDate && planPrecision === 'day'/, 'the bench fit follows the drafted day');
+  assert.match(page, /planDate && planPrecision === 'day'/, 'the bench fit follows the event’s day');
 });
 
 test('the 2026-10-13 look audit: two-value choices are pills, the picked day is terracotta, the clash yes is not ink', () => {

@@ -114,3 +114,23 @@ test('(2) every view scroller carries a floor AND basis-0, so the frame’s mini
   const ol = STREAM.slice(STREAM.indexOf('<ol'), STREAM.indexOf('>', STREAM.indexOf('className=', STREAM.indexOf('<ol'))));
   assert.match(ol, /(^|[\s`])basis-0(\s|`)/, 'the conversation <ol> is not basis-0');
 });
+
+test('(3) on a phone the takeover is FIXED-HEIGHT — the stream slot keeps its floor and nothing else shrinks', () => {
+  // 2026-11-06 (#7248's check card): `[data-chat-takeover]` is `position: fixed; inset: 0` on a phone, so the root's
+  // automatic minimum in (1) does not hold its children — with a tool open they SHRANK instead. The stream slot said
+  // `min-h-0`, measured 0px, and its messages and day labels painted over the quick replies and the open panel.
+  // Measured at 390 px in /dev/supplier-chat-lab (?m=ask&booked=1 and ＋ → Questions for the couple) before and after.
+  const slots = classNamesWith(BOX, ['flex-1', 'flex-col', 'px-2.5']);
+  assert.equal(slots.length, 1, `expected exactly one stream slot in chat-box.tsx, found ${slots.length}`);
+  const slot = classes(slots[0]!);
+  assert.ok(
+    !slot.some((c) => c === 'min-h-0' || /^min-h-(px|\[0(px|rem)?\])$/.test(c)),
+    `the stream slot zeroed its minimum (${slots[0]}): in the fixed takeover it measures 0px with a tool open`,
+  );
+  assert.match(BOX, /data-chat-stream-area=""/, 'the stream slot lost the attribute the root exempts it by');
+  const root = classes(classNamesWith(BOX, ['flex-1', 'flex-col', 'min-w-0'])[0]!);
+  assert.ok(
+    root.includes('[&>*:not([data-chat-stream-area])]:shrink-0'),
+    'the header, notice, composer and tray may shrink again — in the fixed takeover they then overlap each other',
+  );
+});

@@ -26,6 +26,11 @@
  * and the snapshot refreshed, the same comparison becomes the thing that
  * catches it if it silently no-opped.
  *
+ * AUTOMATIC since 2026-11-04: `.github/workflows/deploy-prod.yml` runs this
+ * read-only right after `supabase db push` (linked project, no URL) and, if the
+ * file changed, opens/updates a PR from `bot/prod-schema-snapshot` — see
+ * `scripts/refresh-prod-schema-snapshot.sh`. The manual path below remains.
+ *
  * USAGE (needs prod credentials — run locally, never from a PR):
  *   export SUPABASE_DB_URL='postgresql://...'
  *   pnpm --filter @setnayan/web schema:snapshot

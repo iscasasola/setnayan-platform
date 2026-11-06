@@ -273,7 +273,7 @@ function businessFixture(who: Who, fresh: boolean) {
       bars={barHeights(series)}
       barLabels={series.map((p) => p.label)}
       reply={replyLine(fresh ? { shown: false, reason: 'no_median' } : { shown: true, label: 'Usually responds in 2h', medianMinutes: 120, sample: 12 })}
-      rating={ratingLine(fresh ? { review_count: 0, review_avg_bayesian: null } : { review_count: 31, review_avg_bayesian: 4.8 })}
+      rating={ratingLine({ measured: true, row: fresh ? null : { review_count: 31, review_avg_bayesian: 4.8 } })}
       more={[
         { key: 'over-time', title: 'Over time', line: 'Bookings and money by day, month and year', href: '#over-time', pro: false },
         { key: 'market', title: 'Demand and prices near you', line: 'Busy months ahead · how your prices sit', href: '#market', pro: false },
@@ -342,6 +342,7 @@ export default async function SupplierPlanLabPage({
         canShare={sp.noaddress !== '1'}
         setupHref="/dev/supplier-plan-lab?s=prints"
         artBase={`/dev/supplier-plan-lab/prints-art/${sp.long === '1' ? 'long' : 'plain'}`}
+        member={sp.noname === '1' ? null : { name: 'Juan dela Cruz', role: sp.long === '1' ? 'Head chef' : null }}
       />
     );
   else if (s === 'gifts-couple')

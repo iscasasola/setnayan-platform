@@ -14,7 +14,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import { renderPrint, type PrintShop } from '@/lib/supplier-prints-svg';
@@ -24,6 +24,7 @@ import { shopBadges } from '@/lib/shop-badges';
 import { checkADateUrl } from '@/lib/check-a-date';
 import { myPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
+import { reviewDoorPath } from '@/lib/shop-review-door';
 
 const ORIGIN = 'https://www.setnayan.com';
 const SLUG = 'casa-buenaventura';
@@ -65,9 +66,12 @@ test('the printed address is the one the Promote codes already build — never t
   assert.equal(printQrUrl('page', ORIGIN, SLUG), myPageUrl(ORIGIN, SLUG));
   assert.equal(printQrUrl('shortlist', ORIGIN, SLUG), buildVendorInviteUrl(SLUG, { eventType: null, category: null }));
   assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${ORIGIN}/v/${SLUG}/dates`);
-  // Reviews opens the shop's own page at its reviews section (`<section id="reviews">` on /v/[slug]).
-  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${myPageUrl(ORIGIN, SLUG)}#reviews`);
-  assert.match(readFileSync(new URL('../app/v/[slug]/page.tsx', import.meta.url), 'utf8'), /<section id="reviews"/, 'the shop page lost the #reviews section the Reviews code opens');
+  // Reviews opens the WRITE door (owner 2026-11-06 "Write a review"): /v/<slug>/review → the couple's "Leave a review",
+  // or the shop page's reviews section (`<section id="reviews">` on /v/[slug]) for anyone without a booking ready for one.
+  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${myPageUrl(ORIGIN, SLUG)}/review`);
+  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${ORIGIN}${reviewDoorPath(SLUG)}`);
+  assert.ok(existsSync(new URL('../app/v/[slug]/review/route.ts', import.meta.url)), 'the Reviews code prints an address with no route behind it');
+  assert.match(readFileSync(new URL('../app/v/[slug]/page.tsx', import.meta.url), 'utf8'), /<section id="reviews"/, 'the shop page lost the #reviews section the Reviews door falls back to');
 });
 
 for (const d of PRINT_DESIGNS) {

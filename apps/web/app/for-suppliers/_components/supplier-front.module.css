@@ -87,7 +87,7 @@
 .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 28px color-mix(in srgb, var(--sf-accent) 38%, transparent); }
 .btn:active { transform: scale(.98); }
 .btnSm { min-height: 44px; padding: 0 18px; font-size: .92rem; box-shadow: none; }
-.tlink { display: inline-flex; align-items: center; min-height: 44px; color: var(--sf-ink); font-weight: 600; text-underline-offset: 5px; text-decoration-thickness: 1.5px; text-decoration-color: var(--sf-gold); }
+.tlink { display: inline-flex; align-items: center; min-height: 44px; color: var(--sf-ink); font-weight: 600; text-decoration-line: underline; text-underline-offset: 5px; text-decoration-thickness: 1.5px; text-decoration-color: var(--sf-gold); }
 
 /* pills */
 .pill { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: .74rem; line-height: 1; padding: 5px 10px; border-radius: 999px; white-space: nowrap; vertical-align: .12em; letter-spacing: .01em; }

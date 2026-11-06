@@ -309,23 +309,8 @@
       "actions": [],
       "blocks": [
         "Link",
-        "RevealOnView",
-        "VendorGrowAI",
-        "VendorGrowAnalytics",
-        "VendorGrowCTA",
-        "VendorGrowFairPay",
-        "VendorGrowGetPaid",
-        "VendorGrowHero",
-        "VendorGrowHub",
-        "VendorGrowNoFakes",
-        "VendorGrowReach",
-        "VendorGrowStyles",
-        "VendorGrowThesis",
-        "VendorGrowTools",
-        "VendorGrowTrust",
-        "VendorGrowWebsite",
-        "VendorTierDeltas",
-        "VendorTierMatrix"
+        "SupplierFrontCodes",
+        "SupplierFrontPage"
       ]
     },
     "/(shell)/guest-list": {
@@ -6879,6 +6864,7 @@
         "dashboard/[eventId]/guests/_components/guest-access-pick.tsx",
         "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-add-queue.ts",
+        "dashboard/[eventId]/guests/_components/guest-call-buttons.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
@@ -7058,6 +7044,7 @@
         "GuestAccessState",
         "GuestActions",
         "GuestActionsContext.Provider",
+        "GuestCallButtons",
         "GuestCamera",
         "GuestCard",
         "GuestCardAvatar",
@@ -8359,6 +8346,7 @@
       ],
       "blocks": [
         "BackButton",
+        "BookedCallButtons",
         "ChatBox",
         "ChatMessageStream",
         "ChatSafetyBanner",
@@ -11687,6 +11675,16 @@
         "StudioActions",
         "StudioActionsProvider",
         "UploadOutcome"
+      ]
+    },
+    "/dev/for-suppliers-lab": {
+      "files": [
+        "dev/for-suppliers-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SupplierFrontPage"
       ]
     },
     "/dev/group-lab": {
@@ -15329,6 +15327,7 @@
     },
     "/vendor-dashboard/invite": {
       "files": [
+        "vendor-dashboard/invite/_components/door-sticker.tsx",
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
@@ -15346,14 +15345,19 @@
         "CrewQr",
         "CustomersPick",
         "DatesRow",
+        "DoorSticker",
+        "DoorStickerCode",
+        "DoorStickerSize",
         "Fold",
         "HTMLInputElement",
         "Icon",
         "Link",
         "LockedQrGenerator",
+        "PickMenu",
         "QrCard",
         "QrCodes",
         "Row",
+        "SaveFileLink",
         "SubmitButton"
       ]
     },
@@ -15456,6 +15460,7 @@
       "blocks": [
         "AnswerAskButton",
         "BackButton",
+        "BookedCallButtons",
         "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailTrigger",

@@ -150,7 +150,7 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
         await save.run(
           async () => {
             const res = await updateEventDate(fd);
-            if (res && res.ok === false) throw new Error(res.error);
+            if (!res.ok) throw new Error(res.error);
           },
           { steps: ['Locking the date'], hint: 'Saving' },
         );

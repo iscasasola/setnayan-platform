@@ -18,8 +18,6 @@ export type LabFactOptions = {
   notSet: boolean;
   /** An open date change (J51). */
   change: boolean;
-  /** The date waits in the draft. */
-  drafted: boolean;
   /** Who is booked: the venues (default) or nobody. */
   venues: 'booked' | 'none';
 };
@@ -87,12 +85,11 @@ export function labDateSheet(o: LabFactOptions, month: string | null): DateSheet
       }
     : null;
   return {
-    date: o.drafted ? '2026-12-19' : '2026-12-12',
+    date: '2026-12-12',
     precision: 'day',
-    drafted: o.drafted,
     ceremonyTime: '15:00',
     bookedNames: o.venues === 'booked' ? ['Seda Vertis North'] : [],
-    // Seda's booking holds the LIVE day (Dec 12) — a drafted Dec 19 is not held by it.
+    // Seda's booking holds the event's day (Dec 12).
     bookedDay: o.venues === 'booked' ? '2026-12-12' : null,
     change,
     help:

@@ -5,7 +5,7 @@
  * Owner 2026-10-01, DECISION_LOG: "AMENDS THE ROW ABOVE — A CLASHING DATE GOES
  * TO THE SUPPLIER IN CONFLICT…" + "THE CLASHING-DATE FLOW — APPROVED WITH THE
  * CONTROLLER'S THREE SAFEGUARDS"; 2026-10-02 "Q7 + Q8" (a date every booked
- * supplier CAN do applies at Apply with a plain notice — no decision).
+ * supplier CAN do goes live with a plain notice — no decision).
  *
  *   · The couple's clashing pick → ONE request naming the conflicting booked
  *     suppliers (`event_date_change_requests` + `_answers`). The event keeps
@@ -13,8 +13,9 @@
  *   · Each conflicting supplier: **Move to <date>** · **Unlock my service**.
  *   · After 3 days unanswered the couple chooses: keep waiting · drop that
  *     supplier · cancel the change.
- *   · Every supplier answered → the new date enters the draft and applies
- *     through Apply (the Maker rule) — `dateMoveClearance` is the one rule.
+ *   · Every supplier answered → the couple uses the new date from Home, and it
+ *     saves to the event at once through `updateEventDate` (owner 2026-11-05,
+ *     *"it shouldn't rely on the hub."*) — `dateMoveClearance` is the one rule.
  *
  * 💸 AVAILABILITY ONLY — never budget (owner 2026-10-01, "BUDGET IS FOR
  * TRACKING, NEVER FOR LIMITING"): nothing here reads a price, a plan total or a
@@ -44,7 +45,7 @@ export function isSupplierDateAnswer(v: unknown): v is SupplierDateAnswer {
 }
 
 /**
- * 🗓 MAY A NEW DATE GO LIVE? THE ONE RULE (Apply asks it; so does the db test).
+ * 🗓 MAY A NEW DATE GO LIVE? THE ONE RULE (the date door `updateEventDate` asks it; so does the db test).
  *
  *   `clashing` — the booked rows whose calendar the new date clashes with
  *                (`clashesForMatrix`, the shipped availability read);
@@ -97,7 +98,7 @@ export type DateChangeView = {
   suppliers: DateChangeSupplier[];
   answered: number;
   total: number;
-  /** No supplier is still deciding — the date can go to Apply. */
+  /** No supplier is still deciding — the couple can use the new date (it saves at once). */
   ready: boolean;
 };
 
@@ -196,7 +197,7 @@ export function dateChangeRefusalText(reason: string | undefined): string {
       return 'One of those suppliers is no longer booked. Pick the date again.';
     case 'nobody_to_ask':
     case 'fits':
-      return 'This date works with every booked supplier — it saves to your draft as it is.';
+      return 'This date works with every booked supplier — pick it and it saves as it is.';
     case 'not_couple':
       return 'Only the couple can ask a booked supplier to move.';
     case 'not_due':
@@ -214,7 +215,7 @@ export function dateChangeRefusalText(reason: string | undefined): string {
  * means for the money.
  */
 export const DATE_ANSWER_NOTICE: Record<string, string> = {
-  moved: 'Done — you told them you can move. Your held day moves with the date when they apply it.',
+  moved: 'Done — you told them you can move. Your held day moves with the date when they use it.',
   unlocked:
     'Done — your service is unlocked and the booking released. Any payment is settled by the cancellation terms on the booking; Setnayan support has the case if money was logged.',
   already: 'That was already answered, or the couple withdrew it — nothing changed.',

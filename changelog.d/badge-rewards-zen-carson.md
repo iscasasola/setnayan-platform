@@ -50,3 +50,8 @@ SPEC IMPACT: DECISION_LOG 2026-11-05 "BADGE REWARDS" row's State moves from "sen
 draft PR, not live", plus a new row for the owner's seven answers on the draft (steps, plan gifts later, a cancelled
 booking gives the free fee back, a badge-paid booking keeps the Setnayan gift). The 2026-10-12 #7 rule "no fee, no
 couple gift" now has one exception: a fee paid by a badge reward.
+
+**Merged with #7297 after main moved gifts to Shop › Promote (2026-11-06):** the badge-reward reads (reward stock,
+rewards given, reward names) moved with the section from the Plan page into the Promote loader
+(`shop/promote/_components/shop-gifts-data.ts`); the section draws them unchanged. The plan lab keeps its reward
+fixture and gains #7297's `&app=1` (no Buy in the iPhone app).

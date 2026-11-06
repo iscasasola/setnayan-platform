@@ -11,7 +11,7 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
-import { DatesRow } from '../../customers/_components/dates-row';
+import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
@@ -112,6 +112,9 @@ const STATE_WORD: Record<ShopGiftBoughtLine['state'], string | null> = {
  *   Bought ▾                           qty × title · date · ₱ (Checking / Refunded when so)
  *   the quiet line                     where gifts go, in one sentence
  *
+ * 📣 HOME: Shop › Promote (owner 2026-11-05, "one Promote place for every marketing tool") — moved here from the Plan page
+ * unchanged; its reads moved with it (`shop-gifts-data.ts`). `#gifts` is its address (the pinned row's gifts figure).
+ *
  * Presentational: every value arrives read. The ONE write is the shipped buy action (`for=gift`), which mints the order
  * and its quantity; the stock moves only when the payment is approved (`grantShopGiftPurchase`).
  */
@@ -127,7 +130,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const stockRewards = granted?.filter((g) => g.kind !== 'fee_waiver') ?? [];
 
   return (
-    <section className="mt-8" data-shop-gifts="" aria-labelledby={headingId}>
+    <section id="gifts" className="mt-8 scroll-mt-24" data-shop-gifts="" aria-labelledby={headingId}>
       <InfoTip label="Your gifts" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         Bought ahead, for your couples. Put them on a quote; they leave your stock only when that couple&rsquo;s first
         payment clears, and land on their event. Never cashed out. Every badge you earn adds its reward here too, marked

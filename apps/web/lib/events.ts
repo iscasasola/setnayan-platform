@@ -655,9 +655,10 @@ export function eventDatePrecisionOf(v: unknown): EventDatePrecision | null {
 }
 
 /**
- * 🗓 THE DATE'S GATES, AS ONE ANSWER — `updateEventDate`'s rules, read by that
- * writer AND by the Event Hub's Apply, which writes a date typed into the
- * Maker's draft (owner 2026-10-01, "wait for apply"). One rule, two doors:
+ * 🗓 THE DATE'S GATES, AS ONE ANSWER — read by the event's one date door,
+ * `updateEventDate`, which every place a couple sets the date posts to (owner
+ * 2026-11-05, "it shouldn't rely on the hub" — the Event Hub's Apply no longer
+ * writes a date). One rule:
  *
  *   · `in_past` — the new date has already gone by at its precision (Task #41);
  *   · `locked`  — the day moves while a supplier is booked (Task #37);
@@ -688,10 +689,10 @@ export function eventDateRefusal(
    * the clashing-date flow 2026-10-01): every booked supplier can do the new
    * day — or every one whose calendar clashes answered Move. Only then does a
    * date with booked suppliers move (`dateMoveClearance`, lib/date-change.ts,
-   * asked by the Maker's Apply). The blanket "a booked supplier's date can't
-   * move" is relaxed for THAT case only: a wider precision (`widens`) and a day
-   * gone by (`in_past`) are refused whatever the suppliers said, and a caller
-   * that does not ask (Event Details' `updateEventDate`) keeps the lock.
+   * asked by `updateEventDate` through `dateApplyClearance`). The blanket "a
+   * booked supplier's date can't move" is relaxed for THAT case only: a wider
+   * precision (`widens`) and a day gone by (`in_past`) are refused whatever the
+   * suppliers said, and a caller that does not ask keeps the lock.
    */
   cleared = false,
 ): EventDateRefusal | null {

@@ -12,7 +12,8 @@
  *   ?s=help            Help
  *   ?s=business        How is my business doing (who=…)               &new=1 — nobody has found you yet
  *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
- *   ?s=gifts           Plan › Your gifts (supplier gift stock, 2026-11-04)  &unverified=1 (list price) · &fail=1 (unread)
+ *   ?s=gifts           Shop › Promote › Your gifts (supplier gift stock, 2026-11-04; on Plan until 2026-11-05)  &unverified=1 (list price) · &fail=1 (unread)
+ *                      &app=1 (the iPhone app: stock + Bought, no Buy)
  *                      &buy=1 opens nothing by itself — press "Buy gifts"
  *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment) · &unlock=1 (+ Event Plus)
  *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)
@@ -52,7 +53,7 @@ import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
 import type { NotificationRow } from '@/lib/notifications';
 import type { GrantedReward } from '@/lib/badge-rewards';
-import { ShopGiftsSection } from '@/app/vendor-dashboard/subscription/_components/shop-gifts-section';
+import { ShopGiftsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
@@ -331,7 +332,7 @@ export default async function SupplierPlanLabPage({
       </>
     );
 
-  else if (s === 'gifts') body = giftsFixture(sp.unverified === '1', sp.fail === '1');
+  else if (s === 'gifts') body = giftsFixture(sp.unverified === '1', sp.fail === '1', sp.app === '1');
   else if (s === 'gifts-couple')
     body = (
       <section className="p-4">
@@ -381,7 +382,9 @@ function labReward(
   return { rewardId: `lab-${key}`, key, badge: key.split(':')[0]!, kind, units, grantedAt, revokedAt: null, usedAt: null, usedOn: null, ...extra };
 }
 
-function giftsFixture(unverified: boolean, fail: boolean) {
+/** `inApp` — `&app=1`: the section as the iPhone app (store shell) draws it — the stock and Bought show, Buy does not
+ * (`canBuy` is false there; `shop-gifts-data.ts`). */
+function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
   return (
     <ShopGiftsSection
       data={{
@@ -406,7 +409,7 @@ function giftsFixture(unverified: boolean, fail: boolean) {
           { id: 'gcash', label: 'GCash' },
           { id: 'bank', label: 'Bank transfer' },
         ],
-        canBuy: true,
+        canBuy: !inApp,
         // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
         rewards: {
           left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0 },

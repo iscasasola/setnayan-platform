@@ -135,21 +135,13 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   song_off_the_list: 'is no longer on our music list — pick another song',
   empty_section: 'has nothing in it yet, so it cannot be shown',
   missing_section: 'no longer exists',
-  date_in_past: 'has already gone by — pick a day ahead; it stays in your draft',
-  date_before_first_event: 'is before December 19, 2026 — it stays in your draft',
-  date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
   needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
   address_taken: 'is no longer free to take — pick another in Details › Address; it stays in your draft',
 };
 
-/**
- * One held key, in words. 💍 A date before the first event day is said in the owner's own
- * words — the server sends that sentence AS the label (hub-draft-actions.ts), so it is not
- * imported into the Maker's first load.
- */
+/** One held key, in words. (The date is never held — it is not drafted, owner 2026-11-05.) */
 function heldLine(h: { label: string; reason: HubDraftRefusal }): string {
-  if (h.reason === 'date_before_first_event') return h.label;
   return `${h.label} ${HELD_REASON[h.reason]}.`;
 }
 

@@ -11,6 +11,8 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
@@ -41,25 +43,39 @@ test('the new leaf resolves to an ACTIVE tier-1 parent', async () => {
   assert.equal(row.p_status, 'active');
 });
 
-test('scoped to wake · birthday · simple_event — never a wedding', async () => {
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06, DECISION_LOG "TAXONOMY V2 APPROVED") renamed this row "Rentals &
+ * outdoor", folded Outdoor's rentals into it, and HAND-SET every picker service's event scope — weddings included
+ * (chair_table_rental lists `wedding`). So the two P3 premises below changed by the owner's decision, and each is
+ * re-pointed at the approved file rather than dropped:
+ *   · the row's scope still holds the three P3 put there (a scope only widens), and now covers its services';
+ *   · its picker services are v2's list, each carrying v2's own scope (no longer NULL / inherited).
+ */
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { groups: { categories: { tile: string; services: { key: string; event_types: string[] }[] }[] }[] };
+const V2_SERVICES = V2.groups.flatMap((g) => g.categories).find((c) => c.tile === 'chairs_tents')!.services;
+
+test('scoped to wake · birthday · simple_event — and, since v2, to every event its services reach', async () => {
   const r = await db.query<{ t: string[] | null }>(
     `SELECT applicable_event_types AS t FROM public.service_categories WHERE id = 'chairs_tents'`,
   );
-  assert.deepEqual([...(r.rows[0]?.t ?? [])].sort(), ['birthday', 'simple_event', 'wake']);
+  const scope = new Set(r.rows[0]?.t ?? []);
+  for (const e of ['birthday', 'simple_event', 'wake']) assert.ok(scope.has(e), `the row lost ${e} — a scope only widens`);
+  for (const s of V2_SERVICES) for (const e of s.event_types) assert.ok(scope.has(e), `${s.key} reaches ${e}, which its row does not`);
 });
 
-test('its services exist and INHERIT the tile scope', async () => {
+test('its picker services are v2\'s, each with v2\'s own scope', async () => {
   const r = await db.query<{ canonical_service: string; t: string[] | null }>(
     `SELECT canonical_service, applicable_event_types AS t
-       FROM public.canonical_service_taxonomy WHERE tile_id = 'chairs_tents'
+       FROM public.canonical_service_taxonomy
+      WHERE tile_id = 'chairs_tents' AND merged_into IS NULL AND NOT COALESCE(marketplace_hidden, FALSE)
       ORDER BY canonical_service`,
   );
-  assert.deepEqual(
-    r.rows.map((x) => x.canonical_service),
-    ['chair_table_rental', 'event_lights_rental', 'tent_canopy_rental'],
-  );
+  assert.deepEqual(r.rows.map((x) => x.canonical_service), V2_SERVICES.map((s) => s.key).sort());
   for (const x of r.rows) {
-    assert.equal(x.t, null, `${x.canonical_service} overrides the tile — owner edits would stop reaching it`);
+    const want = V2_SERVICES.find((s) => s.key === x.canonical_service)!.event_types;
+    assert.deepEqual([...(x.t ?? [])].sort(), [...want].sort(), `${x.canonical_service} is not v2's scope`);
   }
 });
 

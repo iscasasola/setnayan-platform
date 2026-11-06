@@ -22,7 +22,7 @@
 --   4. Re-tiles every live key and every v2 service onto its v2 category.
 --   5. Merges each folded category into its destination
 --      (merge_service_category — couples' suppliers on running events move).
---   6. Retires the hidden "Everything else" (status only, no forward).
+--   6. Leaves the hidden "Everything else" untouched (no source names it).
 --   7. Renames the 39 categories to their v2 labels and widens each one's
 --      applicable_event_types to cover its services (never narrows).
 --   8. Names every picker service and sets its applicable_event_types to v2's
@@ -142,15 +142,11 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- ── 6 · retire the hidden "Everything else" ──────────────────────────────
-  -- STATUS ONLY, NO FORWARD. It holds no trade and is already hidden; it is
-  -- still the code fallback home for a couple's SELF-ADDED supplier (`misc`),
-  -- and the taxonomy snapshot ignores `status`, so such a supplier keeps
-  -- rendering. There is no right destination for "a supplier we could not
-  -- name", so none is invented.
-  UPDATE service_categories
-     SET status = 'retired', marketplace_hidden = TRUE
-   WHERE id = 'everything_else' AND tier = 2 AND status IS DISTINCT FROM 'retired';
+  -- ── 6 · "Everything else" is left exactly as it is ───────────────────────
+  -- Neither approved source names it. It is hidden, outside the picker, holds no
+  -- trade, and is the home of a couple's SELF-ADDED supplier (`misc`) —
+  -- tests/db/everything-else-is-a-real-tile.db.test.ts pins it active. Nothing
+  -- here retires or forwards it.
 
   -- ── 7 · the 39 categories: v2 label, event scope covering their services ──
   FOR t IN SELECT * FROM jsonb_array_elements(v_labels) LOOP

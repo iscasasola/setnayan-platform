@@ -52,10 +52,19 @@ let db: PGlite;
  * marketplace-visible, so opening a category cannot happen as a side effect of
  * a refactor — somebody has to come here and delete the name on purpose.
  */
-const ADMIN_ONLY_BRANCHES = ['officiants', 'counseling_seminars'] as const;
+const ADMIN_ONLY_BRANCHES = ['officiants'] as const;
 
 /** Branches the owner OPENED — pinned so they cannot silently close again. */
-const OPENED_BRANCHES = ['wedding_paperwork', 'travel_honeymoon'] as const;
+const OPENED_BRANCHES = ['travel_honeymoon'] as const;
+
+/**
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06): `counseling_seminars` folded into `officiants` (its seminars are now
+ * Faith / Seminar values of the hidden Pre-marriage seminar service) and `wedding_paperwork` into
+ * `travel_honeymoon`. A folded branch is a tombstone, so the checks above moved to the row it folded into — and
+ * the test below holds each fold: retired, forwarding, holding no live service, and its survivor keeping the
+ * hidden / open state the folded branch had.
+ */
+const FOLDED_BRANCHES = { counseling_seminars: 'officiants', wedding_paperwork: 'travel_honeymoon' } as const;
 
 before(async () => {
   replay = await createReplayedDb();
@@ -191,8 +200,9 @@ test('the branches that hold the unsold services hold ALL of them', async () => 
     `SELECT count(*)::int AS n
        FROM canonical_service_taxonomy
       WHERE tile_id = ANY($1::text[])`,
-    [[...ADMIN_ONLY_BRANCHES]],
+    [[...ADMIN_ONLY_BRANCHES, 'counseling_seminars']],
   );
+  // (v2: a folded trade keeps its row, so the floor counts the folded branch's own tombstones too.)
   // 30 filed by 20271172444653, minus the 5 the owner put on sale in
   // 20271173139836 = 25.
   assert.ok(
@@ -240,4 +250,20 @@ test('the two branches the owner opened are on sale, and reachable', async () =>
     [],
     'an opened branch sits under a folder nobody can reach',
   );
+});
+
+test('v2 folds: each folded branch is a tombstone forwarding to its survivor, holding no live service', async () => {
+  for (const [from, into] of Object.entries(FOLDED_BRANCHES)) {
+    const r = await db.query<{ status: string; fwd: string | null }>(
+      `SELECT status, merged_into_category_id AS fwd FROM service_categories WHERE id = $1`,
+      [from],
+    );
+    assert.equal(r.rows[0]?.status, 'retired', `${from} is not a tombstone`);
+    assert.equal(r.rows[0]?.fwd, into, `${from} does not forward to ${into}`);
+    const live = await db.query<{ k: string }>(
+      `SELECT canonical_service AS k FROM canonical_service_taxonomy WHERE tile_id = $1 AND merged_into IS NULL`,
+      [from],
+    );
+    assert.deepEqual(live.rows.map((x) => x.k), [], `${from} still holds live services`);
+  }
 });

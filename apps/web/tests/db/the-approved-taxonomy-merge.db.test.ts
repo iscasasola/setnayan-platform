@@ -251,8 +251,10 @@ test('every disappearing category is a tombstone forwarding to a survivor; no tr
   const e = await one<{ status: string; marketplace_hidden: boolean; merged_into_category_id: string | null }>(
     `SELECT status, marketplace_hidden, merged_into_category_id FROM service_categories WHERE id='everything_else'`,
   );
-  assert.equal(e.status, 'retired');
-  assert.equal(e.merged_into_category_id, null, 'Everything else is retired WITHOUT a forward');
+  // Neither approved source names "Everything else": it stays the hidden, active home of a self-added supplier.
+  assert.equal(e.status, 'active', 'the migration retired Everything else, which no approved source asks for');
+  assert.equal(e.marketplace_hidden, true);
+  assert.equal(e.merged_into_category_id, null, 'Everything else must not forward anywhere');
 });
 
 test('absorbed trades are tombstones; Setnayan products are untouched', async () => {

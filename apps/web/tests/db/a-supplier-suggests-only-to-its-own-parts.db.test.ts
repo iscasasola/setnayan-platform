@@ -181,14 +181,28 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
   const links = (await db.query<InspirationPartCategoryRow>(`SELECT slot_key,category_id,sort_order FROM public.inspiration_part_categories_derived`)).rows;
   const svc = (await db.query<InspirationPartServiceRow>(`SELECT slot_key,canonical_service,sort_order FROM public.inspiration_part_services`)).rows;
   const dbSnap = snapshotFromPartRows(rows, links, svc);
+  /* ⚖ Taxonomy v2 (2026-11-06): the consts name CATEGORIES, the door names SERVICES. Backdrop links the kept
+     `led_video_wall` service, whose old LED-wall row folded into Lights, sound & effects — so at category level its
+     second trade is `lights_sound`, while the door still admits only the LED wall (MB26: a backdrop is never a plain
+     lights-and-sound shop's). That part may be NARROWER than the consts, never wider; every other part is equal. */
+  const NARROWER_THAN_ITS_CATEGORIES = new Set(['backdrop']);
+  const narrower: string[] = [];
   for (const slot of MOODBOARD_SLOT_KEYS) {
     const sql = await sqlServices(slot);
     const seed = COUPLE_PARTS.has(slot) ? [...canonicalServicesForSlot(slot, fallbackInspirationParts())].sort() : [];
     const live = COUPLE_PARTS.has(slot) ? [...canonicalServicesForSlot(slot, dbSnap)].sort() : [];
-    assert.deepEqual(sql, seed, `inspiration_suggestion_services('${slot}') changed on ship day — it is not what the CASE answered`);
+    if (JSON.stringify(sql) !== JSON.stringify(seed) && NARROWER_THAN_ITS_CATEGORIES.has(slot)) {
+      narrower.push(slot);
+      for (const k of sql) assert.ok(seed.includes(k), `inspiration_suggestion_services('${slot}') admits ${k}, which its categories do not`);
+    } else {
+      assert.deepEqual(sql, seed, `inspiration_suggestion_services('${slot}') changed on ship day — it is not what the CASE answered`);
+    }
     assert.deepEqual(sql, live, `inspiration_suggestion_services('${slot}') disagrees with what the app reads from the same rows`);
     if (COUPLE_PARTS.has(slot)) assert.ok(sql.length > 0, `${slot} is a couple part with no supplying trade`);
   }
+  assert.deepEqual(narrower, [...NARROWER_THAN_ITS_CATEGORIES], 'the named part is no longer narrower — drop it from the list');
+  const backdrop = await sqlServices('backdrop');
+  assert.ok(backdrop.includes('led_video_wall') && !backdrop.includes('lights_sound'), 'MB26: the backdrop door admits a plain lights-and-sound shop');
 
   /* (c) The cross-view is ROWS, not a list: ③0-a wrote the ten Filipiniana & Barongs keys as secondary_tiles, and
      20271292138044 dropped the hand-kept SQL branch — so the pairs function answers exactly the rows, and an admin
@@ -199,7 +213,17 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
       WHERE NOT COALESCE(marketplace_hidden, FALSE)
         AND (tile_id = 'filipiniana_barongs' OR 'filipiniana_barongs' = ANY (COALESCE(secondary_tiles, ARRAY[]::TEXT[])))`,
   )).rows.map((r) => r.k).sort();
-  assert.equal(fb.length, 10, `the cross-view should hold its ten services on the seed, got ${fb.length}`);
+  // Taxonomy v2 (2026-11-06) folded the cross-view into Gowns & dresses: its ten services are now Style / Faith
+  // values of Gowns & dresses and Barong & suits, hidden tombstones. So the rows hold none, and the pairs function
+  // must answer exactly that — still the rows, never a hand list.
+  const tenFolded = (await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.canonical_service_taxonomy
+      WHERE canonical_service = ANY (ARRAY['filipiniana_terno','filipiniana_maria_clara','filipiniana_balintawak',
+        'barong_tagalog_custom','barong_tagalog_rental','maranao_wedding_attire','tausug_wedding_attire',
+        'yakan_wedding_attire','muslim_modest_bridal','inc_modest_bridal']) AND merged_into IS NOT NULL`,
+  )).rows[0]!.n;
+  assert.equal(tenFolded, 10, 'v2 folds all ten cross-view services');
+  assert.equal(fb.length, 0, `the folded cross-view should hold no visible service, got ${fb.length}`);
   assert.deepEqual(fb, fbRows, 'inspiration_category_service_pairs() disagrees with the Filipiniana & Barongs rows');
   const def = (await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.inspiration_category_service_pairs()'::regprocedure) AS d`)).rows[0]!.d;
   assert.ok(!/filipiniana_terno|barong_tagalog_rental/.test(def), 'inspiration_category_service_pairs() names cross-view services by hand again — cross-list through secondary_tiles');

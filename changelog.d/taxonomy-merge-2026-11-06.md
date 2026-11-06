@@ -9,7 +9,7 @@ Owner, 2026-11-06: *"yes merge them"* · *"combine the services in the events ru
 - **Specialties are facets:** `category_specific_attributes` plus `filter_facets`, with the v2 keys prepended. Each value's event scope rides in the facet definition as `option_event_types`, alongside the `question` text. There is no new column. Rental is a yes/no `is_rental`.
 - **Shops are tagged before their trade folds**, so no shop loses the value it held.
 - **Categories:** surviving categories take the v2 labels. A category's event scope widens to cover its services and never narrows.
-- **"Everything else":** retired, status only, with no forward.
+- **"Everything else" is left untouched** (hidden, active, no forward). Neither approved source names it, and it is the home of a self-added supplier.
 - **Setnayan products are never folded.**
 - **Code mirrors follow the database:**
   - `lib/taxonomy.ts`: new tiles, v2 labels, folded tiles out of `WEDDING_TILE_ORDER` (kept in the union so old ids type-check), `MERGED_TILE_INTO` plus `liveTileOf`, and `TAXONOMY_MAP` rebuilt field-for-field from the replayed database.

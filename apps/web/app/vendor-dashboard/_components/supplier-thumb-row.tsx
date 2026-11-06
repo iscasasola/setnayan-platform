@@ -39,10 +39,11 @@
  * through instead of being cut by its edge (v13 "soft fade behind the floating thumb row").
  * 🔒 the-supplier-frame-holds.test.ts
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { useFitRow } from '@/components/action-button';
+import { InSheet } from '@/app/_components/sheet';
 import { leavesThePage } from './supplier-thumb-leave';
 import styles from './supplier-thumb-row.module.css';
 
@@ -67,7 +68,12 @@ export function SupplierThumbRow({
   const [mounted, setMounted] = useState(false);
   const [on, setOn] = useState(false);
   const pathname = usePathname();
-  const upTo = usePinTools();
+  /* 🧭 INSIDE A SHEET (the maker opened over Today, 2026-11-06) the row is drawn IN PLACE — still `position: fixed` at
+     the foot of the screen, but inside the sheet's own layer, so it floats over the sheet instead of under it, and it
+     never moves up into the page's pinned row (that row is behind the sheet). Its edges follow the sheet's panel. */
+  const inSheet = useContext(InSheet);
+  const pinTools = usePinTools();
+  const upTo = inSheet ? null : pinTools;
 
   // Slides up once the page has rendered (two frames: mount, then move).
   useEffect(() => {
@@ -108,7 +114,7 @@ export function SupplierThumbRow({
     if (!mounted) return;
     const sync = () => {
       const row = rowRef.current;
-      const col = document.querySelector('main');
+      const col = (inSheet ? row?.closest('[data-sheet-panel]') : null) ?? document.querySelector('main');
       if (!row || !col) return;
       const r = col.getBoundingClientRect();
       row.style.setProperty('--thumb-left', `${Math.max(0, r.left)}px`);
@@ -117,7 +123,7 @@ export function SupplierThumbRow({
     sync();
     window.addEventListener('resize', sync);
     return () => window.removeEventListener('resize', sync);
-  }, [mounted]);
+  }, [mounted, inSheet]);
 
   if (!mounted) return null;
   if (upTo) {
@@ -129,14 +135,17 @@ export function SupplierThumbRow({
     );
   }
   if (row) {
-    return createPortal(
+    const band = (
       <div ref={rowRef} className={styles.lower} data-supplier-thumb={name} data-on={on ? 'true' : 'false'}>
         {row}
-      </div>,
+      </div>
+    );
+    return inSheet ? band : createPortal(
+      band,
       document.body,
     );
   }
-  return createPortal(
+  const glass = (
     <div
       ref={rowRef}
       className={`${styles.lower} sn-glass-row`}
@@ -147,7 +156,10 @@ export function SupplierThumbRow({
       aria-label={label}
     >
       <ThumbFit>{children}</ThumbFit>
-    </div>,
+    </div>
+  );
+  return inSheet ? glass : createPortal(
+    glass,
     document.body,
   );
 }

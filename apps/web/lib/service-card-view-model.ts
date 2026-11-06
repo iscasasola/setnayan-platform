@@ -127,7 +127,37 @@ export type ServiceCard = {
    * one serializes byte-for-byte as before. Filled only from `fetchServiceCardCouplePhotos` (approved rows only).
    */
   coupleLooks?: CoupleLook[];
+  /**
+   * ⭐ THIS CARD'S REVIEWS (prototype 6 Nov § 4 / § 9) — "From the hosts" (the card's own trusted number, its newest
+   * quote) and "From guests" (their own line, the newest guest row, "+ N more guests · read all"). OPTIONAL and ABSENT
+   * when the card has neither, so every other card serializes byte-for-byte as before. Never a price.
+   */
+  reviews?: CardReviews;
 };
+
+export type CardReviews = {
+  hosts: {
+    count: number;
+    average: number;
+    /** The newest host review on this card with words, clipped — null when none is in the page's window. */
+    quote: string | null;
+    /** "A. & M. · Dec 2026" — the couple's "Shown as", then the month. null with no quote. */
+    by: string | null;
+    verifiedBooking: boolean;
+  } | null;
+  guests: {
+    count: number;
+    average: number;
+    newest: { shownName: string; stars: number; line: string | null; photoUrl: string | null } | null;
+    /** Where "read all" lands — the shop page's "From guests" group. */
+    readAllHref: string;
+  } | null;
+};
+
+/** Attach a card's reviews — absent when it has none, so the card serializes exactly as before. */
+export function withCardReviews(card: ServiceCard, reviews: CardReviews | undefined): ServiceCard {
+  return reviews && (reviews.hosts || reviews.guests) ? { ...card, reviews } : card;
+}
 
 /** Attach a card's approved couple photos — absent (not `[]`) when there are none. */
 export function withCoupleLooks(card: ServiceCard, looks: CoupleLook[] | undefined): ServiceCard {

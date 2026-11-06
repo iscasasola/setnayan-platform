@@ -328,9 +328,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       isVendorPapicCaptureEnabled(),
       isStoreShellRequest(),
     ]);
-    if (!basis || !papicOn) return { basis: null, buy: null };
+    // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they are offered (slice 2).
+    const packs = basis ? (papicOn ? basis.packs : basis.packs.filter((p) => p.kind !== 'papic')) : [];
+    if (!basis || packs.length === 0) return { basis: null, buy: null };
     const openRails = openRailOptions(settings);
-    return { basis, buy: storeShell ? null : { paysGiftPrice, openRails } };
+    return { basis: { ...basis, packs }, buy: storeShell ? null : { paysGiftPrice, openRails } };
   })().catch((err) => {
     console.error('[supabase-error] messages thread · shop gifts', err);
     return { basis: null, buy: null };

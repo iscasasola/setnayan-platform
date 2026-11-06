@@ -184,6 +184,7 @@ const MAKER_ONLY_FIELDS = [
   'item_downpayment_non_refundable', 'item_no_show_forfeit', 'item_refund_window_days', 'item_cancellation_terms', // Payment schedule
   'new_slot_label', 'new_slot_start', 'new_slot_end', 'new_slot_capacity', 'remove_slot_id', // Time slots
   'daily_capacity', 'branch_id', // Booking terms · Who it is for
+  'card_gift_code', // Gift — the shop's own gift on the card (commitVendorService → writeCardShopGift, 2026-11-07)
 ] as const;
 
 test('the maker posts EVERY field the wizard posts — the server cannot tell a field went missing', () => {

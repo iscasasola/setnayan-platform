@@ -31,23 +31,31 @@ test('the maker reads back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
 });
 
-test('at lg+ the maker is two columns: the card, then the rows', () => {
+test('from 820 px the maker is two EVEN columns: the surface, then “As couples see it”', () => {
+  // Owner-approved maker 2026-11-07: "at 820/1440 the form and the preview split evenly, and the preview is sized to
+  // its content" — the surface first (left), the preview beside it.
   const src = read(MAKER);
-  assert.match(src, /className="lg:grid lg:grid-cols-\[minmax\(0,340px\)_minmax\(0,1fr\)\] lg:items-start lg:gap-8"/);
-  const grid = src.indexOf('lg:grid lg:grid-cols-');
-  const card = src.indexOf('data-maker-card=""', grid);
+  assert.match(src, /className="md:grid md:grid-cols-2 md:items-start md:gap-8"/, 'the two columns are no longer even from 820 px');
+  const grid = src.indexOf('md:grid md:grid-cols-2');
   const form = src.indexOf('data-card-form=""', grid);
-  assert.ok(grid > 0 && card > grid && form > card, 'the card must come before the rows inside the two-column grid');
+  const card = src.indexOf('data-maker-card=""', grid);
+  assert.ok(grid > 0 && form > grid && card > form, 'the surface must come before the preview inside the two-column grid');
 });
 
-test('the card stays in view on a laptop and scrolls on a phone — sticky at lg only', () => {
+test('the preview stays in view beside the surface and is not drawn on a phone — a phone opens it from the pinned row', () => {
   const src = read(MAKER);
   const at = src.indexOf('data-maker-card=""');
-  const tag = src.slice(src.lastIndexOf('<div', at), at);
-  assert.match(tag, /lg:sticky/, 'the card no longer stays in view on a laptop');
-  for (const cls of (tag.match(/className="([^"]*)"/)?.[1] ?? '').split(/\s+/).filter(Boolean)) {
-    assert.ok(cls.startsWith('lg:'), `"${cls}" applies on a phone — the card must scroll with the page there`);
+  const tag = src.slice(src.lastIndexOf('<aside', at), src.indexOf('>', at));
+  assert.match(tag, /md:sticky/, 'the preview no longer stays in view beside the surface');
+  const classes = (tag.match(/className="([^"]*)"/)?.[1] ?? '').split(/\s+/).filter(Boolean);
+  assert.ok(classes.includes('hidden') && classes.includes('md:block'), 'the side preview shows on a phone, under the fields');
+  for (const cls of classes.filter((c) => c !== 'hidden')) {
+    assert.ok(cls.startsWith('md:'), `"${cls}" applies on a phone`);
   }
+  assert.match(src, /<RoundButton label="As couples see it" onClick=\{\(\) => setSheet\('preview'\)\}/, 'the pinned row lost its Preview round');
+  // Sized to its words: no fixed tall square in the pane.
+  const pane = src.slice(at, src.indexOf('</aside>', at));
+  assert.ok(!/\bh-\[(?:[3-9]\d\d)px\]|aspect-square/.test(pane), 'the preview pane is a tall fixed box again');
 });
 
 test('every sheet docks right on a laptop, and keeps its veil on a phone', () => {

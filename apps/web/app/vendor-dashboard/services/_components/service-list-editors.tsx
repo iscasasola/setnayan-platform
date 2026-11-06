@@ -4,6 +4,8 @@ import { Fragment, useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 
 /**
  * Repeatable list editors for a service card (service-card redesign · Phase 3b).
@@ -56,6 +58,23 @@ function RowRemove({ onClick, label }: { onClick: () => void; label: string }) {
       style={{ borderColor: line, color: 'var(--m-slate)' }}
     >
       <X className="h-4 w-4" strokeWidth={1.75} />
+    </button>
+  );
+}
+
+/** The maker's 40 px add pill — the house rhythm (owner-approved makers, 2026-11-07): an outline pill, icon + word. */
+export function AddLinePill({ onClick, children, disabled = false }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="sn-press inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-[15px] font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
+      style={{ borderColor: line }}
+      data-maker-add-pill=""
+    >
+      <Plus aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
+      {children}
     </button>
   );
 }
@@ -125,41 +144,57 @@ export function InclusionsEditor({
        Each line is two rows — what is included, and its worth — posting `inclusion_label` and `inclusion_worth` exactly
        as the raw boxes did: every row draws its carrier, filled or not, so the two lists stay index-aligned for
        `parseInclusionRows`. The worth is an AMOUNT row: it keeps its ₱, opens the numeric keypad, and keeps only whole
-       pesos (`amountDigits`) — no spinner, nothing but digits posted. */
+       pesos (`amountDigits`) — no spinner, nothing but digits posted.
+       👈 A LINE SWIPES LEFT TO GO, WITH UNDO (owner 2026-11-07, "all swipe to delete works" — the shared `SwipeToDelete`
+       + `deleteWithUndo`; nothing is written until the card is saved, so the commit is a no-op). No ✕ on the row. */
     const patch = (key: number, next: Partial<InclusionDraft>) =>
       setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
+    const swipeAway = (r: InclusionRow) => {
+      const before = rows;
+      deleteWithUndo({
+        label: r.label.trim() ? `“${r.label.trim()}” removed` : 'Line removed',
+        hide: () => remove(r.key),
+        restore: () => setRows(before),
+        commit: () => undefined, // nothing was written — the card is not saved yet
+      });
+    };
     return (
       <div data-inclusions-bare="">
         <FormRows width="short">
           {rows.map((r, i) => (
-            <Fragment key={r.key}>
-              <TypedRow
-                name={`Included ${i + 1}`}
-                value={r.label}
-                empty="e.g. Same-day highlight reel"
-                maxLength={80}
-                fieldName="inclusion_label"
-                onKeep={(t) => patch(r.key, { label: t })}
-                data="inclusion-label"
-              />
-              <TypedRow
-                name="Worth"
-                value={r.worth}
-                amount
-                empty="Optional"
-                fieldName="inclusion_worth"
-                onKeep={(t) => patch(r.key, { worth: t })}
-                data="inclusion-worth"
-                below={
-                  <div className="flex justify-end pb-2">
-                    <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
-                  </div>
-                }
-              />
-            </Fragment>
+            <SwipeToDelete
+              key={r.key}
+              label={`Remove ${r.label.trim() || `line ${i + 1}`}`}
+              word="Remove"
+              onDelete={() => swipeAway(r)}
+            >
+              <div data-inclusion-line="">
+                <TypedRow
+                  name={`Included ${i + 1}`}
+                  value={r.label}
+                  empty="e.g. Same-day highlight reel"
+                  maxLength={80}
+                  fieldName="inclusion_label"
+                  onKeep={(t) => patch(r.key, { label: t })}
+                  data="inclusion-label"
+                />
+                <TypedRow
+                  name="Worth"
+                  value={r.worth}
+                  amount
+                  empty="Optional"
+                  fieldName="inclusion_worth"
+                  onKeep={(t) => patch(r.key, { worth: t })}
+                  data="inclusion-worth"
+                />
+              </div>
+            </SwipeToDelete>
           ))}
         </FormRows>
-        <AddRowButton onClick={add}>Add a line</AddRowButton>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2">
+          <AddLinePill onClick={add}>Add a line</AddLinePill>
+          <span className="text-[13px] text-ink/55">Every line is part of the price.</span>
+        </div>
       </div>
     );
   }

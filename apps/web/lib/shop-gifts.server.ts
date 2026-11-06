@@ -8,9 +8,11 @@ import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import {
   SHOP_GIFT_KINDS,
   SHOP_GIFT_UNLOCK_CODE,
+  cardGiftMenu,
   freeByKind,
   judgeQuoteGifts,
   shopGiftPacksFrom,
+  type CardGiftOption,
   type EventHolds,
   type ShopGiftKind,
   type ShopGiftPack,
@@ -536,4 +538,18 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
     };
     return left.credits + left.plus + left.pro > 0 ? [{ ...h, ...left }] : [];
   });
+}
+
+/**
+ * 🎁 The Gift dropdown on a service card (owner 2026-11-07): every pack on the live catalogue, each saying whether the
+ * shop's stock covers one now. `null` only when no pack can be read at all — the dropdown then offers No gift and the
+ * Setnayan gift, never a list it cannot honour. An unread STOCK keeps the packs, listed as not pickable (never zeros).
+ */
+export async function fetchCardGiftMenu(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<CardGiftOption[] | null> {
+  const [packs, stock] = await Promise.all([fetchShopGiftPacks(admin), fetchShopGiftStock(admin, vendorProfileId)]);
+  if (!packs || packs.length === 0) return null;
+  return cardGiftMenu(packs, freeByKind(stock));
 }

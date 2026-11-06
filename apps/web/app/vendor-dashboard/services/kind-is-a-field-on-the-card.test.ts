@@ -347,17 +347,28 @@ test('the full list is searchable, and says so when nothing matches', () => {
   assert.match(src, /Nothing matches/, 'an empty search result says nothing at all');
 });
 
-test('every other field lives under More settings, and it starts shut', () => {
+test('the creation page asks six fields; every other field lives under More settings on the SAVED card, shut', () => {
   const src = read(MAKER);
+  // The owner-approved maker (2026-11-07): Name · Specialties · Price · What's included · Extras · Gift · Photos on the
+  // surface, in that order; More settings (every other fold) waits for the card to exist — and is all still there.
+  const surface = ['data="name"', 'data="price"', 'data="included"', 'data="extras"', 'data="gift"', 'data="photos"'];
+  let prev = -1;
+  for (const f of surface) {
+    const i = src.search(new RegExp(`<Topic\\s+${f}`));
+    assert.ok(i > prev, `the surface's ${f} topic is missing or out of the approved order`);
+    prev = i;
+  }
   const at = src.indexOf('data="more"');
-  assert.ok(at > 0, 'More settings is gone');
+  assert.ok(at > prev, 'More settings is gone, or no longer follows the surface');
+  assert.match(src.slice(src.lastIndexOf('{isEdit ? (', at), at), /^\{isEdit \? \(\s*<div[^>]*>\s*<Fold\s*$/, 'More settings is back on the creation page');
   const head = src.slice(src.lastIndexOf('<Fold', at), at + 300);
   // Since 2026-11-04 More settings is CONTROLLED (its first open plays the reveal sweep — owner "see all animating then
   // return back to the first one which is price"), so "starts shut" is the state's initial value, not `defaultOpen`.
   assert.match(head, /open=\{moreOpen\}/, 'More settings stopped reading its one open state');
   assert.match(src, /const \[moreOpen, setMoreOpen\] = useState\(discountSeed !== null\);/, 'More settings opens by itself — the wall coming back one row lower');
   // The prototype's folds, in its order (makerMore()).
-  const folds = ['m-price', 'm-disc', 'm-inc', 'm-addons', 'm-gift', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-details', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
+  // Price · more, Add-ons and the Setnayan gift moved to the surface (the Price · more pill, Extras, Gift).
+  const folds = ['m-disc', 'm-inc', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-details', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
   let last = at;
   for (const f of folds) {
     const i = src.indexOf(`data="${f}"`);

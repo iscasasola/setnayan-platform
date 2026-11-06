@@ -24,9 +24,19 @@ import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SupplierType } from '@/lib/service-card-maker';
+import type { CardGiftOption } from '@/lib/shop-gifts';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 
 const VP = '00000000-0000-4000-8000-0000000000bb';
+
+/**
+ * 🎁 The Gift dropdown's shop packs, as `fetchCardGiftMenu` would hand them in: one the stock covers, one it cannot.
+ * Unlocks only — a Papic pack's credit count is the live catalogue's and is never typed, even in a lab.
+ */
+const LAB_CARD_GIFTS: CardGiftOption[] = [
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, line: 'Unlocks Event Plus on their event', ok: true, why: null },
+  { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', kind: 'event_pro', credits: 1, line: 'Unlocks Event Pro on their event', ok: false, why: 'Not enough in your stock · buy first' },
+];
 
 type Shop = {
   name: string;
@@ -281,6 +291,7 @@ export default async function CardMakerLabPage({
         editing={fx?.editing ?? null}
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
+        cardGifts={LAB_CARD_GIFTS}
       />
   );
 
@@ -295,10 +306,8 @@ export default async function CardMakerLabPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
-      <div className="mb-2 flex min-h-11 items-center gap-2">
-        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
-        <h1 className="text-[17px] font-semibold tracking-tight text-ink">{isEdit ? shop.edit.title : 'New service'}</h1>
-      </div>
+      {/* As the real pages draw it since 2026-11-07: no page title — the maker's pinned row and surface say it. */}
+      <h1 className="sr-only">{isEdit ? shop.edit.title : 'New service'}</h1>
       {maker}
     </div>
   );

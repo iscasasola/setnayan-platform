@@ -326,3 +326,43 @@ export function stockSubline(stock: ShopGiftStock | null): string {
   const held = stock.held > 0 ? ` · ${giftCount(stock.held)} on sent quotes` : '';
   return `${giftCount(free)} free to offer${held}`;
 }
+
+/**
+ * 🎁 ONE CHOICE IN A SERVICE CARD'S Gift DROPDOWN (owner 2026-11-07, DECISION_LOG "THE FOUR MAKERS ARE APPROVED").
+ * The card maker's Gift is one dropdown: No gift · Setnayan gift · the shop's own packs. A card ADVERTISES a gift —
+ * there is no booking total yet, so the 40% limit is judged where it always is, on the quote; what a card can say is
+ * only whether the stock can cover ONE of the pack right now ("buy first" — the quote menu's own words).
+ */
+export type CardGiftOption = {
+  code: string;
+  title: string;
+  kind: ShopGiftKind;
+  /** Papic credits ONE pack adds — or 1 for an unlock. From the catalogue, never typed. */
+  credits: number;
+  /** What the pack gives — `giftPackLine`, e.g. "1,000 Papic credits" · "Unlocks Event Plus on their event". */
+  line: string;
+  /** False ⇒ listed, not pickable, with `why`. */
+  ok: boolean;
+  why: string | null;
+};
+
+/** The shop's packs as Gift-dropdown choices. `free` null (stock unread) lists every pack as not pickable, saying so. */
+export function cardGiftMenu(packs: readonly ShopGiftPack[], free: FreeByKind | null): CardGiftOption[] {
+  return packs.map((p) => {
+    const base = { code: p.code, title: p.title, kind: p.kind, credits: p.credits, line: giftPackLine(p) };
+    if (free === null) return { ...base, ok: false, why: 'Couldn’t read your gifts right now' };
+    if ((free[p.kind] ?? 0) < p.credits) return { ...base, ok: false, why: 'Not enough in your stock · buy first' };
+    return { ...base, ok: true, why: null };
+  });
+}
+
+/** The couple's headline for a card that offers ONE pack — the quote's own `coupleGiftHeadline`, never re-worded. */
+export function cardGiftHeadline(
+  gift: Pick<CardGiftOption, 'kind' | 'credits' | 'title'>,
+  shopName: string | null | undefined,
+): string {
+  return (
+    coupleGiftHeadline(gift.kind === 'papic' ? gift.credits : 0, shopName, gift.kind === 'papic' ? [] : [gift.title]) ??
+    gift.title
+  );
+}

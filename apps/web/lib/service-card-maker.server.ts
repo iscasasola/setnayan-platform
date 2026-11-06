@@ -29,6 +29,8 @@ import {
 } from '@/lib/service-card-maker';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchCardGiftMenu } from '@/lib/shop-gifts.server';
+import type { CardGiftOption } from '@/lib/shop-gifts';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import type { CategoryGroup, MakerEditing, MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
@@ -77,6 +79,11 @@ export type MakerContext = {
   /** A covered kind the shop has exactly one of — the maker pre-picks it. */
   onlyKind: string | null;
   kindLabel: (kind: string) => string;
+  /**
+   * 🎁 The Gift dropdown's shop packs (owner 2026-11-07) — each with whether the stock covers one now. `null` = none
+   * could be read; the dropdown then offers No gift and the Setnayan gift only.
+   */
+  cardGifts: CardGiftOption[] | null;
 };
 
 export async function loadMakerContext(
@@ -86,7 +93,7 @@ export async function loadMakerContext(
 ): Promise<MakerContext> {
   const withKindList = opts.withKindList ?? true;
 
-  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes] = await Promise.all([
+  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, cardGifts] = await Promise.all([
     supabase.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     getCoverageTaxonomy().catch(() => [] as CoverageParent[]),
@@ -101,6 +108,8 @@ export async function loadMakerContext(
       .from('vendor_schedule_pool_categories')
       .select('category_key, pool_id')
       .eq('vendor_profile_id', vendorProfileId),
+    // Owner-scoped by the session's profile id; the stock RPC is service-role (as on the quote composer).
+    fetchCardGiftMenu(createAdminClient(), vendorProfileId).catch(() => null),
   ]);
   const coverageLabels = await resolveCoverageLabels().catch(() => null);
 
@@ -290,6 +299,7 @@ export async function loadMakerContext(
     leaves,
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,
     kindLabel,
+    cardGifts,
   };
 }
 
@@ -348,7 +358,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,card_gift_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -436,6 +446,7 @@ export async function loadCardForEdit(
     sourceWasOtherCategory: false,
     title: c.title?.trim() || '',
     includesSetnayanGift: c.includes_setnayan_gift === true,
+    cardGiftCode: typeof c.card_gift_code === 'string' && c.card_gift_code.length > 0 ? c.card_gift_code : null,
     coverageId: str(c.coverage_id),
     crewSize: str(c.crew_size),
     recommendedLeadTimeMonths: str(c.recommended_lead_time_months),

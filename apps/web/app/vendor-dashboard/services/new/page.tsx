@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { NewServiceMaker } from './_components/new-service-maker';
@@ -46,13 +44,9 @@ export default async function NewServiceCardPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6">
-      <div className="mb-2 flex min-h-11 items-center gap-2">
-        <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
-          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-          Shop
-        </Link>
-        <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
-      </div>
+      {/* No page title (owner-approved maker 2026-11-07): the maker's pinned row names the service, its surface names the
+          card, and its Cancel goes back to Shop. The heading stays for a screen reader. */}
+      <h1 className="sr-only">New service</h1>
       <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} />
     </div>
   );

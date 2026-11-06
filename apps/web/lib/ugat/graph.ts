@@ -2248,6 +2248,17 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'vendor_proposal_shop_gifts', column: 'credits' },
+      // 🎁 A CARD can carry one of the shop's gifts too (owner 2026-11-07, the card maker's Gift dropdown): the pack's
+      // catalogue code only — no price, no count (both read from the catalogue). It ADVERTISES; stock still leaves only
+      // through the quote door above. Written by writeCardShopGift (services/actions.ts) after save_vendor_service.
+      { kind: 'column', table: 'vendor_services', column: 'card_gift_code' },
+      {
+        kind: 'check',
+        table: 'vendor_services',
+        name: 'vendor_services_card_gift_code_is_a_gift',
+        mentions: 'card_gift_code',
+      },
+      { kind: 'no_column', table: 'vendor_services', column: 'card_gift_price_php' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],

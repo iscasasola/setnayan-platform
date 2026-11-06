@@ -81,7 +81,7 @@ export function nextHref(t: SupplierNextTarget): string {
       return href;
     }
     case 'review': {
-      const href = `/vendor-dashboard/reviews#reply_${t.reviewId}`;
+      const href = `/vendor-dashboard/website#reply_${t.reviewId}`;
       return href;
     }
     case 'proposals': {

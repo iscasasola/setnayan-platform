@@ -8,10 +8,11 @@ export type ShopTool = { href: string; label: string; sub: string };
 export type ShopToolShelf = { key: string; label: string; tools: ShopTool[] };
 
 export const TOOLS_COUPLES_SEE: ShopTool[] = [
-  { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
+  // 💬 Reviews left this shelf 2026-11-06 (owner, "ONE HOME FOR EVERY PROMOTE TOOL"): read + reply in place on Shop ›
+  // Page › Reviews and stories; `/vendor-dashboard/reviews` forwards there.
   { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
-  { href: '/vendor-dashboard/real-stories', label: 'Stories', sub: 'Editorial features starring your work.' },
-  { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
+  // 📣 Stories + Recaps left this shelf 2026-11-06 (owner, "ONE HOME FOR EVERY PROMOTE TOOL"): they live in Shop ›
+  // Promote › Share your work, and their old routes forward there.
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   // 🔴 ADDED 2026-08-06 — /vendor-dashboard/activities shipped 2026-07-28 with
   // NO doorway anywhere in the repo: no <Link>, no router.push, no redirect, no

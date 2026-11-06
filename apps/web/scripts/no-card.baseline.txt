@@ -603,7 +603,6 @@
 2 apps/web/app/vendor-dashboard/proposals/surface.tsx
 1 apps/web/app/vendor-dashboard/real-stories/page.tsx
 2 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
-2 apps/web/app/vendor-dashboard/reviews/page.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
 2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/coverage-panel.tsx

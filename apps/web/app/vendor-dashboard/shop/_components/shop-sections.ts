@@ -42,7 +42,7 @@ export const SHOP_SEGMENT_HINT: Readonly<Record<ShopSegment, string>> = {
   details: 'Name · what you do · documents',
   services: 'Cards · tools · scanner, set once',
   page: 'What couples see',
-  promote: 'QR codes · gifts for couples',
+  promote: 'QR codes · prints · gifts · share your work',
   gallery: 'Photos and videos · albums',
   insights: 'How you stand · what to improve · badges',
 };

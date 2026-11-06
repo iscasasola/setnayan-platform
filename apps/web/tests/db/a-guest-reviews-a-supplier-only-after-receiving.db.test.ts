@@ -1,5 +1,5 @@
 /**
- * 🎟⭐ A GUEST'S OPTIONAL REVIEW AFTER "RECEIVED" — asserted against the DATABASE (migration 20271319343516; DECISION_LOG
+ * 🎟⭐ A GUEST'S OPTIONAL REVIEW AFTER "RECEIVED" — asserted against the DATABASE (migration 20271323347634; DECISION_LOG
  * 2026-09-25 "AFTER A GUEST RECEIVES A SUPPLIER'S ITEM, AN OPTIONAL REVIEW CAN POP UP ON THEIR EVENT HUB").
  *
  *   1 · only a guest with a RECEIVED claim for that service may review it (a supplier claim, or the souvenir row a

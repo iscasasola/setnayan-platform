@@ -153,15 +153,14 @@ export function ServicePicker({
         style={{ borderColor: 'var(--m-line)' }}
       >
         <Search aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
-        {/* type="text", not "search": the browser's own search ✕ drew a second clear button beside the one below. */}
+        {/* The browser's own search ✕ is hidden: it drew a second clear button beside the one below. */}
         <input
-          type="text"
+          type="search"
           inputMode="search"
-          enterKeyHint="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search what you do — e.g. photographer, catering"
-          className="w-full bg-transparent text-sm outline-none"
+          className="w-full bg-transparent text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
           aria-label="Search services"
         />
         {query ? (
@@ -220,7 +219,7 @@ export function ServicePicker({
                 onClick={() => setOpenParent(p.folderId)}
                 aria-label={p.label}
                 title={p.label}
-                className="flex min-h-10 items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left text-[13px] leading-tight"
+                className="flex min-h-10 items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left text-[13px] leading-tight" // no-card-ok: a pressable group tile — this line is a <button>'s own className
                 style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
               >
                 <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />

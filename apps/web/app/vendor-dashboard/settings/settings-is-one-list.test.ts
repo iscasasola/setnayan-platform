@@ -58,9 +58,12 @@ test('More tools is the shelves, minus Team, plus Manpower and (web only) Deep S
   assert.ok(!tools.includes('/vendor-dashboard/team'), 'Team is doubled — Helpers is its own Settings row');
   assert.ok(tools.includes('/vendor-dashboard/shop?open=manpower#shop-folds'));
   assert.ok(tools.includes('/vendor-dashboard/deep-search'));
-  // 16 = the prototype's fifteen + "Questions for the couple" (owner 2026-11-04, "Yes, every supplier": every trade
-  // writes a question set, so every shop gets the doorway — `lib/questions-for-every-supplier.test.ts`).
-  assert.equal(tools.length, 16, 'the prototype’s fifteen + Questions for the couple, with every grant');
+  // 13 = the prototype's fifteen + "Questions for the couple" (owner 2026-11-04, "Yes, every supplier": every trade
+  // writes a question set, so every shop gets the doorway — `lib/questions-for-every-supplier.test.ts`), less Stories
+  // and Recaps (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL": they live in Shop › Promote › Share your work now),
+  // less Reviews (same ruling: read + replied in place on Shop › Page › Reviews and stories).
+  assert.equal(tools.length, 13, 'the prototype’s fifteen + Questions for the couple, less Stories, Recaps and Reviews, with every grant');
+  for (const gone of ['/vendor-dashboard/real-stories', '/vendor-dashboard/recaps', '/vendor-dashboard/reviews']) assert.ok(!tools.includes(gone), `${gone} is still in More tools`);
   assert.ok(!all({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: true }).includes('/vendor-dashboard/deep-search'));
 });
 

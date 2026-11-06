@@ -309,7 +309,6 @@
 4 apps/web/app/vendor-dashboard/proposals/surface.tsx
 3 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
 3 apps/web/app/vendor-dashboard/repertoire/page.tsx
-1 apps/web/app/vendor-dashboard/reviews/page.tsx
 2 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
 2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/customization-step.tsx
@@ -325,5 +324,6 @@
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
 1 apps/web/app/vendor-dashboard/team/_components/helpers-view.tsx
 1 apps/web/app/vendor-dashboard/website/_components/page-parts.tsx
+1 apps/web/app/vendor-dashboard/website/_components/review-replies.tsx
 1 apps/web/app/wall/[eventId]/_components/wall-claim.tsx
 1 apps/web/components/thumb-row.tsx

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1747
-# tables: 452
-# columns: 5579
-# notnull: 3372
+# ledger: 1754
+# tables: 455
+# columns: 5601
+# notnull: 3387
 [ledger]
 20260512000000
 20260513000000
@@ -1757,8 +1757,15 @@
 20271309211124
 20271309260178
 20271309403755
+20271309527923
 20271311598756
 20271311895322
+20271313372071
+20271314066142
+20271314517155
+20271314842518
+20271315529466
+20271316174617
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1951,6 +1958,16 @@ booking_fee_charges.source
 booking_fee_charges.status
 booking_fee_charges.updated_at
 booking_fee_charges.vendor_profile_id
+booking_fee_disputes.charge_id
+booking_fee_disputes.created_at
+booking_fee_disputes.decided_at
+booking_fee_disputes.decided_by_user_id
+booking_fee_disputes.decision_note
+booking_fee_disputes.dispute_id
+booking_fee_disputes.opened_by_user_id
+booking_fee_disputes.reason
+booking_fee_disputes.status
+booking_fee_disputes.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.attribution_frozen_at
 booking_fee_ledger.attribution_thread_id
@@ -2989,6 +3006,11 @@ event_question_answers.answered_by
 event_question_answers.event_id
 event_question_answers.question_id
 event_question_answers.updated_at
+event_question_requests.event_id
+event_question_requests.first_sent_at
+event_question_requests.sent_at
+event_question_requests.thread_id
+event_question_requests.vendor_profile_id
 event_recaps.created_at
 event_recaps.event_id
 event_recaps.published_at
@@ -3291,6 +3313,13 @@ event_vendor_deposit_refusals.refusal_id
 event_vendor_deposit_refusals.refused_at
 event_vendor_deposit_refusals.refused_by_user_id
 event_vendor_deposit_refusals.vendor_name
+event_vendor_found.event_id
+event_vendor_found.first_found_at
+event_vendor_found.first_source
+event_vendor_found.found_at_claim_at
+event_vendor_found.last_viewed_at
+event_vendor_found.vendor_profile_id
+event_vendor_found.view_count
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.due_date
@@ -7456,6 +7485,11 @@ booking_fee_charges.source
 booking_fee_charges.status
 booking_fee_charges.updated_at
 booking_fee_charges.vendor_profile_id
+booking_fee_disputes.charge_id
+booking_fee_disputes.created_at
+booking_fee_disputes.dispute_id
+booking_fee_disputes.status
+booking_fee_disputes.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.created_at
 booking_fee_ledger.fee_paid_total_centavos
@@ -8115,6 +8149,10 @@ event_question_answers.answer
 event_question_answers.event_id
 event_question_answers.question_id
 event_question_answers.updated_at
+event_question_requests.event_id
+event_question_requests.first_sent_at
+event_question_requests.sent_at
+event_question_requests.vendor_profile_id
 event_recaps.created_at
 event_recaps.event_id
 event_recaps.recap_id
@@ -8296,6 +8334,12 @@ event_vendor_deposit_refusals.closed_by
 event_vendor_deposit_refusals.event_vendor_id
 event_vendor_deposit_refusals.refusal_id
 event_vendor_deposit_refusals.refused_at
+event_vendor_found.event_id
+event_vendor_found.first_found_at
+event_vendor_found.first_source
+event_vendor_found.last_viewed_at
+event_vendor_found.vendor_profile_id
+event_vendor_found.view_count
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.event_id

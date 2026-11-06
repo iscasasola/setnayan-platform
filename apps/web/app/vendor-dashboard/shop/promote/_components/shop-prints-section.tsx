@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronRight, Printer, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -20,17 +20,24 @@ import {
   PRINT_SCENES,
   PRINT_SCENE_DIR,
   PRINTS_API,
+  PRINT_BLOCKS,
+  PRINT_PURPOSE,
+  PERSONAL_CARD_PURPOSE,
   groundCss,
   matrix3d,
   printDesign,
   printFilename,
   printHref,
+  type PrintBlock,
   type PrintDesign,
   type PrintPiece,
+  type PrintPurpose,
   type PrintQrMode,
   type PrintScene,
   type PrintSide,
 } from '@/lib/supplier-prints';
+import type { PrintMember } from '@/lib/supplier-prints-svg';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🖨 PRINTS — Shop › Promote part 3 (owner APPROVED the 15 looks, 5 Nov 2026: "perfect"; prototype
@@ -53,8 +60,17 @@ import {
 
 /** The route that draws every picture and file — `/api/vendor/prints`; a /dev lab hands in its fixture route. */
 const ArtBase = createContext<string>(PRINTS_API);
+/**
+ * The blocks `On your prints ▾` switched off (PRINTS BY PURPOSE AND SIZE, owner 2026-11-06) — every picture, every
+ * photo and every Save asks the ONE renderer with them (`printHref({ hide })`), so what is seen is what prints.
+ */
+const Hidden = createContext<readonly PrintBlock[]>([]);
 
-type Big = { kind: 'piece'; piece: PrintPiece } | { kind: 'scene'; scene: PrintScene } | null;
+/** `who: 'me'` = the signed-in member's own calling card (owner 2026-11-06, "Yes"). */
+type Big = { kind: 'piece'; piece: PrintPiece; who?: 'me' } | { kind: 'scene'; scene: PrintScene } | null;
+
+const ON_YOUR_PRINTS =
+  'ONE place for every content block, on every piece. Switch a block off and it leaves every print that carried it. A small piece never carries more than its size allows, whatever is switched on. Your name and the QR are always on. A block with nothing behind it (no reviews yet, no photo, no logo) simply is not printed — never a zero, never an empty box. No prices, phones or emails are ever printed.';
 
 const BADGE_FACTS_API = '/api/vendor/badges?view=facts';
 const BADGE_PRINT_API = '/api/vendor/badges?badge=all';
@@ -67,12 +83,15 @@ export function ShopPrintsSection({
   setupHref,
   artBase = PRINTS_API,
   badgeFactsUrl = BADGE_FACTS_API,
+  member = null,
 }: {
   canShare: boolean;
   setupHref: string;
   artBase?: string;
   /** Where the badge piece reads the shop's badges — the real route unless a /dev lab hands in a data: URI. */
   badgeFactsUrl?: string;
+  /** The signed-in member's own card (their account name + Team label) — null = no name yet, so no card is offered. */
+  member?: PrintMember | null;
 }) {
   const [open, setOpen] = useState(false);
   const headingId = useId();
@@ -97,20 +116,27 @@ export function ShopPrintsSection({
       </div>
       {canShare ? (
         <ArtBase.Provider value={artBase}>
-          <PrintsSheet open={open} onClose={() => setOpen(false)} badgeFactsUrl={badgeFactsUrl} />
+          <PrintsSheet open={open} onClose={() => setOpen(false)} badgeFactsUrl={badgeFactsUrl} member={member} />
         </ArtBase.Provider>
       ) : null}
     </section>
   );
 }
 
-function PrintsSheet({ open, onClose, badgeFactsUrl }: { open: boolean; onClose: () => void; badgeFactsUrl: string }) {
+function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; onClose: () => void; badgeFactsUrl: string; member: PrintMember | null }) {
   const titleId = useId();
   const toast = useToast();
   const [designId, setDesignId] = useState<string>(DEFAULT_PRINT_DESIGN);
   const [qr, setQr] = useState<PrintQrMode>(DEFAULT_PRINT_QR);
+  const [hidden, setHidden] = useState<PrintBlock[]>([]);
   const [big, setBig] = useState<Big>(null);
   const d = printDesign(designId) ?? PRINT_DESIGNS[0]!;
+  const onKeys = PRINT_BLOCKS.filter((b) => !hidden.includes(b.key)).map((b) => b.key);
+  const toggleBlock = (k: string) => {
+    const key = k as PrintBlock;
+    setHidden((h) => (h.includes(key) ? h.filter((x) => x !== key) : [...h, key]));
+  };
+  const card = PRINT_PIECES.find((p) => p.id === 'card')!;
 
   const pickDesign = (k: string) => {
     if (k === designId) return;
@@ -139,9 +165,10 @@ function PrintsSheet({ open, onClose, badgeFactsUrl }: { open: boolean; onClose:
       title={big ? undefined : 'Prints'}
       back={big ? { label: 'Prints', onBack: () => setBig(null) } : undefined}
     >
-      <div className="pb-8" data-prints-sheet={d.id} data-prints-qr={qr}>
+      <Hidden.Provider value={hidden}>
+      <div className="pb-8" data-prints-sheet={d.id} data-prints-qr={qr} data-prints-hide={hidden.join(',')}>
         {big?.kind === 'piece' ? (
-          <BigPiece piece={big.piece} d={d} qr={qr} titleId={titleId} />
+          <BigPiece piece={big.piece} d={d} qr={qr} titleId={titleId} member={big.who === 'me' ? member : null} />
         ) : big?.kind === 'scene' ? (
           <BigScene scene={big.scene} d={d} qr={qr} titleId={titleId} />
         ) : (
@@ -185,6 +212,24 @@ function PrintsSheet({ open, onClose, badgeFactsUrl }: { open: boolean; onClose:
                   options={PRINT_QR_ORDER.map((k) => ({ key: k, label: PRINT_QR[k].sub ? `${PRINT_QR[k].t} · ${PRINT_QR[k].sub}` : PRINT_QR[k].t, hint: `“${PRINT_QR[k].cap}”` }))}
                 />
               </label>
+              <div className="col-span-2 block min-w-0" data-prints-blocks="">
+                <span className="block text-[11px] text-ink/60">
+                  <InfoTip label="On your prints" labelClassName="text-[11px] text-ink/60" ariaLabel="About On your prints" align="start">
+                    {ON_YOUR_PRINTS}
+                  </InfoTip>
+                </span>
+                <PickMenu
+                  label="On your prints"
+                  value={null}
+                  picked={onKeys}
+                  buttonText={`${formatCount(onKeys.length)} of ${formatCount(PRINT_BLOCKS.length)} blocks`}
+                  dataAttr="data-prints-blocks-pick"
+                  className="!min-h-11 w-full"
+                  onPick={toggleBlock}
+                  doneNote="Always on: your name · the QR."
+                  options={PRINT_BLOCKS.map((b) => ({ key: b.key, label: b.label, hint: b.from === 'earned' ? 'earned, never set' : b.from }))}
+                />
+              </div>
             </div>
 
             <div className="mt-5 flex items-center gap-2 px-4">
@@ -196,20 +241,25 @@ function PrintsSheet({ open, onClose, badgeFactsUrl }: { open: boolean; onClose:
             <ul className="mt-1" data-prints-list="">
               {PRINT_PIECES.map((p) => (
                 <li key={p.id} className="border-b border-ink/10 px-4 pb-4 pt-2" data-prints-piece={p.id}>
-                  <div className="mb-2 flex items-center gap-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[15px] font-medium leading-tight text-ink">
-                        {p.name} <span className="font-normal text-ink/60">· {p.size}</span>
-                      </div>
-                      <div className="text-[12.5px] leading-snug text-ink/60">{p.line}</div>
-                    </div>
-                    <SaveButton piece={p} d={d} qr={qr} small />
-                  </div>
+                  <PieceHead name={p.name} size={p.size} purpose={PRINT_PURPOSE[p.id]} action={<SaveButton piece={p} d={d} qr={qr} small />} />
                   <button type="button" onClick={() => setBig({ kind: 'piece', piece: p })} aria-label={`See ${p.name} big`} className="sn-press block w-full">
                     <PiecePicture piece={p} d={d} qr={qr} />
                   </button>
                 </li>
-              ))}
+              )).flatMap((li, i) =>
+                // 🪪 YOUR OWN CARD — beside the shop's card, for the signed-in member only (owner 2026-11-06, "Yes")
+                PRINT_PIECES[i]!.id === 'card' && member
+                  ? [
+                      li,
+                      <li key="card-me" className="border-b border-ink/10 px-4 pb-4 pt-2" data-prints-piece="card-me">
+                        <PieceHead name="Your own card" size={card.size} purpose={PERSONAL_CARD_PURPOSE} action={<SaveButton piece={card} d={d} qr={qr} small member={member} />} />
+                        <button type="button" onClick={() => setBig({ kind: 'piece', piece: card, who: 'me' })} aria-label="See your own card big" className="sn-press block w-full">
+                          <PiecePicture piece={card} d={d} qr={qr} member={member} />
+                        </button>
+                      </li>,
+                    ]
+                  : [li],
+              )}
             </ul>
             <BadgesPiece open={open} factsUrl={badgeFactsUrl} />
 
@@ -234,16 +284,42 @@ function PrintsSheet({ open, onClose, badgeFactsUrl }: { open: boolean; onClose:
           </>
         )}
       </div>
+      </Hidden.Provider>
     </Sheet>
   );
 }
 
-function SaveButton({ piece, d, qr, small = false }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; small?: boolean }) {
+/** A piece's head: name · size, its purpose as the one visible line, the rest (what it carries, type and QR sizes) in its ⓘ. */
+function PieceHead({ name, size, purpose, action }: { name: string; size: string; purpose: PrintPurpose; action: ReactNode }) {
+  return (
+    <div className="mb-2 flex items-center gap-2.5">
+      <div className="min-w-0 flex-1">
+        <div className="text-[15px] font-medium leading-tight text-ink">
+          {name} <span className="font-normal text-ink/60">· {size}</span>
+        </div>
+        <InfoTip label={purpose.purpose} labelClassName="text-[12.5px] leading-snug text-ink/60" ariaLabel={`About ${name}`} align="start">
+          <b className="font-medium">{purpose.what}</b>
+          <span className="mt-1 block">Carries:</span>
+          <ul className="mt-0.5 list-disc pl-4">
+            {purpose.carries.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <span className="mt-1 block">{purpose.type}</span>
+        </InfoTip>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function SaveButton({ piece, d, qr, small = false, member = null }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; small?: boolean; member?: PrintMember | null }) {
   const base = useContext(ArtBase);
+  const hide = useContext(Hidden);
   return (
     <SaveFileLink
-      href={printHref({ piece: piece.id, design: d.id, qr, save: true, base })}
-      filename={printFilename(piece, d)}
+      href={printHref({ piece: piece.id, design: d.id, qr, save: true, base, hide, who: member ? 'me' : undefined })}
+      filename={printFilename(piece, d, member?.name)}
       className={
         small
           ? 'sn-press inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink'
@@ -263,13 +339,14 @@ function SaveButton({ piece, d, qr, small = false }: { piece: PrintPiece; d: Pri
   );
 }
 
-function Art({ piece, side, d, qr, className = '' }: { piece: PrintPiece; side: PrintSide; d: PrintDesign; qr: PrintQrMode; className?: string }) {
+function Art({ piece, side, d, qr, className = '', member = null }: { piece: PrintPiece; side: PrintSide; d: PrintDesign; qr: PrintQrMode; className?: string; member?: PrintMember | null }) {
   const base = useContext(ArtBase);
+  const hide = useContext(Hidden);
   return (
     // eslint-disable-next-line @next/next/no-img-element -- an SVG drawn per request for the signed-in shop; nothing for next/image to optimise
     <img
-      src={printHref({ piece: piece.id, side, design: d.id, qr, base })}
-      alt={`${piece.name}${piece.sides === 2 ? (side === 'f' ? ' · front' : ' · back') : ''} · ${d.name}`}
+      src={printHref({ piece: piece.id, side, design: d.id, qr, base, hide, who: member && side === 'f' ? 'me' : undefined })}
+      alt={`${member ? `${member.name} · ` : ''}${piece.name}${piece.sides === 2 ? (side === 'f' ? ' · front' : ' · back') : ''} · ${d.name}`}
       width={1000}
       height={Math.round(1000 / piece.ratio)}
       loading="lazy"
@@ -281,11 +358,11 @@ function Art({ piece, side, d, qr, className = '' }: { piece: PrintPiece; side: 
 }
 
 /** The gallery picture: the card's two sides side by side; a tall piece narrower, as the prototype sizes them. */
-function PiecePicture({ piece, d, qr }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode }) {
+function PiecePicture({ piece, d, qr, member = null }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; member?: PrintMember | null }) {
   if (piece.sides === 2) {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <Art piece={piece} side="f" d={d} qr={qr} />
+        <Art piece={piece} side="f" d={d} qr={qr} member={member} />
         <Art piece={piece} side="b" d={d} qr={qr} />
       </div>
     );
@@ -298,11 +375,11 @@ function PiecePicture({ piece, d, qr }: { piece: PrintPiece; d: PrintDesign; qr:
   );
 }
 
-function BigPiece({ piece, d, qr, titleId }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; titleId: string }) {
+function BigPiece({ piece, d, qr, titleId, member = null }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; titleId: string; member?: PrintMember | null }) {
   return (
-    <div className="px-4" data-prints-big={piece.id}>
+    <div className="px-4" data-prints-big={member ? 'card-me' : piece.id}>
       <h2 id={titleId} className="text-[18px] font-medium text-ink">
-        {piece.name}
+        {member ? 'Your own card' : piece.name}
         <small className="block text-[12.5px] font-normal text-ink/60">
           {piece.size} · {d.name} · seen {piece.view}
         </small>
@@ -311,7 +388,7 @@ function BigPiece({ piece, d, qr, titleId }: { piece: PrintPiece; d: PrintDesign
         {piece.sides === 2 ? (
           <>
             <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-ink/60">Front</p>
-            <Art piece={piece} side="f" d={d} qr={qr} />
+            <Art piece={piece} side="f" d={d} qr={qr} member={member} />
             <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-ink/60">Back</p>
             <Art piece={piece} side="b" d={d} qr={qr} />
           </>
@@ -322,7 +399,7 @@ function BigPiece({ piece, d, qr, titleId }: { piece: PrintPiece; d: PrintDesign
         )}
       </div>
       <div className="mt-3">
-        <SaveButton piece={piece} d={d} qr={qr} />
+        <SaveButton piece={piece} d={d} qr={qr} member={member} />
       </div>
       <p className="mt-2 text-[13px] text-ink/60">
         Print-ready, 3 mm bleed, exact size. Your QR: {PRINT_QR[qr].t} — “{PRINT_QR[qr].cap}”.
@@ -357,6 +434,7 @@ function BigScene({ scene, d, qr, titleId }: { scene: PrintScene; d: PrintDesign
 function Scene({ scene, d, qr, height }: { scene: PrintScene; d: PrintDesign; qr: PrintQrMode; height?: number }) {
   const [W, H] = scene.size;
   const base = useContext(ArtBase);
+  const hide = useContext(Hidden);
   const box = useRef<HTMLDivElement>(null);
   const [k, setK] = useState(0);
   useEffect(() => {
@@ -389,7 +467,7 @@ function Scene({ scene, d, qr, height }: { scene: PrintScene; d: PrintDesign; qr
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- the same drawing the gallery shows */}
                 <img
-                  src={printHref({ piece: p.id, side: s.side, design: d.id, qr, base })}
+                  src={printHref({ piece: p.id, side: s.side, design: d.id, qr, base, hide })}
                   alt=""
                   loading="lazy"
                   decoding="async"

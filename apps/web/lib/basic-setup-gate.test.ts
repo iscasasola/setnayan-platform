@@ -44,7 +44,7 @@ const NO_ADDRESS = holdFor(shop({ hq_address: null, logo_url: null }));
 
 test('1 · an incomplete shop is held on the shop pages — services, the shop page, money', () => {
   assert.ok(NO_ADDRESS, 'an incomplete shop is not held');
-  assert.deepEqual(NO_ADDRESS!.missing, ['logo', 'maps_pin']);
+  assert.deepEqual(NO_ADDRESS!.missing, ['maps_pin'], 'the logo is counted — it gates going live, not the shop pages');
   for (const p of [
     '/vendor-dashboard/shop',
     '/vendor-dashboard/services/abc',
@@ -58,7 +58,31 @@ test('1 · an incomplete shop is held on the shop pages — services, the shop p
     assert.equal(pageIsHeld(p, NO_ADDRESS), true, `${p} is not held`);
   }
   assert.equal(pageIsHeld('/vendor-dashboard/customers', NO_ADDRESS, 'money'), true, 'Money is not held');
-  assert.equal(basicSetupLine(NO_ADDRESS!), 'Left: Logo · Company address.');
+  assert.equal(basicSetupLine(NO_ADDRESS!), 'Left: Company address.');
+});
+
+test('1 · 🖼 the logo gates going live, not the shop pages — owner 2026-11-06, "Yes, logo gates live"', () => {
+  // Only the logo missing → NOT held anywhere: a brand-new shop reaches Shop and makes its first service card.
+  const onlyLogo = shop({ logo_url: null });
+  assert.equal(businessProfileChecklist(onlyLogo).complete, false, 'the checklist still counts the logo (going live reads it)');
+  assert.equal(holdFor(onlyLogo), null, 'a shop missing only its logo is held');
+  for (const p of ['/vendor-dashboard/shop', '/vendor-dashboard/services/new', '/vendor-dashboard/website']) {
+    assert.equal(pageIsHeld(p, holdFor(onlyLogo)), false, `${p} is held over the logo alone`);
+  }
+  // Another item missing (with or without the logo) → held exactly as before, and the line never names the logo.
+  const noPhone = holdFor(shop({ logo_url: null, contact_phone: null }));
+  assert.ok(noPhone, 'a shop missing its contact number is not held');
+  assert.deepEqual(noPhone!.missing, ['contact_phone']);
+  assert.equal(pageIsHeld('/vendor-dashboard/services/new', noPhone), true);
+  assert.equal(basicSetupLine(noPhone!), 'Left: Contact number.');
+});
+
+test('1 · 🖼 going live still asks for the logo — verification reads the WHOLE checklist', () => {
+  const verification = src('lib/vendor-verification.ts');
+  assert.match(verification, /if \(!input\.profileComplete\) missing\.push\(input\.onlyLogoMissing \? 'Add your logo' : 'Finish your business profile'\);/);
+  const firstSteps = src('lib/vendor-first-steps.server.ts');
+  assert.match(firstSteps, /profileComplete: profileChecklist\.complete,/, 'going live stopped reading the whole checklist');
+  assert.match(src('lib/vendor-profile.ts'), /\{ key: 'logo', label: L\.logo, surface: 'profile', ok: !!profile\?\.logo_url\?\.trim\(\) \}/);
 });
 
 test('1 · 🔑 the exceptions stay open — the setup itself, the events she runs, chat, the account', () => {

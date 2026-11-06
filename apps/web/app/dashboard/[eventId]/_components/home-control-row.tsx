@@ -275,6 +275,7 @@ function DetailCard({
         );
       }
       const invite = input.next.kind === 'invite' && g.toInvite > 0;
+      const seats = tile.faces.find((f) => f.id === 'guests-unseated' || f.id === 'guests-seats-unread');
       return (
         <Shell k="guests" door={`/dashboard/${e}/guests`} brand={`${formatCount(g.total)} on the list`} today={today}>
           <Dot mood={g.total === 0 || g.toInvite > 0 ? 'wait' : 'ok'}>
@@ -298,6 +299,15 @@ function DetailCard({
               <Link href={`/dashboard/${e}/guests?q=declined`} className="hc-fig">
                 <b><Count value={g.declined} id="home-guests-declined" /></b> can’t come
               </Link>
+              {/* 🪑 Seats (R4 → Guests › Seats) — the phone tile's own face, so both draw one fact. */}
+              {seats ? (
+                <>
+                  <span aria-hidden className="hc-sep">·</span>
+                  <Link href={seats.href} className="hc-fig" data-home-fig={seats.id}>
+                    <b>{seats.big}</b> {seats.id === 'guests-seats-unread' ? 'seats · couldn’t load' : seats.unit}
+                  </Link>
+                </>
+              ) : null}
             </span>
           ) : null}
           {invite || g.total === 0 ? (
@@ -394,6 +404,7 @@ function DetailCard({
       }
       const first = s.toDecide[0];
       const decide = tile.faces.find((f) => f.id === 'sup-decide');
+      const board = tile.faces.find((f) => f.id === 'sup-inspiration' || f.id === 'sup-inspiration-unread');
       return (
         <Shell k="sup" door={`/dashboard/${e}/vendors`} brand={`${formatCount(s.booked)} of ${formatCount(s.of)} booked`} today={today}>
           <Dot mood={first ? 'wait' : s.booked >= s.of ? 'ok' : 'plain'}>
@@ -407,6 +418,14 @@ function DetailCard({
             <span className="sg-status" data-glance-status="">
               <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig">
                 <b>{formatCount(s.replied)}</b> replied · waiting on you
+              </Link>
+            </span>
+          ) : null}
+          {/* 💡 The inspiration board (R5 → Suppliers › Find) — the phone tile's own face. */}
+          {board ? (
+            <span className="sg-status" data-glance-status="">
+              <Link href={board.href} className="hc-fig" data-home-fig={board.id}>
+                <b>{board.big}</b> {board.unit} · {board.sm}
               </Link>
             </span>
           ) : null}

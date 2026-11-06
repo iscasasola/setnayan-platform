@@ -74,7 +74,43 @@ export type ReviewRow = {
    * fixtures that predate it still compile; every read selects it.
    */
   service_id?: string | null;
+  /**
+   * "Shown as" (prototype 6 Nov § 2): the couple's full name, or their initials derived from it at read. Optional in
+   * the type so fixtures that predate it still compile; absent reads as 'names' — what every review showed before.
+   */
+  reviewer_display?: ReviewerDisplay | null;
 };
+
+/** How the couple is named on their review (`vendor_reviews.reviewer_display`). No anonymous choice (owner, 6 Nov). */
+export type ReviewerDisplay = 'names' | 'initials';
+
+export function parseReviewerDisplay(raw: unknown): ReviewerDisplay {
+  return raw === 'initials' ? 'initials' : 'names';
+}
+
+/**
+ * "Ana & Miguel" → "A. & M."; "Maria Santos and Jose Cruz" → "M. & J."; "The Reyes Family" → "T. R. F.". Derived at
+ * read from `events.display_name`, never stored, so a renamed event stays right. Blank → null (the caller's fallback).
+ */
+export function coupleInitials(name: string | null | undefined): string | null {
+  const t = (name ?? '').trim();
+  if (!t) return null;
+  const parts = t.split(/\s*(?:&|\+|\band\b)\s*/i).map((p) => p.trim()).filter(Boolean);
+  const letter = (w: string) => (w.match(/\p{L}|\p{N}/u)?.[0] ?? '').toUpperCase();
+  if (parts.length >= 2) {
+    const ls = parts.map((p) => letter(p)).filter(Boolean);
+    return ls.length > 0 ? ls.map((l) => `${l}.`).join(' & ') : null;
+  }
+  const ls = t.split(/\s+/).map(letter).filter(Boolean);
+  return ls.length > 0 ? ls.map((l) => `${l}.`).join(' ') : null;
+}
+
+/** The name a review shows: the couple's name, or its initials when they chose "Shown as" initials. */
+export function shownCoupleName(name: string | null | undefined, display: ReviewerDisplay | null | undefined): string | null {
+  const t = (name ?? '').trim();
+  if (!t) return null;
+  return display === 'initials' ? coupleInitials(t) : t;
+}
 
 export type ReviewWithCouple = ReviewRow & {
   couple_display_name: string | null;
@@ -94,7 +130,7 @@ export type ReviewStatsRow = {
 };
 
 const REVIEW_COLUMNS =
-  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import,service_id';
+  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import,service_id,reviewer_display';
 
 export type FetchReviewsOpts = {
   limit?: number;
@@ -200,7 +236,7 @@ export async function fetchReviewsForVendorWithCouple(
 
        Written as an explicit branch rather than a cast so the null case is a
        decision a reader can see, not a silenced compiler complaint. */
-    couple_display_name: r.event_id ? (names.get(r.event_id) ?? null) : null,
+    couple_display_name: r.event_id ? shownCoupleName(names.get(r.event_id) ?? null, r.reviewer_display) : null,
     service_title: r.service_id ? (titles.get(r.service_id) ?? null) : null,
   }));
 }
@@ -255,7 +291,7 @@ export async function fetchReviewForVendorWithCouple(
   const names = await resolveCoupleDisplayNames(supabase, [row.event_id]);
   return {
     ...row,
-    couple_display_name: row.event_id ? (names.get(row.event_id) ?? null) : null,
+    couple_display_name: row.event_id ? shownCoupleName(names.get(row.event_id) ?? null, row.reviewer_display) : null,
   };
 }
 
@@ -449,6 +485,8 @@ export type CreateReviewArgs = {
   body: string | null;
   /** The card this review is for — already checked to be THIS shop's by the caller. */
   serviceId?: string | null;
+  /** "Shown as" — names (default) or initials. */
+  reviewerDisplay?: ReviewerDisplay;
 };
 
 /**
@@ -536,6 +574,7 @@ export async function createReview(
       booked_through_setnayan: bookedThroughSetnayan,
       via_vendor_import: viaVendorImport,
       service_id: args.serviceId ?? null,
+      reviewer_display: args.reviewerDisplay ?? 'names',
     })
     .select('review_id')
     .single();
@@ -767,4 +806,31 @@ export function formatEventTypeLabel(eventType: string | null): string {
     .split(/[_\s]+/)
     .map((w) => (w.length === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ');
+}
+
+/** One card's hosts' number — `vendor_service_trusted_review_stats` (the shop's own arm's-length filter, per card). */
+export type CardHostReviewStats = { count: number; average: number };
+
+/**
+ * The hosts' trusted number per service card of one shop (prototype 6 Nov § 4). Server-only view → the admin client.
+ * `null` = the read was refused: the caller draws no hosts' line on any card rather than "no reviews" (an honest read).
+ */
+export async function fetchCardHostReviewStats(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Map<string, CardHostReviewStats> | null> {
+  const { data, error } = await admin
+    .from('vendor_service_trusted_review_stats')
+    .select('service_id, trusted_review_count, trusted_avg_rating')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    console.error('[supabase-error] lib/reviews.ts · from:vendor_service_trusted_review_stats.select', error);
+    return null;
+  }
+  const m = new Map<string, CardHostReviewStats>();
+  for (const r of (data ?? []) as Array<{ service_id: string | null; trusted_review_count: number | null; trusted_avg_rating: number | string | null }>) {
+    const count = Number(r.trusted_review_count ?? 0);
+    if (r.service_id && count > 0) m.set(r.service_id, { count, average: Number(r.trusted_avg_rating ?? 0) });
+  }
+  return m;
 }

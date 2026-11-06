@@ -13,6 +13,7 @@
  *   ?m=ask       the couple asked to book — "They asked to book" on the answer line, the panel open: fee BEFORE Agree
  *   ?m=agreed    …pressed Agree, the fee held the couple's news back — the live sentence and its Pay door
  *   ?m=quote     Send a quote — the one-screen quote, open   &gifts=1 · &gifts=over · &gifts=short (Gifts from you)
+ *                &gifts=plus (their event has Event Plus · this one makes it Pro) · &gifts=pro (their event has Pro)
  *   ?m=full      the couple's date is full — no "Yes po, that day is free"
  *   &booked=1    the couple already booked you — every tool open
  *
@@ -50,6 +51,38 @@ import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { QuestionsSendBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/questions-send-panel';
 import { startersForTiles } from '@/lib/emcee-questions';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { SupplierChats, type SupplierChatsRead } from '@/app/vendor-dashboard/messages/_components/supplier-chats';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
+
+/** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
+function labChatsRead(state: string): SupplierChatsRead {
+  if (state === 'refused') return { kind: 'refused' };
+  if (state === 'empty') return { kind: 'read', rows: [], unreadMeasured: true, complete: true };
+  const row = (id: string, name: string, eventLine: string, preview: string, timeLabel: string, unread: boolean, archived = false) => ({
+    threadId: id,
+    href: `/dev/supplier-chat-lab?m=tools`,
+    name,
+    logoUrl: null,
+    preview,
+    timeLabel,
+    unread,
+    eventLine,
+    archived,
+    archive: <ThreadArchiveToggle threadId={id} returnTo="/dev/supplier-chat-lab?m=chats" archived={archived} />,
+  });
+  return {
+    kind: 'read',
+    rows: [
+      row('lab-c1', "Ana's Wedding (Dec 12)", '', 'Is the garden buffet still free that day?', '2m', true),
+      row('lab-c2', "Bea's Debut (Jan 24, 2027)", '', 'You: Sent you the quote po — 150 pax.', '1h', false),
+      row('lab-c3', "Carlo's Wedding (Feb 14, 2027)", '', 'Can we add the coffee bar?', 'Mon', true),
+      row('lab-c4', "Dina's Christening (Nov 30)", '', 'Thank you! See you on the day.', 'Oct 28', false),
+      row('lab-c5', "Eli's Anniversary (Mar 2, 2027)", '', 'You: Booked — see you!', 'Sep 9', false, true),
+    ],
+    unreadMeasured: true,
+    complete: state !== 'partial',
+  };
+}
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
@@ -71,6 +104,16 @@ export default async function SupplierChatLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const m = typeof sp.m === 'string' ? sp.m : 'tools';
+  // ?m=chats — the supplier's full-screen Chats inbox (owner 2026-11-06), the REAL `SupplierChats` in the real shell.
+  // &state=refused · &state=empty · &state=partial draw the honest states.
+  if (m === 'chats') {
+    const state = typeof sp.state === 'string' ? sp.state : 'rows';
+    return (
+      <SupplierLabShell measure="own" page="/vendor-dashboard/messages">
+        <SupplierChats read={labChatsRead(state)} viewerId="lab-supplier" />
+      </SupplierLabShell>
+    );
+  }
   const booked = sp.booked === '1';
   const inquiry = m === 'inquiry';
   const askOpen = m === 'ask';
@@ -96,14 +139,18 @@ export default async function SupplierChatLabPage({
                 packs: shopGiftPacksFrom([
                   { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
                   { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
+                  // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
+                  { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+                  { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
                 ]),
                 schedule: BOOKING_FEE,
-                free: sp.gifts === 'short' ? 400 : 2150,
+                free: { papic: sp.gifts === 'short' ? 400 : 2150, event_plus: 2, event_pro: 1 },
+                eventHas: sp.gifts === 'plus' ? 'plus' : sp.gifts === 'pro' ? 'pro' : 'none',
               }
             : null
         }
         shopGiftsBuy={sp.gifts ? { paysGiftPrice: true, openRails: [{ id: 'gcash', label: 'GCash' }] } : null}
-        labGiftCodes={sp.gifts === 'over' ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K'] : sp.gifts ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_150'] : undefined}
+        labGiftCodes={sp.gifts === 'over' ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K'] : sp.gifts === 'plus' || sp.gifts === 'pro' ? ['PAPIC_GUEST_150', 'EVENT_PLUS'] : sp.gifts ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_150'] : undefined}
         savedQuotes={[{ id: 'tpl-garden', name: 'Garden wedding 150' }]}
         askedCardId="card-buffet"
         todayIso={TODAY}

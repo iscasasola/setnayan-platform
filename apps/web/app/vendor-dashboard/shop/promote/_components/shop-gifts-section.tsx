@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
-import { Gift, ShoppingBag } from 'lucide-react';
+import { Gift, ShoppingBag, Sparkles } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { Counter } from '@/app/_components/counter';
 import { Fold } from '@/app/_components/fold';
@@ -19,8 +19,9 @@ import {
   SHOP_GIFT_MAX_QUANTITY,
   giftUnitPrice,
   stockSubline,
+  type ShopGiftKind,
   type ShopGiftPack,
-  type ShopGiftStock,
+  type ShopGiftStocks,
 } from '@/lib/shop-gifts';
 import {
   buyVendorPapicPortfolioPack,
@@ -31,6 +32,7 @@ import {
 export type ShopGiftBoughtLine = {
   orderId: string;
   title: string;
+  kind?: ShopGiftKind;
   quantity: number;
   paidPhp: number;
   createdAt: string;
@@ -39,7 +41,7 @@ export type ShopGiftBoughtLine = {
 
 export type ShopGiftsSectionData = {
   /** null ⇒ the stock could not be read — no Buy is offered against a number nobody read. */
-  stock: ShopGiftStock | null;
+  stock: ShopGiftStocks | null;
   /** null ⇒ the catalogue could not be read; [] ⇒ nothing on sale. */
   packs: ShopGiftPack[] | null;
   /** Verified-and-up pays the catalogue's gift price (`vendor_pays_gift_price`). */
@@ -53,6 +55,7 @@ export type ShopGiftsSectionData = {
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
 const ic = <Gift aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const icUnlock = <Sparkles aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 
 function day(iso: string): string {
   const d = new Date(iso);
@@ -72,6 +75,7 @@ const STATE_WORD: Record<ShopGiftBoughtLine['state'], string | null> = {
  *
  *   Your gifts ⓘ                      (title; everything else in the ⓘ)
  *   Papic credits · N free to offer · M on sent quotes          [balance]
+ *   Event Plus · Event Pro — the same row, as COUNTS (slice 2, 2026-11-05), each once it is on sale or in stock
  *   [Buy gifts]                        → the Buy sheet: Gift ▾ · How many − n + · Total · Pay with ▾ · Pay ₱X
  *   Bought ▾                           qty × title · date · ₱ (Checking / Refunded when so)
  *   the quiet line                     where gifts go, in one sentence
@@ -101,9 +105,25 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           data="shop-gifts-papic"
           lead={ic}
           title="Papic credits"
-          line={stockSubline(stock)}
-          strong={stock ? formatCount(stock.balance) : null}
+          line={stockSubline(stock?.papic ?? null)}
+          strong={stock ? formatCount(stock.papic.balance) : null}
         />
+        {(['event_plus', 'event_pro'] as const).map((k) => {
+          const pack = packs.find((p) => p.kind === k);
+          const s = stock?.[k] ?? null;
+          // A count is shown once the product is on sale or the shop holds some — never a row for nothing.
+          if (!pack && !(s && (s.balance !== 0 || s.held > 0))) return null;
+          return (
+            <DatesRow
+              key={k}
+              data={`shop-gifts-${k.replace('_', '-')}`}
+              lead={icUnlock}
+              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : 'Event Pro')}
+              line={stockSubline(s)}
+              strong={stock ? formatCount(s?.balance ?? 0) : null}
+            />
+          );
+        })}
 
         {canOffer ? (
           <div className="mt-3">
@@ -122,6 +142,19 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
             Gifts are not on sale right now.
           </p>
         ) : null}
+
+        {/* 🎁 NEXT EVENT WITH US (prototype 6 Nov § 6, "one new row") — what a couple who booked you gets when they book
+            you again. NOTHING CAN BE SET YET (coordinator, 6 Nov: show the state honestly, invent no gift): there is no
+            offer store and no claim on a later booking, so the row says so instead of opening a sheet that saves
+            nowhere. The host thank-you (§ 3) draws no offer block for the same reason. */}
+        <div className="mt-3" data-shop-gifts-next-event="">
+          <DatesRow
+            data="shop-gifts-next-event"
+            lead={ic}
+            title="Next event with us"
+            line="Not set · can’t be set here yet"
+          />
+        </div>
 
         <div className="mt-3 border-t border-ink/10" data-plan-fold="gifts-bought">
           <Fold
@@ -255,7 +288,9 @@ export function BuyGiftsSheet({
             <div className="space-y-1 border-t border-ink/10 pt-3 text-[14px]" data-shop-gifts-sum="">
               <p className="flex justify-between">
                 <span className="text-ink/70">You get</span>
-                <span className="tabular-nums">{formatCount(pack.credits * qty)} credits</span>
+                <span className="tabular-nums">
+                  {pack.kind === 'papic' ? `${formatCount(pack.credits * qty)} credits` : `${formatCount(qty)} × ${pack.title}`}
+                </span>
               </p>
               {unit.basis === 'gift' ? (
                 <p className="flex justify-between" data-shop-gifts-srp="">

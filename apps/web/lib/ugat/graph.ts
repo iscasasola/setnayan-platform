@@ -2278,6 +2278,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       },
       // Stock is credits, never a price.
       { kind: 'no_column', table: 'shop_gift_stock_entries', column: 'price_php' },
+      // 💎 Slice 2 (2026-11-05): Event Plus / Event Pro gifts are units in the same ledger; a given one names the
+      // product the EVENT received (a second Plus becomes Pro) — read by event_comp_active_skus / event_has_comp_for_sku.
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'unlocks_sku' },
       { kind: 'table', table: 'vendor_proposal_shop_gifts' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },

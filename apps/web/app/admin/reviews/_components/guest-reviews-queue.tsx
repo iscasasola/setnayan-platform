@@ -2,7 +2,7 @@ import { ShieldCheck } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ReadFailed } from '../../_components/read-failed';
 import type { AdminGuestReviewRow, AdminGuestReviewsRead } from '@/lib/guest-reviews';
-import { setGuestReviewVisibility } from '../actions';
+import { dismissReviewFlag } from '../actions';
 
 /**
  * ⭐ GUEST REVIEWS — newest 50, every shop, hidden ones included (marked). Owner ruling A (6 Nov): public at once, no
@@ -51,7 +51,9 @@ function GuestReviewAdminRow({ row }: { row: AdminGuestReviewRow }) {
         {row.service_title ? <p>For {row.service_title}</p> : null}
         {row.line ? <p className="text-sm text-ink">&ldquo;{row.line}&rdquo;</p> : <p className="italic">Stars only.</p>}
       </div>
-      <form action={setGuestReviewVisibility}>
+      {/* `kind=guest_visibility`: the guest half of the moderator's one "does this review stay" action. */}
+      <form action={dismissReviewFlag}>
+        <input type="hidden" name="kind" value="guest_visibility" />
         <input type="hidden" name="review_id" value={row.review_id} />
         <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
         <SubmitButton className="button-secondary inline-flex min-h-11 items-center px-3 text-xs" pendingLabel="Saving…">

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { createReview, isHostReviewer, type ReviewAxis } from '@/lib/reviews';
+import { createReview, isHostReviewer, parseReviewerDisplay, type ReviewAxis } from '@/lib/reviews';
 import {
   parseSelfReviewBlock,
   SELF_REVIEW_SIGNALS,
@@ -239,6 +239,8 @@ export async function submitCoupleReview(formData: FormData) {
       ratings,
       body,
       serviceId,
+      // "Shown as" (6 Nov § 2): names unless the couple picked initials; anything else reads as names.
+      reviewerDisplay: parseReviewerDisplay(formData.get('reviewer_display')),
     });
     createdReviewId = created.review_id;
   } catch (err) {
@@ -342,7 +344,9 @@ export async function submitCoupleReview(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
-  redirect(`/dashboard/${eventId}/vendors?reviewed=${eventVendorId}`);
+  // 💌 THE THANK-YOU (prototype 6 Nov § 3): the same route, `?sent=1`. It used to land on the Suppliers list with a
+  // `?reviewed=` nothing read — no thank-you, no sign of the review.
+  redirect(`/dashboard/${eventId}/vendors/${eventVendorId}/review?sent=1`);
 }
 
 /**
@@ -599,6 +603,9 @@ export async function coupleReportNonDelivery(formData: FormData) {
  * key so re-submitting edits the one-line endorsement instead of erroring.
  */
 export async function recommendVendor(formData: FormData) {
+  // 🔀 ONE ROUTE FOR THE TOGGLE (server-action budget, PR #7337): Withdraw posts here with `mode=withdraw`, the
+  // way the reply and visibility actions fold their guest halves — one exported action per on/off pair.
+  if (formData.get('mode') === 'withdraw') return withdrawRecommendation(formData);
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -677,8 +684,9 @@ export async function recommendVendor(formData: FormData) {
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=on`);
 }
 
-/** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. */
-export async function withdrawRecommendation(formData: FormData) {
+/** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. Reached through `recommendVendor`
+ *  with `mode=withdraw` — not exported, so it is not a route of its own. */
+async function withdrawRecommendation(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { customerLandingHref } from '../../customers/anchors';
+import { customerLandingHref, SUPPLIER_CHATS_HREF } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -2209,7 +2209,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF,
       node: null,
     },
     {
@@ -2328,7 +2328,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat

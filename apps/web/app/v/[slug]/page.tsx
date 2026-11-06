@@ -14,6 +14,7 @@ import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { SampleShopMarker } from '@/app/_components/sample-marker';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
@@ -51,7 +52,9 @@ import {
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
   toServiceCard,
+  withCardReviews,
   withCoupleLooks,
+  type CardReviews,
   type CoupleLook,
   type ServiceShowcaseMedia,
 } from '@/lib/service-card-view-model';
@@ -145,7 +148,8 @@ import {
   ReviewGroupHead,
   type ReviewCardLink,
 } from './_components/review-groups';
-import { readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
+import { readCardGuestReviewStats, readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
+import { buildCardReviews } from '@/lib/card-reviews';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
@@ -163,6 +167,7 @@ import {
   pinReviewFirst,
   fetchReviewStats,
   fetchTrustedReviewStats,
+  fetchCardHostReviewStats,
   fetchVendorCompletedEvents,
   formatStarRating,
   formatTrackRecordMonth,
@@ -962,6 +967,10 @@ export async function renderVendorBySlug({
   const guestReviewsPromise: Promise<GuestReviewsRead> = readGuestReviewsForVendor(admin, vendor.vendor_profile_id, {
     limit: 20,
   }).catch((): GuestReviewsRead => ({ state: 'refused' }));
+  // ⭐ EACH CARD'S OWN NUMBERS (prototype 6 Nov § 4 / § 9) — the hosts' (the shop's trusted filter, per card) and the
+  // guests' own. A refused read is `null`: that kind of line is simply not drawn on any card, never "0 reviews".
+  const cardHostStatsPromise = fetchCardHostReviewStats(admin, vendor.vendor_profile_id).catch(() => null);
+  const cardGuestStatsPromise = readCardGuestReviewStats(admin, vendor.vendor_profile_id).catch(() => null);
   const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
@@ -1416,6 +1425,17 @@ export async function renderVendorBySlug({
   const guestReviews = await guestReviewsPromise;
   const guestReviewPhotoUrls =
     guestReviews.state === 'rows' ? await resolveGuestReviewPhotoUrls(guestReviews.rows) : new Map<string, string>();
+  const [cardHostStats, cardGuestStats] = await Promise.all([cardHostStatsPromise, cardGuestStatsPromise]);
+  const reviewsByService: Map<string, CardReviews> = buildCardReviews({
+    serviceIds: activeServices.map((s) => s.vendor_service_id),
+    hostStats: cardHostStats,
+    guestStats: cardGuestStats,
+    hostReviews: orderedReviews,
+    guestRows: guestReviews.state === 'rows' ? guestReviews.rows : [],
+    guestPhotoUrls: guestReviewPhotoUrls,
+    // "read all" lands on this page's own "From guests" group (coordinator, 6 Nov).
+    readAllHref: '#guest-reviews',
+  });
 
   // ── SUPPLIER WEBSITE BY PLAN (owner-approved 2026-10-30) — the card column's plan pieces ─────────────────────────
   // Reach: the plan's ring (lib/vendor-tier-caps.ts serviceRadiusKm) clamping the shop's own outer ring — the SAME
@@ -2453,6 +2473,10 @@ export async function renderVendorBySlug({
                 ) : null}
               </>
             )}
+            {/* 🧪 SAMPLE SHOP (owner, 6 Nov 2026: "They are demo shops. The only real shop is the wedding planner.") —
+                a shop marked `is_demo` says so beside its name, in the sample event's own chip
+                (app/_components/sample-marker.tsx). Outside the cinematic branch, so a flagship's card says it too. */}
+            {isDemoVendor ? <SampleShopMarker /> : null}
             {/* "✓ Verified" — Fable E1 (FABLE_Public_Marketplace_Spec § 3.5).
                 Gated on the SAME column this route's own 404-gate uses at :769 —
                 `verification_state` — and deliberately NOT on `public_visibility`.
@@ -3137,6 +3161,7 @@ export async function renderVendorBySlug({
             }
             openServicePublicId={openServicePublicId}
             inspirationByService={inspirationByService}
+            reviewsByService={reviewsByService}
           />
         ) : null}
 
@@ -3615,6 +3640,7 @@ function ServicesPricingSection({
   inquireMode,
   openServicePublicId,
   inspirationByService,
+  reviewsByService,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -3662,6 +3688,8 @@ function ServicesPricingSection({
   openServicePublicId: string | null;
   /** 🔗🖼 Each live card's approved inspiration looks (`looksByCard`). `null` = unread → cards are drawn as before. */
   inspirationByService: Map<string, ShopInspirationLook[]> | null;
+  /** ⭐ Each live card's own reviews (`buildCardReviews`) — absent for a card with none. */
+  reviewsByService: ReadonlyMap<string, CardReviews>;
 }) {
   /*
     ── SUP-14 · A CARD SITS UNDER ITS REAL TRADE ────────────────────────────
@@ -3738,7 +3766,7 @@ function ServicesPricingSection({
           coverUrlByService.get(row.vendor_service_id) ?? null,
         ),
         couplePhotosByService.get(row.vendor_service_id),
-      )),
+      )).map((card) => withCardReviews(card, reviewsByService.get(card.id))),
     });
   }
 

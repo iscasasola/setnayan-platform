@@ -56,9 +56,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, Lock, Search, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import { coversByRow, tileForCategory, type CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
+import { coverKeyForTile, coversByRow, tileForCategory, type CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import type { VendorCategory } from '@/lib/vendors';
 import { loadCoverCatalog } from '../vendors/actions';
 import { moveSupplierToCategory } from '../vendors/[vendorId]/workspace/actions';
@@ -67,7 +68,7 @@ import { moveConfirmLine } from '@/lib/move-supplier-category';
 type Offered = { key: string; tile: string; label: string; group: string };
 
 /** The list's search box — one drawing for both lists (also covers · move). */
-function SearchHead({ query, onQuery, empty }: { query: string; onQuery: (q: string) => void; empty: boolean }) {
+function SearchHead({ query, onQuery, empty, word = 'categories' }: { query: string; onQuery: (q: string) => void; empty: boolean; word?: 'categories' | 'services' }) {
   return (
     <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5">
       <div className="relative">
@@ -77,13 +78,13 @@ function SearchHead({ query, onQuery, empty }: { query: string; onQuery: (q: str
           inputMode="search"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Search categories"
-          aria-label="Search categories"
+          placeholder={word === 'services' ? 'Search services' : 'Search categories'}
+          aria-label={word === 'services' ? 'Search services' : 'Search categories'}
           data-covers-search=""
         />
       </div>
       {empty ? (
-        <p className="px-3 pt-2 text-[12px] text-ink/55">No category matches “{query.trim()}”.</p>
+        <p className="px-3 pt-2 text-[12px] text-ink/55">{word === 'services' ? 'Nothing by that name.' : `No category matches “${query.trim()}”.`}</p>
       ) : null}
     </li>
   );
@@ -105,6 +106,7 @@ export function ServicesCoveredPicker({
   onChange,
   move,
   onMoved,
+  lines,
 }: {
   eventId: string;
   /** The booking's own `event_vendors.category` — its row is locked, never offered. */
@@ -123,10 +125,47 @@ export function ServicesCoveredPicker({
   move?: { vendorId: string; name: string; claimAsk?: boolean };
   /** The card's own row changed (a move, or its Undo). */
   onMoved?: (tile: string) => void;
+  /**
+   * THE ADD SHEET'S SERVICES (owner 2026-11-07, makers-match § 1 — *"we only see services and not categories … if they
+   * created this under a specific service, then that will automatically be generated but they can add more other
+   * services. via drop down. and multiple select."*). The same list, drawn as ONE multi-select of service names with
+   * no category headings; the row the sheet was opened from arrives ticked; each picked service is a line that swipes
+   * left to remove, with Undo. The FIRST line is the supplier's own row (`onHome` — the sheet files them under it),
+   * the rest post as `covers`, exactly as the "Also covers" ticks always did. Nothing new is stored.
+   */
+  lines?: { onHome: (tile: string | null) => void };
 }) {
-  const [ownTile, setOwnTile] = useState<string | null>(
-    () => homeTile ?? tileForCategory(category as VendorCategory),
+  if (lines) {
+    return (
+      <ServiceLines
+        eventId={eventId}
+        category={category}
+        homeTile={homeTile}
+        ownLabel={ownLabel}
+        catalog={given}
+        disabled={disabled}
+        onHome={lines.onHome}
+      />
+    );
+  }
+  return (
+    <AlsoCoversPicker
+      eventId={eventId}
+      category={category}
+      homeTile={homeTile}
+      ownLabel={ownLabel}
+      catalog={given}
+      initialSelected={initialSelected}
+      disabled={disabled}
+      onChange={onChange}
+      move={move}
+      onMoved={onMoved}
+    />
   );
+}
+
+/** The Suppliers page's rows for this event — handed in, else read once (`loadCoverCatalog`). */
+function useCoverCatalog(eventId: string, given: readonly CoverCatalogFolder[] | undefined) {
   const [fetched, setFetched] = useState<readonly CoverCatalogFolder[] | 'loading' | 'failed'>('loading');
   const hasGiven = given !== undefined;
   useEffect(() => {
@@ -144,7 +183,176 @@ export function ServicesCoveredPicker({
       live = false;
     };
   }, [eventId, hasGiven]);
-  const read = given ?? fetched;
+  return given ?? fetched;
+}
+
+function ServiceLines({
+  eventId,
+  category,
+  homeTile,
+  ownLabel,
+  catalog: given,
+  disabled,
+  onHome,
+}: {
+  eventId: string;
+  category: string;
+  homeTile?: string | null;
+  ownLabel: string;
+  catalog?: readonly CoverCatalogFolder[];
+  disabled?: boolean;
+  onHome: (tile: string | null) => void;
+}) {
+  const read = useCoverCatalog(eventId, given);
+  /** The row the sheet was opened from — said on its line. */
+  const [openedFrom] = useState<string | null>(() => homeTile ?? tileForCategory(category as VendorCategory));
+  /** The picked services, in order; [0] is the supplier's own row. */
+  const [picked, setPicked] = useState<string[]>(() => (openedFrom ? [openedFrom] : []));
+  const [query, setQuery] = useState('');
+  const [toast, setToast] = useState<{ n: number; text: string; undo: () => void } | null>(null);
+
+  const folders = read === 'loading' || read === 'failed' ? null : read;
+  // One flat list of service names — no category headings (owner 2026-11-07: "we don't need these"). A row the page
+  // draws in two folders is offered once.
+  const every = useMemo<Offered[]>(() => {
+    const seen = new Set<string>();
+    const out: Offered[] = [];
+    for (const f of folders ?? []) {
+      for (const o of f.options) {
+        if (seen.has(o.tile)) continue;
+        seen.add(o.tile);
+        out.push({ ...o, group: f.label });
+      }
+    }
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  }, [folders]);
+  const labelOf = (tile: string) => every.find((o) => o.tile === tile)?.label ?? (tile === openedFrom ? ownLabel : tile);
+  const keyOf = (tile: string) => every.find((o) => o.tile === tile)?.key ?? coverKeyForTile(tile);
+  const q = query.trim().toLowerCase();
+  const shown = q ? every.filter((o) => o.label.toLowerCase().includes(q)) : every;
+
+  const home = picked[0] ?? null;
+  useEffect(() => {
+    onHome(home);
+  }, [home, onHome]);
+
+  function toggle(tile: string) {
+    if (disabled) return;
+    setPicked((cur) => (cur.includes(tile) ? cur.filter((t) => t !== tile) : [...cur, tile]));
+  }
+  function remove(tile: string) {
+    const at = picked.indexOf(tile);
+    if (at < 0) return;
+    setPicked((cur) => cur.filter((t) => t !== tile));
+    setToast({
+      n: Date.now(),
+      text: `${labelOf(tile)} removed`,
+      undo: () => {
+        setToast(null);
+        setPicked((cur) => (cur.includes(tile) ? cur : [...cur.slice(0, at), tile, ...cur.slice(at)]));
+      },
+    });
+  }
+
+  const n = picked.length;
+  return (
+    <div className="space-y-2" data-services-covered="" data-service-lines="">
+      {/* The rest post as "also covers" — the first line is the row the supplier is filed under (`onHome`). */}
+      {picked.slice(1).map((tile) => (
+        <input key={tile} type="hidden" name="covers" value={keyOf(tile)} />
+      ))}
+
+      {read === 'loading' ? (
+        <p className="text-[12px] text-ink/55" data-covers-loading="">
+          Loading services…
+        </p>
+      ) : read === 'failed' ? (
+        <p role="alert" className="text-[12px] text-danger-900" data-covers-failed="">
+          The list of services did not load. The one you opened this from is kept — close this and open it again to add
+          more.
+        </p>
+      ) : (
+        <PickMenu
+          label="Services"
+          value={null}
+          picked={picked}
+          buttonText={n > 0 ? `${n} ${n === 1 ? 'service' : 'services'} · ${picked.map(labelOf).join(', ')}` : 'Pick their services'}
+          dataAttr="data-service-pick"
+          doneNote="Tick all that apply."
+          head={<SearchHead word="services" query={query} onQuery={setQuery} empty={q.length > 0 && shown.length === 0} />}
+          options={shown.map((o) => ({ key: o.tile, label: o.label }))}
+          onPick={toggle}
+          className="w-full border border-ink/15"
+        />
+      )}
+
+      {n > 0 ? (
+        <ul className="space-y-1" data-service-lines-list="">
+          {picked.map((tile) => (
+            <SwipeToDelete
+              key={tile}
+              as="li"
+              label={`Remove ${labelOf(tile)}`}
+              word="Remove"
+              disabled={disabled}
+              onDelete={() => remove(tile)}
+            >
+              <div className="flex min-h-11 items-center gap-2 border-b border-ink/10 px-1 py-2" data-service-line={tile}>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium text-ink">{labelOf(tile)}</span>
+                  {tile === openedFrom ? (
+                    <span className="block text-[11.5px] text-ink/55">the row you opened this from</span>
+                  ) : null}
+                </span>
+              </div>
+            </SwipeToDelete>
+          ))}
+        </ul>
+      ) : null}
+      {n > 0 ? <p className="text-[11.5px] text-ink/50">Swipe a service left to remove it.</p> : null}
+
+      {toast ? (
+        <PeekToast
+          key={toast.n}
+          tone="ok"
+          data="service-removed"
+          onGone={() => setToast((t) => (t?.n === toast.n ? null : t))}
+          action={{ label: 'Undo', onPress: toast.undo }}
+        >
+          {toast.text}
+        </PeekToast>
+      ) : null}
+    </div>
+  );
+}
+
+function AlsoCoversPicker({
+  eventId,
+  category,
+  homeTile,
+  ownLabel,
+  catalog: given,
+  initialSelected,
+  disabled,
+  onChange,
+  move,
+  onMoved,
+}: {
+  eventId: string;
+  category: string;
+  homeTile?: string | null;
+  ownLabel: string;
+  catalog?: readonly CoverCatalogFolder[];
+  initialSelected: readonly string[];
+  disabled?: boolean;
+  onChange?: (keys: string[]) => void;
+  move?: { vendorId: string; name: string; claimAsk?: boolean };
+  onMoved?: (tile: string) => void;
+}) {
+  const [ownTile, setOwnTile] = useState<string | null>(
+    () => homeTile ?? tileForCategory(category as VendorCategory),
+  );
+  const read = useCoverCatalog(eventId, given);
 
   const [rows, setRows] = useState(() => coversByRow(initialSelected, ownTile));
   const [query, setQuery] = useState('');

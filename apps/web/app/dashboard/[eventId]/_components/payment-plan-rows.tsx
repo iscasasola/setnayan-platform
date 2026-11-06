@@ -41,7 +41,14 @@ import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2, X } from 'lucide-react
 // inspects functions NAMED like converters; the rule is the intent, not the
 // scan's reach.
 import { formatPhp } from '@/lib/php';
-import { PLAN_PRESENT_FIELD, planAmountNumber, planPreviewTotal, type EditablePlanRow } from '@/lib/self-added-payment-plan';
+import {
+  PLAN_PAID_FIELD,
+  PLAN_PRESENT_FIELD,
+  planAmountNumber,
+  planPreviewTotal,
+  planProofField,
+  type EditablePlanRow,
+} from '@/lib/self-added-payment-plan';
 import {
   addsUpLine,
   amountWords,
@@ -56,6 +63,7 @@ import { replotAmounts } from '@/lib/plan-replot';
 import { formatPesoTyping } from '@/lib/peso-as-you-type';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ChosenProofField } from '@/app/_components/chosen-proof-field';
 
 /** The amount type's two choices — the one dropdown (`PickMenu`), as values are (2026-10-12 look sweep). */
 const KIND_OPTIONS = [
@@ -117,6 +125,13 @@ export type DatedPlanSetup = {
   lastReplot?: { fromPhp: number; toPhp: number } | null;
   /** The closed fold's one line ("2 payments · adds up") follows the rows. */
   onLine?: (line: string, warn: boolean) => void;
+  /**
+   * THE ADD SHEET'S "ALREADY PAID" (owner 2026-11-07, makers-match § 1). Each line gets an Already paid tick; ticked,
+   * the shipped proof field opens under it. It posts `plan_paid` per row and the proof as `plan_proof_<i>`, and
+   * `addManualSupplier` logs the line as the same `event_vendor_payments` row a later "log a payment" writes
+   * (`paidAtAddPayments`). The record card does not pass it: there a payment is logged on the Payments tab.
+   */
+  paidAtAdd?: boolean;
 };
 
 export function PaymentPlanRows({
@@ -165,6 +180,9 @@ function DatedPlanRows({
     }),
   );
   const [nextKey, setNextKey] = useState(rows.length);
+  /** The lines ticked "Already paid" (the add sheet only), by row key. */
+  const [paidKeys, setPaidKeys] = useState<ReadonlySet<number>>(() => new Set());
+  const paidAtAdd = setup.paidAtAdd === true;
   /** "Price changed ₱A → ₱B · plan updated" — the newest kept plan, or the re-plot this card just made. */
   const [replot, setReplot] = useState<{ fromPhp: number; toPhp: number } | null>(setup.lastReplot ?? null);
 
@@ -250,6 +268,7 @@ function DatedPlanRows({
               <input type="hidden" name="plan_anchor" value={rule.anchor} />
               <input type="hidden" name="plan_days" value={rule.days} />
               <input type="hidden" name="plan_seq" value={r.seq == null ? '' : String(r.seq)} />
+              {paidAtAdd ? <input type="hidden" name={PLAN_PAID_FIELD} value={paidKeys.has(r.key) ? '1' : ''} /> : null}
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
@@ -312,7 +331,40 @@ function DatedPlanRows({
                   />
                 </span>
               </div>
-              {r.dueIso === '' && !r.settled ? (
+              {paidAtAdd && !r.settled ? (
+                <div className="mt-1.5 space-y-1.5" data-plan-paid-at-add={paidKeys.has(r.key) ? 'paid' : ''}>
+                  <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-[13.5px] font-medium text-ink">
+                    <input
+                      type="checkbox"
+                      checked={paidKeys.has(r.key)}
+                      disabled={disabled}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setPaidKeys((cur) => {
+                          const next = new Set(cur);
+                          if (on) next.add(r.key);
+                          else next.delete(r.key);
+                          return next;
+                        });
+                      }}
+                      className="h-5 w-5 shrink-0 rounded accent-[rgb(var(--color-ok))]"
+                      aria-label={`Payment ${i + 1} already paid`}
+                    />
+                    Already paid
+                  </label>
+                  {paidKeys.has(r.key) ? (
+                    /* The shipped receipt field — the file rides this form to `addManualSupplier`, which files it in the
+                       event's private payment-proof folder (`uploadDepositProof`). Optional: a tick alone logs the
+                       payment. */
+                    <ChosenProofField
+                      name={planProofField(i)}
+                      id={`plan-proof-${r.key}`}
+                      label="Proof of payment (optional — screenshot/receipt)"
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+              {r.dueIso === '' && !r.settled && (!paidAtAdd || r.amount.trim() !== '') ? (
                 <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">Pick the day it is due.</p>
               ) : unreachable ? (
                 <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">
@@ -333,6 +385,7 @@ function DatedPlanRows({
         className={`border-t border-ink/10 pt-2 text-[12.5px] font-medium ${line.off ? 'text-[rgb(var(--color-warn))]' : 'text-ink/65'}`}
       >
         {line.text}
+        {paidAtAdd && rows.some((x) => paidKeys.has(x.key)) ? ` · ${rows.filter((x) => paidKeys.has(x.key)).length} already paid` : ''}
       </p>
     </div>
   );

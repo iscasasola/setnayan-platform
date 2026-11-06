@@ -518,8 +518,8 @@ export function OpenShopWizard({
   const glanceRow = (label: string, value: React.ReactNode) =>
     value ? (
       <div className="flex justify-between gap-2.5 border-t pt-2 text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>
-        <span style={{ color: 'var(--m-slate-3)' }}>{label}</span>
-        <span className="min-w-0 break-words text-right font-medium" style={{ color: 'var(--m-ink)' }}>
+        <span className="shrink-0 whitespace-nowrap" style={{ color: 'var(--m-slate-3)' }}>{label}</span>
+        <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
           {value}
         </span>
       </div>
@@ -1115,7 +1115,7 @@ export function OpenShopWizard({
                 // eslint-disable-next-line @next/next/no-img-element -- a 24h signed R2 URL, not an optimisable asset
                 <img src={logoSrc} alt="" className="h-14 w-14 rounded-full object-cover" />
               ) : null /* no logo slot before the shop opens — the logo is asked after (owner, 6 Nov: "why do i see a logo") */}
-              <span className="text-xl font-semibold leading-[1.1]" style={{ color: shopName.trim() ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
+              <span className="text-xl font-semibold leading-[1.1] [overflow-wrap:anywhere]" style={{ color: shopName.trim() ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
                 {shopName.trim() || 'Your shop name'}
               </span>
               {glanceRow(

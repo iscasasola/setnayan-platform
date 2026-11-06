@@ -9124,6 +9124,8 @@
         "dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/pair-target-picker.tsx",
+        "dashboard/[eventId]/sponsors/_components/sponsor-card.tsx",
+        "dashboard/[eventId]/sponsors/_components/sponsor-swipe.tsx",
         "dashboard/[eventId]/sponsors/actions.ts",
         "dashboard/[eventId]/sponsors/loading.tsx",
         "dashboard/[eventId]/sponsors/page.tsx"
@@ -9137,7 +9139,6 @@
         "addSponsor",
         "formAction",
         "markResponse",
-        "removeSponsor",
         "sendInvitation",
         "updateSponsor"
       ],
@@ -9155,7 +9156,10 @@
         "PairTargetPicker",
         "PrincipalPairRow",
         "SponsorCard",
-        "SubmitButton"
+        "SponsorSwipe",
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/story": {
@@ -12661,6 +12665,17 @@
         "LabSeatListRows",
         "SeatList",
         "UndoToastHost"
+      ]
+    },
+    "/dev/swipe-rows-lab/sponsors": {
+      "files": [
+        "dev/swipe-rows-lab/sponsors/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SponsorCard",
+        "Suspense"
       ]
     },
     "/dev/swipe-rows-lab/suppliers": {

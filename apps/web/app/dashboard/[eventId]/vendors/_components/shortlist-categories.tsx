@@ -233,6 +233,8 @@ import {
   type FindService,
 } from '@/lib/find-service-cards';
 import { FindServicesSheet } from './find-services-sheet';
+import { FindInspirationRow, FindInspirationStrip } from './find-inspiration';
+import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { findSortMenu } from './find-sort-menu';
 import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
 import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
@@ -2869,6 +2871,7 @@ export function ShortlistCategories({
   standings = {},
   findPanel = null,
   onePerEventGroups = [],
+  inspiration = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -3003,6 +3006,11 @@ export function ShortlistCategories({
    * nothing, as before.
    */
   findPanel?: ReactNode;
+  /**
+   * 💡 THE INSPIRATION BOX (owner 2026-10-28, "INSPIRATION LIVES IN SUPPLIERS › FIND", frames A–B): the couple's board
+   * read on the server (`readFindInspiration`). Null → not read for this viewer: no row, no strips.
+   */
+  inspiration?: FindInspiration | null;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -3995,6 +4003,8 @@ export function ShortlistCategories({
           carries at most this line; the per-supplier detail belongs on the
           bench card, in the wide left column where they spend their time. */}
       <BenchRollUp folders={folders} standings={standings} />
+      {/* 💡 A · "Your inspiration board" — the first row of Find; it opens the whole board (`find-inspiration.tsx`). */}
+      {inspiration ? <FindInspirationRow board={inspiration} href={findBoardHref(eventId)} /> : null}
       {replan && stripTiles.length > 0 && coverInHeader ? null : replan && stripTiles.length > 0 ? (
         /* "Covered N of M" — the ring IS the rows below now (owner 2026-10-07:
            one screen; a category unfolds in place). The Coverage Strip's icon
@@ -4463,6 +4473,8 @@ export function ShortlistCategories({
                       ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
+                          {/* 💡 B · the category's Inspiration strip, first — above its suppliers. */}
+                          <FindInspirationStrip board={inspiration} tile={t.tile} href={findBoardHref(eventId)} />
                           {scopedNone && (rowBooked || Boolean(coveredGroup)) ? (
                             <p className="scope-none" role="status">
                               Nobody called “{query.trim()}” in {t.label} yet — add them as your own.
@@ -4889,6 +4901,7 @@ export function ShortlistCategories({
               category={benchRows.find((r) => r.t.tile === servicesSheetTile)?.t.label ?? ''}
               listed={listedByTile[servicesSheetTile]?.listed ?? []}
               hidden={hiddenByTile[servicesSheetTile] ?? NO_HIDDEN}
+              inspiration={inspiration}
               onDone={(next) => {
                 const tile = servicesSheetTile;
                 setServicesSheetTile(null);

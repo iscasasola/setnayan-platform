@@ -2056,7 +2056,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_suppliers_v1: {
     key: 'customer_suppliers_v1',
     label: 'Suppliers — first visit',
-    blurb: 'Find · Build · Booked, a category, and adding your own supplier.',
+    blurb: 'Find · Build · Booked, a category, your inspiration board, and adding your own supplier.',
     slides: [],
     spotlight: {
       steps: [
@@ -2069,6 +2069,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'suppliers-category',
           title: 'One row per kind',
           body: 'Each kind of supplier your event needs. Tap one to open it.',
+        },
+        {
+          /* 💡 Reorg R5 (owner 2026-10-28, "INSPIRATION LIVES IN SUPPLIERS › FIND") — the board left Studio's Mood Board. */
+          anchor: 'suppliers-inspiration',
+          title: 'Your inspiration board',
+          body: 'The looks you love, filed by part. Each category shows its parts above its suppliers.',
         },
         {
           anchor: 'suppliers-add-own',

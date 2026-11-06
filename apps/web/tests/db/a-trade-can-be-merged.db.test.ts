@@ -25,8 +25,8 @@ import { CANONICAL_KEY_HOLDERS } from '../../lib/taxonomy-merge-holders';
 let replay: ReplayResult;
 let db: PGlite;
 
-const SRC = 'sorbetes_cart';
-const DST = 'ice_cream_cart';
+const SRC = 'tst_trade_merge_src';
+const DST = 'tst_trade_merge_dst';
 
 before(async () => {
   replay = await createReplayedDb();

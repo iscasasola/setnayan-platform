@@ -22,10 +22,20 @@ test('"Get your invite link" goes to the invite page for a supplier, and through
   assert.equal(shopConsolePath(next), INVITE_LINK_PATH);
 });
 
-test('the page decides from the viewer, and the button reads that decision', () => {
-  const page = readFileSync('app/for-suppliers/page.tsx', 'utf8');
-  assert.match(page, /<VendorGrowAI inviteHref=\{inviteLinkHref\(hasShop\)\} \/>/);
-  const sections = readFileSync('app/for-suppliers/_components/vendor-grow-sections.tsx', 'utf8');
-  const cta = sections.slice(sections.indexOf('Get your couples on Setnayan AI.'));
-  assert.match(cta.slice(0, 1200), /<Link href=\{inviteHref\}[^>]*>\s*Get your invite link/);
+/*
+ * 2026-11-06: the owner-approved page (`prototypes/for_suppliers_2026-11-06`) has NO "Get your invite link" button —
+ * the Shortlist code is shown as a sample in "One QR for every moment", and every action is "Create your shop free".
+ * The old assertion read `app/for-suppliers/page.tsx`, a file that has not existed since the page moved into the shell
+ * (2026-11-04). What is checked now is what the page draws: no invite button that could lead nowhere, and every CTA
+ * goes to /open-shop (which sends a supplier who already has a shop on to their console).
+ */
+test('the approved page draws no invite button, and every CTA opens a shop', () => {
+  const page = readFileSync('app/(shell)/for-suppliers/page.tsx', 'utf8');
+  assert.doesNotMatch(page, /<VendorGrowAI\b/, 'the old invite section is mounted again');
+  assert.match(page, /<SupplierFrontPage\b/, 'anti-vacuity: the page no longer draws the approved page');
+  const front = readFileSync('app/for-suppliers/_components/supplier-front-page.tsx', 'utf8');
+  assert.doesNotMatch(front, /Get your invite link/);
+  assert.match(front, /const OPEN_SHOP = '\/open-shop';/);
+  assert.match(front, /const CTA = 'Create your shop free';/);
+  assert.ok((front.match(/href=\{OPEN_SHOP\}/g) ?? []).length >= 3, 'the hero, Plans and the close each carry the CTA');
 });

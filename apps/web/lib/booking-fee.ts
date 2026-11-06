@@ -215,6 +215,19 @@ export function bookingFeeBandsLine(schedule: BookingFeeSchedule): string {
   return `${head} up to ${band}, ${tail} above`;
 }
 
+/**
+ * The schedule's three public figures as display copy — today `{ head: '5%', tail: '1%', band: '₱100,000' }` — for a
+ * sentence that places them itself (the /for-suppliers hero ⓘ: "5% on the first ₱100,000 of a booking and 1%
+ * after"). Same rule as the line above: no default schedule, so a page cannot print the code default by forgetting.
+ */
+export function bookingFeeFigures(schedule: BookingFeeSchedule): { head: string; tail: string; band: string } {
+  return {
+    head: formatRatePct(schedule.rate),
+    tail: formatRatePct(schedule.tailRate),
+    band: formatPhpAmount(schedule.tier1LimitPhp),
+  };
+}
+
 /** The fee's floor as display copy — today `₱50`. Same rule: no default schedule. */
 export function bookingFeeMinimumAmount(schedule: BookingFeeSchedule): string {
   return formatPhpAmount(schedule.minPhp);

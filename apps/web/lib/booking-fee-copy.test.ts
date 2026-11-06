@@ -35,6 +35,7 @@ const SWEPT_FILES = [
   '../app/for-suppliers/_components/vendor-grow-sections.tsx',
   '../app/for-suppliers/_components/vendor-tier-matrix.tsx',
   '../app/(shell)/for-suppliers/page.tsx',
+  '../app/for-suppliers/_components/supplier-front-page.tsx',
   './booking-fee-lock.ts',
 ] as const;
 
@@ -90,9 +91,12 @@ for (const rel of SWEPT_FILES) {
     const statesLiteral = /1\s*%[^\n]*₱100,000/.test(src);
     // 2026-11-04: `bookingFeeBandsLine()` and `<BookingFeeLine>` (the owner's
     // reworded fee line) derive the same bands from the same schedule.
+    // 2026-11-06: `bookingFeeFigures()` hands the approved /for-suppliers page the same schedule's head rate, band
+    // and tail rate to place in its own sentence ("5% on the first ₱100,000 of a booking, 1% after").
     const derivesIt =
       /bookingFeeScheduleSummary\(/.test(src) ||
       /bookingFeeBandsLine\(/.test(src) ||
+      /bookingFeeFigures\(/.test(src) ||
       /<BookingFeeLine\b/.test(src) ||
       /supplierCommission(Promise|Short)\(/.test(src);
     assert.ok(

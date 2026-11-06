@@ -31,6 +31,10 @@ const PAGE_FILES = [
   'app/for-suppliers/_components/vendor-tier-deltas.tsx',
   'app/for-suppliers/_components/vendor-tier-matrix.tsx',
   'app/_components/home/vendor-benefits.ts',
+  // The approved page of 2026-11-06 — what /for-suppliers draws now.
+  'app/for-suppliers/_components/supplier-front-page.tsx',
+  'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-front-data.ts',
 ];
 
 test('the supplier page promises no in-app calls, no 12-doc check and no e-signing', () => {

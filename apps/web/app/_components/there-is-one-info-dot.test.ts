@@ -90,6 +90,10 @@ const SITES: Record<string, Site> = {
   },
   'app/onboarding/_shared/setup-card.tsx': { why: 'it opens its line IN the page under the title, not a hover note' },
   'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
+  'app/for-suppliers/_components/supplier-front-info.tsx': {
+    why: 'the approved /for-suppliers page (2026-11-06) opens its ⓘ words IN the page under the section, from a labelled pill — not a hover note or a popup',
+    colours: 'template',
+  },
   'app/_components/site-stage/site-stage.tsx': {
     why: 'the Maker’s who×when stage is obsidian in both themes; InfoTip’s ink and popover are the light page’s',
     colours: 'obsidian',

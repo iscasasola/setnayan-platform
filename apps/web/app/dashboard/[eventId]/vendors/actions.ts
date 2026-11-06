@@ -3807,6 +3807,11 @@ export type MarketplaceVendorSuggestion = {
   /** TRUE iff `categories` includes the current card's category. Drives
    *  the amber "Pick them anyway?" chip in the UI. */
   serves_current_category: boolean;
+  /** 🕵️ FOUND-YOU (2026-11-05): when THIS couple first opened this shop on
+   *  Setnayan for this event (`event_vendor_found.first_found_at`), else null.
+   *  Drives the add walk's "You found them on Setnayan" nudge. Optional so the
+   *  lab's fixtures and the older sheet need not carry it. */
+  found_on?: string | null;
 };
 
 export type SearchMarketplaceVendorsResult =
@@ -3945,6 +3950,25 @@ export async function searchMarketplaceVendorsByName(
     }
   }
 
+  // Step 3b — 🕵️ FOUND-YOU (DECISION_LOG 2026-07-27; built 2026-11-05): which
+  // of these shops THIS couple already opened on Setnayan for this event. ONE
+  // read, under the COUPLE'S session — `event_vendor_found` is couple-only by
+  // RLS, so the read is also the ownership check. Only on a name search (≥ 2
+  // letters, debounced), never on a scroll. A failed read just shows no nudge:
+  // the nudge is a courtesy, the claim check is what counts.
+  const foundOn = new Map<string, string>();
+  {
+    const { data: foundRows, error: foundErr } = await supabase
+      .from('event_vendor_found')
+      .select('vendor_profile_id, first_found_at')
+      .eq('event_id', eventId)
+      .in('vendor_profile_id', candidateIds);
+    if (foundErr) console.error('[supabase-error] app/dashboard/[eventId]/vendors/actions.ts · from:event_vendor_found.select', foundErr);
+    for (const r of (foundRows ?? []) as { vendor_profile_id: string; first_found_at: string }[]) {
+      foundOn.set(r.vendor_profile_id, r.first_found_at);
+    }
+  }
+
   // Step 4 — presign logos so the dropdown rows render with the vendor's
   // actual brand mark instead of initials. r2:// refs need a signed GET
   // URL with 24h TTL; legacy http(s) URLs pass through unchanged.
@@ -3964,6 +3988,7 @@ export async function searchMarketplaceVendorsByName(
         serves_current_category: cats.includes(
           currentCategory as VendorCategory,
         ),
+        found_on: foundOn.get(p.vendor_profile_id) ?? null,
       } satisfies MarketplaceVendorSuggestion;
     }),
   );
@@ -3972,6 +3997,9 @@ export async function searchMarketplaceVendorsByName(
   // Surfaces the most directly-relevant matches at the top of the
   // dropdown so the host's eye lands on them first.
   presigned.sort((a, b) => {
+    // A shop the couple already found here first — it is most likely who they mean.
+    if (a.found_on && !b.found_on) return -1;
+    if (!a.found_on && b.found_on) return 1;
     if (a.serves_current_category && !b.serves_current_category) return -1;
     if (!a.serves_current_category && b.serves_current_category) return 1;
     return a.business_name.localeCompare(b.business_name);

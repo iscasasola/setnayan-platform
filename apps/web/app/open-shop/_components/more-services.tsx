@@ -206,7 +206,7 @@ export function MoreServices({
         {/* One sentence that wraps as text (the prototype's), the ⓘ at its end. */}
         <span className="block">
           <b className="font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {line.counts}
+            {line.tally}
           </b>{' '}
           <span aria-hidden>—</span>{' '}
           <InfoTip label={line.verdict} labelClassName="text-[13.5px]" ariaLabel={tip.title} align="start" className="!static !inline [&>button]:ml-1 [&>button]:inline-flex [&>button]:align-[-2px]">

@@ -1,4 +1,5 @@
 import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { formatCount } from '@/lib/format-number';
 import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /**
@@ -59,7 +60,7 @@ export function firstPlanThatHolds(list: readonly MeterService[]): VendorTier | 
  * booking on Setnayan is done", and the per-category split ("Reception 3 · Accommodation 1") once there is more than
  * one service. Every number is counted or read from `TIER_CAPS`; none is typed.
  */
-export function coverageLine(list: readonly MeterService[]): { counts: string; verdict: string; split: string | null } {
+export function coverageLine(list: readonly MeterService[]): { tally: string; verdict: string; split: string | null } {
   const by = servicesPerCategory(list);
   const c = by.length;
   const n = list.length;
@@ -72,9 +73,9 @@ export function coverageLine(list: readonly MeterService[]): { counts: string; v
         ? `more than ${planWord(top)} holds — Custom plan (Talk to us)`
         : `${planWord(plan)} covers this — ${FIRST_BOOKING_FREE_LABEL.charAt(0).toLowerCase()}${FIRST_BOOKING_FREE_LABEL.slice(1)}`;
   return {
-    counts: `${c} ${c === 1 ? 'category' : 'categories'} · ${n} ${n === 1 ? 'service' : 'services'}`,
+    tally: `${formatCount(c)} ${c === 1 ? 'category' : 'categories'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`,
     verdict,
-    split: c > 1 || n > 1 ? by.map((x) => `${x.label} ${x.count}`).join(' · ') : null,
+    split: c > 1 || n > 1 ? by.map((x) => `${x.label} ${formatCount(x.count)}`).join(' · ') : null,
   };
 }
 

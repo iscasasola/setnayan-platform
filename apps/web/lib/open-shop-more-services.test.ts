@@ -25,14 +25,14 @@ test('the owner’s own example: four Reception venues + a hotel is NOT "Free an
   const four = rec(4);
   assert.notEqual(firstPlanThatHolds(four), 'free');
   const line = coverageLine([...rec(3), acc]);
-  assert.equal(line.counts, '2 categories · 4 services');
+  assert.equal(line.tally, '2 categories · 4 services');
   assert.equal(line.verdict, 'Solo covers this — free until your first booking on Setnayan is done');
   assert.equal(line.split, 'Reception 3 · Accommodation 1');
 });
 
 test('one service: Free and Verified cover this, no split line, no label', () => {
   const line = coverageLine(rec(1));
-  assert.equal(line.counts, '1 category · 1 service');
+  assert.equal(line.tally, '1 category · 1 service');
   assert.equal(line.verdict, 'Free and Verified cover this');
   assert.equal(line.split, null);
   assert.equal(carriesFirstBookingLabel(rec(1)), false);

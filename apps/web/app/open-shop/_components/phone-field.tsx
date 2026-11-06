@@ -47,7 +47,7 @@ export function PhoneField({
     <span className="block space-y-1" data-open-shop-phone="">
       <span
         className="flex items-stretch overflow-hidden rounded-md border"
-        style={{ borderColor: bad ? 'var(--m-orange-deep)' : 'var(--m-line)', background: 'var(--m-paper)' }}
+        style={{ borderColor: bad ? 'var(--m-mulberry-deep)' : 'var(--m-line)', background: 'var(--m-paper)' }}
       >
         <span
           className="flex shrink-0 select-none items-center border-r px-3 text-sm font-medium"
@@ -80,7 +80,7 @@ export function PhoneField({
         <span
           id="open-shop-err-contact_phone"
           className="flex items-start gap-1.5 text-xs"
-          style={{ color: 'var(--m-orange-deep)' }}
+          style={{ color: 'var(--m-mulberry-deep)' }}
           role="alert"
           data-open-shop-field-error="contact_phone"
         >

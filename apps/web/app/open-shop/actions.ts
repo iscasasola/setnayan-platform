@@ -9,7 +9,7 @@ import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
-import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
+import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
 import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
@@ -20,6 +20,12 @@ import { parseVendorPhone } from '@/lib/phone-rules';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import {
+  EXTRA_SERVICES_FIELD,
+  eventsForAddedService,
+  parseExtraServicesField,
+} from '@/lib/open-shop-more-services';
+import { insertCoverage } from '@/lib/vendor-coverage-write';
 import {
   OPEN_SHOP_EMAIL_RE,
   OPEN_SHOP_ERRORS,
@@ -238,6 +244,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   //   • a leaf paired with someone else's branch — the coarse category is
   //     derived from the tile the TREE says, not the one the form said.
   let pickedLeaf: string | null = null;
+  let pickedLeafAllowed: string[] | null = null;
   let coarseService: string | null = null;
   if (primaryService && CATEGORY_SET.has(primaryService)) {
     coarseService = primaryService;
@@ -245,6 +252,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     const leaf = await resolvePickedLeaf(primaryService);
     if (leaf) {
       pickedLeaf = leaf.canonicalService;
+      pickedLeafAllowed = leaf.allowedEventTypes;
       // Guaranteed non-'misc' for every live leaf by
       // tests/db/no-service-lands-in-misc.db.test.ts.
       coarseService = vendorCategoryForLeaf(leaf.canonicalService, leaf.tileId, await getTaxonomy());
@@ -269,6 +277,29 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (submittedEventTypes.length === 0)
     redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.events));
   const eventTypes = Array.from(new Set(submittedEventTypes));
+  // ── AND THE SERVICES ADDED UNDER THE MAIN (owner 2026-11-06, "SERVICES SIT TOGETHER, A METER NAMES THE PLAN";
+  //    prototype v8) ────────────────────────────────────────────────────────────────────────────────────────────
+  // Each is RE-RESOLVED against the same filtered tree the main is (never a first-party SKU, a retired leaf or a
+  // smuggled key — an unknown one is dropped), de-duplicated, never the main again. Its events are "the same as the
+  // main" (`events: null`) or its own, read like the coverage editor reads them; one ticked to NOTHING is refused,
+  // like the main. ⚠ NO PLAN CAP HERE: every service added at sign-up stays on until the first booking on Setnayan
+  // is done (DECISION_LOG 2026-11-06, "SERVICES LIFE CYCLE") — the meter on screen names the plan, the door refuses none.
+  const addedServices: { leaf: PickerLeaf; events: string[] }[] = [];
+  const postedExtras = pickedLeaf ? parseExtraServicesField(formData.get(EXTRA_SERVICES_FIELD)) : [];
+  if (postedExtras.length > 0) {
+    const leafByKey = new Map<string, PickerLeaf>();
+    for (const p of await getOpenShopServiceTree())
+      for (const b of p.branches) for (const l of b.leaves) leafByKey.set(l.canonicalService, l);
+    const seen = new Set<string>([pickedLeaf as string]);
+    for (const x of postedExtras) {
+      const leaf = leafByKey.get(x.service);
+      if (!leaf || seen.has(leaf.canonicalService)) continue;
+      seen.add(leaf.canonicalService);
+      const ev = eventsForAddedService(x.events ?? eventTypes, eventVocabKeys, leaf.allowedEventTypes);
+      if (!ev) redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
+      addedServices.push({ leaf, events: ev });
+    }
+  }
   const locationCity = clean(formData.get('location_city'), 64);
   // ── WHERE YOU ARE: A PIN, A YES, THEN THE CITY — REFUSED HERE TOO (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN —
   //    FOUR CALLS ANSWERED": "the server must refuse an unconfirmed pin") ─────────────────────────────────────────
@@ -422,6 +453,28 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       () => undefined,
     );
 
+  // ── EACH SERVICE KEEPS ITS OWN EVENTS — `vendor_coverages`, through THE ONE coverage write ──────────────────────
+  // Only when services were ADDED: then the main and each added one get a coverage row (the main's own events, each
+  // added one's own), the same rows the dashboard's "What you do" panel writes. Written BEFORE the profile patch below,
+  // because `insertCoverage` re-syncs `services` / `event_types` from the coverages and the patch must stay the last
+  // word on them (index 0 = the coarse category). Admin client: a just-created account may have no session yet.
+  // ⚠ Best-effort, like the team seat: a failed row is logged and never costs the vendor their shop — the services
+  // are still listed on the profile by the patch.
+  if (pickedLeaf && addedServices.length > 0) {
+    const rows = [
+      {
+        canonicalService: pickedLeaf,
+        eventTypes: eventsForAddedService(eventTypes, eventVocabKeys, pickedLeafAllowed) ?? eventTypes,
+      },
+      ...addedServices.map((a) => ({ canonicalService: a.leaf.canonicalService, eventTypes: a.events })),
+    ];
+    for (const row of rows) {
+      const res = await insertCoverage(admin, vendorProfileId as string, { ...row, faiths: [] });
+      if (res.status === 'error')
+        console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_coverages.insert', res.message);
+    }
+  }
+
   // Write the basics. Blanks never clobber existing values; the primary
   // service leads the services array (kept as the sole entry when the shop is
   // fresh — the full picker on My Shop adds more).
@@ -437,7 +490,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   //     tile-scoped browse — the more specific the couple's search, the more
   //     certainly they would miss it.
   // Order is deliberate and de-duplicated; a re-run never grows the array.
-  const wanted = [coarseService, ...(pickedLeaf ? [pickedLeaf] : [])];
+  // The added services follow the main's pair, in the order they were added.
+  const wanted = [
+    coarseService,
+    ...(pickedLeaf ? [pickedLeaf] : []),
+    ...addedServices.map((a) => a.leaf.canonicalService),
+  ];
   const services = [
     ...wanted,
     ...existingServices.filter((s) => !wanted.includes(s)),
@@ -465,7 +523,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     contact_phone: contactPhone,
     contact_email: contactEmail,
     services,
-    event_types: eventTypes,
+    // The main's events ∪ every added service's — what `syncProfileFromCoverages` would compute from the rows above.
+    event_types: Array.from(new Set([...eventTypes, ...addedServices.flatMap((a) => a.events)])),
     updated_at: new Date().toISOString(),
   };
   // Guarded like location_city: now that the logo is optional here, an

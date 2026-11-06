@@ -56,9 +56,9 @@ function EventTile({
   const [noPhoto, setNoPhoto] = useState(false);
   return (
     <label
-      className="relative isolate block aspect-[5/3] cursor-pointer select-none overflow-hidden rounded-[10px] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-terracotta"
+      className="relative isolate block aspect-[5/3] cursor-pointer select-none overflow-hidden rounded-[var(--m-r-sm)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-terracotta"
       style={{
-        outline: on ? '2.5px solid var(--m-orange-deep)' : 'none',
+        outline: on ? '2.5px solid var(--m-cta)' : 'none',
         outlineOffset: 1,
         background: 'var(--m-paper-2)',
       }}
@@ -113,7 +113,7 @@ function EventTile({
         <span
           aria-hidden
           className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full"
-          style={{ background: 'rgba(255,255,255,.9)', color: '#2B744A' }}
+          style={{ background: 'var(--m-paper)', color: 'var(--m-sage-deep)' }}
         >
           <Check className="h-3 w-3" strokeWidth={3} />
         </span>

@@ -592,7 +592,7 @@ export function CityPin({
       {locationRefused && !pin ? (
         <span
           className="flex items-start gap-1.5 text-xs"
-          style={{ color: 'var(--m-orange-deep)' }}
+          style={{ color: 'var(--m-mulberry-deep)' }}
           aria-live="polite"
           data-location-refused=""
         >
@@ -651,7 +651,8 @@ export function CityPin({
         </>
       ) : null}
 
-      {!detecting && missed ? (
+      {/* Asked only while the City box is EMPTY — "type your city above" beside a city already there reads as wrong. */}
+      {!detecting && missed && !city.trim() ? (
         <span className="block text-xs" style={{ color: 'var(--m-slate)' }} aria-live="polite">
           Couldn&rsquo;t name that spot — type your city above.
         </span>
@@ -661,7 +662,7 @@ export function CityPin({
         <span
           id="open-shop-err-location"
           className="flex items-start gap-1.5 text-xs"
-          style={{ color: 'var(--m-orange-deep)' }}
+          style={{ color: 'var(--m-mulberry-deep)' }}
           role="alert"
           data-open-shop-field-error="location"
         >

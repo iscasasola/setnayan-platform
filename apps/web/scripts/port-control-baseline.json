@@ -239,6 +239,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
+        "SampleShopMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -3587,6 +3588,7 @@
         "MayaCard",
         "OAuthCard",
         "PageMasthead",
+        "PasswordField",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -4255,6 +4257,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -4739,6 +4742,7 @@
     "/admin/vendors/[vendorProfileId]": {
       "files": [
         "admin/vendors/[vendorProfileId]/_components/card-reason-form.tsx",
+        "admin/vendors/[vendorProfileId]/_components/sample-shop-switch.tsx",
         "admin/vendors/[vendorProfileId]/_components/service-cards-section.tsx",
         "admin/vendors/[vendorProfileId]/card-actions.ts",
         "admin/vendors/[vendorProfileId]/page.tsx"
@@ -4763,7 +4767,9 @@
         "PageMasthead",
         "ReadFailed",
         "RemovePhoto",
+        "SampleShopSwitch",
         "ServiceCardsSection",
+        "SwitchRow",
         "Thumb",
         "TypedRow"
       ]
@@ -4889,6 +4895,7 @@
     "/admin/verify": {
       "files": [
         "admin/verify/_components/deep-search-chat.tsx",
+        "admin/verify/_components/shared-phone-note.tsx",
         "admin/verify/actions.ts",
         "admin/verify/loading.tsx",
         "admin/verify/page.tsx"
@@ -4940,6 +4947,7 @@
         "PageMasthead",
         "PillLink",
         "PillTrack",
+        "SharedPhoneNote",
         "SlaBadge",
         "SlotDetail",
         "SlotDocuments",
@@ -5576,6 +5584,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -12300,10 +12309,13 @@
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "LabCard",
         "Link",
+        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
+        "VendorCard",
         "Wordmark"
       ]
     },
@@ -12972,6 +12984,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13077,6 +13090,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "SignInCard",
         "SignInCardModal",
         "SignInInPlaceState",
@@ -13244,6 +13258,7 @@
         "OnboardingVendorCounts",
         "OwnVenueForm",
         "PCard",
+        "PasswordField",
         "PaxCard",
         "PickCard",
         "PickMenu",
@@ -13278,10 +13293,12 @@
       "files": [
         "open-shop/_components/address-preview.tsx",
         "open-shop/_components/city-pin.tsx",
+        "open-shop/_components/event-tiles.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
         "open-shop/_components/phone-field.tsx",
         "open-shop/_components/service-picker.tsx",
         "open-shop/_components/taken-sign-in.tsx",
+        "open-shop/_components/use-stale-build.ts",
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
@@ -13302,11 +13319,16 @@
         "CityPin",
         "DesktopOAuthButtons",
         "DetectedCity",
+        "EventTile",
+        "EventTiles",
         "FirstRunBrand",
+        "GroupTiles",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
+        "Image",
         "InfoTip",
         "LeafletMap",
         "LeafletMarker",
@@ -13315,8 +13337,8 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "PasswordField",
         "PhoneField",
-        "PickMenu",
         "ServicePicker",
         "SignInHereLink",
         "Step",
@@ -13828,7 +13850,8 @@
       "blocks": [
         "EditorialContent",
         "Link",
-        "SampleEditorial"
+        "SampleEditorial",
+        "SampleMarker"
       ]
     },
     "/receipts/[receiptId]": {
@@ -13875,6 +13898,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13962,6 +13986,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "Sk",
         "SubmitButton",
         "TermsFirst",
@@ -14274,6 +14299,7 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
+        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -14571,6 +14597,7 @@
         "SetupOfferFold",
         "Sheet",
         "ShopBadgePill",
+        "SidePanel",
         "Sk",
         "Spotlight",
         "SpotlightMount",
@@ -16706,10 +16733,12 @@
         "DatesRow",
         "Fold",
         "HTMLDivElement",
+        "Hidden.Provider",
         "InfoTip",
         "Link",
         "PaymentsPausedNote",
         "PickMenu",
+        "PieceHead",
         "PiecePicture",
         "PrintQrMode",
         "PrintsSheet",

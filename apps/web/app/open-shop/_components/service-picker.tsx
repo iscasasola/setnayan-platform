@@ -56,6 +56,8 @@ export function ServicePicker({
   onPick,
   coordinatorOnly = false,
   onSearchAll,
+  chosenSubline = null,
+  startParent = null,
 }: {
   tree: PickerParentView[];
   /** Currently chosen leaf key, or '' when nothing is picked yet. */
@@ -71,8 +73,12 @@ export function ServicePicker({
   coordinatorOnly?: boolean;
   /** "Not a coordinator? Search all services" — the wizard drops the coordinator view. */
   onSearchAll?: () => void;
+  /** The chosen row's small second line — the service's group (prototype v7/v8 `chosenRow`). */
+  chosenSubline?: string | null;
+  /** 🧺 "More in ‹group›" (owner 2026-11-06, prototype v7/v8) opens the picker already inside that group (folderId). */
+  startParent?: string | null;
 }) {
-  const [openParent, setOpenParent] = useState<string | null>(null);
+  const [openParent, setOpenParent] = useState<string | null>(startParent);
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   /** The coordination services, from the constant, in the tree's own order. */
@@ -120,34 +126,16 @@ export function ServicePicker({
   // ── Chosen state — one line, with a way back out ──────────────────────────
   if (value) {
     return (
-      <div
-        className="flex items-center justify-between gap-3 rounded-xl border p-3"
-        style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <Check
-            aria-hidden
-            className="h-4 w-4 shrink-0"
-            strokeWidth={2.25}
-            style={{ color: 'var(--m-orange-deep)' }}
-          />
-          <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-            {labelForValue || value}
-          </span>
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            onPick(null);
-            setOpenParent(null);
-            setQuery('');
-          }}
-          className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium underline underline-offset-2"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Change
-        </button>
-      </div>
+      <ChosenServiceRow
+        label={labelForValue || value}
+        subline={chosenSubline}
+        action="Change"
+        onAction={() => {
+          onPick(null);
+          setOpenParent(null);
+          setQuery('');
+        }}
+      />
     );
   }
 
@@ -325,6 +313,54 @@ export function ServicePicker({
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * One chosen service — ✓, its name, its group under it, and one action at the right ("Change" for the main, "Remove"
+ * for a service added under it). The main's row and every added row are the SAME row (owner 2026-11-06: "put them all
+ * together with main service").
+ */
+export function ChosenServiceRow({
+  label,
+  subline,
+  action,
+  onAction,
+}: {
+  label: string;
+  subline?: string | null;
+  action: 'Change' | 'Remove';
+  onAction: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3 rounded-xl border p-3"
+      style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+      data-open-shop-chosen-service=""
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} style={{ color: 'var(--m-orange-deep)' }} />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+            {label}
+          </span>
+          {subline ? (
+            <span className="block truncate text-xs" style={{ color: 'var(--m-orange-deep)' }}>
+              {subline}
+            </span>
+          ) : null}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={onAction}
+        className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium underline underline-offset-2"
+        style={{ color: 'var(--m-slate)' }}
+        aria-label={`${action} ${label}`}
+      >
+        {action}
+      </button>
     </div>
   );
 }

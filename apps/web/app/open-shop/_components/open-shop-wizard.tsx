@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Info, MailCheck, RotateCw } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -22,7 +22,9 @@ import { locationStepError } from '@/lib/open-shop-location-gate';
 import { isPhPhone } from '@/lib/ph-phone';
 import { CityPin } from './city-pin';
 import { EventTiles, type EventTileOption } from './event-tiles';
-import { OpenShopSignIn } from './sign-in-pane';
+import { MoreServices, placeIndex, type AddedService } from './more-services';
+import { EXTRA_SERVICES_FIELD } from '@/lib/open-shop-more-services';
+import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { useStaleBuild } from './use-stale-build';
 import {
   ServicePicker,
@@ -72,7 +74,7 @@ import { PasswordField } from '@/app/_components/password-field';
  * With no session (`guest`), step 4 also carries a password under the email — "you'll sign in with this" — plus
  * Google / Apple, and ONE submit creates the account and the shop (`becomeVendor` → `decideOpenShopAccount` →
  * `createVendorAccountForShop`). "Have an account? Sign in" opens the sign-in pane (a third pane at ≥768, a bottom
- * sheet on a phone — `OpenShopSignIn`): on success the server page re-renders with the account and this component
+ * sheet on a phone — `SignInHereLink pane`): on success the server page re-renders with the account and this component
  * keeps its state, so everything typed stays and step 4 simply loses its account half.
  *
  * Google / Apple genuinely LEAVE the page, so the typed steps are parked in a one-hour, same-tab draft
@@ -190,6 +192,10 @@ export function OpenShopWizard({
   // ✅ EVERY EVENT TYPE STARTS TICKED (owner 2026-11-06): the page hands in the full roster as the default (or the
   // richer set a re-run already holds). Never `['wedding']` — that told every new supplier they served weddings only.
   const [events, setEvents] = useState<string[]>(defaults.eventTypes ?? []);
+  // 🧺 The services added under the main (owner 2026-11-06, prototype v7/v8) — one list with it, each with its own
+  // events (`null` = "Same events as ‹main›"). Posted as one hidden JSON field; the server re-resolves every key.
+  const [added, setAdded] = useState<AddedService[]>([]);
+  const places = useMemo(() => placeIndex(serviceTree), [serviceTree]);
   const toggleEvent = (k: string) =>
     setEvents((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
   // 🧭 `?as=coordinator`: "Not a coordinator? Search all services" turns the coordinator view off for this visit.
@@ -217,7 +223,7 @@ export function OpenShopWizard({
       <span
         id={`open-shop-err-${field}`}
         className="flex items-start gap-1.5 text-xs"
-        style={{ color: 'var(--m-orange-deep)' }}
+        style={{ color: 'var(--m-mulberry-deep)' }}
         role="alert"
         data-open-shop-field-error={field}
       >
@@ -271,6 +277,8 @@ export function OpenShopWizard({
       if (!service) return OPEN_SHOP_ERRORS.service;
       // "Pick at least one event." (owner 2026-11-06) — the server refuses an empty set too.
       if (events.length === 0) return OPEN_SHOP_ERRORS.events;
+      // Each added service needs an event too — its own, or the main's when it says "Same events as …".
+      if (added.some((a) => (a.events ?? events).length === 0)) return OPEN_SHOP_ERRORS.extraEvents;
       return null;
     }
     if (n === 3) {
@@ -392,6 +400,7 @@ export function OpenShopWizard({
           service,
           serviceLabel: pickedLabel,
           events,
+          added,
           position: '',
           phone: read('contact_phone'),
           email: read('contact_email'),
@@ -430,6 +439,7 @@ export function OpenShopWizard({
       setPickedLabel(d.serviceLabel);
     }
     if (d.events.length) setEvents(d.events);
+    if (d.added?.length) setAdded(d.added);
     const write = (name: string, value: string) => {
       const el = formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
       if (el && value && !el.readOnly) el.value = value;
@@ -498,9 +508,9 @@ export function OpenShopWizard({
   const signInLine = guest ? (
     <>
       Have an account?{' '}
-      <OpenShopSignIn href={signInHref} oauth={oauth} className="font-medium text-terracotta">
+      <SignInHereLink href={signInHref} pane className="font-medium text-terracotta">
         Sign in
-      </OpenShopSignIn>{' '}
+      </SignInHereLink>{' '}
       — what you typed stays.
     </>
   ) : null;
@@ -521,7 +531,7 @@ export function OpenShopWizard({
   const quiet = (step === 2 && !service) || (step === 3 && !confirmedCity);
 
   return (
-    <main className="min-h-[70vh]" data-open-shop-wizard="">
+    <main className="flex min-h-[100dvh] flex-col md:block md:min-h-[70vh]" data-open-shop-wizard="">
       {/* ── THE TOP LINE (≥768): the wordmark, and "Have an account? Sign in — what you typed stays." ─────────── */}
       <div
         className="hidden h-[60px] items-center gap-4 border-b px-7 md:flex lg:px-8"
@@ -537,13 +547,13 @@ export function OpenShopWizard({
       </div>
 
       <div
-        className={`grid gap-7 px-4 pb-6 pt-6 md:px-7 md:pb-9 md:pt-6 lg:gap-14 lg:px-12 lg:pb-12 lg:pt-9 ${
+        className={`grid flex-1 gap-7 px-4 pb-0 pt-6 md:px-7 md:pb-9 md:pt-6 lg:gap-14 lg:px-12 lg:pb-12 lg:pt-9 ${
           confirmPane
             ? 'md:grid-cols-2'
             : 'md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_380px]'
         }`}
       >
-        <div className="grid min-w-0 content-start gap-[18px]">
+        <div className="flex min-w-0 flex-col gap-[18px] md:grid md:content-start">
           {/* ── PROGRESS, NOT PROSE (owner 2026-08-10) — on a phone, the wordmark over four segments that fill. At
               ≥768 the count is the last line of "Your shop at a glance". `aria-valuenow` + the label keep it for a
               screen reader at every size. */}
@@ -588,7 +598,7 @@ export function OpenShopWizard({
               button below carries the action. */}
           {stale ? (
             <div
-              className="grid max-w-[620px] gap-2 rounded-[14px] border px-3.5 py-3 text-sm"
+              className="grid max-w-[620px] gap-2 rounded-[var(--m-r-md)] border px-3.5 py-3 text-sm"
               style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)', color: 'var(--m-ink)' }}
               role="status"
               data-open-shop-stale=""
@@ -644,7 +654,7 @@ export function OpenShopWizard({
             action={becomeVendor}
             onSubmit={submitGate}
             onKeyDown={onFormKeyDown}
-            className="grid gap-[18px]"
+            className="flex flex-1 flex-col gap-[18px] md:grid md:flex-none"
             noValidate
           >
             {/* The bot check rides with the account creation, as on /signup.
@@ -690,8 +700,9 @@ export function OpenShopWizard({
                 tap and remove no thinking. */}
             <div className={step === 2 ? 'space-y-4' : 'hidden'}>
               <div className="block max-w-[620px] space-y-1.5">
+                {/* "Your services" once the main is picked — the main and every added one are one list (v7/v8). */}
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  Main service
+                  {service ? 'Your services' : 'Main service'}
                 </span>
                 {/* ── DRILL, DON'T SCROLL (owner 2026-08-09). The flat select survives as the FALLBACK for an empty
                     tree (a failed taxonomy read) — deleting it would turn a read hiccup into "you cannot open a
@@ -703,11 +714,14 @@ export function OpenShopWizard({
                       tree={serviceTree}
                       value={service}
                       labelForValue={serviceLabel}
+                      chosenSubline={places.get(service)?.groupLabel ?? null}
                       coordinatorOnly={coordinating}
                       onSearchAll={() => setAllServices(true)}
                       onPick={(leaf: PickerLeafView | null) => {
                         setService(leaf?.canonicalService ?? '');
                         setPickedLabel(leaf?.label ?? null);
+                        // A service added earlier that IS the new main is the main now, not a second row.
+                        if (leaf) setAdded((c) => c.filter((a) => a.key !== leaf.canonicalService));
                         if (leaf && errorField === 'service') setBanner(null);
                       }}
                     />
@@ -738,7 +752,9 @@ export function OpenShopWizard({
                 {/* 📏 A5 (owner 2026-11-06: the plan limit said AT the pick). The numbers are TIER_CAPS', read on
                     the server (`categoryLadder`), never typed here. Hidden while the coordinator list is up, as the
                     prototype draws it. */}
-                {coordinating && !service ? null : (
+                {/* Only BEFORE the pick (prototype v8 `planHint2`): once a service is chosen, the coverage line under
+                    the list says the same thing with the real numbers. */}
+                {service || coordinating ? null : (
                   <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-plan-hint="">
                     {planCategories.length > 0 ? (
                       <InfoTip
@@ -761,6 +777,32 @@ export function OpenShopWizard({
                   </span>
                 )}
                 {fieldError('service')}
+                {serviceTree.length > 0 && service ? (
+                  <>
+                    <input
+                      type="hidden"
+                      name={EXTRA_SERVICES_FIELD}
+                      value={JSON.stringify(added.map((a) => ({ service: a.key, events: a.events })))}
+                    />
+                    <MoreServices
+                      tree={serviceTree}
+                      places={places}
+                      mainKey={service}
+                      mainLabel={serviceLabel ?? service}
+                      mainEvents={events}
+                      added={added}
+                      onAdded={(next) => {
+                        setAdded(next);
+                        if (errorField === 'extras') setBanner(null);
+                      }}
+                      eventOptions={eventTypeOptions}
+                      refused={errorField === 'extras'}
+                    />
+                  </>
+                ) : null}
+                {/* Each empty added service says its own "Pick at least one event for ‹it›." — this sentence is drawn
+                    only when none can (a refusal from the server for a list this page no longer holds). */}
+                {added.some((a) => (a.events ?? events).length === 0) ? null : fieldError('extras')}
               </div>
 
               <div className="my-1 h-px max-w-[620px] md:max-w-none" style={{ background: 'var(--m-line)' }} />
@@ -770,6 +812,12 @@ export function OpenShopWizard({
                 <span className="flex items-baseline justify-between gap-2">
                   <span id="open-shop-events-label" className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                     Events you serve
+                    {added.length > 0 && serviceLabel ? (
+                      <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                        {' '}
+                        · {serviceLabel}
+                      </small>
+                    ) : null}
                   </span>
                   <span className="flex shrink-0 items-center gap-3 text-xs font-medium" data-open-shop-events-bulk="">
                     <button
@@ -997,7 +1045,7 @@ export function OpenShopWizard({
                 on an earlier step would post a half-filled form.
                 🔘 THE HOUSE PRIMARY SHAPE IS A PILL (both-sign-up-doors-wear-one-button.test.ts). */}
             <div
-              className="sticky bottom-0 z-10 -mx-4 flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
+              className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
               data-open-shop-bar=""
             >
@@ -1085,7 +1133,7 @@ export function OpenShopWizard({
                   </>
                 ) : null,
               )}
-              {glanceRow('Main service', serviceLabel)}
+              {glanceRow('Main service', serviceLabel ? `${serviceLabel}${added.length ? ` +${added.length}` : ''}` : null)}
               {glanceRow(
                 'Events',
                 step >= 2 && service ? `${formatCount(events.length)} of ${formatCount(eventTypeOptions.length)}` : null,

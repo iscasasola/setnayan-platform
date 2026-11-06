@@ -18,6 +18,7 @@ export type OpenShopField =
   | 'shop_name'
   | 'service'
   | 'events'
+  | 'extras'
   | 'location'
   | 'contact_name'
   | 'contact_phone'
@@ -33,6 +34,7 @@ const OWNER: ReadonlyArray<readonly [string, OpenShopField]> = [
   [OPEN_SHOP_ERRORS.slugTaken, 'shop_name'],
   [OPEN_SHOP_ERRORS.service, 'service'],
   [OPEN_SHOP_ERRORS.events, 'events'],
+  [OPEN_SHOP_ERRORS.extraEvents, 'extras'],
   [OPEN_SHOP_ERRORS.locationPin, 'location'],
   [OPEN_SHOP_ERRORS.locationConfirm, 'location'],
   [OPEN_SHOP_ERRORS.locationCity, 'location'],
@@ -68,6 +70,7 @@ export const OPEN_SHOP_FIELD_STEP: Readonly<Record<Exclude<OpenShopField, 'submi
   shop_name: 1,
   service: 2,
   events: 2,
+  extras: 2,
   location: 3,
   contact_name: 4,
   contact_phone: 4,

@@ -44,6 +44,8 @@ const OWNS: Record<string, number> = {
   service: 2,
   // "Pick at least one event." (owner 2026-11-06) — the same screen as the tiles it is about.
   events: 2,
+  // "Pick at least one event for each added service." (owner 2026-11-06, v7/v8) — the services list on step 2.
+  extraEvents: 2,
   // 🔁 RE-ORDERED 2026-11-06 (owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED": the account step goes LAST).
   // "Where you are" is now step 3 and "You" (name · number · email · the account) is step 4.
   locationPin: 3,

@@ -26,9 +26,12 @@ const ACTIONS = read('app/open-shop/actions.ts');
 const PAGE = read('app/open-shop/page.tsx');
 const PICKER = read('app/open-shop/_components/service-picker.tsx');
 const TILES = read('app/open-shop/_components/event-tiles.tsx');
-const PANE = read('app/open-shop/_components/sign-in-pane.tsx');
+const PANE = read('app/_components/auth/sign-in-here-panel.tsx');
+const LINK = read('app/_components/auth/sign-in-here-link.tsx');
 const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const PHONE = read('app/open-shop/_components/phone-field.tsx');
+const MORE = read('app/open-shop/_components/more-services.tsx');
+const METER = read('lib/open-shop-more-services.ts');
 
 /* ── every sentence has a box, and the box is on the step the server sends you to ─────────────────────────────── */
 
@@ -95,6 +98,7 @@ test('the server runs the same order, and refuses what the browser refuses', () 
     'OPEN_SHOP_ERRORS.shopName',
     'OPEN_SHOP_ERRORS.service',
     'OPEN_SHOP_ERRORS.events',
+    'OPEN_SHOP_ERRORS.extraEvents',
     'locationStepError({',
     'OPEN_SHOP_ERRORS.contactName',
     'await createVendorAccountForShop(',
@@ -147,6 +151,47 @@ test('"Is this your address?" — the full address, a full-width "Yes, that’s 
   assert.match(WIZARD, /'Where you are', 'Type your address; the pin follows\. Then confirm it\.'/);
 });
 
+/* ── step 2, v8: the services sit together, a meter names the plan (owner 2026-11-06) ─────────────────────────── */
+
+test('v8 · main + added services are ONE "Your services" list above the events, each with its own events', () => {
+  assert.match(WIZARD, /\{service \? 'Your services' : 'Main service'\}/);
+  // The list sits in the service block, BEFORE "Events you serve".
+  assert.ok(WIZARD.indexOf('<MoreServices') > 0 && WIZARD.indexOf('<MoreServices') < WIZARD.indexOf('Events you serve'));
+  assert.match(MORE, /Same events as \{mainLabel\}/);
+  assert.match(MORE, /Use the same events as \{mainLabel\}/);
+  assert.match(MORE, /Pick at least one event for \{a\.label\}\./);
+  // The same chosen row for the main and every added one.
+  assert.match(PICKER, /<ChosenServiceRow[\s\S]{0,120}action="Change"/);
+  assert.match(MORE, /<ChosenServiceRow[\s\S]{0,200}action="Remove"/);
+  // Refused in the browser AND on the server.
+  assert.match(WIZARD, /if \(added\.some\(\(a\) => \(a\.events \?\? events\)\.length === 0\)\) return OPEN_SHOP_ERRORS\.extraEvents;/);
+  assert.match(ACTIONS, /if \(!ev\) redirect\('\/open-shop\?step=2&error=' \+ encodeURIComponent\(OPEN_SHOP_ERRORS\.extraEvents\)\)/);
+});
+
+test('v8 · two buttons after a pick: "More in ‹group›" (the picker opened in that group) and "A different category"', () => {
+  assert.match(MORE, /More in \{lastGroup\.groupLabel\}/);
+  assert.match(MORE, /A different category/);
+  assert.match(MORE, /startParent=\{adding \|\| null\}/);
+  assert.match(PICKER, /useState<string \| null>\(startParent\)/);
+  assert.doesNotMatch(WIZARD + MORE, /Add another service/, 'the single "Add another service" is back');
+});
+
+test('v8 · the meter counts tier-2 CATEGORIES (the tree’s branch), never groups; numbers from TIER_CAPS', () => {
+  // The branch (tileId) is the category; the folder is only the chosen row's second line.
+  assert.match(MORE, /out\.set\(l\.canonicalService, \{ categoryId: b\.tileId, categoryLabel: b\.label, groupId: p\.folderId, groupLabel: p\.label \}\)/);
+  assert.match(METER, /by\.length <= caps\.parentCategories && by\.every\(\(c\) => c\.count <= caps\.servicesPerLeaf\)/);
+  assert.doesNotMatch(METER, /parentCategories:\s*\d|servicesPerLeaf:\s*\d/, 'a plan number is typed into the meter');
+  // "Add more later…" is said only BEFORE the pick — once picked, the meter says it with the real numbers.
+  assert.match(WIZARD, /\{service \|\| coordinating \? null : \(\s*<span className="block text-xs"[^>]*data-open-shop-plan-hint=""/);
+});
+
+test('v8 · the door never refuses a service for the plan, and writes each one’s events to vendor_coverages', () => {
+  assert.match(ACTIONS, /await insertCoverage\(admin, vendorProfileId as string, \{ \.\.\.row, faiths: \[\] \}\)/);
+  assert.doesNotMatch(ACTIONS, /addCoverageForCardKind|parentCategories/, 'a plan cap reached the door');
+  // Coverages first, the profile patch last — the patch keeps index 0 the coarse category.
+  assert.ok(ACTIONS.indexOf('await insertCoverage(') < ACTIONS.indexOf(".update(patch)"));
+});
+
 /* ── errors under their box; the stale build; the sign-in pane ────────────────────────────────────────────────── */
 
 test('no banner at the top — each error is drawn under its box and tied to it', () => {
@@ -168,11 +213,12 @@ test('a page left open across a deploy: the button becomes "Tap Reload to keep g
   assert.ok(reload.indexOf('saveDraft({ reload: true })') < reload.indexOf('window.location.reload()'), 'the reload runs before the draft is parked');
 });
 
-test('"Sign in" opens the shipped SidePanel (third pane ≥768, sheet on a phone) with the shipped card, in place', () => {
-  assert.match(PANE, /<SidePanel[\s\S]*?size="wide"[\s\S]*?phone="sheet"/);
-  assert.match(PANE, /<SignInCard\b/);
+test('"Sign in" opens the ONE sign-in panel as the third pane (SidePanel ≥768, sheet on a phone), in place', () => {
+  // One login everywhere (owner-locked 2026-07-18; seam-invariants "there is exactly one sign-in panel"): the door
+  // does not get its own copy — it asks the shipped panel for its pane mode.
+  assert.match(WIZARD, /<SignInHereLink href=\{signInHref\} pane\b/);
+  assert.match(LINK, /openSignIn\(pane \? \{ pane: true \} : undefined\)/);
+  assert.match(PANE, /if \(options\.pane\) \{[\s\S]*?<SidePanel[\s\S]*?size="wide"[\s\S]*?phone="sheet"/);
   assert.match(PANE, /router\.refresh\(\)/);
   assert.doesNotMatch(PANE, /router\.push/);
-  assert.match(PANE, /href=\{href\}/, 'the control is no longer a real link (no-JS fallback)');
-  assert.match(WIZARD, /<OpenShopSignIn href=\{signInHref\}/);
 });

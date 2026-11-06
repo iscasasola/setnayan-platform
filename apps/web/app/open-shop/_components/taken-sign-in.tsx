@@ -39,7 +39,7 @@ export function TakenSignIn({ email, onSignedIn }: { email: string; onSignedIn: 
         This email already has a Setnayan account. Sign in to keep going — what you typed stays.
       </p>
       {state.error ? (
-        <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} role="alert">
+        <p className="text-xs" style={{ color: 'var(--m-mulberry-deep)' }} role="alert">
           {state.error}
         </p>
       ) : null}

@@ -7,13 +7,19 @@ import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { siteOrigin } from '@/lib/site-origin';
 import { renderPrint } from '@/lib/supplier-prints-svg';
 import { printShopFrom, printQr } from '@/lib/supplier-prints-shop';
-import { DEFAULT_PRINT_DESIGN, printDesign, printFilename, printPiece, printQrMode } from '@/lib/supplier-prints';
+import { readPrintMember, readPrintShopExtras } from '@/lib/supplier-prints.server';
+import { DEFAULT_PRINT_DESIGN, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/vendor/prints?piece=<card|standee|door|backdrop|tarp|rollup|table>&design=<look>&qr=<dates|shortlist|page|reviews>
- *                       [&side=b][&save=1]
+ *                       [&side=b][&save=1][&hide=<blocks>][&who=me]
+ *
+ * PRINTS BY PURPOSE AND SIZE (owner 2026-11-06, "Yes ship it"): each piece carries what its size and reading distance
+ * allow, read at print time by `readPrintShopExtras` (`lib/supplier-prints.server.ts`); `hide` = the blocks the sheet's
+ * `On your prints ▾` switched off (the picture AND the Save file leave them out); `who=me` = the signed-in member's own
+ * calling card (`readPrintMember`). No price, no phone, no email reaches a print.
  *
  * 🖨 A supplier's print (Shop › Promote › Prints, owner-approved 5 Nov 2026) drawn by THE ONE renderer
  * (`renderPrint`, `lib/supplier-prints-svg.ts`):
@@ -45,23 +51,40 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const mode = printQrMode(sp.get('qr'));
   const save = sp.get('save') === '1';
 
-  const [facts, kindLabel] = await Promise.all([readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id), cardKindLabeller()]);
+  const side = sp.get('side') === 'b' ? 'b' : 'f';
+  // The member's own card (owner 2026-11-06, "Yes"): only the signed-in member's, only on the card — its front names
+  // them; its back is the shop's, so the back needs no read of them.
+  const asMember = piece.id === 'card' && sp.get('who') === 'me';
+  const admin = createAdminClient();
+  const own = profile as { vendor_profile_id: string; tagline?: string | null; logo_url?: string | null; portfolio_r2_keys?: string[] | null; location_city?: string | null; in_business_since_year?: number | null };
+  const [facts, kindLabel, extras, member] = await Promise.all([
+    readShopBadgeFacts(admin, profile.vendor_profile_id),
+    cardKindLabeller(),
+    readPrintShopExtras(admin, own, { piece: piece.id, mode: save ? 'print' : 'screen' }),
+    asMember && (save || side === 'f') ? readPrintMember(admin, profile.vendor_profile_id, user.id) : Promise.resolve(null),
+  ]);
+  if (asMember && (save || side === 'f') && !member) {
+    return NextResponse.json({ error: 'Add your name to your account first — your own card prints it.' }, { status: 409 });
+  }
   const origin = siteOrigin();
-  const shop = printShopFrom({
-    name: (profile as { business_name?: string | null }).business_name ?? '',
-    slug,
-    services: ((profile as { services?: string[] | null }).services ?? []) as string[],
-    tagline: (profile as { tagline?: string | null }).tagline ?? null,
-    facts,
-    kindLabel,
-    origin,
-  });
-  const svg = renderPrint({ piece, design, shop, qr: printQr(mode, origin, slug), side: sp.get('side') === 'b' ? 'b' : 'f', for: save ? 'print' : 'screen' });
+  const shop = {
+    ...printShopFrom({
+      name: (profile as { business_name?: string | null }).business_name ?? '',
+      slug,
+      services: ((profile as { services?: string[] | null }).services ?? []) as string[],
+      tagline: (profile as { tagline?: string | null }).tagline ?? null,
+      facts,
+      kindLabel,
+      origin,
+    }),
+    ...extras,
+  };
+  const svg = renderPrint({ piece, design, shop, qr: printQr(mode, origin, slug), side, for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
   return new NextResponse(svg, {
     status: 200,
     headers: {
       'content-type': 'image/svg+xml; charset=utf-8',
-      ...(save ? { 'content-disposition': `attachment; filename="${printFilename(piece, design)}"` } : {}),
+      ...(save ? { 'content-disposition': `attachment; filename="${printFilename(piece, design, member?.name)}"` } : {}),
       // A preview may be reused for a few minutes (switching back to a look is instant); a Save is always drawn fresh.
       'cache-control': save ? 'private, no-store' : 'private, max-age=300',
     },

@@ -47,3 +47,23 @@ Plan `PLAN-SUPPLIER-GO-LIVE-BUILD-2026-11-07`, track A3.
 - `the-gate-walk-fixes.test.ts` was updated from the keypad to the shared control.
 
 **SPEC IMPACT:** None new. This builds the owner's 7 Nov prototype v21 logo step, which is already the recorded contract. The 2026-11-06 DECISION_LOG row "THE PROFILE PICTURE WEARS THE LOGO'S FRAME" still describes the 9-point keypad. That row is A4's (#7353) to update when it adopts this control; it is flagged in the PR, not edited here.
+
+## 2026-11-07 · fix(open-shop): the logo circle shows one bare picture, with "Replace photo" and "Remove" under it; a frame-only save skips the QR re-scan (A3, controller review)
+
+Controller review of logo-390 against prototype v21:
+
+- **The dashed lines and dotted corner were not an overlay.** They were pixels inside the lab's fixture image, a screenshot of the Logo Maker with its guide box. The lab now frames v21's own picture (`/event-types/gala_night.webp`). Guard line 5 holds the control to the same standard regardless: the circle has one `<img>` and nothing drawn over it, and there are no dashed or dotted guides in the framer.
+- **One picture, not two.** `FileUpload` has a new opt-in, `pills={{ replace }}`. It applies only to a round, single-file field whose picture a framing circle already shows.
+  - Once a picture is in, the field draws no second picture and no "Saved" line. It draws only `[🖼 Replace photo] [🗑 Remove]`.
+  - Replace swaps the file when the new one lands; the old one stays until then.
+  - Remove is `ActionButton tone="danger"` with red words, beside Replace and never alone on a list row. This keeps "Remove also inside" from the rows rule.
+  - A host that saves later still says "Not saved yet". Both the open-shop step and My Shop's logo row use this, with the circle first.
+- **Remove now saves on its own** on "Add your logo". An empty `logo_url` clears the logo and its frame. Before this, removing the logo cleared the screen but not the shop.
+- **The shipped line "You'll need it to get verified — add it now or later."** is kept as one line, shown only until a logo is saved. This matches v21 dropping its skip hint once the logo saves.
+- **The QR scan runs once per picture.** `logoNeedsQrScan(next, stored)` compares the posted logo with the stored `vendor_profiles.logo_url`, read inside the action, never from a form flag:
+  - the same picture means only the frame moved, so the scan is skipped;
+  - a new picture, a first logo, or a failed read is scanned;
+  - the admin retro-scan still sweeps stored logos.
+- **Guards:** `the-logo-is-framed-by-hand.test.ts` gains lines 5–7: the bare circle, one picture with Remove in the danger tone, and the QR scan once per picture.
+
+**SPEC IMPACT:** None. This builds prototype v21's logo step as drawn: circle → − slider + → "Drag to move · pinch to zoom ⓘ … ✓ Saved" → "Replace photo".

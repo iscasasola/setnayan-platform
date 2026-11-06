@@ -52,18 +52,21 @@ export function AddYourLogo({
   const [hasSaved, setHasSaved] = useState(Boolean(logoUrl));
   const timer = useRef<number | null>(null);
   const latest = useRef({ ref, frame });
+  /** The logo the last sent save carried — '' for a removal — so its answer says whether a logo is now in. */
+  const sent = useRef<string>(logoUrl ?? '');
 
   useEffect(() => {
     // Success is the action's answer, never the gesture (the SignInCard rule).
-    if (state?.ok) setHasSaved(true);
+    if (state?.ok) setHasSaved(Boolean(sent.current));
   }, [state]);
   useEffect(() => () => {
     if (timer.current) window.clearTimeout(timer.current);
   }, []);
 
-  function saveSoon(next: { ref?: string; frame?: LogoFrame }) {
+  /** Queue the save. A removal saves too (an empty `logo_url` clears the logo and its frame) — "Changes save on their own". */
+  function saveSoon(next: { ref?: string; frame?: LogoFrame }, removing = false) {
     latest.current = { ...latest.current, ...next };
-    if (!latest.current.ref) return;
+    if (!latest.current.ref && !removing) return;
     setQueued(true);
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
@@ -75,6 +78,7 @@ export function AddYourLogo({
       form.set(LOGO_FRAME_INPUTS.x, String(f.x));
       form.set(LOGO_FRAME_INPUTS.y, String(f.y));
       form.set(LOGO_FRAME_INPUTS.zoom, String(f.zoom));
+      sent.current = latest.current.ref;
       setQueued(false);
       startTransition(() => save(form));
     }, SAVE_AFTER_MS);
@@ -102,8 +106,8 @@ export function AddYourLogo({
           </p>
         ) : null}
         <div className="mt-5 space-y-4">
-          {/* The circle IS the editor (prototype v21): it comes first. Once a picture is in, the upload shrinks to its
-              one-row form under it (a 72 px thumb · Remove) instead of drawing a second big circle. */}
+          {/* The circle IS the editor (prototype v21): it comes first, the bare picture and nothing over it. Once a
+              picture is in, the upload below draws no second picture — only `[Replace photo] [Remove]` (`pills`). */}
           <PictureFrameControl
             imageUrl={ref ? preview : null}
             frame={frame}
@@ -120,7 +124,7 @@ export function AddYourLogo({
             name="logo_url"
             variant="square"
             roundPreview
-            row={ref ? { title: 'Logo file' } : undefined}
+            pills={{ replace: 'Replace photo' }}
             unsavedHint={null}
             currentValue={ref || null}
             initialDisplayUrls={logoUrl && displayUrl ? { [logoUrl]: displayUrl } : {}}
@@ -130,7 +134,8 @@ export function AddYourLogo({
               if (!next) setPreview(null);
               // A new picture starts centred and saves the moment its upload is in.
               if (next) saveSoon({ ref: next, frame: latest.current.frame });
-              else latest.current = { ...latest.current, ref: '' };
+              // Remove: the logo goes from the shop too, on its own (one writer, the same save).
+              else saveSoon({ ref: '', frame: DEFAULT_LOGO_FRAME }, true);
             }}
             onFilePicked={(file) => {
               // The frame is set on the picture in hand — no wait for the upload to answer. A new picture starts centred.
@@ -147,9 +152,12 @@ export function AddYourLogo({
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif']}
             qrGuard
           />
-          <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            {LOGO_LATER.hint}
-          </span>
+          {/* Shipped copy, one line, until a logo is in (v21 drops the skip hint once it saves). */}
+          {hasSaved ? null : (
+            <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              {LOGO_LATER.hint}
+            </span>
+          )}
           {/* The thumb row: one content-width pill on the right (BUTTON_RULE). */}
           <div className="flex items-center justify-end gap-2 pt-1">
             {hasSaved ? (

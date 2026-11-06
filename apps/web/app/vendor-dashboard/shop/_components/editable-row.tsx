@@ -637,6 +637,19 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
   const [frame, setFrame] = useState<LogoFrame>(data.logoFrame ?? DEFAULT_LOGO_FRAME);
   return (
     <span className="block space-y-3">
+      {/* The circle IS the editor (prototype v21): first, the bare picture; the upload under it draws no second
+          picture — only `[Replace photo] [Remove]` (`pills`), the same as the open-shop logo step. */}
+      <PictureFrameControl
+        imageUrl={ref ? preview : null}
+        frame={frame}
+        picture="logo"
+        onChange={(f) => {
+          setFrame(f);
+          onDirty();
+        }}
+        alt="Your logo, as couples see it"
+        tipTitle="The circle is what couples see"
+      />
       <FileUpload
         bucket="media"
         pathPrefix={`vendors/${data.vendorProfileId}/logo`}
@@ -647,6 +660,8 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
         maxSizeMB={2}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         variant="square"
+        roundPreview
+        pills={{ replace: 'Replace photo' }}
         onChange={(v) => {
           const next = Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
           setRef(next);
@@ -662,17 +677,6 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
             setPreview(null);
           }
         }}
-      />
-      <PictureFrameControl
-        imageUrl={ref ? preview : null}
-        frame={frame}
-        picture="logo"
-        onChange={(f) => {
-          setFrame(f);
-          onDirty();
-        }}
-        alt="Your logo, as couples see it"
-        tipTitle="The circle is what couples see"
       />
     </span>
   );

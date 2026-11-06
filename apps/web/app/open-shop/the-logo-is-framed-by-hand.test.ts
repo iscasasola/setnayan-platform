@@ -11,6 +11,12 @@
  *   3. The control is the gesture the owner asked for: pointer drag + two-finger pinch on the circle (touch-action:
  *      none on the circle only), a non-passive wheel, and − · slider · + over the SAME bounds the store accepts.
  *   4. "Add your logo" saves on its own after a finished change and says ONE "Logo saved" — no Save button.
+ *   5. The circle shows the BARE picture — one <img> and nothing drawn over it (controller review of logo-390, 7 Nov:
+ *      dashed lines + a dotted corner read as keypad leftovers; they were the lab fixture's own pixels, and this
+ *      line keeps the control honest either way).
+ *   6. ONE picture per logo surface: the upload under the circle draws no second picture — only
+ *      `[Replace photo] [Remove]` (`pills`), Remove in the danger tone, the shipped "verified" line only until saved.
+ *   7. The server scans for a QR once per PICTURE, not once per frame move — decided from the stored row, never a form flag.
  *
  * Source-reading, comments stripped.
  */
@@ -88,3 +94,56 @@ test('4 · "Add your logo" saves on its own after a finished change, and says on
   // The status is drawn in ONE place, by the control, live.
   assert.equal(count(CONTROL, /aria-live="polite"/), 1);
 });
+
+test('5 · the circle shows the bare picture — one <img>, nothing drawn over it', () => {
+  const open = CONTROL.indexOf('data-picture-frame-circle=""');
+  assert.ok(open > 0, 'the circle lost its anchor');
+  const body = CONTROL.slice(open, CONTROL.indexOf('</div>', open));
+  assert.equal(count(body, /<[A-Za-z]/), 1, 'something besides the picture is drawn inside the circle');
+  assert.equal(count(body, /<img\b/), 1);
+  assert.doesNotMatch(body, /dashed|dotted|grid|::before|::after|backgroundImage|linear-gradient|conic-gradient/i, 'an overlay is drawn on the circle');
+  assert.doesNotMatch(CONTROL, /border-dashed|border-dotted|borderStyle: 'dashed'|borderStyle: 'dotted'/, 'a guide line is drawn in the framer');
+  // The lab frames a real photo (v21's own), never a screenshot that carries another screen's guides.
+  assert.doesNotMatch(read('app/dev/open-shop-lab/page.tsx'), /feature-shots\/logo-maker/);
+});
+
+test('6 · one picture per logo surface: the upload is `[Replace photo] [Remove]`, no second preview', () => {
+  // My Shop's row file holds every field's editor — read only the logo's.
+  const logoPart = (src: string) =>
+    src.includes('function LogoRowControl') ? src.slice(src.indexOf('function LogoRowControl'), src.indexOf('function FieldControl')) : src;
+  for (const [name, whole] of LOGO_SURFACES) {
+    const src = logoPart(whole);
+    assert.ok(src.length > 200, `${name}: the logo editor moved`);
+    assert.match(src, /roundPreview\s+pills=\{\{ replace: 'Replace photo' \}\}/, `${name} draws a second picture under the circle`);
+    assert.doesNotMatch(src, /\brow=\{/, `${name} still draws the 72 px file row`);
+    // The framer comes first: the circle, then the upload's pills.
+    assert.ok(src.indexOf('<PictureFrameControl') < src.indexOf('<FileUpload'), `${name} draws the upload above the circle`);
+  }
+  const upload = read('app/_components/file-upload.tsx');
+  assert.match(upload, /const pillMode = pills != null && roundPreview && variant === 'square' && !multiple;/);
+  assert.match(upload, /isSingleImagePreview && !rowMode && !pillMode/, 'pill mode still draws the big preview');
+  assert.match(upload, /<ActionButton\s+tone="neutral"\s+icon=\{ImagePlus\}\s+label=\{pills!\.replace\}/);
+  assert.match(upload, /<ActionButton\s+tone="danger"\s+icon=\{Trash2\}\s+label="Remove"/, 'Remove is not the danger tone');
+  assert.match(upload, /const currentCount = \(pillMode \? 0 : items\.length\) \+ inFlight\.length;/, 'Replace is refused as "already have one file"');
+  // Remove saves on its own too; the shipped "verified" line is one line, only until a logo is in.
+  assert.match(LOGO_SCREEN, /else saveSoon\(\{ ref: '', frame: DEFAULT_LOGO_FRAME \}, true\);/, 'Remove does not save');
+  assert.match(LOGO_SCREEN, /\{hasSaved \? null : \(\s*<span className="block text-xs"[^>]*>\s*\{LOGO_LATER\.hint\}/);
+  assert.equal(count(LOGO_SCREEN, /LOGO_LATER\.hint/), 1);
+});
+
+test('7 · the QR scan runs once per picture — a frame-only save skips it, decided from the stored row', async () => {
+  const { logoNeedsQrScan } = await import('../../lib/open-shop-logo');
+  assert.equal(logoNeedsQrScan('r2://media/a.png', 'r2://media/a.png'), false, 'a frame move re-scans');
+  assert.equal(logoNeedsQrScan('r2://media/b.png', 'r2://media/a.png'), true, 'a new picture skips the scan');
+  assert.equal(logoNeedsQrScan('r2://media/a.png', null), true, 'a first logo skips the scan');
+  assert.equal(logoNeedsQrScan('r2://media/a.png', undefined), true, 'a failed read skips the scan');
+  assert.equal(logoNeedsQrScan(null, 'r2://media/a.png'), false);
+  const actions = read('app/vendor-dashboard/actions.ts');
+  const start = actions.indexOf("case 'logo': {");
+  const logoCase = actions.slice(start, actions.indexOf('break;', start));
+  assert.match(logoCase, /\.from\('vendor_profiles'\)\s*\.select\('logo_url'\)\s*\.eq\('vendor_profile_id', shopId\)/);
+  assert.match(logoCase, /if \(logoNeedsQrScan\(logoRef, storedLogo\) && \(await vendorQrGuardRejects\(\[logoRef\]\)\)\)/);
+  assert.equal(count(logoCase, /vendorQrGuardRejects\(/), 1);
+  assert.doesNotMatch(logoCase, /formData\.get\('(?!logo_url')/, 'the skip trusts a form field');
+});
+

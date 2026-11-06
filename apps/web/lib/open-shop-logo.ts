@@ -76,3 +76,18 @@ export function logoFrameColumns(frame: LogoFrame): {
 export function logoFrameStyle(frame: LogoFrame | null | undefined): CSSProperties {
   return pictureFrameStyle(frame);
 }
+
+/**
+ * 🔎 WHETHER A LOGO SAVE MUST BE QR-SCANNED (controller, 7 Nov — "skip the server QR check when only focal/zoom
+ * changed, IF the action can tell"). The action CAN tell, and only from the database, never from the form: it reads
+ * the stored `logo_url` and compares. The SAME picture as stored = a frame-only save (every drag / pinch on the
+ * autosaving logo step); that picture was scanned when it went in, and the admin retro-scan sweeps stored logos —
+ * so no second download + decode per gesture. A NEW or DIFFERENT picture is always scanned; a failed read
+ * (`stored` undefined) scans too — it fails toward the check, never away from it. A removal has nothing to scan.
+ * Held by app/open-shop/the-logo-is-framed-by-hand.test.ts.
+ */
+export function logoNeedsQrScan(next: string | null, stored: string | null | undefined): boolean {
+  if (!next) return false;
+  if (stored === undefined) return true;
+  return next !== stored;
+}

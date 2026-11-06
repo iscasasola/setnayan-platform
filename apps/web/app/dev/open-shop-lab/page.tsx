@@ -38,8 +38,13 @@ import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
 
 export const dynamic = 'force-dynamic';
 
-/** A picture the app already serves — absolute, because a legacy http(s) logo value is its own display URL. */
-const LAB_LOGO_PATH = '/feature-shots/logo-maker-0.jpg';
+/**
+ * A picture the app already serves — absolute, because a legacy http(s) logo value is its own display URL. The SAME
+ * picture prototype v21's logo step frames (`ev/gala_night.jpg`), so a side-by-side compares like with like. Never a
+ * screenshot of another screen: the Maker shot this used to be carried its own dashed guide box, which read as an
+ * overlay drawn on the circle (controller review, 7 Nov).
+ */
+const LAB_LOGO_PATH = '/event-types/gala_night.webp';
 
 const labelFor = (key: string) =>
   key

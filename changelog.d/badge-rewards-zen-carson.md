@@ -25,7 +25,10 @@ Owner approved the table 6 Nov ("Approve as proposed"), DECISION_LOG 2026-11-06 
   ⚠ `vendor_billing_catalog` has **no duration column** — the four weeks come from each add-on's own period constant
   (`VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS` · `VENDOR_3D_BOOTH_PERIOD_DAYS` · `VENDOR_AI_ADDON_PERIOD_DAYS`), the same ones a
   paid purchase uses.
-- **Badge page** rows for Verified, first booking, Reviews and Monthly awards add one line: "Also → 4 weeks of …
+- **Where the reward lines live now:** main moved the one badge tracker to **Shop › Analytics › Your badges** on
+  2026-11-06 (Page keeps the pills only), so the "Gave you" / "Next" / "Also →" lines and the grant sweep moved with it
+  (`performance/_components/your-badges.tsx`, `performance/page.tsx`; lab `?s=coord-badges`).
+- **Badge tracker** rows for Verified, first booking, Reviews and Monthly awards add one line: "Also → 4 weeks of …
   · ready to start in Plan". **Admin › Gifts** gains a read-only **Badge upgrades** table.
 - `DatesRow` gains `onOpen` (the whole row opens a sheet in place — no row buttons). Maps: Ugat claims, export
   completeness, exposure baseline (SELECT own rows only; neither door reachable by a session).
@@ -60,7 +63,8 @@ which is stacked on #7279 and #7262. Draft — nothing goes live until the owner
 - **Badge rewards sit outside the 40% gift limit** (`judgeQuoteGifts`): reward stock pays whole quote lines first, the
   most valuable first; only bought lines are measured. The quote line says "Badge reward".
 - **Granting**: badges are worked out live, so a reward is paid when a read finds its badge earned — the badge page
-  (Shop › Page › Awards and badges), Today's badge-facts read (after Today has drawn), and the admin's manual award.
+  (Shop › Analytics › Your badges — the one tracker since main's 2026-11-06 move; it was Shop › Page › Awards and
+  badges when this was first built), Today's badge-facts read (after Today has drawn), and the admin's manual award.
   Only measured badges grant: Verified, Events, Reviews, first booking, branches, service cards, monthly awards.
   1st Pick, Booked Loop and the Inspiration box have no counter yet — drawn with their reward, never granted.
 - **Supplier screens**: the badge page shows, per row, "Gave you: … · in your gifts" and "Next: 100 events · Gold · 4 to

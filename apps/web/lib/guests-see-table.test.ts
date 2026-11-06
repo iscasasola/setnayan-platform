@@ -59,7 +59,7 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
     [
       ['The basics', ['Names and date', 'Place', 'Countdown']],
       ['The story', ['Message', 'Love Story', 'Our photos']],
-      ['The details', ['Schedule', 'Map', 'Dress code', 'What to bring', 'E-Gifts']],
+      ['The details', ['The day’s program', 'Map', 'Dress code', 'What to bring', 'E-Gifts']],
       ['People', ['Entourage', 'Reply card']],
       // (The prototype's head is "On the day"; the owner's rule d25 names that stage "The Day" on every label.)
       ['The Day', ['Your seat', 'Digital pass', 'Announcements', 'Live', 'Camera', 'Memories of you']],

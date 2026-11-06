@@ -82,7 +82,7 @@ test('1 · 🔑 the exceptions stay open — the setup itself, the events she ru
     '/dashboard/e-1/guests',
   ];
   for (const p of open) assert.equal(pageIsHeld(p, NO_ADDRESS), false, `${p} is held — a dead end`);
-  // Customers' People list is the chat inbox (`customerLandingHref('messages')`).
+  // Customers › Events lists every event's chat (each row opens it); Chats is its own page since 2026-11-06.
   assert.equal(pageIsHeld('/vendor-dashboard/customers', NO_ADDRESS, null), false);
   assert.equal(pageIsHeld('/vendor-dashboard/customers', NO_ADDRESS, 'people'), false);
   // A prefix is a path segment, never a string prefix.

@@ -32,10 +32,11 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
   ]);
   return {
     stock,
-    packs,
+    // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (#7297, slice 2).
+    packs: papicOn ? packs : (packs?.filter((p) => p.kind !== 'papic') ?? null),
     paysGiftPrice,
     bought,
     openRails: openRailOptions(settings),
-    canBuy: papicOn && !storeShell,
+    canBuy: !storeShell,
   };
 }

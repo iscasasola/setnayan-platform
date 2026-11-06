@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendVendorInviteEmail } from '@/lib/email';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
@@ -316,8 +317,10 @@ export async function declineVendorInviteByToken(formData: FormData): Promise<vo
  * THE COUPLE IS TOLD WHEN THE SUPPLIER DECLINES THEIR LINK (owner 2026-10-10,
  * "4-6 do as you recommend": the couple IS told when the supplier declines or
  * never opens the link). In the app only — the type is not on the email
- * allowlist (owner 2026-10-11: no new emails). Every couple member of the
- * event, the way `vendor_joined` is fanned out. Fail-soft: the decline itself
+ * allowlist (owner 2026-10-11: no new emails). EVERY HOST of the event —
+ * owner 2026-11-06, verbatim: "all hosts get the notification" — so the
+ * coordinator is told too, not only the couple. "Host" is `HOST_MEMBER_TYPES`
+ * (host-scope.ts), never a list of our own. Fail-soft: the decline itself
  * already stands; the couple's row also says it on every visit
  * (`lib/supplier-invite-status.ts`).
  */
@@ -339,10 +342,10 @@ async function tellCoupleTheirLinkWasDeclined(
       .from('event_members')
       .select('user_id')
       .eq('event_id', eventId)
-      .eq('member_type', 'couple');
-    const coupleUserIds = (members ?? []).map((m) => m.user_id as string).filter(Boolean);
+      .in('member_type', [...HOST_MEMBER_TYPES]);
+    const hostUserIds = [...new Set((members ?? []).map((m) => m.user_id as string).filter(Boolean))];
     await Promise.all(
-      coupleUserIds.map((uid) =>
+      hostUserIds.map((uid) =>
         emitNotification({
           userId: uid,
           type: 'vendor_invite_declined',

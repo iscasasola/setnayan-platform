@@ -545,6 +545,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who recorded that two people are related. The relationship is the OTHER two people’s, so the edge stays and the recorder’s stamp goes.',
   },
   {
+    table: 'vendor_guest_reviews',
+    column: 'hidden_by_user_id',
+    why: 'The Setnayan admin who hid a guest review (owner ruling A, 6 Nov 2026). SET NULL + nullable ⇒ an actor stamp; the review is the GUEST’s words about a shop, and whether it is hidden is kept by hidden_at, not by who pressed it.',
+  },
+  {
     table: 'vendor_reviews',
     column: 'couple_user_id',
     why: 'Nulling anonymises the review; deleting it would silently move a vendor’s public star rating, which is a third party’s commercial record erasure does not reach.',

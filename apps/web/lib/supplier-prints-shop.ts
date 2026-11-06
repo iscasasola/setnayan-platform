@@ -4,7 +4,9 @@ import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import { checkADateUrl } from '@/lib/check-a-date';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 import { myPagePath, myPageUrl } from '@/lib/supplier-qr-codes';
-import type { PrintQr, PrintShop } from '@/lib/supplier-prints-svg';
+import { shopReachLine, type ShopReach } from '@/lib/shop-page-plan';
+import { yearsInBusiness } from '@/lib/vendor-experience';
+import type { PrintMember, PrintQr, PrintShop } from '@/lib/supplier-prints-svg';
 import type { PrintQrMode } from '@/lib/supplier-prints';
 
 /**
@@ -51,12 +53,39 @@ export function printShopFrom(o: {
   return {
     name,
     line: printLine(o.services, o.tagline, o.kindLabel),
+    tagline: o.tagline?.trim() || null,
     ini: shopInitials(name),
     handle: printHandle(o.origin, o.slug),
     verified: o.facts.verified,
     rating: cardRecordRatingFromTrusted(o.facts.trusted),
     badges: shopBadges(o.facts),
   };
+}
+
+/**
+ * The print's reach line (prototype "No data source" note, ruled with PRINTS BY PURPOSE AND SIZE): a print carries only
+ * a CLAIM it can keep — a ring ("Serves up to 100 km around Tagaytay") or nationwide — from the page's own
+ * `shopReachLine`; otherwise the city alone. Never the screen's sentence "· distance search opens once verified".
+ */
+export function printReachLine(reach: ShopReach, city: string | null | undefined): string | null {
+  if (reach.kind === 'ring' || reach.kind === 'nationwide') return shopReachLine(reach, city);
+  return city?.trim() || null;
+}
+
+/** "In business since 2016" — only a year the shop's page would count (`yearsInBusiness`: a real, past year). */
+export function printSinceLine(year: number | null | undefined, nowYear: number): string | null {
+  return yearsInBusiness(year, nowYear) === null ? null : `In business since ${year}`;
+}
+
+/**
+ * The PERSONAL card's front from the two reads (owner 2026-11-06, "Yes"): the account name, and the Team label ONLY
+ * when it is set — never the access level, never an invented title. No name (or an email standing in for one) = no card.
+ */
+export function printMemberFrom(displayName: string | null | undefined, teamLabel: string | null | undefined): PrintMember | null {
+  const name = displayName?.replace(/\s+/g, ' ').trim();
+  if (!name || name.includes('@')) return null;
+  const role = teamLabel?.replace(/\s+/g, ' ').trim();
+  return { name, role: role || null };
 }
 
 /** The address the printed code opens — the shop's real one, from the helpers its Promote codes already use. */

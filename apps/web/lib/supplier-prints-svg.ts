@@ -9,6 +9,8 @@ import type { ShopBadge } from '@/lib/shop-badges';
 import {
   PRINT_QR,
   pieceHasQr,
+  printHidden,
+  type PrintBlock,
   type PrintDesign,
   type PrintFace,
   type PrintPiece,
@@ -46,7 +48,33 @@ export type PrintShop = {
   rating: { avg: number; count: number } | null;
   /** Every badge the shop wears today, in the shipped order (`shopBadges`). */
   badges: readonly ShopBadge[];
+  /*
+   * PRINTS BY PURPOSE AND SIZE (owner 2026-11-06) — each one optional: a fact the shop does not have is absent, and
+   * its block is not printed (never a zero, never an empty box). NO PRICE and NO phone/email exist here at all.
+   */
+  /** `vendor_profiles.logo_url`, drawn in the monogram's place. */
+  logo?: PrintImage | null;
+  /** `vendor_profiles.tagline`. */
+  tagline?: string | null;
+  /** `vendor_services.title` of the shop's active services, in their order — names only, never a price. */
+  services?: readonly string[];
+  /** "In business since 2016" (`in_business_since_year`). */
+  since?: string | null;
+  /** The print's reach line — a ring or nationwide (`shopReachLine`), else the city alone (`printReachLine`). */
+  area?: string | null;
+  /** The Page hero when set, else the first portfolio photo. */
+  photo?: PrintImage | null;
+  /** `microsite_about` — only where the plan shows it on the page. */
+  about?: string | null;
+  /** The shop's own verified web address (`ownWebAddress`), printed above the Setnayan one. */
+  ownDomain?: string | null;
 };
+
+/** A picture a print carries — a `data:` URI the route made from the shop's stored file, and its pixel size. */
+export type PrintImage = { href: string; w: number; h: number };
+
+/** The personal calling card's front (owner 2026-11-06, "Yes"): the member's account name and, only when set, their Team label. */
+export type PrintMember = { name: string; role: string | null };
 
 export type PrintQr = { mode: PrintQrMode; url: string };
 
@@ -196,14 +224,28 @@ function wrap(words: string[], measure: (s: string) => number, maxW: number, bal
   return greedy(hi);
 }
 
-type TextOpts = { face: PrintFace; size: number; ls?: number; lh: number; upper?: boolean; color: string; align: 'start' | 'middle'; maxW: number; balance?: boolean; foil?: readonly string[] | null };
+/**
+ * Every line of words a print draws, while `renderPrint({ words })` runs — the letters are OUTLINED, so the SVG holds no
+ * text to search; this is how a guard reads what was printed (no price, no phone, no email). Sync: set and cleared
+ * inside one `renderPrint` call.
+ */
+let traced: string[] | null = null;
+
+type TextOpts = { face: PrintFace; size: number; ls?: number; lh: number; upper?: boolean; color: string; align: 'start' | 'middle'; maxW: number; balance?: boolean; foil?: readonly string[] | null; maxLines?: number };
 
 function textBox(raw: string, o: TextOpts, defs: string[]): Box {
   const s = o.upper ? raw.toUpperCase() : raw;
   if (!s.trim()) return EMPTY;
   const ls = o.ls ?? 0;
   const measure = (t: string) => run(o.face, t, o.size, ls).w;
-  const lines = wrap(s.split(/\s+/).filter(Boolean), measure, o.maxW, o.balance ?? false);
+  let lines = wrap(s.split(/\s+/).filter(Boolean), measure, o.maxW, o.balance ?? false);
+  if (o.maxLines && lines.length > o.maxLines) {
+    // the prototype's line clamp: the kept lines, the last one ending in an ellipsis that still fits
+    lines = lines.slice(0, o.maxLines);
+    const words = lines[lines.length - 1]!.split(' ');
+    while (words.length > 1 && measure(`${words.join(' ')}…`) > o.maxW) words.pop();
+    lines[lines.length - 1] = `${words.join(' ').replace(/[\s,.;:—-]+$/, '')}…`;
+  }
   const widths = lines.map(measure);
   const w = Math.min(o.maxW, Math.max(...widths));
   const { asc, desc } = metrics(o.face);
@@ -213,6 +255,7 @@ function textBox(raw: string, o: TextOpts, defs: string[]): Box {
     w,
     h: lines.length * lineH,
     draw: (x, y) => {
+      traced?.push(...lines);
       let d = '';
       lines.forEach((ln, i) => {
         const lx = o.align === 'middle' ? x + (w - widths[i]!) / 2 : x;
@@ -249,7 +292,60 @@ function stack(items: Box[], gap: number, align: 'start' | 'middle'): Box {
 
 const HAIR = 0.3; // the prototype's 1 px hairline, at the size its gallery draws a piece
 
-type Ctx = { d: PrintDesign; shop: PrintShop; defs: string[]; qr: PrintQr | null; modules: { size: number; get: (r: number, c: number) => boolean } | null };
+type Ctx = {
+  d: PrintDesign;
+  /** The shop's facts AFTER the `On your prints ▾` pick (`onPrint`) — a block switched off is simply absent here. */
+  shop: PrintShop;
+  defs: string[];
+  qr: PrintQr | null;
+  modules: { size: number; get: (r: number, c: number) => boolean } | null;
+  /** The web address block — null when switched off. */
+  reach: { own: string | null; handle: string } | null;
+  /** Where the code was drawn (plate + caption) — the ornament's keep-out zone follows it. */
+  qrAt?: { x: number; y: number; w: number; h: number };
+};
+
+/**
+ * 🔒 NO PRICE, NO DOOR OUT — the words a supplier typed (tagline, About, service titles, role) reach a print only through
+ * here: an email, a phone number or a peso amount inside them is taken out, so a print never carries a price or a way
+ * around the app (owner 2026-11-06: no prices on prints · `lib/no-door-out-of-the-app.test.ts`). Empty after → null.
+ */
+export function printSafe(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const out = s
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, ' ')
+    .replace(/(?:₱|\bPHP|\bPhp|\bP(?=\s?\d))\s?\d[\d,.]*(?:\s?[kKmM]\b)?/g, ' ')
+    .replace(/\d[\d,.]*\s?(?:pesos?|PHP)\b/gi, ' ')
+    .replace(/₱/g, ' ')
+    .replace(/\+?\(?\d[\d\s().-]{5,}\d/g, (m) => (m.replace(/\D/g, '').length >= 7 ? ' ' : m))
+    .replace(/\s+/g, ' ')
+    .trim();
+  return out.replace(/^[·|,/\-–—:\s]+|[·|,/\-–—:(\s]+$/g, '').replace(/\s+([·|,])(\s+[·|,])+/g, ' $1') || null;
+}
+
+/** The shop's facts with the switched-off blocks taken out — every block reads THIS, so one switch reaches every piece. */
+export function onPrint(shop: PrintShop, hidden: readonly PrintBlock[]): { shop: PrintShop; reach: Ctx['reach'] } {
+  const off = new Set(hidden);
+  const txt = (s: string | null | undefined) => printSafe(s);
+  return {
+    shop: {
+      ...shop,
+      logo: off.has('logo') ? null : (shop.logo ?? null),
+      tagline: off.has('tagline') ? null : txt(shop.tagline),
+      services: off.has('services') ? [] : [...new Set((shop.services ?? []).map((t) => txt(t)).filter((t): t is string => !!t))],
+      rating: off.has('stars') ? null : shop.rating,
+      badges: off.has('badges') ? [] : shop.badges,
+      since: off.has('since') ? null : txt(shop.since),
+      area: off.has('area') ? null : txt(shop.area),
+      photo: off.has('photo') ? null : (shop.photo ?? null),
+      about: off.has('about') ? null : txt(shop.about),
+      ownDomain: off.has('reach') ? null : txt(shop.ownDomain),
+      // a trade line that IS the tagline (a shop with no services) leaves with the tagline
+      line: off.has('tagline') && txt(shop.tagline) && txt(shop.line) === txt(shop.tagline) ? '' : (txt(shop.line) ?? ''),
+    },
+    reach: off.has('reach') ? null : { own: txt(shop.ownDomain), handle: shop.handle },
+  };
+}
 
 function mono(c: Ctx, D: number, fs: number): Box {
   const ini = c.shop.ini;
@@ -318,18 +414,27 @@ function meta(lines: Box[], fs: number, align: 'start' | 'middle'): Box {
   return kept.length ? stack(kept, 0.75 * fs, align) : EMPTY;
 }
 
-/** The big pieces' badges: the shipped pills, wrapped like the prototype's flex row. */
-function pills(c: Ctx, F: number, maxW: number, justify: 'start' | 'middle', cap: number): Box {
-  const list = c.shop.badges.slice(0, cap);
-  if (list.length === 0 || F <= 0) return EMPTY;
+/**
+ * The big pieces' badges: the shipped pills (`badgePill`), `h` units tall, wrapped like the prototype's flex row.
+ * 🔑 ONE FACT, ONE PLACE (the prototype's `pills(…, drawn)`): where the piece draws the stars line it drops the rating
+ * pill; where it draws the "In business since" line, the years pill.
+ */
+function pills(c: Ctx, h: number, maxW: number, justify: 'start' | 'middle', cap: number, drawn: { stars: boolean; since: boolean } = { stars: true, since: false }): Box {
+  const list = c.shop.badges
+    .filter((b) => !(drawn.stars && c.shop.rating && b.kind === 'rating') && !(drawn.since && c.shop.since && b.kind === 'years'))
+    .slice(0, cap);
+  if (list.length === 0 || h <= 0) return EMPTY;
   const lightInk = /^#(F|E)|^#FFF|rgba\(25/i.test(c.d.ink);
-  // the shipped pill is drawn at its own 34 pt em (its 1.4 pt edge is sized for that) and scaled down to F
+  // the shipped pill is drawn at its own 34 pt em (its 1.4 pt edge is sized for that) and scaled down to h units tall
   const EM = 34;
-  const k = F / EM;
-  const drawn = list.map((b, i) => {
-    const d = badgePill(b, EM, lightInk ? 'dark' : 'white', i);
-    return { ...d, width: d.width * k, height: d.height * k };
-  });
+  const raw = list.map((b, i) => ({ ...badgePill(b, EM, lightInk ? 'dark' : 'white', i), kind: b.kind }));
+  const k = h / Math.max(...raw.map((d) => d.height));
+  const F = EM * k;
+  const items = raw.map((d) => ({ ...d, width: d.width * k, height: d.height * k }));
+  return flowPills(c, items, k, F, maxW, justify);
+}
+
+function flowPills(c: Ctx, drawn: Array<{ svg: string; defs: string; width: number; height: number; kind?: string }>, k: number, F: number, maxW: number, justify: 'start' | 'middle'): Box {
   const rows: Array<{ items: typeof drawn; w: number }> = [];
   const gx = 0.55 * F;
   const gy = 0.6 * F;
@@ -353,7 +458,7 @@ function pills(c: Ctx, F: number, maxW: number, justify: 'start' | 'middle', cap
           let px = justify === 'middle' ? x + (w - r.w) / 2 : x;
           return r.items
             .map((p) => {
-              const g = `<g transform="translate(${n(px)} ${n(y + ri * (rowH + gy))}) scale(${k.toFixed(6)})">${p.svg}</g>`;
+              const g = `<g${p.kind ? ` data-print-badge="${esc(p.kind)}"` : ''} transform="translate(${n(px)} ${n(y + ri * (rowH + gy))}) scale(${k.toFixed(6)})">${p.svg}</g>`;
               px += p.width + gx;
               return g;
             })
@@ -373,6 +478,7 @@ function qrBox(c: Ctx, w: number, fs: number, capFs: number, capLs = 0.18): Box 
     w,
     h: w + gap + cap.h,
     draw: (x, y) => {
+      c.qrAt = { x, y, w, h: w + gap + cap.h };
       const ring = c.d.plateRing;
       const rw = ring ? ring[1] * fs : HAIR;
       const ringPaint = ring ? ring[0] : 'rgba(0,0,0,.08)';
@@ -412,6 +518,197 @@ function mk(c: Ctx, fs: number, opts: { icon?: number; column?: boolean; gap?: n
   const gap = 0.5 * fs;
   const h = Math.max(icon, t.h);
   return { w: icon + gap + t.w, h, draw: (x, y) => setnayanMarkSvg(x + icon / 2, y + h / 2, icon, c.d.mkC) + t.draw(x + icon + gap, y + (h - t.h) / 2) };
+}
+
+/* ── the blocks PRINTS BY PURPOSE AND SIZE adds (the prototype's logo · svc · stars · meta · photo · about · reach) ── */
+
+/** The shop's logo in the monogram's circle (the prototype's `.logo`: round, contained) — else the monogram, as before. */
+function logoBox(c: Ctx, D: number): Box {
+  const img = c.shop.logo;
+  if (!img) return mono(c, D, D * 0.36);
+  return {
+    w: D,
+    h: D,
+    draw: (x, y) => {
+      const id = `lg${(gradSeq = (gradSeq + 1) % 1e9)}`;
+      return (
+        `<clipPath id="${id}"><circle cx="${n(x + D / 2)}" cy="${n(y + D / 2)}" r="${n(D / 2)}"/></clipPath>` +
+        `<image data-print-block="logo" href="${img.href}" x="${n(x)}" y="${n(y)}" width="${n(D)}" height="${n(D)}" preserveAspectRatio="xMidYMid meet" clip-path="url(#${id})"/>`
+      );
+    },
+  };
+}
+
+/** A line of words in the trade line's style (uppercase, tracked) — the tagline, a role, the shop name on a member's card. */
+function subTxt(c: Ctx, s: string | null | undefined, fs: number, maxW: number, align: 'start' | 'middle', ls = 0.24, color = c.d.sub): Box {
+  return textBox(s ?? '', { face: c.d.subFace, size: fs, ls, lh: 1.35, upper: true, color, align, maxW }, c.defs);
+}
+
+/** Boxes side by side, centred on one another (the prototype's `display:flex;align-items:center`). */
+function hrow(items: Box[], gap: number): Box {
+  const kept = items.filter((b) => b.w > 0 && b.h > 0);
+  if (kept.length === 0) return EMPTY;
+  const w = kept.reduce((a, b) => a + b.w, 0) + gap * (kept.length - 1);
+  const h = Math.max(...kept.map((b) => b.h));
+  return {
+    w,
+    h,
+    draw: (x, y) => {
+      let out = '';
+      let cx = x;
+      for (const b of kept) {
+        out += b.draw(cx, y + (h - b.h) / 2);
+        cx += b.w + gap;
+      }
+      return out;
+    },
+  };
+}
+
+/** Boxes stacked with one gap, empties closed up (the prototype's `flex-direction:column; gap`). */
+function vstack(items: Box[], gap: number, align: 'start' | 'middle'): Box {
+  const kept = items.filter((b) => b.h > 0);
+  return kept.length ? stack(kept, gap, align) : EMPTY;
+}
+
+/** Boxes in rows that wrap at `maxW` (`flex-wrap:wrap`), each row centred on its own items. */
+function flow(items: Box[], gx: number, gy: number, maxW: number, justify: 'start' | 'middle'): Box {
+  const kept = items.filter((b) => b.w > 0 && b.h > 0);
+  if (kept.length === 0) return EMPTY;
+  const rows: Box[][] = [];
+  let cur: Box[] = [];
+  let curW = 0;
+  for (const b of kept) {
+    if (cur.length && curW + gx + b.w > maxW) {
+      rows.push(cur);
+      cur = [];
+      curW = 0;
+    }
+    curW += (cur.length ? gx : 0) + b.w;
+    cur.push(b);
+  }
+  rows.push(cur);
+  return vstack(rows.map((r) => hrow(r, gx)), gy, justify);
+}
+
+/** The stars line — "4.7 ★ · 3 reviews": the number in ink, the star in the accent, the count quiet. */
+function starsBox(c: Ctx, fs: number): Box {
+  const r = c.shop.rating;
+  if (!r) return EMPTY;
+  const o = { face: c.d.subFace, size: fs, ls: 0.2, lh: 1.3, upper: true, align: 'start' as const, maxW: 1e3 };
+  const num = textBox(r.avg.toFixed(1), { ...o, color: c.d.ink }, c.defs);
+  const rest = textBox(`· ${formatCount(r.count)} review${r.count === 1 ? '' : 's'}`, { ...o, color: c.d.sub }, c.defs);
+  const s = 0.95 * fs;
+  const star: Box = {
+    w: s,
+    h: s,
+    draw: (x, y) => {
+      const cx = x + s / 2;
+      const cy = y + s * 0.53;
+      const pts = Array.from({ length: 10 }, (_, i) => {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const rad = i % 2 ? s * 0.21 : s * 0.5;
+        return `${n(cx + rad * Math.cos(a))},${n(cy + rad * Math.sin(a))}`;
+      }).join(' ');
+      return `<polygon points="${pts}" ${paint(c.d.acc)}/>`;
+    },
+  };
+  const line = hrow([num, star, rest], 0.42 * fs);
+  return { ...line, draw: (x, y) => `<g data-print-block="stars">${line.draw(x, y)}</g>` };
+}
+
+/** The shop's services — names only, one a line (owner 2026-11-06: NO price on any print; a printed price cannot update). */
+function svcBox(c: Ctx, max: number, fs: number, maxW: number, align: 'start' | 'middle'): Box {
+  const list = (c.shop.services ?? []).slice(0, max);
+  if (list.length === 0) return EMPTY;
+  const b = stack(
+    list.map((t) => textBox(t, { face: c.d.subFace, size: fs, ls: 0, lh: 1.45, color: c.d.ink, align, maxW, maxLines: 1 }, c.defs)),
+    0,
+    align,
+  );
+  return { ...b, draw: (x, y) => `<g data-print-block="services" data-print-count="${list.length}">${b.draw(x, y)}</g>` };
+}
+
+/** "In business since 2016 · Serves up to 100 km around Tagaytay" — each part only if the shop has it. */
+function metaBox(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle'): Box {
+  const parts = [c.shop.since, c.shop.area].filter((s): s is string => !!s);
+  return parts.length ? lnBox(c, parts.join(' · '), fs, maxW, align) : EMPTY;
+}
+
+/** A photo, cropped to cover its frame (the prototype's `object-fit:cover`, `posX` its `object-position`). */
+function photoBox(c: Ctx, w: number, h: number, posX = 0.5, border = 0): Box {
+  const img = c.shop.photo;
+  if (!img || w <= 0 || h <= 0) return EMPTY;
+  return {
+    w,
+    h,
+    draw: (x, y) => {
+      const id = `ph${(gradSeq = (gradSeq + 1) % 1e9)}`;
+      const k = Math.max(w / img.w, h / img.h);
+      const dw = img.w * k;
+      const dh = img.h * k;
+      return (
+        `<clipPath id="${id}"><rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}"/></clipPath>` +
+        `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="#000"/>` +
+        `<image data-print-block="photo" href="${img.href}" x="${n(x + (w - dw) * posX)}" y="${n(y + (h - dh) / 2)}" width="${n(dw)}" height="${n(dh)}" preserveAspectRatio="none" clip-path="url(#${id})"/>` +
+        (border ? `<rect x="${n(x + border / 2)}" y="${n(y + border / 2)}" width="${n(w - border)}" height="${n(h - border)}" fill="none" ${paint(c.d.acc, 'stroke')} stroke-width="${n(border)}"/>` : '')
+      );
+    },
+  };
+}
+
+/** The About, clamped to `lines` lines (Pro+ — the route hands it in only where the page shows it). */
+function aboutBox(c: Ctx, fs: number, lines: number, w: number): Box {
+  const b = textBox(c.shop.about ?? '', { face: c.d.subFace, size: fs, ls: 0, lh: 1.45, color: c.d.ink, align: 'start', maxW: w, maxLines: lines }, c.defs);
+  return b.h ? { ...b, draw: (x, y) => `<g data-print-block="about">${b.draw(x, y)}</g>` } : EMPTY;
+}
+
+/** One unbreakable line (a web address has no space to wrap at), set smaller until it fits — never cut off. */
+function fitLine(c: Ctx, s: string, o: TextOpts): Box {
+  const w = run(o.face, o.upper ? s.toUpperCase() : s, o.size, o.ls ?? 0).w;
+  return textBox(s, { ...o, size: w > o.maxW ? (o.size * o.maxW) / w : o.size }, c.defs);
+}
+
+/** The web address: the shop's own domain, the Setnayan address small under it — else the Setnayan address alone. */
+function reachBox(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle'): Box {
+  const r = c.reach;
+  if (!r) return EMPTY;
+  const o = { face: c.d.subFace, ls: 0.06, lh: 1.3, align, maxW } as const;
+  const top = fitLine(c, r.own ?? r.handle, { ...o, size: fs, color: c.d.ink });
+  const b = r.own ? stack([top, fitLine(c, r.handle, { ...o, size: 0.8 * fs, ls: 0.04, color: c.d.sub })], 0.3 * fs, align) : top;
+  return { ...b, draw: (x, y) => `<g data-print-block="reach">${b.draw(x, y)}</g>` };
+}
+
+/**
+ * A column of blocks (the prototype's flex column): a number is a fixed gap, a box a block. A gap belongs to the block
+ * after it, so a block with nothing behind it takes its gap with it and the rest closes up. `between` shares the free
+ * space between every item (CSS `space-between`, the gaps counted as items); with no free space it packs from the top.
+ */
+function column(items: Array<Box | number>, x: number, w: number, top: number, bot: number, justify: 'start' | 'center' | 'between', align: 'start' | 'middle'): string {
+  const kept: Array<Box | number> = [];
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i]!;
+    if (typeof it === 'number') {
+      const next = items[i + 1];
+      if (next !== undefined && typeof next !== 'number' && next.h <= 0) continue;
+      kept.push(it);
+    } else if (it.h > 0) kept.push(it);
+  }
+  // a piece never spills past its own edge: when the blocks outgrow it, the gaps give way first (down to 30 %)
+  const gaps = kept.reduce<number>((a, it) => a + (typeof it === 'number' ? it : 0), 0);
+  const boxes = kept.reduce<number>((a, it) => a + (typeof it === 'number' ? 0 : it.h), 0);
+  const squeeze = gaps > 0 && boxes + gaps > bot - top ? Math.max(0.3, (bot - top - boxes) / gaps) : 1;
+  const size = (it: Box | number) => (typeof it === 'number' ? it * squeeze : it.h);
+  const total = kept.reduce<number>((a, it) => a + size(it), 0);
+  const free = bot - top - total;
+  const share = justify === 'between' && kept.length > 1 && free > 0 ? free / (kept.length - 1) : 0;
+  let y = top + (justify === 'center' && free > 0 ? free / 2 : 0);
+  let out = '';
+  for (const it of kept) {
+    if (typeof it !== 'number') out += it.draw(align === 'middle' ? x + (w - it.w) / 2 : x, y);
+    y += size(it) + share;
+  }
+  return out;
 }
 
 /* ── the ornaments — the prototype's `O` and each design's `orn`, verbatim, with the bleed `b` for a Save file ───── */
@@ -475,36 +772,42 @@ function centreX(b: Box, left: number, width: number): number {
   return left + (width - b.w) / 2;
 }
 
-function layout(c: Ctx, p: PrintPiece, side: PrintSide, H: number): string {
+/**
+ * One side of a piece. PRINTS BY PURPOSE AND SIZE (owner 2026-11-06, "Yes ship it"): each piece is the approved
+ * prototype's layout (`index.src.html` → `L.card … L.backdrop`), re-stated in piece units — what it carries follows
+ * who reads it from how far (`PRINT_PURPOSE`). The door print is unchanged. No price, no phone, no email anywhere.
+ */
+function layout(c: Ctx, p: PrintPiece, side: PrintSide, H: number, member: PrintMember | null): string {
+  // ── CALLING CARD · front — handed over, read in the hand (40 cm): identity only
+  if (p.id === 'card' && side === 'f' && member) return personalFront(c, H, member);
   if (p.id === 'card' && side === 'f') {
-    const top = 8, bot = H - 7.5, L = 9, W = 82;
-    const m = mono(c, 11, 4);
-    const id = stack([nm(c, 8.2, W, 'middle'), rule(c, 12), sub(c, 2.5, W, 'middle')], 2.2, 'middle');
-    const me = meta([sealLn(c, 2.2, W)], 2.2, 'middle');
-    const meY = bot - me.h;
-    const a = top + m.h + 2, z = meY - 2;
-    return m.draw(centreX(m, L, W), top) + id.draw(centreX(id, L, W), a + (z - a - id.h) / 2) + me.draw(centreX(me, L, W), meY);
+    const L = 9, W = 82;
+    return column(
+      [logoBox(c, 12), 2.2, nm(c, 8.2, W, 'middle'), 2.2, rule(c, 12), 2.2, subTxt(c, c.shop.tagline || c.shop.line, 2.5, W, 'middle'), 2.6, sealLn(c, 2.2, W)],
+      L, W, 8, H - 7.5, 'center', 'middle',
+    );
   }
+  // ── CALLING CARD · back — the Setnayan address, the stars line, two badge words, the code
   if (p.id === 'card') {
-    const top = 8, bot = H - 8, L = 9, R = 91;
+    const L = 9, R = 91, leftW = R - L - 26 - 7;
     const q = qrBox(c, 26, 2.2, 1.8, 0.14);
-    const leftW = R - L - 26 - 7;
-    const hand = textBox(c.shop.handle, { face: c.d.subFace, size: 2.9, ls: 0.06, lh: 1.1, color: c.d.ink, align: 'start', maxW: leftW }, c.defs);
-    const left = stack([mk(c, 3.2, { icon: 7 }), rule(c, 14), hand, meta([rateLn(c, 2.1, leftW, 'start'), badgeLn(c, 2.1, leftW, 'start', p.maxBadges)], 2.1, 'start')], 2.6, 'start');
-    const mid = (top + bot) / 2;
-    return left.draw(L, mid - left.h / 2) + q.draw(R - 26, mid - q.h / 2);
+    const hand = c.reach ? fitLine(c, c.reach.handle, { face: c.d.subFace, size: 2.9, ls: 0.06, lh: 1.1, color: c.d.ink, align: 'start', maxW: leftW }) : EMPTY;
+    const left = vstack([mk(c, 3.2), rule(c, 14), hand, starsBox(c, 2.1), badgeLn(c, 2.1, leftW, 'start', p.maxBadges)], 2.6, 'start');
+    return left.draw(L, H / 2 - left.h / 2) + q.draw(R - 26, H / 2 - q.h / 2);
   }
+  // ── A5 STANDEE — on a desk or welcome table, read at arm's length (0.8 m): services + rating + QR
   if (p.id === 'standee') {
-    const top = 8, bot = H - 6, L = 9, W = 82, g = 3;
-    const m = mono(c, 13, 4.6);
-    const id = stack([nm(c, 10, W, 'middle'), rule(c, 14), sub(c, 3, W, 'middle')], 2.4, 'middle');
-    const q = qrBox(c, 52, 3, 2.7);
-    const me = meta([sealLn(c, 2.6, W), rateLn(c, 2.6, W, 'middle'), badgeLn(c, 2.6, W, 'middle', p.maxBadges)], 2.6, 'middle');
-    const k = mk(c, 2.8);
-    const kY = bot - k.h, meY = kY - g - me.h;
-    const a = top + m.h + g + id.h + g, z = meY - g;
-    return m.draw(centreX(m, L, W), top) + id.draw(centreX(id, L, W), top + m.h + g) + q.draw(centreX(q, L, W), a + (z - a - q.h) / 2) + me.draw(centreX(me, L, W), meY) + k.draw(centreX(k, L, W), kY);
+    const L = 9, W = 82;
+    return column(
+      [
+        logoBox(c, 13), 2.2, nm(c, 8.6, W, 'middle'), 1.8, rule(c, 14), 1.8, subTxt(c, c.shop.tagline, 2.5, W, 'middle'),
+        3.5, svcBox(c, 3, 3, W, 'middle'), 2.6, starsBox(c, 2.6),
+        3.5, qrBox(c, 34, 2.5, 2.5), 3.5, pills(c, 5.6, W, 'middle', 3), 3, mk(c, 2.8),
+      ],
+      L, W, 7.5, H - 5.5, 'between', 'middle',
+    );
   }
+  // ── DOOR PRINT — unchanged (owner: "door unchanged")
   if (p.id === 'door') {
     const top = 8.5, bot = H - 7.5, L = 9, W = 82, g = 3.2;
     const sc = textBox('We are part of', { face: c.d.subFace, size: 3.2, ls: 0.22, lh: 1.3, upper: true, color: c.d.sub, align: 'middle', maxW: W }, c.defs);
@@ -516,68 +819,83 @@ function layout(c: Ctx, p: PrintPiece, side: PrintSide, H: number): string {
     const a = top + we.h + g + who.h + g, z = meY - g;
     return we.draw(centreX(we, L, W), top) + who.draw(centreX(who, L, W), top + we.h + g) + q.draw(centreX(q, L, W), a + (z - a - q.h) / 2) + me.draw(centreX(me, L, W), meY);
   }
+  // ── TABLE-FRONT — hangs on the table edge at waist height, read walking up (2–3 m)
+  if (p.id === 'table') {
+    const py = 4.5, px = 5.5, qw = 21, cg = 5;
+    const leftW = 100 - 2 * px - qw - cg;
+    const textW = leftW - 8.5 - 2.6;
+    const head = hrow([logoBox(c, 8.5), vstack([nm(c, 4.8, textW, 'start'), rule(c, 10), subTxt(c, c.shop.tagline, 1.7, Math.min(56, textW), 'start')], 1.1, 'start')], 2.6);
+    const foot = flow([starsBox(c, 1.9), pills(c, 3.3, leftW, 'start', 3)], 3, 1, leftW, 'start');
+    const q = qrBox(c, qw, 1.6, 1.6);
+    return column([head, 2, svcBox(c, 3, 2.1, leftW, 'start'), 2, foot], px, leftW, py, H - py, 'between', 'start') + q.draw(100 - px - qw, (H - q.h) / 2);
+  }
+  // ── TARP — on a wall, read from across a room (5 m): + since, area, web address, a big QR
+  if (p.id === 'tarp') {
+    const py = 5, px = 6, qw = 26, cg = 5;
+    const leftW = 100 - 2 * px - qw - cg;
+    const textW = leftW - 10 - 3;
+    const head = hrow([logoBox(c, 10), vstack([nm(c, 6.2, textW, 'start'), rule(c, 12), subTxt(c, c.shop.tagline, 1.9, Math.min(56, textW), 'start')], 1.2, 'start')], 3);
+    const foot = vstack([flow([starsBox(c, 2), pills(c, 3.4, leftW, 'start', 5, { stars: true, since: true })], 2.6, 1.2, leftW, 'start'), metaBox(c, 1.8, leftW, 'start')], 1.2, 'start');
+    return (
+      column([head, 1.2, svcBox(c, 4, 2.1, leftW, 'start'), 1.2, foot], px, leftW, py, H - py, 'between', 'start') +
+      column([qrBox(c, qw, 1.8, 1.8), 2, reachBox(c, 1.7, qw, 'middle')], 100 - px - qw, qw, py, H - py, 'center', 'middle')
+    );
+  }
+  // ── BOOTH BACKDROP — seen from a few steps and in photos: big brand across the top, one photo, the QR at the side
   if (p.id === 'backdrop') {
-    const P = 8, bot = H - P, colW = 100 - 2 * P - 6 - 34;
-    const m = mono(c, 14, 5);
-    const idTxt = stack([nm(c, 11, 100 - 2 * P - 14 - 4.5, 'start'), rule(c, 16), sub(c, 3.4, 100 - 2 * P - 14 - 4.5, 'start')], 2.4, 'start');
-    const idH = Math.max(m.h, idTxt.h);
-    const k = mk(c, 3);
-    const me = pills(c, 1.9, colW, 'start', 4);
-    const q = qrBox(c, 34, 3, 2.7);
-    const r2a = P + idH, r2z = bot - me.h;
-    const midH = k.h + 8; // padding 4cqw above and below
+    const P = 7, W = 100 - 2 * P;
+    const textW = W - 13 - 4;
+    const head = hrow([logoBox(c, 13), vstack([nm(c, 7.6, textW, 'start'), rule(c, 16), subTxt(c, c.shop.tagline, 2.4, Math.min(62, textW), 'start')], 1.6, 'start')], 4);
+    const top2 = P + head.h + 3.5, bot2 = H - 6.5;
+    const ph = photoBox(c, 44, bot2 - top2, 0.7, 0.4);
+    const colX = ph.h ? P + 44 + 5 : P;
+    const colW = ph.h ? W - 44 - 5 : W;
+    const info = vstack([starsBox(c, 2), pills(c, 3.2, colW, 'middle', 5, { stars: true, since: true }), metaBox(c, 1.7, colW, 'middle')], 1.8, 'middle');
     return (
-      m.draw(P, P + (idH - m.h) / 2) +
-      idTxt.draw(P + 14 + 4.5, P + (idH - idTxt.h) / 2) +
-      k.draw(P, r2a + (r2z - r2a - midH) / 2 + 4) +
-      me.draw(P, bot - me.h) +
-      q.draw(100 - P - 34, bot - q.h)
+      head.draw(P + (W - head.w) / 2, P) +
+      (ph.h ? ph.draw(P, top2) : '') +
+      column([qrBox(c, ph.h ? 30 : 36, 2.1, 2.1), 2, reachBox(c, 1.9, colW, 'middle'), 2, info, 2, mk(c, 2.4)], colX, colW, top2, bot2, 'between', 'middle')
     );
   }
-  if (p.id === 'tarp' || p.id === 'table') {
-    const t = p.id === 'tarp'
-      ? { py: 5.5, px: 6, D: 11, mfs: 4, nmS: 7.2, rw: 12, sfs: 2.5, ig: 1.8, pf: 1.1, mt: 2.6, qw: 26, qf: 2.1, qc: 1.9, cg: 4, cap: 3 }
-      : { py: 5, px: 5.5, D: 10, mfs: 3.6, nmS: 6.6, rw: 11, sfs: 2.2, ig: 1.6, pf: 1, mt: 2.2, qw: 22, qf: 1.9, qc: 1.8, cg: 3.5, cap: 3 };
-    const top = t.py, bot = H - t.py, L = t.px, R = 100 - t.px;
-    const colX = L + t.D + t.cg, colW = R - L - t.D - t.qw - 2 * t.cg;
-    const m = mono(c, t.D, t.mfs);
-    const id = stack([nm(c, t.nmS, colW, 'start'), rule(c, t.rw), sub(c, t.sfs, colW, 'start')], t.ig, 'start');
-    const me = pills(c, t.pf, colW, 'start', t.cap);
-    const q = qrBox(c, t.qw, t.qf, t.qc);
-    // grid rows auto auto, stretched: the spanning mono + QR first, then the free space shared by the two rows
-    let r1 = id.h;
-    let r2 = me.h > 0 ? t.mt + me.h : 0;
-    const need = Math.max(m.h, q.h);
-    if (r1 + r2 < need) {
-      const add = (need - r1 - r2) / 2;
-      r1 += add;
-      r2 += add;
-    }
-    const free = bot - top - r1 - r2;
-    if (free > 0) r1 += free / 2;
-    const boundary = top + r1;
-    const span = r1 + r2 + (free > 0 ? free / 2 : 0);
-    return (
-      m.draw(L, top + (span - m.h) / 2) +
-      id.draw(colX, boundary - id.h) +
-      (me.h > 0 ? me.draw(colX, boundary + t.mt) : '') +
-      q.draw(R - t.qw, top + (span - q.h) / 2)
-    );
-  }
-  // roll-up
-  const top = 13, bot = H - 10, L = 11, W = 78, g = 5.5;
-  const m = mono(c, 20, 7.2);
-  const id = stack([nm(c, 12.5, W, 'middle'), rule(c, 18), sub(c, 4, W, 'middle')], 3.6, 'middle');
-  const q = qrBox(c, 64, 4, 3.6);
-  const me = pills(c, 2.3, W, 'middle', 4);
-  const k = mk(c, 3.8);
-  const kY = bot - k.h, meY = me.h > 0 ? kY - g - me.h : kY;
-  const a = top + m.h + g + id.h + g, z = meY - g;
-  return m.draw(centreX(m, L, W), top) + id.draw(centreX(id, L, W), top + m.h + g) + q.draw(centreX(q, L, W), a + (z - a - q.h) / 2) + me.draw(centreX(me, L, W), meY) + k.draw(centreX(k, L, W), kY);
+  // ── ROLL-UP — beside a table, read top to bottom as people approach (3 m → 0.5 m): photo, story, QR at hand height
+  const L = 11, W = 78;
+  return column(
+    [
+      9, logoBox(c, 16), 3.5, nm(c, 12, W, 'middle'), 3, rule(c, 18), 3, subTxt(c, c.shop.tagline, 3.6, W, 'middle'),
+      4.5, photoBox(c, 78, 28), 4, aboutBox(c, 2.8, 3, 78),
+      5, qrBox(c, 52, 3.4, 3.4), 5, svcBox(c, 6, 3.4, W, 'middle'),
+      4.5, flow([starsBox(c, 3.1), pills(c, 5.8, W, 'middle', 5, { stars: true, since: true })], 3.5, 2, W, 'middle'),
+      4, metaBox(c, 2.6, W, 'middle'), 4, flow([reachBox(c, 2.8, W, 'middle'), mk(c, 3.4)], 5, 2, W, 'middle'),
+    ],
+    L, W, 0, H - 9, 'start', 'middle',
+  );
+}
+
+/**
+ * The PERSONAL calling card's front (owner 2026-11-06, "Yes"): the shop's logo, then the member's account name, their
+ * Team label ONLY when they have one (never the access level, never an invented title), a rule, the shop's name.
+ */
+function personalFront(c: Ctx, H: number, m: PrintMember): string {
+  const L = 9, W = 82, D = 15, gap = 5;
+  const tw = W - D - gap;
+  const name = m.name.replace(/\s+/g, ' ').trim();
+  let size = 6.2;
+  const longest = Math.max(...name.split(' ').map((w) => run(c.d.nameFace, w, size, 0).w));
+  if (longest > tw) size *= tw / longest;
+  const who = textBox(name, { face: c.d.nameFace, size, ls: 0, lh: 1.05, color: c.d.ink, align: 'start', maxW: tw, balance: true }, c.defs);
+  const role = m.role?.trim() ? subTxt(c, m.role.trim(), 2.4, tw, 'start', 0.2) : EMPTY;
+  const col = vstack([
+    { ...who, draw: (x, y) => `<g data-print-block="member">${who.draw(x, y)}</g>` },
+    role.h ? { ...role, draw: (x: number, y: number) => `<g data-print-block="role">${role.draw(x, y)}</g>` } : EMPTY,
+    rule(c, 10),
+    lnBox(c, c.shop.name, 2.3, tw, 'start', c.d.acc),
+  ], 1.8, 'start');
+  const row = hrow([logoBox(c, D), col], gap);
+  return row.draw(L, (H - row.h) / 2);
 }
 
 /** One side of a piece as SVG content in piece units (0 0 100 H), with `b` units of bleed drawn around the ground. */
-function side(p: PrintPiece, d: PrintDesign, shop: PrintShop, qr: PrintQr | null, s: PrintSide, b: number, idp: string): string {
+function side(p: PrintPiece, d: PrintDesign, raw: PrintShop, qr: PrintQr | null, s: PrintSide, b: number, idp: string, hidden: readonly PrintBlock[], member: PrintMember | null): string {
   const H = 100 / p.ratio;
   const hasQr = pieceHasQr(p.id, s) && qr !== null;
   let modules: Ctx['modules'] = null;
@@ -585,7 +903,8 @@ function side(p: PrintPiece, d: PrintDesign, shop: PrintShop, qr: PrintQr | null
     const code = QRCode.create(qr!.url, { errorCorrectionLevel: 'H' });
     modules = { size: code.modules.size, get: (r, col) => Boolean(code.modules.get(r, col)) };
   }
-  const c: Ctx = { d, shop, defs: [], qr: hasQr ? qr : null, modules };
+  const { shop, reach } = onPrint(raw, hidden);
+  const c: Ctx = { d, shop, defs: [], qr: hasQr ? qr : null, modules, reach };
   const ground =
     typeof d.ground === 'string'
       ? `<rect x="${n(-b)}" y="${n(-b)}" width="${n(100 + 2 * b)}" height="${n(H + 2 * b)}" fill="${d.ground}"/>`
@@ -594,12 +913,14 @@ function side(p: PrintPiece, d: PrintDesign, shop: PrintShop, qr: PrintQr | null
           c.defs.push(g.def);
           return `<rect x="${n(-b)}" y="${n(-b)}" width="${n(100 + 2 * b)}" height="${n(H + 2 * b)}" fill="url(#${g.id})"/>`;
         })();
-  const k = p.keep;
   const orn = ornament(c, 100, H, b);
+  const body = layout(c, p, s, H, p.id === 'card' && s === 'f' ? member : null);
+  // the keep-out zone: the door's fixed one (unchanged); every other piece masks where its code was actually drawn
+  const at = c.qrAt;
+  const k = p.id !== 'door' && at ? { x: n(at.x - 1.5), y: n(at.y - 1.5), w: n(at.w + 3), h: n(at.h + 3) } : p.keep;
   const ornWrapped = hasQr
     ? `<mask id="ko" maskUnits="userSpaceOnUse" x="${n(-b)}" y="${n(-b)}" width="${n(100 + 2 * b)}" height="${n(H + 2 * b)}"><rect x="${n(-b)}" y="${n(-b)}" width="${n(100 + 2 * b)}" height="${n(H + 2 * b)}" fill="#fff"/><rect x="${k.x}" y="${k.y}" width="${k.w}" height="${k.h}" rx="1.2" fill="#000"/></mask><g mask="url(#ko)">${orn}</g>`
     : orn;
-  const body = layout(c, p, s, H);
   const out = `${ground}<defs>${c.defs.join('')}</defs>${ornWrapped}${body}`;
   // every id in this side gets the side's prefix — a calling card's two sides share one file
   return out.replace(/\bid="([^"]+)"/g, `id="${idp}$1"`).replace(/url\(#([^)]+)\)/g, `url(#${idp}$1)`);
@@ -616,6 +937,15 @@ export type RenderPrintOpts = {
    * 'print'  — the Save file: the exact size in millimetres with a 3 mm bleed; the calling card's front AND back.
    */
   for?: 'screen' | 'print';
+  /** The blocks the `On your prints ▾` pick switched off — the picture and the Save file both leave them out. */
+  hide?: readonly PrintBlock[] | string | null;
+  /** The calling card only: the signed-in member's own card (their name + role on the front; the shop's back). */
+  member?: PrintMember | null;
+  /**
+   * Every letter is outlined, so the SVG holds no searchable words — a guard passes an array here and gets back each
+   * line of words the print drew (`lib/prints-by-purpose-and-size.test.ts`: no ₱, no phone, no email).
+   */
+  words?: string[];
 };
 
 export const PRINT_BLEED_MM = 3;
@@ -623,15 +953,26 @@ export const PRINT_BLEED_MM = 3;
 const CARD_GAP_MM = 10;
 
 export function renderPrint(o: RenderPrintOpts): string {
+  traced = o.words ?? null;
+  try {
+    return renderPrintTraced(o);
+  } finally {
+    traced = null;
+  }
+}
+
+function renderPrintTraced(o: RenderPrintOpts): string {
   const p = o.piece;
   const H = 100 / p.ratio;
-  const title = `<title>${esc(`${o.shop.name} · ${p.name} · ${p.size} · ${o.design.name} · SETNAYAN`)}</title>`;
+  const hidden = printHidden(o.hide ?? []);
+  const member = p.id === 'card' && o.member?.name.trim() ? { name: o.member.name.trim(), role: printSafe(o.member.role) } : null;
+  const title = `<title>${esc(`${member ? `${member.name.trim()} · ` : ''}${o.shop.name} · ${p.name} · ${p.size} · ${o.design.name} · SETNAYAN`)}</title>`;
   if (o.for !== 'print') {
     const s = o.side ?? 'f';
     return (
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 ${n(H)}" width="1000" height="${n(H * 10)}" data-print-piece="${p.id}" data-print-design="${o.design.id}" data-print-side="${s}">` +
       title +
-      `<svg viewBox="0 0 100 ${n(H)}" width="100" height="${n(H)}" overflow="hidden">${side(p, o.design, o.shop, o.qr, s, 0, `${s}-`)}</svg></svg>`
+      `<svg viewBox="0 0 100 ${n(H)}" width="100" height="${n(H)}" overflow="hidden">${side(p, o.design, o.shop, o.qr, s, 0, `${s}-`, hidden, member)}</svg></svg>`
     );
   }
   const u = 100 / p.mm.w; // piece units per millimetre
@@ -644,7 +985,7 @@ export function renderPrint(o: RenderPrintOpts): string {
   const mmW = p.mm.w + 2 * PRINT_BLEED_MM;
   const mmH = (totalH / u);
   const parts = sides
-    .map((s, i) => `<svg x="0" y="${n(i * (fh + gap))}" width="${n(fw)}" height="${n(fh)}" viewBox="${n(-b)} ${n(-b)} ${n(fw)} ${n(fh)}" overflow="hidden" data-print-side="${s}">${side(p, o.design, o.shop, o.qr, s, b, `${s}-`)}</svg>`)
+    .map((s, i) => `<svg x="0" y="${n(i * (fh + gap))}" width="${n(fw)}" height="${n(fh)}" viewBox="${n(-b)} ${n(-b)} ${n(fw)} ${n(fh)}" overflow="hidden" data-print-side="${s}">${side(p, o.design, o.shop, o.qr, s, b, `${s}-`, hidden, member)}</svg>`)
     .join('');
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +

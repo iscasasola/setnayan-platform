@@ -342,6 +342,7 @@ export default async function SupplierPlanLabPage({
         canShare={sp.noaddress !== '1'}
         setupHref="/dev/supplier-plan-lab?s=prints"
         artBase={`/dev/supplier-plan-lab/prints-art/${sp.long === '1' ? 'long' : 'plain'}`}
+        member={sp.noname === '1' ? null : { name: 'Juan dela Cruz', role: sp.long === '1' ? 'Head chef' : null }}
       />
     );
   else if (s === 'gifts-couple')

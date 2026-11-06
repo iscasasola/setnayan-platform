@@ -1952,6 +1952,13 @@ function CanvasSheet({
   useModalA11y({ open, onClose, containerRef: dialogRef });
 
   /**
+   * 🔝 ABOVE THE FRAME THAT HOSTS THE MAKER (live 2026-11-06). The maker is also drawn INSIDE a sheet — Today's "What you
+   * offer → ＋ Start" opens it in the shared `Sheet` (`setup-offer-fold.tsx`), which sits on the modal layer (z-50). This
+   * root was `z-40` (the pop layer), so every sheet the maker opens — What you offer, Ask us, Preview, Who it's for,
+   * Delete — opened BEHIND that sheet: the tap looked dead and a new supplier could not make a card from Today. It takes
+   * the house layer above the modal (`--sn-z-toast`, the one the report sheet and the pay confirm already open over a
+   * Sheet on), so it clears the standalone page and the Today sheet alike. 🔒 `the-maker-sheets-open-on-top.test.ts`.
+   *
    * 🔑 PORTAL TO <body> — `position: fixed` is relative to the nearest TRANSFORMED ancestor, and `.sn-page-enter`
    * carries an identity transform (measured 2026-09-07: the backdrop was 184 px tall). The same fix
    * `category-search-overlay.tsx` and `team-summary-chip.tsx` carry.
@@ -1961,7 +1968,7 @@ function CanvasSheet({
   if (!mounted) return null;
 
   return createPortal(
-    <div hidden={!open} className="fixed inset-0 z-40">
+    <div hidden={!open} className="fixed inset-0 z-sn-toast">
       {/* Phone: the one scrim (`<OverlayBackdrop>`, owner 2026-10-29). Desktop: the canvas stays clear beside the sheet
           (it is the live preview), so a clear catcher closes it instead. */}
       <OverlayBackdrop onClose={onClose} className="lg:hidden" />

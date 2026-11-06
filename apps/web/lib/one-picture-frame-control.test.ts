@@ -19,9 +19,10 @@ import { join } from 'node:path';
 
 import { PICTURE_FRAME_FIELDS, pictureFrameStyle } from './picture-frame';
 import { logoFrameStyle } from './open-shop-logo';
+import { stripComments } from './strip-comments';
 
 const read = (p: string) => readFileSync(p, 'utf8');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+const strip = stripComments;
 
 const CONTROL = strip(read('app/_components/picture-frame-control.tsx'));
 const LOGO_CONTROL = strip(read('app/_components/logo-frame-control.tsx'));

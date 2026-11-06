@@ -119,6 +119,11 @@ export function BadgeTracker({ d }: { d: BadgeTrackerData }) {
                   {r.reward.next}
                 </p>
               ) : null}
+              {r.reward?.upgrade ? (
+                <p className="mt-1 text-[12.5px] text-ink/70" data-badge-reward-upgrade="">
+                  {r.reward.upgrade}
+                </p>
+              ) : null}
               {r.door ? (
                 <div className="mt-2">
                   <ActionButton

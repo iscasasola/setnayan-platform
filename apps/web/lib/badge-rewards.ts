@@ -6,14 +6,17 @@
  * The badge page and the granting BOTH read `BADGE_REWARDS` — so what a row promises is what is paid.
  *
  *   Verified (once) → 1 × Papic 150          · Firsts: first booking through Setnayan → 1 × Papic 150
- *   1st Pick, per LADDER STEP (never per booking): 1·5·10 → Papic 150 · 25·50 → 2 × Papic 150 · 100·250 → Event Plus
+ *   1st Pick, per LADDER STEP (never per booking): 1·5·10 → Papic 150 · 25·50·100·250 → Event Plus
  *   Reviews, each step → Papic 150           · Booked Loop → Event Plus (each step of its ladder — see the note there)
  *   Branches, each new branch → Papic 150    · Service cards → Papic 150 when a card gets its FIRST booking
  *   Inspiration box → Papic 150, top steps only
- *   Monthly awards, once per award per month: Most Booked → Event Plus · Top Pick → Event Plus · Rising → 2 × Papic 150
- *   Events on Setnayan: 10 → 2 × Papic 150 · 50 → Event Plus · 100 → 2 × Event Plus · 500 → Event Pro ·
+ *   Monthly awards, once per award per month: Most Booked → Event Plus · Top Pick → Event Plus · Rising → Event Plus
+ *   Events on Setnayan: 10 → Event Plus · 50 → Event Plus · 100 → 2 × Event Plus · 500 → Event Pro ·
  *                       1,000 · 5,000 · 10,000 → a FREE BOOKING FEE on the next customer (one booking each)
  *   No reward: Years in business · Rating · Plan / Founding / Member since · Yearly awards.
+ *   ⚖ 6 Nov 2026 (owner approved the table): Event Plus replaced 2 × Papic 150 at 10 events, 1st Pick 25·50 and Rising.
+ *   Top Pick / Most Booked, Verified, the first booking and 5 reviews ALSO give a 4-week personal upgrade —
+ *   `lib/badge-upgrades.ts` (its own table, never gift stock).
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
  * (`alwaysAllowedPack`, `lib/shop-gifts.ts`) — its credits and its title are read when a reward is granted or drawn,
@@ -32,6 +35,7 @@
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { stepName, type ShopBadge, type TrackerRow } from '@/lib/shop-badges';
 import type { SpotlightAwardType } from '@/lib/spotlight-awards';
+import { upgradeLineFor, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 
 /** What a reward is: gift-stock packs / unlocks, or a free booking fee. */
 export type BadgeRewardKind = 'papic' | 'event_plus' | 'event_pro' | 'fee_waiver';
@@ -76,7 +80,7 @@ export type BadgeRewardRule =
 
 /** Events on Setnayan — keyed by the SHIPPED ladder (`MILESTONE_THRESHOLDS`), so a step can never lose its reward. */
 export const EVENTS_STEP_REWARDS: Readonly<Record<number, BadgeReward>> = {
-  10: papic(2),
+  10: plus(1),
   50: plus(1),
   100: plus(2),
   500: pro(1),
@@ -131,8 +135,8 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
       { step: 1, reward: papic(1) },
       { step: 5, reward: papic(1) },
       { step: 10, reward: papic(1) },
-      { step: 25, reward: papic(2) },
-      { step: 50, reward: papic(2) },
+      { step: 25, reward: plus(1) },
+      { step: 50, reward: plus(1) },
       { step: 100, reward: plus(1) },
       { step: 250, reward: plus(1) },
     ],
@@ -171,7 +175,7 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
     title: 'Monthly awards',
     measured: true,
     shape: 'period',
-    rewards: { most_booked: plus(1), top_pick: plus(1), rising: papic(2) },
+    rewards: { most_booked: plus(1), top_pick: plus(1), rising: plus(1) },
   },
 };
 
@@ -482,7 +486,25 @@ export type TrackerRewardInput = {
   awardTypeByTitle: Readonly<Record<string, SpotlightAwardType>>;
   /** 'YYYY-MM-01' — the month the current award rows belong to. */
   periodMonth: string;
+  /** ⏱ The shop's badge upgrades (owner, 6 Nov). Null/absent = unread: the rows still say what each badge unlocks. */
+  upgrades?: readonly BadgeUpgradeRow[] | null;
+  /** The shop's plan — whether a first-booking upgrade reads as the 3D Booth (Solo+) or Papic Challenges. */
+  tier?: string | null;
 };
+
+/** Which tracker row carries which badge's upgrade line. */
+const UPGRADE_ROW: ReadonlyArray<[(row: TrackerRow) => boolean, 'verified' | 'first_booking' | 'reviews' | 'award']> = [
+  [(row) => row.kind === 'verified', 'verified'],
+  [(row) => row.key === 'reward:first_booking', 'first_booking'],
+  [(row) => row.key === 'reward:reviews', 'reviews'],
+  [(row) => row.key === 'reward:award', 'award'],
+];
+
+function withUpgrade(row: TrackerRow, r: TrackerRewardInput): TrackerRow {
+  const hit = UPGRADE_ROW.find(([is]) => is(row));
+  if (!hit || !row.reward) return row;
+  return { ...row, reward: { ...row.reward, upgrade: upgradeLineFor(hit[1], r.upgrades ?? null, r.tier ?? null) } };
+}
 
 function rewardBadge(key: string, glyph: string | null, label: string): ShopBadge {
   return { key: `reward:${key}`, kind: 'reward', glyph, line1: 'SETNAYAN', line2: label.toUpperCase(), label };
@@ -570,7 +592,7 @@ export function badgeRowsWithRewards(rows: readonly TrackerRow[], r: TrackerRewa
     stateWord: f.awards === null ? 'Couldn’t load' : awards.length > 0 ? 'Earned' : 'Not yet',
     reward: rewardLineFor('award', null, null, r.granted, r.names),
   });
-  return out;
+  return out.map((row) => withUpgrade(row, r));
 }
 
 function rewardOnlyRows(r: TrackerRewardInput): TrackerRow[] {

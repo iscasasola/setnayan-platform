@@ -4,7 +4,7 @@
  *
  * What each block holds, and the sabotage that turns it red (run 2026-11-05):
  *   • the table IS the ruling — every Events step has its reward, 1,000 and up are free booking fees, 1st Pick pays per
- *     LADDER STEP (sabotage: `25: papic(2)` → `papic(1)` → red);
+ *     LADDER STEP (sabotage: `25: plus(1)` → `papic(1)` → red);
  *   • exactly-once keys are stable and distinct per step / period / item (sabotage: drop the period from the award key
  *     → red, two months collide);
  *   • NOTHING is owed for an unread or unmeasured badge (sabotage: `count ?? 0` in ladderOwed → red);
@@ -67,7 +67,8 @@ function granted(key: string, kind: GrantedReward['kind'], units = 1, extra: Par
 describe('the one table is the ruling', () => {
   it('Events on Setnayan: every shipped step pays, and 1,000 / 5,000 / 10,000 pay a free booking fee', () => {
     for (const s of MILESTONE_THRESHOLDS) assert.ok(EVENTS_STEP_REWARDS[s], `the ${s}-event step pays nothing`);
-    assert.deepEqual(EVENTS_STEP_REWARDS[10], { kind: 'papic', units: 2 });
+    // ⚖ 6 Nov 2026 (owner approved the table): Event Plus replaced 2 × Papic 150 at 10 events.
+    assert.deepEqual(EVENTS_STEP_REWARDS[10], { kind: 'event_plus', units: 1 });
     assert.deepEqual(EVENTS_STEP_REWARDS[50], { kind: 'event_plus', units: 1 });
     assert.deepEqual(EVENTS_STEP_REWARDS[100], { kind: 'event_plus', units: 2 });
     assert.deepEqual(EVENTS_STEP_REWARDS[500], { kind: 'event_pro', units: 1 });
@@ -86,8 +87,8 @@ describe('the one table is the ruling', () => {
         [1, 'papic', 1],
         [5, 'papic', 1],
         [10, 'papic', 1],
-        [25, 'papic', 2],
-        [50, 'papic', 2],
+        [25, 'event_plus', 1], // ⚖ 6 Nov 2026: was 2 × Papic 150
+        [50, 'event_plus', 1],
         [100, 'event_plus', 1],
         [250, 'event_plus', 1],
       ],
@@ -101,7 +102,7 @@ describe('the one table is the ruling', () => {
       assert.deepEqual(a.rewards, {
         most_booked: { kind: 'event_plus', units: 1 },
         top_pick: { kind: 'event_plus', units: 1 },
-        rising: { kind: 'papic', units: 2 },
+        rising: { kind: 'event_plus', units: 1 }, // ⚖ 6 Nov 2026: was 2 × Papic 150
       });
     }
     assert.deepEqual(BADGE_REWARDS.verified.shape === 'once' && BADGE_REWARDS.verified.reward, { kind: 'papic', units: 1 });

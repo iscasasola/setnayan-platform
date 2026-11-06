@@ -203,8 +203,9 @@ export type TrackerRow = {
    * 🎁 The badge's reward (owner 2026-11-05), composed by `badgeRowsWithRewards` (`lib/badge-rewards.ts`) from the
    * one reward table: `gave` — "Gave you: Event Plus · in your gifts"; `next` — "Next: 100 events · Gold · 4 to go →
    * 2 × Event Plus". Absent on a badge that pays nothing (Rating, Years) — it says nothing about rewards.
+   * `upgrade` (owner, 6 Nov) — the badge's 4-week personal upgrade (`upgradeLineFor`, `lib/badge-upgrades.ts`).
    */
-  reward?: { gave: string | null; next: string | null };
+  reward?: { gave: string | null; next: string | null; upgrade?: string | null };
 };
 
 /** Where the tracker's doors go — the shipped pages, never a new one. */

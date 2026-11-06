@@ -422,7 +422,7 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
                   usedOn: { coupleName: 'Maria & Juan', wouldHaveBeenPhp: 2500 },
                 }),
                 labReward('events:50', 'event_plus', 1, '2026-10-02T02:00:00Z'),
-                labReward('events:10', 'papic', 2, '2026-09-14T02:00:00Z'),
+                labReward('events:10', 'event_plus', 1, '2026-09-14T02:00:00Z'),
               ],
           names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
         },

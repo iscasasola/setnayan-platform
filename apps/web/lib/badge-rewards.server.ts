@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { grantOwedBadgeUpgrades, readBadgeUpgrades, type UpgradeSweep } from '@/lib/badge-upgrades.server';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
 import { alwaysAllowedPack } from '@/lib/shop-gifts';
@@ -142,13 +143,26 @@ export async function readRewardNames(admin: SupabaseClient): Promise<RewardName
   };
 }
 
-export type GrantSweep = { granted: number; already: number; skipped: number; failed: number };
+export type GrantSweep = { granted: number; already: number; skipped: number; failed: number; upgrades?: UpgradeSweep };
 
 /**
- * Pay every earned reward not yet paid. Never throws. A Papic reward is units × the SMALLEST pack's credits, read from
- * the catalogue now — when the catalogue cannot be read, Papic rewards wait for the next sweep (never a guessed size).
+ * Pay every earned reward not yet paid — the gift-stock reward AND (owner, 6 Nov) the badge's 4-week personal upgrade
+ * (`grantOwedBadgeUpgrades`, its own table), so every caller of this sweep gives both. Never throws.
  */
 export async function grantOwedBadgeRewards(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  facts: BadgeRewardFacts,
+): Promise<GrantSweep> {
+  const gifts = await grantOwedGiftRewards(admin, vendorProfileId, facts);
+  return { ...gifts, upgrades: await grantOwedBadgeUpgrades(admin, vendorProfileId, facts) };
+}
+
+/**
+ * The gift-stock half. A Papic reward is units × the SMALLEST pack's credits, read from the catalogue now — when the
+ * catalogue cannot be read, Papic rewards wait for the next sweep (never a guessed size).
+ */
+async function grantOwedGiftRewards(
   admin: SupabaseClient,
   vendorProfileId: string,
   facts: BadgeRewardFacts,
@@ -293,8 +307,17 @@ export async function readBadgeRewardTracker(
 ): Promise<TrackerRewardInput> {
   const facts = await readBadgeRewardFacts(admin, vendorProfileId, badge);
   await grantOwedBadgeRewards(admin, vendorProfileId, facts);
-  const [granted, names] = await Promise.all([readGrantedRewards(admin, vendorProfileId), readRewardNames(admin)]);
-  return { facts, granted, names, awardTypeByTitle: AWARD_TYPE_BY_TITLE, periodMonth: currentPeriodMonth(now) };
+  const [granted, names, tier] = await Promise.all([readGrantedRewards(admin, vendorProfileId), readRewardNames(admin), readTier(admin, vendorProfileId)]);
+  // ⏱ …and the badge upgrades (owner, 6 Nov), resolved for the shop's plan.
+  const upgrades = await readBadgeUpgrades(admin, vendorProfileId, tier);
+  return { facts, granted, names, awardTypeByTitle: AWARD_TYPE_BY_TITLE, periodMonth: currentPeriodMonth(now), upgrades, tier };
+}
+
+/** The shop's plan, or null when unread (an unread plan never offers the 3D Booth — `startableChoices`). */
+async function readTier(admin: SupabaseClient, vendorProfileId: string): Promise<string | null> {
+  const { data, error } = await admin.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle();
+  if (error) logQueryError('badgeRewards.tier', error, { vendorProfileId }, 'graceful_degrade');
+  return (data as { tier_state?: string | null } | null)?.tier_state ?? null;
 }
 
 /* ── admin ───────────────────────────────────────────────────────────────────────────────────────────────────── */

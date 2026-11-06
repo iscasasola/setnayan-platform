@@ -162,8 +162,8 @@ export async function addAwardManually(formData: FormData): Promise<void> {
   );
   if (error) back('error', error.message);
 
-  // 🎁 The award's badge reward, paid now and once (owner 2026-11-05: Most Booked / Top Pick → Event Plus, Rising →
-  // 2 × Papic 150, once per award per month). Only the award is handed in, so nothing else is granted here; the
+  // 🎁 The award's badge reward, paid now and once (owner 2026-11-05, table approved 6 Nov: Most Booked / Top Pick /
+  // Rising → Event Plus, once per award per month; Top Pick / Most Booked also a 4-week upgrade, lib/badge-upgrades.ts). Only the award is handed in, so nothing else is granted here; the
   // database's (shop, award, month) key makes a re-add pay nothing. A failure is logged — the supplier's next badge
   // read pays it — and never blocks the award.
   await grantOwedBadgeRewards(admin, vendorId, {

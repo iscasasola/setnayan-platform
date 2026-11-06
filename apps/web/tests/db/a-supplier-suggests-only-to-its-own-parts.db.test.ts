@@ -28,11 +28,20 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 import { MOODBOARD_SLOT_KEYS } from '../../lib/moodboard-slots';
 import { canonicalServicesForSlot } from '../../lib/moodboard-gallery';
 import { libraryPhotoParts } from '../../lib/inspiration-slots';
 import { fallbackInspirationParts, snapshotFromPartRows, type InspirationPartCategoryRow, type InspirationPartRow, type InspirationPartServiceRow } from '../../lib/inspiration-parts';
+
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as { groups: { categories: { services: { key: string; status: string }[] }[] }[] };
+const V2_NEW_SERVICES = new Set(
+  V2.groups.flatMap((g) => g.categories).flatMap((c) => c.services).filter((x) => x.status === 'NEW').map((x) => x.key),
+);
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -181,11 +190,26 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
   const links = (await db.query<InspirationPartCategoryRow>(`SELECT slot_key,category_id,sort_order FROM public.inspiration_part_categories_derived`)).rows;
   const svc = (await db.query<InspirationPartServiceRow>(`SELECT slot_key,canonical_service,sort_order FROM public.inspiration_part_services`)).rows;
   const dbSnap = snapshotFromPartRows(rows, links, svc);
-  /* ⚖ Taxonomy v2 (2026-11-06): the consts name CATEGORIES, the door names SERVICES. Backdrop links the kept
-     `led_video_wall` service, whose old LED-wall row folded into Lights, sound & effects — so at category level its
-     second trade is `lights_sound`, while the door still admits only the LED wall (MB26: a backdrop is never a plain
-     lights-and-sound shop's). That part may be NARROWER than the consts, never wider; every other part is equal. */
-  const NARROWER_THAN_ITS_CATEGORIES = new Set(['backdrop']);
+  /* ⚖ Taxonomy v2 (2026-11-06): the consts name CATEGORIES, the door names SERVICES. The fold widens a category
+     (Ceremony venue into Venues, LED wall into Lights & sound, …) while the merge keeps each part's links, rewritten to
+     the survivor — so the door is unchanged in who it admits, and the consts' expansion is wider. Backdrop is the MB26
+     case: it links the kept `led_video_wall`, never a plain lights-and-sound shop. And v2's NEW services are linked to
+     no part (③a). So the named parts may be NARROWER than the consts — never wider — and every service the consts
+     reach but the door does not must be v2-NEW or sit on a category the fold merged another into. Every other part is
+     equal. The list is the same one `part-eligibility-is-unchanged-by-the-move.db.test.ts` names. */
+  const NARROWER_THAN_ITS_CATEGORIES = new Set([
+    'venue', 'reception_venue', 'backdrop', 'tunnel', 'stage', 'table', 'ceiling', 'flowers', 'centrepieces', 'chairs',
+    'ribbons_candles', 'lights', 'flower_accents', 'overall', 'bride', 'principal_sponsor', 'entourage', 'bridesmaids',
+    'flower_girl', 'parents', 'guests',
+  ]);
+  const survivors = new Set(
+    (await db.query<{ id: string }>(`SELECT DISTINCT merged_into_category_id AS id FROM public.service_categories WHERE merged_into_category_id IS NOT NULL`)).rows.map((r) => r.id),
+  );
+  const tileOf = new Map(
+    (await db.query<{ canonical_service: string; tile_id: string | null }>(`SELECT canonical_service, tile_id FROM public.canonical_service_taxonomy`)).rows.map(
+      (r) => [r.canonical_service, r.tile_id] as const,
+    ),
+  );
   const narrower: string[] = [];
   for (const slot of MOODBOARD_SLOT_KEYS) {
     const sql = await sqlServices(slot);
@@ -194,13 +218,19 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
     if (JSON.stringify(sql) !== JSON.stringify(seed) && NARROWER_THAN_ITS_CATEGORIES.has(slot)) {
       narrower.push(slot);
       for (const k of sql) assert.ok(seed.includes(k), `inspiration_suggestion_services('${slot}') admits ${k}, which its categories do not`);
+      const unexplained = seed.filter((k) => !sql.includes(k) && !V2_NEW_SERVICES.has(k) && !survivors.has(tileOf.get(k) ?? ''));
+      assert.deepEqual(unexplained, [], `inspiration_suggestion_services('${slot}') leaves out a service that is neither new in v2 nor on a folded category`);
     } else {
       assert.deepEqual(sql, seed, `inspiration_suggestion_services('${slot}') changed on ship day — it is not what the CASE answered`);
     }
     assert.deepEqual(sql, live, `inspiration_suggestion_services('${slot}') disagrees with what the app reads from the same rows`);
     if (COUPLE_PARTS.has(slot)) assert.ok(sql.length > 0, `${slot} is a couple part with no supplying trade`);
   }
-  assert.deepEqual(narrower, [...NARROWER_THAN_ITS_CATEGORIES], 'the named part is no longer narrower — drop it from the list');
+  assert.deepEqual(
+    narrower,
+    MOODBOARD_SLOT_KEYS.filter((k) => NARROWER_THAN_ITS_CATEGORIES.has(k) && COUPLE_PARTS.has(k)),
+    'a named couple part is no longer narrower — drop it from the list',
+  );
   const backdrop = await sqlServices('backdrop');
   assert.ok(backdrop.includes('led_video_wall') && !backdrop.includes('lights_sound'), 'MB26: the backdrop door admits a plain lights-and-sound shop');
 

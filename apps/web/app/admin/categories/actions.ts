@@ -1148,15 +1148,27 @@ export async function moveTileToFolder(
 }
 
 /**
- * Admin: delete a tile, moving its contents to a destination tile first. Extends
- * the guarded `deleteTaxonomyNode`: if the tile still has canonicals or anchored
- * refinements, a `destinationTileId` is REQUIRED (no operation may strand a
- * canonical off a leaf — the never-strand lock). We re-point
- * `canonical_service_taxonomy` (tile_id + denormalized folder_id) and
- * `onboarding_refinements.tile_id` to the destination, then delete the tile.
- * Sequential writes with a compensating rollback if a later step fails. A tile
- * with child nodes (tier-3) still hard-blocks. ONE audit row carries the full
- * before-map. An EMPTY tile needs no destination (plain delete).
+ * Admin: delete a category (tier-2 tile), or — when a destination is picked —
+ * MERGE it into that category.
+ *
+ * 🔑 WITH A DESTINATION THIS IS A MERGE, AND THE WORK IS IN SQL.
+ * `merge_service_category()` (migration 20271316823071) moves EVERY column that
+ * holds a tile id in ONE transaction — the trades and refinement cards this
+ * action used to re-point by hand, AND the event holders it never touched:
+ * `event_vendors.category_key`, `event_category_decisions.tile`,
+ * `event_bench_arrangement.tile`. Registry: lib/tile-merge-holders.ts.
+ *
+ * Two things change because of that, both on purpose:
+ *   1. Couples' suppliers filed under the category are NO LONGER a blocker —
+ *      they move with it (owner 2026-11-06: "combine the services in the events
+ *      running like cale-ice"). The refusal stays for a plain delete.
+ *   2. The category is not hard-deleted. It stays as a tombstone forwarding to
+ *      the destination (merged_into_category_id), so an old id or link still
+ *      resolves — read by lib/tile-merge-forward.ts.
+ *
+ * WITHOUT a destination: an EMPTY category is deleted outright (after the
+ * couple-link refusal); a non-empty one must be given a destination — no
+ * operation may strand a trade off a category (the never-strand lock).
  */
 export async function deleteTileWithDestination(
   tileId: string,
@@ -1178,10 +1190,53 @@ export async function deleteTileWithDestination(
   if (!tileRow) return { ok: false, error: 'Category not found.' };
   if (tileRow.tier === 1) return { ok: false, error: 'Folders are owner-managed — can’t delete here.' };
 
+  // ── MERGE: a destination was picked → everything moves, events included ──
+  if (dest) {
+    if (dest === tile) return { ok: false, error: 'Pick a different destination category.' };
+    const { data: destRow } = await admin
+      .from('service_categories')
+      .select('id, tier, label_en')
+      .eq('id', dest)
+      .maybeSingle();
+    if (!destRow || destRow.tier !== 2) return { ok: false, error: 'Pick a valid destination category.' };
+
+    const { data, error } = await admin.rpc('merge_service_category', {
+      p_source: tile,
+      p_dest: dest,
+      p_actor: gate.user.id,
+    });
+    if (error) return { ok: false, error: error.message };
+
+    const moved = (data as { moved?: Record<string, number> } | null)?.moved ?? {};
+    const n = (k: string) => Number(moved[k] ?? 0) || 0;
+    await admin.from('admin_audit_log').insert({
+      action: 'taxonomy.merge_tile',
+      target_table: 'service_categories',
+      target_id: tile,
+      before_json: { label_en: tileRow.label_en, parent_id: tileRow.parent_id },
+      after_json: { merged_into: dest, label_en: destRow.label_en, moved },
+      actor_user_id: gate.user.id,
+    });
+
+    revalidatePath(BASE);
+    revalidatePath('/explore');
+    const services = n('canonical_service_taxonomy.tile_id');
+    const cards = n('onboarding_refinements.tile_id');
+    const suppliers = n('event_vendors.category_key');
+    return {
+      ok: true,
+      message:
+        `"${tileRow.label_en}" is now part of "${destRow.label_en}" — ` +
+        `${formatCount(services)} service(s), ${formatCount(cards)} card(s) and ` +
+        `${formatCount(suppliers)} couple supplier(s) moved. Old links still land.`,
+    };
+  }
+
+  // ── PLAIN DELETE (no destination) ─────────────────────────────────────────
   // ③0-c — a couple-side category still anchored here hard-blocks. It is a code mapping
   // (`VENDOR_CATEGORY_CANONICAL`), so it cannot be re-pointed from this page; deleting the
-  // category would drop every couple's supplier in it off their Suppliers page. This used to be
-  // only a "N couple-side links broken" number on the counts line, read after the damage.
+  // category would drop every couple's supplier in it off their Suppliers page. A MERGE above
+  // is not refused for this: the suppliers move with it.
   const anchored = deletionWouldBreakCoupleLinks(await getTaxonomy(), tile);
   if (anchored.length > 0) {
     const names = anchored.map((d) => VENDOR_CATEGORY_LABEL[d.category] ?? d.category).join(', ');
@@ -1189,7 +1244,7 @@ export async function deleteTileWithDestination(
       ok: false,
       error:
         `Couples’ suppliers are filed under “${tileRow.label_en}” (${names}). ` +
-        'Deleting it would take them off their Suppliers page — it needs a code change first.',
+        'Pick a category to move them to instead of deleting it outright.',
     };
   }
 
@@ -1208,109 +1263,25 @@ export async function deleteTileWithDestination(
   ]);
   const canonicals = (canonRes.data ?? []).map((r) => r.canonical_service as string);
   const refinements = (refRes.data ?? []).map((r) => r.leaf_key as string);
-  const hasContents = canonicals.length > 0 || refinements.length > 0;
-
-  // Empty tile → plain delete, no destination needed.
-  if (!hasContents) {
-    const { error } = await admin.from('service_categories').delete().eq('id', tile);
-    if (error) return { ok: false, error: error.message };
-    await admin.from('admin_audit_log').insert({
-      action: 'taxonomy.delete_tile',
-      target_table: 'service_categories',
-      target_id: tile,
-      before_json: { label_en: tileRow.label_en, parent_id: tileRow.parent_id, canonicals: [], refinements: [] },
-      actor_user_id: gate.user.id,
-    });
-    revalidatePath(BASE);
-    revalidatePath('/explore');
-    return { ok: true, message: `Deleted "${tileRow.label_en}".` };
-  }
-
-  // Non-empty → a destination is mandatory (never strand a canonical).
-  if (!dest) {
+  if (canonicals.length > 0 || refinements.length > 0) {
     return {
       ok: false,
       error: 'This category still holds services or “what couples choose” cards — choose a destination category for them.',
     };
   }
-  if (dest === tile) return { ok: false, error: 'Pick a different destination category.' };
-  const { data: destRow } = await admin
-    .from('service_categories')
-    .select('id, parent_id, tier')
-    .eq('id', dest)
-    .maybeSingle();
-  if (!destRow || destRow.tier !== 2 || !destRow.parent_id) {
-    return { ok: false, error: 'Pick a valid destination category.' };
-  }
 
-  // 1. Re-point canonicals (tile_id + denormalized folder_id → dest's folder).
-  if (canonicals.length > 0) {
-    const { error } = await admin
-      .from('canonical_service_taxonomy')
-      .update({ tile_id: dest, folder_id: destRow.parent_id, updated_at: new Date().toISOString() })
-      .eq('tile_id', tile);
-    if (error) return { ok: false, error: `Could not move services: ${error.message}` };
-  }
-
-  // 2. Re-point anchored refinements.
-  if (refinements.length > 0) {
-    const { error } = await admin
-      .from('onboarding_refinements')
-      .update({ tile_id: dest, updated_at: new Date().toISOString() })
-      .eq('tile_id', tile);
-    if (error) {
-      // Compensating rollback of step 1 so nothing is stranded on a
-      // half-emptied, about-to-be-deleted tile.
-      if (canonicals.length > 0) {
-        await admin
-          .from('canonical_service_taxonomy')
-          .update({ tile_id: tile, folder_id: tileRow.parent_id, updated_at: new Date().toISOString() })
-          .in('canonical_service', canonicals);
-      }
-      return { ok: false, error: `Could not move refinements: ${error.message}` };
-    }
-  }
-
-  // 3. Delete the now-empty tile.
-  const { error: delErr } = await admin.from('service_categories').delete().eq('id', tile);
-  if (delErr) {
-    // Rollback both re-points — the tile survives, so its contents must too.
-    if (canonicals.length > 0) {
-      await admin
-        .from('canonical_service_taxonomy')
-        .update({ tile_id: tile, folder_id: tileRow.parent_id, updated_at: new Date().toISOString() })
-        .in('canonical_service', canonicals);
-    }
-    if (refinements.length > 0) {
-      await admin
-        .from('onboarding_refinements')
-        .update({ tile_id: tile, updated_at: new Date().toISOString() })
-        .in('leaf_key', refinements);
-    }
-    return { ok: false, error: delErr.message };
-  }
-
+  const { error } = await admin.from('service_categories').delete().eq('id', tile);
+  if (error) return { ok: false, error: error.message };
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.delete_tile',
     target_table: 'service_categories',
     target_id: tile,
-    before_json: {
-      label_en: tileRow.label_en,
-      parent_id: tileRow.parent_id,
-      canonicals,
-      refinements,
-      moved_to: dest,
-    },
-    after_json: { moved_to: dest, moved_canonicals: canonicals.length, moved_refinements: refinements.length },
+    before_json: { label_en: tileRow.label_en, parent_id: tileRow.parent_id, canonicals: [], refinements: [] },
     actor_user_id: gate.user.id,
   });
-
   revalidatePath(BASE);
   revalidatePath('/explore');
-  return {
-    ok: true,
-    message: `Deleted "${tileRow.label_en}" — ${canonicals.length} service(s) and ${refinements.length} refinement set(s) moved.`,
-  };
+  return { ok: true, message: `Deleted "${tileRow.label_en}".` };
 }
 
 // ── Refinements (Studio inspector · Refinements tab) ────────────────────────────

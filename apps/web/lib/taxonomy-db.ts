@@ -36,7 +36,7 @@ export type { TaxonomySnapshot } from './taxonomy-snapshot';
 
 /** The tree's columns, without the ⓘ (`hint_en`) — the shape the retry below falls back to. */
 const CATEGORY_COLS =
-  'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden,coarse_category';
+  'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden,coarse_category,merged_into_category_id';
 
 /**
  * The taxonomy as it currently lives in the DB (or the constant fallback).

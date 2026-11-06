@@ -117,6 +117,7 @@ import { priceFitScore } from '@/lib/smart-sort';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import { resolveMergedService } from '@/lib/service-merge-forward';
+import { resolveMergedTile } from '@/lib/tile-merge-forward';
 import {
   resolveEventTypeKeysForToken,
   type EventTypeSearchOption,
@@ -1254,6 +1255,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     const forwarded = resolveMergedService(filters.category, mergeForwards);
     if (forwarded !== filters.category) {
       filters = { ...filters, category: forwarded };
+    }
+  }
+  // The same, one level up: a `?tile=` naming a MERGED category (merge_service_category,
+  // tombstoned with merged_into_category_id) lands on its replacement instead of an
+  // empty grid. Fails open — an unmerged or unknown tile is left exactly as it was.
+  if (filters.tile) {
+    const tileForward = (await getTaxonomy()).tileForward;
+    const fwd = resolveMergedTile(filters.tile, tileForward);
+    if (fwd !== filters.tile && fwd in WEDDING_TILE_SLUG) {
+      filters = { ...filters, tile: fwd as WeddingTile };
     }
   }
 

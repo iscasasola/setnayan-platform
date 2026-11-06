@@ -1,0 +1,12 @@
+## 2026-11-06 · feat(taxonomy): a category can be merged — and the events filed under it move with it
+
+Owner, 2026-11-06, approving the supplier-taxonomy simplification: *"yes merge them"* · *"combine the services in the events running like cale-ice"*. This is the mechanism; the approved map is applied by the stacked PR.
+
+- **`merge_service_category(p_source, p_dest, p_actor)`** (migration `20271316823071`) — one transaction, every column that holds a category (tier-2 tile) id, enumerated out of production by the column: the 12 FKs to `service_categories` plus the non-FK tile columns (`canonical_service_taxonomy.secondary_tiles`, `event_category_decisions.tile`, `event_bench_arrangement.tile`, `event_type_profiles.team_first`). **`event_vendors.category_key` moves** — the cale-ice rows. Six holders under a UNIQUE/PK drop the colliding source row first. Returns per-holder counts. SECURITY DEFINER, `service_role` only (mirrors `merge_canonical_service`).
+- **The merged category is a tombstone, never deleted:** `merged_into_category_id` (0 writers until now) → destination, `marketplace_hidden`, `status = 'retired'`, `scope = 'merged'`. Existing forwards are re-chained.
+- **A writer still naming an old category lands on its replacement:** BEFORE trigger `event_vendors_forward_merged_tile` on `event_vendors.category_key`.
+- **Readers follow the forward:** the taxonomy snapshot reads `merged_into_category_id`, drops a merged tile from `tileOrder` / `tilesByParent` (it leaves every picker) but keeps its label so an old id resolves (`tileForward`, `lib/tile-merge-forward.ts`); `/explore?tile=` forwards; the couple-side anchor check (`validateVendorCategoryMapping`) treats a merged tile as anchored.
+- **Admin › Categories › Delete category…** keeps its shape. With a destination it now calls the merge, so couples' suppliers filed under it are no longer a blocker — they move. A plain delete (no destination) of a category couples are anchored on still refuses.
+- **Registry + guards:** `lib/tile-merge-holders.ts` (moved holders + ruled-out look-alikes with reasons — plan-group ids and trade keys spelled like tiles), `lib/a-category-can-be-merged.test.ts`, `tests/db/a-category-can-be-merged.db.test.ts` (fails when an FK to `service_categories` or a tile-named column is in neither list).
+
+SPEC IMPACT: None — mechanism for the owner's 2026-11-06 approval; the decision row lands with the map PR.

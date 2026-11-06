@@ -25,6 +25,7 @@ import {
 } from './taxonomy';
 import { BRANCH_TO_VENDOR_CATEGORY } from './vendor-branch-category';
 import type { VendorCategory } from './vendors';
+import { tileForwardMapFromRows } from './tile-merge-forward';
 
 /**
  * Plain, fully-serializable mirror of the taxonomy constants — safe to pass
@@ -79,6 +80,14 @@ export type TaxonomySnapshot = {
    * `folderInfoText` (lib/category-hints.ts), never read raw: an unwritten id still has an ⓘ.
    */
   categoryHints?: Record<string, string>;
+  /**
+   * merged tile id → the tile it was merged into (`service_categories.merged_into_category_id`,
+   * written by `merge_service_category()`). Sparse. A merged tile is OUT of `tileOrder` /
+   * `tilesByParent` (it leaves every picker) but keeps its label/parent/slug so an old id still
+   * resolves — follow it with `resolveMergedTile` (lib/tile-merge-forward.ts). Absent on the
+   * fallback path.
+   */
+  tileForward?: Record<string, string>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
@@ -99,6 +108,8 @@ export type CategoryRow = {
   coarse_category?: string | null;
   /** The ⓘ text (`service_categories.hint_en`). Absent on a read made before the column. */
   hint_en?: string | null;
+  /** Tile forwarding pointer — set by `merge_service_category()`. Absent on an older read. */
+  merged_into_category_id?: string | null;
 };
 
 export type MapRow = {
@@ -152,9 +163,13 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   const parents = cats
     .filter((c) => c.tier === 1)
     .sort((a, b) => a.sort_order - b.sort_order);
-  const tiles = cats
+  const allTiles = cats
     .filter((c) => c.tier === 2)
     .sort((a, b) => a.sort_order - b.sort_order);
+  // A MERGED tile is a tombstone: it keeps its label/parent/slug below (an old id still
+  // resolves), but it leaves the order + the per-folder lists every picker reads.
+  const tileForward = tileForwardMapFromRows(allTiles);
+  const tiles = allTiles.filter((t) => !tileForward[t.id]);
 
   // Icon/photo overrides cover BOTH tiers (folders + tiles), keyed by category id.
   // hiddenCategories is sparse: only admin-flagged (true) ids get an entry;
@@ -166,7 +181,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   for (const c of cats) {
     categoryIcons[c.id] = c.icon_name ?? null;
     categoryPhotos[c.id] = c.sample_photo_r2_key ?? null;
-    if (c.marketplace_hidden) hiddenCategories[c.id] = true;
+    if (c.marketplace_hidden || c.merged_into_category_id) hiddenCategories[c.id] = true;
     const hint = (c.hint_en ?? '').trim();
     if (hint) categoryHints[c.id] = hint;
   }
@@ -187,10 +202,10 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   const tileEventTypes: Record<string, string[] | null> = {};
   const tileCoarseCategory: Record<string, VendorCategory> = {};
   for (const p of parents) tilesByParent[p.id] = [];
-  for (const t of tiles) {
+  for (const t of allTiles) {
     if (t.parent_id) {
       tileParent[t.id] = t.parent_id as WeddingFolder;
-      (tilesByParent[t.parent_id] ??= []).push(t.id as WeddingTile);
+      if (!tileForward[t.id]) (tilesByParent[t.parent_id] ??= []).push(t.id as WeddingTile);
     }
     tileLabel[t.id] = t.label_en;
     tileSlug[t.id] = t.slug;
@@ -238,6 +253,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     hiddenCategories,
     tileCoarseCategory,
     categoryHints,
+    tileForward,
     map,
   };
 }

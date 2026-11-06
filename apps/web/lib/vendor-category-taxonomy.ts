@@ -34,6 +34,7 @@
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from './vendors';
 import type { WeddingTile } from './taxonomy';
 import type { TaxonomySnapshot } from './taxonomy-db';
+import { resolveMergedTile } from './tile-merge-forward';
 
 /** Why a couple-side category has no marketplace tile (bucket C). */
 export type ExemptReason =
@@ -234,7 +235,11 @@ export function validateVendorCategoryMapping(
   const liveTiles = new Set<string>(tax.tileOrder);
   const drift: VendorCategoryDrift[] = [];
   for (const category of Object.keys(VENDOR_CATEGORY_CANONICAL) as VendorCategory[]) {
-    const missing = tilesForVendorCategory(category).filter((t) => !liveTiles.has(t));
+    // A MERGED tile is not missing: its row stays as a tombstone forwarding to a live tile
+    // (merge_service_category), and the event_vendors trigger lands a write on the replacement.
+    const missing = tilesForVendorCategory(category).filter(
+      (t) => !liveTiles.has(resolveMergedTile(t, tax.tileForward)),
+    );
     if (missing.length > 0) drift.push({ category, missingTiles: missing });
   }
   return drift;

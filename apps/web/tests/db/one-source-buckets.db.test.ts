@@ -235,42 +235,57 @@ test('an admin adds a category and a service under it → the category, its grou
   });
 });
 
+// ⚖ TAXONOMY V2: `filipiniana_terno` is merged into `bridal_gown_custom` (a specialty value now, on no shelf), so the
+// service the admin moves is the live one that absorbed it.
 test('an admin moves a service to another category → it leaves the old shelf and joins the new one', async () => {
+  const MOVED = 'bridal_gown_custom';
+  assert.ok(servicesInTile(await readerBuckets(), 'brides_attire').includes(MOVED), 'premise: the witness is on its shelf');
   await asAdminEdit(
-    [`UPDATE public.canonical_service_taxonomy SET tile_id = 'grooms_attire' WHERE canonical_service = 'filipiniana_terno'`],
+    [`UPDATE public.canonical_service_taxonomy SET tile_id = 'grooms_attire' WHERE canonical_service = '${MOVED}'`],
     async () => {
       const live = await readerBuckets();
-      assert.ok(servicesInTile(live, 'grooms_attire').includes('filipiniana_terno'));
-      assert.ok(!servicesInTile(live, 'brides_attire').includes('filipiniana_terno'));
-      assert.ok(servicesInTile(fallbackCanonicalBuckets(), 'brides_attire').includes('filipiniana_terno'), 'premise');
+      assert.ok(servicesInTile(live, 'grooms_attire').includes(MOVED));
+      assert.ok(!servicesInTile(live, 'brides_attire').includes(MOVED));
+      assert.ok(servicesInTile(fallbackCanonicalBuckets(), 'brides_attire').includes(MOVED), 'premise');
     },
   );
 });
 
-test('an admin cross-lists a new service onto Filipiniana & Barongs → the cross-view shows it (it was a hand list)', async () => {
+// ⚖ TAXONOMY V2: the Filipiniana & Barongs cross-view is folded (test 3 proves it), so the cross-listing is asked of a
+// live second shelf — Barong & suits — and counted against that shelf's own size before the edit.
+test('an admin cross-lists a new service onto a second category → that shelf shows it (it was a hand list)', async () => {
+  const CROSS = 'grooms_attire';
+  const sizeBefore = servicesInTile(await readerBuckets(), CROSS).length;
+  assert.ok(sizeBefore > 0, 'premise: the second shelf is not empty');
   await asAdminEdit(
     [
       `INSERT INTO public.canonical_service_taxonomy (canonical_service, folder_id, tile_id, phase, secondary_tiles)
-       VALUES ('${NEW_SERVICE}', 'look', 'brides_attire', 'V1', ARRAY['filipiniana_barongs'])`,
+       VALUES ('${NEW_SERVICE}', 'look', 'brides_attire', 'V1', ARRAY['${CROSS}'])`,
     ],
     async () => {
       const live = await readerBuckets();
-      assert.ok(servicesInTile(live, 'filipiniana_barongs').includes(NEW_SERVICE));
+      assert.ok(servicesInTile(live, CROSS).includes(NEW_SERVICE));
       assert.ok(servicesInTile(live, 'brides_attire').includes(NEW_SERVICE), 'the primary shelf keeps it too');
-      assert.equal(servicesInTile(live, 'filipiniana_barongs').length, DELETED_FILIPINIANA_HAND_LIST.length + 1);
+      assert.equal(servicesInTile(live, CROSS).length, sizeBefore + 1);
     },
   );
 });
 
+// ⚖ TAXONOMY V2: `barong_tagalog_custom` is already merged (hidden) into `groom_suit_custom`, so hiding it again proved
+// nothing — this asked a question whose answer was fixed before the edit. The service hidden is the live survivor, and
+// the premise checks it is on its shelf and in its group first.
 test('an admin hides a service → it leaves every shelf and every group', async () => {
+  const HIDDEN = 'groom_suit_custom';
+  const base = await readerBuckets();
+  assert.ok(servicesInTile(base, 'grooms_attire').includes(HIDDEN) && servicesInFolder(base, 'look').includes(HIDDEN), 'premise: the witness is live');
   await asAdminEdit(
-    [`UPDATE public.canonical_service_taxonomy SET marketplace_hidden = true WHERE canonical_service = 'barong_tagalog_custom'`],
+    [`UPDATE public.canonical_service_taxonomy SET marketplace_hidden = true WHERE canonical_service = '${HIDDEN}'`],
     async () => {
       const live = await readerBuckets();
-      for (const tile of ['grooms_attire', 'filipiniana_barongs']) {
-        assert.ok(!servicesInTile(live, tile).includes('barong_tagalog_custom'), `hidden service still under ${tile}`);
+      for (const tile of ['grooms_attire', 'brides_attire']) {
+        assert.ok(!servicesInTile(live, tile).includes(HIDDEN), `hidden service still under ${tile}`);
       }
-      assert.ok(!servicesInFolder(live, 'look').includes('barong_tagalog_custom'));
+      assert.ok(!servicesInFolder(live, 'look').includes(HIDDEN));
     },
   );
 });

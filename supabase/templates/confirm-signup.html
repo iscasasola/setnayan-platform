@@ -1,0 +1,225 @@
+<!doctype html>
+<!--
+  ══ FOR THE RECORD — THIS FILE IS NOT WIRED BY CONFIG ══════════════════════════════════════
+  The owner PASTES this into Supabase › Authentication › Email Templates › "Confirm signup"
+  by hand. Subject line there:  Confirm your email — welcome to Setnayan
+  Nothing in this repo reads this file or pushes it to Supabase (there is no supabase/config.toml
+  [auth.email.template] entry), so editing it here changes NO email until it is pasted again.
+
+  Since 2026-11-07 (DECISION_LOG "ONE EMAIL AT SIGN-UP") this is the ONE email a new account gets:
+  the app's own Resend "Welcome to Setnayan" was removed from apps/web/app/signup/actions.ts and
+  apps/web/lib/open-shop-account.server.ts in the same change that added this file.
+
+  Source: github.com/iscasasola/Setnayan-specs · prototypes/welcome_emails_2026-11-07/
+  confirm-signup.template.html (main @ ba9d76d), copied byte-for-byte below this header. Its own
+  notes predate this change: `signup_door` IS now passed — 'couple' from /signup, 'supplier'
+  from /signup?as=vendor and from the shop wizard. Nothing passes 'coordinator' yet, because no
+  sign-up door on main knows it is the coordinator door, so that branch does not fire yet.
+  Guarded by apps/web/lib/the-journey-words-say-what-happens.test.ts (§3).
+-->
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Confirm your email — Setnayan</title>
+<!--
+  SETNAYAN · Supabase Auth › Email Templates › "Confirm signup"  (PROTOTYPE — not yet pasted)
+
+  One template, three welcomes. Supabase renders this with Go templates, and `.Data` is the
+  `options.data` object passed to `supabase.auth.signUp` (apps/web/app/signup/actions.ts and
+  apps/web/lib/open-shop-account.server.ts both pass `{ account_type }`).
+
+    account_type = "vendor"                     → supplier welcome   (today: /open-shop and /signup?as=vendor)
+    account_type = "vendor" + signup_door = "coordinator" → coordinator welcome   (needs ONE new metadata key — see below)
+    anything else ("customer", missing)         → couple / host welcome
+
+  ⚠ `signup_door` does NOT exist in the metadata today. A coordinator is a vendor whose
+  vendor_profiles.services contains 'coordinator' (migration 20271227867922), and that is
+  written by the shop wizard AFTER sign-up, so at email time nothing tells the two apart.
+  To light the coordinator branch, `createVendorAccount` (lib/open-shop-account.server.ts)
+  must pass `data: { account_type: 'vendor', signup_door: 'coordinator' | 'supplier' }`
+  from the `?as=coordinator` door the open-shop redesign proposes, and /signup may pass
+  `signup_door: 'couple'`. Until then the coordinator branch simply never fires and a
+  coordinator gets the supplier welcome — which is still true for them.
+
+  `printf "%v"` guards every `.Data` read: a missing key prints "<nil>", never a template error.
+  Variables Supabase provides: .ConfirmationURL · .Email · .SiteURL · .Data.* · .Token
+-->
+{{ $kind := printf "%v" .Data.account_type }}
+{{ $door := printf "%v" .Data.signup_door }}
+<style>
+  /* Gmail strips <style> in some clients; everything load-bearing is also inline. */
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  body { margin:0; padding:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  table { border-collapse:collapse; mso-table-lspace:0; mso-table-rspace:0; }
+  img { border:0; line-height:100%; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
+  a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
+  .sn-link a { color:#3B4E67 !important; }
+  @media only screen and (max-width: 600px) {
+    .sn-wrap { width:100% !important; }
+    .sn-pad { padding-left:20px !important; padding-right:20px !important; }
+    .sn-h1 { font-size:24px !important; line-height:30px !important; }
+  }
+  /* DARK-START — the same tokens apps/web/app/globals.css uses under html.dark */
+  @media (prefers-color-scheme: dark) {
+    .sn-bg      { background-color:#17160F !important; }
+    .sn-card    { background-color:#1F1D16 !important; border-color:#3A372E !important; }
+    .sn-ink     { color:#FBFAF7 !important; }
+    .sn-mute    { color:#9A958C !important; }
+    .sn-eyebrow { color:#CBA766 !important; }
+    .sn-wash    { background-color:#2B2821 !important; }
+    .sn-rule    { border-color:#3A372E !important; }
+    .sn-cta     { background-color:#E5794E !important; }
+    .sn-cta a   { color:#17160F !important; }
+    .sn-link a  { color:#9DB2CE !important; }
+    .sn-logo    { color:#FBFAF7 !important; }
+  }
+  /* DARK-END */
+</style>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<style> td, th, p, a, span { font-family: Arial, sans-serif !important; } </style>
+<![endif]-->
+</head>
+<body class="sn-bg" style="margin:0; padding:0; background-color:#F4F2EC;">
+
+<!-- Preheader: the line mail apps show under the subject. Hidden in the body. -->
+<div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#F4F2EC; opacity:0;">
+{{ if eq $kind "vendor" }}{{ if eq $door "coordinator" }}One tap opens your coordination shop. Your couples will find you here.{{ else }}One tap opens your shop. Couples are already looking for suppliers like you.{{ end }}{{ else }}One tap, and your event is ready to plan.{{ end }}
+&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
+</div>
+
+<table role="presentation" class="sn-bg" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F4F2EC;">
+<tr><td align="center" style="padding:24px 12px;">
+
+  <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+  <table role="presentation" class="sn-wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+
+    <!-- Wordmark -->
+    <tr><td align="left" class="sn-pad" style="padding:8px 8px 18px 8px;">
+      <a href="{{ .SiteURL }}" style="text-decoration:none;">
+        <span class="sn-logo" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; letter-spacing:0.22em; font-weight:700; color:#2C2A29;">SETNAYAN</span>
+      </a>
+    </td></tr>
+
+    <!-- Card -->
+    <tr><td>
+    <table role="presentation" class="sn-card" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFFFF; border:1px solid #E1DCD1; border-radius:16px;">
+    <tr><td class="sn-pad" style="padding:32px 36px 28px 36px;">
+
+      {{ if eq $kind "vendor" }}
+      {{ if eq $door "coordinator" }}
+      <!-- ───────── COORDINATOR ───────── -->
+      <p class="sn-eyebrow" style="margin:0 0 10px 0; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#A9834B;">For coordinators</p>
+      <h1 class="sn-h1 sn-ink" style="margin:0 0 14px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:27px; line-height:33px; font-weight:600; letter-spacing:-0.01em; color:#2C2A29;">Welcome to Setnayan, coordinator.</h1>
+      <p class="sn-ink" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">Thank you for opening your coordination shop with us. Your couples plan their events here, and you will run those events with them in one place.</p>
+      <p class="sn-ink" style="margin:0 0 24px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">One tap confirms this address and opens your shop.</p>
+      {{ else }}
+      <!-- ───────── SUPPLIER ───────── -->
+      <p class="sn-eyebrow" style="margin:0 0 10px 0; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#A9834B;">For suppliers</p>
+      <h1 class="sn-h1 sn-ink" style="margin:0 0 14px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:27px; line-height:33px; font-weight:600; letter-spacing:-0.01em; color:#2C2A29;">Welcome to Setnayan. Thank you for opening your shop.</h1>
+      <p class="sn-ink" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">Couples plan their events on Setnayan, and they look for suppliers like you right here. We are glad you came.</p>
+      <p class="sn-ink" style="margin:0 0 24px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">One tap confirms this address and opens your shop.</p>
+      {{ end }}
+      {{ else }}
+      <!-- ───────── COUPLE / HOST ───────── -->
+      <p class="sn-eyebrow" style="margin:0 0 10px 0; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#A9834B;">Your event</p>
+      <h1 class="sn-h1 sn-ink" style="margin:0 0 14px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:27px; line-height:33px; font-weight:600; letter-spacing:-0.01em; color:#2C2A29;">Welcome to Setnayan. Your event starts here.</h1>
+      <p class="sn-ink" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">Thank you for trusting us with something this important. From the first plan to the last photo, we will keep it all in one place for you and the people you love.</p>
+      <p class="sn-ink" style="margin:0 0 24px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">One tap confirms this address, and your event is ready to plan.</p>
+      {{ end }}
+
+      <!-- CTA (bulletproof button: a padded td, so Outlook draws it too) -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr><td align="left">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td class="sn-cta" align="center" bgcolor="#C24E25" style="background-color:#C24E25; border-radius:999px; mso-padding-alt:0;">
+          <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:15px 30px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:18px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:999px;">Confirm my email</a>
+        </td></tr>
+        </table>
+      </td></tr>
+      </table>
+
+      <p class="sn-mute" style="margin:14px 0 0 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:13px; line-height:19px; color:#8A857B;">Sent to {{ .Email }}. The link works once and is yours alone.</p>
+
+      <!-- What happens after the tap -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
+      <tr><td class="sn-rule" style="border-top:1px solid #E1DCD1; padding-top:22px;">
+        <p class="sn-eyebrow" style="margin:0 0 12px 0; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#A9834B;">After the tap</p>
+
+        {{ if eq $kind "vendor" }}
+        {{ if eq $door "coordinator" }}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="top" width="30" style="padding:0 0 12px 0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">1</span></td>
+          <td valign="top" class="sn-ink" style="padding:0 0 12px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Your shop opens on Today</b> — the name, your logo, your details, then the services you coordinate. One step at a time.</td>
+        </tr>
+        <tr>
+          <td valign="top" width="30" style="padding:0 0 12px 0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">2</span></td>
+          <td valign="top" class="sn-ink" style="padding:0 0 12px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Getting verified is free</b>, and it is what makes your shop findable to couples.</td>
+        </tr>
+        <tr>
+          <td valign="top" width="30" style="padding:0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">3</span></td>
+          <td valign="top" class="sn-ink" style="padding:0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>When a couple adds you to their event</b>, you work inside it with them — the schedule, the suppliers, the day itself. Your first booking from Setnayan is on us.</td>
+        </tr>
+        </table>
+        {{ else }}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="top" width="30" style="padding:0 0 12px 0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">1</span></td>
+          <td valign="top" class="sn-ink" style="padding:0 0 12px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Your shop opens on Today</b> — your logo, your details, your first service card. One step at a time.</td>
+        </tr>
+        <tr>
+          <td valign="top" width="30" style="padding:0 0 12px 0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">2</span></td>
+          <td valign="top" class="sn-ink" style="padding:0 0 12px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Getting verified is free</b>, and it is what makes your shop findable to couples. Your QR works from day one — show it to the next couple you meet.</td>
+        </tr>
+        <tr>
+          <td valign="top" width="30" style="padding:0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">3</span></td>
+          <td valign="top" class="sn-ink" style="padding:0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Your first booking from Setnayan is on us.</b> Couples message you here, and you reply here.</td>
+        </tr>
+        </table>
+        {{ end }}
+        {{ else }}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="top" width="30" style="padding:0 0 12px 0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">1</span></td>
+          <td valign="top" class="sn-ink" style="padding:0 0 12px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Create your event</b> — the date, the place, the people. Starting is free.</td>
+        </tr>
+        <tr>
+          <td valign="top" width="30" style="padding:0 0 12px 0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">2</span></td>
+          <td valign="top" class="sn-ink" style="padding:0 0 12px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Find your suppliers and your coordinator</b>, and talk to them right there.</td>
+        </tr>
+        <tr>
+          <td valign="top" width="30" style="padding:0;"><span class="sn-wash sn-ink" style="display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:11px; background-color:#F4F2EC; font-family:Menlo,Consolas,'Courier New',monospace; font-size:11px; color:#2C2A29;">3</span></td>
+          <td valign="top" class="sn-ink" style="padding:0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; line-height:22px; color:#2C2A29;"><b>Invite your guests.</b> They get one Event Hub with everything about your day, and their photos come back to you.</td>
+        </tr>
+        </table>
+        {{ end }}
+      </td></tr>
+      </table>
+
+      <!-- Sign-off -->
+      <p class="sn-ink" style="margin:26px 0 0 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:25px; color:#2C2A29;">Mabuhay, and welcome.<br><span class="sn-mute" style="color:#8A857B;">The Setnayan team</span></p>
+
+    </td></tr>
+    </table>
+    </td></tr>
+
+    <!-- Footer -->
+    <tr><td class="sn-pad" style="padding:20px 12px 8px 12px;">
+      <p class="sn-mute sn-link" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;">Button not working? Copy this link into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#3B4E67; word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+      <p class="sn-mute" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;">You are receiving this because this address was used to open an account on Setnayan. If that was not you, ignore this email and nothing happens.</p>
+      <p class="sn-mute sn-link" style="margin:0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;"><a href="{{ .SiteURL }}" style="color:#3B4E67; text-decoration:none;">setnayan.com</a> &nbsp;·&nbsp; Set na ’yan.</p>
+    </td></tr>
+
+  </table>
+  <!--[if mso]></td></tr></table><![endif]-->
+
+</td></tr>
+</table>
+</body>
+</html>

@@ -14,7 +14,9 @@
  *   4. A SIGN-UP FROM AN EVENT RETURNS TO THE EVENT — it went to the You card
  *      and then `/`, depending on a 120-second clock.
  *   5. NO COUPLE WELCOME EMAIL FOR A GUEST — they were told "your couple account
- *      is ready… create your event".
+ *      is ready… create your event". Since 2026-11-07 (DECISION_LOG "ONE EMAIL AT
+ *      SIGN-UP") NO sign-up path sends an app welcome at all — the one email is
+ *      Supabase's own "Confirm signup" — so the guest case is the general one.
  *
  * The decisions are pure and executed here; the source checks below pin that
  * the page, the actions and the doors actually ask them. Comments are stripped
@@ -37,7 +39,6 @@ import {
   isEventConnectNext,
   isEventSignup,
   signupLanding,
-  welcomeEmailKind,
 } from '@/lib/signup-landing';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // apps/web/lib
@@ -241,14 +242,16 @@ test('4 · the callback and signUp ask the event question, not the 120-second cl
 
 // ── 5 · no couple welcome email for a guest ──────────────────────────────────
 
-test('5 · a guest from an invitation is sent no couple welcome email', () => {
-  assert.equal(welcomeEmailKind({ accountType: 'customer', fromEvent: true }), null);
-  assert.equal(welcomeEmailKind({ accountType: 'customer', fromEvent: false }), 'couple');
-  assert.equal(welcomeEmailKind({ accountType: 'vendor', fromEvent: false }), 'vendor');
+test('5 · no sign-up sends an app welcome email — a guest from an invitation included', () => {
   const signup = read('app/signup/actions.ts');
-  assert.match(
-    signup,
-    /welcomeEmailKind\(\{ accountType, fromEvent \}\) === null\s*\?\s*Promise\.resolve\(null\)\s*:\s*sendEmail\(\{/,
-    'the welcome email is no longer gated on the event question',
-  );
+  // Every subject `/signup` mails. Only the anonymous-convert receipt is left
+  // ("Your Setnayan plan is secured" — that door sends no Supabase email).
+  const subjects = [...signup.matchAll(/sendEmail\(\{[\s\S]*?\bsubject:\s*(['"`])(.*?)\1/g)].map((m) => m[2]!);
+  assert.equal(subjects.length, count(signup, /sendEmail\(/), 'a sendEmail call whose subject is not a literal');
+  for (const subject of subjects) {
+    assert.doesNotMatch(subject, /welcome/i, `/signup mails "${subject}" — the welcome is Supabase's confirm email now`);
+  }
+  assert.doesNotMatch(signup, /account is ready/, '/signup tells somebody their account "is ready" again');
+  // A guest's sign-up still asks the event question — for where it lands, not for an email.
+  assert.match(signup, /signupLanding\(\{ accountType, next, fromEvent \}\)/);
 });

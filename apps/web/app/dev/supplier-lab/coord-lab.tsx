@@ -37,7 +37,7 @@ import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '@/app/vendo
 import { TodayEasyLab } from './today-easy-lab';
 import { BasicSetupHold } from '@/app/vendor-dashboard/_components/basic-setup-hold';
 import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
-import { badgeShelf } from '@/lib/shop-badges';
+import { badgeShelf, badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
 import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 
@@ -114,16 +114,17 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
     </BottomDock>
   );
   if (state === 'coord-badges') {
-    const shelf = badgeShelf(
-      unread
-        ? null
-        : { verified: true, completedEvents: 46, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2019, awards: [], nowYear: 2026 },
-    );
+    const facts: TrackerFacts | null = unread
+      ? null
+      : { verified: true, completedEvents: 46, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2019, awards: [], nowYear: 2026, unreviewed: 3 };
+    const shelf = badgeShelf(facts);
+    // 📣🗺 The one tracker lives here since 2026-11-06 — the lab draws its rows.
+    const rows = facts ? badgeTracker(facts) : null;
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="badges">
         <h1 className="sn-h1">How is my business doing</h1>
         <div className="mt-8">
-          <YourBadges shelf={shelf} />
+          <YourBadges shelf={shelf} rows={rows} />
         </div>
         {bar}
       </div>

@@ -239,6 +239,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
+        "SampleShopMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -3264,6 +3265,7 @@
     },
     "/admin/disputes": {
       "files": [
+        "admin/disputes/_components/booking-fee-disputes-section.tsx",
         "admin/disputes/_components/deposit-disputes-section.tsx",
         "admin/disputes/_components/payment-disputes-section.tsx",
         "admin/disputes/_components/quote-versions-evidence.tsx",
@@ -3273,14 +3275,17 @@
       ],
       "destinations": [],
       "actions": [
+        "bookingFeeDispute",
         "resolveDispute",
         "settleDepositDispute",
         "settlePaymentDispute"
       ],
       "blocks": [
+        "BookingFeeDisputesSection",
         "ConfirmForm",
         "ConsoleTable",
         "DepositDisputesSection",
+        "DisputeNoteField",
         "DisputesTable",
         "FilterStrip",
         "HandoverEvidence",
@@ -3462,7 +3467,11 @@
     },
     "/admin/gifts": {
       "files": [
+        "admin/gifts/_components/badge-rewards-ledger.tsx",
+        "admin/gifts/_components/badge-upgrades-ledger.tsx",
         "admin/gifts/_components/shop-gifts-ledger.tsx",
+        "admin/gifts/_components/take-back-reason-field.tsx",
+        "admin/gifts/badge-reward-actions.ts",
         "admin/gifts/page.tsx"
       ],
       "destinations": [
@@ -3475,11 +3484,16 @@
         "createFreeWindow",
         "issueCompGrant",
         "issueVendorSkuComp",
+        "revokeBadgeFeeWaiver",
         "revokeCompGrant",
         "setFreeWindowActive",
         "setVendorTier"
       ],
       "blocks": [
+        "BadgeRewardLedgerRow",
+        "BadgeRewardsLedger",
+        "BadgeUpgradeLedgerRow",
+        "BadgeUpgradesLedger",
         "CompGrantRow",
         "CoupleFreeWindowRow",
         "Link",
@@ -3488,6 +3502,8 @@
         "ShopGiftLedgerRow",
         "ShopGiftsLedger",
         "SubmitButton",
+        "TakeBackReasonField",
+        "TypedRow",
         "VendorGiftRow"
       ]
     },
@@ -4735,6 +4751,7 @@
     "/admin/vendors/[vendorProfileId]": {
       "files": [
         "admin/vendors/[vendorProfileId]/_components/card-reason-form.tsx",
+        "admin/vendors/[vendorProfileId]/_components/sample-shop-switch.tsx",
         "admin/vendors/[vendorProfileId]/_components/service-cards-section.tsx",
         "admin/vendors/[vendorProfileId]/card-actions.ts",
         "admin/vendors/[vendorProfileId]/page.tsx"
@@ -4759,7 +4776,9 @@
         "PageMasthead",
         "ReadFailed",
         "RemovePhoto",
+        "SampleShopSwitch",
         "ServiceCardsSection",
+        "SwitchRow",
         "Thumb",
         "TypedRow"
       ]
@@ -10527,6 +10546,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-answers-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-questions-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-note-swipe.tsx",
@@ -10534,7 +10555,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/loading.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/package-sections.ts",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx",
-        "dashboard/[eventId]/vendors/[vendorId]/workspace/payment-plan-actions.ts"
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/payment-plan-actions.ts",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/question-answers-actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]",
@@ -10544,6 +10566,7 @@
         "/proposals/[seg]"
       ],
       "actions": [
+        "action",
         "addWorkingNoteAction",
         "coupleConfirmReceived",
         "coupleReportNonDelivery",
@@ -10554,6 +10577,7 @@
         "updateVendorCosts"
       ],
       "blocks": [
+        "AnswerField",
         "AppointmentsSection",
         "CancelBookingButton",
         "ChangeAccessLink",
@@ -10577,6 +10601,7 @@
         "HandoverItem",
         "HostServiceDetails",
         "Icon",
+        "InfoTip",
         "LaterInstallment",
         "Link",
         "ManualVenuePinResult",
@@ -10592,14 +10617,20 @@
         "RelationshipTabShell",
         "ReservationTermsAck",
         "Result",
+        "SaveAnswersState",
         "SelfAddedContactCard",
         "ServicesCoveredPicker",
         "ShotListCard",
         "SnapshotChargeLine",
         "SubmitButton",
+        "SupplierAnswersForm",
+        "SupplierQuestionsBody",
+        "SupplierQuestionsCard",
+        "SupplierQuestionsUnread",
         "SwipeToDelete",
         "SwitchTrack",
         "TrustedCircleBadge",
+        "TypedRow",
         "UndoToastHost",
         "VendorDirectPay",
         "VendorItemizationCard",
@@ -12150,6 +12181,18 @@
         "ProQuietLine"
       ]
     },
+    "/dev/questions-lab": {
+      "files": [
+        "dev/questions-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "QuestionsSectionBody",
+        "SupplierQuestionsBody",
+        "TheyToldYou"
+      ]
+    },
     "/dev/receipt-lab": {
       "files": [
         "dev/receipt-lab/page.tsx"
@@ -12261,10 +12304,13 @@
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "LabCard",
         "Link",
+        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
+        "VendorCard",
         "Wordmark"
       ]
     },
@@ -12348,6 +12394,7 @@
         "ChatThreadMenu",
         "LockRequestAnswer",
         "ProposalMaker",
+        "QuestionsSendBody",
         "QuickReplies",
         "SupplierLabShell",
         "ThreadAnswerLine",
@@ -12533,9 +12580,12 @@
         "startSubscriptionPurchase"
       ],
       "blocks": [
+        "BadgeUpgradesLedger",
+        "BadgeUpgradesSection",
         "BusinessDoing",
         "ConsolePlate",
         "DatesRow",
+        "GrantedReward",
         "HelpersView",
         "MarchRead",
         "NotificationsView",
@@ -13759,7 +13809,8 @@
       "blocks": [
         "EditorialContent",
         "Link",
-        "SampleEditorial"
+        "SampleEditorial",
+        "SampleMarker"
       ]
     },
     "/receipts/[receiptId]": {
@@ -14205,6 +14256,7 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
+        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -14568,8 +14620,11 @@
       "blocks": [
         "ActivityRow",
         "Icon",
+        "InfoTip",
         "MoveButton",
-        "QuestionsSection"
+        "QuestionsSection",
+        "QuestionsSectionBody",
+        "StarterQuestion"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -14621,14 +14676,18 @@
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "bookingFeeDispute"
+      ],
       "blocks": [
         "CopyButton",
         "DetailPageSkeleton",
+        "DisputeNoteField",
         "Link",
         "PageMasthead",
         "PaymentChannelName",
-        "ShopNotice"
+        "ShopNotice",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/bookings": {
@@ -14713,6 +14772,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/couple-answers.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
@@ -14799,6 +14859,7 @@
         "ChosenRow",
         "ClientNotes",
         "Count",
+        "CoupleAnswers",
         "CoupleLogo",
         "CustomerMoneyFold",
         "DayCheckLine",
@@ -15449,7 +15510,9 @@
       "files": [
         "vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx",
         "vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/questions-send-panel.tsx",
         "vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/send-questions-button.tsx",
         "vendor-dashboard/messages/[threadId]/_components/thread-answer-line.tsx",
         "vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx",
@@ -15460,11 +15523,13 @@
         "vendor-dashboard/messages/[threadId]/page.tsx",
         "vendor-dashboard/messages/[threadId]/pax-actions.ts",
         "vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts",
-        "vendor-dashboard/messages/[threadId]/proposal-actions.ts"
+        "vendor-dashboard/messages/[threadId]/proposal-actions.ts",
+        "vendor-dashboard/messages/[threadId]/questions-actions.ts"
       ],
       "destinations": [
         "/u/[seg]",
         "/u/[seg]/c/[seg]",
+        "/vendor-dashboard/activities",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -15475,6 +15540,7 @@
       "actions": [
         "acceptInquiry",
         "acceptPaxSurcharge",
+        "action",
         "clearVendorPaymentPlan",
         "confirmVendorPayment",
         "declineInquiry",
@@ -15514,11 +15580,15 @@
         "PendingPaymentAnswer",
         "PipelinePressureLine",
         "ProposalMaker",
+        "QuestionsSendBody",
+        "QuestionsSendPanel",
         "QuickReplies",
         "QuoteSeed",
         "RailBody",
         "Resolved",
         "SendProposalCard",
+        "SendQuestionsButton",
+        "SendQuestionsState",
         "ServiceCardQuoteSeed",
         "Sheet",
         "SnapRow",
@@ -15970,6 +16040,7 @@
       "actions": [],
       "blocks": [
         "ActionButton",
+        "ActivityStatsRow",
         "AttributionBar",
         "Badge",
         "BandRail",
@@ -16020,6 +16091,7 @@
         "T",
         "Tile",
         "TrackerFacts",
+        "TrackerRewardInput",
         "VendorTierGate",
         "VendorTierTeaser",
         "VerifiedMedianCard",
@@ -16615,10 +16687,12 @@
         "DatesRow",
         "Fold",
         "HTMLDivElement",
+        "Hidden.Provider",
         "InfoTip",
         "Link",
         "PaymentsPausedNote",
         "PickMenu",
+        "PieceHead",
         "PiecePicture",
         "PrintQrMode",
         "PrintsSheet",
@@ -16643,6 +16717,8 @@
     "/vendor-dashboard/subscription": {
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
+        "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
+        "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
@@ -16651,6 +16727,7 @@
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
+        "vendor-dashboard/subscription/badge-upgrade-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx",
@@ -16672,6 +16749,10 @@
       "blocks": [
         "ActionButton",
         "AiAddonCard",
+        "BadgeUpgradeChoice",
+        "BadgeUpgradeRow",
+        "BadgeUpgradesSection",
+        "BadgeUpgradesSectionData",
         "BookingFeeStanding",
         "BoothAddonCard",
         "Column",
@@ -16680,6 +16761,7 @@
         "Fold",
         "GridPageSkeleton",
         "Icon",
+        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16691,7 +16773,10 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "Sheet",
         "ShopNotice",
+        "StartBadgeUpgradeState",
+        "StartUpgradeSheet",
         "SubmitButton",
         "SupplierSubmit",
         "Vendor3dBoothActionState",
@@ -16801,6 +16886,7 @@
     },
     "/vendor-dashboard/website": {
       "files": [
+        "vendor-dashboard/website/_components/flag-reason-pick.tsx",
         "vendor-dashboard/website/_components/page-parts.tsx",
         "vendor-dashboard/website/_components/review-replies.tsx",
         "vendor-dashboard/website/_components/use-page-draft.ts",
@@ -16830,6 +16916,7 @@
         "DomainManager",
         "ExistingReplySection",
         "FlagForm",
+        "FlagReasonPick",
         "Fold",
         "FormPageSkeleton",
         "FormRows",

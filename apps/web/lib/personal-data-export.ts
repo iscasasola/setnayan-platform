@@ -313,6 +313,7 @@ export async function buildPersonalDataExport(
     couplePhotoSharesRes,
     ownCrewPassesRes,
     ownMoodBoardChangesRes,
+    ownFeeDisputesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -834,6 +835,14 @@ export async function buildPersonalDataExport(
       .select('change_id, event_id, kind, slot_key, part_label, shop_label, created_at, first_row_at, undone_at')
       .eq('actor_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-05) — THE BOOKING FEES THIS SUBJECT DISPUTED (migration 20271314842518). AUTHOR-scoped on
+    // opened_by_user_id: their words and the outcome. The deciding admin's id (`decided_by_user_id`) is a staff stamp and
+    // stays out; their note to the supplier is the answer the supplier was given, so it rides along.
+    supabase
+      .from('booking_fee_disputes')
+      .select('dispute_id, charge_id, reason, status, decision_note, decided_at, created_at')
+      .eq('opened_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   /*
@@ -1003,10 +1012,10 @@ export async function buildPersonalDataExport(
       .from('founder_seats')
       .select('seat_no, label, granted_at')
       .eq('user_id', user.id),
-    // Suppliers they saved.
+    // Suppliers they saved — and, since 2026-11-06, which of the supplier's services (null = the whole shop).
     supabase
       .from('guest_saved_vendors')
-      .select('vendor_profile_id, source_event_id, saved_at')
+      .select('vendor_profile_id, vendor_service_id, source_event_id, saved_at')
       .eq('user_id', user.id)
       .order('saved_at', { ascending: true }),
     // What they wrote to Setnayan support. Our staff's internal `admin_notes`
@@ -1100,6 +1109,7 @@ export async function buildPersonalDataExport(
   const couplePhotoShares = listOutcome('couple_photo_shares', couplePhotoSharesRes);
   const ownCrewPasses = listOutcome('vendor_crew_passes', ownCrewPassesRes);
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
+  const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1245,6 +1255,7 @@ export async function buildPersonalDataExport(
     couplePhotoShares,
     ownCrewPasses,
     ownMoodBoardChanges,
+    ownFeeDisputes,
     // ⚠ These ten were read and shipped but missing from this list until
     // 2026-11-05, so a failed read rendered `[]` under export_complete: TRUE —
     // the silent empty this file exists to prevent. Now pinned by
@@ -1404,6 +1415,8 @@ export async function buildPersonalDataExport(
     // The Mood Board photo changes this subject made under Mood Board Edit, and whether the owners undid each one.
     // Author-scoped.
     mood_board_changes_made: ownMoodBoardChanges.rows,
+    // The booking fees this subject disputed, in their words, and what Setnayan decided. Author-scoped.
+    booking_fee_disputes_raised: ownFeeDisputes.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     // RA 10173 (2026-09-11) — the payments this couple logged on events they

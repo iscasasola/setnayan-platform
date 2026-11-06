@@ -94,10 +94,9 @@ const ASKS = /\b(eventDateFloorRefusal|eventDatesFloorRefusal|candidatesOnOrAfte
 
 /** Every server door that creates an event with a date or sets one. */
 const DOORS = [
-  'app/dashboard/[eventId]/actions.ts', // Event Settings › date (updateEventDate)
+  'app/dashboard/[eventId]/actions.ts', // the date's ONE live door (updateEventDate): Settings, the Maker, Suppliers, Home
   'app/dashboard/(account)/create-event/actions.ts', // the create grid's candidate days / window
   'app/dashboard/[eventId]/date-selection/actions.ts', // Date Finder › Lock
-  'app/dashboard/[eventId]/website/hub-draft-actions.ts', // the Maker: refused at the pick, held at Apply
   'lib/date-change.server.ts', // asking booked suppliers to move to a new date
   'app/onboarding/_shared/commit-event.ts', // every typed onboarding — "Worth planning" lands here
   'app/onboarding/wedding/actions.ts', // the wedding onboarding

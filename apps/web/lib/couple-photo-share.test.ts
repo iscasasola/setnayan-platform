@@ -81,3 +81,15 @@ test('👁 who sees it — four audiences; the default is the event’s own Even
   assert.ok(m.audienceIsPublic('public') && !m.audienceIsPublic('private'));
   assert.ok(!m.isCouplePhotoAudience('everyone') && m.isCouplePhotoAudience('hosts'));
 });
+
+test('✓ Verified booking — the mark is the database’s own TRUE, never a guess from a missing or falsy column', async () => {
+  const { coupleLookOf } = await import('./couple-photo-share');
+  const row = { vendor_service_id: 'c', share_id: 's', public_key: 'couple-looks/s/0000000000000001.jpg', credit_line: 'A couple' };
+  assert.deepEqual(coupleLookOf({ ...row, verified_booking: true }, 'u'), { id: 's', url: 'u', credit: 'A couple', verifiedBooking: true });
+  for (const v of [false, null, undefined]) {
+    const look = coupleLookOf({ ...row, verified_booking: v }, 'u');
+    assert.equal('verifiedBooking' in look, false, `verified_booking = ${String(v)} drew the mark`);
+  }
+  // An older read with no such column at all (code deployed before the migration) draws nothing.
+  assert.equal('verifiedBooking' in coupleLookOf(row, 'u'), false);
+});

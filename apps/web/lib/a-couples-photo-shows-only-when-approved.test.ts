@@ -25,18 +25,27 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
-const sql = (() => {
-  const f = readdirSync(MIGRATIONS).find((n) => n.endsWith('_a_couples_photo_on_a_suppliers_card.sql'));
-  assert.ok(f, 'the couple-photo migration is gone');
+const migration = (suffix: string, what: string) => {
+  const f = readdirSync(MIGRATIONS).find((n) => n.endsWith(suffix));
+  assert.ok(f, `${what} is gone`);
   return readFileSync(join(MIGRATIONS, f), 'utf8')
     .split('\n')
     .filter((l) => !/^\s*--/.test(l))
     .map((l) => l.replace(/\s--.*$/, ''))
     .join('\n');
-})();
-/** One function's body, from its CREATE to the `$$;` that closes it. */
+};
+/**
+ * The two files that define the shares' functions, in apply order: the feature, then the ✓ Verified booking mark
+ * (20271309527923), which re-creates the two card reads. `fn` reads the LAST definition, so a fence below can never be
+ * satisfied by a body a later migration replaced.
+ */
+const sql = [
+  migration('_a_couples_photo_on_a_suppliers_card.sql', 'the couple-photo migration'),
+  migration('_a_couples_photo_says_it_was_a_real_booking.sql', 'the Verified booking migration'),
+].join('\n');
+/** One function's body — its NEWEST definition, from its CREATE to the `$$;` that closes it. */
 function fn(name: string): string {
-  const at = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
+  const at = sql.lastIndexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
   assert.ok(at >= 0, `${name} is gone from the migration`);
   const open = sql.indexOf('$$', at);
   const close = sql.indexOf('$$', open + 2);
@@ -56,7 +65,7 @@ test('1 · the public card reads approved rows only, through the one door', () =
   assert.match(sql, /REVOKE ALL ON TABLE public\.couple_photo_shares FROM anon, authenticated;/, 'anon may read, or a session write, the shares table');
   assert.match(sql, /GRANT SELECT ON TABLE public\.couple_photo_shares TO authenticated;/);
   assert.doesNotMatch(sql, /GRANT (?:ALL|INSERT|UPDATE|DELETE)[^;]*ON TABLE public\.couple_photo_shares/, 'a write grant on the shares table');
-  const anonGrants = [...sql.matchAll(/GRANT EXECUTE ON FUNCTION public\.(\w+)\([^)]*\) TO anon/g)].map((m) => m[1]);
+  const anonGrants = [...new Set([...sql.matchAll(/GRANT EXECUTE ON FUNCTION public\.(\w+)\([^)]*\) TO anon/g)].map((m) => m[1]))];
   assert.deepEqual(anonGrants, ['service_card_couple_photos'], 'a share door other than the card reader is open to anon');
 
   const reader = read('lib/couple-photo-share.server.ts');
@@ -68,6 +77,29 @@ test('1 · the public card reads approved rows only, through the one door', () =
   const page = read('app/v/[slug]/page.tsx');
   assert.match(page, /fetchServiceCardCouplePhotos\(admin, activeServiceIds\)/, 'the shop page no longer reads its cards’ couple photos');
   assert.match(page, /withCoupleLooks\(/, 'the shop page no longer puts the couple photos on the card');
+});
+
+test('✓ Verified booking — derived at read from the booking, drawn only from the database’s TRUE', () => {
+  const rule = fn('couple_photo_share_is_verified_booking');
+  // The booked set — the same four statuses as current_vendor_booked_event_ids() and CONFIRMED_VENDOR_STATUSES.
+  assert.match(rule, /ev\.status IN \('contracted', 'deposit_paid', 'delivered', 'complete'\)/, 'the mark no longer means a booked status');
+  assert.match(rule, /ev\.event_id = p_event_id/, 'the mark is not about the event the photo came from');
+  assert.match(rule, /ev\.archived_at IS NULL/, 'an archived booking keeps the mark');
+  assert.match(rule, /ev\.voided_by_fraud IS NOT TRUE/, 'a booking voided for fraud keeps the mark');
+  assert.match(rule, /em\.member_type = 'couple' AND em\.user_id = vp\.user_id/, 'a shop booking its own event earns the mark');
+  assert.match(rule, /vendor_team_members/, 'a shop whose team is the couple earns the mark');
+  assert.match(rule, /vendor_self_comp/, 'a self-comp booking earns the mark');
+  // Derived, never stored: no column on the shares table holds it, and nobody may call the rule directly.
+  assert.doesNotMatch(sql, /ALTER TABLE public\.couple_photo_shares[^;]*verified/i, 'the mark became a stored, writable column');
+  assert.doesNotMatch(sql, /GRANT EXECUTE ON FUNCTION public\.couple_photo_share_is_verified_booking/, 'the rule was granted to a role');
+  for (const reader of ['service_card_couple_photos', 'viewer_service_card_couple_photos']) {
+    assert.match(fn(reader), /public\.couple_photo_share_is_verified_booking\(s\.event_id, s\.vendor_profile_id\)/, `${reader} no longer derives the mark`);
+  }
+  const card = read('app/_components/service-card-view.tsx');
+  assert.match(card, /look\.verifiedBooking === true \? \(/, 'the card draws the mark from something other than the read’s TRUE');
+  assert.equal((card.match(/Verified booking/g) ?? []).length, 1, 'the card says "Verified booking" somewhere the read did not decide');
+  const server = read('lib/couple-photo-share.server.ts');
+  assert.equal((server.match(/coupleLookOf\(r, url\)/g) ?? []).length, 2, 'a card read builds its photo without the one mark rule');
 });
 
 test('👁 non-public photos never reach the cached page: a separate signed-in read, after the page, under the viewer’s session', () => {

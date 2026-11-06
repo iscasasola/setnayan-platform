@@ -12,7 +12,8 @@
  *      invitation"; "Delete <name>" is the row's swipe (and hover) Delete; no Edit, no Message; the row still opens
  *      the card (its name is a button).
  *   3. ONE SENDER — the row's Share is the shipped `GuestInviteCell` (the card's Invite) drawn as one icon: its press
- *      reaches `shareInvite` (the one share) and, where there is no share sheet, the cell's own sheet — never a new
+ *      ALWAYS opens the cell's own sheet, on every device (owner 2026-11-05 — never the phone's system sheet at once);
+ *      the system sheet is only behind its "More apps…" (`share()` → `shareInvite`, the one share) — never a new
  *      `navigator.share` call of its own.
  *   4. THE PAGE — hands Share only for guests the send run would hold (`mayBeInvited`) and never to a look-only viewer.
  *
@@ -98,13 +99,17 @@ test('3 · ONE SENDER: Share is the shipped Invite cell as one icon; its press r
 
   const icon = CELL.slice(CELL.indexOf("if (layout === 'icon') {"));
   assert.ok(icon.length > 100, "the cell's icon layout is gone");
-  assert.match(icon.slice(0, icon.indexOf('</ActionButton>') > 0 ? icon.indexOf('</ActionButton>') : 600), /onClick=\{\(\) => void rowShare\(\)\}/);
-  const rowShare = CELL.slice(CELL.indexOf('async function rowShare('));
+  assert.match(icon.slice(0, icon.indexOf('</ActionButton>') > 0 ? icon.indexOf('</ActionButton>') : 600), /onClick=\{\(\) => rowShare\(\)\}/);
+  const rowShare = CELL.slice(CELL.indexOf('function rowShare('));
   const fn = rowShare.slice(0, rowShare.indexOf('\n  }\n'));
-  assert.match(fn, /await shareInvite\(null, message\)/, 'the row does not share through the one shareInvite');
+  // 🔒 Owner 2026-11-05: Share ALWAYS opens our own menu, on every device — the phone's system sheet never opens at once.
   // (`at` — the card's ticket-row Share may be pressed from its pinned copy in the panel's head; the row's is 'body'.)
-  assert.match(fn, /invite\(at\)/, 'a computer gets no sheet');
-  assert.match(CELL, /async function rowShare\(at: 'body' \| 'head' = 'body'\)/);
+  assert.match(fn, /invite\(at\);\s*setTouch\(false\);/, 'Share does not open our own menu (app rows + Copy) on every device');
+  assert.doesNotMatch(fn, /shareInvite|navigator|isTouchDevice/, 'Share jumps to the system share sheet again — owner 2026-11-05: always our menu');
+  assert.match(CELL, /\n  function rowShare\(at: 'body' \| 'head' = 'body'\)/);
+  // The system sheet lives only behind the menu's "More apps…" — through the one `shareInvite`.
+  assert.match(CELL, /if \(plan\.kind === 'share'\) return share\(\);/, '"More apps…" no longer reaches the share sheet');
+  assert.match(CELL.slice(CELL.indexOf('async function share(')), /^async function share\(\) \{[\s\S]*?await shareInvite\(file \?\? null, message\)/, '"More apps…" does not share through the one shareInvite');
   // Nothing in the cell calls the share sheet itself — `shareInvite` (send-invite.tsx) is the one caller.
   assert.doesNotMatch(CELL, /\bnav(?:igator)?\.share\(/, 'the cell calls navigator.share itself — a second sender');
 });

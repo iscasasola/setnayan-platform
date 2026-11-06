@@ -36,6 +36,7 @@ import {
 import { limitedHelperRefusal } from '@/lib/host-gate';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { emitNotification } from '@/lib/notification-emit';
+import { foundYouLeadNotice, readFoundYou } from '@/lib/found-you';
 import { claimAnswerNotice } from '@/lib/claim-access-wait';
 
 export type AnswerResult = { ok: boolean; error?: string };
@@ -264,16 +265,37 @@ async function answerClaimAccess(
   // (`/vendor-dashboard` "Waiting for … to let you in"); nothing told them when the couple did. In-app only —
   // `claim_access_answered` is not on EMAIL_ENABLED_TYPES (owner: no new emails without his word).
   if (ask.requester_user_id) {
+    type EventFacts = { display_name?: string | null; event_type?: string | null; event_date?: string | null };
+    let ev: EventFacts | null = null;
     try {
-      const { data: ev } = await admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
-      const notice = claimAnswerNotice({
-        approved: approve,
-        eventId,
-        eventName: (ev as { display_name?: string | null } | null)?.display_name ?? null,
-      });
+      const read = await admin.from('events').select('display_name, event_type, event_date').eq('event_id', eventId).maybeSingle();
+      ev = (read.data as EventFacts | null) ?? null;
+      const notice = claimAnswerNotice({ approved: approve, eventId, eventName: ev?.display_name ?? null });
       await emitNotification({ userId: ask.requester_user_id, type: 'claim_access_answered', eventId, ...notice });
     } catch (e) {
       console.error('[access-requests] claim answer notice failed:', e);
+    }
+
+    // 🕵️ FOUND-YOU LEAD ALERT (DECISION_LOG 2026-07-27 "CLAIM-SYNC is the authoritative checkpoint"). The Approve
+    // above ran the found-check (`found_you_check_at_claim`) right after the bond: the couple had already opened
+    // this shop on Setnayan before typing it in by hand. The supplier is told when and how often — data-minimal,
+    // IN-APP ONLY (`found_you_lead` is not on EMAIL_ENABLED_TYPES). A supplier with no account before the record
+    // is never found, so it is never sent one. The couple is not told anything about a fee (owner 2026-10-12).
+    const found = approve && result.granted ? readFoundYou((answer as { found_you?: unknown } | null)?.found_you) : { found: false as const };
+    if (found.found) {
+      try {
+        const lead = foundYouLeadNotice({
+          eventId,
+          eventName: ev?.display_name ?? null,
+          eventType: ev?.event_type ?? null,
+          eventDate: ev?.event_date ?? null,
+          firstFoundAt: found.firstFoundAt,
+          viewCount: found.viewCount,
+        });
+        await emitNotification({ userId: ask.requester_user_id, type: 'found_you_lead', eventId, ...lead });
+      } catch (e) {
+        console.error('[access-requests] found-you lead alert failed:', e);
+      }
     }
   }
 

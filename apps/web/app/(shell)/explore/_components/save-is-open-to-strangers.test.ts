@@ -92,7 +92,8 @@ test('no call site passes the retired canSave prop', () => {
 test('pressing Save signed out opens the sign-in over the page, and retries the save', () => {
   assert.match(
     BUTTON,
-    /openSignIn\(\{\s*onSignedIn:\s*attemptSave\s*\}\)/,
+    // The retry may carry the event the person picked ("Save to which event?", owner 2026-11-06) — still the same save.
+    /openSignIn\(\{\s*onSignedIn:\s*(?:attemptSave|\(\)\s*=>\s*attemptSave\(\s*\w*\s*\))\s*\}\)/,
     'A signed-out press must open the in-place panel AND hand it the retry — ' +
       'one press should mean one save, not a press, a round trip, and having ' +
       'to remember to press again.',

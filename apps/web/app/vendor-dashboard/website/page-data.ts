@@ -8,7 +8,7 @@ import { isShopLive } from '@/lib/vendor-visibility';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { selfPublishedLive, shopPageGate } from '@/lib/own-shop-preview';
-import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
+import { fetchReviewStats, fetchReviewsForVendorWithCouple, type ReviewWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -17,9 +17,8 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
-import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { badgeTracker, nextToEarnLine, shopBadges, trackerSummary } from '@/lib/shop-badges';
-import type { BadgeTrackerData } from './_components/badge-tracker';
+import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { shopBadges, trackerSummary, type ShopBadge } from '@/lib/shop-badges';
 
 /**
  * YOUR PAGE — what the page editor needs, read once (simpler supplier dashboard step 5).
@@ -31,6 +30,10 @@ import type { BadgeTrackerData } from './_components/badge-tracker';
  * Every optional read degrades to "not read" (null), never to an empty list that would claim "no reviews yet" to a
  * shop that has forty.
  */
+
+/** The reply list's ceiling — the retired /reviews page's own (`{ limit: 200 }`). */
+const REPLY_LIST_MAX = 200;
+
 export type PagePlanLine = { plan: string; line: string; pro: boolean };
 
 export type PageData = {
@@ -64,6 +67,10 @@ export type PageData = {
   videoCount: number;
   /** null = could not be read. */
   reviews: { id: string; label: string }[] | null;
+  /** 💬 The reviews themselves, for replying in place (owner 2026-11-06) — the same read as the pin options; null = not read. */
+  replyRows: ReviewWithCouple[] | null;
+  /** The reply list stops at REPLY_LIST_MAX — said under it, never silently. */
+  replyCapped: boolean;
   stories: { id: string; label: string }[] | null;
   domains: DomainRow[];
   domainsMeasured: boolean;
@@ -72,7 +79,7 @@ export type PageData = {
   storeShell: boolean;
   plans: PagePlanLine[];
   /** 🏅 Awards and badges (`lib/shop-badges.ts`), read on every visit — nothing about a badge is stored. */
-  badges: BadgeTrackerData & { summary: string };
+  badges: { summary: string; pills: ShopBadge[] };
 };
 
 type OwnRow = Record<string, unknown> & {
@@ -124,14 +131,17 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     logQueryError('VendorPage.reviewStats', err, { vendorId });
     return undefined;
   });
+  // 💬 ONE read for the pin picker (its first 20, as before) AND the reply-in-place list (owner 2026-11-06: Page ›
+  // Reviews and stories = read + reply to reviews in place; the retired /reviews page read 200 the same way).
   const reviewsRead = (async () => {
     try {
-      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, { limit: 20, offset: 0 });
-      return rows.map((r) => {
+      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, { limit: REPLY_LIST_MAX, offset: 0 });
+      const options = rows.slice(0, 20).map((r) => {
         const name = r.couple_display_name ?? 'A couple';
         const snippet = r.body ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”` : `${r.rating_overall}★`;
         return { id: r.review_id, label: `${name} · ${snippet}` };
       });
+      return { options, rows };
     } catch (err) {
       logQueryError('VendorPage.reviewOptions', err, { vendorId });
       return null;
@@ -205,7 +215,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   ).then((xs) => xs.filter((x): x is { key: string; url: string } => x !== null));
   const shellRead = isStoreShellRequest();
   // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
-  const badgesRead = readShopTrackerFacts(vendorId);
+  // Page keeps the pills only (owner 2026-11-06) — the tracker's extra read (couples not yet asked) is Analytics'.
+  const badgesRead = readShopBadgeFacts(createAdminClient(), vendorId);
   // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
   const views30Read = (async (): Promise<number | null> => {
     const { count, error } = await supabase
@@ -293,7 +304,9 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     portfolio,
     photoCount: portfolioKeys.length,
     videoCount: ((profile.gallery_video_links ?? []) as string[]).length,
-    reviews,
+    reviews: reviews?.options ?? null,
+    replyRows: reviews?.rows ?? null,
+    replyCapped: (reviews?.rows.length ?? 0) >= REPLY_LIST_MAX,
     stories,
     domains: domains.rows,
     domainsMeasured: domains.measured,
@@ -303,8 +316,6 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     badges: {
       summary: trackerSummary(badgeFacts),
       pills: shopBadges(badgeFacts),
-      next: nextToEarnLine(badgeFacts.completedEvents),
-      rows: badgeTracker(badgeFacts),
     },
   };
 }

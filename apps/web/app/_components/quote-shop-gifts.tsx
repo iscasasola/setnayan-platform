@@ -6,7 +6,7 @@ import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { BuyGiftsSheet } from '@/app/vendor-dashboard/subscription/_components/shop-gifts-section';
+import { BuyGiftsSheet } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { bookingFeePhp } from '@/lib/booking-fee';
 import { formatCentavos } from '@/lib/vendor-proposals';
 import { GIFT_SHARE_OF_FEE_PCT } from '@/lib/setnayan-gift';
@@ -15,6 +15,7 @@ import {
   addGiftMenu,
   alwaysAllowedPack,
   giftCount,
+  giftPackLine,
   judgeQuoteGifts,
   type ShopGiftQuoteBasis,
 } from '@/lib/shop-gifts';
@@ -35,6 +36,10 @@ const BUY_KEY = '__buy_more_gifts';
  *   ＋ Add a gift from your stock ▾        (every pack, each saying why it cannot go on now · Add to your stock…)
  *
  * The block owns no state of its own: the codes are the composer's, sent with the quote (`shopGiftCodes`).
+ *
+ * 💎 Slice 2 (2026-11-05): Event Plus and Event Pro sit in the same menu, counted from their own stock. On an event that
+ * already has Event Plus, an Event Plus line says it makes it Event Pro (owner: "the second event plus will auto
+ * upgrade event pro"); on an event that already has Event Pro, neither can be added.
  */
 export function QuoteShopGifts({
   basis,
@@ -52,16 +57,18 @@ export function QuoteShopGifts({
 }) {
   const [buying, setBuying] = useState(false);
   const verdict = useMemo(
-    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.free),
+    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas),
     [codes, basis, totalCentavos],
   );
   const menu = useMemo(
-    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.free),
+    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas),
     [codes, basis, totalCentavos],
   );
   const smallest = alwaysAllowedPack(basis.packs);
   const feeCentavos = totalCentavos > 0 ? Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100) : 0;
-  const leftAfter = basis.free === null ? null : Math.max(0, basis.free - verdict.credits);
+  const leftAfter = basis.free === null || verdict.credits === 0 ? null : Math.max(0, basis.free.papic - verdict.credits);
+  // The first Event Plus on an event that already has Plus becomes Event Pro — said on that line.
+  const firstPlusIndex = codes.findIndex((c) => basis.packs.find((p) => p.code === c)?.kind === 'event_plus');
 
   const options = [
     ...menu.map((o) => ({ key: o.code, label: o.title, ...(o.ok ? {} : { disabledNote: o.why ?? undefined }) })),
@@ -73,7 +80,8 @@ export function QuoteShopGifts({
       <UndoToastHost />
       <InfoTip label="Gifts from you" labelClassName="text-sm font-semibold text-ink" align="start">
         Gifts from your own stock. They leave your stock when the couple&rsquo;s first payment clears, and land on their
-        event&rsquo;s Papic credits.
+        event — Papic credits in its shared credits, Event Plus or Event Pro unlocked on it. A second Event Plus on an
+        event that already has one makes it Event Pro.
       </InfoTip>
 
       <div className="flex items-start justify-between gap-3 text-sm" data-testid="quote-shop-gifts-limit">
@@ -119,7 +127,11 @@ export function QuoteShopGifts({
                   <span className="min-w-0">
                     <span className="block text-ink">🎁 {title}</span>
                     <span className="mt-0.5 block text-xs text-ink/60">
-                      {pack ? `${giftCount(pack.credits)} Papic credits` : 'Not on sale any more'}
+                      {!pack
+                        ? 'Not on sale any more'
+                        : pack.kind === 'event_plus' && basis.eventHas === 'plus' && i === firstPlusIndex
+                          ? 'They already have Event Plus — this makes it Event Pro'
+                          : giftPackLine(pack)}
                     </span>
                   </span>
                 </div>
@@ -144,8 +156,18 @@ export function QuoteShopGifts({
         </p>
       ) : verdict.state === 'short' ? (
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-short">
-          <b className="font-semibold">Not on this quote · short {giftCount(verdict.shortBy)} credits.</b> Remove a gift, or
-          add to your stock first.
+          <b className="font-semibold">
+            Not on this quote · short {giftCount(verdict.shortBy)}{' '}
+            {verdict.shortKind === 'papic' || !verdict.shortKind
+              ? 'credits'
+              : (basis.packs.find((p) => p.kind === verdict.shortKind)?.title ?? 'gifts')}
+            .
+          </b>{' '}
+          Remove a gift, or add to your stock first.
+        </p>
+      ) : verdict.state === 'already_has' ? (
+        <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-already">
+          <b className="font-semibold">Their event already has Event Pro.</b> Take Event Plus and Event Pro off this quote.
         </p>
       ) : verdict.state === 'unknown_pack' ? (
         <p className="text-xs text-danger-700" role="status">

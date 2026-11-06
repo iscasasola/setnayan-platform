@@ -30,6 +30,8 @@ import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
+import { postedKindToStored } from '@/lib/appointments';
+import { virtualLocationFromForm } from '@/lib/virtual-meeting';
 import {
   signedAmount,
   AMENDMENT_ITEM_KINDS,
@@ -64,9 +66,9 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
 
   if (!chatNegotiationEnabled() || !threadId) redirect(dest);
 
-  const kindRaw = formData.get('kind');
-  const kind =
-    kindRaw === 'in_person' || kindRaw === 'video' || kindRaw === 'voice' ? kindRaw : null;
+  // In-person or Virtual only — Virtual is stored as 'video'; nothing new is
+  // written as 'voice' (owner 2026-10-28: no calls inside Setnayan).
+  const kind = postedKindToStored(formData.get('kind'));
   // A picked DATE (yyyy-mm-dd) + a TIME slot (HH:MM), combined at Manila (+08:00).
   const date = str(formData.get('date'), 10);
   const time = str(formData.get('time'), 5);
@@ -115,6 +117,10 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       : null;
   if (!role) redirect(dest);
 
+  // A Virtual meeting is a Jitsi link of ours — made here when the form's is missing or not ours
+  // (owner 2026-11-04 "VIRTUAL = JITSI ONLY"). Nothing another app's is ever written.
+  const virtualLocation = kind === 'video' ? virtualLocationFromForm(formData) : null;
+
   // Window rule (owner 2026-07-24): a meeting must fall between TODAY and the day
   // BEFORE the event. Compare Manila calendar dates as strings (tz-correct, no
   // clock math). Server-authoritative — the client date input also bounds it.
@@ -150,6 +156,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       kind,
       type: 'custom',
       custom_label: label,
+      location: virtualLocation,
       scheduled_at: scheduledIso,
       status: 'proposed',
       initiated_by: role,

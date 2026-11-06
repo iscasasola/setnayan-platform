@@ -658,3 +658,102 @@ test('👁 a share needs an allowed audience; an approve whose copy is in the wr
   assert.ok(!(await onCard(W.floristCard)).some((x) => x.public_key === lookKey(id)));
   await withdraw(W.couple, id);
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ✓ VERIFIED BOOKING — the Supplier front page's promise (2026-11-06): "a couple shares, you approve, it lands on your
+   card with the Verified booking mark". The mark is DERIVED AT READ (migration 20271309527923): true only while the
+   event's own supplier row names this shop at a booked status, not archived, not voided, not a self-booking.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** The mark the PUBLIC card read gives one approved share (anon, the shop page's own visitor). */
+async function markOnCard(card: string, shareId: string): Promise<boolean | 'absent'> {
+  await asAnon();
+  try {
+    const r = await db.query<{ share_id: string; verified_booking: boolean }>(
+      `SELECT share_id, verified_booking FROM public.service_card_couple_photos(ARRAY[$1]::uuid[])`,
+      [card],
+    );
+    const row = r.rows.find((x) => x.share_id === shareId);
+    return row ? row.verified_booking : 'absent';
+  } finally {
+    await reset();
+  }
+}
+async function setBooking(status: string, archived = false): Promise<void> {
+  await reset();
+  const shopId = (await db.query<{ vendor_profile_id: string }>(`SELECT vendor_profile_id FROM public.vendor_services WHERE vendor_service_id = $1`, [W.floristCard])).rows[0]!.vendor_profile_id;
+  await db.query(
+    `UPDATE public.event_vendors SET status = $1::public.vendor_status, archived_at = $2 WHERE event_id = $3 AND marketplace_vendor_id = $4`,
+    [status, archived ? new Date().toISOString() : null, W.eventId, shopId],
+  );
+}
+
+test('✓ Verified booking — on the card only while the shop is BOOKED on that event; nothing unapproved is ever on it', async () => {
+  // Waiting: not on the card at all — no photo, so no mark.
+  await freePlace(1);
+  const photo = await boardPhoto(W.couple, 1, 'file_upload');
+  const s = await share(W.couple, photo, W.floristCard, 'a_couple', null, CONSENT, 'public');
+  assert.ok(s.ok && s.value.status === 'ok', JSON.stringify(s));
+  const waiting = s.value.share_id!;
+  assert.equal(await markOnCard(W.floristCard, waiting), 'absent', 'a WAITING share reached the card (with or without a mark)');
+  const no = await answer(W.florist, waiting, false);
+  assert.ok(no.ok && no.value.status === 'ok');
+  assert.equal(await markOnCard(W.floristCard, waiting), 'absent', 'a DECLINED share reached the card');
+
+  // Approved while the florist is contracted → the mark.
+  const id = await audienceShare('public');
+  await setBooking('contracted');
+  assert.equal(await markOnCard(W.floristCard, id), true, 'a booked shop’s approved photo has no Verified booking mark');
+  for (const booked of ['deposit_paid', 'delivered', 'complete']) {
+    await setBooking(booked);
+    assert.equal(await markOnCard(W.floristCard, id), true, `${booked} is a booking but drew no mark`);
+  }
+  // Only on the list, never booked → the photo stays (the shop approved it), the mark does not.
+  for (const listed of ['considering', 'shortlisted']) {
+    await setBooking(listed);
+    assert.equal(await markOnCard(W.floristCard, id), false, `${listed} claimed a Verified booking`);
+  }
+  // Archived (the couple dropped the supplier) → no mark, derived on the next read with nothing rewritten.
+  await setBooking('contracted', true);
+  assert.equal(await markOnCard(W.floristCard, id), false, 'an archived booking kept the mark');
+  await setBooking('contracted');
+  // Voided for fraud → no mark.
+  await reset();
+  await db.query(`UPDATE public.event_vendors SET voided_by_fraud = TRUE WHERE event_id = $1 AND vendor_name = 'Bloom & Co.'`, [W.eventId]);
+  assert.equal(await markOnCard(W.floristCard, id), false, 'a booking voided for fraud kept the mark');
+  await db.query(`UPDATE public.event_vendors SET voided_by_fraud = FALSE WHERE event_id = $1 AND vendor_name = 'Bloom & Co.'`, [W.eventId]);
+  assert.equal(await markOnCard(W.floristCard, id), true);
+
+  // A shop booking its OWN event (its owner is a couple of it) is not a verified booking.
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'couple')`, [W.eventId, W.florist]);
+  assert.equal(await markOnCard(W.floristCard, id), false, 'a shop booking its own event drew the mark');
+  await db.query(`DELETE FROM public.event_members WHERE event_id = $1 AND user_id = $2`, [W.eventId, W.florist]);
+  assert.equal(await markOnCard(W.floristCard, id), true);
+
+  // Withdrawn → off the card, mark and all.
+  await withdraw(W.couple, id);
+  assert.equal(await markOnCard(W.floristCard, id), 'absent', 'a withdrawn share stayed on the card');
+});
+
+test('✓ Verified booking — the signed-in viewer’s read carries the same derived mark; nobody may call the rule directly', async () => {
+  const id = await audienceShare('exclusive');
+  await setBooking('contracted');
+  const read = async () => {
+    const r = await as<boolean | null>(W.guest, `SELECT verified_booking AS out FROM public.viewer_service_card_couple_photos(ARRAY[$1]::uuid[]) WHERE share_id = $2`, [W.floristCard, id]);
+    assert.ok(r.ok, JSON.stringify(r));
+    return r.value;
+  };
+  assert.equal(await read(), true);
+  await setBooking('shortlisted');
+  assert.equal(await read(), false, 'the viewer read claimed a booking the event does not have');
+  await setBooking('contracted');
+  for (const who of [W.couple, W.florist, W.guest]) {
+    const direct = await as(who, `SELECT public.couple_photo_share_is_verified_booking($1, $2) AS out`, [W.eventId, W.floristCard]);
+    assert.ok(!direct.ok && /permission denied/i.test(direct.message), `${who} called the mark rule directly: ${JSON.stringify(direct)}`);
+  }
+  await asAnon();
+  const anonDirect = await db.query(`SELECT public.couple_photo_share_is_verified_booking($1, $2)`, [W.eventId, W.floristCard]).then(() => 'ran', (e: Error) => e.message);
+  await reset();
+  assert.notEqual(anonDirect, 'ran', 'anon called the mark rule directly');
+  await withdraw(W.couple, id);
+});

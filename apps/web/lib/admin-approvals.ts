@@ -16,6 +16,11 @@ export type ApprovalActionType =
   // No pool table or monthly draw was ever built, so the grant gave nothing a team member could use. It is
   // no longer offered or executed; the database CHECK still allows the value so old rows stay readable.
   | 'promote_to_admin'
+  // Vendor Agreement § 9.1 — "Promote a user to any admin role". Sets
+  // users.is_team_member = TRUE, which isAdminProfile (lib/admin/admin-predicate.ts)
+  // treats as admin. Opened by "Add to team" on the Users list (toggleTeamMember)
+  // or from the picker; "Remove from team" stays single-admin, on purpose.
+  | 'grant_team_member'
   | 'approve_vendor_partnership'
   | 'approve_comp_grant'
   // Anti-fraud § 5 — the irreversible fraud wipe + permanent ban routes through
@@ -91,6 +96,13 @@ export const APPROVAL_ACTIONS: ApprovalActionMeta[] = [
     description:
       'Sets account type to admin — full console access (and is_admin() RLS). Privilege escalation; irreversible damage potential.',
     badge: 'Admin',
+  },
+  {
+    type: 'grant_team_member',
+    label: 'Add to team',
+    description:
+      'Sets the team-member flag — full Setnayan HQ console access, the same as an admin. Privilege escalation under § 9.1. Removing someone from the team needs only one admin.',
+    badge: '🟢 Team',
   },
 ];
 

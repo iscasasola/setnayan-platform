@@ -104,10 +104,7 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: [
       '/vendor-dashboard/shop',
       '/vendor-dashboard/verify',
-      '/vendor-dashboard/reviews',
       '/vendor-dashboard/theft-watch',
-      '/vendor-dashboard/real-stories',
-      '/vendor-dashboard/recaps',
       '/vendor-dashboard/recommendations',
       '/vendor-dashboard/partnerships',
       '/vendor-dashboard/team',

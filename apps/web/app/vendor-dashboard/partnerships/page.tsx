@@ -360,6 +360,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                   title={v.businessName}
                   line={servedTogetherLine(v, eventTypeLabel)}
                   wrap
+                  lineWrap
                   data="partner-served-with"
                 >
                   <form action={proposePartnership} className="flex flex-col gap-3 pb-4">

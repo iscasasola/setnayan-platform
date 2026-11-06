@@ -78,7 +78,7 @@ export function BadgeUpgradesSection({ data }: { data: BadgeUpgradesSectionData 
                 data="badge-upgrade-row"
                 lead={icUp}
                 title={upgradeWords(r.startable)}
-                line={`${upgradeSourceWords(r.key)} · ready to start`}
+                line={upgradeSourceWords(r.key)}
                 badge={{ tone: 'ok', word: 'Ready' }}
                 onOpen={() => setOpen(r)}
               />

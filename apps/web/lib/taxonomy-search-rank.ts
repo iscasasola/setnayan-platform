@@ -38,28 +38,34 @@ export type RankableOption = {
 /**
  * Rank taxonomy options for a typed query, best first.
  *
- * Four tiers:
- *   4 — the label STARTS with what they typed         ("photo"       → Photo Booth)
- *   3 — the label CONTAINS it                         ("booth"       → Photo Booth)
- *   2 — the canonical key contains its snake form     ("photo booth" → photo_booth)
- *   1 — the label matches ignoring spaces/punctuation ("photobooth"  → Photo Booth)
+ * Tiers, highest first (each text = the label, or one reviewed alias):
+ *   7 — a text IS what they typed                        ("dj"          → DJ)
+ *   6 — a text STARTS with it                            ("photo"       → Photo Booth)
+ *   5 — a WORD of a text starts with it                  ("band"        → Live Band · "cake" → Wedding Cake)
+ *   4 — a WORD of the canonical key starts with it       ("band"        → `live_band`, whatever its label says)
+ *   3 — a text contains it inside a word                 ("cake"        → Crepe Pancake Station)
+ *   2 — the canonical key contains its snake form        ("photo booth" → photo_booth)
+ *   1 — a text matches ignoring spaces/punctuation, FROM A WORD START ("photobooth" → Photo Booth)
  *
- * 🔑 TIER 1 IS NOT COSMETIC — it is the whole point of the 2026-08-12 rename
- * work. Measured before it existed: the single word **"photobooth" returned
- * ZERO results**. The service is stored as two words, so the startsWith match,
- * the contains match and the snake match were all blind to it, and somebody
- * typing it the way Filipinos actually write it got an empty panel with no
- * error at all. Nobody should have to spell a thing our way to find it.
+ * 🔑 A WORD OR A PREFIX ALWAYS BEATS A LETTER RUN (controller, A5, 7 Nov: *"band" must never lead to Cake*). Before,
+ * "cake" ranked Crepe Pancake Station above Wedding Cake (both "contains", tie broken alphabetically), and tier 1 matched
+ * a run of letters ACROSS word boundaries — "mc" found Ice Cream Cart through "icecreamcart", "band" would find any
+ * "urBAN Dance". Tier 1 now starts at a word, so "photobooth" still finds Photo Booth and nothing finds a letter run
+ * that straddles two words.
  *
- * It ranks LAST so genuine word matches always sort above it, and it requires
- * MIN_QUERY_LEN characters after squashing so punctuation alone matches nothing.
+ * 🎵 TIER 4 IS WHY A RENAMED TRADE STAYS FINDABLE. Taxonomy v2 (#7355) renames `live_band`'s row to "Music"; the key
+ * keeps its words, so "band" still finds it — with no hard-coded synonym anywhere. Aliases come only from the one
+ * source (`canonical_service_aliases`, Admin › Categories › search words).
+ *
+ * Tier 1 is not cosmetic — measured before it existed, the single word **"photobooth" returned ZERO results**: the
+ * service is stored as two words. It ranks LAST and requires MIN_QUERY_LEN characters after squashing.
  */
 export function rankTaxonomyOptions<T extends RankableOption>(
   options: ReadonlyArray<T>,
   query: string,
   limit: number = MAX_SUGGESTIONS,
 ): T[] {
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = query.trim().toLowerCase().replace(/\s+/g, ' ');
   if (trimmed.length < MIN_QUERY_LEN) return [];
 
   const snakeQuery = trimmed.replace(/\s+/g, '_');
@@ -67,26 +73,14 @@ export function rankTaxonomyOptions<T extends RankableOption>(
 
   const matches: Array<{ opt: T; score: number }> = [];
   for (const opt of options) {
-    const labelLc = opt.label.toLowerCase();
     const keyLc = opt.key.toLowerCase();
-
-    // Tiers 4/3/1 are "does this TEXT start with / contain / squash-match
-    // the query" — the label is one such text, and so is every alias. Tier
-    // 2 stays label/key-specific (the canonical KEY containing the snake
-    // form of the query) since an alias phrase has no key of its own.
-    //
-    // 🔑 THIS IS A `max`, NOT AN `if/else-if` CHAIN, AND THAT IS DELIBERATE.
-    // The four original tiers were mutually exclusive by construction (each
-    // condition tests a DIFFERENT text: label-starts, label-contains,
-    // key-snake, label-squashed), so taking the highest TRUE tier produces
-    // the identical result the old if/else-if chain did — this is a pure
-    // refactor, not a behaviour change, which is why every existing test in
-    // taxonomy-search-rank.test.ts still holds with `aliases` never set.
-    let score = textTierScore(labelLc, trimmed, squashedQuery);
-    if (keyLc.includes(snakeQuery)) score = Math.max(score, 2);
+    // A `max` over every text (label + each alias) and the key: the best reason this option matches wins.
+    let score = textTierScore(opt.label.toLowerCase(), trimmed, squashedQuery);
     for (const alias of opt.aliases ?? []) {
       score = Math.max(score, textTierScore(alias.toLowerCase(), trimmed, squashedQuery));
     }
+    if (score < 4 && wordStartsWith(keyLc.replace(/_/g, ' '), trimmed)) score = 4;
+    if (score < 2 && keyLc.includes(snakeQuery)) score = 2;
 
     if (score > 0) matches.push({ opt, score });
   }
@@ -97,19 +91,44 @@ export function rankTaxonomyOptions<T extends RankableOption>(
   return matches.slice(0, limit).map((m) => m.opt);
 }
 
+/** Does some WORD of `textLc` (words split on anything not a letter or digit) begin with `q` — `q` may be several words? */
+function wordStartsWith(textLc: string, q: string): boolean {
+  const words = textLc.split(/[^a-z0-9]+/).filter(Boolean);
+  const qWords = q.split(/[^a-z0-9]+/).filter(Boolean);
+  if (qWords.length === 0) return false;
+  for (let i = 0; i + qWords.length <= words.length; i++) {
+    let ok = true;
+    for (let k = 0; k < qWords.length; k++) {
+      const w = words[i + k]!;
+      const qw = qWords[k]!;
+      // Every typed word but the last must be a whole word; the last may be a prefix ("live ba" → Live Band).
+      if (k < qWords.length - 1 ? w !== qw : !w.startsWith(qw)) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
+
 /**
- * Tiers 4 / 3 / 1 against one piece of text, already lowercased — the
- * label-shaped rules, factored out so the label and every alias are scored
- * by the exact same logic (one matcher, tested once).
+ * Tiers 7 / 6 / 5 / 3 / 1 against one piece of text, already lowercased — the label and every alias are scored by the
+ * exact same logic (one matcher, tested once).
  */
 function textTierScore(textLc: string, trimmedQuery: string, squashedQuery: string): number {
-  if (textLc.startsWith(trimmedQuery)) return 4;
-  if (textLc.includes(trimmedQuery)) return 3;
-  if (
-    squashedQuery.length >= MIN_QUERY_LEN &&
-    textLc.replace(/[^a-z0-9]+/g, '').includes(squashedQuery)
-  )
-    return 1;
+  const t = textLc.trim().replace(/\s+/g, ' ');
+  if (t === trimmedQuery) return 7;
+  if (t.startsWith(trimmedQuery)) return 6;
+  if (wordStartsWith(t, trimmedQuery)) return 5;
+  if (t.includes(trimmedQuery)) return 3;
+  if (squashedQuery.length >= MIN_QUERY_LEN) {
+    // From a word start only: "photobooth" ↔ "photo booth" — never "mc" inside "ice cream".
+    const words = t.split(/[^a-z0-9]+/).filter(Boolean);
+    for (let i = 0; i < words.length; i++) {
+      if (words.slice(i).join('').startsWith(squashedQuery)) return 1;
+    }
+  }
   return 0;
 }
 
@@ -124,18 +143,39 @@ function textTierScore(textLc: string, trimmedQuery: string, squashedQuery: stri
 // person to tap. `matches` is byte-identical to `rankTaxonomyOptions` — every existing caller (Explore, the card
 // maker, the admin near-match draft, sign-up coverage) keeps exactly the answers it has today.
 //
-// THE RULE: every word typed (3+ letters) must sit within a small edit distance of some word of the label or of a
-// reviewed alias — 1 edit for a word of up to 5 letters, 2 for a longer one (an edit = a letter added, dropped,
-// changed, or two neighbours swapped). Or the whole query, spaces squashed, within that distance of the whole
-// label/alias squashed ("fotobooth" → Photo Booth).
+// THE RULE: every word typed must sit within a small edit distance of some REAL word of the label or of a reviewed
+// alias — an edit = a letter added, dropped, changed, or two neighbours swapped:
+//   • up to 3 letters: no close match at all ("dj", "mc", "spa" have too many neighbours);
+//   • 4–5 letters: 1 edit, AND the same first letter, AND a word of at least 4 letters;
+//   • 6–7 letters: 1 edit ("catring" → Catering, never "String" two edits off);
+//   • 8+ letters: 2 edits ("fotographer" → Photographer, "fotobooth" → Photo Booth).
+// Filler words ("and", "of", "the", "&"…) are never matched. Or the whole query, spaces squashed, within that distance
+// of the whole label/alias squashed ("fotobooth" → Photo Booth).
+//
+// 🎂 WHY THE FIRST-LETTER AND FILLER RULES (controller, A5, 7 Nov: *"band" must never lead to Cake*). Under the old
+// 1-edit budget "band" was one dropped letter from "and" — so any "Cakes and Pastries" became a close match for "band",
+// a 1-letter overlap dressed as a typo. A real typo of a short word keeps its first letter ("bnad", "cak"); a 4-letter
+// word does not become a 3-letter filler word.
 
-/** The edits a typed word of this length may carry and still be a close match. */
+/** Words shorter than this carry no close match on their own ("dj", "mc", "of"): too many neighbours. */
+const CLOSE_MIN_WORD = 4;
+
+/** The edits a typed word of this length may carry and still be a close match (0 = never fuzzy). */
 export function closeMatchBudget(wordLength: number): number {
-  return wordLength <= 5 ? 1 : 2;
+  if (wordLength < CLOSE_MIN_WORD) return 0;
+  return wordLength <= 7 ? 1 : 2;
 }
 
-/** Words shorter than this carry no close match on their own ("dj", "of"): too many neighbours. */
-const CLOSE_MIN_WORD = 3;
+/** Joining words a label carries that never stand for the trade itself. */
+const FILLER_WORDS = new Set(['and', 'or', 'of', 'the', 'with', 'for', 'a', 'an', 'to', 'in', 'on', 'at', 'by', 'ng', 'sa', 'mga']);
+
+/** May typed word `q` be a close match for text word `t` at all (before counting edits)? */
+function closeCandidate(q: string, t: string): boolean {
+  if (FILLER_WORDS.has(t)) return false;
+  if (q.length < CLOSE_MIN_WORD) return t === q; // a short typed word must be there exactly
+  if (q.length <= 5) return t.length >= CLOSE_MIN_WORD && t[0] === q[0];
+  return true;
+}
 
 /** Optimal-string-alignment distance (Levenshtein + adjacent swap), stopping early past `max`. */
 export function editDistanceWithin(a: string, b: string, max: number): number {
@@ -169,20 +209,23 @@ const wordsOf = (textLc: string) => textLc.split(/[^a-z0-9]+/).filter(Boolean);
 function closeEdits(textLc: string, queryWords: string[], squashedQuery: string): number | null {
   const textWords = wordsOf(textLc);
   if (textWords.length === 0) return null;
-  // Whole-phrase, spaces squashed: "fotobooth" ↔ "photobooth".
-  const squashedText = textWords.join('');
-  if (squashedQuery.length >= CLOSE_MIN_WORD) {
-    const d = editDistanceWithin(squashedQuery, squashedText, closeMatchBudget(squashedQuery.length));
-    if (d <= closeMatchBudget(squashedQuery.length)) return d;
+  // Whole-phrase, spaces squashed: "fotobooth" ↔ "photobooth" (filler words dropped from both ends of the compare).
+  const squashedText = textWords.filter((w) => !FILLER_WORDS.has(w)).join('');
+  const phraseBudget = closeMatchBudget(squashedQuery.length);
+  if (phraseBudget > 0 && closeCandidate(squashedQuery, squashedText)) {
+    const d = editDistanceWithin(squashedQuery, squashedText, phraseBudget);
+    if (d <= phraseBudget) return d;
   }
   // Word by word: every typed word must be near some word of the text.
-  const counted = queryWords.filter((w) => w.length >= CLOSE_MIN_WORD);
-  if (counted.length === 0 || counted.length !== queryWords.length) return null;
+  // Filler words typed are ignored; at least one real word must carry the typo (a short word alone never fuzzes).
+  const counted = queryWords.filter((w) => !FILLER_WORDS.has(w));
+  if (!counted.some((w) => w.length >= CLOSE_MIN_WORD)) return null;
   let total = 0;
   for (const q of counted) {
     const budget = closeMatchBudget(q.length);
     let best = budget + 1;
     for (const t of textWords) {
+      if (!closeCandidate(q, t)) continue;
       const d = editDistanceWithin(q, t, budget);
       if (d < best) best = d;
       if (best === 0) break;

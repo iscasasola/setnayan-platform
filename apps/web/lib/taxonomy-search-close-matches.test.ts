@@ -75,9 +75,12 @@ test('a close match is found through a reviewed ALIAS too', () => {
   assert.equal(rankTaxonomyOptionsWithClose(opts, 'sorbetiro').close[0]?.key, 'sorbetes_cart');
 });
 
-test('the budget: 1 edit up to 5 letters, 2 beyond — and a 2-letter word never guesses', () => {
+test('the budget: none under 4 letters, 1 edit up to 7, 2 beyond — and a 2-letter word never guesses', () => {
+  // A5 (7 Nov): 6–7 letters dropped from 2 edits to 1 — at 2, "catring" reached "Choir String Quartet".
+  assert.equal(closeMatchBudget(3), 0);
   assert.equal(closeMatchBudget(5), 1);
-  assert.equal(closeMatchBudget(6), 2);
+  assert.equal(closeMatchBudget(7), 1);
+  assert.equal(closeMatchBudget(8), 2);
   assert.equal(editDistanceWithin('catring', 'catering', 2), 1);
   assert.equal(editDistanceWithin('photograhper', 'photographer', 2), 1, 'a swap is one edit');
   assert.ok(editDistanceWithin('cake', 'bike', 1) > 1);

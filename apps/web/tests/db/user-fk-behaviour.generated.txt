@@ -245,6 +245,7 @@ vendor_event_access_grants.granted_by                     SET NULL     nullable 
 vendor_event_access_grants.grantee_user_id                CASCADE      NOT NULL  -> auth.users
 vendor_follows.follower_user_id                           CASCADE      NOT NULL  -> users
 vendor_guest_deliveries.delivered_by                      SET NULL     nullable  -> auth.users
+vendor_guest_reviews.hidden_by_user_id                    SET NULL     nullable  -> auth.users
 vendor_ig_oauth_state.initiated_by                        CASCADE      NOT NULL  -> auth.users
 vendor_image_flags.reviewed_by                            SET NULL     nullable  -> users
 vendor_invites.claimed_by_user_id                         SET NULL     nullable  -> auth.users

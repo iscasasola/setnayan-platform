@@ -194,6 +194,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     'lib/vendor-corrections.ts',
     { count: 2, why: "fetchVerifiedLock + identityLockOf (2026-10-29, a shop Setnayan set up asks to rename) — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
   ],
+  [
+    'lib/supplier-prints.server.ts',
+    { count: 1, why: "supplierPrints (2026-11-06) — feeds shopReach() the same approved-or-not fact /v/[slug] passes it (an unapproved shop reaches 0 km), so the print's AREA line matches the shop page. No \"Verified\" text renders on a print from it." },
+  ],
 ]);
 
 const RE = /\b[\w.?!]*\b(?:verification_state|public_visibility)\s*===\s*'verified'/g;

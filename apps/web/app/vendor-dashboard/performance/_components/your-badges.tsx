@@ -1,7 +1,6 @@
-import { Gift, MessageCircle, Share, Users } from 'lucide-react';
+import { Gift, MessageCircle, Users } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
-import { SaveFileLink } from '@/app/_components/save-file-link';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import { ActionButton } from '@/components/action-button';
@@ -30,6 +29,9 @@ import type { BadgeShelf, ShopBadge, TrackerRow, TrackerState } from '@/lib/shop
  * shows none. Moved here with the tracker from Shop › Page (#7298 was drawn on the old fold before 2026-11-06).
  *
  * Today's "You earned …" line (`badge-earned-line.tsx`) STAYS: it announces a NEW badge once; this is where they live.
+ *
+ * 🖨 The badge PRINT is not here: it is a piece inside Shop › Promote › Prints (owner 2026-11-06, "the door print and
+ * the badge print are pieces INSIDE prints") — `shop-prints-section.tsx`'s "Your badges" row saves the same file.
  */
 
 const STATE_TONE: Record<TrackerState, BadgeTone> = {
@@ -57,13 +59,10 @@ function Circle({ badge }: { badge: ShopBadge }) {
 export function YourBadges({
   shelf,
   rows = null,
-  saveHref,
 }: {
   shelf: BadgeShelf;
   /** One row per badge (`badgeTracker`); null = the tracker's facts were not read (the shelf says so). */
   rows?: TrackerRow[] | null;
-  /** /dev only — the print file as a data: URI, so the lab saves the real file with no session. */
-  saveHref?: string;
 }) {
   return (
     <section aria-labelledby="your-badges-title" data-your-badges={shelf.measured ? 'measured' : 'unread'} id="badges">
@@ -96,17 +95,6 @@ export function YourBadges({
           ))}
         </div>
       )}
-      {shelf.measured && shelf.pills.length > 0 ? (
-        <SaveFileLink
-          href={saveHref ?? '/api/vendor/badges?badge=all'}
-          filename="setnayan-badges.svg"
-          className="sn-press mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink"
-          data-badge-save=""
-        >
-          <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Save to print
-        </SaveFileLink>
-      ) : null}
 
       {rows && rows.length > 0 ? (
         <div className="mt-2 divide-y divide-ink/10" data-badge-tracker="">

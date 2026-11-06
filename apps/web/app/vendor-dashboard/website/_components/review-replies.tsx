@@ -73,7 +73,9 @@ function VendorReviewCard({ review, vendorName }: { review: ReviewWithCouple; ve
           {/* Receipt-backed provenance — PLATFORM-DERIVED, a couple can't set it. */}
           {review.via_vendor_import ? <VerifiedBookingPill /> : review.booked_through_setnayan ? <VerifiedWeddingPill /> : null}
         </div>
-        <div className="flex items-center gap-3">
+        {/* ml-auto: when the header wraps at phone width, the date + flag stay on the RIGHT, so the flag panel (anchored
+            right-0, 18 rem wide) opens inside the screen instead of off its left edge. */}
+        <div className="ml-auto flex items-center gap-3">
           <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">{dateLabel}</time>
           <FlagForm reviewId={review.review_id} />
         </div>
@@ -134,7 +136,7 @@ function ReplyForm({ reviewId }: { reviewId: string }) {
           Up to {VENDOR_REPLY_MAX_CHARS} characters. One public reply — it&rsquo;s final once posted, so take a moment.
         </p>
         <SubmitButton
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
           pendingLabel="Posting…"
         >
           <Reply className="h-3.5 w-3.5" strokeWidth={2} />

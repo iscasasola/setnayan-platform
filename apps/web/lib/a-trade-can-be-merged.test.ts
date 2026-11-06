@@ -27,9 +27,11 @@ import { findDanglingKeys } from './dangling-trade-keys';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../..');
+// The NEWEST migration that (re)defines merge_canonical_service — 20271319952573
+// carries the August body verbatim plus the two holders found 2026-11-06.
 const MIGRATION = path.join(
   REPO,
-  'supabase/migrations/20271176753752_a_trade_can_be_merged.sql',
+  'supabase/migrations/20271319952573_a_trade_merge_moves_inspiration_parts.sql',
 );
 const sql = fs.readFileSync(MIGRATION, 'utf8');
 
@@ -49,6 +51,24 @@ function stripSqlComments(src: string): string {
     .join('\n');
 }
 const sqlCode = stripSqlComments(sql);
+
+// ── 0 · THE GUARD READS THE DEFINITION THAT ACTUALLY SHIPS ────────────────
+// The function was redefined (20271319952573). A guard pinned to an older file
+// would stay green while the live body drifted — so prove MIGRATION is the
+// newest file that defines merge_canonical_service.
+test('the guard reads the newest migration that defines merge_canonical_service', () => {
+  const dir = path.join(REPO, 'supabase/migrations');
+  const definers = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .filter((f) =>
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.merge_canonical_service\s*\(/i.test(
+        stripSqlComments(fs.readFileSync(path.join(dir, f), 'utf8')),
+      ),
+    );
+  assert.equal(definers.at(-1), path.basename(MIGRATION));
+});
 
 // ── 1 · THE MERGE MOVES EVERY REGISTERED HOLDER ────────────────────────────
 // The failure this exists to catch: somebody adds a thirteenth column that
@@ -90,6 +110,7 @@ test('every holder under a UNIQUE constraint deletes the colliding source row fi
     ['vendor_screen_name_sequences', 'canonical_service'],
     ['vendor_schedule_pool_categories', 'category_key'],
     ['vendor_service_links', 'linked_canonical_service'],
+    ['inspiration_part_services', 'canonical_service'],
   ];
   for (const [table, column] of COLLIDING) {
     const del = new RegExp(

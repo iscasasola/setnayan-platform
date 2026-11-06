@@ -117,6 +117,18 @@ export const CANONICAL_KEY_HOLDERS: readonly CanonicalKeyHolder[] = [
     shape: 'scalar',
     note: 'Which trades share a calendar. Fed from the shop’s own catalog keys.',
   },
+  {
+    table: 'inspiration_part_services',
+    column: 'canonical_service',
+    shape: 'scalar',
+    note: 'Which trades may add photos to an inspiration part (RESTRICT FK to canonical_service_taxonomy, PK slot_key+canonical_service). Shipped after the August list; added 2026-11-06 (migration 20271319952573) — 2,145 prod rows sat on trades the approved map folds away.',
+  },
+  {
+    table: 'taxonomy_category_requests',
+    column: 'mapped_to_canonical',
+    shape: 'scalar',
+    note: 'The trade an admin resolved a supplier’s “add my category” request to. Added 2026-11-06 (20271319952573).',
+  },
 ] as const;
 
 /**
@@ -130,6 +142,12 @@ export const HISTORICAL_HOLDERS: readonly CanonicalKeyHolder[] = [
     column: 'category',
     shape: 'scalar',
     note: 'APPEND-ONLY LOG. A trigger copies NEW.category off vendor_services at the moment a price changed. It records what was true THEN; rewriting it would falsify history, so a merge leaves it alone and the dangling-key report skips it.',
+  },
+  {
+    table: 'canonical_service_aliases',
+    column: 'canonical_service',
+    shape: 'scalar',
+    note: 'An alternative NAME for a trade. Its own migration header (20271177344562) says the application resolves canonical_service through the merge forward AT READ TIME, so an alias on a merged trade still lands on the survivor; moving it could collide two aliases for one name.',
   },
 ] as const;
 

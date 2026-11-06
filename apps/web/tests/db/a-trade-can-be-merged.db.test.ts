@@ -118,6 +118,20 @@ test('the merge moves every shop-side holder, collisions included', async () => 
     b,
   ]);
 
+  // Inspiration parts (added 2026-11-06): part 1 credits only the source; part 2
+  // credits BOTH — the PK (slot_key, canonical_service) collision.
+  await db.query(
+    `INSERT INTO inspiration_parts (slot_key, label_en, home_category_id)
+     SELECT k, k, (SELECT id FROM service_categories WHERE tier=2 ORDER BY id LIMIT 1)
+       FROM unnest(ARRAY['tst_merge_part_1','tst_merge_part_2']) AS k
+     ON CONFLICT (slot_key) DO NOTHING`,
+  );
+  await db.query(
+    `INSERT INTO inspiration_part_services (slot_key, canonical_service)
+     VALUES ('tst_merge_part_1',$1), ('tst_merge_part_2',$1), ('tst_merge_part_2',$2)`,
+    [SRC, DST],
+  );
+
   // ── BEFORE ──
   assert.equal(
     await count(`SELECT count(*)::int AS n FROM vendor_coverages WHERE canonical_service=$1`, [SRC]),
@@ -152,6 +166,22 @@ test('the merge moves every shop-side holder, collisions included', async () => 
     await count(`SELECT count(*)::int AS n FROM vendor_services WHERE category=$1`, [DST]),
     2,
     'both cards moved',
+  );
+
+  // ── Inspiration parts moved, the collision collapsed to one row. ──
+  assert.equal(
+    await count(`SELECT count(*)::int AS n FROM inspiration_part_services WHERE canonical_service=$1`, [SRC]),
+    0,
+    'no inspiration part may still credit the merged-away trade',
+  );
+  assert.equal(
+    await count(
+      `SELECT count(*)::int AS n FROM inspiration_part_services
+        WHERE canonical_service=$1 AND slot_key IN ('tst_merge_part_1','tst_merge_part_2')`,
+      [DST],
+    ),
+    2,
+    'both parts now credit the destination, once each',
   );
 
   // ── The TEXT[] holder: swapped AND de-duplicated. ──

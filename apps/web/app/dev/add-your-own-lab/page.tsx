@@ -163,6 +163,7 @@ export default async function AddYourOwnLabPage({
         contactPerson="Maria Santos"
         contactPhone={null}
         signupUrl="/dev/add-your-own-lab?s=card"
+        signInUrl="/dev/add-your-own-lab?s=card"
         decline={
           <button
             type="button"

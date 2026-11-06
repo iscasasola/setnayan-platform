@@ -72,6 +72,7 @@ function frame(
 /** One access value per reason, so the invariant below is exhaustive. */
 const ONE_PER_REASON: Record<VendorSpecializationReason, VendorSpecializationAccess> = {
   unlocked: accessFor(['live_band'], 'solo'),
+  free_set: accessFor(['coordinator'], 'free'),
   below_tier_floor: accessFor(['live_band'], 'free'),
   subscription_lapsed: accessFor(['live_band'], 'pro', '2020-01-01T00:00:00Z'),
   no_specialization_for_category: accessFor(['florist'], 'pro'),
@@ -149,16 +150,24 @@ test('BELOW FLOOR → no section state other than locked, and a quiet upsell', (
 test('being REGISTERED does not unlock — only the entitlement does', () => {
   // The registry is a presentation input. A free vendor with every surface
   // built still gets `locked`.
+  // (A host/MC, not a coordinator: the coordinator's floor desk is free since 2026-11-05.)
   const model = frame(
-    accessFor(['coordinator'], 'free'),
+    accessFor(['host_mc'], 'free'),
     new Set(['floor_command', 'song_desk', 'stage_script']),
   );
   assert.equal(model.specialization?.state, 'locked');
   assert.notEqual(model.specialization?.state, 'ready');
 });
 
+test('🆓 a FREE coordinator gets the floor desk ready, with no upsell (owner 2026-11-05, "keep it free")', () => {
+  const model = frame(accessFor(['coordinator'], 'free'), new Set(['floor_command']));
+  assert.equal(model.specialization?.set, 'floor_command');
+  assert.equal(model.specialization?.state, 'ready');
+  assert.equal(model.upsell, null);
+});
+
 test('LAPSED mid-event → locked + a renew-flavoured upsell, kit intact', () => {
-  const model = frame(accessFor(['coordinator'], 'pro', '2020-01-01T00:00:00Z'));
+  const model = frame(accessFor(['host_mc'], 'pro', '2020-01-01T00:00:00Z'));
   assert.equal(model.specialization?.state, 'locked');
   assert.equal(model.upsell?.lapsed, true);
   assert.deepEqual(model.genericModuleIds, GENERIC);
@@ -170,8 +179,8 @@ test('the upsell quotes the floor from the gate constant, not a literal', () => 
 });
 
 test('the upsell wording comes from the gate registry — one source of truth', () => {
-  const model = frame(accessFor(['coordinator'], 'free'));
-  assert.equal(model.upsell?.label, 'Run the floor');
+  const model = frame(accessFor(['host_mc'], 'free'));
+  assert.equal(model.upsell?.label, 'Script & cues');
   assert.equal(model.upsell?.label, model.specialization?.label);
   assert.equal(model.upsell?.blurb, model.specialization?.blurb);
 });

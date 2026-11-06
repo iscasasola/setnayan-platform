@@ -13,8 +13,10 @@ const FactSheet = dynamic(() => import('../vendors/_components/fact-sheets').the
  * event"*). The Countdown — the phone tile and the desktop card alike — links to `dateFinderHref`; on Home this catches
  * that tap (capture phase, before the link navigates) and opens Suppliers' own date sheet on **Help me choose**. A set
  * date is shown by the sheet's own UI. Arriving with `?date=find` (a link from elsewhere) opens it with the page; closing
- * drops the word from the address without a navigation. A save made while it was open owes Home ONE redraw, paid at
- * close — the same rule `fact-line.tsx` keeps. The couple's only (the Countdown's door for a helper is Event Details).
+ * drops the word from the address without a navigation. A picked date saves to the event at once (`updateEventDate`,
+ * owner 2026-11-05: "it shouldn't rely on the hub") and that save draws Home again while the sheet is still open, so
+ * the Countdown reads the new day at once; anything else saved owes ONE redraw, paid at close — the rule `fact-line.tsx`
+ * keeps. The couple's only (the Countdown's door for a helper is Event Details).
  */
 export function HomeDateFinder({ eventId, openAtFirst = false }: { eventId: string; openAtFirst?: boolean }) {
   const [open, setOpen] = useState(openAtFirst);
@@ -59,7 +61,7 @@ function OpenDateFinder({ eventId, onClosed }: { eventId: string; onClosed: () =
     }
     if (owed.current) {
       owed.current = false;
-      // one-render: keep (no-revalidate) — a date saved to the draft revalidates nothing; one re-read when the sheet closes.
+      // one-render: keep (no-revalidate) — a write that drew nothing itself gets one re-read when the sheet closes.
       router.refresh();
     }
   };
@@ -69,8 +71,9 @@ function OpenDateFinder({ eventId, onClosed }: { eventId: string; onClosed: () =
       which="date"
       helpFirst
       priced={[]}
-      onWrote={() => {
-        owed.current = true;
+      onWrote={(redrawn) => {
+        // 🗓 A saved date already drew Home again (`updateEventDate` revalidates) — nothing more is owed.
+        if (!redrawn) owed.current = true;
       }}
       onClose={close}
     />

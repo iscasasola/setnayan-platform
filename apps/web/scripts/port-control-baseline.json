@@ -42,6 +42,7 @@
         "PressFeel",
         "Providers",
         "Reconnecting",
+        "RevealDetailsOnOpen",
         "Script",
         "SiteChrome",
         "SiteFooterChrome",
@@ -1583,6 +1584,7 @@
         "PublicEventDayBar",
         "PublicHideableWidget",
         "PublicPageActions",
+        "QuietScheduleRefresh",
         "R",
         "ReactElement",
         "ReactNode",
@@ -2475,6 +2477,7 @@
         "admin/accounts/page.tsx"
       ],
       "destinations": [
+        "/admin/approvals",
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
         "/admin/users/[seg]",
@@ -4788,6 +4791,9 @@
     },
     "/admin/vendors/[vendorProfileId]": {
       "files": [
+        "admin/vendors/[vendorProfileId]/_components/card-reason-form.tsx",
+        "admin/vendors/[vendorProfileId]/_components/service-cards-section.tsx",
+        "admin/vendors/[vendorProfileId]/card-actions.ts",
         "admin/vendors/[vendorProfileId]/page.tsx"
       ],
       "destinations": [
@@ -4799,11 +4805,20 @@
         "/admin/vendors/[seg]/team",
         "/admin/verify"
       ],
-      "actions": [],
+      "actions": [
+        "moderateServiceCard"
+      ],
       "blocks": [
+        "CardReasonForm",
         "ConsoleTable",
+        "FormRows",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadFailed",
+        "RemovePhoto",
+        "ServiceCardsSection",
+        "Thumb",
+        "TypedRow"
       ]
     },
     "/admin/vendors/[vendorProfileId]/edit": {
@@ -4932,6 +4947,7 @@
         "admin/verify/page.tsx"
       ],
       "destinations": [
+        "/admin/vendors/[seg]",
         "/admin/verify?surface=[seg]",
         "/admin/verify?surface=applications&status=[seg]",
         "/admin/verify?surface=visibility&status=[seg]"
@@ -5821,6 +5837,7 @@
         "PermanenceWarning",
         "PlanningHeaderActions",
         "PutAwaySwitch",
+        "QuietScheduleRefresh",
         "ReasonNote",
         "ReasonPicker",
         "RemoveDialog",
@@ -5988,7 +6005,6 @@
         "/dashboard/[seg]/guests?q=declined",
         "/dashboard/[seg]/guests?q=no+reply",
         "/dashboard/[seg]/launch",
-        "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/memories",
@@ -6028,7 +6044,8 @@
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "savePatiktokBoothTemplates",
-        "updatePaxSettings"
+        "updatePaxSettings",
+        "useDate"
       ],
       "blocks": [
         "AccessAsksRead",
@@ -6099,6 +6116,7 @@
         "EffectToggle",
         "EmailCallTimesResult",
         "EventDashboard",
+        "EventDateSaveResult",
         "EventDayPrepCta",
         "EventMenuChild",
         "EventMonogram",
@@ -7476,6 +7494,7 @@
         "EmptyState",
         "Link",
         "PrintButton",
+        "ReadRefusedNotice",
         "ServeRow",
         "SideBlock"
       ]
@@ -9052,6 +9071,7 @@
         "PageMasthead",
         "PickMenu",
         "PillSelector",
+        "ReadRefusedNotice",
         "SaveState",
         "Size"
       ]
@@ -9102,6 +9122,7 @@
         "MoverToken",
         "OrbitControls",
         "PickMenu",
+        "ReadRefusedNotice",
         "RemotePlayers",
         "RoomShell",
         "RoomViewTools",
@@ -10308,6 +10329,7 @@
         "DigitalServicesRail",
         "Done",
         "DownpaymentModal",
+        "EventDateSaveResult",
         "EventVendorRowInput",
         "ExceptionModal",
         "Explain",
@@ -11497,6 +11519,18 @@
       "actions": [],
       "blocks": [
         "CanvasMaker"
+      ]
+    },
+    "/dev/card-moderation-lab": {
+      "files": [
+        "dev/card-moderation-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ServiceCardsSection",
+        "ServicesGallery",
+        "VendorServiceRow"
       ]
     },
     "/dev/categories-lab": {
@@ -13568,6 +13602,7 @@
       "files": [
         "papic/me/[token]/_components/guest-story-maker.tsx",
         "papic/me/[token]/actions.ts",
+        "papic/me/[token]/error.tsx",
         "papic/me/[token]/loading.tsx",
         "papic/me/[token]/page.tsx"
       ],
@@ -14386,7 +14421,6 @@
         "CardShell",
         "ClaimWaitLines",
         "Collapsible",
-        "ComingSoon",
         "Connected",
         "ContractDraftBody",
         "CorrectionRequestResult",
@@ -14685,6 +14719,7 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-money-fold.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/day-check-line.tsx",
         "vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
@@ -14694,6 +14729,7 @@
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/waitlist-form.tsx",
         "vendor-dashboard/clients/[eventId]/actions.ts",
         "vendor-dashboard/clients/[eventId]/booth-event-actions.ts",
         "vendor-dashboard/clients/[eventId]/finalization-actions.ts",
@@ -14738,7 +14774,8 @@
         "vendorRejectDeposit",
         "vendorRespondChangeOrder",
         "vendorWithdrawChangeOrder",
-        "vendorWithdrawPaymentAsk"
+        "vendorWithdrawPaymentAsk",
+        "waitlistAsk"
       ],
       "blocks": [
         "ActionButton",
@@ -14766,6 +14803,8 @@
         "Count",
         "CoupleLogo",
         "CustomerMoneyFold",
+        "DayCheckLine",
+        "DaySheetBody",
         "DeclineReasonFields",
         "EventLockedByFee",
         "FileUpload",
@@ -14803,6 +14842,7 @@
         "RelationshipTabShell",
         "Result",
         "ReturningMarkerAndActions",
+        "Row",
         "RunOfShowHeader",
         "SaveFileLink",
         "ScheduleSavedMark",
@@ -14811,6 +14851,7 @@
         "ScriptActionState",
         "ScriptComposer",
         "ScriptTab",
+        "Section",
         "Sheet",
         "ShopCard",
         "ShopEmpty",
@@ -14832,6 +14873,7 @@
         "VendorPaymentLive",
         "VenueHoursSheet",
         "WaitingRow",
+        "WaitlistForm",
         "WaivedFeeRows"
       ]
     },
@@ -15513,7 +15555,8 @@
         "ShopNotice",
         "StylistLibraryActions",
         "StylistLibraryEditor",
-        "Uint8Array"
+        "Uint8Array",
+        "UploadStylistAssetResult"
       ]
     },
     "/vendor-dashboard/more": {
@@ -15939,6 +15982,7 @@
         "GrowthCard",
         "GrowthRecsCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HealthCompositeCard",
         "InfoTip",
         "InquiryHandlingCard",
@@ -16571,6 +16615,34 @@
         "VoiceSuggestResult"
       ]
     },
+    "/vendor-dashboard/shop/promote": {
+      "files": [
+        "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
+        "vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx",
+        "vendor-dashboard/shop/promote/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction"
+      ],
+      "blocks": [
+        "ActionButton",
+        "BuyGiftsSheet",
+        "BuyVendorPapicPortfolioPackState",
+        "Counter",
+        "DatesRow",
+        "Fold",
+        "InfoTip",
+        "PaymentsPausedNote",
+        "PickMenu",
+        "QrCodes",
+        "Sheet",
+        "ShopGiftsSection",
+        "ShopGiftsSectionData",
+        "ShopSegments",
+        "SupplierSubmit"
+      ]
+    },
     "/vendor-dashboard/subscription": {
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
@@ -16580,7 +16652,6 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
-        "vendor-dashboard/subscription/_components/shop-gifts-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -16606,16 +16677,12 @@
         "AiAddonCard",
         "BookingFeeStanding",
         "BoothAddonCard",
-        "BuyGiftsSheet",
-        "BuyVendorPapicPortfolioPackState",
         "Column",
-        "Counter",
         "Cycle",
         "DatesRow",
         "Fold",
         "GridPageSkeleton",
         "Icon",
-        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16627,8 +16694,6 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
-        "Sheet",
-        "ShopGiftsSection",
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",
@@ -16844,14 +16909,16 @@
         "vendor/claim/[token]/finalize/page.tsx"
       ],
       "destinations": [
-        "/login"
+        "/login",
+        "/vendor/claim/[seg]"
       ],
       "actions": [],
       "blocks": [
         "DoorShell",
         "ErrorShell",
         "FormPageSkeleton",
-        "Link"
+        "Link",
+        "NotASupplierShell"
       ]
     },
     "/vendor/fit/[ref]": {

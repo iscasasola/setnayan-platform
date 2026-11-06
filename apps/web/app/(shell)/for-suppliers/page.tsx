@@ -68,11 +68,14 @@ import {
   VendorGrowGetPaid,
   VendorGrowCTA,
   VendorGrowStyles,
+  inviteLinkHref,
 } from '@/app/for-suppliers/_components/vendor-grow-sections';
 import { VendorTierMatrix } from '@/app/for-suppliers/_components/vendor-tier-matrix';
 import { VendorTierDeltas } from '@/app/for-suppliers/_components/vendor-tier-deltas';
 import { RevealOnView } from '@/app/for-suppliers/_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
+import { createClient } from '@/lib/supabase/server';
+import { fetchUserRoleSummary } from '@/lib/roles';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
@@ -229,8 +232,28 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
   };
 }
 
+/**
+ * Does the visitor already run (or help run) a shop? Only decides where "Get
+ * your invite link" points. A signed-out visitor — or any read that fails — is
+ * treated as "no shop": that sends them to /open-shop?next=…, which itself
+ * forwards an existing supplier to the invite page, so the wrong guess still
+ * lands on the right page.
+ */
+async function viewerHasShop(): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return false;
+    return (await fetchUserRoleSummary(supabase, user.id)).hasVendorAccess;
+  } catch {
+    return false;
+  }
+}
+
 export default async function ForVendorsPage() {
-  const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
+  const [p, fee, hasShop] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule(), viewerHasShop()]);
   return (
     <>
       <script
@@ -243,7 +266,7 @@ export default async function ForVendorsPage() {
         <RevealOnView>
           <VendorGrowHub />
         </RevealOnView>
-        <VendorGrowAI />
+        <VendorGrowAI inviteHref={inviteLinkHref(hasShop)} />
         <RevealOnView>
           <VendorGrowFairPay fee={fee} />
         </RevealOnView>

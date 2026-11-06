@@ -239,6 +239,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
+        "SampleShopMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -4711,6 +4712,7 @@
     "/admin/vendors/[vendorProfileId]": {
       "files": [
         "admin/vendors/[vendorProfileId]/_components/card-reason-form.tsx",
+        "admin/vendors/[vendorProfileId]/_components/sample-shop-switch.tsx",
         "admin/vendors/[vendorProfileId]/_components/service-cards-section.tsx",
         "admin/vendors/[vendorProfileId]/card-actions.ts",
         "admin/vendors/[vendorProfileId]/page.tsx"
@@ -4735,7 +4737,9 @@
         "PageMasthead",
         "ReadFailed",
         "RemovePhoto",
+        "SampleShopSwitch",
         "ServiceCardsSection",
+        "SwitchRow",
         "Thumb",
         "TypedRow"
       ]
@@ -12260,10 +12264,13 @@
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "LabCard",
         "Link",
+        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
+        "VendorCard",
         "Wordmark"
       ]
     },
@@ -13758,7 +13765,8 @@
       "blocks": [
         "EditorialContent",
         "Link",
-        "SampleEditorial"
+        "SampleEditorial",
+        "SampleMarker"
       ]
     },
     "/receipts/[receiptId]": {
@@ -14204,6 +14212,7 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
+        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -15987,6 +15996,7 @@
       "actions": [],
       "blocks": [
         "ActionButton",
+        "ActivityStatsRow",
         "AttributionBar",
         "Badge",
         "BandRail",
@@ -16632,10 +16642,12 @@
         "DatesRow",
         "Fold",
         "HTMLDivElement",
+        "Hidden.Provider",
         "InfoTip",
         "Link",
         "PaymentsPausedNote",
         "PickMenu",
+        "PieceHead",
         "PiecePicture",
         "PrintQrMode",
         "PrintsSheet",

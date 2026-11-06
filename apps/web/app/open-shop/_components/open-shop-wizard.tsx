@@ -1107,6 +1107,7 @@ export function OpenShopWizard({
                   </small>
                 </span>
                 <input
+                  // field-ok: the door's own plain box, like "Your name" beside it — prototype v16 draws all three alike
                   id="open-shop-contact_position"
                   name="contact_position"
                   defaultValue={defaults.contactPosition}

@@ -1114,14 +1114,7 @@ export function OpenShopWizard({
               {logoSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element -- a 24h signed R2 URL, not an optimisable asset
                 <img src={logoSrc} alt="" className="h-14 w-14 rounded-full object-cover" />
-              ) : (
-                <span
-                  className="flex h-14 w-14 items-center justify-center rounded-full border border-dashed text-[11px]"
-                  style={{ borderColor: 'var(--m-slate-3)', color: 'var(--m-slate-3)', background: 'var(--m-paper-2)' }}
-                >
-                  logo later
-                </span>
-              )}
+              ) : null /* no logo slot before the shop opens — the logo is asked after (owner, 6 Nov: "why do i see a logo") */}
               <span className="text-xl font-semibold leading-[1.1]" style={{ color: shopName.trim() ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
                 {shopName.trim() || 'Your shop name'}
               </span>

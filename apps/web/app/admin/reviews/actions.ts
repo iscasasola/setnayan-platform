@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { sendReviewFlagOutcomeEmail } from '@/lib/vendor-email-triggers';
+import { setGuestReviewHidden } from '@/lib/guest-reviews';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -276,6 +277,14 @@ export async function escalateAppeal(formData: FormData) {
 export async function dismissReviewFlag(formData: FormData) {
   const { userId } = await requireAdmin();
 
+  // ⭐ `kind=guest_visibility` — hide / show one GUEST review (owner ruling A, 6 Nov: public at once; Setnayan can hide
+  // it from Admin › Reviews, no approval queue). The same moderator's "does this review stay" call, folded into this
+  // action rather than a new export to hold the server-action budget (`scripts/lint-server-action-budget.mjs`).
+  if (formData.get('kind') === 'guest_visibility') {
+    await setGuestReviewVisibility(formData, userId);
+    return;
+  }
+
   const flagId = formData.get('flag_id');
   const adminNote = nullIfBlank(formData.get('admin_note'));
   if (typeof flagId !== 'string') throw new Error('Invalid flag_id');
@@ -335,4 +344,14 @@ export async function dismissReviewFlag(formData: FormData) {
 
   revalidatePath('/admin/reviews');
   redirect('/admin/reviews?flag_dismissed=1');
+}
+
+/** The guest-review half of `dismissReviewFlag` (`kind=guest_visibility`). Not exported: saves in place. */
+async function setGuestReviewVisibility(formData: FormData, userId: string) {
+  const reviewId = formData.get('review_id');
+  const hide = formData.get('hide') === '1';
+  if (typeof reviewId !== 'string' || reviewId.length === 0) throw new Error('Invalid review_id');
+  const ok = await setGuestReviewHidden(createAdminClient(), reviewId, hide, userId);
+  if (!ok) throw new Error('That guest review could not be updated.');
+  revalidatePath('/admin/reviews');
 }

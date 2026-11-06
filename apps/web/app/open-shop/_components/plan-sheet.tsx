@@ -84,7 +84,7 @@ function PlanBody({
       >
         <span
           aria-hidden
-          className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border"
+          className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
           style={{
             borderColor: agreed ? 'var(--m-mulberry)' : 'var(--m-slate-3)',
             background: agreed ? 'var(--m-mulberry)' : 'var(--m-paper)',
@@ -152,8 +152,8 @@ export function PlanSheet({ open, ...p }: PlanProps & { open: boolean }) {
 export function PlanPane(p: PlanProps) {
   return (
     <div
-      className="sticky top-5 rounded-2xl border p-[18px]"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+      // Space and type, not a box (DESIGN-FOUNDATION): the right column is already its own place.
+      className="sticky top-5 py-1"
       role="dialog"
       aria-labelledby="open-shop-plan-pane-title"
     >

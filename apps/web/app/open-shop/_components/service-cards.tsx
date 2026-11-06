@@ -199,7 +199,7 @@ export function ServiceCards({
           return (
             <div
               key={id}
-              className="grid min-w-0 rounded-xl border transition-shadow duration-500 data-[flash]:shadow-[0_0_0_2px_var(--m-orange-3)]"
+              className="grid min-w-0 rounded-xl border transition-shadow duration-500 data-[flash]:shadow-[0_0_0_2px_var(--m-orange-3)]" // no-card-ok: the owner-approved "one plain card per category" (prototype v14 → v16, 6 Nov)
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
               data-open-shop-card={id}
               data-open-shop-card-has={services.map((s) => s.key).join(' ')}
@@ -209,7 +209,7 @@ export function ServiceCards({
                 style={{ borderColor: 'var(--m-line)' }}
               >
                 <span
-                  className="h-11 w-11 overflow-hidden rounded-[10px]"
+                  className="h-11 w-11 overflow-hidden rounded-[var(--m-r-md)]"
                   style={{
                     background: place?.categoryPhoto
                       ? 'var(--m-line)'
@@ -327,7 +327,7 @@ export function ServiceCards({
               onOpenSpecialty(null);
               onAddingChange(true);
             }}
-            className="flex min-h-[66px] w-full items-center justify-center gap-2 rounded-xl border border-dashed p-3 text-[15px] font-medium"
+            className="flex min-h-[66px] w-full items-center justify-center gap-2 rounded-xl border border-dashed p-3 text-[15px] font-medium" // no-card-ok: this is the "Another category" <button> itself, a pressable
             style={{ borderColor: 'var(--m-slate-3)', color: 'var(--m-slate-3)' }}
             data-open-shop-another-category=""
           >

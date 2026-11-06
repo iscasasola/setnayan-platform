@@ -520,6 +520,15 @@ async function completeVendorPickFromMarketplace(
       "This supplier is completing verification and can't be booked just yet. You'll be able to book them once they're verified.",
     );
   }
+  // 🧪 A real event never books a demo shop; a demo event books only demo shops (owner 2026-11-06,
+  // lib/demo-scope.ts). The trigger `refuse_demo_cross_booking` is the backstop.
+  {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId: eventIdRaw,
+      vendorProfileId: marketplaceVendorIdRaw,
+    });
+    if (demoRefusal) throw new Error(demoRefusal);
+  }
 
   // Insert event_vendors row with status='contracted' directly · the
   // wizard skips the considering→contracted two-step flow because the
@@ -764,8 +773,10 @@ async function markTaskDone(formData: FormData): Promise<void> {
  * ──────────────────────────────────────────────────────────────────────── */
 
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { demoScopeFor } from '@/lib/demo-scope';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import { moodBoardPhotoChangeRefusal, refuseLimitedHelper } from '@/lib/host-gate';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 
 export type SearchVendorsArgs = {
   eventId: string;
@@ -821,7 +832,11 @@ async function searchVendorRecommendations(
     .select('event_type, estimated_pax')
     .eq('event_id', args.eventId)
     .maybeSingle();
+  // 🧪 The event's own demo scope (owner 2026-11-06, `lib/demo-scope.ts`): a real event never lists a demo shop, a
+  // demo event (`events.is_sample`) lists only demo shops.
+  const demoScope = await demoScopeFor(admin, args.eventId);
   return fetchWizardVendorRecommendations(admin, {
+    demoScope,
     canonicalServices: args.canonicalServices,
     ceremonyType: args.ceremonyType,
     venueSetting: args.venueSetting,

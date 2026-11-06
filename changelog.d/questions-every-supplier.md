@@ -45,4 +45,7 @@ booking ask, …) the stream slot (`min-h-0`) collapsed to 0px and its messages 
 over the quick-reply chips and the panel. `chat-box.tsx`: the slot keeps its automatic minimum (the 14rem floor of the
 view scrollers reaches it) and every other child of the box holds its height, so the takeover scrolls instead. Already
 present on main with the booking-ask panel. Guarded by `an-open-tool-cannot-flatten-the-stream.test.ts` (3), sabotaged
-both ways; `one-chat-box-like-messenger.test.ts`'s pin on the old `min-h-0` slot corrected (it pinned the defect).
+both ways. Two older guards pinned the defect itself — `one-chat-box-like-messenger.test.ts` and
+`an-open-tool-does-not-bury-the-conversation.test.ts` required `min-h-0` on the slot ("the list cannot scroll inside
+it"). Measured: the list still scrolls inside the slot without it, because every view scroller is `basis-0` with a
+14rem floor. Both now require the opposite (no zeroed minimum), each sabotaged red.

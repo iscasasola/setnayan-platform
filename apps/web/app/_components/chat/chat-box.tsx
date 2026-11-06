@@ -91,7 +91,7 @@ export function ChatBox({
       </div>
       {notice}
       {pinned}
-      <div data-chat-stream-area="" className="flex flex-1 flex-col px-2.5 pt-1">{children}</div>
+      <div className="flex flex-1 flex-col px-2.5 pt-1" data-chat-stream-area="">{children}</div>
       <div className="border-t border-ink/10 px-1.5 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">{composer}</div>
       {tray}
     </div>

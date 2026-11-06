@@ -50,6 +50,38 @@ import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { QuestionsSendBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/questions-send-panel';
 import { startersForTiles } from '@/lib/emcee-questions';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { SupplierChats, type SupplierChatsRead } from '@/app/vendor-dashboard/messages/_components/supplier-chats';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
+
+/** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
+function labChatsRead(state: string): SupplierChatsRead {
+  if (state === 'refused') return { kind: 'refused' };
+  if (state === 'empty') return { kind: 'read', rows: [], unreadMeasured: true, complete: true };
+  const row = (id: string, name: string, eventLine: string, preview: string, timeLabel: string, unread: boolean, archived = false) => ({
+    threadId: id,
+    href: `/dev/supplier-chat-lab?m=tools`,
+    name,
+    logoUrl: null,
+    preview,
+    timeLabel,
+    unread,
+    eventLine,
+    archived,
+    archive: <ThreadArchiveToggle threadId={id} returnTo="/dev/supplier-chat-lab?m=chats" archived={archived} />,
+  });
+  return {
+    kind: 'read',
+    rows: [
+      row('lab-c1', "Ana's Wedding (Dec 12)", '', 'Is the garden buffet still free that day?', '2m', true),
+      row('lab-c2', "Bea's Debut (Jan 24, 2027)", '', 'You: Sent you the quote po — 150 pax.', '1h', false),
+      row('lab-c3', "Carlo's Wedding (Feb 14, 2027)", '', 'Can we add the coffee bar?', 'Mon', true),
+      row('lab-c4', "Dina's Christening (Nov 30)", '', 'Thank you! See you on the day.', 'Oct 28', false),
+      row('lab-c5', "Eli's Anniversary (Mar 2, 2027)", '', 'You: Booked — see you!', 'Sep 9', false, true),
+    ],
+    unreadMeasured: true,
+    complete: state !== 'partial',
+  };
+}
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
@@ -71,6 +103,16 @@ export default async function SupplierChatLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const m = typeof sp.m === 'string' ? sp.m : 'tools';
+  // ?m=chats — the supplier's full-screen Chats inbox (owner 2026-11-06), the REAL `SupplierChats` in the real shell.
+  // &state=refused · &state=empty · &state=partial draw the honest states.
+  if (m === 'chats') {
+    const state = typeof sp.state === 'string' ? sp.state : 'rows';
+    return (
+      <SupplierLabShell measure="own" page="/vendor-dashboard/messages">
+        <SupplierChats read={labChatsRead(state)} viewerId="lab-supplier" />
+      </SupplierLabShell>
+    );
+  }
   const booked = sp.booked === '1';
   const inquiry = m === 'inquiry';
   const askOpen = m === 'ask';

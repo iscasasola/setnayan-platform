@@ -37,7 +37,9 @@ test('the field is the shipped ThumbRow field, in the thumb dock, and calls the 
   assert.equal((s.match(/<ThumbDock\b/g) ?? []).length, 1, 'the row is not on the thumb dock');
   assert.equal((s.match(/\bsearchInboxRows\(/g) ?? []).length, 1, 'the inbox filters by something other than the one search');
   assert.doesNotMatch(s, /<input\b/, 'a second, hand-rolled search field');
-  assert.match(s, /action=\{\{ icon: SquarePen, label: 'New message'/, '✎ is not the row\'s one action');
+  // ✎ is the row's one action wherever the page offers a new message (the couple's); the supplier's Chats passes none
+  // (2026-11-06 — a supplier answers chats, it does not start them), so its row is the field alone.
+  assert.match(s, /action=\{\s*newMessage\s*\?\s*\{ icon: SquarePen, label: 'New message'[^}]*\}\s*:\s*null\s*\}/, '✎ is not the row\'s one action');
   const page = read(PAGE);
   assert.doesNotMatch(page, /role="search"|name="q"|matchesSearch\(/, 'the old ?q= server search is back beside the field');
 });

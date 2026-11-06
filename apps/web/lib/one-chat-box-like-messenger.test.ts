@@ -232,7 +232,9 @@ test('the notice is one line: the couple may dismiss it and it is remembered; th
 
 test('the frame and the panel: one scroll region, tools cost nothing closed', () => {
   const box = read(BOX);
-  assert.match(box, /className="flex min-h-0 flex-1 flex-col px-2\.5 pt-1">\{children\}/, 'the conversation slot is no longer the flex-1 / min-h-0 child');
+  // 2026-11-06: the slot is the flex-1 child WITHOUT `min-h-0` — in the phone's fixed takeover a zeroed slot measured
+  // 0px with a tool open and the messages painted over the panel (`an-open-tool-cannot-flatten-the-stream.test.ts` (3)).
+  assert.match(box, /className="flex flex-1 flex-col px-2\.5 pt-1" data-chat-stream-area="">\{children\}/, 'the conversation slot is no longer the flex-1 child');
   assert.doesNotMatch(box, /overflow-hidden/, 'a frame that hides overflow clips its own composer on a short phone');
   const panel = read(PANEL);
   assert.match(panel, /\[&:not\(\[open\]\)\]:hidden/, 'a closed panel takes space again');

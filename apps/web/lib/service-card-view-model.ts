@@ -41,8 +41,13 @@ const SERVICE_CARD_INCLUSION_LIMIT = 3;
 /** Resolved showcase display URLs for one card (photos ≤5 + optional clip). */
 export type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
 
-/** 📸 A couple's own photo on this card, approved by the shop, with the credit line the couple chose (2026-10-30). */
-export type CoupleLook = { id: string; url: string; credit: string };
+/**
+ * 📸 A couple's own photo on this card, approved by the shop, with the credit line the couple chose (2026-10-30).
+ * `verifiedBooking` is PRESENT (and true) only when the database says this shop is booked on the event the photo came
+ * from (`couple_photo_share_is_verified_booking`, derived at read) — absent otherwise, never `false` guessed from a
+ * missing column, so a failed or older read draws no mark.
+ */
+export type CoupleLook = { id: string; url: string; credit: string; verifiedBooking?: true };
 
 export type ServiceCard = {
   id: string;

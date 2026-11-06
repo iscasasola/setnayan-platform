@@ -89,9 +89,8 @@ import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
 import { BusinessDoing, type DoingWindow } from './_components/business-doing';
 import { YourBadges } from './_components/your-badges';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { readShopBadgeFacts } from '@/lib/shop-badges.server';
-import { badgeShelf, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { badgeShelf, badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
 
@@ -203,14 +202,17 @@ export default async function PerformanceHome({
   // 🏅 THE SHOP'S BADGES (owner 2026-10-29: "Their badges will be on the supplier shop performance page") — every
   // tier, the upsell included. Started HERE so it rides beside Batch A (below) rather than adding a round trip; a
   // refused read is `null` → "Couldn’t load your badges" · "—", never "none" (`badgeShelf`).
-  const badgeFactsRead: Promise<ShopBadgeFacts | null> = safeRead(
-    readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id),
+  // 📣🗺 The one badge TRACKER lives here too (owner 2026-11-06 "ONE HOME FOR EVERY PROMOTE TOOL") — the tracker's facts
+  // are the badge facts plus the couples not yet asked for a review, read in the same call.
+  const badgeFactsRead: Promise<TrackerFacts | null> = safeRead(
+    readShopTrackerFacts(profile.vendor_profile_id),
     null,
     'badges',
   );
 
   if (gateOn && !canSeePerformanceTrends(tier)) {
-    const gatedShelf = badgeShelf(await badgeFactsRead);
+    const gatedFacts = await badgeFactsRead;
+    const gatedShelf = badgeShelf(gatedFacts);
     return (
       <>
         {/* Shop › Analytics (was "How it is going") — the segment stays on the upsell too, so a
@@ -219,7 +221,7 @@ export default async function PerformanceHome({
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
           <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
           <div className="mt-6">
-            <YourBadges shelf={gatedShelf} />
+            <YourBadges shelf={gatedShelf} rows={gatedFacts ? badgeTracker(gatedFacts) : null} />
           </div>
         </div>
       <VendorTierGate
@@ -423,6 +425,7 @@ export default async function PerformanceHome({
       : null,
   );
   const shelf = badgeShelf(badgeFacts);
+  const badgeRows = badgeFacts ? badgeTracker(badgeFacts) : null;
 
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
@@ -812,7 +815,7 @@ export default async function PerformanceHome({
         </div>
         {/* 🏅 YOUR BADGES (owner 2026-10-29) — under the plain-words top, before the cards. */}
         <div className="mt-8">
-          <YourBadges shelf={shelf} />
+          <YourBadges shelf={shelf} rows={badgeRows} />
         </div>
       </div>
 

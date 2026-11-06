@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7155
+# facts: 7168
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     595
-#   col       5197
-#   policy    1039
+#   tpriv     596
+#   col       5208
+#   policy    1040
 #   view      9
 #   func      311
 #
@@ -415,6 +415,7 @@ tpriv	public.setnayan_pay_methods|authenticated	SIUD
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
 tpriv	public.shop_badge_rewards|authenticated	S
+tpriv	public.shop_badge_upgrades|authenticated	S
 tpriv	public.shop_gift_purchases|authenticated	S
 tpriv	public.shop_gift_stock_entries|authenticated	S
 tpriv	public.shop_papic_wallet_entries|authenticated	S
@@ -4161,6 +4162,17 @@ col	public.shop_badge_rewards.units	anon=- authenticated=S
 col	public.shop_badge_rewards.used_at	anon=- authenticated=S
 col	public.shop_badge_rewards.used_on_charge_id	anon=- authenticated=S
 col	public.shop_badge_rewards.vendor_profile_id	anon=- authenticated=S
+col	public.shop_badge_upgrades.badge	anon=- authenticated=S
+col	public.shop_badge_upgrades.choices	anon=- authenticated=S
+col	public.shop_badge_upgrades.ends_at	anon=- authenticated=S
+col	public.shop_badge_upgrades.granted_at	anon=- authenticated=S
+col	public.shop_badge_upgrades.note	anon=- authenticated=S
+col	public.shop_badge_upgrades.reward_key	anon=- authenticated=S
+col	public.shop_badge_upgrades.started_at	anon=- authenticated=S
+col	public.shop_badge_upgrades.started_choice	anon=- authenticated=S
+col	public.shop_badge_upgrades.started_period_days	anon=- authenticated=S
+col	public.shop_badge_upgrades.upgrade_id	anon=- authenticated=S
+col	public.shop_badge_upgrades.vendor_profile_id	anon=- authenticated=S
 col	public.shop_gift_purchases.created_at	anon=- authenticated=S
 col	public.shop_gift_purchases.created_by	anon=- authenticated=S
 col	public.shop_gift_purchases.credits_each	anon=- authenticated=S
@@ -6531,6 +6543,7 @@ policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shop_badge_rewards|shop_badge_rewards_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

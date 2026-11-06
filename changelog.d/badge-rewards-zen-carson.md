@@ -1,3 +1,40 @@
+## 2026-11-06 · feat(badge-rewards): the owner's approved table — Event Plus for three rows, and 4-week badge upgrades ready until Start
+
+Owner approved the table 6 Nov ("Approve as proposed"), DECISION_LOG 2026-11-06 "BADGE REWARDS — THE APPROVED TABLE
+(6 NOV)". Supersedes the three rows of the 5 Nov block below that it names.
+
+- **Gift stock — Event Plus replaces 2 × Papic 150** at 10 events, 1st Pick 25 and 50, and Rising of the month
+  (`lib/badge-rewards.ts`). Every other row is unchanged; each still pays once, never expires, sits outside the 40%
+  limit.
+- **Personal upgrades — four weeks of a catalogue add-on for the shop itself** (`lib/badge-upgrades.ts`, its own table,
+  never gift stock): Verified → Papic Challenges · first booking → 3D Booth (below Solo → Papic Challenges, decided at
+  Start; the booth logo only shows on Solo+) · 5 reviews → AI Chatbot · Top Pick / Most Booked of the month → the
+  supplier's choice of the three (booth hidden below Solo), on top of the Event Plus that award already gives. Rising
+  gives none.
+- **Migration `badge_upgrades_ready_to_start`** (RLS at CREATE TABLE): `shop_badge_upgrades` (UNIQUE (shop, reward_key) —
+  once per badge step; READY until Start, never expires unused) · `shop_badge_upgrade_grant` (service role) ·
+  `shop_badge_upgrade_start` (service role; row-locked; re-checks the pick and the plan via `vendor_tier_rank`; extends
+  the add-on's OWN column — papic_challenge_expires_at / booth_addon_expires_at / ai_addon_expires_at — from the later
+  of now and its current expiry, so paid time is kept; starts once).
+- **Granted in the same sweep** as the gift-stock rewards (`grantOwedBadgeRewards` now runs `grantOwedBadgeUpgrades`),
+  so the badge page, Today and the admin's manual award give both.
+- **Start** — Shop › Promote › **Your upgrades** (new section under Your gifts): a row per upgrade; a ready row taps open
+  a sheet (Upgrade ▾ when there is a choice · Start); a started row shows "on until …". Server action
+  `startBadgeUpgrade` (owner or admin of the shop; the client sends only the id and the pick). The product must be on
+  the catalogue (`vendor_billing_catalog.is_active` for the add-on's price rows); off sale → the upgrade stays ready.
+  ⚠ `vendor_billing_catalog` has **no duration column** — the four weeks come from each add-on's own period constant
+  (`VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS` · `VENDOR_3D_BOOTH_PERIOD_DAYS` · `VENDOR_AI_ADDON_PERIOD_DAYS`), the same ones a
+  paid purchase uses.
+- **Badge page** rows for Verified, first booking, Reviews and Monthly awards add one line: "Also → 4 weeks of …
+  · ready to start in Promote". **Admin › Gifts** gains a read-only **Badge upgrades** table.
+- `DatesRow` gains `onOpen` (the whole row opens a sheet in place — no row buttons). Maps: Ugat claims, export
+  completeness, exposure baseline (SELECT own rows only; neither door reachable by a session).
+- Tests: `lib/badge-upgrades.test.ts` (10) · `tests/db/badge-upgrades-start-once.db.test.ts` (4 — once, stacking Start,
+  the plan rule, RLS; sabotage-verified) · `lib/badge-rewards.test.ts` updated to the approved rows.
+
+SPEC IMPACT: DECISION_LOG.md — new row 2026-11-06 "BADGE REWARDS — THE APPROVED TABLE (6 NOV)" (the owner's approved
+table, verbatim summary), applied in the corpus in the same change.
+
 ## 2026-11-05 · feat(badge-rewards): each badge pays a reward into the gift stock, and 1,000+ events pay a free booking fee
 
 Owner ruling DECISION_LOG 2026-11-05 ("BADGE REWARDS — WHAT EACH BADGE GIVES, WHERE IT LANDS, AND THE NEXT ONE

@@ -18,6 +18,8 @@ import { loadShopGiftsSection } from './_components/shop-gifts-data';
 import { ShareYourWork } from './_components/share-your-work';
 import { loadShareYourWork } from './_components/share-your-work-data';
 import { ShopPrintsSection } from './_components/shop-prints-section';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readPrintMember } from '@/lib/supplier-prints.server';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -37,7 +39,7 @@ export const dynamic = 'force-dynamic';
  *
  * PART 2 — 🎁 YOUR GIFTS MOVED here from the Plan page, same component, same words, same behaviour (`ShopGiftsSection`:
  * the gift stock, Buy gifts, Bought). Its reads moved with it (`loadShopGiftsSection`), and the pinned row's ONE figure is
- * that read's `stock.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
+ * that read's `stock.papic.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
  * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts.
  *
  * PART 3 — 🖨 PRINTS (owner APPROVED the 15 looks, 5 Nov 2026 — Setnayan-specs `prototypes/supplier_prints_2026-11-05/`):
@@ -80,6 +82,9 @@ export default async function ShopPromotePage({
   giftsPromise.catch(() => undefined);
   // 📣 Row 4 — read beside the gifts; the loader says a refused read in words (never throws).
   const sharePromise = loadShareYourWork(supabase, profile.vendor_profile_id);
+  // 🪪 The signed-in member's own calling card (owner 2026-11-06, "Yes") — their account name and Team label; no name =
+  // no card. Read beside the gifts and the share read (a refused read = no personal card, never a broken sheet).
+  const memberPromise = canShare ? readPrintMember(createAdminClient(), profile.vendor_profile_id, user.id).catch(() => null) : Promise.resolve(null);
   const modeOptions: QrPick[] = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${PROMOTE_HREF}?mode=${key}` }));
   const common = { place: 'promote' as const, backHref: PROMOTE_HREF, modeOptions, setupHref: '/vendor-dashboard/shop', booked: null };
 
@@ -131,12 +136,13 @@ export default async function ShopPromotePage({
   }
 
   const [gifts, share] = await Promise.all([giftsPromise, sharePromise]);
+  const member = await memberPromise;
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
-      <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.balance : null })} gearBody={shopGearBody(search)} />
+      <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.papic.balance : null })} gearBody={shopGearBody(search)} />
       {body}
-      <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" />
+      <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} />
       <ShopGiftsSection data={gifts} />
       <ShareYourWork data={share} />
     </section>

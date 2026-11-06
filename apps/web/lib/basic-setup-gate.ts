@@ -7,8 +7,13 @@
  * request) and hands the answer to `BasicSetupHold`, which asks `pageIsHeld` for the address on screen. No page carries
  * its own copy of the rule.
  *
- * WHAT "BASIC SETUP" IS: the shipped `businessProfileChecklist` — logo · shop name · owner · address · contact number ·
+ * WHAT "BASIC SETUP" IS: the shipped `businessProfileChecklist` — shop name · owner · address · contact number ·
  * email · EST · services covered (· a venue's room size). Not a second list.
+ *
+ * 🖼 THE LOGO GATES GOING LIVE, NOT THE SHOP PAGES (owner, verbatim, 2026-11-06: *"Yes, logo gates live"*). The logo
+ * is on the same checklist but is NOT counted here (`NOT_A_HOLD`): a brand-new shop with no logo must still reach Shop
+ * and make its first service card. The logo stays required to go live — `verificationSubmitMissing`
+ * (`lib/vendor-verification.ts`) reads the WHOLE checklist's `complete`, and Today keeps its "Add your logo" step.
  *
  * WHO IS HELD: the OWNER or ADMIN (`canManageVendor`) of a shop NOT YET VERIFIED — the people who can fill it in,
  * while Today still draws the six setup steps "Back to setup" returns to. A helper (agent ·
@@ -46,6 +51,9 @@ export const OPEN_WHILE_SETTING_UP: readonly string[] = [
   '/vendor-dashboard/switch-shop',
 ];
 
+/** Checklist keys that never hold a page — they gate going live only (the logo, owner 2026-11-06). */
+export const NOT_A_HOLD: ReadonlySet<string> = new Set(['logo']);
+
 /** Customers' segments that are the shop's business, not its chat — held. */
 const HELD_CUSTOMER_SEGMENTS: ReadonlySet<string> = new Set(['money', 'dates']);
 
@@ -57,7 +65,7 @@ const STEP_HOMES: Readonly<Record<string, readonly string[]>> = {
 export type BasicSetupHold = {
   /** The checklist keys still missing (for the step homes, and the one line). */
   missing: string[];
-  /** The labels still missing — "Logo · Company address". */
+  /** The labels still missing — "Company address · Contact number". */
   missingLabels: string[];
 };
 
@@ -79,7 +87,7 @@ export function basicSetupHoldOf(input: {
   checklist: { items: ReadonlyArray<BusinessProfileItem>; complete: boolean } | null;
 }): BasicSetupHold | null {
   if (!input.measured || !input.canManage || input.verified || !input.checklist || input.checklist.complete) return null;
-  const left = input.checklist.items.filter((i) => !i.ok);
+  const left = input.checklist.items.filter((i) => !i.ok && !NOT_A_HOLD.has(i.key));
   if (left.length === 0) return null;
   return { missing: left.map((i) => i.key), missingLabels: left.map((i) => i.label) };
 }

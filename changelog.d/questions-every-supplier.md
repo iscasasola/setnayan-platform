@@ -38,3 +38,11 @@ and the server-action CEILING moves 1227 → 1228 for the two new in-place actio
 count (1830 of 2000); the new notice `supplier_questions_sent` is declared `app_only` in `lib/couple-supplier-notices.ts`;
 the PR's test uses the shared `stripComments`; `/dev/questions-lab` joins the no-door baseline like every other lab;
 the exposure baseline is regenerated after merging `main`. SPEC IMPACT: None.
+
+**Fix (2026-11-06, from this PR's check card): an open tool no longer lets the chat paint over the quick replies.**
+On a phone the thread is a fixed-height takeover, so with any tool panel open (Questions for the couple, Answer their
+booking ask, …) the stream slot (`min-h-0`) collapsed to 0px and its messages and day labels ("Oct 26, 6:05 PM") drew
+over the quick-reply chips and the panel. `chat-box.tsx`: the slot keeps its automatic minimum (the 14rem floor of the
+view scrollers reaches it) and every other child of the box holds its height, so the takeover scrolls instead. Already
+present on main with the booking-ask panel. Guarded by `an-open-tool-cannot-flatten-the-stream.test.ts` (3), sabotaged
+both ways; `one-chat-box-like-messenger.test.ts`'s pin on the old `min-h-0` slot corrected (it pinned the defect).

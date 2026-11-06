@@ -78,15 +78,20 @@ export function ChatBox({
     "AN OPEN CHAT THREAD IS FULL SCREEN"); from 1024 it keeps its place in the page's column with a quiet frame. No
     `sn-row` card any more — nothing framed but what you press. The automatic minimum stays (no `min-h-0` here; the
     2026-09-19 note above): when a tool is open the takeover itself scrolls rather than flattening the stream.
+    📐 2026-11-06 — ON A PHONE THE TAKEOVER IS FIXED-HEIGHT (inset: 0), so the root's automatic minimum above does not
+    hold its children: with a tool open they shrank instead, the stream area to nothing (its messages drew over the
+    quick replies and the open panel — #7248's check card). So the stream area keeps ITS automatic minimum too (no
+    `min-h-0`: the view scrollers' 14rem floor reaches it) and nothing else in the box shrinks — the header, notice,
+    pinned row, composer and tray keep their own height, and the takeover's own `overflow-y: auto` scrolls instead.
   */
   return (
-    <div data-chat-box data-chat-takeover="" className="flex min-w-0 flex-1 flex-col">
+    <div data-chat-box data-chat-takeover="" className="flex min-w-0 flex-1 flex-col [&>*:not([data-chat-stream-area])]:shrink-0">
       <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 py-1 pl-1 pr-2 sm:gap-2.5">
         {header}
       </div>
       {notice}
       {pinned}
-      <div className="flex min-h-0 flex-1 flex-col px-2.5 pt-1">{children}</div>
+      <div data-chat-stream-area="" className="flex flex-1 flex-col px-2.5 pt-1">{children}</div>
       <div className="border-t border-ink/10 px-1.5 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">{composer}</div>
       {tray}
     </div>

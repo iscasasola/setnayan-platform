@@ -60,7 +60,6 @@
  *   &help=none|unread|nomonth  no Saturday fits every priced pick · the calendars fail · no month yet
  *   &cal=notset         Hiraya and Lumina never set a calendar — the card says "Calendar not set", Help me choose "confirm"
  *   &change=1           a date change is asked of Seda (the line says "· change asked")
- *   &drafted=1          the date waits in the Event Hub draft (the line says "in your draft")
  *   &venues=none        nobody booked: the place sheet types its own venue (name + pin)
  *   &factfail=read|write  the sheet's one read fails · its writes are refused
  *   (picking Sat, Dec 5 is refused by the draft door: Seda is booked that day — the shipped clash note)
@@ -176,7 +175,6 @@ export default async function SuppliersLabPage({
     help: one('help') === 'none' || one('help') === 'unread' || one('help') === 'nomonth' ? (one('help') as 'none' | 'unread' | 'nomonth') : 'ok',
     notSet: one('cal') === 'notset',
     change: one('change') === '1',
-    drafted: one('drafted') === '1',
     venues: one('venues') === 'none' ? 'none' : 'booked',
   };
   const sheetParam = one('sheet');
@@ -331,13 +329,12 @@ export default async function SuppliersLabPage({
               <DatePlaceLine
                 eventId={LAB_EVENT}
                 facts={{
-                  date: { text: factOptions.drafted ? 'Sat, Dec 19, 2026' : 'Sat, Dec 12, 2026', open: false },
+                  date: { text: 'Sat, Dec 12, 2026', open: false },
                   place:
                     factOptions.venues === 'booked'
                       ? { text: 'Seda Vertis North, Quezon City', open: false }
                       : { text: 'Quezon City', open: true },
                 }}
-                drafted={factOptions.drafted}
                 changeAsked={factOptions.change}
                 priced={['v-seda', 'v-bituin', 'v-lumina']}
               />

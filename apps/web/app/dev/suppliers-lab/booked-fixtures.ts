@@ -159,6 +159,9 @@ export type LabBookedOptions = {
   ask?: boolean;
   /** 📍 `&covers=1` — Seda also brings Cake and Catering (in-house). */
   covers?: boolean;
+  /** ♡ `&favorites=1` — after the day: each booked row with a shop carries the host's ♡ (Lumina already kept). Shapes
+   *  what `offerHostFavorites` hands `booked-slot.tsx`; the press calls the real action, which refuses with no session. */
+  favorites?: boolean;
 };
 
 /** The hand-added planner's stored row, its payment, and what the resolver makes of it. */
@@ -285,7 +288,7 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
         now: LAB_BOOKED_NOW.getTime(),
       })
     : null;
-  return bookedView({
+  const view = bookedView({
     rows,
     facts,
     money: buildBudgetList(money).suppliers,
@@ -304,4 +307,13 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
     tradeChapters: new Map([['catering', ['cocktail_reception'] as const], ['cake_maker', ['cocktail_reception'] as const]]),
     now: labBookedNow(o),
   });
+  if (!o.favorites) return view;
+  const shops = new Map(facts.flatMap((f) => (f.shopId ? [[f.vendorId, f.shopId] as const] : [])));
+  return {
+    ...view,
+    booked: view.booked.map((r) => {
+      const shopId = shops.get(r.vendorId);
+      return shopId ? { ...r, favorite: { shopId, serviceId: null, on: r.vendorId === 'v-lumina' } } : r;
+    }),
+  };
 }

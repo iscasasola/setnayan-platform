@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Bookmark, Check, AlertCircle } from 'lucide-react';
+import { Bookmark, Check, AlertCircle, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { pickArrowClass, pickButtonClass } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-place';
+import { favoriteDay } from '@/lib/favorites';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { saveVendorToPicks, type SaveVendorResult } from '../actions';
 
@@ -25,7 +29,17 @@ type Props = {
   */
   /** Compact variant for cramped marketplace cards. */
   variant?: 'card' | 'profile';
+  /**
+   * 🗂 "SAVE TO WHICH EVENT?" (owner 2026-11-06, prototype favorites-proto §A "After · several events"). With TWO OR
+   * MORE of the viewer's own events still ahead, Save asks which — the shop page's picker rows
+   * (`resolveAddShopToEvent`, "only events you organise that haven't happened yet"), as a dropdown — and saves to the
+   * one picked (`saveVendorToPicks` with its `event_id`, which checks it is theirs). One event or none: unchanged.
+   */
+  events?: ReadonlyArray<{ eventId: string; title: string; kindWord: string; dateISO: string | null }>;
 };
+
+/** The one row that starts a new event instead of saving. */
+const START_NEW = '__start_new_event';
 
 type LocalState =
   | { kind: 'idle' }
@@ -38,7 +52,9 @@ export function SaveVendorButton({
   vendorProfileId,
   initiallySaved,
   variant = 'card',
+  events = [],
 }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const { openSignIn, panel: signInPanel } = useSignInPanel();
   const [state, setState] = useState<LocalState>(
@@ -51,9 +67,10 @@ export function SaveVendorButton({
     initializer is a TypeScript circular-inference error before it is anything
     else. Declarations hoist, so this is the plain form of "try again".
   */
-  function attemptSave() {
+  function attemptSave(eventId?: string) {
     const fd = new FormData();
     fd.set('vendor_profile_id', vendorProfileId);
+    if (eventId) fd.set('event_id', eventId);
     startTransition(async () => {
       const result: SaveVendorResult = await saveVendorToPicks(fd);
       if (result.status === 'ok' || result.status === 'already_saved') {
@@ -69,7 +86,7 @@ export function SaveVendorButton({
           Being sent to a login screen and having to find the supplier again is
           the version of this that loses the person.
         */
-        openSignIn({ onSignedIn: attemptSave });
+        openSignIn({ onSignedIn: () => attemptSave(eventId) });
         return;
       }
       if (result.status === 'no_primary_event') {
@@ -137,6 +154,49 @@ export function SaveVendorButton({
           />
           Start an event to save
         </Link>
+        {signInPanel}
+      </>
+    );
+  }
+
+  // 🗂 Two or more events ahead → "Save to…" asks which (prototype §A). Saved / error fall through to the shipped button.
+  if (events.length >= 2 && state.kind === 'idle') {
+    return (
+      <>
+        <PickMenu
+          label={`Save this supplier to…`}
+          value={null}
+          compact={variant === 'card'}
+          dataAttr="data-save-to-event"
+          className={pickButtonClass(variant === 'card')}
+          trigger={
+            <>
+              <Bookmark aria-hidden className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={1.75} />
+              <span className="truncate">{pending ? 'Saving…' : 'Save to…'}</span>
+              <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
+            </>
+          }
+          head={
+            <li role="none" className="px-3 pb-1 pt-2 text-[12px] text-ink/60">
+              Only events you organise that haven&rsquo;t happened yet.
+            </li>
+          }
+          options={[
+            ...events.map((e) => ({
+              key: e.eventId,
+              label: e.title,
+              hint: [e.kindWord, favoriteDay(e.dateISO) ?? 'date TBD'].join(' · '),
+            })),
+            { key: START_NEW, label: '＋ Start a new event' },
+          ]}
+          onPick={(key) => {
+            if (key === START_NEW) {
+              router.push('/dashboard');
+              return;
+            }
+            attemptSave(key);
+          }}
+        />
         {signInPanel}
       </>
     );

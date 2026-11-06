@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { foldsOf, CUSTOMER_SEGMENTS } from './segments';
-import { CUSTOMER_LANDINGS } from './anchors';
+import { CUSTOMER_LANDINGS, SUPPLIER_CHATS_HREF } from './anchors';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -47,12 +47,15 @@ const MORE = code('customers', '_components', 'people-more.tsx');
 const THREAD = code('messages', '[threadId]', 'page.tsx');
 const MENU = stripComments(readFileSync(join(VD, '..', '_components', 'chat-thread-menu.tsx'), 'utf8'));
 
-test('1 · Messages is not a fold any more, on any view — and its landing is the Events list', () => {
+test('1 · Messages is not a fold any more, on any view — Events keeps its list, and Messages is its own page', () => {
   for (const seg of CUSTOMER_SEGMENTS) assert.ok(!foldsOf(seg).includes('messages'), `Messages is a fold on ${seg} again`);
   assert.doesNotMatch(PAGE, /MessagesSurface|key: 'messages'/, 'the Messages fold is back on the Customers page');
   assert.equal(existsSync(join(VD, 'messages', 'surface.tsx')), false, 'the retired Messages surface came back');
-  // 2026-10-30: the list's view is Events (owner 2026-10-29, "Customers are events, not people").
-  assert.deepEqual(CUSTOMER_LANDINGS.messages, { seg: 'events', fold: null, anchor: '#customers' }, 'a Messages link does not land on the list');
+  // 2026-10-30: the list's view is Events (owner 2026-10-29, "Customers are events, not people"). 2026-11-06 (owner: "Why
+  // is it still jumping to customer events"): a Messages link no longer lands here — it opens Chats, its own full-screen
+  // page (`SUPPLIER_CHATS_HREF`). Events' own list is untouched.
+  assert.equal((CUSTOMER_LANDINGS as Record<string, unknown>).messages, undefined, 'a Messages link lands on Customers › Events again');
+  assert.equal(SUPPLIER_CHATS_HREF, '/vendor-dashboard/messages');
   assert.match(PAGE, /<div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">/, 'Events has no #customers list to land on');
 });
 

@@ -22,6 +22,7 @@ import {
   savedAtFor,
   savedCopyOnScreen,
   staleFor,
+  type OfflineRegistry,
   type SavedPhase,
 } from '@/lib/offline-copies';
 
@@ -30,7 +31,7 @@ type SaveAnswer = { ok: boolean; savedAt: number | null; failed: string[]; dev?:
 /** Rendering four pages on venue Wi-Fi can be slow; past this the save is reported as not landed. */
 const SAVE_TIMEOUT_MS = 90_000;
 
-function workerSupported(): boolean {
+export function workerSupported(): boolean {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && typeof caches !== 'undefined';
 }
 
@@ -46,23 +47,23 @@ export function runsAsInstalledApp(): boolean {
   }
 }
 
-type Kept = { savedAt: number | null; stale: boolean };
+type Kept = { savedAt: number | null; stale: boolean; reg?: OfflineRegistry | null; unreadable?: boolean };
 
-async function readKept(viewer: string, eventId: string, paths: readonly string[], version: string | null): Promise<Kept> {
+export async function readKept(viewer: string, eventId: string, paths: readonly string[], version: string | null): Promise<Kept> {
   try {
-    if (!(await caches.has(OFFLINE_COPIES_CACHE))) return { savedAt: null, stale: false };
+    if (!(await caches.has(OFFLINE_COPIES_CACHE))) return { savedAt: null, stale: false, reg: null };
     const cache = await caches.open(OFFLINE_COPIES_CACHE);
     const res = await cache.match(OFFLINE_REGISTRY_PATH);
-    if (!res) return { savedAt: null, stale: false };
+    if (!res) return { savedAt: null, stale: false, reg: null };
     const reg = parseOfflineRegistry(await res.json());
     const savedAt = savedAtFor(reg, viewer, eventId, paths, Date.now());
-    return { savedAt, stale: savedAt !== null && staleFor(reg, viewer, eventId, paths, version) };
+    return { savedAt, stale: savedAt !== null && staleFor(reg, viewer, eventId, paths, version), reg };
   } catch {
-    return { savedAt: null, stale: false };
+    return { savedAt: null, stale: false, unreadable: true };
   }
 }
 
-async function askWorker(data: Record<string, unknown>): Promise<SaveAnswer | null> {
+export async function askWorker(data: Record<string, unknown>): Promise<SaveAnswer | null> {
   if (!workerSupported()) return null;
   const sw = navigator.serviceWorker;
   const ready = await Promise.race([

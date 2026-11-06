@@ -26,6 +26,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { DepositDisputesSection } from './_components/deposit-disputes-section';
 import { PaymentDisputesSection } from './_components/payment-disputes-section';
+import { BookingFeeDisputesSection } from './_components/booking-fee-disputes-section';
 import {
   QuoteVersionsEvidence,
   fetchQuoteVersionsByVendor,
@@ -150,6 +151,7 @@ type Props = {
   searchParams: Promise<{
     status?: string;
     category?: string;
+    fee_dispute?: string;
   }>;
 };
 
@@ -381,6 +383,8 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           one path (owner 2026-08-28; installments H4, 2026-09-11). */}
       <PaymentDisputesSection />
       <DepositDisputesSection />
+      {/* 🕵️ A supplier questioning OUR booking fee (owner 2026-07-27 grace-first ladder · 2026-11-05). */}
+      <BookingFeeDisputesSection result={search.fee_dispute} />
     </div>
   );
 }

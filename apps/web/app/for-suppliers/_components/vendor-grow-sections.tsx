@@ -246,13 +246,15 @@ export function VendorGrowHub() {
 /* ── 2 · SETNAYAN AI (DARK SIGNATURE) ──────────────────────────────────── */
 
 /**
- * Where "Get your invite link" goes. The link lives at /vendor-dashboard/invite,
+ * Where "Get your invite link" goes. The link lives in Shop › Promote
+ * (/vendor-dashboard/shop/promote — moved from Customers › QR codes 2026-11-05, owner: the
+ * marketing codes belong in Shop, which is where this page already shows them),
  * so a supplier who already has a shop goes straight there; everyone else opens
  * a shop first and is carried on to it (`?next=`). It used to be a bare
  * `/open-shop` for everybody, which sent a registered supplier to the open-shop
  * page (and on to Today), never to the invite link the button names.
  */
-export const INVITE_LINK_PATH = '/vendor-dashboard/invite';
+export const INVITE_LINK_PATH = '/vendor-dashboard/shop/promote';
 export function inviteLinkHref(hasShop: boolean): string {
   return hasShop ? INVITE_LINK_PATH : '/open-shop?next=' + encodeURIComponent(INVITE_LINK_PATH);
 }

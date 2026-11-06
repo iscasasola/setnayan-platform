@@ -122,7 +122,9 @@ test('every editor saves through a door that already exists — +0 server action
   assert.match(EDITORS, /const events = coupleNameColumns\(a, b, order\);/, 'names: the Personalization writer’s own composition, in the event’s order');
   assert.doesNotMatch(EDITORS, /fd\.set\('region'|fd\.set\('mood_feel_key'/, 'the draft carries the names only');
   assert.match(EDITORS, /<GovernedFields[\s\S]*?only=\{\['date'\]\}[\s\S]*?proposal=\{proposal\}/, 'date: the governed row, conflict preview and all');
-  assert.match(EDITORS, /event_date_precision: 'month'/, 'a month is drafted with its precision');
+  // 🗓 …but the DATE saves to the event at once (owner 2026-11-05, "it shouldn't rely on the hub").
+  assert.match(EDITORS, /saveDate\(`\$\{m\}-01`, 'month'\)/, 'a month saves with its precision');
+  assert.match(EDITORS, /makerSave\(\(\) => updateEventDate\(fd\), NO_SECOND_RENDER\)/, 'the date: the event’s one live door'); 
   // 📍 The venues are DRAFTED too (owner 2026-10-04, "venues wait for Apply"):
   // the same draft door, the columns the hub already reads — never a live write.
   assert.doesNotMatch(EDITORS, /saveAllStdContent/, 'venues: a live write from inside the Maker');

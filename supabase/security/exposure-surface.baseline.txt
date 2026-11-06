@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7187
+# facts: 7206
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     598
-#   col       5212
-#   policy    1044
+#   tpriv     600
+#   col       5224
+#   policy    1051
 #   view      9
-#   func      320
+#   func      318
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -40,6 +40,7 @@ tpriv	public.blocked_users|anon	SIUD
 tpriv	public.blocked_users|authenticated	SIUD
 tpriv	public.booking_fee_charges|anon	SIUD
 tpriv	public.booking_fee_charges|authenticated	SIUD
+tpriv	public.booking_fee_disputes|authenticated	S
 tpriv	public.booking_fee_ledger|authenticated	SIUD
 tpriv	public.booking_handovers|anon	SIUD
 tpriv	public.booking_handovers|authenticated	SIUD
@@ -160,6 +161,7 @@ tpriv	public.event_playlist_slot_vibes|authenticated	SIUD
 tpriv	public.event_preparation_items|anon	SIUD
 tpriv	public.event_preparation_items|authenticated	SIUD
 tpriv	public.event_question_answers|authenticated	SIUD
+tpriv	public.event_question_requests|authenticated	S
 tpriv	public.event_recaps|authenticated	SIUD
 tpriv	public.event_scene_objects|anon	SIUD
 tpriv	public.event_scene_objects|authenticated	SIUD
@@ -194,6 +196,7 @@ tpriv	public.event_type_vocab|authenticated	S
 tpriv	public.event_vendor_booth_posters|anon	SIUD
 tpriv	public.event_vendor_booth_posters|authenticated	SIUD
 tpriv	public.event_vendor_count_rules|authenticated	SIUD
+tpriv	public.event_vendor_found|authenticated	S
 tpriv	public.event_vendor_line_items|anon	SIUD
 tpriv	public.event_vendor_line_items|authenticated	SIUD
 tpriv	public.event_vendor_packages|anon	SIUD
@@ -434,7 +437,6 @@ tpriv	public.supplier_night_before_email_log|authenticated	SIUD
 tpriv	public.supplier_page_photo_notices|authenticated	S
 tpriv	public.supplier_scan_claims|authenticated	SD
 tpriv	public.supplier_scan_counters|authenticated	S
-tpriv	public.supplier_scan_sessions|authenticated	S
 tpriv	public.supplier_scan_settings|authenticated	SIUD
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
@@ -739,6 +741,16 @@ col	public.booking_fee_charges.source	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.status	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.updated_at	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.booking_fee_disputes.charge_id	anon=- authenticated=S
+col	public.booking_fee_disputes.created_at	anon=- authenticated=S
+col	public.booking_fee_disputes.decided_at	anon=- authenticated=S
+col	public.booking_fee_disputes.decided_by_user_id	anon=- authenticated=S
+col	public.booking_fee_disputes.decision_note	anon=- authenticated=S
+col	public.booking_fee_disputes.dispute_id	anon=- authenticated=S
+col	public.booking_fee_disputes.opened_by_user_id	anon=- authenticated=S
+col	public.booking_fee_disputes.reason	anon=- authenticated=S
+col	public.booking_fee_disputes.status	anon=- authenticated=S
+col	public.booking_fee_disputes.vendor_profile_id	anon=- authenticated=S
 col	public.booking_fee_ledger.attribution	anon=- authenticated=SIU
 col	public.booking_fee_ledger.attribution_frozen_at	anon=- authenticated=SIU
 col	public.booking_fee_ledger.attribution_thread_id	anon=- authenticated=SIU
@@ -1305,6 +1317,8 @@ col	public.event_appointments.location	anon=SIU authenticated=SIU
 col	public.event_appointments.note	anon=SIU authenticated=SIU
 col	public.event_appointments.previous_scheduled_at	anon=SIU authenticated=SIU
 col	public.event_appointments.proposed_by_user_id	anon=SIU authenticated=SIU
+col	public.event_appointments.room_created_at	anon=SIU authenticated=SIU
+col	public.event_appointments.room_created_by	anon=SIU authenticated=SIU
 col	public.event_appointments.scheduled_at	anon=SIU authenticated=SIU
 col	public.event_appointments.status	anon=SIU authenticated=SIU
 col	public.event_appointments.thread_id	anon=SIU authenticated=SIU
@@ -1742,6 +1756,11 @@ col	public.event_question_answers.answered_by	anon=- authenticated=SIU
 col	public.event_question_answers.event_id	anon=- authenticated=SIU
 col	public.event_question_answers.question_id	anon=- authenticated=SIU
 col	public.event_question_answers.updated_at	anon=- authenticated=SIU
+col	public.event_question_requests.event_id	anon=- authenticated=SIU
+col	public.event_question_requests.first_sent_at	anon=- authenticated=S
+col	public.event_question_requests.sent_at	anon=- authenticated=SIU
+col	public.event_question_requests.thread_id	anon=- authenticated=SIU
+col	public.event_question_requests.vendor_profile_id	anon=- authenticated=SIU
 col	public.event_recaps.created_at	anon=- authenticated=SIU
 col	public.event_recaps.event_id	anon=- authenticated=SIU
 col	public.event_recaps.published_at	anon=- authenticated=SIU
@@ -2016,6 +2035,13 @@ col	public.event_vendor_count_rules.mode	anon=- authenticated=SIU
 col	public.event_vendor_count_rules.roles	anon=- authenticated=SIU
 col	public.event_vendor_count_rules.updated_at	anon=- authenticated=SIU
 col	public.event_vendor_count_rules.updated_by	anon=- authenticated=SIU
+col	public.event_vendor_found.event_id	anon=- authenticated=S
+col	public.event_vendor_found.first_found_at	anon=- authenticated=S
+col	public.event_vendor_found.first_source	anon=- authenticated=S
+col	public.event_vendor_found.found_at_claim_at	anon=- authenticated=S
+col	public.event_vendor_found.last_viewed_at	anon=- authenticated=S
+col	public.event_vendor_found.vendor_profile_id	anon=- authenticated=S
+col	public.event_vendor_found.view_count	anon=- authenticated=S
 col	public.event_vendor_line_items.amount_php	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.created_at	anon=SIU authenticated=SIU
 col	public.event_vendor_line_items.due_date	anon=SIU authenticated=SIU
@@ -4293,23 +4319,11 @@ col	public.supplier_scan_claims.ready_at	anon=- authenticated=S
 col	public.supplier_scan_claims.received_at	anon=- authenticated=S
 col	public.supplier_scan_claims.scan_number	anon=- authenticated=S
 col	public.supplier_scan_claims.scanned_by_user_id	anon=- authenticated=S
-col	public.supplier_scan_claims.session_id	anon=- authenticated=S
 col	public.supplier_scan_claims.state	anon=- authenticated=S
 col	public.supplier_scan_claims.vendor_profile_id	anon=- authenticated=S
 col	public.supplier_scan_counters.coverage_id	anon=- authenticated=S
 col	public.supplier_scan_counters.event_id	anon=- authenticated=S
 col	public.supplier_scan_counters.last_number	anon=- authenticated=S
-col	public.supplier_scan_sessions.closed_at	anon=- authenticated=S
-col	public.supplier_scan_sessions.coverage_id	anon=- authenticated=S
-col	public.supplier_scan_sessions.event_id	anon=- authenticated=S
-col	public.supplier_scan_sessions.mode	anon=- authenticated=S
-col	public.supplier_scan_sessions.opened_at	anon=- authenticated=S
-col	public.supplier_scan_sessions.opened_by_user_id	anon=- authenticated=S
-col	public.supplier_scan_sessions.prints	anon=- authenticated=S
-col	public.supplier_scan_sessions.scan_number	anon=- authenticated=S
-col	public.supplier_scan_sessions.session_id	anon=- authenticated=S
-col	public.supplier_scan_sessions.state	anon=- authenticated=S
-col	public.supplier_scan_sessions.vendor_profile_id	anon=- authenticated=S
 col	public.supplier_scan_settings.coverage_id	anon=- authenticated=SIU
 col	public.supplier_scan_settings.created_at	anon=- authenticated=SIU
 col	public.supplier_scan_settings.enabled	anon=- authenticated=SIU
@@ -5860,6 +5874,8 @@ policy	public.blocked_users|blocked_users_blocked_read	mode=PERMISSIVE cmd=SELEC
 policy	public.blocked_users|blocked_users_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(blocker_user_id = ( SELECT auth.uid() AS uid)) check=(blocker_user_id = ( SELECT auth.uid() AS uid))
 policy	public.booking_fee_charges|booking_fee_charges_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.booking_fee_charges|booking_fee_charges_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.booking_fee_disputes|booking_fee_disputes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.booking_fee_disputes|booking_fee_disputes_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.booking_fee_ledger|booking_fee_ledger_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.booking_fee_ledger|booking_fee_ledger_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.booking_handovers|booking_handovers_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -6101,9 +6117,13 @@ policy	public.event_preparation_items|event_prep_items_vendor_delete	mode=PERMIS
 policy	public.event_preparation_items|event_prep_items_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (event_id IN ( SELECT chat_threads.event_id FROM chat_threads WHERE ((chat_threads.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (chat_threads.inquiry_status = 'accepted'::chat_inquiry_status)))))
 policy	public.event_preparation_items|event_prep_items_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (event_id IN ( SELECT chat_threads.event_id FROM chat_threads WHERE ((chat_threads.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (chat_threads.inquiry_status = 'accepted'::chat_inquiry_status))))) check=NULL
 policy	public.event_preparation_items|event_prep_items_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))
+policy	public.event_question_answers|event_question_answers_asked_vendor_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT r.event_id FROM event_question_requests r WHERE (r.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) AND (question_id IN ( SELECT q.question_id FROM vendor_questions q WHERE (q.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) check=NULL
 policy	public.event_question_answers|event_question_answers_booked_vendor_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (question_id IN ( SELECT q.question_id FROM vendor_questions q WHERE (q.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) check=NULL
 policy	public.event_question_answers|event_question_answers_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.event_question_answers|event_question_answers_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.event_question_requests|event_question_requests_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.event_question_requests|event_question_requests_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (EXISTS ( SELECT 1 FROM chat_threads t WHERE ((t.event_id = event_question_requests.event_id) AND (t.vendor_profile_id = event_question_requests.vendor_profile_id)))))
+policy	public.event_question_requests|event_question_requests_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) AND (EXISTS ( SELECT 1 FROM chat_threads t WHERE ((t.event_id = event_question_requests.event_id) AND (t.vendor_profile_id = event_question_requests.vendor_profile_id)))))
 policy	public.event_recaps|event_recaps_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members m WHERE ((m.event_id = event_recaps.event_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.event_recaps|event_recaps_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members m WHERE ((m.event_id = event_recaps.event_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.member_type = 'couple'::member_type))))) check=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members m WHERE ((m.event_id = event_recaps.event_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.member_type = 'couple'::member_type)))))
 policy	public.event_scene_objects|event_scene_objects_couple_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
@@ -6177,6 +6197,8 @@ policy	public.event_type_vocab|event_type_vocab_admin_write	mode=PERMISSIVE cmd=
 policy	public.event_type_vocab|event_type_vocab_read_all	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.event_vendor_booth_posters|event_vendor_booth_posters_vendor_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid)) UNION SELECT tm.vendor_profile_id FROM vendor_team_members tm WHERE (tm.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
 policy	public.event_vendor_count_rules|event_vendor_count_rules_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin))
+policy	public.event_vendor_found|event_vendor_found_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.event_vendor_found|event_vendor_found_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_vendor_line_items|event_vendor_line_items_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_vendor_line_items|event_vendor_line_items_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_vendor_line_items|event_vendor_line_items_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('budget'::text) l(event_id, level) WHERE (l.level = ANY (ARRAY['view'::text, 'edit'::text])))) check=NULL
@@ -6570,7 +6592,6 @@ policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_rea
 policy	public.supplier_scan_claims|supplier_scan_claims_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_claims|supplier_scan_claims_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_claims.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.supplier_scan_counters|supplier_scan_counters_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
-policy	public.supplier_scan_sessions|supplier_scan_sessions_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_sessions.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.supplier_scan_settings|supplier_scan_settings_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_settings|supplier_scan_settings_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.taxonomy_category_request_drafts|taxonomy_category_request_drafts_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -7131,8 +7152,6 @@ func	public.supplier_scan_is_souvenir(p_canonical_service text)	secdef=no exec=a
 func	public.supplier_scan_numbers(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_ready(p_event_id uuid, p_coverage_id bigint, p_number integer)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_services(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.supplier_scan_session_done(p_event_id uuid, p_coverage_id bigint, p_prints integer)	secdef=yes exec=authenticated search_path=public
-func	public.supplier_scan_session_open(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_shop_for(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_tally(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
 func	public.swap_entourage_places(p_event_id uuid, p_a uuid, p_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp

@@ -32,17 +32,15 @@ export type HelpDays = {
 };
 
 export type DateSheetData = {
-  /** The date as the couple is working on it — the draft over the live row. */
+  /** The event's date — saved at once, never drafted (owner 2026-11-05). */
   date: string | null;
   precision: 'day' | 'month' | 'year' | null;
-  /** The draft holds a date the guests do not see yet (it waits for Apply). */
-  drafted: boolean;
   ceremonyTime: string | null;
   /** Booked suppliers (`CONFIRMED_VENDOR_STATUSES`) — a day they cannot do is asked of them, never moved. */
   bookedNames: string[];
   /**
-   * The day those bookings actually hold — the LIVE event date (a draft never books anyone; bookings stay on the
-   * live row). Null when nobody is booked or the live date is not a day. "held by …" is said only of THIS day.
+   * The day those bookings actually hold — the event's date. Null when nobody is booked or the date is not a day.
+   * "held by …" is said only of THIS day.
    */
   bookedDay: string | null;
   /** The open date-change request (J51), or null. */
@@ -144,15 +142,13 @@ export function placeLadder(p: PlaceSheetData): LadderRung[] {
   return rungs;
 }
 
-/** The note a saved date leaves (ruling 7: it waits for Apply). */
+/** The note a saved date leaves — it is the event's date at once (owner 2026-11-05, "it shouldn't rely on the hub"). */
 export function savedDateNote(bookedCount: number): string {
   return bookedCount > 0
-    ? 'Saved to your draft — your booked suppliers can do this day. They are told when you Apply.'
-    : 'Saved to your draft — guests see it when you Apply your Event Hub.';
+    ? 'Saved — your booked suppliers can do this day, and each of them is told it moved.'
+    : 'Saved — this is your date now, everywhere: Home, your suppliers and your Event Hub.';
 }
 
-/** The words on the line next to a date that waits in the draft. */
-export const DRAFTED_DATE_WORD = 'in your draft';
 /** The words on the line while a date change is asked (ruling 10). */
 export const CHANGE_ASKED_WORD = 'change asked';
 
@@ -163,21 +159,3 @@ export function openSuppliersFactSheet(which: FactSheetKey, help = false): void 
   window.dispatchEvent(new CustomEvent(SUPPLIERS_FACT_SHEET_EVENT, { detail: { which, help } }));
 }
 
-/**
- * The date the Event Hub DRAFT holds, when it differs from the live row — what the Suppliers page plans on until Apply
- * (answer 7). Null when the draft holds no date of its own, or the same one guests already see.
- */
-export function draftedEventDate(
-  live: { event_date?: string | null; event_date_precision?: string | null } | null,
-  draft: { events: Record<string, unknown> } | null,
-): { date: string | null; precision: 'day' | 'month' | 'year' } | null {
-  if (!live || !draft) return null;
-  const ev = draft.events;
-  if (!('event_date' in ev) && !('event_date_precision' in ev)) return null;
-  const date = 'event_date' in ev ? (typeof ev.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(ev.event_date) ? ev.event_date.slice(0, 10) : null) : (live.event_date ?? null);
-  const rawP = 'event_date_precision' in ev ? ev.event_date_precision : live.event_date_precision;
-  const precision = rawP === 'month' || rawP === 'year' ? rawP : 'day';
-  const liveP = live.event_date_precision === 'month' || live.event_date_precision === 'year' ? live.event_date_precision : 'day';
-  if (date === (live.event_date?.slice(0, 10) ?? null) && precision === liveP) return null;
-  return { date, precision };
-}

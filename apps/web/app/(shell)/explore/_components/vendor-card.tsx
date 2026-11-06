@@ -225,6 +225,8 @@ type Props = {
   isAuthenticated: boolean;
   isFollowing: boolean;
   isSaved: boolean;
+  /** 2+ events of the viewer's own still ahead → Save asks "Save to…" (owner 2026-11-06). Empty = save straight. */
+  saveEvents?: ReadonlyArray<{ eventId: string; title: string; kindWord: string; dateISO: string | null }>;
   eventId: string | null;
   venueAnchor: { lat: number; lng: number } | null;
   badges: ReadonlyArray<VendorBadge>;
@@ -263,6 +265,7 @@ export async function VendorCard({
   isAuthenticated,
   isFollowing,
   isSaved,
+  saveEvents = [],
   eventId,
   venueAnchor,
   badges,
@@ -595,6 +598,7 @@ export async function VendorCard({
             <SaveVendorButton
               vendorProfileId={vendor.vendor_profile_id}
               initiallySaved={isSaved}
+              events={saveEvents}
             />
           ) : null}
           {slug ? (

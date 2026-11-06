@@ -47,6 +47,8 @@ import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { QuestionsSendBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/questions-send-panel';
+import { startersForTiles } from '@/lib/emcee-questions';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
@@ -131,6 +133,16 @@ export default async function SupplierChatLabPage({
       />
     ) : null,
     'offer-service': <VendorOfferService threadId={LAB_THREAD} options={[{ vendorServiceId: 'card-cocktail', label: 'Cocktail hour' }]} />,
+    // ❓ Questions for the couple (every supplier, 2026-11-04) — the caterer's starting set, not sent yet.
+    'questions-for-couple': (
+      <QuestionsSendBody
+        threadId={LAB_THREAD}
+        coupleName="Ana & Miguel"
+        asked={startersForTiles(['catering']).map((q, i) => ({ question_id: `lab-q${i}`, prompt: q.prompt }))}
+        sentAt={null}
+        answered={null}
+      />
+    ),
   };
 
   return (

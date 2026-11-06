@@ -28,6 +28,8 @@ apple_sign_in_tokens.user_id                              CASCADE      NOT NULL 
 blacklisted_emails.blacklisted_by_user_id                 SET NULL     nullable  -> auth.users
 blocked_users.blocked_user_id                             CASCADE      NOT NULL  -> auth.users
 blocked_users.blocker_user_id                             CASCADE      NOT NULL  -> auth.users
+booking_fee_disputes.decided_by_user_id                   SET NULL     nullable  -> users
+booking_fee_disputes.opened_by_user_id                    SET NULL     nullable  -> users
 budget_allocation_decisions.recorded_by                   SET NULL     nullable  -> auth.users
 budget_builds.created_by                                  SET NULL     nullable  -> auth.users
 canonical_service_aliases.reviewed_by                     SET NULL     nullable  -> auth.users

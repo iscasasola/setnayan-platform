@@ -437,7 +437,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
               <p className="mt-0.5 text-xs text-warn-900/80">
                 Pricing + Package Inclusions rows below show synthetic test
                 data. Real supplier pricing stays gated per the 2026-05-16
-                hide-prices lock. Demo data cleanup deadline: Dec 1, 2026.
+                hide-prices lock. Demo shops are permanent and always marked (DEMO ONLY).
               </p>
             </div>
           </div>

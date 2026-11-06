@@ -1393,16 +1393,16 @@ async function invitationBody({
         <DemoOnlyMarker kind="event" align="center" />
       </div>
     ) : null;
-  const wearDraft = async (node: React.ReactNode) => {
-    const marked = demoEventMarker ? (
+  const wearDraft = async (page: React.ReactNode) => {
+    const node = demoEventMarker ? (
       <>
         {demoEventMarker}
-        {node}
+        {page}
       </>
     ) : (
-      node
+      page
     );
-    const worn = draftLook ? <HostDraftLook look={draftLook}>{marked}</HostDraftLook> : marked;
+    const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
     const guestDesk = await guestDeskP;
     return guestDesk ? (
       <>

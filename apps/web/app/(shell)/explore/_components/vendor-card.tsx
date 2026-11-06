@@ -55,7 +55,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
+import { MapPin, Navigation, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import { headlineServiceFor } from './card-headline-service';
@@ -72,6 +72,7 @@ import type { VendorPublicVisibility } from '@/lib/vendor-visibility';
 import type { VendorBadge } from '@/lib/vendor-badges';
 import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { FollowGate } from '@/app/_components/follow-gate';
+import { SampleShopMarker } from '@/app/_components/sample-marker';
 import { SaveVendorButton } from './save-vendor-button';
 import { ReviewCarousel } from './review-carousel';
 import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
@@ -349,9 +350,7 @@ export async function VendorCard({
 
   return (
     <article
-      className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
-        isDemoCard ? 'border-warn-300 ring-1 ring-warn-200/70' : 'border-ink/10'
-      }`}
+      className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-shadow hover:shadow-md"
     >
       {/* Photo full-row banner on top on ALL viewports (owner directive
           2026-05-22 PM: "full row photo on top fill"). Earlier layout
@@ -377,15 +376,9 @@ export async function VendorCard({
                   the taxonomy + city placeholder while hidden. */}
               {displayLabel}
             </h2>
-            {isDemoCard ? (
-              <span
-                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-warn-800"
-                title="Synthetic supplier — visible only to admins in demo mode."
-              >
-                <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
-                Demo
-              </span>
-            ) : null}
+            {/* 🧪 A demo shop's card wears the sample event's chip, "Sample shop" + its ⓘ (owner, 6 Nov 2026) —
+                app/_components/sample-marker.tsx. Was an amber "Demo" pill and an amber ring of its own drawing. */}
+            {isDemoCard ? <SampleShopMarker /> : null}
           </div>
           {/* Service-name-by-business-name composition per the owner
               directive. When no canonical service is on the vendor's

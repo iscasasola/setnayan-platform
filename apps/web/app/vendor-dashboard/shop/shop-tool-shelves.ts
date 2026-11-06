@@ -20,6 +20,10 @@ export const TOOLS_COUPLES_SEE: ShopTool[] = [
   // identical sibling /vendor-dashboard/repertoire (the line above) had five.
   // A host wrote his segments into a page he could only reach by typing the URL.
   { href: '/vendor-dashboard/activities', label: 'Your segments', sub: 'The parts of the night you run — couples tick these onto their timeline.' },
+  // ❓ EVERY SUPPLIER ASKS (owner 2026-11-04, "Yes, every supplier"). The question set is authored where it always
+  // was — the `#questions` section of the segments page — and this is its own doorway for every trade, so a caterer
+  // or a photographer does not have to guess that "Your segments" holds it. `questions-for-every-supplier.test.ts`.
+  { href: '/vendor-dashboard/activities#questions', label: 'Questions for the couple', sub: 'Write them once — every couple you work with answers them in their event.' },
 ];
 
 export const TOOLS_WITH_OTHERS: ShopTool[] = [

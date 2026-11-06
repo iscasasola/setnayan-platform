@@ -95,6 +95,9 @@ export const GUESTS_SEE_WORDS = {
   emptyNote: 'Nothing written yet — guests will not see it.',
   emptyTail: ' Nothing written yet — guests will not see it until you write it.',
   placeNote: 'The address and map open once a guest has replied.',
+  /* 🗓 The Schedule scene's row (owner 2026-10-27/28): what guests see of the day, and who decides it. */
+  programLabel: 'The day’s program',
+  programNote: 'Only you and your coordinator choose which moments guests see. Payments and meetings never show.',
   rsvpCaption: 'The RSVP column is the reply screens. Nothing can be changed there yet.',
   /* The prototype's fold (case A ↔ A4), its words. */
   rsvpHide: 'Hide the RSVP column',

@@ -3,20 +3,23 @@ import { Compass } from 'lucide-react';
 import { fetchSavedVendors, SAVED_VENDORS_UNREADABLE } from '../_data/saved-vendors';
 import { fetchAttendedSavedVendors } from '../_data/attended-vendors';
 import { SavedVendorCardItem } from './saved-vendor-card';
+import { FavoriteRows } from './favorite-rows';
+import { FAVORITES_EMPTY, FAVORITES_GROUP, SHORTLIST_GROUP } from '@/lib/favorites';
 
 /**
- * Library · Saved Vendors tab. Two sources:
- *   1. vendors SAVED into the user's OWN event plans (`event_vendors`, deduped
- *      cross-event) — the canonical "saved" surface, rendered as the rich card.
- *   2. vendors the user bookmarked at events they ATTENDED as a guest
- *      (`guest_saved_vendors`, Invite/Join v2) — the growth loop: a guest who
- *      loved a vendor at a wedding finds them here when planning their own.
+ * Library · Saved Vendors tab. Two groups (prototype `favorites-proto` §G):
+ *   1. SHORTLISTED FOR YOUR EVENTS — vendors SAVED into the user's OWN event
+ *      plans (`event_vendors`, deduped cross-event), rendered as the rich card.
+ *   2. FAVORITES (`guest_saved_vendors`, owner 2026-11-06 "Favorites after an
+ *      event") — services the person experienced at an event they hosted or
+ *      attended, each saying where it came from. Tap opens the shop at that
+ *      service; swipe left removes, with Undo.
  *
  * `userId` is unused — both reads are RLS-scoped to the authenticated session.
  */
 export async function VendorsTab({ userId }: { userId: string }) {
   void userId;
-  const [ownRead, attended] = await Promise.all([
+  const [ownRead, favoritesRead] = await Promise.all([
     fetchSavedVendors(),
     fetchAttendedSavedVendors(),
   ]);
@@ -24,6 +27,9 @@ export async function VendorsTab({ userId }: { userId: string }) {
   // empty state below (S41, reads-are-honest).
   const ownUnreadable = ownRead === SAVED_VENDORS_UNREADABLE;
   const own = ownUnreadable ? [] : ownRead;
+  // …and a refused favorites read is said in its own group — never "No favorites yet".
+  const favoritesUnreadable = favoritesRead === null;
+  const attended = favoritesRead ?? [];
 
   if (ownUnreadable && attended.length === 0) {
     return (
@@ -35,7 +41,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
     );
   }
 
-  if (own.length === 0 && attended.length === 0) {
+  if (own.length === 0 && attended.length === 0 && !favoritesUnreadable) {
     return (
       <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
         <p className="text-sm text-ink/60">No saved suppliers yet.</p>
@@ -51,62 +57,33 @@ export async function VendorsTab({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {ownUnreadable ? (
         <p className="text-sm text-ink/60">
           We couldn&rsquo;t load the suppliers saved in your own plans right now.
         </p>
       ) : null}
       {own.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {own.map((v) => (
-            <SavedVendorCardItem key={v.vendorProfileId} vendor={v} />
-          ))}
-        </div>
-      ) : null}
-
-      {attended.length > 0 ? (
-        <section className="space-y-3">
-          <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50">
-            From weddings you attended
-          </h3>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {attended.map((v) => (
-              <li
-                key={v.vendorProfileId}
-                className="flex items-center gap-3 rounded-2xl border border-ink/10 bg-white dark:bg-raised p-3"
-              >
-                {v.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={v.logoUrl}
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta">
-                    {v.displayName.trim().charAt(0).toUpperCase() || 'V'}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-ink">
-                    {v.businessSlug ? (
-                      <Link href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
-                        {v.displayName}
-                      </Link>
-                    ) : (
-                      v.displayName
-                    )}
-                  </p>
-                  {v.categoryLabel ? (
-                    <p className="truncate text-sm text-ink/60">{v.categoryLabel}</p>
-                  ) : null}
-                </div>
-              </li>
+        <section className="space-y-2">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">{SHORTLIST_GROUP}</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {own.map((v) => (
+              <SavedVendorCardItem key={v.vendorProfileId} vendor={v} />
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
+
+      <section className="space-y-2" data-library-favorites-group="">
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">{FAVORITES_GROUP}</h3>
+        {favoritesUnreadable ? (
+          <p className="text-[13px] text-ink/70">We couldn&rsquo;t load your favorites right now. Refresh in a moment.</p>
+        ) : attended.length > 0 ? (
+          <FavoriteRows rows={attended} />
+        ) : (
+          <p className="text-[13px] text-ink/70">{FAVORITES_EMPTY}</p>
+        )}
+      </section>
     </div>
   );
 }

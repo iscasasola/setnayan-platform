@@ -1013,10 +1013,10 @@ export async function buildPersonalDataExport(
       .from('founder_seats')
       .select('seat_no, label, granted_at')
       .eq('user_id', user.id),
-    // Suppliers they saved.
+    // Suppliers they saved — and, since 2026-11-06, which of the supplier's services (null = the whole shop).
     supabase
       .from('guest_saved_vendors')
-      .select('vendor_profile_id, source_event_id, saved_at')
+      .select('vendor_profile_id, vendor_service_id, source_event_id, saved_at')
       .eq('user_id', user.id)
       .order('saved_at', { ascending: true }),
     // What they wrote to Setnayan support. Our staff's internal `admin_notes`

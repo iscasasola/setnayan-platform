@@ -2,14 +2,20 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import {
-  freeCredits,
+  SHOP_GIFT_KINDS,
+  SHOP_GIFT_UNLOCK_CODE,
+  freeByKind,
   judgeQuoteGifts,
   shopGiftPacksFrom,
+  type EventHolds,
+  type ShopGiftKind,
   type ShopGiftPack,
   type ShopGiftQuoteBasis,
-  type ShopGiftStock,
+  type ShopGiftStocks,
 } from '@/lib/shop-gifts';
 
 export type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
@@ -19,21 +25,62 @@ export type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
  * ("couldn't read", never 0 — the 20 Aug disease: a failure that renders like emptiness).
  */
 
-/** The giftable packs on the live catalogue, smallest first; null on a read failure. */
+/**
+ * 💎 Event Plus and Event Pro as gift rows (slice 2) — their title, list price and gift price, READ from
+ * `platform_retail_catalog_v2` (never typed). One unlock each (`credits: 1`). Only what is on sale. Null on a read
+ * failure.
+ */
+export async function fetchShopGiftUnlockRows(
+  client: SupabaseClient,
+): Promise<Array<{ code: string; title: string; credits: number; pricePhp: number; giftPricePhp: number | null }> | null> {
+  const codes = Object.values(SHOP_GIFT_UNLOCK_CODE);
+  const { data, error } = await client
+    .from('platform_retail_catalog_v2')
+    .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
+    .in('service_code', codes);
+  if (error) {
+    console.error('[supabase-error] shop-gifts: Event Plus / Pro catalogue rows', error);
+    return null;
+  }
+  const out: Array<{ code: string; title: string; credits: number; pricePhp: number; giftPricePhp: number | null }> = [];
+  for (const c of (data ?? []) as Array<{
+    service_code: string;
+    title: string | null;
+    retail_price_php: number | string | null;
+    gift_price_php: number | string | null;
+    is_active: boolean | null;
+    retired_at: string | null;
+  }>) {
+    if (c.is_active !== true || c.retired_at) continue;
+    const pricePhp = Number(c.retail_price_php);
+    if (!Number.isFinite(pricePhp) || pricePhp <= 0) continue;
+    const gift = c.gift_price_php == null ? NaN : Number(c.gift_price_php);
+    out.push({
+      code: c.service_code,
+      title: c.title ?? c.service_code,
+      credits: 1,
+      pricePhp,
+      giftPricePhp: Number.isFinite(gift) && gift > 0 ? gift : null,
+    });
+  }
+  return out;
+}
+
+/** The giftable packs on the live catalogue — Papic smallest first, then Event Plus, Event Pro; null on a read failure. */
 export async function fetchShopGiftPacks(client: SupabaseClient): Promise<ShopGiftPack[] | null> {
-  const rows = await fetchShopPapicPacks(client);
-  return rows ? shopGiftPacksFrom(rows) : null;
+  const [papic, unlocks] = await Promise.all([fetchShopPapicPacks(client), fetchShopGiftUnlockRows(client)]);
+  return papic && unlocks ? shopGiftPacksFrom([...papic, ...unlocks]) : null;
 }
 
 /**
- * The shop's gift stock (Papic credits): balance and what live quotes hold. `exceptEventId` leaves out one event's
- * quotes — the event a new quote is about to replace. Null on a read failure.
+ * The shop's gift stock, every kind: balance and what live quotes hold (Papic in credits, Event Plus / Pro in units).
+ * `exceptEventId` leaves out one event's quotes — the event a new quote is about to replace. Null on a read failure.
  */
 export async function fetchShopGiftStock(
   client: SupabaseClient,
   vendorProfileId: string,
   exceptEventId: string | null = null,
-): Promise<ShopGiftStock | null> {
+): Promise<ShopGiftStocks | null> {
   const { data, error } = await client.rpc('shop_gift_stock_status', {
     p_vendor_profile_id: vendorProfileId,
     p_except_event_id: exceptEventId,
@@ -42,19 +89,45 @@ export async function fetchShopGiftStock(
     console.error('[supabase-error] shop-gifts: shop_gift_stock_status', error);
     return null;
   }
-  const row = (Array.isArray(data) ? data : [data]).find(
-    (r: { gift_kind?: string } | null) => r?.gift_kind === 'papic',
-  ) as { balance?: number | string | null; held?: number | string | null } | undefined;
-  const balance = Number(row?.balance ?? 0);
-  const held = Number(row?.held ?? 0);
-  if (!Number.isFinite(balance) || !Number.isFinite(held)) return null;
-  return { balance: Math.trunc(balance), held: Math.trunc(held) };
+  const rows = (Array.isArray(data) ? data : [data]) as Array<
+    { gift_kind?: string; balance?: number | string | null; held?: number | string | null } | null
+  >;
+  const out = {} as Record<ShopGiftKind, { balance: number; held: number }>;
+  for (const k of SHOP_GIFT_KINDS) {
+    const row = rows.find((r) => r?.gift_kind === k);
+    const balance = Number(row?.balance ?? 0);
+    const held = Number(row?.held ?? 0);
+    if (!Number.isFinite(balance) || !Number.isFinite(held)) return null;
+    out[k] = { balance: Math.trunc(balance), held: Math.trunc(held) };
+  }
+  return out;
+}
+
+/**
+ * What the couple's event already holds of Event Plus / Event Pro, through the app's FULL entitlement chain (orders,
+ * bundles, the onboarding basket, comps, an internal host, earlier supplier gifts). `'owned'` counts a payment still
+ * being checked — the quote builder, so nobody promises Pro to a couple who is paying for it; `'active'` is approved
+ * only — the delivery door. A failed read answers 'none' (logged inside the readers).
+ */
+export async function fetchEventGiftHolds(
+  admin: SupabaseClient,
+  eventId: string,
+  mode: 'owned' | 'active',
+): Promise<EventHolds> {
+  const [hub, plus] = await Promise.all([
+    eventHubOwnership(admin, eventId, mode),
+    mode === 'active'
+      ? eventSkuActive(admin, eventId, SHOP_GIFT_UNLOCK_CODE.event_plus)
+      : eventOwnsSku(admin, eventId, SHOP_GIFT_UNLOCK_CODE.event_plus),
+  ]);
+  return hub.full ? 'pro' : plus ? 'plus' : 'none';
 }
 
 /** One row of the supplier's "Bought" list, newest first. */
 export type ShopGiftBoughtRow = {
   orderId: string;
   title: string;
+  kind: ShopGiftKind;
   quantity: number;
   credits: number;
   paidPhp: number;
@@ -72,7 +145,7 @@ export async function fetchShopGiftBought(
   const [purchases, entries] = await Promise.all([
     client
       .from('shop_gift_purchases')
-      .select('order_id, service_code, quantity, credits_each, unit_price_php, created_at, orders(status)')
+      .select('order_id, service_code, gift_kind, quantity, credits_each, unit_price_php, created_at, orders(status)')
       .eq('vendor_profile_id', vendorProfileId)
       .order('created_at', { ascending: false })
       .limit(limit),
@@ -99,6 +172,7 @@ export async function fetchShopGiftBought(
     (purchases.data ?? []) as Array<{
       order_id: string;
       service_code: string;
+      gift_kind: ShopGiftKind;
       quantity: number;
       credits_each: number;
       unit_price_php: number | string;
@@ -113,6 +187,7 @@ export async function fetchShopGiftBought(
     return [{
       orderId: p.order_id,
       title: titleOf.get(p.service_code) ?? p.service_code,
+      kind: p.gift_kind,
       quantity: p.quantity,
       credits: p.quantity * p.credits_each,
       paidPhp: Number(p.unit_price_php) * p.quantity,
@@ -133,13 +208,14 @@ export async function fetchShopGiftQuoteBasis(
   vendorProfileId: string,
   eventId: string | null,
 ): Promise<ShopGiftQuoteBasis | null> {
-  const [packs, schedule, stock] = await Promise.all([
+  const [packs, schedule, stock, eventHas] = await Promise.all([
     fetchShopGiftPacks(admin),
     getBookingFeeSchedule(admin),
     fetchShopGiftStock(admin, vendorProfileId, eventId),
+    eventId ? fetchEventGiftHolds(admin, eventId, 'owned') : Promise.resolve<EventHolds>('none'),
   ]);
   if (!packs || packs.length === 0) return null;
-  return { packs, schedule, free: freeCredits(stock) };
+  return { packs, schedule, free: freeByKind(stock), eventHas };
 }
 
 /** Why a quote's gifts were refused, as the supplier reads it. */
@@ -170,8 +246,9 @@ export async function writeQuoteShopGifts(
   if (!basis) return { ok: false, message: 'Gifts are not on sale right now — send the quote without them.' };
   if (basis.free === null) return { ok: false, message: 'Couldn’t read your gifts right now. Please try again.' };
 
-  const v = judgeQuoteGifts(codes, basis.packs, args.totalCentavos, basis.schedule, basis.free);
+  const v = judgeQuoteGifts(codes, basis.packs, args.totalCentavos, basis.schedule, basis.free, basis.eventHas);
   if (v.state === 'unknown_pack') return { ok: false, message: 'One of those gifts is not on sale any more.' };
+  if (v.state === 'already_has') return { ok: false, message: 'Their event already has Event Pro — take Event Plus and Event Pro off.' };
   if (v.state === 'over_limit') return { ok: false, message: 'Your gifts are over this booking’s gift limit.' };
   if (v.state === 'short') return { ok: false, message: 'Not enough in your gift stock — buy more first.' };
   if (v.state !== 'ok') return { ok: true, credits: 0 };
@@ -181,7 +258,7 @@ export async function writeQuoteShopGifts(
       proposal_id: args.proposalId,
       vendor_profile_id: args.vendorProfileId,
       service_code: p.code,
-      gift_kind: 'papic',
+      gift_kind: p.kind,
       credits: p.credits,
       srp_php: p.srpCentavos / 100,
       title: p.title,
@@ -196,10 +273,15 @@ export async function writeQuoteShopGifts(
 
 /** The gifts on one quote, and whether they have reached the event. Null on a read failure. */
 export type QuoteShopGifts = {
-  lines: Array<{ title: string; credits: number }>;
+  lines: Array<{ title: string; kind: ShopGiftKind; credits: number }>;
+  /** Papic credits on the quote. */
   credits: number;
-  /** Credits this shop has already given this event. */
+  /** Papic credits this shop has already given this event. */
   given: number;
+  /** Event Plus / Event Pro on the quote, by title, in order. */
+  unlocks: string[];
+  /** Event Plus / Event Pro this shop has already given this event. */
+  unlocksGiven: number;
 };
 
 /** MUST be the service-role client, after the page's own RLS read proved the viewer may see the quote. */
@@ -210,13 +292,13 @@ export async function fetchQuoteShopGifts(
   const [lines, given] = await Promise.all([
     admin
       .from('vendor_proposal_shop_gifts')
-      .select('title, credits, created_at')
+      .select('title, gift_kind, credits, created_at')
       .eq('proposal_id', args.proposalId)
       .order('created_at', { ascending: true }),
     args.eventId
       ? admin
           .from('shop_gift_stock_entries')
-          .select('delta')
+          .select('gift_kind, delta')
           .eq('vendor_profile_id', args.vendorProfileId)
           .eq('event_id', args.eventId)
           .eq('kind', 'given')
@@ -226,14 +308,18 @@ export async function fetchQuoteShopGifts(
     console.error('[supabase-error] shop-gifts: quote gifts', lines.error ?? given.error);
     return null;
   }
-  const ls = ((lines.data ?? []) as Array<{ title: string; credits: number }>).map((l) => ({
+  const ls = ((lines.data ?? []) as Array<{ title: string; gift_kind: ShopGiftKind; credits: number }>).map((l) => ({
     title: l.title,
+    kind: l.gift_kind,
     credits: l.credits,
   }));
+  const gv = (given.data ?? []) as Array<{ gift_kind: ShopGiftKind; delta: number }>;
   return {
     lines: ls,
-    credits: ls.reduce((s, l) => s + l.credits, 0),
-    given: ((given.data ?? []) as Array<{ delta: number }>).reduce((s, e) => s - e.delta, 0),
+    credits: ls.reduce((s, l) => s + (l.kind === 'papic' ? l.credits : 0), 0),
+    given: gv.reduce((s, e) => s - (e.gift_kind === 'papic' ? e.delta : 0), 0),
+    unlocks: ls.filter((l) => l.kind !== 'papic').map((l) => l.title),
+    unlocksGiven: gv.reduce((s, e) => s - (e.gift_kind !== 'papic' ? e.delta : 0), 0),
   };
 }
 
@@ -270,13 +356,54 @@ export async function deliverShopGiftsForBooking(
   }
 }
 
+/**
+ * 💎 Give the booking's Event Plus / Event Pro gifts to the couple's event (slice 2), beside the Papic door. What the
+ * event already holds is answered here by the full entitlement chain, approved only, and handed to the SQL door —
+ * which upgrades a second Event Plus to Event Pro (owner 2026-11-05) and gives nothing to an event that already has
+ * Event Pro (the unit stays in the shop's stock). Never throws; idempotent.
+ */
+export async function deliverShopGiftUnlocksForBooking(
+  admin: SupabaseClient,
+  eventVendorId: string,
+  eventId: string,
+): Promise<ShopGiftDelivery> {
+  try {
+    const eventHas = await fetchEventGiftHolds(admin, eventId, 'active');
+    const { data, error } = await admin.rpc('shop_gift_deliver_unlocks_for_booking', {
+      p_event_vendor_id: eventVendorId,
+      p_event_has: eventHas,
+    });
+    if (error) return { status: 'error', detail: error.message };
+    const r = (data ?? {}) as {
+      status?: string;
+      given?: Array<{ unlocks_sku?: string }>;
+      already_has?: number;
+      short?: number;
+    };
+    const given = (r.given ?? []).map((g) => g.unlocks_sku ?? '?');
+    const detail = `holds ${eventHas} · gave ${given.join(', ') || 'nothing'} · already has ${r.already_has ?? 0} · short ${r.short ?? 0}`;
+    if (r.status === 'ok' || r.status === 'nothing_to_give') {
+      if ((r.short ?? 0) > 0) return { status: 'short', credits: given.length, detail };
+      return { status: r.status === 'ok' ? 'ok' : 'already', credits: given.length, detail };
+    }
+    const known = ['no_gift', 'no_accepted_quote', 'not_paid', 'no_booking'];
+    if (r.status && known.includes(r.status)) return { status: r.status as ShopGiftDelivery['status'] };
+    return { status: 'error', detail: `unknown answer ${JSON.stringify(data)}` };
+  } catch (e) {
+    return { status: 'error', detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** One row of the admin gift ledger. */
 export type ShopGiftLedgerRow = {
   entryId: string;
   vendorProfileId: string;
   shopName: string | null;
   kind: 'bought' | 'given' | 'reversal';
+  giftKind: ShopGiftKind;
   delta: number;
+  /** On a given Event Plus / Pro: what the event received (a second Plus becomes Event Pro). */
+  unlocksSku: string | null;
   eventId: string | null;
   eventName: string | null;
   orderReference: string | null;
@@ -289,7 +416,7 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
   const { data, error } = await admin
     .from('shop_gift_stock_entries')
     .select(
-      'entry_id, vendor_profile_id, kind, delta, event_id, order_id, pool_grant_id, created_at, ' +
+      'entry_id, vendor_profile_id, kind, gift_kind, delta, unlocks_sku, event_id, order_id, pool_grant_id, created_at, ' +
         'vendor_profiles(business_name), events(display_name), orders(reference_code)',
     )
     .order('created_at', { ascending: false })
@@ -302,7 +429,9 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
     entry_id: string;
     vendor_profile_id: string;
     kind: ShopGiftLedgerRow['kind'];
+    gift_kind: ShopGiftKind;
     delta: number;
+    unlocks_sku: string | null;
     event_id: string | null;
     pool_grant_id: string | null;
     created_at: string;
@@ -315,11 +444,14 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
     vendorProfileId: r.vendor_profile_id,
     shopName: r.vendor_profiles?.business_name ?? null,
     kind: r.kind,
+    giftKind: r.gift_kind,
     delta: r.delta,
+    unlocksSku: r.unlocks_sku,
     eventId: r.event_id,
     eventName: r.events?.display_name ?? null,
     orderReference: r.orders?.reference_code ?? null,
-    landed: !!r.pool_grant_id,
+    // A Papic gift has landed when it became a pool row; an unlock when it names what the event received.
+    landed: r.gift_kind === 'papic' ? !!r.pool_grant_id : !!r.unlocks_sku,
     createdAt: r.created_at,
   }));
 }
@@ -330,7 +462,11 @@ export type ShopGiftHoldRow = {
   shopName: string | null;
   eventName: string | null;
   status: string;
+  /** Papic credits still promised. */
   credits: number;
+  /** Event Plus / Event Pro still promised. */
+  plus: number;
+  pro: number;
 };
 
 /** Gift lines on quotes still live (sent · viewed · accepted), newest first (admin). Null on a read failure. */
@@ -338,7 +474,7 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
   const { data, error } = await admin
     .from('vendor_proposal_shop_gifts')
     .select(
-      'proposal_id, vendor_profile_id, credits, created_at, vendor_profiles(business_name), ' +
+      'proposal_id, vendor_profile_id, gift_kind, credits, created_at, vendor_profiles(business_name), ' +
         'vendor_proposals!inner(status, event_id, events(display_name))',
     )
     .in('vendor_proposals.status', ['sent', 'viewed', 'accepted'])
@@ -351,6 +487,7 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
   type Row = {
     proposal_id: string;
     vendor_profile_id: string;
+    gift_kind: ShopGiftKind;
     credits: number;
     vendor_profiles: { business_name: string | null } | null;
     vendor_proposals: { status: string; event_id: string | null; events: { display_name: string | null } | null } | null;
@@ -362,15 +499,15 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
   if (eventIds.length > 0) {
     const { data: given, error: givenErr } = await admin
       .from('shop_gift_stock_entries')
-      .select('vendor_profile_id, event_id, delta')
+      .select('vendor_profile_id, event_id, gift_kind, delta')
       .eq('kind', 'given')
       .in('event_id', eventIds);
     if (givenErr) {
       console.error('[supabase-error] shop-gifts: admin holds · given', givenErr);
       return null;
     }
-    for (const g of (given ?? []) as Array<{ vendor_profile_id: string; event_id: string; delta: number }>) {
-      const k = `${g.vendor_profile_id}:${g.event_id}`;
+    for (const g of (given ?? []) as Array<{ vendor_profile_id: string; event_id: string; gift_kind: ShopGiftKind; delta: number }>) {
+      const k = `${g.vendor_profile_id}:${g.event_id}:${g.gift_kind}`;
       givenBy.set(k, (givenBy.get(k) ?? 0) - g.delta);
     }
   }
@@ -382,13 +519,21 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
       eventName: r.vendor_proposals?.events?.display_name ?? null,
       status: r.vendor_proposals?.status ?? '',
       credits: 0,
+      plus: 0,
+      pro: 0,
       key: `${r.vendor_profile_id}:${r.vendor_proposals?.event_id ?? ''}`,
     };
-    h.credits += r.credits;
+    if (r.gift_kind === 'event_plus') h.plus += r.credits;
+    else if (r.gift_kind === 'event_pro') h.pro += r.credits;
+    else h.credits += r.credits;
     byQuote.set(r.proposal_id, h);
   }
   return [...byQuote.values()].flatMap(({ key, ...h }) => {
-    const left = h.credits - (givenBy.get(key) ?? 0);
-    return left > 0 ? [{ ...h, credits: left }] : [];
+    const left = {
+      credits: Math.max(0, h.credits - (givenBy.get(`${key}:papic`) ?? 0)),
+      plus: Math.max(0, h.plus - (givenBy.get(`${key}:event_plus`) ?? 0)),
+      pro: Math.max(0, h.pro - (givenBy.get(`${key}:event_pro`) ?? 0)),
+    };
+    return left.credits + left.plus + left.pro > 0 ? [{ ...h, ...left }] : [];
   });
 }

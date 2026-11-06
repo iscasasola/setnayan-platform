@@ -25,7 +25,7 @@ const PHOTOS: FindInspirationPhoto[] = [
 /** The lab's picks — `p-lola` and `p-bituin` are on the list (`fixtures.ts`). */
 const ON_LIST = new Set(['p-lola', 'p-bituin', 'p-hiraya']);
 
-export function labInspiration(mode: string | undefined): FindInspiration | null {
+export function labInspiration(mode: string | null | undefined): FindInspiration | null {
   const parts = inspirationPartsInOrder(fallbackInspirationParts());
   if (mode === 'unread') return buildFindInspiration(parts, null, ON_LIST);
   if (mode === 'empty') return buildFindInspiration(parts, [], ON_LIST);

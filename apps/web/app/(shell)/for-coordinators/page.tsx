@@ -35,6 +35,7 @@
  * runs full-bleed (`DOORWAY_BLEED_PATHS`). Look: `_for-coordinators.css`, the prototype's CSS on the app's tokens.
  */
 
+import type { ReactElement } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -327,7 +328,7 @@ function sampleMonth() {
   };
 }
 
-const FOLD_ICON: Readonly<Record<FoldGroup['icon'], JSX.Element>> = {
+const FOLD_ICON: Readonly<Record<FoldGroup['icon'], ReactElement>> = {
   find: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="11" cy="11" r="7" />
@@ -439,7 +440,7 @@ export default async function ForCoordinatorsPage() {
   const seatsFrom = firstPlanWith((c) => c.agentAccounts > 0);
   const addOnPlan = (['solo', 'pro', 'enterprise'] as const).find((t) => canBuyExtraBranches(t)) ?? 'enterprise';
 
-  const caps: Gated<{ key: string; title: string; tag: JSX.Element; body: JSX.Element }>[] = [
+  const caps: Gated<{ key: string; title: string; tag: ReactElement; body: ReactElement }>[] = [
     {
       key: 'inbox',
       title: 'One requests inbox.',

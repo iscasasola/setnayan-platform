@@ -529,5 +529,8 @@ html.fc-qlock{overflow:hidden}
 @media (prefers-reduced-motion: reduce){.fc .fc-close-bg{animation:none}}
 /* the prototype's frame hid [hidden] with !important; a class's display must not reveal a closed panel */
 .fc [hidden]{display:none!important}
+/* the chip's code is the real code (a <span> holding the renderer's <svg>), where the prototype drew an <svg> */
+.fc .fc-code .fc-qr{display:inline-block}
+.fc .fc-code .fc-qr svg{display:block;width:100%;height:100%}
 /* next/image inside the prototype's photo frames */
 .fc .fc-ph img{width:100%;height:100%;object-fit:cover}

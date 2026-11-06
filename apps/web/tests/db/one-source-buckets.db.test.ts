@@ -25,6 +25,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { TAXONOMY_MAP, TILE_PARENT } from '../../lib/taxonomy';
@@ -104,6 +106,23 @@ const DELETED_FILIPINIANA_HAND_LIST = [
   'inc_modest_bridal',
 ];
 
+/*
+ * ⚖ TAXONOMY V2 (owner-approved 2026-11-06, DECISION_LOG "TAXONOMY V2 APPROVED"; migration `20271320461004`). V2 folds
+ * the Filipiniana & Barongs cross-view into Bride's attire and merges all ten of its services into the custom gown /
+ * custom suit as specialty values — so the tile the old constant FORCE-SET is now a tombstone with no live service, and
+ * a reader that still answered it would be the bug. The frozen algorithm below is unchanged; the comparison sets that
+ * one forced key aside and proves, separately, that it is exactly the fold (every one of the ten is merged where v2 says,
+ * nothing cross-lists the tombstone, and the reader has no bucket for it).
+ */
+const V2 = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'data', 'taxonomy-v2-2026-11-06.json'), 'utf8'),
+) as {
+  groups: { categories: { tile: string }[] }[];
+  live_key_map: Record<string, { service: string; as: string }>;
+};
+const V2_CATEGORY_COUNT = V2.groups.flatMap((g) => g.categories).length;
+const FOLDED_CROSS_VIEW = 'filipiniana_barongs';
+
 function deletedConstants(): { byTile: Map<string, string[]>; byFolder: Map<string, string[]> } {
   const byFolder = new Map<string, string[]>();
   const byTile = new Map<string, string[]>();
@@ -132,8 +151,12 @@ function deletedConstants(): { byTile: Map<string, string[]>; byFolder: Map<stri
 test('on the replayed seed, every tile holds exactly the services the deleted constant gave it', async () => {
   const live = await readerBuckets();
   const old = deletedConstants();
-  assert.ok(old.byTile.size > 50, `premise: the old constant had ${old.byTile.size} tiles`);
-  assert.deepEqual(asRecord(live.byTile as Map<string, string[]>), asRecord(old.byTile));
+  // Premise re-pointed at v2: every one of its categories holds at least one service (was "> 50" on the pre-v2 tiles).
+  assert.ok(old.byTile.size >= V2_CATEGORY_COUNT, `premise: the old constant had ${old.byTile.size} tiles, v2 has ${V2_CATEGORY_COUNT} categories`);
+  assert.equal(live.byTile.has(FOLDED_CROSS_VIEW), false, 'the reader still answers the folded Filipiniana tile');
+  const oldMinusFold = new Map(old.byTile);
+  oldMinusFold.delete(FOLDED_CROSS_VIEW);
+  assert.deepEqual(asRecord(live.byTile as Map<string, string[]>), asRecord(oldMinusFold));
 });
 
 test('on the replayed seed, every group holds exactly the services the deleted constant gave it', async () => {
@@ -143,16 +166,34 @@ test('on the replayed seed, every group holds exactly the services the deleted c
   assert.deepEqual(asRecord(live.byFolder as Map<string, string[]>), asRecord(old.byFolder));
 });
 
-test('the Filipiniana & Barongs cross-view is DATA now — the database names all ten, the code list is gone', async () => {
-  const rows = await db.query<{ canonical_service: string }>(
-    `SELECT canonical_service FROM public.canonical_service_taxonomy
-      WHERE 'filipiniana_barongs' = ANY (secondary_tiles) ORDER BY 1`,
+test('the Filipiniana & Barongs cross-view is DATA now — v2 folds it, and all ten land where v2 says', async () => {
+  // Pre-v2 this asserted all ten were cross-listed under the tile. V2 folds the tile and merges the ten, so the
+  // same ten are now asserted, one by one, to forward to v2's service for them — and nothing still names the tombstone.
+  const tile = await db.query<{ status: string; merged_into_category_id: string | null }>(
+    `SELECT status, merged_into_category_id FROM public.service_categories WHERE id = $1`,
+    [FOLDED_CROSS_VIEW],
   );
-  assert.deepEqual(
-    rows.rows.map((r) => r.canonical_service),
-    sorted(DELETED_FILIPINIANA_HAND_LIST),
-    'migration one_source_filipiniana_cross_view did not cross-list the ten services',
+  assert.deepEqual(tile.rows[0], { status: 'retired', merged_into_category_id: 'brides_attire' });
+  const cross = await db.query<{ canonical_service: string }>(
+    `SELECT canonical_service FROM public.canonical_service_taxonomy WHERE $1 = ANY (secondary_tiles) ORDER BY 1`,
+    [FOLDED_CROSS_VIEW],
   );
+  assert.deepEqual(cross.rows, [], 'a service still cross-lists the folded Filipiniana tile');
+  const rows = await db.query<{ canonical_service: string; merged_into: string | null; marketplace_hidden: boolean }>(
+    `SELECT canonical_service, merged_into, marketplace_hidden FROM public.canonical_service_taxonomy
+      WHERE canonical_service = ANY ($1::text[]) ORDER BY 1`,
+    [DELETED_FILIPINIANA_HAND_LIST],
+  );
+  assert.equal(rows.rows.length, 10, 'one of the ten Filipiniana services is gone from the table');
+  for (const r of rows.rows) {
+    const want = V2.live_key_map[r.canonical_service];
+    assert.ok(want, `v2 does not place ${r.canonical_service}`);
+    assert.deepEqual(
+      { merged_into: r.merged_into, hidden: r.marketplace_hidden },
+      { merged_into: want.service, hidden: true },
+      `${r.canonical_service} does not forward where v2 places it`,
+    );
+  }
 });
 
 test('the const fallback is the same derivation over the same data — it cannot drift from the reader on the seed', async () => {

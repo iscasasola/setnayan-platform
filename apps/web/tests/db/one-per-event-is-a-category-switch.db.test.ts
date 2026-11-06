@@ -130,15 +130,31 @@ test('turning the switch OFF lets a second one in; turning it back ON re-keys th
   assert.deepEqual(keys.rows.map((r) => r.hard_single_group), ['host_mc', 'host_mc']);
 });
 
+/*
+ * ⚖ TAXONOMY V2 (2026-11-06, `20271320461004`): `led_wall` is folded into Lights & sound and retired, and the switch is
+ * read off ACTIVE categories only (`one_per_event_category`), so a retired tile's switch can no longer bite — correctly.
+ * The witness is now the live category it folded into, `lights_sound` (filed under `lights_and_sound`, multi today).
+ * The LED half of the old witness is kept as the retired-tile check below.
+ */
 test('switching a NEW category on makes its bookings one per event — no deploy', async () => {
-  // The two LEDs the test above booked would (rightly) block the flip — step them back first.
-  await db.query(`UPDATE public.event_vendors SET status = 'considering' WHERE category = 'led_screens'`);
+  const st = await db.query<{ status: string; one_per_event: boolean }>(
+    `SELECT status, one_per_event FROM public.service_categories WHERE id = 'lights_sound'`,
+  );
+  assert.deepEqual(st.rows[0], { status: 'active', one_per_event: false }, 'the witness is no longer a live, multi category');
   const ev = await newEvent();
-  await book(ev, 'led_screens');
-  await db.query(`UPDATE public.service_categories SET one_per_event = true WHERE id = 'led_wall'`);
-  // MUTATION: key on a literal list instead of the switch ⇒ the second LED is accepted ⇒ red.
-  const err = await refused(() => book(ev, 'led_screens'));
+  await book(ev, 'lights_and_sound');
+  await db.query(`UPDATE public.service_categories SET one_per_event = true WHERE id = 'lights_sound'`);
+  // MUTATION: key on a literal list instead of the switch ⇒ the second Lights & sound is accepted ⇒ red.
+  const err = await refused(() => book(ev, 'lights_and_sound'));
   assert.match(String(err), /hard_single_lock_uniq/);
+  await db.query(`UPDATE public.service_categories SET one_per_event = false WHERE id = 'lights_sound'`);
+
+  // A retired (folded) tile's switch is inert: flipping led_wall on still lets a second LED through.
+  await db.query(`UPDATE public.event_vendors SET status = 'considering' WHERE category = 'led_screens'`);
+  const ev2 = await newEvent();
+  await book(ev2, 'led_screens');
+  await db.query(`UPDATE public.service_categories SET one_per_event = true WHERE id = 'led_wall'`);
+  assert.equal(await refused(() => book(ev2, 'led_screens')), null, 'a retired tile still decides one-per-event');
   await db.query(`UPDATE public.service_categories SET one_per_event = false WHERE id = 'led_wall'`);
 });
 

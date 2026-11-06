@@ -271,13 +271,13 @@ test('the RPC publishes a complete new card, and publishes a draft once it is co
 
 // ── host_mc gets its real name ──────────────────────────────────────────────
 
-test('a blank host card is named "Host / MC by …", not "Host Mc by …"', async () => {
+test('a blank host card is named from the tree ("Hosts & talent by …", taxonomy v2), not "Host Mc by …"', async () => {
   const r = await db.query<{ vendor_service_id: string }>(
     `INSERT INTO vendor_services (vendor_profile_id, category, title, is_active)
      VALUES ($1, 'host_mc', NULL, false) RETURNING vendor_service_id`,
     [VP],
   );
-  assert.equal((await row(r.rows[0]!.vendor_service_id)).title, 'Host / MC by Saysay Live Band');
+  assert.equal((await row(r.rows[0]!.vendor_service_id)).title, 'Hosts & talent by Saysay Live Band');
   // A kind neither the schema table nor the tree knows still falls to the
   // humanised key — never a raw database key. Since SUP-21 (migration
   // 20271234232465) only a row written before that fence can hold such a kind,

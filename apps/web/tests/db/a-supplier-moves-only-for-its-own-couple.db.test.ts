@@ -1,4 +1,8 @@
 /**
+ * ⚖ Taxonomy v2 (2026-11-06) folded the Food Truck and Mocktail rows into Food
+ * carts & stations and Bars & drinks; the two live rows that still share `misc`
+ * are Food carts & stations (`food_cart`) and Event rentals (`chairs_tents`).
+ *
  * A SUPPLIER MOVES ONLY FOR ITS OWN COUPLE — the auth of `moveSupplierToCategory`
  * (owner 2026-10-20, "Move to another category" → "okay").
  *
@@ -6,8 +10,8 @@
  * under RLS, and off-platform rows only (`marketplace_vendor_id IS NULL`). These
  * are the action's own statements, run as a real session against the replayed
  * schema, with the values its shared plan (`planSupplierMove`) produces:
- *   1. the couple moves Dunkin' Donuts to Food Truck: ONE row comes back, and
- *      `category_key = 'food_truck'` is accepted by its foreign key (the row is a
+ *   1. the couple moves Dunkin' Donuts to Food Cart: ONE row comes back, and
+ *      `category_key = 'food_cart'` is accepted by its foreign key (the row is a
  *      real `service_categories` tier-2 id);
  *   2. another couple's identical statement matches NO row and changes nothing —
  *      which is why the action reads the update back (a zero-row update is not
@@ -77,20 +81,20 @@ async function newCouple(): Promise<{ couple: string; eventId: string }> {
   return { couple, eventId };
 }
 
-/** Dunkin' typed in by hand under Everything else, with Food Truck ticked as "also covers". */
+/** Dunkin' typed in by hand under Everything else, with Food Cart ticked as "also covers". */
 async function addDunkin(couple: string, eventId: string): Promise<string> {
   await asUser(couple);
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors (event_id, vendor_name, category, status, covers_plan_groups, source, total_cost_php)
      VALUES ($1, 'Dunkin'' Donuts', 'misc', 'considering', ARRAY[$2], 'host_manual', 18000) RETURNING vendor_id`,
-    [eventId, coverKeyForTile('food_truck')],
+    [eventId, coverKeyForTile('food_cart')],
   );
   await reset();
   return r.rows[0]!.vendor_id;
 }
 
 const toFoodTruck = (): SupplierMovePlan => {
-  const p = planSupplierMove({ category: 'misc', category_key: null, covers_plan_groups: [coverKeyForTile('food_truck')] }, 'food_truck');
+  const p = planSupplierMove({ category: 'misc', category_key: null, covers_plan_groups: [coverKeyForTile('food_cart')] }, 'food_cart');
   assert.ok(!('refused' in p));
   return p as SupplierMovePlan;
 };
@@ -124,12 +128,12 @@ test('1 · the couple moves their own supplier — one row back, the key accepte
   const { couple, eventId } = await newCouple();
   const v = await addDunkin(couple, eventId);
   const p = toFoodTruck();
-  assert.equal(p.category_key, 'food_truck');
+  assert.equal(p.category_key, 'food_cart');
   assert.equal(await move(couple, eventId, v, p), 1, 'the couple’s move matched no row');
   const after = await rowOf(v);
   assert.deepEqual(
     { category: after.category, key: after.category_key, covers: after.covers_plan_groups, price: Number(after.total_cost_php) },
-    { category: 'misc', key: 'food_truck', covers: [], price: 18000 },
+    { category: 'misc', key: 'food_cart', covers: [], price: 18000 },
   );
 });
 

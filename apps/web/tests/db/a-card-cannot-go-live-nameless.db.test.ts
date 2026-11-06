@@ -152,15 +152,17 @@ test('once that shop replies, its next nameless card carries the name', async ()
   );
 });
 
-test('host_mc is named from the taxonomy tree — "Host / MC", not "Host Mc" (H2)', async () => {
+test('host_mc is named from the taxonomy tree — "Hosts & talent", not "Host Mc" (H2)', async () => {
   // `host_mc` is one of the two live production kinds and it has NO row in
   // `canonical_service_schemas` (measured 2026-09-10) — so until H2 it fell to
   // the humanised key and a blank host card read "Host Mc by …". The taxonomy
   // tree already said "Host / MC" (`service_categories.label_en`, the label the
   // app's own tiles use), and the name now reads it (migration 20271222415682).
+  // Taxonomy v2 (2026-11-06) renamed that tile "Hosts & talent" — the card
+  // follows the tree, which is the point of H2.
   const id = await liveCard(SHOP_OPEN, 'host_mc', null);
   const title = await titleOf(id);
-  assert.equal(title, 'Host / MC by Saysay Live Band');
+  assert.equal(title, 'Hosts & talent by Saysay Live Band');
   assert.ok(!(title ?? '').includes('host_mc'), 'a raw database key reached a card title');
 });
 

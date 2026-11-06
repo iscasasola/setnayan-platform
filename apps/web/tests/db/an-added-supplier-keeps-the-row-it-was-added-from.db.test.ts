@@ -1,4 +1,8 @@
 /**
+ * ⚖ Taxonomy v2 (2026-11-06) folded the Food Truck and Mocktail rows into Food
+ * carts & stations and Bars & drinks; the two live rows that still share `misc`
+ * are Food carts & stations (`food_cart`) and Event rentals (`chairs_tents`).
+ *
  * AN ADDED SUPPLIER KEEPS THE ROW IT WAS ADDED FROM — the add's own insert, on
  * the replayed schema, under the couple's session (owner 2026-10-20: *"We want
  * them to be designated to their category"*).
@@ -7,9 +11,9 @@
  * walk's and the sheet's one save) now writes `category_key` — the row — when
  * the enum cannot name it. These are its statements, with the values the shared
  * check (`categoryKeyForAdd`) produces:
- *   1. "＋ Add your own" from Food Truck: the couple's insert is accepted, the
- *      key passes its foreign key, and read back the card's home is Food Truck;
- *   2. Food Truck and Mocktail (both stored `misc`) are TWO records, each read
+ *   1. "＋ Add your own" from Food Cart: the couple's insert is accepted, the
+ *      key passes its foreign key, and read back the card's home is Food Cart;
+ *   2. Food Cart and Event rentals (both stored `misc`) are TWO records, each read
  *      back under its own row — never one;
  *   3. from the top-level Everything else row the insert writes NO key — byte
  *      for byte what it always wrote;
@@ -108,18 +112,18 @@ async function rowOf(vendorId: string) {
   ).rows[0]!;
 }
 
-test('1 · added from Food Truck: accepted, the key passes its foreign key, read back under Food Truck', async () => {
+test('1 · added from Food Cart: accepted, the key passes its foreign key, read back under Food Cart', async () => {
   const { couple, eventId } = await newCouple();
-  const v = await addFrom(couple, eventId, 'food_truck', "Dunkin' Donuts");
+  const v = await addFrom(couple, eventId, 'food_cart', "Dunkin' Donuts");
   const row = await rowOf(v);
-  assert.deepEqual(row, { category: 'misc', category_key: 'food_truck' });
-  assert.equal(homeTileForRow(row, isTile), 'food_truck', 'read back, the card is not under Food Truck');
+  assert.deepEqual(row, { category: 'misc', category_key: 'food_cart' });
+  assert.equal(homeTileForRow(row, isTile), 'food_cart', 'read back, the card is not under Food Cart');
 });
 
-test('2 · Food Truck and Mocktail share `misc` — two records, each under its own row', async () => {
+test('2 · Food Cart and Event rentals share `misc` — two records, each under its own row', async () => {
   const { couple, eventId } = await newCouple();
-  const truck = await addFrom(couple, eventId, 'food_truck', 'Kariton Express');
-  const mock = await addFrom(couple, eventId, 'mocktail', 'Sip & Co');
+  const truck = await addFrom(couple, eventId, 'food_cart', 'Kariton Express');
+  const mock = await addFrom(couple, eventId, 'chairs_tents', 'Sip & Co');
   assert.notEqual(truck, mock);
   await reset();
   const rows = (
@@ -130,8 +134,8 @@ test('2 · Food Truck and Mocktail share `misc` — two records, each under its 
   ).rows;
   assert.equal(rows.length, 2, 'two adds made one record');
   const home = new Map(rows.map((r) => [r.vendor_id, homeTileForRow(r, isTile)]));
-  assert.equal(home.get(truck), 'food_truck');
-  assert.equal(home.get(mock), 'mocktail');
+  assert.equal(home.get(truck), 'food_cart');
+  assert.equal(home.get(mock), 'chairs_tents');
 });
 
 test('3 · from the top-level Everything else row: no key, as always', async () => {
@@ -143,7 +147,7 @@ test('3 · from the top-level Everything else row: no key, as always', async () 
 test('4 · another couple’s identical add into this event is refused', async () => {
   const a = await newCouple();
   const b = await newCouple();
-  await assert.rejects(addFrom(b.couple, a.eventId, 'food_truck', 'Intruder Truck'), /row-level security|violates/i);
+  await assert.rejects(addFrom(b.couple, a.eventId, 'food_cart', 'Intruder Truck'), /row-level security|violates/i);
   await reset();
   const n = await db.query(`SELECT 1 FROM public.event_vendors WHERE event_id = $1`, [a.eventId]);
   assert.equal(n.rows.length, 0);
@@ -151,7 +155,7 @@ test('4 · another couple’s identical add into this event is refused', async (
 
 test('5 · the claim link snapshots the record’s category — the value #6712’s move keeps it at', async () => {
   const { couple, eventId } = await newCouple();
-  const v = await addFrom(couple, eventId, 'food_truck', "Dunkin' Donuts");
+  const v = await addFrom(couple, eventId, 'food_cart', "Dunkin' Donuts");
   // `createManualVendorInvite` → `ensureAutoShareInvite({ serviceCategory: row.category })`.
   const row = await rowOf(v);
   await reset();
@@ -160,7 +164,7 @@ test('5 · the claim link snapshots the record’s category — the value #6712�
      VALUES ($1, 'Dunkin'' Donuts', $2, $3, 'auto_share_link', 'pending', now() + interval '90 days') RETURNING service_category`,
     [v, row.category, `tok-${uniq()}`],
   );
-  const p = planSupplierMove({ category: 'cake_maker', category_key: null, covers_plan_groups: [] }, 'food_truck');
+  const p = planSupplierMove({ category: 'cake_maker', category_key: null, covers_plan_groups: [] }, 'food_cart');
   assert.ok(!('refused' in p));
   assert.equal(inv.rows[0]!.service_category, (p as SupplierMovePlan).category, 'an add and a move file the claim differently');
 });

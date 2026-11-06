@@ -32,6 +32,13 @@ import { tileForwardMapFromRows } from '../../lib/tile-merge-forward';
 
 const FILE = '20271320461004_apply_the_approved_taxonomy_merge_2026_11_06.sql';
 const MAP = path.resolve(MIGRATIONS_DIR, '../data/taxonomy-merge-2026-11-06.json');
+const V2 = path.resolve(MIGRATIONS_DIR, '../data/taxonomy-v2-2026-11-06.json');
+
+type V2Service = { key: string; label: string; event_types: string[]; status: string };
+type V2 = {
+  groups: { label: string; categories: { label: string; tile: string; services: V2Service[] }[] }[];
+  live_key_map: Record<string, { service: string; as: string; status: string }>;
+};
 
 type MapEntry = {
   from_slug: string;
@@ -45,6 +52,7 @@ let replay: ReplayResult;
 let db: PGlite;
 let sql: string;
 let map: MapEntry[];
+let v2: V2;
 let eventId: string;
 const shop: Record<string, string> = {};
 
@@ -74,6 +82,7 @@ before(async () => {
   db = replay.db;
   sql = fs.readFileSync(path.join(MIGRATIONS_DIR, FILE), 'utf8');
   map = JSON.parse(fs.readFileSync(MAP, 'utf8')) as MapEntry[];
+  v2 = JSON.parse(fs.readFileSync(V2, 'utf8')) as V2;
 });
 after(async () => {
   await db?.close();
@@ -87,7 +96,7 @@ async function count(q: string, params: unknown[] = []): Promise<number> {
 }
 async function summary(): Promise<Record<string, unknown>> {
   const r = await one<{ s: string | null }>(
-    `SELECT current_setting('setnayan.taxonomy_merge_2026_11_06', true) AS s`,
+    `SELECT current_setting('setnayan.taxonomy_v2_2026_11_06', true) AS s`,
   );
   return JSON.parse(r.s ?? '{}');
 }
@@ -191,8 +200,9 @@ test('first run: the map is applied', async () => {
   await db.exec(sql);
   const s = await summary();
   console.log('WHAT MOVES (first run):', JSON.stringify(s, null, 2));
-  const merges = map.filter((r) => !r.setnayan_product && r.from_slug !== r.into_slug).length;
-  assert.equal(s.trades_merged, merges, 'every non-Setnayan from≠into row merged');
+  const merges = Object.entries(v2.live_key_map).filter(([k, e]) => k !== e.service).length;
+  assert.equal(s.trades_merged, merges, 'every live key v2 folds into another service merged');
+  assert.equal(merges, 216, 'the approved map’s 217, minus Tea ceremony master (corrected to its own service)');
   assert.ok((s.tiles_merged as number) > 0);
   assert.deepEqual(s.facets_refused, [], 'no facet key collided with a field of another shape');
 });
@@ -249,7 +259,7 @@ test('absorbed trades are tombstones; Setnayan products are untouched', async ()
   const merged = await count(
     `SELECT count(*)::int AS n FROM canonical_service_taxonomy WHERE merged_into IS NOT NULL`,
   );
-  assert.equal(merged, map.filter((r) => !r.setnayan_product && r.from_slug !== r.into_slug).length);
+  assert.equal(merged, Object.entries(v2.live_key_map).filter(([k, e]) => k !== e.service).length);
   const p = await one<{ merged_into: string | null }>(
     `SELECT merged_into FROM canonical_service_taxonomy WHERE canonical_service='pabati'`,
   );
@@ -267,6 +277,72 @@ test('absorbed trades are tombstones; Setnayan products are untouched', async ()
     0,
     'no inspiration part still credits an absorbed trade',
   );
+});
+
+test('v2 exactly: 39 live picker categories, 84 services on them, every live key resolves', async () => {
+  const cats = v2.groups.flatMap((g) => g.categories);
+  assert.equal(cats.length, 39);
+  for (const c of cats) {
+    const row = await one<{ label_en: string; merged_into_category_id: string | null; status: string } | undefined>(
+      `SELECT label_en, merged_into_category_id, status FROM service_categories WHERE id=$1 AND tier=2`,
+      [c.tile],
+    );
+    assert.ok(row, `category ${c.tile} must exist`);
+    assert.equal(row!.merged_into_category_id, null, `${c.tile} is a live category`);
+    assert.equal(row!.label_en, c.label, `${c.tile} carries its v2 label`);
+  }
+  const svcs = cats.flatMap((c) => c.services.map((s) => ({ ...s, tile: c.tile })));
+  assert.equal(svcs.length, 84);
+  for (const s of svcs) {
+    const row = await one<{ tile_id: string; merged_into: string | null; types: string[] | null; name: string | null } | undefined>(
+      `SELECT c.tile_id, c.merged_into, c.applicable_event_types AS types, s.display_name_en AS name
+         FROM canonical_service_taxonomy c LEFT JOIN canonical_service_schemas s USING (canonical_service)
+        WHERE c.canonical_service=$1`,
+      [s.key],
+    );
+    assert.ok(row, `service ${s.key} must exist`);
+    assert.equal(row!.merged_into, null, `${s.key} is live`);
+    assert.equal(row!.tile_id, s.tile, `${s.key} sits on ${s.tile}`);
+    assert.equal(row!.name, s.label, `${s.key} carries its v2 name`);
+    assert.deepEqual([...(row!.types ?? [])].sort(), [...s.event_types].sort(), `${s.key} event types = v2`);
+  }
+  assert.equal(svcs.filter((s) => s.status === 'NEW').length, 16);
+  // every live key lands where v2 says: itself, or a tombstone forwarding to its service
+  for (const [k, e] of Object.entries(v2.live_key_map)) {
+    const r = await one<{ merged_into: string | null }>(
+      `SELECT merged_into FROM canonical_service_taxonomy WHERE canonical_service=$1`, [k],
+    );
+    assert.equal(r.merged_into ?? k, e.service, `${k} → ${e.service}`);
+  }
+});
+
+test('Tea ceremony master is its own service under Hosts & talent, wedding only', async () => {
+  const r = await one<{ tile_id: string; merged_into: string | null; types: string[] }>(
+    `SELECT tile_id, merged_into, applicable_event_types AS types FROM canonical_service_taxonomy WHERE canonical_service='tea_ceremony_master'`,
+  );
+  assert.equal(r.merged_into, null);
+  assert.equal(r.tile_id, 'host_mc');
+  assert.deepEqual(r.types, ['wedding']);
+  const h = await one<{ csa: Record<string, unknown> }>(
+    `SELECT category_specific_attributes AS csa FROM canonical_service_schemas WHERE canonical_service='host_emcee'`,
+  );
+  assert.ok(!('specialty' in h.csa) || !JSON.stringify(h.csa).includes('tea ceremony'),
+    'the tea ceremony is no longer a Host / emcee specialty');
+});
+
+test('the two new categories sit in their groups; specialty values carry their event scope', async () => {
+  const staff = await one<{ parent_id: string }>(`SELECT parent_id FROM service_categories WHERE id='event_staffing'`);
+  const ref = await one<{ parent_id: string }>(`SELECT parent_id FROM service_categories WHERE id='referee_official'`);
+  assert.equal(staff.parent_id, ref.parent_id, 'Staff, security & registration sits with Logistics & safety');
+  const pray = await one<{ parent_id: string }>(`SELECT parent_id FROM service_categories WHERE id='prayers'`);
+  const fh = await one<{ parent_id: string }>(`SELECT parent_id FROM service_categories WHERE id='funeral_home'`);
+  assert.equal(pray.parent_id, fh.parent_id, 'Prayers & novena sits with Funeral homes & farewell');
+  const def = await one<{ d: { type: string; options: string[]; option_event_types: Record<string, string[]> } }>(
+    `SELECT category_specific_attributes->'venue_type' AS d FROM canonical_service_schemas WHERE canonical_service='reception_venue'`,
+  );
+  assert.equal(def.d.type, 'multi_select');
+  assert.ok(def.d.options.includes('Resort / destination'), 'the v2 relabel');
+  assert.ok(Array.isArray(def.d.option_event_types['Hotel ballroom']), 'each value carries its event scope');
 });
 
 test('a shop that held an absorbed trade is findable by the absorbed name', async () => {

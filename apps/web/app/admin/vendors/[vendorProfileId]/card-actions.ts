@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import {
   CARD_AUDIT_ACTION,
   REASON_REFUSAL,
@@ -389,6 +390,8 @@ async function setSampleShop(formData: FormData): Promise<void> {
   });
   if (auditErr) console.error('[setSampleShop] audit log insert failed', auditErr.message);
 
+  // `is_demo` takes a shop off (or puts it back on) the home page's shop shelf — clear what the page remembers.
+  clearHomeShelf('shops');
   await refreshPublic(shopId);
 }
 

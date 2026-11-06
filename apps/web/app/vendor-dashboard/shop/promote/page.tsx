@@ -15,8 +15,6 @@ import { QrCodes, type QrPick } from '../../invite/_components/qr-codes';
 import { promoteFigures } from '@/lib/shop-section-figures';
 import { ShopGiftsSection } from './_components/shop-gifts-section';
 import { loadShopGiftsSection } from './_components/shop-gifts-data';
-import { BadgeUpgradesSection } from './_components/badge-upgrades-section';
-import { loadBadgeUpgradesSection } from './_components/badge-upgrades-data';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -67,9 +65,6 @@ export default async function ShopPromotePage({
   const giftsPromise = loadShopGiftsSection(supabase, profile.vendor_profile_id);
   // Awaited below; this only keeps a throw from being "unhandled" while the codes are drawn — it still surfaces there.
   giftsPromise.catch(() => undefined);
-  // ⏱ The badge upgrades (owner, 6 Nov) — read beside the gifts, drawn under them.
-  const upgradesPromise = loadBadgeUpgradesSection(profile.vendor_profile_id);
-  upgradesPromise.catch(() => undefined);
   const modeOptions: QrPick[] = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${PROMOTE_HREF}?mode=${key}` }));
   const common = { place: 'promote' as const, backHref: PROMOTE_HREF, modeOptions, setupHref: '/vendor-dashboard/shop', booked: null };
 
@@ -120,14 +115,13 @@ export default async function ShopPromotePage({
     );
   }
 
-  const [gifts, upgrades] = await Promise.all([giftsPromise, upgradesPromise]);
+  const gifts = await giftsPromise;
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
       <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.papic.balance : null })} gearBody={shopGearBody(search)} />
       {body}
       <ShopGiftsSection data={gifts} />
-      <BadgeUpgradesSection data={upgrades} />
     </section>
   );
 }

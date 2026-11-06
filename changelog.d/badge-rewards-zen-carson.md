@@ -18,7 +18,7 @@ Owner approved the table 6 Nov ("Approve as proposed"), DECISION_LOG 2026-11-06 
   of now and its current expiry, so paid time is kept; starts once).
 - **Granted in the same sweep** as the gift-stock rewards (`grantOwedBadgeRewards` now runs `grantOwedBadgeUpgrades`),
   so the badge page, Today and the admin's manual award give both.
-- **Start** — Shop › Promote › **Your upgrades** (new section under Your gifts): a row per upgrade; a ready row taps open
+- **Start** — Plan › **Your upgrades** (new section above Add-ons — an upgrade is add-on time; Shop › Promote is what a supplier hands out, per the 6 Nov one-home ruling): a row per upgrade; a ready row taps open
   a sheet (Upgrade ▾ when there is a choice · Start); a started row shows "on until …". Server action
   `startBadgeUpgrade` (owner or admin of the shop; the client sends only the id and the pick). The product must be on
   the catalogue (`vendor_billing_catalog.is_active` for the add-on's price rows); off sale → the upgrade stays ready.
@@ -26,7 +26,7 @@ Owner approved the table 6 Nov ("Approve as proposed"), DECISION_LOG 2026-11-06 
   (`VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS` · `VENDOR_3D_BOOTH_PERIOD_DAYS` · `VENDOR_AI_ADDON_PERIOD_DAYS`), the same ones a
   paid purchase uses.
 - **Badge page** rows for Verified, first booking, Reviews and Monthly awards add one line: "Also → 4 weeks of …
-  · ready to start in Promote". **Admin › Gifts** gains a read-only **Badge upgrades** table.
+  · ready to start in Plan". **Admin › Gifts** gains a read-only **Badge upgrades** table.
 - `DatesRow` gains `onOpen` (the whole row opens a sheet in place — no row buttons). Maps: Ugat claims, export
   completeness, exposure baseline (SELECT own rows only; neither door reachable by a session).
 - Tests: `lib/badge-upgrades.test.ts` (10) · `tests/db/badge-upgrades-start-once.db.test.ts` (4 — once, stacking Start,

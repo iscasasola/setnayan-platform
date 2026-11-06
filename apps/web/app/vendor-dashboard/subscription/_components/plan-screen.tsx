@@ -58,6 +58,8 @@ import { startSubscriptionPurchase } from '../actions';
 import { AiAddonCard } from './ai-addon-card';
 import { BoothAddonCard } from './booth-addon-card';
 import { PapicChallengeCard } from './papic-challenge-card';
+import { BadgeUpgradesSection } from './badge-upgrades-section';
+import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
@@ -541,6 +543,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE
           SUPPLIER QR CODES, PRINTS AND GIFTS") — one place for every marketing tool. Not linked from here: the Plan is
           what the shop pays Setnayan; gifts are what it gives its couples. 🔒 shop/promote/gifts-live-on-promote.test.ts */}
+
+      {/* ⏱ YOUR UPGRADES (owner, 6 Nov) — add-on time a badge gave the shop, ready until Start. Above the add-on cards
+          it extends; a started one shows on its card as on. */}
+      <BadgeUpgradesSection data={await loadBadgeUpgradesSection(profile.vendor_profile_id)} />
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
       <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">

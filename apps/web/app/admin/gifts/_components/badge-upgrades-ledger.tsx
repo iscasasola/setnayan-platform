@@ -19,7 +19,7 @@ export function BadgeUpgradesLedger({ rows, readError }: { rows: BadgeUpgradeLed
       <p className="mb-4 text-xs text-ink/60">
         Four weeks of an add-on for the shop itself — Verified → Papic Challenges · first booking → 3D Booth (Papic
         Challenges below Solo) · 5 reviews → AI Chatbot · Top Pick / Most Booked → their choice. Each waits, never
-        expiring, until the supplier taps Start in Shop › Promote; Start adds four weeks to that add-on.
+        expiring, until the supplier taps Start on their Plan page; Start adds four weeks to that add-on.
       </p>
       <ConsoleTable<BadgeUpgradeLedgerRow>
         rows={rows}

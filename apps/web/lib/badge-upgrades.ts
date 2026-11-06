@@ -192,10 +192,10 @@ export function upgradeLineFor(
   const ready = mine.filter((r) => !r.startedAt).length;
   if (badge === 'award') {
     const base = `Top Pick or Most Booked also → ${upgradeWords(choices)}`;
-    return ready > 0 ? `${base} · ${ready} ready to start in Promote` : base;
+    return ready > 0 ? `${base} · ${ready} ready to start in Plan` : base;
   }
   const when = badge === 'reviews' ? `At ${BADGE_UPGRADES.reviews.step} reviews also → ` : 'Also → ';
   const words = mine[0] ? upgradeWords(mine[0].startedChoice ? [mine[0].startedChoice] : mine[0].startable) : upgradeWords(choices);
   if (!mine[0]) return `${when}${words}`;
-  return `${when}${words} · ${mine[0].startedAt ? 'started' : 'ready to start in Promote'}`;
+  return `${when}${words} · ${mine[0].startedAt ? 'started' : 'ready to start in Plan'}`;
 }

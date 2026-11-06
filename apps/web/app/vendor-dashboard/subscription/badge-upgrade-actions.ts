@@ -8,11 +8,10 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { BADGE_UPGRADE_CHOICES, BADGE_UPGRADE_NAME, type BadgeUpgradeChoice } from '@/lib/badge-upgrades';
 import { startBadgeUpgradeCore } from '@/lib/badge-upgrades.server';
-import { PROMOTE_HREF } from '@/lib/supplier-qr-codes';
 
 /**
  * ⏱ START A BADGE UPGRADE (owner approved the table 2026-11-06): the supplier's tap on "Start" beside a ready upgrade
- * in Shop › Promote › Your upgrades. The four weeks begin NOW — `shop_badge_upgrade_start` extends the add-on's own
+ * on Plan › Your upgrades (beside the add-ons it unlocks; the Shop ⚙'s Plan fold draws the same screen). The four weeks begin NOW — `shop_badge_upgrade_start` extends the add-on's own
  * entitlement (stacking on time already paid for) and stamps the upgrade started, once.
  *
  * The client sends the upgrade id and, for a Top Pick / Most Booked upgrade, the add-on picked — never a period, a
@@ -54,11 +53,11 @@ export async function startBadgeUpgrade(_prev: StartBadgeUpgradeState, formData:
   const res = await startBadgeUpgradeCore(createAdminClient(), vendorProfileId, upgradeId, choice as BadgeUpgradeChoice);
   switch (res.status) {
     case 'started':
-      revalidatePath(PROMOTE_HREF);
       revalidatePath('/vendor-dashboard/subscription');
+      revalidatePath('/vendor-dashboard/shop');
       return { status: 'started', message: `${BADGE_UPGRADE_NAME[res.choice]} is on until ${day(res.endsAt)}.` };
     case 'already':
-      revalidatePath(PROMOTE_HREF);
+      revalidatePath('/vendor-dashboard/subscription');
       return err('This upgrade has already started.');
     case 'not_on_sale':
       return err('This add-on isn’t available right now. Your upgrade stays ready — nothing is lost.');

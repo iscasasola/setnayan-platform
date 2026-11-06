@@ -126,7 +126,7 @@ describe('words', () => {
     };
     assert.equal(upgradeLineFor('first_booking', null, 'solo'), 'Also → 4 weeks of 3D Booth');
     assert.equal(upgradeLineFor('first_booking', null, 'free'), 'Also → 4 weeks of Papic Challenges');
-    assert.equal(upgradeLineFor('first_booking', [ready], 'free'), 'Also → 4 weeks of Papic Challenges · ready to start in Promote');
+    assert.equal(upgradeLineFor('first_booking', [ready], 'free'), 'Also → 4 weeks of Papic Challenges · ready to start in Plan');
     assert.equal(upgradeLineFor('reviews', [], 'pro'), 'At 5 reviews also → 4 weeks of AI Chatbot');
     assert.equal(upgradeLineFor('award', [], 'pro'), 'Top Pick or Most Booked also → 4 weeks of your choice');
   });

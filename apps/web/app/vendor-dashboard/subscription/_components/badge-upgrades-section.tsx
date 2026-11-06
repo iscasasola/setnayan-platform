@@ -34,6 +34,10 @@ function day(iso: string): string {
  *
  * A ready upgrade never expires; its four weeks start at the tap (`startBadgeUpgrade`). Rows tap open — no buttons on
  * a row (house rule) — and the one write lives inside the sheet.
+ *
+ * 🏠 HOME: Plan, above Add-ons — an upgrade is add-on time, and Plan is where add-ons live (Shop › Promote is what a
+ * supplier hands out to couples, DECISION_LOG 2026-11-06 "ONE HOME FOR EVERY PROMOTE TOOL"). The Shop ⚙'s Plan fold
+ * mounts the same screen.
  */
 export function BadgeUpgradesSection({ data }: { data: BadgeUpgradesSectionData }) {
   const headingId = useId();

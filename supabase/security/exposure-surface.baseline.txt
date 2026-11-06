@@ -7053,6 +7053,7 @@ func	public.papic_tag_capture(p_token text, p_photo_id uuid, p_guest_token text,
 func	public.papic_tag_guest_capture(p_guest_id uuid, p_capture_id uuid, p_guest_token text, p_table_ref text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_vendor_challenge_photos(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_vendor_challenges(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.partners_you_served_with(p_vendor uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.price_band_pax_bucket(p_pax integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.public_seat_lookup(p_slug text, p_query text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.public_venue_scene(p_slug text, p_token text)	secdef=yes exec=anon,authenticated search_path=public
@@ -7171,7 +7172,6 @@ func	public.vendor_waitlist_the_ask(p_event_vendor_id uuid)	secdef=yes exec=auth
 func	public.vendor_whitelist_pressure(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_win_loss(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_withdraw_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.vendor_worked_with_ids(for_vendor uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendors_blocked_on_date(p_vendor_ids uuid[], p_event_date date)	secdef=yes exec=authenticated search_path=public
 func	public.viewer_service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.visible_connection_names(p_person_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public, extensions

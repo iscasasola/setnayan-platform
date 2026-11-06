@@ -4,7 +4,7 @@ Slice 2 of 5 of the supplier claim scanner (stacked on slice 1). Owner rulings: 
 SERVICE MODES: RECEIVED ONLY or ORDERED → RECEIVED" · "READY TO CLAIM + A GUEST ANNOUNCEMENT" · "ALL ANNOUNCEMENTS GO
 THROUGH THE ONE COORDINATOR ANNOUNCEMENT CHANNEL" · "ANNOUNCEMENTS SHOW ONLY ON THE EVENT HUB"; prototype frame F.
 
-- **Migration `20271317406591`**: the mode `ordered_received` (settings + claims CHECKs widen); claims gain `state`
+- **Migration `20271320900784`**: the mode `ordered_received` (settings + claims CHECKs widen); claims gain `state`
   (ordered → ready → received), `ready_at`, `received_at`; one claim per guest per service per event in both modes.
   `supplier_scan_claim` now orders on the first scan (the number is allocated then and kept), answers "not ready" before
   Ready (nothing changes), receives after Ready, and "already" after that. `supplier_scan_ready(event, service, number)`

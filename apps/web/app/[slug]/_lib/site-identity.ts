@@ -40,7 +40,7 @@ import type {
   GuestSeatMap,
 } from './types';
 import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
-import type { VendorCard } from '@/lib/vendor-cards';
+import type { EventVendorCredit } from '@/lib/event-vendor-credits';
 import type { GuestHubData } from '../_components/guest-hub-card';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
@@ -138,7 +138,14 @@ export type GuestSiteIdentity = {
   account: GuestAccountState | null;
   /** Invite/Join v2: the couple's booked marketplace vendors ("vendors who
    *  made this day"), each savable to the guest's own account. */
-  eventVendorCredits: VendorCard[];
+  eventVendorCredits: EventVendorCredit[];
+  /**
+   * ♡ FAVORITES AFTER AN EVENT (owner 2026-11-06): may THIS signed-in viewer keep the services above?
+   * `open` = their own guest row was checked in at the door · `closed` = it was not (names only, and one line says
+   * why) · `unread` = the check could not be made (said, never drawn as "not checked in"). `kept` = the
+   * `favoriteKey`s they already keep. NULL = no account here (the shipped "Account needed").
+   */
+  hubFavorites: { door: 'open' | 'closed' | 'unread'; kept: string[] } | null;
   /** Invite/Join v2: flash after a guest saves a vendor. */
   saveFlash: string | null;
   /** The guest's reply either landed or it did not — and until 2026-08-05 both
@@ -506,12 +513,12 @@ export function anonymousIdentity(input: {
 export function guestIdentity(
   input: Omit<
     GuestSiteIdentity,
-    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
+    'kind' | 'hubFavorites' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
   > &
     Partial<
       Pick<
         GuestSiteIdentity,
-        'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
+        'hubFavorites' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
       >
     >,
 ): GuestSiteIdentity {
@@ -533,6 +540,7 @@ export function guestIdentity(
     showClaimAccountCta: input.showClaimAccountCta,
     account: input.account ?? null,
     eventVendorCredits: input.eventVendorCredits,
+    hubFavorites: input.hubFavorites ?? null,
     saveFlash: input.saveFlash,
     rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,

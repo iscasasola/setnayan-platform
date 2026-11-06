@@ -55,7 +55,10 @@ export function GuestHubBar({
   meSlot = null,
   meInPage = false,
   mePhotosHref = null,
+  meAfterDay = null,
 }: {
+  /** 🚪 "Who made the day?" (prototype 6 Nov § 8, door 2) — drawn into Me after the day; null = absent. */
+  meAfterDay?: React.ReactNode;
   /** Me's one "Photos of you" link — only once the page itself stops drawing
    *  them (page.tsx decides; `GuestMeSection`). Null: no link. */
   mePhotosHref?: string | null;
@@ -192,7 +195,7 @@ export function GuestHubBar({
           the same condition; two elements with one id would send the Me tab to
           whichever came first, which is the blank one. */}
       {menuOn && !meInPage ? (
-        <GuestMeSection meSlot={meSlot} photosHref={mePhotosHref} galleryCount={galleryCount} onOpenQr={() => setQrOpen(true)} />
+        <GuestMeSection meSlot={meSlot} photosHref={mePhotosHref} galleryCount={galleryCount} onOpenQr={() => setQrOpen(true)} afterDay={meAfterDay} />
       ) : null}
 
       {/* Fixed bottom control bar — 3 controls, the Camera the prominent center
@@ -459,7 +462,10 @@ export function GuestMeSection({
   galleryCount,
   onOpenQr = () => window.dispatchEvent(new Event(OPEN_MY_QR_EVENT)),
   asTab = false,
+  afterDay = null,
 }: {
+  /** 🚪 "Who made the day?" (prototype 6 Nov § 8, door 2) — the page decides; null = absent, never greyed. */
+  afterDay?: React.ReactNode;
   meSlot: React.ReactNode;
   /** The guest's own photos, when the page no longer draws them. Null: no link. */
   photosHref?: string | null;
@@ -521,6 +527,7 @@ export function GuestMeSection({
           ) : null}
         </div>
       ) : null}
+      {afterDay}
     </section>
   );
   /* 📐 ME HAS THE PAGE'S OWN GUTTER, WHOEVER DRAWS IT (a guest's walk 2026-10-11:

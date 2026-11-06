@@ -16,6 +16,8 @@ import {
   rejectAppeal,
   dismissReviewFlag,
 } from './actions';
+import { readGuestReviewsForAdmin } from '@/lib/guest-reviews';
+import { GuestReviewsQueue } from './_components/guest-reviews-queue';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Reviews · Admin' };
@@ -231,6 +233,8 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
   const flagReviewIds = Array.from(new Set(rawFakeFlags.map((f) => f.review_id)));
   const flagVendorIds = Array.from(new Set(rawFakeFlags.map((f) => f.reported_by_vendor_profile_id)));
 
+  // ⭐ Guest reviews (owner ruling A, 6 Nov) — public at once; hide one here. Hidden ones stay listed, marked.
+  const guestReviewsRead = readGuestReviewsForAdmin(admin, 50);
   const [flagReviewData, flagVendorData] = await Promise.all([
     flagReviewIds.length > 0
       ? admin
@@ -334,6 +338,8 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           </ul>
         )}
       </section>
+
+      <GuestReviewsQueue read={await guestReviewsRead} />
 
       <section className="space-y-4" aria-labelledby="self-review-appeals-heading">
         <header className="flex flex-wrap items-end justify-between gap-3">
@@ -732,3 +738,4 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
     </div>
   );
 }
+

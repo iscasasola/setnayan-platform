@@ -109,4 +109,14 @@ export const OPEN_SHOP_ERRORS = {
   locationPin: 'Place your pin on the map — type your address, or tap the map.',
   // Only reachable once a pin exists — a geocode the vendor never looked at.
   locationConfirm: 'Check the address on the map, then tap “Yes, that’s right”.',
+  // 🎟 Owner 2026-11-06 ("SUPPLIER SIGN-UP REDESIGN APPROVED", call 3): every event type starts ticked, and at least
+  // one must stay — a shop that serves no event would never show to a couple. Refused in the browser AND here.
+  events: 'Pick at least one event.',
 } as const;
+
+/**
+ * The phone sentence UNDER the fixed +63 box on the door (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN APPROVED",
+ * call 2). The box already shows +63, so its own sentence starts at the 9. The shared `contactPhoneNotPh` sentence
+ * (with `09XX`) is unchanged everywhere else, including the server's redirect — the door draws THIS one for it.
+ */
+export const OPEN_SHOP_PHONE_BOX_ERROR = 'Use 9XX XXX XXXX, or your landline with its area code.';

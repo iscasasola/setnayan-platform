@@ -56,11 +56,15 @@ export type OpenShopDraft = {
   atSubmit?: boolean;
   /** The web address that was submitted (parked at submit only) — the one the refusal is about. */
   slug?: string;
+  /** "Your name" (step 4) and the typed address (step 3) — added 2026-11-06 so "Tap Reload to keep going" after a
+   *  deploy, and Google / Apple, bring back the two boxes the old draft dropped. Optional: an older draft has none. */
+  name?: string;
+  address?: string;
 };
 
 export type OpenShopDraftInput = Omit<OpenShopDraft, 'v' | 'at'>;
 
-const MAX = { shopName: 128, logoUrl: 512, service: 64, serviceLabel: 128, position: 64, phone: 32, email: 254, event: 64, slug: 32 } as const;
+const MAX = { name: 128, address: 200, shopName: 128, logoUrl: 512, service: 64, serviceLabel: 128, position: 64, phone: 32, email: 254, event: 64, slug: 32 } as const;
 
 const str = (v: unknown, max: number): string => (typeof v === 'string' ? v.slice(0, max) : '');
 
@@ -79,6 +83,8 @@ export function serializeOpenShopDraft(d: OpenShopDraftInput, now: number = Date
     email: str(d.email, MAX.email),
     ...(d.atSubmit ? { atSubmit: true } : {}),
     ...(d.slug ? { slug: str(d.slug, MAX.slug) } : {}),
+    ...(d.name ? { name: str(d.name, MAX.name) } : {}),
+    ...(d.address ? { address: str(d.address, MAX.address) } : {}),
   };
   return JSON.stringify(draft);
 }
@@ -118,6 +124,8 @@ export function parseOpenShopDraft(raw: string | null | undefined, now: number =
     email: str(d.email, MAX.email),
     ...(d.atSubmit === true ? { atSubmit: true } : {}),
     ...(typeof d.slug === 'string' && d.slug ? { slug: d.slug.slice(0, MAX.slug) } : {}),
+    ...(typeof d.name === 'string' && d.name ? { name: d.name.slice(0, MAX.name) } : {}),
+    ...(typeof d.address === 'string' && d.address ? { address: d.address.slice(0, MAX.address) } : {}),
   };
 }
 

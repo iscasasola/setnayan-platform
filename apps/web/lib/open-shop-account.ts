@@ -55,7 +55,7 @@ export const OPEN_SHOP_ACCOUNT_ERRORS = {
 export type OpenShopAccountDecision =
   | { kind: 'existing' }
   | { kind: 'create'; email: string; password: string }
-  | { kind: 'refuse'; step: 3 | 4; error: string };
+  | { kind: 'refuse'; step: 4; error: string };
 
 export type OpenShopAccountInput = {
   /** A signed-in user exists for this request. */
@@ -71,15 +71,16 @@ export type OpenShopAccountInput = {
 };
 
 /**
- * Order of refusals follows the order of the screens: a missing email or password is
- * a step-3 problem and is reported before the step-4 agreement, so the vendor is sent
- * to the EARLIEST screen that needs them and walks forward from there.
+ * Order of refusals follows the order of the boxes: a missing email or password is reported before the
+ * agreement. All three now sit on step 4 — "You + Open my shop" (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN —
+ * FOUR CALLS ANSWERED": the account step is LAST, so the Terms, the sign-in-in-place and the commit share one
+ * screen; supersedes the 2026-09-22 "account inside step 3" order).
  */
 export function decideOpenShopAccount(input: OpenShopAccountInput): OpenShopAccountDecision {
   if (input.hasSession) return { kind: 'existing' };
-  if (!input.email) return { kind: 'refuse', step: 3, error: OPEN_SHOP_ERRORS.contactEmail };
+  if (!input.email) return { kind: 'refuse', step: 4, error: OPEN_SHOP_ERRORS.contactEmail };
   if (input.password.length < OPEN_SHOP_PASSWORD_MIN) {
-    return { kind: 'refuse', step: 3, error: OPEN_SHOP_ACCOUNT_ERRORS.password };
+    return { kind: 'refuse', step: 4, error: OPEN_SHOP_ACCOUNT_ERRORS.password };
   }
   if (!input.termsAgreed) return { kind: 'refuse', step: 4, error: input.termsError };
   return { kind: 'create', email: input.email, password: input.password };

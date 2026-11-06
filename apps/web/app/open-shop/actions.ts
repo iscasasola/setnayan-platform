@@ -15,6 +15,7 @@ import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
 import { parseCoordPair } from '@/lib/parse-coord';
+import { locationStepError } from '@/lib/open-shop-location-gate';
 import { parseVendorPhone } from '@/lib/phone-rules';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
@@ -252,6 +253,36 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!coarseService) {
     redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
+  // The refusals run in the order of the screens (1 name · 2 what you do · 3 where · 4 you), so a vendor is sent to
+  // the EARLIEST screen that needs them and walks forward from there.
+  // ── AT LEAST ONE EVENT (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN APPROVED", call 3) ───────────────────────
+  // Every event type starts ticked on step 2 and the supplier unticks what they don't do; unticking them ALL is
+  // refused — a shop serving no event would never show to a couple. This used to fall back to ['wedding'] silently,
+  // which turned "I cleared them" into "I serve weddings". Validated against the admin roster (the same keys the
+  // column CHECK and the coverage editor accept), BEFORE the account exists, like every other field.
+  const eventVocabKeys = new Set((await getVendorServableEventTypes()).map((e) => e.key));
+  const submittedEventTypes = formData
+    .getAll('event_types')
+    .filter((v): v is string => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter((v) => eventVocabKeys.has(v));
+  if (submittedEventTypes.length === 0)
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.events));
+  const eventTypes = Array.from(new Set(submittedEventTypes));
+  const locationCity = clean(formData.get('location_city'), 64);
+  // ── WHERE YOU ARE: A PIN, A YES, THEN THE CITY — REFUSED HERE TOO (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN —
+  //    FOUR CALLS ANSWERED": "the server must refuse an unconfirmed pin") ─────────────────────────────────────────
+  // The rule is `locationStepError` — the SAME function the wizard's step gate runs — fed from the posted fields.
+  // Until 2026-11-06 only the browser asked for the pin and the "Yes, that's right"; this action required the city
+  // alone, so a direct POST (or a page whose gate did not run) could open a shop at an address nobody confirmed.
+  // `parseCoordPair` is the one that refuses 0,0 from a missing pair (the Null Island bug below), so an absent pin
+  // can never pass as one. The step is 3 — "Where you are" now comes before "You".
+  const locationError = locationStepError({
+    hasPin: parseCoordPair(formData.get('hq_latitude'), formData.get('hq_longitude')) !== null,
+    confirmed: formData.get('location_confirmed') === 'yes',
+    city: locationCity ?? '',
+  });
+  if (locationError) redirect('/open-shop?step=3&error=' + encodeURIComponent(locationError));
   // ── EVERY REJECTION NAMES THE STEP THAT OWNS THE FIELD (1–4) ──────────────
   // Without it the wizard remounts at step 1 and silently discards everything
   // typed on later steps, because none of it has been written to the DB the
@@ -260,20 +291,15 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // Needed even with the client gate, since the server rejects shapes the
   // client accepts (and any DB error redirects here too).
   if (!contactName)
-    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
+    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
   if (!contactPhone)
-    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
+    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
   if (!phone?.ok)
     redirect(
-      '/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhoneNotPh),
+      '/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhoneNotPh),
     );
   if (!contactEmail)
-    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
-  const locationCity = clean(formData.get('location_city'), 64);
-  // Required as of 2026-07-21: a city-less listing cannot be ranked, filtered
-  // by couples, or given a screen-name namespace — it is invisible in practice.
-  if (!locationCity)
-    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
+    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
 
   // ── THE ACCOUNT IS CREATED ONLY ONCE EVERY FIELD ABOVE HAS PASSED (2026-11-06) ──────────────────────────────
   // It used to be created FIRST. With email verification on (A1) that ordering is a trap: a refusal on step 1/2/4
@@ -285,7 +311,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     const created = await createVendorAccountForShop({
       email: decision.email,
       password: decision.password,
-      // The name typed on step 3 becomes the account's name — the same rule the
+      // The name typed on step 4 ("You") becomes the account's name — the same rule the
       // signed-in path applies further down (`display_name` established once).
       displayName: titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null,
       terms: { acceptedAt: new Date().toISOString(), version: TERMS_VERSION },
@@ -316,27 +342,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!user) {
     // Unreachable by construction (every non-existing decision above either
     // redirected or produced a user); kept so the type narrows honestly.
-    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
+    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
   }
 
 
-  // Event types the shop serves — the signal that makes a NON-wedding vendor
-  // discoverable (the marketplace ?event_type= filter reads vendor_profiles.
-  // event_types). Without capturing it here, a new shop keeps the column's
-  // ['wedding'] default and is invisible for every other event it serves.
-  // Validate against the admin roster (same keys the column CHECK + the coverage
-  // editor accept); empty/invalid → fall back to ['wedding'] so it is never
-  // event-typeless (the column is NOT NULL). The wizard seeds its checkboxes
-  // from the shop's current event_types, so a re-run reflects — never clobbers —
-  // a richer set the vendor set in the coverage editor.
-  const eventVocabKeys = new Set((await getVendorServableEventTypes()).map((e) => e.key));
-  const submittedEventTypes = formData
-    .getAll('event_types')
-    .filter((v): v is string => typeof v === 'string')
-    .map((v) => v.trim())
-    .filter((v) => eventVocabKeys.has(v));
-  const eventTypes =
-    submittedEventTypes.length > 0 ? Array.from(new Set(submittedEventTypes)) : ['wedding'];
+  // Event types the shop serves — read and refused above, with the other fields (`eventTypes`). They are the signal
+  // that makes a NON-wedding vendor discoverable (the marketplace ?event_type= filter reads vendor_profiles.event_types).
 
   const admin = createAdminClient();
 

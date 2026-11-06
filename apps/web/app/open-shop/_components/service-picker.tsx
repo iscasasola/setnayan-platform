@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ChevronLeft, Search, Check, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ChevronRight, Search, Check, X } from 'lucide-react';
 
 import { rankTaxonomyOptionsWithClose } from '@/lib/taxonomy-search-rank';
 import { folderIcon } from '@/lib/taxonomy-icons';
-import { WEDDING_FOLDER_SHORT_LABEL, type WeddingFolder } from '@/lib/taxonomy';
+import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
+
+const COORDINATOR_TRADE_SET: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SERVICES);
 
 export type PickerLeafView = {
   canonicalService: string;
@@ -52,6 +54,8 @@ export function ServicePicker({
   value,
   labelForValue,
   onPick,
+  coordinatorOnly = false,
+  onSearchAll,
 }: {
   tree: PickerParentView[];
   /** Currently chosen leaf key, or '' when nothing is picked yet. */
@@ -59,9 +63,26 @@ export function ServicePicker({
   /** Display label for the current value (server-resolved on a re-run). */
   labelForValue: string | null;
   onPick: (leaf: PickerLeafView | null) => void;
+  /**
+   * 🧭 `/open-shop?as=coordinator` (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED"): open on
+   * the coordination services — the leaves whose key is in `COORDINATOR_TRADE_SERVICES`, READ FROM THE CONSTANT,
+   * never a word search ("Destination Wedding Travel Coordinators" matches the word and is NOT a coordinator).
+   */
+  coordinatorOnly?: boolean;
+  /** "Not a coordinator? Search all services" — the wizard drops the coordinator view. */
+  onSearchAll?: () => void;
 }) {
   const [openParent, setOpenParent] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  /** The coordination services, from the constant, in the tree's own order. */
+  const coordinatorLeaves = useMemo(
+    () =>
+      tree.flatMap((p) =>
+        p.branches.flatMap((b) => b.leaves.filter((l) => COORDINATOR_TRADE_SET.has(l.canonicalService))),
+      ),
+    [tree],
+  );
 
   const parent = tree.find((p) => p.folderId === openParent) ?? null;
 
@@ -130,20 +151,62 @@ export function ServicePicker({
     );
   }
 
-  const rowStyle = 'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm';
-  const hitRow = (h: { leaf: PickerLeafView; path: string }) => (
-    <button type="button" className={rowStyle} onClick={() => onPick(h.leaf)}>
+  // The prototype's rows: one line, the path under it when it teaches where a trade lives, a › at the right.
+  const rowStyle = 'flex min-h-[50px] w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-[15px]';
+  const row = (leaf: PickerLeafView, path?: string) => (
+    <button type="button" className={rowStyle} onClick={() => onPick(leaf)}>
       <span className="min-w-0">
         <span className="block truncate" style={{ color: 'var(--m-ink)' }}>
-          {h.leaf.label}
+          {leaf.label}
         </span>
         {/* The hierarchy is taught here — the vendor sees where their trade lives without drilling to find it. */}
-        <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          {h.path}
-        </span>
+        {path ? (
+          <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            {path}
+          </span>
+        ) : null}
       </span>
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
     </button>
   );
+  /** The small caps heading at the top of a list ("Matches", "Coordination services"). */
+  const heading = (words: string, data?: Record<string, string>) => (
+    <li
+      className="border-b px-3.5 pb-1 pt-2.5 text-[10.5px] font-medium uppercase tracking-[0.14em]"
+      style={{ color: 'var(--m-slate-3)', background: 'var(--m-paper-2)', borderColor: 'var(--m-line)' }}
+      {...data}
+    >
+      {words}
+    </li>
+  );
+  const listFrame = 'overflow-hidden rounded-xl border';
+
+  /* ── THE 16 GROUPS AS TILES, TWO COLUMNS (owner 2026-11-06: "present this better and simpler"; the redesign's
+     tiles carry the group's own name, as the prototype draws them). The group's icon (`folderIcon`, the one Explore
+     draws) is read before its name. */
+  const groups = (
+    <div className="grid grid-cols-2 gap-1.5" data-open-shop-groups="">
+      {tree.map((p) => {
+        const Icon = folderIcon(p.folderId);
+        return (
+          <button
+            key={p.folderId}
+            type="button"
+            onClick={() => setOpenParent(p.folderId)}
+            aria-label={p.label}
+            title={p.label}
+            className="flex min-h-[58px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm leading-tight" // no-card-ok: a pressable group tile — this line is a <button>'s own className
+            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)', background: 'var(--m-paper)' }}
+          >
+            <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />
+            <span className="line-clamp-2 min-w-0">{p.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const coordinatorView = coordinatorOnly && q.length < 2 && !parent;
 
   return (
     <div className="space-y-2">
@@ -155,12 +218,16 @@ export function ServicePicker({
         <Search aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
         {/* The browser's own search ✕ is hidden: it drew a second clear button beside the one below. */}
         <input
+          ref={searchRef}
           type="search"
           inputMode="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search what you do — e.g. photographer, catering"
-          className="w-full bg-transparent text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpenParent(null);
+          }}
+          placeholder="Search what you do"
+          className="min-h-8 w-full bg-transparent text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
           aria-label="Search services"
         />
         {query ? (
@@ -176,101 +243,110 @@ export function ServicePicker({
         ) : null}
       </div>
 
-      {q.length >= 2 ? (
-        <div className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
-          {hits.length === 0 && close.length === 0 ? (
-            <p className="px-3 py-4 text-center text-xs" style={{ color: 'var(--m-slate)' }}>
-              Nothing matches “{query}”. Try a simpler word, or browse the groups below.
-            </p>
-          ) : (
-            <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-hits="">
-              {hits.map((h) => (
-                <li key={h.key}>{hitRow(h)}</li>
-              ))}
-              {close.length > 0 ? (
-                <li
-                  className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-[0.12em]"
-                  style={{ color: 'var(--m-slate-3)' }}
-                  data-open-shop-close-matches=""
-                >
-                  Close matches
-                </li>
-              ) : null}
-              {close.map((h) => (
-                <li key={h.key}>{hitRow(h)}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
-      {/* Nothing matched: the groups stay, so the vendor can still browse (never a dead end). */}
-      {q.length >= 2 && (hits.length > 0 || close.length > 0) ? null : !parent ? (
-        /* ── THE 16 GROUPS AS TILES, TWO COLUMNS (owner 2026-11-06: "present this better and simpler") ──
-           Was one row per group — a 16-row list taller than the phone. Two columns halve it, and the group's own
-           icon (`folderIcon`, the one Explore draws) is read before its name. */
-        <div className="grid grid-cols-2 gap-1.5" data-open-shop-groups="">
-          {tree.map((p) => {
-            const Icon = folderIcon(p.folderId);
-            return (
-              <button
-                key={p.folderId}
-                type="button"
-                onClick={() => setOpenParent(p.folderId)}
-                aria-label={p.label}
-                title={p.label}
-                className="flex min-h-10 items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left text-[13px] leading-tight" // no-card-ok: a pressable group tile — this line is a <button>'s own className
-                style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-              >
-                <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />
-                {/* The thumb-width name (`WEDDING_FOLDER_SHORT_LABEL`, the chip names Explore uses) so a tile is one
-                    line; the full name is the button's accessible name and the "All groups ›" crumb inside. */}
-                <span className="min-w-0 truncate">{WEDDING_FOLDER_SHORT_LABEL[p.folderId as WeddingFolder] ?? p.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        /* A tapped group → its services as rows, one list (its branches as small headings, not another tap). */
+      {coordinatorView ? (
         <>
-          <button
-            type="button"
-            onClick={() => setOpenParent(null)}
-            className="inline-flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--m-orange-deep)' }}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            All groups
-          </button>
+          {coordinatorLeaves.length > 0 ? (
+            <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
+              <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-coordinator-services="">
+                {heading('Coordination services')}
+                {coordinatorLeaves.map((l) => (
+                  <li key={l.canonicalService}>{row(l)}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            {parent.label}
+            Not a coordinator?{' '}
+            <button
+              type="button"
+              className="font-medium text-terracotta"
+              onClick={() => {
+                onSearchAll?.();
+                searchRef.current?.focus({ preventScroll: true });
+              }}
+              data-open-shop-search-all=""
+            >
+              Search all services
+            </button>
           </p>
-          <div className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
-            <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-group-services="">
-              {parent.branches.map((b) => (
-                <li key={b.tileId}>
-                  {parent.branches.length > 1 ? (
-                    <p
-                      className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-[0.12em]"
-                      style={{ color: 'var(--m-slate-3)' }}
-                    >
-                      {b.label}
-                    </p>
-                  ) : null}
-                  <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
-                    {b.leaves.map((l) => (
-                      <li key={l.canonicalService}>
-                        <button type="button" className={rowStyle} onClick={() => onPick(l)}>
-                          <span style={{ color: 'var(--m-ink)' }}>{l.label}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
+        </>
+      ) : q.length >= 2 ? (
+        hits.length > 0 ? (
+          <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
+            <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-hits="">
+              {heading('Matches')}
+              {hits.map((h) => (
+                <li key={h.key}>{row(h.leaf, h.path)}</li>
               ))}
             </ul>
           </div>
-        </>
+        ) : close.length > 0 ? (
+          /* Typos: shown apart under "Close matches — did you mean", never picked for the vendor; the groups stay
+             underneath so a wrong guess is never a dead end. */
+          <>
+            <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
+              <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-hits="">
+                {heading('Close matches — did you mean', { 'data-open-shop-close-matches': '' })}
+                {close.map((h) => (
+                  <li key={h.key}>{row(h.leaf, h.path)}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Not it? Browse the groups.
+            </p>
+            {groups}
+          </>
+        ) : (
+          <>
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              Nothing by that name — browse the groups.
+            </p>
+            {groups}
+          </>
+        )
+      ) : !parent ? (
+        groups
+      ) : (
+        /* A tapped group → its services as rows, one list (its branches as small headings, not another tap). */
+        <div className={listFrame} style={{ borderColor: 'var(--m-line)' }}>
+          <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }} data-open-shop-group-services="">
+            <li
+              className="flex items-center justify-between gap-2 px-3.5 py-1"
+              style={{ background: 'var(--m-paper-2)' }}
+            >
+              <span className="text-[10.5px] font-medium uppercase tracking-[0.14em]" style={{ color: 'var(--m-slate-3)' }}>
+                {parent.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpenParent(null)}
+                className="inline-flex min-h-9 items-center gap-1 text-[13px] font-medium"
+                style={{ color: 'var(--m-orange-deep)' }}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                All groups
+              </button>
+            </li>
+            {parent.branches.map((b) => (
+              <li key={b.tileId}>
+                {parent.branches.length > 1 ? (
+                  <p
+                    className="px-3.5 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-[0.12em]"
+                    style={{ color: 'var(--m-slate-3)' }}
+                  >
+                    {b.label}
+                  </p>
+                ) : null}
+                <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
+                  {b.leaves.map((l) => (
+                    <li key={l.canonicalService}>{row(l)}</li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

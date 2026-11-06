@@ -41,9 +41,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string }>;
 }) {
-  const { error, step, next, taken, check_inbox: checkInbox } = await searchParams;
+  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs } = await searchParams;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
@@ -106,11 +106,21 @@ export default async function OpenShopPage({
   // marketplace ?event_type= filter + the My Shop coverage editor read). Without
   // this signal a new shop is stuck at the column default ['wedding'] and is
   // invisible for every non-wedding event it actually serves.
+  // 🖼 `heroPhotoUrl` rides along (owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED", call 3): the
+  // events are drawn as the SAME photos a couple picks from in Create event (`eventTypePhotoSrc`).
   const eventTypeOptions = (await getVendorServableEventTypes()).map((e) => ({
     key: e.key,
     label: e.label,
     emoji: e.emoji,
+    heroPhotoUrl: e.heroPhotoUrl ?? null,
   }));
+  // 🎟 EVERY EVENT TYPE STARTS TICKED (owner 2026-11-06: "All on, untick to remove"). The default is the FULL roster
+  // just read — never a hard-coded copy — and the column default (`wedding`) is not changed. A shop whose own row
+  // already says something richer than that column default (the coverage editor ran) keeps what it chose.
+  const allEventKeys = eventTypeOptions.map((e) => e.key);
+  const ownEvents = row?.event_types ?? [];
+  const chosenEvents =
+    ownEvents.length > 0 && !(ownEvents.length === 1 && ownEvents[0] === 'wedding') ? ownEvents : allEventKeys;
 
   // Pre-resolve a display URL for an already-uploaded logo so the <FileUpload>
   // thumbnail paints on first load (a fresh signup won't have one yet).
@@ -201,7 +211,6 @@ export default async function OpenShopPage({
       accountName={accountName}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
-      savedSinceYear={row?.in_business_since_year ?? null}
       eventTypeOptions={eventTypeOptions}
       vendorProfileId={row?.vendor_profile_id ?? null}
       logoDisplayMap={logoDisplayMap}
@@ -209,10 +218,8 @@ export default async function OpenShopPage({
         shopName: row?.business_name ?? '',
         logoUrl: row?.logo_url ?? '',
         primaryService: row?.services?.[0] ?? '',
-        // Seed from any existing selection so re-running onboarding never
-        // clobbers a richer set the vendor set via the coverage editor; a
-        // brand-new shop starts on the sensible ['wedding'] default.
-        eventTypes: row?.event_types?.length ? row.event_types : ['wedding'],
+        // Every type ticked to start (above); a re-run keeps a richer set the coverage editor already wrote.
+        eventTypes: chosenEvents,
         locationCity: row?.location_city ?? '',
         hqAddress: row?.hq_address ?? '',
         contactName: row?.business_owner_name ?? '',
@@ -221,6 +228,9 @@ export default async function OpenShopPage({
         contactEmail: row?.contact_email ?? user?.email ?? '',
       }}
       guest={guest}
+      // 🧭 `?as=coordinator` (the For Coordinators page's button): step 2 opens on the coordination services, read
+      // from COORDINATOR_TRADE_SERVICES — owner 2026-11-06, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED".
+      coordinator={arrivedAs === 'coordinator'}
       oauth={gate}
       signInHref={
         '/login?next=' +

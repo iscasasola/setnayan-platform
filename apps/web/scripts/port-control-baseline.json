@@ -3571,6 +3571,7 @@
         "MayaCard",
         "OAuthCard",
         "PageMasthead",
+        "PasswordField",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -4237,6 +4238,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -5565,6 +5567,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -8250,7 +8253,9 @@
         "dashboard/[eventId]/memories/page.tsx",
         "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/memories/download-all"
+      ],
       "actions": [],
       "blocks": [
         "AddToLibrary",
@@ -8260,6 +8265,7 @@
         "InfoTip",
         "InlineCheckoutDrawer",
         "LifeFlashCard",
+        "Link",
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
@@ -8273,6 +8279,20 @@
         "ServiceParts",
         "Spotlight",
         "UploadsOpenChoice"
+      ]
+    },
+    "/dashboard/[eventId]/memories/download-all": {
+      "files": [
+        "dashboard/[eventId]/memories/download-all/download-all-parts.tsx",
+        "dashboard/[eventId]/memories/download-all/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DownloadAllParts",
+        "InfoTip",
+        "OpenFileLink",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -10484,8 +10504,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/vendors",
-        "/v/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "coupleConfirmReceived",
@@ -12327,6 +12346,23 @@
         "Suspense"
       ]
     },
+    "/dev/shop-back-lab": {
+      "files": [
+        "dev/shop-back-lab/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/dev/shop-back-lab?from=[seg]&plan=[seg]",
+        "/dev/shop-back-lab?plan=[seg]",
+        "/signup"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "Link",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-layout-lab": {
       "files": [
         "dev/shop-layout-lab/page.tsx"
@@ -13031,6 +13067,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13136,6 +13173,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "SignInCard",
         "SignInCardModal",
         "SignInInPlaceState",
@@ -13303,6 +13341,7 @@
         "OnboardingVendorCounts",
         "OwnVenueForm",
         "PCard",
+        "PasswordField",
         "PaxCard",
         "PickCard",
         "PickMenu",
@@ -13369,6 +13408,7 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "PasswordField",
         "PickMenu",
         "ServicePicker",
         "SignInHereLink",
@@ -13906,6 +13946,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13993,6 +14034,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "Sk",
         "SubmitButton",
         "TermsFirst",
@@ -14262,13 +14304,9 @@
       "destinations": [
         "/",
         "/[seg]",
-        "/[seg]?reviewsPage=[seg]",
         "/dashboard",
-        "/explore",
         "/login",
-        "/signup",
-        "/v/[seg]/booth",
-        "/v/[seg]/dates"
+        "/signup"
       ],
       "actions": [
         "joinVendorWaitlist"
@@ -14358,9 +14396,7 @@
         "v/[slug]/booth/booth-showcase-loader.tsx",
         "v/[slug]/booth/page.tsx"
       ],
-      "destinations": [
-        "/v/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "BoothMesh",
@@ -14382,9 +14418,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages/[seg]",
-        "/login",
-        "/v/[seg]",
-        "/v/[seg]/dates"
+        "/login"
       ],
       "actions": [],
       "blocks": [

@@ -1,3 +1,4 @@
+import { shopHrefForEvent } from '@/lib/shop-back';
 import Link from 'next/link';
 import { BadgeCheck } from 'lucide-react';
 import { BackButton } from '@/app/_components/back-button';
@@ -87,7 +88,7 @@ export function ReviewThanks({
 
       <div className="flex flex-wrap gap-3 pt-1">
         {slug ? (
-          <Link href={`/v/${slug}#reviews`} className="button-primary inline-flex">
+          <Link href={shopHrefForEvent(slug, eventId, '#reviews')} className="button-primary inline-flex">
             See it on {shopName}&rsquo;s page
           </Link>
         ) : null}

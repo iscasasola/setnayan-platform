@@ -50,6 +50,7 @@ const MAIN = 'w-full justify-center !min-h-12';
 
 export function CheckADateCalendar({
   shop,
+  shopHref,
   services,
   today,
   to,
@@ -62,6 +63,8 @@ export function CheckADateCalendar({
   initialStep,
 }: {
   shop: { vendorProfileId: string; slug: string; name: string; initials: string; verified: boolean };
+  /** "See the shop" — the shop page again, carrying where the visit came from (lib/shop-back.ts). */
+  shopHref: string;
   services: Service[];
   today: string;
   to: string;
@@ -235,7 +238,7 @@ export function CheckADateCalendar({
           </span>
         </p>
         <div className="mt-4">
-          <ActionButton tone="neutral" icon={Store} label="See the shop" href={`/v/${encodeURIComponent(shop.slug)}`} className={MAIN} data-testid="check-date-shop" />
+          <ActionButton tone="neutral" icon={Store} label="See the shop" href={shopHref} className={MAIN} data-testid="check-date-shop" />
         </div>
       </div>
 
@@ -298,7 +301,7 @@ export function CheckADateCalendar({
               )}
               <div className="mt-3">
                 {services.length === 0 ? (
-                  <ActionButton tone="neutral" icon={Store} label="See the shop" href={`/v/${encodeURIComponent(shop.slug)}`} className={MAIN} />
+                  <ActionButton tone="neutral" icon={Store} label="See the shop" href={shopHref} className={MAIN} />
                 ) : (
                   <ActionButton tone="brand" main icon={ArrowRight} label="Next" onClick={() => setStep('event')} disabled={chosen.length === 0} className={MAIN} data-testid="check-date-next" />
                 )}

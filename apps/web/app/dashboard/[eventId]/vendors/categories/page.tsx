@@ -22,6 +22,7 @@
  * to the shared bundle; the Filter ▾ and Save are one small client file.
  */
 
+import { shopHrefForEvent } from '@/lib/shop-back';
 import { Suspense } from 'react';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -303,7 +304,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
                 {shops.map((r) => (
                   <li key={r.vendorProfileId} className="border-t border-ink/10">
                     <Link
-                      href={r.slug ? `/v/${r.slug}` : '#'}
+                      href={r.slug ? shopHrefForEvent(r.slug, eventId) : '#'}
                       prefetch={false}
                       className="flex min-h-11 items-center gap-3 py-3"
                       data-find-shop={r.vendorProfileId}

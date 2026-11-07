@@ -88,7 +88,6 @@ app/tour/seating/page.tsx "All stops" → /tour	# first run 2026-10-02 · public
 app/tour/vendors/page.tsx "All stops" → /tour	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/u/[userSlug]/c/[chapterId]/page.tsx "Made with Setnayan" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/u/[userSlug]/page.tsx "Made with Setnayan" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/v/[slug]/booth/page.tsx "View s profile →" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Philippines" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Plan with Setnayan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Setnayan supplier" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster

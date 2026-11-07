@@ -10,6 +10,8 @@
  *   ?s=requested    the ask is open — Agree · Turn it down, in place
  *   ?s=agreed       …pressed Agree: the sentence the card says after it
  *   ?s=refused      …pressed Agree and was refused (other couples first)
+ *   ?s=on_hold      …pressed Agree on an ask for a service that is on PLAN hold (owner 2026-11-06, SERVICES
+ *                   LIFE CYCLE): "Upgrade to accept", the door to "Which services stay on"; the ask stays open
  *   ?s=declined     the ask closed: you said no (with your words)
  *   ?s=expired      …you did not answer in 48 hours
  *   ?s=cancelled    …they took it back
@@ -89,9 +91,13 @@ export default async function BookingAskLabPage({
   const s = typeof sp.s === 'string' ? sp.s : 'requested';
 
   const notice =
-    s === 'agreed' ? lockAgreeNotice('ok') : s === 'refused' ? lockAgreeNotice('resolve_others_first', { competing: 2 }) : null;
+    s === 'agreed' ? lockAgreeNotice('ok') : s === 'refused'
+        ? lockAgreeNotice('resolve_others_first', { competing: 2 })
+        : s === 'on_hold'
+          ? lockAgreeNotice('service_on_hold')
+          : null;
   const ended = s === 'declined' || s === 'expired' || s === 'cancelled' ? supplierAskOutcomeOf(ENDED[s], true) : null;
-  const open = s === 'requested' || s === 'refused';
+  const open = s === 'requested' || s === 'refused' || s === 'on_hold';
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6" data-lab-booking-ask={s}>

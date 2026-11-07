@@ -23,6 +23,7 @@
  */
 
 import { BOOKINGS_CLOSED_SUPPLIER_MESSAGE } from './bookings-open';
+import { HOLD_WORDS } from './service-plan-hold';
 
 /** Whether the notice is good news, a refusal, or a nothing-changed. */
 export type LockAnswerTone = 'ok' | 'refused' | 'noop';
@@ -76,7 +77,7 @@ export function lockAgreeFeeHeld(raw: unknown): boolean {
   return raw === LOCK_AGREE_FEE_HELD;
 }
 /** Where the supplier pays — the shipped booking-fee hub (each due bill has its Pay there). */
-const PAY_THE_FEE_HREF = '/vendor-dashboard/booking-fees';
+export const PAY_THE_FEE_HREF = '/vendor-dashboard/booking-fees';
 
 const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
   // The couple is told ONLY when their news is not held back (`ctx.feeHeld`). With a billed, unpaid fee the yes is
@@ -139,6 +140,13 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
   not_verified: () => ({
     tone: 'refused',
     text: 'Setnayan has not approved your shop yet, so a couple cannot book you. Finish your shop verification and this booking can go through.',
+  }),
+  // 🧭 The card this ask names is on a PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE (5)) — said by the app before
+  // the RPC, and by the trigger `a_held_service_takes_no_booking` if anything reaches it anyway.
+  service_on_hold: () => ({
+    tone: 'refused',
+    text: HOLD_WORDS.refusedYes,
+    door: { label: HOLD_WORDS.door, href: '/vendor-dashboard/shop#stay-on' },
   }),
   hall_taken: (ctx) => {
     const taken = ctx.halls?.taken ?? [];

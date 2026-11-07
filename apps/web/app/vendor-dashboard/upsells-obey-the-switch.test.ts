@@ -71,6 +71,10 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // not a feature paywall. Governed by the pipeline-caps switch, not this one.
   'services/actions.ts': 'numeric quotas (services per category, categories, bookings/day, time slots)',
   'services/_components/coverage-panel.tsx': 'numeric quota (coverage areas)',
+  // The SAME numeric quota as services/actions.ts, applied after the first booking and at a downgrade (owner
+  // 2026-11-06 SERVICES LIFE CYCLE · A DOWNGRADE PUTS EXTRA SERVICES ON HOLD): "upgrade or keep one" is the ruling.
+  'services/_components/stay-on-picker.tsx': 'numeric quota (services per category, categories) — which services stay on',
+  'services/stay-on-actions.ts': 'numeric quota (services per category, categories) — which services stay on',
   // Enforced by the DATABASE unconditionally, so the switch cannot lift it:
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.

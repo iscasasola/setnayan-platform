@@ -31,7 +31,7 @@ import { askLine, type SupplierAskOutcome } from '@/lib/booking-ask-words';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { formatLongTimestamp } from '@/lib/format-date';
-import type { LockAnswerNotice } from '@/lib/lock-answer-notice';
+import { PAY_THE_FEE_HREF, type LockAnswerNotice } from '@/lib/lock-answer-notice';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { AskSubmit } from '@/app/_components/ask-submit';
 import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
@@ -159,6 +159,16 @@ export function LockAnswerLine({ notice }: { notice: LockAnswerNotice }) {
       }`}
     >
       {notice.text}
+      {/* A door that is not the fee's Pay (that one is drawn right under, by the bill) — e.g. "Which services stay on"
+          when the asked service is on plan hold (owner 2026-11-06). */}
+      {notice.door && notice.door.href !== PAY_THE_FEE_HREF ? (
+        <>
+          {' '}
+          <a href={notice.door.href} className="font-semibold underline underline-offset-2" data-lock-answer-door="">
+            {notice.door.label}
+          </a>
+        </>
+      ) : null}
     </p>
   );
 }

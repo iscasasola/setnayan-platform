@@ -113,8 +113,10 @@ GRANT SELECT (is_findable) ON public.vendor_profiles TO anon, authenticated;
 -- read of its own row under vendor_profiles_owner / _member_read). Same shape as
 -- self_published_at (20271303245624): authenticated yes, anon never. Who lifted
 -- it stays service-role only.
-GRANT SELECT (find_locked_at, find_lock_reason, find_lock_lifted_at)
-  ON public.vendor_profiles TO authenticated;
+-- One column per GRANT: lint-vendor-profiles-column-grants reads single-column grants.
+GRANT SELECT (find_locked_at) ON public.vendor_profiles TO authenticated;
+GRANT SELECT (find_lock_reason) ON public.vendor_profiles TO authenticated;
+GRANT SELECT (find_lock_lifted_at) ON public.vendor_profiles TO authenticated;
 REVOKE SELECT (find_locked_at, find_lock_reason, find_lock_lifted_at, find_lock_lifted_by)
   ON public.vendor_profiles FROM anon;
 

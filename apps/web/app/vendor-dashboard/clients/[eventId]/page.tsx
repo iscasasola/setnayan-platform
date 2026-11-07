@@ -118,6 +118,7 @@ import {
   vendorWaitlistTheAsk,
 } from './actions';
 import { readDayCheck } from '@/lib/day-check.server';
+import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
@@ -865,15 +866,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // page is a decision being made about money.
   // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
   // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
-  const [feeForecast, dayCheck]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null] = lockRequest?.event_vendor_id
+  // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
+  // to "Pick which stay on" and the card says why, naming the service.
+  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
     ? await Promise.all([
         forecastForBooking(admin, {
           vendorProfileId: profile.vendor_profile_id,
           eventVendorId: lockRequest.event_vendor_id,
         }),
         readDayCheck(supabase, lockRequest.event_vendor_id),
+        heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
       ])
-    : [null, null];
+    : [null, null, null];
+  const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1714,7 +1719,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             them a request they could read and not answer. A decision with a
             seven-day fuse may not be reachable from exactly one screen. Same two
             server actions, no second state machine. */}
-        {lockNotice ? <LockAnswerLine notice={lockNotice} /> : null}
+        {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
+        {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
         {lockRequest ? (
           <LockRequestAnswer
             eventVendorId={lockRequest.event_vendor_id}
@@ -1726,6 +1732,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             declineLock={vendorDeclineLock}
             dayCheck={dayCheck}
             waitlistAsk={vendorWaitlistTheAsk}
+            heldService={heldService}
           />
         ) : askOutcome ? (
           <BookingAskOutcomeLine outcome={askOutcome} />

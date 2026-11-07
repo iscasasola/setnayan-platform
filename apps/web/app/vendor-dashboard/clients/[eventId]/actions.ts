@@ -14,7 +14,7 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
-import { askNamesAHeldService } from '@/lib/service-plan-hold.server';
+import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -1326,7 +1326,7 @@ export async function vendorAgreeToLock(formData: FormData) {
   // 🧭 A SERVICE ON HOLD TAKES NO BOOKING (owner 2026-11-06, SERVICES LIFE CYCLE (5)): the supplier is told
   // "Upgrade to accept", the couple's ask stays open ("waiting for ‹shop› to agree"). The database refuses the flip
   // anyway (`a_held_service_takes_no_booking`); this only lets the answer say why instead of "did not go through".
-  if (await askNamesAHeldService(supabase, eventVendorId)) {
+  if (await heldServiceOfAsk(supabase, eventVendorId)) {
     redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=service_on_hold`);
   }
 

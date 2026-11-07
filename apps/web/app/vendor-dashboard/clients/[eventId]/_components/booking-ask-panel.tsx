@@ -24,14 +24,16 @@
  * Server-rendered; the two actions are props so the dev lab
  * (`/dev/booking-ask-lab`) draws the same panel without a session.
  */
-import { Check, X } from 'lucide-react';
+import { ArrowRight, Check, X } from 'lucide-react';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { askLine, type SupplierAskOutcome } from '@/lib/booking-ask-words';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { formatLongTimestamp } from '@/lib/format-date';
-import { PAY_THE_FEE_HREF, type LockAnswerNotice } from '@/lib/lock-answer-notice';
+import type { LockAnswerNotice } from '@/lib/lock-answer-notice';
+import { ActionButton } from '@/components/action-button';
+import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { AskSubmit } from '@/app/_components/ask-submit';
 import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
@@ -66,6 +68,7 @@ export function LockRequestAnswer({
   declineLock,
   dayCheck = null,
   waitlistAsk,
+  heldService = null,
   now = new Date(),
 }: {
   eventVendorId: string;
@@ -89,6 +92,12 @@ export function LockRequestAnswer({
   dayCheck?: (DayCheckRead & { halls?: { taken: string[]; free: string[] } | null }) | null;
   /** `vendorWaitlistTheAsk` — "Waiting list" on a full day; answers in place (`waitlist-form.tsx`). */
   waitlistAsk?: (prev: { status: string } | null, formData: FormData) => Promise<{ status: string }>;
+  /**
+   * 🧭 The asked-for service the PLAN holds (owner 2026-11-06, SERVICES LIFE CYCLE), by name — `heldServiceOfAsk`.
+   * Set → Agree is not offered (the database would refuse it: `a_held_service_takes_no_booking`); the forward pill
+   * "Pick which stay on" takes its place. Null → Agree as always.
+   */
+  heldService?: string | null;
   /** The render instant (the lab pins it). */
   now?: Date;
 }) {
@@ -120,6 +129,19 @@ export function LockRequestAnswer({
       {/* The day under the ask — ABOVE the button, like the fee: a full day is known before the tap, never after. */}
       <DayCheckLine read={dayCheck} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {heldService ? (
+          // On plan hold: a yes can only be refused again — the one door is the pick (My Shop › Which services stay on).
+          <ActionButton
+            tone="brand"
+            main
+            icon={<ArrowRight {...ico} />}
+            label={HOLD_WORDS.pickPill}
+            href="/vendor-dashboard/shop#stay-on"
+            className="!h-11 !min-h-11"
+            data-testid="held-ask-pick"
+          />
+        ) : (
+          <>
         {dayFull && waitlistAsk ? (
           // A FULL day (the verdict the yes itself would refuse with): Agree is not offered — "Waiting list" is.
           <WaitlistForm eventVendorId={eventVendorId} returnTo={returnTo} action={waitlistAsk} />
@@ -129,6 +151,8 @@ export function LockRequestAnswer({
             <input type="hidden" name="return_to" value={returnTo} />
             <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
           </form>
+        )}
+          </>
         )}
       </div>
       {/* A no is a real answer, but not one mis-tap away from a yes. */}
@@ -159,16 +183,6 @@ export function LockAnswerLine({ notice }: { notice: LockAnswerNotice }) {
       }`}
     >
       {notice.text}
-      {/* A door that is not the fee's Pay (that one is drawn right under, by the bill) — e.g. "Which services stay on"
-          when the asked service is on plan hold (owner 2026-11-06). */}
-      {notice.door && notice.door.href !== PAY_THE_FEE_HREF ? (
-        <>
-          {' '}
-          <a href={notice.door.href} className="font-semibold underline underline-offset-2" data-lock-answer-door="">
-            {notice.door.label}
-          </a>
-        </>
-      ) : null}
     </p>
   );
 }

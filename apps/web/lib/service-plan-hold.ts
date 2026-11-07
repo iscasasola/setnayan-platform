@@ -216,6 +216,9 @@ export const HOLD_WORDS = {
     `${TIER_LABEL[plan]} starts${when ? ` on ${when}` : ' when your plan ends'} and holds fewer services. Pick which stay on.`,
   /** The screen, before the first booking. */
   beforeFirstBooking: 'Every service stays on until your first booking on Setnayan is done.',
-  /** The supplier's refused yes. */
-  refusedYes: 'Upgrade to accept this booking — the service they asked for is on hold on your plan. The couple sees it as waiting on you.',
+  /** The supplier's refused yes — names the service when it is known. */
+  refusedYes: (service?: string | null) =>
+    `Upgrade to accept this booking — ${service?.trim() ? service.trim() : 'the service they asked for'} is on hold on your plan. The couple sees it as waiting on you.`,
+  /** The forward pill that takes the place of Agree while the asked-for service is on hold. */
+  pickPill: 'Pick which stay on',
 } as const;

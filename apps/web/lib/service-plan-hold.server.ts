@@ -177,24 +177,27 @@ export async function readPlanHolds(
   }
 }
 
-/** Is any card this booking ask names on hold? The yes is refused by the database either way; this lets the action say why. */
-export async function askNamesAHeldService(
+/**
+ * The name of a card this booking ask names that the PLAN holds — null when none is (or the read failed). The yes is
+ * refused by the database either way; this lets the card offer the pick instead of Agree, and the sentence name it.
+ */
+export async function heldServiceOfAsk(
   supabase: SupabaseClient,
   eventVendorId: string,
-): Promise<boolean> {
+): Promise<string | null> {
   try {
     const { data: ev, error } = await supabase
       .from('event_vendors')
       .select('marketplace_vendor_id,service_id,requested_service_ids')
       .eq('vendor_id', eventVendorId)
       .maybeSingle();
-    if (error || !ev) return false;
+    if (error || !ev) return null;
     const row = ev as { marketplace_vendor_id: string | null; service_id: string | null; requested_service_ids: string[] | null };
     const ids = [row.service_id, ...(row.requested_service_ids ?? [])].filter((x): x is string => typeof x === 'string');
-    if (!row.marketplace_vendor_id || ids.length === 0) return false;
+    if (!row.marketplace_vendor_id || ids.length === 0) return null;
     const { data: held, error: heldErr } = await supabase
       .from('vendor_services')
-      .select('vendor_service_id')
+      .select('vendor_service_id,title,category')
       .eq('vendor_profile_id', row.marketplace_vendor_id)
       .eq('plan_hold', 'held')
       .in('vendor_service_id', ids)
@@ -202,10 +205,12 @@ export async function askNamesAHeldService(
     if (heldErr) {
       // The database still refuses the yes (`a_held_service_takes_no_booking`); only the sentence falls back.
       console.error('[service-plan-hold] held-service check unreadable', eventVendorId, heldErr.message);
-      return false;
+      return null;
     }
-    return (held ?? []).length > 0;
+    const first = (held ?? [])[0] as { title: string | null; category: string | null } | undefined;
+    if (!first) return null;
+    return first.title?.trim() || (first.category ? displayServiceLabel(first.category) : 'the service they asked for');
   } catch {
-    return false;
+    return null;
   }
 }

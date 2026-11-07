@@ -98,7 +98,7 @@ describe('below Solo the 3D Booth becomes Papic Challenges', () => {
     assert.deepEqual(startableChoices(['3d_booth'], 'verified'), ['photo_challenge']);
     assert.deepEqual(startableChoices(['3d_booth'], null), ['photo_challenge'], 'an unread plan never offers the booth');
     assert.deepEqual(startableChoices(['3d_booth'], 'solo'), ['3d_booth']);
-    assert.deepEqual(startableChoices(['3d_booth'], 'custom'), ['3d_booth']);
+    assert.deepEqual(startableChoices(['3d_booth'], 'enterprise'), ['3d_booth']);
   });
   it('an award’s choice hides the booth below Solo, without a duplicate', () => {
     assert.deepEqual(startableChoices(['photo_challenge', '3d_booth', 'ai_chatbot'], 'verified'), ['photo_challenge', 'ai_chatbot']);

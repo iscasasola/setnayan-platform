@@ -6,7 +6,7 @@ import { COVER_NOT_OWNED, coverOwnershipFrom, type CoverOwnership } from '@/lib/
 import { ownershipCanChangeTheCover } from '@/lib/hub-look-given';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { LIVE_SHOP_GATE } from '@/lib/live-shops';
+import { LIVE_SHOP_GATE, REAL_SHOP_GATE } from '@/lib/live-shops';
 import { ReadRefused } from '@/lib/remembered-read-core';
 import { HOME_SHELF_TAGS } from '@/lib/home-shelf-tags';
 import type { DiscoverEventRow } from '@/lib/discover-events-core';
@@ -368,13 +368,24 @@ async function readPublicPeople(limit: number): Promise<PublicPersonRow[]> {
 // ─── The front door: live shops ─────────────────────────────────────────────
 
 /** The columns both shop readers need, named once. */
+// 🧪 `is_demo` — a demo shop is on the shelf since 2026-11-06 and its card wears "(DEMO ONLY)". Read with the service
+// role (below): the column is not anon-readable (migration 20271014385411) and stays that way.
 const SHOP_COLUMNS =
-  'business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url';
+  'business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url, is_demo';
 
 /** The same list for the front door's shop SEARCH — a function for the reason `coverColumns` is one. */
 export const shopColumns = (): typeof SHOP_COLUMNS => SHOP_COLUMNS;
 
-export type LiveShopRows = { rows: Record<string, unknown>[]; count: number | null };
+export type LiveShopRows = {
+  rows: Record<string, unknown>[];
+  /** Every shop the public may see — demo shops included since 2026-11-06. Decides whether the shelf is empty. */
+  count: number | null;
+  /**
+   * 🔢 The REAL shops only (`REAL_SHOP_GATE`) — "demo numbers never count in real totals" (owner, DECISION_LOG
+   * 2026-11-06). Decides the shelf's heading ("Trending shops" / "The first shops"); null = that read failed.
+   */
+  realCount: number | null;
+};
 /** What a refused shop read still knows: either half may have answered. */
 export type LiveShopRefusal = LiveShopRows & { countError: unknown; rowsError: unknown };
 
@@ -391,7 +402,7 @@ export type LiveShopRefusal = LiveShopRows & { countError: unknown; rowsError: u
  */
 async function readLiveShopRows(limit: number): Promise<LiveShopRows> {
   const admin = createAdminClient();
-  const [counted, listed] = await Promise.all([
+  const [counted, listed, realCounted] = await Promise.all([
     admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).match(LIVE_SHOP_GATE),
     admin
       .from('vendor_profiles')
@@ -399,18 +410,22 @@ async function readLiveShopRows(limit: number): Promise<LiveShopRows> {
       .match(LIVE_SHOP_GATE)
       .order('created_at', { ascending: false })
       .limit(limit),
+    admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).match(REAL_SHOP_GATE),
   ]);
   const count = counted.error ? null : (counted.count ?? null);
+  // A failed REAL count is not a refusal of the shelf: the heading floors it to "Shops", never to "Trending".
+  const realCount = realCounted.error ? null : (realCounted.count ?? null);
   const rows = listed.error ? [] : ((listed.data ?? []) as unknown as Record<string, unknown>[]);
   if (counted.error || listed.error || count === null) {
     throw new ReadRefused<LiveShopRefusal>('liveShops', counted.error ?? listed.error, {
       rows,
       count,
+      realCount,
       countError: counted.error ?? null,
       rowsError: listed.error ?? null,
     });
   }
-  return { rows, count };
+  return { rows, count, realCount };
 }
 
 // ─── The front door: featured storyteller chapters ──────────────────────────

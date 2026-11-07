@@ -2,7 +2,7 @@ import { sampleShowcaseNote } from '@/lib/a-sample-says-what-it-is';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import { SampleMarker } from '@/app/_components/sample-marker';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { EditorialContent } from '@/app/[slug]/_components/editorial/editorial-content';
 import { SAMPLE_EDITORIAL_IDS } from '@/app/[slug]/_components/editorial/data';
 import {
@@ -285,8 +285,9 @@ export default async function WeddingShowcasePage({ params }: Props) {
             Stories
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            {/* The ONE sample marker (app/_components/sample-marker.tsx) — the demo shops wear this same chip. */}
-            {wedding.isSample ? <SampleMarker>Sample showcase</SampleMarker> : null}
+            {/* 🧪 The ONE demo marker (app/_components/sample-marker.tsx) — "(DEMO ONLY)", the owner's words for every
+                demo event and demo shop (DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"); was "Sample showcase". */}
+            {wedding.isSample ? <DemoOnlyMarker kind="event" align="end" /> : null}
           </div>
         </div>
       </div>

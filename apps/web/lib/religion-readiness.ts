@@ -86,6 +86,7 @@ export async function fetchReligionReadiness(
           .from('vendor_profiles')
           .select('vendor_profile_id', { count: 'exact', head: true })
           .eq('public_visibility', 'verified')
+          .eq('is_demo', false) // 🧪 a demo shop never makes a rite "ready" (owner 2026-11-06: demo never counts)
           .contains('compatible_ceremony_types', [ceremonyType]),
         supabase
           .from('venue_directory')

@@ -7,7 +7,7 @@
  *   • Basic indexability .............. FREE for every tier (also feeds our own SEO)
  *   • Enhanced SEO + GEO .............. Solo+
  *   • AEO + priority sitemap .......... Pro+
- *   • Top priority band ............... Enterprise · Custom ("Priority + AEO")
+ *   • Top priority band ............... Ultra ("Priority + AEO")
  *
  * PURE BY CONSTRUCTION: no env reads, no clock, no I/O. The activation flag is
  * passed IN as `gateOn` (resolved by the caller from

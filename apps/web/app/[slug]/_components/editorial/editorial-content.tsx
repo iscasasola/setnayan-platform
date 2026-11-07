@@ -1485,9 +1485,9 @@ function LeadArticle({
  *  tier badge OR a #1-match label. Tagged vendors show by default; the rest
  *  (plain credits) collapse under a native "Show more" disclosure. */
 function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
-  // Pro-or-higher (Custom runs as Enterprise) get the featured editorial
+  // Pro-or-higher get the featured editorial
   // treatment; Solo/Verified render as plain credits.
-  return v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' || v.isFirstPick;
+  return v.tier === 'pro' || v.tier === 'enterprise' || v.isFirstPick;
 }
 
 function VendorRow({
@@ -1502,7 +1502,7 @@ function VendorRow({
   // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
   // a link to their marketplace profile; others render as a plain credit.
   // (Free vendors are already filtered out in data.ts.)
-  const featured = (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
+  const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
   // One href, derived once: null when this supplier has no marketplace profile,
   // and the link is then not rendered at all rather than pointing nowhere.
   const tapHref = storyTapHref(v.slug, eventSlug);
@@ -1551,7 +1551,7 @@ function VendorRow({
           #1 Match
         </span>
       ) : null}
-      {v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' ? (
+      {v.tier === 'pro' || v.tier === 'enterprise' ? (
         <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta-700">
           {v.tier}
         </span>

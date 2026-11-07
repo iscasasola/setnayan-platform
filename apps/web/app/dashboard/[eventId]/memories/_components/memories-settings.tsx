@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { HardDrive } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -76,6 +77,21 @@ export async function MemoriesSettings({
           loginEmail={loginEmail}
         />
       </div>
+      {/* 📦 DOWNLOAD ALL — beside the Drive copy, the photo rule's other way to keep originals (owner 2026-11-03: "Copy
+          to Google Drive (free) or Download all"): zips by chapter in ~2 GB parts, on their own page. Hosts only — the
+          zip routes check the couple membership. */}
+      <section className="flex items-center justify-between gap-3 py-3" data-memories-setting="download-all">
+        <span className="min-w-0">
+          <span className="block text-[15px] font-semibold text-ink">Download all</span>
+          <span className="block text-[12.5px] text-ink/60">Zips by chapter, with each size shown first</span>
+        </span>
+        <Link
+          href={`/dashboard/${eventId}/memories/download-all`}
+          className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-ink/15 px-4 text-[14px] font-medium text-ink"
+        >
+          Open
+        </Link>
+      </section>
       {appleIap ? null : (
         <section className="flex items-center justify-between gap-3 py-3" data-memories-setting="keep-full-res">
           <span className="min-w-0">

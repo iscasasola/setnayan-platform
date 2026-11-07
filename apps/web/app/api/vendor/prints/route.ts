@@ -8,7 +8,8 @@ import { siteOrigin } from '@/lib/site-origin';
 import { renderPrint } from '@/lib/supplier-prints-svg';
 import { printShopFrom, printQr } from '@/lib/supplier-prints-shop';
 import { readPrintMember, readPrintShopExtras } from '@/lib/supplier-prints.server';
-import { DEFAULT_PRINT_DESIGN, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
+import { DEFAULT_PRINT_DESIGN, PRINT_ALL, PRINT_PIECES, printAllFilename, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
+import { zipFiles } from '@/lib/supplier-prints-zip';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,37 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!slug) return NextResponse.json({ error: 'Name your shop first — your prints are built from its web address.' }, { status: 409 });
 
   const sp = request.nextUrl.searchParams;
+  // 🗂 SAVE ALL (the prints prototype's head button): the seven print-ready files in one zip — each drawn exactly as its
+  // own Save draws it (same look, code and `hide`), so the zip and the single saves can never differ.
+  if (sp.get('piece') === PRINT_ALL) {
+    const design = printDesign(sp.get('design')) ?? printDesign(DEFAULT_PRINT_DESIGN)!;
+    const admin = createAdminClient();
+    const own = profile as { vendor_profile_id: string; tagline?: string | null; logo_url?: string | null; portfolio_r2_keys?: string[] | null; location_city?: string | null; in_business_since_year?: number | null };
+    const origin = siteOrigin();
+    const [facts, kindLabel, extras] = await Promise.all([
+      readShopBadgeFacts(admin, profile.vendor_profile_id),
+      cardKindLabeller(),
+      Promise.all(PRINT_PIECES.map((p) => readPrintShopExtras(admin, own, { piece: p.id, mode: 'print' }))),
+    ]);
+    const base = printShopFrom({
+      name: (profile as { business_name?: string | null }).business_name ?? '',
+      slug,
+      services: ((profile as { services?: string[] | null }).services ?? []) as string[],
+      tagline: (profile as { tagline?: string | null }).tagline ?? null,
+      facts,
+      kindLabel,
+      origin,
+    });
+    const qr = printQr(printQrMode(sp.get('qr')), origin, slug);
+    const hide = printHidden(sp.get('hide'));
+    const zip = await zipFiles(
+      PRINT_PIECES.map((p, i) => ({ name: printFilename(p, design), body: renderPrint({ piece: p, design, shop: { ...base, ...extras[i]! }, qr, for: 'print', hide }) })),
+    );
+    return new NextResponse(new Uint8Array(zip), {
+      status: 200,
+      headers: { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="${printAllFilename(design)}"`, 'cache-control': 'private, no-store' },
+    });
+  }
   const piece = printPiece(sp.get('piece'));
   if (!piece) return NextResponse.json({ error: 'That print isn’t one of the seven.' }, { status: 400 });
   const design = printDesign(sp.get('design')) ?? printDesign(DEFAULT_PRINT_DESIGN)!;

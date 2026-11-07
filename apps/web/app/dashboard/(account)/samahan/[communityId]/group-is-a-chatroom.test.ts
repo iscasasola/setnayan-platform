@@ -86,6 +86,7 @@ function fixture(memberType: 'couple' | 'guest' | null) {
   return renderToStaticMarkup(
     React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, React.createElement(GroupHome, {
       base: '/dashboard/samahan/c1',
+      backHref: '/dashboard/people?view=samahan',
       communityId: 'c1',
       name: 'Barkada ni Ice',
       photoDisplayUrl: null,

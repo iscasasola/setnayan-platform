@@ -2,7 +2,7 @@
  * vendor-addon-tier-pricing.ts — WHICH CATALOGUE ROW a supplier's add-on is priced from, by plan.
  *
  * The 2026-07-25 model (corpus `Vendor_Monetization_Model_LOCKED_2026-07-25.md`) priced add-ons in TWO plan bands —
- * Free / Verified / Solo pay the `entry` price, Pro / Ultra (and Custom) the cheaper `growth` price. Until 2026-11-04
+ * Free / Verified / Solo pay the `entry` price, Pro / Ultra the cheaper `growth` price. Until 2026-11-04
  * the two figures were TYPED here, in a matrix that overrode the catalogue whenever
  * `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` was on — so the price a supplier was charged could differ from the price an
  * admin saw and edited.

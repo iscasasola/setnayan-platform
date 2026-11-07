@@ -251,6 +251,9 @@ export type WeddingTile =
   | 'grooming'
   | 'wellness_fitness'
   | 'jewelleries_accessories'
+  // Ceremony essentials (2026-11-07) — the arrhae, cord, veil, candles, Bible,
+  // pillows and rosary of a Filipino church wedding. DB: migration 20271321431508.
+  | 'ceremony_essentials'
   // BOOTHS
   | 'mobile_bar'
   | 'coffee_espresso'
@@ -447,6 +450,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   grooming: 'look',
   wellness_fitness: 'look',
   jewelleries_accessories: 'look',
+  ceremony_essentials: 'look',
   mobile_bar: 'booths',
   coffee_espresso: 'booths',
   mocktail: 'booths',
@@ -539,6 +543,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'grooming',
   'wellness_fitness',
   'jewelleries_accessories',
+  'ceremony_essentials',
   // BOOTHS
   'mobile_bar',
   'coffee_espresso',
@@ -635,6 +640,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   grooming: 'Grooming',
   wellness_fitness: 'Wellness & Fitness',
   jewelleries_accessories: 'Jewelleries & Accessories',
+  ceremony_essentials: 'Ceremony essentials',
   mobile_bar: 'Mobile Bar',
   coffee_espresso: 'Coffee / Espresso',
   mocktail: 'Mocktail',
@@ -719,6 +725,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   grooming: 'grooming',
   wellness_fitness: 'wellness-fitness',
   jewelleries_accessories: 'jewelleries-accessories',
+  ceremony_essentials: 'ceremony-essentials',
   mobile_bar: 'mobile-bar',
   coffee_espresso: 'coffee-espresso',
   mocktail: 'mocktail',
@@ -1228,6 +1235,16 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   bridal_headpiece:                  { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
   flower_girl_tiara:                 { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
   sponsor_corsage:                   { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2', ph: true },
+  // Ceremony essentials (owner 2026-11-07). The fallback copy of migration 20271321431508; the
+  // database is the source. faith left unset on purpose: it is an exclusive filter.
+  ceremony_essentials_set:           { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  arrhae_arras:                      { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  unity_cord:                        { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  unity_veil:                        { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  ceremony_candles:                  { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  wedding_bible:                     { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  ring_coin_bearer_pillow:           { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
+  wedding_rosary:                    { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
 
   // ════════════════════════════════════════════════════════════════════
   // BOOTHS — standalone hired experiences (food carts, photo booths,
@@ -1257,10 +1274,14 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   photo_booth:                       { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base' },
   gif_booth:                         { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   polaroid_booth:                    { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
+  // The photoman — roving, shoots guests at their tables, prints on the spot (owner 2026-11-07).
+  photoman:                          { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   booth_360:                         { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   selfie_magic_mirror:               { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   setnayan_patiktok:                 { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true },
-  pabati:                            { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true },
+  // Pabati was retired into Papic (2026-08-21) — "pabati is not a service" (owner 2026-11-07). Hidden,
+  // not deleted: a shop's services[] still holds the key. DB: migration 20271321431508.
+  pabati:                            { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true, marketplaceHidden: true },
   arcade_retro_games:                { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
   vr_ar_station:                     { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
   // Wellness / beauty booths

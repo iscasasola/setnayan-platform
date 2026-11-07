@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1757
-# tables: 456
-# columns: 5620
-# notnull: 3396
+# ledger: 1758
+# tables: 455
+# columns: 5610
+# notnull: 3390
 [ledger]
 20260512000000
 20260513000000
@@ -1758,6 +1758,7 @@
 20271309260178
 20271309403755
 20271309527923
+20271310256381
 20271311598756
 20271311895322
 20271313372071
@@ -6277,16 +6278,6 @@ vendor_crew_passes.pass_id
 vendor_crew_passes.requested_at
 vendor_crew_passes.status
 vendor_crew_passes.vendor_profile_id
-vendor_custom_plans.composition
-vendor_custom_plans.created_at
-vendor_custom_plans.created_by
-vendor_custom_plans.custom_plan_id
-vendor_custom_plans.discount_type
-vendor_custom_plans.discount_value
-vendor_custom_plans.quoted_28d_php
-vendor_custom_plans.status
-vendor_custom_plans.updated_at
-vendor_custom_plans.vendor_profile_id
 vendor_date_waitlist.accepted_at
 vendor_date_waitlist.created_at
 vendor_date_waitlist.event_id
@@ -10109,12 +10100,6 @@ vendor_crew_passes.pass_id
 vendor_crew_passes.requested_at
 vendor_crew_passes.status
 vendor_crew_passes.vendor_profile_id
-vendor_custom_plans.composition
-vendor_custom_plans.created_at
-vendor_custom_plans.custom_plan_id
-vendor_custom_plans.status
-vendor_custom_plans.updated_at
-vendor_custom_plans.vendor_profile_id
 vendor_date_waitlist.created_at
 vendor_date_waitlist.requested_date
 vendor_date_waitlist.status

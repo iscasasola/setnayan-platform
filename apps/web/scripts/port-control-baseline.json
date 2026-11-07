@@ -207,6 +207,7 @@
         "CompareShortlistBanner",
         "ContextualPillOption",
         "CtaLine",
+        "DemoOnlyMarker",
         "EmptyState",
         "EventTypeNotifyForm",
         "EventTypeSearchOption",
@@ -240,7 +241,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
-        "SampleShopMarker",
+        "SampleMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -272,6 +273,7 @@
       "actions": [],
       "blocks": [
         "CompareRowEl",
+        "DemoOnlyMarker",
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
@@ -1267,6 +1269,7 @@
         "DayOfAnnouncement",
         "DayOfBanner",
         "DayOfFaceEnroll",
+        "DemoOnlyMarker",
         "Detail",
         "DetailsBigDate",
         "DetailsCard",
@@ -3571,6 +3574,7 @@
         "MayaCard",
         "OAuthCard",
         "PageMasthead",
+        "PasswordField",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -4237,6 +4241,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -5565,6 +5570,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -8250,7 +8256,9 @@
         "dashboard/[eventId]/memories/page.tsx",
         "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/memories/download-all"
+      ],
       "actions": [],
       "blocks": [
         "AddToLibrary",
@@ -8260,6 +8268,7 @@
         "InfoTip",
         "InlineCheckoutDrawer",
         "LifeFlashCard",
+        "Link",
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
@@ -8273,6 +8282,20 @@
         "ServiceParts",
         "Spotlight",
         "UploadsOpenChoice"
+      ]
+    },
+    "/dashboard/[eventId]/memories/download-all": {
+      "files": [
+        "dashboard/[eventId]/memories/download-all/download-all-parts.tsx",
+        "dashboard/[eventId]/memories/download-all/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DownloadAllParts",
+        "InfoTip",
+        "OpenFileLink",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -12359,14 +12382,18 @@
       ],
       "destinations": [
         "/",
+        "/[seg]",
         "/v/sampaguita-table/dates"
       ],
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "DemoOnlyMarker",
+        "FrontDoorFeed",
         "LabCard",
+        "LabEvent",
+        "LabShelf",
         "Link",
-        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
@@ -13042,6 +13069,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13147,6 +13175,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "SignInCard",
         "SignInCardModal",
         "SignInInPlaceState",
@@ -13314,6 +13343,7 @@
         "OnboardingVendorCounts",
         "OwnVenueForm",
         "PCard",
+        "PasswordField",
         "PaxCard",
         "PickCard",
         "PickMenu",
@@ -13385,6 +13415,7 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "PasswordField",
         "PhoneField",
         "PickMenu",
         "ServicePicker",
@@ -13896,10 +13927,10 @@
       ],
       "actions": [],
       "blocks": [
+        "DemoOnlyMarker",
         "EditorialContent",
         "Link",
-        "SampleEditorial",
-        "SampleMarker"
+        "SampleEditorial"
       ]
     },
     "/receipts/[receiptId]": {
@@ -13946,6 +13977,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -14033,6 +14065,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "Sk",
         "SubmitButton",
         "TermsFirst",
@@ -14322,6 +14355,7 @@
         "CardRecordSection",
         "CheckADateLink",
         "ComingSoonBanner",
+        "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
@@ -14353,7 +14387,6 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
-        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -14432,6 +14465,7 @@
         "CalendarGrid",
         "CheckADateCalendar",
         "ChosenRow",
+        "DemoOnlyMarker",
         "FormRows",
         "Metadata",
         "Sheet",
@@ -17021,6 +17055,7 @@
         "Badge",
         "ColourPickerSheet",
         "DatesRow",
+        "DemoOnlyMarker",
         "DomainActionResult",
         "DomainManager",
         "ExistingReplySection",

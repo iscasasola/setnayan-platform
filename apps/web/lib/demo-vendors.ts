@@ -42,3 +42,25 @@ export async function fetchDemoVendorIds(
     return [];
   }
 }
+
+/**
+ * 🔒 THE FAIL-CLOSED READ. Same ids as {@link fetchDemoVendorIds}, but a failed read is `null` — never `[]`.
+ *
+ * Since 2026-11-06 demo shops are listed and verified beside real ones (DECISION_LOG "DEMO SHOPS + DEMO EVENTS"), so
+ * an empty list is no longer harmless: a supplier search inside a REAL event that excluded "no ids" after a refused
+ * read would hand a real couple every demo shop. A caller that cannot tell "no demo shops" from "could not look" must
+ * say it could not load (`lib/demo-vendor-exclusion.ts`, `lib/wizard-recommendations.ts`).
+ */
+export async function readDemoVendorIds(admin: SupabaseClient): Promise<string[] | null> {
+  try {
+    const { data, error } = await admin.from('vendor_profiles').select('vendor_profile_id').eq('is_demo', true);
+    if (error) {
+      console.error('[supabase-error] lib/demo-vendors.ts · from:vendor_profiles.select(is_demo)', error);
+      return null;
+    }
+    return (data ?? []).map((row) => row.vendor_profile_id as string);
+  } catch (err) {
+    console.error('[supabase-error] lib/demo-vendors.ts · from:vendor_profiles.select(is_demo) threw', err);
+    return null;
+  }
+}

@@ -96,6 +96,13 @@ export const FACE_RESCAN_GAP_MS = 5 * 60 * 1000;
 export const PAPIC_UPLOAD_SWEEP_GAP_MS = 60 * 60 * 1000;
 
 /**
+ * Live Watch venue-check test uploads (lib/venue-check-sweep.ts). A finished or cancelled check deletes its
+ * own upload at once; this hourly sweep removes the ones whose phone left mid-run. Fired from admin traffic
+ * AND from every check that starts, so it does not wait on the admin console.
+ */
+export const VENUE_PROBE_SWEEP_GAP_MS = 60 * 60 * 1000;
+
+/**
  * A supplier's event photo goes on its page once its 7-day guest notice has passed (owner 2026-10-03, DECISION_LOG "A
  * SUPPLIER'S OWN PAPIC PHOTOS GO ON ITS PORTFOLIO AUTOMATICALLY AFTER A 7-DAY GUEST NOTICE"). Hourly: going up late is
  * the safe direction (the photo is more private for longer, never less), and when nothing is due the body is one
@@ -395,6 +402,16 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: PAPIC_UPLOAD_SWEEP_GAP_MS,
     what: 'Removal of Papic uploads that were never recorded',
+    reportsCount: true,
+  },
+  {
+    // 2026-11-05 — the Live Watch venue connection check PUTs a test upload to
+    // storage; a check whose phone left mid-run never deletes its own. Storage is
+    // read, not a table, so nothing can be missed (lib/venue-check-sweep.ts).
+    key: 'venue-probe-sweep',
+    kind: 'operational',
+    gapMs: VENUE_PROBE_SWEEP_GAP_MS,
+    what: 'Removal of venue-check test uploads left behind by a check that never finished',
     reportsCount: true,
   },
   {

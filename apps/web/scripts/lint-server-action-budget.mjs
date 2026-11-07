@@ -66,7 +66,14 @@ import { fileURLToPath } from 'node:url';
 // seat's `buyExtraSeat` is seat-only and keeps its team-page contract), and the only unimported exports left are the
 // two kept on purpose above. No fresh `vercel build` count for this +1 — the SUM is gated by
 // check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1230;
+// 1228 → 1228 (2026-11-05, Live Watch venue connection check, merged after the card-moderation +1; the measured total
+// after both is 1228, so the ceiling stays tight): ONE dispatcher (`studio/panood/setup/venue-check/actions.ts`,
+// `venueCheck` — start · finish · discard) instead of the three exports it would have been; no unimported export was
+// left to drop (the two kept on purpose above). No fresh `vercel build` count for this +1 — the SUM is gated by
+// check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// TRAIN 2B (2026-11-08): the venue check's +1 landed on a tree at 1230 (main); CEILING = the count measured on the merged
+// train tree (never the sum of the arrows).
+export const CEILING = 1229;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

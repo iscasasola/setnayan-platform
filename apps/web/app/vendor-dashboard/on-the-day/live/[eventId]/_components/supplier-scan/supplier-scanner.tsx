@@ -88,7 +88,7 @@ export function SupplierClaimScanner({
       try {
         const reply = await supplierScan({ op: 'claim', eventId, coverageId: service.coverageId, raw, via });
         const a: ScanAnswer = reply.op === 'claim' ? reply.result : { outcome: 'refused', message: 'Something stopped the scan. Try again.' };
-        setAnswer(a.outcome === 'already' ? { ...a, mode: service.mode } : a);
+        setAnswer(a.outcome === 'already' || a.outcome === 'added' ? { ...a, mode: service.mode } : a);
         // The count moves with the answer — a save never resets the screen.
         setTallies((all) => {
           const t = all[service.coverageId];
@@ -166,6 +166,7 @@ export function SupplierClaimScanner({
           on the number tells the guest it is waiting, and the second scan hands it over. In Unlimited, every scan
           counts with a new number. In Group session, tap New shot, scan everyone in the photo — they share one
           number — then Done with the prints; Ready tells each of them, and each pickup scan counts “3 of 5 claimed”.
+          Roaming is the same with no station: New shot, scan the guests in frame, then take the photo.
           You see the number and the guest’s first name. The mode is set once per service, under Shop › Services.
         </Explain>
       </div>
@@ -240,6 +241,7 @@ export function SupplierClaimScanner({
       {/* 📸 GROUP SESSION — New shot · scan everyone in it · prints –/+ · Done (frames C · C′). */}
       {isSessionMode(service.mode) && tally ? (
         <ShotPanel
+          roaming={service.mode === 'roaming'}
           eventId={eventId}
           coverageId={service.coverageId}
           open={tally.open}

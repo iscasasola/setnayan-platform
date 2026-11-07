@@ -3870,6 +3870,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'supplier_scan_claims', column: 'session_id', references: 'supplier_scan_sessions' },
       { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_state_check', mentions: 'state' },
       { kind: 'column', table: 'supplier_scan_sessions', column: 'prints' },
+      // Roaming (slice 4) is the same shot with no station — one CHECK names both.
+      { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_mode_check', mentions: 'mode' },
     ],
     chain: 22,
     pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],

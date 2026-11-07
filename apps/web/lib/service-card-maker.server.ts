@@ -16,7 +16,7 @@ import {
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { planHasBranches } from '@/lib/vendor-tier-caps';
-import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { bookingsPerDateHelp } from '@/lib/card-bookings-per-date';
 import { parentsOfKind, standingForCategory } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind, type LeafIndex } from '@/lib/service-card-kind';
@@ -119,7 +119,7 @@ export async function loadMakerContext(
 
   const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null } | null;
   // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06), the same read as the save's.
-  const baseCaps = await fetchEffectiveCaps(supabase, vendorProfileId, tierRow?.tier_state);
+  const baseCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tierRow?.tier_state);
   const bookingsPerDate = {
     cap: baseCaps.bookingsPerDatePerService,
     help: bookingsPerDateHelp(tierRow?.tier_state, baseCaps.bookingsPerDatePerService),

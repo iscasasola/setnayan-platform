@@ -30,7 +30,6 @@ import {
 import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from './booking-fee-lock';
 import { BRANCH_SERVICE_KEY_PREFIX } from './vendor-branches';
 import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
-import { CUSTOM_PLAN_SERVICE_KEY_PREFIX } from './vendor-custom-catalog';
 import { COUNT_ADDON_SERVICE_KEY_PREFIXES } from './vendor-ultra-addons';
 
 const CHECKOUT = join(
@@ -45,12 +44,11 @@ const CHECKOUT = join(
 
 /* ── the list itself ───────────────────────────────────────────────────────── */
 
-test('every vendor-surface family is covered — the four originals and the four Ultra add-ons (2026-11-06)', () => {
+test('every vendor-surface family is covered — the three left after Custom retired, and the four Ultra add-ons (2026-11-06)', () => {
   for (const prefix of [
     BOOKING_FEE_LOCK_SERVICE_PREFIX,
     BRANCH_SERVICE_KEY_PREFIX,
     SEAT_SERVICE_KEY_PREFIX,
-    CUSTOM_PLAN_SERVICE_KEY_PREFIX,
     ...COUNT_ADDON_SERVICE_KEY_PREFIXES,
   ]) {
     assert.ok(
@@ -58,7 +56,7 @@ test('every vendor-surface family is covered — the four originals and the four
       `${prefix} dropped out of the guard list`,
     );
   }
-  assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 4 + COUNT_ADDON_SERVICE_KEY_PREFIXES.length);
+  assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 3 + COUNT_ADDON_SERVICE_KEY_PREFIXES.length);
   assert.equal(COUNT_ADDON_SERVICE_KEY_PREFIXES.length, 4, 'an Ultra add-on family dropped out');
 });
 
@@ -79,7 +77,6 @@ test('the prefixes are imported, not re-typed', () => {
     './booking-fee-lock',
     './vendor-branches',
     './vendor-seats',
-    './vendor-custom-catalog',
   ]) {
     assert.match(src, new RegExp(`from '${mod.replace('.', '\\.')}'`), `${mod} not imported`);
   }
@@ -92,7 +89,6 @@ test('every vendor-surface key is recognised', () => {
     `${BOOKING_FEE_LOCK_SERVICE_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
     `${BRANCH_SERVICE_KEY_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
     `${SEAT_SERVICE_KEY_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
-    `${CUSTOM_PLAN_SERVICE_KEY_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
   ]) {
     assert.equal(isVendorSurfaceServiceKey(key), true, `${key} slipped through`);
   }

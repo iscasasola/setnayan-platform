@@ -9,12 +9,13 @@ import {
   canBuyExtraSeats,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
+  tierCaps,
   type TierCaps,
 } from './vendor-tier-caps';
 
 /**
  * ULTRA ADD-ONS — owner 2026-11-06, DECISION_LOG "ULTRA ADD-ON PRICES", verbatim: *"seat, branch + 990 / the rest is
- * +199"*. Per 4 weeks, Ultra only (Custom runs as Ultra): +1 team seat · +1 branch · +1 category · +1 service card ·
+ * +199"*. Per 4 weeks, Ultra only: +1 team seat · +1 branch · +1 category · +1 service card ·
  * +1 wait list · +1 booking per date.
  *
  * 🔑 NO PRICE IS TYPED HERE. Every figure is the `vendor_billing_catalog` row (admin-managed — the only price a
@@ -25,7 +26,7 @@ import {
  * are COUNT add-ons, built exactly the way the seat is (lib/vendor-seats.ts): an apply-then-pay order keyed
  * `<prefix><vendor_profile_id>` → paid → the sku-activation hook RECOMPUTES a count on `vendor_profiles` from the
  * paid orders (idempotent, self-healing, lowered again on a refund) → {@link applyAddOnExtras} adds that count to the
- * plan's allowance wherever the allowance is read (lib/vendor-effective-caps.ts).
+ * plan's allowance wherever the allowance is read ({@link fetchCapsWithAddOns}).
  */
 
 /** Every Ultra add-on, in the order the owner listed them for the For Suppliers block (2026-11-06). */
@@ -103,7 +104,7 @@ export function isCountAddOnKind(raw: unknown): raw is CountAddOnKind {
   return typeof raw === 'string' && (COUNT_ADDON_KINDS as readonly string[]).includes(raw);
 }
 
-/** May this plan buy this add-on? Ultra (and Custom) only, for every one of the six. */
+/** May this plan buy this add-on? Ultra only, for every one of the six. */
 export function canBuyUltraAddOn(kind: UltraAddOnKind, tier: string | null | undefined): boolean {
   switch (kind) {
     case 'category':
@@ -197,6 +198,22 @@ export async function fetchAddOnExtras(supabase: SupabaseClient, vendorProfileId
   } catch {
     return NO_EXTRAS;
   }
+}
+
+/**
+ * THE PLAN'S ALLOWANCES PLUS WHAT THE SHOP BOUGHT — the one read every allowance check uses (service cards, categories,
+ * coverage, the wait list, bookings per date). For every plan but Ultra this is exactly `tierCaps(tier)` and nothing
+ * is read; only Ultra can buy add-ons. (It replaces `lib/vendor-effective-caps.ts`, deleted with the Custom plan on
+ * 2026-11-06 — that file's Custom overlay is gone and stays gone; this adds only the bought counts.)
+ */
+export async function fetchCapsWithAddOns(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  tier: string | null | undefined,
+): Promise<TierCaps> {
+  const base = tierCaps(tier);
+  if (!canBuyExtraCategories(tier)) return base;
+  return applyAddOnExtras(base, await fetchAddOnExtras(supabase, vendorProfileId));
 }
 
 /**

@@ -14,7 +14,7 @@ import {
  * plan's, never higher. The DATABASE is the gate that counts (`service_card_daily_limit`, read by every day check);
  * this is the editor's half, so a supplier is never shown a number their plan will not honour.
  *
- * Pure — the caller passes the EFFECTIVE cap (plan + any bought "+1 booking per date", lib/vendor-effective-caps.ts).
+ * Pure — the caller passes the EFFECTIVE cap (plan + any bought "+1 booking per date", lib/vendor-ultra-addons.ts · fetchCapsWithAddOns).
  */
 
 /** The words the editor shows beside the field: the cap, and — on Ultra — that more can be bought. */

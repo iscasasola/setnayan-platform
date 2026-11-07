@@ -11,12 +11,12 @@ import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
-import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import { formatCount } from '@/lib/format-number';
 import {
   COUNT_ADDONS,
   canBuyUltraAddOn,
   countAddOnServiceKey,
+  fetchCapsWithAddOns,
   fetchCountAddOnPricePhp,
   isCountAddOnKind,
 } from '@/lib/vendor-ultra-addons';
@@ -28,7 +28,7 @@ import {
  * The shipped add-on purchase flow, exactly the extra seat's (`buyExtraSeat`, app/vendor-dashboard/team/actions.ts):
  * apply-then-pay — an `orders` row keyed `<prefix><vendor_profile_id>` + a pending `payments` row, so it lands in
  * /admin/payments → the shop pays on the ONE payment page → an admin approves → the sku-activation hook recomputes the
- * paid count on `vendor_profiles` → the allowance rises (lib/vendor-effective-caps.ts). A refund lowers it again.
+ * paid count on `vendor_profiles` → the allowance rises (lib/vendor-ultra-addons.ts · fetchCapsWithAddOns). A refund lowers it again.
  *
  * 🔑 The form posts ONLY the add-on's kind (and the rail placeholder). The shop, its plan and the price are all read
  * here, server-side: the shop from the session, the plan from `vendor_profiles.tier_state`, the price from the active
@@ -90,7 +90,7 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   // A wait list can hold at most the column's own ten places a date — a place past it could be paid for and never
   // used, so it is not sold.
   if (kind === 'waitlist') {
-    const caps = await fetchEffectiveCaps(supabase, vendorProfileId, tier);
+    const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
     if (caps.waitlistAcceptances + 1 > WAITLIST_SETTING_MAX) {
       back(
         `Your wait list already takes ${formatCount(caps.waitlistAcceptances)} couples a date — the most it can hold is ${formatCount(WAITLIST_SETTING_MAX)}.`,

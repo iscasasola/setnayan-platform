@@ -175,7 +175,7 @@ after(async () => {
 });
 
 test('the SQL twin says exactly what TIER_CAPS says — Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5', async () => {
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     const r = await db.query<{ n: number | null }>(`SELECT public.vendor_tier_limit($1,'bookings_per_date_per_service') AS n`, [tier]);
     assert.equal(r.rows[0]!.n, TIER_CAPS[tier].bookingsPerDatePerService, `${tier}`);
   }

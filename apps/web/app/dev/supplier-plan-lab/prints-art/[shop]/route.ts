@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { renderPrint } from '@/lib/supplier-prints-svg';
 import { printMemberFrom, printQr, printShopFrom } from '@/lib/supplier-prints-shop';
-import { DEFAULT_PRINT_DESIGN, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
+import { DEFAULT_PRINT_DESIGN, PRINT_ALL, PRINT_PIECES, printAllFilename, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
+import { zipFiles } from '@/lib/supplier-prints-zip';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,8 @@ const LABEL: Record<string, string> = { catering: 'Catering', photo_video: 'Phot
 export async function GET(request: NextRequest, { params }: { params: Promise<{ shop: string }> }): Promise<NextResponse> {
   if (process.env.NODE_ENV === 'production') return new NextResponse('Not found', { status: 404 });
   const sp = request.nextUrl.searchParams;
-  const piece = printPiece(sp.get('piece'));
+  const all = sp.get('piece') === PRINT_ALL;
+  const piece = all ? PRINT_PIECES[0]! : printPiece(sp.get('piece'));
   if (!piece) return NextResponse.json({ error: 'That print isn’t one of the seven.' }, { status: 400 });
   const design = printDesign(sp.get('design')) ?? printDesign(DEFAULT_PRINT_DESIGN)!;
   const long = (await params).shop === 'long';
@@ -43,6 +45,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ownDomain: long ? 'casabuenaventura.ph' : null,
   };
   const member = piece.id === 'card' && sp.get('who') === 'me' ? printMemberFrom('Juan dela Cruz', long ? 'Head chef' : null) : null;
+  if (all) {
+    // Save all — the same seven files the real route zips (`/api/vendor/prints?piece=all`).
+    const qrAll = printQr(printQrMode(sp.get('qr')), origin, slug);
+    const zip = await zipFiles(PRINT_PIECES.map((p) => ({ name: printFilename(p, design), body: renderPrint({ piece: p, design, shop: full, qr: qrAll, for: 'print', hide: printHidden(sp.get('hide')) }) })));
+    return new NextResponse(new Uint8Array(zip), { headers: { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="${printAllFilename(design)}"` } });
+  }
   const svg = renderPrint({ piece, design, shop: full, qr: printQr(printQrMode(sp.get('qr')), origin, slug), side: sp.get('side') === 'b' ? 'b' : 'f', for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
   return new NextResponse(svg, {
     headers: { 'content-type': 'image/svg+xml; charset=utf-8', ...(save ? { 'content-disposition': `attachment; filename="${printFilename(piece, design, member?.name)}"` } : {}) },

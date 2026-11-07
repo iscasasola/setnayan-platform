@@ -38,13 +38,14 @@
 -- 4 · `guard_vendor_profiles_entitlement` names the four counts — a shop cannot PATCH itself extra room
 --     (`vendor_profiles_owner` is FOR ALL on its own row). Re-emitted from its latest definition
 --     (20271221359289) with the four clauses added at INSERT and at UPDATE and nothing else changed.
--- 5 · `vendor_tier_limit` gains 'bookings_per_date_per_service': 1 · 1 · 1 · 3 · 5 · 5 (Free · Verified · Solo ·
---     Pro · Ultra · Custom; the existing arms are VERBATIM from 20271307996183). And ONE helper,
+-- 5 · `vendor_tier_limit` gains 'bookings_per_date_per_service': 1 · 1 · 1 · 3 · 5 (Free · Verified · Solo · Pro ·
+--     Ultra). The existing arms are VERBATIM from its LATEST definition, 20271310256381 (the Custom plan's
+--     retirement, which removed every 'custom' arm — none is put back here). And ONE helper,
 --     `service_card_daily_limit(card)`: the card's own "Bookings per day" inside its plan —
 --         plan cap NULL  → NULLIF(daily_capacity, 0)                              (no plan returns NULL today; kept
 --                                                                                  so a NULL can never read as 0)
 --         plan cap N     → LEAST(COALESCE(NULLIF(daily_capacity, 0), N), N)       (a blank card takes N)
---     where N = the plan's number + the bought "+1 booking per date" count (Ultra/Custom only).
+--     where N = the plan's number + the bought "+1 booking per date" count (Ultra only).
 -- 6 · Every reader of the per-card daily limit reads the helper instead of the raw column — one line each, bodies
 --     otherwise VERBATIM from their latest definitions:
 --       `vendor_agree_to_lock`         (20271293507816) — THE refusal ('daily_limit_reached');
@@ -52,8 +53,9 @@
 --       `service_cards_unbookable_on`  (20271269411264) — the bench hides a card full on a date.
 --     GRANDFATHERED by construction: bookings a card already holds are never touched — only a NEW booking past the
 --     cap is refused. A slotted card is still judged by its slots (unchanged; see the PR body's open item).
--- 7 · `clamp_vendor_waitlist_to_tier` adds the bought "+1 wait list" count to the ceiling (Ultra/Custom, after the
---     zero arm, held under the column's 0..10 CHECK). Re-emitted from 20271182869585.
+-- 7 · `clamp_vendor_waitlist_to_tier` adds the bought "+1 wait list" count to the ceiling (Ultra, after the zero arm,
+--     held under the column's 0..10 CHECK). Re-emitted from its LATEST definition, 20271310256381, which dropped the
+--     Custom-only "no limit" arm and `vendor_pipeline_is_unlimited` — neither comes back here.
 --
 -- 🛑 NEVER APPLIED BY HAND. The pipeline (`supabase db push --include-all`) applies it. Idempotent.
 -- ============================================================================
@@ -381,7 +383,6 @@ AS $$
         WHEN 'solo'       THEN 5   -- (was 3)
         WHEN 'pro'        THEN 5
         WHEN 'enterprise' THEN 5   -- (was 10)
-        WHEN 'custom'     THEN 5   -- (was 10) — the ₱2,500 "no limit" axis still lifts it
         ELSE 5                     -- unknown tier reads as free (asVendorTier)
       END
     WHEN 'waitlist_acceptances' THEN
@@ -391,7 +392,6 @@ AS $$
         WHEN 'solo'       THEN 0   -- (was 1)
         WHEN 'pro'        THEN 1   -- (was 3)
         WHEN 'enterprise' THEN 3   -- Ultra trimmed 2026-11-04 (was 5)
-        WHEN 'custom'     THEN 3   -- runs as Ultra
         ELSE 0
       END
     WHEN 'branches_included' THEN
@@ -401,7 +401,6 @@ AS $$
         WHEN 'solo'       THEN 0
         WHEN 'pro'        THEN 3
         WHEN 'enterprise' THEN 6   -- Ultra trimmed 2026-11-04 ("branches 0,0,3,10" said 10)
-        WHEN 'custom'     THEN 6   -- runs as Ultra
         ELSE 0
       END
     WHEN 'bookings_per_date_per_service' THEN
@@ -411,7 +410,6 @@ AS $$
         WHEN 'solo'       THEN 1    -- owner 2026-11-06: "Solo has 1 per date/service"
         WHEN 'pro'        THEN 3    -- "pro has 3 per date/service"
         WHEN 'enterprise' THEN 5    -- "ultra has 5 per date/service"
-        WHEN 'custom'     THEN 5    -- runs as Ultra
         ELSE 1                      -- unknown tier reads as Free (asVendorTier)
       END
     ELSE NULL                      -- unknown key: NULL, never a silent 0
@@ -419,7 +417,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Owner-set per-tier limits. Keys: whitelist_per_date (5 on EVERY plan since 2026-10-23) · waitlist_acceptances (0/0/0/1/3/3 since 2026-11-04) · branches_included (0/0/0/3/6/6 since 2026-11-04) · bookings_per_date_per_service (most bookings ONE service card takes on ONE date — 1/1/1/3/5/5 since 2026-11-06; Free/Verified 1 each, like Solo, owner click 2026-11-06). Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by tests/db/vendor-tier-pipeline-caps.db.test.ts and tests/db/vendor-plan-allowances.db.test.ts, which derive from the TS side. An unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap.';
+  'Owner-set per-tier limits. Keys: whitelist_per_date (5 on EVERY plan since 2026-10-23) · waitlist_acceptances (0/0/0/1/3 since 2026-11-04) · branches_included (0/0/0/3/6 since 2026-11-04) · bookings_per_date_per_service (most bookings ONE service card takes on ONE date — 1/1/1/3/5 since 2026-11-06; Free/Verified 1 each, like Solo, owner click 2026-11-06). The retired Custom plan''s arms were removed 2026-11-06; an unknown TIER reads as Free. Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by tests/db/vendor-tier-pipeline-caps.db.test.ts and tests/db/vendor-plan-allowances.db.test.ts, which derive from the TS side. An unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap.';
 
 CREATE OR REPLACE FUNCTION public.service_card_daily_limit(p_service_id uuid)
 RETURNS integer
@@ -436,7 +434,7 @@ AS $function$
     JOIN public.vendor_profiles vp ON vp.vendor_profile_id = vs.vendor_profile_id
     CROSS JOIN LATERAL (
       SELECT public.vendor_tier_limit(vp.tier_state::text, 'bookings_per_date_per_service')
-             + CASE WHEN vp.tier_state::text IN ('enterprise', 'custom')
+             + CASE WHEN vp.tier_state::text = 'enterprise'
                     THEN GREATEST(COALESCE(vp.extra_bookings_per_date, 0), 0)
                     ELSE 0 END AS cap
     ) plan
@@ -445,7 +443,7 @@ $function$;
 
 COMMENT ON FUNCTION public.service_card_daily_limit(uuid) IS
   'The most bookings this service card takes on one date: its own daily_capacity inside its plan''s bookings per date '
-  'per card (owner 2026-11-06 — Solo 1 · Pro 3 · Ultra 5, + bought "+1 booking per date" on Ultra/Custom). A blank card '
+  'per card (owner 2026-11-06 — Solo 1 · Pro 3 · Ultra 5, + bought "+1 booking per date" on Ultra). A blank card '
   'takes the plan''s number. Free/Verified: 1 each, like Solo (owner 2026-11-06). NULL = no limit. Read by '
   'vendor_agree_to_lock, vendor_day_check and service_cards_unbookable_on. Bookings already held are never touched.';
 
@@ -1312,7 +1310,6 @@ DECLARE
   v_enabled   BOOLEAN;
   v_cap       INT;
   v_touched   BOOLEAN;
-  v_unlimited BOOLEAN;
 BEGIN
   SELECT COALESCE(ps.vendor_tier_pipeline_caps_enabled, FALSE)
     INTO v_enabled FROM public.platform_settings ps WHERE ps.id = 1;
@@ -1331,31 +1328,16 @@ BEGIN
     -- they have stopped paying for. The switch cannot be left on, and the
     -- number goes to 0 so nothing downstream reads a stale 1..3 and offers a
     -- CTA the vendor's plan does not include.
-    --
-    -- ⚠ CHECKED BEFORE THE "no limit" ARM BELOW, ON PURPOSE. A plan that
-    -- includes no waiting list gets none even if the axis is somehow present;
-    -- the axis raises a ceiling, it does not conjure a feature. (Today it is
-    -- Custom-only, whose base allowance is 5, so this ordering is belt and
-    -- braces rather than a live path — which is exactly when orderings get
-    -- written down wrong.)
     NEW.waitlist_enabled := FALSE;
     NEW.max_waitlist_acceptances := 0;
     RETURN NEW;
   END IF;
 
   -- ULTRA ADD-ON (owner 2026-11-06, "ULTRA ADD-ON PRICES"): each paid "+1 wait list" raises the ceiling by one —
-  -- Ultra and Custom only, AFTER the zero arm (an add-on raises a number, it never conjures a feature). Held under
-  -- the column's own CHECK (0..10).
-  IF NEW.tier_state::text IN ('enterprise', 'custom') THEN
+  -- Ultra only, AFTER the zero arm (an add-on raises a number, it never conjures a feature). Held under the column's
+  -- own CHECK (0..10).
+  IF NEW.tier_state::text = 'enterprise' THEN
     v_cap := LEAST(v_cap + GREATEST(COALESCE(NEW.extra_waitlist_acceptances, 0), 0), 10);
-  END IF;
-
-  -- Bought the ceiling away (owner 2026-08-29 — "2500 for no limit", extended
-  -- the same day with "yes wait list add them"). Nothing to clamp to: the shop
-  -- keeps whatever it set, and `pickWaitlistCouple` stops counting against it.
-  v_unlimited := public.vendor_pipeline_is_unlimited(NEW.vendor_profile_id);
-  IF COALESCE(v_unlimited, FALSE) THEN
-    RETURN NEW;
   END IF;
 
   -- GRANDFATHER: only bind the ceiling to a number somebody is actually

@@ -38,7 +38,7 @@ import {
   EMPTY_LEAF_INDEX,
   type LeafIndex,
 } from '@/lib/service-card-kind';
-import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { bookingsPerDateRefusal } from '@/lib/card-bookings-per-date';
 import {
   assignCardSchedule,
@@ -512,7 +512,7 @@ async function bookingsPerDatePlanRefusal(
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const caps = await fetchEffectiveCaps(supabase, vendorProfileId, tier);
+  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
   let stored: number | null = null;
   if (serviceId) {
     const { data: row } = await supabase
@@ -748,8 +748,8 @@ export async function createVendorService(formData: FormData) {
     | { tier_state?: string | null; is_founder?: boolean | null }
     | null;
   // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06 — +1 category, +1 service card,
-  // +1 booking per date). Plan-only for every other tier (fetchEffectiveCaps skips the read).
-  const baseCaps = await fetchEffectiveCaps(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
+  // +1 booking per date). Plan-only for every other tier (fetchCapsWithAddOns skips the read).
+  const baseCaps = await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
   // Founder override (owner 2026-06-09): unlimited categories + services-per-leaf
   // ONLY. There is NO founder token-gate bypass — the bypass was dropped at
   // migration 20270221294989, so founders burn tokens like any paid tier in
@@ -1476,7 +1476,7 @@ export async function commitVendorService(formData: FormData) {
     | { tier_state?: string | null; is_founder?: boolean | null }
     | null;
   // Plan + bought Ultra add-ons (owner 2026-11-06), the same read as createVendorService.
-  const baseCaps = await fetchEffectiveCaps(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
+  const baseCaps = await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
   const caps =
     tierRowTyped?.is_founder === true
       ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }

@@ -10,8 +10,7 @@
  * Active or dark, a pair must agree — a dark row is the price the owner already set for the day it goes on sale.
  *
  * ⚠ `all_tools_unlock_annual` is a LEGACY v1 bundle with no 4-week sibling; it is not a pair and is not matched.
- * The Custom plan prices its year in code (final28 × 10.4, lib/vendor-custom-pricing.ts) — not a catalogue pair, and
- * an open owner question in the 2026-11-04 price PR.
+ * (The Custom plan, which priced its year in code, was retired from the app 2026-11-06.)
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

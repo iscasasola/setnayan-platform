@@ -159,8 +159,8 @@ test('the chooser asks that rule, with the shop’s real caps', () => {
   assert.match(src, /standingForCategory\(/, 'the chooser stopped asking which kinds are allowed');
   // The caps have to be THIS shop's, including the founder override the save applies.
   // Since 2026-11-06 the shop's plan PLUS the Ultra add-ons it bought (+1 category · +1 service card) — the same read as
-  // the save's (`fetchEffectiveCaps`).
-  assert.match(src, /await fetchEffectiveCaps\(supabase, vendorProfileId, tierRow\?\.tier_state\)/, 'the chooser stopped reading the shop’s plan');
+  // the save's (`fetchCapsWithAddOns`).
+  assert.match(src, /await fetchCapsWithAddOns\(supabase, vendorProfileId, tierRow\?\.tier_state\)/, 'the chooser stopped reading the shop’s plan');
   assert.match(src, /is_founder === true/, 'the chooser stopped honouring the founder override');
   // Families come from cards ∪ coverages — the coverages are read once and their families derived, the SAME union
   // `coverageParents()` gives the save.

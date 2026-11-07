@@ -4,7 +4,7 @@
  *
  * Held here (pure — the database half is tests/db/bookings-per-date-is-a-plan-allowance.db.test.ts):
  *   · a purchase RAISES the effective cap, one per paid order, on exactly the allowance it names;
- *   · only Ultra (and Custom) may buy any of the six;
+ *   · only Ultra may buy any of the six (the Custom plan was retired 2026-11-06);
  *   · the list is the catalogue's, in the owner's order — categories · service cards · team seat · branches · wait list
  *     · bookings per date — with no price typed and nothing listed that is off sale;
  *   · the service keys round-trip and join the vendor-surface + vendor-pays-Setnayan registries;
@@ -60,10 +60,10 @@ test('an add-on raises a number, never a feature — and never an unlimited one'
   assert.equal(g.bookingsPerDatePerService, TIER_CAPS.enterprise.bookingsPerDatePerService);
 });
 
-test('only Ultra (and Custom) may buy any Ultra add-on', () => {
+test('only Ultra may buy any Ultra add-on', () => {
   for (const kind of ULTRA_ADDON_ORDER) {
     for (const t of VENDOR_TIERS) {
-      assert.equal(canBuyUltraAddOn(kind, t), t === 'enterprise' || t === 'custom', `${kind} on ${t}`);
+      assert.equal(canBuyUltraAddOn(kind, t), t === 'enterprise', `${kind} on ${t}`);
     }
     assert.equal(canBuyUltraAddOn(kind, null), false);
   }

@@ -16,7 +16,7 @@ import { buyUltraAddOn } from '../ultra-addon-actions';
  * typed here; a row the admin switches off simply leaves the list. An unreadable catalogue says so instead of showing
  * an empty list.
  *
- * Ultra (and Custom) buy here: the four count add-ons post their KIND ONLY to `buyUltraAddOn` (apply-then-pay — the
+ * Ultra buys here: the four count add-ons post their KIND ONLY to `buyUltraAddOn` (apply-then-pay — the
  * price is re-read server-side); the seat and the branch keep their shipped surfaces (Team · Branches) and link there.
  * Every other plan reads the list with "Only Ultra can add these" and no buy button.
  */
@@ -27,7 +27,7 @@ export function UltraAddonsCard({
 }: {
   /** `ultraAddOns()` — null when the catalogue could not be read. */
   rows: UltraAddOnRow[] | null;
-  /** The shop's plan may buy them (Ultra · Custom). */
+  /** The shop's plan may buy them (Ultra). */
   canBuy: boolean;
   /** How many of each the shop has bought (count add-ons only). */
   owned: Partial<Record<UltraAddOnKind, number>>;

@@ -27,7 +27,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { DAILY_CAPACITY_MAX, entryTierAllowance } from '@/lib/vendor-tier-caps';
-import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { asDayPart, asRepeatRule, blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, type DayPart } from '@/lib/not-available';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
@@ -456,17 +456,14 @@ export async function updateWaitlistSettings(formData: FormData): Promise<void> 
   const currentRow = current as
     | { tier_state?: string | null; max_waitlist_acceptances?: number | null }
     | null;
-  // ⚠ THE EFFECTIVE CAP, NOT THE TIER-ONLY ONE — a Custom shop can BUY the
-  // ceiling away (owner 2026-08-29: "2500 for no limit" · "yes wait list add
-  // them"), and `vendorWaitlistAcceptances` answers from the tier alone. It
-  // reads Infinity for such a shop, so every clamp below no-ops by arithmetic
-  // rather than by a special case.
+  // The plan's cap PLUS any "+1 wait list" an Ultra shop bought (owner 2026-11-06, "ULTRA ADD-ON PRICES").
+  // (A Custom shop could once BUY the cap away; that plan was retired from the app 2026-11-06.) An Infinity cap
+  // would make every clamp below no-op by arithmetic rather than by a special case.
   // A plan with NO waitlist is a paywall → the one flag-aware allowance
   // (lib/vendor-feature-gate.ts): while VENDOR_TIER_FEATURE_GATE is off, the
   // entry plan's places; a plan that has a waitlist keeps its own number.
   const tierCap = vendorAllowance(
-    (await fetchEffectiveCaps(supabase, profile.vendor_profile_id, currentRow?.tier_state))
-      .waitlistAcceptances,
+    (await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, currentRow?.tier_state)).waitlistAcceptances,
     entryTierAllowance('waitlistAcceptances'),
   );
   const stored = Number(currentRow?.max_waitlist_acceptances);
@@ -523,15 +520,11 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
     Number((prow as { max_waitlist_acceptances?: number } | null)?.max_waitlist_acceptances) || 1;
 
   // 🔑 THIS IS THE ENFORCEMENT — the setting above is only a number until this
-  // refuses on it. A Custom shop that bought "no limit" (owner 2026-08-29) must
-  // not be refused here, or the axis would be sold, quoted, stored, displayed
-  // and inert: the exact shape of a gate with no handle.
+  // refuses on it. (The Custom plan's "no limit" axis that once skipped it was
+  // retired with that plan, 2026-11-06.) A plan whose cap is unlimited is never refused. A "+1 wait list" an Ultra
+  // shop bought counts here, or the add-on would be sold and never honoured (owner 2026-11-06).
   const planCap = (
-    await fetchEffectiveCaps(
-      supabase,
-      vp,
-      (prow as { tier_state?: string | null } | null)?.tier_state,
-    )
+    await fetchCapsWithAddOns(supabase, vp, (prow as { tier_state?: string | null } | null)?.tier_state)
   ).waitlistAcceptances;
   const unlimited = !Number.isFinite(planCap);
 

@@ -20,6 +20,12 @@ import {
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
+import {
+  SHOP_NAME_HELD_MESSAGE,
+  SHOP_NAME_UNVERIFIED_MESSAGE,
+  checkShopNameHold,
+  fileItsMyBusiness,
+} from '@/lib/shop-name-hold';
 import { parseCoordPair } from '@/lib/parse-coord';
 import { locationStepError } from '@/lib/open-shop-location-gate';
 import { parseVendorPhone } from '@/lib/phone-rules';
@@ -453,6 +459,38 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   }>;
   const existing = owned[0] ?? null;
   const existingHasLogo = Boolean((existing as { logo_url?: string | null } | null)?.logo_url);
+
+  // ── A HELD NAME HOLDS ITS CORE (owner 2026-11-06) ──────────────────────────
+  // "Bulgogi 1" is refused while "Bulgogi Catering" is held — closed (its address still held), banned or suspended.
+  // ONE question, asked of the database (`lib/shop-name-hold.ts`); the step-1 live check asks the same one. Asked of
+  // the NAME and of the ADDRESS, because the address is the name in another spelling and is permanent.
+  //
+  // Never a dead end: "It's my business" posts `its_my_business` = the exact name. Then the shop opens WITHOUT that
+  // name (and without an address made from it), and the name goes to the admin queue as a correction request. An
+  // admin who has seen the papers applies it — the same door that already writes a verified shop's name.
+  //
+  // Fails CLOSED: a hold we could not check is not proof the name is free.
+  const nameHold = await checkShopNameHold(admin, shopName, { vendorProfileId: existing?.vendor_profile_id });
+  if (nameHold.state === 'unverified') {
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(SHOP_NAME_UNVERIFIED_MESSAGE));
+  }
+  const claimsHeldName =
+    nameHold.state === 'held' && clean(formData.get('its_my_business')) === shopName;
+  if (nameHold.state === 'held' && !claimsHeldName) {
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(SHOP_NAME_HELD_MESSAGE));
+  }
+  if (chosenSlug && !claimsHeldName) {
+    const addressHold = await checkShopNameHold(admin, chosenSlug, {
+      vendorProfileId: existing?.vendor_profile_id,
+    });
+    if (addressHold.state === 'unverified') {
+      redirect('/open-shop?step=1&error=' + encodeURIComponent(SHOP_NAME_UNVERIFIED_MESSAGE));
+    }
+    if (addressHold.state === 'held') {
+      redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.slugTaken));
+    }
+  }
+
   let vendorProfileId = existing?.vendor_profile_id ?? null;
   if (!vendorProfileId) {
     if (!canOpenAnotherShop(owned.length)) {
@@ -551,7 +589,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   }
 
   const patch: Record<string, unknown> = {
-    business_name: shopName,
+    // A held name the vendor says is theirs is NOT written — it waits in the admin queue (filed below).
+    ...(claimsHeldName ? {} : { business_name: shopName }),
     business_owner_name: contactName,
     contact_phone: contactPhone,
     contact_email: contactEmail,
@@ -588,7 +627,9 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // "unreachable" has been wrong here before. The database trigger added in
   // 20271125090000 is the real boundary; this is the polite refusal in front of
   // it.
-  if (chosenSlug && !existing?.business_slug) patch.business_slug = chosenSlug;
+  // …and no address is chosen while the name waits: the address is the name, so the database mints it from the
+  // name the admin approves (`tg_vendor_profiles_generate_business_slug` runs on that UPDATE of business_name).
+  if (chosenSlug && !existing?.business_slug && !claimsHeldName) patch.business_slug = chosenSlug;
   if (contactPosition) patch.business_owner_position = contactPosition;
   // "In business since" — asked on step 2 (owner 2026-10-22, journey_fixes Supplier 2 · A). Optional, and
   // written ONCE: a year already on the shop is never moved from here, because changing it is what clears
@@ -668,11 +709,19 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // ⚠ ADMIN CLIENT, AND THE OWNER IT WRITES IS THE AUTHENTICATED CALLER — never a
   // form value. RLS is off for this client, so that assignment IS the ownership
   // boundary, the same way it is in `resolveHonoreeDependentId`.
-  await ensureBusinessAlaga(admin, {
-    ownerUserId: user.id,
-    vendorProfileId,
-    shopName,
-  });
+  // A shop whose name waits for the admin gets its business record when the name is applied — the corrections
+  // queue calls `ensureBusinessAlaga` on an approved shop name. Writing it now would name the record after a name
+  // the shop does not have.
+  if (claimsHeldName) {
+    // Best-effort like the record write: the shop is open either way, and the vendor can ask again from My Shop.
+    await fileItsMyBusiness(admin, { vendorProfileId, name: shopName, currentValue: null });
+  } else {
+    await ensureBusinessAlaga(admin, {
+      ownerUserId: user.id,
+      vendorProfileId,
+      shopName,
+    });
+  }
 
   // ── ③ THE SPECIALTIES PICKED AT SIGN-UP — through THE ONE refinement merge ──────────────────────────────────────
   // Each service's chips are the chip-shaped refinements of its own schema (`canonical_service_schemas`), so they are

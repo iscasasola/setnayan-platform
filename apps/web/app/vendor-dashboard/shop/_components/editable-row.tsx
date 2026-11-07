@@ -10,6 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import { Field } from '@/app/_components/forms/field';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { HeldNameClaim } from './held-name-claim';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { requestProfileCorrection, updateVendorProfileField, type FieldSaveResult } from '../../actions';
 import type { LockedIdentityFieldKey } from '@/lib/vendor-corrections';
@@ -154,6 +155,8 @@ export function EditableRow({
   // applies to them. Once saved, `item.ok` flips on revalidate and the row
   // becomes a normal collapsed value + Edit row ("text box gone when done").
   const inlineDirect = !item.ok && INLINE_DIRECT_KEYS.has(item.key);
+  // A shop name refused because its core is held (owner 2026-11-06) — the row shows "It's my business" under it.
+  const heldName = state && !state.ok ? (state.heldName ?? null) : null;
 
   // Settle a submission exactly once (keyed on the per-dispatch `state` object).
   // On success: toast + clear dirty. On failure (e.g. blank required field the
@@ -267,6 +270,11 @@ export function EditableRow({
             <PlainInput key={revertNonce} itemKey={item.key} data={data} onDirty={markDirty} />
           </form>
         </div>
+        {heldName ? (
+          <div className={flat ? 'pb-3 pl-9' : 'px-3 pb-3 pl-12'}>
+            <HeldNameClaim key={heldName} name={heldName} />
+          </div>
+        ) : null}
       </li>
     );
   }
@@ -342,6 +350,7 @@ export function EditableRow({
           <form ref={formRef} action={formAction} noValidate className="space-y-3">
             <input type="hidden" name="field" value={item.key} />
             <FieldControl key={revertNonce} item={item} data={data} onDirty={markDirty} />
+            {heldName ? <HeldNameClaim key={heldName} name={heldName} /> : null}
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <span
                 className="inline-flex items-center gap-1.5 text-xs"

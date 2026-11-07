@@ -42,6 +42,12 @@ import {
   serializeVideoRef,
 } from '@/lib/vendor-microsite';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
+import {
+  ITS_MY_BUSINESS_NOTE,
+  SHOP_NAME_HELD_MESSAGE,
+  SHOP_NAME_UNVERIFIED_MESSAGE,
+  checkShopNameHold,
+} from '@/lib/shop-name-hold';
 import { parseCoordPair } from '@/lib/parse-coord';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
@@ -332,7 +338,13 @@ function parseServices(
 export type PortfolioSaved = { added: number; charged: number; balance: number | null };
 export type FieldSaveResult =
   | { ok: true; portfolio?: PortfolioSaved }
-  | { ok: false; error: string; walletShort?: { charge: number; balance: number } };
+  | {
+      ok: false;
+      error: string;
+      walletShort?: { charge: number; balance: number };
+      /** The shop name was refused because its CORE is held (owner 2026-11-06) — the row offers "It's my business". */
+      heldName?: string;
+    };
 
 const PORTFOLIO_SAVE_FAILED = 'Couldn’t save your portfolio right now. Nothing was charged — try again.';
 
@@ -460,6 +472,12 @@ export async function updateVendorProfileField(
       // Required field — never let an inline edit blank it (the publish gate
       // depends on it). Reject rather than write ''.
       if (!v) return { ok: false, error: 'Shop name is required.' };
+      // ── A HELD NAME HOLDS ITS CORE (owner 2026-11-06) ────────────────────
+      // A rename is a name write like opening a shop, so it asks the same one question (`lib/shop-name-hold.ts`).
+      // This shop's own rows, and a core an admin approved for it, never hold against it. Fails closed.
+      const hold = await checkShopNameHold(createAdminClient(), v, { vendorProfileId: shopId });
+      if (hold.state === 'unverified') return { ok: false, error: SHOP_NAME_UNVERIFIED_MESSAGE };
+      if (hold.state === 'held') return { ok: false, error: SHOP_NAME_HELD_MESSAGE, heldName: v };
       patch = { business_name: v };
       break;
     }
@@ -866,12 +884,24 @@ export async function requestProfileCorrection(
       ? null
       : String(rawCurrent);
 
+  // ── A HELD NAME ASKED FOR THROUGH A CORRECTION (owner 2026-11-06) ────────
+  // Two doors land here: a verified shop's ordinary rename request, and "It's my business" on a refused My Shop
+  // rename (`held-name-claim.tsx` — this action, not a second export: the server-action budget is full). Either way
+  // an admin decides, so nothing is refused — but the admin must SEE that the name is held, so the request carries
+  // the "It's my business" marker (and /admin/corrections shows the holder). A check we could not run adds nothing:
+  // the admin queue asks again when it renders.
+  let filedNote = note;
+  if (fieldKey === 'business_name' && requestedValue) {
+    const hold = await checkShopNameHold(createAdminClient(), requestedValue, { vendorProfileId: shopId });
+    if (hold.state === 'held') filedNote = note ? `${ITS_MY_BUSINESS_NOTE}\n\n${note}` : ITS_MY_BUSINESS_NOTE;
+  }
+
   const { error } = await supabase.from('vendor_correction_requests').insert({
     vendor_profile_id: prof.vendor_profile_id,
     field_key: fieldKey,
     current_value: currentValue,
     requested_value: requestedValue ? requestedValue.slice(0, 2000) : null,
-    note: note ? note.slice(0, 1000) : null,
+    note: filedNote ? filedNote.slice(0, 1000) : null,
   });
   if (error) {
     // Pre-migration table-missing lands here too — friendly, non-technical.

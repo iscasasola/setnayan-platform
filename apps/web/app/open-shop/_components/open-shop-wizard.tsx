@@ -22,6 +22,8 @@ import { PhoneField } from './phone-field';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { AddressPreview } from './address-preview';
+import { NameHold } from './name-hold';
+import { SHOP_NAME_HELD_MESSAGE } from '@/lib/shop-name-hold';
 import { locationStepError } from '@/lib/open-shop-location-gate';
 import { isPhPhone } from '@/lib/ph-phone';
 import { CityPin } from './city-pin';
@@ -217,6 +219,10 @@ export function OpenShopWizard({
   // 🔑 A8 — the submit was refused because the email has an account: step 5 signs in, right here.
   const [taken, setTaken] = useState(guest && emailTaken);
   const [takenEmail, setTakenEmail] = useState(defaults.contactEmail);
+  // A held name (owner 2026-11-06): step 1 cannot be passed on it unless the vendor said "It's my business" for
+  // that exact name — then the claim rides with the submit (`NameHold`).
+  const [nameHeld, setNameHeld] = useState(false);
+  const [claimedName, setClaimedName] = useState<string | null>(null);
   const [service, setService] = useState(defaults.primaryService);
   // The picked leaf's LABEL, held alongside its key so the chosen card reads
   // as a name the moment it is tapped — the key alone would print
@@ -380,6 +386,7 @@ export function OpenShopWizard({
       formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
     if (n === 1) {
       if (!shopName.trim()) return OPEN_SHOP_ERRORS.shopName;
+      if (nameHeld && claimedName !== shopName.trim()) return SHOP_NAME_HELD_MESSAGE;
       // Same shared flag the server action gates on — the two can't drift.
       if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) return OPEN_SHOP_ERRORS.logo;
       return null;
@@ -923,20 +930,28 @@ export function OpenShopWizard({
                 ) : null}
                 {/* The shop name IS the web address (owner 2026-08-09). Showing it while they type is the only
                     moment a vendor can still choose a different name over it — afterwards it is permanent. */}
-                <AddressPreview
-                  key={restoredSlug ?? 'typed'}
-                  shopName={shopName}
-                  existingSlug={existingSlug}
-                  initialValue={restoredSlug}
-                  onAddress={setSlug}
-                />
+                {/* While a held name waits for the team, no address is chosen — it is made from the name they approve. */}
+                {nameHeld && claimedName === shopName.trim() ? null : (
+                  <AddressPreview
+                    key={restoredSlug ?? 'typed'}
+                    shopName={shopName}
+                    existingSlug={existingSlug}
+                    initialValue={restoredSlug}
+                    onAddress={setSlug}
+                  />
+                )}
               </label>
-              {/* TODO(#7359 — controller resolves after it merges): ⑧ v19 "a name HELD by another shop is refused live
-                  in step 1". #7359 already builds it — `NameHold` (`./name-hold`) asking `checkShopAddress(name, 'name')`
-                  → `checkShopNameHold` → the SQL `shop_name_core_hold`, refusing with `SHOP_NAME_HELD_MESSAGE` in
-                  `validateStep(1)`. Not on this branch yet; when #7359 merges into it, seat its `<NameHold … />` HERE
-                  (outside the <label>, which owns its input) and its `nameHeld && claimedName !== shopName.trim()`
-                  line in `validateStep(1)` — the merge conflicts in this file because #7359 edits main's older wizard. */}
+              {/* ⑧ v19 — a name HELD by another shop is refused live in step 1 (#7359). Outside the <label>: it carries a
+                  button, and a press inside a label belongs to the label's input. */}
+              <NameHold
+                shopName={shopName}
+                claimed={claimedName !== null && claimedName === shopName.trim()}
+                onClaim={() => {
+                  setClaimedName(shopName.trim());
+                  setBanner(null);
+                }}
+                onHeldChange={setNameHeld}
+              />
             </div>
 
             {/* 2 · What you do — page 1 "Your services" (the category cards), page 2 "Events you serve" (prototype

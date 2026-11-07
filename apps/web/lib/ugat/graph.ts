@@ -3858,16 +3858,21 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'guest_souvenir_claims', column: 'scan_number' },
       // The claim keeps no copy of the guest's name — the first name is read live (supplier_scan_first_name).
       { kind: 'no_column', table: 'supplier_scan_claims', column: 'guest_name' },
+      // Ordered → Received (slice 2): the claim's state, and "#0042 is ready" as ONE guest's line in the one channel.
+      { kind: 'check', table: 'supplier_scan_claims', name: 'supplier_scan_claims_state_check', mentions: 'state' },
+      { kind: 'column', table: 'supplier_scan_claims', column: 'ready_at' },
+      { kind: 'column', table: 'coordinator_broadcasts', column: 'target_guest_id' },
+      { kind: 'check', table: 'coordinator_broadcasts', name: 'coordinator_broadcasts_supplier_is_one_guest', mentions: 'target_guest_id' },
     ],
     chain: 22,
     pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],
     title: 'Supplier scan → Guest (one claim, one shared number)',
     joint: 'supplier_scan_claims',
-    cardinality: 'Once: one claim per guest per service per event (partial unique on mode = once); the number is per service per event',
+    cardinality: 'Once and Ordered → Received: one claim per guest per service per event (partial unique); the number is per service per event and kept through ordered → ready → received',
     implementedBy:
       'supplier_scan_claims (composite (event_id, guest_id) → guests CASCADE · coverage_id → vendor_coverages · scan_number from supplier_scan_counters) — or, for a souvenir service (supplier_scan_is_souvenir), the couple’s guest_souvenir_claims row with vendor_profile_id · coverage_id · scan_number',
     writtenBy:
-      'ONLY supplier_scan_claim(event, coverage, token, method) — SECURITY DEFINER, called by app/_actions/supplier-scan-actions.ts (op claim) from the Event Hub’s Scanner view. Settings: the shop, under its own RLS (op set_scanner, Shop › Services). Removal: Setnayan admin only (op admin_remove, audited)',
+      'ONLY supplier_scan_claim(event, coverage, token, method) — SECURITY DEFINER, called by app/_actions/supplier-scan-actions.ts (op claim) from the Event Hub’s Scanner view. Settings: the shop, under its own RLS (op set_scanner, Shop › Services). Ready: supplier_scan_ready(event, service, number) — moves the number’s ordered claims to ready AND writes one coordinator_broadcasts row per guest (target_guest_id, sender_role supplier; the words built in SQL). Removal: Setnayan admin only (op admin_remove, audited)',
     guardedBy:
       'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
     traps:

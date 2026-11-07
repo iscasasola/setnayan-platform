@@ -15935,6 +15935,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/supplier-scan/supplier-scanner.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/supplier-scan/your-numbers.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/loading.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/page.tsx"
       ],
@@ -15982,8 +15983,10 @@
         "FloorClock",
         "FormRows",
         "Group",
+        "HTMLButtonElement",
         "HTMLCanvasElement",
         "HTMLInputElement",
+        "HTMLLIElement",
         "HostPlaylist",
         "HubDoorRow",
         "HubEyebrow",
@@ -15995,6 +15998,7 @@
         "MarchRead",
         "MediaRecorder",
         "MyLine",
+        "NumberRow",
         "PapicUploadChip",
         "PauseToggle",
         "PaymentsPausedNote",
@@ -16032,7 +16036,8 @@
         "TierMeter",
         "UndoToastHost",
         "VendorSpecializationSet",
-        "WakeLockSentinel"
+        "WakeLockSentinel",
+        "YourNumbers"
       ]
     },
     "/vendor-dashboard/on-the-day/live/[eventId]/papic": {

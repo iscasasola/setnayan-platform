@@ -45,7 +45,9 @@ export function SupplierScanList({ claims }: { claims: CoupleScanClaim[] | null 
                   <span className="tabular-nums">{scanNumberLabel(c.number)}</span> · {c.guestName}
                 </span>
                 <span className="block truncate text-[13px] text-ink/60">
-                  {[c.service, c.shop, c.method === 'supplier_nfc' ? 'Tag' : 'QR', formatWallClock(c.at)].filter(Boolean).join(' · ')}
+                  {[c.state === 'ordered' ? 'Ordered' : c.state === 'ready' ? 'Ready · not collected yet' : null, c.service, c.shop, c.method === 'supplier_nfc' ? 'Tag' : 'QR', formatWallClock(c.at)]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </span>
             </li>

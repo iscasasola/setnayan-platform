@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7214
+# facts: 7252
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     598
-#   col       5242
-#   policy    1048
+#   tpriv     601
+#   col       5266
+#   policy    1053
 #   view      9
-#   func      313
+#   func      319
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -437,6 +437,9 @@ tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
 tpriv	public.supplier_night_before_email_log|authenticated	SIUD
 tpriv	public.supplier_page_photo_notices|authenticated	S
+tpriv	public.supplier_scan_claims|authenticated	SD
+tpriv	public.supplier_scan_counters|authenticated	S
+tpriv	public.supplier_scan_settings|authenticated	SIUD
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
@@ -2650,9 +2653,12 @@ col	public.guest_saved_vendors.vendor_service_id	anon=SIU authenticated=SIU
 col	public.guest_souvenir_claims.claim_id	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.claimed_at	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.claimed_by_user_id	anon=- authenticated=SIU
+col	public.guest_souvenir_claims.coverage_id	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.event_id	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.guest_id	anon=- authenticated=SIU
 col	public.guest_souvenir_claims.method	anon=- authenticated=SIU
+col	public.guest_souvenir_claims.scan_number	anon=- authenticated=SIU
+col	public.guest_souvenir_claims.vendor_profile_id	anon=- authenticated=SIU
 col	public.guests.address	anon=SIU authenticated=SIU
 col	public.guests.attire	anon=SIU authenticated=SIU
 col	public.guests.avatar_config	anon=SIU authenticated=SIU
@@ -4335,6 +4341,27 @@ col	public.supplier_page_photo_notices.published_at	anon=- authenticated=S
 col	public.supplier_page_photo_notices.removed_at	anon=- authenticated=S
 col	public.supplier_page_photo_notices.removed_by	anon=- authenticated=S
 col	public.supplier_page_photo_notices.vendor_profile_id	anon=- authenticated=S
+col	public.supplier_scan_claims.claim_id	anon=- authenticated=S
+col	public.supplier_scan_claims.claimed_at	anon=- authenticated=S
+col	public.supplier_scan_claims.coverage_id	anon=- authenticated=S
+col	public.supplier_scan_claims.event_id	anon=- authenticated=S
+col	public.supplier_scan_claims.guest_id	anon=- authenticated=S
+col	public.supplier_scan_claims.method	anon=- authenticated=S
+col	public.supplier_scan_claims.mode	anon=- authenticated=S
+col	public.supplier_scan_claims.scan_number	anon=- authenticated=S
+col	public.supplier_scan_claims.scanned_by_user_id	anon=- authenticated=S
+col	public.supplier_scan_claims.state	anon=- authenticated=S
+col	public.supplier_scan_claims.vendor_profile_id	anon=- authenticated=S
+col	public.supplier_scan_counters.coverage_id	anon=- authenticated=S
+col	public.supplier_scan_counters.event_id	anon=- authenticated=S
+col	public.supplier_scan_counters.last_number	anon=- authenticated=S
+col	public.supplier_scan_settings.coverage_id	anon=- authenticated=SIU
+col	public.supplier_scan_settings.created_at	anon=- authenticated=SIU
+col	public.supplier_scan_settings.enabled	anon=- authenticated=SIU
+col	public.supplier_scan_settings.mode	anon=- authenticated=SIU
+col	public.supplier_scan_settings.updated_at	anon=- authenticated=SIU
+col	public.supplier_scan_settings.updated_by_user_id	anon=- authenticated=SIU
+col	public.supplier_scan_settings.vendor_profile_id	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.created_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.mapped_to_canonical	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=- authenticated=SIU
@@ -6607,6 +6634,11 @@ policy	public.songs|songs_public_select	mode=PERMISSIVE cmd=SELECT roles=anon,au
 policy	public.stewardship_transfers|stewardship_transfers_participant_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid))) check=NULL
 policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.supplier_scan_claims|supplier_scan_claims_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.supplier_scan_claims|supplier_scan_claims_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_claims.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
+policy	public.supplier_scan_counters|supplier_scan_counters_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.supplier_scan_settings|supplier_scan_settings_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.supplier_scan_settings|supplier_scan_settings_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.taxonomy_category_request_drafts|taxonomy_category_request_drafts_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -7161,6 +7193,12 @@ func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp w
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_ask_where(p_vendor_id uuid, p_block_ids uuid[], p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.supplier_mark_schedule(p_event_id uuid, p_mark text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.supplier_scan_claim(p_event_id uuid, p_coverage_id bigint, p_token text, p_method text)	secdef=yes exec=authenticated search_path=public
+func	public.supplier_scan_first_name(p_event_id uuid, p_coverage_id bigint, p_token text)	secdef=yes exec=authenticated search_path=public
+func	public.supplier_scan_is_souvenir(p_canonical_service text)	secdef=no exec=authenticated search_path=public
+func	public.supplier_scan_services(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.supplier_scan_shop_for(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
+func	public.supplier_scan_tally(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
 func	public.swap_entourage_places(p_event_id uuid, p_a uuid, p_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public

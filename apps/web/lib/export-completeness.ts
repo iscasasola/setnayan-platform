@@ -131,6 +131,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'vendor_date_waitlist', decision: 'exported', as: 'date_waitlists_joined' },
   { table: 'vendor_member_token_wallets', decision: 'exported', as: 'retired_token_balances' },
   { table: 'vendor_team_members', decision: 'exported', as: 'supplier_team_memberships' },
+  // Added 2026-11-06 with the table (supplier claim scanner, slice 1): read by scanned_by_user_id, guest not selected.
+  { table: 'supplier_scan_claims', decision: 'exported', as: 'supplier_scans_made' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

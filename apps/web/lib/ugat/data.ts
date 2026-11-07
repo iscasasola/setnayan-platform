@@ -121,6 +121,8 @@ export interface UgatCounts {
   march: number;
   /** Inspiration parts: every part row, hidden ones included (they still hold photos). */
   inspirationpart: number;
+  /** Supplier scans: every claim a supplier's scanner recorded (souvenir-desk rows written by a supplier are not repeated). */
+  supplierscan: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -229,6 +231,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     colourGrantHostRows,
     marchRows,
     inspirationPartRows,
+    supplierScanRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -306,6 +309,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'march_walks'),
     // Inspiration parts: every part, hidden included.
     headCount(admin, 'inspiration_parts'),
+    // Supplier scans: every claim a supplier's scanner recorded.
+    headCount(admin, 'supplier_scan_claims'),
   ]);
 
   return {
@@ -335,6 +340,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     colourgrant: colourGrantRows + colourGrantHostRows,
     march: marchRows,
     inspirationpart: inspirationPartRows,
+    supplierscan: supplierScanRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

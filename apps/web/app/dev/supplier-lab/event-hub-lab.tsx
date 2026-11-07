@@ -15,6 +15,8 @@ import { nextAdvanceAction, remainingBlockCount } from '@/lib/floor-command';
 import { eventHubViewOf } from '@/lib/event-hub-views';
 import type { EventYouRun } from '@/lib/events-you-run';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
+import type { EventScanService } from '@/lib/supplier-scan.server';
+import type { ScanAnswer } from '@/lib/supplier-scan';
 
 const at = (hhmm: string) => `2026-12-18T${hhmm}:00Z`; // the venue's wall clock in a UTC column
 const block = (id: string, hhmm: string, label: string, run_state: RunOfShowBlock['run_state']): RunOfShowBlock => ({
@@ -49,6 +51,31 @@ const RUN = {
 } as unknown as EventYouRun;
 
 /**
+ * 🎟 `&scan=` on the Scanner view — the supplier claim scanner on lab numbers (prototype
+ * `supplier_scan_2026-10-03_fable.html` frames B · C′): `on` a photo booth in Once, 41 claimed of 118 · `two` a second
+ * service (the service dropdown) · `fresh` no scans yet · `unread` the list could not be read. `&answer=` opens on a
+ * result line: claimed · already · souvenir-desk · not · nosignal · name (a host-approved coordinator's view).
+ */
+const SCAN_SERVICES: Record<string, EventScanService[] | 'unreadable'> = {
+  on: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false } }],
+  two: [
+    { coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false } },
+    { coverageId: 2, label: 'Souvenir / Giveaways', mode: 'once', tally: { claimed: 96, total: 118, lastNumber: 88, souvenir: true } },
+  ],
+  fresh: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 0, total: 118, lastNumber: 0, souvenir: false } }],
+  unread: 'unreadable',
+};
+const SCAN_ANSWERS: Record<string, ScanAnswer> = {
+  claimed: { outcome: 'claimed', number: 42, claimed: 42, total: 118 },
+  already: { outcome: 'already', number: 17 },
+  'souvenir-desk': { outcome: 'already', number: null },
+  not: { outcome: 'not_guest' },
+  nosignal: { outcome: 'no_signal' },
+  first: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana' },
+  name: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana Reyes' },
+};
+
+/**
  * 🗓 The run of show after a Change the schedule (2026-11-04): `moved` = Guests arrive moved later 10 min, the parts after
  * it with it; `skipped` = Processional skipped. Fixtures only — the lab's Move / Skip write nothing (no database here).
  */
@@ -60,7 +87,7 @@ function blocksAfter(state: string | undefined): RunOfShowBlock[] {
   return BLOCKS;
 }
 
-export function EventHubLab({ view: rawView, state }: { view?: string; state?: string }) {
+export function EventHubLab({ view: rawView, scan, answer, state }: { view?: string; scan?: string; answer?: string; state?: string }) {
   const view = eventHubViewOf(rawView);
   const blocks = blocksAfter(state);
   return (
@@ -85,7 +112,13 @@ export function EventHubLab({ view: rawView, state }: { view?: string; state?: s
           />
         </div>
         {view === 'scanner' ? (
-          <EventHubScanner eventId="ic" run={RUN} floorIsYours />
+          <EventHubScanner
+            eventId="ic"
+            run={scan ? null : RUN}
+            floorIsYours={!scan}
+            scan={scan ? (SCAN_SERVICES[scan] ?? []) : []}
+            scanAnswer={answer ? (SCAN_ANSWERS[answer] ?? null) : null}
+          />
         ) : view === 'announce' ? (
           <EventHubAnnounce
             eventId="ic"

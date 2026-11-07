@@ -1,6 +1,6 @@
 /**
  * GUARD — "Ceremony essentials" (owner 2026-11-07, migration
- * 20271320560031_ceremony_essentials_category.sql) is a real, findable category:
+ * 20271321431508_ceremony_essentials_category.sql) is a real, findable category:
  * an active tier-2 row in Look, right after Jewelleries & accessories, scoped to
  * the wedding and the anniversary (a vow renewal), filed under a coarse
  * category, with its eight services under it — the complete set FIRST — each

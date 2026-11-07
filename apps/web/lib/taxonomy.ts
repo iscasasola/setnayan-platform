@@ -252,7 +252,7 @@ export type WeddingTile =
   | 'wellness_fitness'
   | 'jewelleries_accessories'
   // Ceremony essentials (2026-11-07) — the arrhae, cord, veil, candles, Bible,
-  // pillows and rosary of a Filipino church wedding. DB: migration 20271320560031.
+  // pillows and rosary of a Filipino church wedding. DB: migration 20271321431508.
   | 'ceremony_essentials'
   // BOOTHS
   | 'mobile_bar'
@@ -1235,7 +1235,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   bridal_headpiece:                  { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
   flower_girl_tiara:                 { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
   sponsor_corsage:                   { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2', ph: true },
-  // Ceremony essentials (owner 2026-11-07). The fallback copy of migration 20271320560031; the
+  // Ceremony essentials (owner 2026-11-07). The fallback copy of migration 20271321431508; the
   // database is the source. faith left unset on purpose: it is an exclusive filter.
   ceremony_essentials_set:           { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
   arrhae_arras:                      { folder: 'look', tile: 'ceremony_essentials', phase: 'V1.2', ph: true, tradition: true },
@@ -1280,7 +1280,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   selfie_magic_mirror:               { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
   setnayan_patiktok:                 { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true },
   // Pabati was retired into Papic (2026-08-21) — "pabati is not a service" (owner 2026-11-07). Hidden,
-  // not deleted: a shop's services[] still holds the key. DB: migration 20271320560031.
+  // not deleted: a shop's services[] still holds the key. DB: migration 20271321431508.
   pabati:                            { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true, marketplaceHidden: true },
   arcade_retro_games:                { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
   vr_ar_station:                     { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },

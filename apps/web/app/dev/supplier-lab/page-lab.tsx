@@ -49,7 +49,26 @@ import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
-import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
+import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
+import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review-replies';
+import type { GuestReviewsRead } from '@/lib/guest-reviews';
+import type { ReviewWithCouple } from '@/lib/reviews';
+
+/** 💬 The lab's two reviews for Page › Reviews and stories' reply-in-place list — one waiting, one answered. */
+const LAB_REVIEWS: ReviewWithCouple[] = [
+  { review_id: 'r1', public_id: 'S89R-LAB0000001', vendor_profile_id: 'lab', event_id: null, couple_user_id: null, rating_overall: 5, rating_communication: 5, rating_quality: 5, rating_value: 4, rating_on_time: 5, body: 'Beautiful ceremony, very organised.', vendor_reply: null, vendor_reply_at: null, created_at: '2026-10-20T08:00:00Z', booked_through_setnayan: true, via_vendor_import: false, couple_display_name: 'Reyes' },
+  { review_id: 'r2', public_id: 'S89R-LAB0000002', vendor_profile_id: 'lab', event_id: null, couple_user_id: null, rating_overall: 4, rating_communication: 4, rating_quality: 5, rating_value: 4, rating_on_time: 4, body: 'They caught moments we never saw.', vendor_reply: 'Thank you — it was a joy to be there.', vendor_reply_at: '2026-10-02T08:00:00Z', created_at: '2026-10-01T08:00:00Z', booked_through_setnayan: false, via_vendor_import: true, couple_display_name: 'Cruz' },
+];
+
+/** ⭐ The lab's guest reviews (owner, 6 Nov) — one waiting for a reply, one answered. */
+const LAB_GUEST_REVIEWS: GuestReviewsRead = {
+  state: 'rows',
+  stats: { count: 2, average: 4.5 },
+  rows: [
+    { review_id: 'g1', vendor_profile_id: 'lab', event_id: 'lab', service_id: null, rating_overall: 5, line: 'The flowers by the aisle were the first thing everyone photographed.', capture_id: null, shown_as: 'name', vendor_reply: null, vendor_reply_at: null, hidden_at: null, created_at: '2026-10-21T08:00:00Z', shown_name: 'Gabriel D.', service_title: 'Garden bridal bouquet' },
+    { review_id: 'g2', vendor_profile_id: 'lab', event_id: 'lab', service_id: null, rating_overall: 4, line: null, capture_id: null, shown_as: 'initials', vendor_reply: 'Salamat po!', vendor_reply_at: '2026-10-22T08:00:00Z', hidden_at: null, created_at: '2026-10-21T09:00:00Z', shown_name: 'M. S.', service_title: null },
+  ],
+};
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers', 'services', 'analytics'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -185,7 +204,7 @@ const FIX: Record<Who, Fixture> = {
 function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
   // Lab fixture (dev-only route): a two-sided band shaped like the catalogue's, never read by a real page.
   const band = { entryPhp: 799, growthPhp: 499 };
-  const pro = tier === 'pro' || tier === 'enterprise' || tier === 'custom';
+  const pro = tier === 'pro' || tier === 'enterprise';
   const price = pro ? band.growthPhp : band.entryPhp;
   return {
     eligible: verified,
@@ -519,7 +538,8 @@ function pageFixture(who: Who): PageClientData {
     addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
-    badges: { summary: trackerSummary(bf), pills: shopBadges(bf), next: nextToEarnLine(bf.completedEvents), rows: badgeTracker(bf), saveHref: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg(badgesForPrint(bf))).toString('base64')}` },
+    // Page keeps the pills only (owner 2026-11-06); the tracker is Analytics › Your badges (`?s=coord-badges`).
+    badges: { summary: trackerSummary(bf), pills: shopBadges(bf) },
   };
 }
 
@@ -742,6 +762,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
               initialAutoAcceptThreshold={80}
             />
           }
+          reviewsBody={<ReviewReplies reviews={fail ? null : LAB_REVIEWS} vendorName={d.businessName} capped={false} guestReviews={fail ? { state: 'refused' } : LAB_GUEST_REVIEWS} />}
         />
       </section>
     );

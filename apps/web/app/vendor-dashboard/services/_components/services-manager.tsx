@@ -340,8 +340,7 @@ export async function VendorServicesManager({
   const caps = tierCaps(tier);
 
   const allBranches =
-    // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
-    // gets the branch picker without a hard equality edit.
+    // Ultra (enterprise) — rank-derived, not a hard equality.
     // The service-role ORDER reader matters here: a shop's second manager
     // cannot see the order its owner paid, so without it every branch would
     // read as unpaid to them and the gate below would refuse a live branch.
@@ -1347,7 +1346,7 @@ function AddServiceForm({
           className="input-field"
         />
       </Field>
-      {/* ⚖ No plan limit on bookings a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
+      {/* ⚖ The supplier's own number — the save keeps it inside the plan's bookings per date per card (owner 2026-11-06). */}
       <Field
         label="Bookings per day (optional)"
         htmlFor={`new-cap-${addCategory}`}

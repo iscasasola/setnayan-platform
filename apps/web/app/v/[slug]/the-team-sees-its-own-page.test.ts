@@ -66,7 +66,10 @@ test('membership is the owner OR a helper seat, read with the viewer\'s own sess
 test('the team sees the banner; a team look is not a couple\'s visit; the demo-admin banner stays the admin\'s', () => {
   assert.match(RENDER, /\{teamPreview \? <TeamPreviewBanner reason=\{teamPreview\} \/> : null\}/);
   assert.match(RENDER, /if \(!isDemoVendor && teamPreview === null\) \{[\s\S]{0,1200}recordVendorProfileView/);
-  assert.match(RENDER, /\{isDemoVendor && teamPreview === null \? <DemoVendorBanner \/> : null\}/);
+  // The admin's demo-mode band shows only to an admin in demo mode; everyone else sees the "(DEMO ONLY)" marker
+  // (owner 2026-11-06 — a demo shop is public now, and that band's "visible only to admins" would be a lie to a couple).
+  assert.match(RENDER, /\{isDemoVendor && inDemoMode && teamPreview === null \? <DemoVendorBanner \/> : null\}/);
+  assert.match(RENDER, /\{isDemoVendor \? <DemoOnlyMarker \/> : null\}/);
 });
 
 test('a page a stranger cannot open is never indexed and never names the shop in its metadata', () => {

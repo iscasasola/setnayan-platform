@@ -95,7 +95,14 @@ export type V2VendorSku = {
     | 'branch'
     | 'seat'
     | 'custom_addon'
-    | 'vendor_addon_recurring';
+    | 'vendor_addon_recurring'
+    | 'vendor_addon_per_event'
+    | 'vendor_addon_metered'
+    // Ultra add-ons, owner 2026-11-06 ("ULTRA ADD-ON PRICES") — migration 20271316466285.
+    | 'category'
+    | 'service_card'
+    | 'waitlist'
+    | 'booking_per_date';
   token_grant_count: number | null;
   max_categories: number | null;
   max_sub_seats: number | null;

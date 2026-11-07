@@ -197,6 +197,12 @@ export type BookedRow = {
    * their claim link (plan "Sync: … Move its door to the Team row. Until they join, the host enters their times.").
    */
   invite: boolean;
+  /**
+   * ♡ After the day, for a HOST (never a coordinator) and a booked shop on Setnayan: the service this booking names
+   * and whether they already keep it as a favorite (owner 2026-11-06, prototype §E). Absent = no heart.
+   * Decided by `offerHostFavorites` (lib/favorites.server.ts) in `BookedSlot`.
+   */
+  favorite?: { shopId: string; serviceId: string | null; on: boolean } | null;
 };
 
 /**

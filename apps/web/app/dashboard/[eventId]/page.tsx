@@ -90,6 +90,7 @@ import { isEmailConfigured } from '@/lib/email';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
+import { demoScopeFor } from '@/lib/demo-scope';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { ReadyForNoSignal, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
@@ -509,11 +510,20 @@ export default async function EventHomePage({
         // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified
         // + paid vendors who opted into same-day work, nearest the venue first.
         // Best-effort: a query error just leaves the escalation-only floor.
-        findSameDayVendors(supabase, {
-          lat: (event as { venue_latitude?: number | null }).venue_latitude ?? null,
-          lng: (event as { venue_longitude?: number | null }).venue_longitude ?? null,
-          region: (event as { region?: string | null }).region ?? null,
-        }).catch(() => [] as SameDayVendor[]),
+        // 🧪 Scoped to the event's own side of the demo line (`lib/demo-scope.ts`).
+        demoScopeFor(adminClient, eventId)
+          .then((demoScope) =>
+            findSameDayVendors(
+              supabase,
+              {
+                lat: (event as { venue_latitude?: number | null }).venue_latitude ?? null,
+                lng: (event as { venue_longitude?: number | null }).venue_longitude ?? null,
+                region: (event as { region?: string | null }).region ?? null,
+              },
+              demoScope,
+            ),
+          )
+          .catch(() => [] as SameDayVendor[]),
         liveWallRead,
         broadcastCardRead,
       ]);

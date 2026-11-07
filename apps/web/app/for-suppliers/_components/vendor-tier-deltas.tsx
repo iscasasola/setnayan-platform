@@ -35,16 +35,13 @@
  *
  * ─── ONE SOURCE, STILL ───────────────────────────────────────────────────
  * Feature rows come from `VENDOR_TIER_SECTIONS`, numeric ceilings from
- * `TIER_CAPS`, Custom's dials from `VENDOR_CUSTOM_TIER.dials`, and every
- * price from the live catalog via the `prices` prop (`getVendorPrices`). No
- * peso figure is typed in this file — see the docblock on VENDOR_CUSTOM_TIER
- * in `vendor-benefits.ts` for the two that used to be, and why they are not.
+ * `TIER_CAPS`, and every price from the live catalog via the `prices` prop
+ * (`getVendorPrices`). No peso figure is typed in this file. (The Custom card
+ * and its dials were deleted 2026-11-06 with the Custom plan itself.)
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { VENDOR_TIER_SECTIONS, customTierDialLabels } from '@/app/_components/home/vendor-benefits';
-import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
+import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 /*
  * 🔑 THE TAPER IS DERIVED, NOT TYPED. The four other public surfaces that state
@@ -386,79 +383,6 @@ export function VendorTierDeltas({
             );
           })}
         </div>
-
-        {/* The Custom card is HIDDEN from customers 2026-08-27 (owner:
-            "hide customized first. let's stay with the 3 first").
-            Kept, not deleted — one flag restores it, priced from the live
-            catalog exactly as before. See lib/custom-tier-offered.ts. */}
-        {CUSTOM_TIER_OFFERED_PUBLICLY ? (
-          <article
-          style={{
-            background: 'var(--m-ink)',
-            borderRadius: 'var(--m-r-lg)',
-            marginTop: 18,
-            padding: 'clamp(22px, 3vw, 32px)',
-          }}
-        >
-          <header
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'baseline',
-              gap: 12,
-              justifyContent: 'space-between',
-            }}
-          >
-            <h3 className="m-serif" style={{ fontSize: 24, fontWeight: 500, color: 'var(--m-paper)', margin: 0 }}>
-              Custom
-            </h3>
-            <p style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: 7 }}>
-              <span className="m-display" style={{ fontSize: 22, color: 'var(--m-paper)' }}>
-                {prices.customFrom ?? 'Negotiated'}
-              </span>
-              <span className="m-mono" style={{ fontSize: 10.5, color: 'var(--m-orange-3)' }}>
-                {prices.customFrom ? 'from · / 28 days · negotiated' : '/ 28 days'}
-              </span>
-            </p>
-          </header>
-          <p
-            style={{
-              fontSize: 14.5,
-              color: 'var(--m-orange-3)',
-              lineHeight: 1.55,
-              margin: '10px 0 0',
-              maxWidth: '70ch',
-            }}
-          >
-            Everything in Ultra, with its limits removed — then only the
-            dials you need. For franchises, chains and multi-location houses.
-          </p>
-          <ul
-            style={{
-              listStyle: 'none',
-              padding: 0,
-              margin: '16px 0 0',
-              display: 'grid',
-              gap: 9,
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            }}
-          >
-            {customTierDialLabels(prices.branch).map((b) => (
-              <li key={b} style={{ display: 'flex', gap: 9, fontSize: 13.5, color: '#e4dac7' }}>
-                <span aria-hidden style={{ color: 'var(--m-orange)', fontWeight: 700 }}>
-                  +
-                </span>
-                <span style={{ lineHeight: 1.5 }}>{b}</span>
-              </li>
-            ))}
-          </ul>
-          <div style={{ marginTop: 18 }}>
-            <Link href="/help#contact" className="m-btn m-btn-orange">
-              Talk to us →
-            </Link>
-          </div>
-        </article>
-        ) : null}
 
         {/* The grid, for the person who wants to check one row across five
             columns. Collapsed, because reading it is not how anyone decides. */}

@@ -6,7 +6,7 @@
  * unlimited · team seats 0,1,5,20 · waitlist 0,0,1,5 · website applies to solo as well"*; corrected the same day:
  * *"team seats ultra 15 only"*; and "BRANCHES PER PLAN": *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra.
  * SUPERSEDED FOR ULTRA the same day by "ULTRA = ₱5,990 PER 4 WEEKS / ₱59,900 PER YEAR, WITH TRIMMED ALLOWANCES":
- * categories 15 · service cards 25 · seats 10 · branches 6 · waitlist 3 (reach stays nationwide). Custom in lockstep.
+ * categories 15 · service cards 25 · seats 10 · branches 6 · waitlist 3 (reach stays nationwide). 
  *
  * The stale `calls` capability is GONE (same ruling) — in-app calls were retired 2026-10-28, so no plan buys them.
  */
@@ -14,6 +14,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canBuyExtraBranches,
+  canBuyExtraCategories,
+  canBuyExtraServiceCards,
+  canBuyExtraWaitlist,
+  canBuyExtraBookingsPerDate,
   canSeeMarketIntel,
   canUseEditorialFeatures,
   isTierAtLeast,
@@ -48,15 +52,14 @@ test('allowances · every numeric allowance is monotonic up the ladder (no rung 
   }
 });
 
-test('allowances · Custom stays in lockstep with Ultra on every numeric allowance', () => {
-  for (const k of NUMERIC) assert.equal(TIER_CAPS.custom[k], TIER_CAPS.enterprise[k], k);
-  assert.equal(TIER_CAPS.custom.customWebsiteName, TIER_CAPS.enterprise.customWebsiteName);
-  assert.equal(TIER_CAPS.custom.premiumPage, TIER_CAPS.enterprise.premiumPage);
-});
-
-test('branches · only Ultra (and Custom) may buy more', () => {
-  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise' || t === 'custom', t);
+test('branches · only Ultra may buy more', () => {
+  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise', t);
   assert.equal(canBuyExtraBranches(null), false);
+  // The four Ultra add-ons of 2026-11-06 ("ULTRA ADD-ON PRICES") share the same gate.
+  for (const can of [canBuyExtraCategories, canBuyExtraServiceCards, canBuyExtraWaitlist, canBuyExtraBookingsPerDate]) {
+    for (const t of VENDOR_TIERS) assert.equal(can(t), t === 'enterprise', `${can.name} ${t}`);
+    assert.equal(can(null), false);
+  }
 });
 
 test('calls · the stale capability is gone from every plan', () => {
@@ -110,16 +113,6 @@ test('ladder · Ultra: up to 10 seats + nationwide reach + 15 categories', () =>
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 
-test('ladder · Custom: runs as Enterprise-or-better on every axis', () => {
-  const c = TIER_CAPS.custom;
-  const e = TIER_CAPS.enterprise;
-  assert.ok(c.parentCategories >= e.parentCategories, 'Custom categories >= Enterprise');
-  assert.ok(c.servicesPerLeaf >= e.servicesPerLeaf, 'Custom service listings >= Enterprise');
-  assert.ok(c.agentAccounts >= e.agentAccounts, 'Custom seats >= Enterprise');
-  assert.ok(c.serviceRadiusKm >= e.serviceRadiusKm, 'Custom reach >= Enterprise');
-  assert.equal(c.marketIntel, true, 'Custom keeps Market Intel');
-});
-
 test('ladder · reach is monotonic Free ≤ Solo ≤ Pro ≤ Enterprise', () => {
   const { free, solo, pro, enterprise } = TIER_CAPS;
   assert.ok(free.serviceRadiusKm <= solo.serviceRadiusKm);
@@ -140,7 +133,8 @@ test('ladder · Market Intel unlocks at Pro and never below', () => {
   assert.equal(canSeeMarketIntel('solo'), false);
   assert.equal(canSeeMarketIntel('pro'), true);
   assert.equal(canSeeMarketIntel('enterprise'), true);
-  assert.equal(canSeeMarketIntel('custom'), true);
+  // A stray 'custom' (the retired plan) reads as Free — never as a paid plan.
+  assert.equal(canSeeMarketIntel('custom'), false);
 });
 
 // ── "Open it up" — name is NEVER gated (Vendor_Subscription_Ladder_2026-07-22 §3) ──
@@ -161,8 +155,8 @@ test('name paywall removed: legacy Verified tier reveals the real name day-1', (
   assert.equal(isTrueNameTier('verified'), true);
 });
 
-test('every PAID tier reveals the real name day-1 (Solo/Pro/Enterprise/Custom)', () => {
-  for (const tier of ['solo', 'pro', 'enterprise', 'custom'] as const) {
+test('every PAID tier reveals the real name day-1 (Solo/Pro/Ultra)', () => {
+  for (const tier of ['solo', 'pro', 'enterprise'] as const) {
     assert.equal(TIER_CAPS[tier].nameMode, 'true', `${tier} shows the real name day-1`);
     assert.equal(isTrueNameTier(tier), true);
   }
@@ -187,7 +181,6 @@ test('locked matrix · GROW row — market intel is Pro+ for every tier', () => 
     solo: false,
     pro: true,
     enterprise: true,
-    custom: true,
   };
   for (const tier of VENDOR_TIERS) {
     assert.equal(
@@ -225,7 +218,6 @@ test('locked matrix · GROW row — editorial FEATURES are Pro+', () => {
     solo: false,
     pro: true,
     enterprise: true,
-    custom: true,
   };
   for (const tier of VENDOR_TIERS) {
     assert.equal(TIER_CAPS[tier].editorialFeatures, WANT[tier], `${tier} editorialFeatures`);

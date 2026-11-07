@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { customerLandingHref } from '../../customers/anchors';
+import { customerLandingHref, SUPPLIER_CHATS_HREF } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -77,6 +77,7 @@ import {
   type CustomerCardTab,
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
+import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
 // same component, same action, same host-side answering screen.
@@ -2045,6 +2046,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
+  // ❓ WHAT THEY TOLD YOU — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"). The host reads the
+  // couple's answers inside the Script tab above; every other trade reads them here, on Details (flag-on) / the
+  // overview (flag-off). One place per role: never both — a supplier holding the Script tab reads them there.
+  // Fee-gated like the Script tab: the answers are the couple's own words, so they open with the event.
+  const coupleAnswersNode =
+    !showScript && feeUnlocked ? (
+      <CoupleAnswers
+        supabase={supabase}
+        eventId={eventId}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={eventName}
+      />
+    ) : null;
+
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
   const activityNode = (
@@ -2108,6 +2123,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
+            {tab === 'overview' ? coupleAnswersNode : null}
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? gated(filesNode) : null}
             {tab === 'schedule' ? gated(scheduleNode) : null}
@@ -2193,7 +2209,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF,
       node: null,
     },
     {
@@ -2253,6 +2269,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : null}
           {/* The brief, from the REDACTED payload at every locked stage. */}
           {overviewNode}
+          {coupleAnswersNode}
           {feeUnlocked ? activityNode : null}
         </div>
       ),
@@ -2311,7 +2328,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1747
-# tables: 452
-# columns: 5579
-# notnull: 3372
+# ledger: 1760
+# tables: 455
+# columns: 5614
+# notnull: 3394
 [ledger]
 20260512000000
 20260513000000
@@ -1757,8 +1757,21 @@
 20271309211124
 20271309260178
 20271309403755
+20271309527923
+20271310256381
 20271311598756
 20271311895322
+20271313372071
+20271314066142
+20271314517155
+20271314842518
+20271315529466
+20271316174617
+20271316355263
+20271316466285
+20271316625547
+20271316933967
+20271319497337
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1951,6 +1964,16 @@ booking_fee_charges.source
 booking_fee_charges.status
 booking_fee_charges.updated_at
 booking_fee_charges.vendor_profile_id
+booking_fee_disputes.charge_id
+booking_fee_disputes.created_at
+booking_fee_disputes.decided_at
+booking_fee_disputes.decided_by_user_id
+booking_fee_disputes.decision_note
+booking_fee_disputes.dispute_id
+booking_fee_disputes.opened_by_user_id
+booking_fee_disputes.reason
+booking_fee_disputes.status
+booking_fee_disputes.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.attribution_frozen_at
 booking_fee_ledger.attribution_thread_id
@@ -2989,6 +3012,11 @@ event_question_answers.answered_by
 event_question_answers.event_id
 event_question_answers.question_id
 event_question_answers.updated_at
+event_question_requests.event_id
+event_question_requests.first_sent_at
+event_question_requests.sent_at
+event_question_requests.thread_id
+event_question_requests.vendor_profile_id
 event_recaps.created_at
 event_recaps.event_id
 event_recaps.published_at
@@ -3291,6 +3319,13 @@ event_vendor_deposit_refusals.refusal_id
 event_vendor_deposit_refusals.refused_at
 event_vendor_deposit_refusals.refused_by_user_id
 event_vendor_deposit_refusals.vendor_name
+event_vendor_found.event_id
+event_vendor_found.first_found_at
+event_vendor_found.first_source
+event_vendor_found.found_at_claim_at
+event_vendor_found.last_viewed_at
+event_vendor_found.vendor_profile_id
+event_vendor_found.view_count
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.due_date
@@ -3959,6 +3994,7 @@ guest_saved_vendors.saved_at
 guest_saved_vendors.source_event_id
 guest_saved_vendors.user_id
 guest_saved_vendors.vendor_profile_id
+guest_saved_vendors.vendor_service_id
 guest_souvenir_claims.claim_id
 guest_souvenir_claims.claimed_at
 guest_souvenir_claims.claimed_by_user_id
@@ -5682,6 +5718,7 @@ shop_gift_stock_entries.note
 shop_gift_stock_entries.order_id
 shop_gift_stock_entries.pool_grant_id
 shop_gift_stock_entries.proposal_id
+shop_gift_stock_entries.unlocks_sku
 shop_gift_stock_entries.vendor_profile_id
 shop_papic_wallet_entries.clips
 shop_papic_wallet_entries.created_at
@@ -6243,16 +6280,6 @@ vendor_crew_passes.pass_id
 vendor_crew_passes.requested_at
 vendor_crew_passes.status
 vendor_crew_passes.vendor_profile_id
-vendor_custom_plans.composition
-vendor_custom_plans.created_at
-vendor_custom_plans.created_by
-vendor_custom_plans.custom_plan_id
-vendor_custom_plans.discount_type
-vendor_custom_plans.discount_value
-vendor_custom_plans.quoted_28d_php
-vendor_custom_plans.status
-vendor_custom_plans.updated_at
-vendor_custom_plans.vendor_profile_id
 vendor_date_waitlist.accepted_at
 vendor_date_waitlist.created_at
 vendor_date_waitlist.event_id
@@ -6346,6 +6373,21 @@ vendor_guest_deliveries.guest_id
 vendor_guest_deliveries.item_label
 vendor_guest_deliveries.vendor_profile_id
 vendor_guest_deliveries.voided_at
+vendor_guest_reviews.capture_id
+vendor_guest_reviews.created_at
+vendor_guest_reviews.door
+vendor_guest_reviews.event_id
+vendor_guest_reviews.guest_id
+vendor_guest_reviews.hidden_at
+vendor_guest_reviews.hidden_by_user_id
+vendor_guest_reviews.line
+vendor_guest_reviews.rating_overall
+vendor_guest_reviews.review_id
+vendor_guest_reviews.service_id
+vendor_guest_reviews.shown_as
+vendor_guest_reviews.vendor_profile_id
+vendor_guest_reviews.vendor_reply
+vendor_guest_reviews.vendor_reply_at
 vendor_ig_connections.access_token_enc
 vendor_ig_connections.connected_at
 vendor_ig_connections.created_at
@@ -6685,6 +6727,10 @@ vendor_profiles.event_types
 vendor_profiles.experience_verified_at
 vendor_profiles.experience_verified_by
 vendor_profiles.extra_agent_seats
+vendor_profiles.extra_bookings_per_date
+vendor_profiles.extra_parent_categories
+vendor_profiles.extra_services_per_leaf
+vendor_profiles.extra_waitlist_acceptances
 vendor_profiles.fraud_banned_at
 vendor_profiles.fraud_suspended_at
 vendor_profiles.fraud_tombstoned
@@ -6926,6 +6972,8 @@ vendor_reviews.rating_overall
 vendor_reviews.rating_quality
 vendor_reviews.rating_value
 vendor_reviews.review_id
+vendor_reviews.reviewer_display
+vendor_reviews.service_id
 vendor_reviews.updated_at
 vendor_reviews.vendor_profile_id
 vendor_reviews.vendor_reply
@@ -7456,6 +7504,11 @@ booking_fee_charges.source
 booking_fee_charges.status
 booking_fee_charges.updated_at
 booking_fee_charges.vendor_profile_id
+booking_fee_disputes.charge_id
+booking_fee_disputes.created_at
+booking_fee_disputes.dispute_id
+booking_fee_disputes.status
+booking_fee_disputes.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.created_at
 booking_fee_ledger.fee_paid_total_centavos
@@ -8115,6 +8168,10 @@ event_question_answers.answer
 event_question_answers.event_id
 event_question_answers.question_id
 event_question_answers.updated_at
+event_question_requests.event_id
+event_question_requests.first_sent_at
+event_question_requests.sent_at
+event_question_requests.vendor_profile_id
 event_recaps.created_at
 event_recaps.event_id
 event_recaps.recap_id
@@ -8296,6 +8353,12 @@ event_vendor_deposit_refusals.closed_by
 event_vendor_deposit_refusals.event_vendor_id
 event_vendor_deposit_refusals.refusal_id
 event_vendor_deposit_refusals.refused_at
+event_vendor_found.event_id
+event_vendor_found.first_found_at
+event_vendor_found.first_source
+event_vendor_found.last_viewed_at
+event_vendor_found.vendor_profile_id
+event_vendor_found.view_count
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.event_id
@@ -10043,12 +10106,6 @@ vendor_crew_passes.pass_id
 vendor_crew_passes.requested_at
 vendor_crew_passes.status
 vendor_crew_passes.vendor_profile_id
-vendor_custom_plans.composition
-vendor_custom_plans.created_at
-vendor_custom_plans.custom_plan_id
-vendor_custom_plans.status
-vendor_custom_plans.updated_at
-vendor_custom_plans.vendor_profile_id
 vendor_date_waitlist.created_at
 vendor_date_waitlist.requested_date
 vendor_date_waitlist.status
@@ -10116,6 +10173,14 @@ vendor_guest_deliveries.delivery_id
 vendor_guest_deliveries.event_id
 vendor_guest_deliveries.guest_id
 vendor_guest_deliveries.vendor_profile_id
+vendor_guest_reviews.created_at
+vendor_guest_reviews.door
+vendor_guest_reviews.event_id
+vendor_guest_reviews.guest_id
+vendor_guest_reviews.rating_overall
+vendor_guest_reviews.review_id
+vendor_guest_reviews.shown_as
+vendor_guest_reviews.vendor_profile_id
 vendor_ig_connections.access_token_enc
 vendor_ig_connections.connected_at
 vendor_ig_connections.created_at
@@ -10317,6 +10382,10 @@ vendor_profiles.created_at
 vendor_profiles.demotion_count
 vendor_profiles.event_types
 vendor_profiles.extra_agent_seats
+vendor_profiles.extra_bookings_per_date
+vendor_profiles.extra_parent_categories
+vendor_profiles.extra_services_per_leaf
+vendor_profiles.extra_waitlist_acceptances
 vendor_profiles.fraud_tombstoned
 vendor_profiles.gallery_video_links
 vendor_profiles.is_demo
@@ -10452,6 +10521,7 @@ vendor_reviews.rating_overall
 vendor_reviews.rating_quality
 vendor_reviews.rating_value
 vendor_reviews.review_id
+vendor_reviews.reviewer_display
 vendor_reviews.updated_at
 vendor_reviews.vendor_profile_id
 vendor_reviews.via_vendor_import

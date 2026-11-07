@@ -51,13 +51,15 @@ test('🔑 1 · every tool of the approved list is a row, in order, under its gr
     'plan · Your call time',
     'plan · Guest count changed',
     'plan · Offer another service',
+    // ❓ Owner 2026-11-04 "Yes, every supplier" — the ONE approved row of "Their event · for your service".
+    'event · Questions for the couple',
     'talk · Share a file',
     'you · Mark won or lost',
     'you · Report a problem',
   ]);
   assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.key === 'share-file')?.line, 'File · photo · video · the contract');
   // The sheet draws a group's heading from the one list, in the one order.
-  assert.deepEqual(THREAD_TOOL_GROUPS.map((g) => g.label), ['Money', 'Plan', 'Talk & files', 'Just you']);
+  assert.deepEqual(THREAD_TOOL_GROUPS.map((g) => g.label), ['Money', 'Plan', 'Their event · for your service', 'Talk & files', 'Just you']);
   assert.match(SHEET, /THREAD_TOOL_GROUPS\.find\(/, 'the sheet no longer draws the group headings from the registry');
   assert.equal(VENDOR_THREAD_TOOLS.filter((t) => t.primary).length, 1, 'exactly one primary tool');
   assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.primary)?.key, 'build-quote', 'Send a quote is the primary tool');
@@ -77,7 +79,7 @@ test('🔑 2 · a tool that cannot open yet is SHUT with its reason, never hidde
   // Everything but the booking ask is still listed with nothing open.
   assert.equal(rows.length, VENDOR_THREAD_TOOLS.length - 1);
   const shut = Object.fromEntries(rows.filter((r) => r.shut).map((r) => [r.tool.key, r.shut!.reason]));
-  assert.deepEqual(Object.keys(shut).sort(), ['ask-payment', 'guest-count', 'log-payment', 'propose-schedule']);
+  assert.deepEqual(Object.keys(shut).sort(), ['ask-payment', 'guest-count', 'log-payment', 'propose-schedule', 'questions-for-couple']);
   for (const reason of Object.values(shut)) assert.ok(reason.length > 10, `a shut reason is not a sentence: ${reason}`);
   // …and opens once the fact behind it is true.
   assert.equal(vendorThreadToolRows(OPEN).filter((r) => r.shut).length, 0);

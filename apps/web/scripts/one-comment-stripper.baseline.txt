@@ -145,8 +145,6 @@ apps/web/lib/correction-queue-has-an-intake.test.ts
 apps/web/lib/couple-face-choice.test.ts
 apps/web/lib/couple-screens-keep-the-shell.test.ts
 apps/web/lib/credit-warning-emails.test.ts
-apps/web/lib/custom-plan-term-and-extend.test.ts
-apps/web/lib/custom-tier-is-hidden-publicly.test.ts
 apps/web/lib/data-subject-register.test.ts
 apps/web/lib/doorways-before-the-day.test.ts
 apps/web/lib/env-flag.test.ts
@@ -280,7 +278,6 @@ apps/web/scripts/lint-no-engineering-notes-in-ui.mjs
 apps/web/scripts/lint-no-stacked-pinned-bars.mjs
 apps/web/scripts/lint-server-only-boundary.mjs
 apps/web/scripts/lint-stored-asset-refs.mjs
-apps/web/tests/db/custom-sits-above-enterprise.db.test.ts
 apps/web/tests/db/enum-literals-are-real.db.test.ts
 apps/web/tests/db/guest-capture-has-a-capturer.db.test.ts
 apps/web/tests/db/rpc-argument-names.db.test.ts

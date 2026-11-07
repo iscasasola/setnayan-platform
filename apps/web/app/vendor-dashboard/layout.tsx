@@ -22,7 +22,7 @@ import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
-import { customerLandingHref } from './customers/anchors';
+import { SUPPLIER_CHATS_HREF } from './customers/anchors';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -346,19 +346,17 @@ export default async function VendorDashboardLayout({
 
   // Login-driven vendor TIER lapse (no cron) — post-response, downgrade-only,
   // idempotent. sweep_vendor_tier_expiry reverts a tier past its tier_expires_at
-  // (pro/enterprise → verified-or-free; custom → verified-or-free + demotes the
-  // active custom plan). Deferring to after() keeps it off the render path of a
+  // (pro/enterprise → verified-or-free). Deferring to after() keeps it off the render path of a
   // layout that re-renders on every navigation; `supabase` is captured in the
   // closure (holds the access token in memory), so the post-response call still
   // authenticates. Only fired for a sweepable PAID tier — for free/verified it
   // is a guaranteed no-op, so skip the pointless background write. The
   // api_access gate already denies expired access inline; this reconciles
-  // tier_state + the caps overlay so a lapsed vendor stops reading Custom/Pro
-  // ceilings.
+  // tier_state so a lapsed vendor stops reading Pro/Ultra ceilings.
   if (
     tierProbe.vendorId &&
     vendorTier != null &&
-    (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
+    (['pro', 'enterprise'] as readonly string[]).includes(vendorTier)
   ) {
     const vendorId = tierProbe.vendorId;
     after(async () => {
@@ -501,8 +499,9 @@ export default async function VendorDashboardLayout({
         page: … envelope (unread badge) · avatar"). The SAME live badge the
         couple's event bar carries (`UnreadMessagesBadge`, not a second one),
         seeded from the `countUnreadMessages` read this layout already makes
-        for the phone bar — no new query. It lands on the inbox through the
-        anchors table, never the bare stub.
+        for the phone bar — no new query. It lands on CHATS, the supplier's
+        full-screen inbox (`SUPPLIER_CHATS_HREF`, owner 2026-11-06: "Why is it
+        still jumping to customer events") — never Customers › Events again.
 
         🔔 THE BELL STAYS BESIDE IT FOR NOW. The redesign's shell draws the
         envelope and the avatar only, and files the notification list under
@@ -514,7 +513,7 @@ export default async function VendorDashboardLayout({
       <UnreadMessagesBadge
         userId={user.id}
         initialUnread={threadsUnread}
-        href={customerLandingHref('messages')}
+        href={SUPPLIER_CHATS_HREF}
         tour="supplier-messages"
       />
       <UnreadBellBadge

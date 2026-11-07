@@ -2960,6 +2960,8 @@
         "Section",
         "ServiceBack",
         "ServiceCards",
+        "ServiceInfo",
+        "ServiceInfoTextField",
         "ServicePanel",
         "ServiceParts",
         "ServiceRow",
@@ -4946,6 +4948,7 @@
     "/admin/verify": {
       "files": [
         "admin/verify/_components/deep-search-chat.tsx",
+        "admin/verify/_components/free-booking-match-note.tsx",
         "admin/verify/actions.ts",
         "admin/verify/loading.tsx",
         "admin/verify/page.tsx"
@@ -4992,6 +4995,7 @@
         "DemotedVendorCard",
         "FlashBanner",
         "FormFlash",
+        "FreeBookingMatchNote",
         "Image",
         "Link",
         "PageMasthead",
@@ -5684,8 +5688,7 @@
         "dashboard/(account)/samahan/page.tsx"
       ],
       "destinations": [
-        "/dashboard/samahan/[seg]",
-        "/dashboard/samahan/[seg]?tab=usapan"
+        "/dashboard/samahan/[seg]"
       ],
       "actions": [],
       "blocks": []
@@ -5693,6 +5696,8 @@
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
         "dashboard/(account)/samahan/[communityId]/_components/group-back.tsx",
+        "dashboard/(account)/samahan/[communityId]/_components/group-chatroom.tsx",
+        "dashboard/(account)/samahan/[communityId]/_components/group-collage.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/group-home.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
@@ -5714,14 +5719,22 @@
         "updateCommunityIdentity"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
+        "CollagePlayer",
+        "ConfirmDialog",
         "CopyButton",
+        "DateChip",
+        "EventCard",
         "EventsTab",
         "GroupBack",
+        "GroupChatroom",
+        "GroupCollage",
         "GroupEventRow",
         "GroupHome",
         "GroupSectionHead",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLVideoElement",
@@ -5732,13 +5745,16 @@
         "MediaStream",
         "MemberActionsMenu",
         "MembersTab",
+        "MessageBubble",
         "OverlayBackdrop",
         "PickMenu",
         "ReturnInPlace",
         "SamahanIdentityHeader",
         "SamahanStories",
+        "StoriesControl",
         "SubmitButton",
-        "UsapanTab"
+        "ThumbRow",
+        "Tile"
       ]
     },
     "/dashboard/(account)/samahan/new": {
@@ -9727,6 +9743,7 @@
       "destinations": [
         "/api/oauth/youtube/start?event_id=[seg]",
         "/dashboard/[seg]/studio/panood",
+        "/dashboard/[seg]/studio/panood/setup/venue-check",
         "/privacy"
       ],
       "actions": [
@@ -9759,8 +9776,39 @@
         "Stat",
         "StyleAndAddOns",
         "SubmitButton",
+        "VenueCheckCard",
         "YouTubeDelivery",
         "YoutubeConnect"
+      ]
+    },
+    "/dashboard/[eventId]/studio/panood/setup/venue-check": {
+      "files": [
+        "dashboard/[eventId]/studio/panood/setup/venue-check/_components/venue-check-card.tsx",
+        "dashboard/[eventId]/studio/panood/setup/venue-check/_components/venue-check-runner.tsx",
+        "dashboard/[eventId]/studio/panood/setup/venue-check/_components/venue-check-status.tsx",
+        "dashboard/[eventId]/studio/panood/setup/venue-check/actions.ts",
+        "dashboard/[eventId]/studio/panood/setup/venue-check/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "Fact",
+        "FinishVenueCheckResult",
+        "FormRows",
+        "I",
+        "Link",
+        "Op",
+        "PageMasthead",
+        "Phase",
+        "StartVenueCheckResult",
+        "TypedRow",
+        "VenueCheckBusy",
+        "VenueCheckDone",
+        "VenueCheckReady",
+        "VenueCheckRunner",
+        "VenueCheckStatus",
+        "VenueCheckStatusProps"
       ]
     },
     "/dashboard/[eventId]/studio/papic/challenges": {
@@ -11822,9 +11870,7 @@
       "actions": [],
       "blocks": [
         "AccountBottomNav",
-        "GroupBack",
-        "GroupHome",
-        "SamahanIdentityHeader"
+        "GroupHome"
       ]
     },
     "/dev/guests-lab": {
@@ -12960,6 +13006,33 @@
       "blocks": [
         "DiscoverThumbRow",
         "EventsThumbRow"
+      ]
+    },
+    "/dev/venue-check-lab": {
+      "files": [
+        "dev/venue-check-lab/frames.tsx",
+        "dev/venue-check-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/studio/panood/setup/venue-check"
+      ],
+      "actions": [],
+      "blocks": [
+        "VenueCheckBusy",
+        "VenueCheckCard",
+        "VenueCheckDone",
+        "VenueCheckLabFrames",
+        "VenueCheckReady"
+      ]
+    },
+    "/dev/verify-desk-lab": {
+      "files": [
+        "dev/verify-desk-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FreeBookingMatchNote"
       ]
     },
     "/dev/visits-lab": {

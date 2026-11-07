@@ -137,7 +137,7 @@ test('3 · every door site asks the ONE rule with `iap` — never the raw set, n
   // Thank You's Home row: Apple's branch, gated by the one rule, opening its page.
   assert.match(page, /thankYou: canViewPapicCounts && appleThankYouOffered/);
   assert.match(page, /!isStoreShellHiddenAddon\(appleThankYouEntry\.key, iap\)/);
-  assert.match(page, /open: `\/dashboard\/\$\{eventId\}\/studio\/thank-you`/);
+  assert.match(page, /open: thankYouVideoHref\(eventId\)/); // 🎬 R3: its page is in Memories
   const parts = code('app/dashboard/[eventId]/studio/_components/service-parts.tsx');
   assert.match(parts, /\{ storeShell, iap \}\] = await Promise\.all\(\[resolveProfileByEvent\(eventId\), getIapGate\(\)\]\)/);
   assert.match(parts, /storeShell && \(isStoreShellHiddenAddon\(entry\.key, iap\) \|\| isStoreShellWebOnlyPath\(href\.split\('\?'\)\[0\]!, iap\)\)/);

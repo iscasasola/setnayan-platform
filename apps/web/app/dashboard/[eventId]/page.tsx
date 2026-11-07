@@ -58,6 +58,7 @@ import {
 } from '@/lib/home-first-screen';
 import { homePaidFacts } from '@/lib/home-paid-services';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { thankYouVideoHref } from '@/lib/memories-keepsakes';
 import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
 import { isStoreShellHiddenAddon, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
@@ -1245,7 +1246,7 @@ export default async function EventHomePage({
                 ? {
                     status: appleFacts.thankYouOn === null ? '—' : appleFacts.thankYouOn ? 'On' : 'Not added',
                     owned: appleFacts.thankYouOn !== false,
-                    open: `/dashboard/${eventId}/studio/thank-you`,
+                    open: thankYouVideoHref(eventId), // 🎬 R3: the maker is a Memories page
                   }
                 : null,
               // A read that failed is "—" and offers nothing — never "Not on yet" over a refusal.

@@ -14,6 +14,7 @@
  */
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 /* ─── "See it as" ───────────────────────────────────────────────────────────────────────────── */
 
@@ -81,7 +82,10 @@ export function Expandable({
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLElement>(null);
+  // Opening glides the block into view when it runs past the bottom — the app-wide reveal (owner 2026-11-04).
+  const intend = useRevealOnOpen(open, () => ({ head: root.current }));
   function toggle() {
+    if (!open) intend();
     setOpen(!open);
     // Closing a long list: bring its top back into view, as the prototype does.
     if (open) requestAnimationFrame(() => root.current?.scrollIntoView({ block: 'nearest' }));

@@ -18,6 +18,10 @@ import { reviewedAliasesByLiveTrade } from '@/lib/service-trade-aliases';
 import { getReviewedTradeAliasRows } from '@/lib/service-trade-aliases-db';
 import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import { categoryLadder } from '@/lib/vendor-tier-caps';
+import { readClaimDoor } from '@/lib/claim-door.server';
+import { claimDoorHref } from '@/lib/claim-door';
+import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
+import { ClaimDoor } from './_components/claim-door';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -45,9 +49,10 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string }>;
 }) {
-  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs } = await searchParams;
+  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim } = await searchParams;
+  const claimToken = typeof claim === 'string' && claim.trim() ? claim.trim().slice(0, 200) : null;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
@@ -100,6 +105,13 @@ export default async function OpenShopPage({
     contact_phone?: string | null;
     contact_email?: string | null;
   } | null;
+  // 🔗 THE CLAIM DOOR (`?claim=<token>`, controller A6 7 Nov): a couple-made claim link opens the door pre-filled.
+  // The token is checked by the shipped read (`readClaimDoor` → `fetchClaimLandingByToken`); a link that is not a
+  // pending couple-made invite goes back to `/vendor/claim/<token>`, whose dead ends already say why. A supplier who
+  // ALREADY has a shop connects through the shipped finalize — no door to walk, no second shop.
+  const claimDoor = claimToken ? await readClaimDoor(claimToken) : null;
+  if (claimToken && !claimDoor?.open) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}`);
+  if (claimToken && row?.business_name?.trim()) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}/finalize`);
   if (row?.business_name?.trim()) redirect(landing);
 
   // Taxonomy-driven labels for the primary-service picker (degrades to the
@@ -247,6 +259,22 @@ export default async function OpenShopPage({
   // rate rather than implying there is no fee.
   const feeSchedule = await readBookingFeeJoinSchedule().catch(() => null);
   const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
+
+  if (claimToken && claimDoor?.open) {
+    return (
+      <ClaimDoor
+        record={claimDoor.record}
+        tree={serviceTree}
+        specialties={specialties}
+        signedInAs={user?.email ?? null}
+        oauth={gate}
+        signInHref={'/login?next=' + encodeURIComponent(claimDoorHref(claimToken) + '&step=account') + '&as=vendor'}
+        error={error}
+        startOnAccount={step === 'account'}
+        declineAction={declineVendorInviteByToken}
+      />
+    );
+  }
 
   return (
     <OpenShopWizard

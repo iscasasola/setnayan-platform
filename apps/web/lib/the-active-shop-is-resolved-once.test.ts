@@ -51,7 +51,7 @@ const ENUMERATIONS: Record<string, { count: number; why: string }> = {
   'app/admin/users/[userId]/page.tsx': { count: 1, why: 'HQ\'s view of ANOTHER person: every seat they hold.' },
   'app/open-shop/actions.ts': { count: 1, why: 'provisioning: find-or-create the shop this login OWNS (count-checked against the cap).' },
   'app/open-shop/page.tsx': { count: 1, why: 'the open-shop wizard resumes the shop this login OWNS.' },
-  'app/vendor/claim/[token]/finalize/page.tsx': { count: 2, why: 'the claim gate: does this login own OR help in ANY shop — supplier intent, so a couple account cannot spend a supplier link (lib/claim-account-gate.ts).' },
+  'lib/claim-account-gate.server.ts': { count: 2, why: 'the claim gate: does this login own OR help in ANY shop — supplier intent, so a couple account cannot spend a supplier link (lib/claim-account-gate.ts). One reader since A6, shared by finalize and the claim door’s finish.' },
   'lib/booked-supplier.ts': { count: 2, why: 'is this account booked on THIS event through ANY of its shops (owner ruling 2026-08-27).' },
   'lib/booking-fee-mint.server.ts': { count: 1, why: 'catch-up sweep over EVERY shop the account owns.' },
   'lib/deposit-acknowledged-effects.server.ts': { count: 1, why: 'catch-up sweep over EVERY shop the account owns.' },

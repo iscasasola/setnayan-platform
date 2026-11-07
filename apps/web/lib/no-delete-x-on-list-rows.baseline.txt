@@ -3,7 +3,6 @@
 # SwipeToDelete (app/_components/swipe-to-delete.tsx) and lower its line; never add one or raise one.
 app/[slug]/find-seat/_components/name-search.tsx 1
 app/_components/auth/sign-in-here-panel.tsx 1
-app/_components/file-upload.tsx 3
 app/_components/home/HomeOverlays.tsx 1
 app/_components/paper-picker.tsx 1
 app/dashboard/(account)/create-event/_components/create-location-picker.tsx 1

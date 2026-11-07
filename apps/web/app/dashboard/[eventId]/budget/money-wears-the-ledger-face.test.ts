@@ -242,9 +242,13 @@ test('the census still SEES the screen', () => {
 });
 
 test('the summary renders its figures through <Peso>, which is tabular by construction', () => {
+  // ✂ THE ONE BUILD (8 Nov, B2 §2.3): Agreed/Paid/Owed are drawn by `BudgetFigures` (shared with the supplier's
+  // Payment page), the Target by the summary — `Peso` lives in `budget-figures.tsx` now.
   const summary = code(join(BUDGET_TREE, '_components', 'budget-summary.tsx'));
-  assert.ok((summary.match(/<Peso\b/g) ?? []).length >= 4, 'Target/Agreed/Paid/Owed are <Peso> figures');
-  const peso = summary.slice(summary.indexOf('export function Peso('));
+  const figures = code(join(BUDGET_TREE, '_components', 'budget-figures.tsx'));
+  assert.ok((summary.match(/<Peso\b/g) ?? []).length >= 1, 'the Target is not a <Peso> figure');
+  assert.match(figures, /function Figure\([\s\S]*?<Peso value=\{value\} id=\{id\} \/>/, 'Agreed/Paid/Owed are not <Peso> figures');
+  const peso = figures.slice(figures.indexOf('export function Peso('));
   const body = peso.slice(0, peso.indexOf('\n}\n'));
   assert.match(body, /<Count\b/, 'whole pesos go through Count (inline tabular numerals)');
   assert.match(body, /fontVariantNumeric: 'tabular-nums'/, 'the exact-centavo fallback is tabular too');

@@ -67,10 +67,15 @@ test('the page still draws its summary through the component this guard counts',
 });
 
 test('the skeleton draws as many figures as the summary renders', () => {
-  const rendered = [...read(SUMMARY).matchAll(/data-budget-cell="/g)].length;
+  // ✂ THE ONE BUILD (8 Nov): the summary hands its cells to `BudgetFigures` (`budget-figures.tsx` draws one
+  // `data-budget-cell` per entry) — so the cells rendered are the entries of the summary's `cells={[…]}`.
+  const summary = read(SUMMARY);
+  const cells = summary.slice(summary.indexOf('cells={['), summary.indexOf('meter={meter}'));
+  const rendered = [...cells.matchAll(/^\s*\{\s*key: '/gm)].length;
+  assert.match(read(join(__dirname, '_components', 'budget-figures.tsx')), /data-budget-cell=\{c\.key\}/, 'BudgetFigures no longer draws one cell per entry');
   assert.ok(
     rendered > 0,
-    'no `data-budget-cell` found in budget-summary.tsx — the count is derived from the component on purpose, so a match that stops matching would make this rule vacuous. Fix the match, do not hardcode a number.',
+    'no cell found in budget-summary.tsx’s `cells={[…]}` — the count is derived from the component on purpose, so a match that stops matching would make this rule vacuous. Fix the match, do not hardcode a number.',
   );
   assert.equal(
     skeletonProp('stats'),

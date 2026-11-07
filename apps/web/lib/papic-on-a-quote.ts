@@ -15,7 +15,7 @@
  * is the other half — and it is NOT a new product. The "additional papic
  * service they can purchase on top to offer that exclusive deal" already exists
  * and is already priced, owner-locked on 2026-09-09: the SETNAYAN GIFT, free
- * Papic photos for the couple, sized at `GIFT_SHARE_OF_FEE_PCT`% of the booking
+ * Papic photos for the couple, sized at the live gift limit (`GiftQuoteBasis.limitPct`, Admin › Gifts) of the booking
  * fee, capped at the top pack on sale (never above `GIFT_CAP_CREDITS`), billed to the supplier on top of the fee.
  * `lib/setnayan-gift.ts` is the rule; this file does not re-derive one centavo
  * of it.
@@ -48,7 +48,7 @@
  */
 
 import {
-  GIFT_SHARE_OF_FEE_PCT,
+  giftLimitPctOrDefault,
   formatGiftPhotos,
   previewGiftForTotal,
   type GiftQuoteBasis,
@@ -170,19 +170,20 @@ export function standingForGiftArm(
 /**
  * THE WORDS ON THE QUOTE'S GIFT SWITCH — here, not in the composer, for the
  * same reason every other figure in this file is here: the share is rendered
- * from `GIFT_SHARE_OF_FEE_PCT` and never re-typed.
+ * from the live gift limit the standing's basis carries (`limitPct`) and never re-typed.
  *
  * 🔑 IT ALSO KEEPS THE COMPOSER CLEAN FOR ITS OWN GUARD.
  * `the-gift-is-on-the-quote-being-written.test.ts` fails if `proposal-maker.tsx`
- * so much as mentions `GIFT_SHARE_OF_FEE_PCT`, because a composer that knows
+ * so much as mentions the gift rate, because a composer that knows
  * the rate is one keystroke from computing the gift itself. That guard caught
  * this copy on the way in (2026-09-22) and it was right to.
  */
-export function quoteGiftSwitchCopy(): { label: string; detail: string } {
+export function quoteGiftSwitchCopy(standing?: PapicQuoteStanding | null): { label: string; detail: string } {
+  const basis = standing && (standing.kind === 'included' || standing.kind === 'available') ? standing.basis : null;
   return {
     label: 'Include the Setnayan gift on this quote',
     detail:
-      `Free Papic photos for your couple — ${sharePct()} of your booking fee, billed to you on ` +
+      `Free Papic photos for your couple — ${sharePct(basis?.limitPct)} of your booking fee, billed to you on ` +
       'top of it. It applies when they accept this quote, and it decides the bill whatever your ' +
       'service cards say.',
   };
@@ -265,9 +266,12 @@ export function openingGiftSwitch(a: {
   return a.revisionAnswer ?? a.cardsAnswer;
 }
 
-/** "40%" — the owner's ceiling, rendered from the constant, never typed. */
-function sharePct(): string {
-  return `${GIFT_SHARE_OF_FEE_PCT}%`;
+/**
+ * "40%" — the gift limit, rendered from the LIVE admin setting the basis carries (`getGiftLimitPct`, owner 8 Nov
+ * 2026), never typed. Without a basis (the switch's copy before any read) it renders the ruled default.
+ */
+function sharePct(limitPct?: number): string {
+  return `${giftLimitPctOrDefault(limitPct)}%`;
 }
 
 /**
@@ -311,7 +315,7 @@ export function papicTopUpForQuote(
         tone: 'good',
         headline: 'Papic deal · on — that is the most this booking can carry.',
         detail:
-          `Your exclusive Papic deal is capped at ${sharePct()} of your booking fee` +
+          `Your exclusive Papic deal is capped at ${sharePct(standing.basis.limitPct)} of your booking fee` +
           (gift.capped
             ? `, and this quote is at the ceiling of ${formatGiftPhotos(gift.credits)} photos`
             : '') +
@@ -333,7 +337,7 @@ export function papicTopUpForQuote(
           headline: 'Papic deal · off — put your price in to size it.',
           cta,
           detail:
-            `Free Papic photos for your couple, sized at ${sharePct()} of your booking fee and ` +
+            `Free Papic photos for your couple, sized at ${sharePct(standing.basis.limitPct)} of your booking fee and ` +
             'billed to you on top of it. Put your price in and we will show you exactly how many.',
         };
       }
@@ -355,7 +359,7 @@ export function papicTopUpForQuote(
           headline: 'Papic deal · off — this quote is too small to carry one.',
           cta,
           detail:
-            `The exclusive deal is ${sharePct()} of your booking fee, and at this price that does not ` +
+            `The exclusive deal is ${sharePct(standing.basis.limitPct)} of your booking fee, and at this price that does not ` +
             'reach the smallest Papic bundle. Quote higher and the number appears here.',
         };
       }
@@ -366,7 +370,7 @@ export function papicTopUpForQuote(
           `${feePesos(gift.chargeCentavos / 100)} on your fee.`,
         cta,
         detail:
-          `That is the most this booking can carry: ${sharePct()} of your booking fee` +
+          `That is the most this booking can carry: ${sharePct(standing.basis.limitPct)} of your booking fee` +
           (gift.capped ? `, stopping at ${formatGiftPhotos(gift.credits)} photos` : '') +
           '. The switch above is off, so this quote carries none — switch it on and ' +
           'the photos reach your couple when your fee bill is paid.',

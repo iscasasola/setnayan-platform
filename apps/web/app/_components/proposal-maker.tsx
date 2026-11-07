@@ -1890,9 +1890,9 @@ export function ProposalMaker({
               {/* The words come from the lib, where the share is rendered from
                   its constant — this component must never know the rate. */}
               <span className="block text-sm font-semibold text-mulberry-600">
-                {quoteGiftSwitchCopy().label}
+                {quoteGiftSwitchCopy(papicStanding).label}
               </span>
-              <span className="mt-0.5 block text-xs text-ink/60">{quoteGiftSwitchCopy().detail}</span>
+              <span className="mt-0.5 block text-xs text-ink/60">{quoteGiftSwitchCopy(papicStanding).detail}</span>
             </span>
           </label>
         ) : null}

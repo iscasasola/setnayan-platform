@@ -22,6 +22,7 @@
  *                      rating, badges) · &noaddress=1 (no web address yet)
  *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
+import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
 import { PlanPicker, type PlanPick } from '@/app/vendor-dashboard/subscription/_components/plan-picker';
@@ -391,9 +392,9 @@ export default async function SupplierPlanLabPage({
   else if (s === 'gifts-admin')
     body =
       sp.fail === '1' ? (
-        <ShopGiftsLedger ledger={null} ledgerError={{ message: 'lab: refused' }} holds={null} holdsError={{ message: 'lab: refused' }} />
+        <ShopGiftsLedger ledger={null} ledgerError={{ message: 'lab: refused' }} holds={null} holdsError={{ message: 'lab: refused' }} giftLimitPct={GIFT_LIMIT_PCT_DEFAULT} />
       ) : (
-        <ShopGiftsLedger ledger={LAB_GIFT_LEDGER} ledgerError={null} holds={LAB_GIFT_HOLDS} holdsError={null} />
+        <ShopGiftsLedger ledger={LAB_GIFT_LEDGER} ledgerError={null} holds={LAB_GIFT_HOLDS} holdsError={null} giftLimitPct={GIFT_LIMIT_PCT_DEFAULT} />
       );
 
   return <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">{body}</main>;

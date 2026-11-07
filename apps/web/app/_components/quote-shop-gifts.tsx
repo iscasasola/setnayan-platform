@@ -9,7 +9,6 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { BuyGiftsSheet } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { bookingFeePhp } from '@/lib/booking-fee';
 import { formatCentavos } from '@/lib/vendor-proposals';
-import { GIFT_SHARE_OF_FEE_PCT } from '@/lib/setnayan-gift';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   addGiftMenu,
@@ -30,7 +29,7 @@ const BUY_KEY = '__buy_more_gifts';
  * frame "Gifts from you"). Drawn under the money rows; judged by the SAME `judgeQuoteGifts` the send action re-runs on
  * a fresh read, so what is drawn here is what the server accepts.
  *
- *   This booking's gift limit · 40% of its ₱fee booking fee · <smallest pack> is always allowed      ₱limit
+ *   This booking's gift limit · {limitPct}% of its ₱fee booking fee · <smallest pack> is always allowed      ₱limit
  *   🎁 <pack> · N credits                  (swipe left → Remove, with Undo)
  *   Gifts worth · At the price couples pay: ₱v of ₱limit       — or the over-limit / short line
  *   ＋ Add a gift from your stock ▾        (every pack, each saying why it cannot go on now · Add to your stock…)
@@ -57,11 +56,11 @@ export function QuoteShopGifts({
 }) {
   const [buying, setBuying] = useState(false);
   const verdict = useMemo(
-    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas, basis.rewardFree ?? null),
+    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.limitPct, basis.free, basis.eventHas, basis.rewardFree ?? null),
     [codes, basis, totalCentavos],
   );
   const menu = useMemo(
-    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas, basis.rewardFree ?? null),
+    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.limitPct, basis.free, basis.eventHas, basis.rewardFree ?? null),
     [codes, basis, totalCentavos],
   );
   const smallest = alwaysAllowedPack(basis.packs);
@@ -89,7 +88,7 @@ export function QuoteShopGifts({
         <span className="min-w-0">
           <span className="block text-ink">This booking&rsquo;s gift limit</span>
           <span className="mt-0.5 block text-xs text-ink/60">
-            {GIFT_SHARE_OF_FEE_PCT}% of its {formatCentavos(feeCentavos)} booking fee
+            {basis.limitPct}% of its {formatCentavos(feeCentavos)} booking fee
             {smallest ? ` · ${smallest.title} is always allowed` : ''}
           </span>
         </span>

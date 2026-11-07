@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 
 import {
   GIFT_CAP_CREDITS,
-  GIFT_SHARE_OF_FEE_PCT,
+  GIFT_LIMIT_PCT_DEFAULT,
   giftChargeAtGiftPrice,
   giftLadderFrom,
   giftQuoteCopy,
@@ -32,7 +32,8 @@ const LADDER: GiftRung[] = [
 const feeFor = (bookingPhp: number) => Math.round(bookingFeePhp(bookingPhp) * 100);
 
 test('40% of the fee, floored to the centavo — a ceiling, never exceeded', () => {
-  assert.equal(GIFT_SHARE_OF_FEE_PCT, 40);
+  // ⚖ 8 Nov 2026: 40 is the ruled DEFAULT of the admin setting (platform_settings.gift_limit_pct).
+  assert.equal(GIFT_LIMIT_PCT_DEFAULT, 40);
   // fee 1,000.00 → budget 400.00 (between the 100 and 1,000 rungs)
   const g = setnayanGiftForFee(100_000, LADDER);
   assert.equal(g.chargeCentavos, 40_000);
@@ -245,4 +246,18 @@ test('💝 giftLadderFrom reads gift_price_php off the row', () => {
     ],
   );
   assert.deepEqual(ladder.map((r) => r.giftPriceCentavos), [9_000, null]);
+});
+
+test('the gift limit is the ADMIN SETTING passed in (owner 8 Nov 2026) — 25% sizes a smaller gift than 40%', () => {
+  // fee 1,000.00: at 40% the budget is 400.00; at 25% it is 250.00.
+  assert.equal(setnayanGiftForFee(100_000, LADDER).chargeCentavos, 40_000, 'absent → the ruled default');
+  assert.equal(setnayanGiftForFee(100_000, LADDER, { limitPct: 40 }).chargeCentavos, 40_000);
+  assert.equal(setnayanGiftForFee(100_000, LADDER, { limitPct: 25 }).chargeCentavos, 25_000);
+  assert.ok(
+    setnayanGiftForFee(100_000, LADDER, { limitPct: 25 }).credits < setnayanGiftForFee(100_000, LADDER, { limitPct: 40 }).credits,
+  );
+  // 0 is a real setting (no gift), and anything outside 0–100 falls back to the default — never to more.
+  assert.equal(setnayanGiftForFee(100_000, LADDER, { limitPct: 0 }).credits, 0);
+  assert.equal(setnayanGiftForFee(100_000, LADDER, { limitPct: 400 }).chargeCentavos, 40_000);
+  assert.equal(setnayanGiftForFee(100_000, LADDER, { limitPct: Number.NaN }).chargeCentavos, 40_000);
 });

@@ -20,6 +20,7 @@
  * The forms post the REAL actions; pressing them here needs a supplier's session (the lab draws, it does not book).
  * Names are samples: nobody real.
  */
+import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
 import { ChatBox } from '@/app/_components/chat/chat-box';
@@ -144,6 +145,7 @@ export default async function SupplierChatLabPage({
                   { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
                 ]),
                 schedule: BOOKING_FEE,
+                limitPct: GIFT_LIMIT_PCT_DEFAULT,
                 free: { papic: sp.gifts === 'short' ? 400 : 2150, event_plus: 2, event_pro: 1 },
                 eventHas: sp.gifts === 'plus' ? 'plus' : sp.gifts === 'pro' ? 'pro' : 'none',
               }

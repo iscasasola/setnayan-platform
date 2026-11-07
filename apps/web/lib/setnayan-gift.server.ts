@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookingFeePhp } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import {
   giftLadderFrom,
   giftLadderIsPriceable,
@@ -163,16 +164,17 @@ export async function quoteSetnayanGift(
   */
   if (arm !== 'applies' && arm !== 'card_says_no') return null;
 
-  const [schedule, ladder, giftPrice] = await Promise.all([
+  const [schedule, ladder, giftPrice, limitPct] = await Promise.all([
     getBookingFeeSchedule(admin),
     fetchGiftLadder(admin),
     fetchVendorPaysGiftPrice(admin, args.vendorProfileId),
+    getGiftLimitPct(admin),
   ]);
   if (!ladder || !giftLadderIsPriceable(ladder)) return null;
 
   // ONE RULE, BOTH SCREENS — the same pair the composer runs.
   const standing = standingForQuoteSwitch(
-    standingForGiftArm(arm, { schedule, ladder }),
+    standingForGiftArm(arm, { schedule, ladder, limitPct }),
     args.quoteSwitch,
   );
   // A basis reaches the couple's promise only on `included` — the contract
@@ -180,7 +182,7 @@ export async function quoteSetnayanGift(
   if (!giftBasisFrom(standing)) return null;
 
   const feeCentavos = Math.round(bookingFeePhp(args.amountCentavos / 100, schedule) * 100);
-  const gift = setnayanGiftForFee(feeCentavos, ladder, { giftPrice });
+  const gift = setnayanGiftForFee(feeCentavos, ladder, { giftPrice, limitPct });
   return gift.credits > 0 ? (freeWithBadge ? { ...gift, freeWithBadge: true } : gift) : null;
 }
 

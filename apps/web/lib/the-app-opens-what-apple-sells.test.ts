@@ -85,7 +85,8 @@ const OPENS = [
   `/dashboard/${E}/studio/patiktok`,
   `/dashboard/${E}/studio/patiktok/booth`,
   `/dashboard/${E}/studio/patiktok/sunset-glow`,
-  `/dashboard/${E}/studio/thank-you`,
+  // 🎬 R3 (owner 2026-10-27): the Thank-You Video maker is a Memories page now.
+  `/dashboard/${E}/memories/thank-you`,
 ];
 const STAYS_REFUSED = [
   `/dashboard/${E}/studio/live-studio-control`, // the Live Watch buy page — its price, plans, checkout
@@ -445,6 +446,7 @@ test('5 · Our Story: the ◆ mark shows where Pro is tried in the app; gate off
 /* ═══ 6 · THE FIVE MORE (owner 2026-10-23) — each page's ONE pay step is Apple's sheet, only where Apple sells ═══ */
 
 const STUDIO = 'app/dashboard/[eventId]/studio';
+const MEMORIES = 'app/dashboard/[eventId]/memories';
 const DOORS: Array<[file: string, gate: RegExp[]]> = [
   [
     `${STUDIO}/setnayan-ai/page.tsx`,
@@ -477,10 +479,10 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
     ],
   ],
   [
-    `${STUDIO}/thank-you/page.tsx`,
+    `${MEMORIES}/thank-you/page.tsx`,
     [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /if \(!owned && appleIap\) \{/, /settings: STORE_SHELL_NO_PAY_SETTINGS,\s*apple: sellability === 'sellable',/],
   ],
-  [`${STUDIO}/thank-you/_components/thank-you-maker.tsx`, [/if \(checkout\.apple\) \{\s*return \(\s*<div className="space-y-2">\s*<IapUnlockSheet\b/]],
+  [`${MEMORIES}/thank-you/_components/thank-you-maker.tsx`, [/if \(checkout\.apple\) \{\s*return \(\s*<div className="space-y-2">\s*<IapUnlockSheet\b/]],
 ];
 
 test('6 · the doors (the Mood Board pack retired 2026-10-26): each page reads the one gate, and Apple’s sheet is mounted only inside it', () => {
@@ -491,10 +493,10 @@ test('6 · the doors (the Mood Board pack retired 2026-10-26): each page reads t
   // Every IapUnlockSheet mount in the product is one of these (the /dev lab aside) — a new mount is a new decision.
   const mounts = DOORS.map(([f]) => f).filter((f) => /<IapUnlockSheet\b/.test(code(f)));
   assert.deepEqual(mounts.sort(), [
+    `${MEMORIES}/thank-you/_components/thank-you-maker.tsx`,
     `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
     `${STUDIO}/patiktok/page.tsx`,
     `${STUDIO}/setnayan-ai/page.tsx`,
-    `${STUDIO}/thank-you/_components/thank-you-maker.tsx`,
   ]);
   // GATE OFF: with `apple` false each component takes the web branch it always took.
   assert.match(code(`${STUDIO}/pakanta/_components/pakanta-music-form.tsx`), /\) : readyToPay && pricePhp != null \? \(\s*<InlineCheckoutDrawer\b/);

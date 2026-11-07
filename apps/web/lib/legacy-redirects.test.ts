@@ -61,6 +61,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/website/dress-code`, `/dashboard/${EID}/studio/mood-board`],
   // 📷 THE PAPIC PAGE (owner 2026-10-26: "place that on home and remove that page") — its card is on Home › Today.
   [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}?papic=open#papic`],
+  // 🎬 R3 · THE THANK-YOU VIDEO MOVED TO MEMORIES (owner 2026-10-27; "all mapping will be kept", 2026-10-28).
+  [`/dashboard/${EID}/studio/thank-you`, `/dashboard/${EID}/memories/thank-you`],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -87,6 +89,7 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/studio/page.tsx',
   'dashboard/[eventId]/website/dress-code/page.tsx',
   'dashboard/[eventId]/studio/papic/page.tsx',
+  'dashboard/[eventId]/studio/thank-you/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {

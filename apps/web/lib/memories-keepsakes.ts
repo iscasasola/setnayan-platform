@@ -17,6 +17,15 @@
  */
 
 export const KEEPSAKE_ORDER = ['magazine', 'recap', 'flash', 'thank-you'] as const;
+
+/**
+ * 🎬 THE THANK-YOU VIDEO MAKER'S ONE ADDRESS — in Memories (owner 2026-10-27, "THE THANK-YOU VIDEO MOVES TO MEMORIES";
+ * reorg R3). Its door is the Thank You button of this row; the catalogue (`addOnHref('thank-you')`), Home's App row and
+ * the store shell's opened routes all ask this. The old `/studio/thank-you` forwards here (`lib/legacy-redirects.ts`).
+ */
+export function thankYouVideoHref(eventId: string): string {
+  return `/dashboard/${eventId}/memories/thank-you`;
+}
 export type KeepsakeKey = (typeof KEEPSAKE_ORDER)[number];
 
 /** The one word on each button, and the card's own name (the sheet's title). */

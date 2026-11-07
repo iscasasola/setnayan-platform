@@ -100,12 +100,12 @@ test('only Setnayan shops, one per shop, under the anonymity-safe name', () => {
 /* ══ 2 · THANK-YOU VIDEO ════════════════════════════════════════════════ */
 
 test('the unowned Thank-You Video is made free and paid for at Save — no loop back to Studio', () => {
-  const page = code(`${EV}/studio/thank-you/page.tsx`);
+  const page = code(`${EV}/memories/thank-you/page.tsx`);
   assert.ok(!/Add it from your Studio|Back to Studio/.test(page), 'the Studio loop is back');
   assert.ok(!/if \(!owned\) \{\s*return/.test(page), 'the unowned state returns before the maker again');
   assert.match(page, /checkout=\{checkout\}/, 'the maker is no longer told how to charge for the save');
 
-  const maker = code(`${EV}/studio/thank-you/_components/thank-you-maker.tsx`);
+  const maker = code(`${EV}/memories/thank-you/_components/thank-you-maker.tsx`);
   assert.match(maker, /<InlineCheckoutDrawer\b/, 'Save to my phone no longer opens the shipped checkout');
   // The unpaid arm must not hand over the file: the download anchor lives only
   // in the OTHER arm of `checkout ? … : …`.

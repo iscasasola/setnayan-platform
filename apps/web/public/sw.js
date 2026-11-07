@@ -286,6 +286,7 @@ const RESERVED = new Set([
   'explore',
   'favicon.ico',
   'features',
+  'for-coordinators',
   'for-suppliers',
   'forgot-password',
   'guest-list',

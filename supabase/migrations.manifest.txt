@@ -8,7 +8,7 @@
 # Regenerate: node apps/web/scripts/lint-migrations-never-deleted.mjs --write
 # NEVER delete a line to go green — restore the migration file instead.
 #
-# versions: 1762
+# versions: 1763
 20260512000000	20260512000000_setnayan_base.sql
 20260513000000	20260513000000_iteration_0000_shell_schema.sql
 20260513010000	20260513010000_iteration_0001_guests.sql
@@ -1749,6 +1749,7 @@
 20271308471868	20271308471868_a_crew_drives_between_events.sql
 20271308555594	20271308555594_the_final_price_sheet.sql
 20271308641275	20271308641275_a_supplier_asks_for_their_chapters.sql
+20271308786674	20271308786674_for_coordinators_is_our_page_not_a_shops.sql
 20271309169686	20271309169686_supplier_gifts_stock_quote_lines_and_delivery.sql
 20271309178198	20271309178198_notification_type_service_card_moderated.sql
 20271309211124	20271309211124_a_taken_down_card_stays_down.sql

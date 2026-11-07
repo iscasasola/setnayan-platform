@@ -58,4 +58,5 @@
  */
 // '/for-suppliers' joined 2026-11-04 when it moved into the shell: its photo hero
 // and dark bands are edge-to-edge by design, and every section caps its own width.
-export const DOORWAY_BLEED_PATHS = ['/explore', '/for-suppliers'] as const;
+// '/for-coordinators' joined the same day, new: its photo hero and problem scenes run edge to edge.
+export const DOORWAY_BLEED_PATHS = ['/explore', '/for-suppliers', '/for-coordinators'] as const;

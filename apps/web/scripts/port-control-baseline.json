@@ -10481,6 +10481,7 @@
         "UnreadCtx.Provider",
         "UnreadRollupBadge",
         "UpdateSelfAddedSupplierResult",
+        "UpdatedLine",
         "VendorCard",
         "VendorCardAtom",
         "VendorCategory",

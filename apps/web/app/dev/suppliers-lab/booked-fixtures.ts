@@ -70,6 +70,7 @@ export function labCallTimes(): Map<string, TaggedMoment> {
   return out;
 }
 import { withBookedByPayment } from '@/lib/booked-by-payment';
+import { supplierCorrections } from '@/lib/supplier-corrections';
 
 /**
  * 📍 THE CHAPTERS AND WHO IS ON EACH — the Team rows' Where (owner 2026-11-01, "suppliers pick their chapters";
@@ -162,7 +163,19 @@ export type LabBookedOptions = {
   /** ♡ `&favorites=1` — after the day: each booked row with a shop carries the host's ♡ (Lumina already kept). Shapes
    *  what `offerHostFavorites` hands `booked-slot.tsx`; the press calls the real action, which refuses with no session. */
   favorites?: boolean;
+  /**
+   * ✏️ `&corrected=1` — Bituin joined from the couple's link and, at the claim door, corrected the name the couple had
+   * typed ("Bituin Caterers") and their phone. The couple approved: the row marks it (DECISION_LOG 2026-11-07). The
+   * corrections go through the REAL rule (`supplierCorrections`), so the phone is said to have changed, never shown.
+   */
+  corrected?: boolean;
 };
+
+/** What Bituin corrected at the claim door, against what the couple typed. */
+export const LAB_BITUIN_CORRECTIONS = supplierCorrections(
+  { name: 'Bituin Caterers', person: null, phone: '0917 555 0101', address: 'Quezon City' },
+  { name: 'Bituin Catering', person: 'Mila Bituin', phone: '+639181112222', address: '18 Mabini St, Marikina' },
+);
 
 /** The hand-added planner's stored row, its payment, and what the resolver makes of it. */
 const PLANNER_STORED = { vendor_id: 'v-planner', status: 'shortlisted', marketplace_vendor_id: null, manual_vendor_id: 'card-planner' } as const;
@@ -262,9 +275,12 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
           : f,
       )
     : FACTS;
-  const facts: BookedFacts[] = o.paidByHand
-    ? [...base, { vendorId: 'v-planner', groupId: 'coordinator', own: true, shopId: null, pricePhp: 60_000, threadId: 't-planner', moneyMoved: true, lockRequestExpiresAt: null }]
+  const corrected: BookedFacts[] = o.corrected
+    ? base.map((f) => (f.vendorId === 'v-bituin' ? { ...f, corrections: LAB_BITUIN_CORRECTIONS } : f))
     : base;
+  const facts: BookedFacts[] = o.paidByHand
+    ? [...corrected, { vendorId: 'v-planner', groupId: 'coordinator', own: true, shopId: null, pricePhp: 60_000, threadId: 't-planner', moneyMoved: true, lockRequestExpiresAt: null }]
+    : corrected;
   const rows = teamRows(team, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: labBookedNow(o) });
   // Bituin's plan is THEIRS (`event_vendor_payment_plan`), folded as the page folds it.
   const plans = new Map<string, PlanProgress>([

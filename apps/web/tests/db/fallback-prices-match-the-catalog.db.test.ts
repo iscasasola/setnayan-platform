@@ -9,9 +9,8 @@
  * it to be wrong:
  *
  *   · `CUSTOM_UNIT_PRICE_FALLBACK.base` stayed ₱8,999 while the catalog row went
- *     to ₱11,000 to sit above a raised Enterprise. One failed read would have put
- *     a whole tier back BELOW the tier beneath it — through a door no
- *     catalog-only check can see.
+ *     to ₱11,000 to sit above a raised Enterprise. (That plan and its fallback
+ *     were deleted 2026-11-06.)
  *   · `BRANCH_FEE_PHP` stayed ₱999 while its row went to ₱1,000.
  *   · `VENDOR_3D_BOOTH_FALLBACK_PHP` stayed ₱1,500 while its row went to ₱2,500.
  *
@@ -39,10 +38,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import {
-  CUSTOM_SKU_CODES,
-  CUSTOM_UNIT_PRICE_FALLBACK,
-} from '../../lib/vendor-custom-catalog';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -193,61 +188,9 @@ test('no hardcoded fallback disagrees with its live catalog row', async () => {
   );
 });
 
-test("the Custom rate card's fallback object agrees with the catalog, axis by axis", async () => {
-  /*
-    The same rule for the one fallback that is an OBJECT rather than a constant,
-    so the scan above cannot see it. Its own docblock says a deactivated row
-    "keeps quoting, at the same price, with the catalog saying it is off" — which
-    is exactly why each axis needs comparing.
-
-    ⛔ Axes come from CUSTOM_SKU_CODES, never hand-listed here, so an axis added
-    later is covered without anyone editing this test.
-  */
-  /*
-    ⚖ THE ANTI-VACUITY CHECK IS DERIVED, NOT A HAND-TYPED COUNT — and it got
-    STRONGER when the rate card shrank, not weaker.
-
-    It used to read `length >= 8`. Two axes were genuinely dropped on
-    2026-08-27 (the +100 km reach step and the +100-photo pack), so a literal
-    floor would have had to be edited down to 6 — and editing a guard's number
-    to match the code it guards is how a floor quietly becomes a rubber stamp.
-
-    So neither number is written here. The two maps are required to describe
-    the SAME set of axes, which catches strictly more than a count did:
-      · an empty import (both sides empty is caught by the `base` anchor);
-      · an axis deleted from one map and forgotten in the other — exactly the
-        half-removal this whole change was about avoiding.
-  */
-  const skuKeys = Object.keys(CUSTOM_SKU_CODES).sort();
-  const fallbackKeys = Object.keys(CUSTOM_UNIT_PRICE_FALLBACK).sort();
-
-  assert.ok(
-    CUSTOM_SKU_CODES.base && CUSTOM_UNIT_PRICE_FALLBACK.base > 0,
-    'the Custom BASE axis is missing — the imports are empty, or the rate card lost its floor. ' +
-      'Every assertion below would be vacuous.',
-  );
-  assert.deepEqual(
-    fallbackKeys,
-    skuKeys,
-    'CUSTOM_SKU_CODES and CUSTOM_UNIT_PRICE_FALLBACK disagree about which axes exist — ' +
-      'an axis was dropped from one and left in the other. Retiring an axis means deleting it ' +
-      'from BOTH, or the fallback keeps quoting a price the catalog no longer has.',
-  );
-
-  const codes = Object.entries(CUSTOM_SKU_CODES) as [keyof typeof CUSTOM_SKU_CODES, string][];
-
-  const drift: string[] = [];
-  for (const [axis, sku] of codes) {
-    const live = await livePrice(sku);
-    if (live === null) continue;
-    const fallback = Number(CUSTOM_UNIT_PRICE_FALLBACK[axis]);
-    if (fallback !== live) drift.push(`${axis} (${sku}): catalog ₱${live} vs fallback ₱${fallback}`);
-  }
-
-  assert.deepEqual(
-    drift,
-    [],
-    `CUSTOM_UNIT_PRICE_FALLBACK has drifted from the catalog — ${drift.join('; ')}. ` +
-      `Update lib/vendor-custom-catalog.ts in the SAME change as the migration.`,
-  );
-});
+/*
+ * (A second test lived here: "the Custom rate card's fallback object agrees with the catalog, axis by axis". The
+ * object it held — `CUSTOM_UNIT_PRICE_FALLBACK` in lib/vendor-custom-catalog.ts — was DELETED 2026-11-06 with the
+ * Custom supplier plan itself, owner: "from the app". A deleted fallback cannot drift, and the scan above still covers
+ * every `*_FALLBACK_PHP` / `*_FEE_PHP` constant left in lib/.)
+ */

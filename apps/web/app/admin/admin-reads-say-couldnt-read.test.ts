@@ -142,23 +142,13 @@ test('Free windows: "No free windows yet" is not printed over a refused read', (
   follows(s, '{error ? (', 'No free windows yet', 700, 'the empty line must sit behind the error branch');
 });
 
-// ── row 20 · Papic ladder / Custom plans ────────────────────────────────────
+// ── row 20 · Papic ladder (the Custom plans half retired 2026-11-06 with the plan) ────────────────────────────────────
 
 test('Papic ladder: a refused clamp read never mounts the editor whose Save writes 0/0', () => {
   const s = src('app/admin/pricing/_surfaces/papic-ladder-surface.tsx');
   assert.match(s, /const sizingUnread = Boolean\(vocabRes\.error \|\| learningRes\.error\);/);
   assert.match(s, /\{sizingUnread \? \(\s*<div[^>]*>\s*<ReadFailed[\s\S]{0,200}?\) : \(\s*<PapicTypeSizingEditor/);
   assert.match(s, /\{unreadable \? null : \(\s*<PapicLadderEditor/);
-});
-
-test('Custom plans: the fallback is named, and one mechanism serves both callers', () => {
-  const lib = src('lib/vendor-custom-catalog.ts');
-  assert.match(lib, /export async function fetchCustomUnitPricesMeasured\(/);
-  assert.match(lib, /fallbackAxes\.push\(axis\)/);
-  assert.match(lib, /return \(await fetchCustomUnitPricesMeasured\(supabase\)\)\.prices;/, 'the plain reader must wrap the measured one, not copy it');
-  const s = src('app/admin/pricing/_surfaces/custom-plans-surface.tsx');
-  assert.match(s, /Not the live catalogue/);
-  assert.match(s, /\{vendorRes\.error \? null : <CustomComposer/);
 });
 
 // ── row 21 · Discount codes ────────────────────────────────────────────────

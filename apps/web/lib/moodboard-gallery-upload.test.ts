@@ -133,7 +133,7 @@ test('MB19: a free-tier shop may now back-catalogue at all', () => {
 });
 
 test('the owner’s figure is the ladder: 20, per category, every tier', () => {
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     assert.equal(
       TIER_CAPS[tier].galleryBackCatalogPhotosPerCategory,
       20,
@@ -149,7 +149,7 @@ test('the NEW ladder never overwrote the portfolio ladder beside it', () => {
   assert.equal(TIER_CAPS.free.portfolioPhotos, 50);
   assert.equal(TIER_CAPS.pro.portfolioPhotos, 50);
   assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 50);
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     assert.notEqual(
       TIER_CAPS[tier].portfolioPhotos,
       TIER_CAPS[tier].galleryBackCatalogPhotosPerCategory,

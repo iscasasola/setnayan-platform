@@ -207,6 +207,7 @@
         "CompareShortlistBanner",
         "ContextualPillOption",
         "CtaLine",
+        "DemoOnlyMarker",
         "EmptyState",
         "EventTypeNotifyForm",
         "EventTypeSearchOption",
@@ -240,7 +241,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
-        "SampleShopMarker",
+        "SampleMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -272,6 +273,7 @@
       "actions": [],
       "blocks": [
         "CompareRowEl",
+        "DemoOnlyMarker",
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
@@ -1267,6 +1269,7 @@
         "DayOfAnnouncement",
         "DayOfBanner",
         "DayOfFaceEnroll",
+        "DemoOnlyMarker",
         "Detail",
         "DetailsBigDate",
         "DetailsCard",
@@ -2306,7 +2309,6 @@
         "/admin/payment-options",
         "/admin/payments",
         "/admin/payouts",
-        "/admin/pricing?tab=custom-plans",
         "/admin/pricing?tab=price-bands",
         "/admin/pricing?tab=pricing",
         "/admin/receipts",
@@ -3075,28 +3077,6 @@
         "ShopAddressCorrection",
         "SubmitButton",
         "VendorCorrectionRequestRow"
-      ]
-    },
-    "/admin/custom-plans": {
-      "files": [
-        "admin/custom-plans/_components/custom-composer.tsx",
-        "admin/custom-plans/actions.ts",
-        "admin/custom-plans/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [
-        "activateAction",
-        "formAction"
-      ],
-      "blocks": [
-        "CustomComposition",
-        "CustomPlanActionState",
-        "CustomUnitPrices",
-        "K",
-        "Knob",
-        "PillButton",
-        "PillTrack",
-        "SubmitButton"
       ]
     },
     "/admin/data-privacy": {
@@ -3996,7 +3976,6 @@
         "admin/pricing/_components/papic-type-sizing-editor.tsx",
         "admin/pricing/_components/signup-discount-card.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
-        "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
         "admin/pricing/_surfaces/free-windows-copy.ts",
         "admin/pricing/_surfaces/free-windows-surface.tsx",
@@ -4011,9 +3990,7 @@
       "destinations": [
         "/admin/addons/pricing-report",
         "/admin/gifts",
-        "/admin/pricing?tab=[seg]",
-        "/admin/pricing?tab=custom-plans&vendor=[seg]",
-        "/admin/pricing?tab=pricing"
+        "/admin/pricing?tab=[seg]"
       ],
       "actions": [
         "bandFormAction",
@@ -4043,8 +4020,6 @@
         "CardFooter",
         "ConsoleTable",
         "CreditLadderRow",
-        "CustomComposer",
-        "CustomPlansSurface",
         "EmptyState",
         "Family",
         "Field",
@@ -5136,8 +5111,7 @@
       ],
       "destinations": [
         "/api/v1",
-        "/dashboard/profile",
-        "/vendor-dashboard/subscription"
+        "/dashboard/profile"
       ],
       "actions": [
         "createApiKey",
@@ -12398,14 +12372,18 @@
       ],
       "destinations": [
         "/",
+        "/[seg]",
         "/v/sampaguita-table/dates"
       ],
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "DemoOnlyMarker",
+        "FrontDoorFeed",
         "LabCard",
+        "LabEvent",
+        "LabShelf",
         "Link",
-        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
@@ -12906,7 +12884,6 @@
       ],
       "destinations": [
         "/for-suppliers",
-        "/help",
         "/open-shop",
         "/pricing"
       ],
@@ -13911,10 +13888,10 @@
       ],
       "actions": [],
       "blocks": [
+        "DemoOnlyMarker",
         "EditorialContent",
         "Link",
-        "SampleEditorial",
-        "SampleMarker"
+        "SampleEditorial"
       ]
     },
     "/receipts/[receiptId]": {
@@ -14339,6 +14316,7 @@
         "CardRecordSection",
         "CheckADateLink",
         "ComingSoonBanner",
+        "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
@@ -14370,7 +14348,6 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
-        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -14449,6 +14426,7 @@
         "CalendarGrid",
         "CheckADateCalendar",
         "ChosenRow",
+        "DemoOnlyMarker",
         "FormRows",
         "Metadata",
         "Sheet",
@@ -16898,8 +16876,7 @@
         "/vendor-dashboard/collections",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/profile",
-        "/vendor-dashboard/subscription/custom"
+        "/vendor-dashboard/profile"
       ],
       "actions": [
         "action",
@@ -16934,35 +16911,6 @@
         "SupplierSubmit",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
-      ]
-    },
-    "/vendor-dashboard/subscription/custom": {
-      "files": [
-        "vendor-dashboard/subscription/custom/_components/custom-configurator.tsx",
-        "vendor-dashboard/subscription/custom/actions.ts",
-        "vendor-dashboard/subscription/custom/loading.tsx",
-        "vendor-dashboard/subscription/custom/page.tsx"
-      ],
-      "destinations": [
-        "/vendor-dashboard/subscription"
-      ],
-      "actions": [
-        "requestCustomPlan"
-      ],
-      "blocks": [
-        "ControlShell",
-        "CustomComposition",
-        "CustomConfigurator",
-        "FormPageSkeleton",
-        "K",
-        "Link",
-        "PageMasthead",
-        "PayChannel",
-        "PaymentsPausedNote",
-        "PillButton",
-        "PillTrack",
-        "StepperControl",
-        "ToggleControl"
       ]
     },
     "/vendor-dashboard/team": {
@@ -17065,6 +17013,7 @@
         "Badge",
         "ColourPickerSheet",
         "DatesRow",
+        "DemoOnlyMarker",
         "DomainActionResult",
         "DomainManager",
         "ExistingReplySection",

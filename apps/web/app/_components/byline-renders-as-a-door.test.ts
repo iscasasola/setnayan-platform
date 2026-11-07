@@ -78,6 +78,7 @@ const FRONT_DOOR_DATA = {
   storyCount: 1,
   shops: [],
   liveShopCount: 0,
+  realShopCount: 0,
   realWeddingCount: 0,
 };
 

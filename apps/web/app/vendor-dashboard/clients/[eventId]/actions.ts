@@ -790,7 +790,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
 /**
  * createVendorChallengeAction — Papic Games §3.4/§3.6: a booked Pro-and-up vendor
  * authors a custom Photo Challenge for this event. The RPC is the authoritative
- * gate (booked + Pro/Enterprise/Custom + copy bounds) and lands the mission
+ * gate (booked + Pro/Ultra + copy bounds) and lands the mission
  * approved=false; the couple approves it on their Papic page. Mirrors
  * suggestScheduleChange (a vendor PROPOSES; the couple okays). Flag-gated in the
  * wrapper. (A couple notification would need a new NotificationType — deferred;

@@ -11,9 +11,9 @@ import { isTierAtLeast } from './vendor-tier-caps';
  * "What We Learned" review (the vendor-run version of the admin verification
  * deep search; it REUSES the same engine in lib/vendor-deep-search.ts).
  *
- *   • ALL PAID tiers (Solo / Pro / Enterprise / Custom), verified only. NOT the
+ *   • ALL PAID tiers (Solo / Pro / Ultra), verified only. NOT the
  *     free / verified-only tier.
- *   • Pro / Enterprise / Custom get 1 FREE search per 28-day cycle, then ₱500.
+ *   • Pro / Ultra get 1 FREE search per 28-day cycle, then ₱500.
  *   • Solo pays ₱500 EVERY time (no free allowance).
  *
  * The price DECISION, eligibility GATE, and cycle-boundary math are PURE
@@ -83,8 +83,8 @@ export type DeepSearchEligibility =
  * rejects, so the surfaced reason always matches what a submit would return:
  * tier → verification.
  *
- * "Paid tiers only" is `isTierAtLeast('solo')`, so Solo, Pro, Enterprise, and
- * the negotiated Custom tier all pass — Free and Verified (the two free tiers)
+ * "Paid tiers only" is `isTierAtLeast('solo')`, so Solo, Pro and Ultra
+ * (`enterprise`) pass — Free and Verified (the two free tiers)
  * do not. This mirrors the AI-addon gate.
  */
 export function deepSearchEligibility(
@@ -104,9 +104,8 @@ export const DEEP_SEARCH_DENY_MESSAGE: Record<DeepSearchDenyReason, string> = {
 };
 
 /**
- * Does this tier get the 1-free-search-per-cycle allowance? Pro / Enterprise /
- * Custom do; Solo does NOT (Solo pays ₱500 every time). Rank-derived so Custom —
- * which runs as Enterprise-or-better — inherits the free allowance automatically.
+ * Does this tier get the 1-free-search-per-cycle allowance? Pro / Ultra do;
+ * Solo does NOT (Solo pays ₱500 every time). Rank-derived.
  */
 export function deepSearchHasFreeAllowance(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'pro');
@@ -161,7 +160,7 @@ export type DeepSearchPriceInput = {
 
 /**
  * The price (PHP) a Deep Search run should charge:
- *   • Pro / Enterprise / Custom → ₱0 for the FIRST run of the cycle (0 uses so
+ *   • Pro / Ultra → ₱0 for the FIRST run of the cycle (0 uses so
  *     far), the ₱500 catalog price for every run after.
  *   • Solo → always the ₱500 catalog price (no free allowance).
  *

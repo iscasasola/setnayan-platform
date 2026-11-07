@@ -144,12 +144,12 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     },
     steps: {
       en: [
-        'Open Mood Board & Dress Code. Each role or group is a row.',
+        'Open Palette + Dress Code. Each role or group is a row.',
         'Pick a style — long gown, cocktail dress, filipiniana, barong tagalog, suit, formal or smart casual — its colours, and a call time.',
         'Guests open your Event Hub and see their role, what to wear and when to arrive. Nothing shows for a detail you left unset.',
       ],
       tl: [
-        'Buksan ang Mood Board & Dress Code. Isang row ang bawat role o group.',
+        'Buksan ang Palette + Dress Code. Isang row ang bawat role o group.',
         'Pumili ng style — long gown, cocktail dress, filipiniana, barong tagalog, suit, formal o smart casual — ang kulay nito, at call time.',
         'Bubuksan ng bisita ang Event Hub mo at makikita ang role nila, ano ang isusuot at kailan darating. Walang lalabas sa detalyeng hindi mo pa itinakda.',
       ],
@@ -194,8 +194,8 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       {
         src: '/feature-shots/dress-code-0.jpg',
         alt: {
-          en: 'The dress code on a phone, in Mood Board & Dress Code › Attire: the bride in a filipiniana and the groom in a barong tagalog, each with their colours, what to wear and a call time',
-          tl: 'Ang dress code sa telepono, sa Mood Board & Dress Code › Attire: ang bride na naka-filipiniana at ang groom na naka-barong tagalog, bawat isa may kulay, isusuot at call time',
+          en: 'The dress code on a phone, in Palette + Dress Code › Attire: the bride in a filipiniana and the groom in a barong tagalog, each with their colours, what to wear and a call time',
+          tl: 'Ang dress code sa telepono, sa Palette + Dress Code › Attire: ang bride na naka-filipiniana at ang groom na naka-barong tagalog, bawat isa may kulay, isusuot at call time',
         },
       },
     ],

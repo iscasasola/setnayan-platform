@@ -211,14 +211,14 @@ export const RETAIL: RetailRow[] = [
 ];
 
 export const VENDOR = [
-  // 💰 Final price sheet 2026-11-04: per 4 weeks / per year (year = 10×). Extra branch ₱1,990, Ultra only.
+  // 💰 Final price sheet 2026-11-04: per 4 weeks / per year (year = 10×). Extra branch ₱990 since 2026-11-06 ("ULTRA ADD-ON PRICES"), Ultra only.
   { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 990, is_active: true },
   { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 9900, is_active: true },
   { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 2490, is_active: true },
   { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 24900, is_active: true },
   { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 5990, is_active: true },
   { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 59900, is_active: true },
-  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 1990, is_active: true },
+  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 990, is_active: true },
 ];
 
 export const INPUT_FOR_GUARDS: LlmsTxtInput = { retail: RETAIL, vendor: VENDOR, refreshedOn: '2026-07-31' };

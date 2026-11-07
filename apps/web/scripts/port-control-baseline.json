@@ -16839,12 +16839,14 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
+        "vendor-dashboard/subscription/_components/ultra-addons-card.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx",
-        "vendor-dashboard/subscription/photo-challenge-actions.ts"
+        "vendor-dashboard/subscription/photo-challenge-actions.ts",
+        "vendor-dashboard/subscription/ultra-addon-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/collections",
@@ -16854,6 +16856,7 @@
       ],
       "actions": [
         "action",
+        "buyUltraAddOn",
         "cancelScheduledPlanChange",
         "formAction",
         "startSubscriptionPurchase"
@@ -16883,6 +16886,7 @@
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",
+        "UltraAddonsCard",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]

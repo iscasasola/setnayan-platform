@@ -67,6 +67,8 @@ import {
   setApplicationInReview,
   verifyVendorExperience,
 } from './actions';
+import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
+import { FindLine } from './_components/find-line';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
   adTransparencyLinks,
@@ -161,6 +163,13 @@ type VendorVisibilityRow = {
   /** Read for the badge-deadline line only (owner 2026-09-11 · Q4 + Q5). */
   verification_state?: string | null;
   next_renewal_due_at?: string | null;
+  /** 🔎 The find lock (DECISION_LOG 2026-11-07) — read for the Find line + the lift. */
+  find_locked_at?: string | null;
+  find_lock_reason?: string | null;
+  find_lock_lifted_at?: string | null;
+  fraud_suspended_at?: string | null;
+  fraud_banned_at?: string | null;
+  fraud_tombstoned?: boolean | null;
 };
 
 type ApplicationRow = {
@@ -1816,13 +1825,20 @@ async function VisibilitySurface({
   error?: string;
 }) {
   const statusFilter = parseVisibilityTab(statusParam);
+  // 🔎 "Out of Find" (DECISION_LOG 2026-11-07): shops Setnayan has not decided
+  // yet whose first inquiry or import locked them out of search and Find —
+  // the queue the lift is for. Every other tab filters on the listing state.
+  const lockedTab = statusParam === 'locked';
   const admin = createAdminClient();
-  const { data, error: queryError } = await admin
+  const base = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,created_at,verification_state,next_renewal_due_at',
-    )
-    .in('public_visibility', statusFilter)
+      `vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,created_at,next_renewal_due_at,find_lock_reason,find_lock_lifted_at, ${FINDABLE_INPUT_COLUMNS}`,
+    );
+  const { data, error: queryError } = await (lockedTab
+    ? base.not('find_locked_at', 'is', null).in('verification_state', ['unverified', 'pending_review'])
+    : base.in('public_visibility', statusFilter)
+  )
     .order('created_at', { ascending: false })
     .limit(200);
 
@@ -1938,6 +1954,7 @@ function parseVisibilityTab(raw: string | undefined): VendorPublicVisibility[] {
 function VisibilityTabs({ current }: { current: string }) {
   const tabs: ReadonlyArray<{ key: string; label: string }> = [
     { key: 'hidden', label: 'Not listed' },
+    { key: 'locked', label: 'Out of Find' },
     { key: 'verified', label: 'Verified' },
     { key: 'archived', label: 'Archived' },
     { key: 'all', label: 'All' },
@@ -2171,6 +2188,8 @@ function VerifyCard({
         verificationState={vendor.verification_state ?? null}
         deadline={vendor.next_renewal_due_at ?? null}
       />
+
+      <FindLine vendorProfileId={vendor.vendor_profile_id} state={findLockState(vendor)} liftedAt={vendor.find_lock_lifted_at ?? null} />
 
       <Link
         href={`/admin/vendors/${vendor.vendor_profile_id}#cards`}

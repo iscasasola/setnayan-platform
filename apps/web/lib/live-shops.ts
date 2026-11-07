@@ -27,16 +27,24 @@
  * rule is still written once.
  */
 
+import { FINDABLE_SHOP_GATE } from './findable-shop';
+
 /**
- * Both halves, always together. Either one alone has meant a hidden shop on a
- * public shelf before.
+ * 🔎 WHO A COUPLE CAN FIND — the ONE rule (`lib/findable-shop.ts`), plus demo.
+ *
+ * DECISION_LOG 2026-11-07 "AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST
+ * INQUIRY" reversed 2026-07-27's verified-only shelf: a shop Setnayan has not
+ * decided yet is found until its first inquiry, then locked out until verified.
+ * That rule is ONE generated column, `vendor_profiles.is_findable`
+ * (20271320303985) — verified shops are exactly the old two-column pair inside
+ * it — so this gate asks that column instead of re-typing the pair.
  *
  * 🧪 DEMO SHOPS ARE PUBLIC NOW (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO
  * EVENTS": *"these demo events, and demo suppliers will show on with the rest of
  * suppliers and events, but has a marking of (DEMO ONLY)"*). This SUPERSEDES the
  * 2026-09-30 third half (`is_demo: false`, DECISION_LOG 2026-09-29 "LANE 2 §2C"
- * (1)). A demo shop still has to be listed AND verified to appear — the two
- * halves above — and every surface that draws one wears `DemoOnlyMarker`
+ * (1)). A demo shop still has to be findable to appear — the one rule above —
+ * and every surface that draws one wears `DemoOnlyMarker`
  * (`app/_components/sample-marker.tsx`).
  *
  * 🔢 A COUNT IS NOT A LISTING. *"demo numbers never count in real totals"* (same
@@ -44,8 +52,7 @@
  * never this one. Guard: `lib/demo-never-counts.test.ts`.
  */
 export const LIVE_SHOP_GATE = {
-  public_visibility: 'verified',
-  verification_state: 'verified',
+  ...FINDABLE_SHOP_GATE,
 } as const;
 
 /**

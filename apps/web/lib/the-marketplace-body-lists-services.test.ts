@@ -147,17 +147,15 @@ test('the service-card query states the live rule itself, so the admin client ca
   // query ever leans on RLS again, the admin client stops being a consistent
   // public read and becomes a bypass of the only thing keeping unverified and
   // hidden shops off the marketplace.
+  // 🔎 DECISION_LOG 2026-11-07: the rule the query states is now the ONE findable column
+  // (`vendor_profiles.is_findable`, lib/findable-shop.ts) — verified shops, plus not-yet-decided shops until their first
+  // inquiry. It is still stated BY THE QUERY, so the admin client can never publish a rejected, demoted, archived,
+  // frozen or locked shop's cards. Leaning on RLS instead remains the failure this test exists for.
   assert.match(
     serviceCardModule,
-    /vendor_profiles\.verification_state['"]\s*,\s*['"]verified['"]/,
-    'the service-card query no longer pins verification_state itself — with an ' +
-      'admin client that publishes every card of every UNVERIFIED shop',
-  );
-  assert.match(
-    serviceCardModule,
-    /vendor_profiles\.public_visibility['"]\s*,\s*['"]verified['"]/,
-    'the service-card query no longer pins public_visibility itself — with an ' +
-      'admin client that publishes cards of shops that asked to be HIDDEN',
+    /\.match\(\s*findableShopGate\(\s*['"]vendor_profiles['"]\s*\)\s*\)/,
+    'the service-card query no longer states the findable rule itself — with an ' +
+      'admin client that publishes every card of every shop, decided or not',
   );
   assert.match(
     serviceCardModule,

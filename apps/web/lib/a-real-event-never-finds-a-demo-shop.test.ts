@@ -147,6 +147,8 @@ function fakeClient(tables: Record<string, Row[] | 'refused'>, calls: Call[]) {
       Object.assign(builder, {
         select: chain('select'),
         eq: chain('eq', (c, v) => (r) => r[c as string] === v),
+        // `.match(gate)` — every key equal (the findable gate, lib/findable-shop.ts, since 2026-11-07).
+        match: chain('match', (m) => (r) => Object.entries(m as Row).every(([k, v]) => r[k] === v)),
         neq: chain('neq', (c, v) => (r) => r[c as string] !== v),
         in: chain('in', (c, v) => (r) => (v as unknown[]).includes(r[c as string])),
         not: chain('not', (c, op, v) =>
@@ -171,7 +173,7 @@ function fakeClient(tables: Record<string, Row[] | 'refused'>, calls: Call[]) {
   };
 }
 
-const LIVE = { public_visibility: 'verified', verification_state: 'verified', same_day_available: true, tier_state: 'pro' };
+const LIVE = { public_visibility: 'verified', verification_state: 'verified', is_findable: true, same_day_available: true, tier_state: 'pro' };
 const SHOPS: Row[] = [
   { vendor_profile_id: 'real-1', business_name: 'Real Shop', is_demo: false, ...LIVE },
   { vendor_profile_id: 'demo-1', business_name: 'Demo Shop', is_demo: true, ...LIVE },

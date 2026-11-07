@@ -9,6 +9,7 @@
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
 import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import {
@@ -3892,9 +3893,11 @@ export async function searchMarketplaceVendorsByName(
     // nothing in the approval flow, so this search returned NOTHING for every
     // couple who typed a real shop's name; and 'coming_soon' was retired on
     // 2026-07-27 (migration 20271013500000) because under the old rules it
-    // exposed unapproved shops. Now one definition, matching the RLS.
-    .eq('public_visibility', 'verified')
-    .eq('verification_state', 'verified')
+    // exposed unapproved shops. Now one definition: since 2026-11-07 the ONE
+    // findable rule (lib/findable-shop.ts) — verified, plus shops not yet
+    // decided until their first inquiry. Demo shops keep their existing rule
+    // here (not excluded), unchanged.
+    .match(FINDABLE_SHOP_GATE)
     .order('business_name', { ascending: true })
     .limit(16); // Over-fetch — filter event-vendors below, then slice to 8.
 

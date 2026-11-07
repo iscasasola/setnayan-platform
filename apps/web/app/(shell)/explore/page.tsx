@@ -25,6 +25,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import {
   fetchTrustedReviewStatsForMany,
   formatStarRating,
@@ -1913,7 +1914,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
       { count: 'exact' },
     )
-    .in('public_visibility', allowedVisibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '')
     // ── Setnayan's own services are NOT marketplace vendors (owner 2026-07-26)
@@ -1943,8 +1943,20 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // marketplace. Suppressed in demo mode so admins previewing demo (which may
   // include unverified rows) still see them. Reads the `verification_state`
   // column that migration 20270331400000 appended to vendor_market_stats.
-  if (!inDemoMode) {
-    query = query.eq('verification_state', 'verified');
+  //
+  // 🔎 SUPERSEDED 2026-11-07 (DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE UNTIL
+  // ITS FIRST INQUIRY"): the grid asks the ONE rule, `is_findable`
+  // (lib/findable-shop.ts) — verified shops, plus shops Setnayan has not decided
+  // yet until their first inquiry. No hand-typed visibility pair here any more.
+  // Demo mode keeps its own existing rule (listing only), unchanged.
+  if (inDemoMode) {
+    query = query.in('public_visibility', allowedVisibilities as readonly string[]);
+  } else {
+    query = query.match(FINDABLE_SHOP_GATE);
+    // "Verified only" is a real narrowing again now that unverified shops list.
+    if (filters.verifiedOnly) {
+      query = query.in('public_visibility', allowedVisibilities as readonly string[]).eq('verification_state', 'verified');
+    }
   }
 
   // PR brief 2026-05-22 evening — exclude demo vendor IDs unless an
@@ -2222,14 +2234,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     let broadened = admin
       .from('vendor_market_stats')
       .select('vendor_profile_id', { count: 'exact', head: true })
-      .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .not('business_name', 'is', null)
       .neq('business_name', '');
-    // PR-B verification gate — mirror the main query so the "Show all"
-    // empty-state count never promises UNVERIFIED inventory to public visitors.
-    if (!inDemoMode) {
-      broadened = broadened.eq('verification_state', 'verified');
-    }
+    // Mirror the main query's gate — the ONE findable rule (lib/findable-shop.ts)
+    // outside demo mode, the demo mode's own listing rule inside it — so "Show
+    // all" never promises a shop the grid would not show.
+    broadened = inDemoMode
+      ? broadened.in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      : broadened.match(FINDABLE_SHOP_GATE);
     // 🧪 No demo exclusion here either: "Show all" offers exactly what the
     // main query lists, and the main query lists demo shops (marked).
     // B2 — mirror the main query's inquirable-service gate so "Show all" never
@@ -4774,6 +4786,7 @@ async function CatalogView({
     // Aggregate count + facet flags across the surviving canonicals.
     let verified = 0;
     let comingSoon = 0;
+    let unverified = 0;
     let anyPh = false;
     const faiths = new Set<string>();
     let hasFaithless = false;
@@ -4792,10 +4805,12 @@ async function CatalogView({
       if (cnt) {
         verified += cnt.verified;
         comingSoon += cnt.coming_soon;
+        unverified += cnt.unverified ?? 0;
       }
       if ((cnt?.total ?? 0) > 0) populatedServices.push(c);
     }
-    const total = verified + comingSoon;
+    // 🔎 `unverified` = listed by the findable rule, not yet approved (2026-11-07).
+    const total = verified + comingSoon + unverified;
     // Tile-level faith badge: only when the whole tile is one faith (no
     // faithless canonical + exactly one distinct faith). Mixed-faith tiles
     // (e.g. Bride's Attire = neutral + Muslim + INC variants) show no badge.
@@ -4821,7 +4836,7 @@ async function CatalogView({
       displayNameEn: WEDDING_TILE_LABEL[tile],
       displayNameTl: null,
       meta,
-      count: total > 0 ? { verified, coming_soon: comingSoon, total } : null,
+      count: total > 0 ? { verified, coming_soon: comingSoon, unverified, total } : null,
     });
     tileCanonicalsForSamples.set(
       tile,

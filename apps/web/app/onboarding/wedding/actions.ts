@@ -1,5 +1,6 @@
 'use server';
 
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -1335,11 +1336,10 @@ export async function getOnboardingVendorCounts(input: {
       .select(
         'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max,venue_type',
       )
-      .in('public_visibility', ['verified', 'coming_soon'])
-      // PR-B — count only VERIFIED vendors so the congrats stat tile matches
-      // what the couple can actually find on Explore (unverified vendors are
-      // private). Keeps the "real numbers only" guarantee honest.
-      .eq('verification_state', 'verified')
+      // 🔎 Count exactly the shops the couple can find on Explore — the ONE
+      // findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07) via LIVE_SHOP_GATE.
+      // Keeps the "real numbers only" guarantee honest.
+      .match(LIVE_SHOP_GATE)
       .eq('is_demo', ONBOARDING_DEMO_SCOPE.is_demo) // a demo shop is not a match for the real event being made (lib/demo-scope.ts)
       .not('business_name', 'is', null)
       .neq('business_name', '')

@@ -18,6 +18,10 @@
  *             This supersedes the 2026-09-29 third half ("`is_demo` is not true"). The page wears `DemoOnlyMarker`
  *             and is `noindex`; the vendor sitemap still leaves demo shops out (never index a demo), so "the page
  *             opens for a stranger" and "the sitemap lists it" now differ by exactly the demo shops, on purpose.
+ *   PUBLIC  — ALSO (DECISION_LOG 2026-11-07, ruling 3) a shop Setnayan has NOT DECIDED yet (`unverified` ·
+ *             `pending_review`), locked out of Find or not, when it is not archived, not fraud-frozen and not a
+ *             demo shop — `ownLinkOpensUnverified` (lib/findable-shop.ts). The page then says "This shop is not
+ *             yet verified by Setnayan". Rejected and demoted shops stay TEAM-only.
  *   TEAM    — otherwise, the shop's OWNER (`vendor_profiles.user_id`) and its HELPERS (a `vendor_team_members` seat)
  *             see the page with a banner saying who can see it and what couples are waiting on ({@link ShopPreviewReason}).
  *   NOBODY  — everybody else gets the not-found page, which never says whether a shop exists. An `archived` (closed)
@@ -28,8 +32,9 @@
  * (the renderer asks this and nothing else, the banner is drawn for TEAM only, a preview is never counted as a visit).
  */
 import { isShopLive, parseVisibility } from '@/lib/vendor-visibility';
+import { ownLinkOpensUnverified, type FindableInput } from '@/lib/findable-shop';
 
-export type ShopPageGateRow = {
+export type ShopPageGateRow = FindableInput & {
   public_visibility?: unknown;
   verification_state?: unknown;
   is_demo?: unknown;
@@ -91,6 +96,10 @@ export function shopPageGate(
   if (viewer.adminDemoMode ? visibility === 'verified' : isShopLive(row)) {
     return { open: 'public' };
   }
+  // 🔗 DECISION_LOG 2026-11-07 ruling (3): a shop Setnayan has not decided yet opens for anyone — found in a list
+  // until its first inquiry, and by its own link and QR after it — with "This shop is not yet verified by Setnayan"
+  // on the page. Never a demo shop (its own rule, above), never archived or fraud-frozen (`ownLinkOpensUnverified`).
+  if (!demo && ownLinkOpensUnverified(row)) return { open: 'public' };
   if (selfPublishedLive(row, viewer.bookingsOpen ?? true)) return { open: 'public' };
   if (!viewer.isTeam) return { open: 'nobody' };
 

@@ -34,6 +34,7 @@ import {
   type DeepSearchInputs,
 } from '@/lib/vendor-deep-search';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -315,6 +316,91 @@ export async function archiveVendor(formData: FormData) {
   revalidatePath('/admin/vendors');
   revalidatePath('/explore');
   redirect('/admin/verify?archived=1');
+}
+
+/**
+ * 🔎 LIFT A FIND LOCK — DECISION_LOG 2026-11-07 "AN UNVERIFIED SHOP IS FINDABLE
+ * UNTIL ITS FIRST INQUIRY", ruling (7): *"Admin can lift a lock (e.g. a
+ * mistaken inquiry)"*.
+ *
+ * Clears `find_locked_at` / `find_lock_reason` (so the generated `is_findable`
+ * column lets the shop back into search, Suppliers › Find and suggestions) and
+ * records who and when on the row AND in `admin_audit_log`. The NEXT inquiry
+ * stamps the lock again (trigger `stamp_find_lock_on_inquiry`) — a lift is
+ * "this one did not count", never a permanent pass.
+ *
+ * ⚠ Only a lock on an undecided shop is liftable; a verified shop is always
+ * found and a rejected/demoted/archived one stays out for its own reason, so
+ * lifting there would be a button that changes nothing.
+ *
+ * Saves IN PLACE (memory "a save never resets the screen"): on success it
+ * revalidates and returns, so the card redraws in the tab the admin is on.
+ */
+export async function liftFindLock(formData: FormData) {
+  const actor = await requireAdmin();
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+
+  const admin = createAdminClient();
+  const { data: before, error: readErr } = await admin
+    .from('vendor_profiles')
+    .select(`vendor_profile_id, find_lock_reason, find_lock_lifted_at, ${FINDABLE_INPUT_COLUMNS}`)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (readErr || !before) {
+    redirect(
+      `/admin/verify?surface=visibility&status=locked&error=${encodeURIComponent(
+        readErr ? plainRefusal('AdminVerifyActions (lift find lock read)', readErr) : 'That shop could not be found.',
+      )}`,
+    );
+  }
+  const state = findLockState(before);
+  if (state.state !== 'locked') {
+    redirect(
+      `/admin/verify?surface=visibility&status=locked&error=${encodeURIComponent(
+        'This shop is not locked out of Find, so there is nothing to lift.',
+      )}`,
+    );
+  }
+
+  const now = new Date().toISOString();
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'find_lock_lifted',
+    target_table: 'vendor_profiles',
+    target_id: vendorProfileId,
+    before_json: { find_locked_at: state.since, find_lock_reason: state.reason },
+    after_json: { find_locked_at: null, find_lock_reason: null, find_lock_lifted_at: now },
+    reason: readFormString(formData, 'reason') || null,
+    actor_user_id: actor.user_id,
+  });
+  if (auditErr) {
+    redirect(
+      `/admin/verify?surface=visibility&status=locked&error=${encodeURIComponent(
+        plainRefusal('AdminVerifyActions (lift find lock audit)', auditErr),
+      )}`,
+    );
+  }
+
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({
+      find_locked_at: null,
+      find_lock_reason: null,
+      find_lock_lifted_at: now,
+      find_lock_lifted_by: actor.user_id,
+    })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    redirect(
+      `/admin/verify?surface=visibility&status=locked&error=${encodeURIComponent(
+        plainRefusal('AdminVerifyActions (lift find lock)', error),
+      )}`,
+    );
+  }
+
+  revalidatePath('/admin/verify');
+  revalidatePath('/explore');
+  revalidatePath('/vendor-dashboard');
 }
 
 /**

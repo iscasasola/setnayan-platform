@@ -497,6 +497,8 @@ export default async function VendorOverviewPage({
   const findability = shopFindability({
     publicVisibility: (profile as { public_visibility?: unknown }).public_visibility,
     railShowing: firstSteps != null,
+    // 🔎 First inquiry → out of Find until verified (DECISION_LOG 2026-11-07), off the one shop-row read.
+    findLock: shopRow?.findLock ?? null,
   });
   const findabilityBanner = findabilityNotice(findability);
 

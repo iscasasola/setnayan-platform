@@ -220,6 +220,8 @@ import { cardAnchorId, withInspirationLooks } from '@/lib/service-card-view-mode
 import { ShopInspirationSection, type InspirationTile } from './_components/shop-inspiration-section';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
+import { NotYetVerifiedNotice } from './_components/not-yet-verified-notice';
+import { shopTakesMessages } from '@/lib/findable-shop';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { shopBadges, verifiedBadge } from '@/lib/shop-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
@@ -363,6 +365,14 @@ export type PublicVendorRow = {
   user_id?: string | null;
   /** 🏪 Show my page before verification (migration 20271303245624). Absent on the legacy select. */
   self_published_at?: string | null;
+  /**
+   * 🔎 DECISION_LOG 2026-11-07 — the find lock and the freeze columns, read so a shop Setnayan has not decided yet
+   * opens by its own link (`ownLinkOpensUnverified`, lib/findable-shop.ts). Absent = not read = the page stays shut.
+   */
+  find_locked_at?: string | null;
+  fraud_suspended_at?: string | null;
+  fraud_banned_at?: string | null;
+  fraud_tombstoned?: boolean | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -472,7 +482,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -483,7 +493,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
       error.message,
     )
   ) {
@@ -535,6 +545,9 @@ export async function vendorMetadataBySlug(slug: string) {
   // leaving it out too (`app/sitemap-vendors.xml/route.ts`). Its title says "(DEMO ONLY)" so a link preview does as well.
   const isDemoShop = vendor.is_demo === true;
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
+  // 🔎 A shop Setnayan has not verified yet opens by its own link (DECISION_LOG 2026-11-07, ruling 3) — but it is
+  // not put in front of a search engine: being found is what its first inquiry ends, and an index cannot be told.
+  const notYetVerified = vendor.verification_state !== 'verified';
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
@@ -591,7 +604,7 @@ export async function vendorMetadataBySlug(slug: string) {
   return {
     title: titleText,
     description: descText,
-    ...(isDemoShop ? { robots: { index: false, follow: false } } : {}),
+    ...(isDemoShop || notYetVerified ? { robots: { index: false, follow: false } } : {}),
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'profile',
@@ -937,6 +950,11 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
+  // 💬 DECISION_LOG 2026-11-07 rulings (1)+(4): a couple may MESSAGE a shop Setnayan has not decided yet — found in a
+  // list or opened by its own link/QR — but not BOOK it. `canMessage` opens the Inquire doors only; every booking
+  // door (packages Lock, Check a date, the booth, the waitlist, package asks) stays on `bookable`, verified-only.
+  // The first message is the first inquiry, and the chat_messages trigger stamps the find lock.
+  const canMessage = shopTakesMessages(vendor, bookable);
   // D2 (2026-09-11): a downgrade must REVERT the paid look — computed ONCE
   // here and threaded into every tier gate below (tierCaps, micrositeCan,
   // isTrueNameTier, boothTierCanBrand). Tier lapse is LOGIN-DRIVEN
@@ -1716,7 +1734,7 @@ export async function renderVendorBySlug({
   // shown only for a signed-in couple with an active event viewing a bookable
   // vendor that has ≥1 active service.
   const showInquiryComposer =
-    bookable && coupleEventId !== null && composerInitial !== null;
+    canMessage && coupleEventId !== null && composerInitial !== null;
 
   // Early-booking LADDER on the composer's price line (owner-locked 2026-07-27).
   // The composer only ever renders for a signed-in couple WITH an event, so the
@@ -1749,7 +1767,7 @@ export async function renderVendorBySlug({
   // dashboard dispatcher replays the inquiry. Same guards as showInquiryComposer
   // minus the coupleEventId requirement.
   const anonComposerServices: AnonComposerService[] =
-    bookable && coupleEventId === null && composerInitial !== null
+    canMessage && coupleEventId === null && composerInitial !== null
       ? activeServices.map((s) => ({
           vendorServiceId: s.vendor_service_id,
           label: serviceLabel(s),
@@ -2354,6 +2372,8 @@ export async function renderVendorBySlug({
         </div>
       </header>
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
+      {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app. */}
+      {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? <NotYetVerifiedNotice /> : null}
 
       <article
         className={`mx-auto w-full px-4 py-12 sm:px-6 sm:py-16 lg:px-8 ${
@@ -2403,7 +2423,7 @@ export async function renderVendorBySlug({
               {vendor.tagline ? (
                 <p className="mt-2 max-w-xl text-base text-cream/85">{vendor.tagline}</p>
               ) : null}
-              {bookable ? (
+              {canMessage ? (
                 <a
                   href="#get-in-touch"
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cream px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-white"
@@ -2667,7 +2687,7 @@ export async function renderVendorBySlug({
                 `lib/no-door-out-of-the-app.test.ts` fails if a contact scheme or
                 a contact field comes back to any couple-facing or public surface.
               */}
-              {bookable ? (
+              {canMessage ? (
                 <span className="inline-flex items-center gap-1">
                   <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Replies in your Setnayan inbox
@@ -2704,7 +2724,7 @@ export async function renderVendorBySlug({
                 reason, and the button was missed. Share is NOT dropped: the
                 hero has no Share, so removing the whole row would leave an
                 Enterprise shop with no way to share it at all. */}
-            {bookable ? (
+            {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
               >
@@ -2717,12 +2737,16 @@ export async function renderVendorBySlug({
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {/* 📅 CHECK A DATE beside Inquire · Share (supplier website by plan, owner-approved 2026-10-30) — the
                     approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
-                    Available · Not bookable, nothing about other couples' asks. Same `bookable` gate as Inquire. */}
-                <CheckADateLink
-                  href={`/v/${vendor.business_slug ?? slug}/dates`}
-                  className="button-secondary inline-flex items-center gap-2"
-                />
-                {canShowBooth ? (
+                    Available · Not bookable, nothing about other couples' asks. A BOOKING door, so it keeps `bookable`
+                    (verified only) while the row itself opens on `canMessage` — an unverified shop takes messages,
+                    never a date check or a booking (DECISION_LOG 2026-11-07). */}
+                {bookable ? (
+                  <CheckADateLink
+                    href={`/v/${vendor.business_slug ?? slug}/dates`}
+                    className="button-secondary inline-flex items-center gap-2"
+                  />
+                ) : null}
+                {bookable && canShowBooth ? (
                   <Link
                     href={`/v/${vendor.business_slug ?? slug}/booth`}
                     className="button-secondary inline-flex items-center gap-2"
@@ -3198,7 +3222,10 @@ export async function renderVendorBySlug({
           <VendorPackagesSection
             packages={vendorPackages}
             coupleEventId={coupleEventId}
-            isComingSoon={isComingSoon}
+            /* 🔒 An unverified shop's page is public now (DECISION_LOG 2026-11-07), so "not bookable" is what keeps
+               the Lock button off it — the same quiet "Not yet bookable" line, never a Lock that the
+               `event_vendors_require_verified_before_lock` trigger would refuse a step later. */
+            isComingSoon={isComingSoon || !bookable}
             bookingsOpen={bookingsOpen}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
@@ -3253,7 +3280,7 @@ export async function renderVendorBySlug({
 
         <section id="get-in-touch" className="scroll-mt-24 space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {bookable ? 'Inquire' : 'Not yet bookable'}
+            {canMessage ? 'Inquire' : 'Not yet bookable'}
           </h2>
           <p className="max-w-2xl text-sm text-ink/65">
             {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30):
@@ -3275,13 +3302,22 @@ export async function renderVendorBySlug({
               can ask here — whether a composer renders — and says only what is
               true of the in-app path.
             */}
-            {bookable ? (
+            {canMessage ? (
               showInquiryComposer || anonComposerServices.length > 0 ? (
-                <>
-                  Send <span className="font-medium text-ink">{displayLabel}</span> an
-                  inquiry below — they&rsquo;ll reply in your Setnayan inbox, and the
-                  conversation stays with your event.
-                </>
+                bookable ? (
+                  <>
+                    Send <span className="font-medium text-ink">{displayLabel}</span> an
+                    inquiry below — they&rsquo;ll reply in your Setnayan inbox, and the
+                    conversation stays with your event.
+                  </>
+                ) : (
+                  /* 💬 Messaging open, booking shut (DECISION_LOG 2026-11-07 (1)+(4)). */
+                  <>
+                    Send <span className="font-medium text-ink">{displayLabel}</span> a
+                    message below — they&rsquo;ll reply in your Setnayan inbox. Booking
+                    opens once Setnayan verifies them.
+                  </>
+                )
               ) : (
                 <>
                   <span className="font-medium text-ink">{displayLabel}</span>{' '}

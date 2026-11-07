@@ -92,6 +92,7 @@ import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { useKeyboardRide } from '@/lib/keyboard-ride';
+import { dispatchTabReselect } from './use-chrome-away';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -798,8 +799,8 @@ export function BottomDock({
         data-bottom-dock
         className={
           boundary === 'tab'
-            ? 'fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur tab:hidden'
-            : 'fixed inset-x-0 bottom-0 z-30 flex flex-col backdrop-blur lg:hidden'
+            ? 'fixed inset-x-0 bottom-0 z-sn-nav flex flex-col backdrop-blur tab:hidden'
+            : 'fixed inset-x-0 bottom-0 z-sn-nav flex flex-col backdrop-blur lg:hidden'
         }
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
@@ -983,15 +984,18 @@ function BottomNavTab({
         aria-current={active ? 'page' : undefined}
         aria-haspopup={item.onSelect ? 'dialog' : undefined}
         data-tour={tabTourToken(item.href)}
-        onClick={
-          item.onSelect
-            ? (e) => {
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
-                e.preventDefault();
-                item.onSelect!();
-              }
-            : undefined
-        }
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+          if (item.onSelect) {
+            e.preventDefault();
+            item.onSelect();
+            return;
+          }
+          /* 🔁 A re-tap on the ACTIVE tab tells the page (THE ONE BUILD F4 — Clients goes back to its unselected list).
+             A page that handles it cancels the event and the tab's own navigation is skipped; else it navigates as
+             before. 🔒 app/_components/nav/the-chrome-steps-away.test.ts */
+          if (active && dispatchTabReselect({ key: item.key, href: item.href })) e.preventDefault();
+        }}
         onPointerDown={onPressStart}
         onPointerUp={onPressEnd}
         onPointerLeave={onPressEnd}

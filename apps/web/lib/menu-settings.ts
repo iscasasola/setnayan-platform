@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio';
 
 export type SettingsEntry = {
   /**
@@ -54,7 +54,7 @@ export type SettingsEntry = {
 
 /** The ⓘ every menu sheet carries, word for word (prototype § 1). */
 export const MENU_SETTINGS_TIP =
-  'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
+  'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Today.';
 
 /**
  * 🪪 HOME'S ⚙ FOR A HELPER (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙
@@ -145,15 +145,16 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     tip: 'Settings for Today only. Your shop’s own settings stay with your shop.',
   },
   /**
-   * 👥 THE SUPPLIER'S CUSTOMERS ⚙ (owner 2026-10-28, same row: "Customers ⚙ getting paid + booking terms + teams/days").
-   * It ends Customers' pinned row on People, Dates and Money (one component, `CustomersSettings`, one mount).
+   * 👥 THE SUPPLIER'S CLIENTS ⚙ (owner 2026-10-28, same row: "Customers ⚙ getting paid + booking terms + teams/days";
+   * the tab is called CLIENTS since THE ONE BUILD, 8 Nov 2026 — the key stays `customers`: it is the guard's handle and
+   * `return_to=customers`). It ends the Clients pinned row (one component, `CustomersSettings`, one mount).
    */
   customers: {
     door: 'first-row-gear',
-    sheet: 'Customers settings',
+    sheet: 'Clients settings',
     line: 'How you get paid, your schedules and days.',
     live: true,
-    tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
+    tip: 'Settings for Clients only. What couples see on your page stays with your Shop.',
   },
   /**
    * 🗓 THE SUPPLIER'S HUB ⚙ (supplier dashboard v13, prototype `renderViewrow` "Hub ▾ · ⓘ · ⚙"; DECISION_LOG 2026-10-31
@@ -179,6 +180,19 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'Your plan, who helps run the shop, your papers, how we reach you.',
     live: true,
     tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
+  },
+  /**
+   * 🖼 THE SUPPLIER'S PORTFOLIO ⚙ (THE ONE BUILD, 8 Nov 2026 — the Portfolio tab). HELD (`reserved`, not live): the key
+   * exists so the bar and the Portfolio page can name it; the Shop + Portfolio lane builds its sheet
+   * (`collections/_components/portfolio-settings.tsx`) and flips this door to `first-row-gear` + `live: true`, with its
+   * own line, in the same change that mounts it (spec §9 #12, #18 — no storage line: storage is out of this build).
+   */
+  portfolio: {
+    door: 'reserved',
+    sheet: 'Portfolio settings',
+    line: 'What Show includes.',
+    live: false,
+    tip: 'Settings for Portfolio only. Your shop’s own settings stay with your Shop.',
   },
 };
 

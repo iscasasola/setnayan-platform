@@ -222,6 +222,18 @@
     /* A CARD above the page (dark mode PR 1, 2026-10-13) — Tailwind `raised`. Light = white, exactly what
      * `bg-white` paints today, so swapping one for the other moves no light pixel. Dark = the approved card. */
     --color-raised: 255 255 255;
+    /* 🎨 THE FOUR CATEGORY COLOURS (owner, THE ONE BUILD item 13, 8 Nov 2026 — supplier-menu-r2.v113 `--c-ev/--c-sch/
+     * --c-ask/--c-col`): what a supplier's Clients, Today and Shop mark by KIND — Booked · Schedules · Asked · To collect.
+     * RGB triples so Tailwind alpha works (`text-cat-booked`, `bg-cat-asked/10`). Never a raw hex in a .tsx — read these.
+     * Dark pairs below (the v111/v112 prototype's `html.dark` block). 🔒 lib/category-colours-are-tokens.test.ts */
+    --sn-cat-booked: 22 107 74;        /* #166B4A */
+    --sn-cat-schedule: 47 109 181;     /* #2F6DB5 */
+    --sn-cat-asked: 201 71 26;         /* #C9471A */
+    --sn-cat-collect: 162 69 126;      /* #A2457E */
+    /* ── THE SOFT HAIRLINE (v110 "No cut line"): what sits under a pinned row once the page scrolls under it — drawn as
+     * `box-shadow: 0 1px 0 var(--sn-hair)` (class `sn-pin-hair`), never a `border-b`. 🔒
+     * app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
+    --sn-hair: rgb(44 42 41 / 0.08);
   }
 
   html.dark {
@@ -278,6 +290,11 @@
     --surface-soft: #2b2821;           /* one step above the card — a wash, lighter in dark as the gallery's pill is */
     --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
     --color-raised: 35 32 25;           /* the approved card #232019 */
+    --sn-cat-booked: 79 191 138;       /* #4FBF8A */
+    --sn-cat-schedule: 127 175 232;    /* #7FAFE8 */
+    --sn-cat-asked: 240 130 90;        /* #F0825A */
+    --sn-cat-collect: 217 138 192;     /* #D98AC0 */
+    --sn-hair: rgb(251 250 247 / 0.1);
   }
 
   /*
@@ -3479,6 +3496,15 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      family feels, change this line. */
   --sn-pill-dur:    700ms;
   --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
+  /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: open/close
+     520 ms, the close the EXACT reverse, no jump over 40 px, no pause over 90 ms). Read by `lib/rise-motion.ts`
+     (`riseFromRect`); under reduced motion it is a 120 ms cross-fade. */
+  --sn-dur-rise:    520ms;
+  --sn-ease-rise:   cubic-bezier(.2,.8,.2,1);
+  --sn-dur-rise-reduced: 120ms;
+  /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading
+     under it stands at `top: var(--sn-pin-h)`. 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts */
+  --sn-pin-h:       44px;
 
   /* ── DESIGN FOUNDATION (owner 2026-09-24 · build-sessions/DESIGN-FOUNDATION.md)
      ADDITIVE. Nothing existing is re-pointed at these; they are the names the
@@ -3489,6 +3515,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      2026-09-24, so a new layer lands between the right neighbours:
        raised 10  in-flow overlap (the common `z-10`)
        sticky 20  sticky headers, the phone sub-nav strip
+       thumb  25  the ThumbRow dock (THE ONE BUILD §10 #23, owner 8 Nov 2026: *"bottom nav should be above thumb row. and
+                  pop ups should be above thumb row in layers"* — page < thumb row < bottom nav < pop-ups/sheets/scrims;
+                  POSITIONS unchanged: the row still stands just above the bar). 🔒 app/_components/the-layers-are-ruled.test.ts
        nav    30  the floating bottom nav + FAB
        pop    40  tooltips and menus that must clear the chrome
        modal  50  `_components/sheet.tsx` and the centred modals
@@ -3499,6 +3528,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-z-base:   0;
   --sn-z-raised: 10;
   --sn-z-sticky: 20;
+  --sn-z-thumb:  25;
   --sn-z-nav:    30;
   --sn-z-pop:    40;
   --sn-z-modal:  50;
@@ -10694,3 +10724,12 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
   }
 }
 
+
+/* ── NO CUT LINE UNDER A PINNED ROW (THE ONE BUILD F3, v110 "No cut line", 8 Nov 2026). A sticky row says it is above
+ * the page with the soft hairline token (`--sn-hair`, light ink at 8 % / paper at 10 % in dark) drawn as a shadow, never
+ * a `border-b border-ink/10` — a border is a hard line drawn INTO the row's box, so the row's height changes by 1 px and
+ * the line reads as a cut. Each owner swaps its own sticky row onto this class.
+ * 🔒 app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
+.sn-pin-hair {
+  box-shadow: 0 1px 0 var(--sn-hair);
+}

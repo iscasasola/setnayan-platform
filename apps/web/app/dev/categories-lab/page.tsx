@@ -16,6 +16,10 @@
  *   &cards=fixture        three LAB FIXTURE cards on Function Hall (titled "(lab) …"), for the Cards column
  *   &one=on|off           LAB FIXTURE: draw every category's One per event switch at that value — before migration
  *                         20271296971721 reaches the database the switch is unreadable (the panel says so)
+ *   &svc=written|empty    LAB FIXTURE (plan D4): with no database the services read is refused, so add ONE
+ *                         "(lab) Fixture service" under the first category — its ⓘ text "(lab fixture) …" when
+ *                         `written`, unwritten when `empty` — to draw the service drawer's "ⓘ text" field and the
+ *                         ⓘ suppliers see. Open it with &open=s:lab_fixture_service. Never a real definition.
  */
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -76,6 +80,30 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
     for (const c of cats.categories) if (c.onePerEvent === null) c.onePerEvent = oneFixture === 'on';
   }
 
+  const svcFixture = first(sp.svc);
+  if ((svcFixture === 'written' || svcFixture === 'empty') && cats.categories[0]) {
+    cats.services.push({
+      canonical: 'lab_fixture_service',
+      en: '(lab) Fixture service',
+      tl: null,
+      tileId: cats.categories[0].id,
+      faith: null,
+      ph: false,
+      rental: false,
+      tradition: false,
+      hidden: false,
+      dietary: null,
+      secondaryTiles: [],
+      eventTypes: null,
+      schemaVersion: 1,
+      sharedGroups: [],
+      fields: [],
+      words: [],
+      askedFor: 0,
+      hint: svcFixture === 'written' ? '(lab fixture) The one line the owner writes in Admin › Categories.' : null,
+    });
+  }
+
   const panelData: CategoriesPanelData = {
     groups: cats.groups,
     categories: cats.categories,
@@ -118,6 +146,7 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
         {seeded ? ' · parts from the seed (signed out, the parts read is refused)' : ''}
         {first(sp.cards) === 'fixture' ? ' · three “(lab)” fixture cards on Function Hall' : ''}
         {first(sp.one) ? ` · One per event drawn ${first(sp.one)} (lab fixture)` : ''}
+        {svcFixture ? ` · one “(lab)” fixture service, ⓘ text ${svcFixture}` : ''}
       </p>
       <FourLevelMap
         data={data}

@@ -33,6 +33,7 @@ function PlanBody({
   main,
   rest,
   split,
+  backLabel = 'Back to my services',
   inSheet = false,
 }: PlanProps & { headingId: string; inSheet?: boolean }) {
   const tip = whatEachPlanHolds();
@@ -144,7 +145,7 @@ function PlanBody({
       </button>
       {/* BUTTON_RULE (v18): an action is a pill, grey for going back. */}
       <span className="flex justify-center">
-        <ActionButton tone="neutral" icon={ArrowLeft} label="Back to my services" onClick={onBack} />
+        <ActionButton tone="neutral" icon={ArrowLeft} label={backLabel} onClick={onBack} />
       </span>
     </div>
   );
@@ -162,6 +163,8 @@ type PlanProps = {
   rest: string[];
   /** `planSplit(...)` — both columns' names and caps, read from TIER_CAPS. */
   split: ReturnType<typeof planSplit>;
+  /** The grey pill under Continue — the sign-up's own words by default. */
+  backLabel?: string;
 };
 
 /** On a phone: the shipped bottom `Sheet`. */
@@ -185,6 +188,19 @@ export function PlanPane(p: PlanProps) {
       aria-labelledby="open-shop-plan-pane-title"
     >
       <PlanBody {...p} headingId="open-shop-plan-pane-title" />
+    </div>
+  );
+}
+
+/**
+ * 🔗 THE CLAIM DOOR'S "WHICH PLAN FITS" SLIDE (owner 2026-11-07, DECISION_LOG "THE CLAIM (QR IMPORT) DOOR SAYS WHICH
+ * PLAN THEIR SERVICES FIT": *"the same 'Before you continue' sheet as sign-up v16"*) — the SAME body, drawn in the page
+ * as its own slide rather than over it. Counts and caps from TIER_CAPS through `planSplit`, never typed.
+ */
+export function PlanInline(p: PlanProps) {
+  return (
+    <div className="os-in-r max-w-[620px] py-1" data-claim-door-plan="">
+      <PlanBody {...p} headingId="claim-door-plan-title" />
     </div>
   );
 }

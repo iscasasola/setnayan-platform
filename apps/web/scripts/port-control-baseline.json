@@ -12140,6 +12140,7 @@
       "actions": [],
       "blocks": [
         "AddYourLogo",
+        "ClaimDoor",
         "OpenShopWizard"
       ]
     },
@@ -13393,6 +13394,7 @@
       "files": [
         "open-shop/_components/address-preview.tsx",
         "open-shop/_components/city-pin.tsx",
+        "open-shop/_components/claim-door.tsx",
         "open-shop/_components/event-tiles.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
         "open-shop/_components/phone-field.tsx",
@@ -13405,6 +13407,7 @@
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
+        "open-shop/claim-actions.ts",
         "open-shop/page.tsx"
       ],
       "destinations": [
@@ -13414,17 +13417,23 @@
       ],
       "actions": [
         "becomeVendor",
+        "declineAction",
+        "finishClaimDoor",
         "submit"
       ],
       "blocks": [
         "ActionButton",
         "AddressCheck",
         "AddressPreview",
+        "Box",
+        "Card",
         "CategoryTiles",
         "CityPin",
+        "ClaimDoor",
         "Count",
         "DesktopOAuthButtons",
         "DetectedCity",
+        "Draft",
         "EventTile",
         "EventTiles",
         "Fill",
@@ -13449,6 +13458,7 @@
         "PhoneField",
         "PickMenu",
         "PlanBody",
+        "PlanInline",
         "PlanPane",
         "PlanSheet",
         "ServiceCards",

@@ -12,6 +12,7 @@ import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
+import { claimDoorHref } from '@/lib/claim-door';
 import { CoupleLinkDoor, Perk, SnapshotField, TeamInviteDoor } from './_components/claim-parts';
 
 export const metadata = {
@@ -123,7 +124,8 @@ export default async function VendorClaimPage({ params }: Props) {
   // ------------------------------------------------------------------
   if (invite.source === 'auto_share_link') {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
-    const signupUrl = `/signup?as=vendor&next=${encodeURIComponent(finalizeUrl)}`;
+    // 🔗 The claim door, pre-filled (A6) — never the bare /signup?as=vendor.
+    const signupUrl = claimDoorHref(invite.claim_token);
     // A supplier who already has an account signs in instead (finalize refuses
     // a couple's account, so the link is never spent on the wrong one).
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}&as=vendor`;
@@ -231,14 +233,8 @@ export default async function VendorClaimPage({ params }: Props) {
   // ------------------------------------------------------------------
   // Default branch — fresh signup path (couple source).
   // ------------------------------------------------------------------
-  const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
-  // Couple-source invites always carry an email (enforced by the
-  // vendor_invites_source_vendor_consistency CHECK), but we defend against
-  // null with a fallback to a no-prefill signup just in case.
-  const emailQs = invite.email
-    ? `prefill_email=${encodeURIComponent(invite.email)}&`
-    : '';
-  const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
+  // 🔗 The claim door, pre-filled (A6) — never the bare /signup?as=vendor; the account's email comes from signing in.
+  const signupUrl = claimDoorHref(invite.claim_token);
 
   return (
     <DoorShell

@@ -62,7 +62,9 @@ test('v18 ② · no text-link actions left on the step-2 surfaces — grey pills
   assert.match(PICKER, /<ActionButton\s+tone="neutral"\s+icon=\{Search\}\s+label="Search all services"/);
   assert.match(WIZARD, /tone="neutral"\s+icon=\{CheckCheck\}\s+label="Select all"/);
   assert.match(WIZARD, /tone="neutral"\s+icon=\{Eraser\}\s+label="Clear"/);
-  assert.match(SHEET, /<ActionButton tone="neutral" icon=\{ArrowLeft\} label="Back to my services"/);
+  // The grey back pill, its words a prop since the claim door's plan slide reuses the body (A6) — the sign-up's own by default.
+  assert.match(SHEET, /<ActionButton tone="neutral" icon=\{ArrowLeft\} label=\{backLabel\}/);
+  assert.match(SHEET, /backLabel = 'Back to my services'/);
 });
 
 /* ── ③ v19 · "Events you serve" shows only the events their services are offered for ───────────────────────────── */

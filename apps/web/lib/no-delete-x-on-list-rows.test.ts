@@ -53,6 +53,8 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/website/our-story/milestones-field.tsx', 'editor field — a milestone’s year / date / title inputs inside the Our Story form'],
   ['app/dashboard/[eventId]/website/photo-moments/_components/photo-moments-editor.tsx', 'editor field — a photo moment’s card of inputs inside its editor'],
   ['app/dashboard/[eventId]/story/_components/editorial-editor.tsx', 'editor field — a custom column’s name + body and a wish’s fields inside the editorial editor'],
+  ['app/_components/file-upload.tsx', 'tile — every ✕ / Remove is a photo or file tile’s own (a staged, failed or uploaded tile, and the round logo’s [Remove] pill under its one picture, A3)'],
+  ['app/open-shop/_components/claim-door.tsx', 'editor field — an inclusion line’s input and a picked service inside the claim door’s edit slide, written only on “Claim it” (A6)'],
   ['app/open-shop/_components/service-cards.tsx', 'editor — ONLY the opened specialties’ own Remove (prototype v19 fit row ⌃ Specialties · Remove · ✓ Done, owner 7 Nov “Remove also inside”); every service ROW is on the swipe, with Undo'],
   ['app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx', 'editor field — the Maker Edit row’s Earlier · Later · Group · Remove for the picked line'],
   ['app/_components/proposal-maker.tsx', 'editor field — a quote line’s ✕ DROPS it (reversible, “Put back”) and a payment’s ✕ removes a draft installment, both inside the quote editor'],

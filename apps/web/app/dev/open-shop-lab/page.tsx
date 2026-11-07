@@ -20,6 +20,8 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
+import { ClaimDoor } from '@/app/open-shop/_components/claim-door';
+import type { ClaimDoorRecord } from '@/lib/claim-door';
 import type { PickerParentView } from '@/app/open-shop/_components/service-picker';
 import type { SpecialtyField } from '@/app/open-shop/_components/service-cards';
 import { AddYourLogo } from '@/app/open-shop/logo/_components/add-your-logo';
@@ -147,10 +149,33 @@ async function labSaveLogo(): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+/** The prototype v21 record (`REC`, `COUPLE`) — the couple's sample event, the prototype's photographer. */
+const LAB_CLAIM_RECORD: ClaimDoorRecord = {
+  token: 'x7k2qp-sample',
+  inviterName: 'Maria & Jose',
+  hostNoun: 'couple',
+  eventWord: 'wedding',
+  eventType: 'wedding',
+  datePhrase: 'on 12 December 2026',
+  business: 'Banawe Florals',
+  contactPerson: 'Ana Reyes',
+  contactPhone: '+639178888889',
+  services: [
+    { category: 'photographer', tileId: 'photo_video', label: 'Photographer', price: 85000, inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online gallery'] },
+    { category: 'photo_booth', tileId: 'photo_booth', label: 'Photo booth', price: null, inclusions: [] },
+  ],
+  price: 85000,
+  inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online gallery'],
+  plan: [
+    { label: 'Reservation', due: null, amount: 25500 },
+    { label: 'Balance', due: null, amount: 59500 },
+  ],
+};
+
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string }>;
+  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -165,6 +190,19 @@ export default async function OpenShopLabPage({
         displayUrl={q.framed === '1' ? LAB_LOGO : null}
         frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
         saveAction={labSaveLogo}
+      />
+    );
+  }
+  if (q.screen === 'claim') {
+    // 🔗 The claim door on the PROTOTYPE's record (v21 `REC` · `COUPLE`) — never a real token. `?signed=1` = signed in.
+    return (
+      <ClaimDoor
+        record={LAB_CLAIM_RECORD}
+        tree={fixtureTree()}
+        specialties={LAB_SPECIALTIES}
+        signedInAs={q.signed === '1' ? 'ana@banaweflorals.ph' : null}
+        oauth={{ show: true, desktop: false, native: false }}
+        signInHref="/login?next=%2Fopen-shop%3Fclaim%3Dx7k2qp-sample%26step%3Daccount&as=vendor"
       />
     );
   }

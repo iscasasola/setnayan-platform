@@ -35,7 +35,8 @@ import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { applyVendorPageDraft } from '../../actions';
 import { setShopPublished } from '../actions';
 import { usePageDraft } from './use-page-draft';
-import { BadgeTracker, type BadgeTrackerData } from './badge-tracker';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import type { ShopBadge } from '@/lib/shop-badges';
 import type { PagePlanLine } from '../page-data';
 
 /* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
@@ -93,22 +94,39 @@ export type PageClientData = {
   addressPlan: string;
   storeShell: boolean;
   plans: PagePlanLine[];
-  /** 🏅 Awards and badges — composed by `lib/shop-badges.ts` from today's reads. */
-  badges: BadgeTrackerData & { summary: string };
+  /** 🏅 Awards and badges — the pills couples see, composed by `lib/shop-badges.ts` from today's reads. */
+  badges: { summary: string; pills: ShopBadge[] };
 };
 
 export function PageParts({
   d,
   domainBody,
   autoReplyBody,
+  reviewsBody,
 }: {
   d: PageClientData;
   /** Your own web address — the shipped DomainManager (its own saves). */
   domainBody: ReactNode;
   /** The shipped auto-reply card, or null while its switch is off. */
   autoReplyBody: ReactNode | null;
+  /** 💬 The reviews with their reply form, read + reply in place (`review-replies.tsx`, server-drawn). */
+  reviewsBody: ReactNode;
 }) {
   const toast = useToast();
+  // 💬 A link to ONE review (`#reply_<id>` — Today's and the Answers Desk's "Open the review") lands on its reply box:
+  // open the Reviews and stories fold through its own anchor, then bring that box into view. Nothing else moves.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!/^#reply_[\w-]+$/.test(hash)) return;
+    window.history.replaceState(null, '', '#reviews');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    const t = setTimeout(() => {
+      const box = document.getElementById(hash.slice(1));
+      box?.scrollIntoView({ block: 'center' });
+      box?.focus({ preventScroll: true });
+    }, 750); // the fold opens at --sn-pill-dur (700 ms)
+    return () => clearTimeout(t);
+  }, []);
   const { draft, setDraft, clear, ready } = usePageDraft(d.vendorId, d.saved);
   const shown = useMemo(() => withDraft(d.saved, draft), [d.saved, draft]);
   const line = draftLine(draft, d.saved);
@@ -358,16 +376,28 @@ export function PageParts({
                 className="min-h-11 w-full"
               />
             ) : null}
-            <DatesRow data="page-reply" title="Reply to a review" href="/vendor-dashboard/reviews" />
+            {/* 💬 Reply in place (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL") — was a "Reply to a review" row
+                that jumped to /vendor-dashboard/reviews, which now forwards here. */}
+            {reviewsBody}
           </div>
         </Fold>
 
         <DatesRow data="page-where" lead={<RowIcon icon={MapPin} />} title="Where you work" line={d.whereLine} href="/vendor-dashboard/profile#where" />
 
-        {/* 🏅 THE TRACKER (owner 2026-10-28) — was a line that only said "they show by themselves"; now each badge in
-            the pill, where it stands, and the one action that moves it (`badge-tracker.tsx`). */}
+        {/* 🏅 THE PILLS COUPLES SEE (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL": Page keeps the badge pills
+            only; the one tracker — bars, next badge, the action that moves each — is Analytics › Your badges). */}
         <Fold anchor="badges" data="page-badges" lead={<RowIcon icon={Award} />} title="Awards and badges" line={d.badges.summary}>
-          <BadgeTracker d={d.badges} />
+          {d.badges.pills.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pb-4 pt-1" data-badge-pills="">
+              {d.badges.pills.map((b) => (
+                <ShopBadgePill key={b.key} badge={b} size="sm" />
+              ))}
+            </div>
+          ) : (
+            <p className="pb-4 pt-1 text-[13.5px] text-ink/60" data-badge-pills="none">
+              They show here by themselves as you earn them.
+            </p>
+          )}
         </Fold>
 
         <Fold

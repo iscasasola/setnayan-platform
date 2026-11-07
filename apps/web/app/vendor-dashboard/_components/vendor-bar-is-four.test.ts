@@ -40,7 +40,7 @@ import { supplierAvatarRows, scopedMemberAvatarRows } from './supplier-avatar-ro
 import { barItemsForShell } from '@/app/_components/nav/bottom-nav';
 import { SHOP_SEGMENT_HREF } from '../shop/_components/shop-sections';
 import { settingsMoreTools, SETTINGS_HELP_HREF, SUPPLIER_HELP_ROWS } from '../settings/settings-rows';
-import { customerLandingHref } from '../customers/anchors';
+import { SUPPLIER_CHATS_HREF } from '../customers/anchors';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { stripComments } from '@/lib/strip-comments';
@@ -174,10 +174,10 @@ function oneTap(): Set<string> {
   const layout = read('layout.tsx');
   const bell = /<UnreadBellBadge[\s\S]*?href="([^"]+)"/.exec(layout)?.[1];
   assert.ok(bell, 'premise: the top bar’s bell has an href');
-  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{customerLandingHref\('messages'\)\}/, 'premise: the envelope lands on Messages');
+  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{SUPPLIER_CHATS_HREF\}/, 'premise: the envelope lands on Chats');
   return new Set([
     ...vendorBarItems({ role: 'owner' }).map((i) => i.href),
-    customerLandingHref('messages'),
+    SUPPLIER_CHATS_HREF,
     bell,
     ...supplierAvatarRows().map((r) => r.href),
   ]);

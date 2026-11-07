@@ -20,6 +20,7 @@ import { displayServiceLabel } from '@/lib/vendors';
 import { cardAnchorId } from '@/lib/service-card-view-model';
 import { cardStatusOf } from '@/lib/service-card-moderation';
 import { ServiceCardsSection, type AdminServiceCard } from './_components/service-cards-section';
+import { SampleShopSwitch } from './_components/sample-shop-switch';
 
 export const metadata = { title: 'Supplier · Admin', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -267,7 +268,7 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
     // One definition of live (lib/vendor-visibility.ts): `is_published` is a
     // dead column nothing in the approval flow sets.
     { label: 'Shows in search', value: shopIsLive ? 'Yes' : 'No' },
-    { label: 'Demo shop', value: shop.is_demo ? 'Yes — sample data' : 'No' },
+    // "Demo shop" is no longer a read-only fact here: it is the "Sample shop" switch under this list.
     { label: 'Joined', value: fmtDate(shop.created_at as string | null) },
   ];
 
@@ -298,6 +299,10 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
             </div>
           ))}
         </dl>
+        {/* 🧪 Sample shop (owner, 6 Nov 2026) — one switch, saves in place; writes `is_demo`. */}
+        <div className="mt-4">
+          <SampleShopSwitch shopId={shopId} initial={shop.is_demo === true} />
+        </div>
         {!ownerId ? (
           <Link
             href={`/admin/vendors/${shopId}/edit`}

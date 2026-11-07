@@ -52,6 +52,7 @@
  *   &chapters=none|fail 📍 Where: no chapter yet · the Schedule read refused (`LAB_CHAPTERS` otherwise)
  *   &covers=1           📍 …and Seda's in-house Cake (Reception only) and Catering (follows Seda) under its Where
  *   &wherefail=1        📍 a tick in a Where dropdown is refused (said in place, the ticks go back)
+ *   &favorites=1        ♡ after the day: the host's heart on each booked row with a shop (owner 2026-11-06)
  *   &date=set|conflict  the date banner under "Cover your event": a settled date (the calm header draws NO banner for it
  *                       — owner 2026-10-26; "free that day" is in the ⓘ) · a build with no shared day (still a banner)
  *
@@ -60,7 +61,6 @@
  *   &help=none|unread|nomonth  no Saturday fits every priced pick · the calendars fail · no month yet
  *   &cal=notset         Hiraya and Lumina never set a calendar — the card says "Calendar not set", Help me choose "confirm"
  *   &change=1           a date change is asked of Seda (the line says "· change asked")
- *   &drafted=1          the date waits in the Event Hub draft (the line says "in your draft")
  *   &venues=none        nobody booked: the place sheet types its own venue (name + pin)
  *   &factfail=read|write  the sheet's one read fails · its writes are refused
  *   (picking Sat, Dec 5 is refused by the draft door: Seda is booked that day — the shipped clash note)
@@ -176,7 +176,6 @@ export default async function SuppliersLabPage({
     help: one('help') === 'none' || one('help') === 'unread' || one('help') === 'nomonth' ? (one('help') as 'none' | 'unread' | 'nomonth') : 'ok',
     notSet: one('cal') === 'notset',
     change: one('change') === '1',
-    drafted: one('drafted') === '1',
     venues: one('venues') === 'none' ? 'none' : 'booked',
   };
   const sheetParam = one('sheet');
@@ -216,6 +215,7 @@ export default async function SuppliersLabPage({
     today: one('today') ?? null,
     callTimesFail: one('calltimes') === 'fail',
     ask: one('ask') === '1',
+    favorites: one('favorites') === '1',
     chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,
     covers: one('covers') === '1',
   };
@@ -331,13 +331,12 @@ export default async function SuppliersLabPage({
               <DatePlaceLine
                 eventId={LAB_EVENT}
                 facts={{
-                  date: { text: factOptions.drafted ? 'Sat, Dec 19, 2026' : 'Sat, Dec 12, 2026', open: false },
+                  date: { text: 'Sat, Dec 12, 2026', open: false },
                   place:
                     factOptions.venues === 'booked'
                       ? { text: 'Seda Vertis North, Quezon City', open: false }
                       : { text: 'Quezon City', open: true },
                 }}
-                drafted={factOptions.drafted}
                 changeAsked={factOptions.change}
                 priced={['v-seda', 'v-bituin', 'v-lumina']}
               />

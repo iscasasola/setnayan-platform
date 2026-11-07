@@ -5,8 +5,9 @@
 // (corpus: Relationship_Workspace_and_Appointments_2026-07-11.md § "Appointments
 // system"; PR 12 of that build plan). ONE feature carries BOTH in-person
 // meetings (food tasting / site visit / fitting → location + Directions) AND
-// online calls (pre-shoot call / menu consult → Join via the relationship
-// thread). Propose → confirm, either direction.
+// Virtual meetings (pre-shoot call / menu consult → Join hands off to the
+// proposer's own Meet / Zoom / Messenger / Viber / phone — never an in-app
+// call, owner 2026-10-28). Propose → confirm, either direction.
 //
 // Backed by two tables (schema on main, unchanged here):
 //   • event_appointments      — one row per vendor↔couple meeting.
@@ -40,26 +41,61 @@ export type AppointmentView = {
   status: AppointmentStatus;
   initiated_by: AppointmentInitiator | null;
   note: string | null;
-  /**
-   * Optional link to the relationship chat thread. Used to key the live P2P
-   * "Join" call for a video/voice appointment; falls back to the section's
-   * resolved (event, vendor) thread when null.
-   */
+  /** Optional link to the relationship chat thread. */
   thread_id: string | null;
+  /** A Virtual meeting's room: when somebody on it first pressed "Create the room" (set once). */
+  room_created_at?: string | null;
   /** custom_label (custom) → catalog label → humanized type. */
   label: string;
 };
 
-export const APPOINTMENT_KINDS: ReadonlyArray<AppointmentKind> = [
-  'in_person',
-  'video',
-  'voice',
-];
+/**
+ * 🚫 NO CALLS INSIDE SETNAYAN (owner 2026-10-28, "remove both voice and video
+ * call"; the meetings follow-up approved 2026-11-04). A meeting is In-person or
+ * Virtual — and a Virtual meeting is a Jitsi room Setnayan makes (owner
+ * 2026-11-04 "VIRTUAL = JITSI ONLY"), opened outside the app, never an in-app
+ * room. The link, the room and its one button live in `lib/virtual-meeting.ts`.
+ *
+ * STORAGE — no new schema. `event_appointments.kind` is a text CHECK of
+ * in_person / video / voice; a new Virtual meeting is stored as 'video', and an
+ * old 'voice' row reads as Virtual too. Composers offer ONLY `MEETING_MODES`.
+ * Guard: `meetings-never-open-an-in-app-call.test.ts`.
+ */
+export type MeetingMode = 'in_person' | 'virtual';
 
+export const MEETING_MODES: ReadonlyArray<MeetingMode> = ['in_person', 'virtual'];
+
+export const MEETING_MODE_LABEL: Record<MeetingMode, string> = {
+  in_person: 'In-person',
+  virtual: 'Virtual',
+};
+
+/** Any stored kind → the mode it reads as. 'video' and the retired 'voice' are both Virtual. */
+export function meetingModeOf(kind: string): MeetingMode {
+  return kind === 'in_person' ? 'in_person' : 'virtual';
+}
+
+/** Every kind the database may hold (for READING rows — composers offer MEETING_MODES). */
+export function isStoredAppointmentKind(k: unknown): k is AppointmentKind {
+  return k === 'in_person' || k === 'video' || k === 'voice';
+}
+
+/**
+ * A posted form `kind` → the kind to store. 'virtual' (and, from a stale open
+ * tab, the old 'video' / 'voice') all store as 'video'. Nothing new is ever
+ * written as 'voice'.
+ */
+export function postedKindToStored(raw: unknown): 'in_person' | 'video' | null {
+  if (raw === 'in_person') return 'in_person';
+  if (raw === 'virtual' || raw === 'video' || raw === 'voice') return 'video';
+  return null;
+}
+
+/** Display label of a stored kind — "In-person" or "Virtual". */
 export const APPOINTMENT_KIND_LABEL: Record<AppointmentKind, string> = {
   in_person: 'In-person',
-  video: 'Video call',
-  voice: 'Voice call',
+  video: 'Virtual',
+  voice: 'Virtual',
 };
 
 export const APPOINTMENT_STATUS_META: Record<
@@ -77,7 +113,7 @@ export const APPOINTMENT_STATUS_META: Record<
 // `category` key used by appointment_type_catalog (photo_video / caterer /
 // venue / couturier / hmua / cake / florist / coordinator / band_dj /
 // officiant). Anything unmapped falls through to 'any' — which always carries
-// the universal Consultation / Voice-call presets. This is the ONLY bridge
+// the universal Consultation preset. This is the ONLY bridge
 // between the two taxonomies; keep it here so both entry pages agree.
 // ----------------------------------------------------------------------------
 const VENDOR_CATEGORY_TO_APPOINTMENT_CATEGORY: Record<string, string> = {
@@ -105,7 +141,7 @@ const VENDOR_CATEGORY_TO_APPOINTMENT_CATEGORY: Record<string, string> = {
 /**
  * Resolve the set of appointment_type_catalog `category` keys a scheduler
  * should offer, given the vendor's booked service category(ies). 'any' is
- * ALWAYS included (universal Consultation / Voice call), and the app layers a
+ * ALWAYS included (universal Consultation), and the app layers a
  * "Custom" option on top regardless of the catalog.
  */
 export function appointmentCategoriesFor(

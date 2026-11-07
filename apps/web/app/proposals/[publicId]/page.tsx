@@ -528,6 +528,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             <QuoteShopGiftNote
               credits={shopGifts.credits}
               given={shopGifts.given}
+              unlocks={shopGifts.unlocks}
+              unlocksGiven={shopGifts.unlocksGiven}
               shopName={businessName}
               side={isVendorSide ? 'supplier' : 'couple'}
             />

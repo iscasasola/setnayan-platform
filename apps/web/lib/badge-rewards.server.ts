@@ -39,9 +39,6 @@ export const AWARD_TYPE_BY_TITLE: Readonly<Record<string, SpotlightAwardType>> =
   (Object.entries(AWARD_LABELS) as Array<[SpotlightAwardType, string]>).map(([type, label]) => [label, type]),
 );
 
-/** Booking statuses that are a booking (the same set `booking_fee_open_lock_charge` bills). */
-const BOOKED = ['contracted', 'deposit_paid', 'delivered', 'complete'] as const;
-
 /**
  * What the shop's measured badges count. `badge` = the facts `readShopBadgeFacts` already read for the same page
  * (verified · completed events · trusted reviews), so nothing is read twice.
@@ -51,7 +48,7 @@ export async function readBadgeRewardFacts(
   vendorProfileId: string,
   badge: Pick<ShopBadgeFacts, 'verified' | 'completedEvents' | 'trusted'>,
 ): Promise<BadgeRewardFacts> {
-  const [sourced, branches, cards, awards] = await Promise.all([
+  const [sourced, branches, serviceCards, inspirationPhotos, awards] = await Promise.all([
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
       .from('booking_fee_ledger')
@@ -81,23 +78,37 @@ export async function readBadgeRewardFacts(
         if ((data ?? []).length === 0) return [] as string[];
         return (await fetchPublicVendorBranches(admin, vendorProfileId)).map((b) => b.branchId);
       }),
-    // Bookings that name a service card.
+    // Service cards (owner-approved ladder 3·6·10·20, 8 Nov): the shop's live cards — active and not link-only, the
+    // same "a card the shop sells" the calendar and the check-a-date reads use. A refused read is null, never 0.
     admin
-      .from('event_vendors')
-      .select('event_id, service_id, package_role, archived_at')
-      .eq('marketplace_vendor_id', vendorProfileId)
-      .in('status', [...BOOKED])
-      .not('service_id', 'is', null)
-      .is('archived_at', null)
-      .limit(2000)
-      .then(({ data, error }) => {
-        if (error) {
-          logQueryError('badgeRewards.cards', error, { vendorProfileId }, 'graceful_degrade');
+      .from('vendor_services')
+      .select('vendor_service_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_active', true)
+      .eq('is_linked_only', false)
+      .then(({ count, error }) => {
+        if (error || count === null || count === undefined) {
+          logQueryError('badgeRewards.serviceCards', error ?? { message: 'no count' }, { vendorProfileId }, 'graceful_degrade');
           return null;
         }
-        return ((data ?? []) as Array<{ event_id: string | null; service_id: string | null; package_role: string | null }>).filter(
-          (r) => r.package_role !== 'covered' && r.event_id && r.service_id,
-        ) as Array<{ event_id: string; service_id: string }>;
+        return count;
+      }),
+    // Inspiration box (ladder 10·25·50·100·250, 8 Nov): approved, live inspiration photos — the shop page's own
+    // predicates (`fetchShopInspirationLooks`, lib/shop-inspiration.server.ts), counted, never listed.
+    admin
+      .from('moodboard_library_assets')
+      .select('asset_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('asset_type', 'supplier_gallery')
+      .not('approved_at', 'is', null)
+      .is('retired_at', null)
+      .is('rejected_at', null)
+      .then(({ count, error }) => {
+        if (error || count === null || count === undefined) {
+          logQueryError('badgeRewards.inspiration', error ?? { message: 'no count' }, { vendorProfileId }, 'graceful_degrade');
+          return null;
+        }
+        return count;
       }),
     admin
       .from('vendor_spotlight_awards')
@@ -115,11 +126,6 @@ export async function readBadgeRewardFacts(
       }),
   ]);
 
-  // A card counts once it has a booking Setnayan brought (the same "sourced" the fee and Firsts use), so a shop
-  // cannot mint rewards by adding its own clients to new cards.
-  const bookedCardIds =
-    cards === null || sourced === null ? null : [...new Set(cards.filter((c) => sourced.has(c.event_id)).map((c) => c.service_id))];
-
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
   return {
     verified: badge.verified,
@@ -127,7 +133,8 @@ export async function readBadgeRewardFacts(
     trustedReviews: trustedCount !== null && Number.isFinite(trustedCount) ? trustedCount : null,
     firstSourcedBooking: sourced === null ? null : sourced.size > 0,
     branchIds: branches,
-    bookedCardIds,
+    serviceCards,
+    inspirationPhotos,
     awards,
   };
 }

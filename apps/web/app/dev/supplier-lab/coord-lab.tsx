@@ -121,7 +121,8 @@ function coordLabRewards(f: TrackerFacts): TrackerRewardInput {
     trustedReviews: f.trusted?.trusted_review_count ?? 0,
     firstSourcedBooking: (f.completedEvents ?? 0) > 0,
     branchIds: [],
-    bookedCardIds: (f.completedEvents ?? 0) > 0 ? ['lab-card-1'] : [],
+    serviceCards: (f.completedEvents ?? 0) > 0 ? 4 : 1,
+    inspirationPhotos: (f.completedEvents ?? 0) > 0 ? 12 : 0,
     awards: [],
   };
   const at = (i: number) => `2026-11-0${1 + (i % 5)}T02:00:00Z`;

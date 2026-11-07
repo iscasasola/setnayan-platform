@@ -20,7 +20,7 @@
 -- WHAT THIS FILE DOES (extends, re-draws nothing):
 --   1. `shop_badge_rewards` — ONE row per reward a shop was given, keyed
 --      UNIQUE (shop, reward_key). The key names the badge and its step or
---      period ('events:50', 'award:most_booked:2026-11-01', 'branch:<id>'), so
+--      period ('events:50', 'award:most_booked:2026-11-01', 'branches:2'), so
 --      a re-run, or a badge lost and earned again, can never pay twice. A
 --      revoked row stays — revoking never re-opens the key.
 --   2. `shop_gift_stock_entries` accepts a fourth kind, 'badge_reward' (+),
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.shop_badge_rewards (
   vendor_profile_id UUID NOT NULL
                       REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
   -- The badge and its step or period — the exactly-once key ('verified',
-  -- 'events:50', 'reviews:10', 'award:rising:2026-11-01', 'branch:<uuid>').
+  -- 'events:50', 'reviews:10', 'award:rising:2026-11-01', 'branches:2').
   reward_key        TEXT NOT NULL
                       CONSTRAINT shop_badge_rewards_reward_key_shape
                       CHECK (length(btrim(reward_key)) > 0 AND length(reward_key) <= 120),

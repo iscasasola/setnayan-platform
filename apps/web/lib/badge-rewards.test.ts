@@ -9,6 +9,10 @@
  *     → red, two months collide);
  *   • NOTHING is owed for an unread or unmeasured badge (sabotage: `count ?? 0` in ladderOwed → red);
  *   • the badge page lines read like the owner's examples ("Next: 100 events · Gold · 4 to go → 2 × Event Plus");
+ *   • ⚖ THE APPROVED PER-STEP TABLE (owner 8 Nov, "Rewards yes"): Service cards 3·6·10·20, Inspiration box
+ *     10·25·50·100·250 and Branches 2·3·5·10 pay Papic 150 at EACH step (never per card / per branch), and the five
+ *     firsts pay Papic 150 each (sabotage run 2026-11-08: `INSPIRATION_STEPS.slice(-2)` back as the paying steps → red;
+ *     Branches back to one reward per branch id → red; first_review dropped from rewardsOwed → red);
  *   • 🏅 THE 40% EXEMPTION: a line paid from badge-reward stock is not measured against the limit, bought lines still
  *     are (sabotage: measure `valueCentavos` instead of `boughtCentavos` → red).
  *
@@ -45,7 +49,8 @@ const NONE: BadgeRewardFacts = {
   trustedReviews: null,
   firstSourcedBooking: null,
   branchIds: null,
-  bookedCardIds: null,
+  serviceCards: null,
+  inspirationPhotos: null,
   awards: null,
 };
 
@@ -53,7 +58,7 @@ function granted(key: string, kind: GrantedReward['kind'], units = 1, extra: Par
   return {
     rewardId: `r-${key}`,
     key,
-    badge: key.split(':')[0] === 'branch' ? 'branches' : key.split(':')[0] === 'card' ? 'service_cards' : key.split(':')[0]!,
+    badge: key.split(':')[0]!,
     kind,
     units,
     grantedAt: '2026-11-05T02:00:00Z',
@@ -108,7 +113,31 @@ describe('the one table is the ruling', () => {
     assert.deepEqual(BADGE_REWARDS.verified.shape === 'once' && BADGE_REWARDS.verified.reward, { kind: 'papic', units: 1 });
     assert.deepEqual(BADGE_REWARDS.first_booking.shape === 'once' && BADGE_REWARDS.first_booking.reward, { kind: 'papic', units: 1 });
     const unmeasured = Object.values(BADGE_REWARDS).filter((r) => !r.measured).map((r) => r.badge).sort();
-    assert.deepEqual(unmeasured, ['booked_loop', 'first_pick', 'inspiration']);
+    assert.deepEqual(unmeasured, ['booked_loop', 'first_first_pick', 'first_five_star', 'first_loop', 'first_pick']);
+  });
+
+  it('⚖ 8 Nov: Service cards, Inspiration box and Branches pay Papic 150 at EVERY step of their approved ladders', () => {
+    const ladder = (b: 'service_cards' | 'inspiration' | 'branches') => {
+      const r = BADGE_REWARDS[b];
+      assert.equal(r.shape, 'ladder', `${b} is not a ladder`);
+      assert.equal(r.measured, true, `${b} has no counter`);
+      return r.shape === 'ladder' ? r.steps.map((s) => [s.step, s.reward?.kind, s.reward?.units]) : [];
+    };
+    assert.deepEqual(ladder('service_cards'), [3, 6, 10, 20].map((n) => [n, 'papic', 1]));
+    assert.deepEqual(ladder('inspiration'), [10, 25, 50, 100, 250].map((n) => [n, 'papic', 1]));
+    assert.deepEqual(ladder('branches'), [2, 3, 5, 10].map((n) => [n, 'papic', 1]));
+  });
+
+  it('⚖ 8 Nov: the five firsts pay Papic 150 each; Reviews and Booked Loop keep their approved steps', () => {
+    for (const b of ['first_booking', 'first_review', 'first_five_star', 'first_loop', 'first_first_pick'] as const) {
+      const r = BADGE_REWARDS[b];
+      assert.equal(r.shape, 'once', `${b} is not a one-time first`);
+      assert.deepEqual(r.shape === 'once' && r.reward, { kind: 'papic', units: 1 }, `${b} does not pay Papic 150`);
+    }
+    const rv = BADGE_REWARDS.reviews;
+    assert.deepEqual(rv.shape === 'ladder' && rv.steps.map((s) => [s.step, s.reward?.kind]), [5, 10, 25, 50, 100, 250, 500].map((n) => [n, 'papic']));
+    const bl = BADGE_REWARDS.booked_loop;
+    assert.deepEqual(bl.shape === 'ladder' && bl.steps.map((s) => [s.step, s.reward?.kind]), [1, 5, 10, 25, 50, 100, 250].map((n) => [n, 'event_plus']));
   });
 });
 
@@ -116,8 +145,9 @@ describe('exactly-once keys', () => {
   it('name the badge and its step, period or item — distinct, stable', () => {
     assert.equal(rewardKey('verified'), 'verified');
     assert.equal(rewardKey('events', 50), 'events:50');
-    assert.equal(rewardKey('branches', 'b1'), 'branch:b1');
-    assert.equal(rewardKey('service_cards', 'c1'), 'card:c1');
+    assert.equal(rewardKey('branches', 2), 'branches:2');
+    assert.equal(rewardKey('service_cards', 3), 'service_cards:3');
+    assert.equal(rewardKey('first_review'), 'first_review');
     const owed = rewardsOwed({
       ...NONE,
       awards: [
@@ -133,7 +163,9 @@ describe('exactly-once keys', () => {
 describe('what a shop is owed', () => {
   it('nothing for an unread or unmeasured badge — never a zero, never a guess', () => {
     assert.deepEqual(rewardsOwed(NONE), []);
-    assert.deepEqual(rewardsOwed({ ...NONE, verified: false, firstSourcedBooking: false, completedEvents: 9, trustedReviews: 4 }), []);
+    assert.deepEqual(rewardsOwed({ ...NONE, verified: false, firstSourcedBooking: false, completedEvents: 9, trustedReviews: 0, serviceCards: 2, inspirationPhotos: 9, branchIds: ['b1'] }), []);
+    // ⚖ 8 Nov: 4 reviews is below the Reviews ladder, but the FIRST review already paid.
+    assert.deepEqual(rewardsOwed({ ...NONE, trustedReviews: 4 }).map((o) => o.key), ['first_review']);
   });
 
   it('every reached step, each with its own reward', () => {
@@ -144,23 +176,28 @@ describe('what a shop is owed', () => {
       completedEvents: 1200,
       trustedReviews: 12,
       branchIds: ['b1', 'b1', 'b2'],
-      bookedCardIds: ['c1'],
+      serviceCards: 6,
+      inspirationPhotos: 30,
     });
     const byKey = Object.fromEntries(owed.map((o) => [o.key, o.reward]));
     assert.deepEqual(Object.keys(byKey).sort(), [
-      'branch:b1',
-      'branch:b2',
-      'card:c1',
+      'branches:2',
       'events:10',
       'events:100',
       'events:1000',
       'events:50',
       'events:500',
       'first_booking',
+      'first_review',
+      'inspiration:10',
+      'inspiration:25',
       'reviews:10',
       'reviews:5',
+      'service_cards:3',
+      'service_cards:6',
       'verified',
     ]);
+    for (const k of ['branches:2', 'service_cards:6', 'inspiration:25', 'first_review']) assert.deepEqual(byKey[k], { kind: 'papic', units: 1 });
     assert.deepEqual(byKey['events:1000'], { kind: 'fee_waiver', units: 1 });
     assert.equal(owed.find((o) => o.key === 'events:50')!.note, 'Badge reward · 50 events · Silver');
   });
@@ -180,7 +217,10 @@ describe('the badge page lines', () => {
     assert.equal(rewardLineFor('verified', null, true, [granted('verified', 'papic')], NAMES).next, null);
     assert.equal(rewardLineFor('first_pick', null, null, null, NAMES).next, 'First reward: 1 booking → Papic 150');
     assert.equal(rewardLineFor('first_pick', null, null, null, NAMES).gave, null, 'unread rewards say nothing, not "nothing given"');
-    assert.equal(rewardLineFor('inspiration', null, null, [], NAMES).next, 'First reward: 100 photos → Papic 150');
+    assert.equal(rewardLineFor('inspiration', null, null, [], NAMES).next, 'First reward: 10 photos → Papic 150');
+    assert.equal(rewardLineFor('inspiration', 12, null, [], NAMES).next, 'Next: 25 photos · 13 to go → Papic 150');
+    assert.equal(rewardLineFor('branches', 1, null, [], NAMES).next, 'Next: 2 branches · 1 to go → Papic 150');
+    assert.equal(rewardLineFor('first_five_star', null, null, null, NAMES).next, 'When you earn it → Papic 150');
   });
 
   it('every row carries its reward; Rating and Years say nothing about rewards', () => {
@@ -194,7 +234,7 @@ describe('the badge page lines', () => {
       unreviewed: 0,
     };
     const rows = badgeRowsWithRewards(badgeTracker(f), {
-      facts: { ...NONE, verified: true, completedEvents: 96, trustedReviews: 12, firstSourcedBooking: true, branchIds: [], bookedCardIds: ['c1'], awards: [] },
+      facts: { ...NONE, verified: true, completedEvents: 96, trustedReviews: 12, firstSourcedBooking: true, branchIds: [], serviceCards: 4, inspirationPhotos: 0, awards: [] },
       granted: [granted('verified', 'papic'), granted('events:50', 'event_plus')],
       names: NAMES,
       awardTypeByTitle: {},
@@ -209,6 +249,9 @@ describe('the badge page lines', () => {
     assert.equal(fp.state, 'not_counted');
     assert.equal(fp.stateWord, 'Soon');
     assert.equal(rows.find((r) => r.key === 'reward:reviews')!.reward?.next, 'Next: 25 reviews · 13 to go → Papic 150');
+    assert.equal(rows.find((r) => r.key === 'reward:service_cards')!.reward?.next, 'Next: 6 cards · 2 to go → Papic 150');
+    assert.equal(rows.find((r) => r.key === 'reward:first_review')!.state, 'earned');
+    assert.equal(rows.find((r) => r.key === 'reward:first_five_star')!.state, 'not_counted');
     assert.equal(rows.at(-1)!.title, 'Monthly awards');
   });
 });
@@ -219,7 +262,8 @@ describe('the gifts list', () => {
     assert.equal(rewardWords({ kind: 'fee_waiver', units: 1 }, NAMES), 'Free booking fee · your next customer');
     assert.equal(rewardSourceWords('events:500'), '500 events · Platinum');
     assert.equal(rewardSourceWords('award:most_booked:2026-11-01'), 'Most Booked · Nov 2026');
-    assert.equal(rewardSourceWords('branch:x'), 'A new branch');
+    assert.equal(rewardSourceWords('branches:2'), 'Branches · 2');
+    assert.equal(rewardSourceWords('first_review'), 'First review');
   });
 
   it('the free booking fee shows its history: earned when, used on which booking', () => {

@@ -172,7 +172,8 @@ export async function addAwardManually(formData: FormData): Promise<void> {
     trustedReviews: null,
     firstSourcedBooking: null,
     branchIds: null,
-    bookedCardIds: null,
+    serviceCards: null,
+    inspirationPhotos: null,
     awards: [{ type: awardType, periodMonth: period }],
   });
 

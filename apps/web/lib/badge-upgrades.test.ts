@@ -34,7 +34,8 @@ const NONE: BadgeRewardFacts = {
   trustedReviews: null,
   firstSourcedBooking: null,
   branchIds: null,
-  bookedCardIds: null,
+  serviceCards: null,
+  inspirationPhotos: null,
   awards: null,
 };
 

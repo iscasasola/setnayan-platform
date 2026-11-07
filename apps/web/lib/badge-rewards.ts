@@ -5,18 +5,22 @@
  *
  * The badge page and the granting BOTH read `BADGE_REWARDS` — so what a row promises is what is paid.
  *
- *   Verified (once) → 1 × Papic 150          · Firsts: first booking through Setnayan → 1 × Papic 150
- *   1st Pick, per LADDER STEP (never per booking): 1·5·10 → Papic 150 · 25·50·100·250 → Event Plus
- *   Reviews, each step → Papic 150           · Booked Loop → Event Plus (each step of its ladder — see the note there)
- *   Branches, each new branch → Papic 150    · Service cards → Papic 150 when a card gets its FIRST booking
- *   Inspiration box → Papic 150, top steps only
- *   Monthly awards, once per award per month: Most Booked → Event Plus · Top Pick → Event Plus · Rising → Event Plus
+ *   ⚖ THE APPROVED PER-STEP TABLE (owner 8 Nov 2026, "Rewards yes" — corpus SUPPLIER_DASHBOARD_BUILD_PLAN_2026-11-08
+ *   "Owner answers, 8 Nov (second batch)"). Every rank earns at least a Papic 150; bigger steps earn instead:
  *   Events on Setnayan: 10 → Event Plus · 50 → Event Plus · 100 → 2 × Event Plus · 500 → Event Pro ·
  *                       1,000 · 5,000 · 10,000 → a FREE BOOKING FEE on the next customer (one booking each)
+ *   Reviews 5·10·25·50·100·250·500 → Papic 150 each (at 5 also 4 weeks AI Chatbot — `lib/badge-upgrades.ts`)
+ *   Booked Loop 1·5·10·25·50·100·250 → Event Plus each
+ *   1st Pick 1·5·10 → Papic 150 · 25·50·100·250 → Event Plus (per LADDER STEP, never per booking)
+ *   Service cards 3·6·10·20 · Inspiration box 10·25·50·100·250 · Branches 2·3·5·10 → Papic 150 each step
+ *   Firsts — first booking · first review · first 5★ review · first Booked Loop · first 1st Pick → Papic 150 each
+ *            (the first booking also 4 weeks 3D Booth; Papic Challenges for a Free or Verified shop — badge-upgrades)
+ *   Verified (once) → Papic 150 (+ 4 weeks Papic Challenges — badge-upgrades)
+ *   Monthly awards, once per award per month: Most Booked / Top Pick → Event Plus (+ one 4-week upgrade of choice) ·
+ *                                             Rising → Event Plus
  *   No reward: Years in business · Rating · Plan / Founding / Member since · Yearly awards.
- *   ⚖ 6 Nov 2026 (owner approved the table): Event Plus replaced 2 × Papic 150 at 10 events, 1st Pick 25·50 and Rising.
- *   Top Pick / Most Booked, Verified, the first booking and 5 reviews ALSO give a 4-week personal upgrade —
- *   `lib/badge-upgrades.ts` (its own table, never gift stock).
+ *   Each step pays once, never expires, a regained rank does not pay twice, and sits outside the 40% gift limit.
+ *   (Supersedes 6 Nov's "each new branch" / "each card's first booking" / "Inspiration top steps only".)
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
  * (`alwaysAllowedPack`, `lib/shop-gifts.ts`) — its credits and its title are read when a reward is granted or drawn,
@@ -52,6 +56,10 @@ const freeFee = (): BadgeReward => ({ kind: 'fee_waiver', units: 1 });
 export type RewardBadge =
   | 'verified'
   | 'first_booking'
+  | 'first_review'
+  | 'first_five_star'
+  | 'first_loop'
+  | 'first_first_pick'
   | 'events'
   | 'reviews'
   | 'first_pick'
@@ -74,8 +82,6 @@ type Base = {
 export type BadgeRewardRule =
   | (Base & { shape: 'once'; reward: BadgeReward })
   | (Base & { shape: 'ladder'; unit: readonly [singular: string, plural: string]; steps: readonly RewardStep[] })
-  /** One reward per new thing (a branch; a card's first booking). */
-  | (Base & { shape: 'each'; reward: BadgeReward; eachWord: string })
   | (Base & { shape: 'period'; rewards: Readonly<Record<SpotlightAwardType, BadgeReward>> });
 
 /** Events on Setnayan — keyed by the SHIPPED ladder (`MILESTONE_THRESHOLDS`), so a step can never lose its reward. */
@@ -98,17 +104,31 @@ export const REVIEW_STEPS: readonly number[] = [5, 10, 25, 50, 100, 250, 500];
 /** 1st Pick and Booked Loop share the spec's ladder (§B). */
 const LOOP_LADDER: readonly number[] = [1, 5, 10, 25, 50, 100, 250];
 
-/** Inspiration box's steps (spec §B). */
+/** Service cards' steps (spec §B, owner approved the ladder 8 Nov): cards across services. */
+export const SERVICE_CARD_STEPS: readonly number[] = [3, 6, 10, 20];
+
+/** Inspiration box's steps (spec §B, approved 8 Nov): approved inspiration photos. */
 export const INSPIRATION_STEPS: readonly number[] = [10, 25, 50, 100, 250];
-/**
- * "Papic 150, top steps only" — the TOP TWO steps (100 · 250 photos). ⚖ Owner ruled 2026-11-05 (on the draft PR).
- * Pays nothing until the badge has a counter.
- */
-export const INSPIRATION_REWARD_STEPS: readonly number[] = INSPIRATION_STEPS.slice(-2);
+
+/** Branches' steps (spec §B, approved 8 Nov). */
+export const BRANCH_STEPS: readonly number[] = [2, 3, 5, 10];
+
+const firstOnce = (badge: RewardBadge, title: string, measured: boolean): BadgeRewardRule => ({
+  badge,
+  title,
+  measured,
+  shape: 'once',
+  reward: papic(1),
+});
 
 export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
   verified: { badge: 'verified', title: 'SETNAYAN Verified', measured: true, shape: 'once', reward: papic(1) },
-  first_booking: { badge: 'first_booking', title: 'First booking', measured: true, shape: 'once', reward: papic(1) },
+  first_booking: firstOnce('first_booking', 'First booking', true),
+  first_review: firstOnce('first_review', 'First review', true),
+  /** No 5★ count exists yet (`vendor_trusted_review_stats` holds an average and a count only): drawn, never granted. */
+  first_five_star: firstOnce('first_five_star', 'First 5★ review', false),
+  first_loop: firstOnce('first_loop', 'First Booked Loop', false),
+  first_first_pick: firstOnce('first_first_pick', 'First 1st Pick', false),
   events: {
     badge: 'events',
     title: 'Milestone · events on Setnayan',
@@ -153,22 +173,29 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
     unit: ['family who came back', 'families who came back'],
     steps: LOOP_LADDER.map((step) => ({ step, reward: plus(1) })),
   },
-  branches: { badge: 'branches', title: 'Branches', measured: true, shape: 'each', reward: papic(1), eachWord: 'Each new branch' },
+  branches: {
+    badge: 'branches',
+    title: 'Branches',
+    measured: true,
+    shape: 'ladder',
+    unit: ['branch', 'branches'],
+    steps: BRANCH_STEPS.map((step) => ({ step, reward: papic(1) })),
+  },
   service_cards: {
     badge: 'service_cards',
     title: 'Service cards',
     measured: true,
-    shape: 'each',
-    reward: papic(1),
-    eachWord: 'Each card’s first booking',
+    shape: 'ladder',
+    unit: ['card', 'cards'],
+    steps: SERVICE_CARD_STEPS.map((step) => ({ step, reward: papic(1) })),
   },
   inspiration: {
     badge: 'inspiration',
     title: 'Inspiration box',
-    measured: false,
+    measured: true,
     shape: 'ladder',
     unit: ['photo', 'photos'],
-    steps: INSPIRATION_STEPS.map((step) => ({ step, reward: INSPIRATION_REWARD_STEPS.includes(step) ? papic(1) : null })),
+    steps: INSPIRATION_STEPS.map((step) => ({ step, reward: papic(1) })),
   },
   award: {
     badge: 'award',
@@ -192,10 +219,8 @@ export const PLAN_PERIOD_GIFTS: Readonly<Record<'pro' | 'enterprise', BadgeRewar
 
 /* ── keys ─────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** The exactly-once key: `verified` · `events:50` · `award:rising:2026-11-01` · `branch:<id>` · `card:<id>`. */
+/** The exactly-once key: `verified` · `first_review` · `events:50` · `branches:2` · `award:rising:2026-11-01`. */
 export function rewardKey(badge: RewardBadge, part?: string | number): string {
-  if (badge === 'branches') return `branch:${part}`;
-  if (badge === 'service_cards') return `card:${part}`;
   return part === undefined ? badge : `${badge}:${part}`;
 }
 
@@ -203,8 +228,8 @@ export function rewardKey(badge: RewardBadge, part?: string | number): string {
 
 /**
  * What the shop's badges measure today. `null` = the read failed or the badge has no counter: NOTHING is granted for
- * it (never a zero, never a guess). 1st Pick, Booked Loop and the Inspiration box are deliberately absent — no
- * counter exists for them in the code.
+ * it (never a zero, never a guess). 1st Pick, Booked Loop, and the firsts that hang off them (first loop, first 1st
+ * Pick) and the first 5★ review are deliberately absent — no counter exists for them in the code.
  */
 export type BadgeRewardFacts = {
   verified: boolean | null;
@@ -214,10 +239,12 @@ export type BadgeRewardFacts = {
   trustedReviews: number | null;
   /** The shop holds at least one Setnayan-sourced booking (`booking_fee_ledger` attribution 'sourced'). */
   firstSourcedBooking: boolean | null;
-  /** Paid, live branches (`fetchPublicVendorBranches`). */
+  /** Paid, live branches (`fetchPublicVendorBranches`) — the Branches ladder counts them. */
   branchIds: readonly string[] | null;
-  /** Service cards that have had a Setnayan-sourced booking. */
-  bookedCardIds: readonly string[] | null;
+  /** Live service cards across the shop's services (`vendor_services` active, not link-only). */
+  serviceCards: number | null;
+  /** Approved, live inspiration photos (`moodboard_library_assets` supplier_gallery — the shop page's own predicates). */
+  inspirationPhotos: number | null;
   /** Every Spotlight Award the shop has been given (`vendor_spotlight_awards`). */
   awards: ReadonlyArray<{ type: SpotlightAwardType; periodMonth: string }> | null;
 };
@@ -245,12 +272,13 @@ export function rewardsOwed(f: BadgeRewardFacts): OwedReward[] {
     ...ladderOwed('events', f.completedEvents, (s) => `Badge reward · ${COUNT.format(s)} events${stepName(s) ? ` · ${stepName(s)}` : ''}`),
   );
   out.push(...ladderOwed('reviews', f.trustedReviews, (s) => `Badge reward · ${COUNT.format(s)} reviews`));
-  for (const id of new Set(f.branchIds ?? [])) {
-    out.push({ key: rewardKey('branches', id), badge: 'branches', reward: papic(1), note: 'Badge reward · a new branch' });
+  if (f.trustedReviews !== null && Number.isFinite(f.trustedReviews) && f.trustedReviews >= 1) {
+    out.push({ key: rewardKey('first_review'), badge: 'first_review', reward: papic(1), note: 'Badge reward · first review' });
   }
-  for (const id of new Set(f.bookedCardIds ?? [])) {
-    out.push({ key: rewardKey('service_cards', id), badge: 'service_cards', reward: papic(1), note: 'Badge reward · a card’s first booking' });
-  }
+  const branches = f.branchIds === null ? null : new Set(f.branchIds).size;
+  out.push(...ladderOwed('branches', branches, (s) => `Badge reward · ${COUNT.format(s)} branches`));
+  out.push(...ladderOwed('service_cards', f.serviceCards, (s) => `Badge reward · ${COUNT.format(s)} service cards`));
+  out.push(...ladderOwed('inspiration', f.inspirationPhotos, (s) => `Badge reward · ${COUNT.format(s)} inspiration photos`));
   const award = BADGE_REWARDS.award;
   if (award.shape === 'period') {
     const seen = new Set<string>();
@@ -292,6 +320,14 @@ export function rewardSourceWords(key: string): string {
       return 'SETNAYAN Verified';
     case 'first_booking':
       return 'First booking through Setnayan';
+    case 'first_review':
+      return 'First review';
+    case 'first_five_star':
+      return 'First 5★ review';
+    case 'first_loop':
+      return 'First Booked Loop';
+    case 'first_first_pick':
+      return 'First 1st Pick';
     case 'events': {
       const n = Number(a);
       return Number.isFinite(n) ? `${COUNT.format(n)} events${stepName(n) ? ` · ${stepName(n)}` : ''}` : 'Events on Setnayan';
@@ -304,10 +340,10 @@ export function rewardSourceWords(key: string): string {
       return `Booked Loop · ${COUNT.format(Number(a) || 0)}`;
     case 'inspiration':
       return `Inspiration box · ${COUNT.format(Number(a) || 0)} photos`;
-    case 'branch':
-      return 'A new branch';
-    case 'card':
-      return 'A card’s first booking';
+    case 'branches':
+      return `Branches · ${COUNT.format(Number(a) || 0)}`;
+    case 'service_cards':
+      return `Service cards · ${COUNT.format(Number(a) || 0)}`;
     case 'award': {
       const word = AWARD_WORD[a as SpotlightAwardType] ?? 'Monthly award';
       const d = b ? new Date(`${b.slice(0, 10)}T00:00:00Z`) : null;
@@ -362,7 +398,7 @@ function gaveLine(granted: readonly GrantedReward[] | null, badge: RewardBadge, 
 /**
  * The two reward lines for one badge, from the one table. Ladder badges name their next REWARDING step and how far
  * it is ("Next: 100 events · Gold · 4 to go → 2 × Event Plus"); an unmeasured ladder names its first reward with no
- * count; one-time badges name what they give when earned; "each" badges say what each new one gives.
+ * count; one-time badges name what they give when earned.
  */
 export function rewardLineFor(
   badge: RewardBadge,
@@ -376,8 +412,6 @@ export function rewardLineFor(
   switch (rule.shape) {
     case 'once':
       return { gave, next: earned === true ? null : `When you earn it → ${rewardWords(rule.reward, names)}` };
-    case 'each':
-      return { gave, next: `${rule.eachWord} → ${rewardWords(rule.reward, names)}` };
     case 'period': {
       const r = rule.rewards;
       return {
@@ -512,8 +546,10 @@ function rewardBadge(key: string, glyph: string | null, label: string): ShopBadg
 
 const NOT_COUNTED_LINE = 'Setnayan doesn’t count this one yet';
 
+type CountedBadge = 'reviews' | 'branches' | 'service_cards' | 'inspiration';
+
 function countedRow(
-  badge: 'reviews',
+  badge: CountedBadge,
   title: string,
   glyph: string,
   count: number | null,
@@ -543,7 +579,9 @@ function countedRow(
   };
 }
 
-function notCountedRow(badge: 'first_pick' | 'booked_loop' | 'inspiration', glyph: string, r: TrackerRewardInput): TrackerRow {
+type UncountedBadge = 'first_pick' | 'booked_loop' | 'first_five_star' | 'first_loop' | 'first_first_pick';
+
+function notCountedRow(badge: UncountedBadge, glyph: string, r: TrackerRewardInput): TrackerRow {
   const rule = BADGE_REWARDS[badge];
   const b = rewardBadge(badge, glyph, rule.title);
   return {
@@ -556,6 +594,23 @@ function notCountedRow(badge: 'first_pick' | 'booked_loop' | 'inspiration', glyp
     stateWord: 'Soon',
     reward: rewardLineFor(badge, null, null, r.granted, r.names),
   };
+}
+
+/** A one-time first: earned · not yet · unread — from one measured yes/no. */
+function firstRow(
+  badge: 'first_booking' | 'first_review',
+  glyph: string,
+  earned: boolean | null,
+  lines: { unread: string; earned: string; notYet: string },
+  r: TrackerRewardInput,
+): TrackerRow {
+  const rule = BADGE_REWARDS[badge];
+  const b = rewardBadge(badge, glyph, rule.title);
+  const reward = rewardLineFor(badge, null, earned, r.granted, r.names);
+  if (earned === null) return { kind: 'reward', key: b.key, badge: b, title: rule.title, line: lines.unread, state: 'unread', stateWord: 'Couldn’t load', reward };
+  return earned
+    ? { kind: 'reward', key: b.key, badge: b, title: rule.title, line: lines.earned, state: 'earned', stateWord: 'Earned', bar: 100, reward }
+    : { kind: 'reward', key: b.key, badge: b, title: rule.title, line: lines.notYet, state: 'not_yet', stateWord: 'Not yet', reward };
 }
 
 /**
@@ -599,36 +654,33 @@ function rewardOnlyRows(r: TrackerRewardInput): TrackerRow[] {
   const f = r.facts;
   const rows: TrackerRow[] = [];
 
-  const fb = BADGE_REWARDS.first_booking;
-  const fbBadge = rewardBadge('first_booking', '1st', fb.title);
-  const fbReward = rewardLineFor('first_booking', null, f.firstSourcedBooking, r.granted, r.names);
   rows.push(
-    f.firstSourcedBooking === null
-      ? { kind: 'reward', key: fbBadge.key, badge: fbBadge, title: fb.title, line: 'Your bookings couldn’t be read just now', state: 'unread', stateWord: 'Couldn’t load', reward: fbReward }
-      : f.firstSourcedBooking
-        ? { kind: 'reward', key: fbBadge.key, badge: fbBadge, title: fb.title, line: 'Your first couple through Setnayan', state: 'earned', stateWord: 'Earned', bar: 100, reward: fbReward }
-        : { kind: 'reward', key: fbBadge.key, badge: fbBadge, title: fb.title, line: 'Your first couple booked through Setnayan', state: 'not_yet', stateWord: 'Not yet', reward: fbReward },
+    firstRow('first_booking', '1st', f.firstSourcedBooking, {
+      unread: 'Your bookings couldn’t be read just now',
+      earned: 'Your first couple through Setnayan',
+      notYet: 'Your first couple booked through Setnayan',
+    }, r),
   );
+  const reviews = f.trustedReviews !== null && Number.isFinite(f.trustedReviews) ? f.trustedReviews : null;
+  rows.push(
+    firstRow('first_review', '1st', reviews === null ? null : reviews >= 1, {
+      unread: 'Your reviews couldn’t be read just now',
+      earned: 'Your first review from a booked couple',
+      notYet: 'Your first review from a booked couple',
+    }, r),
+  );
+  rows.push(notCountedRow('first_five_star', '5★', r));
+  rows.push(notCountedRow('first_loop', '↻', r));
+  rows.push(notCountedRow('first_first_pick', '1st', r));
 
   rows.push(countedRow('reviews', BADGE_REWARDS.reviews.title, '★', f.trustedReviews, ['trusted review', 'trusted reviews'], r));
-
-  for (const [badge, ids, one, many] of [
-    ['branches', f.branchIds, 'branch', 'branches'],
-    ['service_cards', f.bookedCardIds, 'card booked through Setnayan', 'cards booked through Setnayan'],
-  ] as const) {
-    const rule = BADGE_REWARDS[badge];
-    const n = ids === null ? null : new Set(ids).size;
-    const b = rewardBadge(badge, n === null ? '—' : COUNT.format(n), rule.title);
-    const reward = rewardLineFor(badge, n, null, r.granted, r.names);
-    rows.push(
-      n === null
-        ? { kind: 'reward', key: b.key, badge: b, title: rule.title, line: `Your ${many} couldn’t be counted just now`, state: 'unread', stateWord: 'Couldn’t load', reward }
-        : { kind: 'reward', key: b.key, badge: b, title: rule.title, line: n > 0 ? `${COUNT.format(n)} ${n === 1 ? one : many}` : `No ${many} yet`, state: n > 0 ? 'live' : 'not_yet', stateWord: n > 0 ? 'Live' : 'Not yet', reward },
-    );
-  }
+  rows.push(countedRow('service_cards', BADGE_REWARDS.service_cards.title, '▦', f.serviceCards, ['service card', 'service cards'], r));
+  rows.push(countedRow('inspiration', BADGE_REWARDS.inspiration.title, '✦', f.inspirationPhotos, ['approved photo', 'approved photos'], r));
+  rows.push(
+    countedRow('branches', BADGE_REWARDS.branches.title, '⌂', f.branchIds === null ? null : new Set(f.branchIds).size, ['branch', 'branches'], r),
+  );
 
   rows.push(notCountedRow('first_pick', '1st', r));
   rows.push(notCountedRow('booked_loop', '↻', r));
-  rows.push(notCountedRow('inspiration', '✦', r));
   return rows;
 }

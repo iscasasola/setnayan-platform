@@ -41,6 +41,7 @@ import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2, X } from 'lucide-react
 // inspects functions NAMED like converters; the rule is the intent, not the
 // scan's reach.
 import { formatPhp } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import {
   PLAN_PAID_FIELD,
   PLAN_PRESENT_FIELD,
@@ -520,7 +521,7 @@ function DatedPlanRows({
         <p data-plan-adds-up="" className={`flex justify-between gap-2.5 pt-1 text-[13.5px] ${line.off && totalPhp ? 'text-[rgb(var(--color-warn))]' : 'text-ink/70'}`}>
           <span>
             {rows.length} {rows.length === 1 ? 'payment' : 'payments'}
-            {paidCount > 0 ? ` · ${paidCount} already paid` : ''}
+            {paidCount > 0 ? ` · ${formatCount(paidCount)} already paid` : ''}
           </span>
           <b className="font-semibold text-ink">
             {pesoOrDash(rows.reduce((a, x) => a + (Number.isFinite(planAmountNumber(x.amount)) ? planAmountNumber(x.amount) : 0), 0))} of {pesoOrDash(totalPhp ?? 0)}

@@ -9,12 +9,20 @@
  *   3. no slide before the account asks for an email; the ACCOUNT slide offers Google · Apple · Email (owner 7 Nov,
  *      "Yes") — Email chosen hides the other two, "Use another way" brings them back — through the shipped /open-shop
  *      account path; the shop's contact email is still the signed-in account's;
- *   4. only the screens changed: the finish hands the consent to the shipped finalize.
+ *   4. only the screens changed: the finish hands the consent to the shipped finalize;
+ *   5. THE COUPLE'S BUNDLE IS THE COUPLE'S RECORD (owner 7 Nov: "on the sign up the supplier can add more services but
+ *      not add them to the customers bundle") — (a) the bundle slide lists only the recorded services; (b) a service
+ *      the supplier adds is never `bundled`, on the door or on the server; (c) the saved package is built only from
+ *      the couple's cards, split on the server against the record; (d) an added service's card slide shows neither
+ *      "Part of the ₱… bundle" nor "Price it on its own" — it is priced on its own.
  *
  * Sabotage (7 Nov, each reverted, each red): `buildClaimUrl` back to `/vendor/claim/` + the auto-share branch back to
  * `/signup?as=vendor` (1) · the door's shop name seeded '' instead of `record.business` (2) · an Email box added to the
  * account slide (3, before Email was ruled in) · Google / Apple drawn beside the chosen Email way (3, 7 Nov) · the
- * admin branch's "Claim & sign up" back to `/signup?as=vendor` (1, 7 Nov).
+ * admin branch's "Claim & sign up" back to `/signup?as=vendor` (1, 7 Nov) · the bundle list back to `d.cards.map` (5a) ·
+ * `syncCards` seeding `bundled` without `s.fromRecord` (5b) · `splitClaimCards` keeping the posted `bundled` on an
+ * added card (5b) · the package items back to `answers.cards.map` (5c) · the card slide's `inBundle` back to
+ * `c.bundled` (5d).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,6 +37,7 @@ import {
   parseClaimDoorAnswers,
   seedBundleName,
   seedClaimCards,
+  splitClaimCards,
   type ClaimDoorRecord,
 } from '@/lib/claim-door';
 
@@ -224,4 +233,47 @@ test('4 · only the screens changed — the consent is the shipped finalize', ()
   assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize`\);\s*\}\s*$/, 'the finish no longer ends on the shipped finalize');
   assert.match(ACT, /await createVendorService\(fd\)/, 'the cards are no longer made by the shipped card maker');
   assert.match(ACT, /await savePackage\(\{/, 'the bundle is no longer made by the shipped package maker');
+});
+
+const BUNDLE_SLIDE = DOOR.slice(DOOR.indexOf("} else if (d.screen === 'bundle') {"), DOOR.indexOf("} else if (d.screen === 'plan') {"));
+const CARD_SLIDE = DOOR.slice(DOOR.indexOf("} else if (d.screen.startsWith('card:')) {"), DOOR.indexOf("} else if (d.screen === 'bundle') {"));
+
+test('5a · the bundle slide lists ONLY the services the couple recorded — an added one is named as the supplier’s own', () => {
+  assert.ok(BUNDLE_SLIDE.length > 200, 'the bundle slide could not be found');
+  assert.match(BUNDLE_SLIDE, /const theirCards = d\.cards\.filter\(\(_, i\) => d\.services\[i\]\?\.fromRecord === true\);/);
+  assert.match(BUNDLE_SLIDE, /\{theirCards\.map\(/, 'the bundle list no longer draws only the couple’s cards');
+  assert.doesNotMatch(BUNDLE_SLIDE, /\{d\.cards\.map\(/, 'the bundle list draws every card again — an added service would read as part of the couple’s bundle');
+});
+
+test('5b · a service the supplier adds is NEVER bundled — on the door, and again on the server', () => {
+  const sync = DOOR.slice(DOOR.indexOf('const syncCards ='), DOOR.indexOf('const syncCards =') + 500);
+  assert.match(sync, /if \(kept\) return s\.fromRecord \? kept : \{ \.\.\.kept, bundled: false \};/);
+  assert.match(sync, /bundled: s\.fromRecord && i > 0 && !!record\.price/, 'a new card is seeded bundled without being the couple’s');
+  assert.match(DOOR, /bundled: c\.bundled && d\.services\[i\]\?\.fromRecord === true,\s*fromRecord: d\.services\[i\]\?\.fromRecord === true,/);
+  // Executed: the server decides, against the record — never the post.
+  const card = (category: string, fromRecord: boolean, bundled: boolean) => ({ name: category, category, leaf: null, price: 100, inclusions: [], bundled, fromRecord });
+  const { theirs, added } = splitClaimCards(
+    [card('photographer', true, false), card('photo_booth', true, true), card('lights', false, true), card('drone', true, true)],
+    new Set(['photographer', 'photo_booth']),
+  );
+  assert.deepEqual(theirs.map((c) => [c.category, c.bundled]), [['photographer', false], ['photo_booth', true]]);
+  assert.deepEqual(added.map((c) => [c.category, c.bundled]), [['lights', false], ['drone', false]], 'an added card kept its posted `bundled`, or a card claiming to be recorded slipped into the couple’s bundle');
+});
+
+test('5c · the package the finish saves is built ONLY from the couple’s cards — split on the server against the record', () => {
+  assert.match(ACT, /const recordRead = await readClaimDoor\(token\)/, 'the finish no longer reads the record it splits against');
+  assert.match(ACT, /const \{ theirs, added \} = splitClaimCards\(answers\.cards, recorded\);/);
+  assert.match(ACT, /for \(const card of \[\.\.\.theirs, \.\.\.added\]\) \{/, 'an added service no longer gets its own card through createVendorService');
+  assert.match(ACT, /const total = theirs\.find\(/);
+  assert.match(ACT, /\.\.\.theirs\.map\(\(c, i\) => \(\{\s*ref: `card-\$\{i\}`/);
+  const uses = ACT.match(/answers\.cards/g) ?? [];
+  assert.equal(uses.length, 1, `answers.cards is read ${uses.length}× — only splitClaimCards may read it, or an added card can reach the package`);
+});
+
+test('5d · an added service’s card slide: no "Part of the ₱… bundle", no "Price it on its own" — priced on its own', () => {
+  assert.ok(CARD_SLIDE.length > 400, 'the card slide could not be found');
+  assert.match(CARD_SLIDE, /const added = s\?\.fromRecord === false;\s*const inBundle = c\.bundled && !added;/);
+  assert.match(CARD_SLIDE, /\{team \|\| added\s*\? null\s*: inBundle\s*\? band\(/, 'the "Part of the … bundle" band is no longer kept off an added service');
+  assert.match(CARD_SLIDE, /\{inBundle \? \(\s*<span>\s*<ActionButton[^>]*label="Price it on its own"/, '"Price it on its own" is no longer kept off an added service');
+  assert.doesNotMatch(CARD_SLIDE, /c\.bundled \?/, 'the card slide branches on c.bundled again — an added service could read as part of the bundle');
 });

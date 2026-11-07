@@ -6,6 +6,7 @@ import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 import { displayServiceLabel } from '@/lib/vendors';
+import { agreedTotalNow, CHANGE_LINES_EMBED, type ChangeLineRow } from '@/lib/agreed-total-and-its-changes';
 import type { ClaimDoorPayment, ClaimDoorRecord, ClaimDoorService } from './claim-door';
 
 /**
@@ -39,7 +40,7 @@ export async function readClaimDoor(
   const [siblingsRes, planRes, eventRes, cardRes, words] = await Promise.all([
     admin
       .from('event_vendors')
-      .select('vendor_id, category, category_key, vendor_name, total_cost_php, host_inclusions, manual_vendor_id, created_at')
+      .select(`vendor_id, category, category_key, vendor_name, total_cost_php, host_inclusions, manual_vendor_id, created_at, ${CHANGE_LINES_EMBED}`)
       .eq('event_id', parent.event_id)
       .order('created_at', { ascending: true }),
     admin
@@ -63,6 +64,7 @@ export async function readClaimDoor(
     total_cost_php: number | string | null;
     host_inclusions: string[] | null;
     manual_vendor_id: string | null;
+    change_lines?: ChangeLineRow[] | null;
   };
   const card = (cardRes.data as { manual_vendor_id?: string | null } | null)?.manual_vendor_id ?? null;
   const all = (siblingsRes.data ?? []) as Row[];
@@ -96,7 +98,8 @@ export async function readClaimDoor(
       category,
       tileId: r.category_key ?? null,
       label: displayServiceLabel(category),
-      price: peso(r.total_cost_php),
+      // The agreed total NOW — the headline plus any change the couple has logged since.
+      price: peso(agreedTotalNow(r.total_cost_php, r.change_lines)),
       inclusions: (r.host_inclusions ?? []).map((s) => String(s).trim()).filter(Boolean),
     });
   }

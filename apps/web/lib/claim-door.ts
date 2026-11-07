@@ -165,7 +165,8 @@ export type ClaimDoorAnswers = {
   role: string;
   /** Picked services: a record service (by category) or a leaf the supplier added. */
   services: { category: string; leaf: string | null; label: string; fromRecord: boolean }[];
-  cards: { name: string; category: string; leaf: string | null; price: number | null; inclusions: string[]; bundled: boolean }[];
+  /** One per service, in order. `fromRecord` = a service the couple recorded (the door's claim — the server re-checks it). */
+  cards: { name: string; category: string; leaf: string | null; price: number | null; inclusions: string[]; bundled: boolean; fromRecord: boolean }[];
   bundle: { name: string; extras: string[] } | null;
   specialties: Record<string, Record<string, string[]>>;
 };
@@ -200,7 +201,7 @@ export function parseClaimDoorAnswers(raw: unknown): ClaimDoorAnswers | null {
     const category = str(o.category, 64);
     const leaf = str(o.leaf, 96) || null;
     if (!category && !leaf) return [];
-    return [{ name: str(o.name, 80), category, leaf, price: num(o.price), inclusions: lines(o.inclusions), bundled: o.bundled === true }];
+    return [{ name: str(o.name, 80), category, leaf, price: num(o.price), inclusions: lines(o.inclusions), bundled: o.bundled === true, fromRecord: o.fromRecord === true }];
   });
   const b = d.bundle as Record<string, unknown> | null | undefined;
   const specialties: ClaimDoorAnswers['specialties'] = {};
@@ -226,4 +227,32 @@ export function parseClaimDoorAnswers(raw: unknown): ClaimDoorAnswers | null {
     bundle: b && typeof b === 'object' ? { name: str(b.name, 120), extras: lines(b.extras) } : null,
     specialties,
   };
+}
+
+/**
+ * 🔒 THE COUPLE'S BUNDLE IS THE COUPLE'S RECORD (owner 2026-11-07: *"on the sign up the supplier can add more services
+ * but not add them to the customers bundle"* — DECISION_LOG "ON THE CLAIM DOOR THE SUPPLIER MAY ADD MORE SERVICES TO
+ * THEIR SHOP, BUT NEVER INTO THE COUPLE'S BUNDLE").
+ *
+ * Splits the posted cards into:
+ *   · `theirs` — the services the couple recorded, which make up the couple's bundle (at their confirmed price, plus
+ *     the couple's own extra lines);
+ *   · `added`  — services the supplier added on the door: each becomes its own service card on the shop, priced on
+ *     its own — NEVER bundled, never in the bundle, never in the package saved for that couple.
+ *
+ * A card counts as the couple's only when the door says so (`fromRecord`) AND its category is one the couple actually
+ * recorded — `recordedCategories` is read on the server (`readClaimDoor`), never taken from the post. Anything else is
+ * the supplier's own, and its `bundled` is forced off whatever was posted.
+ */
+export function splitClaimCards<C extends { category: string; bundled: boolean; fromRecord: boolean }>(
+  cards: readonly C[],
+  recordedCategories: ReadonlySet<string>,
+): { theirs: C[]; added: C[] } {
+  const theirs: C[] = [];
+  const added: C[] = [];
+  for (const c of cards) {
+    if (c.fromRecord && recordedCategories.has(c.category)) theirs.push(c);
+    else added.push({ ...c, bundled: false });
+  }
+  return { theirs, added };
 }

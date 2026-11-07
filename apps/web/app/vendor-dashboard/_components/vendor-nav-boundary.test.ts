@@ -192,15 +192,19 @@ test('both vendor nav surfaces read the registry slot map', () => {
    items 5–6; DECISION_LOG 2026-10-21): every row More held has a home, so the
    fourth tab is the Event Hub — "Hub", the couple's fourth word. The assertion
    is exactly as strict as before: four keys, that order.
-   `vendor-bar-is-four.test.ts` adds the property checks (every old More route
+   `supplier-bar-is-today-clients-shop-portfolio.test.ts` adds the property checks (every old More route
    still reachable; the bar is the same four in the app shell).
+
+   🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov; THE ONE BUILD spec §1/§4): the
+   bar is Today · Clients · Shop · Portfolio — the Hub left the bar (its room lights Clients), Portfolio is the
+   fourth tab. Same strictness: four keys, that order.
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('the phone bar is Today · Customers · Shop · Hub — four keys, that order', () => {
+test('the phone bar is Today · Clients · Shop · Portfolio — four keys, that order', () => {
   const src = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
   const list = src.slice(src.indexOf('VENDOR_BOTTOM_NAV_ITEMS'), src.indexOf('export function vendorBarItems'));
   const keys = [...list.matchAll(/^\s{4}key: '([^']+)'/gm)].map((m) => m[1]);
-  assert.deepEqual(keys, ['profile', 'customers', 'shop', 'onday']);
+  assert.deepEqual(keys, ['profile', 'customers', 'shop', 'portfolio']);
 });
 
 test('More is gone — the bar opens no sheet, and /more is a redirect stub to Settings', () => {

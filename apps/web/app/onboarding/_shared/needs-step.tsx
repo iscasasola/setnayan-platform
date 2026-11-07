@@ -39,7 +39,7 @@ import {
   type NeedRow,
 } from '@/lib/event-needs';
 
-export const NEEDS_NOTE = 'You can switch anything on later from Home.';
+export const NEEDS_NOTE = 'You can switch anything on later from Today.';
 
 type Props = {
   /** "New hangout" — the type's own word. */

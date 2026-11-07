@@ -1,17 +1,16 @@
 /**
- * PAPIC LIVES ON HOME › TODAY — AND THE PAPIC PAGE IS GONE (owner 2026-10-26, DECISION_LOG "THE PAPIC CARD LIVES ON
- * HOME › TODAY; THE STANDALONE PAPIC PAGE IS REMOVED" + "PAPIC CHALLENGES: A LIVE SWITCH AND AN ✕; HOME PAPIC CARD
- * SHOWS THE COUNTS"). Owner, verbatim: *"this is the widget that should be at home with the count of the total, taken,
- * remaining and a button to add more"* · *"that papic frame with toggle, place that on home and remove that page"* ·
- * *"it should be on the today"*.
+ * PAPIC LIVES IN MEMORIES — AND THE PAPIC PAGE IS STILL GONE (THE ONE BUILD, owner 8 Nov 2026: *"Papic + Thank You into
+ * Memories"*; supersedes 2026-10-26 "THE PAPIC CARD LIVES ON HOME › TODAY". Renamed from `papic-lives-on-home.test.ts`
+ * with `git mv` — the same guard, its premise moved).
  *
  * What this holds — each by RENDERING or by the pure function, and each with its sabotage:
- *   1 · Home's first screen draws EXACTLY ONE Papic card, on the row after Budget (owner 2026-10-27: "Place it on the
- *       next row after the budget widget" — Budget is the control row's last tile), with Total · Taken ·
- *       Remaining and "Add more" on its face; Your services draws no second Papic.
+ *   1 · Memories draws EXACTLY ONE Papic card, under the keepsake row and before the grid, `id="papic"`, with Total ·
+ *       Taken · Remaining and "Add more" on its face; Today draws NONE, and where the card is in Memories Today's Papic
+ *       row stands down too (one Papic, never two).
  *   2 · a failed pot read says "Couldn't check", never 0.
- *   3 · `/dashboard/<id>/studio/papic` is not a page, and the old address forwards to Home with the card open —
- *       carrying a save's outcome; the files' answers go to Memories; its child pages are untouched.
+ *   3 · `/dashboard/<id>/studio/papic` is not a page, and the old address — AND the old card address
+ *       `/dashboard/<id>?papic=open…` that stored notifications carry — forward to Memories with the card open,
+ *       carrying a save's outcome; the files' answers go to Memories' own notice; its child pages are untouched.
  *   4 · every control the page offered is reachable from the card (the settings it opens) or Memories — the table.
  *   5 · nothing in the app still links to the gone page.
  */
@@ -25,7 +24,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fixtureControl } from '@/lib/home-control-fixture';
 import { pickHomeNext, type HomeNextInput } from '@/lib/home-first-screen';
-import { papicHomeHref, withQuery } from '@/lib/papic-home-href';
+import { papicCardHref, withQuery } from '@/lib/papic-home-href';
 import { papicCountsWords } from '@/lib/papic-card-counts';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import { stripComments } from '@/lib/strip-comments';
@@ -40,7 +39,7 @@ type CjsModuleCtor = {
 };
 const nodeRequire = createRequire(import.meta.url);
 const CjsModule = (nodeRequire('node:module') as { Module: CjsModuleCtor }).Module;
-const STUB = join(process.cwd(), '__server_only_stub_papic_home__.js');
+const STUB = join(process.cwd(), '__server_only_stub_papic_memories__.js');
 {
   const stub = new CjsModule(STUB);
   stub.filename = STUB;
@@ -62,14 +61,17 @@ const code = (rel: string) => stripComments(read(rel));
 const E = '00000000-0000-4000-8000-000000000000';
 
 let Screen: typeof import('@/app/dashboard/[eventId]/_components/home-first-screen').HomeFirstScreen | null = null;
+let Card: typeof import('@/app/dashboard/[eventId]/_components/home-first-screen').PapicCard | null = null;
 test.before(async () => {
-  Screen = (await import('@/app/dashboard/[eventId]/_components/home-first-screen')).HomeFirstScreen;
+  const mod = await import('@/app/dashboard/[eventId]/_components/home-first-screen');
+  Screen = mod.HomeFirstScreen;
+  Card = mod.PapicCard;
 });
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };
 const PAPIC_SVC = { key: 'papic', name: 'Papic', brand: 'Guest photos', status: '320 credits left' };
 
-function home(card: unknown, services: unknown[] = [PAPIC_SVC]): string {
+function today(papicInMemories: boolean, services: unknown[] = [PAPIC_SVC]): string {
   return renderToStaticMarkup(
     React.createElement(Screen!, {
       eventId: E,
@@ -78,7 +80,7 @@ function home(card: unknown, services: unknown[] = [PAPIC_SVC]): string {
       control: fixtureControl(E, { next: pickHomeNext(NOTHING) }),
       services,
       papicLeft: 320,
-      papicCard: card,
+      papicInMemories,
       serviceCards: true,
     } as never),
   );
@@ -92,39 +94,54 @@ const CARD = {
   buy: React.createElement('button', { type: 'button', 'data-test-buy': '' }, 'Add more'),
 };
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
+const card = (c: unknown) => renderToStaticMarkup(React.createElement(Card!, { card: c } as never));
+const GALLERY = 'app/_components/memories/event-memories-gallery.tsx';
 
-test('1 · Home draws EXACTLY ONE Papic card, on the row after Budget, with Total · Taken · Remaining and Add more on its face', () => {
-  const html = home(CARD);
-  assert.equal(count(html, /data-papic-home-card=/g), 1, 'one Papic card on Home');
-  assert.equal(count(html, /data-home-service="papic"/g), 1, 'and no second Papic row in Your services');
-  // On the row after Budget: after the whole control row (both its phone grid and its wide columns), above Your services.
-  const today = html.indexOf('data-home-today=');
-  const card = html.indexOf('data-papic-home-card=');
-  const services = html.indexOf('data-home-services');
-  const rowEnd = html.indexOf('data-home-control="detail"');
-  const budget = html.lastIndexOf('data-home-card-key="budget"');
-  assert.ok(today >= 0 && rowEnd > today, 'the Today line and the control row are drawn');
-  assert.ok(budget > rowEnd && card > budget, 'the card sits on the row after Budget, below the control row');
-  assert.ok(services === -1 || card < services, 'the card is above Your services, not inside it');
+test('1 · Memories draws EXACTLY ONE Papic card — under the keepsakes, before the grid — with its face', () => {
+  // The page builds ONE card and hands it to the gallery's one slot.
+  const page = code(MEMORIES);
+  assert.equal(count(page, /<PapicCard\b/g), 1, 'Memories builds one Papic card');
+  assert.equal(count(page, /papic=\{papicCard\}/g), 1, 'and hands it to the gallery once');
+  assert.match(page, /seat="memories"/, 'its settings save back to Memories');
+  assert.match(page, /thankYouHref:\s*null/, 'Thank You is the keepsake row\'s door — never two doors');
+  // The gallery draws the slot under the keepsake row and before the grid.
+  const g = code(GALLERY);
+  const keep = g.indexOf('{host ? keepsakes : null}');
+  const slot = g.indexOf('{host ? papic : null}');
+  const grid = g.indexOf('data-tour="memories-grid"');
+  assert.ok(keep >= 0 && slot > keep && grid > slot, 'keepsakes → the Papic card → the grid');
+  assert.equal(count(g, /\{host \? papic : null\}/g), 1, 'one slot');
+  // The card itself: the #papic anchor, the three counts and Add more on its face, outside the head's button.
+  const html = card(CARD);
+  assert.equal(count(html, /data-papic-home-card=/g), 1);
   assert.match(html, /id="papic"/, 'the card is the #papic anchor old links scroll to');
-  // The face: the three counts and Add more.
+  assert.match(html, /data-memories-papic=""/);
+  assert.match(html, /data-tour="memories-papic"/, 'the Memories tour lights it');
   assert.match(html, /data-papic-card-count="total"[^>]*>500</);
   assert.match(html, /data-papic-card-count="taken"[^>]*>180</);
   assert.match(html, /data-papic-card-count="remaining"[^>]*>320</);
   assert.match(html, /data-papic-card-add-more=""[\s\S]*?data-test-buy/, 'Add more is on the face');
-  // The Add more is OUTSIDE the head's button (a button in a button is invalid HTML).
   const head = html.match(/<button[^>]*data-papic-card-head=""[\s\S]*?<\/button>/)?.[0] ?? '';
   assert.ok(head && !head.includes('data-test-buy') && !head.includes('data-papic-card-counts'), 'face is not inside the head button');
 });
 
-test('1b · SABOTAGE — without the card the counts and Add more are gone (the assertions above can fail)', () => {
-  const html = home(null);
+test('1a · Today draws NO Papic card, and where the card is in Memories no Papic row either', () => {
+  const html = today(true);
+  assert.equal(count(html, /data-papic-home-card=/g), 0, 'no Papic card on Today');
+  assert.equal(count(html, /data-home-service="papic"/g), 0, 'and no Papic row — one Papic, in Memories');
+  assert.doesNotMatch(code(HOME), /<PapicCard\b|<PapicHomeCard\b|seat="home"/, 'the Today page builds no card');
+});
+
+test('1b · SABOTAGE — the assertions can fail: a viewer whose card is NOT in Memories keeps the shipped row on Today', () => {
+  const html = today(false);
+  assert.equal(count(html, /data-home-service="papic"/g), 1, 'the row is drawn, so the zero above is a real zero');
   assert.equal(count(html, /data-papic-home-card=/g), 0);
-  assert.doesNotMatch(html, /data-papic-card-counts/);
+  // …and without the gallery's slot the order check has nothing to find.
+  assert.equal(code(GALLERY).replace('{host ? papic : null}', '').indexOf('{host ? papic : null}'), -1);
 });
 
 test('2 · a failed pot read says "Couldn\'t check", never 0', () => {
-  const html = home({ ...CARD, counts: { total: null, left: 320 } });
+  const html = card({ ...CARD, counts: { total: null, left: 320 } });
   assert.match(html, /data-papic-card-counts="unread"/);
   assert.match(html, /Couldn(’|&#x27;|&rsquo;|')t check/);
   assert.doesNotMatch(html, /data-papic-card-count="remaining"/, 'no Remaining number over a refused read');
@@ -134,20 +151,28 @@ test('2 · a failed pot read says "Couldn\'t check", never 0', () => {
   assert.deepEqual(papicCountsWords(10, 12), [['Total', 10], ['Taken', 0], ['Remaining', 12]], 'taken never negative');
 });
 
-test('3 · the Papic page is gone; its address forwards to Home with the card open, carrying the answer', () => {
+test('3 · the Papic page is gone; its address AND the old card address forward to Memories with the card open', () => {
   assert.equal(existsSync(join(WEB, 'app/dashboard/[eventId]/studio/papic/page.tsx')), false, 'studio/papic/page.tsx is deleted');
   assert.equal(existsSync(join(WEB, 'app/dashboard/[eventId]/studio/papic/loading.tsx')), false);
-  assert.equal(papicHomeHref(E), `/dashboard/${E}?papic=open#papic`);
-  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`), `/dashboard/${E}?papic=open#papic`);
-  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic/`), `/dashboard/${E}?papic=open#papic`, 'a trailing slash');
-  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`, '?style_set=MONO&tab=cameras'), `/dashboard/${E}?papic=open&style_set=MONO#papic`, 'an outcome rides along; ?tab= is dropped');
-  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`, '?buy=1'), `/dashboard/${E}?papic=open&buy=1#papic`);
+  assert.equal(papicCardHref(E), `/dashboard/${E}/memories?papic=open#papic`);
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`), `/dashboard/${E}/memories?papic=open#papic`);
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic/`), `/dashboard/${E}/memories?papic=open#papic`, 'a trailing slash');
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`, '?style_set=MONO&tab=cameras'), `/dashboard/${E}/memories?papic=open&style_set=MONO#papic`, 'an outcome rides along; ?tab= is dropped');
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`, '?buy=1'), `/dashboard/${E}/memories?papic=open&buy=1#papic`);
   assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`, '?drive_connected=1'), `/dashboard/${E}/memories?drive_connected=1`, 'the files answers go to Memories');
   assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic`, '?gallery=open'), `/dashboard/${E}/memories`);
+  // 📬 The OLD CARD ADDRESS — stored notification rows, e-mails, bookmarks (2026-10-26 → 2026-11-08).
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}`, '?papic=open'), `/dashboard/${E}/memories?papic=open#papic`);
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}`, '?papic=open&papic_pool_error=event_over'), `/dashboard/${E}/memories?papic=open&papic_pool_error=event_over#papic`, 'its outcome rides along');
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}/`, '?papic=open'), `/dashboard/${E}/memories?papic=open#papic`, 'a trailing slash');
+  // …and Today itself, without `papic=open`, is never touched.
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}`), null, 'Today is a page');
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}`, '?settings=1'), null, 'Today with its own query is a page');
+  assert.equal(legacyRedirectTarget(`/dashboard/${E}`, '?papic=closed'), null);
   for (const child of ['crew', 'challenges', 'recap', 'run-of-show', 'moderation', 'magazine']) {
     assert.equal(legacyRedirectTarget(`/dashboard/${E}/studio/papic/${child}`), null, `${child} is still a page`);
   }
-  assert.equal(withQuery(papicHomeHref(E), 'x=1'), `/dashboard/${E}?papic=open&x=1#papic`, 'a query never lands after the #');
+  assert.equal(withQuery(papicCardHref(E), 'x=1'), `/dashboard/${E}/memories?papic=open&x=1#papic`, 'a query never lands after the #');
   assert.equal(withQuery(`/dashboard/${E}/memories`, 'x=1'), `/dashboard/${E}/memories?x=1`);
 });
 
@@ -158,14 +183,14 @@ const HOME = 'app/dashboard/[eventId]/page.tsx';
 const MEMORIES = 'app/dashboard/[eventId]/memories/page.tsx';
 const MOVED: ReadonlyArray<readonly [control: string, file: string, needle: RegExp]> = [
   // 📷 THE HEAD (owner 2026-10-30): ONE dropdown — Papic on/off and when guests can shoot, together.
-  ['the head control (Off · On — event day · On — everyone, now)', HOME, /headControl:\s*\(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/],
+  ['the head control (Off · On — event day · On — everyone, now)', MEMORIES, /headControl:\s*\(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/],
   ['Papic Off · On — event day · On — everyone, now (the head\'s one dropdown)', CARD_SETTINGS, /return <PapicHeadPicker eventId=\{eventId\}/],
-  ['Total · Taken · Remaining + Add more', HOME, /counts:\s*\{\s*total:\s*papicNow\.total/],
-  ['Add more (web sheet / Apple sheet)', HOME, /<IapPapicSheet\b[\s\S]*?<PapicBuySheet\b/],
-  ['every save\'s answer (banners)', HOME, /<PapicOutcomeBanners\b/],
-  ['the camera settings (opened by ›)', HOME, /<PapicCameraSettings eventId=\{eventId\} seat="home"/],
-  ['Setup & help (shutter · capture defaults · DSLR)', HOME, /<PapicCameraHelp\b/],
-  ['the self-heals (free cameras · free pool · uploads camera · guest sync)', HOME, /<PapicSelfHeal\b/],
+  ['Total · Taken · Remaining + Add more', MEMORIES, /counts:\s*\{\s*total:\s*now\.total/],
+  ['Add more (web sheet / Apple sheet)', MEMORIES, /const cardBuy = iap\.iap \? \(\s*<IapPapicSheet\b[\s\S]*?<PapicBuySheet\b/],
+  ['every save\'s answer (banners)', MEMORIES, /<PapicOutcomeBanners\b/],
+  ['the camera settings (opened by ›)', MEMORIES, /<PapicCameraSettings eventId=\{eventId\} seat="memories"/],
+  ['Setup & help (shutter · capture defaults · DSLR)', MEMORIES, /<PapicCameraHelp\b/],
+  ['the self-heals (free cameras · free pool · uploads camera · guest sync)', MEMORIES, /<PapicSelfHeal\b/],
   ['capture dates', CARD_SETTINGS, /<PapicWindowPicker\b/],
   ['filter / style', CARD_SETTINGS, /<StylePicker\b/],
   ['credits per guest (min / max)', CARD_SETTINGS, /<GuestAllotmentsChoice\b/],
@@ -209,7 +234,7 @@ test('5 · nothing links to the gone page any more', () => {
   assert.ok(files.length > 500, `the sweep read the tree (${files.length} files)`);
   // `lib/legacy-redirects.ts` names the old address on purpose — it is the forward.
   const hits = files.filter((f) => f !== join('lib', 'legacy-redirects.ts') && DEAD.test(code(f))).map((f) => relative(WEB, join(WEB, f)));
-  assert.deepEqual(hits, [], 'a link to /studio/papic (use papicHomeHref, or Memories for the album)');
+  assert.deepEqual(hits, [], 'a link to /studio/papic (use papicCardHref, or Memories for the album)');
   // SABOTAGE — the pattern does catch the shapes it forbids.
   for (const s of ['`/dashboard/${e}/studio/papic`', "'/dashboard/x/studio/papic'", '`/dashboard/${e}/studio/papic?x=1`']) assert.ok(DEAD.test(s), s);
   assert.ok(!DEAD.test('`/dashboard/${e}/studio/papic/crew`'), 'a child page is not the gone page');

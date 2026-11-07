@@ -121,7 +121,7 @@ export function CrewPanel({
         <Explain title="Crew for the day">
           Your crew scan the QR with any phone and land on your Event Hub for this event only — just the tools their
           role allows. Member = {crewToolsWords('member', coordinator)}; Helper = {crewToolsWords('helper', coordinator)}.
-          {coordinator ? '' : ' The seat scanner is for a coordinator’s crew.'} No Today, Customers, Shop or money. A new
+          {coordinator ? '' : ' The seat scanner is for a coordinator’s crew.'} No Today, Clients, Shop or money. A new
           phone waits for your Allow; the pass ends after the event.
         </Explain>
       </div>

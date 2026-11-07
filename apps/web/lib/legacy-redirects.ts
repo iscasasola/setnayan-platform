@@ -38,7 +38,7 @@
 
 import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
 import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from './event-settings-record';
-import { papicHomeHref } from './papic-home-href';
+import { papicCardHref } from './papic-home-href';
 
 /** The More menu's address, relative to the event (`studioHubHref`). */
 const MORE_MENU = `?${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
@@ -120,11 +120,11 @@ const KEEPS_QUERY: ReadonlyMap<string, string> = new Map([
 
 /**
  * 📷 THE PAPIC PAGE (`/dashboard/<id>/studio/papic`, removed 2026-10-26 — owner: *"that papic frame with toggle, place
- * that on home and remove that page"* · *"it should be on the today"*). Its card lives on Home › Today now. The ONE
+ * that on home and remove that page"* · *"it should be on the today"*). Its card lives in Memories since 2026-11-08. The ONE
  * retired page whose query is READ, because old saves, emails and bookmarks carry answers in it:
  *   · the files' answers (Google Drive's connect / disconnect, adding photos by hand) and `?gallery=open` → Memories,
  *     where the files live (the page did exactly this since 2026-10-24);
- *   · everything else (a save's outcome, `?buy=1`, a purchase error) → Home with the card open (`?papic=open`) and
+ *   · everything else (a save's outcome, `?buy=1`, a purchase error) → Memories with the card open (`?papic=open`) and
  *     scrolled to (`#papic`), the outcome riding along for the card's outcome line. `?tab=` (three tabs, retired
  *     2026-08-27) is dropped. Only `/studio/papic` itself — its children (crew, challenges, recap, …) are still pages.
  */
@@ -143,7 +143,7 @@ function papicPageTarget(eventId: string, search: string): string {
   }
   const rest = new URLSearchParams();
   for (const [k, v] of q) if (k !== 'tab' && k !== 'papic' && k !== 'gallery') rest.append(k, v);
-  return papicHomeHref(eventId, rest.toString());
+  return papicCardHref(eventId, rest.toString());
 }
 
 /**
@@ -151,6 +151,23 @@ function papicPageTarget(eventId: string, search: string): string {
  * per-type pages, now sections of the event type's panel.
  */
 const EVENT_TYPE_PAGE_RE = /^\/admin\/event-types\/([a-z][a-z0-9_]{1,30})\/(categories|profile|onboarding)$/;
+
+/**
+ * 📷 THE OLD CARD ADDRESS (`/dashboard/<id>?papic=open…`, 2026-10-26 → 2026-11-08). The Papic card left Home › Today
+ * for Memories (THE ONE BUILD, owner 8 Nov 2026). Stored notification rows (`lib/papic-pool-spent-notice.ts` wrote
+ * them), e-mails and bookmarks still carry the old address — so ONLY when `papic=open` is in the query, the event's
+ * front page forwards to Memories with the card open, every outcome key riding along. Without `papic=open` the
+ * front page is Today and is never touched.
+ */
+const EVENT_ROOT_RE = /^\/dashboard\/([^/]+)$/;
+
+function oldPapicCardTarget(eventId: string, search: string): string | null {
+  const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  if (q.get('papic') !== 'open') return null;
+  const rest = new URLSearchParams();
+  for (const [k, v] of q) if (k !== 'papic') rest.append(k, v);
+  return papicCardHref(eventId, rest.toString());
+}
 
 const EVENT_SCOPED_RE: ReadonlyMap<string, string> = new Map(EVENT_SCOPED);
 const FIXED_MAP: ReadonlyMap<string, string> = new Map(FIXED);
@@ -181,6 +198,9 @@ export function legacyRedirectTarget(pathname: string, search = ''): string | nu
 
   const papicPage = PAPIC_PAGE_RE.exec(path);
   if (papicPage) return papicPageTarget(papicPage[1]!, search);
+
+  const root = EVENT_ROOT_RE.exec(path);
+  if (root) return search ? oldPapicCardTarget(root[1]!, search) : null;
 
   const et = EVENT_TYPE_PAGE_RE.exec(path);
   if (et) return `/admin/categories?list=event-types&open=${et[1]}`;

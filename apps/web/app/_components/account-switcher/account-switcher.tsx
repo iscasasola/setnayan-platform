@@ -13,12 +13,10 @@ import {
   Check,
   Plus,
   ExternalLink,
-  Images,
   Users,
   CreditCard,
   Settings,
-  Clapperboard,
-  Gift,
+  CircleHelp,
   Info,
   Receipt,
 } from 'lucide-react';
@@ -39,10 +37,9 @@ type Props = {
    *  approved drawing. Still accepted so a caller passing it compiles; nothing reads it. */
   homeLabel?: string;
   /**
-   * "Refer a couple" — the event's referral page, handed in by the event
-   * layout ONLY while the referral programme is on (Stage D, owner 2026-09-29:
-   * "Refer a couple → account menu"; it left the event menu). Null/absent →
-   * no link, so the programme's master toggle is still the one gate.
+   * RETIRED 2026-11-08 — "Refer a couple" left the account sheet (DECISION_LOG 2026-11-07 "Account sheet: no Refer a
+   * couple tile", owner: *"NO NEED"*; tiles everywhere are Help · Show me around · Sign out). Still accepted so a
+   * caller passing it compiles; nothing reads it.
    */
   referHref?: string | null;
   /**
@@ -172,7 +169,6 @@ const TILE_MARK = 'flex h-[38px] w-[38px] items-center justify-center rounded-fu
 const SHOP_ROW_ICON: Record<string, typeof Store> = {
   details: UserRound,
   page: Store,
-  collections: Images,
   helpers: Users,
   plan: CreditCard,
   settings: Settings,
@@ -189,14 +185,20 @@ const SHOP_ROW_ICON: Record<string, typeof Store> = {
  *        Your events (→ /dashboard?hub=1) · each shop (SHOP tag; "View page ↗" under it) · Setnayan HQ (ADMIN tag,
  *        team only) · Create your shop (canOpenShop). ✓ on the row you are standing in, › on the rest, "• N new"
  *        from the bell's own read split by place (lib/avatar-sheet-counts.ts — a failed read draws nothing).
- *   3. YOUR SHOP — the supplier's own rows, vendor layout only, same row anatomy.
+ *   3. YOUR SHOP — the supplier's own rows, vendor layout only, same row anatomy. On the SUPPLIER sheet (THE ONE BUILD,
+ *      2026-11-08; DECISION_LOG 2026-11-07 "the current place is not listed under Switch to") the shop you are in leaves
+ *      Switch to and heads its own "You are in" card — its row, View page ↗, then these rows.
  *   3b. YOUR ACCOUNT — "Billing & receipts" (→ /dashboard/billing, every purchase this login made) and
  *      "Appearance" (Light · Dark · Automatic — moved here from Profile & settings › Preferences). Owner 2026-10-25,
  *      on a competitor's avatar menu: "on the upper right, i think the billings&receipts looks nice as well".
  *      Signed-in accounts only (an anon draft has bought nothing and is always Light).
- *   4. QUICK TILES — Your Story · Refer a couple (programme on) · Show me around (a tour is mounted) · Sign out.
- *   5. "Sign out of all accounts" — the one quiet line. Until other logins can live on this phone it signs out the
- *      only one there is, so today it is the same form as Sign out.
+ *   4. QUICK TILES — Help · Show me around (a tour is mounted) · Sign out, on EVERY sheet (DECISION_LOG 2026-11-07
+ *      "Account sheet tiles": *"on event, that also becomes help"*; Refer a couple: *"NO NEED"*). Your Story's door
+ *      moved into Help (the help centre's "Your Story ›" line). On the SUPPLIER sheet Sign out asks "Sign out of…" —
+ *      Just this account · All accounts on this phone — when another account is signed in here; with one, it signs
+ *      out straight away (v113/v114).
+ *   5. "Sign out of all accounts" — the one quiet line, on every sheet but the supplier's (whose Sign out already
+ *      offers it). Until other logins can live on this phone it signs out the only one there is.
  *
  * ⚠ `?hub=1` on Your events IS LOAD-BEARING: plain `/dashboard` re-fires the launcher's auto-jump for a
  * single-event person and lands them back in the event they were leaving (owner 2026-08-11: the board is "the
@@ -208,7 +210,6 @@ const SHOP_ROW_ICON: Record<string, typeof Store> = {
 export function SwitcherPanelBody({
   data,
   close,
-  referHref = null,
   shopRows = null,
   here = 'events',
   activeShopId = null,
@@ -229,12 +230,86 @@ export function SwitcherPanelBody({
   const initial = (data.displayName?.trim() || data.email)?.charAt(0).toUpperCase() ?? '?';
   // The shop the supplier pages are reading right now: the layout says, else the only one listed.
   const currentShopId = here === 'shop' ? (activeShopId ?? (shops.length === 1 ? shops[0]!.id : null)) : null;
+  /* 🏪 THE SUPPLIER SHEET (THE ONE BUILD, 2026-11-08): drawn by the vendor layout — the shop you are in heads its own
+     "You are in" card instead of sitting in Switch to; Sign out asks which accounts. Every other sheet is as it was. */
+  const supplierSheet = here === 'shop';
+  const youAreIn = supplierSheet ? (shops.find((s) => s.id === currentShopId) ?? null) : null;
+  const [signOutAsk, setSignOutAsk] = useState(false);
+  const askWhichSignOut = supplierSheet && !data.isAnonymous && (data.otherAccounts?.length ?? 0) > 0;
+  const helpHref = supplierSheet ? '/vendor-dashboard/help' : '/help';
   const me = data.photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={data.photoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" style={pictureFrameStyle(data.photoFrame)} />
   ) : (
     initial
   );
+
+  const shopEntry = (shop: (typeof shops)[number]) => {
+    const on = currentShopId === shop.id;
+    const mark = shop.logoUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={shop.logoUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
+    ) : (
+      shopInitials(shop.name)
+    );
+    const body = (
+      <>
+        <RowMark className="bg-[linear-gradient(135deg,#8a6b39,#5a3b28)] font-[family-name:var(--font-editorial-display)] text-[17px] tracking-[0.02em] text-[#FFFDF8]">
+          {mark}
+        </RowMark>
+        <span className="min-w-0 flex-1">
+          <span className={NAME}>{shop.name}</span>
+          <span className={SUB}>
+            <span className="truncate">{shop.owned ? 'Your shop' : 'Helper'}</span>
+            <NewCount n={unread?.shop} />
+          </span>
+        </span>
+        <Tag on={on}>Shop</Tag>
+        <Trail on={on} />
+      </>
+    );
+    return (
+      <Fragment key={shop.id}>
+        {/* 🔀 One row per shop. With more than one, the row posts its id to the shop switch, which checks it
+            against this login's own shops before the supplier pages read it (lib/active-shop.ts). */}
+        {shops.length > 1 ? (
+          <form
+            action="/vendor-dashboard/switch-shop"
+            method="post"
+            data-sheet-place="shop"
+            data-sheet-shop={shop.id}
+            {...(on ? { 'data-on': '' } : {})}
+            className={on ? 'bg-[var(--m-paper-2)]' : ''}
+          >
+            <input type="hidden" name="shop" value={shop.id} />
+            <button type="submit" className={ROW} {...(on ? { 'aria-current': 'page' as const } : {})}>
+              {body}
+            </button>
+          </form>
+        ) : (
+          <Link
+            href="/vendor-dashboard"
+            onClick={close}
+            data-sheet-place="shop"
+            data-sheet-shop={shop.id}
+            {...(on ? { 'data-on': '', 'aria-current': 'page' as const } : {})}
+            className={`${ROW} ${on ? 'bg-[var(--m-paper-2)]' : ''}`}
+          >
+            {body}
+          </Link>
+        )}
+        {/* View page ↗ — the shop's public page; its owner sees it even before it is verified (self-preview). */}
+        {shop.publicHref ? (
+          <Link href={shop.publicHref} onClick={close} data-sheet-view-page={shop.id} className={ROW_SM}>
+            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
+              <ExternalLink className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">View page ↗</span>
+          </Link>
+        ) : null}
+      </Fragment>
+    );
+  };
 
   return (
     <div className="flex-1 overflow-y-auto pb-1" data-avatar-sheet="d2">
@@ -291,70 +366,9 @@ export function SwitcherPanelBody({
         </Link>
 
         {shops.map((shop) => {
-          const on = currentShopId === shop.id;
-          const mark = shop.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={shop.logoUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
-          ) : (
-            shopInitials(shop.name)
-          );
-          const body = (
-            <>
-              <RowMark className="bg-[linear-gradient(135deg,#8a6b39,#5a3b28)] font-[family-name:var(--font-editorial-display)] text-[17px] tracking-[0.02em] text-[#FFFDF8]">
-                {mark}
-              </RowMark>
-              <span className="min-w-0 flex-1">
-                <span className={NAME}>{shop.name}</span>
-                <span className={SUB}>
-                  <span className="truncate">{shop.owned ? 'Your shop' : 'Helper'}</span>
-                  <NewCount n={unread?.shop} />
-                </span>
-              </span>
-              <Tag on={on}>Shop</Tag>
-              <Trail on={on} />
-            </>
-          );
-          return (
-            <Fragment key={shop.id}>
-              {/* 🔀 One row per shop. With more than one, the row posts its id to the shop switch, which checks it
-                  against this login's own shops before the supplier pages read it (lib/active-shop.ts). */}
-              {shops.length > 1 ? (
-                <form
-                  action="/vendor-dashboard/switch-shop"
-                  method="post"
-                  data-sheet-place="shop"
-                  data-sheet-shop={shop.id}
-                  {...(on ? { 'data-on': '' } : {})}
-                  className={on ? 'bg-[var(--m-paper-2)]' : ''}
-                >
-                  <input type="hidden" name="shop" value={shop.id} />
-                  <button type="submit" className={ROW} {...(on ? { 'aria-current': 'page' as const } : {})}>
-                    {body}
-                  </button>
-                </form>
-              ) : (
-                <Link
-                  href="/vendor-dashboard"
-                  onClick={close}
-                  data-sheet-place="shop"
-                  data-sheet-shop={shop.id}
-                  {...(on ? { 'data-on': '', 'aria-current': 'page' as const } : {})}
-                  className={`${ROW} ${on ? 'bg-[var(--m-paper-2)]' : ''}`}
-                >
-                  {body}
-                </Link>
-              )}
-              {/* View page ↗ — the shop's public page; its owner sees it even before it is verified (self-preview). */}
-              {shop.publicHref ? (
-                <Link href={shop.publicHref} onClick={close} data-sheet-view-page={shop.id} className={ROW_SM}>
-                  <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
-                    <ExternalLink className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">View page ↗</span>
-                </Link>
-              ) : null}
-            </Fragment>
-          );
+          // The shop you are in is the "You are in" card below, on the supplier sheet — never also a Switch to row.
+          if (youAreIn && youAreIn.id === shop.id) return null;
+          return shopEntry(shop);
         })}
 
         {showHQ ? (
@@ -431,18 +445,21 @@ export function SwitcherPanelBody({
         ) : null}
       </nav>
 
-      {/* ── 3 · Your shop — the supplier's own rows, vendor layout only ── */}
-      {shopRows && shopRows.length > 0 ? (
+      {/* ── 3 · Your shop — the supplier's own rows, vendor layout only. On the supplier sheet the shop you are in
+          heads the card as "You are in": its row (✓) and View page ↗, then these rows (v113/v114). ── */}
+      {(shopRows && shopRows.length > 0) || youAreIn ? (
         <>
           <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
-            Your shop
+            {youAreIn ? 'You are in' : 'Your shop'}
           </span>
           <nav
-            aria-label="Your shop"
+            aria-label={youAreIn ? 'You are in' : 'Your shop'}
             className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]"
             data-switcher-shop-rows=""
+            {...(youAreIn ? { 'data-sheet-you-are-in': '' } : {})}
           >
-            {shopRows.map((r) => {
+            {youAreIn ? shopEntry(youAreIn) : null}
+            {(shopRows ?? []).map((r) => {
               const Icon = SHOP_ROW_ICON[r.key] ?? ChevronRight;
               return (
                 <Link key={r.key} href={r.href} onClick={close} data-switcher-shop-row={r.key} className={ROW_SM}>
@@ -484,29 +501,14 @@ export function SwitcherPanelBody({
 
       {/* ── 4 · Quick tiles ── */}
       <div className="mx-3 mt-2.5 flex gap-2" data-sheet-tiles="">
-        {/* Your Story — the Storyteller chapters (/dashboard/creator); a page ships with its doorway (2026-07-16 B4). */}
-        {!data.isAnonymous ? (
-          <Link href="/dashboard/creator" onClick={close} className={TILE}>
-            <span aria-hidden className={TILE_MARK}>
-              <Clapperboard className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            Your Story
-          </Link>
-        ) : null}
-        {/* Refer a couple — handed in by the event layout ONLY while the referral programme is on (Stage D, owner
-            2026-09-29: "Refer a couple → account menu"). */}
-        {!data.isAnonymous && referHref ? (
-          <Link
-            href={referHref}
-            onClick={close}
-            className={TILE}
-          >
-            <span aria-hidden className={TILE_MARK}>
-              <Gift className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            Refer a couple
-          </Link>
-        ) : null}
+        {/* ❓ Help — the help centre for this sheet's place (DECISION_LOG 2026-11-07 "Account sheet tiles": Help · Show me
+            around · Sign out on EVERY sheet). It took Your Story's seat; Your Story's door is inside the help centre. */}
+        <Link href={helpHref} onClick={close} data-sheet-tile="help" className={TILE}>
+          <span aria-hidden className={TILE_MARK}>
+            <CircleHelp className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          Help
+        </Link>
         {/* 🔦 Show me around — replays this surface's spotlight tour (`spotlight-mount.tsx`). Drawn only where a tour
             is mounted (<html data-spotlight>), so it is never a dead button. */}
         <button
@@ -529,6 +531,20 @@ export function SwitcherPanelBody({
             </span>
             Secure your plan
           </Link>
+        ) : askWhichSignOut ? (
+          /* 🚪 ONE control, two answers (supplier sheet, another account signed in here): it asks first. */
+          <button
+            type="button"
+            aria-expanded={signOutAsk}
+            onClick={() => setSignOutAsk((o) => !o)}
+            data-sheet-sign-out-ask=""
+            className={`${TILE} text-red-600 dark:text-red-400`}
+          >
+            <span aria-hidden className={`${TILE_MARK} bg-red-600/10`}>
+              <LogOut className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            Sign out
+          </button>
         ) : (
           <form action="/auth/sign-out" method="post" className="flex flex-1 basis-0">
             <button type="submit" className={`${TILE} text-red-600 dark:text-red-400`}>
@@ -541,9 +557,31 @@ export function SwitcherPanelBody({
         )}
       </div>
 
+      {/* ── 4b · "Sign out of…" — the supplier sheet's two answers, opened in place under the tiles (v113/v114). ── */}
+      {askWhichSignOut && signOutAsk ? (
+        <div className="sn-sheet-card mx-3 mt-2.5 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-sign-out-choice="">
+          <span className="block px-3 pb-1 pt-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+            Sign out of…
+          </span>
+          <form action="/auth/sign-out" method="post">
+            <button type="submit" data-sheet-sign-out="this" className={ROW_SM}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium text-ink">Just this account</span>
+                <span className="block truncate text-[12.5px] text-[var(--m-slate-2)]">Stay signed in to the others</span>
+              </span>
+            </button>
+          </form>
+          <form action={signOutAllAction(data.otherAccounts)} method="post">
+            <button type="submit" data-sheet-sign-out="all" className={`${ROW_SM} text-red-600 dark:text-red-400`}>
+              <span className="min-w-0 flex-1 truncate text-[15px] font-medium">All accounts on this phone</span>
+            </button>
+          </form>
+        </div>
+      ) : null}
+
       {/* ── 5 · Sign out of all accounts — one quiet line: every account on this phone (their jars revoked and
           expired, lib/account-jars.ts), then the one you are on. ── */}
-      {!data.isAnonymous ? (
+      {!data.isAnonymous && !supplierSheet ? (
         <form action={signOutAllAction(data.otherAccounts)} method="post" className="flex justify-center pt-1.5">
           <button
             type="submit"

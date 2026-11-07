@@ -117,7 +117,7 @@ export function PapicHeadPicker({
           const fd = new FormData();
           fd.set('event_id', eventId);
           fd.set('early', writes.papic_guest_capture_early ? '1' : '0');
-          fd.set('return_to', 'home');
+          fd.set('return_to', 'memories'); // the card's seat since 2026-11-08 (papicSeatBack)
           answer = await papicSaveInPlace('setPapicGuestCaptureEarly', fd).catch(() => ({ ok: false as const, error: NOT_SAVED }));
         }
         if (answer.ok) stored.current = { ...stored.current, early: writes.papic_guest_capture_early };

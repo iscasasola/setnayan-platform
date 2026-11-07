@@ -192,7 +192,7 @@ export function dateMovedNotice(date: string, precision: EventDatePrecision): st
 export function dateChangeRefusalText(reason: string | undefined): string {
   switch (reason) {
     case 'already_open':
-      return 'You already asked your suppliers about another date. Withdraw that request on Home first.';
+      return 'You already asked your suppliers about another date. Withdraw that request on Today first.';
     case 'not_booked':
       return 'One of those suppliers is no longer booked. Pick the date again.';
     case 'nobody_to_ask':

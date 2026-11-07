@@ -47,6 +47,7 @@ import { GuestAllotmentPicker } from './guest-allotment-picker';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -92,8 +93,8 @@ export async function GuestAllotmentsChoice({
    * and the release — and NOT the named list, which is each guest card's own Papic group (#6854).
    */
   eventWide?: boolean;
-  /** 🏠 'home' inside Home's Papic card — a save lands back on Home. */
-  returnTo?: 'home' | null;
+  /** 🖼 The Papic card's seat ('memories' since 2026-11-08) when drawn inside it — a save lands back there. */
+  returnTo?: PapicCardSeat | null;
 }) {
   const supabase = await createClient();
   const admin = createAdminClient();

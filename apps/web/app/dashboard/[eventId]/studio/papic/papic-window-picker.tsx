@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { CalendarRange, Info } from 'lucide-react';
 import { setPapicWindow } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 import {
   isTravelEventType,
   manilaDate,
@@ -49,8 +50,8 @@ export default function PapicWindowPicker({
   summary,
   returnTo = null,
 }: {
-  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
-  returnTo?: 'home' | null;
+  /** 🖼 The Papic card's seat ('memories' since 2026-11-08) when drawn inside it — the save lands back there (`return_to`). */
+  returnTo?: PapicCardSeat | null;
   eventId: string;
   eventType: string | null;
   eventDate: string | null;

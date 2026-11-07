@@ -296,6 +296,17 @@ export default async function HelpPage({ searchParams }: Props) {
               );
             })}
           </nav>
+          {/* ✍ YOUR STORY — its door moved here from the account sheet, whose tiles are Help · Show me around · Sign out
+              (DECISION_LOG 2026-11-07 "Account sheet tiles"; THE ONE BUILD §9 #5: "their destinations stay reachable
+              inside Help"). Signed-in only — the Storyteller chapters are an account's own. */}
+          {user && !user.is_anonymous ? (
+            <p className="mt-4 text-sm text-ink/65" data-help-your-story="">
+              <Link href="/dashboard/creator" className="font-medium text-terracotta underline-offset-2 hover:underline">
+                Your Story ›
+              </Link>{' '}
+              — the chapters you write about your events.
+            </p>
+          ) : null}
           {activeRoleMeta ? (
             <p className="mt-3 text-xs text-ink/60">
               Showing {visibleTopics.length} topic{visibleTopics.length === 1 ? '' : 's'} for{' '}

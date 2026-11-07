@@ -1,15 +1,5 @@
-import { Suspense } from 'react';
-import { SERVICE_NAMES } from '@/lib/service-names';
-import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from './studio/papic/_components/papic-camera-settings';
-import { PapicChapterRead } from './_components/papic-chapter-read';
-import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
-import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
-import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
-import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
-import { papicCardPhase } from '@/lib/papic-home-card';
-import { OUR_SERVICE_PARTS } from '@/lib/our-services';
-import type { PapicCardInput } from './_components/home-first-screen';
+import { type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
+import { papicCardHref } from '@/lib/papic-home-href';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -58,7 +48,7 @@ import {
   pickHomeNext,
 } from '@/lib/home-first-screen';
 import { homePaidFacts } from '@/lib/home-paid-services';
-import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { thankYouVideoHref } from '@/lib/memories-keepsakes';
 import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
 import { isStoreShellHiddenAddon, isStoreShellWebOnlyPath } from '@/lib/store-shell';
@@ -1013,74 +1003,13 @@ export default async function EventHomePage({
       })
     : null;
   /*
-    📷 PAPIC'S CARD — ONE, ON HOME › TODAY (owner 2026-10-26, DECISION_LOG "THE PAPIC CARD LIVES ON HOME › TODAY; THE
-    STANDALONE PAPIC PAGE IS REMOVED"): the head with the Papic switch; on its face Total · Taken · Remaining and "Add
-    more"; its › grows every Papic setting in place (`PapicCameraSettings`, which the removed page drew too). The
-    couple's alone — the settings write as the couple; a coordinator keeps the shipped row.
-    🍎 IN THE APP TOO, WHERE APPLE SELLS (`iap`): the page was the app's Papic door (`IAP_OPENED_ROUTE`), so the card is
-    now — Add more is Apple's sheet there. The store shell without Apple's shop never reached the page and draws no card.
-    The Add more is the Memories page's, exactly: Apple's sheet · none in the bare store shell · the web's sheet.
+    📷 PAPIC'S CARD LIVES IN MEMORIES (THE ONE BUILD, owner 8 Nov 2026: *"Papic + Thank You into Memories"*; supersedes
+    2026-10-26 "THE PAPIC CARD LIVES ON HOME › TODAY"). Today draws no card. Where Memories draws it — the couple's, on
+    the web, and in the app only where Apple sells (`memories/page.tsx`, the same gate) — Today's Papic row stands down
+    too (one Papic, never two), and the event-day console's Papic line jumps to the card (`papicCardHref`). A
+    coordinator keeps the shipped row, whose door is Memories.
   */
-  const papicCardPhaseNow = papicCardPhase(papicWin.startIso, papicWin.endIso, Date.now());
-  const papicPoolError = typeof search.papic_pool_error === 'string' ? search.papic_pool_error : null;
-  const papicBuy = iap ? (
-    <IapPapicSheet eventId={eventId} left={papicNow.count} label="Add more" />
-  ) : storeShell ? null : (
-    <PapicBuySheet
-      eventId={eventId}
-      left={papicNow.count}
-      tone="brand"
-      main
-      label="Add more"
-      defaultOpen={Boolean(papicPoolError) || search.buy === '1'}
-      error={papicPoolError}
-    />
-  );
-  const papicCard: PapicCardInput | null =
-    canViewPapicCounts && viewerMemberType === 'couple' && (!storeShell || iap)
-      ? {
-          phase: papicCardPhaseNow,
-          // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
-          thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
-          /* 📷 THE HEAD (owner 2026-10-30): ONE dropdown — Off · On — event day · On — everyone, now (`PapicHeadControl`);
-             its line under the title says the current position, "after you Apply" while Papic's switch waits for Apply. */
-          headControl: (
-            <Suspense fallback={null}>
-              <PapicHeadControl eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
-            </Suspense>
-          ),
-          headLine: (
-            <Suspense fallback={SERVICE_NAMES.papic.brand}>
-              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
-            </Suspense>
-          ),
-          counts: { total: papicNow.total, left: papicNow.count },
-          buy: papicBuy,
-          // 📷 The chapter it shoots into (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER") — streamed.
-          chapter: (
-            <Suspense fallback={null}>
-              <PapicChapterRead eventId={eventId} />
-            </Suspense>
-          ),
-          defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),
-          settings: (
-            <>
-              {hasPapicOutcome(search) ? (
-                <div className="pb-4" data-papic-card-outcome="">
-                  <PapicOutcomeBanners eventId={eventId} search={search} appleIap={iap} />
-                </div>
-              ) : null}
-              <Suspense fallback={null}>
-                <PapicCameraSettings eventId={eventId} seat="home" />
-              </Suspense>
-              <PapicCameraHelp appleIap={iap} />
-              <Suspense fallback={null}>
-                <PapicSelfHeal eventId={eventId} />
-              </Suspense>
-            </>
-          ),
-        }
-      : null;
+  const papicInMemories = canViewPapicCounts && viewerMemberType === 'couple' && (!storeShell || iap);
   /* 🧩 EVERY SERVICE AS A WIDGET (owner 2026-10-23): the couple's, on the web — the controls write as the couple, and
      the app keeps its own rows (Apple sells there). Each card streams in behind the row it replaces. */
   const serviceCards = viewerMemberType === 'couple' && !storeShell && !appleFacts;
@@ -1245,17 +1174,17 @@ export default async function EventHomePage({
       control={homeControl}
       services={homeServiceRowAll}
       papicLeft={papicNow.count}
-      papicCard={papicCard}
+      papicInMemories={papicInMemories}
       whosHere={whosHereCard}
       serviceCards={serviceCards}
       apple={
         appleFacts
           ? {
               // Papic credits are the couple's to buy, as on the web; its status is the row's own.
-              // 🍎 ONE Papic: where the card is drawn (the couple, Apple selling) the row is not. A coordinator keeps the
-              // row's status — the Papic page it opened is gone (2026-10-26), so it opens nothing.
+              // 🍎 ONE Papic: where the card is drawn (Memories — the couple, Apple selling) the row is not. A coordinator
+              // keeps the row's status — the Papic page it opened is gone (2026-10-26), so it opens nothing.
               papic:
-                canViewPapicCounts && !papicCard
+                canViewPapicCounts && !papicInMemories
                   ? {
                       status: papicNow.status,
                       buy: viewerMemberType === 'couple',
@@ -1509,7 +1438,7 @@ export default async function EventHomePage({
               })}
               svc={dayPapicSvc}
               left={papicNow.count}
-              card={papicCard}
+              cardHref={papicInMemories ? papicCardHref(eventId) : null}
             />
           }
         />
@@ -1607,8 +1536,13 @@ export default async function EventHomePage({
 
           {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
               the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
-          {/* 📷 …and Papic's card, the one Today draws before the day (the Papic page is gone, 2026-10-26). */}
-          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} papicCard={papicCard} cards={serviceCards} />
+          {/* 📷 Papic's card is in Memories (2026-11-08) — where it is drawn there, its row stands down here. */}
+          <YourServices
+            eventId={eventId}
+            services={homeServiceRowAll.filter((s) => !(papicInMemories && s.key === 'papic'))}
+            papicLeft={papicNow.count}
+            cards={serviceCards}
+          />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">

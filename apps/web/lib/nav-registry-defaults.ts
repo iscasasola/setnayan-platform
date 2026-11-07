@@ -351,9 +351,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]",
-    // Overview → Home (Stage D, owner 2026-09-29: "Home · Guest list · Your
-    // Team · Event Hub Maker · Our Services"). Key + route unchanged.
-    label: "Home",
+    // Overview → Home (Stage D, owner 2026-09-29) → Today (THE ONE BUILD,
+    // 2026-11-08: *"Home → Today"*). Key + route unchanged.
+    label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "House",
@@ -368,7 +368,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // Overview → Home (Stage D, owner 2026-09-29). Key + route unchanged.
     // Icon: the Setnayan mark → House (owner 2026-10-07 — the five
     // tabs wear ONE line family; the mark stays in the top bar only).
-    label: "Home",
+    // Home → Today 2026-11-08 (THE ONE BUILD) — the word only.
+    label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "House",
@@ -435,8 +436,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 1,
   },
-  // MEMORIES — this event's photos and clips, the fifth tab after Hub (owner 2026-10-23,
-  // prototypes/event_bar_memories_tab_2026-10-23.html). The account bar's own glyph.
+  // MEMORIES — this event's photos and clips (owner 2026-10-23,
+  // prototypes/event_bar_memories_tab_2026-10-23.html); the fourth tab, before Hub, since 2026-11-08
+  // (BARS LOCKED 7 Nov: Today · Guests · Suppliers · Memories · Hub). The account bar's own glyph.
   {
     key: "customer.bottom-nav.memories",
     scope: "customer",
@@ -447,7 +449,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Sparkles",
     customRef: null,
-    sortOrder: 5,
+    sortOrder: 3,
   },
   {
     key: "customer.sidebar.memories",
@@ -593,7 +595,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "AppWindow",
     customRef: null,
-    sortOrder: 3,
+    // After Memories since 2026-11-08 (Today · Guests · Suppliers · Memories · Hub).
+    sortOrder: 5,
   },  // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
   // tab it governed is now the Event Hub (`customer.bottom-nav.launch` above) —
   // the editorial maker is a door INSIDE the controller ("The story", S5), and
@@ -1215,12 +1218,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 2,
   },
   {
-    // My Customers — the booking-pipeline destination (proto-shell 6-menu).
+    // Clients (was "Customers" — THE ONE BUILD, 8 Nov 2026; key kept) — the booking-pipeline destination.
     key: "vendor.sidebar.customers",
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/customers",
-    label: "Customers",
+    label: "Clients",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
@@ -1539,19 +1542,17 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 25,
   },
   {
-    // 🗓 The rail's fourth row again (owner "Yes to all", 2026-10-21): Today ·
-    // Customers · Shop · Hub. "Hub" is the couple's fourth word (#6725); the
-    // room's own heading still says Event Hub. ⚠ THE REGISTRY LABEL WINS over
-    // the one in the code — rename in both. (`vendor.sidebar.more`, the row
-    // this replaced, is gone with More.)
-    key: "vendor.sidebar.on-the-day",
+    // 🖼 The rail's fourth row (THE ONE BUILD, 8 Nov 2026 — owner, BARS LOCKED 7 Nov, *"remove hub"*): Today · Clients ·
+    // Shop · Portfolio. The Hub's slot (`vendor.sidebar.on-the-day`) is gone with its row — the room stays, reached from
+    // a picked client — so an admin cannot rename a row that is not drawn. ⚠ THE REGISTRY LABEL WINS over the code's.
+    key: "vendor.sidebar.portfolio",
     scope: "vendor",
     area: "vendor-sidebar",
-    route: "/vendor-dashboard/on-the-day",
-    label: "Hub",
+    route: "/vendor-dashboard/collections",
+    label: "Portfolio",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "CalendarCheck",
+    lucideName: "Images",
     customRef: null,
     sortOrder: 3,
   },
@@ -1617,11 +1618,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 2,
   },
   {
+    // Clients (was "Customers" — THE ONE BUILD, 8 Nov 2026; key kept: the badge and the guards hold it).
     key: "vendor.bottom-nav.customers",
     scope: "vendor",
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard/customers",
-    label: "Customers",
+    label: "Clients",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
@@ -1659,17 +1661,16 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 4,
   },
   {
-    // 🗓 The bar's fourth tab (owner "Yes to all", 2026-10-21): Today ·
-    // Customers · Shop · Hub — the couple's word in the couple's slot. It named
-    // More's Event Hub row from 2026-10-01; `vendor.bottom-nav.more` is gone.
-    key: "vendor.bottom-nav.onday",
+    // 🖼 The bar's fourth tab (THE ONE BUILD, 8 Nov 2026): Today · Clients · Shop · Portfolio. It replaces the Hub tab
+    // (`vendor.bottom-nav.onday`, gone with the tab — the Event Hub room stays, under a picked client).
+    key: "vendor.bottom-nav.portfolio",
     scope: "vendor",
     area: "vendor-bottom-nav",
-    route: "/vendor-dashboard/on-the-day",
-    label: "Hub",
+    route: "/vendor-dashboard/collections",
+    label: "Portfolio",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "CalendarCheck",
+    lucideName: "Images",
     customRef: null,
     sortOrder: 3,
   },

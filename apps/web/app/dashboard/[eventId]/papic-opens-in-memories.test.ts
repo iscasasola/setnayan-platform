@@ -1,11 +1,12 @@
 /**
- * GUARD — PAPIC OPENS ON HOME, UNDER ITS OWN CARD (owner 2026-10-23: *"does not open to a new page. just expands on
+ * GUARD — PAPIC OPENS IN PLACE, UNDER ITS OWN CARD — in Memories since 2026-11-08 (THE ONE BUILD: *"Papic + Thank You
+ * into Memories"*; renamed from `papic-opens-on-home.test.ts`, the card itself unchanged) (owner 2026-10-23: *"does not open to a new page. just expands on
  * home"* · *"expanding opens the rest of the settings under it not open a new page"*; the guest-card ruling the same
  * day: under the card, event-wide only).
  *
  *   1. The card's head is a BUTTON that toggles the settings region — never a link to /studio/papic.
  *   2. The region grows and fades (420 ms, the house ease), is inert while folded, and reduced motion skips it.
- *   3. Home hands the card the camera settings in the 'home' seat (no Credits per guest, no per-guest face blocking —
+ *   3. Memories hands the card the camera settings in the 'memories' seat (no Credits per guest, no per-guest face blocking —
  *      one door to the guest cards instead), and every door the old quick view held is reachable OPEN: the credits
  *      counter and Add more in the settings, the Thank-You Video door as the open card's first row.
  *   5. CLOSED, the card is the head and nothing else (owner 2026-10-26: *"the gallery should not be there"* · *"it just
@@ -29,7 +30,7 @@ import { PapicHomeCard } from './_components/papic-home-card';
 
 const code = (f: string) => stripComments(readFileSync(join(process.cwd(), f), 'utf8'));
 const CARD = 'app/dashboard/[eventId]/_components/papic-home-card.tsx';
-const HOME = 'app/dashboard/[eventId]/page.tsx';
+const MEMORIES = 'app/dashboard/[eventId]/memories/page.tsx';
 const CAMERA = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 
 test('1 · the head is a button that opens the settings under the card — never a door to another page', () => {
@@ -47,30 +48,30 @@ test('2 · the region grows and fades in place, inert while folded, still under 
   assert.match(c, /motion-reduce:transition-none/, 'reduced motion still animates');
 });
 
-test('3 · Home hands over the event-wide settings, and every door the old quick view held is reachable open', () => {
-  const h = code(HOME);
-  assert.match(h, /<PapicCameraSettings\s+eventId=\{eventId\}\s+seat="home"/, 'Home opens the page seat (with per-guest rows)');
+test('3 · Memories hands over the event-wide settings, and every door the old quick view held is reachable open', () => {
+  const h = code(MEMORIES);
+  assert.match(h, /<PapicCameraSettings\s+eventId=\{eventId\}\s+seat="memories"/, 'Memories opens the page seat (with per-guest rows)');
   const cam = code(CAMERA);
   assert.doesNotMatch(cam, /<FaceBlockingList/, 'a per-guest face list is back under the card');
-  assert.match(cam, /<GuestAllotmentsChoice eventId=\{eventId\} variant="row" eventWide returnTo=\{seat === 'home' \? 'home' : null\}/, 'the event-wide limit is not under Home’s card, or does not land back on Home');
+  assert.match(cam, /<GuestAllotmentsChoice eventId=\{eventId\} variant="row" eventWide returnTo=\{seat === 'page' \? null : seat\}/, 'the event-wide limit is not under the card, or does not land back on the card’s seat');
   assert.match(cam, /href=\{`\/dashboard\/\$\{eventId\}\/guests`\}[\s\S]{0,400}guest card/, 'no door to the guest cards');
   // 🔢 The counts and Add more are on the card's FACE (owner 2026-10-26: "the count of the total, taken, remaining and
-  // a button to add more") — Home hands them to the card, not to the open settings.
-  assert.match(h, /counts: \{ total: papicNow\.total, left: papicNow\.count \},\s*buy: papicBuy,/, 'Home does not hand the card its counts and Add more');
+  // a button to add more") — Memories hands them to the card, not to the open settings.
+  assert.match(h, /counts: \{ total: now\.total, left: now\.count \},\s*buy: cardBuy,/, 'Memories does not hand the card its counts and Add more');
   assert.doesNotMatch(h, /<PapicCameraSettings[^>]*credits=/, 'the open settings draw a second counter under the face');
   // After the day the Thank-You Video door leads the OPEN card (it lived on the closed one until 2026-10-26).
   const open = rendered({ open: true, phase: 'after' });
   assert.match(open, /data-papic-thank-you=""[\s\S]*Thank-You Video[\s\S]*data-sentinel-settings/, 'the Thank-You Video door is lost, or not the open card’s first row');
 });
 
-test('4 · the controller page is gone — an old link opens the card on Home (owner 2026-10-24 · removed 2026-10-26)', () => {
+test('4 · the controller page is gone — an old link opens the card in Memories (owner 2026-10-24 · removed 2026-10-26 · moved 2026-11-08)', () => {
   // The page itself is deleted; the old address is forwarded by the middleware's legacy map (`lib/legacy-redirects.ts`,
-  // `papic-lives-on-home.test.ts` holds the targets) to `?papic=open#papic`.
+  // `papic-lives-in-memories.test.ts` holds the targets) to `/memories?papic=open#papic`.
   const legacy = code('lib/legacy-redirects.ts');
   assert.match(legacy, /PAPIC_PAGE_RE = \/\^\\\/dashboard\\\/\(\[\^\/\]\+\)\\\/studio\\\/papic\$\//, 'the old Papic address is not forwarded');
   const c = code(CARD);
   assert.match(c, /searchParams\.get\('papic'\) !== 'open'/, 'the card does not open itself for an old link');
-  assert.match(c, /window\.history\.replaceState\(/, 'the card leaves ?papic=open in the address — Home’s own URL must come back');
+  assert.match(c, /window\.history\.replaceState\(/, 'the card leaves ?papic=open in the address — the page’s own URL must come back');
   assert.match(c, /<ChevronRight[\s\S]{0,200}rotate-90/, 'the head’s › does not turn to ⌄ as the card grows');
 });
 

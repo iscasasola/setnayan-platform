@@ -386,7 +386,7 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     },
     steps: {
       en: [
-        'Open Prints from Home. The Invitation set holds the invitation, the entourage, the finer details with your program, the menu, each guest’s pass, posters and an event card.',
+        'Open Prints from Today. The Invitation set holds the invitation, the entourage, the finer details with your program, the menu, each guest’s pass, posters and an event card.',
         'For the day: the guest list, guest QR codes twelve to a page, the seat plan, table signs and place cards, the entrance seating chart, the caterer’s meal counts and your event QR.',
         'Download a piece, or the whole set, and print it yourself or with your printer.',
       ],

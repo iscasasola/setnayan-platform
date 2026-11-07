@@ -143,11 +143,11 @@ export type HomeFirstScreenProps = {
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
   /**
-   * 📷 PAPIC'S CARD (owner 2026-10-23, "a smaller widget on home. Then we can expand it" · "expanding opens the rest
-   * of the settings under it"): the coverage line, the latest five, and the camera settings it opens under itself.
-   * Absent = the shipped row (a lab, the app).
+   * 📷 PAPIC'S CARD IS IN MEMORIES (THE ONE BUILD, 2026-11-08 — it was Today's from 2026-10-26). True where Memories
+   * draws it (the couple's, on the web, and in the app where Apple sells): Today then draws no Papic row either — one
+   * Papic, never two. False = the shipped row (a coordinator, a lab, the bare app).
    */
-  papicCard?: PapicCardInput | null;
+  papicInMemories?: boolean;
   /** 👀 Who's here (owner 2026-10-29) — the team on the dashboard now and the guests viewing the Event Hub. */
   whosHere?: ReactNode;
   /** 🧩 Every service as a card that grows in place (the couple's, on the web) — `YourServices` `cards`. */
@@ -203,7 +203,7 @@ export function HomeFirstScreen({
   ground = null,
   papicLeft = null,
   papicSizes = null,
-  papicCard = null,
+  papicInMemories = false,
   whosHere = null,
   serviceCards = false,
   needs = null,
@@ -219,7 +219,7 @@ export function HomeFirstScreen({
   return (
     /* 📅 "Later" beside a widget's verb folds Now for today, on this device (owner 2026-10-23). */
     <HomeTodayFold eventId={eventId} kind={next.kind}>
-    <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
+    <section data-home-first-screen aria-label="Today" className="flex w-full flex-col gap-3">
       {/* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — the GCash balance-card shape): the name, the
           countdown (the Date Finder's door) and NOW, the ONE thing to do with its verb. It still wears the Event Hub's
           main background (owner 2026-10-07, #6394) and still pins as one line. */}
@@ -269,10 +269,7 @@ export function HomeFirstScreen({
           {/* 📅 The Countdown's Date Finder, in place — the couple's (who change the date); a helper's Countdown opens Event Details. */}
           {eventSettings ? <HomeDateFinder eventId={eventId} openAtFirst={dateFinderOpen} /> : null}
 
-          {/* 📷 PAPIC — ONE CARD, ON THE ROW AFTER BUDGET (owner 2026-10-27: "Place papic under budget widget" · "Place it
-              on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's
-              last tile, so the card follows the row. Your services below no longer draws it. */}
-          {papicCard ? <PapicTodayCard card={papicCard} /> : null}
+          {/* 📷 PAPIC — its ONE card moved to Memories (THE ONE BUILD, 2026-11-08); Today draws none. */}
 
           {/* 👀 WHO'S HERE — after Papic, before Your services (owner 2026-10-29): who of the team is on the dashboard
               now, and which guests are viewing the Event Hub. */}
@@ -290,7 +287,7 @@ export function HomeFirstScreen({
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices
             eventId={eventId}
-            services={services.filter((s) => s.key !== 'hub' && !(papicCard && s.key === 'papic'))}
+            services={services.filter((s) => s.key !== 'hub' && !(papicInMemories && s.key === 'papic'))}
             apple={apple}
             papicLeft={papicLeft}
             papicSizes={papicSizes}
@@ -346,7 +343,6 @@ export function YourServices({
   apple = null,
   papicLeft,
   papicSizes = null,
-  papicCard = null,
   cards = false,
 }: {
   eventId: string;
@@ -354,7 +350,6 @@ export function YourServices({
   apple?: HomeFirstScreenProps['apple'];
   papicLeft: number | null;
   papicSizes?: PoolRung[] | null;
-  papicCard?: PapicCardInput | null;
   /**
    * 🧩 EVERY SERVICE AS A WIDGET (owner 2026-10-23, `home_service_widgets_2026-10-23.html`): each row becomes the card
    * that grows in place, drawn by the server behind the row it replaces (streamed — the first paint is today's row).
@@ -416,7 +411,7 @@ export function YourServices({
         {services.map((svc, i) => {
           const Icon = SERVICE_ICON[svc.key];
           if (svc.key === 'papic' && svc.papic) {
-            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} card={papicCard} />;
+            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
           }
           if (svc.key === 'hub' && svc.hub) {
             /* 💎 The Event Hub, right after Papic — its Pro folded in as the card's ◆ line (owner 2026-10-23). */
@@ -507,7 +502,21 @@ export function YourServices({
  * 📷 THE ONE PAPIC CARD (owner 2026-10-26) — Today draws it before the day, the console's Papic slot on the day, Your
  * services after it: one component, so the three can never say two things about one pot.
  */
-function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVICE_NAMES.papic.brand }: { card: PapicCardInput; name?: string; brand?: string }) {
+/**
+ * 📷 THE ONE PAPIC CARD, wherever it is drawn — Memories since 2026-11-08 (THE ONE BUILD: *"Papic + Thank You into
+ * Memories"*), under the keepsake row. The same `PapicHomeCard` Today drew, unchanged; only the seat moved.
+ */
+export function PapicCard({
+  card,
+  name = SERVICE_NAMES.papic.plain,
+  brand = SERVICE_NAMES.papic.brand,
+  marker = { 'data-memories-papic': '', 'data-tour': 'memories-papic' },
+}: {
+  card: PapicCardInput;
+  name?: string;
+  brand?: string;
+  marker?: Record<string, string>;
+}) {
   return (
     <PapicHomeCard
       name={name}
@@ -522,7 +531,7 @@ function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVIC
       buy={card.buy ?? null}
       chapter={card.chapter ?? null}
       defaultOpen={card.defaultOpen ?? false}
-      marker={{ 'data-home-service': 'papic', 'data-home-today-papic': '' }}
+      marker={marker}
     />
   );
 }
@@ -540,18 +549,16 @@ function PapicServiceRow({
   doors,
   left,
   sizes,
-  card = null,
+  cardHref = null,
 }: {
   eventId: string;
   svc: HomeService;
   doors: PapicRowDoors;
   left: number | null;
   sizes: PoolRung[] | null;
-  card?: PapicCardInput | null;
+  /** 📷 Where the couple's Papic CARD is (Memories, `papicCardHref`) — the row then opens it; null = Memories' grid. */
+  cardHref?: string | null;
 }) {
-  // 📷 THE CARD THAT OPENS UNDER ITSELF (owner 2026-10-23) — nothing on Home navigates to the Papic page now. Closed it
-  // is the head and the switch only (owner 2026-10-26); credits, Add more and the dates live in the open settings.
-  if (card) return <PapicTodayCard card={card} name={svc.name} brand={svc.brand} />;
   const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
@@ -573,9 +580,9 @@ function PapicServiceRow({
   const line = doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line;
   return (
     <ServiceGlanceRow
-      // A coordinator's row (no card — the settings write as the couple): Papic's photos, in Memories. The Papic page it
-      // opened is gone (2026-10-26).
-      href={`/dashboard/${eventId}/memories`}
+      // The couple's row on the day opens their Papic card in Memories (`cardHref`, 2026-11-08); a coordinator's (no
+      // card — the settings write as the couple): Papic's photos, in Memories. The Papic page is gone (2026-10-26).
+      href={cardHref ?? `/dashboard/${eventId}/memories`}
       name={svc.name}
       brand={svc.brand}
       icon={<Camera aria-hidden strokeWidth={1.9} />}
@@ -602,20 +609,21 @@ export function DayPapicRow({
   svc,
   left,
   sizes = null,
-  card = null,
+  cardHref = null,
 }: {
   eventId: string;
   face: DayPapicFace;
   svc: HomeService | undefined;
   left: number | null;
   sizes?: PoolRung[] | null;
-  card?: PapicCardInput | null;
+  /** 📷 The couple's Papic card in Memories (`papicCardHref`) — the day's Papic line jumps to it (2026-11-08). */
+  cardHref?: string | null;
 }) {
   const view = dayPapicView(face, svc, eventId);
   if (view.kind === 'hidden' || !svc) return null;
   const body =
     view.kind === 'row' ? (
-      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} card={card} />
+      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} cardHref={cardHref} />
     ) : view.kind === 'say' ? (
       <ServiceGlanceRow
         href={view.href}

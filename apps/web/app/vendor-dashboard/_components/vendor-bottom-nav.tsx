@@ -1,54 +1,40 @@
 'use client';
 
 /**
- * VendorBottomNav — the supplier's phone bar: **Today · Customers · Shop · Hub**.
+ * VendorBottomNav — the supplier's phone bar: **Today · Clients · Shop · Portfolio**.
  *
- * ── RE-CUT 2026-10-21 (owner, verbatim: "Yes to all") ──────────────────────
- * To the supplier-dashboard audit (`shots-2026-10-21/supplier-dash-audit/
- * AUDIT.md`), whose question was the owner's own: the event is now Home ·
- * Guests · Suppliers · Hub (#6725) — can the supplier's be as simple? It can:
- * every row the old fourth tab, More, held already had a home —
- *   · Messages      → the envelope in the top bar (the SAME URL the row linked);
- *   · How it is going → Shop's third segment (it lights Shop);
- *   · Settings + More tools → under the profile picture (the avatar sheet);
- * so the fourth slot is the room More was hiding: the **Event Hub** ("Run the
- * day" + the scanner), under the couple's word for it, **Hub**. On a day with no
- * event the Hub lists the next booked events, each locked until its booking fee
- * is paid. This SUPERSEDES DECISION_LOG 2026-10-01 answer 1 (the bar ends in
- * More) and 2026-10-08 answer 1 (More = Event Hub · Settings · More tools).
- * `/vendor-dashboard/more` is a redirect stub to Settings, so a bookmark lands.
+ * ── THE ONE BUILD, 8 Nov 2026 (owner, BARS LOCKED 7 Nov: *"remove hub"*; v110 THE ONE BUILD items 1–2) ──────────────
+ * The bar is Today · Clients · Shop · Portfolio. The tab word "Customers" became **Clients** (the KEY stays `customers`:
+ * the registry slot, the badge and every guard hold on to it; the URL `/vendor-dashboard/customers` is kept). The Hub
+ * LEFT the bar: the Event Hub room (`/vendor-dashboard/on-the-day`) is kept and reached from a picked client's Hub page,
+ * Today's next-event card and "Events you run" — and while it is open it lights **Clients**, where it now lives.
+ * **Portfolio** is the new fourth tab: Your collections (`/vendor-dashboard/collections`) and the inspiration library,
+ * which used to light Shop. SUPERSEDES the 2026-10-21 re-cut (Today · Customers · Shop · Hub).
  *
- * 🧑‍🔧 A HELPER (agent / viewer) gets Today · Customers, plus the Hub on a day
- * this shop has an event — the scanner is what a crew helper needs at the venue
- * (owner, item 6). It adds the door, not access: `lib/vendor-role.ts`.
+ * 🧑‍🔧 A HELPER (agent / viewer) gets Today · Clients on EVERY day (the Hub tab on an event day is gone with the tab; a
+ * helper's door to the scanner is Today's next-event card and their client's Hub page, both scoped by the per-event
+ * grant). Shop and Portfolio stay owner/admin only. `lib/vendor-role.ts`.
  *
- * The SAME four on every phone surface — the web below 1024 px and the iPhone
- * app (the store shell): nothing on the bar is a web-only route, so
- * `barItemsForShell` drops nothing. The laptop rail draws the same four words
- * (`vendor-nav-destinations.ts`). `vendor-bar-is-four.test.ts` holds all of it.
+ * The SAME four on every phone surface — the web below 1024 px and the iPhone app (the store shell): nothing on the
+ * bar is a web-only route. The laptop rail draws the same four words (`vendor-nav-destinations.ts`).
+ * 🔒 supplier-bar-is-today-clients-shop-portfolio.test.ts · vendor-bar-is-four.test.ts
  *
- * ⚠ THE OLD DOCBLOCK HERE DESCRIBED A FIVE-TAB BAR (Home · Bookings · Calendar ·
- * Messages · More, 2026-06) and said "there is no More tab" next to code that
- * had one — a stale comment read as fact (audit item 9). It is gone; this one
- * describes the code below it.
+ * activeMatch: Today is EXACT (every supplier route shares its prefix); each other tab claims its own routes and the
+ * rooms filed under it. The BottomNav primitive hides itself at lg+.
  *
- * activeMatch: Today is EXACT (every supplier route shares its prefix); each
- * other tab claims its own routes and the rooms filed under it. The BottomNav
- * primitive hides itself at lg+.
- *
- * CLIENT BOUNDARY: 'use client' because the items carry LucideIcon refs, which
- * do not serialize from a server component (same as admin-bottom-nav.tsx).
+ * CLIENT BOUNDARY: 'use client' because the items carry LucideIcon refs, which do not serialize from a server
+ * component (same as admin-bottom-nav.tsx).
  */
 
-import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
+import { Images, ShoppingBag, Store, Users } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
-import { canManageVendor, vendorScopedBarKeys } from '@/lib/vendor-role';
+import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
-import { VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
+import { VENDOR_CLIENTS_EXTRA_MATCH, VENDOR_PORTFOLIO_EXTRA_MATCH, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
 
 export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -73,11 +59,11 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatchExact: true,
   },
   {
-    // My Customers — the booking-pipeline destination + its cluster (messages ·
-    // clients · bookings · calendar · contracts · proposals · earnings · payday
-    // · payment-options).
+    // Clients (was "Customers" — THE ONE BUILD, 8 Nov 2026; the key stays) — the booking-pipeline destination + its
+    // cluster (messages · clients · bookings · calendar · contracts · proposals · earnings · payday · payment-options),
+    // and the Event Hub room, which now lives under a picked client (Hub left the bar, owner 7 Nov "remove hub").
     key: 'customers',
-    label: 'Customers',
+    label: 'Clients',
     href: '/vendor-dashboard/customers',
     icon: Users,
     activeMatch: [
@@ -91,6 +77,8 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/earnings',
       '/vendor-dashboard/payday',
       '/vendor-dashboard/payment-options',
+      // The Event Hub room (+ the old Events address that forwards to it) — it lives under a picked client now.
+      ...VENDOR_CLIENTS_EXTRA_MATCH,
     ],
   },
   {
@@ -122,22 +110,19 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // a host sat on his own segments page.
       '/vendor-dashboard/activities',
       '/vendor-dashboard/manpower',
-      '/vendor-dashboard/moodboard-library',
       // Shop's segments outside /shop — Page (Your page · details · collections)
       // and How it is going (2026-10-21). The one list the rail reads too.
       ...VENDOR_SHOP_EXTRA_MATCH,
     ],
   },
   {
-    // 🗓 HUB — the Event Hub (owner "Yes to all", 2026-10-21). Key `onday` is
-    // the old Event Hub tab's, so its registry slot (`vendor.bottom-nav.onday`)
-    // names this tab again and an admin rename reaches it.
-    key: 'onday',
-    label: 'Hub',
-    href: '/vendor-dashboard/on-the-day',
-    icon: CalendarCheck,
-    // 🗂 "Events" FOLDED INTO HUB (owner 2026-10-29): the old fifth tab's address forwards here and lights it.
-    activeMatch: ['/vendor-dashboard/on-the-day', '/vendor-dashboard/events'],
+    // 🖼 PORTFOLIO (THE ONE BUILD, 8 Nov 2026 — owner "Today · Clients · Shop · Portfolio"): every photo and video the
+    // shop shows — Your collections, and the inspiration library it draws from. Owner/admin only, like Shop.
+    key: 'portfolio',
+    label: 'Portfolio',
+    href: '/vendor-dashboard/collections',
+    icon: Images,
+    activeMatch: ['/vendor-dashboard/collections', ...VENDOR_PORTFOLIO_EXTRA_MATCH],
   },
 ];
 
@@ -151,28 +136,17 @@ export function vendorBarItems({
   navSlots,
   bookingsBadge,
   threadsBadge,
-  eventToday = false,
-  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
   bookingsBadge?: number | null;
   threadsBadge?: number | null;
-  /** One of this shop's days is today — a helper gets the Hub then (owner 2026-10-21, item 6). */
-  eventToday?: boolean;
-  /**
-   * This person coordinates at least one event, live. "Events" FOLDED INTO HUB (owner 2026-10-29): no fifth tab — a
-   * scoped teammate who runs an event gets the Hub, where "Events you run" now lives. Their own seat; a door, not access.
-   */
-  runsEvents?: boolean;
 }): BottomNavItem[] {
-  // Role-aware: owner/admin get the four; agent/viewer get Today · Customers,
-  // plus the Hub on an event day. FAILS CLOSED — a role that could not be read
-  // is not an owner.
-  const scoped = vendorScopedBarKeys({ eventToday: eventToday || runsEvents === true });
+  // Role-aware: owner/admin get the four; agent/viewer get Today · Clients, every day. FAILS CLOSED — a role that
+  // could not be read is not an owner.
   const base = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
-    : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => scoped.has(i.key));
+    : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));
   // Nav registry overlay: label + icon per tab from its vendor.bottom-nav.<key>
   // slot (Today keeps key 'profile' for localStorage continuity but maps to the
   // 'home' slot). Fallback = the word in the code; a hidden slot drops the tab;
@@ -199,8 +173,6 @@ export function VendorBottomNav({
   navSlots,
   bookingsBadge,
   threadsBadge,
-  eventToday = false,
-  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
@@ -212,10 +184,6 @@ export function VendorBottomNav({
    */
   bookingsBadge?: number | null;
   threadsBadge?: number | null;
-  /** One of this shop's days is today (the layout reads it for a helper only). */
-  eventToday?: boolean;
-  /** At least one LIVE coordinator seat (`readEventsYouRun`) — the Events tab shows only then. */
-  runsEvents?: boolean;
 }) {
-  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge, eventToday, runsEvents })} />;
+  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge })} />;
 }

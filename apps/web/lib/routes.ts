@@ -1,4 +1,4 @@
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref } from '@/lib/papic-home-href';
 
 /**
  * routes.ts — THE single source of truth for every URL in the Setnayan web app.
@@ -311,7 +311,7 @@ export const routes = {
       },
       papic: {
         /** The Papic page is gone (2026-10-26) — its card on Home › Today. */
-        index: (eventId: string) => papicHomeHref(eventId),
+        index: (eventId: string) => papicCardHref(eventId),
         crew: (eventId: string) => `/dashboard/${eventId}/studio/papic/crew`,
         magazine: (eventId: string) => `/dashboard/${eventId}/studio/papic/magazine`,
         moderation: (eventId: string) => `/dashboard/${eventId}/studio/papic/moderation`,

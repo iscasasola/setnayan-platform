@@ -1,6 +1,6 @@
 'use server';
 
-import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
+import { papicCardHref, papicSeatBack, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -29,7 +29,7 @@ export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<
   await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const declined = String(formData.get('declined') ?? '') === '1';
-  const back = papicHomeHref(eventId);
+  const back = papicCardHref(eventId);
   if (!eventId) redirect('/dashboard');
 
   const supabase = await createClient();
@@ -70,10 +70,13 @@ export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<
   if (declined) await eraseEventFaceTaggingSelfies(admin, eventId);
 
   revalidatePath(hrefPath(back));
-  // 🏠 Saved from Home's Papic card (`return_to=home`, a fixed word → a fixed path): back to Home, the card open.
-  if (formData.get('return_to') === 'home') {
+  // 🖼 Saved from inside the Papic card (`return_to=memories`, its seat since 2026-11-08; `home` = Today, kept — a fixed
+  // word → a fixed path, `papicSeatBack`): back there, the card open.
+  const seatBack = papicSeatBack(eventId, formData.get('return_to'));
+  if (seatBack) {
     revalidatePath(`/dashboard/${eventId}`);
-    redirect(`/dashboard/${eventId}`);
+    revalidatePath(seatBack);
+    redirect(seatBack);
   }
   redirect(withQuery(back, `faceTagging=${declined ? 'off' : 'on'}`));
 }

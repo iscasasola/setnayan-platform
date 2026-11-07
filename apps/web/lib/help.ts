@@ -369,10 +369,10 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'Your events, the suppliers on them — marked On your event — the shops on Setnayan, and our stories and guides. The results open inside your account.',
       },
       {
-        // The supplier bar (owner 2026-10-21 "SUPPLIER BAR — TODAY · CUSTOMERS · SHOP · HUB"; More left the bar).
+        // The supplier bar (owner 2026-11-08 one build: Today · Clients · Shop · Portfolio; the Hub opens from Clients; More left the bar 2026-10-21).
         slug: 'supplier-dashboard-tabs',
         title: 'Suppliers: where is everything in my dashboard?',
-        body: 'The bar is Today, Customers, Shop and Hub. Today shows the one thing waiting on you. Customers holds your people, dates and money — and your messages, which also open from the envelope at the top. Shop is your page and what you sell, with Analytics. Hub runs your event days. Settings is under your profile picture.',
+        body: 'The bar is Today, Clients, Shop and Portfolio. Today shows the one thing waiting on you. Clients holds your people, dates and money — and your messages, which also open from the envelope at the top; your event days open from there too. Shop is your page and what you sell, with Analytics. Portfolio holds your photos and videos. Settings is under your profile picture.',
       },
       {
         slug: 'event-id-vs-slug',
@@ -620,7 +620,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'vendor-reply-only',
         title: 'Suppliers: how the reply-only inbox works',
-        body: 'Your messages — in Customers, or from the envelope at the top — list every chat a couple has opened with you. Reply, attach files and share quotes. You cannot start a chat: a couple writes first, which keeps them free of messages they did not ask for.',
+        body: 'Your messages — in Clients, or from the envelope at the top — list every chat a couple has opened with you. Reply, attach files and share quotes. You cannot start a chat: a couple writes first, which keeps them free of messages they did not ask for.',
       },
     ],
   },
@@ -809,7 +809,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // Rewritten again 2026-10-25: setting credits aside for one camera was
         // retired (owner 2026-09-16 "no dedicated shots individually", built in
         // #5905). The worry stays real, so the answer is what ships now.
-        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from the Papic card on Home; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
+        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from the Papic card in Memories; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
       },
       {
         slug: 'how-papic-shots-work',

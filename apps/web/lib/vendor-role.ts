@@ -149,38 +149,12 @@ export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * THE HUB TAB, FOR A HELPER, ON THE DAY (owner "Yes to all", 2026-10-21, item 6
- * of `shots-2026-10-21/supplier-dash-audit/AUDIT.md`). A crew or church helper
- * at the venue needs the scanner, and the scanner is in the Event Hub — so on a
- * day this shop has an event, a scoped teammate's bar and rail carry the Hub
- * too, beside Today and Customers. Any other day they do not.
- *
- * 🔒 IT ADDS A DOOR, NOT ACCESS. `/vendor-dashboard/on-the-day` and its live
- * console were already open to a teammate (Today's "Run the day" card links
- * there; the console admits a team member or a granted account and gates the
- * day, the fee and each module on its own). The tab only puts that same door in
- * the bar on the day it is used. The one fact the layout reads to decide it is
- * "is one of this shop's days today", from the reader the Hub itself uses.
- *
- * The two menus spell the key differently, as everywhere else here: `onday` on
- * the bar (slot `vendor.bottom-nav.onday`), `on-the-day` on the rail (slot
- * `vendor.sidebar.on-the-day`).
+ * 🧑‍🔧 A HELPER'S BAR AND RAIL: Today · Clients, EVERY day (THE ONE BUILD, 8 Nov 2026 — the Hub left the bar, owner 7 Nov
+ * *"remove hub"*). Until then a scoped teammate got a Hub tab on a day this shop had an event (owner 2026-10-21, item
+ * 6); with no Hub tab for anyone, that door is now Today's next-event card and their client's Hub page — both already
+ * scoped by the per-event grant (v92). The room `/vendor-dashboard/on-the-day` and its live console are unchanged and
+ * gate the day, the fee and each module on their own. 🔒 supplier-bar-is-today-clients-shop-portfolio.test.ts
  */
-export const VENDOR_HUB_KEY = { bar: 'onday', rail: 'on-the-day' } as const;
-
-/** Bar keys a scoped teammate gets — Today · Customers, plus the Hub on an event day. */
-export function vendorScopedBarKeys(opts: { eventToday: boolean }): ReadonlySet<string> {
-  return opts.eventToday
-    ? new Set([...VENDOR_SCOPED_BOTTOM_NAV_KEYS, VENDOR_HUB_KEY.bar])
-    : VENDOR_SCOPED_BOTTOM_NAV_KEYS;
-}
-
-/** Rail keys a scoped teammate gets — the same rule as the bar, in the rail's spelling. */
-export function vendorScopedRailKeys(opts: { eventToday: boolean }): ReadonlySet<string> {
-  return opts.eventToday
-    ? new Set([...VENDOR_SCOPED_NAV_ITEM_KEYS, VENDOR_HUB_KEY.rail])
-    : VENDOR_SCOPED_NAV_ITEM_KEYS;
-}
 
 /**
  * The ONE key the two scoped lists spell differently: the Overview destination
@@ -189,11 +163,7 @@ export function vendorScopedRailKeys(opts: { eventToday: boolean }): ReadonlySet
  * so the guard can compare the two lists by MEANING rather than by string, and
  * so a future rename has one place to look.
  */
-export const VENDOR_NAV_KEY_ALIASES: ReadonlyMap<string, string> = new Map([
-  ['profile', 'overview'],
-  // The Hub (2026-10-21): `onday` on the bar, `on-the-day` on the rail.
-  [VENDOR_HUB_KEY.bar, VENDOR_HUB_KEY.rail],
-]);
+export const VENDOR_NAV_KEY_ALIASES: ReadonlyMap<string, string> = new Map([['profile', 'overview']]);
 
 /** A bottom-nav key, as the sidebar would spell it. */
 export function canonicalVendorNavKey(key: string): string {
@@ -204,10 +174,9 @@ export function canonicalVendorNavKey(key: string): string {
 export function filterVendorNavGroups(
   groups: NavGroup[],
   role: VendorTeamRole | null | undefined,
-  opts: { eventToday?: boolean } = {},
 ): NavGroup[] {
   if (canManageVendor(role)) return groups;
-  const keys = vendorScopedRailKeys({ eventToday: opts.eventToday === true });
+  const keys = VENDOR_SCOPED_NAV_ITEM_KEYS;
   return groups
     .map((g) => ({
       ...g,

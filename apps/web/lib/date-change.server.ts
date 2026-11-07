@@ -235,7 +235,7 @@ export async function askDateChange({
       });
     }
   });
-  return { ok: true, message: 'Asked. Your date stays as it is until every supplier answers — see it on Home.' };
+  return { ok: true, message: 'Asked. Your date stays as it is until every supplier answers — see it on Today.' };
 }
 
 /**
@@ -312,7 +312,7 @@ export async function settleDateChange({
     const dropped = view.suppliers.find((s) => s.vendorProfileId === env.vendor_profile_id);
     for (const id of dropped?.eventVendorIds ?? []) await notifyWaitlistIfBookingReleased(id);
   });
-  if (env.ready) return { ok: true, message: `Released. Every supplier has answered — use ${dateChangeWhen(view.proposedDate, view.proposedPrecision)} on Home.` };
+  if (env.ready) return { ok: true, message: `Released. Every supplier has answered — use ${dateChangeWhen(view.proposedDate, view.proposedPrecision)} on Today.` };
   return { ok: true, message: 'Released. The others are still deciding.' };
 }
 
@@ -366,7 +366,7 @@ export async function answerDateChange({
               ? 'They are no longer booked. Money was logged with them, so the payment is settled by the cancellation terms on your booking — Setnayan support has the case.'
               : 'They are no longer booked for your event.'
             : 'They confirmed they can do the new date.',
-          env.ready ? `Every supplier has answered — use ${when} on Home and it saves at once.` : 'Others are still deciding.',
+          env.ready ? `Every supplier has answered — use ${when} on Today and it saves at once.` : 'Others are still deciding.',
         ].join(' '),
         relatedUrl: `/dashboard/${eventId}`,
       });

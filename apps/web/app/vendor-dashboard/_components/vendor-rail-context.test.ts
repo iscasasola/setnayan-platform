@@ -38,6 +38,7 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import {
   VENDOR_DESTINATIONS,
   resolveVendorDestinations,
+  vendorRailCandidates,
 } from './vendor-nav-destinations';
 
 /**
@@ -122,13 +123,15 @@ test('every rail row also tells a screen reader, not just the eye', () => {
   2026-10-21): the fourth row is the Event Hub, under its old key `on-the-day`,
   labelled "Hub" (the couple's fourth word). Same strictness: the exact set,
   the exact order, the registry agreeing on all four.
+  🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov; THE ONE BUILD spec §1/§4): the
+  fourth row is Portfolio (key `portfolio`); the Hub left the rail and its room lights Clients.
 */
 test('the four destination KEYS are exactly the owner-approved four', () => {
   assert.deepEqual(
     [...VENDOR_DESTINATIONS.map((d) => d.key)].sort(),
-    ['customers', 'on-the-day', 'overview', 'shop'],
-    'Owner "Yes to all", 2026-10-21 (DECISION_LOG 2026-10-21, supersedes 2026-10-01 answer 1): the rail ' +
-      'reads Today · Customers · Shop · Hub, the phone bar\'s four words; ' +
+    ['customers', 'overview', 'portfolio', 'shop'],
+    'BARS LOCKED BY OWNER, 7 Nov 2026 (THE ONE BUILD, supersedes 2026-10-21): the rail ' +
+      'reads Today · Clients · Shop · Portfolio, the phone bar\'s four words; ' +
       'More is gone — its rows live under the envelope, Shop and the profile picture. ' +
       'The surviving keys are ALSO the staff role-filter set, the ' +
       '`vendor.sidebar.<key>` registry slots and the localStorage section ' +
@@ -167,10 +170,10 @@ test('every destination is named the same in the code and in the rename registry
   assert.equal(checked, 4, `only ${checked} of the four destinations had a registry slot`);
 });
 
-test('the rail order is the 2026-08-26 re-cut — people before setup — then the Hub', () => {
+test('the rail order is the 2026-08-26 re-cut — people before setup — then Portfolio', () => {
   assert.deepEqual(
     VENDOR_DESTINATIONS.map((d) => d.key),
-    ['overview', 'customers', 'shop', 'on-the-day'],
+    ['overview', 'customers', 'shop', 'portfolio'],
     'Owner re-cut 2026-08-26 ("yes i agree"): My Customers sits ahead of My ' +
       'Shop because people are the daily job and setting up a shop is a once. ' +
       'Order is display-only — nothing reads it — so this is the assertion to ' +
@@ -250,20 +253,16 @@ test('a URL belonging to no row lights NOTHING — never the first row', () => {
 
 test('an owner sees all four', () => {
   const rows = resolveVendorDestinations({ role: 'admin' });
-  assert.deepEqual(rows.map((r) => r.key), ['overview', 'customers', 'shop', 'on-the-day']);
+  assert.deepEqual(rows.map((r) => r.key), ['overview', 'customers', 'shop', 'portfolio']);
 });
 
-test('a helper gets the Hub on an event day, and only then (owner 2026-10-21, item 6)', () => {
+test('a helper gets Today · Clients on every day — the Hub room opens from Clients (THE ONE BUILD, 2026-11-08)', () => {
   for (const role of ['agent', 'viewer'] as const) {
     assert.deepEqual(resolveVendorDestinations({ role }).map((r) => r.key), ['overview', 'customers']);
-    assert.deepEqual(
-      resolveVendorDestinations({ role, eventToday: true }).map((r) => r.key),
-      ['overview', 'customers', 'on-the-day'],
-      'a crew helper at the venue needs the scanner, which is in the Hub',
-    );
   }
-  // An owner's rail does not depend on the day.
-  assert.deepEqual(resolveVendorDestinations({ role: 'owner', eventToday: false }).map((r) => r.key), ['overview', 'customers', 'shop', 'on-the-day']);
+  // …and the Hub room lights Clients for them, so a crew helper at the venue is never in a room with no lit tab.
+  assert.equal(activeRailKey(vendorRailCandidates(resolveVendorDestinations({ role: 'agent' }), null), '/vendor-dashboard/on-the-day'), 'customers');
+  assert.deepEqual(resolveVendorDestinations({ role: 'owner' }).map((r) => r.key), ['overview', 'customers', 'shop', 'portfolio']);
 });
 
 test('an agent still gets the two surfaces they may work', () => {

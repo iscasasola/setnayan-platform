@@ -122,7 +122,7 @@ import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
-import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { DayPapicRow, HomeFirstScreen, PapicCard, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { fixtureControl, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
 import { planningProgress } from '@/lib/preparation';
 import { labPlanningList } from '../schedule-lab/lab-planning';
@@ -340,13 +340,13 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
     defaultOpen: challenges,
     settings: (
       <>
-        <PapicCameraSettings eventId={eventId} seat="home" />
+        <PapicCameraSettings eventId={eventId} seat="memories" />
         {/* `?challenges=1` — the REAL challenge rows (name · switch · ✕) on fixtures: the settings above have no
             database here, so their own list cannot draw. */}
         {challenges ? (
           <ul className="divide-y divide-ink/10 border-t border-ink/10 pt-1" data-lab-challenges="">
             {LAB_CHALLENGES.map((m) => (
-              <ChallengeCardRow key={m.mission_id} eventId={eventId} eventType="wedding" taken={[]} mission={m} full={false} returnTo="home" />
+              <ChallengeCardRow key={m.mission_id} eventId={eventId} eventType="wedding" taken={[]} mission={m} full={false} returnTo="memories" />
             ))}
           </ul>
         ) : null}
@@ -750,7 +750,9 @@ export default async function HomeLab({
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
         /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
         prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
-        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save, q.chapter) : null}
+        /* 📷 `?card=1` — the couple's Papic card is in Memories since 2026-11-08: Today draws no Papic row, and the lab
+           draws the card under the screen, as Memories' keepsake row hands it on (`PapicCard`). */
+        papicInMemories={q.card === '1'}
         whosHere={q.whos ? labWhosHere(E, q.whos) : null}
         apple={
           q.store === '1' && q.apple === '1'
@@ -787,6 +789,13 @@ export default async function HomeLab({
           paid: q.store === '1' ? null : labPaid(q.paid, E),
         })}
       />
+      {/* 📷 MEMORIES' SEAT — the card Memories draws under its keepsake row (2026-11-08), drawn here on fixtures. */}
+      {q.card === '1' ? (
+        <section aria-label="Memories" className="mt-6 grid gap-3" data-lab-memories-papic="">
+          <p className="hc-k2"><span className="hc-k2-name">In Memories</span><em>under the keepsakes</em></p>
+          <PapicCard card={labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save, q.chapter)} />
+        </section>
+      ) : null}
     </div>
     </LabFactSheets>
     </>

@@ -217,7 +217,7 @@ export const routeMeta = {
     },
     budget: { icon: Wallet, label: 'Budget' },
     contracts: { icon: FileText, label: 'Contracts' },
-    detail: { icon: Home, label: 'Home' },
+    detail: { icon: Home, label: 'Today' },
     disputes: { icon: Shield, label: 'Disputes' },
     documents: { icon: FileText, label: 'Documents' },
     eventQr: { icon: QrCode, label: 'Event QR' },

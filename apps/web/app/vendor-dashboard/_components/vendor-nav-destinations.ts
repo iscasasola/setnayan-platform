@@ -93,11 +93,19 @@
  * room More was hiding, the **Event Hub**, under the word the couple's own
  * fourth tab uses (**Hub**, #6725). `on-the-day` takes its old key back (its
  * registry slot `vendor.sidebar.on-the-day` never left); `more` is gone.
- * A teammate gets the Hub on an event day only (`vendorScopedRailKeys`).
  * `vendor-bar-is-four.test.ts` holds the four, on the bar and here.
+ *
+ * ─── THE ONE BUILD, 8 Nov 2026 — TODAY · CLIENTS · SHOP · PORTFOLIO ──────
+ * Owner (BARS LOCKED 7 Nov, *"remove hub"*; v110 items 1–2): the Hub leaves the
+ * bar and the rail (the room stays — a picked client's Hub page, Today's next
+ * event and "Events you run" open it, and it lights Clients); "Customers" is
+ * called **Clients** (key `customers` kept); **Portfolio** is the new fourth row
+ * (`/vendor-dashboard/collections`, owner/admin only, like Shop). A teammate gets
+ * Today · Clients every day. SUPERSEDES the 2026-10-21 re-cut above.
+ * 🔒 supplier-bar-is-today-clients-shop-portfolio.test.ts
  */
 
-import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
+import { Images, ShoppingBag, Store, Users } from 'lucide-react';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup, NavItem, NavBadge } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -133,7 +141,7 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
   },
   {
     key: 'customers',
-    label: 'Customers',
+    label: 'Clients',
     href: '/vendor-dashboard/customers',
     icon: Users,
     matchPrefix: '/vendor-dashboard/customers',
@@ -146,15 +154,12 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
     matchPrefix: '/vendor-dashboard/shop',
   },
   {
-    // 🗓 THE HUB — the Event Hub ("Run the day" + the scanner), owner "Yes to
-    // all" 2026-10-21. The word is the couple's fourth tab's; the room's own
-    // heading still says Event Hub. On a day with no event the room lists the
-    // next booked events, each locked until its booking fee is paid.
-    key: 'on-the-day',
-    label: 'Hub',
-    href: '/vendor-dashboard/on-the-day',
-    icon: CalendarCheck,
-    matchPrefix: '/vendor-dashboard/on-the-day',
+    // 🖼 PORTFOLIO (THE ONE BUILD, 8 Nov 2026): every photo and video the shop shows. Owner/admin only, like Shop.
+    key: 'portfolio',
+    label: 'Portfolio',
+    href: '/vendor-dashboard/collections',
+    icon: Images,
+    matchPrefix: '/vendor-dashboard/collections',
   },
 ] as const;
 
@@ -178,10 +183,16 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
 export const VENDOR_SHOP_EXTRA_MATCH: readonly string[] = [
   '/vendor-dashboard/website',
   '/vendor-dashboard/profile',
-  '/vendor-dashboard/collections',
   '/vendor-dashboard/performance',
   '/vendor-dashboard/demand',
 ];
+
+/** Rooms outside `/customers` that light Clients: the Event Hub (it lives under a picked client — THE ONE BUILD) and
+ *  the old Events address that forwards to it. ONE list for the bar's `activeMatch` and the rail. */
+export const VENDOR_CLIENTS_EXTRA_MATCH: readonly string[] = ['/vendor-dashboard/on-the-day', '/vendor-dashboard/events'];
+
+/** Rooms outside `/collections` that light Portfolio: the inspiration library it draws from. */
+export const VENDOR_PORTFOLIO_EXTRA_MATCH: readonly string[] = ['/vendor-dashboard/moodboard-library'];
 
 /**
  * Every (key, href) the rail's ONE `activeRailKey` resolution weighs: the rows
@@ -203,6 +214,10 @@ export function vendorRailCandidates(
     // account's rooms, opened from the profile picture, not a fifth place.
     // Shop's segments outside /shop (Page · How it is going) light Shop.
     ...(has('shop') ? VENDOR_SHOP_EXTRA_MATCH.map((href) => ({ key: 'shop', href })) : []),
+    // The Event Hub room lives under a picked client now (THE ONE BUILD) — it lights Clients; the inspiration library
+    // is Portfolio's.
+    ...(has('customers') ? VENDOR_CLIENTS_EXTRA_MATCH.map((href) => ({ key: 'customers', href })) : []),
+    ...(has('portfolio') ? VENDOR_PORTFOLIO_EXTRA_MATCH.map((href) => ({ key: 'portfolio', href })) : []),
     // The Plan row takes part in the SAME resolution — asking it separately
     // with a `startsWith` would light Plan on `/…/subscriptions`.
     ...(plan ? [plan] : []),
@@ -228,21 +243,8 @@ export function resolveVendorDestinations({
   navSlots,
   bookingsBadge = 0,
   threadsBadge = 0,
-  eventToday = false,
-  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
-  /**
-   * At least one LIVE coordinator seat. "Events" FOLDED INTO HUB (owner 2026-10-29, DECISION_LOG "THE SUPPLIER'S
-   * BOTTOM BAR = TODAY · CUSTOMERS · SHOP · HUB"): there is no fifth row any more — a scoped teammate who runs an event
-   * gets the Hub row, where "Events you run" now lives. The person's own seat, never the shop's role; a door, not access.
-   */
-  runsEvents?: boolean;
-  /**
-   * One of this shop's days is today. Only a scoped teammate's rows read it —
-   * they get the Hub on that day (owner 2026-10-21, item 6); an owner always has it.
-   */
-  eventToday?: boolean;
   navSlots?: Record<string, NavSlotLite>;
   /** Pending-inquiry count. Real layout data; 0 omits the badge. */
   bookingsBadge?: number;
@@ -256,7 +258,7 @@ export function resolveVendorDestinations({
     `filterVendorNavGroups` gates on the key against the scoped-keys set, which
     is the same rule the phone's bottom bar uses.
   */
-  const scoped = filterVendorNavGroups(vendorNavGroups(), role, { eventToday: eventToday || runsEvents === true });
+  const scoped = filterVendorNavGroups(vendorNavGroups(), role);
   const items = [...(scoped[0]?.items ?? [])];
 
   /*

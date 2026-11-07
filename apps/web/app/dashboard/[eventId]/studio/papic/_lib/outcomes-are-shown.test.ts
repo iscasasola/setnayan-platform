@@ -39,7 +39,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROUTE = resolve(HERE, '..');
 /*
   📷 THE PAPIC PAGE IS GONE (owner 2026-10-26: "place that on home and remove that page"). Its banners moved, unchanged,
-  to `papic-outcome-banners.tsx`, and every save lands on Home › Today with the card open (`papicHomeHref`), where Home
+  to `papic-outcome-banners.tsx`, and every save lands on Home › Today with the card open (`papicCardHref`), where Home
   hands its query to them. So `PAGE` is the banners file, and `HOME` is the page whose searchParams must carry each key.
 */
 const PAGE = readFileSync(join(ROUTE, '_components', 'papic-outcome-banners.tsx'), 'utf8');
@@ -95,8 +95,8 @@ function keysFromSource(src: string, targetsThisPage: boolean): string[] {
   // Stopping at the closing backtick/quote instead is safe in the same
   // direction the old class was: it can only under-match, never over-match.
   const keys = new Set<string>();
-  // 📷 Since 2026-10-26 the outcomes ride `papicHomeHref(eventId, `…`)` (and `withQuery(back, `…`)` where `back` is it).
-  const patterns = [/\/studio\/papic\?([^`'"]*)/g, /papicHomeHref\(eventId, `([^`]*)`/g];
+  // 📷 Since 2026-10-26 the outcomes ride `papicCardHref(eventId, `…`)` (and `withQuery(back, `…`)` where `back` is it).
+  const patterns = [/\/studio\/papic\?([^`'"]*)/g, /papicCardHref\(eventId, `([^`]*)`/g];
   if (targetsThisPage) patterns.push(/\$\{back\}\?([^`'"]*)/g, /withQuery\(back, `([^`]*)`/g);
   for (const m of patterns.flatMap((re) => [...src.matchAll(re)])) {
     for (const kv of m[1]!.split('&')) {
@@ -113,7 +113,7 @@ function outcomeKeys(): string[] {
   for (const name of readdirSync(ROUTE)) {
     if (!name.endsWith('actions.ts')) continue;
     const src = codeOnly(readFileSync(join(ROUTE, name), 'utf8'));
-    const targetsThisPage = /const back = papicHomeHref\(eventId\)/.test(src);
+    const targetsThisPage = /const back = papicCardHref\(eventId\)/.test(src);
     for (const k of keysFromSource(src, targetsThisPage)) keys.add(k);
   }
   return [...keys].sort();

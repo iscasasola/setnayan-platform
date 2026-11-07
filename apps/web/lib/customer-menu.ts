@@ -317,11 +317,12 @@ export function eventMenuRowClaims(r: EventMenuRow): string[] {
 }
 
 /**
- * THE FIVE, in the owner's order — Memories joined after Hub (owner 2026-10-23, the approved
- * `prototypes/event_bar_memories_tab_2026-10-23.html`: "Home · Guests · Suppliers · Hub · Memories").
+ * THE FIVE, in the owner's order — **Today · Guests · Suppliers · Memories · Hub** (BARS LOCKED 7 Nov 2026, THE ONE
+ * BUILD spec §9 #3; Memories joined after Hub 2026-10-23 and moved before it 2026-11-08). The first tab's WORD is
+ * Today; its key stays `home` (the route, the registry slots and the seen-marks all key on it).
  * `studio` stays in the list for an admin override that still names it; the tree never builds it.
  */
-const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio', 'memories'] as const;
+const PILLAR_ROWS = ['home', 'guests', 'explore', 'memories', 'launch', 'studio'] as const;
 
 /**
  * THE tree. Every event-menu surface reads this — the rail, the ☰ drawer and
@@ -356,7 +357,8 @@ export function buildEventMenuSections(
   // never nowhere. Where there is no Maker it also holds the pages the Maker would have.
   put({
     key: 'home',
-    label: 'Home',
+    // "Today" since 2026-11-08 (THE ONE BUILD: *"Home → Today"*) — the word only; the key and the route stay.
+    label: 'Today',
     href: base,
     icon: PILLAR_TAB_ICON.home,
     matchPrefix: '__home__',

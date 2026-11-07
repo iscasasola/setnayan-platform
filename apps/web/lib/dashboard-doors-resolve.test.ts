@@ -3,7 +3,7 @@
  *
  *   1 · Home's "One QR for everyone" (an event with no guest list — the QR IS the way in) opened `/event-qr`, which is the
  *       CREW's device-pairing code (`setnayan://crew-pair`, "For your photography + livestream crew").
- *   2 · The Crew page's "Print the poster" was `${papicHomeHref(id)}/crew/poster` = `/dashboard/X?papic=open#papic/crew/poster`
+ *   2 · The Crew page's "Print the poster" was `${papicCardHref(id)}/crew/poster` = `/dashboard/X?papic=open#papic/crew/poster`
  *       — the path landed inside the fragment and opened Home.
  *   3 · "Switch Papic on" (Home's day-of row, the guest card's "Turn on ›") opened `/details/field/papic-answer`, and the
  *       couple's Event Details redirects to Home's Event Settings sheet, which has no Papic row.
@@ -18,7 +18,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
-import { papicCrewPosterHref, papicHomeHref } from './papic-home-href';
+import { papicCrewPosterHref, papicCardHref } from './papic-home-href';
 import { COUPLE_RECORD_FIELD_FORWARD, coupleRecordFieldForward } from './record-field-couple-forward';
 import { isDetailsItemKey } from './maker-details-items';
 import { dayPapicView, type HomeService } from './home-first-screen';
@@ -73,23 +73,23 @@ test('the poster door is a real page', () => {
   assert.equal(papicCrewPosterHref(E).includes('#'), false);
 });
 
-test('nothing appends a PATH to a papicHomeHref value (it ends in ?papic=open#papic — a path after it opens Home)', () => {
+test('nothing appends a PATH to a papicCardHref value (it ends in ?papic=open#papic — a path after it opens Home)', () => {
   let assigned = 0;
   const offenders: string[] = [];
   for (const file of TREE) {
     const src = stripComments(read(file));
-    if (!src.includes('papicHomeHref(')) continue;
-    if (/\$\{\s*papicHomeHref\([^)]*\)\s*\}\//.test(src)) offenders.push(`${relative(WEB, file)} · \${papicHomeHref(…)}/…`);
-    for (const a of src.matchAll(/(?:const|let)\s+(\w+)\s*=\s*papicHomeHref\(/g)) {
+    if (!src.includes('papicCardHref(')) continue;
+    if (/\$\{\s*papicCardHref\([^)]*\)\s*\}\//.test(src)) offenders.push(`${relative(WEB, file)} · \${papicCardHref(…)}/…`);
+    for (const a of src.matchAll(/(?:const|let)\s+(\w+)\s*=\s*papicCardHref\(/g)) {
       assigned++;
       const name = a[1]!;
       if (new RegExp(`\\$\\{\\s*${name}\\s*\\}/`).test(src)) offenders.push(`${relative(WEB, file)} · \${${name}}/…`);
     }
   }
-  assert.ok(assigned >= 1, 'no papicHomeHref value is held in a variable anywhere — the sweep has gone blind');
+  assert.ok(assigned >= 1, 'no papicCardHref value is held in a variable anywhere — the sweep has gone blind');
   assert.deepEqual(offenders, [], `a path appended to Home's Papic address lands in its fragment:\n${offenders.join('\n')}`);
   // The sample the sweep is built for: Home's address really does carry a fragment.
-  assert.match(papicHomeHref(E), /#/);
+  assert.match(papicCardHref(E), /#/);
 });
 
 // ── 3 · Switch Papic on ────────────────────────────────────────────────────────────────────────────────────────────

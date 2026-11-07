@@ -11,8 +11,8 @@
  *     — Home · Guests · Suppliers · Hub (the Maker) · Memories. The Maker's
  *     tool panels follow the moment the Maker opens (`maker-tools.tsx`), its
  *     own code already on the phone;
- *   · a SHOP they own or staff → the SUPPLIER SET: Today · Customers · Shop ·
- *     Hub (the bar since 2026-10-21 — owner "Yes to all"), then Settings, the
+ *   · a SHOP they own or staff → the SUPPLIER SET: Today · Clients · Shop ·
+ *     Portfolio (the bar since THE ONE BUILD, 8 Nov 2026), then Settings, the
  *     room under the profile picture that took More's last rows;
  *   · both → both; only guest invitations → NOTHING.
  * Never an admin page, never a public page (a guest's invitation, the
@@ -22,7 +22,7 @@
 import { buildEventMenuSections, eventMenuRows, type EventMenuCtx } from '@/lib/customer-menu';
 
 /** The supplier bar, in its order (`vendor-nav-destinations.ts` — a client file; the test holds them equal). */
-export const SUPPLIER_BAR_ROUTES = ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shop', '/vendor-dashboard/on-the-day'] as const;
+export const SUPPLIER_BAR_ROUTES = ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shop', '/vendor-dashboard/collections'] as const;
 
 /** Settings — opened from the profile picture (`supplier-avatar-rows.ts`); it holds More tools since 2026-10-21. */
 export const SUPPLIER_SETTINGS_ROUTE = '/vendor-dashboard/settings';

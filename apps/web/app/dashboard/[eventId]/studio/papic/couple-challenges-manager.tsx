@@ -1,4 +1,4 @@
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref, type PapicCardSeat } from '@/lib/papic-home-href';
 import { PapicStayForm } from './_components/papic-stay-form';
 import { ChallengeRowSwipe } from './_components/challenge-row-swipe';
 import { ChallengeCardRow } from './_components/challenge-card-row';
@@ -183,8 +183,8 @@ export async function CoupleChallengesManager({
    * under one "Challenges" row that says how many are showing. The same read as the other two arms.
    */
   inCard?: boolean;
-  /** 🏠 'home' inside Home's card — every press lands back on Home. */
-  returnTo?: 'home' | null;
+  /** 🖼 The Papic card's seat ('memories' since 2026-11-08) when drawn inside it — every press lands back there. */
+  returnTo?: PapicCardSeat | null;
 }) {
   if (!papicGamesEnabled()) return null;
 
@@ -720,7 +720,7 @@ export async function CoupleChallengesManager({
 
           {!showingDefault ? (
             <Link
-              href={papicHomeHref(eventId)}
+              href={papicCardHref(eventId)}
               className="mt-3 inline-flex items-center gap-1 text-xs text-link underline underline-offset-2"
             >
               <X aria-hidden className="h-3 w-3" strokeWidth={2} />

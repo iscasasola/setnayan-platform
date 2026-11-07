@@ -91,10 +91,15 @@ export type VendorSeoLevel = 'basic' | 'enhanced' | 'aeo' | 'priority';
  *
  * Every plan earns Setnayan the same way — the booking fee — so nothing that
  * leads to a booking is rationed by plan any more:
- *   · bookings a day      — NO plan limit. The supplier's own daily-capacity
+ *   · bookings a day      — NO plan limit on a SHOP's day. The supplier's own daily-capacity
  *                           setting governs (`vendor_schedule_pools.
- *                           daily_booking_capacity`, DEFAULT 1, CHECK 1..50, and
- *                           the per-card `vendor_services.daily_capacity`).
+ *                           daily_booking_capacity`, DEFAULT 1, CHECK 1..50).
+ *                           ⚠ AMENDED 2026-11-06 for ONE CARD's day (owner, "BOOKINGS PER DATE PER
+ *                           SERVICE IS A PLAN ALLOWANCE": *"Solo has 1 per date/service, pro has 3 per
+ *                           date/service, ultra has 5 per date/service"*) — the per-card
+ *                           `vendor_services.daily_capacity` is capped by
+ *                           `TIER_CAPS[t].bookingsPerDatePerService`. Free/Verified: 1 each, like Solo
+ *                           (owner click 2026-11-06, "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED").
  *   · answering couples   — NO weekly limit, on any plan, Free included.
  *   · service cards       — SUPERSEDED 2026-11-04 (owner, "SUPPLIER PLAN ALLOWANCES": *"service cards free 1,
  *                           solo 3, pro 10, ultra unlimited"*). Cards per category are a plan allowance again —
@@ -407,10 +412,28 @@ export interface TierCaps {
    * Supersedes the flat per-vendor 1..3 setting.
    */
   waitlistAcceptances: number;
+  /**
+   * BOOKINGS PER DATE PER SERVICE CARD — the most bookings ONE service card may take on ONE date (owner 2026-11-06,
+   * DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: *"Solo has 1 per date/service, pro has 3
+   * per date/service, ultra has 5 per date/service"*). Solo 1 · Pro 3 · Ultra 5. Ultra may buy
+   * more, +1 at a time ({@link canBuyExtraBookingsPerDate}). FREE · VERIFIED: 1 each, like Solo (owner click
+   * 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": *"1 each, like Solo. Completes the
+   * allowance: Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5."*). Every plan now has a number; none is pending.
+   *
+   * A card's own "Bookings per day" (`vendor_services.daily_capacity`) may be LOWER, never higher; a blank card takes
+   * the plan's number.
+   *
+   * The SQL twin is `vendor_tier_limit(…,'bookings_per_date_per_service')`; the database refuses on it
+   * (`service_card_daily_limit`, read by `vendor_agree_to_lock`, `vendor_day_check` and
+   * `service_cards_unbookable_on`). Held in step by `vendor-plan-allowances.db.test.ts`. GRANDFATHERED: bookings a
+   * card already holds are never touched — only a NEW booking past the cap is refused.
+   */
+  bookingsPerDatePerService: number;
 }
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
+    bookingsPerDatePerService: 1, // owner click 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": 1, like Solo
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
     waitlistAcceptances: 0, // FREE: no waitlist (owner 2026-08-09)
     serviceRadiusKm: 0,
@@ -452,6 +475,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // cap and the 2-per-category edge are GONE (owner 2026-10-23, "plans price reach,
   // not income"): Solo is better on reach and tools, never on how much a shop may sell.
   verified: {
+    bookingsPerDatePerService: 1, // owner click 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": 1, like Solo
     // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
     // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
     // tiers and `verified` was the row the build had to invent. Asked directly, the
@@ -502,6 +526,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
+    bookingsPerDatePerService: 1, // owner 2026-11-06: "Solo has 1 per date/service"
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
     waitlistAcceptances: 0, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": 0 (was 1, owner 2026-08-09)
     serviceRadiusKm: 30, // owner 2026-10-23: Solo reaches 30 km (was 20) — Free·Verified 20 · Pro 100 · Ultra nationwide
@@ -538,6 +563,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   pro: {
+    bookingsPerDatePerService: 3, // owner 2026-11-06: "pro has 3 per date/service"
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS,
     waitlistAcceptances: 1, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3, owner 2026-08-09)
     serviceRadiusKm: 100, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "pro reach 100" (was 50)
@@ -584,6 +610,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // app 2026-11-06 — Ultra's add-ons are the way past Ultra.) Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
+    bookingsPerDatePerService: 5, // owner 2026-11-06: "ultra has 5 per date/service" — Ultra may buy +1 at a time
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
     waitlistAcceptances: 3, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)
     serviceRadiusKm: Infinity, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "ultra nationwide" (was 100)
@@ -692,6 +719,32 @@ export function canBuyExtraSeats(tier: string | null | undefined): boolean {
  * `vendor_additional_branch` catalogue price (`fetchBranchFeePhp`), never typed here.
  */
 export function canBuyExtraBranches(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
+
+/*
+ * ULTRA ADD-ONS (owner 2026-11-06, DECISION_LOG "ULTRA ADD-ON PRICES", verbatim: *"seat, branch + 990 / the rest is
+ * +199"*) — per 4 weeks, Ultra only. Each one raises ONE allowance by one per purchase; the
+ * price is the live `vendor_billing_catalog` row (lib/vendor-ultra-addons.ts), never typed here.
+ */
+
+/** May this tier buy +1 main category (`parentCategories`)? Ultra only. */
+export function canBuyExtraCategories(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
+
+/** May this tier buy +1 service card per category (`servicesPerLeaf`)? Ultra only. */
+export function canBuyExtraServiceCards(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
+
+/** May this tier buy +1 wait-list place per date (`waitlistAcceptances`)? Ultra only. */
+export function canBuyExtraWaitlist(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
+
+/** May this tier buy +1 booking per date per card (`bookingsPerDatePerService`)? Ultra only. */
+export function canBuyExtraBookingsPerDate(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'enterprise');
 }
 

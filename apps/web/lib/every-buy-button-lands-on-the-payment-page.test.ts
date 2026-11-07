@@ -34,6 +34,7 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const PAID_PATHS = [
   'app/vendor-dashboard/subscription/actions.ts', // the plan itself
   'app/vendor-dashboard/team/actions.ts', // extra seat
+  'app/vendor-dashboard/subscription/ultra-addon-actions.ts', // the four Ultra add-ons (owner 2026-11-06)
   'app/vendor-dashboard/branches/actions.ts', // additional branch (buy + renew)
   'app/vendor-dashboard/subscription/ai-addon-actions.ts', // Vendor AI
   'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth (28-day cycle)

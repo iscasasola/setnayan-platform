@@ -51,6 +51,7 @@
 /dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/selfie-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/shop-back-lab	# 2026-11-07 · internal (dev, prototypes) · the shop page back-door proof lab — a page nobody can reach without typing its address
 /dev/shop-layout-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-page-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -75,3 +76,4 @@
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/favorites-lab	# 2026-11-06 · internal (dev, prototypes) · the favorites proof lab — a page nobody can reach without typing its address
+/dev/inquire-lab	# 2026-11-07 · internal (dev, prototypes) · the shop page Inquire pop-up proof lab — a page nobody can reach without typing its address

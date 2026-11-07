@@ -10582,8 +10582,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/vendors",
-        "/v/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "coupleConfirmReceived",
@@ -11975,6 +11974,19 @@
         "StudioBuyHero"
       ]
     },
+    "/dev/inquire-lab": {
+      "files": [
+        "dev/inquire-lab/lab-sheet.tsx",
+        "dev/inquire-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "InquireSheet",
+        "LabInquireSheet",
+        "Wordmark"
+      ]
+    },
     "/dev/maker-lab": {
       "files": [
         "dev/maker-lab/lab-draft.ts",
@@ -12433,6 +12445,23 @@
         "FaceTaggingRow",
         "SelfieLab",
         "Suspense"
+      ]
+    },
+    "/dev/shop-back-lab": {
+      "files": [
+        "dev/shop-back-lab/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/dev/shop-back-lab?from=[seg]&plan=[seg]",
+        "/dev/shop-back-lab?plan=[seg]",
+        "/signup"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "Link",
+        "Wordmark"
       ]
     },
     "/dev/shop-layout-lab": {
@@ -14333,6 +14362,7 @@
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
+        "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/review-groups.tsx",
@@ -14354,18 +14384,15 @@
       "destinations": [
         "/",
         "/[seg]",
-        "/[seg]?reviewsPage=[seg]",
         "/dashboard",
-        "/explore",
-        "/login",
-        "/signup",
-        "/v/[seg]/booth",
-        "/v/[seg]/dates"
+        "/dashboard/[seg]/messages/[seg]",
+        "/login"
       ],
       "actions": [
         "joinVendorWaitlist"
       ],
       "blocks": [
+        "ActionButton",
         "AddShopToEventState",
         "AddToEvent",
         "AnonInquiryComposer",
@@ -14373,12 +14400,14 @@
         "AxisStat",
         "CardRecordSection",
         "CheckADateLink",
+        "ChosenRow",
         "ComingSoonBanner",
         "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
         "FilterChip",
+        "FormRows",
         "GuestAtEventPill",
         "GuestReviewItem",
         "GuestReviewsGroup",
@@ -14387,6 +14416,7 @@
         "HTMLDivElement",
         "Image",
         "InfoTip",
+        "InquireSheet",
         "InquiryComposer",
         "Link",
         "LockPackageModal",
@@ -14424,8 +14454,10 @@
         "SmallStars",
         "StarRow",
         "StartServiceInquiryResult",
+        "Step",
         "StorytellerTile",
         "SubmitButton",
+        "SwitchRow",
         "TeamPreviewBanner",
         "TilePhoto",
         "TrackRecord",
@@ -14450,9 +14482,7 @@
         "v/[slug]/booth/booth-showcase-loader.tsx",
         "v/[slug]/booth/page.tsx"
       ],
-      "destinations": [
-        "/v/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "BoothMesh",
@@ -14474,9 +14504,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages/[seg]",
-        "/login",
-        "/v/[seg]",
-        "/v/[seg]/dates"
+        "/login"
       ],
       "actions": [],
       "blocks": [

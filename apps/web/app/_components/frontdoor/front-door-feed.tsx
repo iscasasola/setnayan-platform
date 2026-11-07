@@ -30,6 +30,7 @@
  * "Your people" (a signed-in narrowing to stories from people you know) is
  * retired with the chip bar — there is no filter left to attach it to.
  */
+import { SHOP_ARRIVAL_SRC, withShopArrival } from '@/lib/shop-back';
 import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -268,7 +269,9 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
 
 function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
   return (
-    <Link href={s.href} className="fd-item">
+    /* 🧭 `?src=discover` — the shop page's "Back" returns HERE, to Discover (lib/shop-back.ts; owner 2026-11-07, "back to
+       suppliers? it went to a wrong shell"). Without it the shop could not tell Discover from a shared link. */
+    <Link href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.discover })} className="fd-item">
       <div className="fd-thumb fd-thumb-shop">
         {/*
           A plain <img>, NOT next/image, and that is deliberate. An r2:// logo

@@ -7,6 +7,8 @@ import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 import { setHelpMessageStatus } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { reportOriginWords } from '@/lib/supplier-report';
+
 export const metadata = { title: 'Help inbox · Admin' };
 
 type HelpMessageRow = {
@@ -24,6 +26,12 @@ type HelpMessageRow = {
   created_at: string;
   submitter_vendor_tier: VendorTier | null;
   priority_rank: number | null;
+  /** 🚩 A supplier Report's origin (THE ONE BUILD §5.4, migration 20271325290605) — null on every /help message. */
+  origin_vendor_profile_id: string | null;
+  origin_event_id: string | null;
+  origin_page: string | null;
+  origin_shop: { business_name: string | null } | null;
+  origin_event: { display_name: string | null; event_date: string | null } | null;
 };
 
 // Chip tone per vendor tier — paid tiers get progressively louder so the
@@ -59,7 +67,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
   let query = admin
     .from('help_messages')
     .select(
-      'message_id,public_id,user_id,sender_email,sender_name,topic,subject,body,status,admin_notes,resolved_at,created_at,submitter_vendor_tier,priority_rank',
+      'message_id,public_id,user_id,sender_email,sender_name,topic,subject,body,status,admin_notes,resolved_at,created_at,submitter_vendor_tier,priority_rank,origin_vendor_profile_id,origin_event_id,origin_page,origin_shop:vendor_profiles!origin_vendor_profile_id(business_name),origin_event:events!origin_event_id(display_name,event_date)',
     )
     // Priority support: paid vendors (enterprise>pro>solo>verified/free) float
     // above non-vendor requests; within a priority band, freshest first.
@@ -74,7 +82,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
   if (error) {
     logQueryError('AdminHelpPage (help_messages)', error);
   }
-  const items = (data ?? []) as HelpMessageRow[];
+  const items = (data ?? []) as unknown as HelpMessageRow[];
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
@@ -122,6 +130,24 @@ export default async function AdminHelpPage({ searchParams }: Props) {
                     {m.public_id} · {m.topic ?? 'no-topic'} · {m.created_at.slice(0, 10)}
                   </p>
                   <p className="text-sm font-semibold text-ink">{m.subject}</p>
+                  {m.origin_vendor_profile_id ? (
+                    <p className="text-xs text-ink/70" data-help-report-origin>
+                      Report from{' '}
+                      <a href={`/admin/vendors/${m.origin_vendor_profile_id}`} className="text-mulberry hover:underline">
+                        {m.origin_shop?.business_name ?? 'a shop'}
+                      </a>
+                      {m.origin_event_id ? (
+                        <>
+                          {' · '}
+                          <a href={`/admin/events/${m.origin_event_id}`} className="text-mulberry hover:underline">
+                            {m.origin_event?.display_name ?? 'an event'}
+                            {m.origin_event?.event_date ? ` (${m.origin_event.event_date})` : ''}
+                          </a>
+                        </>
+                      ) : null}
+                      {m.origin_page ? ` · ${reportOriginWords(m.origin_page)}` : ''}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-ink/60">
                     From{' '}
                     <a

@@ -57,6 +57,7 @@ export async function addQuestion(formData: FormData) {
     .from('vendor_questions')
     .select('display_order')
     .eq('vendor_profile_id', profile.vendor_profile_id)
+    .is('form_id', null)
     .order('display_order', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -92,6 +93,7 @@ export async function updateQuestion(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('question_id', questionId)
+    .is('form_id', null)
     .select('question_id');
   if (error || !data || data.length === 0) back({ error: 'Could not update that question.' });
 
@@ -110,6 +112,7 @@ export async function toggleQuestionAsked(formData: FormData) {
     .from('vendor_questions')
     .update({ is_asked: next, updated_at: new Date().toISOString() })
     .eq('question_id', questionId)
+    .is('form_id', null)
     .select('question_id');
   if (error || !data || data.length === 0) back({ error: 'Could not change that question.' });
 

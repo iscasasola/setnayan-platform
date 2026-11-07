@@ -96,7 +96,8 @@ export async function ScriptTab({
     supabase
       .from('vendor_questions')
       .select('question_id, vendor_profile_id, prompt, hint, is_asked, display_order')
-      .eq('vendor_profile_id', vendorProfileId),
+      .eq('vendor_profile_id', vendorProfileId)
+      .is('form_id', null),
     supabase
       .from('event_question_answers')
       .select('event_id, question_id, answer, updated_at')

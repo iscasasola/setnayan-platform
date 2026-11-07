@@ -59,6 +59,7 @@ export async function sendQuestionsToEvent(
     .from('vendor_questions')
     .select('question_id')
     .eq('vendor_profile_id', profile.vendor_profile_id)
+    .is('form_id', null)
     .eq('is_asked', true);
   if (askedError) return { status: 'error', message: 'We couldn’t read your questions. Please try again.' };
   const count = (asked ?? []).length;

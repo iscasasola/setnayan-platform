@@ -44,6 +44,7 @@ import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability
 import { parseCoordPair } from '@/lib/parse-coord';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
+import { SHOP_NAME_MAX, SHOP_NAME_TOO_LONG, shopNameTooLong } from '@/lib/business-slug';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 
@@ -423,7 +424,11 @@ export async function updateVendorProfileField(
       break;
     }
     case 'business_name': {
-      const v = nonBlank(formData.get('business_name'), 128);
+      // 📏 50 AT MOST (owner 2026-11-06) — refused, never clipped: read the whole box first.
+      if (shopNameTooLong(nonBlank(formData.get('business_name'), Number.MAX_SAFE_INTEGER))) {
+        return { ok: false, error: SHOP_NAME_TOO_LONG };
+      }
+      const v = nonBlank(formData.get('business_name'), SHOP_NAME_MAX);
       // Required field — never let an inline edit blank it (the publish gate
       // depends on it). Reject rather than write ''.
       if (!v) return { ok: false, error: 'Shop name is required.' };
@@ -797,6 +802,10 @@ export async function requestProfileCorrection(
   const note = nullIfBlank(formData.get('note'));
   if (!requestedValue && !note) {
     return { ok: false, error: 'Tell us what the value should be.' };
+  }
+  // 📏 A rename asked for past 50 could never be applied (owner 2026-11-06) — say so now, not after review.
+  if (fieldKey === 'business_name' && shopNameTooLong(requestedValue)) {
+    return { ok: false, error: SHOP_NAME_TOO_LONG };
   }
 
   // Own profile + a display snapshot of the current value for the admin queue.

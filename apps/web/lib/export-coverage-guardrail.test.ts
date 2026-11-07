@@ -384,6 +384,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'reason, not because the table exists.',
   reveal_studio_config: 'Platform Reveal Studio configuration — updated_by_admin_id is a staff actor.',
   site_widgets: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  form_templates:
+    'Admin-authored "Suggested for your service" form templates — updated_by is a staff actor; a template holds no user’s data.',
   platform_compliance_facts:
     'Setnayan’s OWN PIC/DPO compliance record (singleton row) — updated_by is a staff actor; the personal data in it is Setnayan’s officers, disclosed on /privacy, not a user’s.',
   platform_expenses: 'Setnayan’s own books — created_by is the staff member who logged the expense.',

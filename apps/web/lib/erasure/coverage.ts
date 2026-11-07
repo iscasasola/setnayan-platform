@@ -702,6 +702,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',
   },
   {
+    table: 'form_templates',
+    column: 'updated_by',
+    why: 'Which admin last saved a "Suggested for your service" form template. Platform content; the template stays, the clerk goes.',
+  },
+  {
     table: 'platform_compliance_facts',
     column: 'updated_by',
     why: 'Which admin last saved Setnayan’s own DPO/NPC registration facts. A singleton config row with a staff stamp.',

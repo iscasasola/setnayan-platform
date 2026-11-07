@@ -111,6 +111,11 @@ test('"Send your documents" opens Today\'s documents step — not Shop ⚙ › V
   assert.match(folds, /anchor=\{`setup-\$\{f\.key\}`\}/, 'Today\'s folds carry anchor setup-<key>');
   const setup = stripComments(readFileSync(join(process.cwd(), 'lib/supplier-setup.ts'), 'utf8'));
   assert.match(setup, /key: 'docs',\s*n: 5,\s*title: 'Send your documents'/, 'step 5 is keyed docs');
+  // The banner is a server component and ActionButton a client one: its icon must cross as an element, never a
+  // component (a function) — that 500'd the page in the lab before this line existed.
+  const banner = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/_components/team-preview-banner.tsx'), 'utf8'));
+  assert.doesNotMatch(banner, /^'use client'/m, 'still a server component');
+  assert.doesNotMatch(banner, /icon=\{[A-Z]\w*\}/, 'icon passed as a component across the client boundary');
   // …and the rendered banner carries it.
   const html = renderToStaticMarkup(React.createElement(TeamPreviewBanner, { reason: 'documents' }));
   assert.match(html, /<a\b[^>]*href="\/vendor-dashboard#setup-docs"/);

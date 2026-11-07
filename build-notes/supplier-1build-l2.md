@@ -18,7 +18,17 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 - Payment and Hub are booked-only menu pages (v113 `miniKeys`).
 
 ## Done pages (+ screenshots)
-(none yet)
+- Picked client (flag ON): `PickedClientShell` over the still-mounted Clients list (intercept `customers/@client`),
+  9-page menu (Payment/Hub booked-only), page switch = replaceState (0 requests), open rises from the row (520 ms),
+  close = the same frames reversed, reduced motion 120 ms fade, Esc/✕. Guards: `the-picked-client-has-nine-pages`,
+  `customers/the-picked-client-opens-over-the-list` (sabotaged once each). Proved in browser: NOT YET.
+- Details (partial, shipped parts relocated): ask answers · date-change/removal answers (`client-desk-answers.tsx`) ·
+  badges · Open their event · stage strip · THREE NUMBERS (`details-numbers.ts`; guard
+  `no-all-paid-without-a-booking.test.ts`) · next-move card (desktop only) · Hosts (typed stub) · fee panel · access
+  ask · completion · brief · couple answers. NOT YET in v113 order: Suppliers · Decisions · Forms sent rows.
+- Schedule: shipped schedule + the Script fold at its end (`?tab=script` scrolls there). v113 re-order NOT done.
+- Clients: tab title + sr-only h1 say "Clients"; Auto-reply in Clients ⚙ (guard
+  `customers/the-auto-reply-lives-in-clients-settings.test.ts`); list rows record their origin for the motion.
 
 ## NEEDS FROM OTHER LANES
 - C1: DONE BY L2 (spec §3.2 — only L2 edits `overview-sections.tsx`): `DateChangeBody` + `DeleteRequestBody` are now

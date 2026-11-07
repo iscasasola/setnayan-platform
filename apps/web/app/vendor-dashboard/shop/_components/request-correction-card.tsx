@@ -10,6 +10,7 @@ import {
   type VendorCorrectionRequestRow,
 } from '@/lib/vendor-corrections';
 import { requestProfileCorrection } from '../../actions';
+import { SHOP_NAME_MAX } from '@/lib/business-slug';
 
 /**
  * My Shop → "Something here is wrong?" — the vendor's way to ASK.
@@ -208,6 +209,7 @@ export function RequestCorrectionCard({
               onChange={(e) =>
                 setValue(isAddress ? e.target.value.toLowerCase() : e.target.value)
               }
+              maxLength={field === 'business_name' ? SHOP_NAME_MAX : undefined}
               placeholder={isAddress ? 'banaweflorals' : ''}
               className={`input-field w-full text-sm ${isAddress ? 'font-mono' : ''}`}
             />

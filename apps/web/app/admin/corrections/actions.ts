@@ -22,6 +22,7 @@ import {
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+import { SHOP_NAME_MAX, SHOP_NAME_TOO_LONG } from '@/lib/business-slug';
 // /admin/corrections actions — resolution path for the request-a-correction
 // queue (verified vendors' locked identity fields, owner 2026-07-02).
 //
@@ -50,7 +51,9 @@ function parseRequestedValue(
   switch (field) {
     case 'business_name': {
       if (!trimmed) fail('Shop name can’t be blank — decline instead.');
-      return trimmed.slice(0, 128);
+      // 📏 50 AT MOST (owner 2026-11-06) — refused, never clipped: a clipped name is one nobody asked for.
+      if (trimmed.length > SHOP_NAME_MAX) fail(`${SHOP_NAME_TOO_LONG} Decline it instead.`);
+      return trimmed;
     }
     case 'business_owner_name':
     case 'hq_address':

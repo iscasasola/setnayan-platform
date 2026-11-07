@@ -207,6 +207,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'guests-sort': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
   'suppliers-segments': 'app/dashboard/[eventId]/vendors/_components/services-takeover.tsx',
   'suppliers-category': 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
+  'suppliers-inspiration': 'app/dashboard/[eventId]/vendors/_components/find-inspiration.tsx',
   'suppliers-add-own': 'app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx',
   'library-event': 'app/dashboard/(account)/library/_components/memories-chapters.tsx',
   'library-show': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',

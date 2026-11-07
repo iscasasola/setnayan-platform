@@ -1022,6 +1022,26 @@ function CouldNotLoad() {
   );
 }
 
+/**
+ * 💡 THE INSPIRATION BOARD ALONE — Suppliers › Find's "Your inspiration board" sheet (owner 2026-10-28, "INSPIRATION
+ * LIVES IN SUPPLIERS › FIND", reorg R5). The SAME read (`buildMoodBoard`, cached) and the SAME shipped `InspirationBoard`
+ * with its own upload / gallery actions — moved, not redrawn. Its heading is the sheet's.
+ */
+export async function InspirationBoardBody({ eventId }: { eventId: string }) {
+  const board = await buildMoodBoard(eventId, false);
+  if (!board.ok) return <CouldNotLoad />;
+  const parts = await getInspirationParts();
+  return (
+    <InspirationBoard
+      eventId={eventId}
+      initial={board.studio.inspirations}
+      gallerySlots={gallerySlotKeys(parts)}
+      fetchGalleryAction={fetchGalleryAssets}
+      applyGalleryAction={applyGalleryPick}
+    />
+  );
+}
+
 /** The Mood Board as its own page — for everyone the Maker is not for. */
 export async function MoodBoardEditor({ eventId }: { eventId: string }) {
   const board = await buildMoodBoard(eventId, false);

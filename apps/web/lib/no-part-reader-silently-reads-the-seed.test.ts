@@ -29,6 +29,7 @@ const MAY_NAME_THE_SEED: Readonly<Record<string, string>> = {
   'lib/inspiration-parts-seed.ts': 'the seed IS generated from the consts',
   'lib/moodboard-finalization.ts': 'a module-load STRUCTURAL assert over two code maps — it runs before any request exists',
   'app/dev/supplier-lab/page.tsx': 'dev lab — reaches no database',
+  'app/dev/suppliers-lab/inspiration-fixtures.ts': 'dev lab — reaches no database (the inspiration box on fixtures, `?insp=`)',
   'app/dev/supplier-lab/library-lab-server.ts': 'dev lab — reaches no database',
   'app/dev/details-lab/details-lab-node.tsx': 'dev lab — reaches no database (the-mood-board-lab-cannot-reach-the-database.test.ts)',
   'app/dev/categories-lab/page.tsx': 'dev lab (404 in production) — signed out, the parts read is refused, so the lab draws the seed and says so on the page',

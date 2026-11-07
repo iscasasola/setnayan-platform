@@ -50,6 +50,11 @@ Branch `claude/supplier-1build-c4`, cut from `origin/claude/supplier-1build-base
 - **Controller (generated, regenerate on the merged tree):** `scripts/port-control-baseline.json` — `/vendor-dashboard/shop`
   deliberately no longer shows `<CompletenessRing>`, `<HeroCard>`, `<ShopDoorSection>`, `<ShopSegments>` (v113: their
   controls are on the cover, the two rows and Shop ⚙) · `lib/ugat/screens.generated.json` (stale — new doors/sheets).
+- **Controller (generated)** `scripts/port-control-baseline.json` also: `/vendor-dashboard/collections` deliberately no longer
+  shows `<OpenFoldButton>` (Add photos is the thumb row's ＋, same `#gallery-media` fold) and `<ShopSegments>` (Portfolio is
+  its own bar tab with its own pinned row + ⚙).
+- **L1 (`lib/menu-settings.ts`)**: C4 added the `portfolio` ENTRY (its file, spec §9 #12) and, so it compiles before
+  `-foundation`, the one word `| 'portfolio'` on `SettingsMenu` — if foundation adds the same word, keep one.
 - **Base reds (not C4's — red on untouched `origin/claude/supplier-1build-base`):** `lib/export-coverage-guardrail.test.ts`
   (T12 vendor_profiles export projection) · `lib/shop-name-hold.test.ts` (claim_ready_the_shop).
 

@@ -120,7 +120,7 @@ export function PortfolioView({
 
       {/* The band */}
       <div ref={bandRef} className="rounded-b-3xl px-4 pb-5 pt-5 text-white" style={{ background: 'linear-gradient(160deg, #6b5536 0%, #3b3026 70%)' }} data-portfolio-top="">
-        <p className="text-[11.5px] font-medium uppercase tracking-[0.18em] text-white/80">Portfolio · all your media</p>
+        <p className="text-[13px] font-medium text-white/80">Portfolio · all your media</p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-[30px] font-semibold leading-[1.1]">
           {n(photos, 'photo', 'photos')} · {n(videoLinks, 'video link', 'video links')}
         </h1>

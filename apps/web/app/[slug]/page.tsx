@@ -60,6 +60,7 @@ import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUserMeasured } from '@/lib/guest-membership-session';
 import { guestAccountState, guestAnswersRead, moreAnswersOf, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
+import { YourNumberCard } from './_components/your-number-card';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
@@ -2549,6 +2550,8 @@ async function invitationBody({
     {seatPassActive ? (
       <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
     ) : null}
+    {/* 🎟 The same "Your number" card Live carries, on Me (supplier scan prototype frame E). */}
+    <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} className="mb-6" />
     <GuestMe
       plain={me.inMe}
       name={

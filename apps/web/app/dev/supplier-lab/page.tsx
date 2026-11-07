@@ -61,6 +61,10 @@
  *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=event-hub      🧭 the supplier's Event Hub (the live page, v13 frame, `event-hub-lab.tsx`): &view=day|scanner|announce
  *                     · &state=moved|skipped (the run of show after a Change the schedule, 2026-11-04)
+ *                     🎟 &scan=on|two|fresh|unread the supplier claim scanner · &answer=claimed|already|souvenir-desk|not|
+ *                     nosignal|name its result line (2026-11-04)
+ *   ?s=scan-guest     🎟 the guest's "Your number #0042" card (&two=1) · ?s=scan-couple the couple's Suppliers' scans
+ *                     (&state=empty|unread) — `scan-lab.tsx`
  *   ?s=schedule       🤝 the supplier's part of the schedule (Step 4b, `schedule-lab.tsx`): + My moment · My times · Suggest ·
  *                     Take back · Seen · Confirm my times; &state=week|confirmed|auto|seen|unlinked|fail · 🏛 venue|held (venue hours) · 🚗 clash|clashfail
  *   ?s=crew-phone     📱 the crew phone (`hub-lab.tsx` CrewPhoneLab): &state=name|waiting|member|helper|helper-shop|ended
@@ -104,6 +108,7 @@ import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { CrewPhoneLab, HubLab } from './hub-lab';
 import { EventHubLab } from './event-hub-lab';
+import { ScanLab } from './scan-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
@@ -321,7 +326,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string; place?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; place?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -361,7 +366,11 @@ export default async function SupplierLabPage({
   }
   if (q.s === 'event-hub') {
     /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
-    return wrap(<EventHubLab view={q.view} state={q.state} />, 'own');
+    return wrap(<EventHubLab view={q.view} scan={q.scan} answer={q.answer} state={q.state} />, 'own');
+  }
+  if (q.s === 'scan-guest' || q.s === 'scan-couple') {
+    /* 🎟 The supplier claim scanner's guest card and the couple's list (2026-11-04) — `scan-lab.tsx`; &two=1 · &state=… */
+    return <ScanLab side={q.s === 'scan-couple' ? 'couple' : 'guest'} two={q.two} state={q.state} />;
   }
   if (q.s === 'crew-phone') {
     /* 📱 The crew phone's screens (owner 2026-10-29) — no shell: crew never see the supplier's frame. */

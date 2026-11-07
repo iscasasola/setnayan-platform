@@ -13,7 +13,12 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
-import { TEAM_PREVIEW_COPY, TEAM_PREVIEW_HEAD, type ShopPreviewReason } from '@/lib/own-shop-preview';
+import {
+  TEAM_PREVIEW_COPY,
+  TEAM_PREVIEW_HEAD,
+  TODAY_DOCUMENTS_STEP_HREF,
+  type ShopPreviewReason,
+} from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
 
 // tsx compiles the component's JSX to `React.createElement` (classic runtime) — give it the global it expects.
@@ -83,12 +88,35 @@ test('the banner, rendered: the owner\'s line, what couples wait on, and one 44 
     const copy = TEAM_PREVIEW_COPY[reason];
     assert.ok(html.includes(TEAM_PREVIEW_HEAD), reason);
     assert.ok(html.includes(copy.line.replace(/'/g, '&#x27;')), `${reason}: ${html}`);
-    const anchor = html.match(/<a\b[^>]*>([^<]*)<\/a>/);
+    const anchor = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/);
     assert.ok(anchor, `${reason}: the button`);
-    assert.ok(anchor[0].includes(`href="${copy.action.href}"`), `${reason}: the next step's address`);
-    assert.match(anchor[0], /class="[^"]*\bmin-h-11\b/, `${reason}: 44 px`);
-    assert.equal(anchor[1], copy.action.label, `${reason}: the button's words`);
+    const open = anchor[0].match(/^<a\b[^>]*>/)![0];
+    assert.ok(open.includes(`href="${copy.action.href.replace(/&/g, '&amp;')}"`), `${reason}: the next step's address`);
+    assert.match(open, /class="[^"]*\bmin-h-11\b/, `${reason}: 44 px`);
+    // 🧡 The house forward step — BUTTON_RULE's terracotta main pill, never the old black ink block (owner 2026-11-07).
+    assert.match(open, /class="[^"]*\bab ab-brand ab-main\b/, `${reason}: ActionButton tone="brand" main`);
+    assert.doesNotMatch(open, /\bbg-ink\b/, `${reason}: not the black button`);
+    assert.match(anchor[0], new RegExp(`<span class="lbl">${copy.action.label}</span>`), `${reason}: the button's words`);
     assert.ok(html.includes(`data-team-preview="${reason}"`), reason);
     assert.equal((html.match(/<a\b/g) ?? []).length, 1, 'one next step, not a menu');
   }
+});
+
+test('"Send your documents" opens Today\'s documents step — not Shop ⚙ › Verification (owner 2026-11-07)', () => {
+  assert.equal(TEAM_PREVIEW_COPY.documents.action.label, 'Send your documents');
+  assert.equal(TEAM_PREVIEW_COPY.documents.action.href, '/vendor-dashboard#setup-docs');
+  assert.equal(TEAM_PREVIEW_COPY.documents.action.href, TODAY_DOCUMENTS_STEP_HREF);
+  // The anchor is the fold Today actually draws: `anchor={`setup-${f.key}`}` over the step keyed 'docs'.
+  const folds = stripComments(readFileSync(join(process.cwd(), 'app/vendor-dashboard/_components/supplier-setup-folds.tsx'), 'utf8'));
+  assert.match(folds, /anchor=\{`setup-\$\{f\.key\}`\}/, 'Today\'s folds carry anchor setup-<key>');
+  const setup = stripComments(readFileSync(join(process.cwd(), 'lib/supplier-setup.ts'), 'utf8'));
+  assert.match(setup, /key: 'docs',\s*n: 5,\s*title: 'Send your documents'/, 'step 5 is keyed docs');
+  // The banner is a server component and ActionButton a client one: its icon must cross as an element, never a
+  // component (a function) — that 500'd the page in the lab before this line existed.
+  const banner = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/_components/team-preview-banner.tsx'), 'utf8'));
+  assert.doesNotMatch(banner, /^'use client'/m, 'still a server component');
+  assert.doesNotMatch(banner, /icon=\{[A-Z]\w*\}/, 'icon passed as a component across the client boundary');
+  // …and the rendered banner carries it.
+  const html = renderToStaticMarkup(React.createElement(TeamPreviewBanner, { reason: 'documents' }));
+  assert.match(html, /<a\b[^>]*href="\/vendor-dashboard#setup-docs"/);
 });

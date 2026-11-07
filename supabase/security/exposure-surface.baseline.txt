@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7187
+# facts: 7188
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     598
-#   col       5216
+#   col       5217
 #   policy    1048
 #   view      9
 #   func      312
@@ -757,6 +757,7 @@ col	public.booking_fee_ledger.cap_reached_at	anon=- authenticated=SIU
 col	public.booking_fee_ledger.created_at	anon=- authenticated=SIU
 col	public.booking_fee_ledger.event_id	anon=- authenticated=SIU
 col	public.booking_fee_ledger.fee_paid_total_centavos	anon=- authenticated=SIU
+col	public.booking_fee_ledger.free_booking_withheld_reason	anon=- authenticated=SIU
 col	public.booking_fee_ledger.highest_declared_centavos	anon=- authenticated=SIU
 col	public.booking_fee_ledger.is_free_booking	anon=- authenticated=SIU
 col	public.booking_fee_ledger.launch_offer	anon=- authenticated=SIU

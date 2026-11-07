@@ -18,6 +18,7 @@ import { notFound } from 'next/navigation';
 import { Send } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { inquireServiceList, NO_SERVICES_LINE } from '@/lib/shop-inquire';
+import { formatCount } from '@/lib/format-number';
 import { LabInquireSheet } from './lab-sheet';
 
 const SERVICES = [
@@ -72,7 +73,8 @@ export default async function InquireLabPage({
       <section className="px-4 pt-6">
         <h1 className="text-2xl font-semibold text-ink">{name}</h1>
         <p className="mt-1 text-sm text-ink/60">
-          {cardCount} active card{cardCount === 1 ? '' : 's'} · {services.length - cardCount} provided · {signedIn ? `signed in · ${events.length} event${events.length === 1 ? '' : 's'}` : 'signed out'}
+          {formatCount(cardCount)} active card{cardCount === 1 ? '' : 's'} · {formatCount(services.length - cardCount)} provided ·{' '}
+          {signedIn ? `signed in · ${formatCount(events.length)} event${events.length === 1 ? '' : 's'}` : 'signed out'}
         </p>
         <div className="flex flex-wrap items-center gap-2 pt-4">
           <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2" data-lab-inquire="">

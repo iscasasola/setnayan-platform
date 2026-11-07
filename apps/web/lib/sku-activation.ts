@@ -15,11 +15,7 @@ import {
   vendorProfileIdFromSeatServiceKey,
   extraSeatsFromPaidCount,
 } from '@/lib/vendor-seats';
-import {
-  customPlanTargetFromServiceKey,
-  selectActivatableCustomPlan,
-} from '@/lib/vendor-custom-catalog';
-import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
+import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
@@ -1863,12 +1859,11 @@ async function recomputeVendorExtraSeats(
 /**
  * SEC-4b · THE ORDER MUST OWN WHAT IT PROVISIONS.
  *
- * The four `vendor_*__<id>` hooks below read their TARGET out of the service_key
+ * The `vendor_*__<id>` hooks below read their TARGET out of the service_key
  * string and act on it. Nothing downstream ever asked whether the ORDER belongs
  * to the vendor that owns that target — so an order minted from any other
  * surface (couple checkout, a comp grant, a hand-inserted row) could settle a
- * stranger's booking fee, activate a stranger's branch, or promote a stranger's
- * Custom plan.
+ * stranger's booking fee or activate a stranger's branch.
  *
  * This resolves the OWNING vendor of the target and compares it with the order's
  * own `vendor_profile_id`. Couple-side checkout pins that column to NULL, so a
@@ -1879,8 +1874,8 @@ async function recomputeVendorExtraSeats(
  * Its sibling — `isVendorSurfaceServiceKey` in couple checkout (landed
  * separately) — only guards ONE door, and what actually blocks that door today
  * is SEC-7's pricing refusal rather than the guard itself. This check holds for
- * every origin, including ones with no pricing step at all: a comp grant, an
- * admin-minted bespoke order from /admin/custom-plans, or any future minter.
+ * every origin, including ones with no pricing step at all: a comp grant, a
+ * hand-inserted row, or any future minter.
  *
  * THROWS rather than returning false. The dispatcher's catch logs it and leaves
  * the order recoverable (an admin can refund) — which is the right outcome:
@@ -2095,7 +2090,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
       if (!branchId) return;
       // SEC-4b: the paying order must belong to the branch's parent vendor.
       await assertOrderOwnsVendorTarget(ctx, await branchOwnerVendorId(ctx, branchId));
-      // ── 🚨 THIS RESET THE WINDOW TOO — same defect as the Custom hook ─────
+      // ── 🚨 THIS RESET THE WINDOW — a renewal must extend, never reset ─────
       // It wrote `now + 28 days` with no read of what the branch already had, so
       // renewing early THREW AWAY the remaining days: 20 days left plus a
       // renewal gave 28 from today, not 48. Same class, same harm, and it
@@ -2109,8 +2104,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // 🔑 THE BRANCH ROW HAS NO EXPIRY COLUMN — the window lives on
       // `orders.expires_at`, and `deriveBranchStatus` reads the LATEST order to
       // decide active/expired. So "what it already had" must be read from that
-      // same place, or the two disagree. Shares `customPlanExpiryFrom` with the
-      // Custom path: identical semantics, one implementation.
+      // same place, or the two disagree. `extendedExpiryFrom` (lib/term-extends.ts)
+      // is the one implementation of "a purchase extends".
       const { data: priorOrder } = await ctx.admin
         .from('orders')
         .select('expires_at')
@@ -2122,10 +2117,10 @@ const PREFIX_HOOKS: ReadonlyArray<{
       const priorExpiry = Date.parse(
         (priorOrder as { expires_at?: string | null } | null)?.expires_at ?? '',
       );
-      const expiresAt = customPlanExpiryFrom(
+      const expiresAt = extendedExpiryFrom(
         Date.now(),
         Number.isFinite(priorExpiry) ? priorExpiry : null,
-        '28d',
+        28,
       );
       await ctx.admin
         .from('vendor_branches')
@@ -2169,182 +2164,6 @@ const PREFIX_HOOKS: ReadonlyArray<{
           service_key: ctx.serviceKey,
           vendor_profile_id: vendorProfileId,
           extra_agent_seats: paidSeats,
-        },
-      });
-    },
-  },
-  {
-    // 'vendor_custom_plan__{vendor_profile_id}' → PROVISION the negotiated
-    // Custom tier (owner-signed §11). When the admin approves the quote payment,
-    // flip the vendor to tier_state='custom' + promote THE PLAN THIS ORDER PAID
-    // FOR to 'active' so the effective-caps overlay (lib/vendor-effective-caps.ts)
-    // reads the composed ceilings. The one-active-plan unique index (WHERE
-    // status='active') means a stale prior active row must be demoted first — so
-    // this idempotently retires every OTHER active plan for the org to 'lapsed',
-    // then activates this order's plan.
-    //
-    // BINDING (security): the order has no custom_plan_id FK and the plan's
-    // composition is mutated in place, so the OLD "most-recently-updated
-    // non-terminal row" selection let a vendor pay a CHEAP quote and receive the
-    // row's latest (expensive) composition, or bind to a stale already-active
-    // plan. selectActivatableCustomPlan binds on the price the order was quoted
-    // at (a plan is activatable only when its CURRENT quoted_28d_php matches the
-    // paid amount AND it is in a payable, not-yet-live state), and we REFUSE
-    // (throw → order stays recoverable) rather than provision the wrong plan.
-    // Idempotent: a prior 'service_activated' ledger row for this order
-    // short-circuits, so a re-approval (whose plan is now 'active', not a
-    // payable candidate) is a safe no-op instead of a spurious refusal.
-    match: (serviceKey) => customPlanTargetFromServiceKey(serviceKey) !== null,
-    run: async (ctx) => {
-      const target = customPlanTargetFromServiceKey(ctx.serviceKey);
-      if (!target) return;
-      const { vendorProfileId, term } = target;
-      // SEC-4b: the key names the vendor directly — the order must be theirs.
-      await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
-
-      // (0) Idempotency — already activated this order? (Lets us exclude 'active'
-      //     from the candidate set below without turning a re-approval into a
-      //     spurious "no matching plan" refusal.)
-      const { data: prior } = await ctx.admin
-        .from('order_ledger')
-        .select('order_id')
-        .eq('order_id', ctx.orderId)
-        .eq('event_type', 'service_activated')
-        .limit(1)
-        .maybeSingle();
-      if (prior) return;
-
-      // (1) The amount THIS order paid — the invariant the order pins.
-      const { data: order } = await ctx.admin
-        .from('orders')
-        .select('confirmed_total_php, requested_total_php')
-        .eq('order_id', ctx.orderId)
-        .maybeSingle();
-      const amountPhp = Number(
-        (order as { confirmed_total_php?: number | string | null } | null)?.confirmed_total_php ??
-          (order as { requested_total_php?: number | string | null } | null)?.requested_total_php ??
-          0,
-      );
-
-      // (2) Candidate plans — payable OR already-active rows for the org. Bind by
-      //     price (selectActivatableCustomPlan) among the PAYABLE ones; the
-      //     'active' rows are read only to recognise an already-provisioned order
-      //     (crash-recovery below), never to (re)activate.
-      const { data: candidates } = await ctx.admin
-        .from('vendor_custom_plans')
-        .select('custom_plan_id, status, quoted_28d_php, updated_at')
-        .eq('vendor_profile_id', vendorProfileId)
-        .in('status', ['quoted', 'pending_payment', 'active'])
-        .order('updated_at', { ascending: false });
-      const candidateRows = Array.isArray(candidates) ? candidates : [];
-      const targetId = selectActivatableCustomPlan(candidateRows, amountPhp, term);
-      if (!targetId) {
-        // Crash-recovery no-op: if the org already holds an ACTIVE plan priced at
-        // this order's amount, a prior run provisioned it but its final ledger
-        // write did not land (so the idempotency guard above didn't fire). The
-        // entitlement is already correct → treat as done rather than throwing a
-        // false "no matching plan" alarm. (This RECOGNISES an already-active plan
-        // by price; it never activates one — selectActivatableCustomPlan still
-        // refuses 'active' rows.)
-        const alreadyActive = candidateRows.some(
-          (c) =>
-            c.status === 'active' &&
-            Number.isFinite(Number(c.quoted_28d_php)) &&
-            Math.abs(Number(c.quoted_28d_php) - amountPhp) < 0.5,
-        );
-        if (alreadyActive) return;
-        // No plan matches this order's paid amount → do NOT provision a wrong
-        // plan. Throw so the order stays 'paid' + recoverable (Sentry-alerted by
-        // the dispatcher's outer catch); an admin reconciles the mismatch.
-        throw new Error(
-          `vendor_custom_plan: no payable plan for supplier ${vendorProfileId} matches the paid amount ${amountPhp}`,
-        );
-      }
-
-      // Stamp the Custom tier + lapse anchor FIRST — before touching the plan
-      // rows. tier_expires_at = the 28-day window end (also written to the order
-      // below). ORDERING IS A RACE GUARD: the lapse sweep (sweep_vendor_tier_expiry,
-      // fired post-response on dashboard load) and this hook are NOT in one
-      // transaction. Writing the fresh FUTURE expiry first means a concurrently-
-      // firing sweep sees a not-past-due tier and no-ops, instead of demoting the
-      // plan we are about to promote. The gate (lib/enterprise-vendor-gate.ts) +
-      // the sweep both read tier_expires_at, so a paid Custom tier now auto-lapses
-      // on non-renewal like Pro/Enterprise. (The comp lever activateCustomPlan
-      // intentionally leaves this NULL = never lapses — white-glove deals; do NOT
-      // copy this stamp there.)
-      // ── 🚨 THIS USED TO RESET THE TERM, AND IT WAS A REAL DEFECT ──────────
-      // It read `new Date(Date.now() + 28 days)` and wrote that STRAIGHT OVER
-      // `tier_expires_at` — no read of the existing value, no GREATEST. A Custom
-      // shop who renewed early lost every remaining day, and the earlier they
-      // renewed the more they lost: the good customer paid the price.
-      //
-      // 🔑 IT WAS MISSED BECAUSE THE FIX EXISTED ON THE OTHER PATH. The three
-      // ordinary tiers renew through `_apply_subscription_credit`, whose live
-      // body has always carried
-      //   GREATEST(now(), COALESCE(tier_expires_at, now())) + period_days
-      // and reading THAT is what produced a false all-clear for Custom — even
-      // though Custom provably never calls it. **A fix on a sibling path is not
-      // a fix on this one**, however similar the two look.
-      //
-      // Owner 2026-08-27: *"subscription will only extend their plans for an
-      // additional 28 days … or 1 year."* Both halves are honoured here: only
-      // two terms exist, and a purchase EXTENDS.
-      const { data: profileRow } = await ctx.admin
-        .from('vendor_profiles')
-        .select('tier_expires_at')
-        .eq('vendor_profile_id', vendorProfileId)
-        .maybeSingle();
-      const existingExpiry = Date.parse(
-        (profileRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? '',
-      );
-      const expiresAt = customPlanExpiryFrom(
-        Date.now(),
-        Number.isFinite(existingExpiry) ? existingExpiry : null,
-        term,
-      );
-      const { error: tierErr } = await ctx.admin
-        .from('vendor_profiles')
-        .update({ tier_state: 'custom', tier_expires_at: expiresAt })
-        .eq('vendor_profile_id', vendorProfileId);
-      if (tierErr) {
-        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
-      }
-
-      // Demote any OTHER active plan for the org so the one-active unique index
-      // never conflicts (only touches rows that are NOT our target).
-      await ctx.admin
-        .from('vendor_custom_plans')
-        .update({ status: 'lapsed', updated_at: new Date().toISOString() })
-        .eq('vendor_profile_id', vendorProfileId)
-        .eq('status', 'active')
-        .neq('custom_plan_id', targetId);
-
-      // Promote the target to active LAST — after the future expiry is committed,
-      // so a racing sweep (now disarmed by that future expiry) can never strand
-      // this freshly-activated plan.
-      const { error: planErr } = await ctx.admin
-        .from('vendor_custom_plans')
-        .update({ status: 'active', updated_at: new Date().toISOString() })
-        .eq('custom_plan_id', targetId);
-      if (planErr) {
-        throw new Error(`vendor_custom_plan activation write failed: ${planErr.message}`);
-      }
-
-      await ctx.admin
-        .from('orders')
-        .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
-        .eq('order_id', ctx.orderId);
-
-      await appendLedger(ctx.admin, {
-        order_id: ctx.orderId,
-        event_type: 'service_activated',
-        actor_user_id: ctx.actorUserId,
-        actor_role: 'admin',
-        metadata: {
-          service_key: ctx.serviceKey,
-          vendor_profile_id: vendorProfileId,
-          custom_plan_id: targetId,
-          tier_state: 'custom',
         },
       });
     },

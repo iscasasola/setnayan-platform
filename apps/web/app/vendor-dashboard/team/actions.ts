@@ -133,7 +133,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
   // Tier seat cap (Vendor_Tier_Capability_Matrix): count every member beyond
   // the founding admin (vendor_profiles.user_id) against the plan's seat
   // allowance — additional admins consume a seat just like agents do. Effective
-  // cap = the tier's base agentAccounts + any paid extra seats (Enterprise/Custom
+  // cap = the tier's base agentAccounts + any paid extra seats (Ultra
   // ₱250/28d add-on, owner 2026-07-02; 0 for every other tier).
   // A plan with 0 seats is a PAYWALL, so it goes through the one flag-aware
   // allowance — while VENDOR_TIER_FEATURE_GATE is off, the entry plan's seats.
@@ -398,7 +398,7 @@ export async function cancelAdminMotion(formData: FormData) {
   return back('saved=1');
 }
 
-// ── Extra team seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ──
+// ── Extra team seats (Ultra ₱250/28d add-on · owner 2026-07-02) ──
 
 /** 'SN' + 8 uppercase hex — matches the couple checkout + branch reference format. */
 function generateSeatReferenceCode(): string {
@@ -414,7 +414,7 @@ function generateSeatReferenceCode(): string {
 }
 
 /**
- * Buy one extra team seat beyond the tier's base cap. Enterprise/Custom-only
+ * Buy one extra team seat beyond the tier's base cap. Ultra-only
  * (the base ladder tops out at 10; extra seats are the paid escape valve).
  * Apply-then-pay: an `orders` row keyed `vendor_extra_seat__{vendor_profile_id}`
  * + a pending `payments` row so it lands in /admin/payments. On admin approval
@@ -448,7 +448,7 @@ export async function buyExtraSeat(formData: FormData) {
   // authenticates and resolves `ctx.vendorProfileId` from a `vendor_team_members`
   // row where user_id = the caller AND role IN ('admin','owner') — server
   // resolved, never client-supplied — and `canBuyExtraSeats(ctx.tierState)` is
-  // the Enterprise/Custom gate. Both ids handed to `orderRowFor` come from
+  // the Ultra gate. Both ids handed to `orderRowFor` come from
   // there, so a form field can never reach an identity column.
   const moneyWriter = createMoneyWriterClient();
 

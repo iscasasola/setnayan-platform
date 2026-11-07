@@ -44,7 +44,7 @@ export type DeepSearchRunnerProps = {
   planAsks: boolean;
   /** Resolved price is ₱0 (Pro+ with the free allowance unused this cycle). */
   isFreeNow: boolean;
-  /** Does this tier get a free search per cycle at all (Pro/Ent/Custom)? */
+  /** Does this tier get a free search per cycle at all (Pro/Ultra)? */
   hasFreeAllowance: boolean;
   /** Standing per-search price (₱500) from the admin-managed catalog. */
   pricePhp: number;

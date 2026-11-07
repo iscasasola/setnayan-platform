@@ -16,7 +16,7 @@
  * WHY: a flat 5% with no cap made large bookings punitive (₱1M → ₱50,000) and
  * re-opened the large-ticket under-declaration incentive the old ₱4,000 cap had
  * been bought to close. The 1% tail softens the top instead. Deals above ~₱3–5M
- * route to Enterprise/Custom hand-pricing rather than the automatic formula.
+ * route to hand-pricing rather than the automatic formula.
  *
  * ⚠ The taper is a DISCOUNT, never a surcharge: continuous at ₱100,000 (₱5,000
  * either way) and monotonic, so under-declaring can never pay. Both properties

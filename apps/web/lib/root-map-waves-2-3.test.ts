@@ -157,7 +157,6 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', /\{MAX_PER_TYPE\} photos/],
     ['app/vendor-dashboard/performance/_components/inquiry-handling-card.tsx', /\$\{REPLY_SPREAD_PCT\}% within/],
     ['app/onboarding/_shared/date-calendar.tsx', /\$\{MAXSPAN \+ 1\} days/],
-    ['app/admin/custom-plans/_components/custom-composer.tsx', /CUSTOM_BASE\.seats\)\} seats included/],
     // The AI family's own discount card (and its "10% floor" sentence) was removed by the
     // one-sign-up-discount change (d18); the one card left quotes the floor by name.
     ['app/admin/pricing/_components/signup-discount-card.tsx', /min=\{PAPIC_DISCOUNT_FLOOR_PCT\}/],

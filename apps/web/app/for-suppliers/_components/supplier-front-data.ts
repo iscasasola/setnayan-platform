@@ -56,7 +56,7 @@ function reach(km: number, nationwide = 'nationwide'): string {
 export function planPill(t: VendorTier | null): string {
   if (t === null || t === 'free') return 'Free';
   if (t === 'verified') return 'Verified';
-  if (t === 'enterprise' || t === 'custom') return planName('enterprise');
+  if (t === 'enterprise') return planName('enterprise');
   return `${planName(t)}+`;
 }
 

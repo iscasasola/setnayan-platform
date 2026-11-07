@@ -104,7 +104,6 @@
   "app/vendor-dashboard/services/[serviceId]/page.tsx": 1,
   "app/vendor-dashboard/services/new/[category]/page.tsx": 1,
   "app/vendor-dashboard/services/new/page.tsx": 1,
-  "app/vendor-dashboard/subscription/custom/page.tsx": 1,
   "app/vendor/claim/[token]/finalize/page.tsx": 1
  },
  "hex": {
@@ -285,6 +284,8 @@
   "app/dev/supplier-lab/page-lab.tsx": 5,
   "app/dev/suppliers-lab/lab-stage.tsx": 1,
   "app/download/_download-motion.tsx": 5,
+  "app/for-suppliers/_components/vendor-grow-hero.tsx": 1,
+  "app/for-suppliers/_components/vendor-grow-sections.tsx": 4,
   "app/global-error.tsx": 5,
   "app/live/page.tsx": 14,
   "app/live/screen/page.tsx": 6,
@@ -371,7 +372,6 @@
   "app/admin/completions/page.tsx": 2,
   "app/admin/compliance/_components/compliance-form.tsx": 7,
   "app/admin/connection-logs/connection-logs-client.tsx": 6,
-  "app/admin/custom-plans/_components/custom-composer.tsx": 9,
   "app/admin/demand/page.tsx": 6,
   "app/admin/demo-vendors/_components/demo-vendor-actions.tsx": 16,
   "app/admin/editorial-review/[editorialId]/page.tsx": 19,
@@ -463,7 +463,6 @@
   "app/vendor-dashboard/notifications/push-toggle.tsx": 1,
   "app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx": 1,
   "app/vendor-dashboard/packages/_components/package-editor.tsx": 2,
-  "app/vendor-dashboard/proposals/surface.tsx": 1,
   "app/vendor-dashboard/recommendations/_panel.tsx": 5,
   "app/vendor-dashboard/services/_components/customization-step.tsx": 2,
   "app/vendor-dashboard/theft-watch/page.tsx": 7,
@@ -498,7 +497,6 @@
   "app/admin/budget-planner/page.tsx": 1,
   "app/admin/categories/_components/ask-prefill.tsx": 2,
   "app/admin/categories/_components/prepared-job-card.tsx": 1,
-  "app/admin/custom-plans/_components/custom-composer.tsx": 1,
   "app/admin/disputes/page.tsx": 3,
   "app/admin/force-majeure/page.tsx": 1,
   "app/admin/gifts/page.tsx": 2,
@@ -580,7 +578,6 @@
   "app/vendor-dashboard/packages/_components/package-editor.tsx": 1,
   "app/vendor-dashboard/partnerships/page.tsx": 3,
   "app/vendor-dashboard/payment-options/_components/add-payment-method.tsx": 1,
-  "app/vendor-dashboard/performance/_components/service-scope-select-client.tsx": 1,
   "app/vendor-dashboard/proposals/surface.tsx": 4,
   "app/vendor-dashboard/recommendations/_panel.tsx": 2,
   "app/vendor-dashboard/reviews/page.tsx": 1,
@@ -590,7 +587,6 @@
   "app/vendor-dashboard/services/_components/service-wizard.tsx": 1,
   "app/vendor-dashboard/services/_components/services-manager.tsx": 1,
   "app/vendor-dashboard/shop/_components/request-correction-card.tsx": 1,
-  "app/vendor-dashboard/shop/_components/voice-match-card.tsx": 3,
-  "app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx": 1
+  "app/vendor-dashboard/shop/_components/voice-match-card.tsx": 3
  }
 }

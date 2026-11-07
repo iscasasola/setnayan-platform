@@ -387,15 +387,6 @@ export const getVendorPrices = cache(async () => {
   // The extra team seat Ultra may buy (owner 2026-11-04 price sheet) — the row the seat order CHARGES
   // (`SEAT_SKU_CODE`, lib/vendor-seats.ts). /for-suppliers lists it beside the branch as Ultra's add-ons.
   const seat = price(SEAT_SKU_CODE);
-  // The Custom tier's "from" floor. It WAS being typed into
-  // app/_components/home/vendor-benefits.ts on the stated grounds that Custom
-  // "is not a DB catalog SKU (Custom is composed per plan)" — untrue:
-  // `vendor_custom_base` is an active row, and it is the number that was typed.
-  // ⚠ NO PESO FALLBACK, deliberately, unlike the tier fields above. A "from"
-  // price that silently reverts to a stale literal is how the /vendors label,
-  // the matrix header and the matrix's own regex fallback ended up as three
-  // copies of one number. Unreadable → null → the surface omits the figure.
-  const customBase = price('vendor_custom_base');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
   // ⚠ NO TYPED PRICE ANYWHERE BELOW, and that is the point of this block. Every
   // figure used to carry a hand-typed fallback ("₱1,000", "₱10,400", …, nine of
@@ -423,8 +414,6 @@ export const getVendorPrices = cache(async () => {
     enterpriseAnnualSave: save(entMo, entYr),
     branch: fmt(branch),
     seat: fmt(seat),
-    /** `null` when unreadable — callers render the bare label, never a guess. */
-    customFrom: customBase == null ? null : `₱${formatPeso(customBase)}`,
     tokenUnit: fmt(tokenUnit),
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     // `null` = unreadable: the Offer is omitted, never priced from a guess.

@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * vendor-3d-booth-pricing.ts — 3D Booth add-on pricing + entitlement helpers.
  *
  * Owner-locked 2026-07-22: 3D Booth is a FLAT ₱1,500 / 28-day add-on on the
- * PRO / ENTERPRISE / CUSTOM tiers (verified only), FREE for the vendor's FIRST
+ * PRO / ENTERPRISE tiers (verified only), FREE for the vendor's FIRST
  * cycle (one-time per account). When active, the vendor's booth renders BRANDED
  * (logo + poster) inside their couples' PUBLISHED 3D Plans; without it a
  * Pro/Enterprise vendor keeps the existing GENERIC (unbranded) booth. It is

@@ -778,6 +778,11 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const rolled = \(r: VRow\) =>\s*\(agreedTotalNow\(/, 1]],
     column: 4,
   },
+  'lib/claim-door.server.ts': {
+    what: 'the claim door — the price the couple recorded, shown to the supplier they invited',
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/peso\(agreedTotalNow\(r\.total_cost_php, r\.change_lines\)\)/, 1]],
+    column: 4,
+  },
   'lib/thread-decision-sources.server.ts': {
     what: 'Decisions — "₱50,000 of ₱X", both sides of the thread',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/\[b\.vendor_id, agreedTotalNow\(b\.total_cost_php, b\.change_lines\)\]/, 1]],

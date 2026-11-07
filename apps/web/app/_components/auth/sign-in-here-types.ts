@@ -14,4 +14,10 @@ export type OpenSignInOptions = {
    * pressed, so the four presses in the prototype are four presses here.
    */
   onSignedIn?: () => void;
+  /**
+   * 🪟 THE THIRD PANE (owner 2026-11-06, the supplier sign-up redesign: "on tablet and desktop a pop-up is a THIRD
+   * PANE on the right, never floating; on the phone it is the bottom sheet"). The same card in the shipped
+   * `SidePanel` (`size="wide"`, `phone="sheet"`) instead of the centred overlay. Default: the overlay, as before.
+   */
+  pane?: boolean;
 };

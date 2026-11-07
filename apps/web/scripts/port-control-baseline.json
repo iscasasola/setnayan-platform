@@ -4879,6 +4879,7 @@
     "/admin/verify": {
       "files": [
         "admin/verify/_components/deep-search-chat.tsx",
+        "admin/verify/_components/shared-phone-note.tsx",
         "admin/verify/actions.ts",
         "admin/verify/loading.tsx",
         "admin/verify/page.tsx"
@@ -4930,6 +4931,7 @@
         "PageMasthead",
         "PillLink",
         "PillTrack",
+        "SharedPhoneNote",
         "SlaBadge",
         "SlotDetail",
         "SlotDocuments",
@@ -5524,6 +5526,7 @@
     "/dashboard/(account)/profile": {
       "files": [
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
+        "dashboard/(account)/profile/_components/profile-identity-tile.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
         "dashboard/(account)/profile/face-profile-actions.ts",
@@ -5562,7 +5565,6 @@
       "blocks": [
         "ConfirmForm",
         "Field",
-        "FileUpload",
         "FormFlash",
         "FormPageSkeleton",
         "GroupHeader",
@@ -5574,6 +5576,8 @@
         "PillButton",
         "PillTrack",
         "PrefixSelect",
+        "ProfileIdentityTile",
+        "ProfilePhotoField",
         "ProfileShareButton",
         "PushToggle",
         "RestorePurchasesRow",
@@ -12120,6 +12124,18 @@
         "SimpleSetupFlow"
       ]
     },
+    "/dev/open-shop-lab": {
+      "files": [
+        "dev/open-shop-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AddYourLogo",
+        "ClaimDoor",
+        "OpenShopWizard"
+      ]
+    },
     "/dev/papic-camera-lab": {
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",
@@ -12213,6 +12229,16 @@
         "MakerContext.Provider",
         "ProPartsBody",
         "ProQuietLine"
+      ]
+    },
+    "/dev/profile-photo-lab": {
+      "files": [
+        "dev/profile-photo-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ProfileIdentityTile"
       ]
     },
     "/dev/questions-lab": {
@@ -13367,31 +13393,58 @@
       "files": [
         "open-shop/_components/address-preview.tsx",
         "open-shop/_components/city-pin.tsx",
+        "open-shop/_components/claim-door.tsx",
+        "open-shop/_components/event-tiles.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
+        "open-shop/_components/phone-field.tsx",
+        "open-shop/_components/plan-sheet.tsx",
+        "open-shop/_components/service-cards.tsx",
         "open-shop/_components/service-picker.tsx",
+        "open-shop/_components/services-at-events.tsx",
+        "open-shop/_components/taken-sign-in.tsx",
+        "open-shop/_components/use-stale-build.ts",
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
+        "open-shop/claim-actions.ts",
         "open-shop/page.tsx"
       ],
       "destinations": [
+        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
       "actions": [
-        "becomeVendor"
+        "becomeVendor",
+        "declineAction",
+        "finishClaimDoor",
+        "submit"
       ],
       "blocks": [
+        "ActionButton",
         "AddressCheck",
         "AddressPreview",
+        "Box",
+        "Card",
+        "CategoryTiles",
         "CityPin",
+        "ClaimDoor",
+        "Count",
         "DesktopOAuthButtons",
         "DetectedCity",
-        "FileUpload",
+        "Draft",
+        "EventTile",
+        "EventTiles",
+        "Fill",
         "FirstRunBrand",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
+        "Icon",
+        "Image",
+        "InfoTip",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",
@@ -13399,13 +13452,48 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "Page2",
         "PasswordField",
+        "PhoneField",
         "PickMenu",
+        "PlanBody",
+        "PlanInline",
+        "PlanPane",
+        "PlanSheet",
+        "ServiceCards",
         "ServicePicker",
+        "ServicesAtEvents",
+        "Sheet",
         "SignInHereLink",
+        "Specialties",
+        "SpecialtiesBar",
+        "SpecialtyPicks",
         "Step",
         "SubmitButton",
-        "TurnstileField"
+        "SwipeToDelete",
+        "T",
+        "TakenSignIn",
+        "TurnstileField",
+        "UndoToastHost"
+      ]
+    },
+    "/open-shop/logo": {
+      "files": [
+        "open-shop/logo/_components/add-your-logo.tsx",
+        "open-shop/logo/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "AddYourLogo",
+        "FieldSaveResult",
+        "FileUpload",
+        "FirstRunBrand",
+        "LogoFrame",
+        "PictureFrameControl"
       ]
     },
     "/our-story": {
@@ -14049,11 +14137,11 @@
         "AccountNameCheck",
         "AccountNameField",
         "DisplayNameField",
-        "FileUpload",
         "FirstRunBrand",
         "FormRows",
         "Link",
         "PrefixSelect",
+        "ProfilePhotoField",
         "RequiredRowsHold",
         "SubmitButton",
         "TypedRow",
@@ -14675,6 +14763,7 @@
         "SetupOfferFold",
         "Sheet",
         "ShopBadgePill",
+        "SidePanel",
         "Sk",
         "Spotlight",
         "SpotlightMount",
@@ -16717,6 +16806,8 @@
         "Link",
         "LockedIdentityFieldKey",
         "LockedLine",
+        "LogoFrame",
+        "LogoRowControl",
         "ManpowerSurface",
         "MenuSettingsButton",
         "OneOpenScope",
@@ -16724,6 +16815,7 @@
         "PairCard",
         "PaperSide",
         "PickMenu",
+        "PictureFrameControl",
         "Pill",
         "Pin",
         "PinFigures",

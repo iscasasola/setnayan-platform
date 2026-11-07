@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7177
+# facts: 7183
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     596
-#   col       5210
+#   col       5216
 #   policy    1046
 #   view      9
 #   func      312
@@ -4436,8 +4436,11 @@ col	public.users.name_search	anon=S authenticated=SU
 col	public.users.name_suffix	anon=S authenticated=SU
 col	public.users.phone	anon=S authenticated=SU
 col	public.users.planner_mode	anon=S authenticated=SU
+col	public.users.profile_focal_x	anon=S authenticated=SU
+col	public.users.profile_focal_y	anon=S authenticated=SU
 col	public.users.profile_photo_url	anon=S authenticated=SU
 col	public.users.profile_view_count	anon=S authenticated=SU
+col	public.users.profile_zoom	anon=S authenticated=SU
 col	public.users.public_greeting_opt_in	anon=S authenticated=SU
 col	public.users.public_id	anon=S authenticated=SU
 col	public.users.public_profile_enabled	anon=S authenticated=SU
@@ -5205,7 +5208,10 @@ col	public.vendor_profiles.is_supplier_vendor	anon=- authenticated=SIU
 col	public.vendor_profiles.last_demoted_at	anon=- authenticated=SIU
 col	public.vendor_profiles.last_verified_at	anon=- authenticated=SIU
 col	public.vendor_profiles.location_city	anon=S authenticated=SIU
+col	public.vendor_profiles.logo_focal_x	anon=- authenticated=SIU
+col	public.vendor_profiles.logo_focal_y	anon=- authenticated=SIU
 col	public.vendor_profiles.logo_url	anon=S authenticated=SIU
+col	public.vendor_profiles.logo_zoom	anon=- authenticated=SIU
 col	public.vendor_profiles.max_soft_holds_per_date	anon=- authenticated=SIU
 col	public.vendor_profiles.max_waitlist_acceptances	anon=- authenticated=SIU
 col	public.vendor_profiles.microsite_about	anon=- authenticated=SIU

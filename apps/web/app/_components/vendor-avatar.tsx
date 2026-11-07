@@ -12,11 +12,16 @@
  * server-side) — a raw `r2://` ref will not render, so pass the resolved URL or
  * null. Decorative (`aria-hidden`): the business name is always adjacent text.
  */
+import { logoFrameStyle, type LogoFrame } from '@/lib/open-shop-logo';
+
 export function VendorAvatar({
   logoUrl,
   initials,
   className,
+  frame = null,
 }: {
+  /** The logo's frame (owner 7 Nov, A3 — `vendor_profiles.logo_focal_x` / `logo_focal_y` / `logo_zoom` via `readLogoFrame`). */
+  frame?: LogoFrame | null;
   /** Presigned/display URL of the uploaded logo, or null to fall back. */
   logoUrl: string | null;
   /** 2-letter fallback initials (deriveVendorInitials). */
@@ -34,7 +39,7 @@ export function VendorAvatar({
         {/* Presigned R2 URL — next/image can't optimize short-lived signed
             URLs, so this follows the FileUpload thumbnail pattern. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+        <img src={logoUrl} alt="" className="h-full w-full object-cover" style={logoFrameStyle(frame)} />
       </span>
     );
   }

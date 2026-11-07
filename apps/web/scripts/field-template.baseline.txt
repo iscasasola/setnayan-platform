@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 323 files · 761 boxes
+# 323 files · 759 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -255,7 +255,7 @@
 2 apps/web/app/onboarding/wedding/_components/wedding-venues.tsx
 1 apps/web/app/open-shop/_components/address-preview.tsx
 2 apps/web/app/open-shop/_components/city-pin.tsx
-5 apps/web/app/open-shop/_components/open-shop-wizard.tsx
+3 apps/web/app/open-shop/_components/open-shop-wizard.tsx
 2 apps/web/app/panood/control/[eventId]/_components/venue-screens-section.tsx
 10 apps/web/app/panood/control/[eventId]/page.tsx
 2 apps/web/app/papic/decorate/_components/kwento-decorator.tsx

@@ -51,6 +51,7 @@ import { MutualDays } from '@/app/u/_components/mutual-days';
 import { ProfileBack } from '@/app/u/_components/profile-back';
 import { formatCount } from '@/lib/format-number';
 import { readProfileViewer, relationLine, viewerKnowsThem, type ProfileViewer } from '@/lib/profile-viewer';
+import { pictureFrameStyle, readProfilePhotoFrame } from '@/lib/picture-frame';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -592,7 +593,7 @@ export default async function AccountProfilePage({ params }: Props) {
           <span className="uprof-avatar" aria-hidden>
             {photoSrc ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={photoSrc} alt="" className="uprof-avatar-img" decoding="async" />
+              <img src={photoSrc} alt="" className="uprof-avatar-img" decoding="async" style={pictureFrameStyle(readProfilePhotoFrame(user))} />
             ) : (
               <span className="uprof-avatar-initials">{initialsFor(heading)}</span>
             )}

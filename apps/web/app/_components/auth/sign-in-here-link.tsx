@@ -40,9 +40,12 @@ export function SignInHereLink({
   className,
   children,
   title,
+  pane = false,
 }: {
   /** Where the press goes with no JavaScript / no panel mounted. */
   href?: string;
+  /** Open as the third pane (SidePanel · sheet on a phone) instead of the centred overlay — see `OpenSignInOptions`. */
+  pane?: boolean;
   className?: string;
   children: React.ReactNode;
   title?: string;
@@ -81,7 +84,7 @@ export function SignInHereLink({
         // new tab, new window, download, or a non-primary button.
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
-        openSignIn();
+        openSignIn(pane ? { pane: true } : undefined);
       }}
     >
       {children}

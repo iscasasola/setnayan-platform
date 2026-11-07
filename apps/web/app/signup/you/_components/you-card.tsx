@@ -12,7 +12,8 @@
  */
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { FileUpload } from '@/app/_components/file-upload';
+import { ProfilePhotoField } from '@/app/_components/profile-photo-field';
+import { readProfilePhotoFrame } from '@/lib/picture-frame';
 import { PRESENCE_MARKERS } from '@/lib/profile-personal-info-patch';
 import {
   FORMAL_NAME_FIELDS,
@@ -33,6 +34,9 @@ export type YouCardMe = {
   slug?: string | null;
   phone?: string | null;
   profile_photo_url?: string | null;
+  profile_focal_x?: number | null;
+  profile_focal_y?: number | null;
+  profile_zoom?: number | null;
   account_type?: string | null;
   public_summary_consent_at?: string | null;
 } & Partial<Record<FormalNameField, string | null>>;
@@ -100,17 +104,14 @@ export function YouCard({
                 thing you press — beside plain words, drawn whole by the upload widget (`row`); the Display
                 name takes the full width underneath. Replaces a 96 px column the widget's 160 px circle
                 spilled out of, into the name box beside it. */}
-            <FileUpload
-              bucket="media"
-              pathPrefix={`profile-photo/${userId}`}
-              name="profile_photo_url"
-              unsavedHint="press Done below"
-              currentValue={storedPhoto}
+            {/* 🖼 …and under the photo row, its align + zoom: the ONE control the shop logo uses (owner
+                2026-11-06: "yes, use the same control"). It posts with Done, like the photo. */}
+            <ProfilePhotoField
+              userId={userId}
+              storedPhoto={storedPhoto}
               initialDisplayUrls={photoDisplayMap}
-              maxSizeMB={2}
-              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-              variant="square"
-              roundPreview
+              frame={readProfilePhotoFrame(me)}
+              unsavedHint="press Done below"
               help="Optional"
               row={{
                 title: 'Your photo',

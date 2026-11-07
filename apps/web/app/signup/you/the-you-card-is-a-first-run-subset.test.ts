@@ -18,7 +18,10 @@ const strip = stripComments;
 // The card's claims are read across BOTH, so the split cannot hide one.
 const PAGE_ONLY = strip(readFileSync('app/signup/you/page.tsx', 'utf8'));
 const CARD = strip(readFileSync('app/signup/you/_components/you-card.tsx', 'utf8'));
-const PAGE = `${PAGE_ONLY}\n${CARD}`;
+// 🖼 The photo upload is drawn by `ProfilePhotoField` (the photo + the logo's align/zoom control, owner 2026-11-06),
+// so what it posts is read there — only while the card mounts it.
+const PHOTO_FIELD = /<ProfilePhotoField\b/.test(CARD) ? strip(readFileSync('app/_components/profile-photo-field.tsx', 'utf8')) : '';
+const PAGE = `${PAGE_ONLY}\n${CARD}\n${PHOTO_FIELD}`;
 const ACTIONS = strip(readFileSync('app/signup/you/actions.ts', 'utf8'));
 const FIELD = strip(readFileSync('app/signup/you/_components/account-name-field.tsx', 'utf8'));
 // The Display name is its own Field-template row (`TypedRow`, 1 Nov 2026) — its post name is read there.

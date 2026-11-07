@@ -66,7 +66,15 @@ import { fileURLToPath } from 'node:url';
 // seat's `buyExtraSeat` is seat-only and keeps its team-page contract), and the only unimported exports left are the
 // two kept on purpose above. No fresh `vercel build` count for this +1 — the SUM is gated by
 // check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1230;
+// 1229 → 1231 (2026-11-07, supplier sign-up #7351): the claim door's finish (`finishClaimDoor`, one action for
+// the couple / auto-share / admin claim) is the one real new action. The second +1 is this script counting
+// `export const dynamic` in app/dev/open-shop-lab/page.tsx, because that lab holds an inline 'use server' stand-in.
+// No unimported action was found to un-export. The production build measured 1835 routes on 2026-11-07,
+// 165 under check-vercel-route-count's ceiling of 2000, so there is room for these two.
+// Both of those were raised separately from 1229 (+1 Ultra add-ons on main, +2 the sign-up's claim door on #7351).
+// MEASURED on their merge (2026-11-07): 1229 — other merges removed exports meanwhile (main alone measured 1227,
+// #7351's tip 1228), so the ceiling is set to the count that exists, not to the sum of the two raises.
+export const CEILING = 1229;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

@@ -38,21 +38,21 @@ test('signed out with everything present → create the account with the shop', 
 
 test('a short password is refused ON STEP 3, with the same sentence /signup uses', () => {
   const d = decideOpenShopAccount({ ...base, password: 'short' });
-  assert.deepEqual(d, { kind: 'refuse', step: 3, error: OPEN_SHOP_ACCOUNT_ERRORS.password });
+  assert.deepEqual(d, { kind: 'refuse', step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.password });
   assert.equal(OPEN_SHOP_PASSWORD_MIN, 8);
   // The floor is the SAME as /signup's `password.length < 8`; a 7 is refused, an 8 passes.
   assert.equal(decideOpenShopAccount({ ...base, password: '1234567' }).kind, 'refuse');
   assert.equal(decideOpenShopAccount({ ...base, password: '12345678' }).kind, 'create');
 });
 
-test('a missing company email is a step-3 refusal, before the agreement is even looked at', () => {
+test('a missing company email is a step-5 refusal, before the agreement is even looked at', () => {
   const d = decideOpenShopAccount({ ...base, email: null, termsAgreed: false });
-  assert.deepEqual(d, { kind: 'refuse', step: 3, error: OPEN_SHOP_ERRORS.contactEmail });
+  assert.deepEqual(d, { kind: 'refuse', step: 5, error: OPEN_SHOP_ERRORS.contactEmail });
 });
 
 test('no agreement → refused on STEP 4 with the agreement’s own sentence, never a re-worded one', () => {
   const d = decideOpenShopAccount({ ...base, termsAgreed: false });
-  assert.deepEqual(d, { kind: 'refuse', step: 4, error: TERMS });
+  assert.deepEqual(d, { kind: 'refuse', step: 5, error: TERMS });
 });
 
 test('"email taken" is read from both shapes Supabase uses', () => {
@@ -66,7 +66,7 @@ test('the draft round-trips what the wizard typed, and never a password', () => 
   const now = 1_700_000_000_000;
   const raw = serializeOpenShopDraft(
     {
-      step: 3,
+      step: 5,
       shopName: 'Banawe Florals',
       logoUrl: 'r2://media/x',
       service: 'photography',
@@ -82,7 +82,7 @@ test('the draft round-trips what the wizard typed, and never a password', () => 
   const back = parseOpenShopDraft(raw, now + 1000);
   assert.ok(back);
   assert.equal(back.shopName, 'Banawe Florals');
-  assert.equal(back.step, 3);
+  assert.equal(back.step, 5);
   assert.deepEqual(back.events, ['wedding', 'debut']);
   // a smuggled password is dropped, not carried
   const smuggled = JSON.stringify({ ...JSON.parse(raw), password: 'hunter22' });

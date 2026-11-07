@@ -27,6 +27,8 @@ const PAGE = readFileSync('app/open-shop/page.tsx', 'utf8');
 // The city + address inputs live in CityPin, not the wizard — a field the
 // wizard validates may legitimately be rendered by a child component.
 const CITY_PIN = readFileSync('app/open-shop/_components/city-pin.tsx', 'utf8');
+// ☎ The number box moved into its own component (A7, 2026-11-06) — it renders `contact_phone` as a hidden E.164 input.
+const PHONE_FIELD = readFileSync('app/open-shop/_components/phone-field.tsx', 'utf8');
 // The account-creation refusals (owner 2026-09-22) live in a pure module; its
 // catalogue keys are read so a NEW refusal there cannot ship without a step here.
 const ACCOUNT_MODULE = readFileSync('lib/open-shop-account.ts', 'utf8')
@@ -40,22 +42,33 @@ const OWNS: Record<string, number> = {
   slugShape: 1,
   slugTaken: 1,
   service: 2,
-  contactName: 3,
-  contactPhone: 3,
+  // "Pick at least one event." (owner 2026-11-06) — the same screen as the tiles it is about.
+  events: 2,
+  // "Pick at least one event for each service." (owner 2026-11-06, v16 ④) — step 2's events page.
+  extraEvents: 2,
+  // 🔁 RE-ORDERED 2026-11-06 (owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED": the account step goes LAST).
+  // "Where you are" is step 3; prototype v16 ⑤ split "You": 4 · About you (name · number · role), 5 · Your account
+  // (email · password · Terms · Open my shop).
+  locationPin: 3,
+  locationConfirm: 3,
+  locationCity: 3,
+  contactName: 4,
+  contactPhone: 4,
   // Owner-locked 2026-08-10: the number must belong to where the shop is. Same
   // step as the number itself — a refusal that sends someone to a different
   // screen than the box it is about is a refusal they cannot act on.
-  contactPhoneNotPh: 3,
-  contactEmail: 3,
-  locationCity: 4,
-  // The account is created inside step 3 (owner 2026-09-22): every refusal about
-  // the password or the email's account belongs to the screen that asked for
-  // them. lib/open-shop-account.ts owns these strings; the step is owned HERE.
-  password: 3,
-  passwordLeaked: 3,
-  blacklisted: 3,
-  emailTaken: 3,
-  accountFailed: 3,
+  contactPhoneNotPh: 4,
+  contactEmail: 5,
+  // The account is created inside the LAST step: every refusal about the password
+  // or the email's account belongs to the screen that asked for them.
+  // lib/open-shop-account.ts owns these strings; the step is owned HERE.
+  password: 5,
+  passwordLeaked: 5,
+  blacklisted: 5,
+  emailTaken: 5,
+  accountFailed: 5,
+  // "Pick how you’ll sign in." — the browser's own (step 5's three buttons); the server never sends it.
+  way: 5,
 };
 
 test('META: every error the action redirects with is accounted for here', () => {
@@ -104,7 +117,7 @@ test('each rejection carries the step that owns its field', () => {
 test('the page accepts every step the action can send', () => {
   // The other half: the action can emit step=4, but if the page only parses
   // '1' | '2' it silently falls back to 1 and the redirect achieves nothing.
-  for (const n of ['1', '2', '3', '4']) {
+  for (const n of ['1', '2', '3', '4', '5']) {
     assert.ok(
       PAGE.includes(`'${n}'`),
       `page.tsx does not parse step=${n} — the action's redirect would fall back to step 1`,
@@ -112,14 +125,15 @@ test('the page accepts every step the action can send', () => {
   }
 });
 
-test('the wizard renders exactly four panels, and only the last one submits', () => {
-  for (const n of [1, 2, 3, 4]) {
+test('the wizard renders exactly five panels, and only the last one submits', () => {
+  for (const n of [1, 2, 3, 4, 5]) {
     assert.ok(
       WIZARD.includes(`step === ${n} ? 'space-y-4' : 'hidden'`),
       `panel for step ${n} is missing`,
     );
   }
-  assert.ok(!WIZARD.includes('step === 5'), 'a fifth panel appeared without updating TOTAL_STEPS');
+  assert.ok(!WIZARD.includes('step === 6'), 'a sixth panel appeared without updating TOTAL_STEPS');
+  assert.match(WIZARD, /const TOTAL_STEPS = 5;/);
   // A SubmitButton on an earlier step would post a half-filled form. It must sit
   // in the `step < TOTAL_STEPS ? … : …` false branch — i.e. after the Continue.
   const cont = WIZARD.indexOf('step < TOTAL_STEPS');
@@ -173,7 +187,7 @@ test('every field validateStep asks for actually exists on the form', () => {
   // reintroduce the identical dead end, one field at a time.
   const asked = [...WIZARD.matchAll(/read\('([a-z_]+)'\)/g)].map((m) => m[1]!);
   assert.ok(asked.length >= 3, `validateStep reads suspiciously few fields: ${asked}`);
-  const missing = asked.filter((n) => !new RegExp(`name="${n}"`).test(WIZARD + CITY_PIN));
+  const missing = asked.filter((n) => !new RegExp(`name="${n}"`).test(WIZARD + CITY_PIN + PHONE_FIELD));
   assert.deepEqual(
     missing,
     [],
@@ -213,7 +227,8 @@ test('the refusal names the field the vendor can actually see', () => {
     !/contactName:\s*'Add the owner name\.'/.test(VALIDATION),
     'the refusal says "owner name" while the field is labelled "Your name"',
   );
-  const label = /Your name<span/.test(WIZARD);
+  // The asterisks left the labels with the 2026-11-06 redesign (the prototype draws none) — the label itself stays.
+  const label = /Your name\s*<\/span>/.test(WIZARD);
   assert.ok(label, 'the field label changed — re-check that the refusal still matches it');
 });
 
@@ -337,10 +352,15 @@ test('the action forwards the pure module’s step, never a hard-coded one, for 
   // action must carry THAT step into the redirect — a literal here would let the
   // module say 4 while the wizard lands on 3.
   assert.match(ACTIONS, /redirect\(`\/open-shop\?step=\$\{decision\.step\}&error=` \+ encodeURIComponent\(decision\.error\)\)/);
-  assert.match(ACTIONS, /redirect\(`\/open-shop\?step=\$\{created\.step\}&error=` \+ encodeURIComponent\(created\.error\)\)/);
+  // `&taken=1` (A8, 2026-11-06) rides between them when the module says the email has an account — the step is
+  // still the module's own.
+  assert.match(
+    ACTIONS,
+    /redirect\(`\/open-shop\?step=\$\{created\.step\}\$\{takenParam\}&error=` \+ encodeURIComponent\(created\.error\)\)/,
+  );
 });
 
-test('signed out, the wizard asks for a password on step 3 and the agreement on the last step — and only then', () => {
+test('signed out, the wizard asks for a password and the agreement on the last step — and only then', () => {
   // Both live INSIDE the `guest` gate: a signed-in vendor is never asked to agree
   // again or to choose a password for an account they already have.
   const pw = WIZARD.indexOf('name="password"');

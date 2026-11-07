@@ -259,7 +259,7 @@ const SUPS: Record<EasySupplier, Sup> = {
     views: 312,
     asked: 14,
     award: "Setnayan's Top Pick · Makati",
-    milestone: 'your 7th anniversary in 12 days',
+    milestone: 'Since 2019',
   },
   parish: {
     name: 'San Agustin Parish',
@@ -417,7 +417,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
       categoryWord: sup.categoryWord,
       details: setup ? { done: 4, total: 6, complete: false } : sup.details,
       awardWord: setup ? null : sup.award,
-      milestoneWord: setup ? null : sup.milestone,
+      milestoneWord: setup ? 'Since 2021' : sup.milestone,
       giftLine: labGift ? giftShopLine(labGift) : null,
     },
     views: setup ? null : sup.views,

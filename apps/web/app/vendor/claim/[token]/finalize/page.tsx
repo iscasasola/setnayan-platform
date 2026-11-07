@@ -8,7 +8,7 @@ import { seatClaimedCoupleAsCustomer } from '@/lib/claimed-couple-is-a-customer.
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { DoorShell } from '@/app/_components/door/door-shell';
-import { claimAccountVerdict } from '@/lib/claim-account-gate';
+import { readClaimAccountVerdict } from '@/lib/claim-account-gate.server';
 
 const VENDOR_CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -87,27 +87,8 @@ export default async function FinalizeClaimPage({ params }: Props) {
   //    write, so the link stays unspent. Rule + signal: lib/claim-account-gate.ts.
   // ------------------------------------------------------------------
   {
-    const [typeRes, ownedRes, seatRes] = await Promise.all([
-      admin.from('users').select('account_type').eq('user_id', user.id).maybeSingle(),
-      admin
-        .from('vendor_profiles')
-        .select('vendor_profile_id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-      admin
-        .from('vendor_team_members')
-        .select('vendor_profile_id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-    ]);
-    if (typeRes.error) console.error('[supabase-error] vendor/claim/finalize · from:users.select (account_type)', typeRes.error);
-    if (ownedRes.error) console.error('[supabase-error] vendor/claim/finalize · from:vendor_profiles.count', ownedRes.error);
-    if (seatRes.error) console.error('[supabase-error] vendor/claim/finalize · from:vendor_team_members.count', seatRes.error);
-    const verdict = claimAccountVerdict({
-      accountType: typeRes.error
-        ? null
-        : ((typeRes.data as { account_type?: string | null } | null)?.account_type ?? null),
-      hasVendorAccess:
-        ownedRes.error || seatRes.error ? null : (ownedRes.count ?? 0) + (seatRes.count ?? 0) > 0,
-    });
+    // The three reads, made one way for finalize and the claim door's finish (lib/claim-account-gate.server.ts).
+    const verdict = await readClaimAccountVerdict(admin, user.id, 'vendor/claim/finalize');
     if (!verdict.ok) {
       return verdict.reason === 'not_a_supplier' ? (
         <NotASupplierShell token={token} email={user.email ?? null} business={data.invite.business_name} />

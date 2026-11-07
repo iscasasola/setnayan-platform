@@ -115,3 +115,21 @@ export function businessMilestone(
     daysUntil: dayCount(todayISO, ann.dateISO),
   };
 }
+
+/**
+ * 🗓 The Shop row's last word on Today (owner 2026-11-06, the sign-up redesign's Today): **"Since 2021"** — and the
+ * ordinal ("your 6th year in business today") ONLY on the anniversary itself. It used to count down every day of the
+ * year ("your 6th year in business in 40 days"), which read as a wrong number on the 364 days that were not it.
+ *
+ * The year is the one the shop gave ("In business since", Your details), else the year of its precise start date.
+ * Neither → no word at all (the Setnayan join date is not when a business started).
+ */
+export function todayMilestoneWord(
+  milestone: Pick<BusinessMilestone, 'label' | 'daysUntil'> | null,
+  sinceYear?: number | null,
+  startDateISO?: string | null,
+): string | null {
+  if (milestone && milestone.daysUntil === 0) return `your ${milestone.label} today`;
+  const year = sinceYear ?? (startDateISO ? (parseISO(startDateISO)?.getUTCFullYear() ?? null) : null);
+  return year ? `Since ${year}` : null;
+}

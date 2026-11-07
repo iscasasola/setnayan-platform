@@ -1,4 +1,5 @@
 import 'server-only';
+import { claimDoorHref } from './claim-door';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { escapeLikeQuery } from './people-search-query';
@@ -85,6 +86,14 @@ export async function readInviteOffer(
  */
 export function isCoupleMadeInvite(source: VendorInviteSource): boolean {
   return source === 'couple' || source === 'auto_share_link';
+}
+
+/**
+ * The links that open the claim door (`/open-shop?claim=<token>`): every couple-made one, and Setnayan's own personal
+ * invite (owner 7 Nov: "yes"). Every source there is today — named, so a new source is a decision, not a fall-through.
+ */
+export function opensTheClaimDoor(source: VendorInviteSource): boolean {
+  return isCoupleMadeInvite(source) || source === 'admin';
 }
 
 /** The pill variant rendered on the couple-side vendor row. */
@@ -544,10 +553,15 @@ export async function fetchActiveAutoShareInvite(
 /**
  * Build the public-facing claim URL for a token. Centralized so the host
  * UI + email + future SMS share-helpers all produce the same shape.
+ *
+ * 🔗 IT OPENS THE CLAIM DOOR (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED"): `/open-shop?claim=`,
+ * the redesigned sign-up door pre-filled from the couple's record — never the bare `/signup?as=vendor`. A link that is
+ * no longer pending is sent on to `/vendor/claim/<token>`, whose dead ends say why; links printed before this change
+ * still open that page, whose "Claim & sign up" opens the same door.
  */
 export function buildClaimUrl(token: string): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
-  return `${appUrl.replace(/\/$/, '')}/vendor/claim/${token}`;
+  return `${appUrl.replace(/\/$/, '')}${claimDoorHref(token)}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -64,9 +64,10 @@ test('2 · the dropdown offers Off + the built modes, and the database accepts e
     [SCANNER_OFF, ...SCAN_MODES_BUILT],
   );
   for (const m of SCAN_MODES_BUILT) assert.ok(SCAN_MODES.some((x) => x.key === m));
-  const sql = newest(/supplier_scan_settings_mode_check CHECK/);
-  const check = sql.slice(sql.lastIndexOf('supplier_scan_settings_mode_check CHECK'));
-  const inSql = [...check.slice(0, check.indexOf(';')).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const src = String.raw`supplier_scan_settings_mode_check\s+CHECK\s*\(mode IN \(([^)]*)\)\)`;
+  const sql = newest(new RegExp(src));
+  const last = [...sql.matchAll(new RegExp(src, 'g'))].pop()!;
+  const inSql = [...last[1]!.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
   assert.deepEqual([...inSql].sort(), [...SCAN_MODES_BUILT].sort());
 
   assert.deepEqual(scannerChoiceToSetting('off', { enabled: true, mode: 'once' }), { enabled: false, mode: 'once' });
@@ -115,4 +116,18 @@ test('5 · Ordered → Received: the words for each step, and a number’s state
   assert.equal(numberStateWords({ guests: 5, ordered: 0, ready: 2, received: 3 }), '3 of 5 received');
   assert.equal(guestNumberStateWords('ready'), 'Ready — claim it now');
   assert.equal(guestNumberStateWords('received'), null, 'a done claim needs no line');
+});
+
+test('6 · Unlimited and Group session: their words, and prints kept within 1–99', async () => {
+  const { clampPrints, isSessionMode } = await import('./supplier-scan');
+  assert.equal(scanAnswerWords({ outcome: 'served', number: 43, served: 43, unique: 30 }).title, '✓ #0043 · Served 43');
+  assert.equal(scanAnswerWords({ outcome: 'added', number: 107, guests: 3 }).title, '#0107 · 3 guests');
+  assert.equal(scanAnswerWords({ outcome: 'picked_up', number: 107, claimed: 3, of: 5 }).title, '✓ #0107 · 3 of 5 claimed');
+  assert.equal(scanAnswerWords({ outcome: 'no_session' }).title, 'No shot open');
+  assert.equal(tallyWords('unlimited', { claimed: 30, total: 118, served: 43, unique: 30 }), 'Served 43 · 30 guests');
+  assert.equal(tallyWords('group_session', { claimed: 9, total: 118, ready: 4, sessions: 12 }), 'Shots 12 · Ready 4 · Claimed 9');
+  assert.equal(clampPrints(0), 1);
+  assert.equal(clampPrints(140), 99);
+  assert.ok(isSessionMode('group_session'));
+  assert.ok(!isSessionMode('unlimited'));
 });

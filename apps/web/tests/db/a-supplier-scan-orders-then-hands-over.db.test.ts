@@ -146,7 +146,7 @@ test('4 · counts read Ordered · Ready · Received, and "Your numbers" carries 
   assert.equal(t.claimed, 1);
   const nums = await db.query<Record<string, unknown>>(`SELECT * FROM public.supplier_scan_numbers($1,$2)`, [F.eventId, F.boothCov]);
   assert.deepEqual(nums.rows.map((r) => r.scan_number), [3, 2, 1]);
-  assert.deepEqual(Object.keys(nums.rows[0]!).sort(), ['first_at', 'guests', 'ordered', 'ready', 'ready_at', 'received', 'received_at', 'scan_number']);
+  assert.deepEqual(Object.keys(nums.rows[0]!).sort(), ['first_at', 'guests', 'open', 'ordered', 'prints', 'ready', 'ready_at', 'received', 'received_at', 'scan_number']);
   await assert.rejects(
     (async () => {
       await asUser(F.stranger);

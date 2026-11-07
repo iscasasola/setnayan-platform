@@ -2,6 +2,9 @@
  * THE RULE for who may open a shop's page — lib/own-shop-preview.ts. Owner, 23 Oct 2026: "why can't i see
  * setnaprod's website?" Every corner of the rule, as a property over every combination of the three columns, plus the
  * owner's own shop as it stands in the record (SetnaProd: listed + verified + `is_demo`, DECISION_LOG 2026-09-29).
+ *
+ * 🧪 2026-11-06 (owner, DECISION_LOG "DEMO SHOPS + DEMO EVENTS"): a live demo shop is PUBLIC, marked "(DEMO ONLY)" —
+ * so a stranger opens exactly the `isShopLive` set, demo or not.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,17 +22,20 @@ function* everyRow() {
       for (const is_demo of DEMO) yield { public_visibility, verification_state, is_demo };
 }
 
-test('a stranger opens ONLY a live, non-demo shop — the same set the sitemap lists', () => {
+test('a stranger opens ONLY a live shop — a demo shop included (2026-11-06), never an unlisted or unverified one', () => {
   let open = 0;
+  let demoOpen = 0;
   for (const row of everyRow()) {
     const gate = shopPageGate(row, { isTeam: false, adminDemoMode: false });
-    const expected = isShopLive(row) && row.is_demo !== true;
+    const expected = isShopLive(row);
+    if (expected && row.is_demo === true) demoOpen += 1;
     assert.equal(gate.open === 'public', expected, JSON.stringify(row));
     // A stranger never sees a preview: it is public or it is not-found.
     assert.notEqual(gate.open, 'team', JSON.stringify(row));
     if (expected) open += 1;
   }
   assert.ok(open > 0, 'the positive control: at least one row opens for a stranger');
+  assert.ok(demoOpen > 0, 'a live demo shop opens for a stranger (owner 2026-11-06)');
 });
 
 test('the owner and helpers open every not-yet-public shop, with a reason — never a not-found', () => {
@@ -62,16 +68,19 @@ test('the reason names what couples are really waiting on', () => {
   assert.equal(reason({ public_visibility: 'verified', verification_state: 'demoted', is_demo: false }), 'documents');
   assert.equal(reason({ public_visibility: 'hidden', verification_state: 'pending_review', is_demo: false }), 'in_review');
   assert.equal(reason({ public_visibility: 'hidden', verification_state: 'verified', is_demo: false }), 'listing');
-  // SetnaProd as the record has it (migration 20271256763663): listed, verified, demo.
-  assert.equal(reason({ public_visibility: 'verified', verification_state: 'verified', is_demo: true }), 'demo');
-  // Demo wins over the documents: no document step makes a demo shop public.
+  // A listed, verified demo shop is public (2026-11-06) — no banner, it is the same page for everyone.
+  assert.equal(reason({ public_visibility: 'verified', verification_state: 'verified', is_demo: true }), 'public');
+  // A demo shop that is not live yet: its team is told it is a demo shop waiting to be listed.
   assert.equal(reason({ public_visibility: 'hidden', verification_state: 'unverified', is_demo: true }), 'demo');
 });
 
-test('SetnaProd: its owner sees it with the banner; a stranger gets not-found', () => {
+test('a listed, verified demo shop (SetnaProd as migration 20271256763663 marked it) opens for everyone', () => {
   const setnaprod = { public_visibility: 'verified', verification_state: 'verified', is_demo: true };
-  assert.deepEqual(shopPageGate(setnaprod, { isTeam: true, adminDemoMode: false }), { open: 'team', reason: 'demo' });
-  assert.deepEqual(shopPageGate(setnaprod, { isTeam: false, adminDemoMode: false }), { open: 'nobody' });
+  assert.deepEqual(shopPageGate(setnaprod, { isTeam: true, adminDemoMode: false }), { open: 'public' });
+  assert.deepEqual(shopPageGate(setnaprod, { isTeam: false, adminDemoMode: false }), { open: 'public' });
+  // …but a demo shop still needs the two halves: unlisted or unverified, a stranger gets not-found.
+  assert.deepEqual(shopPageGate({ ...setnaprod, public_visibility: 'hidden' }, { isTeam: false, adminDemoMode: false }), { open: 'nobody' });
+  assert.deepEqual(shopPageGate({ ...setnaprod, verification_state: 'pending_review' }, { isTeam: false, adminDemoMode: false }), { open: 'nobody' });
 });
 
 test('an admin in demo mode keeps exactly the old reach: listed demo/unverified rows open, hidden ones do not', () => {

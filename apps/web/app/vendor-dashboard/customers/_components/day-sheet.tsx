@@ -53,7 +53,7 @@ export type DaySheetData = {
   holders: { threadId: string; title: string; line: string }[];
   /** The holders read reached the end — else the count says "at least". */
   holdersMeasured: boolean;
-  /** The ceiling on couples holding one date (`whitelistPerDate`, the same on every plan since 2026-10-23, read live — a Custom plan may lift it); null = no limit. */
+  /** The ceiling on couples holding one date (`whitelistPerDate`, the same on every plan since 2026-10-23, read live); null = no limit. */
   holdingCeiling: number | null;
   waiting: number;
   /** ALL-DAY closures covering the day (the switch's subject). Part-day blocks are rows in their group. */

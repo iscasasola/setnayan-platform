@@ -294,21 +294,13 @@ export function GuestInviteCell({
 
   /*
     📤 THE ROW'S SHARE — THE ONE SEND BUTTON (owner 2026-10-27: *"yes i want a 1 button"* · *"share and delete only"*).
-    A phone: the phone's own share sheet AT ONCE (Messenger · Viber · WhatsApp · SMS · Copy — its real, installed apps),
-    with the same message, through the same `shareInvite`; an app taking it stamps Sent ✓ exactly as the card's share
-    does. 🪤 TEXT ONLY, NOT THE TICKET FILE: the file is fetched only once a sheet is open (owner, live iPhone test
-    2026-10-02 — a list asking for 180 tickets is a cost nobody asked for), and an `await` before `navigator.share`
-    spends iOS's tap. So the row shares the message whose link opens their ticket (`ticketAttached: false` says so).
-    A computer — no share sheet where Messenger and Viber live — and a phone whose sheet refuses get THIS cell's sheet:
-    the app rows + Copy message · Copy ticket · Mark as sent · Copy invitation link. Never a second sender.
+    🔒 SHARE ALWAYS OPENS OUR OWN MENU, ON EVERY DEVICE (owner 2026-11-05: on the phone's browser Share jumped straight to
+    the iPhone's system share sheet while the iPhone app opened ours — he prefers ours). So the press never calls the
+    system sheet: it opens THIS cell's sheet — WhatsApp · Viber · Messenger · More apps… · Copy message · Copy invitation
+    link — drawn the same everywhere (`setTouch(false)`: the app rows, never the phone's one-row share). The system sheet
+    is only behind "More apps…" (`viaApp('more')` → `share()` → `shareInvite`), which the user chooses. Never a second sender.
   */
-  async function rowShare(at: 'body' | 'head' = 'body') {
-    if (isTouchDevice() && typeof navigator.share === 'function') {
-      setSaid(null);
-      const out = await shareInvite(null, message);
-      if (out === 'shared') return mark(true);
-      if (out === 'closed') return;
-    }
+  function rowShare(at: 'body' | 'head' = 'body') {
     invite(at);
     setTouch(false);
   }
@@ -544,7 +536,7 @@ export function GuestInviteCell({
           icon={Share}
           label="Share"
           name={sentAt ? `Share ${guest.fullName}’s invitation — sent ${sentDay}` : `Share ${guest.fullName}’s invitation`}
-          onClick={() => void rowShare()}
+          onClick={() => rowShare()}
           disabled={pending}
         />
         {sheet}
@@ -555,8 +547,8 @@ export function GuestInviteCell({
 
   /* 🎟 THE CARD'S TICKET ROW — SHARE · NFC · NEW QR, then ⋯ (owner 2026-10-27, DECISION_LOG "GUEST CARD TICKET ROW = THREE
      ICON BUTTONS" + "APPROVED — ONE SEND BUTTON FOR EVERY INVITE"; owner 2026-10-28 "guest card still does not ahve that one
-     share button"). Share is the row's ONE Send (`rowShare`): a phone → its own share sheet with this guest's message and
-     link, an app taking it stamps Sent ✓; a computer (or a refused sheet) → this cell's sheet, the shipped app rows + Copy.
+     share button"). Share is the row's ONE Send (`rowShare`): on every device it opens this cell's own sheet — the shipped app
+     rows + Copy (owner 2026-11-05); the phone's system sheet is only behind its "More apps…".
      NFC · New QR · ⋯ are the `more` the card hands in (`GuestMoreMenu`). The big "Invite ▾" left the card.
      🔒 guests/_components/the-ticket-row-is-three-icons.test.ts */
   if (layout === 'card') {
@@ -572,7 +564,7 @@ export function GuestInviteCell({
               icon={Share}
               label="Share"
               name={shareName}
-              onClick={() => void rowShare('body')}
+              onClick={() => rowShare('body')}
               disabled={pending}
               data-testid="guest-card-share"
             />
@@ -590,7 +582,7 @@ export function GuestInviteCell({
                   icon={Share}
                   label="Share"
                   name={shareName}
-                  onClick={() => void rowShare('head')}
+                  onClick={() => rowShare('head')}
                   disabled={pending}
                 />
               </span>,

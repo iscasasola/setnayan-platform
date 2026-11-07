@@ -27,6 +27,7 @@ import {
   STORE_SHELL_WEB_ONLY_PATH,
 } from '@/lib/store-shell';
 import { iapAvailable } from '@/lib/iap/iap-gate';
+import { REQUEST_PATH_HEADER, requestPathOf } from '@/lib/shop-console-path';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import {
   GUEST_PASS_BOOK_COOKIE_NAME,
@@ -454,6 +455,10 @@ async function middlewareCore(request: NextRequest) {
     return NextResponse.rewrite(rewrite);
   }
 
+  // The path the person asked for, for layouts that must send them to sign in
+  // and back (Next does not hand a layout its URL). ALWAYS overwritten, so a
+  // client cannot supply its own; `updateSession` forwards request headers.
+  request.headers.set(REQUEST_PATH_HEADER, requestPathOf(request.nextUrl));
   const { response, user } = await updateSession(request);
 
   // Demo-mode URL flag bootstrap (PR brief 2026-05-22 · CLAUDE.md row

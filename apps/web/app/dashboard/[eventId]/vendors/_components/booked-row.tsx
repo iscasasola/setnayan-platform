@@ -77,6 +77,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { SupplierShareButton } from '../../_components/supplier-share-button';
 import { CancelBookingButton } from './cancel-booking-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
+import { FavoriteHeart } from '@/app/_components/favorite-heart';
 
 import { BookedStandInCtx } from './booked-stand-ins';
 import { BookedWhere, BookedWhereLine } from './booked-where';
@@ -557,9 +558,12 @@ export function BookedRowItem({
   const n = row.next;
   return (
     <li className="bk-row" data-booked-row={row.vendorId} data-open={open ? '' : undefined}>
+      {/* ♡ After the day, a host's booked service carries its heart at the row's end (owner 2026-11-06, prototype
+          §E) — a sibling of the row's own button, never inside it. Absent before the day and for a coordinator. */}
+      <div className={row.favorite ? 'flex items-center gap-2' : undefined}>
       <button
         type="button"
-        className="grid w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
+        className="grid min-w-0 flex-1 w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
         aria-expanded={open}
         onClick={toggle}
       >
@@ -610,6 +614,16 @@ export function BookedRowItem({
         </span>
         <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
       </button>
+      {row.favorite ? (
+        <FavoriteHeart
+          eventId={eventId}
+          shopId={row.favorite.shopId}
+          serviceId={row.favorite.serviceId}
+          name={row.name}
+          initiallyOn={row.favorite.on}
+        />
+      ) : null}
+      </div>
       {row.dateAsk ? (
         <p className="ml-14 mt-1 text-[13px] text-ink/70" data-booked-date-ask={row.dateAsk.waiting ? 'waiting' : 'answered'}>
           Date change to {row.dateAsk.when}:{' '}

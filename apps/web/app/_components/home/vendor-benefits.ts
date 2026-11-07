@@ -1,6 +1,6 @@
 /**
  * Vendor-benefits catalog for the "For vendors" overlay — organized BY ACCOUNT
- * TYPE (owner 2026-07-01): Free → Solo → Pro → Enterprise → Custom, each tier
+ * TYPE (owner 2026-07-01): Free → Solo → Pro → Ultra, each tier
  * showing what it ADDS on top of the one below. Mirrors the tier ladder on
  * /vendors and the hybrid gating decision in VENDOR_TIERS_AND_BENEFITS.md
  * (§2 allocation + §6 as-built). `soon` = not yet live end-to-end; it clears as
@@ -66,7 +66,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Self-review blocker', b: 'The system detects and blocks fake self-reviews before they post.' },
           { n: 'Flag a suspicious review', b: 'Flag a fake or unfair review; HQ reviews it within 48 hours.' },
           { n: 'Merit-only ranking', b: 'No pay-to-rank. You can’t buy your way up, and neither can rivals.' },
-          { n: 'No fake reviews, no ghost listings', soon: true, b: 'We screen bought reviews and ghost listings, protecting honest suppliers most.' },
           { n: 'Stand-up-for-yourself dispute mediation', soon: true, b: 'A neutral team reviews the record before anything touches your rating.' },
         ],
       },
@@ -134,7 +133,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Pull a vetted crew hand', b: 'Short a shooter or coordinator? Book a vetted hand at a posted PH rate.' },
           { n: 'Auto-shared to our socials', b: 'Your couples’ standout moments hit our FB/IG with your name and logo.' },
           { n: 'Couple referral rewards', soon: true, b: 'Happy couples refer; when their referral books you, both get a perk.' },
-          { n: 'One profile, every life event', soon: true, b: 'Reviews, calendar and history carry across weddings, debuts, christenings and more.' },
         ],
       },
     ],
@@ -180,11 +178,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
           { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
           { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
+          // ⛔ SEVEN "soon" ROWS RETIRED 2026-11-05 (owner: "retire this") — nothing was behind them: no fake reviews /
+          // ghost listings screen, RA 8792 contracts, one profile every life event, resell Setnayan Productions,
+          // white-label couple tools, certified partner, earn on your crew. Three "soon" rows stay (dispute mediation,
+          // couple referral rewards, reply-time stats). A "soon" label is not a licence to advertise an unstarted thing.
           { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
-          { n: 'Resell Setnayan Productions', soon: true, b: 'Bundle Papic, Live Watch, monogram or Music Maker into your own quote.' },
-          { n: 'White-label couple tools', soon: true, b: 'Hand couples the seating chart, mood board and schedule under your brand.' },
-          { n: 'Setnayan-certified partner', soon: true, b: 'Get badged to deliver in-app services; couples who bought them route to you.' },
-          { n: 'Earn on your crew', soon: true, b: 'Post your second shooters and HMUA. Earn a referral cut when they’re booked.' },
           { n: 'Priority support', b: 'Move to the front of the support queue.' },
         ],
       },
@@ -221,75 +219,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
 ];
 
-/**
- * The negotiated tier above Enterprise — rendered as a teaser card, not a
- * benefit list.
- *
- * ─── TWO PESO FIGURES USED TO BE TYPED HERE, AND THIS FILE FORBADE IT ────
- * The `VendorTierSection` type twelve lines up already says *"prices are NOT
- * stored here — the overlay resolves each tier's price from the live catalog …
- * (never hardcode prices)"*. Directly below it, `name` read
- * `'Custom · from ₱8,999 / 28 days'` and one dial read
- * `'Additional branches (₱999 each)'`.
- *
- * Both were declared in `lib/public-price-literals.ts` rather than fixed, and
- * the reason given for the first was that Custom "is not a DB catalog SKU
- * (Custom is composed per plan)". **That was untrue.** `vendor_custom_base` is
- * an active row in `vendor_billing_catalog` at ₱8,999, and
- * `vendor_branch_28day` is an active row at ₱999 — the same two numbers, in the
- * table an admin edits. `vendor-tier-matrix.tsx` then parsed "₱8,999" back out
- * of `name` with a regex and carried its own literal as the fallback, so one
- * reprice would have gone stale in three places at once.
- *
- * Both now come from `getVendorPrices()`. `name` names the tier and nothing
- * else, and the priced dial is built at render time from the live figure.
- *
- * 🔑 THE COUNT MUST NOT NEED A PRICE. `HomeOverlays.tsx` sums these at MODULE
- * level, where no catalog read exists, so the dials are a list of labels and
- * only the one that mentions money takes an argument. Counting stays
- * price-free; rendering resolves.
+/*
+ * ⛔ `VENDOR_CUSTOM_TIER` and `customTierDialLabels` were DELETED 2026-11-06 — the Custom supplier plan was retired
+ * from the app (owner: *"from the app"*). The way past Ultra is Ultra's add-ons, read from the catalogue.
  */
-export type CustomDial = {
-  label: string;
-  /** Set only on a dial whose label states a price. Given the live figure,
-   *  returns the full label. Never falls back to a typed peso value — a caller
-   *  with no price renders the bare label instead of a stale number. */
-  priced?: (price: string) => string;
-};
-
-export const VENDOR_CUSTOM_TIER = {
-  name: 'Custom',
-  tagline:
-    // ⚖ CUSTOM IS DEFINED BY CAPABILITY, NOT BY HUMAN ATTENTION — owner
-    // 2026-08-27, verbatim: "custom does not mean they get their own concierge
-    // from us. it just means they get an upgrade the 3 tiers does not provide."
-    // The old line promised a dedicated account manager and a quarterly review;
-    // neither was ever built. It said so unqualified, to every shop reading our
-    // prices. What is left is only what the dials actually deliver.
-    // ⚠ "a bigger portfolio" also went: the +100-photo pack was dropped the
-    // same day, so portfolio size is no longer a Custom dial at all.
-    'Everything in Ultra, with its limits removed: more branches, more team seats, more event slots per category, and your own web address.',
-  // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
-  // surface AND the cross-tier benefit count reflect the full negotiated tier.
-  // Each is a real thing a Custom vendor gets — the single source of truth for
-  // the Custom column.
-  dials: [
-    { label: 'Additional branches', priced: (p: string) => `Additional branches (${p} each)` },
-    // ⛔ 'Nationwide reach' was a Custom-only dial until 2026-11-04 — Ultra reaches nationwide now (owner, "ultra
-    // nationwide"), so it is not a Custom add any more.
-    { label: 'Your own custom domain' },
-    { label: 'Negotiated team-seat ceiling' },
-    { label: 'Negotiated event-slot ceiling' },
-  ] as CustomDial[],
-};
-
-/**
- * The Custom dials as display strings. `branchPrice` is the live
- * `vendor_branch_28day` figure; pass `null` when the catalog is unreadable and
- * the priced dial degrades to its bare label rather than inventing a number.
- */
-export function customTierDialLabels(branchPrice: string | null): string[] {
-  return VENDOR_CUSTOM_TIER.dials.map((d) =>
-    d.priced && branchPrice ? d.priced(branchPrice) : d.label,
-  );
-}

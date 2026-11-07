@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { Check, Clock, Store } from 'lucide-react';
+import { Check, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ourAccountPhrase, type OpenRail } from '@/lib/payment-channels';
@@ -16,7 +16,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 /**
  * 3D Booth add-on card — the sellable surface on the subscription hub
  * (owner-locked 2026-07-22; ₱3,000 flat since 2026-09-05). Free first 28-day cycle, then ₱3,000 / 28 days, on
- * Pro / Enterprise / Custom + verified shops only. When active, the vendor's
+ * Pro / Ultra + verified shops only. When active, the vendor's
  * booth renders BRANDED (logo + poster) inside their couples' published 3D
  * Plans; without it a Pro/Enterprise vendor keeps the generic booth.
  *
@@ -27,7 +27,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  * be ineligible is "not verified yet" — which already has its own copy below.
  *
  * Honest states (mirror the Vendor AI add-on card):
- *   • 3D Plan switched off (NEXT_PUBLIC_SEATING_3D='false') → "Coming soon", NO
+ *   • 3D Plan switched off (NEXT_PUBLIC_SEATING_3D='false') → card HIDDEN, NO
  *     buy CTA — the booth has nowhere to render, so we never take money for it.
  *   • not eligible (below Pro OR unverified) → a muted upsell, no CTA.
  *   • eligible + trial available → "Turn on 3D Booth — free first cycle".
@@ -55,10 +55,10 @@ export type BoothAddonCardProps = {
    *  (the server action refuses the same case). A free grant ignores it. */
   openRails: readonly OpenRail[];
   /** seating3dEnabled() — the 3D Plan master switch (kill-switch, on by default).
-   *  When OFF the whole add-on is "Coming soon": no buy CTA renders (and the
+   *  When OFF the whole add-on is hidden: no card renders (and the
    *  server action rejects), because a booth can't render if 3D is switched off. */
   available: boolean;
-  /** Pro+ (Pro / Enterprise / Custom) AND verified — the only shops that can buy. */
+  /** Pro+ (Pro / Ultra) AND verified — the only shops that can buy. */
   eligible: boolean;
   /** True while the shop is on a Pro+ tier but NOT yet verified. */
   paidButUnverified: boolean;
@@ -107,6 +107,12 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
     }
   }, [state, toast]);
 
+  // Switched off → the card is not shown at all (2026-11-05). It used to say
+  // "Coming soon", which on a supplier's Plan page reads as an unfinished
+  // product; with the switch off there is nothing to sell, so there is nothing
+  // to show. The server action still refuses on its own.
+  if (!available) return null;
+
   return (
     <section className="sn-tile mt-8 p-6">
       <div className="flex items-start gap-3">
@@ -153,20 +159,7 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
       </div>
 
       {/* ── Availability + eligibility-gated CTA ──────────────────────────── */}
-      {!available ? (
-        /* 3D Plan switched off → the whole add-on is "Coming soon": no buy CTA,
-           so a vendor can't pay for a booth that has nowhere to render. */
-        <div
-          className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-          <span>
-            Coming soon — the 3D Plan is being finalized. You&rsquo;ll be able to
-            turn on your branded booth here the moment it goes live.
-          </span>
-        </div>
-      ) : !eligible ? (
+      {!eligible ? (
         <div
           className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
           style={{ borderColor: 'var(--m-line)' }}
@@ -175,7 +168,7 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
           {paidButUnverified ? (
             <span>Get your shop verified to unlock 3D Booth — it&rsquo;s a verified-only add-on.</span>
           ) : (
-            <span>3D Booth is available on the Pro, Ultra, and Custom plans. Upgrade above to add it.</span>
+            <span>3D Booth is available on the Pro and Ultra plans. Upgrade above to add it.</span>
           )}
         </div>
       ) : (

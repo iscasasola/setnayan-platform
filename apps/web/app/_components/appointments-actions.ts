@@ -29,7 +29,19 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import type { NotificationType } from '@/lib/notifications';
-import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
+import {
+  APPOINTMENT_KIND_LABEL,
+  postedKindToStored,
+  type AppointmentInitiator,
+  type AppointmentKind,
+} from '@/lib/appointments';
+import {
+  encodeJitsiLocation,
+  makeJitsiLink,
+  parseVirtualLocation,
+  virtualHandoff,
+  virtualLocationFromForm,
+} from '@/lib/virtual-meeting';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import { revalidationTarget } from '@/lib/return-path';
 import { safeNext } from '@/lib/safe-next';
@@ -185,11 +197,14 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
   const eventId = str(formData.get('event_id'), 64);
   const vendorProfileId = str(formData.get('vendor_profile_id'), 64);
   const returnPath = safeReturnPath(formData.get('return_path'));
-  const kindRaw = formData.get('kind');
-  const kind =
-    kindRaw === 'in_person' || kindRaw === 'video' || kindRaw === 'voice' ? kindRaw : null;
+  // In-person or Virtual only — a Virtual meeting is stored as 'video'; nothing
+  // new is written as 'voice' (owner 2026-10-28: no calls inside Setnayan).
+  const kind = postedKindToStored(formData.get('kind'));
   const type = str(formData.get('type'), 60);
   if (!eventId || !kind || !type) redirect(returnPath);
+  // A Virtual meeting is a Jitsi link of ours — made here when the form's is missing or not ours
+  // (owner 2026-11-04 "VIRTUAL = JITSI ONLY"). Nothing another app's is ever written.
+  const virtualLocation = kind === 'video' ? virtualLocationFromForm(formData) : null;
 
   const supabase = await createClient();
   const {
@@ -210,7 +225,10 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
     kind,
     type,
     custom_label: customLabel,
-    location: kind === 'in_person' ? str(formData.get('location'), 300) : null,
+    location:
+      kind === 'in_person'
+        ? str(formData.get('location'), 300)
+        : virtualLocation,
     scheduled_at: toIso(formData.get('scheduled_at')),
     duration_min: toDuration(formData.get('duration_min')),
     status: 'proposed',
@@ -242,6 +260,9 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
  * other side best-effort.
  */
 export async function respondAppointment(formData: FormData): Promise<void> {
+  // Withdraw / Cancel meeting ride this export (decision=cancel) instead of an export of their own: every
+  // exported server action is one Vercel route (lint-server-action-budget.mjs), and createMeetingRoom needed the slot.
+  if (formData.get('decision') === 'cancel') return cancelAppointment(formData);
   const appointmentId = str(formData.get('appointment_id'), 64);
   const eventId = str(formData.get('event_id'), 64);
   const vendorProfileId = str(formData.get('vendor_profile_id'), 64);
@@ -360,8 +381,9 @@ export async function respondAppointment(formData: FormData): Promise<void> {
  * cancelAppointment — either side cancels a proposed or confirmed meeting.
  * RLS scopes the update to the caller's relationship; the status IN (...) guard
  * keeps done/cancelled rows immutable. Notifies the other side best-effort.
+ * Reached through respondAppointment with decision=cancel (not exported — see there).
  */
-export async function cancelAppointment(formData: FormData): Promise<void> {
+async function cancelAppointment(formData: FormData): Promise<void> {
   const appointmentId = str(formData.get('appointment_id'), 64);
   const eventId = str(formData.get('event_id'), 64);
   const vendorProfileId = str(formData.get('vendor_profile_id'), 64);
@@ -396,4 +418,77 @@ export async function cancelAppointment(formData: FormData): Promise<void> {
 
   revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
+}
+
+export type MeetingRoomResult =
+  | { ok: true; href: string; createdAt: string; createdByMe: boolean }
+  | { ok: false; error: string };
+
+/**
+ * createMeetingRoom — "Create the room" on a Virtual meeting (owner 2026-11-04, DECISION_LOG "ONE BUTTON THAT SAYS
+ * WHAT THE ROOM NEEDS"). Records the room as created — who and when — ONCE, and returns the Jitsi link to open.
+ *
+ *   · WHO: the caller's own session — the event_appointments UPDATE policies already scope the row to the two sides
+ *     of the meeting, so an outsider's update matches nothing. The values themselves are the database's
+ *     (`tg_event_appointments_room_set_once`: `now()` / `auth.uid()`, frozen after the first press).
+ *   · ONCE: a second press is a no-op — the update is filtered on `room_created_at IS NULL`, and the trigger keeps
+ *     the first values regardless. Either way the caller gets the room's link back and is sent in.
+ *   · A row with no link yet (an older Virtual meeting) gets its Jitsi link made here, in the same update.
+ *   · In place: returns state, never redirects; revalidates so a refresh reads "Enter the room".
+ */
+export async function createMeetingRoom(appointmentId: string, returnPath: string): Promise<MeetingRoomResult> {
+  const id = typeof appointmentId === 'string' ? appointmentId.slice(0, 64) : '';
+  if (!id) return { ok: false, error: 'This meeting could not be found.' };
+  const back = safeReturnPath(returnPath);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Sign in again to open the room.' };
+
+  const { data: row } = await supabase
+    .from('event_appointments')
+    .select('location, kind, status, room_created_at, room_created_by')
+    .eq('appointment_id', id)
+    .maybeSingle();
+  const r = row as {
+    location: string | null;
+    kind: string;
+    status: string;
+    room_created_at: string | null;
+    room_created_by: string | null;
+  } | null;
+  if (!r || (r.kind !== 'video' && r.kind !== 'voice')) return { ok: false, error: 'This meeting could not be found.' };
+  if (r.status !== 'confirmed') return { ok: false, error: 'The room opens once the meeting is confirmed.' };
+
+  const existing = parseVirtualLocation(r.location);
+  const location = existing.value ? r.location : encodeJitsiLocation(makeJitsiLink());
+
+  if (!r.room_created_at) {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('event_appointments')
+      // The trigger replaces both values with now() / auth.uid() — these only say "create it".
+      .update({ room_created_at: now, room_created_by: user.id, location, updated_at: now })
+      .eq('appointment_id', id)
+      .is('room_created_at', null);
+    if (error) {
+      console.error('[appointments] create meeting room refused', error);
+      return { ok: false, error: 'Could not create the room — please try again.' };
+    }
+  }
+
+  // Read back what the database holds — a racing press by the other side is just "already created".
+  const { data: after } = await supabase
+    .from('event_appointments')
+    .select('location, room_created_at, room_created_by')
+    .eq('appointment_id', id)
+    .maybeSingle();
+  const a = after as { location: string | null; room_created_at: string | null; room_created_by: string | null } | null;
+  const handoff = a ? virtualHandoff(parseVirtualLocation(a.location)) : null;
+  if (!a || !a.room_created_at || !handoff) {
+    return { ok: false, error: 'This meeting can no longer be changed.' };
+  }
+  revalidatePath(revalidationTarget(back));
+  return { ok: true, href: handoff.href, createdAt: a.room_created_at, createdByMe: a.room_created_by === user.id };
 }

@@ -9,7 +9,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SuppliersFact } from '@/lib/suppliers-shell';
-import { CHANGE_ASKED_WORD, DRAFTED_DATE_WORD, SUPPLIERS_FACT_SHEET_EVENT, type FactSheetKey } from '@/lib/suppliers-fact-sheets';
+import { CHANGE_ASKED_WORD, SUPPLIERS_FACT_SHEET_EVENT, type FactSheetKey } from '@/lib/suppliers-fact-sheets';
 
 const FactSheet = dynamic(() => import('./fact-sheets').then((m) => m.FactSheet), { ssr: false });
 
@@ -24,14 +24,11 @@ const tone = (f: SuppliersFact) =>
 export function FactLine({
   eventId,
   facts,
-  drafted = false,
   changeAsked = false,
   priced = [],
 }: {
   eventId: string;
   facts: { date: SuppliersFact; place: SuppliersFact };
-  /** The date shown waits in the Event Hub draft (answer 7). */
-  drafted?: boolean;
   /** A date change is asked of a booked supplier (answer 10). */
   changeAsked?: boolean;
   /** The build's priced picks (event_vendors ids) — Help me choose checks every one of them. */
@@ -53,7 +50,7 @@ export function FactLine({
     setOpen(null);
     if (owed.current) {
       owed.current = false;
-      // one-render: keep (no-revalidate) — a fact saved to the draft (`hubDraftAction` intent `save`) revalidates nothing; one re-read when the sheet closes.
+      // one-render: keep (no-revalidate) — a place saved to the draft (`hubDraftAction` intent `save`) revalidates nothing; one re-read when the sheet closes.
       router.refresh();
     }
   };
@@ -66,16 +63,11 @@ export function FactLine({
           onClick={() => setOpen({ which: 'date', help: false })}
           data-fact="date"
           aria-haspopup="dialog"
-          aria-label={`Date: ${date.text}${drafted ? `, ${DRAFTED_DATE_WORD}` : ''}`}
+          aria-label={`Date: ${date.text}`}
           className={`${VALUE} ${tone(date)}`}
         >
           <span className={DOTTED}>{date.text}</span>
         </button>
-        {drafted ? (
-          <span className="text-[13px] text-ink/60" data-fact-drafted="">
-            {DRAFTED_DATE_WORD}
-          </span>
-        ) : null}
         {changeAsked ? (
           <button
             type="button"
@@ -107,8 +99,9 @@ export function FactLine({
           which={open.which}
           helpFirst={open.help}
           priced={priced}
-          onWrote={() => {
-            owed.current = true;
+          onWrote={(redrawn) => {
+            // 🗓 A saved date already drew the page again (`updateEventDate` revalidates) — nothing more is owed.
+            if (!redrawn) owed.current = true;
           }}
           onClose={close}
         />

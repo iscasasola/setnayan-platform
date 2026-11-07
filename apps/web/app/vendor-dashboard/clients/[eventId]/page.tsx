@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { customerLandingHref } from '../../customers/anchors';
+import { customerLandingHref, SUPPLIER_CHATS_HREF } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -77,6 +77,7 @@ import {
   type CustomerCardTab,
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
+import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
 // same component, same action, same host-side answering screen.
@@ -114,7 +115,9 @@ import {
   vendorWithdrawChangeOrder,
   vendorAgreeToLock,
   vendorDeclineLock,
+  vendorWaitlistTheAsk,
 } from './actions';
+import { readDayCheck } from '@/lib/day-check.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
@@ -860,12 +863,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
   // sentence that belongs beside the Agree button, and nowhere else on this
   // page is a decision being made about money.
-  const feeForecast: FeeDisclosure | null = lockRequest?.event_vendor_id
-    ? await forecastForBooking(admin, {
-        vendorProfileId: profile.vendor_profile_id,
-        eventVendorId: lockRequest.event_vendor_id,
-      })
-    : null;
+  // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
+  const [feeForecast, dayCheck]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null] = lockRequest?.event_vendor_id
+    ? await Promise.all([
+        forecastForBooking(admin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockRequest.event_vendor_id,
+        }),
+        readDayCheck(supabase, lockRequest.event_vendor_id),
+      ])
+    : [null, null];
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1639,7 +1647,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id, room_created_at',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -1716,6 +1724,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             returnTo={`/vendor-dashboard/clients/${eventId}`}
             agreeLock={vendorAgreeToLock}
             declineLock={vendorDeclineLock}
+            dayCheck={dayCheck}
+            waitlistAsk={vendorWaitlistTheAsk}
           />
         ) : askOutcome ? (
           <BookingAskOutcomeLine outcome={askOutcome} />
@@ -2036,6 +2046,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
+  // ❓ WHAT THEY TOLD YOU — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"). The host reads the
+  // couple's answers inside the Script tab above; every other trade reads them here, on Details (flag-on) / the
+  // overview (flag-off). One place per role: never both — a supplier holding the Script tab reads them there.
+  // Fee-gated like the Script tab: the answers are the couple's own words, so they open with the event.
+  const coupleAnswersNode =
+    !showScript && feeUnlocked ? (
+      <CoupleAnswers
+        supabase={supabase}
+        eventId={eventId}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={eventName}
+      />
+    ) : null;
+
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
   const activityNode = (
@@ -2099,6 +2123,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
+            {tab === 'overview' ? coupleAnswersNode : null}
             {tab === 'quote' ? quoteNode : null}
             {tab === 'files' ? gated(filesNode) : null}
             {tab === 'schedule' ? gated(scheduleNode) : null}
@@ -2184,7 +2209,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF,
       node: null,
     },
     {
@@ -2244,6 +2269,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : null}
           {/* The brief, from the REDACTED payload at every locked stage. */}
           {overviewNode}
+          {coupleAnswersNode}
           {feeUnlocked ? activityNode : null}
         </div>
       ),
@@ -2302,7 +2328,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat

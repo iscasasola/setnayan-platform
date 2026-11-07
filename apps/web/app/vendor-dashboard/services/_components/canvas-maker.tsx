@@ -234,6 +234,7 @@ export function CanvasMaker({
   returnTo,
   unread = [],
   discountSeed = null,
+  bookingsPerDate = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -299,6 +300,12 @@ export function CanvasMaker({
   unread?: string[];
   /** Arrived from the off-season nudge: Discounts opens with one off-peak line drafted (the supplier sets the amount). */
   discountSeed?: { expiry?: string; conditions?: string } | null;
+  /**
+   * A card's bookings per date, inside the plan (owner 2026-11-06 — Solo 1 · Pro 3 · Ultra 5, plus any bought "+1
+   * booking per date"). `cap` bounds the field; `help` says the cap and the Ultra add-on. Null / null fields = no plan
+   * cap (Free · Verified, not ruled yet).
+   */
+  bookingsPerDate?: { cap: number | null; help: string | null } | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
@@ -1216,13 +1223,25 @@ export function CanvasMaker({
                         <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
                       </Field>
                     </div>
-                    {/* ⚖ No plan limit on how many a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
-                    <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : 'Blank = the schedule decides.'}>
+                    {/* ⚖ The supplier's own number — inside the plan's bookings per date per card (owner 2026-11-06:
+                        Solo 1 · Pro 3 · Ultra 5, Ultra may add more). Free · Verified: not ruled, no plan cap. */}
+                    <Field
+                      label="How many a day · this card"
+                      htmlFor="daily_capacity"
+                      help={
+                        (editing?.slots.length ?? 0) > 0
+                          ? 'Time slots below set how many at once instead.'
+                          : bookingsPerDate?.help
+                            ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
+                            : 'Blank = the schedule decides.'
+                      }
+                    >
                       <input
                         id="daily_capacity"
                         name="daily_capacity"
                         type="number"
                         min={1}
+                        max={bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? Math.max(bookingsPerDate.cap, Number(editing?.dailyCapacity) || 0) : undefined}
                         step={1}
                         defaultValue={editing?.dailyCapacity ?? ''}
                         disabled={(editing?.slots.length ?? 0) > 0}
@@ -1952,6 +1971,13 @@ function CanvasSheet({
   useModalA11y({ open, onClose, containerRef: dialogRef });
 
   /**
+   * 🔝 ABOVE THE FRAME THAT HOSTS THE MAKER (live 2026-11-06). The maker is also drawn INSIDE a sheet — Today's "What you
+   * offer → ＋ Start" opens it in the shared `Sheet` (`setup-offer-fold.tsx`), which sits on the modal layer (z-50). This
+   * root was `z-40` (the pop layer), so every sheet the maker opens — What you offer, Ask us, Preview, Who it's for,
+   * Delete — opened BEHIND that sheet: the tap looked dead and a new supplier could not make a card from Today. It takes
+   * the house layer above the modal (`--sn-z-toast`, the one the report sheet and the pay confirm already open over a
+   * Sheet on), so it clears the standalone page and the Today sheet alike. 🔒 `the-maker-sheets-open-on-top.test.ts`.
+   *
    * 🔑 PORTAL TO <body> — `position: fixed` is relative to the nearest TRANSFORMED ancestor, and `.sn-page-enter`
    * carries an identity transform (measured 2026-09-07: the backdrop was 184 px tall). The same fix
    * `category-search-overlay.tsx` and `team-summary-chip.tsx` carry.
@@ -1961,7 +1987,7 @@ function CanvasSheet({
   if (!mounted) return null;
 
   return createPortal(
-    <div hidden={!open} className="fixed inset-0 z-40">
+    <div hidden={!open} className="fixed inset-0 z-sn-toast">
       {/* Phone: the one scrim (`<OverlayBackdrop>`, owner 2026-10-29). Desktop: the canvas stays clear beside the sheet
           (it is the live preview), so a clear catcher closes it instead. */}
       <OverlayBackdrop onClose={onClose} className="lg:hidden" />

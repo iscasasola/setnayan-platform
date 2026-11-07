@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { REAL_SHOP_GATE } from '@/lib/live-shops';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -143,12 +144,14 @@ export function entityBase(admin: Admin, key: EntityKey) {
   switch (key) {
     case 'customers':
       return admin.from('users').select('*', HEAD).eq('account_type', 'customer');
+    // 🧪 Demo shops, their cards and demo events are never counted (owner 2026-11-06: "demo numbers never count in
+    // real totals"). All three columns are NOT NULL DEFAULT false, so the equality is exact.
     case 'vendors':
-      return admin.from('vendor_profiles').select('*', HEAD);
+      return admin.from('vendor_profiles').select('*', HEAD).eq('is_demo', false);
     case 'services':
-      return admin.from('vendor_services').select('*', HEAD);
+      return admin.from('vendor_services').select('*', HEAD).eq('is_demo', false);
     case 'events':
-      return admin.from('events').select('*', HEAD);
+      return admin.from('events').select('*', HEAD).eq('is_sample', false);
     case 'guests':
       return admin.from('guests').select('*', HEAD).is('deleted_at', null);
   }
@@ -317,6 +320,7 @@ async function fetchBreakdowns(admin: Admin): Promise<Breakdowns> {
     const { data, error } = await admin
       .from('events')
       .select('event_type, region')
+      .eq('is_sample', false) // 🧪 a demo event is not a real event (owner 2026-11-06)
       .limit(BREAKDOWN_ROW_CAP);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
@@ -396,13 +400,10 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
       // approved. A zero on a growth dashboard reads as a fact about the
       // business, not as a broken query.
       headCount(
-        admin
-          .from('vendor_profiles')
-          .select('*', HEAD)
-          .eq('public_visibility', 'verified')
-          .eq('verification_state', 'verified'),
+        // 🧪 REAL_SHOP_GATE: listed + verified + not a demo shop — demo shops are listed now, never counted.
+        admin.from('vendor_profiles').select('*', HEAD).match(REAL_SHOP_GATE),
       ),
-      headCount(admin.from('vendor_services').select('*', HEAD).eq('is_active', true)),
+      headCount(admin.from('vendor_services').select('*', HEAD).eq('is_active', true).eq('is_demo', false)),
     ]);
   } catch (e) {
     logQueryError('growth-stats (population)', e);

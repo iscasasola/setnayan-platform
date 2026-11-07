@@ -32,8 +32,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { PricingData } from './pricing-data';
-import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
-import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
+import { VENDOR_TIER_SECTIONS } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
@@ -110,10 +109,10 @@ export function OverlayShell({
  * Cross-tier vendor benefit count — computed at build time from the canonical
  * data so the Vendors-popup line-link ("See all N supplier benefits →") never goes
  * stale. Sums the full /vendors matrix the link points at:
- *   • named benefits across every tier (VENDOR_TIER_SECTIONS)   — 84 today
- *   • Custom-only dials (VENDOR_CUSTOM_TIER.benefits)           —  9 today
+ *   • named benefits across every tier (VENDOR_TIER_SECTIONS)
  *   • plan-capability rows (buildLimitsGroup in vendor-tier-matrix) — 9 fixed
- * = 102 today. Rendered as "100+" once the total crosses 100 so the headline
+ * (No total is written here on purpose — it went stale: this said "84 … = 102" while the real sum was 99, and
+ * seven retired "soon" rows took it to 92 on 2026-11-05.) Rendered as "100+" once the total crosses 100 so the headline
  * never regresses on a copy tweak. The number tracks the arrays, not a literal.
  */
 const PLAN_CAPABILITY_ROW_COUNT = 9; // buildLimitsGroup() in vendor-tier-matrix.tsx
@@ -122,17 +121,8 @@ const TOTAL_VENDOR_BENEFIT_COUNT = (() => {
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0),
     0,
   );
-  // The dials are LABELS, deliberately price-free, so this module-level count
-  // needs no catalog read — see the docblock on VENDOR_CUSTOM_TIER.
-  //
-  // 🔑 THE COUNT IS THE TRAP IN THIS HIDE, AND IT IS THE POINT OF THIS LINE.
-  // Custom came off the public pages on 2026-08-27, and this headline number
-  // ("N benefits") turned out to be the ONLY place in this overlay that
-  // referenced it — there is no Custom band here to remove. Left alone it would
-  // have gone on counting dials a customer can no longer see anywhere: a number
-  // quietly overstating the offer, with nothing rendering wrong to give it away.
-  const custom = CUSTOM_TIER_OFFERED_PUBLICLY ? VENDOR_CUSTOM_TIER.dials.length : 0;
-  return named + custom + PLAN_CAPABILITY_ROW_COUNT;
+  // (The Custom plan's dials were counted here while it was offered; it was retired from the app 2026-11-06.)
+  return named + PLAN_CAPABILITY_ROW_COUNT;
 })();
 const TOTAL_VENDOR_BENEFIT_LABEL = TOTAL_VENDOR_BENEFIT_COUNT >= 100 ? '100+' : String(TOTAL_VENDOR_BENEFIT_COUNT);
 

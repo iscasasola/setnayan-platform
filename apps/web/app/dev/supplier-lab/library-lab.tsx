@@ -99,7 +99,13 @@ export function LibraryLab({
         cardsByPart={cardsByPart}
         actions={{
           uploadStylistAsset: async (fd) => {
-            return (await libraryLab({ op: 'upload' }, fd)) as { assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: Record<number, { slotId: number; sampledHex: string; toleranceDe: number; regionLabel?: string }> };
+            // The shipped action RETURNS its refusals; the lab's server stand-in throws them, so turn them the same way.
+            try {
+              const up = (await libraryLab({ op: 'upload' }, fd)) as { assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: Record<number, { slotId: number; sampledHex: string; toleranceDe: number; regionLabel?: string }> };
+              return { ok: true as const, ...up };
+            } catch (err) {
+              return { ok: false as const, error: err instanceof Error ? err.message : 'That upload failed.' };
+            }
           },
           saveStylistColorRanges: async (assetId, map) => {
             await libraryLab({ op: 'tags', assetId, map });

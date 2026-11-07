@@ -220,6 +220,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    key: 'download-all-zip-sweep',
+    kind: 'retention',
+    gapMs: DAILY_GAP_MS,
+    what: 'Download all zips deleted from storage 48 hours after they were made',
+    reportsCount: true,
+  },
+  {
     key: 'connection-request-expiry',
     kind: 'retention',
     gapMs: DAILY_GAP_MS,

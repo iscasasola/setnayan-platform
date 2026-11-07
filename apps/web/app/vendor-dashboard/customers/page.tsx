@@ -28,9 +28,9 @@ import {
 } from '@/lib/vendor-dates';
 import { blockClosesDay, repeatWords } from '@/lib/not-available';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
-import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { DAILY_CAPACITY_MAX, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -1029,9 +1029,9 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   const settings = (settingsRead.data ?? null) as { waitlist_enabled?: boolean; max_waitlist_acceptances?: number; tier_state?: string | null } | null;
   const tier = settings?.tier_state ?? null;
   // 💳 THE SWITCH. A 0 here is the paywall, asked through the same flag-aware allowance updateWaitlistSettings
-  // enforces — off, the entry plan's places. The EFFECTIVE cap (a Custom plan can buy the ceiling away).
+  // enforces — off, the entry plan's places. The plan's cap, plus any "+1 wait list" an Ultra shop bought.
   const waitlistTierCap = vendorAllowance(
-    (await fetchEffectiveCaps(supabase, vendorProfileId, tier)).waitlistAcceptances,
+    (await fetchCapsWithAddOns(supabase, vendorProfileId, tier)).waitlistAcceptances,
     entryTierAllowance('waitlistAcceptances'),
   );
   const unlimited = !Number.isFinite(waitlistTierCap);
@@ -1160,7 +1160,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
                 pickedMeasured: !pickedRead.error,
                 dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
               }}
-              qrHref="/vendor-dashboard/invite"
+              qrHref="/vendor-dashboard/invite?mode=locked"
               blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
               actions={DATES_ACTIONS}
             />
@@ -1242,8 +1242,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
           createAdminClient().from('events').select('event_id, venue_name, event_type').in('event_id', part),
         )
       : Promise.resolve({ rows: [], error: null }),
-    // "Holding this date · N of M" — the plan's ceiling, read live (a Custom plan may lift it; reads only then).
-    fetchEffectiveCaps(supabase, vendorProfileId, (tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null),
+    // "Holding this date · N of M" — the plan's ceiling.
+    tierCaps((tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null),
   ]);
   if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
   const eventById = new Map(

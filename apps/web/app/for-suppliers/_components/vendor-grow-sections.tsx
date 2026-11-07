@@ -192,7 +192,7 @@ export function VendorGrowThesis({ fee }: FeeProp) {
         ))}
       </div>
       {/* The house ⓘ is ink-on-light; on this dark band it gets the band's own ink until hovered or open. */}
-      <style>{`@media(max-width:720px){ .m-thesis-in{grid-template-columns:1fr !important} } .m-thesis-in .sn-dot-btn:not(:hover):not([aria-expanded='true']){border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.75)}`}</style>
+      <style>{`@media(max-width:720px){ .m-thesis-in{grid-template-columns:1fr !important} } .m-thesis-in .sn-dot-btn:not(:hover):not(:has(+ .sn-tip[data-open='true'])){border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.75)}`}</style>
     </div>
   );
 }
@@ -245,7 +245,21 @@ export function VendorGrowHub() {
 
 /* ── 2 · SETNAYAN AI (DARK SIGNATURE) ──────────────────────────────────── */
 
-export function VendorGrowAI() {
+/**
+ * Where "Get your invite link" goes. The link lives in Shop › Promote
+ * (/vendor-dashboard/shop/promote — moved from Customers › QR codes 2026-11-05, owner: the
+ * marketing codes belong in Shop, which is where this page already shows them),
+ * so a supplier who already has a shop goes straight there; everyone else opens
+ * a shop first and is carried on to it (`?next=`). It used to be a bare
+ * `/open-shop` for everybody, which sent a registered supplier to the open-shop
+ * page (and on to Today), never to the invite link the button names.
+ */
+export const INVITE_LINK_PATH = '/vendor-dashboard/shop/promote';
+export function inviteLinkHref(hasShop: boolean): string {
+  return hasShop ? INVITE_LINK_PATH : '/open-shop?next=' + encodeURIComponent(INVITE_LINK_PATH);
+}
+
+export function VendorGrowAI({ inviteHref = inviteLinkHref(false) }: { inviteHref?: string }) {
   const steps = [
     { n: '1', t: 'Strategic computation', p: 'We compute where you’re the strongest match — by date, budget, faith, location and the other suppliers they’re choosing.' },
     // ⚠ THIS STEP USED TO PROMISE VENDORS A DARK PATTERN, and one we don't build.
@@ -373,7 +387,7 @@ export function VendorGrowAI() {
               A couple who&rsquo;s activated it is a couple we can nudge, create urgency for, and lock in on your behalf. Invite yours in one tap — it costs you nothing, and it lets us push your bookings far harder.
             </p>
           </div>
-          <Link href="/open-shop" className="m-btn m-btn-orange m-btn-lg">
+          <Link href={inviteHref} className="m-btn m-btn-orange m-btn-lg">
             Get your invite link
           </Link>
         </div>

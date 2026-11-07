@@ -28,6 +28,16 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
+import { demoScopeOfEvent, shopFitsScope } from '@/lib/demo-scope';
+
+/**
+ * 🧪 Onboarding makes a REAL event (`events.is_sample` is never set here), so its supplier search is a real event's:
+ * never a demo shop (owner 2026-11-06, "Demo catalogue — owner clicks": *"never inside their own event's supplier
+ * search"*). Derived from the one rule in `lib/demo-scope.ts`, not typed as `false`: an event with no `is_sample` read is
+ * a real event's scope. (Never an `{ is_sample: … }` literal here — `tests/db/gates-have-handles` reads one in an
+ * actions file as a WRITE of that column, and `events.is_sample` is writer-less by design.)
+ */
+const ONBOARDING_DEMO_SCOPE = demoScopeOfEvent(null);
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { freeDatesByVendor } from '@/lib/onboarding/venue-candidates.server';
 import {
@@ -757,6 +767,21 @@ export async function commitOnboardingWedding(
       // that word is for a supplier the couple typed in.
       source: 'host_marketplace_search' as const,
     }));
+  // 🧪 A NEW EVENT FROM ONBOARDING IS A REAL EVENT, SO IT NEVER KEEPS A DEMO SHOP (owner 2026-11-06,
+  // lib/demo-scope.ts). Dropped before the insert: the trigger `refuse_demo_cross_booking` would otherwise refuse the
+  // whole batch and take the couple's real picks with it. An unread shop is dropped too (fail closed).
+  if (shortlistRows.length > 0) {
+    const { data: shopFlags, error: shopFlagsErr } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, is_demo')
+      .in('vendor_profile_id', shortlistRows.map((r) => r.marketplace_vendor_id));
+    if (shopFlagsErr) console.error('[supabase-error] app/onboarding/wedding/actions.ts · from:vendor_profiles.select(is_demo)', shopFlagsErr);
+    const flagById = new Map(((shopFlags ?? []) as Array<{ vendor_profile_id: string; is_demo: boolean }>).map((r) => [r.vendor_profile_id, r]));
+    for (let i = shortlistRows.length - 1; i >= 0; i--) {
+      // Kept only when the shop was read AND sits in this real event's scope (lib/demo-scope.ts) — unread is dropped.
+      if (!shopFitsScope(ONBOARDING_DEMO_SCOPE, flagById.get(shortlistRows[i]!.marketplace_vendor_id))) shortlistRows.splice(i, 1);
+    }
+  }
   if (shortlistRows.length > 0) {
     // Best-effort: the event + membership are already committed, so a shortlist
     // insert or anchor-recompute failure must NEVER reject the action. Without
@@ -1110,6 +1135,7 @@ export async function searchOnboardingReceptionVenues(input: {
     // other leaf dim (capacity / ceremony / venue_type / date) stays a hard
     // filter, so anything returned here can actually host the wedding.
     const nativeRecs = await fetchWizardVendorRecommendations(admin, {
+      demoScope: ONBOARDING_DEMO_SCOPE,
       canonicalServices,
       ceremonyType,
       secondaryCeremonyType: secondary,
@@ -1133,6 +1159,7 @@ export async function searchOnboardingReceptionVenues(input: {
     if (psgcRegion) {
       const nativeIds = new Set(natives.map((n) => n.vendorId));
       const wideRecs = await fetchWizardVendorRecommendations(admin, {
+        demoScope: ONBOARDING_DEMO_SCOPE,
         canonicalServices,
         ceremonyType,
         secondaryCeremonyType: secondary,
@@ -1313,7 +1340,7 @@ export async function getOnboardingVendorCounts(input: {
       // what the couple can actually find on Explore (unverified vendors are
       // private). Keeps the "real numbers only" guarantee honest.
       .eq('verification_state', 'verified')
-      .eq('is_demo', false) // a demo shop is not a match (2026-09-30, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
+      .eq('is_demo', ONBOARDING_DEMO_SCOPE.is_demo) // a demo shop is not a match for the real event being made (lib/demo-scope.ts)
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .limit(5000); // ceiling well above the V1 pool · keeps `total` exact

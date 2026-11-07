@@ -121,7 +121,7 @@ test('4 · every supplier upload is tagged with its own colours at upload (file 
   assert.ok(insertRow > 0 && readColours > insertRow && writeColours > readColours, 'the upload no longer writes the photo’s own colours with its row');
   assert.match(store, /if \(isGalleryRow\) \{\s*colorRanges = await autoColourRanges\(args\.bytes\);/);
   /* Both photo sources reach that one door. */
-  const upload = fnBody(actions, 'export async function uploadStylistAsset(');
+  const upload = fnBody(actions, 'async function uploadStylistAssetOrThrow(');
   assert.match(upload, /: await readShopOwnPhoto\(profile, shopPhotoRef!\);/);
   assert.equal((upload.match(/await storeScreenedAsset\(\{/g) ?? []).length, 1);
 });

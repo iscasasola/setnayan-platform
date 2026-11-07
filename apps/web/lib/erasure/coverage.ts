@@ -545,6 +545,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who recorded that two people are related. The relationship is the OTHER two people’s, so the edge stays and the recorder’s stamp goes.',
   },
   {
+    table: 'vendor_guest_reviews',
+    column: 'hidden_by_user_id',
+    why: 'The Setnayan admin who hid a guest review (owner ruling A, 6 Nov 2026). SET NULL + nullable ⇒ an actor stamp; the review is the GUEST’s words about a shop, and whether it is hidden is kept by hidden_at, not by who pressed it.',
+  },
+  {
     table: 'vendor_reviews',
     column: 'couple_user_id',
     why: 'Nulling anonymises the review; deleting it would silently move a vendor’s public star rating, which is a third party’s commercial record erasure does not reach.',
@@ -575,6 +580,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'feature_reviews',
     column: 'couple_user_id',
     why: 'Nulling anonymises the feedback; the review itself is product data the platform acts on, not a record about the person.',
+  },
+  {
+    table: 'booking_fee_disputes',
+    column: 'opened_by_user_id',
+    why: 'The shop account that disputed a booking fee (2026-11-05). The dispute is the SHOP’s record of a fee and Setnayan’s answer — it must survive the person leaving, exactly as the fee it is about does.',
+  },
+  {
+    table: 'booking_fee_disputes',
+    column: 'decided_by_user_id',
+    why: 'The admin who decided the dispute. An admin actor stamp on the shop’s fee record.',
   },
   {
     table: 'vendor_disputes',

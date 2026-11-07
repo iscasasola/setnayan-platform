@@ -21,70 +21,63 @@
  *
  * Mounted inside <Suspense> (in providers.tsx) because useSearchParams() opts
  * the subtree into client rendering.
+ *
+ * 🔒 A PAGE THAT PRINTS ITS OWN `?error=` KEEPS IT (2026-11-06). What this does
+ * with an address is decided in `./param-toast.ts` (tested there): the flags
+ * leave the address without a server round trip, and an error the page already
+ * shows gets no second, generic toast.
  */
 
 import { useEffect, useRef } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useToast } from './toast-provider';
+import { planParamToast } from './param-toast';
 
-function dec(v: string): string {
-  try {
-    return decodeURIComponent(v);
-  } catch {
-    return v;
+/**
+ * Does the page on screen already show the person an error? A visible `role="alert"` with words in it —
+ * FormFlash (error), DoorNotice (alert), the sign-in cards' banner all render one. The peek toast's own
+ * alert pill is not the page.
+ */
+function pageShowsError(): boolean {
+  for (const el of Array.from(document.querySelectorAll('[role="alert"]'))) {
+    if (el.closest('[data-peek-toast]')) continue;
+    if (!(el.textContent ?? '').trim()) continue;
+    if (el.getClientRects().length === 0) continue; // display:none / not rendered
+    return true;
   }
+  return false;
 }
-
-// param → message builder. Array order = priority when several are present.
-const SUCCESS_PARAMS: Array<[string, (v: string) => string]> = [
-  ['saved', (v) => (v && v !== '1' ? `Saved — ${dec(v)}` : 'Saved.')],
-  ['created', (v) => (v && v !== '1' ? `Created — ${dec(v)}` : 'Created.')],
-  ['updated', (v) => (v && v !== '1' ? `Updated — ${dec(v)}` : 'Updated.')],
-  ['added', (v) => (v && v !== '1' ? `Added ${dec(v)}` : 'Added.')],
-  ['sent', () => 'Sent.'],
-  ['removed', () => 'Removed.'],
-  ['deleted', () => 'Deleted.'],
-  ['completed', () => 'Done.'],
-  ['done', (v) => (v === 'approved' ? 'Approved.' : v === 'rejected' ? 'Rejected.' : 'Done.')],
-];
-const HANDLED_KEYS = ['error', 'msg', ...SUCCESS_PARAMS.map(([k]) => k)];
 
 export function ToastFromParams() {
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
-  const fired = useRef(false);
+  // The ADDRESS last handled — not a one-shot flag. This component lives in the root providers for the whole
+  // visit, so a `useRef(false)` set once meant only the FIRST flagged address of a visit ever toasted; every
+  // later `?saved=1` / `?error=…` was ignored and left in the address. Same address twice (StrictMode's
+  // double effect) is still handled once.
+  const handled = useRef<string | null>(null);
 
   useEffect(() => {
-    if (fired.current) return;
-    const msg = params.get('msg') ?? undefined;
-
-    let message: string | null = null;
-    let isError = false;
-    if (params.get('error') !== null) {
-      message = msg ?? 'Something went wrong — please try again.';
-      isError = true;
-    } else {
-      for (const [key, build] of SUCCESS_PARAMS) {
-        const v = params.get(key);
-        if (v !== null) {
-          message = msg ?? build(v);
-          break;
-        }
-      }
+    const key = `${pathname}?${params.toString()}`;
+    if (handled.current === key) return;
+    const plan = planParamToast(new URLSearchParams(params.toString()), pageShowsError());
+    if (!plan) {
+      // A clean address: forget the last one, so the SAME flag arriving again (a second save) toasts again.
+      handled.current = null;
+      return;
     }
-    if (message === null) return;
+    handled.current = key;
 
-    fired.current = true; // set before side-effects — StrictMode double-invoke safe
-    if (isError) toast.error(message);
-    else toast.success(message);
+    if (plan.toast?.tone === 'error') toast.error(plan.toast.message);
+    else if (plan.toast) toast.success(plan.toast.message);
 
-    const next = new URLSearchParams(params.toString());
-    for (const k of HANDLED_KEYS) next.delete(k);
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [params, pathname, router, toast]);
+    // 🔑 `history.replaceState`, NEVER `router.replace`. The router follows a native replaceState (the address
+    // and useSearchParams update) WITHOUT asking the server for the page again. `router.replace` did ask — and
+    // the page came back drawn without its `?error=`, so the door's own specific error vanished the moment it
+    // appeared (measured on /signup?error=password_leaked, 2026-11-06).
+    window.history.replaceState(window.history.state, '', `${pathname}${plan.search}${window.location.hash}`);
+  }, [params, pathname, toast]);
 
   return null;
 }

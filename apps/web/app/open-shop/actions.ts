@@ -10,7 +10,13 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
-import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
+import {
+  clipBusinessSlug,
+  SHOP_NAME_MAX,
+  SHOP_NAME_TOO_LONG,
+  shopNameTooLong,
+  slugifyBusinessName,
+} from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
@@ -136,7 +142,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (decision.kind === 'refuse') {
     redirect(`/open-shop?step=${decision.step}&error=` + encodeURIComponent(decision.error));
   }
-  const shopName = clean(formData.get('shop_name'));
+  // 📏 50 AT MOST (owner 2026-11-06). Read UNCLIPPED so a too-long name is REFUSED, never silently cut to fit —
+  // `clean` would slice it, and the vendor would get a shop named something they never typed.
+  const rawShopName = clean(formData.get('shop_name'), Number.MAX_SAFE_INTEGER);
+  if (shopNameTooLong(rawShopName)) {
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(SHOP_NAME_TOO_LONG));
+  }
+  const shopName = clean(rawShopName, SHOP_NAME_MAX);
   const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
   // ── THE ADDRESS IS CHOSEN, NOT MINTED (owner 2026-08-10: "slug cannot be

@@ -23,7 +23,10 @@ export function PortfolioSettings({
   free,
   allowanceUnread,
   walletBalance,
+  cover = false,
 }: {
+  /** Drawn on the Portfolio band: the cover's ink (`MenuSettingsButton`'s own `cover` look). */
+  cover?: boolean;
   photos: number;
   free: number;
   allowanceUnread: boolean;
@@ -32,7 +35,7 @@ export function PortfolioSettings({
   const [open, setOpen] = useState(false);
   const n = (x: number) => x.toLocaleString('en-PH');
   return (
-    <MenuSettingsButton menu="portfolio" open={open} onOpenChange={setOpen}>
+    <MenuSettingsButton menu="portfolio" open={open} onOpenChange={setOpen} cover={cover}>
       <div className="divide-y divide-ink/10 px-4 pb-6 pt-1" data-portfolio-settings="">
         <DatesRow
           data="portfolio-free"

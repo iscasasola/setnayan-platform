@@ -42,8 +42,10 @@ import { badgeRowsWithRewards, rewardsOwed, type BadgeRewardFacts, type TrackerR
 import { startableChoices, upgradesOwed } from '@/lib/badge-upgrades';
 import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
+import { SHOP_TAB_STATES, ShopTabLab } from './shop-tab-lab';
 
-export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold', 'coord-badges'] as const;
+// 🏪🖼 THE ONE BUILD (C4): the Shop and Portfolio tabs ride this dispatch (`shop-tab-lab.tsx`) — `&unread=1` = every read refused.
+export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold', 'coord-badges', ...SHOP_TAB_STATES] as const;
 export type CoordState = (typeof COORD_STATES)[number];
 
 const LAB_TODAY = '2026-10-14';
@@ -156,6 +158,7 @@ function coordLabRewards(f: TrackerFacts): TrackerRewardInput {
 }
 
 export function CoordLab({ state, none, unread = false, cohost = false, at, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; at?: string; actions: TodayActions }) {
+  if (state === 'shop-tab' || state === 'portfolio-tab') return <ShopTabLab state={state} fail={unread} />;
   const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY, LAB_SHOP_EVENTS), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">

@@ -67,8 +67,19 @@ Branch `claude/supplier-1build-c4`, cut from `origin/claude/supplier-1build-base
   badge facts (admin, 2) → rewards (chained) · analytics (role + up to 10 reads, plan-gated) · cover presign (chained on
   own row). Sheets (Promote, QR, ⚙, logo, cover) read only when opened.
 
-## Screenshots
-- v113/v114 reference: `build-notes/c4-shots/v113/*.png` (375 px).
+## Screenshots (375 px, light) — side by side with v113/v114
+- Lab: `/dev/supplier-lab?s=shop-tab` · `?s=portfolio-tab` (`&unread=1` = every read refused) — `app/dev/supplier-lab/shop-tab-lab.tsx`
+  dispatched through `coord-lab.tsx` (C4's lab file; L1's lab registry untouched). Fixtures = v113's SetnaProd numbers.
+- Side by side: `build-notes/c4-shots/side-by-side-{shop,shop-scroll,shop-card,shop-badge,portfolio,portfolio-scroll}.png`.
+- Build shots: `build-notes/c4-shots/build/*.png` (incl. `shop-fail.png` honest unread words, `portfolio-show.png`,
+  `shop-share.png`, `shop-scanner.png`). Reference: `build-notes/c4-shots/v113/*.png`. `scrollWidth === 375` on every shot.
+- Deliberate differences from v113 (the map's WRONG/INVENTED rows + spec §4): no GB storage meter (storage out —
+  "N of 50 free photos"); "Get verified · N of 2" when unverified; service rows are the shipped manager (no invented
+  "610 views"); no Tools Maker; Booked Loop hidden; carousel dots + auto-advance show until `-foundation` lands; the
+  Portfolio filter stays the shipped "Show which collections" dropdown above the list (v113 has a funnel in the thumb
+  row); album rows use the app's names ("Photos and videos on my page", never client-named sets).
+- Dark mode: the supplier `DARK_READY` flag stays OFF this build (spec §4), so dark was not shot; the contrast lint
+  (`lint-label-on-fill-contrast`) passes for the new parts.
 
 ## Where I stopped
 - (updated each push)

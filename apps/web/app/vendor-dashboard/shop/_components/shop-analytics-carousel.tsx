@@ -107,7 +107,7 @@ function AnalyticsSheet({ card, recs, nowMs, onClose }: { card: AnalyticsCardDat
   return (
     <Sheet open onClose={onClose} labelledById={hid} rise>
       <div className="space-y-4 px-4 pb-6 pt-2" data-analytics-sheet={card.key}>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 pr-12">
           <h2 id={hid} className="text-[17px] font-semibold text-ink">
             {ANALYTICS_CARD_LABEL[card.key]}
           </h2>

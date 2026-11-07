@@ -88,7 +88,7 @@ export function PortfolioView({
   const collections = collectionRows(input).length;
   const album = picked ? showAlbums[picked] : undefined;
   const canShow = Boolean(album && album.urls.length > 0);
-  const settings = <PortfolioSettings photos={photos} free={free} allowanceUnread={allowanceUnread} walletBalance={walletBalance} />;
+  const settings = (cover: boolean) => <PortfolioSettings cover={cover} photos={photos} free={free} allowanceUnread={allowanceUnread} walletBalance={walletBalance} />;
   const showButton = (
     <button
       type="button"
@@ -114,7 +114,7 @@ export function PortfolioView({
           <PinWord barAbove>Portfolio</PinWord>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/60">{count}</span>
           {showButton}
-          {pin >= 0.5 ? settings : null}
+          {pin >= 0.5 ? settings(false) : null}
         </div>
       </div>
 
@@ -133,7 +133,7 @@ export function PortfolioView({
             <Upload aria-hidden className="h-4 w-4" strokeWidth={2} />
             Upload
           </a>
-          {pin < 0.5 ? settings : null}
+          {pin < 0.5 ? settings(true) : null}
         </div>
       </div>
 

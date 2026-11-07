@@ -192,9 +192,12 @@ function CollectionRowView({
         <span className="block truncate text-[15px] font-medium leading-tight text-ink">{r.title}</span>
         <span className="mt-0.5 block truncate text-[13px] text-ink/60">{r.line}</span>
       </span>
-      <Badge tone={r.unread ? 'quiet' : who.tone} data={`collection-${r.key}`}>
-        {r.unread ? 'Not read' : who.word}
-      </Badge>
+      {/* An album that opens in place carries its photos instead (the page row's switch says "on my page"). */}
+      {preview && preview.urls.length > 0 && onOpen ? null : (
+        <Badge tone={r.unread ? 'quiet' : who.tone} data={`collection-${r.key}`}>
+          {r.unread ? 'Not read' : who.word}
+        </Badge>
+      )}
     </>
   );
   const rowClass = 'flex min-h-[60px] items-center gap-3 py-2.5';
@@ -208,7 +211,7 @@ function CollectionRowView({
         <div className="flex items-center gap-2">
           <button type="button" onClick={onOpen} aria-expanded={open} className={`sn-press min-w-0 flex-1 text-left ${rowClass}`}>
             {inner}
-            <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-ink/40 transition-transform duration-[520ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+            <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-ink/40 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} style={{ transitionDuration: '520ms' }} strokeWidth={2} />
           </button>
           {r.pageSwitch ? (
             <button type="button" role="switch" aria-checked={on} aria-label="Show on my page" onClick={onToggle} className={SWITCH_BUTTON}>
@@ -232,8 +235,8 @@ function CollectionRowView({
         </div>
         {/* Opens IN PLACE — the list pushes down and glides (the house 520 ms; off under reduced motion). */}
         <div
-          className="grid transition-[grid-template-rows] duration-[520ms] ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none"
-          style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+          className="grid transition-[grid-template-rows] motion-reduce:transition-none"
+          style={{ gridTemplateRows: open ? '1fr' : '0fr', transitionDuration: '520ms', transitionTimingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
           aria-hidden={!open}
         >
           <div className="min-h-0 overflow-hidden">

@@ -570,13 +570,8 @@ async function ShopHome({
         <ShopMakers scanners={scanners} formsHref={null} />
 
         {/* 🧰 SERVICES — one row per service, then every card with its switches (the shipped manager, whole). */}
-        <section className="px-4 pt-5" aria-labelledby="shop-services-head" id="services">
-          <div className="flex items-baseline justify-between pb-1">
-            <h2 id="shop-services-head" className="sn-eye">
-              Services
-            </h2>
-            <span className="text-[11.5px] text-ink/50">tap a card to edit it</span>
-          </div>
+        {/* The shipped rows carry their own "Services ⓘ" heading. */}
+        <section className="px-4 pt-3" id="services">
           <ShopServiceRows rows={data.serviceRows} scan={null} />
           <ServicesDisclosure defaultOpen>
             <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />

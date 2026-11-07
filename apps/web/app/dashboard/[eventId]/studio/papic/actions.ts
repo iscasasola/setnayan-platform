@@ -22,7 +22,8 @@ import {
 import {
   PAPIC_FREE_CAMERA_INDEX_BASE,
   mintPapicReferenceCode,
-  PAPIC_UPLOADS_CAMERA_INDEX,
+  hostCameraSeat,
+  readHostCamera,
 } from '@/lib/papic-cameras';
 import { papicCameraSaleRefusedPath } from '@/lib/papic-sells-only-credits';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
@@ -34,7 +35,6 @@ import {
   uploadsClaimStep,
   uploadsClaimWords,
   type UploadsClaimCode,
-  type UploadsSeatRead,
 } from '@/lib/uploads-seat-claim';
 
 // Iteration 0012 Papic — couple-side server actions.
@@ -880,8 +880,9 @@ export async function setPapicUploadsOpen(formData: FormData) {
 
 /**
  * ＋ ADD PHOTOS IN ONE PRESS (owner 2026-10-26, live: "the turn on is not working as well fix it"). The sheet's
- * "Choose photos" opens the file picker at once; the moment files are picked, the picker calls THIS to claim the event's
- * Uploads camera for the host, then sends the files with the token it returns. There is no separate "Turn this on".
+ * "Choose photos" opens the file picker at once; the moment files are picked, the picker calls THIS to claim THIS
+ * host's own host camera (one per host — couple and co-hosts alike, owner 2026-10-31), then sends the files with the
+ * token it returns. There is no separate "Turn this on".
  *
  * Replaces `claimUploadsCamera` (a form + redirect): it answered a missing camera with `uploads_error=no_camera`, "please
  * try again" — and no retry could mint the row (`lib/uploads-seat-claim.ts` has the measurement). It also answered a
@@ -903,26 +904,37 @@ export async function startAddingPhotos(rawEventId: string): Promise<StartAdding
   if (!result.ok) return refuse(result.redirectTo === '/login' ? 'signed_out' : 'not_host');
   const { eventId } = result;
 
-  const { data: seat, error: seatError } = await createAdminClient()
-    .from('paparazzi_seats')
-    .select('claim_qr_token')
-    .eq('event_id', eventId)
-    .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-    .is('revoked_at', null)
-    .maybeSingle();
-  if (seatError) logQueryError('startAddingPhotos.seat', seatError, { event_id: eventId }, 'graceful_degrade');
-  const step = uploadsClaimStep((seat as UploadsSeatRead) ?? null, Boolean(seatError));
-  if ('refuse' in step) return refuse(step.refuse);
-
+  // 👥 THIS host's camera (owner 2026-10-31, "yes. papic credits still"): every host — each couple member and each
+  // co-host — has their own, read by the same resolver the Memories render used (`readHostCamera`), so the sheet and the
+  // claim agree on which camera is whose. It mints nothing: the couple-checked Memories render minted it.
+  const admin = createAdminClient();
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('papic_claim_seat', { p_token: step.claim });
-  if (error) {
-    logQueryError('startAddingPhotos.claim', error, { event_id: eventId }, 'graceful_degrade');
-    return refuse('claim_failed');
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return refuse('signed_out');
+  // Two tries: a spare another host claimed a moment earlier answers 'taken', and the second read finds this host's
+  // own (claimed) camera or the next spare. Never a third — a loop here would hide a real refusal.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { pick, readFailed } = await readHostCamera(admin, eventId, user.id);
+    if (readFailed) logQueryError('startAddingPhotos.seat', { message: 'host camera read refused' }, { event_id: eventId }, 'graceful_degrade');
+    if (pick?.kind === 'full') return refuse('full');
+    const step = uploadsClaimStep(hostCameraSeat(pick), readFailed);
+    if ('refuse' in step) return refuse(step.refuse);
+
+    const { data, error } = await supabase.rpc('papic_claim_seat', { p_token: step.claim });
+    if (error) {
+      logQueryError('startAddingPhotos.claim', error, { event_id: eventId }, 'graceful_degrade');
+      return refuse('claim_failed');
+    }
+    const answer = uploadsClaimAnswer(((data ?? {}) as { status?: string }).status);
+    if ('refuse' in answer) {
+      if (answer.refuse === 'taken' && attempt === 0) continue;
+      return refuse(answer.refuse);
+    }
+    return { ok: true, token: step.claim };
   }
-  const answer = uploadsClaimAnswer(((data ?? {}) as { status?: string }).status);
-  if ('refuse' in answer) return refuse(answer.refuse);
-  return { ok: true, token: step.claim };
+  return refuse('taken');
 }
 
 export async function setPapicStyle(formData: FormData) {
@@ -996,11 +1008,10 @@ export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string)
 // that backend, from the /crew management surface:
 //   • provisionPapicSeats — materialize the 5 seats (idempotent RPC) once the
 //     event owns a paid PAPIC_SEATS order.
-//   • reissuePapicSeat — mint a fresh claim token + clear the claimer on one
-//     seat (a friend dropped out / the link leaked). The couple has full RLS
-//     on their event's seats, so this is a plain UPDATE under their session.
+//   (`reissuePapicSeat` was removed 2026-11-04: nothing called it once the
+//   per-seat cards left /crew — see lib/papic-sells-only-credits.test.ts.)
 //
-// Both go through `getCoupleEventId` above (signed-in + couple-on-event), and
+// It goes through `getCoupleEventId` above (signed-in + couple-on-event), and
 // provisioning calls the RPC under the COUPLE's session (createClient · the
 // SECURITY DEFINER fn re-checks auth.uid() is a couple + the event owns
 // PAPIC_SEATS, so a forged call can't provision someone else's seats).
@@ -1035,73 +1046,6 @@ export async function provisionPapicSeats(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
   redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=provisioned`);
-}
-
-
-/**
- * Reissue one seat: clear the claimer + claimed_at, lift any revoke, and mint
- * a fresh claim_qr_token so the old link/QR stops working and the couple can
- * hand the seat to someone new. The couple's paparazzi_seats_couple_full RLS
- * permits the UPDATE under their own session.
- */
-export async function reissuePapicSeat(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'photos');
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const rawSeatId = formData.get('seat_id');
-  const seatId = typeof rawSeatId === 'string' ? rawSeatId.trim() : '';
-  if (!seatId) {
-    redirect(`/dashboard/${eventId}/studio/papic/crew?seat_error=missing_seat`);
-  }
-
-  // 18 crypto-random bytes → 36 hex chars · same entropy posture as the RPC's
-  // gen_random_bytes(18) seed and the guest qr_token format.
-  const bytes = new Uint8Array(18);
-  crypto.getRandomValues(bytes);
-  const freshToken = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from('paparazzi_seats')
-    .update({
-      claim_qr_token: freshToken,
-      claimer_user_id: null,
-      claimed_at: null,
-      revoked_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('seat_id', seatId)
-    .eq('event_id', eventId);
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic/crew?seat_error=${encodeURIComponent(
-        error.message.slice(0, 80),
-      )}`,
-    );
-  }
-
-  // Reissue hands the seat to a NEW friend — reset the per-seat capture caps so
-  // they start clean. Mark the prior claimer's captures superseded (excluded
-  // from the new claimer's per-seat count) WITHOUT deleting
-  // them: every photo still belongs to the event and still appears in the
-  // couple's gallery (untagged-/superseded-still-delivered). Best-effort and
-  // result-ignored — the token is already rotated, so a stamping hiccup (or a
-  // pre-migration DB without superseded_at) must not fail the reissue.
-  await supabase
-    .from('papic_photos')
-    .update({ superseded_at: new Date().toISOString() })
-    .eq('paparazzi_seat_id', seatId)
-    .is('superseded_at', null);
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
-  redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=reissued`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

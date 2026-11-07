@@ -30,16 +30,16 @@ import {
 import { tierCaps } from './vendor-tier-caps';
 
 /* ── The tier ladder this whole feature is capped by ────────────────────────
- * free 0 · verified 20 · solo 20 · pro 50 · enterprise 100 · custom 100.
+ * free 0 · verified 20 · solo 30 · pro 100 · enterprise ∞ (owner 2026-11-04, DECISION_LOG
+ * "SUPPLIER PLAN ALLOWANCES": "pro reach 100, ultra nationwide"; was pro 50 · enterprise 100).
  * Asserted against the real cap table so a tier reprice can't silently rot the
  * expectations below. */
 test('tierOuterRadiusCapKm mirrors the published Service reach ladder', () => {
   assert.equal(tierOuterRadiusCapKm('free'), 0);
   assert.equal(tierOuterRadiusCapKm('verified'), 20);
   assert.equal(tierOuterRadiusCapKm('solo'), 30); // owner 2026-10-23 (was 20)
-  assert.equal(tierOuterRadiusCapKm('pro'), 50);
-  assert.equal(tierOuterRadiusCapKm('enterprise'), 100);
-  assert.equal(tierOuterRadiusCapKm('custom'), 100);
+  assert.equal(tierOuterRadiusCapKm('pro'), 100); // owner 2026-11-04 (was 50)
+  assert.equal(tierOuterRadiusCapKm('enterprise'), Infinity); // nationwide (was 100)
   // Unknown / null tier degrades to `free` via asVendorTier — never to a
   // generous default. A garbage tier_state must not hand out 100 km.
   assert.equal(tierOuterRadiusCapKm(null), tierCaps('free').serviceRadiusKm);
@@ -80,20 +80,20 @@ test('normalizeRadiusKm accepts a numeric string (the form submits strings)', ()
    ═══════════════════════════════════════════════════════════════════════════ */
 
 test('clamp · declared ABOVE the cap reads as the cap', () => {
-  assert.equal(effectiveOuterRadiusKm(80, 'pro'), 50);
+  assert.equal(effectiveOuterRadiusKm(180, 'pro'), 100);
   assert.equal(effectiveOuterRadiusKm(500, 'verified'), 20);
 });
 
 test('clamp · declared AT OR BELOW the cap is honoured verbatim', () => {
   assert.equal(effectiveOuterRadiusKm(30, 'pro'), 30);
-  assert.equal(effectiveOuterRadiusKm(50, 'pro'), 50); // exactly the cap
+  assert.equal(effectiveOuterRadiusKm(100, 'pro'), 100); // exactly the cap
   assert.equal(effectiveOuterRadiusKm(5, 'verified'), 5);
   assert.equal(effectiveOuterRadiusKm(0, 'pro'), 0); // "we don't travel"
 });
 
 test('clamp · a BLANK declaration reads as the tier cap (today’s behaviour)', () => {
-  assert.equal(effectiveOuterRadiusKm(null, 'pro'), 50);
-  assert.equal(effectiveOuterRadiusKm(undefined, 'enterprise'), 100);
+  assert.equal(effectiveOuterRadiusKm(null, 'pro'), 100);
+  assert.equal(effectiveOuterRadiusKm(undefined, 'enterprise'), Infinity); // nationwide
   assert.equal(effectiveOuterRadiusKm(null, 'verified'), 20);
   // …and a blank on FREE stays 0, exactly as the tier-derived read does today.
   assert.equal(effectiveOuterRadiusKm(null, 'free'), 0);
@@ -123,8 +123,8 @@ test('clamp · a garbage stored value falls back to the cap, not to zero', () =>
   // A fractional/negative value can only arrive from outside the DB CHECK (a
   // hand-edited row, a bad import). It must read as "undeclared", which is the
   // tier cap — never as 0, which would read as "we don't travel".
-  assert.equal(effectiveOuterRadiusKm(-5 as unknown as number, 'pro'), 50);
-  assert.equal(effectiveOuterRadiusKm(12.5 as unknown as number, 'pro'), 50);
+  assert.equal(effectiveOuterRadiusKm(-5 as unknown as number, 'pro'), 100);
+  assert.equal(effectiveOuterRadiusKm(12.5 as unknown as number, 'pro'), 100);
 });
 
 /* ── the inner ring's own clamp ─────────────────────────────────────────── */
@@ -238,7 +238,7 @@ test('composed · the downgrade CHANGES the badge a couple sees', () => {
 });
 
 test('composed · an undeclared vendor gets null on EVERY tier', () => {
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom', null]) {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', null]) {
     assert.equal(
       travelFeeVerdictForVendor({
         distanceKm: 12,
@@ -469,24 +469,25 @@ test('validate · INNER ≤ OUTER is enforced', () => {
 
 test('validate · the TIER CAP is enforced at write time, per tier', () => {
   assert.match(
-    err(validateServiceRadiusPair({ inner: '10', outer: '80', tier: 'pro' })),
-    /up to 50 km/,
+    err(validateServiceRadiusPair({ inner: '10', outer: '180', tier: 'pro' })),
+    /up to 100 km/,
   );
   assert.match(
     err(validateServiceRadiusPair({ inner: '10', outer: '50', tier: 'verified' })),
     /up to 20 km/,
   );
   // Exactly the cap is allowed.
-  assert.equal(validateServiceRadiusPair({ inner: '10', outer: '50', tier: 'pro' }).ok, true);
-  assert.equal(validateServiceRadiusPair({ inner: '0', outer: '100', tier: 'enterprise' }).ok, true);
+  assert.equal(validateServiceRadiusPair({ inner: '10', outer: '100', tier: 'pro' }).ok, true);
+  // Nationwide: anything up to the typo guard is allowed.
+  assert.equal(validateServiceRadiusPair({ inner: '0', outer: '900', tier: 'enterprise' }).ok, true);
 });
 
 test('validate · an INNER above the cap is rejected even with a blank outer', () => {
   // inner ≤ outer ≤ cap, so an inner above the cap is impossible by
   // construction — it must not sneak through on the "outer is blank" path.
   assert.match(
-    err(validateServiceRadiusPair({ inner: '90', outer: '', tier: 'pro' })),
-    /up to 50 km/,
+    err(validateServiceRadiusPair({ inner: '190', outer: '', tier: 'pro' })),
+    /up to 100 km/,
   );
 });
 

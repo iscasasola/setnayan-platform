@@ -884,11 +884,11 @@ test('the event rail is the one tree — five rows (Stage D; More left 22 Oct 20
   assert.ok(!rows.some((i) => i.key === 'refer'), 'Refer a couple is an event row again');
   /*
     🔒 BUDGET IS NOT A MAIN ROOM (owner 2026-07-10). Since Stage D it is a
-    part of Your Team — never a row, never a phone tab — and its old page
-    lights Your Team.
+    part — never a row, never a phone tab. Since 2026-11-01 it is Home's own
+    page (owner: "Okay place it in home"), so Home lights it.
   */
   assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
-  assert.ok(rows.find((i) => i.key === 'explore')?.alsoMatch?.includes('/dashboard/EVT123/budget'));
+  assert.ok(rows.find((i) => i.key === 'home')?.alsoMatch?.includes('/dashboard/EVT123/budget'));
   assert.ok(
     !buildCustomerMenuTree('EVT123', { websiteEnabled: true }).some((m) => (m.key as string) === 'budget'),
     'Budget was promoted to a bottom-bar tab. The owner removed that on 2026-07-10.',
@@ -1010,7 +1010,7 @@ test('a folded event type is always one tap from being shown', () => {
   );
   assert.match(
     src,
-    /showAllTypes \|\| hidden\.length === 0/,
+    /\(showAllTypes && mayShowAll\) \|\| hidden\.length === 0/,
     'The create grid no longer un-folds when "show all" is pressed.',
   );
 });

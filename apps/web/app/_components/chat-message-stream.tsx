@@ -35,6 +35,17 @@ import {
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { quoteCardState } from '@/lib/quote-card-state';
+import {
+  QUOTE_VERSION_SELECT,
+  changesSincePrevious,
+  orderQuoteVersions,
+  versionsNewestFirst,
+  type QuoteVersionRow,
+} from '@/lib/quote-versions';
+import { QuoteWhatChanged } from './quote-what-changed';
+import { QuoteVersionsRow } from './quote-versions-sheet';
+import { SubmitButton } from './submit-button';
+import { respondToProposal } from '@/app/vendor-dashboard/proposals/actions';
 import type { CoupleLockTarget } from '@/lib/lock-door';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
@@ -371,6 +382,16 @@ export function ChatMessageStream({
   // on exactly that card. This says the difference.
   const [cardsDegraded, setCardsDegraded] = useState(false);
   const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
+  /**
+   * 4 Nov 2026 · EVERY SENT VERSION of the quotes in this thread (`lib/quote-versions.ts`).
+   * NULL = UNKNOWN (not read yet, or refused): the cards then say nothing about versions —
+   * no "version N", no What changed — and behave exactly as they did before.
+   */
+  const [quoteVersionRows, setQuoteVersionRows] = useState<QuoteVersionRow[] | null>(null);
+  const quoteVersions = useMemo(
+    () => (quoteVersionRows ? orderQuoteVersions(quoteVersionRows) : null),
+    [quoteVersionRows],
+  );
 
   /**
    * Each quote message paired with the cards that quote was built from, so the
@@ -400,6 +421,35 @@ export function ChatMessageStream({
     const ids = [...new Set(messages.map((m) => m.proposal_id).filter((x): x is string => !!x))];
     if (ids.length === 0) return;
     let cancelled = false;
+    // 4 Nov 2026 · the version history of each (event, supplier) quote in the thread — the
+    // pair's sent rows, so "version N" and What changed are read from the rows themselves.
+    const pairs = [
+      ...new Map(
+        messages
+          .filter((m) => m.proposal_id)
+          .map((m) => [`${m.event_id}|${m.vendor_profile_id}`, m] as const),
+      ).values(),
+    ];
+    void (async () => {
+      const reads = await Promise.all(
+        pairs.map((m) =>
+          supabase
+            .from('vendor_proposals')
+            .select(QUOTE_VERSION_SELECT)
+            .eq('event_id', m.event_id)
+            .eq('vendor_profile_id', m.vendor_profile_id)
+            .neq('status', 'draft'),
+        ),
+      );
+      if (cancelled) return;
+      const refused = reads.find((r) => r.error || !r.data);
+      if (refused) {
+        if (refused.error) console.error('[chat] quote version read refused', refused.error);
+        setQuoteVersionRows(null);
+        return;
+      }
+      setQuoteVersionRows(reads.flatMap((r) => (r.data ?? []) as QuoteVersionRow[]));
+    })();
     void (async () => {
       // A refused read here does not show an error — the QUOTE CARD simply
       // never appears in the thread, and both the couple and the supplier are
@@ -470,7 +520,7 @@ export function ChatMessageStream({
       const { data, error } = await supabase
         .from('event_appointments')
         .select(
-          'appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by, previous_scheduled_at',
+          'appointment_id, kind, type, custom_label, location, scheduled_at, status, initiated_by, previous_scheduled_at, room_created_at',
         )
         .in('appointment_id', ids);
       if (cancelled) return;
@@ -487,19 +537,23 @@ export function ChatMessageStream({
           kind: AppointmentKind;
           type: string;
           custom_label: string | null;
+          location: string | null;
           scheduled_at: string | null;
           status: ChatAppointmentData['status'];
           initiated_by: ChatAppointmentData['initiated_by'];
           previous_scheduled_at: string | null;
+          room_created_at: string | null;
         }>) {
           prev[a.appointment_id] = a.previous_scheduled_at;
           next[a.appointment_id] = {
             appointment_id: a.appointment_id,
             kind: a.kind,
             label: a.custom_label?.trim() || 'Meeting',
+            location: a.location,
             scheduled_at: a.scheduled_at,
             status: a.status,
             initiated_by: a.initiated_by,
+            room_created_at: a.room_created_at,
           };
         }
         return next;
@@ -1234,6 +1288,7 @@ export function ChatMessageStream({
               order, not floating above it.
             */
             const isLatestProposal = m.proposal_id === latestProposalId;
+            const quoteVersion = quoteVersions?.find((v) => v.proposalId === m.proposal_id) ?? null;
             const items = (card?.lineItems ?? []).filter((li) => li.label?.trim());
             /*
               S5 · WHAT THIS CARD MAY OFFER is decided ONCE, in
@@ -1251,8 +1306,17 @@ export function ChatMessageStream({
                   isLatest: isLatestProposal,
                   viewer: viewerRole,
                   handshake: lockHandshake?.state ?? null,
+                  version: quoteVersion?.version ?? null,
                 })
               : null;
+            // The live card's "What changed since version N-1" — from `quoteChanges`, the one diff.
+            const quoteDiff = isLatestProposal && quoteVersion ? changesSincePrevious(quoteVersion) : null;
+            /*
+              4 Nov 2026 · A REPLACED QUOTE IS COMPACT (approved prototype "Chat · an updated quote"):
+              "Quote · version N", the total, "Replaced by a newer quote", the date. Its lines and
+              its View quote live in "See every version" on the live card — never twice.
+            */
+            const replaced = card?.status === 'superseded';
             return (
               <li
                 key={m.message_id}
@@ -1266,9 +1330,23 @@ export function ChatMessageStream({
                       : 'border-terracotta/40 bg-terracotta/[0.06]'
                   }`}
                 >
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                    📄 Quote
-                  </p>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                      📄 Quote{quoteVersion ? ` · version ${quoteVersion.version}` : ''}
+                    </p>
+                    {quoteState?.badge ? (
+                      <span
+                        className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs ${
+                          quoteState.badge === 'Updated'
+                            ? 'bg-terracotta/15 text-terracotta-700'
+                            : 'bg-warn-100 text-warn-900'
+                        }`}
+                        data-quote-badge=""
+                      >
+                        {quoteState.badge}
+                      </span>
+                    ) : null}
+                  </div>
                   {card && quoteState ? (
                     <>
                       <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
@@ -1280,12 +1358,19 @@ export function ChatMessageStream({
                             Accepted · booked". When the note below already
                             opens with the status, the price line does not
                             repeat it. */}
-                        {quoteState.note?.startsWith(statusLabelOf(card.status))
-                          ? null
-                          : ` · ${statusLabelOf(card.status)}`}
+                        {replaced ? null : (
+                          <>
+                            {quoteState.note?.startsWith(statusLabelOf(card.status))
+                              ? null
+                              : ` · ${statusLabelOf(card.status)}`}
+                          </>
+                        )}
                       </p>
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
+                      ) : null}
+                      {!quoteState.history && quoteVersion?.plan ? (
+                        <p className="mt-0.5 text-xs text-ink/60">{quoteVersion.plan}</p>
                       ) : null}
                       {viewerRole === 'vendor' &&
                       isLatestProposal &&
@@ -1293,18 +1378,44 @@ export function ChatMessageStream({
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
                       {/* The card's lines — one component with the supplier's "As they see it" preview. */}
-                      <QuoteCardLines items={items} />
+                      {replaced ? null : <QuoteCardLines items={items} />}
+                      {quoteDiff && quoteVersion?.previous ? (
+                        <QuoteWhatChanged changes={quoteDiff} sinceVersion={quoteVersion.previous.version} />
+                      ) : null}
+                      {replaced ? null : (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Link
                           href={`/proposals/${card.publicId}`}
                           className={
-                            quoteState.primary.kind === 'review_accept'
+                            quoteState.primary.kind === 'review_accept' && !quoteState.offerAcceptUpdate
                               ? 'inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600'
-                              : 'inline-flex h-9 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]'
+                              : `inline-flex h-9 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]${
+                                  quoteState.offerAcceptUpdate ? ' flex-1 justify-center whitespace-nowrap !px-2' : ''
+                                }`
                           }
                         >
                           {quoteState.primary.label}
                         </Link>
+                        {/*
+                          4 Nov 2026 · "Accept the update" — the couple, the LIVE pending update only
+                          (`quoteState.offerAcceptUpdate`). The SAME `respondToProposal` the full
+                          quote's Accept posts (and `respond_vendor_proposal` still refuses anything
+                          not sent/viewed); `return_to` keeps the couple in this conversation.
+                        */}
+                        {quoteState.offerAcceptUpdate ? (
+                          <form action={respondToProposal} className="flex flex-1">
+                            <input type="hidden" name="proposal_id" value={m.proposal_id} />
+                            <input type="hidden" name="public_id" value={card.publicId} />
+                            <input type="hidden" name="response" value="accepted" />
+                            <input type="hidden" name="return_to" value={returnPathFor(m)} />
+                            <SubmitButton
+                              pendingLabel="Accepting…"
+                              className="inline-flex h-9 w-full items-center justify-center whitespace-nowrap rounded-lg bg-mulberry px-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                            >
+                              Accept the update
+                            </SubmitButton>
+                          </form>
+                        ) : null}
                         {/*
                           S5 · the couple's ONE next step on an accepted quote,
                           performed HERE (owner 2026-09-19). The same component
@@ -1372,7 +1483,7 @@ export function ChatMessageStream({
                             href={reviseHref}
                             className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
                           >
-                            Update this quote
+                            {quoteState.reviseLabel}
                           </Link>
                         ) : null}
                         {/*
@@ -1405,6 +1516,13 @@ export function ChatMessageStream({
                           ) : null
                         ) : null}
                       </div>
+                      )}
+                      {isLatestProposal && quoteVersions && m.proposal_id ? (
+                        <QuoteVersionsRow
+                          versions={versionsNewestFirst(quoteVersions, m.proposal_id)}
+                          counterpartyLabel={counterpartyLabel}
+                        />
+                      ) : null}
                       {/*
                         THE NEXT MONEY STEP — only on the live, accepted quote
                         of a BOOKED supplier. One line from `moneyStepLine`,

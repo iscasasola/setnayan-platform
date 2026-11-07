@@ -16,10 +16,14 @@
  *   &sheetfail=1        the supplier sheet's one request fails (press a card)
  *   &slow=1             …or takes 2.5 s, to read the line it shows meanwhile
  *   &empty=1            a new event: no suppliers yet
+ *   &dates=unread|none  Find v4: the calendars could not be read · no date yet (`find-fixtures.ts`)
+ *   &cards=fail         Find v4: the cards could not be read (open=catering|massage_chair — every card, per service)
  *   &writefail=1        Save / Remove on a card are refused (they answer in place)
  *   &added=1            "Add your own": the row the walk leaves under Catering
  *   &links=fail         …and the claim-link read fails (the rows must say so)
  *   &planned=1          HMUA and Florist are "in your plan" with nobody yet (the row's state word)
+ *   &shoes=1            a "Shoes" category the owner added in Admin, known to no code map — its ⓘ names its services
+ *   &shoes=written      the same, with the owner's own ⓘ text (Admin › Categories › Name › ⓘ text)
  *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
  *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report),
  *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
@@ -45,6 +49,10 @@
  *   &paidbyhand=1       + "The Wedding Planner", added by hand, filed Shortlisted, with
  *                       a recorded payment — booked by the payment (owner 2026-10-20)
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
+ *   &chapters=none|fail 📍 Where: no chapter yet · the Schedule read refused (`LAB_CHAPTERS` otherwise)
+ *   &covers=1           📍 …and Seda's in-house Cake (Reception only) and Catering (follows Seda) under its Where
+ *   &wherefail=1        📍 a tick in a Where dropdown is refused (said in place, the ticks go back)
+ *   &favorites=1        ♡ after the day: the host's heart on each booked row with a shop (owner 2026-11-06)
  *   &date=set|conflict  the date banner under "Cover your event": a settled date (the calm header draws NO banner for it
  *                       — owner 2026-10-26; "free that day" is in the ⓘ) · a build with no shared day (still a banner)
  *
@@ -53,7 +61,6 @@
  *   &help=none|unread|nomonth  no Saturday fits every priced pick · the calendars fail · no month yet
  *   &cal=notset         Hiraya and Lumina never set a calendar — the card says "Calendar not set", Help me choose "confirm"
  *   &change=1           a date change is asked of Seda (the line says "· change asked")
- *   &drafted=1          the date waits in the Event Hub draft (the line says "in your draft")
  *   &venues=none        nobody booked: the place sheet types its own venue (name + pin)
  *   &factfail=read|write  the sheet's one read fails · its writes are refused
  *   (picking Sat, Dec 5 is refused by the draft door: Seda is booked that day — the shipped clash note)
@@ -61,10 +68,12 @@
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
+import { nearRows } from '@/lib/find-sort-choices';
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
+import { LAB_SHOE_SERVICE_LABELS, labShoesTaxonomy } from './info-fixtures';
 import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
 import { buildFindList, FIND_GROUP_OF_TILE, popularTilesFor } from '@/lib/supplier-find';
 import { homeTileForRow, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
@@ -74,6 +83,7 @@ import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabBench } from './lab-bench';
+import { labSupplierShare } from '../lab-supplier-share';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
   LAB_ADDED_ROW,
@@ -90,6 +100,7 @@ import {
 } from './fixtures';
 import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
+import { labServiceCounts } from '@/app/dev/count-fixtures';
 import { LabBookedStandIns } from './lab-booked';
 import { labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
 import { priceToday } from '@/lib/price-summary';
@@ -146,16 +157,33 @@ export default async function SuppliersLabPage({
         ...(own ? [own] : []),
       ];
   const claimQrSvg = await renderUrlQrSvg(LAB_CLAIM_URL);
+  // The self-added supplier's Share (Find → a card added by hand): the real message and card, on Tita's sample facts.
+  const supplierShare = await labSupplierShare(
+    {
+      shopName: "Tita Baby's Catering",
+      contactPerson: 'Maria Santos',
+      eventWord: 'wedding',
+      eventDate: '2026-12-18',
+      datePrecision: 'day',
+      service: 'Catering',
+      hostsName: 'Ana & Paolo',
+      services: ['Catering'],
+    },
+    LAB_CLAIM_URL,
+  );
 
   const factOptions: LabFactOptions = {
     help: one('help') === 'none' || one('help') === 'unread' || one('help') === 'nomonth' ? (one('help') as 'none' | 'unread' | 'nomonth') : 'ok',
     notSet: one('cal') === 'notset',
     change: one('change') === '1',
-    drafted: one('drafted') === '1',
     venues: one('venues') === 'none' ? 'none' : 'booked',
   };
   const sheetParam = one('sheet');
+  // `&shoes=1|written` — a category the owner added in Admin that no code map knows (info-fixtures.ts).
+  const shoes = one('shoes') === '1' || one('shoes') === 'written' ? one('shoes') : null;
   const folders = buildShortlistFolders({
+    taxonomy: shoes ? labShoesTaxonomy(shoes === 'written') : undefined,
+    serviceLabels: shoes ? LAB_SHOE_SERVICE_LABELS : undefined,
     vendorRows: rows,
     enrichmentByVendorId: LAB_ENRICHMENT,
     // P5 calendar truth on the bench card: Bituin booked that day, Hiraya free — or "Calendar not set" (&cal=notset).
@@ -169,7 +197,7 @@ export default async function SuppliersLabPage({
     faithSet: new Set(),
     eventId: LAB_EVENT,
     lockHandshakeEnabled: true,
-    plannedTiles: one('planned') === '1' ? new Set(['hmua', 'florist']) : undefined,
+    plannedTiles: one('planned') === '1' ? new Set(['hmua', 'florist']) : shoes ? new Set(['shoes']) : undefined,
   });
 
   // The Booked body — its own fixtures, through the real derivations.
@@ -185,8 +213,16 @@ export default async function SuppliersLabPage({
     seed: one('seed') === 'proto' || one('seed') === 'asked' ? (one('seed') as 'proto' | 'asked') : null,
     money: moneyStageOf(one('money')),
     today: one('today') ?? null,
+    callTimesFail: one('calltimes') === 'fail',
+    ask: one('ask') === '1',
+    favorites: one('favorites') === '1',
+    chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,
+    covers: one('covers') === '1',
   };
   const bookedMoney = labBookedMoney(bookedOpts);
+  /* 🧹 Booked is just the team (owner 2026-11-02, "BOOKED IS JUST THE TEAM"): no Team · Budget · Schedule parts — the
+     Budget and the Schedule are Home's own pages (`/dev/budget-lab`, `/dev/schedule-lab` on fixtures). `&bkopen=<id>`
+     opens one Team row on load. */
   const bookedLabView = labBookedView(bookedOpts, bookedMoney);
   const booked = bookedLabView.booked.length;
   /* The shell's Build N/M and cart peek, counted the page's way from the fixtures — and handed over so a press counts
@@ -238,8 +274,17 @@ export default async function SuppliersLabPage({
       sheetFail={one('sheetfail') === '1'}
       slow={one('slow') === '1'}
       writeFail={one('writefail') === '1'}
+      findDates={one('dates')}
+      findCards={one('cards')}
       folders={folders}
       eventId={LAB_EVENT}
+      // 📍 `&near=both` — the event has a reception AND a ceremony pin, so the ⇅'s Sort offers "Nearest to reception"
+      // · "Nearest to ceremony" (owner 2026-10-30); absent → the shipped single "Nearest" row.
+      nearOptions={
+        one('near') === 'both'
+          ? nearRows({ reception: { latitude: 14.1, longitude: 120.94 }, ceremony: { latitude: 14.56, longitude: 121.02 } })
+          : undefined
+      }
       standings={LAB_STANDINGS}
       initialOpenTile={one('open')}
       starterTiles={[...popularTilesFor('wedding')]}
@@ -247,6 +292,7 @@ export default async function SuppliersLabPage({
       payHrefByVendorId={{ 'v-seda': `/dev/suppliers-lab?open=reception` }}
       inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
       claimQrSvg={claimQrSvg}
+      supplierShare={supplierShare}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
       findPanel={findPanel}
       convergence={
@@ -275,6 +321,7 @@ export default async function SuppliersLabPage({
           eventId={LAB_EVENT}
           initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={
+            (
             <LabFactSheets
               options={factOptions}
               open={sheetParam === 'date' || sheetParam === 'help' || sheetParam === 'place' ? sheetParam : null}
@@ -284,17 +331,17 @@ export default async function SuppliersLabPage({
               <DatePlaceLine
                 eventId={LAB_EVENT}
                 facts={{
-                  date: { text: factOptions.drafted ? 'Sat, Dec 19, 2026' : 'Sat, Dec 12, 2026', open: false },
+                  date: { text: 'Sat, Dec 12, 2026', open: false },
                   place:
                     factOptions.venues === 'booked'
                       ? { text: 'Seda Vertis North, Quezon City', open: false }
                       : { text: 'Quezon City', open: true },
                 }}
-                drafted={factOptions.drafted}
                 changeAsked={factOptions.change}
                 priced={['v-seda', 'v-bituin', 'v-lumina']}
               />
             </LabFactSheets>
+            )
           }
           // Batch 5 join: on Find the shell counts Build N/M live from the Find fixtures (b3fix, main); on the Build tab
           // the lab shell's own Build-body view is the count (`lab-build.tsx`), so the live base is not handed over there.
@@ -302,17 +349,21 @@ export default async function SuppliersLabPage({
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
-            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
+            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} whereFail={one('wherefail') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
               <BookedBody
-                eventId={LAB_EVENT}
-                state={
-                  bookedOpts.fail === 'team'
-                    ? { kind: 'unreadable', retryHref: '/dev/suppliers-lab?mode=booked' }
-                    : { kind: 'view', view: bookedLabView }
-                }
-              >
-                <BookedBudgetSection eventId={LAB_EVENT} budget={labBookedBudget(bookedOpts, bookedMoney)} />
-              </BookedBody>
+                  eventId={LAB_EVENT}
+                  firstOpen={one('bkopen') ?? null}
+                  counts={labServiceCounts({ catering: 'v-bituin', cateringShop: 'Bituin Catering' })}
+                  state={
+                    bookedOpts.fail === 'team'
+                      ? { kind: 'unreadable', retryHref: '/dev/suppliers-lab?mode=booked' }
+                      : { kind: 'view', view: bookedLabView }
+                  }
+                >
+                  {one('budgetblock') === '1' ? (
+                    <BookedBudgetSection eventId={LAB_EVENT} budget={labBookedBudget(bookedOpts, bookedMoney)} />
+                  ) : null}
+                </BookedBody>
             </LabBookedStandIns>
           }
         />

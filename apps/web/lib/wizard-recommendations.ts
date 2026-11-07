@@ -45,6 +45,8 @@ import { tierCaps } from '@/lib/vendor-tier-caps';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { haversineKm } from '@/lib/geo';
 import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
+import { readDemoVendorIds } from '@/lib/demo-vendors';
+import type { DemoScope } from '@/lib/demo-scope';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -238,6 +240,9 @@ type Args = {
   /** Exclude already-locked event_vendors so the host doesn't see
    *  recommendations that are already on their plan. */
   excludeVendorIds?: ReadonlyArray<string>;
+  /** 🔌 Called when the vendor read is REFUSED (reads-are-honest, 2026-11-02 audit #22) — the `[]` that follows is then
+   *  "we could not look", never "there are none". A caller that draws an empty state passes this and says so. */
+  onReadRefused?: () => void;
   /** Optional free-text search across business_name + location_city +
    *  tagline. NULL/empty string = no search filter (default rank order
    *  still applies). Used by the grid card's search submit. */
@@ -268,6 +273,12 @@ type Args = {
    *  unverified, so it passes `includeDemoUnverified: true` to drop the gate.
    *  Default/omit = gate ON (the safe default — never leak unverified). */
   includeDemoUnverified?: boolean;
+  /** 🧪 WHICH SIDE OF THE DEMO LINE THIS SEARCH LIVES ON (owner 2026-11-06, `lib/demo-scope.ts`). A REAL event's search
+   *  (`{ is_demo: false }`) never lists a demo shop; a DEMO event's (`events.is_sample`, `{ is_demo: true }`) lists
+   *  ONLY demo shops. Pass `demoScopeFor(admin, eventId)`. Omitted = a real search — EXCEPT the guided tour
+   *  (`includeDemoUnverified: true`), which keeps its own demo carve-out and lists both. The demo ids are read
+   *  fail-closed: a refused read calls `onReadRefused` and returns `[]`, never an unfiltered list. */
+  demoScope?: DemoScope;
 };
 
 /**
@@ -420,6 +431,27 @@ export async function fetchWizardVendorRecommendations(
     }
   }
 
+  // 🧪 Demo scope (owner 2026-11-06): a real search never lists a demo shop, a demo event's lists only demo shops.
+  // `vendor_market_stats` carries no `is_demo` (and anon may not read it), so the line is drawn by id.
+  const demoScope: DemoScope | null = args.demoScope ?? (args.includeDemoUnverified ? null : { is_demo: false });
+  if (demoScope) {
+    const demoIds = await readDemoVendorIds(admin);
+    if (demoIds === null) {
+      args.onReadRefused?.();
+      return [];
+    }
+    type InNotShape = {
+      in: (column: string, values: readonly string[]) => typeof query;
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    if (demoScope.is_demo) {
+      if (demoIds.length === 0) return [];
+      query = (query as unknown as InNotShape).in('vendor_profile_id', demoIds);
+    } else if (demoIds.length > 0) {
+      query = (query as unknown as InNotShape).not('vendor_profile_id', 'in', `(${demoIds.join(',')})`);
+    }
+  }
+
   if (args.excludeVendorIds && args.excludeVendorIds.length > 0) {
     type NotShape = {
       not: (column: string, op: string, value: string) => typeof query;
@@ -438,7 +470,10 @@ export async function fetchWizardVendorRecommendations(
     .limit(fetchLimit);
 
   const { data, error } = await query;
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) args.onReadRefused?.();
+    return [];
+  }
 
   // 2026-05-24: enrich with per-vendor service photo + verification state
   // + V1.1 presentation_pattern + services_preview (up to 5 photos per

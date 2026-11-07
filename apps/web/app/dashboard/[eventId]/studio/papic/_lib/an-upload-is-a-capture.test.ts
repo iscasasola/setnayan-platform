@@ -113,7 +113,8 @@ test('the picker is handed a token only for a camera this couple actually holds 
   // fix it") an unclaimed camera gets the picker too, with NO token: the first pick claims it (`startAddingPhotos`)
   // and only then holds one. What must still hold: a token reaches the browser only when it is this person's.
   assert.ok(
-    /const token = claimer === user\.id \?/.test(MEMORIES),
+    // Since 2026-10-31 every host has their own camera (#7111): the token is THIS host's seat, checked by its claimer.
+    /const token = mineSeat && mineSeat\.claimer_user_id === user\.id \?/.test(MEMORIES),
     'Memories no longer checks that the Uploads camera belongs to THIS person — a token resolved for somebody else is a camera handed to the wrong hands',
   );
   assert.ok(

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { applyPersistentCookieDefaults, readClientType } from './cookies';
 import { createLoggingFetch } from './db-error-log';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { onTheCachedHub } from '@/lib/hub-request';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -21,7 +21,7 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 export const createClient = cache(async () => {
   // 🗄 THE CACHED EVENT HUB reads no cookie (lib/hub-request.ts): its viewer carries no Supabase session by
   // construction, so the client is the signed-out one the live render would have built — without asking `cookies()`.
-  if (cachedHubViewer()) {
+  if (onTheCachedHub()) {
     return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
       global: { fetch: createLoggingFetch('anon') },
       cookies: { getAll: () => [], setAll() {} },

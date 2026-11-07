@@ -9,13 +9,16 @@ import { Field } from '@/app/_components/forms/field';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
-import { updateVendorProfileField, type FieldSaveResult } from '../../actions';
+import { requestProfileCorrection, updateVendorProfileField, type FieldSaveResult } from '../../actions';
+import type { LockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { Collapsible } from '../../_components/collapsible';
 
 // Type-only — the leaflet RUNTIME is dynamically imported inside HqAddressControl
 // (browser only; leaflet touches `window` at module scope so it must never SSR).
 import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
 import { formatCount } from '@/lib/format-number';
+import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
+import { IN_BUSINESS_SINCE_HELP, IN_BUSINESS_SINCE_LABEL, inBusinessSinceLine } from '@/lib/in-business-since';
 
 type LeafletModule = typeof import('leaflet');
 
@@ -284,6 +287,7 @@ export function EditableRow({
         <button
           ref={triggerRef}
           type="button"
+          data-edit-field={item.key}
           onClick={() => {
             if (isOpen) {
               selfCollapse.current = true;
@@ -422,6 +426,122 @@ export function ServiceCoverageRow({
   );
 }
 
+/**
+ * 🏷 A ROW THAT CHANGES BY REQUEST (owner 2026-10-29: "the name of her shop is wrong so i want her to be able to send
+ * a request shop name change"). A filled shop name / address on a shop Setnayan set up — or any verified shop — is
+ * not saved here (`identityLockRefusal` would refuse it). The row shows the value and asks IN PLACE: "Ask to change"
+ * opens one line under it ("What it should be" · Send), which files the SHIPPED request (`requestProfileCorrection` →
+ * `vendor_correction_requests` → /admin/corrections). Sent, it says "Change asked · waiting" and offers nothing twice;
+ * the screen never resets.
+ */
+export function RequestOnlyRow({
+  item,
+  data,
+  field,
+  pending: pendingAtLoad,
+  flat = false,
+}: {
+  item: BusinessProfileItem;
+  data: ProfileFieldData;
+  /** The locked field this row's request is filed under (`ADMIN_SET_UP_ROW_FIELD`). */
+  field: LockedIdentityFieldKey;
+  /** A request for this field is already waiting on Setnayan. */
+  pending: boolean;
+  flat?: boolean;
+}) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const pending = pendingAtLoad || sent;
+  const inputId = `ask-${item.key}`;
+
+  async function send() {
+    if (!value.trim()) {
+      toast.error('Tell us what it should say.');
+      return;
+    }
+    const fd = new FormData();
+    fd.set('field_key', field);
+    fd.set('requested_value', value);
+    setSending(true);
+    const res = await requestProfileCorrection(null, fd);
+    setSending(false);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success('Sent. Setnayan will review it and let you know.');
+    setSent(true);
+    setOpen(false);
+  }
+
+  return (
+    <li
+      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'} // no-card-ok: the EditableRow's own shell, beside it in the same list; it opens an ask in place
+      style={flat ? undefined : { borderColor: open ? 'var(--m-orange-3)' : 'var(--m-line)' }}
+      data-editable-row={flat ? 'flat' : undefined}
+      data-request-only={pending ? 'pending' : 'ask'}
+    >
+      <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'flex items-center gap-3 p-3'}>
+        <StatusChip ok={item.ok} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm" style={{ color: 'var(--m-slate)' }}>
+            {item.label}
+          </span>
+          <RowPreview itemKey={item.key} data={data} />
+        </span>
+        {pending ? (
+          <span className="shrink-0 text-xs" style={{ color: 'var(--m-slate-3)' }} data-request-waiting="">
+            Change asked · waiting
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:bg-[color:var(--m-orange-4)]"
+          >
+            {open ? 'Close' : 'Ask to change'}
+          </button>
+        )}
+      </div>
+      <Collapsible open={open && !pending}>
+        <div className={flat ? 'space-y-2 pb-3 pl-9' : 'space-y-2 border-t px-3 pb-3 pt-3'} style={{ borderColor: 'var(--m-line)' }}>
+          <label htmlFor={inputId} className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            What it should be — Setnayan checks it, then changes it for you.
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id={inputId}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              maxLength={field === 'business_name' ? SHOP_NAME_MAX : undefined}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+              className="input-field min-w-0 flex-1 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={sending}
+              className="button-primary inline-flex min-h-11 items-center gap-1.5 px-3 text-sm disabled:opacity-50"
+            >
+              {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden /> : null}
+              Send
+            </button>
+          </div>
+        </div>
+      </Collapsible>
+    </li>
+  );
+}
+
 function StatusChip({ ok }: { ok: boolean }) {
   return (
     <span
@@ -489,7 +609,8 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
     case 'contact_email':
       return data.contact_email || null;
     case 'in_business_since_year':
-      return data.in_business_since_year || null;
+      // 🗓 "2023 · 3 years" — the year AND what couples read from it (owner 2026-10-29, "Since" is two lines).
+      return inBusinessSinceLine(data.in_business_since_year, new Date().getFullYear()) ?? (data.in_business_since_year || null);
     case 'venue_size':
       return data.venue_width_m && data.venue_length_m
         ? `${data.venue_width_m} × ${data.venue_length_m} m` +
@@ -580,10 +701,10 @@ function FieldControl({
     case 'in_business_since_year':
       return (
         <Field
-          label="EST"
+          label={IN_BUSINESS_SINCE_LABEL}
           htmlFor="in_business_since_year"
           required
-          help="The year your business was established. Shown to couples as “X years in business.”"
+          help={`${IN_BUSINESS_SINCE_HELP}, as “N years in business.”`}
         >
           <PlainInput itemKey={item.key} data={data} onDirty={onDirty} />
         </Field>
@@ -667,6 +788,38 @@ function FieldControl({
  * Keeping them identical is what keeps the server action's parse contract the
  * same regardless of which surface submitted.
  */
+/**
+ * 📏 The shop name box — 50 at most (owner 2026-11-06, `SHOP_NAME_MAX`), with the count shown only from 40
+ * ("42 / 50"). Uncontrolled like every other `PlainInput` (the form posts it as typed); the length is tracked only
+ * to draw the count.
+ */
+function ShopNameInput({ defaultValue, onDirty }: { defaultValue: string | null | undefined; onDirty: () => void }) {
+  const [length, setLength] = useState((defaultValue ?? '').length);
+  const counter = shopNameCounter(length);
+  return (
+    <>
+      <input
+        id="business_name"
+        name="business_name"
+        required
+        onInput={(e) => {
+          setLength(e.currentTarget.value.length);
+          onDirty();
+        }}
+        maxLength={SHOP_NAME_MAX}
+        defaultValue={defaultValue ?? undefined}
+        placeholder="Your studio / company name"
+        className="input-field"
+      />
+      {counter ? (
+        <span className="mt-1 block text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
+          {counter}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 function PlainInput({
   itemKey,
   data,
@@ -678,18 +831,7 @@ function PlainInput({
 }) {
   switch (itemKey) {
     case 'business_name':
-      return (
-        <input
-          id="business_name"
-          name="business_name"
-          required
-          onInput={onDirty}
-          maxLength={128}
-          defaultValue={data.business_name}
-          placeholder="Your studio / company name"
-          className="input-field"
-        />
-      );
+      return <ShopNameInput defaultValue={data.business_name} onDirty={onDirty} />;
     case 'business_owner_name':
       return (
         <input

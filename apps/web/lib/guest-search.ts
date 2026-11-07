@@ -36,7 +36,7 @@ import {
   type GuestRow,
   type RsvpStatus,
 } from '@/lib/guests';
-import { importanceGroupOf, roleGroupLabel, ROLE_GROUP_LABELS } from '@/lib/role-groups';
+import { HONOUR_ATTENDANTS_LABEL, importanceGroupOf, isHonourAttendant, roleGroupLabel, ROLE_GROUP_LABELS } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
 
 /** The parts of a guest row the search reads. */
@@ -187,6 +187,8 @@ function roleWords(g: GuestSearchRow, names?: RoleNames | null): string[] {
   }
   const grp = importanceGroupOf(roles);
   if (grp !== 'guest') out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));
+  // 👯 The List's own Honour attendants heading answers a search, as every heading does.
+  if (roles.some(isHonourAttendant)) out.push(HONOUR_ATTENDANTS_LABEL);
   return out;
 }
 

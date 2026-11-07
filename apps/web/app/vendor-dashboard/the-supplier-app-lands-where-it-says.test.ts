@@ -31,6 +31,7 @@ import { stripComments } from '@/lib/strip-comments';
 import {
   CUSTOMER_LANDINGS,
   customerLandingHref,
+  SUPPLIER_CHATS_HREF,
   type CustomerLanding,
 } from './customers/anchors';
 import { customersSegmentOf } from './customers/segments';
@@ -48,9 +49,10 @@ import { customersSegmentOf } from './customers/segments';
 const WEB = join(import.meta.dirname, '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const LANDINGS = Object.keys(CUSTOMER_LANDINGS) as CustomerLanding[];
-const STUBS = ['messages', 'payday', 'proposals', 'contracts'] as const;
+// `messages` left 2026-11-06: `/vendor-dashboard/messages` is the supplier's Chats page now, not a stub.
+const STUBS = ['payday', 'proposals', 'contracts'] as const;
 /** The bare stub paths — a link that is exactly one of these drops you on the roster. */
-const BARE_STUB = /^\/vendor-dashboard\/(messages|payday|proposals|contracts)$/;
+const BARE_STUB = /^\/vendor-dashboard\/(payday|proposals|contracts)$/;
 
 // ── 1 · LANDINGS ───────────────────────────────────────────────────────────
 
@@ -78,19 +80,21 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
     const seg = new URL(href, 'https://x').searchParams;
     assert.equal(customersSegmentOf(Object.fromEntries(seg)), CUSTOMER_LANDINGS[key].seg, `${key}: ${href} opens the wrong segment`);
   }
-  // The exact targets the owner named.
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people#customers');
+  // The exact targets the owner named. (Messages is not a Customers landing since 2026-11-06 — its own page, 1b.)
+  assert.equal((CUSTOMER_LANDINGS as Record<string, unknown>).messages, undefined, 'Messages lands on Customers again');
   assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools');
   assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools');
   assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');
 });
 
-test('1b · Messages lands on its section from the envelope — More, which had a row for it, is gone', () => {
-  // More left the bar (owner "Yes to all", 2026-10-21 — Today · Customers · Shop · Hub). Its Messages row was a second
-  // door to what the top bar's envelope already opened; the envelope must still land on the section, not a bare stub.
+test('1b · the envelope lands on Chats, its own full-screen page — never Customers › Events', () => {
+  // More left the bar (owner "Yes to all", 2026-10-21 — Today · Customers · Shop · Hub); the top bar's ✉ is the door.
+  // 2026-11-06 (owner: "The chat page is a full screen page, correct? Independent of any other menus? Why is it still
+  // jumping to customer events"): it opens the supplier's Chats page, which is a real page, not a stub into Customers.
   const layout = readFileSync(join(import.meta.dirname, 'layout.tsx'), 'utf8');
-  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{customerLandingHref\('messages'\)\}/, 'the envelope no longer lands on Messages');
-  assert.doesNotMatch(customerLandingHref('messages'), BARE_STUB);
+  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{SUPPLIER_CHATS_HREF\}/, 'the envelope no longer lands on Chats');
+  assert.equal(SUPPLIER_CHATS_HREF, '/vendor-dashboard/messages');
+  assert.doesNotMatch(read('app/vendor-dashboard/messages/page.tsx'), /\bredirect\(\s*`\/vendor-dashboard\/customers/, 'Chats is a stub into Customers again');
 });
 
 async function renderToday(target: unknown, action = 'Go'): Promise<string> {

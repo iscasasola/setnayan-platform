@@ -74,6 +74,7 @@ const GUEST_ONLY_FIELDS = [
   'papicGuest',
   'showClaimAccountCta',
   'eventVendorCredits',
+  'hubFavorites',
   'saveFlash',
   'faceMode',
   'faceTaggingAskable',
@@ -91,6 +92,10 @@ test('anonymousIdentity() output carries exactly the five anonymous keys (none g
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    // seatUnread (2026-11-05) — the VIEWER's own seat read was refused, so the
+    // door says "try again" rather than "not on the list". About their account,
+    // never a guest's row; a boolean, so it cannot carry a guest-derived fact.
+    'seatUnread',
     'signedInNotListed',
   ]);
   assert.equal(identity.kind, 'anonymous');
@@ -184,6 +189,10 @@ test('anonymousIdentity() strips smuggled owner capability from a poisoned input
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    // seatUnread (2026-11-05) — the VIEWER's own seat read was refused, so the
+    // door says "try again" rather than "not on the list". About their account,
+    // never a guest's row; a boolean, so it cannot carry a guest-derived fact.
+    'seatUnread',
     'signedInNotListed',
   ]);
 });
@@ -214,6 +223,9 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // guestOwnShots (2026-10-01) — the shots THIS guest took (the Gallery's
     // "Your shots"); their own captures, read by their own guest_id.
     'guestOwnShots',
+    // hubFavorites (2026-11-06) — may THIS viewer press ♡ on "Suppliers who made this day" (did THEY check in at
+    // the door) and which services THEY already keep. About the viewer's own seat and favorites only.
+    'hubFavorites',
     'kind',
     // moreAnswers (2026-10-20) — how many of the couple's switched-on questions THIS guest,
     // already coming, still owes ("You're coming ✓ · N more answers"). About the guest's

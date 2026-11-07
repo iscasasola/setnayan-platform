@@ -185,7 +185,11 @@ test('every slot the app knows is accepted by both gates — nothing was dropped
 test('the two gates admit exactly the app’s vocabulary — the inspiration parts, seeded from it', async () => {
   const parts = await db.query<{ slot_key: string }>(`SELECT slot_key FROM public.inspiration_parts ORDER BY slot_key`);
   const app = [...MOODBOARD_SLOT_KEYS].sort();
-  assert.deepEqual(parts.rows.map((r) => r.slot_key), app, 'the parts the gates admit and the app disagree');
+  /* Every app key is a part the gates admit. Not EQUAL since 2026-10-29: the owner-approved starter looks
+     (20271296836679) add 272 admin-managed parts beyond the app's consts — the FK admits whatever the table holds,
+     which is step ②'s whole point ("a new part is ONE admin row"). */
+  const have = new Set(parts.rows.map((r) => r.slot_key));
+  assert.deepEqual(app.filter((k) => !have.has(k)), [], 'an app key is not a part the gates admit');
   const fk = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM pg_constraint WHERE conname = 'event_inspiration_assets_slot_key_is_a_part' AND contype = 'f'`,
   );

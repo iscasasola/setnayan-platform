@@ -85,7 +85,9 @@ test('grants, toggles and coordinator removal live in ONE place — People with 
   // ⚖ Owner 2026-10-03: access is set per person, per area, in Event Details ›
   // People with access; every other screen SHOWS it and links there.
   const SECTION = read('app/dashboard/[eventId]/details/_components/people-with-access.tsx');
-  for (const piece of ['setDelegateArea(', 'action={removeHost}', 'name="return_to" value="details"']) {
+  // A Remove still says where it was pressed (2026-10-30: the same section is also Home's ⚙ Event Settings' last one,
+  // so `return_to` is `details` there and `home` in the sheet — `lib/seat-return-path.ts`).
+  for (const piece of ['setDelegateArea(', 'action={removeHost}', 'name="return_to" value={returnTo}', "returnTo = 'details'"]) {
     assert.ok(SECTION.includes(piece), `People with access lost ${piece}`);
   }
   assert.ok(!/function CoordinatorSeatControls\(/.test(CONTROLS), 'the old seat controls grew back');

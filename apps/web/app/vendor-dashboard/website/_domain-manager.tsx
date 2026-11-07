@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Globe, Plus, Check, Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Globe, Plus, Check, Loader2, AlertTriangle } from 'lucide-react';
 import {
   addVendorDomain,
   verifyVendorDomain,
@@ -9,6 +9,10 @@ import {
   type DomainRow,
 } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 
 type DnsRec = { type: string; name: string; value: string };
 type Item = DomainRow & { dns?: DnsRec[]; note?: string };
@@ -31,10 +35,12 @@ export function DomainManager({
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
 
-  function handleAdd() {
+  /** Add a domain — from the button (what the box holds) or from Enter in the box (`onEnter`, which hands its words over). */
+  function handleAdd(typed: string = input) {
+    if (pending || !typed.trim()) return;
     setError(null);
     startTransition(async () => {
-      const res = await save.run(() => addVendorDomain(input), {
+      const res = await save.run(() => addVendorDomain(typed), {
         steps: ['Adding your domain'],
         hint: 'Saving',
       });
@@ -67,17 +73,31 @@ export function DomainManager({
     });
   }
 
-  function handleRemove(id: string) {
+  /**
+   * 👈 A domain's delete is its SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
+   * VISIBLE ✕ ON ROWS"): left on a phone, the hover trash on a computer. The row hides at once and the removal is
+   * written after the Undo window (`deleteWithUndo`) — the same `removeVendorDomain`, so Undo never has to re-add the
+   * address at Vercel. A refusal brings the row back and says why.
+   */
+  function handleRemove(d: Item) {
     setError(null);
-    setBusyId(id);
-    startTransition(async () => {
-      const res = await save.run(() => removeVendorDomain(id), {
-        steps: ['Removing the domain'],
-        hint: 'Saving',
-      });
-      setBusyId(null);
-      if (res.ok) setItems((prev) => prev.filter((d) => d.domain_id !== id));
-      else setError(res.error ?? 'Could not remove that domain.');
+    let at = -1;
+    deleteWithUndo({
+      label: `${d.domain} removed`,
+      hide: () =>
+        setItems((prev) => {
+          at = prev.findIndex((x) => x.domain_id === d.domain_id);
+          return prev.filter((x) => x.domain_id !== d.domain_id);
+        }),
+      restore: () =>
+        setItems((prev) => {
+          if (prev.some((x) => x.domain_id === d.domain_id)) return prev;
+          const next = [...prev];
+          next.splice(at < 0 ? next.length : Math.min(at, next.length), 0, d);
+          return next;
+        }),
+      commit: () => removeVendorDomain(d.domain_id),
+      failed: `Couldn’t remove ${d.domain}. It’s back — try again.`,
     });
   }
 
@@ -101,10 +121,20 @@ export function DomainManager({
       {items.length > 0 && (
         <ul className="space-y-3">
           {items.map((d) => (
-            <li
+            <SwipeToDelete
               key={d.domain_id}
+              as="li"
+              label={`Remove ${d.domain}`}
+              word="Remove"
+              onDelete={() => handleRemove(d)}
+              disabled={pending}
+              radiusClass="rounded-xl"
+              surfaceClass="bg-[var(--m-ivory,#fff)]"
+            >
+            <div
               className="rounded-xl p-4"
               style={{ background: 'var(--m-ivory, #fff)', border: '1px solid var(--m-line)' }}
+              data-domain-row=""
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 font-mono text-sm text-ink">
@@ -134,15 +164,6 @@ export function DomainManager({
                       Verify
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(d.domain_id)}
-                    disabled={pending}
-                    aria-label={`Remove ${d.domain}`}
-                    className="button-secondary inline-flex items-center gap-1.5"
-                  >
-                    <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  </button>
                 </div>
               </div>
 
@@ -164,26 +185,38 @@ export function DomainManager({
               {d.note && (
                 <p className="mt-2 text-xs" style={{ color: 'var(--m-orange-2)' }}>{d.note}</p>
               )}
-            </li>
+            </div>
+            </SwipeToDelete>
           ))}
         </ul>
       )}
+      <UndoToastHost />
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          type="text"
-          inputMode="url"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder="sny.yourshop.com"
-          aria-label="Your custom domain"
-          className="min-w-0 flex-1 rounded-lg px-3 py-2 font-mono text-sm text-ink"
-          style={{ background: 'var(--m-ivory, #fff)', border: '1px solid var(--m-line)' }}
-        />
+        {/* ✍ A row of the ONE Field template (`TypedRow`, owner 1 Nov 2026). It follows what is typed (`onType`), so
+            "Add domain" lights up as before. ⏎ ENTER ADDS (owner 1 Nov 2026, "ENTER STILL ADDS IN ONE-LINE ADD BOXES":
+            `onEnter`), as the raw box did; a tap away only keeps it. 🔒 enter-still-adds.test.ts */}
+        <div className="min-w-0 flex-1">
+          <FormRows width="wide">
+            <TypedRow
+              name="Your custom domain"
+              value={input}
+              empty="sny.yourshop.com"
+              placeholder="sny.yourshop.com"
+              inputMode="url"
+              autoCapitalize="off"
+              maxLength={253}
+              onType={setInput}
+              onKeep={(t) => setInput(t)}
+              onEnter={handleAdd}
+              data="custom-domain"
+              pillAttrs={{ 'data-custom-domain': '' }}
+            />
+          </FormRows>
+        </div>
         <button
           type="button"
-          onClick={handleAdd}
+          onClick={() => handleAdd()}
           disabled={pending || !input.trim()}
           className="button-primary inline-flex items-center justify-center gap-2"
         >

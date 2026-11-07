@@ -146,7 +146,9 @@ test('the vendor-side card offers the WEB ADDRESS to every tier', () => {
   );
   assert.match(
     src,
-    /isVerified\s*\?\s*\[\s*'business_slug'[\s\S]{0,80}\]\s*:\s*\[\s*'business_slug'\s*\]/,
+    // 2026-10-29: a middle branch for a shop Setnayan set up (`requestOnly`, owner "send a request shop name
+    // change") — it too starts with the web address, so every branch still offers it.
+    /isVerified\s*\?\s*\[\s*'business_slug'[\s\S]{0,80}\]\s*:\s*requestOnly\s*\?\s*\[\s*'business_slug'[\s\S]{0,80}?\]\s*:\s*\[\s*'business_slug'\s*\]/,
     'the web address must be offered whether or not the shop is verified',
   );
 });

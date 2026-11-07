@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
-import { FileText, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
+import { Globe, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { detailsLine, DETAILS_CHECKLIST_KEYS, type DetailsKey } from '@/lib/supplier-details';
 import { ProfileChecklistEditor } from '../../shop/_components/profile-checklist-editor';
-import { VerifySection } from '../../shop/_components/verify-section';
 import { VenueMatchCard } from '../../shop/_components/venue-match-card';
 import { VenueTypeCard } from '../../shop/_components/venue-type-card';
 import { PublicLineCard } from '../../shop/_components/public-line-card';
@@ -14,12 +13,15 @@ import { VisibilityCard } from '../../shop/_components/visibility-card';
 import { RequestCorrectionCard } from '../../shop/_components/request-correction-card';
 import { CouldNotLoad } from '../../shop/_components/could-not-load';
 import { ShopSegments } from '../../shop/_components/shop-segments';
+import { detailsFigures } from '@/lib/shop-section-figures';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { formatCount } from '@/lib/format-number';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { OpenFoldButton } from '../../_components/open-fold-button';
 import { updateBusinessStartDate } from '../../actions';
 import type { DetailsData } from '../details-data';
+import { ON_SETNAYAN_SINCE_LABEL, onSetnayanSinceLine } from '@/lib/in-business-since';
+import { DeepSearchCard, deepSearchFoldLine } from './deep-search-card';
 
 /**
  * YOUR DETAILS — the form, as ONE list (simpler supplier dashboard step 5 · prototype moment 6, `SCREENS.details`).
@@ -30,7 +32,7 @@ import type { DetailsData } from '../details-data';
  *
  * 🔑 EVERY FOLD IS A SHIPPED EDITOR, MOUNTED — NOT REDRAWN. The rows inside are `ProfileChecklistEditor`'s
  * close-save rows (each saves itself when it closes), handed only THAT fold's checklist keys; the cards are the ones
- * My Shop's Profile tile held; the papers are `VerifySection`; the money is the payment surface, embedded; Where you
+ * My Shop's Profile tile held; the papers moved to the Shop ⚙ (2026-10-31); the money is the payment surface, embedded; Where you
  * work is the Branch tile's panel. A fold opens by link: `#docs`, `#pay`, `#where` … (the shared `Fold` anchor).
  *
  * About is the page's own paragraph — it is written on Your page (one place, one draft), so here it is a row that
@@ -43,8 +45,11 @@ export function DetailsScreen({
   d,
   payBody,
   branchBody,
+  gearBody = null,
 }: {
   d: DetailsData;
+  /** ⚙ The Shop ⚙'s rows while its sheet is open (`?gear=1`) — `shopGearBody` on the real page. */
+  gearBody?: ReactNode | null;
   /** The payment surface, embedded (a server component with its own actions) — the lab hands in a stand-in. */
   payBody: ReactNode;
   /** Where you work's body — `BranchPanel` on the real page (async, store-shell aware). */
@@ -68,12 +73,13 @@ export function DetailsScreen({
   const head = line.split(' · ')[0] ?? line;
   const rest = line.slice(head.length);
   const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
-  const docsState = row('docs').state;
+  // 🏷 Rows that change by request (owner 2026-10-29) and the asks already waiting — the ask card's own inputs.
+  const asks = { requestOnly: d.requestOnly, pending: d.openCorrections.map((r) => r.field_key) };
 
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-details="">
-        <ShopSegments on="page" />
+        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: p.done, of: p.of })} gearBody={gearBody} />
         <h1 className="sn-h1">Your details</h1>
         <div>
           <p className="text-[15px] text-ink" data-details-line="" aria-live="polite">
@@ -111,6 +117,16 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
+              />
+              {/* 🗓 "Since" is two lines (owner 2026-10-29, v13 note 1): "In business since" is the row above (their own
+                  year, editable, shown on their page); "On Setnayan since" is HERE, read-only — the month the shop
+                  opened on Setnayan. An unread stamp says so, never a date. */}
+              <DatesRow
+                data="details-on-setnayan-since"
+                title={ON_SETNAYAN_SINCE_LABEL}
+                line="When your shop opened here"
+                end={<span className="shrink-0 text-sm text-ink/60">{onSetnayanSinceLine(d.onSetnayanSince) ?? 'Couldn’t be read just now'}</span>}
               />
               {/* The exact start date (optional) — moved from My Shop's Profile tile with its own Save. */}
               <form action={updateBusinessStartDate} className="pt-1">
@@ -150,6 +166,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               <VenueTypeCard initialVenueType={d.venueType} />
               <VenueMatchCard
@@ -179,6 +196,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               {branchBody}
             </div>
@@ -198,6 +216,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               <p className="flex flex-wrap gap-2" data-details-confirmed="">
                 <Badge tone={d.verify.phoneConfirmedAt ? 'ok' : 'quiet'} data="phone-confirmed">
@@ -227,34 +246,35 @@ export function DetailsScreen({
             href="/vendor-dashboard/website#about"
           />
 
-          <Fold
-            anchor="docs"
-            lead={<RowIcon icon={FileText} />}
-            data="details-docs"
-            title="Your documents"
-            line={
-              docsState === 'checking'
-                ? 'Setnayan is checking your documents'
-                : d.isVerified
-                  ? 'Verified · kept private'
-                  : `${formatCount(d.docsIn)} of ${formatCount(d.docsTotal)} required · DTI or SEC · BIR 2303 · permit · a bank proof`
-            }
-            aside={badge('docs')}
-          >
-            <div className="space-y-3 pb-4">
-              {!d.verifyMeasured ? <CouldNotLoad what="your documents" /> : null}
-              <p className="text-xs text-ink/55">Kept private — only Setnayan sees them.</p>
-              <VerifySection
-                businessName={d.businessName}
-                vendorProfileId={d.vendorId}
-                isVerified={d.isVerified}
-                profileComplete={d.profileComplete}
-                profileFieldsLeft={d.fieldsLeft}
-                verify={d.verify}
-              />
-            </div>
-          </Fold>
+          {/* 🔎 Deep Search, explained (owner 2026-10-29, v13 note 2) — before the papers, as drawn. Not in the App
+              Store / Play Store shell, which refuses it (`d.deepSearch` is null there). */}
+          {d.deepSearch ? (
+            <Fold
+              anchor="deep-search"
+              lead={<RowIcon icon={Globe} />}
+              data="details-deep-search"
+              title="Deep Search"
+              line={deepSearchFoldLine(d.lastDeepSearch)}
+              aside={
+                !d.deepSearch.eligible ? (
+                  <Badge tone="quiet" data="details-deep-search">
+                    Verified shops
+                  </Badge>
+                ) : d.deepSearch.isFreeNow ? (
+                  <Badge tone="ok" data="details-deep-search">
+                    1 free
+                  </Badge>
+                ) : null
+              }
+              popovers
+            >
+              <DeepSearchCard offer={d.deepSearch} last={d.lastDeepSearch} businessName={d.businessName} />
+            </Fold>
+          ) : null}
 
+          {/* 🏪 "Your documents" MOVED to the Shop ⚙ › Verification and documents (owner 2026-10-31, "Yes follow your
+              recommendation" — DECISION_LOG "SHOP ⚙ — WHAT A SUPPLIER SETS ONCE"). `#docs` still lands: it opens the ⚙
+              on that fold (`shop-settings.tsx`). */}
           <Fold
             anchor="pay"
             lead={<RowIcon icon={Wallet} />}
@@ -274,7 +294,13 @@ export function DetailsScreen({
 
           <Fold anchor="fix" data="details-fix" title="Something wrong?" line="Ask us to correct it" lead={<RowIcon icon={MessageSquareWarning} />}>
             <div className="pb-4">
-              <RequestCorrectionCard currentSlug={d.slug} isVerified={d.isVerified} openRequests={d.openCorrections} />
+              <RequestCorrectionCard
+                currentSlug={d.slug}
+                isVerified={d.isVerified}
+                requestOnly={d.requestOnly}
+                setUpBySetnayan={d.setUpBySetnayan}
+                openRequests={d.openCorrections}
+              />
             </div>
           </Fold>
         </div>

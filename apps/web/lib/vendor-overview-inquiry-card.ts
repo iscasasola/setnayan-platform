@@ -30,6 +30,12 @@ export type InquiryWhatsNewCard = {
   kind: 'inquiry';
   id: string;
   threadId: string;
+  /**
+   * The event the thread is on — a key, not an identity (the name already rides `descriptor`). Today opens the row to
+   * the event's fixed lines (supplier dashboard v13, `lib/supplier-event-lines.ts`), read by this id in the page's one
+   * batched read. Null only for a caller that did not pass it.
+   */
+  eventId?: string | null;
   title: string; // "New inquiry — New customer"
   /** Neutral anonymous descriptor ("A couple planning a {type} in {city}"). */
   descriptor: string;
@@ -81,6 +87,8 @@ function excerpt(text: string | null | undefined): string | null {
  */
 export function buildInquiryCard(input: {
   threadId: string;
+  /** The thread's event — the key Today's opened row reads its lines by. */
+  eventId?: string | null;
   createdAt: string;
   /** Event date (month/day granularity is fine); permitted pre-accept. */
   eventDate: string | null;
@@ -109,6 +117,7 @@ export function buildInquiryCard(input: {
     kind: 'inquiry',
     id: `inq-${input.threadId}`,
     threadId: input.threadId,
+    eventId: input.eventId ?? null,
     title: 'New inquiry — New customer',
     descriptor: input.displayName?.trim() || 'New customer',
     eventDate: input.eventDate,

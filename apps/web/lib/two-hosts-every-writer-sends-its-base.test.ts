@@ -200,7 +200,7 @@ test('3b · a lost round builds again on the newer value; it gives up — out lo
 /* ── 3 · the room design (`saveReceptionDesign`) ──────────────────────────── */
 
 test('3c · the room design sends what each pick was built on, and is merged onto the design as it is now', () => {
-  const editor = code('app', 'dashboard', '[eventId]', 'seating', 'lab', '_components', 'reception-design-editor.tsx');
+  const editor = code('app', 'dashboard', '[eventId]', 'seating', 'lab', '_components', 'accents-sheet.tsx');
   assert.match(editor, /const base: ReceptionDesign = \{ \.\.\.design, \[part\]: \{ \.\.\.DEFAULT_DESIGN\[part\], \.\.\.cur \} \};/, 'the pick’s base no longer carries the part’s defaults — a default would read as this screen’s change');
   assert.match(editor, /saveReceptionDesign\(eventId, next, base\)/, 'the room design no longer sends what it was based on');
   assert.match(editor, /onChange\(res\.elsewhere\.design\)/, 'the editor no longer shows the merged design');

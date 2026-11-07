@@ -1,4 +1,13 @@
 import { manilaDate } from '@/lib/papic-window';
+import {
+  scheduleWindowFor,
+  scheduleWindows,
+  timeOfDayLabel,
+  venueDayAndHour,
+  type ChapterBlock,
+  type ChapterDay,
+  type Frame,
+} from '@/lib/alaala-chapters';
 
 /**
  * apps/web/lib/papic-chapters.ts
@@ -148,11 +157,34 @@ export function chapterFor(
   return countdownChapter(daysBefore);
 }
 
+/**
+ * The run of show as a chapter rule — `lib/alaala-chapters.ts`'s windows (owner 2026-08-19: *"chapter happens
+ * depending on the time, not who took it"*). Every schedule value is lifted there; nothing here compares a wall clock.
+ */
+export type ScheduleChapters = { mode: 'schedule'; blocks: readonly ChapterBlock[]; tz: string };
+
+/** How a gallery chapters: the countdown / the days of a trip, or the run of show. */
+export type ChapterRule = ChapterContext | ScheduleChapters;
+
 /** A chapter with the items that fell into it. */
-export type ChapterGroup<T> = PapicChapter & { items: T[] };
+export type ChapterGroup<T> = PapicChapter & {
+  items: T[];
+  /** Schedule rule only: the venue day the chapter is on (`YYYY-MM-DD`). */
+  dayKey?: string;
+  /** Schedule rule only: the chapter came from a gap, not a schedule block. */
+  fromGap?: boolean;
+  /** Schedule rule only: the block id, or `gap:<time of day>` — stable within its day. */
+  blockKey?: string;
+};
+
+const EVERYTHING_ELSE = 'Everything else';
 
 /**
- * Group captures into chapters, earliest first.
+ * 🔗 THE ONE ENGINE — group captures into chapters, earliest first (Memories by chapter, owner 2026-11-01, plan
+ * `SCHEDULE_CHAPTERS_BUILD_PLAN_2026-11-01.md` §4: "`groupIntoChapters` (two copies → one)"). Until then two functions
+ * shared this name — this one (the countdown) and a second in `lib/alaala-chapters.ts` (the run of show) — each with its
+ * own "never drop a photo" loop. Now there is one loop and two RULES: a countdown/trip (`ChapterContext`) or the run of
+ * show (`{ mode: 'schedule', blocks, tz }`). `chapterDays` below is the schedule rule split by venue day.
  *
  * ⚠ EVERY item comes out the other side. Anything that cannot be placed lands in
  * a trailing "Everything else" group rather than being dropped — a gallery that
@@ -162,31 +194,99 @@ export type ChapterGroup<T> = PapicChapter & { items: T[] };
  */
 export function groupIntoChapters<T>(
   items: readonly T[],
-  capturedAtOf: (item: T) => string,
-  ctx: ChapterContext,
+  capturedAtOf: (item: T) => string | null,
+  rule: ChapterRule,
 ): ChapterGroup<T>[] {
   const byKey = new Map<string, ChapterGroup<T>>();
   const orphans: T[] = [];
 
-  for (const item of items) {
-    const chapter = chapterFor(capturedAtOf(item), ctx);
-    if (!chapter) {
-      orphans.push(item);
-      continue;
+  if (rule.mode === 'schedule') {
+    const windows = scheduleWindows(rule.blocks, rule.tz);
+    for (const item of items) {
+      const at = capturedAtOf(item);
+      const ms = at ? Date.parse(at) : NaN;
+      const parts = Number.isFinite(ms) ? venueDayAndHour(ms, rule.tz) : null;
+      if (!parts) {
+        orphans.push(item);
+        continue;
+      }
+      const chosen = scheduleWindowFor(ms, windows);
+      const blockKey = chosen ? chosen.block.blockId : `gap:${timeOfDayLabel(parts.hour)}`;
+      const key = `${parts.dayKey}|${blockKey}`;
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.items.push(item);
+        // A gap chapter starts at the earliest frame in it.
+        if (existing.fromGap && ms < existing.sort) existing.sort = ms;
+        continue;
+      }
+      byKey.set(key, {
+        key,
+        label: chosen ? chosen.block.label : timeOfDayLabel(parts.hour),
+        sort: chosen ? chosen.win.start : ms,
+        dayKey: parts.dayKey,
+        fromGap: !chosen,
+        blockKey,
+        items: [item],
+      });
     }
-    const existing = byKey.get(chapter.key);
-    if (existing) existing.items.push(item);
-    else byKey.set(chapter.key, { ...chapter, items: [item] });
+  } else {
+    for (const item of items) {
+      const chapter = chapterFor(capturedAtOf(item) ?? '', rule);
+      if (!chapter) {
+        orphans.push(item);
+        continue;
+      }
+      const existing = byKey.get(chapter.key);
+      if (existing) existing.items.push(item);
+      else byKey.set(chapter.key, { ...chapter, items: [item] });
+    }
   }
 
-  const groups = [...byKey.values()].sort((a, b) => a.sort - b.sort);
+  const groups = [...byKey.values()].sort((a, b) => {
+    const da = a.dayKey ?? '';
+    const db = b.dayKey ?? '';
+    if (da !== db) return da < db ? -1 : 1;
+    return a.sort - b.sort;
+  });
   if (orphans.length > 0) {
     groups.push({
       key: 'other',
-      label: 'Everything else',
+      label: EVERYTHING_ELSE,
       sort: Number.MAX_SAFE_INTEGER,
       items: orphans,
     });
   }
   return groups;
+}
+
+/**
+ * The run of show's chapters, split by venue day — the ONE engine above, in the shape the day-by-day galleries draw
+ * (`days` · `undated`). Nothing is dropped: a frame with no usable capture time is `undated`.
+ */
+export function chapterDays({
+  frames,
+  blocks,
+  tz,
+}: {
+  frames: Frame[];
+  blocks: readonly ChapterBlock[];
+  tz: string;
+}): { days: ChapterDay[]; undated: Frame[] } {
+  const groups = groupIntoChapters(frames, (f) => f.capturedAt, { mode: 'schedule', blocks, tz });
+  const days: ChapterDay[] = [];
+  let undated: Frame[] = [];
+  for (const g of groups) {
+    if (!g.dayKey) {
+      undated = g.items;
+      continue;
+    }
+    let day = days[days.length - 1];
+    if (!day || day.dayKey !== g.dayKey) {
+      day = { dayKey: g.dayKey, chapters: [] };
+      days.push(day);
+    }
+    day.chapters.push({ key: g.blockKey ?? g.key, label: g.label, startMs: g.sort, fromGap: g.fromGap === true, frames: g.items });
+  }
+  return { days, undated };
 }

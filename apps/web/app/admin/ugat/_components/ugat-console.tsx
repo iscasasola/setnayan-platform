@@ -431,7 +431,7 @@ export function UgatConsole({
 
       {/* ── side panel (card) ── */}
       <div
-        className={`ug-scrim${panelOpen ? ' on' : ''}`}
+        className={`ug-scrim sn-popup-dark${panelOpen ? ' on' : ''}`}
         onClick={closePanels}
         aria-hidden
       />
@@ -1579,6 +1579,7 @@ function TablesView({
     colourgrant: 'TYPE-COLOURGRANT',
     march: 'TYPE-MARCH',
     inspirationpart: 'TYPE-INSPIRATION-PARTS',
+    supplierscan: 'TYPE-SUPPLIER-SCANS',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

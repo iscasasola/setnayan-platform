@@ -26,6 +26,7 @@
  * client component that needs a piece's name.
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { TIME_TBA } from '@/lib/time-tba';
 import { isOnTheGuestsSchedule } from '@/lib/schedule-audience';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import type { ThemeColours } from '@/lib/theme-colours';
@@ -103,6 +104,31 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   'seating-pack': { key: 'seating-pack', label: 'Table signs & place cards', size: 'A4 · directory, signs, cards', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
   'caterer-report': { key: 'caterer-report', label: 'Caterer meal counts', size: 'A4 · attending guests', widthPt: mm(210), heightPt: mm(297), kind: 'free' },
 };
+
+/**
+ * 🚪 A SHOP'S OWN PRINTS — kept OUT of `PRINT_PIECES` on purpose: that record is the couple's Prints & Tickets
+ * (`isPrintPieceKey` opens `/api/hub-print/<piece>`), and a supplier piece there would become a couple print.
+ * The same `PrintDoc` and the same two backends (`renderPrintSvg`, `renderPrintPdf`) draw it.
+ *
+ *   · door-sticker — "We are part of Setnayan" (owner 2026-11-05, *"add them to the marketing tools"*):
+ *     `lib/door-sticker-print.ts`, saved from Customers › QR codes.
+ */
+export type ShopPrintPieceKey = 'door-sticker';
+
+export const SHOP_PRINT_PIECES: Record<ShopPrintPieceKey, { key: ShopPrintPieceKey; label: string; kind: 'shop' }> = {
+  'door-sticker': { key: 'door-sticker', label: 'Door sticker', kind: 'shop' },
+};
+
+/** Any piece a `PrintDoc` can be: a couple's (`PRINT_PIECES`) or a shop's (`SHOP_PRINT_PIECES`). */
+export type AnyPrintPieceKey = PrintPieceKey | ShopPrintPieceKey;
+
+/**
+ * Does this piece print as a PLAIN sheet (no bleed, no crop marks, no die line)? Only the couple's free utility
+ * sheets do. A shop piece goes to a sign or sticker printer, so it carries bleed, crop marks and its die line.
+ */
+export function isPlainPrintSheet(piece: AnyPrintPieceKey): boolean {
+  return piece in PRINT_PIECES ? PRINT_PIECES[piece as PrintPieceKey].kind === 'free' : false;
+}
 
 /**
  * CLASSIC IS FREE (owner 2026-09-25, DECISION_LOG "EVERY PRINT IS FREE IN THE
@@ -571,6 +597,8 @@ export type ScheduleBlockRow = {
   location?: string | null;
   sort_order?: number | null;
   parent_block_id?: string | null;
+  /** ⏰ Time TBA (migration 20271300482585) — `start_at` is the day at a placeholder 00:00, never a time to print. */
+  time_tba?: boolean | null;
 };
 
 /**
@@ -599,6 +627,8 @@ export function firstBlockOf<T extends ScheduleBlockRow>(blocks: readonly T[], t
  * converted (`formatWallClock`). Converting it prints 10 PM.
  */
 export function blockTime(block: ScheduleBlockRow | null): string | null {
+  // ⏰ A Time-TBA chapter says so — its stored 00:00 is a placeholder, never "12:00 AM" (follow-up to #7158).
+  if (block?.time_tba === true) return TIME_TBA;
   const t = formatWallClock(block?.start_at ?? null);
   return t || null;
 }

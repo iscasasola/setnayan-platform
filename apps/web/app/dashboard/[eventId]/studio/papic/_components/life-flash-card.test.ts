@@ -24,7 +24,8 @@ const GRAPH = stripComments(
 );
 
 test('the card is mounted', () => {
-  assert.ok(/<LifeFlashCard eventId=\{eventId\} \/>/.test(PAGE),
+  // Since 2026-10-31 the Memories keepsake row hands it the page's one read (`state={flash}`, `readLifeFlashCard`).
+  assert.ok(/<LifeFlashCard eventId=\{eventId\} state=\{flash\} \/>/.test(PAGE),
     'A card that ships unmounted is this repo\'s most repeated defect.');
 });
 

@@ -32,8 +32,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { PricingData } from './pricing-data';
-import { VENDOR_TIER_SECTIONS, VENDOR_CUSTOM_TIER } from './vendor-benefits';
-import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
+import { VENDOR_TIER_SECTIONS } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
@@ -110,10 +109,10 @@ export function OverlayShell({
  * Cross-tier vendor benefit count — computed at build time from the canonical
  * data so the Vendors-popup line-link ("See all N supplier benefits →") never goes
  * stale. Sums the full /vendors matrix the link points at:
- *   • named benefits across every tier (VENDOR_TIER_SECTIONS)   — 84 today
- *   • Custom-only dials (VENDOR_CUSTOM_TIER.benefits)           —  9 today
+ *   • named benefits across every tier (VENDOR_TIER_SECTIONS)
  *   • plan-capability rows (buildLimitsGroup in vendor-tier-matrix) — 9 fixed
- * = 102 today. Rendered as "100+" once the total crosses 100 so the headline
+ * (No total is written here on purpose — it went stale: this said "84 … = 102" while the real sum was 99, and
+ * seven retired "soon" rows took it to 92 on 2026-11-05.) Rendered as "100+" once the total crosses 100 so the headline
  * never regresses on a copy tweak. The number tracks the arrays, not a literal.
  */
 const PLAN_CAPABILITY_ROW_COUNT = 9; // buildLimitsGroup() in vendor-tier-matrix.tsx
@@ -122,17 +121,8 @@ const TOTAL_VENDOR_BENEFIT_COUNT = (() => {
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0),
     0,
   );
-  // The dials are LABELS, deliberately price-free, so this module-level count
-  // needs no catalog read — see the docblock on VENDOR_CUSTOM_TIER.
-  //
-  // 🔑 THE COUNT IS THE TRAP IN THIS HIDE, AND IT IS THE POINT OF THIS LINE.
-  // Custom came off the public pages on 2026-08-27, and this headline number
-  // ("N benefits") turned out to be the ONLY place in this overlay that
-  // referenced it — there is no Custom band here to remove. Left alone it would
-  // have gone on counting dials a customer can no longer see anywhere: a number
-  // quietly overstating the offer, with nothing rendering wrong to give it away.
-  const custom = CUSTOM_TIER_OFFERED_PUBLICLY ? VENDOR_CUSTOM_TIER.dials.length : 0;
-  return named + custom + PLAN_CAPABILITY_ROW_COUNT;
+  // (The Custom plan's dials were counted here while it was offered; it was retired from the app 2026-11-06.)
+  return named + PLAN_CAPABILITY_ROW_COUNT;
 })();
 const TOTAL_VENDOR_BENEFIT_LABEL = TOTAL_VENDOR_BENEFIT_COUNT >= 100 ? '100+' : String(TOTAL_VENDOR_BENEFIT_COUNT);
 
@@ -204,6 +194,14 @@ function PricesOverlay({
               pricing.aiPrice
             )}
             , one-time · access until your wedding.
+          </span>
+        </div>
+      ) : pricing && pricing.plusPrice ? (
+        // ⚖ Owner 2026-11-04: Setnayan AI is no longer sold on its own — it comes with Event Plus and Event Pro.
+        <div className="hr-gintro">
+          <span className="hr-gintro-h">Setnayan AI</span>
+          <span className="hr-gintro-b">
+            the planning brain that filters your suppliers — comes with Event Plus ({pricing.plusPrice}) and Event Pro.
           </span>
         </div>
       ) : null}
@@ -410,7 +408,8 @@ function SetnayanAiOverlay({
   // would show two different numbers with no explanation — and every "you save X"
   // below would silently grow, which is a marketing claim, not a refactor.
   // The regular price UNDERSTATES the saving, which is the safe direction.
-  const mine = pricing.aiRegularPhp;
+  // ⚖ 2026-11-04: once Setnayan AI is off sale on its own, the figure a couple pays for it is Event Plus.
+  const mine = pricing.aiRegularPhp > 0 ? pricing.aiRegularPhp : pricing.plusPhp;
   // Every mode scales linearly toward its owner-set ceiling at 26 months.
   const frac = months / AI_COMPARE_MAX_MONTHS;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
@@ -573,11 +572,13 @@ function SetnayanAiOverlay({
       {/* The offer — price + act, LAST (owner 2026-07-03). The muted total ties
           the /28-day price to the ₱ figure in the Setnayan AI bar just above. */}
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(42,43,46,.1)', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
+        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice || pricing.plusPrice}</span>
         <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
-          one-time · access until your wedding
+          {pricing.aiPrice ? 'one-time · access until your wedding' : 'with Event Plus · one-time · access until your wedding'}
         </span>
-        <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} total across your {months} {months === 1 ? 'month' : 'months'}</span>
+        {mine > 0 ? (
+          <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} total across your {months} {months === 1 ? 'month' : 'months'}</span>
+        ) : null}
       </div>
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>

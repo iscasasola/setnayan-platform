@@ -88,8 +88,9 @@ const sql = clock.body;
 const noComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
-test('the window is 6 months, not 90 days', () => {
-  assert.equal(DEFAULT_FULL_RES_RETENTION_DAYS, 183);
+test('THE PHOTO RULE (owner 2026-11-03): no first-capture clock — only 3 months after the last day', () => {
+  // "3 months after the event date" · multi-day: "last day". Was 183 days from the first capture.
+  assert.equal(DEFAULT_FULL_RES_RETENTION_DAYS, 0);
 });
 
 test('and never less than THREE MONTHS of high-res after the event itself', () => {
@@ -112,8 +113,10 @@ test('🔑 AT THE EARLIEST PERMITTED SHOT, SUBTRACTION GIVES ZERO — the floor 
   assert.equal(capMonths, 6, 'if this changes, re-read the reasoning below before editing it');
 
   const shotDaysBeforeEvent = 183; // six months out, the earliest allowed
-  const clockLeftAfterEvent = DEFAULT_FULL_RES_RETENTION_DAYS - shotDaysBeforeEvent;
-  assert.equal(clockLeftAfterEvent, 0, 'the first-capture clock expires ON the wedding day');
+  const clockLeftAfterEvent = Math.max(0, DEFAULT_FULL_RES_RETENTION_DAYS - shotDaysBeforeEvent);
+  // Since 2026-11-03 the first-capture clock is 0, so it is long expired by the wedding day — the floor is
+  // the ONLY thing keeping originals, which is exactly the owner's rule.
+  assert.equal(clockLeftAfterEvent, 0, 'the first-capture clock is expired by the wedding day');
 
   // The sweep takes the LATER of the two dates, so the floor rescues it.
   const survivesUntil = Math.max(clockLeftAfterEvent, FULL_RES_POST_EVENT_GRACE_DAYS);

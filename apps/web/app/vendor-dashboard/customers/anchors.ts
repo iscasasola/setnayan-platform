@@ -27,19 +27,29 @@ const HUB = '/vendor-dashboard/customers';
 */
 
 /**
- * The four sections the supplier's phone names by their own words — Messages,
- * Earnings & payday, Send quote, Send contract — and where each one IS on the
- * hub. ONE table, read by the More rows, Today's tiles, the Next card AND the
- * redirect stubs, so a link and a stub can never land in two places.
+ * 💬 THE SUPPLIER'S CHATS — every "Messages" door (the top bar's ✉, a customer card's chat fallback, old links, emails,
+ * notifications) lands HERE, a full-screen page of its own (owner 2026-11-06, verbatim: *"The chat page is a full
+ * screen page, correct? Independent of any other menus? Why is it still jumping to customer events"*).
+ *
+ * 🗑 IT IS NOT A CUSTOMERS LANDING ANY MORE. From 2026-10-28 to 2026-11-06 `CUSTOMER_LANDINGS.messages` sent Messages to
+ * Customers › Events (`?seg=events#customers`) and `/vendor-dashboard/messages` was a redirect stub into it — which is
+ * exactly the jump the owner asked about. Customers › Events itself is unchanged (each row still opens its chat).
+ * 🔒 app/vendor-dashboard/messages/the-chats-page-is-full-screen.test.ts
+ */
+export const SUPPLIER_CHATS_HREF = '/vendor-dashboard/messages';
+
+/**
+ * The three sections the supplier's phone names by their own words — Earnings
+ * & payday, Send quote, Send contract — and where each one IS on the hub. ONE
+ * table, read by Today's tiles, the Next card AND the redirect stubs, so a link
+ * and a stub can never land in two places. (Messages left this table
+ * 2026-11-06 — it is its own page, `SUPPLIER_CHATS_HREF` above.)
  *
  * 🔑 `fold` is the `?open=` key of a FeatureAccordion section (the same keys the
  * roster's ⋯ menu uses); `payday` has none because it is not a fold — it is
  * always on the page, so only its fragment is needed.
  */
 export const CUSTOMER_LANDINGS = {
-  // 🗑 Messages is no longer a fold (2026-10-28): its landing is People's list itself — one row per event, each its
-  // chat. `#customers` is that list.
-  messages: { seg: 'people', fold: null, anchor: '#customers' },
   payday: { seg: 'money', fold: null, anchor: PAYDAY_ANCHOR },
   proposals: { seg: 'money', fold: 'proposals', anchor: CUSTOMER_TOOLS_ANCHOR },
   contracts: { seg: 'money', fold: 'contracts', anchor: CUSTOMER_TOOLS_ANCHOR },

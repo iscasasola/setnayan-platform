@@ -7,7 +7,7 @@ import { asVendorTier } from './vendor-tier-caps';
  * subscription `tier_state` to what the microsite editor unlocks:
  *   - canPersonalize (Solo+): About · accent · featured services · sections
  *   - canPremium (Pro+): custom slug · hero photo · pinned review · editorials
- *     + the 2-column public layout (mirrors tierCaps.customWebsiteName)
+ *     + the 2-column public layout (mirrors tierCaps.premiumPage — NOT customWebsiteName, which is Solo+ since 2026-11-04)
  *   - isEnterprise: the cinematic flagship layer
  * Free / Verified get the clean auto-composed page (no customization).
  */
@@ -16,11 +16,9 @@ export function micrositeCan(tierState: string | null | undefined): {
   canPremium: boolean;
   isEnterprise: boolean;
 } {
-  // Custom runs as Enterprise → same website ceiling (flagship layer). Rank is
-  // the website ladder Free/Verified 0 · Solo 1 · Pro 2 · Enterprise/Custom 3.
+  // Rank is the website ladder Free/Verified 0 · Solo 1 · Pro 2 · Ultra (enterprise) 3.
   const t = asVendorTier(tierState ?? null);
-  const rank =
-    t === 'custom' || t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
+  const rank = t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
   return { canPersonalize: rank >= 1, canPremium: rank >= 2, isEnterprise: rank >= 3 };
 }
 

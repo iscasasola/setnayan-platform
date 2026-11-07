@@ -2,8 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { tierCaps } from './vendor-tier-caps';
 
 /**
- * Vendor Branches — Enterprise sub-location accounts ("multiple accounts
- * depending on plans"). Owner-locked 2026-06-05: ₱999 / 28-day add-on,
+ * Vendor Branches — sub-location accounts ("multiple accounts depending on plans").
+ *
+ * 📐 BRANCHES PER PLAN (owner 2026-11-04, DECISION_LOG, verbatim: *"branches 0,0,3,10"*): Pro includes 3 branches and
+ * Ultra 6 (trimmed the same day) — an INCLUDED branch (`vendor_branches.included_in_plan`) is live from the moment it is added, with no fee
+ * and no order. Only Ultra may BUY more, through the paid flow below. The number lives in
+ * `TIER_CAPS[t].branchesIncluded`; the database holds the same number (`vendor_tier_limit(…,'branches_included')`) and
+ * refuses an included branch past it, so the free path cannot be forged around the action. A shop already over a
+ * lowered allowance keeps every included branch it has, live; it just cannot add another.
+ *
+ * Original lock, for the PAID branch (owner 2026-06-05): ₱999 / 28-day add-on,
  * Enterprise tier only, paid via the existing apply-then-pay order flow
  * (iteration 0034) and reconciled by a Setnayan admin at /admin/payments.
  *
@@ -43,7 +51,7 @@ import { tierCaps } from './vendor-tier-caps';
  * `custom-sits-above-enterprise.db.test.ts` now compares every declared fallback
  * against its live catalog row and fails the build on drift.
  */
-export const BRANCH_FEE_PHP = 1000;
+export const BRANCH_FEE_PHP = 990; // fallback only — the catalogue row wins (owner 2026-11-06 "ULTRA ADD-ON PRICES": ₱990, was ₱1,990)
 export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
 
 /** The catalog sku_code the branch fee is read from (seeded by migration). */
@@ -119,13 +127,13 @@ export const BRANCH_ADDRESS_MAX = 300;
 
 /**
  * Automatic branch service radius (km). Range is no longer a manual input
- * (owner 2026-07-02 "range is automatic") — a branch inherits the Enterprise
- * tier reach (vendor-tier-caps · serviceRadiusKm), clamped to the column's
- * stored max. Branches are Enterprise-only, so this resolves to the Enterprise
- * ceiling; the clamp is a defensive floor/ceiling if that cap ever changes.
+ * (owner 2026-07-02 "range is automatic") — a branch inherits its shop's plan
+ * reach (vendor-tier-caps · serviceRadiusKm), clamped to the column's stored
+ * max. Pro (100 km) and Ultra (nationwide → the column's ceiling) both have
+ * branches since owner 2026-11-04; the default stays Ultra for old callers.
  */
-export function branchAutoRadiusKm(): number {
-  const reach = tierCaps('enterprise').serviceRadiusKm;
+export function branchAutoRadiusKm(tier: string | null | undefined = 'enterprise'): number {
+  const reach = tierCaps(tier).serviceRadiusKm;
   if (!Number.isFinite(reach) || reach <= 0) return BRANCH_RADIUS_MAX_KM;
   return Math.min(Math.max(BRANCH_RADIUS_MIN_KM, Math.round(reach)), BRANCH_RADIUS_MAX_KM);
 }
@@ -221,6 +229,8 @@ export type VendorBranchRow = {
   branch_longitude: number | null;
   branch_address: string | null;
   branch_subscription_active: boolean;
+  /** Included in the plan (no fee, no order) — owner 2026-11-04 "BRANCHES PER PLAN". */
+  included_in_plan: boolean;
   created_at: string;
   cancelled_at: string | null;
 };
@@ -246,11 +256,14 @@ type LatestOrder = {
  * (no cron / no sweep needed). `nowMs` is the comparison clock.
  */
 export function deriveBranchStatus(
-  branch: Pick<VendorBranchRow, 'cancelled_at'>,
+  branch: Pick<VendorBranchRow, 'cancelled_at'> & { included_in_plan?: boolean | null },
   order: LatestOrder | undefined,
   nowMs: number,
 ): BranchStatus {
   if (branch.cancelled_at) return 'cancelled';
+  // 📐 An INCLUDED branch (owner 2026-11-04, "branches 0,0,3,10") is live with no order — it is part of the plan, and
+  // it stays live after a downgrade (a shop keeps what it has). `=== true` so a row read without the column is paid.
+  if (branch.included_in_plan === true) return 'active';
   if (order?.status === 'paid') {
     const exp = order.expires_at ? Date.parse(order.expires_at) : NaN;
     if (Number.isFinite(exp) && exp <= nowMs) return 'expired';
@@ -323,7 +336,7 @@ export async function fetchVendorBranches(
   const { data, error } = await supabase
     .from('vendor_branches')
     .select(
-      'branch_id,parent_vendor_profile_id,branch_label,branch_city,branch_radius_km,branch_latitude,branch_longitude,branch_address,branch_subscription_active,created_at,cancelled_at',
+      'branch_id,parent_vendor_profile_id,branch_label,branch_city,branch_radius_km,branch_latitude,branch_longitude,branch_address,branch_subscription_active,included_in_plan,created_at,cancelled_at',
     )
     .eq('parent_vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });
@@ -391,7 +404,7 @@ export async function fetchPublicVendorBranches(
 ): Promise<PublicVendorBranch[]> {
   const { data, error } = await reader
     .from('vendor_branches')
-    .select('branch_id,branch_label,branch_city,cancelled_at,created_at')
+    .select('branch_id,branch_label,branch_city,included_in_plan,cancelled_at,created_at')
     .eq('parent_vendor_profile_id', vendorProfileId)
     .is('cancelled_at', null)
     .order('created_at', { ascending: true });
@@ -399,8 +412,8 @@ export async function fetchPublicVendorBranches(
     if (error) console.error('[supabase-error] lib/vendor-branches.ts · from:vendor_branches.select', error);
     return [];
   }
-  const rows = data as Array<
-    Pick<VendorBranchRow, 'branch_id' | 'branch_label' | 'branch_city' | 'cancelled_at'>
+  const rows = data as unknown as Array<
+    Pick<VendorBranchRow, 'branch_id' | 'branch_label' | 'branch_city' | 'cancelled_at' | 'included_in_plan'>
   >;
   if (rows.length === 0) return [];
 

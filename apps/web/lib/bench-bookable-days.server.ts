@@ -3,6 +3,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { namedCalendarsEnabled } from '@/lib/schedule-pools';
 import {
   UNBOOKABLE_MAX_CARDS,
+  UNBOOKABLE_MAX_DAYS,
   inBatches,
   refusalKey,
   suppliersWithNoBookingLeft,
@@ -74,5 +75,49 @@ export async function findSuppliersWithNoBookingLeft(args: {
     return suppliersWithNoBookingLeft(cardsBySupplier, refused, days);
   } catch {
     return new Set();
+  }
+}
+
+/**
+ * THE CARDS' OWN REFUSALS (owner 2026-10-29, Find v4: *"we never show service cards not available for their date"*) —
+ * `service_cards_unbookable_on` asked about exactly these cards on exactly these days, batched under the function's
+ * caps (`UNBOOKABLE_MAX_CARDS` cards × `UNBOOKABLE_MAX_DAYS` days per call), the calls started together. Returns the
+ * set of `refusalKey(card, day)` the booking path would refuse.
+ *
+ * 🔑 UNLIKE `findSuppliersWithNoBookingLeft` IT DOES NOT FAIL OPEN SILENTLY: any error → `null`, and the caller
+ * SAYS the dates could not be checked (`lib/find-service-cards.ts` `keepFreeCards` → `unread`). Hiding on a failed
+ * read would empty the list; showing everyone without saying so would pass a busy card off as free.
+ */
+export async function readCardRefusals(args: {
+  admin: SupabaseClient;
+  serviceIds: readonly string[];
+  days: readonly string[];
+}): Promise<Set<string> | null> {
+  const cards = [...new Set(args.serviceIds)].filter(Boolean);
+  const days = [...new Set(args.days)];
+  if (cards.length === 0 || days.length === 0) return new Set();
+  try {
+    const calls = inBatches(cards, UNBOOKABLE_MAX_CARDS).flatMap((cardBatch) =>
+      inBatches(days, UNBOOKABLE_MAX_DAYS).map((dayBatch) =>
+        args.admin.rpc('service_cards_unbookable_on', {
+          p_service_ids: cardBatch,
+          p_dates: dayBatch,
+          p_named_calendars: namedCalendarsEnabled(),
+        }),
+      ),
+    );
+    const refused = new Set<string>();
+    for (const { data, error } of await Promise.all(calls)) {
+      if (error) {
+        logQueryError('bench-bookable-days: card refusals', error);
+        return null;
+      }
+      for (const r of (data ?? []) as { service_id: string | null; refused_on: string | null }[]) {
+        if (r.service_id && r.refused_on) refused.add(refusalKey(r.service_id, r.refused_on));
+      }
+    }
+    return refused;
+  } catch {
+    return null;
   }
 }

@@ -23,65 +23,26 @@
  */
 
 import { Fragment, useMemo, useState } from 'react';
-import Link from 'next/link';
-import {
-  VENDOR_TIER_SECTIONS,
-  customTierDialLabels,
-} from '@/app/_components/home/vendor-benefits';
-import { TIER_CAPS, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
+import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 
-/*
- * ⚠ CUSTOM'S "FROM" PRICE IS NOW A PROP, AND THE REGEX THAT USED TO FIND IT IS
- * GONE. This file used to do:
- *
- *     const CUSTOM_FROM_PRICE = VENDOR_CUSTOM_TIER.name.match(/₱[\d,]+/)?.[0] ?? '₱8,999';
- *
- * — parsing a price back out of a display label, with a typed literal behind it,
- * on the stated grounds that Custom "is not a DB catalog SKU". It is:
- * `vendor_custom_base`, active, and the source of that very figure. One reprice
- * would have left the label, the regex result and the fallback disagreeing.
- * `prices.customFrom` comes from `getVendorPrices()` and may be `null`, in which
- * case the header shows the tier without a figure rather than a stale one.
- */
-
-// The five marketed columns. `verified` is the real free-vendor state
+// The four marketed columns. `verified` is the real free-vendor state
 // ("Free · Verified"); the legacy pre-verification `free` state is not a column.
-// `custom` is the negotiated tier ABOVE Enterprise — it "runs as Enterprise
-// automatically" (TIER_CAPS.custom is the Enterprise clone), so every feature
-// row it carries the Enterprise value, and it uniquely owns the Custom-only
-// rows (extra branches, nationwide reach, negotiated ceilings, domain).
-import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
+// (A fifth, `custom`, was retired from the app 2026-11-06 — owner: "from the app".)
 import { supplierCommissionPromise } from '@/lib/commission-promise';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 
-type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
-const ALL_COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
-
-/**
- * The columns a CUSTOMER sees. Custom is hidden 2026-08-27 (owner: "hide
- * customized first. let's stay with the 3 first") — see lib/custom-tier-offered.
- *
- * 🔑 FILTERED AT THE SOURCE ON PURPOSE. The header, the <colgroup> widths and
- * every feature row all derive from COLS, so hiding it here removes the column
- * from all of them at once. Gating each render site separately is how a column
- * survives in one of them.
- */
-const COLS: Col[] = CUSTOM_TIER_OFFERED_PUBLICLY
-  ? ALL_COLS
-  : ALL_COLS.filter((c) => c !== 'custom');
+type Col = 'verified' | 'solo' | 'pro' | 'enterprise';
+const COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise'];
 const COL_RANK: Record<Col, number> = {
   verified: 0,
   solo: 1,
   pro: 2,
   enterprise: 3,
-  custom: 4,
 };
 
 // Map a benefit's source tier (in vendor-benefits.ts, where the FREE tier owns
-// the whole shared spine) to the column it FIRST appears in. There is no
-// `custom` source tier — Custom carries every benefit at its Enterprise value
-// (it never introduces a benefit of its own in the shared spine), so any
-// benefit available at Enterprise is available at Custom too.
+// the whole shared spine) to the column it FIRST appears in.
 const SOURCE_TO_COL: Record<string, Col> = {
   free: 'verified',
   solo: 'solo',
@@ -95,10 +56,7 @@ export interface VendorTierMatrixPrices {
   soloMonthly: string | null;
   proMonthly: string | null;
   enterpriseMonthly: string | null;
-  /** `vendor_custom_base`, live. `null` when the catalog is unreadable — the
-   *  Custom header then shows no figure rather than a typed one. */
-  customFrom: string | null;
-  /** `vendor_branch_28day`, live — the one Custom dial that names a price. */
+  /** The live extra-branch price — Ultra's "Extra branches" row names it. */
   branch: string | null;
 }
 
@@ -146,17 +104,12 @@ function buildFeatureGroups(): Group[] {
 
 /** Numeric "Plans & limits" rows straight from TIER_CAPS. Infinity → "All" /
  *  "Unlimited"; 0 → —. */
-function buildLimitsGroup(): Group {
+function buildLimitsGroup(branchPrice: string | null): Group {
   const cap = (col: Col) => TIER_CAPS[col];
   const km = (n: number) => (n === Infinity ? 'Nationwide' : n === 0 ? NO.kind : `${n} km`);
   const num = (n: number, unit = '') =>
     n === Infinity ? 'Unlimited' : n === 0 ? '—' : `${n}${unit}`;
 
-  // Custom's numeric ceilings are negotiated per composed plan (not the static
-  // Enterprise-clone values in TIER_CAPS.custom), so on the scalable axes the
-  // Custom cell reads "Custom" rather than a concrete number. Reach is the one
-  // axis with a firm marketed ceiling (Nationwide), so it keeps its value.
-  const CUSTOM = val('Custom');
   const row = (
     label: string,
     pick: (c: ReturnType<typeof cap>, col: Col) => Cell,
@@ -181,9 +134,17 @@ function buildLimitsGroup(): Group {
         c.parentCategories === Infinity ? val('All') : val(num(c.parentCategories)),
       ),
       row('Service listings / category', (c) => val(num(c.servicesPerLeaf))),
-      row('Team seats', (c, col) =>
-        col === 'custom' ? CUSTOM : c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)),
+      row('Team seats', (c) => (c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)))),
+      // 🏬 Branches beyond the main shop (owner 2026-11-04, "BRANCHES PER PLAN": "branches 0,0,3,10") and who may buy
+      // more (Ultra only) — both read from TIER_CAPS / canBuyExtraBranches; the fee is the live catalogue price.
+      row('Branches included', (c) => (c.branchesIncluded === 0 ? NO : val(num(c.branchesIncluded)))),
+      row('Extra branches', (_c, col) =>
+        canBuyExtraBranches(col) ? val(branchPrice ? `${branchPrice} each` : 'Yes') : NO,
       ),
+      // ⏳ Waiting list — couples a shop may take off it for one booked-out date (owner 2026-11-04: 0 · 0 · 1 · 5).
+      row('Waiting list / date', (c) => (c.waitlistAcceptances === 0 ? NO : val(num(c.waitlistAcceptances)))),
+      // 🌐 The shop's own web address → its page (Solo and up since owner 2026-11-04).
+      row('Your own web address', (c) => (c.customWebsiteName ? YES : NO)),
       // ⛔ "Bookable slots / day", "Portfolio photos" and "Answer matched couples /
       // week" were rows here until 2026-10-23. The owner ruled that plans price
       // REACH, never the things that earn a booking fee ("We want everybody to be
@@ -205,28 +166,6 @@ function buildLimitsGroup(): Group {
       // Same treatment as the reviews row above: removed, not turned into a
       // column of identical ticks. Do not re-add it.
     ],
-  };
-}
-
-/** Custom-only rows — benefits that exist ONLY at the negotiated Custom tier
- *  (— on every other column). These have no source in VENDOR_TIER_SECTIONS
- *  (that catalog stops at Enterprise), so they're defined here as the Custom
- *  column's exclusive adds, mirroring the prototype's "Scale as an organization"
- *  Custom-only lines. */
-function buildCustomOnlyGroup(branchPrice: string | null): Group {
-  const onlyCustom = (): Record<Col, Cell> =>
-    COLS.reduce(
-      (acc, c) => {
-        acc[c] = c === 'custom' ? YES : NO;
-        return acc;
-      },
-      {} as Record<Col, Cell>,
-    );
-  return {
-    title: 'Custom adds',
-    // Canonical Custom-only dials live on VENDOR_CUSTOM_TIER.benefits (single
-    // source of truth shared with the HomeOverlays cross-tier count).
-    rows: customTierDialLabels(branchPrice).map((label) => ({ label, cells: onlyCustom() })),
   };
 }
 
@@ -295,12 +234,8 @@ export function VendorTierMatrix({
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
     () => [
-      buildLimitsGroup(),
+      buildLimitsGroup(prices.branch),
       ...buildFeatureGroups(),
-      // "Custom adds" is a block of rows that are YES on Custom and — on every
-      // other column. With the column hidden it would be a block of dashes
-      // advertising a tier nobody can see.
-      ...(CUSTOM_TIER_OFFERED_PUBLICLY ? [buildCustomOnlyGroup(prices.branch)] : []),
     ],
     [prices.branch],
   );
@@ -310,11 +245,6 @@ export function VendorTierMatrix({
     solo: { name: 'Solo', ...tierTag(prices.soloMonthly, '/ 28d') },
     pro: { name: 'Pro', ...tierTag(prices.proMonthly, '/ 28d') },
     enterprise: { name: TIER_LABEL.enterprise, ...tierTag(prices.enterpriseMonthly, '/ 28d') },
-    custom: {
-      name: 'Custom',
-      price: prices.customFrom ?? 'Custom',
-      unit: prices.customFrom ? 'from · negotiated' : 'negotiated',
-    },
   };
 
   return (
@@ -341,9 +271,7 @@ export function VendorTierMatrix({
         <p style={{ fontSize: 15, color: 'var(--m-slate)', lineHeight: 1.55, maxWidth: 720, margin: 0 }}>
           Every benefit as a row, every plan as a column. Free · Verified is the
           whole ops spine; each paid tier adds more and includes everything
-          before it — and <strong style={{ color: 'var(--m-ink)' }}>Custom</strong>{' '}
-          is built for franchises and chains that need more than Ultra. Tap a
-          plan to highlight its column.
+          before it. Tap a plan to highlight its column.
         </p>
 
         {/* Tier selector — highlights a column (esp. on narrow screens). */}
@@ -418,23 +346,11 @@ export function VendorTierMatrix({
                 />
                 {COLS.map((c) => {
                   const active = selected === c;
-                  const isCustom = c === 'custom';
                   const m = COL_META[c];
-                  // The Custom column reads as the top tier with a dark ink
-                  // header (mirrors the prototype's th.cust). An active selection
-                  // still wins with the champagne highlight.
-                  const bg = active
-                    ? 'var(--m-orange-4)'
-                    : isCustom
-                      ? 'var(--m-ink)'
-                      : 'transparent';
-                  const nameColor = active
-                    ? 'var(--m-orange-2)'
-                    : isCustom
-                      ? 'var(--m-orange-3)'
-                      : 'var(--m-slate-2)';
-                  const priceColor = active || !isCustom ? 'var(--m-ink)' : 'var(--m-paper)';
-                  const unitColor = isCustom && !active ? 'var(--m-mulberry-3)' : 'var(--m-slate-3)';
+                  const bg = active ? 'var(--m-orange-4)' : 'transparent';
+                  const nameColor = active ? 'var(--m-orange-2)' : 'var(--m-slate-2)';
+                  const priceColor = 'var(--m-ink)';
+                  const unitColor = 'var(--m-slate-3)';
                   return (
                     <th
                       key={c}
@@ -533,82 +449,14 @@ export function VendorTierMatrix({
         <p className="m-mono" style={{ fontSize: 10.5, color: 'var(--m-slate-3)', marginTop: 14, lineHeight: 1.5, maxWidth: 760 }}>
           Every benefit, every tier &mdash; ~90 in all.{' '}
           &ldquo;Soon&rdquo; = in active build. Prices read the live catalog and
-          are billed per 28-day cycle. Ultra is a bounded plan; franchises &amp;
-          multi-location go Custom.{' '}
+          are billed per 28-day cycle.{' '}
           {/* 🔴 "0% commission while we launch" plus a HAND-TYPED schedule:
               two ways to go stale in one sentence, and the launch half was
               already false. Both now derive from the bill. */}
           {supplierCommissionPromise(feeSchedule)}
         </p>
 
-        {/* The dark "Custom · beyond Enterprise" band lived here. Hidden
-            2026-08-27 with the column above — it is the SECOND public site
-            on this page that quoted a Custom figure, and hiding only the
-            column would have left the price on the page.
-            Restore by setting CUSTOM_TIER_OFFERED_PUBLICLY to true. */}
-        {CUSTOM_TIER_OFFERED_PUBLICLY ? (
-          <div
-          className="m-cust-band"
-          style={{
-            background: 'var(--m-ink)',
-            color: 'var(--m-mulberry-3)',
-            borderRadius: 'var(--m-r-lg)',
-            marginTop: 34,
-            padding: 'clamp(26px, 4vw, 40px)',
-            display: 'grid',
-            gridTemplateColumns: '1.2fr 1fr',
-            gap: 28,
-            alignItems: 'center',
-          }}
-        >
-          <div>
-            <span
-              className="m-mono"
-              style={{
-                fontSize: 11,
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                color: 'var(--m-orange)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <span aria-hidden style={{ width: 24, height: 1, background: 'var(--m-orange)' }} />
-              Custom · beyond Ultra
-              {prices.customFrom ? <> &middot; {prices.customFrom}</> : null}
-            </span>
-            <h3 className="m-serif" style={{ fontSize: 28, fontWeight: 600, margin: '14px 0 8px', color: '#fff' }}>
-              For those who need more.
-            </h3>
-            <p style={{ fontSize: 14, color: '#c7bca4', margin: 0, maxWidth: '46ch', lineHeight: 1.55 }}>
-              Franchises, chains and multi-location houses compose their own plan
-              &mdash; Ultra as the base, then only the units they need, with a
-              dedicated account team.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              'More branches & team seats',
-              'Nationwide reach',
-              'Higher photo & event limits',
-              'Negotiated seat & event-slot ceilings',
-            ].map((cl) => (
-              <div key={cl} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: '#e4dac7' }}>
-                <span aria-hidden style={{ color: 'var(--m-orange)', fontWeight: 700 }}>＋</span>
-                {cl}
-              </div>
-            ))}
-            <div style={{ marginTop: 8 }}>
-              <Link href="/help#contact" className="m-btn m-btn-orange">
-                Talk to us →
-              </Link>
-            </div>
-          </div>
-        </div>
-        ) : null}
       </div>
-      <style>{`@media(max-width:720px){ .m-cust-band{grid-template-columns:1fr !important} }`}</style>
     </section>
   );
 }

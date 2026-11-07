@@ -310,8 +310,8 @@ test('a confirmed rival in the same hard-single category closes the request, sta
   const { eventId } = await newEvent('group');
   const winner = await newVendor('winner@prh.test');
   const loser = await newVendor('loser@prh.test');
-  await newBooking(eventId, winner.vpid, { status: 'contracted', category: 'venue' });
-  const b = await newBooking(eventId, loser.vpid, { pending: true, category: 'venue' });
+  await newBooking(eventId, winner.vpid, { status: 'contracted', category: 'planner_coordinator' });
+  const b = await newBooking(eventId, loser.vpid, { pending: true, category: 'planner_coordinator' });
 
   await setAuthUid(db, loser.uid);
   const env = await agree(b);
@@ -331,11 +331,11 @@ test('a couple cannot have two live requests in one hard-single category', async
   const { eventId } = await newEvent('twovenues');
   const v1 = await newVendor('venue1@prh.test');
   const v2 = await newVendor('venue2@prh.test');
-  await newBooking(eventId, v1.vpid, { pending: true, category: 'venue' });
+  await newBooking(eventId, v1.vpid, { pending: true, category: 'planner_coordinator' });
 
   let err: string | null = null;
   try {
-    await newBooking(eventId, v2.vpid, { pending: true, category: 'venue' });
+    await newBooking(eventId, v2.vpid, { pending: true, category: 'planner_coordinator' });
   } catch (e) {
     err = e instanceof Error ? e.message : String(e);
   }

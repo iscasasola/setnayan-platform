@@ -71,9 +71,11 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'couple', what: 'Seat plan dock (Door | Walk-through · With entrance | Separate)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'role="group" aria-label={label} className="shrink-0"', via: 'track', thumb: 'slides', gone: 'overflow-hidden rounded-lg border border-ink/15 text-[11px]' },
   { area: 'couple', what: 'How to make your mark (Create your own | Upload your monogram)', file: `${D}/monogram/mark-toggle.tsx`, anchor: 'aria-label="How to make your mark"', via: 'classes', thumb: 'slides', gone: 'rounded-xl bg-ink/5 p-1' },
   { area: 'couple', what: 'Schedule view (Journey | Preparation | Event Day)', file: `${D}/schedule/_components/schedule-mode-toggle.tsx`, anchor: 'data-schedule-view-switch=""', via: 'classes', thumb: 'slides', gone: 'rounded-lg px-' },
-  { area: 'couple', what: 'Guest list views (List | Map | Setup)', file: `${D}/guests/_components/guests-screen.tsx`, anchor: 'aria-label="Guest list views"', via: 'classes', thumb: 'slides', gone: 'styles.seg' },
-  // 2026-10-27 (owner, "On the pinned the selectors should stay but simplified"): the pinned row's small List | Map is its own selector, drawn by the same template.
-  { area: 'couple', what: 'Guest list views, pinned (List | Map)', file: `${D}/guests/_components/guests-screen.tsx`, anchor: 'aria-label="Guest list views, pinned"', via: 'classes', thumb: 'slides', gone: 'styles.seg' },
+  // 2026-10-29 (owner, prototype v14 "pinned row = LEFT one menu (page + mode in one dropdown)"): the pinned row's small
+  // List | Map pill is RETIRED — the slim row holds ONE PickMenu ("Guests · List ▾"), a dropdown, not a pill selector.
+  // 2026-10-30 (owner, iPhone app, *"The menu does not work properly"*): the full `Guests ▾ | Seats ▾ | March` pill is
+  // RETIRED too — every Guests view wears that ONE row, so "Guest list views" leaves this table on purpose (any set of
+  // choices is a dropdown). 🔒 lib/guests-top-row-and-full-screen.test.ts (5)
   { area: 'couple', what: 'How moments are made (Automatic | I choose)', file: `${D}/story/_components/make-it-yours.tsx`, anchor: 'aria-label="How moments are made"', via: 'classes', thumb: 'slides', gone: 'className={s.seg}' },
   { area: 'couple', what: 'Preview device (iPhone | MacBook)', file: `${D}/_components/device-frame.tsx`, anchor: 'data-device-toggle=""', via: 'track', thumb: 'slides', gone: 'rounded-full border border-ink/10 bg-cream p-1' },
   { area: 'couple', what: 'How the video plays (Fill | Fit to screen)', file: `${D}/_components/std-media-picker.tsx`, anchor: 'data-std-video-fit=""', via: 'classes', thumb: 'slides', gone: 'inline-flex rounded-xl border border-ink/15 bg-cream p-0.5' },
@@ -83,11 +85,16 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'shared', what: 'A thread’s views (Chat | Decisions | Files)', file: 'app/_components/chat-thread-views.tsx', anchor: 'aria-label="Show"', via: 'classes', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-lg border border-ink/15' },
   { area: 'shared', what: 'Workspace sections (Chat · Quote · Payments · Files · Call · Details) — both sides', file: 'app/_components/relationship-tab-shell.tsx', anchor: 'aria-label="Workspace sections"', via: 'classes', thumb: 'slides', gone: 'rounded-xl border border-ink/10 bg-cream/70 p-1' },
   /* ── area 2 · the supplier's dashboard ── */
-  { area: 'supplier', what: 'Momentum window (Daily | Monthly | Annual)', file: `${V}/performance/_components/momentum-window-toggle.tsx`, anchor: 'aria-label="Momentum window"', via: 'track', thumb: 'slides', gone: "background: 'var(--m-ink)', color: 'var(--m-paper)'" },
+  // 2026-11-01 (owner 2026-10-30 "ONE SELECTOR FOR EVERY PAGE", Q1 "the segmented rows become the same ▾"; house rule
+  // "every choice is one dropdown"): My Performance's Momentum window (Daily | Monthly | Annual) is RETIRED as a pill —
+  // it is the shared PickMenu now, so it leaves this table on purpose, as Guests' rows did.
+  // 🔒 app/vendor-dashboard/performance/the-pickers-are-one-dropdown.test.ts
   /* "Billing cycle (Monthly | Annual)" left this list 2026-10-14: the simpler supplier dashboard (owner-APPROVED,
      prototype SCREENS.plan "Cycle ▾") draws the plan and its cycle as ONE dropdown each, in rows. The toggle file is
      deleted; the dropdowns are held by `app/vendor-dashboard/subscription/the-plan-is-rows.test.ts`. */
-  { area: 'supplier', what: 'Your services sections (Coverage | Service cards)', file: `${V}/services/_components/manager-tabs.tsx`, anchor: 'aria-label="Your services sections"', via: 'track', thumb: 'slides', gone: 'var(--m-orange-3)' },
+  /* "Your services sections (Coverage | Service cards)" left this list 2026-10-31 (#7120, owner ONE SELECTOR "all yes" 30 Oct:
+     segmented rows become the same dropdown): the Services manager draws `Your services · Coverage ▾` with the shared
+     PickMenu; held by `app/vendor-dashboard/every-supplier-top-row-is-one-selector.test.ts`. */
   /* The two "QR type (Shortlist | Locked)" tracks — on the dashboard card and on the QR Code Generator — are not
      removed to go green: the two places are ONE page since S-PR3, and the plan its owner approved draws the choice
      as ONE dropdown (`SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "one 'QR codes' (Shortlist · Booked —
@@ -97,14 +104,12 @@ export const CONVERTED: readonly Converted[] = [
   // (owner "any set of choices is a dropdown"; DECISION_LOG "SUPPLIER DASHBOARD APPROVED — … A ⚙ PER PAGE").
   { area: 'supplier', what: 'Discount unit (% | ₱)', file: `${V}/services/_components/service-list-editors.tsx`, anchor: 'aria-label="Discount unit"', via: 'track', thumb: 'slides', gone: "background: on ? 'var(--m-ink)' : 'var(--m-paper-2)'" },
   { area: 'supplier', what: 'How a payment is set (% of total | Fixed ₱)', file: `${V}/services/_components/payment-schedule-editor.tsx`, anchor: 'data-payment-amount-kind=""', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-md border border-ink/20' },
-  { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },
   /* ── area 3 · onboarding, sign-in and the public pages ── */
   { area: 'public', what: 'Browse songs (Top 100 | Search | Playlist)', file: 'app/onboarding/wedding/_components/song-bank-step.tsx', anchor: 'aria-label="Browse songs"', via: 'track', thumb: 'slides', gone: "className={mode === m ? 'on' : undefined}" },
   /* ── area 4 · admin (selector shape only) ── */
   { area: 'admin', what: 'Verification surfaces (Applications | Listing visibility)', file: `${AD}/verify/page.tsx`, anchor: 'aria-label="Verification surfaces"', via: 'track', thumb: 'slides', gone: 'mb-4 inline-flex flex-wrap gap-2' },
   { area: 'admin', what: 'Price state (On sale | Switched off)', file: `${AD}/pricing/_components/catalog-editor.tsx`, anchor: 'aria-label="Price state"', via: 'track', thumb: 'slides', gone: "'border-terracotta-700 text-ink'" },
   { area: 'admin', what: 'Connection logs (Active issues | Resolved archive)', file: `${AD}/connection-logs/connection-logs-client.tsx`, anchor: 'data-connection-log-tabs=""', via: 'track', thumb: 'slides', gone: "'bg-[#1B1A17] text-white' : 'text-[#5B5B5B]" },
-  { area: 'admin', what: 'Custom plan pay channel (BDO | GCASH)', file: `${AD}/custom-plans/_components/custom-composer.tsx`, anchor: 'data-pay-channel=""', via: 'track', thumb: 'slides', gone: "channel === ch ? 'bg-ink text-cream'" },
   { area: 'admin', what: 'Integrity watch sections (Reviews | Listings | Inquiries | Prices)', file: `${AD}/integrity-watch/page.tsx`, anchor: 'data-integrity-tabs=""', via: 'track', thumb: 'slides', gone: "tab === 'reviews'\n              ? 'bg-ink text-cream'" },
   { area: 'admin', what: 'Concierge abuse sections (Pending review | Enforcement decisions)', file: `${AD}/concierge-abuse/_components/abuse-tabs.tsx`, anchor: 'data-abuse-tabs=""', via: 'classes', thumb: 'slides', gone: 'bg-terracotta text-cream' },
 ];
@@ -189,7 +194,17 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // dropdown in the plan's rows (owner-APPROVED prototype SCREENS.plan; held by
   // app/vendor-dashboard/subscription/the-plan-is-rows.test.ts). A selector that no longer exists, not a line removed
   // to go green.
-  assert.ok(CONVERTED.length >= 29, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 28, not 29: the Guests pinned row's small List | Map pill was RETIRED on purpose (2026-10-29, owner v14 — the slim row
+  // is ONE dropdown now; see its note in CONVERTED). Every other selector is still held.
+  // 27, not 28: the Guests full `Guests ▾ | Seats ▾ | March` pill was RETIRED on purpose too (2026-10-30, owner on the
+  // iPhone app — every Guests view wears the ONE dropdown row; see its note in CONVERTED).
+  // 26, not 27: the supplier Services manager's Coverage | Service cards track was RETIRED on purpose (2026-10-31, #7120,
+  // ONE SELECTOR — it is `Your services · Coverage ▾` now; see its note in CONVERTED).
+  // 25, not 26: My Performance's Momentum window track was RETIRED on purpose (2026-11-01, ONE SELECTOR — it is the
+  // shared PickMenu now; see its note in CONVERTED).
+  // 23, not 25, since 2026-11-06: two converted selectors (the Custom plan's billing term and its admin pay channel)
+  // were DELETED with the Custom plan — the screens are gone, not unconverted.
+  assert.ok(CONVERTED.length >= 23, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

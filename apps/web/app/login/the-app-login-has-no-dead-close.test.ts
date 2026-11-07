@@ -4,51 +4,60 @@
  *
  * ── WHAT SHIPPED (Apple check 2026-10-19, row #3 — guideline 2.1) ────────────
  * The phone and desktop apps open ON /login. Its ✕ (and Escape, and the
- * backdrop) went to "/", and middleware's brochure bounce
- * (`APP_EXCLUDED_MARKETING_PATHS`) sends "/" back to /login inside the app —
- * so the first button on the first screen App Review sees did nothing.
+ * backdrop) went to "/", and middleware's brochure bounce sent "/" back to
+ * /login inside the app — so the first button on the first screen App Review
+ * sees did nothing. The fix then was to draw no ✕ in the app.
+ *
+ * ── WHAT CHANGED (owner 2026-11-02, "let everything go live") ───────────────
+ * DECISION_LOG "EVERY PAGE HELD BACK FROM THE APP FOR APPLE GOES LIVE IN THE
+ * APP TOO": the bounce is gone and the apps open "/" (Discover) like the
+ * website. So the ✕ is a real way out in the app as well, and the card draws it
+ * there too — one target, "/", everywhere.
  *
  * ── WHAT THIS GUARDS — A PROPERTY ───────────────────────────────────────────
- *   1. Wherever the /login page's web dismiss target is a path the app bounces
- *      (read from middleware.ts, not retyped), the page passes `null` in the
- *      app — so the ✕ cannot be dead there by construction.
- *   2. "In the app" is asked with the same two signals middleware's bounce
- *      reads (the `SetnayanApp` user agent, the capacitor cookie).
- *   3. `null` draws no ✕ and makes Escape and the backdrop do nothing.
+ *   1. Middleware refuses no /login ✕ target in the app: it no longer asks
+ *      whether a request comes from the native shell at all, and the store
+ *      shell's paid-feature gate does not refuse the target either.
+ *   2. The ✕ target is read from the page (not retyped) and is a page that
+ *      exists — so the ✕ can never again be a press that lands back on /login.
+ *   3. `null` (kept for any card with nowhere to go) still draws no ✕ and makes
+ *      Escape and the backdrop do nothing.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
-test('the /login ✕ is not drawn in the app when its target is a door the app bounces back', () => {
-  const mw = src('middleware.ts');
-  const m = mw.match(/APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([^\]]*)\]/);
-  assert.ok(m, 'APP_EXCLUDED_MARKETING_PATHS moved out of middleware.ts');
-  const bounced = new Set([...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!));
+test('the /login ✕ goes to a page the app opens — in the app as on the web', () => {
+  // 1 · No native-shell bounce in middleware: nothing tells the app apart from a browser to send it back to /login.
+  const mw = stripComments(src('middleware.ts'));
+  assert.doesNotMatch(
+    mw,
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware asks "is this the app?" again — if it bounces the ✕ target there, the ✕ is dead on the first screen ' +
+      'App Review sees: pass dismissHref={inApp ? null : …} on /login (the request-platform question), then update this test',
+  );
 
+  // 2 · The ✕ target, read from the page.
   const page = stripComments(src('app/login/page.tsx'));
   const props = page.match(/dismissHref=\{([^}]*)\}|dismissHref="([^"]*)"/);
   assert.ok(props, '/login no longer passes dismissHref — re-point this guard');
   const expr = props![1] ?? `'${props![2]}'`;
   const targets = [...expr.matchAll(/'([^']*)'/g)].map((x) => x[1]!);
   assert.ok(targets.length > 0, `cannot read a target from dismissHref={${expr}}`);
-  const intoBounce = targets.filter((t) => bounced.has(t));
-  if (intoBounce.length > 0) {
-    // The target is a bounced door — so the app branch must be `null`.
-    assert.match(expr, /^\s*inApp\s*\?\s*null\s*:/, `dismissHref={${expr}} points at ${intoBounce.join(', ')}, which the app sends back to /login — pass null in the app`);
-    assert.match(page, /const inApp = \(await getRequestPlatform\(\)\) !== 'web';/, '"in the app" must be the request-platform question');
+  for (const t of targets) {
+    assert.notEqual(t, '/login', 'the ✕ lands back on /login');
+    assert.equal(isStoreShellWebOnlyPath(t), false, `the ✕ goes to ${t}, which the iPhone app refuses (store-shell gate)`);
+    assert.equal(isStoreShellWebOnlyPath(t, true), false, `the ✕ goes to ${t}, which the iPhone app refuses where Apple sells`);
   }
-
-  // middleware's bounce and getRequestPlatform read the same two signals.
-  assert.match(mw, /function isCapacitorClient[\s\S]{0,200}setnayan-client-type'\)\?\.value === 'capacitor'[\s\S]{0,120}includes\('SetnayanApp'\)/);
-  const rp = src('lib/request-platform.ts');
-  assert.match(rp, /const isNative = \/SetnayanApp\/i\.test\(ua\) \|\| clientType === 'capacitor';\s*if \(!isNative\) return 'web';/);
+  assert.ok(targets.includes('/'), `the ✕ no longer goes to Discover ("/"): dismissHref={${expr}}`);
+  assert.ok(existsSync(join(WEB, 'app/page.tsx')) || existsSync(join(WEB, 'app/(shell)/page.tsx')), '"/" has no page');
 });
 
 test('dismissHref null draws no ✕, and Escape and the backdrop do nothing', () => {

@@ -143,9 +143,12 @@ test('11 · an unreadable picture gets its own message', () => {
 
 test('12 · "Suppliers who made this day" — after the day, and never "vendor" on a guest’s screen', () => {
   const body = stripComments(read(join(SLUG, '_components', 'site-body.tsx')));
-  assert.doesNotMatch(body, /Vendors who made this day|Loved a vendor|Save any vendor/);
-  const at = body.indexOf('Suppliers who made this day');
-  assert.ok(at > -1);
+  // The block's markup lives in its own component since 2026-11-06 (favorites after an event); the gate stays here.
+  const block = stripComments(read(join(SLUG, '_components', 'hub-suppliers-made-this-day.tsx')));
+  for (const src of [body, block]) assert.doesNotMatch(src, /Vendors who made this day|Loved a vendor|Save any vendor/);
+  assert.ok(block.includes('Suppliers who made this day'));
+  const at = body.indexOf('<HubSuppliersMadeThisDay');
+  assert.ok(at > -1, 'site-body no longer draws the supplier block');
   assert.match(body.slice(Math.max(0, at - 400), at), /eventIsBehind &&/, 'the supplier block is not gated on the day being behind us');
 });
 
@@ -218,7 +221,8 @@ test('the Invitation’s guest menu is Welcome · Details · Our Love Story · M
   assert.deepEqual(guestBarForStage('rsvp').map((s) => s.key), ['home', 'details', 'story', 'me'], 'the Maker’s Page ▾');
   for (const replied of [false, true]) {
     const bar = resolveSiteNav({
-      viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: true, anyChapterPublic: true, hasStory: true,
+      // 📷 Papic off — with it on the four carry the Camera too (owner 2026-10-30), still no RSVP tab.
+      viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: false, anyChapterPublic: true, hasStory: true,
       hasDetails: true, liveBroadcast: false, destinations: { camera: '/c' }, stageSlots: STAGE_BAR.rsvp.slots,
     } as Parameters<typeof resolveSiteNav>[0]);
     assert.deepEqual(bar.map((s) => s.label), ['Home', 'Details', 'Story', 'Me'], `replied=${replied}`);

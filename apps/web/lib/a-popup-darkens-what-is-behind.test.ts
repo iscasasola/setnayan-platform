@@ -245,20 +245,25 @@ test('(3) the dark is dark AND blurred — and dark alone where blur is not supp
   const at = css.indexOf('.sn-popup-dark {');
   assert.ok(at > 0, 'anti-vacuity: `.sn-popup-dark` is not in the stylesheet');
   const base = css.slice(at, css.indexOf('}', at) + 1);
-  const alpha = Number(/background-color: rgb\(var\(--color-ink\) \/ (0?\.\d+)\);/.exec(base)?.[1]);
+  /* The figures live on the scrim tokens since 2026-10-29 (one darkness everywhere, `lib/one-scrim.test.ts`). */
+  const tok = (name: string) => new RegExp(`${name}:\\s*([^;]+);`).exec(css)?.[1]?.trim(); // the first = `:root`'s (light)
+  const inkAlpha = (v: string | undefined) => Number(/rgb\(var\(--color-ink\) \/ (0?\.\d+)\)/.exec(v ?? '')?.[1]);
+  assert.match(base, /background-color: var\(--sn-scrim\);/, 'the dark is not the scrim token');
+  const alpha = inkAlpha(tok('--sn-scrim'));
   assert.ok(alpha >= 0.35 && alpha <= 0.6, `the dark is ${alpha} — not a darkening`);
-  assert.match(base, /backdrop-filter: blur\((\d+)px\);/);
-  assert.match(base, /-webkit-backdrop-filter: blur\(\d+px\);/, 'iOS Safari would not blur');
-  assert.ok(Number(/backdrop-filter: blur\((\d+)px\)/.exec(base)![1]) >= 4);
+  assert.match(base, /(?<!-webkit-)backdrop-filter: blur\(var\(--sn-scrim-blur\)\);/);
+  assert.match(base, /-webkit-backdrop-filter: blur\(var\(--sn-scrim-blur\)\);/, 'iOS Safari would not blur');
+  assert.ok(Number(/^(\d+)px$/.exec(tok('--sn-scrim-blur') ?? '')?.[1]) >= 4);
   // NOT SUPPORTED: still dark (deeper), no reliance on the blur.
   const unsupported = /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\) \{\s*(?:[^{}]*,\s*)?\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
-  const deep = Number(/background-color: rgb\(var\(--color-ink\) \/ (0?\.\d+)\);/.exec(unsupported)?.[1]);
+  assert.match(unsupported, /background-color: var\(--sn-scrim-solid\);/);
+  const deep = inkAlpha(tok('--sn-scrim-solid'));
   assert.ok(deep >= alpha, 'where the backdrop cannot blur the page behind is not even dark');
   // LESS TRANSPARENCY ASKED FOR: the blur is taken off, the dark stays.
   const reduced = /@media \(prefers-reduced-transparency: reduce\) \{\s*(?:[^{}]*,\s*)?\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
   assert.match(reduced, /backdrop-filter: none;/, 'the blur stays under "reduce transparency"');
   assert.match(reduced, /-webkit-backdrop-filter: none;/);
-  assert.ok(Number(/background-color: rgb\(var\(--color-ink\) \/ (0?\.\d+)\);/.exec(reduced)?.[1]) >= alpha, 'under "reduce transparency" the page behind is not dark');
+  assert.match(reduced, /background-color: var\(--sn-scrim-solid\);/, 'under "reduce transparency" the page behind is not dark');
   // Nothing here moves.
   assert.doesNotMatch(base + unsupported + reduced, /animation|transition/);
 });

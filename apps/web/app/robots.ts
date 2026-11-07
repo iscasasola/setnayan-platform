@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next';
 
-// "Recommend us, don't train on us" — see 17_SEO_and_AI_Discoverability_Playbook.md §8.
+// "Recommend us, don't train on us" — see 17_SEO_and_AI_Discoverability_Playbook.md §8,
+// with ONE exception since 2026-11-02 (DECISION_LOG "BE FINDABLE BY AI"): Google-Extended
+// may read the public pages so Gemini can find and recommend us.
 // Authenticated routes (dashboard / admin / api / receipts) are blocked for every bot.
 const ALLOWED_PATHS = [
   '/',
@@ -41,9 +43,16 @@ const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '
 const QUERY_DISALLOWS = ['/*?sort=', '/*?filter=', '/*?session=', '/*?ref='];
 
 const AI_ANSWER_ENGINES = ['ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'ClaudeBot'];
+// Google-Extended is not a crawler of its own — Googlebot fetches, and this token
+// only says whether Gemini may use what it fetched. Owner 2026-11-02 ("Be findable
+// by AI"): let Gemini read our PUBLIC pages. It gets exactly the `*` rule (same
+// allow list, same private + query disallows), stated explicitly so a reader of
+// robots.txt sees the choice rather than an absence. The answer-engine list above
+// is unchanged. Guard: app/robots-lets-gemini-read.test.ts.
+const AI_READERS_WE_WELCOME = ['Google-Extended'];
+// Pure training / resale scrapers — still blocked from everything.
 const AI_TRAINING_BOTS = [
   'GPTBot',
-  'Google-Extended',
   'Applebot-Extended',
   'Amazonbot',
   'cohere-ai',
@@ -65,6 +74,11 @@ export default function robots(): MetadataRoute.Robots {
         userAgent,
         allow: ALLOWED_PATHS,
         disallow: DISALLOWED_PATHS,
+      })),
+      ...AI_READERS_WE_WELCOME.map((userAgent) => ({
+        userAgent,
+        allow: ALLOWED_PATHS,
+        disallow: [...DISALLOWED_PATHS, ...QUERY_DISALLOWS],
       })),
       ...AI_TRAINING_BOTS.map((userAgent) => ({
         userAgent,

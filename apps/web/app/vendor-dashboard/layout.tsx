@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { REQUEST_PATH_HEADER, shopConsolePath } from '@/lib/shop-console-path';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
@@ -20,10 +22,12 @@ import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
-import { customerLandingHref } from './customers/anchors';
+import { SUPPLIER_CHATS_HREF } from './customers/anchors';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
+import { BasicSetupHold } from './_components/basic-setup-hold';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
@@ -49,6 +53,10 @@ import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { Suspense } from 'react';
+import { SupplierPageMenu } from './_components/supplier-page-menu';
+/* 📌 The supplier frame from 701 — the page picker stepping aside for the bar's menu, and the two columns. */
+import './_components/supplier-frame.css';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -88,7 +96,12 @@ export default async function VendorDashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
+  // Keep the page they asked for — a deep link to a chat or a booking must
+  // survive the sign-in round trip. It used to be a hard-coded
+  // '/vendor-dashboard', so every such link collapsed to Today after login.
+  // The middleware stamps the path; `shopConsolePath` keeps it same-origin and
+  // inside the console, falling back to Today.
+  if (!user) redirect(loginRedirectPath(shopConsolePath((await headers()).get(REQUEST_PATH_HEADER))));
   const supabase = await createClient();
   // The App Store / Play Store shell has no Plan row (lib/store-shell.ts).
   const storeShell = await isStoreShellRequest();
@@ -287,6 +300,21 @@ export default async function VendorDashboardLayout({
     where it matters, on the Repertoire surface and in the hub that offers it.
   */
 
+  // 🧰 BASIC SETUP FIRST (owner 2026-10-29: "complete the basic setup of their shop. Which is a must before they can
+  // do anything"). ONE decision for the whole tree, from the shop row already read above (no new request): an owner
+  // or admin whose `businessProfileChecklist` is not complete is held on the setup — `BasicSetupHold` draws "Finish
+  // your basic setup first" on every page but the open ones (`lib/basic-setup-gate.ts`). A helper, an unread row,
+  // and a complete shop are never held.
+  const setupHold = basicSetupHoldOf({
+    // Measured = the shop row in full AND the probe that carries `verification_state` (Today's own "verified" — it
+    // draws the six steps only while that is not 'verified', so the hold uses the same word).
+    measured: !!vendorProfile && !vendorProfile.legacy_read && tierProbe.dealFacts !== null,
+    canManage: canManageVendor(vendorRole),
+    verified:
+      tierProbe.dealFacts?.verification_state === 'verified' || vendorProfile?.public_visibility === 'verified',
+    checklist: vendorProfile ? businessProfileChecklist(vendorProfile) : null,
+  });
+
   // The name the rail's context group announces the shop by. Never blank and
   // never an id — a rail heading reading `s89v-…` is worse than a plain word.
   const vendorSidebarName =
@@ -318,19 +346,17 @@ export default async function VendorDashboardLayout({
 
   // Login-driven vendor TIER lapse (no cron) — post-response, downgrade-only,
   // idempotent. sweep_vendor_tier_expiry reverts a tier past its tier_expires_at
-  // (pro/enterprise → verified-or-free; custom → verified-or-free + demotes the
-  // active custom plan). Deferring to after() keeps it off the render path of a
+  // (pro/enterprise → verified-or-free). Deferring to after() keeps it off the render path of a
   // layout that re-renders on every navigation; `supabase` is captured in the
   // closure (holds the access token in memory), so the post-response call still
   // authenticates. Only fired for a sweepable PAID tier — for free/verified it
   // is a guaranteed no-op, so skip the pointless background write. The
   // api_access gate already denies expired access inline; this reconciles
-  // tier_state + the caps overlay so a lapsed vendor stops reading Custom/Pro
-  // ceilings.
+  // tier_state so a lapsed vendor stops reading Pro/Ultra ceilings.
   if (
     tierProbe.vendorId &&
     vendorTier != null &&
-    (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
+    (['pro', 'enterprise'] as readonly string[]).includes(vendorTier)
   ) {
     const vendorId = tierProbe.vendorId;
     after(async () => {
@@ -418,9 +444,20 @@ export default async function VendorDashboardLayout({
   // resolves this via fetchUserRoleSummary internally and surfaces it as
   // context.hasVendor. Matches what the unified AccountSwitcher uses for the
   // "Shop console" target.
-  if (!switcherData.context.hasVendor) {
-    redirect('/dashboard');
-  }
+  //
+  // 🏪 NO SHOP YET → OPEN ONE, never the couple board (supplier gate audit G7, 2026-11-02; owner "Onboarding via
+  // creating new account"). A signed-in account with no shop reaches here from `/signup?as=vendor` while signed in and
+  // from `accountHomePath('vendor')`; sending it to `/dashboard` dropped a supplier on the couples' screens with no way
+  // to the shop set-up. `/open-shop` is that set-up, and it sends anyone who already has a named shop back here, so the
+  // two cannot loop.
+  //
+  // 🔒 ONLY A PROVEN ABSENCE GOES TO THE WIZARD (`the-open-shop-redirect-is-a-proven-absence.test.ts`). A refused role
+  // read can ALSO answer `hasVendor: false` (`getDashboardShell`'s fallback) — but it then holds `canOpenShop: false`,
+  // which is true only when the shop list was MEASURED (`lib/roles.ts`, fails closed). So `no-vendor` = measured and
+  // none; anything unmeasured goes to `/dashboard` as before, never to the create-a-shop wizard.
+  const vendorAccess = switcherData.context.hasVendor ? 'vendor' : switcherData.context.canOpenShop ? 'no-vendor' : 'unmeasured';
+  if (vendorAccess === 'no-vendor') redirect('/open-shop');
+  if (vendorAccess === 'unmeasured') redirect('/dashboard');
 
   // The supplier's own rows in the account sheet (prototype SHEETS.avatar). Step 5's
   // rows (Your details · Your page · Your collections) + step 6's sheet (Helpers ·
@@ -462,8 +499,9 @@ export default async function VendorDashboardLayout({
         page: … envelope (unread badge) · avatar"). The SAME live badge the
         couple's event bar carries (`UnreadMessagesBadge`, not a second one),
         seeded from the `countUnreadMessages` read this layout already makes
-        for the phone bar — no new query. It lands on the inbox through the
-        anchors table, never the bare stub.
+        for the phone bar — no new query. It lands on CHATS, the supplier's
+        full-screen inbox (`SUPPLIER_CHATS_HREF`, owner 2026-11-06: "Why is it
+        still jumping to customer events") — never Customers › Events again.
 
         🔔 THE BELL STAYS BESIDE IT FOR NOW. The redesign's shell draws the
         envelope and the avatar only, and files the notification list under
@@ -475,7 +513,7 @@ export default async function VendorDashboardLayout({
       <UnreadMessagesBadge
         userId={user.id}
         initialUnread={threadsUnread}
-        href={customerLandingHref('messages')}
+        href={SUPPLIER_CHATS_HREF}
         tour="supplier-messages"
       />
       <UnreadBellBadge
@@ -542,6 +580,18 @@ export default async function VendorDashboardLayout({
            couple's line, handed to the shell AND the dock below: the 72-px strip replaces the phone's bar from 701,
            every Sheet is the 440 right panel from 701. Below 701 nothing moves. */
         boundary="tab"
+        /* 📌 FROM 701 THE BAR IS THE PAGE'S PINNED ROW (supplier dashboard v13, owner 2026-10-29 "desktop mode is
+           wrong" · "and tablet"; prototype approved). The rail runs the window's full height (≥1100 icon + word, 701–1099
+           the 72-px strip) and the ONE bar sits over the content column: the page menu ▾ LEFT; the page's search · ⇅ · ＋
+           (its thumb row, moved up) and this layout's own cluster RIGHT — the same bell, ✉ and avatar, not copies. The
+           phone (<701) is untouched. `supplier-page-menu.tsx` · 🔒 the-supplier-frame-holds.test.ts */
+        pinnedBar={{
+          lead: (
+            <Suspense fallback={null}>
+              <SupplierPageMenu />
+            </Suspense>
+          ),
+        }}
         /* FOCUS (owner 2026-09-21): inside the shop the rail is its own menu
            plus one row back to My Home. */
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
@@ -642,7 +692,7 @@ export default async function VendorDashboardLayout({
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}
             <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
-            {children}
+            <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
           </div>
         </main>
       </div>

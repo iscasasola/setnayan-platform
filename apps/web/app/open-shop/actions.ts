@@ -10,7 +10,13 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
-import { clipBusinessSlug, slugifyBusinessName } from '@/lib/business-slug';
+import {
+  clipBusinessSlug,
+  SHOP_NAME_MAX,
+  SHOP_NAME_TOO_LONG,
+  shopNameTooLong,
+  slugifyBusinessName,
+} from '@/lib/business-slug';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { findSlugConflict } from '@/lib/slug-availability';
@@ -154,7 +160,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
   }
 
-  const shopName = clean(formData.get('shop_name'));
+  // 📏 50 AT MOST (owner 2026-11-06). Read UNCLIPPED so a too-long name is REFUSED, never silently cut to fit —
+  // `clean` would slice it, and the vendor would get a shop named something they never typed.
+  const rawShopName = clean(formData.get('shop_name'), Number.MAX_SAFE_INTEGER);
+  if (shopNameTooLong(rawShopName)) {
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(SHOP_NAME_TOO_LONG));
+  }
+  const shopName = clean(rawShopName, SHOP_NAME_MAX);
   const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
   // ── THE ADDRESS IS CHOSEN, NOT MINTED (owner 2026-08-10: "slug cannot be
@@ -342,10 +354,19 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // `vendor_profiles.user_id UNIQUE`), so this only ever reuses or creates the
   // one shop; the guard becomes live enforcement when the cap is raised and
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
-  const { data: ownedRows } = await admin
+  const { data: ownedRows, error: ownedError } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, services, business_slug, in_business_since_year')
     .eq('user_id', user.id);
+  // 🔒 A REFUSED READ IS NOT "NO SHOP". Read as empty, the insert below runs
+  // over the shop that already exists, and the supplier is shown Postgres's
+  // raw duplicate-key text. Say what happened and let them try again.
+  if (ownedError) {
+    redirect(
+      '/open-shop?error=' +
+        encodeURIComponent("We couldn't check your shop just now. Please try again."),
+    );
+  }
   const owned = (ownedRows ?? []) as Array<{
     vendor_profile_id: string;
     services?: string[];

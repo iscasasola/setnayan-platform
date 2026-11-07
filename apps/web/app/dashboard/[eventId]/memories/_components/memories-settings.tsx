@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { HardDrive } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -7,11 +8,11 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatPhp } from '@/lib/orders';
 import { InfoTip } from '@/app/_components/info-tip';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
-import { ServiceParts } from '@/app/dashboard/[eventId]/studio/_components/service-parts';
 import { LiveWallCard } from '@/app/dashboard/[eventId]/studio/papic/_components/live-wall-card';
 import { PoolGalleryCard } from '@/app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card';
 import { DriveCopyCard, type DriveGrant } from '@/app/dashboard/[eventId]/studio/papic/_components/drive-copy-card';
 import { getDriveOAuthConfig } from '@/lib/papic-drive';
+import type { MemoriesManagerRole } from '@/lib/memories-rules';
 
 /**
  * ⚙ GALLERY SETTINGS — the sheet behind Memories' gear (owner 2026-10-23, verbatim: *"Gallery holds: follow moments in
@@ -21,20 +22,32 @@ import { getDriveOAuthConfig } from '@/lib/papic-drive';
  * stood on the Papic page, moved — never a second copy:
  *
  *   Photo wall              `LiveWallCard variant="row"` (copy link · screen codes · on guests' phones · count · layout)
- *   Thank-You Video         `ServiceParts service="papic"` (the add-on's own door; nothing when it is not offered)
- *   Guests see all photos   `PoolGalleryCard variant="row"` (`pool_gallery_open`)
+ *   Thank-You Video         MOVED OUT (owner 2026-10-31, "Build both") — its door is the keepsake row's Thank You
+ *                           button now (`memories-keepsake-row.tsx`), ONE home; the ⚙ no longer draws it.
+ *   Who sees what           `PoolGalleryCard variant="row"` (`pool_gallery_open`) — was "Guests see all photos"
  *   Google Drive            `DriveCopyCard` (connect / connected / "Coming soon" while Google's review runs)
  *   Keep full resolution    the HIGH_RES_ARCHIVE line, priced from the catalogue (web only — Apple does not sell it)
+ *
+ * 👁 WHO SEES WHAT FIRST (owner 2026-10-30, DECISION_LOG "MEMORIES ⚙ HOLDS THE MEMORIES RULES — HOSTS + COORDINATORS
+ * MANAGE THEM; DEFAULT "ONLY TAGGED""): the "Guests see all photos" switch is now the rule **Who sees what** — Only
+ * tagged (default) · Share all memories — the SAME column (`pool_gallery_open`), drawn by the same `PoolGalleryCard`.
+ * 👥 `role`: the hosts (the couple + every co-host) get the whole sheet; the event's COORDINATOR gets the rules only
+ * (Who sees what) — the photo wall, Google Drive and Keep full resolution are purchases and
+ * the hosts' own accounts, not Memories rules. The server action is the authority either way (`memoriesManagerRole`).
  */
 export async function MemoriesSettings({
   eventId,
   loginEmail,
   appleIap,
+  role = 'host',
 }: {
   eventId: string;
   loginEmail: string | null;
   appleIap: boolean;
+  /** Who is looking (`memoriesManagerRole`): a coordinator sees the Memories rules only. */
+  role?: MemoriesManagerRole;
 }) {
+  if (role === 'coordinator') return <PoolGalleryCard eventId={eventId} variant="row" />;
   const supabase = await createClient();
   const admin = createAdminClient();
   const [grantRes, driveConfig, owns, priceRes, platform] = await Promise.all([
@@ -54,11 +67,8 @@ export async function MemoriesSettings({
 
   return (
     <>
-      <LiveWallCard eventId={eventId} appleIap={appleIap} variant="row" />
-      <div className="py-3" data-memories-setting="thank-you">
-        <ServiceParts eventId={eventId} service="papic" />
-      </div>
       <PoolGalleryCard eventId={eventId} variant="row" />
+      <LiveWallCard eventId={eventId} appleIap={appleIap} variant="row" />
       <div className="py-3" data-memories-setting="drive">
         <DriveCopyCard
           eventId={eventId}
@@ -67,15 +77,31 @@ export async function MemoriesSettings({
           loginEmail={loginEmail}
         />
       </div>
+      {/* 📦 DOWNLOAD ALL — beside the Drive copy, the photo rule's other way to keep originals (owner 2026-11-03: "Copy
+          to Google Drive (free) or Download all"): zips by chapter in ~2 GB parts, on their own page. Hosts only — the
+          zip routes check the couple membership. */}
+      <section className="flex items-center justify-between gap-3 py-3" data-memories-setting="download-all">
+        <span className="min-w-0">
+          <span className="block text-[15px] font-semibold text-ink">Download all</span>
+          <span className="block text-[12.5px] text-ink/60">Zips by chapter, with each size shown first</span>
+        </span>
+        <Link
+          href={`/dashboard/${eventId}/memories/download-all`}
+          className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-ink/15 px-4 text-[14px] font-medium text-ink"
+        >
+          Open
+        </Link>
+      </section>
       {appleIap ? null : (
         <section className="flex items-center justify-between gap-3 py-3" data-memories-setting="keep-full-res">
           <span className="min-w-0">
             <InfoTip label="Keep full resolution" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
-              Your Memories stay free, for life. After 6 months we keep a compressed copy; Keep full resolution keeps every
-              original too. A yearly service, priced from the catalogue.
+              Your Memories stay free, for life. Originals are kept until 3 months after the event’s last day; then we
+              keep the 720p copy. Keep full resolution keeps every original too. A yearly service, priced from the
+              catalogue.
             </InfoTip>
             <span className="block text-[12.5px] text-ink/60">
-              {owns ? 'Active · every original kept' : 'Off · after 6 months we keep a compressed copy'}
+              {owns ? 'Active · every original kept' : 'Off · 3 months after the event we keep the 720p copy'}
             </span>
           </span>
           {owns ? (

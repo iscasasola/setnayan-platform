@@ -28,23 +28,38 @@ type BlockRow = {
   start_at: string | null;
   end_at: string | null;
   parent_block_id: string | null;
+  /** ⏰ The Schedule says the ceremony's time is not known yet (migration 20271300482585) — `start_at` is its DAY at 00:00. */
+  time_tba: boolean | null;
 };
 
-const COLUMNS = 'block_id, block_type, start_at, end_at, parent_block_id';
+const COLUMNS = 'block_id, block_type, start_at, end_at, parent_block_id, time_tba';
 
 async function readCeremonyBlocks(supabase: SupabaseClient, eventId: string) {
   return supabase.from('event_schedule_blocks').select(COLUMNS).eq('event_id', eventId).eq('block_type', 'ceremony');
 }
 
 /**
- * The live ceremony time, `HH:MM` (null = the Schedule has no ceremony). Throws
- * on a refused read — Apply must never compare a draft against a guess.
+ * The live ceremony: its time `HH:MM` (null = no ceremony, or no time yet) and
+ * whether the Schedule marks that time TBA. Throws on a refused read — Apply
+ * must never compare a draft against a guess.
+ *
+ * ⏰ A TIME-TBA CEREMONY HAS NO TIME (controller 2026-11-02, follow-up to #7158):
+ * its `start_at` is the day at a placeholder 00:00, so it reads `time: null,
+ * tba: true` — the box says "Time TBA" and stays empty, and a Save that
+ * compares against this never sees a 00:00 to keep or write back.
  */
-export async function readLiveCeremonyTime(supabase: SupabaseClient, eventId: string): Promise<string | null> {
+export async function readLiveCeremony(supabase: SupabaseClient, eventId: string): Promise<{ time: string | null; tba: boolean }> {
   const { data, error } = await readCeremonyBlocks(supabase, eventId);
   if (error) throw new Error(`Could not read the live ceremony time: ${error.message}`);
   const block = ceremonyBlock((data ?? []) as BlockRow[]);
-  return block ? toDatetimeLocalValue(block.start_at).slice(11) || null : null;
+  if (!block) return { time: null, tba: false };
+  if (block.time_tba === true) return { time: null, tba: true };
+  return { time: toDatetimeLocalValue(block.start_at).slice(11) || null, tba: false };
+}
+
+/** The live ceremony time, `HH:MM` — null when there is no ceremony or its time is TBA (`readLiveCeremony`). */
+export async function readLiveCeremonyTime(supabase: SupabaseClient, eventId: string): Promise<string | null> {
+  return (await readLiveCeremony(supabase, eventId)).time;
 }
 
 /** `iso` moved by `ms`, kept on the wall clock (pure epoch arithmetic on a UTC-written value). */
@@ -100,20 +115,32 @@ export async function placeCeremonyBlock({
     return { ok: true, wrote: 'created' };
   }
 
+  // ⏰ A TIME-TBA CEREMONY (migration 20271300482585): its 00:00 is a placeholder, never a time to keep. With no
+  // typed time nothing is written (the date's move is `moveScheduleWithDate`'s job); a typed time is written and
+  // clears the flag. Its parts do not walk — they were never measured from a real clock.
+  const tba = block.time_tba === true;
+  if (tba && !time) return { ok: true, wrote: 'none' };
+
   const current = toDatetimeLocalValue(block.start_at);
   if (!time && fromDay && current.slice(0, 10) !== fromDay) return { ok: true, wrote: 'none' };
   const next = fromDatetimeLocalValue(`${day}T${time ?? current.slice(11)}`);
   if (!next || !block.start_at) return { ok: false, error: 'bad-time' };
   const delta = Date.parse(next) - Date.parse(block.start_at);
-  if (delta === 0) return { ok: true, wrote: 'none' };
+  if (delta === 0 && !tba) return { ok: true, wrote: 'none' };
 
   const { data: moved, error: upErr } = await supabase
     .from('event_schedule_blocks')
-    .update({ start_at: next, end_at: shifted(block.end_at, delta), updated_at: new Date().toISOString() })
+    .update({
+      start_at: next,
+      end_at: tba ? null : shifted(block.end_at, delta),
+      ...(tba ? { time_tba: false } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq('block_id', block.block_id)
     .eq('event_id', eventId)
     .select('block_id');
   if (upErr || !moved?.length) return { ok: false, error: upErr?.message ?? 'no-row' };
+  if (tba) return { ok: true, wrote: 'moved' };
 
   // Its parts walk with it.
   const { data: parts, error: partsErr } = await supabase

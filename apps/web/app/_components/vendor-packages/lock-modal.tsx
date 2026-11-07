@@ -42,6 +42,7 @@ import {
   type StartServiceInquiryResult,
 } from '@/app/v/[slug]/inquiry-actions';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
@@ -400,6 +401,11 @@ export function LockPackageModal({
       }
       if (result.status === 'package_inactive') {
         setError('That package is paused by the supplier.');
+        return;
+      }
+      if (result.status === 'bookings_closed') {
+        // 🚪 Bookings closed (owner 2026-11-02, `lib/bookings-open.ts`) — reached from a stale page.
+        setError(BOOKINGS_CLOSED_COUPLE_MESSAGE);
         return;
       }
       if (result.status === 'vendor_not_verified') {

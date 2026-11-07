@@ -255,7 +255,10 @@ export function measurePass(doc: PrintDoc, look: PrintLook, name: string | null)
     if (t.meta.size < floor - 0.01) out.push({ rule: 'floor', detail: `"${t.meta.s}" is set at ${t.meta.size.toFixed(2)} pt (floor ${floor} pt)` });
   }
 
-  // (d) never wider than its room, and the name is whole or ends in "…"
+  // (d) never wider than its room, and the name is WHOLE. ✂🚫 Owner 2026-10-29, on the printouts: *"some names get the
+  // ..."* · *"we do not want that"* — a name that ends in "…" is a failure now, not an excuse: it wraps, then steps down
+  // to the floor, and its slot grows (`lib/print-name-fit.ts`). Whitespace is ignored in the comparison, because a word
+  // too long for the room at the floor is broken between letters (every letter still prints).
   for (const t of texts) {
     if (t.meta.maxWidth && t.meta.width > t.meta.maxWidth + 0.05) out.push({ rule: 'clipped', detail: `"${t.meta.s}" is ${t.meta.width.toFixed(1)} pt wide in ${t.meta.maxWidth.toFixed(1)} pt` });
   }
@@ -263,7 +266,22 @@ export function measurePass(doc: PrintDoc, look: PrintLook, name: string | null)
     const drawn = texts.filter(isNameLine).map((t) => t.meta.s);
     const joined = drawn.join(' ').replace(/\s+/g, ' ').trim();
     const want = plainName.replace(/\s+/g, ' ').trim();
-    if (drawn.length && joined !== want && !joined.endsWith('…')) out.push({ rule: 'clipped', detail: `the name prints as "${joined}" — not "${want}", and no ellipsis says so` });
+    const bare = (x: string) => x.replace(/\s+/g, '').toLowerCase();
+    // WHOLE = some run of consecutive lines, read in drawing order, spells the name letter for letter. (A wrapped name's
+    // short lines — "Dela", or the last letters of a word broken at the floor — are part of the run though they are
+    // too short to be recognised as name lines on their own.)
+    const target = bare(want);
+    let whole = false;
+    for (let i = 0; i < texts.length && !whole; i++) {
+      let acc = '';
+      for (let j = i; j < texts.length; j++) {
+        acc += bare(texts[j]!.meta.s);
+        if (acc === target) whole = true;
+        if (whole || !target.startsWith(acc)) break;
+      }
+    }
+    if (drawn.some((d) => d.includes('…'))) out.push({ rule: 'clipped', detail: `the name is cut: it prints as "${joined}" — a name is never shortened with "…"` });
+    else if (drawn.length && !whole) out.push({ rule: 'clipped', detail: `the name prints as "${joined}" — not "${want}"` });
   }
 
   // (e) contrast

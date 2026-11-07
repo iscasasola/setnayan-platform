@@ -10,7 +10,8 @@
  *      `grid-column: 2` on the buttons (the old shape), a two-track grid, or the buttons nested inside the name's
  *      button all fail here.
  *   2. THE NAME GIVES WAY — the name's track can shrink to zero (`minmax(0, …)`), the buttons' cannot (`auto`), and
- *      the name is ONE line with an ellipsis; the buttons are never pushed below.
+ *      the name WRAPS inside its track, up to three lines (owner, prototype v15/v24 2026-10-29: names never
+ *      ellipsized); the buttons are never pushed below.
  *   3. PHONE TARGETS — under the tablet/desktop boundary (the same 701 px this module uses for the thumb row) a guest
  *      row's buttons are at least 44 × 44, words hidden, icons shown, and that rule comes AFTER the group-state rules
  *      it must beat at equal weight. Each button is named for its guest (aria-label "Edit Maria Santos"), so forty
@@ -137,7 +138,7 @@ test('PLACEMENT: avatar, name and buttons auto-place into ONE grid row (simulate
   assert.equal(decls(rulesFor('.g .acts'))['margin-top'], undefined, 'the buttons keep a second line’s top margin');
 });
 
-test('THE NAME GIVES WAY: its track can shrink to 0, the buttons’ cannot, and the name is one line with an ellipsis', () => {
+test('THE NAME GIVES WAY: its track can shrink to 0, the buttons’ cannot, and the name wraps to three lines — never one cut line', () => {
   const cols = tracks(decls(rulesFor('.g'))['grid-template-columns'] ?? '');
   assert.equal(cols.length, 3, `the row has ${cols.length} tracks — avatar · name · buttons is three`);
   assert.match(cols[1]!, /^minmax\(0, ?[\d.]+fr\)$/, 'the name’s track has a floor — it would push the buttons out instead of truncating');
@@ -147,9 +148,10 @@ test('THE NAME GIVES WAY: its track can shrink to 0, the buttons’ cannot, and 
   assert.equal(nm['flex-wrap'], 'nowrap', 'the name line wraps — it grows a second line instead of truncating');
   assert.equal(nm['min-width'], '0');
   const nmt = decls(rulesFor('.nmt'));
-  assert.equal(nmt['white-space'], 'nowrap');
-  assert.equal(nmt['overflow'], 'hidden');
-  assert.equal(nmt['text-overflow'], 'ellipsis');
+  assert.notEqual(nmt['white-space'], 'nowrap', 'the name is held to one line again — names wrap, never cut (v15)');
+  assert.equal(nmt['text-overflow'], undefined, 'the name is cut with an ellipsis');
+  assert.equal(nmt['-webkit-line-clamp'], '3');
+  assert.equal(nmt['overflow-wrap'], 'anywhere');
   assert.equal(nmt['min-width'], '0');
   const nameSpan = ROW.indexOf('className={styles.nmt}');
   assert.ok(nameSpan > 0, 'the name is not inside the truncating span');
@@ -188,13 +190,15 @@ test('every row button is named for its guest — an icon-only list is not forty
   const acts = ROW.slice(ROW.indexOf('className={styles.acts}'));
   const body = acts.slice(0, acts.indexOf('</span>'));
   const buttons = body.match(/<ActionButton\b[\s\S]*?\/>/g) ?? [];
-  assert.ok(buttons.length >= 1, `found ${buttons.length} row ActionButtons — Delete at least`);
   for (const b of buttons) {
     const label = /label="([^"]+)"/.exec(b)?.[1];
     assert.ok(label, `a row button without a word: ${b}`);
     assert.ok(b.includes(`name={\`${label} \${name}\`}`), `“${label}” is not named for its guest (aria-label "${label} <name>")`);
   }
-  assert.ok(buttons.some((b) => b.includes('label="Delete"')), 'the row lost Delete');
+  // 👈 Delete is the row's swipe since 2026-11-03 — still named for its guest, never forty identical “Delete”s.
+  const swipe = ROW.slice(ROW.indexOf('<SwipeToDelete'));
+  assert.ok(ROW.indexOf('<SwipeToDelete') > 0, 'the row lost Delete (its swipe)');
+  assert.match(swipe, /label=\{del === 'remove' \? `Delete \$\{name\}` : `Release seat \$\{name\}`\}/, 'the swipe Delete is not named for its guest');
   // 📤 Share is the shipped Invite cell drawn as one icon; ITS name carries the guest (guest-invite-cell.tsx, layout 'icon').
   assert.match(body, /<GuestInviteCell\b[^>]*layout="icon"/, 'the row lost Share');
   const CELL = stripComments(readFileSync(join(HERE, 'guest-invite-cell.tsx'), 'utf8'));

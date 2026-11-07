@@ -8,7 +8,7 @@
  *
  *   ⓵ Running late (`bulkRetimeScheduleBlocks`): the sheet closed as if the day had moved; a span with nothing the
  *      caller could see to move `return`ed quietly.
- *   ⓶ The floor's +5/+10/+15 (`floorRetimeFrom`): "Moved 6 blocks." in green to a booked coordinator who does not
+ *   ⓶ The floor's +5/+10/+15 (then `floorRetimeFrom`, now `changeTheSchedule`): "Moved 6 blocks." in green to a booked coordinator who does not
  *      hold Edit on the schedule — the day did not move.
  *   ⓷ "Who's responsible" (`setBlockResponsibleParty`) and an approved change (`resolveScheduleSuggestion`): "saved".
  *   ⓸ In the Event Hub Maker the shift is a QUIET write (no render follows), and the sheet closed over the OLD times —
@@ -31,7 +31,10 @@ const WEB = join(__dirname, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ACTIONS = 'app/dashboard/[eventId]/schedule/actions.ts';
-const FLOOR = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts';
+// The one accept path moved to lib in Step 4b (2026-11-02) so Auto-agree runs the same code as Approve.
+const DECIDE = 'lib/schedule-suggestion-decide.server.ts';
+// The floor's Change the schedule (2026-11-04, it replaced `floorRetimeFrom`): its skip is the one row UPDATE.
+const CHANGE = 'lib/change-the-schedule.server.ts';
 const SHEETS = 'app/dashboard/[eventId]/schedule/_components/day-sheets.tsx';
 const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
 
@@ -66,8 +69,9 @@ function blockUpdates(src: string): { stmt: string; after: string }[] {
 const WRITERS: [file: string, fn: string][] = [
   [ACTIONS, 'bulkRetimeScheduleBlocks'],
   [ACTIONS, 'setBlockResponsibleParty'],
-  [ACTIONS, 'resolveScheduleSuggestion'],
-  [FLOOR, 'floorRetimeFrom'],
+  // One Approve and Approve all share one accept path (2026-11-01) — the write lives there.
+  [DECIDE, 'decideSuggestion'],
+  [CHANGE, 'changeTheSchedule'],
 ];
 
 test('⓵⓶⓷ every UPDATE of a schedule row reads back what it changed and refuses an empty answer', () => {
@@ -118,9 +122,13 @@ test('⓹ a change in words only is said as one — on the sheet and in the supp
   assert.equal(isNoteOnlySuggestion({ ...words, kind: 'remove' }), false);
 
   const requests = body(read(SHEETS), 'RequestsSheet');
-  assert.equal(requests.match(/isNoteOnlySuggestion\(r\)/g)?.length ?? 0, 2, 'the Asked line and the footnote must both tell a note from a change');
-  const resolve = body(read(ACTIONS), 'resolveScheduleSuggestion');
-  assert.match(resolve, /isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
+  // The Asked line, the footnote and the buttons (Noted, no Decline) all tell a note from a change.
+  assert.ok((requests.match(/isNoteOnlySuggestion\(r\)/g)?.length ?? 0) >= 2, 'the Asked line and the footnote must both tell a note from a change');
+  assert.match(requests, /'a note only'/, 'the Asked line no longer says a note is a note');
+  assert.match(requests, /Nothing on the schedule moves/, 'the footnote no longer says a note moves nothing');
+  // The one accept path (Approve and Approve all both go through it) tells a note from a change in the notice.
+  const resolve = body(read(DECIDE), 'decideSuggestion');
+  assert.match(resolve, /body: accepted[\s\S]*?isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
 });
 
 test('⓺ a template on a schedule that is no longer empty redraws the page instead of doing nothing', () => {

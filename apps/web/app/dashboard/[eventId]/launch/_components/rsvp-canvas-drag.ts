@@ -11,8 +11,9 @@
  *
  * 🔁 A SECOND SMALL DRAG, NOT THE MARCH'S (controller 2026-10-10). The march's is its own component, tied to its
  * names, walks and sections (`details-march.tsx` + `lib/march-drag.ts`); it cannot be pointed at another list. What
- * the two share is the FEEL, so the march's own numbers are IMPORTED, never copied: `SETTLE_MS`, `EDGE_PX`. The one
- * difference is the hold — `RSVP_HOLD_MS`, below.
+ * the two share is the FEEL, so the march's own numbers are IMPORTED, never copied: `SETTLE_MS`. The edge scroll is
+ * the ONE every list's drag shares (`lib/drag-edge-scroll.ts`, owner 2026-11-01). The one difference is the hold —
+ * `RSVP_HOLD_MS`, below.
  *
  * 🖼 IT RUNS FROM THE MAKER, ON THE FRAME'S DOCUMENT. The lines are the guest's own page inside the stage's frame
  * (same origin), so the press, the ghost and the opening are all in that document — and all of this is in the lazy
@@ -26,7 +27,8 @@
  * that very line is the picked one (the prototype's rule). Where it may LAND: among what stands beside it.
  */
 import { rsvpDropBefore, rsvpDropSlot } from '@/lib/rsvp-layout-edit';
-import { EDGE_PX, SETTLE_MS } from './details-march';
+import { dragBandOf, dragEdgeStep, dragScrollBy } from '@/lib/drag-edge-scroll';
+import { SETTLE_MS } from './details-march';
 
 /**
  * ⏱ THE ONE DIFFERENCE FROM THE MARCH: 350 ms before a held line lifts (the march lifts a name at 250). The approved
@@ -89,7 +91,6 @@ type Held<S extends RsvpDragSubject> = {
   oy: number;
   x: number;
   y: number;
-  dir: -1 | 0 | 1;
 };
 
 /**
@@ -139,10 +140,12 @@ export function attachRsvpDrag<S extends RsvpDragSubject>(doc: Document, host: R
   const loop = () => {
     const h = held;
     if (!h) return;
-    if (h.dir) {
-      /* Near the page's top or bottom edge the page comes to the finger (the finger itself never scrolls it). */
-      const dist = h.dir < 0 ? EDGE_PX - h.y : h.y - (win.innerHeight - EDGE_PX);
-      win.scrollBy(0, h.dir * Math.min(18, 4 + dist / 4));
+    /* Near the page's top or bottom edge the page comes to the finger (the finger itself never scrolls it) — the ONE
+       shared edge scroll, faster the nearer. */
+    const page = (doc.scrollingElement as HTMLElement | null) ?? doc.documentElement;
+    const v = dragEdgeStep(h.y, dragBandOf(page));
+    if (v) {
+      dragScrollBy(page, v);
       aim();
     }
     raf = win.requestAnimationFrame(loop);
@@ -232,7 +235,6 @@ export function attachRsvpDrag<S extends RsvpDragSubject>(doc: Document, host: R
       oy: y - (r.top - py),
       x,
       y,
-      dir: 0,
     };
     place(held);
     subject.row.style.opacity = String(LIFTED_DIM);
@@ -279,7 +281,6 @@ export function attachRsvpDrag<S extends RsvpDragSubject>(doc: Document, host: R
     h.y = e.clientY;
     place(h);
     aim();
-    h.dir = h.y < EDGE_PX && h.y > -40 ? -1 : h.y > win.innerHeight - EDGE_PX && h.y < win.innerHeight + 40 ? 1 : 0;
   }
 
   function onUp(e: PointerEvent) {

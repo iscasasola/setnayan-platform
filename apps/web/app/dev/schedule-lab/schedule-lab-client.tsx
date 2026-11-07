@@ -11,8 +11,10 @@
  */
 
 import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
+import { MakerContext, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
 import type {
   DayActions,
@@ -25,8 +27,8 @@ import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { venueNowMs } from '@/lib/schedule';
 import { wallDateKey } from '@/lib/schedule-rail';
+import { PLAN_DATE, labAfterChange, seedMoments } from './lab-moments';
 
-const PLAN_DATE = '2026-12-18';
 const LAB_SLOT = 'schedule-lab-inspector';
 /** A quiet write's "no render": the stand-in stops before it changes the fixtures. */
 const QUIET = Symbol('quiet');
@@ -58,60 +60,36 @@ const SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
   ]),
 );
 
-type Seed = [
-  id: string,
-  label: string,
-  type: DayMoment['block_type'],
-  start: string,
-  end: string | null,
-  pub: boolean,
-  extra?: Partial<DayMoment>,
-];
-
-const SEEDS: Seed[] = [
-  ['hmua', 'Hair & makeup', 'pre_ceremony', '08:00', '12:00', false, { responsible_vendor_ids: ['v-kat'], responsible_party: 'HMUA team', location: 'Bridal suite, Peninsula Manila', notes: 'Claire first, then the entourage. Mom at 10:30 AM.' }],
-  ['ingress', 'Supplier ingress & styling', 'pre_ceremony', '10:00', '13:00', false, { responsible_vendor_ids: ['v-gaia'], location: 'San Agustin Church · Grand ballroom' }],
-  ['arrive', 'Guests arrive', 'pre_ceremony', '13:30', '14:00', true, { location: 'San Agustin Church, Intramuros', notes: 'Ushers at both doors. Programs on the pews.' }],
-  ['cer', 'Ceremony', 'ceremony', '14:00', '15:30', true, { responsible_vendor_ids: ['v-planner'], responsible_party: 'Coordinator', location: 'San Agustin Church, Intramuros', notes: 'Unplugged ceremony — ushers remind at the door.' }],
-  ['cer-1', 'Procession', 'ceremony', '14:00', null, true, { parent_block_id: 'cer' }],
-  ['cer-2', 'Vows & rings', 'ceremony', '14:25', null, true, { parent_block_id: 'cer' }],
-  ['cer-3', 'Recessional', 'ceremony', '15:15', null, true, { parent_block_id: 'cer' }],
-  ['cock', 'Cocktails', 'cocktails', '16:00', '17:00', true, { responsible_vendor_ids: ['v-casa'], responsible_party: 'Casa Catering', location: 'Garden terrace' }],
-  ['rec', 'Reception & dinner', 'reception', '17:00', '19:30', true, { location: 'Grand ballroom' }],
-  ['prog', 'Program', 'program', '19:30', '21:00', true, { responsible_party: 'Host / MC' }],
-  ['dance', 'First dance', 'dancing', '21:00', '21:20', false, { notes: 'Song: "Ikaw" — band has the arrangement.' }],
-  ['send', 'Send-off', 'send_off', '22:00', '22:30', true, { responsible_party: 'Coordinator', location: 'Driveway, main entrance' }],
-];
-
-function seedMoments(dateKey: string, nowMin: number | null): DayMoment[] {
-  return SEEDS.map(([id, label, type, start, end, pub, extra]) => {
-    const startAt = `${dateKey}T${start}:00.000Z`;
-    const endAt = end ? `${dateKey}T${end}:00.000Z` : null;
-    const s = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
-    const e = end ? Number(end.slice(0, 2)) * 60 + Number(end.slice(3)) : s + 30;
-    const run_state: DayMoment['run_state'] =
-      nowMin === null ? 'upcoming' : e <= nowMin ? 'done' : s <= nowMin ? 'live' : 'upcoming';
-    return {
-      block_id: id,
-      label,
-      block_type: type,
-      start_at: startAt,
-      end_at: endAt,
-      location: null,
-      notes: null,
-      is_public: pub,
-      parent_block_id: null,
-      run_state,
-      staged: false,
-      responsible_party: null,
-      responsible_vendor_ids: [],
-      ...extra,
-    };
-  });
-}
+/* 🔒 `?lock=1` (audit D7): Gaia Florals pressed "Lock my times" — the REAL resolver reads the mark ("· Not taking changes"), and
+   a write to a moment Gaia is on is refused the way the database refuses it (the `*_part_lock` triggers). */
+const LOCKED_SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
+  [
+    { vendor_id: 'v-gaia', vendor_name: 'Gaia Florals', status: 'contracted', marketplace_vendor_id: 'p-gaia', manual_vendor_id: null },
+    { vendor_id: 'v-casa', vendor_name: 'Casa Catering', status: 'contracted', marketplace_vendor_id: 'p-casa', manual_vendor_id: null },
+  ],
+  new Map([
+    ['p-gaia', 'Gaia Florals'],
+    ['p-casa', 'Casa Catering'],
+  ]),
+  new Map([['p-gaia', { seenAt: null, confirmedAt: null, lockedAt: '2026-11-02T03:00:00.000Z' }]]),
+);
+const LOCKED_MOMENTS = new Set(['ingress']);
 
 function seedRequests(dateKey: string): DayRequest[] {
   return [
+    {
+      /* 📍 A supplier's Where pick (owner 2026-11-04, migration 20271308641275): OK · Decline · Change. */
+      suggestion_id: 'r5',
+      block_id: null,
+      kind: 'where',
+      by: 'Lumière Photo',
+      proposed_label: null,
+      proposed_start_at: null,
+      proposed_end_at: null,
+      proposed_location: null,
+      where: { now: 'Ceremony', asked: 'Preparation, Ceremony, Reception' },
+      note: 'Asks to work Preparation, Ceremony, Reception',
+    },
     {
       suggestion_id: 'r1',
       block_id: 'ingress',
@@ -166,9 +144,28 @@ const str = (fd: FormData, k: string): string | null => {
   return typeof v === 'string' ? v : null;
 };
 
-export default function ScheduleLabClient() {
+export default function ScheduleLabClient({
+  bare = false,
+  suppliers: suppliersIn,
+  tags,
+  frame = 'page',
+  toolsSlot = null,
+  noRequests = false,
+}: {
+  /** 📖 No seeded supplier requests (the chapters lab's `?defaults=1` — a NEW event has none). */
+  noRequests?: boolean;
+  /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
+  frame?: 'page' | 'line';
+  toolsSlot?: string | null;
+  /** Only the day — no lab header, no write log (the Suppliers lab draws it under Booked › Schedule). */
+  bare?: boolean;
+  suppliers?: DaySupplier[];
+  /** Moment id → the suppliers tagged on it (`seedMoments`). */
+  tags?: Readonly<Record<string, readonly string[]>>;
+} = {}) {
   const [role, setRole] = useState<DayRole>('host');
-  const [when, setWhen] = useState<'plan' | 'live'>('plan');
+  // `?live=1` (slice 8): open on the day itself — "Happening now" on the running chapter (pair it with a fixed clock).
+  const [when, setWhen] = useState<'plan' | 'live'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('live') === '1' ? 'live' : 'plan'));
   const [refuse, setRefuse] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   /* ⚡ `?maker=1` — the rail as the Event Hub Maker draws it (Details › Schedule,
@@ -177,6 +174,13 @@ export default function ScheduleLabClient() {
      (the rail must show the edit on its own); each write is recorded on
      `window.__labWrites` with its time, to measure edit → save. */
   const [maker] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('maker') === '1');
+  /* 🗓 `?maker=1&studio=1` — the new Maker's Studio day (`studio-day.tsx`: one timeline row per moment, swipe left to
+     delete — owner 2026-11-03), on the same fixtures. Only `stagesStudio` is said; nothing else of the Maker is drawn. */
+  const [studio] = useState(() => maker && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1');
+  const [locked] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lock') === '1');
+  // 🗓 `?after=move|skip` — the day after the coordinator's crew changed it (Change the schedule, 2026-11-04).
+  const [after] = useState(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('after') : null));
+  const suppliers = suppliersIn ?? (locked ? LOCKED_SUPPLIERS : SUPPLIERS);
 
   const venueNow = new Date(venueNowMs());
   const todayKey = wallDateKey(venueNow.toISOString());
@@ -189,12 +193,12 @@ export default function ScheduleLabClient() {
      stable between renders; so is this now. */
   const seedNowMin = when === 'live' ? nowMin : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed is taken once per day shown, not per clock tick
-  const seeded = useMemo(() => seedMoments(dateKey, seedNowMin), [dateKey]);
+  const seeded = useMemo(() => labAfterChange(seedMoments(dateKey, seedNowMin, tags), after), [dateKey]);
   const moments = byMode[dateKey] ?? seeded;
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
-    setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null)) }));
+    setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null, tags)) }));
   const [requests, setRequests] = useState<DayRequest[] | null>(null);
-  const reqs = requests ?? seedRequests(dateKey);
+  const reqs = requests ?? (noRequests ? [] : seedRequests(dateKey));
 
   const actions = useMemo<DayActions>(() => {
     const say = (line: string) => setLog((l) => [line, ...l].slice(0, 8));
@@ -207,6 +211,12 @@ export default function ScheduleLabClient() {
       if (refuse) {
         say(`✗ ${name} refused · ${shown}`);
         throw new Error('refused by the lab');
+      }
+      if (locked && name !== 'toggleBlockVisibility' && LOCKED_MOMENTS.has(str(fd, 'block_id') ?? str(fd, 'from_block_id') ?? '')) {
+        // The database's own words for a CHANGE LOCK (audit D7) — the one sentence in lib, never retyped here.
+        const line = lockedLine('Gaia Florals');
+        say(`✗ ${name} refused · ${line}`);
+        throw new Error(line);
       }
       say(`✓ ${name} · ${shown}`);
       const w = window as unknown as { __labWrites?: Array<{ at: number; name: string; shown: string }> };
@@ -319,13 +329,18 @@ export default function ScheduleLabClient() {
       },
       async resolveScheduleSuggestion(fd) {
         await gate('resolveScheduleSuggestion', fd);
+        if (str(fd, 'decision') === 'accept_all') {
+          const ids = new Set(fd.getAll('suggestion_id').map(String));
+          setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => !ids.has(x.suggestion_id)));
+          return;
+        }
         const id = str(fd, 'suggestion_id');
         setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => x.suggestion_id !== id));
       },
     };
     return Object.fromEntries(Object.entries(all).map(([k, fn]) => [k, quietly(fn)])) as DayActions;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refuse, dateKey, maker]);
+  }, [refuse, dateKey, maker, locked]);
 
   const strip = moments
     .filter((m) => m.parent_block_id === null)
@@ -338,6 +353,30 @@ export default function ScheduleLabClient() {
       run_state: m.run_state,
       actual_start_at: null,
     }));
+
+  if (bare) {
+    return (
+      <ScheduleDay
+        frame={frame}
+        toolsSlot={toolsSlot}
+        actions={actions}
+        eventId="lab"
+        eventType="wedding"
+        eventDateKey={dateKey}
+        moments={moments}
+        requests={reqs}
+        suppliers={suppliers}
+        role={role}
+        canStage={false}
+        rosEnabled
+        templates={[]}
+        isEventDay={when === 'live'}
+        daysToGo={when === 'live' ? 0 : 81}
+        emcee={null}
+        hostPanel={null}
+      />
+    );
+  }
 
   return (
     <main className="sn-col space-y-5 pb-24">
@@ -373,6 +412,7 @@ export default function ScheduleLabClient() {
 
       {when === 'live' ? <RunOfShowHeader eventId="lab" initial={strip} canAdvance={false} variant="strip" /> : null}
 
+      <MakerContext.Provider value={studio ? ({ stagesStudio: true } as MakerState) : null}>
       <ScheduleDay
         key={`${role}-${when}`}
         inspectorSlot={maker ? LAB_SLOT : null}
@@ -382,7 +422,7 @@ export default function ScheduleLabClient() {
         eventDateKey={dateKey}
         moments={moments}
         requests={reqs}
-        suppliers={SUPPLIERS}
+        suppliers={suppliers}
         role={role}
         canStage={role === 'coordinator'}
         rosEnabled
@@ -392,6 +432,7 @@ export default function ScheduleLabClient() {
         emcee={null}
         hostPanel={<p className="text-[13px] text-ink/60">Your booked host&rsquo;s segments, questions and a note to them sit here.</p>}
       />
+      </MakerContext.Provider>
 
       {maker ? <aside id={LAB_SLOT} data-lab-slot="" className="rounded-xl bg-white/60 p-2" /> : null}
 

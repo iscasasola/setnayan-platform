@@ -6,8 +6,9 @@ import { rejectColourChange } from '../../../colour-access-actions';
 import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
 import { applyGalleryPick, fetchGalleryAssets } from '../actions';
 import { updateDressCodeLists } from '../dress-code-actions';
-import { declineInspirationSuggestion, keepInspirationSuggestion, undoKeptInspirationSuggestion } from '../suggestion-actions';
+import { declineInspirationSuggestion, keepInspirationSuggestion, undoMoodBoardChange } from '../suggestion-actions';
 import { createScheduleBlock, updateScheduleBlock } from '../../../schedule/actions';
+import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
 
 /**
  * The Mood Board studio's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -40,10 +41,12 @@ export type MoodBoardActions = {
   /** 🤝🖼 A supplier's suggested photo: ✓ Keep (into a free place, or the one named) · ✕ No thanks · the Keep's Undo (live). */
   keepInspirationSuggestion: typeof keepInspirationSuggestion;
   declineInspirationSuggestion: typeof declineInspirationSuggestion;
-  undoKeptInspirationSuggestion: typeof undoKeptInspirationSuggestion;
+  undoMoodBoardChange: typeof undoMoodBoardChange;
   /** ⏰ The guests' call time — the Schedule's arrival moment retimed, or added (live; the Schedule's own writers). */
   updateScheduleBlock: typeof updateScheduleBlock;
   createScheduleBlock: typeof createScheduleBlock;
+  /** 📸 The couple's OWN photo, shared with a linked supplier's service card — the sheet's read, the send, the take-back (live; one action, `op`). */
+  couplePhotoShare: typeof couplePhotoShare;
 };
 
 export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
@@ -56,9 +59,10 @@ export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
   updateDressCodeLists,
   keepInspirationSuggestion,
   declineInspirationSuggestion,
-  undoKeptInspirationSuggestion,
+  undoMoodBoardChange,
   updateScheduleBlock,
   createScheduleBlock,
+  couplePhotoShare,
 };
 
 export const MoodBoardActionsContext = createContext<Partial<MoodBoardActions> | null>(null);

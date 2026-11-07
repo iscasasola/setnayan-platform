@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { FilePlus2, FileText, Plus, Trash2 } from 'lucide-react';
+import { FilePlus2, FileText, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
@@ -13,12 +13,14 @@ import {
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { createProposal, deleteTemplate, saveTemplate } from './actions';
+import { createProposal, saveTemplate } from './actions';
+import { TemplateList } from './_components/template-list';
 import { VendorReuseInbox } from './_components/reuse-inbox';
 import { shopInputClass } from '../_components/kit';
 import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { pageWindowFor } from '@/lib/paginate';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY, DEMO_SHOP_CANNOT_BE_BOOKED } from '@/lib/demo-scope';
 
 export const metadata = { title: 'Quotes · Supplier' };
 
@@ -62,6 +64,9 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   pick_event_and_template: { tone: 'warn', text: 'Pick a booked client and a template first.' },
   not_booked: { tone: 'warn', text: 'Quotes work for booked clients only.' },
   save_failed: { tone: 'warn', text: 'That didn’t save — try again.' },
+  // 🧪 lib/demo-scope.ts — the words are imported, never retyped.
+  demo_shop: { tone: 'warn', text: DEMO_SHOP_CANNOT_BE_BOOKED },
+  demo_event: { tone: 'warn', text: DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY },
 };
 
 function fmtDate(iso: string | null): string {
@@ -309,24 +314,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
           Write once with merge tokens; reuse on every client.
         </p>
 
-        {templates.length > 0 ? (
-          <ul className="mt-3 divide-y divide-ink/10">
-            {templates.map((t) => (
-              <li key={t.template_id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{t.template_name}</p>
-                  <p className="truncate text-xs text-ink/50">{t.body.slice(0, 90) || 'No body yet'}</p>
-                </div>
-                <form action={deleteTemplate}>
-                  <input type="hidden" name="template_id" value={t.template_id} />
-                  <SubmitButton pendingLabel="Removing…" aria-label={`Delete ${t.template_name}`} className="text-ink/40 hover:text-red-700">
-                    <Trash2 aria-hidden className="h-4 w-4" />
-                  </SubmitButton>
-                </form>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <TemplateList templates={templates} />
 
         <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-3" open={templates.length === 0}>
           <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold">

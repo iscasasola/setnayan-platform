@@ -21,7 +21,8 @@ import {
   Camera,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { fetchChecklistProgress } from '@/lib/checklist';
+import { readPlanningProgress } from '@/lib/planning-progress.server';
+import { planningTodoHref } from '@/lib/checklist-anchor';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -61,6 +62,7 @@ import {
   scheduleBlockLabelFor,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
+import { isTimeTba, TIME_TBA } from '@/lib/schedule-chapters';
 import { isSetnayanAiActiveForEvent, setnayanAiOffered } from '@/lib/setnayan-ai';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
@@ -664,10 +666,10 @@ export async function EventDashboard({
     // and it rides this existing batch rather than adding a round-trip. Returns
     // null (⇒ neither surface renders) when the event has no Papic signal at all.
     resolvePapicHomeTile(adminClient, eventId, canViewPapicCounts),
-    // Checklist completion for the doorway chip (§ 2.3b). Head-counts only —
-    // no rows, no seeding. Returns null on a failed read AND on a never-seeded
-    // event, which is why the chip is absent rather than "0%" in both cases.
-    fetchChecklistProgress(supabase, eventId),
+    // To do completion for the doorway chip (§ 2.3b) — THE ONE LIST's count (owner 2026-11-01, "Checklist merges
+    // into Planning Stage"). No seeding. Null on a failed read AND on a list with nothing to tick yet, which is why
+    // the chip is absent rather than "0%" in both cases.
+    readPlanningProgress(supabase, eventId).then((p) => (p && p.total > 0 ? { done: p.done, total: p.total } : null)),
     // ── Unacknowledged vendor deliveries (the "Meanwhile" card) ─────────────
     // ⚠ THE DESIGN NAMED THE WRONG SOURCE. The frame points at `alaala/`, which
     // its own docblock says holds "no per-event data yet" — it is catalog-driven.
@@ -2023,7 +2025,7 @@ export async function EventDashboard({
     miniTiles.push(
       <Link
         key="schedule"
-        href={`${base}/schedule?view=journey`}
+        href={`${base}/schedule?view=preparation`}
         className="sn-tile sn-press flex flex-col text-left"
       >
         <span className="sn-eye">
@@ -2049,6 +2051,8 @@ export async function EventDashboard({
               </span>
               <span className="min-w-0 flex-1 line-clamp-2 font-semibold leading-snug text-ink">
                 {block.label}
+                {/* ⏰ A Time-TBA chapter is listed as such — its day is known, its clock is not. */}
+                {isTimeTba(block) ? <span className="font-normal text-ink/55"> · {TIME_TBA}</span> : null}
               </span>
             </span>
           ))}
@@ -2242,6 +2246,9 @@ export async function EventDashboard({
                   ownPhotoSrc={ownHeroSrc}
                   cover={sceneCover}
                   muted={eventHasHappened}
+                  /* The fade below covers the band's lower half (h-14 of h-28), so
+                     the type photo's faces stay above 60 %. */
+                  footClear={0.6}
                 />
                 {/* The card's own ink, brought up over the foot of the photo so
                     the eyebrow underneath never sits against a bright frame. */}
@@ -2726,15 +2733,14 @@ export async function EventDashboard({
               Nothing needs a decision right now — your plan keeps moving on its own.
             </div>
           )}
-          {/* Doorway to the full planning checklist — the only in-UI entry point
-           *  to /checklist since the standalone checklist card was removed. */}
+          {/* Doorway to the plan's To do list — Planning Stage's To do filter, where the Checklist now lives. */}
           <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
             <Link
-              href={`${base}/checklist`}
+              href={planningTodoHref(eventId)}
               className="font-semibold hover:underline"
               style={{ color: 'rgb(var(--color-link))' }}
             >
-              View your full checklist →
+              Open your to do list →
             </Link>
             {/* § 2.3b — completion chip. Absent when the checklist has never been
              *  seeded OR the read failed: both arrive as "no completed items", and
@@ -3128,7 +3134,7 @@ export async function EventDashboard({
             <ExpandCard
               cardClassName="sn-tile"
               title="Schedule"
-              fullHref={`${base}/schedule?view=journey`}
+              fullHref={`${base}/schedule?view=preparation`}
               fullLabel="See full schedule"
               preview={
                 schedulePreview.isEmpty ? (
@@ -3161,7 +3167,7 @@ export async function EventDashboard({
                         {block.label}
                       </span>
                       <span className="whitespace-nowrap text-[11px] text-ink/45">
-                        {scheduleBlockLabelFor(block.block_type, eventType)}
+                        {isTimeTba(block) ? TIME_TBA : scheduleBlockLabelFor(block.block_type, eventType)}
                       </span>
                     </div>
                   ))}

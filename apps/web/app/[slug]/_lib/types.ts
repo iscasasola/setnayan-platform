@@ -1,3 +1,4 @@
+import type { InvitationChapter } from '@/lib/invitation-chapters';
 import type { HubPartId } from '@/lib/hub-parts';
 // Shared row/data types for the public event-website route (`app/[slug]`).
 // Extracted verbatim from `app/[slug]/page.tsx` (OPEN-BROWSE PR1 — zero-
@@ -17,7 +18,7 @@ import type { ScheduleBlockRow } from '@/lib/schedule';
 import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
-import type { VendorCard } from '@/lib/vendor-cards';
+import type { EventVendorCredit } from '@/lib/event-vendor-credits';
 import type { PapicStyle } from '@/lib/papic-photo-styles';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import type { GuestHubData } from '../_components/guest-hub-card';
@@ -332,6 +333,8 @@ export type LiveLayerData = {
    */
   liveWallUnreadable?: boolean;
   scheduleBlocks: ScheduleBlockRow[];
+  /** ✉ The invitation's chapters (Step 5, `readInvitationChapters`); null = the read failed (the page draws as before). */
+  invitationChapters: InvitationChapter[] | null;
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;
   watchLive: WatchLiveData | null;
@@ -436,7 +439,7 @@ export type GuestContext =
       /** The face screen may open now: askable AND the guest capture window is
        *  open (the selfie is taken on the day — owner 2026-09-30). */
       faceStepOpen: boolean;
-      eventVendorCredits: VendorCard[];
+      eventVendorCredits: EventVendorCredit[];
     };
 
 export type GuestRow = {

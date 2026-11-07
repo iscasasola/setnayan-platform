@@ -10,6 +10,8 @@ import { gatherUnbilledFacts } from '@/lib/unbilled-fee-repair.server';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { readSuppliersToReview } from '@/lib/admin/suppliers-to-review.server';
 import { ReviewMinForm } from './review-min-form';
+import { BookingsOpenForm } from './bookings-open-form';
+import { bookingsOpenFromSetting } from '@/lib/bookings-open';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,6 +192,15 @@ export default async function AdminBookingFeesPage() {
   // default 2, REVIEW ONLY). It lists; it charges and tells nobody.
   const review = await readSuppliersToReview(admin);
 
+  // 🚪 The bookings switch, read fresh (not remembered) so this page shows what was just saved.
+  const { data: switchRow, error: switchErr } = await admin
+    .from('platform_settings')
+    .select('bookings_open')
+    .eq('id', 1)
+    .maybeSingle();
+  if (switchErr) logQueryError('admin/booking-fees.bookings_open', switchErr);
+  const bookingsOpen = switchErr ? null : bookingsOpenFromSetting((switchRow as { bookings_open?: unknown } | null)?.bookings_open);
+
   const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
   const withProof = charges.filter(
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
@@ -202,6 +213,21 @@ export default async function AdminBookingFeesPage() {
       <PageMasthead
         title="Booking fees owed"
       />
+
+      {/* 🚪 BOOKINGS (owner 2026-11-02, "for now, they cannot add bookings"). `lib/bookings-open.ts`. */}
+      <div className="sn-tile mb-4 p-4">
+        <h2 className="font-serif text-lg text-ink">
+          Bookings are {bookingsOpen === null ? 'unknown' : bookingsOpen ? 'open' : 'closed'}
+        </h2>
+        <p className="mb-3 mt-1 text-sm text-[color:var(--sn-ink-500)]">
+          {bookingsOpen === null
+            ? 'Could not read the switch right now — this is not the same as closed. Reload to try again.'
+            : bookingsOpen
+              ? 'Verified shops can be booked, and booking fees are made.'
+              : 'No booking can be made from any door and no fee is made. Shop pages, packages and prices still show, with “Bookings open soon”.'}
+        </p>
+        <BookingsOpenForm open={bookingsOpen} />
+      </div>
 
       {unreadable ? (
         <div className="sn-tile mb-4 flex items-start gap-3 p-4">

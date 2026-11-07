@@ -145,10 +145,15 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
     fd.set('precision', 'day');
     startTransition(async () => {
       try {
-        await save.run(() => updateEventDate(fd), {
-          steps: ['Locking the date'],
-          hint: 'Saving',
-        });
+        // 💍 A refusal comes back as words (lib/event-date-floor.ts) — thrown HERE, on the
+        // client, so the loader never says "Saved" and the words are said beside the day.
+        await save.run(
+          async () => {
+            const res = await updateEventDate(fd);
+            if (!res.ok) throw new Error(res.error);
+          },
+          { steps: ['Locking the date'], hint: 'Saving' },
+        );
         // Server action revalidates the event paths; the marketplace
         // surface will reload with day-precision applied. No client-side
         // navigation needed.
@@ -159,6 +164,7 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
   }
 
   return (
+    <>
     <button
       type="button"
       onClick={handleLock}
@@ -169,6 +175,12 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
     >
       {isPending ? 'Saving…' : prettyDay(day)}
     </button>
+    {error ? (
+      <p role="alert" className="basis-full text-xs text-danger-700">
+        {error}
+      </p>
+    ) : null}
+    </>
   );
 }
 

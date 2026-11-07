@@ -23,7 +23,9 @@ import Link from 'next/link';
 import { useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { ArrowRight, CalendarDays, Check, Eye, Mail, PenLine, Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
-import type { FaceAction, FaceIcon, HomeFace, HomeTileModel } from './home-control-faces';
+import { homeWidgetFramed, type FaceAction, type FaceIcon, type HomeDoor, type HomeFace, type HomeTileModel } from './home-control-faces';
+import { actionButtonClass } from '@/components/action-button';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { FACE_MS, RESUME_MS, STAGGER_MS, TAP_PX, VISIBLE_THRESHOLD, swipeLands, tilePaused, tileRotates } from './home-tile-rotation';
 import { openEventHub } from '@/lib/open-external';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -164,6 +166,20 @@ export function FaceFigure({ face }: { face: HomeFace }) {
 }
 
 function FaceBody({ face }: { face: HomeFace }) {
+  // 📅 The Schedule's face — a kicker over up to three lines (plan §5: this tile alone has no one big figure).
+  if (face.rows) {
+    return (
+      <>
+        {face.kicker ? <span className="hc-kick">{face.kicker}</span> : null}
+        {face.rows.map((r, i) => (
+          <span key={i} className="hc-line">
+            <span className="hc-line-k">{r.k}</span>
+            {r.v ? <span className="hc-line-v">{r.v}</span> : null}
+          </span>
+        ))}
+      </>
+    );
+  }
   const big = (
     <span className="hc-big">
       <FaceFigure face={face} />
@@ -359,13 +375,14 @@ export function HomeTile({
   };
 
   const face = faces[Math.min(index, count - 1)]!;
+  // 🧱 Frames only where you act (owner 2026-11-01): an unframed widget sits on the page (`hc-plain`).
+  const frame = homeWidgetFramed(model.key) ? '' : ' hc-plain';
   const doorLabel = `${model.label ?? ''}${model.label ? ': ' : ''}${face.big}${face.unit ? ` ${face.unit}` : ''} — ${face.sm}`;
   const doorClass = 'hc-door';
 
   if (model.key === 'count') {
     return (
-      <div className={`hc-tile hc-count${model.span ? ' hc-span' : ''}`} data-home-tile="count" data-home-tile-face={face.id} ref={root}>
-        {model.today ? <span className="hc-chip">Today</span> : null}
+      <div className={`hc-tile hc-count${model.span ? ' hc-span' : ''}${frame}`} data-home-tile="count" data-home-tile-face={face.id} ref={root}>
         <span className="hc-cd" aria-hidden>
           <span className={`hc-cd-n${face.count ? '' : ' hc-cd-word'}`}>
             <FaceFigure face={face} />
@@ -386,7 +403,7 @@ export function HomeTile({
   return (
     <div
       ref={root}
-      className={`hc-tile${model.span ? ' hc-span' : ''}${model.failed ? ' hc-bad' : ''}${count > 1 ? ' hc-swipe' : ''}${face.late ? ' hc-late' : ''}`}
+      className={`hc-tile${model.span ? ' hc-span' : ''}${model.failed ? ' hc-bad' : ''}${count > 1 ? ' hc-swipe' : ''}${face.late ? ' hc-late' : ''}${model.doors ? ' hc-sched' : ''}${frame}`}
       data-home-tile={model.key}
       data-home-tile-face={face.id}
       data-home-tile-rotates={rotates ? '' : undefined}
@@ -409,7 +426,7 @@ export function HomeTile({
       ) : model.label ? (
         <span className="hc-lab">{model.label}</span>
       ) : null}
-      {model.today ? <span className="hc-chip">Today</span> : null}
+      {/* 🎴 No "Today" chip: Now rides the event card and is never repeated below (Home redraw 2026-11-02). */}
       <div className="hc-faces">
         <div className="hc-track" ref={track} style={{ transform: `translateX(${-index * 100}%)` }} role="list" aria-label={`${model.label ?? model.key} — swipe for more`}>
           {faces.map((f, i) => (
@@ -442,6 +459,7 @@ export function HomeTile({
       ) : (
         <Link href={face.href} className={doorClass} aria-label={doorLabel} onClick={onDoorClick} draggable={false} onDragStart={(e) => e.preventDefault()} />
       )}
+      {model.doors && model.doors.length > 0 ? <ScheduleDoors doors={model.doors} /> : null}
       {model.side ? (
         <span className="hc-side">
           {model.side.map((a) => (
@@ -454,5 +472,30 @@ export function HomeTile({
         </span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 📅 THE SCHEDULE'S DOORS (owner 1 Nov: *"Keep the doors"*) — one wrapping row under the dots, never on a face that can
+ * slide away under a finger (plan §5: "a button that can slide away under a finger risks approving the wrong change").
+ * Each opens its page; Release wears ◆ PRO on Free and stays usable up to the sheet that names its part (plan §3b).
+ */
+function ScheduleDoors({ doors }: { doors: HomeDoor[] }) {
+  return (
+    <span className="hc-sdoors" data-home-sched-doors="">
+      {doors.map((d) => (
+        <Link
+          key={d.id}
+          href={d.href}
+          className={actionButtonClass(d.main ? 'brand' : 'neutral', { main: d.main })}
+          aria-label={d.pro ? `${d.label} — part of Pro` : d.label}
+          data-hc-act=""
+          data-home-sched-door={d.id}
+        >
+          <span className="lbl">{d.label}</span>
+          {d.pro ? <PaidMark state="try" label="Part of Pro" size="xs" tone="current" /> : null}
+        </Link>
+      ))}
+    </span>
   );
 }

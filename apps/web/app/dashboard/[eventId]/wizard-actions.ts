@@ -53,6 +53,8 @@
 // (event name, primary flag, etc.) from silent staleness — the flag is
 // harmless when an action doesn't touch layout data, and load-bearing
 // when it does.
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { revalidatePath } from 'next/cache';
 import { parsePersonName } from '@/lib/person-name-parse';
@@ -71,6 +73,8 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
 import { isInspirationPartKey } from '@/lib/inspiration-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -276,6 +280,15 @@ async function completeSetWeddingDateTask(
 
   const priorDate = (priorRow as { event_date?: string | null }).event_date ?? null;
   const dateChanged = Boolean(priorDate) && priorDate !== isoDate;
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts).
+  const floorRefusal = eventDateFloorRefusal({
+    date: isoDate,
+    precision: 'day',
+    prior: priorDate ? { date: priorDate, precision: 'day' } : null,
+    exempt: await eventDateFloorExempt(supabase, { eventId: eventIdRaw }),
+  });
+  if (floorRefusal) throw new Error(floorRefusal);
 
   // Vendor-lock gate · same rule as lockEventDate. Once 1+ confirmed
   // vendors exist on the event the date cannot be moved without support.
@@ -498,10 +511,23 @@ async function completeVendorPickFromMarketplace(
   // finalizeVendor. The DB trigger is the hard guard; this friendly throw keeps
   // the wizard from producing a raw 23514. Admin read (verification_state is not
   // public-readable for non-verified profiles).
+  // 🚪 DOOR 3 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The trigger is the backstop.
+  if (!(await areBookingsOpen())) {
+    throw new Error(BOOKINGS_CLOSED_COUPLE_MESSAGE);
+  }
   if (!(await isMarketplaceVendorBookable(createAdminClient(), marketplaceVendorIdRaw))) {
     throw new Error(
       "This supplier is completing verification and can't be booked just yet. You'll be able to book them once they're verified.",
     );
+  }
+  // 🧪 A real event never books a demo shop; a demo event books only demo shops (owner 2026-11-06,
+  // lib/demo-scope.ts). The trigger `refuse_demo_cross_booking` is the backstop.
+  {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId: eventIdRaw,
+      vendorProfileId: marketplaceVendorIdRaw,
+    });
+    if (demoRefusal) throw new Error(demoRefusal);
   }
 
   // Insert event_vendors row with status='contracted' directly · the
@@ -747,8 +773,10 @@ async function markTaskDone(formData: FormData): Promise<void> {
  * ──────────────────────────────────────────────────────────────────────── */
 
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { demoScopeFor } from '@/lib/demo-scope';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import { moodBoardPhotoChangeRefusal, refuseLimitedHelper } from '@/lib/host-gate';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 
 export type SearchVendorsArgs = {
   eventId: string;
@@ -804,7 +832,11 @@ async function searchVendorRecommendations(
     .select('event_type, estimated_pax')
     .eq('event_id', args.eventId)
     .maybeSingle();
+  // 🧪 The event's own demo scope (owner 2026-11-06, `lib/demo-scope.ts`): a real event never lists a demo shop, a
+  // demo event (`events.is_sample`) lists only demo shops.
+  const demoScope = await demoScopeFor(admin, args.eventId);
   return fetchWizardVendorRecommendations(admin, {
+    demoScope,
     canonicalServices: args.canonicalServices,
     ceremonyType: args.ceremonyType,
     venueSetting: args.venueSetting,
@@ -931,7 +963,11 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   palette?: string[];
   message?: string;
 }> {
-  await refuseLimitedHelper(formData.get('event_id'), null);
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  // 🖼 The hosts, and whoever they set to Mood Board Edit (owner 2026-10-30) — said in words, never an empty success.
+  // ⏱ For anyone but an owner this also opens the change the owners are told about and may Undo for 24 hours.
+  const photosRefusal = await moodBoardPhotoChangeRefusal(formData.get('event_id'), 'upload', formData.get('slot_key'));
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');
@@ -1100,7 +1136,11 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
   status: 'ok' | 'error';
   message?: string;
 }> {
-  await refuseLimitedHelper(formData.get('event_id'), null);
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  // 🖼 The hosts, and whoever they set to Mood Board Edit (owner 2026-10-30) — said in words, never an empty success.
+  // ⏱ For anyone but an owner this also opens the change the owners are told about and may Undo for 24 hours.
+  const photosRefusal = await moodBoardPhotoChangeRefusal(formData.get('event_id'), 'remove', formData.get('slot_key'));
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');

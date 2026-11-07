@@ -9,6 +9,8 @@
  * atomically, via the vendor_claim_locked_qr() RPC when the couple scans.
  */
 
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { redirect } from 'next/navigation';
 import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
@@ -20,6 +22,8 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
 import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
   // Tolerate thousands separators — the generator submits clean numbers, but a
@@ -79,6 +83,15 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (!profile) redirect('/vendor-dashboard');
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
 
+  // 🚪 DOOR 7a · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). A Locked QR IS a booking the moment it
+  // is scanned, so none is made while bookings are closed — a code that can only fail at the couple's scan helps nobody.
+  if (!(await areBookingsOpen())) fail('bookings_closed');
+
+  // ✅ A LOCKED QR NEEDS A VERIFIED SHOP (supplier gate audit G8, 2026-11-02). The couple's scan books the shop, and
+  // the database refuses to book an unverified one (`enforce_booking_requires_verified_vendor`) — so a code issued
+  // here only failed later, at the couple's scan, with a generic error. Refused here instead, with what to do.
+  if (!(await isMarketplaceVendorBookable(supabase, vendorProfileId))) fail('not_verified');
+
   // Service picker is the vendor's own leaf offerings (vendor_services,
   // DB-driven, MULTI-select). Each ref is a vendor_service_id, or a
   // VendorCategory key for the no-published-services fallback. Resolve every ref
@@ -128,6 +141,11 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       ? rawDate
       : null;
   if (!eventDate) fail('event_date');
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — this code
+  // becomes the couple's event date when they scan it.
+  if (eventDateFloorRefusal({ date: eventDate, exempt: await eventDateFloorExempt(supabase) })) {
+    fail('event_date_before_first_event');
+  }
 
   // Owner rule #4 (2026-07): a Locked QR is the PRIMARY booking of its date, so
   // it cannot be issued for a date the vendor is no longer free on (already

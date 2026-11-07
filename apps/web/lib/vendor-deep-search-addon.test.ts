@@ -17,8 +17,8 @@ const PERIOD_MS = VENDOR_DEEP_SEARCH_PERIOD_DAYS * DAY_MS;
 
 const OK: DeepSearchEligibilityInput = { tier: 'solo', verification: 'verified' };
 
-test('eligible: any verified PAID tier (Solo/Pro/Enterprise/Custom) passes', () => {
-  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+test('eligible: any verified PAID tier (Solo/Pro/Ultra) passes', () => {
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     assert.deepEqual(
       deepSearchEligibility({ tier, verification: 'verified' }),
       { ok: true },
@@ -56,10 +56,9 @@ test('denied: paid tier but unverified → unverified (gate order tier → verif
 
 // ── deepSearchHasFreeAllowance ───────────────────────────────────────────────
 
-test('free allowance: Pro/Enterprise/Custom yes; Solo no', () => {
+test('free allowance: Pro/Enterprise yes; Solo no', () => {
   assert.equal(deepSearchHasFreeAllowance('pro'), true);
   assert.equal(deepSearchHasFreeAllowance('enterprise'), true);
-  assert.equal(deepSearchHasFreeAllowance('custom'), true);
   assert.equal(deepSearchHasFreeAllowance('solo'), false);
   assert.equal(deepSearchHasFreeAllowance('free'), false);
   assert.equal(deepSearchHasFreeAllowance(null), false);
@@ -79,11 +78,9 @@ test('price: Pro first search of the cycle is FREE (₱0), then ₱500', () => {
   assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 2, cyclePricePhp: 500 }), 500);
 });
 
-test('price: Enterprise + Custom also get the first-free-then-₱500 allowance', () => {
+test('price: Enterprise also gets the first-free-then-₱500 allowance', () => {
   assert.equal(resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 0, cyclePricePhp: 500 }), 0);
   assert.equal(resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 1, cyclePricePhp: 500 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'custom', usesThisCycle: 0, cyclePricePhp: 500 }), 0);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'custom', usesThisCycle: 3, cyclePricePhp: 500 }), 500);
 });
 
 test('price: an admin reprice flows straight through on a paid run', () => {
@@ -91,12 +88,12 @@ test('price: an admin reprice flows straight through on a paid run', () => {
   assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: 750 }), 750);
 });
 
-test('price: missing/invalid catalog value falls back to ₱500 on a paid run', () => {
+test('price: missing/invalid catalog value falls back to the fallback on a paid run', () => {
   assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 0 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: -5 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: null }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: Number.NaN }), 500);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 0 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: -5 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: null }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: Number.NaN }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
   // A Pro vendor's FREE first search is ₱0 regardless of a missing catalog price.
   assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 0, cyclePricePhp: null }), 0);
 });

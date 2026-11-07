@@ -50,9 +50,20 @@ type Props = {
   look?: 'plain' | 'theme';
   /** Drawn faintly with no table lit — a guest who is not seated yet (A4). */
   faint?: boolean;
+  /**
+   * 🏪 The booked suppliers' booths (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES" item 5 — *"tapping a
+   * booth … on the guest's 2D map opens that booked supplier's card"*). Same 0–100 grid as the tables. Absent = none
+   * drawn (every caller before this one).
+   */
+  booths?: readonly WayBooth[];
+  /** A booth tapped — its supplier card. Absent = the booths are drawn, not pressable. */
+  onBooth?: (boothId: string) => void;
 };
 
-export function WayfindingMap({ tables, entrance, targetTableId, look = 'plain', faint = false }: Props) {
+/** A booth on the map: where it stands and what it is called — nothing else reaches this component. */
+export type WayBooth = { id: string; label: string; x: number; y: number };
+
+export function WayfindingMap({ tables, entrance, targetTableId, look = 'plain', faint = false, booths = [], onBooth }: Props) {
   const themed = look === 'theme';
   const positioned = useMemo(
     () =>
@@ -76,10 +87,11 @@ export function WayfindingMap({ tables, entrance, targetTableId, look = 'plain',
     () =>
       fitFloorTransform([
         ...positioned.map((p) => p.pos),
+        ...booths.map((b) => ({ x: b.x, y: b.y })),
         entrance,
         ...(pathPoints ?? []),
       ]),
-    [positioned, entrance, pathPoints],
+    [positioned, booths, entrance, pathPoints],
   );
   const tEntrance = tf(entrance.x, entrance.y);
   const polyline = pathPoints
@@ -182,7 +194,51 @@ export function WayfindingMap({ tables, entrance, targetTableId, look = 'plain',
           </div>
         );
       })}
+
+      {/* 🏪 The booked suppliers' booths — a small labelled stall, a 44 px tap target when it opens a card. */}
+      {booths.map((b) => {
+        const q = tf(b.x, b.y);
+        /* Near a side the stall hangs inward, so its words are never cut by the map's edge. */
+        const hang = q.x < 18 ? 'translate-x-0' : q.x > 82 ? '-translate-x-full' : '-translate-x-1/2';
+        const inner = (
+          <span
+            className={`flex max-w-[7rem] items-center gap-1 rounded-full border px-2 py-1 text-[0.6875rem] leading-tight shadow-sm ${
+              themed ? 'border-ink/35 bg-cream/90 text-ink/80' : 'border-ink/20 bg-cream text-ink/75'
+            } ${faint ? 'opacity-60' : ''}`}
+          >
+            <StallIcon />
+            <span className="line-clamp-2 [overflow-wrap:anywhere]">{b.label}</span>
+          </span>
+        );
+        return onBooth ? (
+          <button
+            key={b.id}
+            type="button"
+            onClick={() => onBooth(b.id)}
+            aria-label={`${b.label} — the supplier’s card`}
+            data-way-booth={b.id}
+            className={`absolute z-30 flex min-h-11 min-w-11 ${hang} -translate-y-1/2 items-center justify-center`}
+            style={{ left: `${Math.max(1, Math.min(99, q.x))}%`, top: `${q.y}%` }}
+          >
+            {inner}
+          </button>
+        ) : (
+          <div key={b.id} data-way-booth={b.id} className={`absolute z-10 ${hang} -translate-y-1/2`} style={{ left: `${q.x}%`, top: `${q.y}%` }}>
+            {inner}
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+function StallIcon() {
+  return (
+    <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <path d="M3 9l1.5-5h15L21 9" />
+      <path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z" />
+      <path d="M5 13v7h14v-7" />
+    </svg>
   );
 }
 

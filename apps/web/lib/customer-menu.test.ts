@@ -69,16 +69,21 @@ test('each tab lights the pages it now holds', () => {
     studioRows: [...STUDIO, { key: 'pa3d', href: `${BASE}/seating/lab`, name: '3D Plan' }],
   });
   const lit = (key: string) => tree.find((m) => m.key === key)!.activeMatch as string[];
-  // Guest list: Hosts, the event QR, People.
-  for (const p of ['/guests', '/hosts', '/event-qr', '/people']) {
+  // Guest list: Hosts, the event QR, People — and since R4 the seat plan (Guests › Seats) with its 3D view.
+  for (const p of ['/guests', '/hosts', '/event-qr', '/people', '/seating']) {
     assert.ok(lit('guests').includes(`${BASE}${p}`), `Guest list does not light ${p}`);
   }
-  assert.ok(lit('explore').includes(`${BASE}/budget`), 'Your Team does not light /budget');
-  // The Maker — and the Seat plan (Details › Your event › Seat plan, train n)
-  // with its 3D view.
-  for (const p of ['/launch', '/website', '/story', '/schedule', '/seating', '/plan3d']) {
+  // 💰 The Budget is Home's page since 2026-11-01 (owner: *"Okay place it in home"*) — Home lights it, Suppliers no longer.
+  assert.ok(lit('home').includes(`${BASE}/budget`), 'Home does not light /budget');
+  assert.ok(!lit('explore').includes(`${BASE}/budget`), 'Suppliers still lights /budget — two tabs light one page');
+  // 📅 …and the Schedule (owner 2026-11-02, "BOOKED IS JUST THE TEAM") — Home lights it; the Maker no longer.
+  assert.ok(lit('home').includes(`${BASE}/schedule`), 'Home does not light /schedule');
+  assert.ok(!lit('launch').includes(`${BASE}/schedule`), 'the Maker still lights /schedule — two tabs light one page');
+  // The Maker (the seat plan left it for Guests › Seats in R4).
+  for (const p of ['/launch', '/website', '/story']) {
     assert.ok(lit('launch').includes(`${BASE}${p}`), `the Maker does not light ${p}`);
   }
+  assert.ok(!lit('launch').includes(`${BASE}/seating`), 'the Maker still lights the seat plan — two tabs light one page');
   // This event's photo sources (/galleries) belong to its Memories tab since 23 Oct 2026.
   assert.ok(lit('memories').includes(`${BASE}/memories`), 'Memories does not light itself');
   assert.ok(lit('memories').includes(`${BASE}/galleries`), 'Memories does not light Galleries');
@@ -90,7 +95,7 @@ test('Home lights itself and its checklist EXACTLY, and only the service pages i
   assert.equal(home.key, 'home');
   assert.deepEqual(home.activeMatchAlsoExact, [BASE, `${BASE}/checklist`]);
   assert.ok(!(home.activeMatch as string[]).includes(BASE), 'Home claims every event page by prefix');
-  assert.deepEqual(home.activeMatch, [`${BASE}/studio`]);
+  assert.deepEqual(home.activeMatch, [`${BASE}/studio`, `${BASE}/budget`, `${BASE}/schedule`]);
 });
 
 test('after the day, Your Team opens on the suppliers who worked it (the shipped deep link)', () => {

@@ -1,50 +1,40 @@
 /**
- * Which demo shops a couple's supplier search must hide — ONE rule for every
- * search a couple types into on the Suppliers page.
+ * WHICH SHOPS AN EVENT'S OWN SUPPLIER SEARCH MAY LIST — one rule for every search a couple types into inside an event.
  *
- * The rule (unchanged — `lib/demo-mode.ts`, `/explore`): a real couple never
- * sees an `is_demo = TRUE` shop; only an ADMIN in demo mode (admin profile +
- * the demo cookie) does.
+ * 🧪 THE RULE CHANGED 2026-11-06 (owner, DECISION_LOG "Demo catalogue — owner clicks"): real couples see demo shops on
+ * Explore and the front page, marked "(DEMO ONLY)", *"but never inside their own event's supplier search"*; and
+ * (*"DEMO CATALOGUE — scope"*) *"the demo events can only see demo suppliers"*. So inside an event the scope is the
+ * event's own: `events.is_sample` must equal `vendor_profiles.is_demo` (`lib/demo-scope.ts`, `demoScopeFor`).
  *
- * Why it is one helper (owner 2026-10-21 — *"and typing saysay did not
- * show?"*): the category search (`_actions/category-search.ts`) honoured demo
- * mode, while the bench's whole-marketplace search — the one the bottom search
- * bar runs — hid demo shops from EVERYONE, admins in demo mode included. Saysay
- * Host and Band is a demo shop by the owner's own ruling (DECISION_LOG
- * 2026-09-29 "LANE 2 §2C" (1): *SetnaProd and Saysay become `is_demo = true`*),
- * so the owner could find it by category and never by name. Two copies of one
- * rule disagreed; now both call this.
+ * This SUPERSEDES the 2026-10-21 rule this file used to hold (`demoShopsShownTo` / `demoVendorIdsHiddenFrom`: an admin
+ * with the demo cookie saw demo shops inside ANY event). The cookie no longer reaches inside an event — a real event is
+ * real for everybody, the owner included; a demo event is where demo shops are tried.
+ *
+ * Why it is still one helper (owner 2026-10-21 — *"and typing saysay did not show?"*): the category search
+ * (`_actions/category-search.ts`, through `fetchWizardVendorRecommendations`) and the bench's whole-marketplace search
+ * (`_actions/bench-marketplace-search.ts`) once disagreed about demo shops. Both now ask THIS module.
+ *
+ * 🔒 FAIL CLOSED. The demo ids are read with `readDemoVendorIds` (`lib/demo-vendors.ts`); a refused read is `null`, and
+ * {@link shopInEventScope} then keeps NOTHING — the caller says it could not load, never lists a demo shop to a real
+ * couple because a read failed. Guard: `lib/a-real-event-never-finds-a-demo-shop.test.ts`.
  */
-import { cookies } from 'next/headers';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { DEMO_MODE_COOKIE_NAME, isAdminProfile, type AdminProfileClaim } from '@/lib/demo-mode';
-import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import type { DemoScope } from '@/lib/demo-scope';
 
-/** PURE. Demo shops are shown only to an admin with the demo cookie set. */
-export function demoShopsShownTo(viewer: { hasDemoCookie: boolean; profile: AdminProfileClaim | null }): boolean {
-  return viewer.hasDemoCookie && isAdminProfile(viewer.profile);
+/** An event's search scope plus the demo shop ids it is measured against (`null` = the ids could not be read). */
+export type EventSearchScope = DemoScope & { demoVendorIds: ReadonlySet<string> | null };
+
+/** PURE. May this shop appear in this event's search? A refused id read keeps nothing. */
+export function shopInEventScope(scope: EventSearchScope, vendorProfileId: string): boolean {
+  if (scope.demoVendorIds === null) return false;
+  return scope.demoVendorIds.has(vendorProfileId) === scope.is_demo;
 }
 
-/**
- * The vendor ids this viewer's search must drop: every demo shop, or none when
- * the viewer is an admin in demo mode. Cheap fast-path: no profile read unless
- * the demo cookie is present.
- */
-export async function demoVendorIdsHiddenFrom(
-  supabase: SupabaseClient,
-  admin: SupabaseClient,
-  userId: string,
-): Promise<string[]> {
-  const cookieStore = await cookies();
-  const hasDemoCookie = cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
-  let profile: AdminProfileClaim | null = null;
-  if (hasDemoCookie) {
-    const { data } = await supabase
-      .from('users')
-      .select('account_type, is_internal, is_team_member')
-      .eq('user_id', userId)
-      .maybeSingle();
-    profile = (data as AdminProfileClaim | null) ?? null;
-  }
-  return demoShopsShownTo({ hasDemoCookie, profile }) ? [] : fetchDemoVendorIds(admin);
+/** PURE. True when the scope could not be measured — the caller reports "could not load", not "no shops". */
+export function eventScopeUnreadable(scope: EventSearchScope): boolean {
+  return scope.demoVendorIds === null;
+}
+
+/** PURE. Build a scope from parts (also what the tests use). */
+export function eventSearchScopeOf(scope: DemoScope, demoVendorIds: ReadonlyArray<string> | null): EventSearchScope {
+  return { is_demo: scope.is_demo, demoVendorIds: demoVendorIds === null ? null : new Set(demoVendorIds) };
 }

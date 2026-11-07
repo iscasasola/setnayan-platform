@@ -28,6 +28,7 @@ import { DRESS_CODE_ANCHOR } from './dress-code-widget';
 import { guestFullName, plusOneSeats, type RsvpStatus } from '@/lib/guests';
 import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { countGalleryFrames } from '@/lib/papic-gallery';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
@@ -35,8 +36,8 @@ import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-cap
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { saveAttendedVendorAction, submitRsvp } from '../actions';
+import { submitRsvp } from '../actions';
+import { HubSuppliersMadeThisDay } from './hub-suppliers-made-this-day';
 import { joinEventAction } from '@/app/join/[eventId]/actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
@@ -54,6 +55,8 @@ import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { EventWordsProvider } from './event-words-provider';
+import { ChapterNotices } from './chapter-notices';
+import { chapterNotices, type InvitationChapter, type StoredChapterReply } from '@/lib/invitation-chapters';
 import { eventWordsFor } from '../_lib/event-words';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -85,6 +88,8 @@ import { SupplierRibbon } from './supplier-ribbon';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
+import { HubSeenBeacon } from './hub-seen-beacon';
+import { hubViewsEnabled } from '@/lib/whos-here';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
 import type { PostEventDraft } from '@/lib/post-event-draft';
@@ -138,6 +143,7 @@ import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
    See that function's docblock for what the old one-input version got wrong. */
 
 import { GuestColumnCard } from './guest-column-card';
+import { WRITE_A_COLUMN_SHOWN_IN_APP } from '@/lib/hidden-guest-extras';
 import { resolveHubTheme } from '../_lib/hub-look';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
@@ -177,6 +183,7 @@ import type {
 } from '../_lib/types';
 import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
+import { YourNumberCard } from './your-number-card';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubSlotClipStillRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
@@ -247,6 +254,7 @@ import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
 import { ArtKitMotion } from './art-kit-motion';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
+import { NotYouSwitch } from './not-you-switch';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
@@ -459,6 +467,14 @@ type SiteBodyProps = {
   // visitors). Hoisted to the page level 2026-05-23 so both identity tiers
   // can render the Schedule widget.
   scheduleBlocks: ScheduleBlockRow[];
+  /**
+   * ✉ GUESTS AND RSVP BY CHAPTER (owner 2026-11-01, plan §3 · §11c, Step 5). The invitation's chapters (`null` = the
+   * read failed or none were read — the page then draws the reply and Details › Schedule as before), this guest's own
+   * answers per chapter, and the names of chapters they said yes to that left the invitation.
+   */
+  invitationChapters?: readonly InvitationChapter[] | null;
+  chapterReplies?: readonly StoredChapterReply[] | null;
+  removedChapterLabels?: ReadonlyMap<string, string>;
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
@@ -551,6 +567,9 @@ type SiteBodyProps = {
    *  (`held-pass-line.tsx`, owner bug 2026-10-19). Drawn under the cover on the host's / a signed-in stranger's page;
    *  the guest tree draws it in Me (page.tsx). Null for everyone else. */
   heldPassSlot?: React.ReactNode;
+  /** 🚪 A SIGNED-IN guest on this list (their account holds this seat): their first name, for "Not [name]? Switch
+   *  account" under the cover's button (owner 2026-11-03, `NotYouSwitch account`). Null for everyone else. */
+  switchAccountName?: string | null;
   /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
    *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
   hostOwnGuestId?: string | null;
@@ -638,6 +657,9 @@ export async function SiteBody({
   ourPhotoUrls,
   widgets: widgetsIn,
   scheduleBlocks,
+  invitationChapters = null,
+  chapterReplies = null,
+  removedChapterLabels,
   backdrop,
   liveWall,
   liveWallUnreadable = false,
@@ -659,6 +681,7 @@ export async function SiteBody({
   makerWayBack = null,
   ownerCapability = null,
   heldPassSlot = null,
+  switchAccountName = null,
   hostOwnGuestId = null,
   hostOwnRsvp = null,
   vendorCapability = null,
@@ -1186,6 +1209,18 @@ export async function SiteBody({
       : null;
   /** Which moment the bar is in. Both trees resolve it from the same pair. */
   const navPhase = navPhaseFor({ dayOfPhase, isRecapBody: recapBody });
+  /* 🖼 MEMORIES OPENS ONCE THERE ARE PHOTOS (owner 2026-10-30, DECISION_LOG "PAPIC ON = A CAMERA TAB ON EVERY
+     STAGE", point 2): the event's Papic frames — shots AND uploads, counted with the Memories grid's own filters
+     (`countGalleryFrames`, the host's Memories count). Asked ONLY where the answer can change a bar: a guest before
+     the day with early shooting on (their Memories closes when there is nothing), or a guest / the couple / the
+     Maker's canvas on the day and after it when the page is not already drawing photographs there. A stranger never
+     asks. A refused count is `null` — not known, so the bar's rules decide as before (never a confident zero). */
+  const galleryAlreadyDrawn = dayOfPhase === 'live' ? Boolean(liveWall) : recapHasPhotos;
+  const memoriesAsked =
+    (identity.kind === 'guest' && identity.earlyOwnShots) ||
+    ((identity.kind === 'guest' || Boolean(ownerCapability) || isEditorCanvas) && navPhase !== 'before' && !galleryAlreadyDrawn);
+  const memoriesFrames = memoriesAsked ? await countGalleryFrames(createAdminClient(), event.event_id) : null;
+  const memoriesHasPhotos = memoriesFrames === null ? null : memoriesFrames > 0;
   // 🧭 The stage this page is showing (a host's `?phase=` preview included) —
   // its Event Bar (`STAGE_BAR`) names the header and filters the tab bar.
   const pageStage = pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase });
@@ -1958,6 +1993,8 @@ export async function SiteBody({
         phase: navPhase,
         hostAllowsCamera: hostCameraOpen,
         anyChapterPublic: menuSections.gallery,
+        // 🖼 Memories once there are photos (owner 2026-10-30) — the couple's and the canvas guest's bar.
+        memoriesHasPhotos,
         hasStory: menuSections.story,
         hasDetails: menuSections.details,
         hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
@@ -2062,6 +2099,7 @@ export async function SiteBody({
               dock={!isEditorCanvas}
               inFoot={inFoot}
               signedInNotListed={anon.signedInNotListed}
+              seatUnread={anon.seatUnread}
               theOrganizer={clientWords.theOrganizer}
               mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
               joinAction={
@@ -2715,6 +2753,7 @@ export async function SiteBody({
       account,
       profileDetails,
       eventVendorCredits,
+      hubFavorites,
       saveFlash,
       rsvpFlash,
       faceMode,
@@ -3026,6 +3065,8 @@ export async function SiteBody({
       // coerce it, or the resolver receives a truthy non-boolean.
       hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
       anyChapterPublic: menuSections.gallery,
+      // 🖼 Memories once the event has a Papic shot or upload; none → no tab (owner 2026-10-30).
+      memoriesHasPhotos,
       hasStory: menuSections.story,
       hasDetails: menuSections.details,
       hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
@@ -3220,6 +3261,7 @@ export async function SiteBody({
       guest={guest}
       sideLabel={sideLabel}
       scheduleBlocks={scheduleBlocks}
+      invitationChapters={invitationChapters}
       isLive={isLive}
       scheduleEstimated={
         isGuestNowTriggerEnabled() &&
@@ -3342,6 +3384,7 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               rsvp={guestRsvp}
+              switchLine={switchAccountName !== null && event.slug && !isEditorCanvas ? <NotYouSwitch slug={event.slug} account={{ firstName: switchAccountName }} /> : null}
               kitSlot={kitCover}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
@@ -3364,6 +3407,7 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               rsvp={guestRsvp}
+              switchLine={switchAccountName !== null && event.slug && !isEditorCanvas ? <NotYouSwitch slug={event.slug} account={{ firstName: switchAccountName }} /> : null}
               kitSlot={kitCover}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
@@ -3384,6 +3428,15 @@ export async function SiteBody({
             }
           >
 
+          {/* ✉ AFTER THE INVITES WENT OUT (ruled 1 Nov, plan §9 #7): a chapter added since this guest replied asks
+              one Yes / Can't make it; one they said yes to that left the invitation says so, once. Nothing at all
+              when there is neither — and never on the Maker's canvas. */}
+          {isMakerCanvas ? null : (
+            <ChapterNotices
+              action={submitRsvp.bind(null, event.event_id, guest.guest_id)}
+              {...chapterNotices(invitationChapters ?? [], chapterReplies, guest.rsvp_status, removedChapterLabels ?? new Map())}
+            />
+          )}
           {replyCard && tabs.on ? (
             /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page the Welcome draws no Reply card — the cover's
                button opens Me at its Reply (`#me-reply`). */
@@ -3552,6 +3605,10 @@ export async function SiteBody({
                     nowTrigger={isGuestNowTriggerEnabled()}
                     eventType={event.event_type}
                   />
+                  {/* 🎟 "Your number #0042 · Photo booth" — one quiet card under Now (supplier scan prototype frame E),
+                      inside Now's own block: no new group, and nothing drawn until a supplier's scanner gives this
+                      guest a number. The same card is on Me. */}
+                  <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} className="mt-8" />
                 </section>
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -3759,78 +3816,14 @@ export async function SiteBody({
               {group('home', <>{!clientWords.solemn &&
               eventIsBehind &&
               eventVendorCredits.length > 0 ? (
-                <section
-                  aria-label="Suppliers who made this day"
-                  className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
-                >
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                    Suppliers who made this day
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a supplier? Keep them.</h2>
-                  <p className="mt-1 text-sm text-ink/70">
-                    Save any supplier here to your Setnayan account — they&rsquo;ll be waiting when you
-                    plan your own event.
-                  </p>
-                  {saveFlash ? (
-                    <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">
-                      {saveFlash}
-                    </p>
-                  ) : null}
-                  <ul className="mt-4 space-y-2">
-                    {eventVendorCredits.map((v) => (
-                      <li
-                        key={v.vendorProfileId}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-3"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          {v.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={v.logoUrl}
-                              alt=""
-                              className="h-10 w-10 shrink-0 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta">
-                              {v.displayName.trim().charAt(0).toUpperCase() || 'V'}
-                            </span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-ink">
-                              {v.businessSlug ? (
-                                <Link href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
-                                  {v.displayName}
-                                </Link>
-                              ) : (
-                                v.displayName
-                              )}
-                            </p>
-                            {v.categoryLabel ? (
-                              <p className="truncate text-sm text-ink/70">{v.categoryLabel}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                        {showClaimAccountCta ? (
-                          <span className="shrink-0 text-xs text-ink/70">Account needed</span>
-                        ) : (
-                          <form
-                            action={saveAttendedVendorAction.bind(
-                              null,
-                              event.event_id,
-                              event.slug ?? '',
-                              v.vendorProfileId,
-                            )}
-                            className="shrink-0"
-                          >
-                            <SubmitButton className="button-secondary text-sm" pendingLabel="Saving…">
-                              Save
-                            </SubmitButton>
-                          </form>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                <HubSuppliersMadeThisDay
+                  credits={eventVendorCredits}
+                  favorites={hubFavorites}
+                  accountNeeded={showClaimAccountCta}
+                  flash={saveFlash}
+                  eventId={event.event_id}
+                  slug={event.slug ?? ''}
+                />
               ) : null}</>, { chapters: true, className: 'space-y-12' })}
 
 
@@ -3971,6 +3964,7 @@ export async function SiteBody({
                       guest={guest}
                       sideLabel={sideLabel}
                       scheduleBlocks={scheduleBlocks}
+                      invitationChapters={invitationChapters}
                       isLive={isLive}
                       isLimitedPlusOne={isLimitedPlusOne}
                       ourPhotoUrls={ourPhotoUrls}
@@ -4020,6 +4014,7 @@ export async function SiteBody({
                         guest={guest}
                         sideLabel={sideLabel}
                         scheduleBlocks={scheduleBlocks}
+                        invitationChapters={invitationChapters}
                         isLive={isLive}
                         isLimitedPlusOne={isLimitedPlusOne}
                         ourPhotoUrls={ourPhotoUrls}
@@ -4165,14 +4160,18 @@ export async function SiteBody({
               guest's column card sits in the Recap, under the story — the paper
               of approved columns, and the form in its closed state (the card
               itself mirrors the editorial cutoff). Guest-session tree only;
-              GUEST_COLUMNS_ENABLED + the `guest_columns` DPO control, or null. */}
-          <GuestColumnCard
-            eventId={event.event_id}
-            guestId={guest.guest_id}
-            eventDate={event.event_date}
-            eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
-            eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
-          />
+              GUEST_COLUMNS_ENABLED + the `guest_columns` DPO control, or null.
+              🙈 HIDDEN IN THE APP UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now") — the constant is asked FIRST,
+              before the card's own env gate. Bring-back steps: lib/hidden-guest-extras.ts. */}
+          {WRITE_A_COLUMN_SHOWN_IN_APP ? (
+            <GuestColumnCard
+              eventId={event.event_id}
+              guestId={guest.guest_id}
+              eventDate={event.event_date}
+              eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+              eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+            />
+          ) : null}
           </>) : null)}
 
           {/* Menu-shell "Me" anchor (PR6) — used to be an EMPTY div, so a guest
@@ -4335,6 +4334,9 @@ export async function SiteBody({
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
                 answerWords={readRsvpWords(event.rsvp_ask_config)}
                 /* 🎨 The reply card's style — the RSVP row's `canvas.style`. */
+                /* ✉ The invitation's chapters and this guest's answers (Step 5) — the same reads the reply page uses. */
+                chapters={invitationChapters}
+                chapterReplies={chapterReplies}
                 sceneStyle={sceneStyleOfRow(
                   widgets.find((w) => w.widget_type === 'rsvp'),
                   pageStage,
@@ -4504,6 +4506,10 @@ export async function SiteBody({
           mounted by page.tsx, after the guest's own section, because this
           component is not the last thing on a guest's page. */}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}
+      {/* 👀 WHO'S HERE (owner 2026-10-29): one count of this open for the event's team, after the page has drawn and at
+          most once per device per half hour — never on the Maker's canvas or a sample, and never a live connection.
+          The team's own looks are dropped by the route (`app/api/hub/seen/route.ts`). */}
+      {!isEditorCanvas && !event.is_sample && hubViewsEnabled() ? <HubSeenBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         /* 🎬 The opening is the preview tab's and the guests' — never the
            Maker's canvas, where it replayed on every reload (a Guest bars tap

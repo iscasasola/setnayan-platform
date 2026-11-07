@@ -18,8 +18,6 @@ import {
   resolveVendor3dBoothPricePhp,
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
   addonIsFreeUnderFirst5,
@@ -32,7 +30,7 @@ import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
  * 3D Booth add-on — buy/activate a 28-day cycle.
  *
  * Owner-locked 2026-07-22: a FLAT ₱1,500 / 28-day add-on on the PRO / ENTERPRISE
- * / CUSTOM tiers (verified only), FREE for the vendor's FIRST cycle (one-time
+ * tiers (verified only), FREE for the vendor's FIRST cycle (one-time
  * per account). When active, the vendor's booth renders BRANDED inside their
  * couples' published 3D Plans (lib/seating-3d.ts boothIsBranded); without it a
  * Pro/Enterprise vendor keeps the existing GENERIC booth.
@@ -132,8 +130,8 @@ export async function activateVendor3dBooth(
 
   // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────
   // tier_state + verification_state are not in FULL_VENDOR_PROFILE_SELECT — soft
-  // probe them together. The add-on is a PRO+ feature (Pro / Enterprise /
-  // Custom), verified only (owner 2026-07-22 · booth branding is a Pro perk).
+  // probe them together. The add-on is a PRO+ feature (Pro / Ultra),
+  // verified only (owner 2026-07-22 · booth branding is a Pro perk).
   const { data: gateRow } = await supabase
     .from('vendor_profiles')
     .select('tier_state, verification_state')
@@ -151,10 +149,9 @@ export async function activateVendor3dBooth(
   // tiered-PRICING switch decided who may buy. The owner turned that switch on
   // the same day, which opened the 3D Booth to free shops as a side effect of a
   // price change. A floor a pricing flag can lift is not a floor.
-  const tieredPricing = isVendorAddonTieredPricingEnabled();
   if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
     return err(
-      '3D Booth comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.',
+      '3D Booth comes with a paid plan — Solo, Pro or Ultra. Move up to add it.',
     );
   }
   if (verification !== 'verified') {
@@ -190,9 +187,8 @@ export async function activateVendor3dBooth(
   // instead of the flat catalog row — since 2026-09-05 both say ₱3,000 (bands
   // equal), so this branch selects a SOURCE, not a price; the free first cycle
   // and every other rule below are unchanged.
-  const cyclePricePhp = tieredPricing
-    ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
-    : catalogCyclePricePhp;
+  // 2026-11-04: one price for every plan, read from the catalogue row (no typed band any more).
+  const cyclePricePhp = catalogCyclePricePhp;
 
   /** The standing renewal price for THIS vendor — what a cycle costs once any
    *  free grant is spent. Used in copy so no message hardcodes ₱1,500. */

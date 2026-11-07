@@ -3,6 +3,8 @@ import { GuestMe } from '@/app/[slug]/_components/guest-me';
 import { GuestMeSection } from '@/app/[slug]/_components/guest-hub-bar';
 import { ScanTrailForm } from '@/app/[slug]/_components/scan-trail-notice';
 import { PLATE } from '@/app/[slug]/_lib/measures';
+import { YourScheduleCard } from '@/app/[slug]/_components/your-schedule-card';
+import type { YourScheduleRead } from '@/app/[slug]/_lib/your-schedule.server';
 
 /**
  * 👤 ME, AS A STAGE — Invitation › Me drawn the way the guest page draws it (`data-me-stage` → `GuestMeSection` →
@@ -10,9 +12,10 @@ import { PLATE } from '@/app/[slug]/_lib/measures';
  * scene cards (fix 2), names shown cased (fix 3), a plus-one as their ticket with one Send (fix 4). No database: the
  * tickets are `../ticket` drawings, the actions are the page's own, and refuse here (no guest session holds `g-pam`) — no new
  * server action for a lab (`lint-server-action-budget`). `?stage=1&dark=1` = the couple's Candlelight look with Shade ▾
- * Darker; `&guests=2` adds a second plus-one ("jose de los santos").
+ * Darker; `&guests=2` adds a second plus-one ("jose de los santos"). `&schedule=bridesmaid|guest` adds 📅 Your schedule
+ * (`./lab-your-schedule` — `&released=1` after Release, `&free=1` without Pro, `&tba=1` a chapter with no time).
  */
-export function MeStageLab({ dark, two }: { dark: boolean; two: boolean }) {
+export function MeStageLab({ dark, two, schedule = null }: { dark: boolean; two: boolean; schedule?: YourScheduleRead | null }) {
   const typed = two ? ['pamela labriaga', 'jose de los santos'] : ['pamela labriaga'];
   const guests = typed.map((name, i) => ({ guestId: `p${i + 1}`, name, inviteUrl: `https://setnayan.com/me-lab?invite=lab-${i + 1}` }));
   const ticket = (name: string) => `/dev/me-lab/ticket?name=${encodeURIComponent(name)}`;
@@ -46,6 +49,7 @@ export function MeStageLab({ dark, two }: { dark: boolean; two: boolean }) {
                 userAgent={null}
                 termsCarried
                 faceTagging={{ on: false, open: false, faceMode: 'mode_a', wish: true, turnOff: withdrawFaceConsent.bind(null, 'e-lab', 'g-pam') }}
+                yourSchedule={<YourScheduleCard read={schedule} eventName="Indalecio & Claire" />}
               />
             }
           />

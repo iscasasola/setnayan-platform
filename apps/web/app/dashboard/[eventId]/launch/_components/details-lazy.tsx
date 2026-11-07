@@ -177,6 +177,8 @@ export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "make
 export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
   loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
 });
+/* 🖨 The Prints page's desktop columns (it has no switch to mount them — `PrintsPageDesk`). */
+export const PrintsPageDesk = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.PrintsPageDesk), { loading: () => null });
 export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
 /* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
    slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
@@ -190,6 +192,11 @@ export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-detai
 /* 🎬 The new Maker's Stages panel (`stage-tools.tsx`: the stage ▾ with its pages, Style | Text | Animate, ▶,
    the page's parts, swipe) — lazy like the rest of its chrome, never in the Maker's first load. */
 export const StageTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-tools').then((m) => m.StageTools), { loading: SlotFill });
+/* ⚙ The Hub's ⚙ Event Hub settings (owner 2026-10-30) — the house sheet and its button ride this chunk, never the Maker's
+   first load; until it arrives the row holds its 44-px place. */
+export const HubSettingsGear = dynamic(() => import(/* webpackChunkName: "maker-details" */ './hub-settings').then((m) => m.HubSettingsGear), {
+  loading: () => <span aria-hidden className="block h-11 w-11 shrink-0 rounded-full bg-ink/[0.06]" />,
+});
 
 /* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): ONE stand-in for
    every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new

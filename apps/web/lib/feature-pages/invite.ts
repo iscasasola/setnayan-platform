@@ -386,12 +386,12 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     },
     steps: {
       en: [
-        'Open Prints. The Invitation set holds the invitation, the entourage, the finer details with your program, the menu, each guest’s pass, posters and an event card.',
+        'Open Prints from Home. The Invitation set holds the invitation, the entourage, the finer details with your program, the menu, each guest’s pass, posters and an event card.',
         'For the day: the guest list, guest QR codes twelve to a page, the seat plan, table signs and place cards, the entrance seating chart, the caterer’s meal counts and your event QR.',
         'Download a piece, or the whole set, and print it yourself or with your printer.',
       ],
       tl: [
-        'Buksan ang Prints. Nasa Invitation set ang imbitasyon, ang entourage, ang finer details kasama ang programa, ang menu, ang pass ng bawat bisita, posters at event card.',
+        'Buksan ang Prints mula sa Home. Nasa Invitation set ang imbitasyon, ang entourage, ang finer details kasama ang programa, ang menu, ang pass ng bawat bisita, posters at event card.',
         'Para sa araw: ang guest list, guest QR codes na labindalawa bawat pahina, ang seat plan, table signs at place cards, ang entrance seating chart, ang meal counts ng caterer at ang event QR mo.',
         'I-download ang isang piraso, o ang buong set, at i-print mo mismo o sa printer mo.',
       ],

@@ -28,7 +28,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { buildFindList, type FindList } from '@/lib/supplier-find';
-import { demoShopsShownTo } from '@/lib/demo-vendor-exclusion';
+import { eventSearchScopeOf, shopInEventScope } from '@/lib/demo-vendor-exclusion';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -143,26 +143,31 @@ test('(c) a refused booked read says so — and no row reads "Booked ✓"', asyn
   assert.match(read, /const booked: Set<string> \| null = bookedMeasured \? new Set<string>\(\) : null;/);
 });
 
-test('(d) demo shops: shown only to an admin in demo mode — one rule for every couple search', () => {
-  const admin = { account_type: 'admin' };
-  assert.equal(demoShopsShownTo({ hasDemoCookie: true, profile: admin }), true);
-  assert.equal(demoShopsShownTo({ hasDemoCookie: true, profile: { is_internal: true } }), true);
-  assert.equal(demoShopsShownTo({ hasDemoCookie: false, profile: admin }), false, 'an admin without demo mode sees demo shops');
-  assert.equal(demoShopsShownTo({ hasDemoCookie: true, profile: { account_type: 'couple' } }), false, 'a couple sees demo shops');
-  assert.equal(demoShopsShownTo({ hasDemoCookie: true, profile: null }), false);
+test('(d) demo shops: the EVENT decides — a real event never lists one, a demo event lists only them — one rule for every couple search', () => {
+  // Owner 2026-11-06 ("Demo catalogue — owner clicks"): real couples see demo shops on Explore and the front page
+  // "but never inside their own event's supplier search"; demo events "can only see demo suppliers". Supersedes the
+  // 2026-10-21 admin-cookie carve-out — the cookie no longer reaches inside an event.
+  const real = eventSearchScopeOf({ is_demo: false }, ['demo-1']);
+  const demo = eventSearchScopeOf({ is_demo: true }, ['demo-1']);
+  assert.equal(shopInEventScope(real, 'demo-1'), false, 'a real event lists a demo shop');
+  assert.equal(shopInEventScope(real, 'real-1'), true, 'a real event loses a real shop');
+  assert.equal(shopInEventScope(demo, 'demo-1'), true, 'a demo event loses its demo shop');
+  assert.equal(shopInEventScope(demo, 'real-1'), false, 'a demo event lists a real shop');
+  assert.equal(shopInEventScope(eventSearchScopeOf({ is_demo: false }, null), 'real-1'), false, 'an unread demo list must keep nothing');
 
   const actions = readdirSync(join(DIR, '_actions')).filter((f) => /\.ts$/.test(f) && !/\.test\./.test(f));
-  const searches = ['bench-marketplace-search.ts', 'category-search.ts'];
-  for (const f of searches) {
-    assert.match(code('_actions', f), /await demoVendorIdsHiddenFrom\(supabase, admin, user\.id\)/, `${f} hides demo shops by its own rule`);
-  }
-  const bare = actions.filter((f) => /\bfetchDemoVendorIds\(/.test(code('_actions', f)));
-  assert.deepEqual(bare, [], `a couple search hides demo shops from everyone, admins in demo mode included: ${bare.join(', ')}`);
+  assert.match(code('_actions', 'category-search.ts'), /const demoScope = await demoScopeFor\(admin, eventId\);/, 'the category search does not ask the event its demo scope');
+  assert.match(code('_actions', 'category-search.ts'), /fetchWizardVendorRecommendations\(admin, \{[\s\S]{0,200}?demoScope,/, 'the category search does not hand the scope to the engine');
+  assert.match(code('_actions', 'bench-marketplace-search.ts'), /demoScopeFor\(admin, eventId\)/, 'the bench search does not ask the event its demo scope');
+  assert.match(code('_actions', 'bench-marketplace-search.ts'), /\.filter\(\(r\) => shopInEventScope\(scope, r\.vendor_profile_id\)\)/, 'the bench search does not filter by the scope');
+  const old = actions.filter((f) => /\b(fetchDemoVendorIds|demoVendorIdsHiddenFrom|demoShopsShownTo)\(/.test(code('_actions', f)));
+  assert.deepEqual(old, [], `a couple search still uses the retired admin-cookie rule: ${old.join(', ')}`);
 });
 
 test('(d) a typed shop name reaches a name search on the Find page too', () => {
   const findPage = code('categories', 'page.tsx');
-  assert.match(findPage, /const shops = q && profile\.marketplaceEnabled \? await searchMarketplaceForBench\(q\) : \[\];/);
+  // 🔌 The name search now says when it could not look (`unreadable`, dashboard-reads-are-honest.test.ts #22).
+  assert.match(findPage, /const shopsRead = q && profile\.marketplaceEnabled \? await searchMarketplaceForBench\(eventId, q\) : \{ results: \[\], unreadable: false \};/);
   assert.match(findPage, /\{shops\.length > 0 \? \(/, 'the shops found by name are not drawn');
   const name = code('_actions', 'bench-marketplace-search.ts');
   assert.match(name, /business_name\.ilike\.%\$\{token\}%/, 'the name search no longer matches the shop name');

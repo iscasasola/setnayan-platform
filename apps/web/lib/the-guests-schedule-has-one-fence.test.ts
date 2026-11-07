@@ -90,6 +90,16 @@ const GUEST_FACING: Record<string, GuestRead> = {
     reads: 1,
     ownShape: true,
   },
+  'lib/invitation-chapters.server.ts': {
+    why: 'Step 5 (2026-11-02): the invitation’s chapters for the reply card and Details › Schedule (`readInvitationChapters`), and the names of chapters a guest said yes to that left the invitation (`readRemovedChapterLabels`). Service-role. Its own fence, `onlyInvitationChapters` — a chapter on the invitation is replied to even when it is not public (a Time-TBA chapter can never be) — held by A7 below and by rows in a-guest-is-asked-only-about-invitation-chapters.test.ts.',
+    reads: 2,
+    ownShape: true,
+  },
+  'app/[slug]/_lib/your-schedule.server.ts': {
+    why: 'Event Hub › Me › Your schedule (owner 2026-11-01, plan §11b): the chapters a guest is invited to, and after Release their OWN lines in private moments too. Service-role; staged prep is refused in the read, and whose line it is is decided by `yourSchedule` — held row by row by app/[slug]/_lib/your-schedule-is-only-yours.test.ts.',
+    reads: 1,
+    ownShape: true,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,
@@ -103,9 +113,24 @@ const GUEST_FACING: Record<string, GuestRead> = {
  * are exactly the people the narrower moments are FOR.
  */
 const NOT_GUEST_FACING: Record<string, string> = {
+  'app/join/crew/[token]/page.tsx':
+    'supplier crew — a phone the SHOP allowed onto its Event Hub (a Member), reading the run of show the supplier runs, after the database proved the pass and the fee gate; never a guest',
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
+  'app/admin/events/[eventId]/page.tsx':
+    'admin — Admin › Events › one event › Suppliers’ schedule reads the chapters to say each supplier’s Where (2026-11-04); behind the admin gate, never a guest',
+  'lib/schedule-ask.server.ts':
+    'host — a host or the coordinator asks a booked supplier to change their times (D2); reads the moment’s name for the ask, never for a guest',
+  'lib/moment-follow.server.ts':
+    'host — the Schedule’s write doors ask which moment a "right after" moment follows (its siblings’ order keys), on the host’s own session; never a guest',
+  'lib/supplier-part-notify.server.ts':
+    'host — the schedule actions read the moments a save touches, before and after, to tell the suppliers on them (audit D6); on the host’s own session, never a guest’s',
+  'lib/schedule-suggestion-decide.server.ts':
+    'host — the ONE accept path of a supplier’s request (Approve · Approve all · Auto-agree, Step 4b); it writes the block a host approved, never reads one for a guest',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',
+  'lib/home-schedule.server.ts': 'host — Home › the Schedule widget (owner 2026-11-01), read on the caller’s own session for the couple and their coordinator (`homePlansRead`); no guest door reaches it',
+  'lib/schedule-chapters.server.ts': 'host — Home › Event Settings › Chapters, read on the caller’s own session (the couple, a helper with Edit on the Schedule); no guest door reaches it',
+  'lib/booked-call-times.server.ts': 'host — Suppliers › Booked › Team: each booked supplier’s call time and Where (the couple’s session); the quote page’s Where (the couple’s session, or the admin client for the supplier who sent it — the chapters they are on, by name)',
   'app/dashboard/[eventId]/launch/_components/details-guided-progress.ts': 'host — the Maker’s Details progress ticks',
   'app/dashboard/[eventId]/launch/page.tsx': 'host — the Maker’s Details › Schedule pieces',
   'app/dashboard/[eventId]/checklist-actions.ts': 'host — a head count for the checklist',
@@ -120,14 +145,20 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'lib/print-set.server.ts':
     'host — the prints the couple makes and previews in the Maker (ceremony and reception times; the Details card’s programme asks is_public only — reported 2026-10-08, not a page a guest opens)',
   'lib/run-of-show-advance.ts': 'coordinator and host — resolves a block’s event before the advance gate; returns no row to anyone',
+  // ✉ "Invited to ▾" by chapter (owner 2026-11-02): which chapters are on the invitation, for the hosts' own tools.
+  'lib/guest-chapter-invites.ts':
+    'host — the Guest list’s "After party only" tags and the seat plan’s "who needs a seat" (the couple’s session, or a Guest-list / seat-plan helper’s); ids, names and kinds of chapters on the invitation, no row to a guest',
+  'app/dashboard/[eventId]/guests/[guestId]/actions.ts': 'host — the guest card’s save checks a ticked chapter is on THIS event’s invitation before writing the exception',
+
   // ── a booked supplier's desk ──
   'app/vendor-dashboard/clients/[eventId]/calendar.ics/route.ts': 'supplier — their own calendar file',
   'app/vendor-dashboard/clients/[eventId]/script-actions.ts': 'supplier — the emcee script’s writes',
   'app/vendor-dashboard/clients/[eventId]/actions.ts': 'supplier — the client workspace’s actions',
   'app/vendor-dashboard/clients/[eventId]/_components/script-tab.tsx': 'supplier — the emcee script tab',
   'app/vendor-dashboard/clients/[eventId]/page.tsx': 'supplier — the client workspace',
+  'lib/crew-elsewhere.server.ts': 'supplier — their crews on their other events the same day (slice 5)',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx': 'supplier — the stage script on the day',
-  'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts': 'coordinator — floor command on the day',
+  'lib/change-the-schedule.server.ts': 'coordinator + their crew Member — Change the schedule on the day (move / skip); the crew read is fenced as a booked shop (onlyWhatABookedShopMaySee)',
   'lib/supplier-night-before-email.ts': 'supplier — their own call time, the night before',
   'lib/supplier-today.server.ts': 'supplier — their own Today on an event day: the next moment and how many checked in, for a booking the room read proved is theirs',
 };
@@ -427,7 +458,7 @@ test('B3 · the Story’s arranged pages are grouped under the same moments', as
 
 /** The columns the public fetch has always asked for, in its one private list. */
 const PUBLIC_COLUMNS =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,time_tba,audience';
 
 test('B4 · the guests’ schedule is unchanged — the same request, condition for condition', async () => {
   // The chain below is what `fetchPublicScheduleBlocks` sent BEFORE the fence
@@ -460,4 +491,14 @@ test('B4 · the guests’ schedule is unchanged — the same request, condition 
     'order:["start_at",{"ascending":true}]',
     'order:["sort_order",{"ascending":true}]',
   ]);
+});
+
+test('A7 · the invitation’s chapters reach a guest through their own fence, and only their names, times and places', () => {
+  const code = readers.get('lib/invitation-chapters.server.ts')!;
+  assert.match(code, /onlyInvitationChapters\(\s*admin\.from\('event_schedule_blocks'\)\.select\(INVITATION_CHAPTER_FIELDS\)/, 'the chapters read is not fenced');
+  assert.match(code, /\.eq\('on_invitation', true\)\s*\.is\('parent_block_id', null\)\s*\.neq\('visibility', 'coordinator_only'\)/);
+  // The removed-chapter read: names only, top-level only, only the ids this guest answered.
+  assert.match(code, /\.select\('block_id, label'\)\s*\.eq\('event_id', eventId\)\s*\.is\('parent_block_id', null\)\s*\.in\('block_id', ids\)/);
+  const { INVITATION_CHAPTER_FIELDS } = require('./invitation-chapters') as { INVITATION_CHAPTER_FIELDS: string };
+  assert.doesNotMatch(INVITATION_CHAPTER_FIELDS, /notes|responsible|photo_|call_lead|ingress|egress/, 'a guest never reads a chapter’s private fields');
 });

@@ -30,12 +30,10 @@
  * lights Guest list, `/studio/papic` lights Our Services and `/schedule` the
  * Event Hub Maker — the rail and the bar never show "you are nowhere".
  *
- * ✅ NO INTERIM ROW (train n, 2026-09-29). The Seat plan row waited here for
- * its Details home (Details › Your event › Seat plan, #6138); that home is on
- * main, and `/seating` lands the couple of an Event Hub event there
- * (`detailsIsTheDoor`). So the row is gone and its pages — `/seating` and the
- * 3D view (`STUDIO_ABSORBED.pa3d`) — are claimed by the Event Hub Maker, or by
- * Our Services where there is no Maker (the Schedule's rule, `toolHasGoneHome`).
+ * ✅ NO INTERIM ROW (train n, 2026-09-29). The Seat plan row is gone; since R4
+ * (owner 2026-10-27/28) its home is Guests › Seats and `/seating` lands there
+ * for everyone, so its pages — `/seating` and the 3D view
+ * (`STUDIO_ABSORBED.pa3d`) — are claimed by Guests.
  *
  * ⚠ THE OLD PHASE-SWAPPING BAR IS RETIRED (plan 5 · day-of 5 · after 5, each a
  * different five — 2026-09-24). The owner's "simple and easy to manage" is one
@@ -282,10 +280,10 @@ export function storeShellRefusesMenuRow(href: string, storeShell: boolean | und
  * Every other product's pages are claimed by Our Services (its card is
  * there). These three live somewhere else, so they are claimed there:
  *
- *   pa3d        → the Event Hub Maker — the 3D view is the seat plan's own
- *                 `List | 2D | 3D` segment (owner 2026-09-24, "the 3D version
- *                 is on the seatplan already"), and the Seat plan is Details ›
- *                 Your event › Seat plan.
+ *   pa3d        → Guests — the 3D view is the seat plan's own `List | 2D | 3D`
+ *                 segment (owner 2026-09-24, "the 3D version is on the seatplan
+ *                 already"), and the Seat plan is Guests › Seats (R4, owner
+ *                 2026-10-28, "3D plan: yes, inside Seats").
  *   palogo      → the Event Hub Maker — Details › Logo (owner 2026-09-24/25:
  *                 "the logo maker lives in the editor").
  *   mood-board  → the Event Hub Maker — Details › Mood Board (owner
@@ -299,7 +297,8 @@ export function storeShellRefusesMenuRow(href: string, storeShell: boolean | und
 export const STUDIO_ABSORBED: Readonly<
   Record<string, { into: string; routes: (base: string) => string[] }>
 > = {
-  pa3d: { into: 'launch', routes: (base) => [`${base}/seating/lab`, `${base}/plan3d`] },
+  /* 🗂 R4: the 3D room is inside Guests › Seats (owner 2026-10-28, "3D plan: yes, inside Seats"); `/plan3d` forwards there. */
+  pa3d: { into: 'guests', routes: (base) => [`${base}/seating/lab`] },
   palogo: { into: 'launch', routes: (base) => [`${base}/monogram`] },
   'mood-board': { into: 'launch', routes: (base) => [`${base}/studio/mood-board`] },
 };
@@ -333,15 +332,18 @@ export function buildEventMenuSections(
   const base = `/dashboard/${eventId}`;
   const hide = new Set(ctx.hideKeys ?? []);
   const maker = !!ctx.websiteEnabled;
-  // The Seat plan's page — held by the Maker (Details › Your event › Seat plan)
-  // or, with no Maker, by Our Services. None where the kind seats nobody (its
+  // The Seat plan's pages — held by Guests since R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH": the
+  // plan is Guests › Seats, its 3D room and the guests' map inside it). None where the kind seats nobody (its
   // /seating redirects home), so no row claims a door that is not there.
   const seatPages = ctx.seatingEnabled !== false ? [`${base}/seating`] : [];
 
   const rows = new Map<string, EventMenuRow>();
   const put = (r: EventMenuRow) => rows.set(r.key, r);
 
-  // The event's name row (Event settings) — drawn AS the name, not as a row.
+  // The event's own row (`personalization`). NO SURFACE DRAWS IT AS A ROW: the rail drops the `event` group (owner
+  // 2026-10-23, `one-door-to-event-details.test.ts`), and the ☰'s event MARK is the door — to Home's ⚙ Event Settings
+  // (owner 2026-10-30, *"that shoud be inside home settings"*), not this href. It stays in the tree so /details still
+  // resolves to a key (it lights nothing, since nothing draws it).
   put({ key: 'personalization', label: 'Event Details', href: `${base}/details`, icon: 'details' });
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event
@@ -358,8 +360,12 @@ export function buildEventMenuSections(
     matchPrefix: '__home__',
     alsoMatch: [
       `${base}/studio`,
-      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
-      ...(maker ? [] : seatPages),
+      // 💰 The Budget is Home's page since 2026-11-01 (owner: *"Okay place it in home"*): Home › Budget opens it.
+      `${base}/budget`,
+      // 📅 …and the Schedule (owner 2026-11-02, "BOOKED IS JUST THE TEAM": *"no just schedule"*) — Home › Schedule
+      // opens it, for every event; it is no longer the Maker's Details › Schedule.
+      `${base}/schedule`,
+      ...(maker ? [] : [`${base}/story`]),
     ],
   });
 
@@ -372,18 +378,16 @@ export function buildEventMenuSections(
     label: 'Guests',
     href: `${base}/guests`,
     icon: PILLAR_TAB_ICON.guests,
-    alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`],
+    alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`, ...seatPages],
   });
 
-  // SUPPLIERS — suppliers + Budget (`yourTeamParts`). "Your Team" until
-  // 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). The old
-  // /budget page lands on the part; its standalone address still lights this row.
+  // SUPPLIERS — "Your Team" until 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). It lit /budget
+  // while the Budget was drawn inside it (2026-09-29 → 2026-11-01); the Budget is Home's page now, so Home lights it.
   put({
     key: 'explore',
     label: 'Suppliers',
     href: `${base}/vendors`,
     icon: PILLAR_TAB_ICON.explore,
-    alsoMatch: [`${base}/budget`],
   });
 
   // HUB — the Event Hub Maker, one row, one word, every phase (key `launch`,
@@ -391,7 +395,7 @@ export function buildEventMenuSections(
   // menu "Home - Guests - Suppliers - Hub - More" for the bar AND the rail. Never
   // the bare "Event Hub" — that is the GUEST site.
   // `matchPrefix` claims the /website family; `/story` is its Post Event;
-  // `/schedule` is Details › Schedule (the page lands there for the couple).
+  // `/schedule` left it on 2026-11-02: the Schedule is Home's own page (the Maker still draws it inside Details).
   if (maker) {
     put({
       key: 'launch',
@@ -399,12 +403,7 @@ export function buildEventMenuSections(
       href: `${base}/launch`,
       icon: PILLAR_TAB_ICON.launch,
       matchPrefix: `${base}/website`,
-      alsoMatch: [
-        `${base}/story`,
-        `${base}/schedule`,
-        // `/seating` is Details › Your event › Seat plan (the page lands there).
-        ...seatPages,
-      ],
+      alsoMatch: [`${base}/story`],
     });
   }
 

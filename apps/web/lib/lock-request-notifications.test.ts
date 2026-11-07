@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PUSH_LEVEL } from './push-levels';
 
 import {
   NOTIFICATION_TYPE_LABEL,
@@ -80,16 +81,8 @@ test('ALL FIVE are email-enabled — the runtime Set the compiler cannot check',
   }
 });
 
-test('none of them joins the push list', () => {
-  const src = readFileSync(resolve(HERE, 'notification-emit.ts'), 'utf8');
-  const start = src.indexOf('PUSH_ENABLED_TYPES');
-  const open = src.indexOf('new Set([', start);
-  const close = src.indexOf('])', open);
-  const body = src
-    .slice(open, close)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+test('none of them is Urgent — a 7-day fuse waits through quiet hours (owner 2026-10-31, lib/push-levels.ts)', () => {
   for (const t of LOCK_TYPES) {
-    assert.ok(!new RegExp(`'${t}'`).test(body), `${t} must not push — a 7-day fuse is not that urgent`);
+    assert.equal(PUSH_LEVEL[t as keyof typeof PUSH_LEVEL], 'normal', `${t} must not buzz at 2am — a 7-day fuse is not that urgent`);
   }
 });

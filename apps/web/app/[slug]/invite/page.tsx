@@ -114,11 +114,16 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
 
   // Resolve the event's current join token server-side (it never appears in the
   // branded URL). Honors revoked_at / expires_at so rotation still closes the link.
-  const { data: tokenRow } = await admin
+  const { data: tokenRow, error: tokenError } = await admin
     .from('event_join_tokens')
     .select('token, revoked_at, expires_at')
     .eq('event_id', event.event_id)
     .maybeSingle();
+  // 🔌 A refused token read is not a revoked link — the same rule as the event read above (reads-are-honest,
+  // 2026-11-02 audit #13): "This invite link isn't valid" sends a guest back to the couple for a link that works.
+  if (tokenError) {
+    throw new Error(`invite: could not read the join link for "${slug}": ${tokenError.message}`);
+  }
 
   const token = tokenRow?.token as string | undefined;
   const tokenValid =

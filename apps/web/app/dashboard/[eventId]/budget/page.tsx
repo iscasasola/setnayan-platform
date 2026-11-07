@@ -1,6 +1,5 @@
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Share, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getCurrentUser } from '@/lib/auth';
@@ -33,9 +32,7 @@ import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { SaveFileLink } from '@/app/_components/save-file-link';
-import { PrintBudgetLink } from './_components/print-budget-link';
-import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
+import { BudgetFileActions } from './_components/budget-file-actions';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { Spotlight } from '@/app/_components/spotlight';
@@ -47,8 +44,10 @@ export const metadata = { title: 'Budget' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  /** `part=budget` = rendered as Your Team's Budget part (see below). `pay=<line_item_id>` = open that payment's sheet. */
-  searchParams?: Promise<{ part?: string; pay?: string }>;
+  /** `pay=<line_item_id>` = open that payment's sheet (Home's Budget widget, `budgetPageHref`). */
+  searchParams?: Promise<{
+    pay?: string;
+  }>;
 };
 
 // Per-vendor itemization renders only vendors at-or-past 'contracted'.
@@ -74,17 +73,14 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'budget')) redirect(`/dashboard/${eventId}`);
 
-  // ── YOUR TEAM'S BUDGET PART (owner 2026-09-29) ───────────────────────────
-  // Budget moved into the Your Team pillar (`lib/pillar-parts.ts`): Your Team
-  // renders THIS page whole at `?part=budget`, and passes that same param here
-  // so the two know which one is drawing. Visited on its own, the page lands in
-  // that part — but only where Your Team exists: `marketplace_enabled` is the
-  // column Your Team itself gates on, so an event type without suppliers keeps
-  // this page exactly as it was rather than being sent to a page that would
-  // send it home.
-  if (YOUR_TEAM_BUDGET_PART !== (await searchParams)?.part && profile.marketplaceEnabled === true) {
-    redirect(yourTeamBudgetHref(eventId));
-  }
+  // ── 💰 THE BUDGET IS ITS OWN PAGE, OPENED FROM HOME (owner 2026-11-01) ─────
+  // DECISION_LOG "SCHEDULE AND BUDGET GO TO HOME": *"Okay place it in home"*.
+  // From 2026-09-29 to 2026-11-01 this address redirected into Suppliers and the
+  // page was drawn there (`?part=budget`). It no longer redirects: Home's Budget
+  // widget opens THIS page, and Suppliers › Booked's menu keeps a door to the
+  // same address (`budgetPageHref`) — one place, never a copy. The old Suppliers
+  // address forwards here (`vendors/page.tsx`). Guarded by
+  // `the-budget-page-is-one-place.test.ts`.
   const supabase = await createClient();
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
   // needs, the access window and the head count are each a few columns of it — one request for all.
@@ -434,54 +430,13 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     };
   }
 
+  /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
+     spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
+  const fileActions = <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />;
   return (
-    <section className="sn-col max-w-3xl space-y-6">
-      {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
-          children: Overview · Allocate · Payments). scroll-mt keeps the section
-          title clear of the top edge on smooth-scroll. */}
-      <PageMasthead
-        id="budget-overview"
-        className="scroll-mt-24"
-        title="Budget"
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {/* 📥 Both files are SAVED, never shown in place — the app's web view ignores `download` and renders a
-                file with no way back (owner 2026-10-27). SaveFileLink: fetch with the session → share sheet / download. */}
-            <SaveFileLink
-              href={`/api/budget/${eventId}/ics`}
-              filename={`setnayan-${budgetFileSlug}-budget.ics`}
-              className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-            >
-              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Export upcoming dates (.ics)
-            </SaveFileLink>
-            {/* SUP-64 · the same books as this page, to print or to open in a
-                spreadsheet. Agreed money only — see lib/budget-export.ts.
-                Offered only when the resolver answered: with no `money` the
-                route can only say "try again", so the button would be a
-                promise the page already knows it cannot keep. */}
-            {money ? (
-              <>
-                <SaveFileLink
-                  href={`/api/budget/${eventId}/export?format=csv`}
-                  filename={`setnayan-${budgetFileSlug}-budget.csv`}
-                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-                >
-                  <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Budget (.csv)
-                </SaveFileLink>
-                <PrintBudgetLink
-                  href={`/api/budget/${eventId}/export`}
-                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-                >
-                  <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Print budget
-                </PrintBudgetLink>
-              </>
-            ) : null}
-          </div>
-        }
-      />
+    <section className="sn-col max-w-3xl space-y-6" data-budget-page="">
+      {/* id target for a `#budget-overview` link. scroll-mt keeps the title clear of the top edge on smooth-scroll. */}
+      <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" actions={fileActions} />
 
       {/* B1 + B2 (2026-10-08) · THE BUDGET SCREEN. The summary as rows — Target ·
        *  Agreed · Paid · Owed two by two, one meter, one "Next" line — then ONE
@@ -509,11 +464,16 @@ export default async function BudgetPage({ params, searchParams }: Props) {
           owedPhp: summaryFigures.owedPhp,
           owedAtLeast: summaryFigures.owedAtLeast,
           partial: ledgerRefused,
+          // 🔌 A refused target read is not "no target" (reads-are-honest, 2026-11-02 audit #44).
+          targetUnread: eventData === null && Boolean(eventRes.error),
           next: nextPayment,
         }}
         list={list}
         /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
         initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
+        // Where the event has suppliers, a supplier's row opens the Pay sheet their Booked › Team row opens — one
+        // plan, one door (owner 2026-10-29). It is what this page drew inside Booked; moving home did not change it.
+        supplierOpens={profile.marketplaceEnabled === true ? 'plan' : 'ledger'}
         supplierExtras={supplierExtras}
         categories={costCategories}
         targetNote={

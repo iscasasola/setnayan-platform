@@ -1,18 +1,23 @@
 import { redirect } from 'next/navigation';
-import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { ensureChecklistSeeded } from '../checklist-actions';
+import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
-import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
+import { Plus, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 // ⚠ NOT from './actions'. That module is `'use server'`, and the version there
 // ended with `revalidatePath` — which Next.js forbids during a render, so this
 // very call 500'd on the first open of every non-wedding schedule. See
 // lib/schedule-seed.server.ts.
-import { seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
+import { seedDefaultChapters, seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { isOnEveryChapter, pickedOf, whereChaptersFrom, whereNames } from '@/lib/supplier-where';
 import {
   scheduleBlockLabelFor,
   SCHEDULE_BLOCK_TYPES,
@@ -23,10 +28,12 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
-import { buildJourneyTimeline } from '@/lib/journey';
+import { forwardScheduleView, type ScheduleView } from '@/lib/schedule-view';
 import { resolveProfile } from '@/lib/event-type-profile';
+import { SCHEDULE_TOOLS_SLOT } from './_components/schedule-tools-slot';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { RequestDecision } from './_components/request-decision';
 import {
   createScheduleBlock,
   deleteScheduleBlock,
@@ -39,6 +46,7 @@ import {
   loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { OFFLINE_COPY_UNREAD, coordinatorSchedulePath, copyVersionOf } from '@/lib/offline-copies';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
 // edited on the time." Client component owns the view → edit form
@@ -48,7 +56,7 @@ import { BlockTimeEditor } from './_components/schedule-lazy';
 // The toggle is a URL-driven segmented control; the agenda is a read-only
 // aggregation of EXISTING dated data (payments / paperwork / meetings /
 // statutory milestones) — see lib/preparation.ts for the source map.
-import { EmceeScriptButton, ScheduleModeToggle } from './_components/schedule-lazy';
+import { EmceeScriptButton, ScheduleModeToggle, SharePdfButton } from './_components/schedule-lazy';
 import { EmceePicks } from './_components/emcee-picks';
 import { HostQuestions } from './_components/host-questions';
 // "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
@@ -58,11 +66,7 @@ import { HostQuestions } from './_components/host-questions';
 // table, same INSERT policy, no permission widened.
 import { TellTheHost } from './_components/tell-the-host';
 import { parseNoteFlash } from './_components/note-flash';
-import { PreparationAgendaView } from './_components/preparation-agenda';
-// Journey mode — the full event-lifecycle arc (creation → the day →
-// editorial), a phase-grouped read-only view over the same agenda data plus
-// three lifecycle bookends. See lib/journey.ts.
-import { JourneyView } from './_components/journey-view';
+import { PreparationAgendaView, preparationLegendWords } from './_components/preparation-agenda';
 import { RunOfShowHeader } from './_components/schedule-lazy';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
@@ -73,10 +77,12 @@ import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderat
 import {
   EMPTY_ROS_META,
   fetchBlockRosMeta,
+  isNoteOnlySuggestion,
   type RosMetaMap,
 } from '@/lib/schedule-ros';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { readScheduleSuppliers } from '@/lib/schedule-suppliers-read';
+import { HOST_ASK_COLUMNS, type HostAsk } from '@/lib/schedule-ask';
 import { templatesForEventType } from '@/lib/schedule-templates';
 import {
   BulkRetimePanel,
@@ -98,15 +104,15 @@ import {
 } from '@/lib/schedule-travel';
 import { TravelClashGuard, TravelItineraryView } from './_components/travel-itinerary';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
-import { APPOINTMENT_KINDS } from '@/lib/appointments';
+import { isStoredAppointmentKind } from '@/lib/appointments';
+import { NOT_TAKING_CHANGES } from '@/lib/supplier-schedule-marks';
 import {
   VendorMeetingsSection,
   type ScheduleMeeting,
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
-import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT, detailsDoorHref } from '@/lib/maker-details-items';
+import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT } from '@/lib/maker-details-items';
 import { InSlot } from '../launch/_components/details-piece';
 import { formatCount } from '@/lib/format-number';
 // ── Schedule rebuild, slice 1 (2026-09-27) ─────────────────────────────────
@@ -115,7 +121,16 @@ import { formatCount } from '@/lib/format-number';
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
 /* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
    with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
-import { AnnounceButton, ScheduleDay, Tip } from './_components/schedule-lazy';
+import { AnnounceButton, BlockSwipe, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
+import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
+import type { ReactNode } from 'react';
+import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readChapterCounts } from '@/lib/invitation-chapters.server';
+import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
+import { readViewAsExtras } from '@/lib/schedule-view-as.server';
+import { readTradeChapters, suggestedChapters } from '@/lib/trade-chapters';
+import { guestsArriveTime } from '@/lib/guests-arrive';
+import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -125,15 +140,18 @@ import {
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { getDayOfPhase, getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { wholeMarchLabel } from '@/lib/schedule-chapters';
 
 export const metadata = { title: 'Schedule' };
 
-type ScheduleView = 'journey' | 'preparation' | 'event-day';
+/** What the Event Day view's ⓘ says — the moments' two audiences. */
+const EVENT_DAY_NOTE =
+  'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -144,19 +162,40 @@ type Props = {
     host_answers?: string;
     /** `1` = drawn as Details › Schedule inside the Event Hub Maker (Details part 2b). */
     maker?: string;
+    /**
+     * `requests` = open the supplier requests sheet with the page (Approve one · Approve all) — Home's Schedule widget
+     * door "N to approve" (owner 2026-11-01, plan §5). Anything else is ignored.
+     */
+    sheet?: string;
+    /**
+     * `todo` = Planning Stage opens on its To do filter — where the old Checklist's address forwards (owner
+     * 2026-11-01, "CHECKLIST MERGES INTO PLANNING STAGE").
+     */
+    filter?: string;
   }>;
 };
 
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const {
-    view: viewParam,
+    view: askedView,
     ros: rosParam,
     note: noteParam,
     host_answers: hostAnswersFlash,
     maker: makerParam,
+    sheet: sheetParam,
+    filter: filterParam,
   } = await searchParams;
+  const openRequests = sheetParam === 'requests';
+  const planFilter: 'all' | 'todo' = filterParam === 'todo' ? 'todo' : 'all';
+  /* 🧭 JOURNEY IS GONE (owner 2026-11-01: "i don't think we need journey anymore? since everything from event created
+     can be a chapter"). Every door that still says `?view=journey` lands on Planning Stage — here, before the view is
+     used anywhere (owner 2026-10-28: all mapping is kept). */
+  const viewParam = forwardScheduleView(askedView);
   const inMaker = makerParam === '1';
+  /* 📅 THE PAGE'S ONE LINE — everywhere but inside the Maker's Details (which keeps its own header). Owner 2026-11-02
+     ("BOOKED IS JUST THE TEAM": *"no just schedule"*): this is Home's Schedule page, never drawn inside Suppliers. */
+  const oneLine = !inMaker;
   // Result of a "Tell the host" send. Anything we did not write ourselves is
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
@@ -166,19 +205,19 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  /* 📦 THE SCHEDULE MOVED INTO THE MAKER'S DETAILS, WHOLE (Details part 2b —
-     Story & plans › Schedule). This page is still the one component; for the
-     couple of an event with an Event Hub its address now lands there, carrying
-     its own query (a view, a lens, a save's flash). Everybody else — a
-     coordinator, an event type with no Event Hub — keeps this page as it was. */
-  if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
-    redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
-  }
+  /* 📅 THE SCHEDULE IS ITS OWN PAGE, OPENED FROM HOME — AND IT NEVER SENDS YOU AWAY (owner 2026-11-01 "SCHEDULE AND
+     BUDGET GO TO HOME"; 2026-11-02 "BOOKED IS JUST THE TEAM", live: *"the schedule still jumped to the
+     booked-schedule"* · *"no just schedule"*). From 2026-10-29 this address redirected into Suppliers › Booked
+     (`?part=schedule`), and before that into the Maker's Details for a couple with an Event Hub. Both are gone: Home's
+     Schedule card, its doors and every old link land HERE, with their query. The old Suppliers address forwards here
+     (`vendors/page.tsx`); the Maker still draws this page inside Details at `?maker=1`. 🔒
+     `the-schedule-is-its-own-page.test.ts`. */
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
 
   // 👥 People with access (owner 2026-10-03): The Day is its own area. A
   // delegate the host set to Off reads no moments (20271262573732 closed the
   // door) — say so, never draw an empty day.
-  if (isDelegateWithoutArea(await fetchEventViewer(supabase, eventId, user.id), 'schedule')) {
+  if (isDelegateWithoutArea(viewer, 'schedule')) {
     return <NotSharedWithYou title="Schedule" thing="schedule" />;
   }
 
@@ -187,17 +226,17 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes, contactRead] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
+      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
       .eq('event_id', eventId)
       .maybeSingle(),
     /* 🛑 A REFUSED READ OF THE DAY IS SAID, NEVER DRAWN AS AN EMPTY DAY. Inside the Maker (Studio › Schedule) the
        page says so where the moments would be, with Try again — and stops there, before anything could seed a
        run of show over moments it merely failed to read. Everywhere else the read throws, as it always has. */
     fetchScheduleBlocks(supabase, eventId).catch((error: unknown) => {
-      if (!inMaker) throw error;
+      // The page says so in place, as the Maker does — never an error screen over the rest of the schedule.
       logQueryError('SchedulePage.blocks', error, { eventId }, 'graceful_degrade');
       return null;
     }),
@@ -207,22 +246,43 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     supabase
       .from('event_schedule_suggestions')
       .select(
-        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, created_at',
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at, proposed_ingress_minutes, proposed_egress_minutes, where_vendor_id, proposed_block_ids',
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
+      // 🔁 A supplier's requests only — the hosts' OWN asks of a supplier ride the same table the other way
+      // (`direction = 'to_supplier'`, D2) and are the supplier's to answer, never this queue's.
+      .eq('direction', 'to_host')
       // A change or removal whose moment is already gone (the FK is ON DELETE
       // SET NULL since 20271263061583) has nothing left to approve.
-      .or('kind.eq.new,block_id.not.is.null')
+      // 📍 A Where pick names no block of its own (it spans chapters, migration 20271308641275) — kept.
+      .or('kind.in.(new,where),block_id.not.is.null')
       .order('created_at', { ascending: true }),
-    // Recap publish row — the Journey mode's editorial bookend. RLS lets the
-    // couple/coordinator read their own row; a missing table (pre-migration)
-    // or absent row both fall through to null (no editorial anchor yet).
-    supabase
-      .from('event_recaps')
-      .select('status, published_at')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    /* 📖 The event's chapters (owner 2026-11-01, "CHAPTERS LIVE ON THE SCHEDULE PAGE") — in the same round, with their
+       own fields (spot, ingress, call time…). Not in the Maker: Details › Schedule keeps its moments as they are. A
+       refused read is kept as a failure and said on the page, never drawn as "no chapters". */
+    inMaker ? Promise.resolve(null) : readChapterBook(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 📖 Step 3b — each moment's parallel tasks, and who a task can name (people, groups, roles), in the same round.
+       A refused read is kept as a failure: the moment sheet says so, never "no tasks". */
+    inMaker ? Promise.resolve(null) : readMomentTasks(supabase, eventId).catch(() => ({ ok: false as const })),
+    inMaker ? Promise.resolve(null) : readTaskPeople(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 🚶 The couple's own marches, for a moment's "This is a march" (migration 20271301571290) — in the same round. A
+       refused read is kept as a failure and said on the row, never "no marches". */
+    inMaker ? Promise.resolve(null) : readMarchList(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 🗓 The hosts' and the coordinator's own asks of a supplier (D2, owner 2026-11-02) — the moment sheet shows each
+       one's state. A refused read is said on the sheet (`asks: null`), never drawn as "nothing asked". */
+    inMaker
+      ? Promise.resolve(null)
+      : supabase
+          .from('event_schedule_suggestions')
+          .select(HOST_ASK_COLUMNS)
+          .eq('event_id', eventId)
+          .eq('direction', 'to_supplier')
+          .order('created_at', { ascending: false })
+          .limit(200),
+    /* 📇 Each task's contact — a name and a phone (4 additions (3), migration 20271303218631) — in the same round. A
+       refused read is kept as a failure: the task says so, never "no contact". */
+    inMaker ? Promise.resolve(null) : readTaskContacts(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -235,6 +295,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         event_type: string | null;
         created_at: string | null;
         display_name: string | null;
+        date_candidates?: string[] | null;
+        date_window_start?: string | null;
+        cleared_at?: string | null;
+        timezone?: string | null;
       }
     | null;
   const eventDate = eventRow?.event_date ?? null;
@@ -260,6 +324,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     return (
       <TimelineReadProblem title="We could not load your schedule">
         Your moments are safe. This is a problem on our side or your connection.
+        {/* 📅 Never kept as the no-signal copy over the last good one (`lib/offline-copies.ts` OFFLINE_COPY_UNREAD). */}
+        <span hidden data-sn-copy-version={OFFLINE_COPY_UNREAD} />
       </TimelineReadProblem>
     );
   }
@@ -270,6 +336,22 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   ) {
     scheduleBlocks = await seedNonWeddingRunOfShow(eventId);
   }
+  /* 📖 EVERY NEW EVENT STARTS WITH FOUR CHAPTERS (owner 2026-11-03): a NEW wedding opened by someone who may write its
+     schedule gets Prep · Ceremony · Cocktail + Reception · After Party, public, with the shipped template moments inside
+     — once, when it has an exact day (`seedDefaultChapters`; migration 20271306532960 remembers which events are new). */
+  if (
+    scheduleBlocks.length === 0 &&
+    (eventRow?.event_type ?? 'wedding') === 'wedding' &&
+    viewerAreaLevel(viewer, 'schedule') === 'edit'
+  ) {
+    scheduleBlocks = await seedDefaultChapters(eventId);
+  }
+  // A first open that just seeded its day reads its chapters again (that read is not the blocks read, so it is not the
+  // memoised GET the seed note above warns about).
+  const chapterRead =
+    chapterReadFirst && scheduleBlocks !== blocks
+      ? await readChapterBook(supabase, eventId).catch(() => ({ ok: false as const }))
+      : chapterReadFirst;
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
@@ -277,6 +359,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const statutory = profile.statutoryPackKey === 'ph_marriage';
 
   const now = new Date();
+  /* ✅ THE OLD CHECKLIST'S TASKS LIVE HERE NOW (owner 2026-11-01). Top them up and auto-tick them BEFORE the one read,
+     as the Checklist page did (`ensureChecklistSeeded` — a couple's open only; never un-ticks). A failure here never
+     blocks the page: the read below still says what it found. */
+  try {
+    await ensureChecklistSeeded(eventId);
+  } catch (caught) {
+    if (isRedirectError(caught)) throw caught;
+    logQueryError('SchedulePage.ensureChecklistSeeded', caught instanceof Error ? caught : new Error(String(caught)), { eventId }, 'graceful_degrade');
+  }
   const agenda = await fetchPreparationAgenda({
     supabase,
     eventId,
@@ -284,27 +375,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     ceremonyType,
     now,
     statutory,
-  });
-
-  // Journey mode — the full event-lifecycle arc. Reuses the agenda for the
-  // middle and adds three lifecycle bookends: creation (events.created_at),
-  // the day (events.event_date), and the editorial (event_recaps.published_at).
-  // The editorial anchor only counts when the recap is actually PUBLISHED —
-  // a draft/unpublished row leaves the arc's end as a forward placeholder.
-  const recapRow = recapRes.data as { status: string; published_at: string | null } | null;
-  const recapPublishedAt =
-    recapRow?.status === 'published' ? (recapRow.published_at ?? null) : null;
-  const journey = buildJourneyTimeline({
-    eventId,
-    agenda,
-    createdAt: eventRow?.created_at ?? null,
-    eventDate,
-    recapPublishedAt,
-    now,
-    copy: {
-      dayLabel: term(profile, { wedding: 'your wedding day', generic: 'your event day' }),
-      eventNoun: term(profile, { wedding: 'wedding', generic: 'event' }),
+    event: {
+      event_type: eventRow?.event_type ?? null,
+      event_date: eventDate,
+      date_candidates: eventRow?.date_candidates ?? null,
+      date_window_start: eventRow?.date_window_start ?? null,
+      created_at: eventRow?.created_at ?? null,
     },
+    profile,
   });
 
   // Coordinator P2 (flag-gated) — the responsible-party meta + the event's
@@ -314,6 +392,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const rosEnabled = await isDataPrivacyControlActive('coordinator_run_of_show');
   let rosMeta: RosMetaMap = EMPTY_ROS_META;
   let rosVendors: EventVendorOption[] = [];
+  /** 🔌 The suppliers could not be read (audit #16) — the page says so; tasks never read as "A supplier" unnoticed. */
+  let suppliersUnread = false;
   if (rosEnabled) {
     // 🗓 The suppliers an item can be given to — by their SHOP name, each
     // "Booked" or "Shortlisted" (owner 2026-10-20; lib/schedule-suppliers.ts,
@@ -323,9 +403,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       readScheduleSuppliers(supabase, eventId),
     ]);
     rosMeta = metaRes;
-    rosVendors = suppliersRes;
+    rosVendors = suppliersRes ?? [];
+    if (suppliersRes === null) suppliersUnread = true;
   }
   const rosLens = parseRosLens(rosParam, rosVendors);
+  /* 👁 VIEW AS (Step 3c): the tasks, rooms, groups and Pro the rail's View as ▾ reads — started now, awaited where the
+     chapters are handed down, so it rides beside the reads below instead of after them. Never in the Maker or a trip. */
+  const viewAsAhead =
+    !inMaker && !isTravel && chapterRead?.ok ? readViewAsExtras(supabase, eventId, { readSuppliers: !rosEnabled, tasks: Promise.resolve(taskRead?.ok ? taskRead.value : null) }) : null;
   const rosTemplates = rosEnabled
     ? // Both rites: an INC / Muslim / LDS / SDA day (either column) is never
       // offered a cocktail hour or a dance set (`riteIsDanceFree`).
@@ -365,14 +450,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no
   // param, default to Preparation when there's something to prepare; else
   // open straight on the day-of timeline so empty-prep couples aren't met
-  // with a blank agenda. (Journey is opt-in via its segment — it never
-  // becomes the silent default, to keep the existing landing behavior.)
+  // with a blank agenda.
   const active: ScheduleView =
-    viewParam === 'journey' || viewParam === 'preparation' || viewParam === 'event-day'
+    viewParam === 'preparation' || viewParam === 'event-day'
       ? viewParam
       : /* In the Event Hub Maker (Details › Schedule) the page opens on the day
            itself — the moments guests see, the ones a tap on a stage selects. */
-        inMaker
+        inMaker || oneLine
         ? 'event-day'
         : agenda.items.length > 0
         ? 'preparation'
@@ -477,9 +561,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     }
     vendorMeetings = rows.map((r) => ({
       appointment_id: r.appointment_id,
-      kind: (APPOINTMENT_KINDS as readonly string[]).includes(r.kind)
-        ? (r.kind as ScheduleMeeting['kind'])
-        : 'video',
+      kind: isStoredAppointmentKind(r.kind) ? r.kind : 'video',
       label: r.custom_label?.trim() || 'Meeting',
       scheduled_at: r.scheduled_at,
       status: r.status,
@@ -509,9 +591,16 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const canAnnounce = authority.canSend && announceEnabled;
   // `null` = the read was refused — the sheet says so rather than "nothing yet".
   let recentAnnouncements: CoordinatorBroadcastItem[] | null = [];
+  /* 📣 RELEASE lives in the same 🔊 sheet (plan §4 "Release + announce · Schedule's 🔊 round"; Home's Release door
+     opens it with `?announce=1`). The same two people may press it; never offered inside the Maker. */
+  let scheduleRelease: ScheduleReleaseFacts | null = null;
   if (canAnnounce) {
-    const read = await fetchLatestBroadcasts(supabase, eventId);
+    const [read, release] = await Promise.all([
+      fetchLatestBroadcasts(supabase, eventId),
+      inMaker ? Promise.resolve(null) : readScheduleRelease(supabase, eventId),
+    ]);
     recentAnnouncements = read === BROADCASTS_UNREADABLE ? null : read;
+    scheduleRelease = release;
   }
 
   // The live run-of-show strip is drawn ON THE DAY only (prototype: "one live
@@ -563,6 +652,174 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     responsible_vendor_ids: rosMeta.get(b.block_id)?.responsible_vendor_ids ?? [],
     audience: b.audience ?? null,
   }));
+  /* 📖 What the chapters' pages read: the chapters, and each one's moments (its child blocks) with who is on them in
+     words — the suppliers tagged (by shop name), else the responsible party. Not for a trip: it keeps its own view. */
+  const supplierName = new Map(rosVendors.map((v) => [v.vendor_id, v.vendor_name]));
+  // A task names a BOOKED supplier (plan §2 "Booked suppliers only"): the page's supplier read when it made one, else its own.
+  const taskSuppliers =
+    chapterRead?.ok && !isTravel
+      ? (rosEnabled
+          ? rosVendors
+          : await readScheduleSuppliers(supabase, eventId).then((r) => {
+              if (r === null) suppliersUnread = true;
+              return r ?? [];
+            })
+        )
+          .filter((v) => v.standing === 'Booked')
+          // 🔒 CHANGE LOCK (audit D7): the moment sheet says "<shop> isn’t taking changes" before the host tries.
+          .map((v) => ({ id: v.vendor_id, name: v.vendor_name, ...(v.times === NOT_TAKING_CHANGES ? { locked: true } : {}) }))
+      : [];
+  /* 👷 Each booked supplier's trade, for a chapter's "Suppliers in this chapter" (owner 2026-11-04, prototype frame 2) —
+     and whether they are on every chapter (a coordinator). A refused read only drops the trade words. */
+  /* 📋 Slice 8: a booked supplier on NO chapter yet is a dashed face on the chapters its trade usually serves
+     (slice 2's "needs a chapter", `suggestedChapters`). A refused read draws no dashed face — never a wrong one. */
+  const picking: Record<string, string[]> = {};
+  if (taskSuppliers.length > 0) {
+    const { data: cats, error: catsErr } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, category')
+      .eq('event_id', eventId)
+      .in('vendor_id', taskSuppliers.map((v) => v.id));
+    // Refused: the rows say "Booked" instead of a trade, and no coordinator is listed on every chapter — said in the log.
+    if (catsErr) logQueryError('SchedulePage.supplierTrades', catsErr, { eventId }, 'graceful_degrade');
+    const catOf = new Map(((cats ?? []) as { vendor_id: string; category: string | null }[]).map((c) => [c.vendor_id, c.category]));
+    for (const v of taskSuppliers as { id: string; name: string; trade?: string | null; everyChapter?: boolean }[]) {
+      const cat = catOf.get(v.id) ?? null;
+      v.trade = cat ? (VENDOR_CATEGORY_LABEL[cat as VendorCategory] ?? null) : null;
+      v.everyChapter = isOnEveryChapter(null, cat);
+    }
+    if (!catsErr && chapterRead?.ok) {
+      const trades = await readTradeChapters(supabase);
+      if (trades.ok) {
+        const book = chapterRead.value;
+        const onAny = new Set<string>([
+          ...book.chapters.flatMap((c) => c.vendor_ids ?? []),
+          ...book.moments.flatMap((m) => m.vendor_ids ?? []),
+          ...(taskRead?.ok ? taskRead.value.map((t) => t.vendor_id).filter((x): x is string => Boolean(x)) : []),
+        ]);
+        const where = book.chapters.map((c) => ({ blockId: c.block_id, name: c.label, location: c.location ?? null, startAt: c.start_at, tags: c.vendor_ids ?? [], kind: c.block_type ?? null }));
+        for (const v of taskSuppliers as { id: string; everyChapter?: boolean }[]) {
+          if (v.everyChapter || onAny.has(v.id)) continue;
+          const cat = catOf.get(v.id) ?? null;
+          for (const id of suggestedChapters(where, cat ? trades.byCategory.get(cat) : undefined)) (picking[id] ??= []).push(v.id);
+        }
+      }
+    }
+  }
+  for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
+  const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
+  /* ✉ Who replied to each chapter on the invitation (Step 5) — two exact counts and the first names who said yes, per
+     chapter; read only for chapters on the invitation. A chapter whose count failed is `null`, said on the switch. */
+  const replyCounts =
+    chapterRead?.ok && !isTravel
+      ? Object.fromEntries(
+          await readChapterCounts(
+            supabase,
+            eventId,
+            chapterRead.value.chapters.filter((c) => c.on_invitation).map((c) => c.block_id),
+          ),
+        )
+      : undefined;
+  const viewAsExtras = viewAsAhead ? await viewAsAhead : null;
+  const chaptersInput: ChaptersInput | null =
+    chapterRead === null || isTravel
+      ? null
+      : chapterRead.ok
+        ? {
+            measured: true,
+            chapters: chapterRead.value.chapters,
+            moments: dayMoments
+              .filter((m): m is DayMoment & { parent_block_id: string } => typeof m.parent_block_id === 'string')
+              .map(
+                (m): ChapterMoment => ({
+                  block_id: m.block_id,
+                  parent_block_id: m.parent_block_id,
+                  label: m.label,
+                  start_at: m.start_at,
+                  end_at: m.end_at,
+                  location: m.location,
+                  spot: momentFacts.get(m.block_id)?.spot ?? null,
+                  notes: m.notes,
+                  is_optional: momentFacts.get(m.block_id)?.is_optional ?? false,
+                  travel_from: momentFacts.get(m.block_id)?.travel_from ?? null,
+                  travel_to: momentFacts.get(m.block_id)?.travel_to ?? null,
+                  march_key: momentFacts.get(m.block_id)?.march_key ?? null,
+                  is_public: m.is_public,
+                  vendor_ids: momentFacts.get(m.block_id)?.vendor_ids ?? m.responsible_vendor_ids,
+                  // ⏭ "Right after the one above" (migration 20271302727358): no clock of its own.
+                  time_tba: momentFacts.get(m.block_id)?.time_tba ?? false,
+                  follows_block_id: momentFacts.get(m.block_id)?.follows_block_id ?? null,
+                  // 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692).
+                  time_shape: momentFacts.get(m.block_id)?.time_shape ?? 'at',
+                  time_or_minutes: momentFacts.get(m.block_id)?.time_or_minutes ?? null,
+                  who:
+                    m.responsible_vendor_ids
+                      .map((id) => supplierName.get(id))
+                      .filter(Boolean)
+                      .join(', ') || (m.responsible_party ?? ''),
+                }),
+              ),
+            venues: [],
+            tasks: taskRead?.ok ? taskRead.value : null,
+            contacts: contactRead?.ok ? contactRead.value : null,
+            who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
+            marches: marchRead ?? { ok: false },
+            asks: asksRes && !asksRes.error ? ((asksRes.data ?? []) as unknown as HostAsk[]) : null,
+            wholeMarch: wholeMarchLabel(eventRow?.event_type),
+            picking,
+            eventDay: eventDateKey,
+            lastDay:
+              eventDateKey && eventRow?.event_end_date && eventRow.event_end_date.slice(0, 10) > eventDateKey
+                ? eventRow.event_end_date.slice(0, 10)
+                : eventDateKey,
+            canEdit: dayRole !== 'view',
+            // Putting a chapter on the invitation is the hosts' and the coordinator's — the people who edit the day
+            // here; the door checks again (`mayShowToGuests`).
+            mayInvite: dayRole !== 'view',
+            replyCounts,
+            viewAs: viewAsExtras
+              ? {
+                  pro: viewAsExtras.pro,
+                  proHref: viewAsExtras.proHref,
+                  data: {
+                    moments: dayMoments.flatMap((m): ViewMoment[] => {
+                      if (!m.parent_block_id) return [];
+                      const at = momentFacts.get(m.block_id);
+                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null, time_tba: at?.time_tba === true }];
+                    }),
+                    tasks: taskRead?.ok ? taskRead.value : null,
+                    suppliers:
+                      viewAsExtras.suppliers ??
+                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked', everyChapter: viewAsExtras.coordinatorIds.includes(v.vendor_id) })),
+                    groups: viewAsExtras.groups,
+                    roleNames: viewAsExtras.roleNames,
+                    // 👤 View as › a named guest (slice 6): what their own card reads — the guests, Release, Arrive by.
+                    people: viewAsExtras.people,
+                    released: viewAsExtras.released,
+                    guestsArriveBy: guestsArriveTime(scheduleBlocks),
+                  },
+                }
+              : null,
+          }
+        : { measured: false };
+  /* 📍 A Where pick reads "Now → Asked" in chapter names (lib/supplier-where.ts `whereNames`, time order). */
+  // ⏰ Time TBA is the CHAPTER's flag (its own read, `readChapterBook`) — a TBA chapter goes after that day's timed ones.
+  const tbaChapters = new Set(chapterRead?.ok ? chapterRead.value.chapters.filter((c) => c.time_tba === true).map((c) => c.block_id) : []);
+  const whereChapters = whereChaptersFrom(
+    dayMoments.map((m) => ({
+      block_id: m.block_id,
+      parent_block_id: m.parent_block_id,
+      label: m.label,
+      start_at: m.start_at,
+      time_tba: tbaChapters.has(m.block_id),
+      responsible_vendor_ids: m.responsible_vendor_ids ?? [],
+    })),
+  );
+  const whereWordsOf = (s: VendorSuggestion): DayRequest['where'] => {
+    if (s.kind !== 'where' || !s.where_vendor_id) return null;
+    const now = whereNames(whereChapters, pickedOf(whereChapters, s.where_vendor_id));
+    return { now: now || 'no chapter yet', asked: whereNames(whereChapters, s.proposed_block_ids ?? []) || 'a chapter that is gone' };
+  };
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({
     suggestion_id: s.suggestion_id,
     block_id: s.block_id,
@@ -572,8 +829,30 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     proposed_start_at: s.proposed_start_at,
     proposed_end_at: s.proposed_end_at,
     proposed_location: s.proposed_location,
+    proposed_crew: s.proposed_crew,
+    proposed_ingress_minutes: s.proposed_ingress_minutes ?? null,
+    proposed_egress_minutes: s.proposed_egress_minutes ?? null,
+    where: whereWordsOf(s),
     note: s.note,
   }));
+
+  /* 📤 PRINT IS THE BUDGET PDF (owner 2026-11-01: "just like our budget design pdf. do the same for  schedule") — the
+     shared Share button on the Schedule's own file route (`api/schedule/[eventId]/export`, `lib/schedule-pdf.ts`), for
+     the hosts and an approved coordinator. Never inside the Maker (that is the guests' Event Hub). */
+  const scheduleFileSlug =
+    (eventRow?.display_name?.trim() || 'event')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'event';
+  const shareSchedule =
+    !inMaker && dayRole !== 'view' ? (
+      <SharePdfButton
+        href={`/api/schedule/${eventId}/export`}
+        fileName={`setnayan-${scheduleFileSlug}-schedule.pdf`}
+        name="Share your schedule (PDF)"
+        papers="document"
+      />
+    ) : null;
 
   const roleLabel =
     dayRole === 'host'
@@ -582,98 +861,35 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         ? 'You can edit · coordinator'
         : 'View only';
   const viewNote =
-    active === 'journey'
-      ? term(profile, {
-          wedding:
-            'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward.',
-          generic:
-            'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward.',
-        })
-      : active === 'preparation'
-        ? 'Every dated step still ahead — gathered from your payments, paperwork and supplier meetings, sorted by month. Tap an item to manage it where it lives.'
-        : 'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
+    active === 'preparation'
+      ? 'Every dated step still ahead — gathered from your payments, paperwork and supplier meetings, sorted by month. Tap an item to manage it where it lives.'
+      : EVENT_DAY_NOTE;
 
-  return (
-    /* 💾 The schedule is kept on the phone and shown at once on the next
-       open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
-       SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
-       and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
-    <LastSeenCapture page="schedule">
-    <section className="sn-col space-y-5">
-      {/* Inside the Maker, Details' own header names it. */}
-      {inMaker ? null : <PageMasthead title="Schedule" />}
-
-      {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
-          ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph
-          → one line + ⓘ). Who, when, how long to go, and whether you can edit. */}
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p className="text-sm text-ink/60">
-            {eventRow?.display_name?.trim() ? (
-              <b className="font-semibold text-ink/85">{eventRow.display_name.trim()}</b>
-            ) : null}
-            {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
-            {dateLabel}
-            {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
-              <>
-                {' · '}
-                <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
-              </>
-            ) : null}
-          </p>
-          <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-[11.5px] font-semibold text-ink/65">
-            <i
-              aria-hidden
-              className={`h-1.5 w-1.5 rounded-full ${dayRole === 'view' ? 'bg-ink/35' : 'bg-success-600'}`}
-            />
-            {roleLabel}
-            <Tip>
-              Hosts build the schedule. A coordinator edits only after a host approves them — the host
-              invite plus your consent under the Data Privacy Act (RA 10173). Everyone else reads.
-            </Tip>
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ScheduleModeToggle
-            active={active}
-            prepCount={agenda.items.length}
-            journeyCount={journey.totalEntries}
-          />
-          <span className="ml-auto flex items-center gap-2">
-            <Tip align="end">{viewNote}</Tip>
-            {canAnnounce ? (
-              /* In the Maker's Details, Announce is a piece of the Schedule: its
-                 button (and its sheet) sit in the right column (`InSlot`). */
-              <InSlot id={inMaker ? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null}>
-                <AnnounceButton
-                  eventId={eventId}
-                  isEventDay={isEventDay}
-                  recent={recentAnnouncements}
-                />
-              </InSlot>
-            ) : null}
-          </span>
-        </div>
-      </header>
-
-      {active !== 'event-day' ? (
-        <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
-      ) : null}
-
-      {active === 'journey' ? (
-        <JourneyView
-          timeline={journey}
-          hasEventDate={eventDate !== null}
-          eventId={eventId}
-        />
-      ) : active === 'preparation' ? (
-        <PreparationAgendaView
-          eventId={eventId}
-          agenda={agenda}
-          hasEventDate={eventDate !== null}
-          eventWord={eventNoun(eventRow?.event_type)}
-        />
-      ) : isTravel ? (
+  /* 📅 THE DAY ITSELF — the rail (or a trip's own view), drawn once and placed by either frame below: the page's one
+     line (`schedule-one-line.tsx`), where its tools ride that line and its add is the pill in the thumb zone, or the
+     Maker's Details header. */
+  const prepView = (
+    <>
+    {/* 📖 Chapters dated before the day live here (plan §3) — chapter rows only, above the agenda, which is untouched. */}
+    {chaptersInput ? <PlanningChapters /> : null}
+    <PreparationAgendaView
+      eventId={eventId}
+      agenda={agenda}
+      hasEventDate={eventDate !== null}
+      eventWord={eventNoun(eventRow?.event_type)}
+      line={oneLine}
+      eventDateIso={eventDate}
+      initialFilter={planFilter}
+      /* AFTER THE DAY A DEADLINE IS JUST A DATE — the ONE lifecycle resolver (the Checklist page's rule, kept when it
+         merged here): no "overdue", no alarm red, on a celebration that already happened. */
+      eventIsOver={
+        getMenuLifecyclePhase(eventDate, eventRow?.cleared_at ?? null, eventRow?.timezone ?? undefined, undefined, eventRow?.event_end_date ?? null) === 'after'
+      }
+    />
+    </>
+  );
+  const eventDayView = (
+      isTravel ? (
         // A TRIP KEEPS ITS OWN VIEW. Hotel nights run from one afternoon to the
         // next morning and tours carry a clash guard; drawn on a one-day rail
         // they would be twenty-hour bars. The travel list, the day-by-day lens
@@ -840,6 +1056,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           ) : null}
           <ScheduleDay
             inspectorSlot={inMaker ? DETAILS_SCHEDULE_INSPECTOR_SLOT : null}
+            frame={oneLine ? 'line' : 'page'}
+            toolsSlot={oneLine ? SCHEDULE_TOOLS_SLOT : null}
             actions={{
               updateScheduleBlock,
               bulkRetimeScheduleBlocks,
@@ -851,6 +1069,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               loadScheduleTemplate,
               resolveScheduleSuggestion,
             }}
+            // 📅 `?sheet=requests` — Home's "N to approve" opens the supplier requests sheet with the page (placement, no write).
+            openRequests={openRequests}
             eventId={eventId}
             eventType={eventRow?.event_type ?? null}
             eventDateKey={eventDateKey}
@@ -899,7 +1119,156 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             }
           />
         </>
+      )
+  );
+
+  const scheduleCopyPath = coordinatorSchedulePath(eventId);
+  /** The day's moments (parts sit inside them) — the view dropdown's count, "7". */
+  const topLevelCount = scheduleBlocks.filter((b) => !b.parent_block_id).length;
+  /** "Friday 18 December 2026 · 50 days to go" — the page's date line (frame 19); the rest is in its ⓘ. */
+  const dateLine = [
+    eventDateKey
+      ? new Date(`${eventDateKey}T00:00:00Z`).toLocaleDateString('en-GB', {
+          timeZone: 'UTC',
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).replace(',', '')
+      : 'No date yet',
+    isEventDay ? 'today' : daysToGo !== null && daysToGo > 0 ? `${formatCount(daysToGo)} day${daysToGo === 1 ? '' : 's'} to go` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    /* 💾 The schedule is kept on the phone and shown at once on the next
+       open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
+       SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
+       and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
+    <LastSeenCapture page="schedule">
+    <section className={`sn-col space-y-5${oneLine ? ' xl:max-w-[100rem]' : ''}`} data-schedule-page={oneLine ? '' : undefined}>
+      {/* Inside the Maker, Details' own header names it; on its own page, the shared masthead. */}
+      {inMaker ? null : <PageMasthead title="Schedule" />}
+      {/* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — the hosts' / coordinator's own day, kept on this phone for the venue. A
+          plain slot, no client code: the route's `layout.tsx` draws the saved mark into it (`ScheduleSavedSlot` says why
+          — the Maker draws this page and must not carry the mark). */}
+      {inMaker || !scheduleCopyPath ? null : (
+        <div
+          data-schedule-copy=""
+          data-sn-copy-version={copyVersionOf([scheduleBlocks, chaptersInput])}
+          data-sn-copy-viewer={user.id}
+          data-sn-copy-event={eventId}
+          data-sn-copy-path={scheduleCopyPath}
+          data-sn-copy-day={eventDate ?? ''}
+          data-sn-copy-day-end={eventRow?.event_end_date ?? ''}
+        />
       )}
+
+      {suppliersUnread ? <ReadRefusedNotice what="your suppliers" partial className="mb-3" /> : null}
+      {/* 📖 The chapters (owner 2026-11-01): a tapped chapter opens its page over the views — one place, this page. */}
+      <ChaptersFrame eventId={eventId} input={chaptersInput} dateLine={dateLine}>
+      {oneLine ? (
+        /* 📅 THE SCHEDULE PAGE (owner 2026-10-31, live iPhone: *"so many upper space not used"*; frames 19 · 19b · 20 —
+           drawn under Suppliers › Booked until 2026-11-02): ONE line — the view ▾ · the day's tools · 🔊 — then the date
+           line with everything else in its ⓘ, then the moments. Each view drawn once and kept; a pick swaps in place
+           (`schedule-one-line.tsx`). */
+        <ScheduleOneLine
+          initial={active}
+          views={[
+            { key: 'event-day', label: 'Event Day', count: topLevelCount },
+            { key: 'preparation', label: 'Planning Stage', count: agenda.items.length },
+          ]}
+          dateLine={dateLine}
+          info={
+            <>
+              {eventRow?.display_name?.trim() ? <b className="block font-semibold">{eventRow.display_name.trim()}</b> : null}
+              <span className="block">
+                <b className="font-semibold">{roleLabel}.</b> Hosts build the schedule. A coordinator edits only after a
+                host approves them — the host invite plus your consent under the Data Privacy Act (RA 10173). Everyone
+                else reads.
+              </span>
+            </>
+          }
+          notes={{
+            'event-day': EVENT_DAY_NOTE,
+            preparation: preparationLegendWords(agenda.sourceCounts),
+          }}
+          announce={
+            canAnnounce ? (
+              <AnnounceButton eventId={eventId} isEventDay={isEventDay} recent={recentAnnouncements} round release={scheduleRelease} />
+            ) : null
+          }
+          share={shareSchedule}
+          meetings={<VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />}
+          panels={{
+            'event-day': eventDayView,
+            preparation: prepView,
+          }}
+        />
+      ) : (
+        <>
+        {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
+            ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph
+            → one line + ⓘ). Who, when, how long to go, and whether you can edit. */}
+        <header className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <p className="text-sm text-ink/60">
+              {eventRow?.display_name?.trim() ? (
+                <b className="font-semibold text-ink/85">{eventRow.display_name.trim()}</b>
+              ) : null}
+              {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
+              {dateLabel}
+              {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
+                <>
+                  {' · '}
+                  <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
+                </>
+              ) : null}
+            </p>
+            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-[11.5px] font-semibold text-ink/65">
+              <i
+                aria-hidden
+                className={`h-1.5 w-1.5 rounded-full ${dayRole === 'view' ? 'bg-ink/35' : 'bg-success-600'}`}
+              />
+              {roleLabel}
+              <Tip>
+                Hosts build the schedule. A coordinator edits only after a host approves them — the host
+                invite plus your consent under the Data Privacy Act (RA 10173). Everyone else reads.
+              </Tip>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ScheduleModeToggle
+              active={active}
+              prepCount={agenda.items.length}
+            />
+            <span className="ml-auto flex items-center gap-2">
+              <Tip align="end">{viewNote}</Tip>
+              {shareSchedule}
+              {canAnnounce ? (
+                /* In the Maker's Details, Announce is a piece of the Schedule: its
+                   button (and its sheet) sit in the right column (`InSlot`). */
+                <InSlot id={inMaker ? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null}>
+                  <AnnounceButton
+                    eventId={eventId}
+                    isEventDay={isEventDay}
+                    recent={recentAnnouncements}
+                    release={scheduleRelease}
+                  />
+                </InSlot>
+              ) : null}
+            </span>
+          </div>
+        </header>
+
+        {active !== 'event-day' ? (
+          <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
+        ) : null}
+
+        {active === 'preparation' ? prepView : eventDayView}
+        </>
+      )}
+      </ChaptersFrame>
 
       {/* Every feature gets a first-visit tour (owner 2026-09-25) — the shipped
           MiniTour, keyed once per person. */}
@@ -909,15 +1278,31 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   );
 }
 
+/** The chapters' host around the page's views — or the views alone where none are drawn (the Maker, a trip). */
+function ChaptersFrame({ eventId, input, dateLine, children }: { eventId: string; input: ChaptersInput | null; dateLine: string; children: ReactNode }) {
+  if (!input) return <>{children}</>;
+  return (
+    <ChaptersHost eventId={eventId} input={input} dateLine={dateLine}>
+      {children}
+    </ChaptersHost>
+  );
+}
+
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
+  proposed_ingress_minutes?: number | null;
+  proposed_egress_minutes?: number | null;
+  /** 📍 A Where pick: the booking and the chapters asked (migration 20271308641275). */
+  where_vendor_id?: string | null;
+  proposed_block_ids?: string[] | null;
   suggested_by_name: string | null;
   proposed_label: string | null;
   proposed_start_at: string | null;
   proposed_end_at: string | null;
   proposed_location: string | null;
+  proposed_crew: string[] | null;
   note: string;
   created_at: string;
 };
@@ -990,6 +1375,9 @@ function VendorSuggestionsQueue({
                       {blockLabel.get(s.block_id ?? '') ?? 'a timeline block'}
                     </span>
                   </>
+                ) : s.kind === 'where' ? (
+                  // 📍 A Where pick (migration 20271308641275): its note already names the chapters asked.
+                  <>picked the chapters they serve</>
                 ) : (
                   <>
                     suggests adding{' '}
@@ -1004,19 +1392,8 @@ function VendorSuggestionsQueue({
               {s.proposed_location ? (
                 <p className="text-xs text-ink/55">Location: {s.proposed_location}</p>
               ) : null}
-              <div className="flex items-center gap-2 pt-0.5">
-                <form action={resolveScheduleSuggestion}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
-                  <input type="hidden" name="decision" value="accept" />
-                  <SubmitButton pendingLabel="Accepting…" className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85">Accept</SubmitButton>
-                </form>
-                <form action={resolveScheduleSuggestion}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
-                  <input type="hidden" name="decision" value="decline" />
-                  <SubmitButton pendingLabel="Declining…" className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5">Decline</SubmitButton>
-                </form>
+              <div className="pt-0.5">
+                <RequestDecision eventId={eventId} suggestionId={s.suggestion_id} noteOnly={isNoteOnlySuggestion(s)} decide={resolveScheduleSuggestion} />
               </div>
             </li>
           );
@@ -1109,7 +1486,8 @@ function EventDayView({
       ) : (
         <ul className="space-y-3">
           {blocks.map((b) => (
-            <li key={b.block_id}>
+            <li key={b.block_id} className="has-[[data-swipe-gone]]:hidden">
+              <BlockSwipe eventId={eventId} blockId={b.block_id} label={b.label}>
               <BlockCard
                 eventId={eventId}
                 block={b}
@@ -1119,6 +1497,7 @@ function EventDayView({
                 rosVendors={rosVendors}
                 eventType={eventType}
               />
+              </BlockSwipe>
             </li>
           ))}
         </ul>
@@ -1363,17 +1742,7 @@ function BlockCard({
             )}
           </SubmitButton>
         </form>
-        <form action={deleteScheduleBlock}>
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="block_id" value={block.block_id} />
-          <SubmitButton
-            aria-label="Delete block"
-            pendingLabel=""
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-          </SubmitButton>
-        </form>
+        {/* 👈 The block's Delete is the card's swipe (owner 2026-11-03) — `BlockSwipe`, around the card below. */}
       </div>
     </article>
   );

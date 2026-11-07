@@ -2,13 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
+import { BadgeCheck, BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
 
 import {
   CardRecordSection,
   type CardRecordRating,
 } from '@/app/_components/card-record-section';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
+import { CardReviewsBlock } from '@/app/_components/card-reviews-block';
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 
@@ -35,6 +37,11 @@ export type ServiceCardShop = {
   logoUrl: string | null;
   /** Optional city line under the name. */
   city?: string | null;
+  /**
+   * 🧪 `vendor_profiles.is_demo` — the shop row wears "(DEMO ONLY)" (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO
+   * EVENTS"). Beside the logo link, never inside it (the marker's ⓘ is a button).
+   */
+  isDemo?: boolean;
 };
 
 /**
@@ -104,6 +111,7 @@ export function ServiceCardView({
   const doorwayHref = detailsEnabled && detailsHref ? detailsHref : null;
   return (
     <div
+      id={c.anchorId}
       className={
         detailsEnabled
           ? 'relative flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40'
@@ -119,6 +127,7 @@ export function ServiceCardView({
       {shop ? (
         <div className="relative z-10 mb-3 flex items-center gap-2">
           <ShopMark shop={shop} />
+          {shop.isDemo === true ? <DemoOnlyMarker /> : null}
         </div>
       ) : null}
 
@@ -162,6 +171,41 @@ export function ServiceCardView({
         </div>
       ) : null}
 
+      {/* 📸 FROM COUPLES (owner 2026-10-30) — couples' own photos of this card's work, approved by the shop, each with
+          the credit line the couple chose. Absent unless approved (`fetchServiceCardCouplePhotos`).
+          ✓ VERIFIED BOOKING (Supplier front page, 2026-11-06) — drawn ONLY when the database said this shop is booked
+          on the event the photo came from (`verifiedBooking`, derived at read by couple_photo_share_is_verified_booking);
+          a photo from a supplier the couple only added to a list shows its credit line and no mark. */}
+      {c.coupleLooks && c.coupleLooks.length > 0 ? (
+        <div className="mt-3" data-card-couple-looks="">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">From couples</p>
+          <ul className="mt-1.5 flex gap-2 overflow-x-auto">
+            {c.coupleLooks.map((look) => (
+              <li key={look.id} className="w-24 shrink-0">
+                <div className="relative h-24 w-24 overflow-hidden rounded-lg bg-ink/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a couple's own photo, already a public URL */}
+                  <img src={look.url} alt={`${c.label} — shared by ${look.credit}`} className="h-full w-full object-cover" loading="lazy" />
+                  {look.verifiedBooking === true ? (
+                    <span
+                      data-card-verified-booking=""
+                      className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-0.5 rounded-full bg-cream/95 px-1 py-0.5 text-[9px] font-medium leading-none text-terracotta-700"
+                      title="This couple booked this supplier for their event — checked by Setnayan."
+                    >
+                      <BadgeCheck aria-hidden className="h-2.5 w-2.5 shrink-0" strokeWidth={2} />
+                      Verified booking
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-tight text-ink/60">{look.credit}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {/* ⭐ THIS CARD'S REVIEWS (prototype 6 Nov § 4 / § 9) — under From couples; absent unless the page read them. */}
+      {c.reviews ? <CardReviewsBlock reviews={c.reviews} /> : null}
+
       {c.videoUrl ? (
         /* Poster-first: preload="metadata" shows the first frame without
            downloading the clip; muted + playsInline keep mobile behavior tame. */
@@ -199,6 +243,10 @@ export function ServiceCardView({
           ) : null}
         </ul>
       ) : null}
+
+      {/* 🔗🖼 ITS INSPIRATION LOOKS (owner 2026-10-30; website-by-plan design `.looks`: up to three small photos, "+N",
+          "No looks yet") — the shop's approved library photos linked to THIS card. Absent unless read. */}
+      {c.inspirationLooks ? <CardLooks looks={c.inspirationLooks} label={c.label} /> : null}
 
       {c.meta ? <p className="mt-2 text-[12px] text-ink/55">{c.meta}</p> : null}
 
@@ -279,6 +327,32 @@ export function ServiceCardView({
           className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         />
       ) : null}
+    </div>
+  );
+}
+
+/** The card's looks strip: three thumbnails then "+N" (the approved design's `.looks` row). */
+function CardLooks({ looks, label }: { looks: NonNullable<ServiceCard['inspirationLooks']>; label: string }) {
+  if (looks.length === 0) {
+    return (
+      <p className="mt-2 text-[12px] text-ink/45" data-card-looks="0">
+        No looks yet
+      </p>
+    );
+  }
+  const shown = looks.slice(0, 3);
+  return (
+    <div className="mt-2 flex items-center gap-1.5" data-card-looks={looks.length}>
+      {shown.map((l) => (
+        <span key={l.id} className="relative block h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-ink/5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- an approved library photo, already a public URL */}
+          <img src={l.url} alt={`${label} — ${l.part}`} className="h-full w-full object-cover" loading="lazy" />
+        </span>
+      ))}
+      <span className="ml-0.5 text-[12.5px] text-ink/55">
+        {looks.length > 3 ? `+${looks.length - 3} · ` : ''}
+        {looks.length === 1 ? '1 look' : `${looks.length} looks`}
+      </span>
     </div>
   );
 }

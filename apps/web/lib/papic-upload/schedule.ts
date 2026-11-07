@@ -52,6 +52,8 @@ export interface QueuedShot {
   /** Vendor lane: the controller's consent gate was passed for this shot. */
   consent?: boolean;
   deviceModel?: string;
+  /** 📷 The chapter the camera showed at the shutter (owner 2026-11-01) — the server re-asks if it may go in. */
+  chapterId?: string | null;
   /** Tiers made from the saved original (false until the prepare step ran). */
   prepared: boolean;
   tiers: Partial<Record<CaptureTier, QueuedTier>>;
@@ -265,6 +267,11 @@ export const KEPT_REFUSALS: ReadonlySet<string> = new Set([
   'too_long',
   'bad_request',
   'bad_tier',
+  // 📷 the chapter the camera showed said no, and it was the camera's only way in (lib/papic-chapter.ts)
+  'chapter_not_open',
+  'chapter_closed',
+  'not_in_chapter',
+  'not_a_chapter',
 ]);
 
 /** The shot belongs to another event / another person on this phone. */

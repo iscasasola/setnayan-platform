@@ -173,6 +173,28 @@ export async function saveBusinessIdentity(formData: FormData) {
     );
   }
 
+  // 🚗 Drive speed (migration 20271308471868, slice 5) — its own update for the same reason as the VALIDATE pair.
+  // Absent from the form (the field is locked when the current value couldn't be read) = leave it as it is.
+  if (formData.has('drive_speed_kmh')) {
+    const speedRaw = formData.get('drive_speed_kmh');
+    const speedBlank = typeof speedRaw !== 'string' || speedRaw.trim() === '';
+    const speed = nullIfBlankNumber(speedRaw);
+    if (!speedBlank && (speed === null || speed > 150)) {
+      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent('Business identity saved, but the driving speed must be 1–150 km/h, or blank.')}`);
+    }
+    const { error: speedErr } = await admin
+      .from('platform_settings')
+      .update({ drive_speed_kmh: speed === null ? null : Math.round(speed * 10) / 10, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (speedErr) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent(
+          `Business identity saved, but the driving speed couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (drive speed)', speedErr)}`,
+        )}`,
+      );
+    }
+  }
+
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
   redirect('/admin/settings?tab=settings&saved=1');
@@ -1150,4 +1172,38 @@ export async function removeBrandIcon() {
   revalidatePath('/', 'layout');
   revalidatePath('/favicon.ico');
   redirect('/admin/settings?tab=settings&brand_icon_removed=1');
+}
+
+/**
+ * 🎭 The Maria and Jose sample's switch — `platform_settings.sample_event_enabled`
+ * (migration 20271302376604; read by lib/sample-event/switch.server.ts).
+ *
+ * Tri-state: 'default' clears the column (NULL → the SAMPLE_EVENT_ENABLED env
+ * var, unset = off), 'on' opens /sample for everyone, 'off' closes it to all but
+ * internal accounts. Saves IN PLACE — returns, never redirects — so the screen
+ * the owner flipped it on stays where it was. Clears the remembered settings read
+ * so the next request already sees the flip.
+ *
+ * Takes a MODE, never an event id: the sample's id is known to no server action
+ * (`app/sample/the-sample-is-sealed.test.ts`).
+ */
+export async function setSampleEventSwitch(
+  mode: string,
+): Promise<{ ok: true; mode: 'default' | 'on' | 'off' } | { ok: false; message: string }> {
+  await requireAdmin();
+  if (mode !== 'default' && mode !== 'on' && mode !== 'off') {
+    return { ok: false, message: 'Pick Default, On or Off.' };
+  }
+  const value = mode === 'on' ? true : mode === 'off' ? false : null;
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ sample_event_enabled: value, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  if (error) {
+    logQueryError('admin/settings: setSampleEventSwitch', error);
+    return { ok: false, message: 'Couldn’t save the sample switch. Try again.' };
+  }
+  return { ok: true, mode };
 }

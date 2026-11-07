@@ -70,7 +70,7 @@ test('🚨 the switch actually GOVERNS the picker', () => {
   // switch's own value.
   assert.match(
     PAGE,
-    /addPhotos = !uploadsOpen \? \(\s*<UploadsOpenChoice[\s\S]{0,200}?\) : takenByOther \? \([\s\S]{0,400}?\) : \(\s*<AddToLibrary/,
+    /addPhotos = !uploadsOpen \? \(\s*<UploadsOpenChoice[\s\S]{0,200}?\) : \(\s*<AddToLibrary/,
     'the + Add photos door no longer branches on the switch — turning it off would save a value and change nothing a person can see',
   );
 });

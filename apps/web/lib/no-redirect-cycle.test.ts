@@ -36,15 +36,28 @@ const WEB = process.cwd();
 const COUPLE = readFileSync(join(WEB, 'app/dashboard/layout.tsx'), 'utf8');
 const VENDOR = readFileSync(join(WEB, 'app/vendor-dashboard/layout.tsx'), 'utf8');
 
-test('the vendor tree still bounces people who own nothing — that half is correct', () => {
+test('the vendor tree still bounces people who own nothing — to shop set-up, and set-up cannot bounce back blindly', () => {
   // Stated so the test documents BOTH halves. This redirect is not the bug and
   // must not be "fixed" by deleting it: a person with no shop has nothing to see
   // there.
-  assert.match(
-    VENDOR,
-    /hasVendor\b[\s\S]{0,120}redirect\('\/dashboard'\)/,
-    'the vendor tree no longer sends shop-less visitors away',
+  // ⚖ 2026-11-02 (supplier gate audit G7): it sends them to `/open-shop` — the set-up — instead of the couple board.
+  // `/open-shop` sends a visitor back here ONLY when it read their own named shop row, i.e. the same fact
+  // (`hasVendor` = owns a shop or holds a seat) that keeps them here, so the pair cannot close a loop on a label.
+  // A PROVEN shop-less account (measured, none) → set-up; an unmeasured one → the couple board, as before.
+  assert.match(VENDOR, /if \(vendorAccess === 'no-vendor'\) redirect\('\/open-shop'\);/, 'a shop-less account must land on shop set-up, not the couple board');
+  assert.match(VENDOR, /if \(vendorAccess === 'unmeasured'\) redirect\('\/dashboard'\);/, 'the vendor tree no longer sends unmeasured visitors away');
+  assert.match(VENDOR, /switcherData\.context\.hasVendor \? 'vendor' : switcherData\.context\.canOpenShop \? 'no-vendor' : 'unmeasured'/, 'no-vendor must mean MEASURED and none');
+  const OPEN = readFileSync(join(WEB, 'app/open-shop/page.tsx'), 'utf8');
+  // 2026-11-05: the forward is `redirect(landing)`, where `landing = shopConsolePath(next)` — always a page
+  // of the vendor tree (Today by default; executed in lib/shop-console-path.test.ts). Same edge, same condition.
+  assert.match(OPEN, /const landing = shopConsolePath\(next\);/, '/open-shop forwards to something other than a console page');
+  const back = OPEN.split('\n').filter(
+    (l) => (l.includes("redirect('/vendor-dashboard')") || l.includes('redirect(landing)')) && !l.trim().startsWith('//'),
   );
+  assert.ok(back.length > 0, '/open-shop no longer sends a shop owner on to their dashboard');
+  for (const b of back) {
+    assert.match(b, /business_name/, `/open-shop bounces to the vendor tree on something other than the shop row: ${b}`);
+  }
 });
 
 test('the hop TOWARDS the vendor tree cannot close a loop', () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
@@ -109,6 +110,8 @@ const CEREMONY_VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
   }));
 
 type Props = {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
   eventId: string;
   confirmedVendorCount: number;
   ceremony: string | null;
@@ -137,11 +140,12 @@ type Props = {
    *  send the couple to another page for "more date options". */
   embedded?: boolean;
   /**
-   * ✍ THE MAKER'S DATE IS A DRAFT (owner 2026-10-01, "wait for apply"): where
-   * given, the date row saves through this — after the SAME booked-supplier
-   * preview — instead of `updateEventDate`, and the caller draws the screen
-   * again. Resolves null when saved, else the
-   * reason. Omitted = the Personalization page's live save, unchanged.
+   * 🗓 THE MAKER'S OWN DATE SAVE: where given, the date row saves through this —
+   * after the SAME booked-supplier preview — so the caller can show who a
+   * clashing date belongs to. It calls the same live door (`updateEventDate`):
+   * the date is never a draft (owner 2026-11-05, "it shouldn't rely on the
+   * hub"). Resolves null when saved, else the reason. Omitted = this row calls
+   * `updateEventDate` itself.
    */
   saveDate?: (value: string) => Promise<string | null>;
   /**
@@ -191,6 +195,7 @@ const FIELD_LABEL: Record<EditableField, string> = {
 
 export function GovernedFields({
   eventId,
+  dateExempt = false,
   confirmedVendorCount,
   ceremony,
   secondaryCeremony,
@@ -345,17 +350,13 @@ export function GovernedFields({
       const res = await updateGuestCount(fd);
       return res.ok ? null : res.message;
     }
-    // date — the Maker's draft, when it hands one in (Apply asks the gates)…
+    // date — the Maker's own save, when it hands one in (it names a clashing supplier)…
     if (saveDate) return saveDate(value);
-    // …else updateEventDate, which throws on its gates
+    // …else the event's one date door, which answers every refusal in words, beside the date.
     fd.set('event_date', value);
     fd.set('precision', 'day');
-    try {
-      await updateEventDate(fd);
-      return null;
-    } catch (e) {
-      return e instanceof Error ? e.message : 'Could not save the date';
-    }
+    const res = await updateEventDate(fd);
+    return res.ok ? null : res.error;
   }
 
   function commit(field: EditableField, value: string) {
@@ -436,7 +437,7 @@ export function GovernedFields({
     });
   }
 
-  /* ✍ Embedded: a changed value is checked and drafted on its own, after a pause. */
+  /* ✍ Embedded: a changed value is checked and saved on its own, after a pause. */
   const autoSave = useRef(checkAndSave);
   autoSave.current = checkAndSave;
   useEffect(() => {
@@ -707,7 +708,7 @@ export function GovernedFields({
       >
         <input
           type="date"
-          min={today}
+          min={eventDateMinFor(today, dateExempt)}
           value={proposed}
           onChange={(e) => setProposed(e.target.value)}
           className={SELECT_CLASS}

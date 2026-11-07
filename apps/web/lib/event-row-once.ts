@@ -329,6 +329,8 @@ export const DASHBOARD_ROW_CARRIES = [
   'event_end_date',
   'community_id',
   'date_candidates',
+  // The To do list's deadline anchor, after the candidates (`checklistAnchorDateFor` — Home's To do tile, 2026-11-01).
+  'date_window_start',
   // What this event needs (the menu's Level 1).
   'guest_list_on',
   'suppliers_on',

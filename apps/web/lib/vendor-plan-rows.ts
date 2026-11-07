@@ -17,7 +17,7 @@ import type { BookingFeeStanding } from './booking-fee-disclosure';
 import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
-import { TIER_CAPS, VENDOR_TIERS, asVendorTier, type VendorTier } from './vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
@@ -52,11 +52,16 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
   const seats = allowance(c.agentAccounts, 'agentAccounts', paywallOn);
   const waitlist = allowance(c.waitlistAcceptances, 'waitlistAcceptances', paywallOn);
   const free = FREE_HELPER_SEATS > 0 ? ` + ${formatCount(FREE_HELPER_SEATS)} free Helper` : '';
-  const reach = !Number.isFinite(c.serviceRadiusKm) || c.serviceRadiusKm >= 100
+  // Nationwide is Ultra's `Infinity` (owner 2026-11-04) — never a km threshold: Pro reaches 100 km and is not nationwide.
+  const reach = !Number.isFinite(c.serviceRadiusKm)
     ? 'Nationwide'
     : c.serviceRadiusKm > 0
       ? `${formatCount(c.serviceRadiusKm)} km around you`
       : 'Not in couples’ search on this plan';
+  const webPlan = firstPlanWith((x) => x.customWebsiteName);
+  const branches = c.branchesIncluded > 0
+    ? `${formatCount(c.branchesIncluded)} included${canBuyMoreBranches(tier) ? ' · more can be added' : ''}`
+    : 'Not on this plan';
   const insights = !paywallOn
     ? 'All of it — open to every plan today'
     : c.marketIntel
@@ -90,11 +95,12 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
       line: `${n(c.whitelistPerDate)} a date`,
     },
     { key: 'reach', title: 'How far you reach', line: reach },
+    { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     { key: 'insights', title: 'How is my business doing', line: insights },
     {
       key: 'web',
       title: 'Your own web address',
-      line: c.customWebsiteName ? 'Yes' : 'Comes with Pro',
+      line: c.customWebsiteName ? 'Yes' : webPlan ? `Comes with ${TIER_LABEL[webPlan]}` : 'Not on any plan',
     },
   ];
 }
@@ -134,7 +140,12 @@ export function bookingFeeRow(
   }
 }
 
-const RANK: Record<VendorTier, number> = { free: 1, verified: 2, solo: 3, pro: 4, enterprise: 5, custom: 6 };
+/** Ultra may buy branches past the included ones — `canBuyExtraBranches`, kept rank-local so this file stays pure. */
+function canBuyMoreBranches(tier: VendorTier): boolean {
+  return RANK[tier] >= RANK.enterprise;
+}
+
+const RANK: Record<VendorTier, number> = { free: 1, verified: 2, solo: 3, pro: 4, enterprise: 5 };
 
 /**
  * What picking a plan DOES, in one line — the live ladder (migration `the_plan_change_ladder`): a higher plan is live

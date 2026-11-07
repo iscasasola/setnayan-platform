@@ -36,7 +36,7 @@ import { DETAILS_ITEM_GROUPS, EVERY_PRINT_ITEM } from './maker-details-items';
 import { STUDIO_FORM_HEADS, STUDIO_FORM_ITEMS, studioDetailsGroups, studioPrintsPieces } from './studio-details';
 import { endSlides, slidesOf } from './prints-slides.test-helper';
 import { existsSync } from 'node:fs';
-import { STUDIO_TILE_ITEM } from './studio-tile-defs';
+import { printsPageItem } from './prints-page';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -132,8 +132,10 @@ test('1b · the name ▾’s list is the form, in the form’s order, under the 
   assert.deepEqual(STUDIO_FORM_HEADS.download, { title: 'Everything', line: 'one file · Event Hub Pro' });
   assert.ok(STUDIO_FORM_ITEMS.includes(EVERY_PRINT_ITEM), '"Print settings" does not fill the phone screen like the rest of Prints');
   assert.ok(STUDIO_FORM_ITEMS.includes('digital-ticket'), 'the Digital ticket does not fill the phone screen like the rest of Prints');
-  /* The Prints tile opens at the head of its form — the carousel then opens on its first print. */
-  assert.equal(STUDIO_TILE_ITEM.prints, EVERY_PRINT_ITEM);
+  /* The Prints PAGE opens at the head of its form (where the tile opened, until R8) — the carousel then opens on its first print. */
+  assert.equal(printsPageItem({}), EVERY_PRINT_ITEM);
+  assert.equal(printsPageItem({ item: 'menu' }), 'menu', 'the page does not open the print its address names');
+  assert.equal(printsPageItem({ item: 'names' }), EVERY_PRINT_ITEM, 'the page opens an item that is no print');
 });
 
 /** The ⚙ Print settings editor: from `editors[EVERY_PRINT_ITEM] = (` to its closing `);` (the Digital ticket's line follows it). */

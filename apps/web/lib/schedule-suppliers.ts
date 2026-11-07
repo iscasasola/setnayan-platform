@@ -3,6 +3,7 @@ import {
   supplierStandingWord,
   type SupplierStandingWord,
 } from '@/lib/booked-by-payment';
+import { timesMarkOf, type ScheduleMarkFacts, type TimesMark } from '@/lib/supplier-schedule-marks';
 
 /**
  * schedule-suppliers.ts (pure; the read is `schedule-suppliers-read.ts`) — WHO THE SCHEDULE NAMES ON AN ITEM, AND HOW THEY STAND.
@@ -29,6 +30,8 @@ export type ScheduleSupplier = {
   /** The shop name, or the couple's own name for them. */
   vendor_name: string;
   standing: SupplierStandingWord;
+  /** ✅ The supplier pressed Confirm my times / Seen (`lib/supplier-schedule-marks.ts`) — absent when neither. */
+  times?: TimesMark;
 };
 
 export type ScheduleSupplierRow = {
@@ -44,16 +47,20 @@ export type ScheduleSupplierRow = {
 export function scheduleSuppliersFrom(
   rows: ReadonlyArray<ScheduleSupplierRow>,
   shopNames: ReadonlyMap<string, string>,
+  /** ✅ Seen / Confirm my times, by shop (`readScheduleSuppliers`). Omitted → no mark is said. */
+  marks?: ReadonlyMap<string, ScheduleMarkFacts>,
 ): ScheduleSupplier[] {
   const paid = paidSupplierIds(
     rows.flatMap((r) => (r.vendor_payments ?? []).map((p) => ({ vendor_id: r.vendor_id, payment_refused_at: p.payment_refused_at }))),
   );
   const named = rows.map((r): ScheduleSupplier => {
     const shop = r.marketplace_vendor_id ? (shopNames.get(r.marketplace_vendor_id) ?? '').trim() : '';
+    const times = r.marketplace_vendor_id ? timesMarkOf(marks?.get(r.marketplace_vendor_id))?.word : undefined;
     return {
       vendor_id: r.vendor_id,
       vendor_name: shop || (r.vendor_name ?? '').trim() || 'Supplier',
       standing: supplierStandingWord(r, paid),
+      ...(times ? { times } : {}),
     };
   });
   return named.sort(

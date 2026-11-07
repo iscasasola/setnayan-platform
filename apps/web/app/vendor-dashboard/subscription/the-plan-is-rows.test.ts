@@ -7,7 +7,7 @@
  *   · prices arrive from the catalogue — no peso is typed in the page or the picker;
  *   · the booking-fee line is the LIVE standing through `bookingFeeRow` (never `FEE_RATE`, never a flat ₱);
  *   · "What <plan> gives you" is `planGivesLines` (TIER_CAPS) — not typed copy;
- *   · every job keeps its door: receipts → /receipts, Custom plan, add-ons (the shipped cards stay, under #add-ons),
+ *   · every job keeps its door: receipts → /receipts, add-ons (the shipped cards stay, under #add-ons),
  *     Papic credits → the Event Hub, the scheduled-change notice (Keep my current plan).
  */
 import test from 'node:test';
@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // app/vendor-dashboard/subscription
-const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+// 🏪 The Plan screen moved into `_components/plan-screen.tsx` (2026-10-31) — the page and the Shop ⚙ both mount it.
+const PAGE = stripComments(readFileSync(join(HERE, '_components', 'plan-screen.tsx'), 'utf8'));
 const PICKER = stripComments(readFileSync(join(HERE, '_components/plan-picker.tsx'), 'utf8'));
 const ROWS = stripComments(readFileSync(join(HERE, '_components/plan-rows.tsx'), 'utf8'));
 
@@ -37,7 +38,8 @@ test('Pay posts only the SKU — never an amount', () => {
 });
 
 test('no peso is typed on the plan screen', () => {
-  for (const [name, src] of [['page.tsx', PAGE], ['plan-picker.tsx', PICKER], ['plan-rows.tsx', ROWS]] as const) {
+  const ULTRA = stripComments(readFileSync(join(HERE, '_components/ultra-addons-card.tsx'), 'utf8'));
+  for (const [name, src] of [['page.tsx', PAGE], ['plan-picker.tsx', PICKER], ['plan-rows.tsx', ROWS], ['ultra-addons-card.tsx', ULTRA]] as const) {
     assert.doesNotMatch(src, /₱\s?\d/, `${name} types a peso amount`);
   }
 });
@@ -54,13 +56,17 @@ test('what the plan gives is read from the plan table', () => {
 
 test('every job keeps its door', () => {
   assert.match(ROWS, /href=\{r\.receiptId \? `\/receipts\/\$\{r\.receiptId\}` : null\}/);
-  assert.match(ROWS, /href="\/vendor-dashboard\/subscription\/custom"/);
+  // The Custom plan door went 2026-11-06 with the plan itself (owner: "from the app") — it must not come back.
+  assert.doesNotMatch(ROWS, /subscription\/custom/);
   assert.match(ROWS, /href="#add-ons"/);
   assert.match(PAGE, /id="add-ons"/);
   assert.match(PAGE, /<PlanRows/);
   assert.match(PAGE, /<AiAddonCard/);
   assert.match(PAGE, /<BoothAddonCard/);
   assert.match(PAGE, /<PapicChallengeCard/);
+  // Every Ultra add-on, from the catalogue (owner 2026-11-06, "ULTRA ADD-ON PRICES").
+  assert.match(PAGE, /<UltraAddonsCard rows=\{ultraRows\}/);
+  assert.match(PAGE, /ultraAddOns\(supabase\)/);
   assert.match(ROWS, /href="\/vendor-dashboard\/on-the-day"/);
   assert.match(PAGE, /<PlanChangeNotice/);
 });

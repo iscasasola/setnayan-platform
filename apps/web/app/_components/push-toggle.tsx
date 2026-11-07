@@ -22,31 +22,18 @@
  * Safari outside an installed PWA), the control renders a quiet "not available"
  * note instead of a dead switch.
  *
- * On enable: ask Notification permission → subscribe via the registered service
- * worker using the VAPID public key → POST the subscription to
- * savePushSubscription. On disable: unsubscribe locally → removePushSubscription.
+ * On enable: `subscribeThisDevice()` (lib/push-subscribe.ts — ask permission →
+ * subscribe via the registered service worker with the VAPID key → save via
+ * savePushSubscription; shared with the Guests reply ask). On disable:
+ * unsubscribe locally → removePushSubscription.
  */
 
 import { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
-import { savePushSubscription, removePushSubscription } from '@/lib/push-actions';
+import { removePushSubscription } from '@/lib/push-actions';
+import { subscribeThisDevice, webPushSupported } from '@/lib/push-subscribe';
 import { unblockSteps, type UnblockGuide } from '@/lib/push-unblock-steps';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
-
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
-
-// VAPID public keys are base64url; the Push API's applicationServerKey wants a
-// BufferSource. Back the Uint8Array with a concrete ArrayBuffer (not the
-// generic ArrayBufferLike) so it satisfies the lib.dom BufferSource type.
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = window.atob(base64);
-  const buffer = new ArrayBuffer(raw.length);
-  const output = new Uint8Array(buffer);
-  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
-  return output;
-}
 
 type Status = 'unknown' | 'unsupported' | 'denied' | 'off' | 'on';
 
@@ -63,7 +50,7 @@ const PROMISE: Record<PushAudience, string> = {
   admin:
     'Get alerted on this device when money needs confirming, a shop is waiting to be checked, or something goes past its due date — even when the app is closed.',
   couple:
-    'Get alerted on this device when a supplier messages you or something on your plan needs an answer — even when the app is closed.',
+    'Get alerted on this device when guests reply, a supplier messages you, or something on your plan needs an answer — even when the app is closed.',
   vendor:
     'Get alerted on this device when a couple messages you or a new inquiry comes in — even when the app is closed.',
 };
@@ -101,12 +88,7 @@ export function PushToggle({ audience = 'couple' }: { audience?: PushAudience } 
     let cancelled = false;
     let permissionStatus: PermissionStatus | null = null;
 
-    const supported =
-      typeof window !== 'undefined' &&
-      'serviceWorker' in navigator &&
-      'PushManager' in window &&
-      'Notification' in window &&
-      Boolean(VAPID_PUBLIC_KEY);
+    const supported = webPushSupported();
 
     const resolve = async () => {
       if (cancelled) return;
@@ -176,31 +158,8 @@ export function PushToggle({ audience = 'couple' }: { audience?: PushAudience } 
   async function enable() {
     setBusy(true);
     try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setStatus(permission === 'denied' ? 'denied' : 'off');
-        return;
-      }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-      const json = sub.toJSON();
-      const result = await savePushSubscription({
-        endpoint: sub.endpoint,
-        p256dh: json.keys?.p256dh ?? '',
-        auth: json.keys?.auth ?? '',
-      });
-      if (result.ok) {
-        setStatus('on');
-      } else {
-        // Roll back the browser subscription so state stays consistent.
-        await sub.unsubscribe().catch(() => {});
-        setStatus('off');
-      }
-    } catch {
-      setStatus('off');
+      // The one shared path (lib/push-subscribe.ts) — the Guests reply ask runs it too.
+      setStatus(await subscribeThisDevice());
     } finally {
       setBusy(false);
     }

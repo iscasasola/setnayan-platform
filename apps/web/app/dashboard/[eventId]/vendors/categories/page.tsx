@@ -257,7 +257,8 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   // saysay did not show?"). The box said "Search suppliers or a service" and
   // matched only category words — so shops are searched by name too, with the
   // bench's own whole-marketplace search (one rule for who may be listed).
-  const shops = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(q) : [];
+  const shopsRead = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(eventId, q) : { results: [], unreadable: false };
+  const shops = shopsRead.results;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-5">
@@ -286,6 +287,15 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
             </label>
           </form>
 
+          {/* 🔌 A refused name search is never "nothing matches" (reads-are-honest, 2026-11-02 audit #22). */}
+          {shopsRead.unreadable ? (
+            <p role="alert" className="mt-6 text-sm text-ink/70" data-find-shops-unreadable="">
+              Couldn’t search suppliers by name just now. This does not mean there are none.{' '}
+              <Link href={`/dashboard/${eventId}/vendors/categories?q=${encodeURIComponent(q)}`} prefetch={false} className="font-semibold text-sn-accent">
+                Try again
+              </Link>
+            </p>
+          ) : null}
           {shops.length > 0 ? (
             <section className="mt-6" aria-label="Suppliers" data-find-shops="">
               <h3 className="text-[12px] font-medium uppercase tracking-wide text-ink/50">Suppliers</h3>

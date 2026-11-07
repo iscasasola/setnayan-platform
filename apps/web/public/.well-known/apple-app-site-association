@@ -6,6 +6,9 @@
         "appID": "P95JPDWWB3.com.setnayan.app",
         "paths": [
           "/dashboard/*",
+          "NOT /papic/guest",
+          "NOT /papic/guest/*",
+          "NOT /papic/seat/*",
           "/papic/*",
           "/vendor-invite/*",
           "/vendor/lock/*",

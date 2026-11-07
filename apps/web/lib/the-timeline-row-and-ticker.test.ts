@@ -184,8 +184,8 @@ test('(4) the pop: under its button, flipped up with no room, never taller than 
   assert.match(src, /data-ticker-pop=""[\s\S]{0,400}overflow-y-auto/);
   // The phone sheet: a gap stays at the top, long content scrolls inside, the dark part closes it.
   assert.match(src, /max-h-\[calc\(100dvh-24px\)\][^"']*overflow-y-auto/);
-  assert.match(src, /data-ticker-scrim=""\s+onClick=\{onClose\}/);
-  assert.match(src, /bg-ink\/40 backdrop-blur-sm/, 'the rest of the screen is not darkened and blurred');
+  /* The rest of the screen is darkened and blurred by the one scrim (owner 2026-10-29, `lib/one-scrim.test.ts`). */
+  assert.match(src, /<OverlayBackdrop onClose=\{onClose\} data-ticker-scrim="" \/>/, 'the rest of the screen is not darkened and blurred');
   // The phone line is the app's one line (1024), and a handed-in sheet wins over this file's own.
   assert.equal(T.TICKER_SHEET_BELOW_PX, 1024);
   assert.match(src, /asSheet\s*\?\s*sheet\s*\?\s*sheet\(\{ label: title, onClose: close/);

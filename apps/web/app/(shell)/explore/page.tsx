@@ -40,6 +40,7 @@ import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
 import { SaveVendorButton } from './_components/save-vendor-button';
+import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
 // 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
 // Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
 // non-focused catalog + vendor-grid render branches in favor of IconTileFolderStrip
@@ -53,7 +54,12 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // its own `FolderTab` type (structurally identical, per the comment above),
 // so the type import now points there instead.
 import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
-import { countLiveShops } from '@/lib/live-shops';
+import { countLiveShops, countRealShops, LIVE_SHOP_GATE } from '@/lib/live-shops';
+import {
+  shopsStillSettingUp,
+  unfilteredEmptyGridCopy,
+  type ShopStillSettingUp,
+} from '@/lib/explore-empty-grid';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
@@ -1561,6 +1567,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     an empty marketplace. Failure degrades to the old behaviour, not to a lie.
   */
   const liveShopCount = isLandingView ? await countLiveShops(admin) : null;
+  // 🔢 The heading's "Trending shops" is a claim built from a count, so it counts REAL shops only (owner 2026-11-06:
+  // "demo numbers never count in real totals"). Emptiness above still counts every listed shop, demo included.
+  const realShopCount = isLandingView ? await countRealShops(admin) : null;
 
   /*
     ═ THE BODY LISTS SERVICES, NOT SHOPS ═
@@ -1946,16 +1955,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // `query = query.not(...)`, so we widen once and continue. Behavior
   // is unchanged from the explicit chain — empty-list guard above
   // means we only call when there's at least one ID to exclude.
-  if (!inDemoMode && demoVendorIds.length > 0) {
-    type QueryShape = {
-      not: (column: string, op: string, value: string) => typeof query;
-    };
-    query = (query as unknown as QueryShape).not(
-      'vendor_profile_id',
-      'in',
-      `(${demoVendorIds.join(',')})`,
-    );
-  }
+  //
+  // 🧪 DEMO SHOPS ARE LISTED NOW (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS +
+  // DEMO EVENTS": demo suppliers "will show on with the rest of suppliers …
+  // but has a marking of (DEMO ONLY)"; "Demo catalogue — owner clicks": real
+  // couples see demo shops on Explore). The exclusion that stood here is gone
+  // for every viewer; each demo row is annotated `is_demo` below so its card
+  // wears `DemoOnlyMarker`. The demo cookie now only forces a demo shop's
+  // starting price to show (`demo_starts_at_label`). A demo shop still passes
+  // the same verified + listed gates as every other row.
 
   // Anti-fraud Phase 4 freeze exclusion — applies ALWAYS (even in demo mode).
   // Same widening cast as the demo exclusion above (deep PostgREST types trip
@@ -2165,13 +2173,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // vendor cards never get `demo_starts_at_label` set; the 2026-05-16
   // hide-prices lock continues to apply to them. Annotation is purely
   // additive — fields are optional on VendorCardRow.
-  if (inDemoMode && demoVendorIds.length > 0) {
+  // 🧪 Every demo row is marked for EVERY viewer (its card wears "(DEMO ONLY)");
+  // the starting price is still forced public only for an admin in demo mode.
+  if (demoVendorIds.length > 0) {
     const demoIdSet = new Set(demoVendorIds);
     const demoRowIds = rows
       .filter((r) => demoIdSet.has(r.vendor_profile_id))
       .map((r) => r.vendor_profile_id);
     if (demoRowIds.length > 0) {
-      const startingPrices = await fetchDemoStartingPrices(admin, demoRowIds);
+      const startingPrices = inDemoMode
+        ? await fetchDemoStartingPrices(admin, demoRowIds)
+        : new Map<string, number>();
       for (const row of rows) {
         if (demoIdSet.has(row.vendor_profile_id)) {
           row.is_demo = true;
@@ -2218,19 +2230,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     if (!inDemoMode) {
       broadened = broadened.eq('verification_state', 'verified');
     }
-    // Mirror the demo exclusion on the broadened count so the "Show
-    // all" empty-state messaging doesn't promise demo inventory to
-    // non-admin visitors. Same type-narrowing as the main query above.
-    if (!inDemoMode && demoVendorIds.length > 0) {
-      type BroadenedShape = {
-        not: (column: string, op: string, value: string) => typeof broadened;
-      };
-      broadened = (broadened as unknown as BroadenedShape).not(
-        'vendor_profile_id',
-        'in',
-        `(${demoVendorIds.join(',')})`,
-      );
-    }
+    // 🧪 No demo exclusion here either: "Show all" offers exactly what the
+    // main query lists, and the main query lists demo shops (marked).
     // B2 — mirror the main query's inquirable-service gate so "Show all" never
     // advertises inventory it cannot actually deliver a message to.
     broadened = broadened.in('vendor_profile_id', inquirableVendorIds);
@@ -2285,6 +2286,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // save it twice or conclude they lost it. Unlike the card enrichment below,
   // this is a false statement about something the person themselves did.
   let viewerStateFailed = false;
+  // 🗂 "Save to which event?" (owner 2026-11-06): with 2+ events of their own still ahead, the card's Save asks.
+  // The rows and their filter are the shop page's picker (`resolveAddShopToEvent`), untouched.
+  const saveChoices: HostEventChoice[] = user
+    ? await resolveHostEventChoices().then((c) => (c.signedIn && c.options.length >= 2 ? c.options : []))
+    : [];
   const [followedSet, savedSet] = await Promise.all([
     (async (): Promise<Set<string>> => {
       if (!user || visibleIds.length === 0) return new Set<string>();
@@ -2345,6 +2351,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       };
   let availability: AvailabilityState = { kind: 'none' };
   let visible = rows;
+
+  /*
+    🏪 LIVE SHOPS THE GRID LEAVES OUT (live walk 2026-11-01). B2 above keeps a
+    shop with no active service off the grid — correctly, a card there is a dead
+    end — but the landing then said "No suppliers have published" under its own
+    "The first shops" heading, while the front door showed the very shop. Read
+    only when the unfiltered landing's grid came back EMPTY and the live count
+    says a shop exists: one read of at most 8 rows, under the one live gate, so
+    the empty grid names the same shops (and links) the front door does. A
+    failed read names none — the line above it still says only what was
+    measured. See lib/explore-empty-grid.ts.
+  */
+  let stillSettingUp: ShopStillSettingUp[] = [];
+  if (isLandingView && rows.length === 0 && (liveShopCount ?? 0) > 0) {
+    const { data: liveRows, error: liveRowsError } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name, business_slug')
+      .match(LIVE_SHOP_GATE)
+      .order('business_name')
+      .limit(8);
+    if (liveRowsError) {
+      console.error('[supabase-error] app/(shell)/explore/page.tsx · live shops still setting up', liveRowsError);
+    } else {
+      stillSettingUp = shopsStillSettingUp(liveRows ?? [], inquirableVendorIds);
+    }
+  }
   if (coupleEventId && coupleEventDate && coupleEventDatePrecision) {
     const window = computeCandidateWindow(coupleEventDate, coupleEventDatePrecision);
     if (window) {
@@ -3188,30 +3220,39 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
   // Badge computation runs against the enriched `visible` set so
   // percentile thresholds reflect what's on this page.
-  const badgesByVendorId = computeVendorBadges(
-    visible.map((v) => {
-      // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
-      // stat — never the raw avg_rating_overall / review_count. Vendors with
-      // no trusted-stats row pass 0/0 so they simply don't earn the badge.
-      //
-      // ✅ `?.` because the map is null when the read FAILED — and here 0/0 is
-      // the RIGHT answer either way: no data, no badge, nothing asserted. This
-      // is the consumer the fail-soft was designed for. The card's star rating
-      // is the one that needed a different answer.
-      const trusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
-      return {
-        vendor_profile_id: v.vendor_profile_id,
-        verification_state: v.verification_state ?? null,
-        next_renewal_due_at: v.next_renewal_due_at ?? null,
-        created_at: v.created_at,
-        avg_rating_overall: v.avg_rating_overall ?? 0,
-        review_count: v.review_count ?? 0,
-        trusted_avg_rating: trusted?.avg ?? 0,
-        trusted_review_count: trusted?.count ?? 0,
-      };
-    }),
-    bookingCounts,
-  );
+  //
+  // 🔢 TWO POPULATIONS, NEVER ONE (owner 2026-11-06: "demo numbers never count in real totals"). A demo shop's
+  // bookings and reviews must not move a real shop's percentile ("Most booked", "Top N%"), so real cards are ranked
+  // among real cards only, and demo cards among demo cards (so a demo shop still shows how badges look).
+  const badgesFor = (population: typeof visible) =>
+    computeVendorBadges(
+      population.map((v) => {
+        // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
+        // stat — never the raw avg_rating_overall / review_count. Vendors with
+        // no trusted-stats row pass 0/0 so they simply don't earn the badge.
+        //
+        // ✅ `?.` because the map is null when the read FAILED — and here 0/0 is
+        // the RIGHT answer either way: no data, no badge, nothing asserted. This
+        // is the consumer the fail-soft was designed for. The card's star rating
+        // is the one that needed a different answer.
+        const trusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
+        return {
+          vendor_profile_id: v.vendor_profile_id,
+          verification_state: v.verification_state ?? null,
+          next_renewal_due_at: v.next_renewal_due_at ?? null,
+          created_at: v.created_at,
+          avg_rating_overall: v.avg_rating_overall ?? 0,
+          review_count: v.review_count ?? 0,
+          trusted_avg_rating: trusted?.avg ?? 0,
+          trusted_review_count: trusted?.count ?? 0,
+        };
+      }),
+      bookingCounts,
+    );
+  const badgesByVendorId = new Map([
+    ...badgesFor(visible.filter((v) => v.is_demo !== true)),
+    ...badgesFor(visible.filter((v) => v.is_demo === true)),
+  ]);
 
   // Social auto-publish flush — called AFTER all cookies()/createClient() reads
   // so Next.js 15 doesn't flag it as "cookies() inside after()". The after()
@@ -3534,12 +3575,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             {isLandingView ? (
               <div className="mt-4">
                 <h2 className="text-lg font-semibold tracking-tight text-ink">
-                  {(liveShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                  {(realShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
                     ? 'Trending shops'
                     : 'The first shops'}
                 </h2>
                 <p className="mt-1 text-sm text-ink/60">
-                  {(liveShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                  {(realShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
                     ? 'Ranked by what couples actually book and review.'
                     : 'The suppliers who opened first. New shops appear here as they join.'}
                 </p>
@@ -3701,6 +3742,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           <EmptyState
             filters={filters}
             broadenedCount={broadenedCount}
+            stillSettingUp={stillSettingUp}
             eventTypeLabel={
               filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
             }
@@ -3761,6 +3803,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     href: shopAddress(c.businessSlug),
                     logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
                     city: c.locationCity,
+                    isDemo: c.isDemo,
                   }}
                 />
               </li>
@@ -3808,6 +3851,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
+                    saveEvents={saveChoices}
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
                     badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
@@ -4083,6 +4127,7 @@ function ReadsResults({ hits, query }: { hits: ReadHit[]; query: string }) {
 function EmptyState({
   filters,
   broadenedCount,
+  stillSettingUp,
   eventTypeLabel,
 }: {
   filters: {
@@ -4100,6 +4145,8 @@ function EmptyState({
     focusedMode: boolean;
   };
   broadenedCount: number | null;
+  /** Live shops with no active service yet — named on the unfiltered empty grid (lib/explore-empty-grid.ts). */
+  stillSettingUp: ShopStillSettingUp[];
   /** Couple-facing label for filters.eventType (DB vocab; null when unset). */
   eventTypeLabel: string | null;
 }) {
@@ -4224,18 +4271,31 @@ function EmptyState({
 
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+      {/* 🔴 THE UNFILTERED LINES COME FROM `unfilteredEmptyGridCopy`. They said "No suppliers have published
+          their Setnayan profile yet." — never measured: the grid lists shops WITH an active service (B2), so an
+          empty grid proves only that no service is listed, and on 2026-11-01 a live shop (SetnaProd, on the front
+          door and at /setnaprod) sat right behind that sentence. lib/explore-empty-grid.ts. */}
       <p className="text-base font-medium text-ink/75">
-        {hasFilter
-          ? 'No suppliers match exactly.'
-          : 'No suppliers have published their Setnayan profile yet.'}
+        {hasFilter ? 'No suppliers match exactly.' : unfilteredEmptyGridCopy(stillSettingUp.length).line}
       </p>
       <p className="mt-1 text-sm text-ink/55">
         {hasFilter
           ? showAllAvailable
             ? `We have ${formatCount(broadenedCount)} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
             : 'Try widening your search or clearing one filter at a time.'
-          : 'Check back soon — suppliers are landing every week.'}
+          : unfilteredEmptyGridCopy(stillSettingUp.length).sub}
       </p>
+      {!hasFilter && stillSettingUp.length > 0 ? (
+        <ul className="mt-4 flex flex-wrap justify-center gap-2" data-still-setting-up="">
+          {stillSettingUp.map((shop) => (
+            <li key={shop.href}>
+              <Link href={shop.href} className="button-secondary inline-flex h-10 px-4">
+                {shop.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {hasFilter ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {showAllAvailable ? (
@@ -4539,23 +4599,24 @@ async function CatalogView({
   const TILE_PARENT = tax.tileParent as Record<WeddingTile, WeddingFolder>;
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
-  // 2026-05-22 evening — also fetch the demo vendor ID list so the inline
-  // FolderVendorsSection + the CategoryTile "Sample: …" preview line can
-  // exclude demo vendors when the viewer isn't in demo mode (mirrors the
-  // exclusion the vendor-grid query already applies).
+  // 🧪 2026-11-06 — the demo vendor ID list no longer EXCLUDES anything from
+  // the inline FolderVendorsSection or the tile preview line (demo shops are
+  // public, marked "(DEMO ONLY)"); it now tells FolderVendorsSection which of
+  // its cards wear the marker. The per-service COUNTS stay real-only
+  // (`fetchVendorCountsByService`, lib/vendor-counts.ts — "demo numbers never
+  // count in real totals").
   const [{ data: schemaRows }, vendorCounts, demoVendorIdsRaw] = await Promise.all([
     admin
       .from('canonical_service_schemas')
       .select('canonical_service, display_name_en, display_name_tl')
       .order('display_name_en', { ascending: true }),
     fetchVendorCountsByService(admin, inDemoMode),
-    inDemoMode ? Promise.resolve([] as string[]) : fetchDemoVendorIds(admin),
+    fetchDemoVendorIds(admin),
   ]);
 
   const schemas = (schemaRows ?? []) as CatalogSchemaRow[];
-  const catalogExcludeVendorIds: ReadonlyArray<string> = inDemoMode
-    ? []
-    : demoVendorIdsRaw;
+  const catalogExcludeVendorIds: ReadonlyArray<string> = [];
+  const catalogDemoVendorIds: ReadonlyArray<string> = demoVendorIdsRaw;
 
   // Popular-search chips for the hero = top categories by live vendor count
   // (owner directive 2026-06-14 — "Popular searches" under the bare search
@@ -5102,6 +5163,7 @@ async function CatalogView({
               <FolderVendorsSection
                 folder={folder}
                 excludeVendorIds={catalogExcludeVendorIds}
+                demoVendorIds={catalogDemoVendorIds}
                 venueAnchor={venueAnchor}
                 currentEventId={currentEventId}
                 focusedMode={focusedMode}

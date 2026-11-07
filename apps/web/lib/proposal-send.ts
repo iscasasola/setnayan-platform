@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { notifyOtherParty } from '@/lib/chat-actions';
@@ -18,6 +19,7 @@ import {
 import { applyFreeTransportToQuote } from '@/lib/vendor-free-transport';
 import { resolveThreadFreeTransport } from '@/lib/vendor-free-transport.server';
 import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
+import { writeQuoteShopGifts } from '@/lib/shop-gifts.server';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -56,6 +58,8 @@ export type SendProposalError =
   // two cases as the backstop.
   | 'deal_locked'
   | 'lock_requested'
+  // 🎁 the shop's own gifts on the quote did not fit (over the limit, short in stock, off sale) — re-judged on send.
+  | 'gift_refused'
   | 'failed';
 
 export type SendProposalResult =
@@ -123,6 +127,17 @@ async function gateVendorProposalThread(
       code: 'thread_closed',
       message: 'You can only send a quote on an open conversation.',
     };
+  }
+
+  // 🧪 A DEMO SHOP NEVER QUOTES A REAL EVENT, a real shop never quotes a demo event (owner 2026-11-06,
+  // lib/demo-scope.ts). A legacy thread that pairs the two keeps its history but can carry no new quote; the
+  // trigger `refuse_demo_cross_booking` on vendor_proposals is the backstop.
+  {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    });
+    if (demoRefusal) return { ok: false, code: 'failed', message: demoRefusal };
   }
 
   // ── S5 · MAY THIS SUPPLIER RE-QUOTE? ──────────────────────────────────────
@@ -462,6 +477,11 @@ export interface SendCustomProposalInput {
    * NULL is the honest value there, not an empty array.
    */
   serviceCardIds?: string[] | null;
+  /**
+   * 🎁 The shop's own gifts, one pack code per pack (owner 2026-11-04). A REQUEST: `writeQuoteShopGifts` re-judges it
+   * against a fresh read of the stock and the limit, and a refusal stops the send.
+   */
+  shopGiftCodes?: string[] | null;
 }
 
 const MAX_CUSTOM_LINE_ITEMS = 60;
@@ -656,6 +676,31 @@ export async function sendCustomProposalCore(
 
   // Booking-fee prepaid SEND-gate RETIRED 2026-07-24 (see sendProposalCore) — the
   // fee TRIGGER moved to the LOCK. Retired to keep a single trigger; inert today.
+
+  /*
+    🎁 THE SHOP'S OWN GIFTS — written while the quote is still a DRAFT, so a refusal deletes it like every other send
+    failure and the couple never sees a quote whose gift was not really there. Re-judged on the server from a fresh
+    read (stock · live packs · the 40% limit on THIS total); the composer's list is a request, never a grant.
+  */
+  if (input.shopGiftCodes && input.shopGiftCodes.length > 0) {
+    const gifts = await writeQuoteShopGifts(createAdminClient(), {
+      proposalId: inserted.proposal_id,
+      vendorProfileId: profile.vendor_profile_id,
+      eventId,
+      totalCentavos,
+      codes: input.shopGiftCodes,
+    });
+    if (!gifts.ok) {
+      // The draft never reached the couple; a draft left behind is invisible to them, so a failed delete is logged.
+      const { error: undoErr } = await supabase
+        .from('vendor_proposals')
+        .delete()
+        .eq('proposal_id', inserted.proposal_id)
+        .eq('status', 'draft');
+      if (undoErr) console.error(`[proposal-send] gift-refused draft ${inserted.proposal_id} not removed:`, undoErr.message);
+      return { ok: false, code: 'gift_refused', message: gifts.message };
+    }
+  }
 
   const { error: sendErr } = await supabase
     .from('vendor_proposals')

@@ -19,6 +19,7 @@
  * Wedding tile) lands in Phase 5. For Phase 1 the route is reachable directly
  * but NOT linked from any production surface yet.
  */
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -215,6 +216,7 @@ export default async function OnboardingWeddingPage({
       servicesStepView={servicesStepView}
       servicesStepAiValue={servicesStepAiValue}
       authed={!!user}
+      dateExempt={user ? await viewerIsInternal().catch(() => false) : false}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
       religionDefault={religionDefault}

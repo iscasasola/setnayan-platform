@@ -14,6 +14,9 @@
  *   ?s=card      the first card, seeded from the couple's record — the price
  *                box waits for the photo and what's included (`CanvasMaker`)
  *   ?s=record    the couple's record sheet (`NewManualVendorModal`, edit mode)
+ *                `&price=395000` starts it priced · `&booked=1` re-opens the
+ *                plan the lock seeds (Setnayan's 50/50 estimate) the way the
+ *                real loader does (`planInstancesToRows`, `defaultSeeded`)
  *
  * Names are samples (the prototype's): nobody real.
  */
@@ -22,7 +25,11 @@ import { CoupleLinkDoor } from '@/app/vendor/claim/[token]/_components/claim-par
 import { claimDatePhrase, inviterFirstNames } from '@/lib/claim-invite-words';
 import { coupleCardToCanvasInitial } from '@/lib/couple-card-to-canvas';
 import { buildShortlistFolders, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
+import { planInstancesToRows } from '@/lib/self-added-payment-plan';
+import { computePlanInstances, defaultPaymentScheduleRows } from '@/lib/vendor-service-payment-schedules';
 import { LabCard, LabRecord } from './lab-client';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { labSupplierShare } from '../lab-supplier-share';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000aa';
@@ -65,12 +72,44 @@ export default async function AddYourOwnLabPage({
     // `&who=dunkin` — the owner's own card (2026-10-20): a doughnut cart filed
     // under Everything else that already "also covers" Guest booths.
     const dunkin = sp.who === 'dunkin';
+    const priced = typeof sp.price === 'string' && /^\d+$/.test(sp.price) ? sp.price : '';
+    const planRows =
+      sp.booked === '1' && priced
+        ? planInstancesToRows(
+            JSON.parse(
+              JSON.stringify(
+                computePlanInstances({
+                  scheduleRows: defaultPaymentScheduleRows(),
+                  totalCostPhp: Number(priced),
+                  lockDateIso: '2026-10-29',
+                  eventDateIso: '2026-12-18',
+                }),
+              ),
+            ),
+            { defaultSeeded: true },
+          )
+        : [];
     return (
       <main className="min-h-screen" data-lab-add-own="record">
         <LabRecord
           eventId={LAB_EVENT}
+          // `&nolink=1` — the link could not be made: the card says so, with Try again.
+          link={sp.nolink === '1' ? undefined : { url: 'https://setnayan.com/vendor/claim/lab-sample-token', qrSvg: await renderUrlQrSvg('https://setnayan.com/vendor/claim/lab-sample-token') }}
           coverCatalog={coverCatalogFromFolders(
             buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
+          )}
+          share={await labSupplierShare(
+            {
+              shopName: dunkin ? "Dunkin' Donuts" : SUPPLIER,
+              contactPerson: 'Maria Santos',
+              eventWord: 'wedding',
+              eventDate: '2026-12-18',
+              datePrecision: 'day',
+              service: dunkin ? 'Everything else' : 'Catering',
+              hostsName: 'Ana & Paolo',
+              services: dunkin ? ['Everything else', 'Guest booths'] : ['Catering'],
+            },
+            'https://setnayan.com/vendor/claim/lab-sample-token',
           )}
           categoryLabel={dunkin ? 'Everything else' : 'Catering'}
           edit={{
@@ -85,8 +124,24 @@ export default async function AddYourOwnLabPage({
             // `&claim=1` — they claimed the couple's link and wait for Approve (#6709).
             claimAsk: sp.claim === '1',
             inclusions: '',
-            price: '',
-            planRows: [],
+            price: priced,
+            planRows,
+            planSaved: planRows.length > 0,
+            // The record card's dated rows (2026-10-29): what "after you book" counts from, and the event date.
+            planDates: { lockIso: '2026-10-29', eventIso: '2026-12-18' },
+            planSeqs: planRows.map((_, i) => i),
+            // `&paid=1` — the first payment is logged, so the card keeps it as it is.
+            settledSeqs: sp.paid === '1' ? [0] : [],
+            // `&replot=1` — a price change already re-plotted this plan once.
+            lastReplot: sp.replot === '1' && priced ? { fromPhp: Math.round(Number(priced) * 0.9), toPhp: Number(priced), at: '2026-10-29T00:00:00Z' } : null,
+            // `&ways=1` — How to pay them, already added.
+            payWays:
+              sp.ways === '1'
+                ? [
+                    { method: 'gcash', details: 'Maria Santos · 0917 555 1234', qr: null, qrUrl: null },
+                    { method: 'bank', details: 'BPI · Tita Baby’s Catering · 1234-5678-90', qr: null, qrUrl: null },
+                  ]
+                : [],
           }}
         />
       </main>
@@ -108,6 +163,7 @@ export default async function AddYourOwnLabPage({
         contactPerson="Maria Santos"
         contactPhone={null}
         signupUrl="/dev/add-your-own-lab?s=card"
+        signInUrl="/dev/add-your-own-lab?s=card"
         decline={
           <button
             type="button"

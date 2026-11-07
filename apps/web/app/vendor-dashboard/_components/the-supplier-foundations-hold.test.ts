@@ -23,7 +23,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { TOURS, TOUR_KEYS } from '@/lib/tours';
-import { customerLandingHref } from '../customers/anchors';
+import { SUPPLIER_CHATS_HREF } from '../customers/anchors';
 import { leavesThePage } from './supplier-thumb-leave';
 import { supplierPageTourOn } from '@/lib/supplier-page-tours';
 
@@ -116,9 +116,10 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   assert.ok(env, 'the envelope is not in the cluster handed to the shared bar');
   assert.equal(cluster.match(/<UnreadMessagesBadge\b/g)!.length, 1, 'two envelopes are two count polls');
   assert.match(env[0], /initialUnread=\{threadsUnread\}/, 'the envelope is seeded from something other than the unread MESSAGES count');
-  assert.match(env[0], /href=\{customerLandingHref\('messages'\)\}/, 'the envelope does not land on the inbox through the anchors table');
-  // 2026-10-28: the envelope lands on People's list itself — one row per event, each its chat (no Messages fold).
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people#customers');
+  assert.match(env[0], /href=\{SUPPLIER_CHATS_HREF\}/, 'the envelope does not land on Chats through the anchors module');
+  // 2026-11-06 (owner: "Why is it still jumping to customer events"): the envelope opens the supplier's own full-screen
+  // Chats page — no longer Customers › Events (2026-10-28 → 2026-11-06).
+  assert.equal(SUPPLIER_CHATS_HREF, '/vendor-dashboard/messages');
   assert.ok(cluster.indexOf('<UnreadMessagesBadge') < cluster.indexOf('<AccountSwitcher'), 'the envelope sits after the avatar');
   // The supplier's own rows ride along (step 5's rows + step 6's sheet, prototype SHEETS.avatar).
   assert.match(cluster, /<AccountSwitcher\s+data=\{switcherData\}\s+shopRows=\{switcherShopRows\}[^>]*\/>/, 'the avatar — and the only Sign out — left the bar');

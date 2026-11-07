@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { whereNoticeUrl } from '@/lib/supplier-where';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ModeratorPermissions } from '@/lib/delegate-areas';
 // The window is applied inside `scheduleRequestRecipients` (delegate-access-window),
@@ -34,6 +35,13 @@ export async function notifyScheduleRequest(input: {
   itemLabel: string | null;
   proposesChange: boolean;
   note: string;
+  /** Auto-agree put it on the schedule already (Step 4b) — the notice says it is in, not that it waits. */
+  applied?: boolean;
+  /**
+   * 📍 A supplier's Where pick (owner 2026-11-04): its own IN-APP-ONLY type and title, opening the Requests sheet —
+   * never `schedule_change_requested`, which is emailed (owner: no new emails).
+   */
+  where?: { names: string; suggestionId: string };
 }): Promise<void> {
   const admin = createAdminClient();
   const [membersRes, seatsRes, eventRes] = await Promise.all([
@@ -72,13 +80,28 @@ export async function notifyScheduleRequest(input: {
     now: new Date(),
   });
 
-  const title = scheduleRequestTitle({
+  const title = input.where
+    ? `${input.supplierName} ${input.applied ? 'is now on' : 'asks to work'} ${input.where.names}`.slice(0, 160)
+    : scheduleRequestTitle({
     supplierName: input.supplierName,
     kind: input.kind,
     itemLabel: input.itemLabel,
     proposesChange: input.proposesChange,
+    applied: input.applied === true,
   });
   for (const userId of recipients) {
+    if (input.where) {
+      // 📍 A supplier's Where pick: in the app only, opening the Requests sheet (OK / Decline / Change).
+      await emitNotification({
+        userId,
+        type: 'supplier_where_asked',
+        title,
+        body: input.applied ? 'Auto-agree put them on those chapters.' : 'OK it, or change their chapters yourself.',
+        // The request rides the link, so the notice's own OK answers exactly it (`whereNoticeTarget`).
+        relatedUrl: whereNoticeUrl(input.eventId, input.where.suggestionId),
+      });
+      continue;
+    }
     await emitNotification({
       userId,
       type: 'schedule_change_requested',

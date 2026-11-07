@@ -32,6 +32,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ActionButton } from '@/components/action-button';
 import { Chips } from './chips';
 import { SwitchTrack } from './switch-track';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /** CTA lifecycle so the footer button reflects submit/sent state. */
 export type RequirementsModalPhase = 'idle' | 'submitting' | 'sent' | 'error';
@@ -109,12 +110,7 @@ export function RequirementsModal({
       aria-labelledby="requirements-modal-title"
     >
       {/* The popup rule's dark — dark AND blurred; a tap on it closes. */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="sn-popup-dark absolute inset-0 cursor-default"
-      />
+      <OverlayBackdrop onClose={onClose} />
 
       {/* Modal panel */}
       <div

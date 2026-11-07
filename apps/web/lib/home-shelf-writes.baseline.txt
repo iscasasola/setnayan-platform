@@ -43,8 +43,8 @@ unreadable	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio
 unreadable	orders	app/vendor-dashboard/subscription/actions.ts	1
 unreadable	orders	app/vendor-dashboard/subscription/ai-addon-actions.ts	2
 unreadable	orders	app/vendor-dashboard/subscription/booth-addon-actions.ts	2
-unreadable	orders	app/vendor-dashboard/subscription/custom/actions.ts	1
 unreadable	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2
+unreadable	orders	app/vendor-dashboard/subscription/ultra-addon-actions.ts	1
 unreadable	orders	app/vendor-dashboard/team/actions.ts	1
 unreadable	orders	lib/iap/fulfil.server.ts	1
 unreadable	orders	lib/onboarding-services-orders.ts	1
@@ -62,12 +62,12 @@ unreadable	vendor_profiles	app/vendor-dashboard/actions.ts	3
 unreadable	vendor_profiles	app/vendor-dashboard/shop/inline-docs-actions.ts	1
 unreadable	vendor_profiles	app/vendor-dashboard/shop/public-line-actions.ts	1
 unreadable	vendor_profiles	lib/erasure/purge.ts	1
-unreadable	vendor_profiles	lib/sku-activation.ts	3
+unreadable	vendor_profiles	lib/sku-activation.ts	4
 waits	creator_chapters	app/admin/storytellers/actions.ts	1
 waits	event_type_vocab	app/admin/categories/actions.ts	3
 waits	event_type_vocab	lib/event-types-mutations.ts	2
 waits	events	app/admin/real-stories/actions.ts	3
-waits	events	app/dashboard/[eventId]/actions.ts	2
+waits	events	app/dashboard/[eventId]/actions.ts	3
 waits	events	app/dashboard/[eventId]/date-selection/actions.ts	1
 waits	events	app/dashboard/[eventId]/invitation/actions.ts	1
 waits	events	app/dashboard/[eventId]/monogram/studio-actions.ts	2
@@ -87,7 +87,6 @@ waits	events	lib/release-forced-date.ts	1
 waits	invitation_widgets	app/dashboard/[eventId]/website/widgets/actions.ts	1
 waits	invitation_widgets	lib/own-scene-delete.ts	1
 waits	invitation_widgets	lib/widget-config-write.ts	1
-waits	orders	app/admin/custom-plans/actions.ts	2
 waits	orders	app/admin/event-deletions/actions.ts	1
 waits	orders	app/admin/payments/actions.ts	4
 waits	orders	app/dashboard/[eventId]/checkout/actions.ts	3
@@ -102,8 +101,8 @@ waits	orders	app/vendor-dashboard/deep-search/actions.ts	1
 waits	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/ai-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/booth-addon-actions.ts	1
-waits	orders	app/vendor-dashboard/subscription/custom/actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2
+waits	orders	app/vendor-dashboard/subscription/ultra-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/team/actions.ts	1
 waits	orders	lib/booking-fee-lock.server.ts	2
 waits	orders	lib/iap/fulfil.server.ts	2

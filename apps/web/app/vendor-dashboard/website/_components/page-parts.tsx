@@ -33,8 +33,11 @@ import { DatesRow } from '../../customers/_components/dates-row';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { applyVendorPageDraft } from '../../actions';
+import { setShopPublished } from '../actions';
 import { usePageDraft } from './use-page-draft';
-import { BadgeTracker, type BadgeTrackerData } from './badge-tracker';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
+import type { ShopBadge } from '@/lib/shop-badges';
 import type { PagePlanLine } from '../page-data';
 
 /* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
@@ -68,6 +71,11 @@ export type PageClientData = {
   publicPath: string | null;
   displayHost: string;
   live: boolean;
+  /** 🧪 `vendor_profiles.is_demo` — the shop's page shows publicly marked "(DEMO ONLY)" (owner 2026-11-06); the card
+   *  that stands for that page here says so too. */
+  isDemo?: boolean;
+  /** 🏪 Show my page now (owner 2026-11-02) — `null`/absent: the switch is not drawn. */
+  showBeforeVerified?: { offer: boolean; shown: boolean } | null;
   visible: boolean;
   isVerified: boolean;
   kindWord: string | null;
@@ -84,24 +92,45 @@ export type PageClientData = {
   stories: { id: string; label: string }[] | null;
   personalizeAsks: boolean;
   proAsks: boolean;
+  /** Your own web address's ◆ — its own cap (`customWebsiteName`, Solo+ since 2026-11-04), not the Pro page parts'. */
+  addressAsks: boolean;
+  /** The first plan with your own web address, from the plan table ("Solo"). */
+  addressPlan: string;
   storeShell: boolean;
   plans: PagePlanLine[];
-  /** 🏅 Awards and badges — composed by `lib/shop-badges.ts` from today's reads. */
-  badges: BadgeTrackerData & { summary: string };
+  /** 🏅 Awards and badges — the pills couples see, composed by `lib/shop-badges.ts` from today's reads. */
+  badges: { summary: string; pills: ShopBadge[] };
 };
 
 export function PageParts({
   d,
   domainBody,
   autoReplyBody,
+  reviewsBody,
 }: {
   d: PageClientData;
   /** Your own web address — the shipped DomainManager (its own saves). */
   domainBody: ReactNode;
   /** The shipped auto-reply card, or null while its switch is off. */
   autoReplyBody: ReactNode | null;
+  /** 💬 The reviews with their reply form, read + reply in place (`review-replies.tsx`, server-drawn). */
+  reviewsBody: ReactNode;
 }) {
   const toast = useToast();
+  // 💬 A link to ONE review (`#reply_<id>` — Today's and the Answers Desk's "Open the review") lands on its reply box:
+  // open the Reviews and stories fold through its own anchor, then bring that box into view. Nothing else moves.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!/^#reply_[\w-]+$/.test(hash)) return;
+    window.history.replaceState(null, '', '#reviews');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    const t = setTimeout(() => {
+      const box = document.getElementById(hash.slice(1));
+      box?.scrollIntoView({ block: 'center' });
+      box?.focus({ preventScroll: true });
+    }, 750); // the fold opens at --sn-pill-dur (700 ms)
+    return () => clearTimeout(t);
+  }, []);
   const { draft, setDraft, clear, ready } = usePageDraft(d.vendorId, d.saved);
   const shown = useMemo(() => withDraft(d.saved, draft), [d.saved, draft]);
   const line = draftLine(draft, d.saved);
@@ -176,6 +205,7 @@ export function PageParts({
           <span className="min-w-0 flex-1 truncate text-sm text-ink/60">
             {[ratingLine, d.kindWord].filter(Boolean).join(' · ')}
           </span>
+          {d.isDemo ? <DemoOnlyMarker align="end" /> : null}
           <Badge tone={d.live ? 'ok' : 'quiet'} data="page-live">
             {d.live ? 'Couples can see it' : 'Not shown yet'}
           </Badge>
@@ -188,7 +218,9 @@ export function PageParts({
           )}
           <ActionButton tone="neutral" icon={Share2} label="Share my page" onClick={share} waiting={!d.publicPath || !d.live} className="min-h-11" />
         </div>
-        {!d.live ? (
+        {d.showBeforeVerified?.offer ? (
+          <ShowBeforeVerifiedRow shown={d.showBeforeVerified.shown} />
+        ) : !d.live ? (
           <p className="border-t border-ink/10 px-3.5 py-2.5 text-[13px] text-ink/60">
             Only you and your team can open it for now. Couples see it once Setnayan checks your documents and lists your shop.
           </p>
@@ -349,16 +381,28 @@ export function PageParts({
                 className="min-h-11 w-full"
               />
             ) : null}
-            <DatesRow data="page-reply" title="Reply to a review" href="/vendor-dashboard/reviews" />
+            {/* 💬 Reply in place (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL") — was a "Reply to a review" row
+                that jumped to /vendor-dashboard/reviews, which now forwards here. */}
+            {reviewsBody}
           </div>
         </Fold>
 
         <DatesRow data="page-where" lead={<RowIcon icon={MapPin} />} title="Where you work" line={d.whereLine} href="/vendor-dashboard/profile#where" />
 
-        {/* 🏅 THE TRACKER (owner 2026-10-28) — was a line that only said "they show by themselves"; now each badge in
-            the pill, where it stands, and the one action that moves it (`badge-tracker.tsx`). */}
+        {/* 🏅 THE PILLS COUPLES SEE (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL": Page keeps the badge pills
+            only; the one tracker — bars, next badge, the action that moves each — is Analytics › Your badges). */}
         <Fold anchor="badges" data="page-badges" lead={<RowIcon icon={Award} />} title="Awards and badges" line={d.badges.summary}>
-          <BadgeTracker d={d.badges} />
+          {d.badges.pills.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pb-4 pt-1" data-badge-pills="">
+              {d.badges.pills.map((b) => (
+                <ShopBadgePill key={b.key} badge={b} size="sm" />
+              ))}
+            </div>
+          ) : (
+            <p className="pb-4 pt-1 text-[13.5px] text-ink/60" data-badge-pills="none">
+              They show here by themselves as you earn them.
+            </p>
+          )}
         </Fold>
 
         <Fold
@@ -428,12 +472,13 @@ export function PageParts({
           anchor="domain"
           lead={<RowIcon icon={Globe} />}
           data="page-domain"
-          title={`Your web address${diamond(d.proAsks)}`}
+          title={`Your web address${diamond(d.addressAsks)}`}
           line={d.publicPath ? `${d.displayHost}${d.publicPath}` : 'Name your shop first'}
         >
-          {/* 💳 Your OWN web address is a ◆ Pro item (owner 2026-10-15, DECISION_LOG "SIX OWNER ANSWERS" (3)) — the same
-              flag-aware question as the cover photo (`proAsks` = customWebsiteName); `addVendorDomain` asks it again. */}
-          {d.proAsks ? <PlanAsk plan="Pro" when="adding your own address asks for Pro" /> : null}
+          {/* 💳 Your OWN web address is a ◆ plan item (owner 2026-10-15, DECISION_LOG "SIX OWNER ANSWERS" (3); Solo+
+              since 2026-11-04) — the flag-aware question on its own cap (`addressAsks` = customWebsiteName);
+              `addVendorDomain` asks it again. */}
+          {d.addressAsks ? <PlanAsk plan={d.addressPlan} when={`adding your own address asks for ${d.addressPlan}`} /> : null}
           <div className="pb-4">{domainBody}</div>
         </Fold>
 
@@ -481,7 +526,7 @@ export function PageParts({
 }
 
 /** ◆ — a plan's part. Information, never a lock: the control works, and Apply is where the plan is asked. */
-function PlanAsk({ plan, when }: { plan: 'Solo' | 'Pro'; when?: string }) {
+function PlanAsk({ plan, when }: { plan: string; when?: string }) {
   // `when` — a part with its own save (not the page's Apply) says which press asks for the plan.
   return (
     <p className="flex flex-wrap items-center gap-2 text-xs text-ink/60">
@@ -558,5 +603,55 @@ function PickTile({
         </span>
       ) : null}
     </button>
+  );
+}
+
+/**
+ * 🏪 SHOW MY PAGE NOW — before Setnayan verifies the shop, while bookings are closed (owner 2026-11-02; the gate is
+ * `selfPublishedLive`, lib/own-shop-preview.ts). The house switch, saved in place (a save never resets the screen).
+ * Couples can open the page at its address; it is not listed in the marketplace, and nothing on it can be booked.
+ */
+function ShowBeforeVerifiedRow({ shown }: { shown: boolean }) {
+  const [on, setOn] = useState(shown);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const toggle = () => {
+    const next = !on;
+    setError(null);
+    start(async () => {
+      const res = await setShopPublished(next);
+      if (res.ok) setOn(res.shown);
+      else setError(res.error);
+    });
+  };
+  return (
+    <div className="border-t border-ink/10 px-3.5 py-2" data-show-before-verified={on ? 'on' : 'off'}>
+      <div className="flex min-h-[56px] items-center gap-3">
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] text-ink">Show my page now</span>
+          <span className="block text-[13px] text-ink/55">
+            {on
+              ? 'Couples can open it at your address. Your Verified badge comes when Setnayan approves your documents.'
+              : 'Couples can open it at your address before you are verified. Bookings open later.'}
+          </span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="Show my page now"
+          disabled={pending}
+          onClick={toggle}
+          className={SWITCH_BUTTON}
+        >
+          <SwitchTrack on={on} />
+        </button>
+      </div>
+      {error ? (
+        <p role="status" className="pb-1 text-[13px] text-danger-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

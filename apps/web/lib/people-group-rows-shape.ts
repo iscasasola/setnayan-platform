@@ -30,6 +30,9 @@ export type GroupChatRow = {
   nextEvent: { label: string } | null;
   /** Messages from others since you last opened the group. null = the count was refused (never drawn as 0). */
   unread: number | null;
+  /** DEV LABS ONLY — where the row opens instead of `/dashboard/samahan/<id>` (`/dev/people-lab` → `/dev/group-lab`, so
+   *  the ‹-returns-in-place walk runs signed out). The reader never sets it. */
+  labHref?: string;
 };
 
 /** The one read's rows, as PostgREST returns the embedded resources. */

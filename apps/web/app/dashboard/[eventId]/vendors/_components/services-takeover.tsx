@@ -7,7 +7,7 @@
  * PR1; prototype `prototypes/suppliers_page_2026-10-07_fable.html`).
  *
  *   the date · place line        the ONLY place the date and the place appear
- *   Find · Build N/M · Booked N  ONE segmented control (`ISegmented`, wine)
+ *   [Booked · Team ▾] · 3 booked · ⚙   ONE dropdown row (`PickMenu`) — at rest and pinned (2026-10-31)
  *   one body                     that swaps — nothing else on the page
  *   the cart peek                `build-cart.tsx` — rises when a supplier is
  *                                added to the build
@@ -41,13 +41,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 import { flushSync } from 'react-dom';
 import { Sparkles } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Count } from '@/components/count';
-import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
+import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -58,7 +59,6 @@ import {
   type BudgetBuildTab,
 } from '@/lib/budget-build';
 import {
-  SUPPLIERS_MODES,
   SUPPLIERS_MODE_LABEL,
   SUPPLIERS_MODE_TAB,
   isModeTab,
@@ -116,9 +116,17 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
 
 /** The bench's own anchors (`slfold-…` / `sltile-…`) and every `#svc-*` section
  *  land BELOW the pinned block: `--stick-h` is the top bar plus the block,
- *  measured (as the prototype measures it). */
+ *  measured (as the prototype measures it).
+ *
+ *  📌 AN OPENED CATEGORY LANDS ON THE LINE ITSELF (owner 2026-10-29, "it made the service card not placed
+ *  properly"). Its head is the row's first child and pins at `--stick-h`, so the row's margin is exactly `--stick-h`:
+ *  the head rests directly under the pinned row — where it will pin — and its body follows it in the flow. It was
+ *  `+ 14px`, a strip the head then jumped across as the page moved. Anything INSIDE an open category (its body, a
+ *  card) clears the pinned row AND that head, its own height measured (`--cat-head-h`, `lib/pin-landing.ts`). */
 const LANDING_CSS =
-  '[data-budget-build-takeover] .slcat [id^="slfold-"],[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
+  '[data-budget-build-takeover] .slcat [id^="slfold-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
+  '[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:var(--stick-h,150px)}' +
+  '[data-budget-build-takeover] .slcat .cat.open>.cat-collapse>.cat-body,[data-budget-build-takeover] .slcat .cat.open .cat-body :is(.vcw,[id]){scroll-margin-top:calc(var(--stick-h,150px) + var(--cat-head-h,0px))}' +
   '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}' +
   // THE PINNED BLOCK TRAVELS WITH THE APP'S TOP BAR. On a phone the bar slides
   // away as the page scrolls down and back as it scrolls up — `.fd-topwrap` in
@@ -130,6 +138,10 @@ const LANDING_CSS =
   // leaving a strip between the bar and the date line where the rows behind
   // showed through (controller's walk at 375, 2026-10-08).
   '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
+// 📌 ONE ROW, THE SAME AT REST AND PINNED (owner 2026-10-30 "all yes" — DECISION_LOG "ONE SELECTOR FOR EVERY PAGE";
+// owner 2026-10-31, live iPhone: *"Suppliers. needs to have that drop down effect to be able to safely integrate
+// all"*). The segmented Find | Build | Booked row and the face that lay over it while pinned are GONE: the row is one
+// `Page · View ▾` dropdown, its count, and the ⚙ — nothing to swap, so nothing below ever moves.
 
 function prefersReducedMotion(): boolean {
   return (
@@ -345,11 +357,16 @@ export function ServicesTakeover({
     ro?.observe(stick);
     window.addEventListener('resize', sync);
     window.addEventListener('scroll', sync, { passive: true });
+    // 📌 The row's `top` follows the bar over .3s; the bar hides AFTER the last scroll event, so "stuck" is asked again
+    // once the row has arrived — measured mid-slide it read "not stuck" and the folded row never showed (WebKit walk,
+    // 2026-10-30: scrolled 450 px, row at the top, no fold).
+    stick.addEventListener('transitionend', sync);
     return () => {
       mo?.disconnect();
       ro?.disconnect();
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync);
+      stick.removeEventListener('transitionend', sync);
     };
   }, []);
 
@@ -379,6 +396,34 @@ export function ServicesTakeover({
 
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);
   const modeState = useMemo(() => ({ mode, leaving, thumbUp }), [mode, leaving]);
+  /**
+   * 📌 THE ROW'S ONE DROPDOWN — Find · Build · Booked (owner 2026-10-30 "ONE SELECTOR FOR EVERY PAGE"; 2026-11-02
+   * "BOOKED IS JUST THE TEAM": *"and booked-team will just be booked."*). Booked's Team · Budget · Schedule parts are
+   * gone — Budget and Schedule are Home's own pages — so the dropdown names the three bodies, each with its count.
+   */
+  const buildCount = tally.filled > 0 ? `${tally.filled}/${tally.total}` : null;
+  const faceOptions: PickOption[] = [
+    { key: 'find', label: SUPPLIERS_MODE_LABEL.find },
+    { key: 'build', label: SUPPLIERS_MODE_LABEL.build, trail: buildCount ? { text: buildCount, tone: 'muted' } : undefined },
+    { key: 'booked', label: SUPPLIERS_MODE_LABEL.booked, trail: bookedCount > 0 ? { text: formatCount(bookedCount), tone: 'muted' } : undefined },
+  ];
+  const faceWords = SUPPLIERS_MODE_LABEL[mode];
+  const pickFace = (key: string) => {
+    if (key === mode || (key !== 'find' && key !== 'build' && key !== 'booked')) return;
+    goToBuildTab(SUPPLIERS_MODE_TAB[key]);
+  };
+  /** The count the row can count itself — Build's N/M, the team's N booked.
+   *  `Count` rolls the number when a press moves it (Add to build answers in place). */
+  const faceCount =
+    mode === 'build' && buildCount ? (
+      <span data-sup-row-count-of="build">
+        <Count value={tally.filled} id="sup-row-filled" />/<Count value={tally.total} id="sup-row-total" />
+      </span>
+    ) : mode === 'booked' && bookedCount > 0 ? (
+      <span data-sup-row-count-of="booked">
+        <Count value={bookedCount} id="sup-row-booked" /> booked
+      </span>
+    ) : null;
 
   return (
     /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05). This section
@@ -412,42 +457,36 @@ export function ServicesTakeover({
         </div>
       ) : null}
 
-      {/* ── 📌 PINNED: Find · Build · Booked, ONE row (owner 2026-10-27, Suppliers A; amended "On the pinned the
-          selectors should stay but simplified"). The same segments, drawn tighter. `.sn-ambient` is the page's own
-          ground, so the row reads as the page, not a box; it spans the column's gutters so rows scroll clean under
-          it. 🔒 lib/the-pinned-row-is-one-row.test.ts */}
+      {/* ── 📌 PINNED: ONE row, at rest and pinned alike — `[Booked ▾]` · its count · ⚙ (owner 2026-10-30
+          "all yes", DECISION_LOG "ONE SELECTOR FOR EVERY PAGE"; 2026-10-31 *"Suppliers. needs to have that drop down
+          effect"*; 2026-11-02 Find · Build · Booked only — "BOOKED IS JUST THE TEAM"). The one shared dropdown (`PickMenu`, its compact face — never a local look), never a segmented row.
+          `.sn-ambient` is the page's own ground, so the row reads as the page, not a box; it spans the column's gutters
+          so rows scroll clean under it. 🔒 lib/the-pinned-row-is-one-row.test.ts · lib/suppliers-one-dropdown.test.ts */}
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex items-center gap-2 px-4 pb-1.5 pt-2 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex min-h-[52px] items-center gap-2 px-4 py-1.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
         data-tour="suppliers-segments"
         data-first-row=""
       >
-        <ISegmented label="Find, Build or Booked">
-          {SUPPLIERS_MODES.map((m) => (
-            <ISeg
-              key={m}
-              tone="wine"
-              on={mode === m}
-              data={m}
-              // The segmented control DRIVES THE BUS: a press dispatches the
-              // mode's own tab key, and the listener above swaps the body.
-              onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[m])}
-            >
-              {SUPPLIERS_MODE_LABEL[m]}
-              {m === 'build' && tally.filled > 0 ? (
-                <span className="ml-0.5 font-medium opacity-80" data-seg-count="build">
-                  <Count value={tally.filled} id="sup-seg-filled" />/<Count value={tally.total} id="sup-seg-total" />
-                </span>
-              ) : null}
-              {m === 'booked' && bookedCount > 0 ? (
-                <span className="ml-0.5 font-medium opacity-80" data-seg-count="booked">
-                  <Count value={bookedCount} id="sup-seg-booked" />
-                </span>
-              ) : null}
-            </ISeg>
-          ))}
-        </ISegmented>
+        <span className="flex min-w-0 shrink items-center" data-sup-row-menu="">
+          <PickMenu
+            label="Suppliers: Find, Build or Booked"
+            value={mode}
+            options={faceOptions}
+            onPick={pickFace}
+            buttonText={faceWords}
+            dataAttr="data-sup-row-pick"
+            compact
+          />
+        </span>
+        <span
+          className="min-w-0 flex-1 truncate text-[13px] text-ink/60"
+          data-sup-row-count=""
+          aria-live="polite"
+        >
+          {faceCount}
+        </span>
         {/* ⚙ The row ends with the menu's ONE ⚙ (owner 2026-10-27) — at rest and pinned, the same button. */}
         {settingsSlot ? (
           <MenuSettingsButton menu="suppliers" open={settingsOpen} onOpenChange={setSettingsOpen}>

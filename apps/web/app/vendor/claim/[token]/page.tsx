@@ -124,6 +124,9 @@ export default async function VendorClaimPage({ params }: Props) {
   if (invite.source === 'auto_share_link') {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
     const signupUrl = `/signup?as=vendor&next=${encodeURIComponent(finalizeUrl)}`;
+    // A supplier who already has an account signs in instead (finalize refuses
+    // a couple's account, so the link is never spent on the wrong one).
+    const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}&as=vendor`;
     // WHO INVITED THEM, AND THE DATE (owner 2026-10-10) — drawn by
     // `CoupleLinkDoor`, which holds no data of its own so the dev lab can show
     // the same door on fixtures.
@@ -138,6 +141,7 @@ export default async function VendorClaimPage({ params }: Props) {
         contactPerson={parentVendor?.contact_person ?? null}
         contactPhone={parentVendor?.contact_phone ?? null}
         signupUrl={signupUrl}
+        signInUrl={signInUrl}
         decline={<DeclineForm token={invite.claim_token} />}
       />
     );

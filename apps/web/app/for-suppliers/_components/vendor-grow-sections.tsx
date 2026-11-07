@@ -245,7 +245,21 @@ export function VendorGrowHub() {
 
 /* ── 2 · SETNAYAN AI (DARK SIGNATURE) ──────────────────────────────────── */
 
-export function VendorGrowAI() {
+/**
+ * Where "Get your invite link" goes. The link lives in Shop › Promote
+ * (/vendor-dashboard/shop/promote — moved from Customers › QR codes 2026-11-05, owner: the
+ * marketing codes belong in Shop, which is where this page already shows them),
+ * so a supplier who already has a shop goes straight there; everyone else opens
+ * a shop first and is carried on to it (`?next=`). It used to be a bare
+ * `/open-shop` for everybody, which sent a registered supplier to the open-shop
+ * page (and on to Today), never to the invite link the button names.
+ */
+export const INVITE_LINK_PATH = '/vendor-dashboard/shop/promote';
+export function inviteLinkHref(hasShop: boolean): string {
+  return hasShop ? INVITE_LINK_PATH : '/open-shop?next=' + encodeURIComponent(INVITE_LINK_PATH);
+}
+
+export function VendorGrowAI({ inviteHref = inviteLinkHref(false) }: { inviteHref?: string }) {
   const steps = [
     { n: '1', t: 'Strategic computation', p: 'We compute where you’re the strongest match — by date, budget, faith, location and the other suppliers they’re choosing.' },
     // ⚠ THIS STEP USED TO PROMISE VENDORS A DARK PATTERN, and one we don't build.
@@ -373,7 +387,7 @@ export function VendorGrowAI() {
               A couple who&rsquo;s activated it is a couple we can nudge, create urgency for, and lock in on your behalf. Invite yours in one tap — it costs you nothing, and it lets us push your bookings far harder.
             </p>
           </div>
-          <Link href="/open-shop" className="m-btn m-btn-orange m-btn-lg">
+          <Link href={inviteHref} className="m-btn m-btn-orange m-btn-lg">
             Get your invite link
           </Link>
         </div>
@@ -544,7 +558,8 @@ export function VendorGrowTools() {
       <CardGrid>
         <GridCard icon="▦" title="Custom QR" body="Add your services to anyone — in or out of the app. Dedicated codes whether they've inquired or already paid." />
         <GridCard icon="₱" title="Price your way" body="Build services priced by fixed package, per guest, or per hour — with inclusions, add-ons and custom payment schedules." />
-        <GridCard icon="📞" title="In-app video & audio calls" body="Meet couples face-to-face right in the thread. Peer-to-peer and never recorded." />
+        {/* ⛔ "In-app video & audio calls" was a card here until 2026-11-04 — in-app calls were retired 2026-10-28 and
+            the `calls` plan capability removed (owner, "SUPPLIER PLAN ALLOWANCES"). Do not re-add it. */}
         <GridCard icon="★" title="Printable review QR" body="Print it, place it at the event — collect real reviews from real guests on the day." />
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />

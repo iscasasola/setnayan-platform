@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Sparkles, Star, Store, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Star, Store, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
@@ -17,7 +17,7 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
  *   Add-ons › (#add-ons — the shipped cards below) · Papic credits › (Event Hub) · Featured by Setnayan ·
- *   Custom plan › · Cancel the plan (nothing renews by itself)
+ *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
  * Presentational: every value arrives read; nothing here fetches or writes. The page and `/dev/supplier-plan-lab`
  * both mount it, so the lab shows what ships.
@@ -40,6 +40,7 @@ export function PlanRows({
   featured,
   gift = null,
   photosLine = null,
+  titled = true,
 }: {
   tier: string;
   pays: string;
@@ -61,10 +62,12 @@ export function PlanRows({
   gift?: { line: string } | null;
   /** The Portfolio photos row's line (`portfolioPlanRowLine`); null = the row is not drawn. */
   photosLine?: string | null;
+  /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
+  titled?: boolean;
 }) {
   return (
     <>
-      <h1 className="sn-h1">Your plan</h1>
+      {titled ? <h1 className="sn-h1">Your plan</h1> : null}
       <p className="mt-2 text-[15px] text-ink" data-plan-answer="">
         <b className="font-semibold">You are on {planWord(tier)}</b> · {gift ? gift.line : pays}
         {expiresOn && !gift ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}
@@ -136,8 +139,8 @@ export function PlanRows({
           title="Papic credits"
           line={
             papicPackPrice !== null
-              ? `Buy 100 for ${formatPhp(papicPackPrice)} · for each booked event, in its Event Hub`
-              : 'Bought for each booked event, in its Event Hub'
+              ? `Papic packs from ${formatPhp(papicPackPrice)} · into your shop wallet`
+              : 'Papic packs · into your shop wallet'
           }
           href="/vendor-dashboard/on-the-day"
         />
@@ -147,13 +150,6 @@ export function PlanRows({
           title="Featured by Setnayan"
           line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
           badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
-        />
-        <DatesRow
-          data="plan-custom"
-          lead={ic(Sparkles)}
-          title="Custom plan"
-          line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Ultra'}
-          href="/vendor-dashboard/subscription/custom"
         />
         <DatesRow
           data="plan-cancel"

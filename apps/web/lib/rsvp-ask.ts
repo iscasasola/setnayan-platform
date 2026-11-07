@@ -29,6 +29,7 @@
  * without editing this file's own type.
  */
 
+import { formatCount } from './format-number';
 import { isRsvpCelebration, readCelebrationKey, type RsvpCelebration } from './rsvp-celebration';
 
 export const RSVP_ASK_FIELDS = ['plus_ones', 'meal', 'dietary', 'song_request', 'note', 'mobile'] as const;
@@ -329,6 +330,27 @@ export const RSVP_ASK_LABEL: Record<RsvpAskField, string> = {
   note: 'A note',
   mobile: 'Mobile',
 };
+
+/**
+ * ☑ THE SIX ASKS ARE ONE DROPDOWN WITH TICKS (owner 2026-11-01, DECISION_LOG "GUESTS › RSVP ASKS IS A DROPDOWN WITH
+ * TICKS, NOT CHIPS"). The dropdown's face and its pick, written once for every door — the Maker card toolbar
+ * (`rsvpAsksDd`), Guests › Setup's row and the Maker's list row (`asksFrame`), and the part's own unframed row.
+ */
+/** What the asks' dropdown reads while shut: how many of the six are on. */
+export function rsvpAsksFace(on: number, of: number): string {
+  return on === 0 ? 'None' : `${formatCount(on)} of ${formatCount(of)} on`;
+}
+/** A tick flips exactly that question; anything not one of the six is ignored. */
+export function rsvpAsksPick(row: {
+  asks: ReadonlyArray<{ key: RsvpAskField }>;
+  on: readonly RsvpAskField[];
+  onToggle: (field: RsvpAskField, next: boolean) => void;
+}): (key: string) => void {
+  return (key) => {
+    const field = row.asks.find((a) => a.key === key)?.key;
+    if (field) row.onToggle(field, !row.on.includes(field));
+  };
+}
 
 // ── WHO CAN RSVP · ONE AT A TIME · REPLY BY ─────────────────────────────────
 // Typed readers over the RAW stored blob (`events.rsvp_ask_config`), so no

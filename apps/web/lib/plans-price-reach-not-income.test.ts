@@ -7,7 +7,9 @@
  * "free 50" portfolio photos for every shop (more is Papic credits, Phase 2), couples per date the same on every plan.
  *
  * Each block pins a PROPERTY of the plan table or of the code that enforces it — never a sentence of copy:
- *   1 · no tier has fewer than MIN_SERVICES_PER_LEAF service cards per category;
+ *   1 · SUPERSEDED 2026-11-04 — service cards per category are a plan allowance again (owner, "SUPPLIER PLAN
+ *       ALLOWANCES": "service cards free 1, solo 3, pro 10, ultra unlimited"); the block now pins those rungs and that
+ *       every plan may still put up at least one card in a category it covers (a booking needs a card);
  *   2 · no tier carries a per-day booking limit or a weekly answering limit — and NO shipped code reads either cap to
  *       refuse anything (the readers are named below, each one display-only);
  *   3 · the portfolio base is PORTFOLIO_FREE_BASE on every tier, it is grandfathered (stored photos always survive),
@@ -25,7 +27,6 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
 import {
-  MIN_SERVICES_PER_LEAF,
   PORTFOLIO_FREE_BASE,
   PORTFOLIO_OVER_BASE_MESSAGE,
   portfolioOverCapMessage,
@@ -67,22 +68,19 @@ function readersOf(key: string): string[] {
     .sort();
 }
 
-// ── 1 · at least three service cards per category ─────────────────────────────
+// ── 1 · service cards per category, by plan (owner 2026-11-04) ─────────────────
 
-test('1 · no tier has fewer than three service cards per category', () => {
-  assert.equal(MIN_SERVICES_PER_LEAF, 3, 'owner: "let them create at least 3 per category"');
+test('1 · every plan can put up a card in each category it covers; the rungs are the owner\'s', () => {
+  // Owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES", verbatim: "service cards free 1, solo 3, pro 10, ultra
+  // unlimited" — supersedes the 2026-10-23 "at least 3 per category" for Free·Verified.
   for (const t of VENDOR_TIERS) {
-    assert.ok(
-      TIER_CAPS[t].servicesPerLeaf >= MIN_SERVICES_PER_LEAF,
-      `${t} allows ${TIER_CAPS[t].servicesPerLeaf} per category — below the every-plan minimum of ${MIN_SERVICES_PER_LEAF}`,
-    );
+    assert.ok(TIER_CAPS[t].servicesPerLeaf >= 1, `${t} allows ${TIER_CAPS[t].servicesPerLeaf} per category — a shop could not be booked at all`);
   }
-  // The rungs the ruling named (Free 3 · Verified 3 · Solo 3 · Pro 5 · Ultra unlimited).
-  assert.equal(TIER_CAPS.free.servicesPerLeaf, 3);
-  assert.equal(TIER_CAPS.verified.servicesPerLeaf, 3);
+  assert.equal(TIER_CAPS.free.servicesPerLeaf, 1);
+  assert.equal(TIER_CAPS.verified.servicesPerLeaf, 1);
   assert.equal(TIER_CAPS.solo.servicesPerLeaf, 3);
-  assert.equal(TIER_CAPS.pro.servicesPerLeaf, 5);
-  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, Infinity);
+  assert.equal(TIER_CAPS.pro.servicesPerLeaf, 10);
+  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, 25); // Ultra trimmed 2026-11-04 (was unlimited)
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────
@@ -102,7 +100,6 @@ test('2a · no tier carries a bookings-a-day limit or a weekly answering limit',
  */
 const CAP_READERS: Record<string, string> = {
   'lib/vendor-tier-caps.ts': 'the table itself',
-  'lib/vendor-effective-caps.ts': 'carries the axis through the Custom overlay (max with the base, which is Infinity)',
   'app/for-suppliers/_components/vendor-tier-deltas.tsx': 'display — the base rung says "You set it" / "No limit" once',
 };
 
@@ -118,6 +115,28 @@ test('2b · no shipped code reads the per-day or weekly cap to refuse anything',
   );
   // Teeth: the scan must actually find the table, or a broken scan passes everything.
   assert.ok(readers.includes('lib/vendor-tier-caps.ts'), 'the reader scan found nothing — it is not scanning');
+});
+
+test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06) — the shop’s day is still not', () => {
+  // Owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: "Solo has 1 per
+  // date/service, pro has 3 per date/service, ultra has 5 per date/service". It caps ONE card's day; 2a above (no limit
+  // on a SHOP's bookings a day, `slotsPerDay`) stands, and every plan can still take a booking on every card.
+  assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1);
+  assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3);
+  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 5);
+  for (const t of VENDOR_TIERS) {
+    assert.ok(TIER_CAPS[t].bookingsPerDatePerService >= 1, `${t}: a card could take no booking at all`);
+  }
+  // Owner click 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": "1 each, like Solo.
+  // Completes the allowance: Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5."
+  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, 1);
+  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, 1);
+  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Free is "like Solo"');
+  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Verified is "like Solo"');
+  // The allowance is complete: no plan may fall back to an "unruled" ceiling any more.
+  for (const t of VENDOR_TIERS) {
+    assert.ok(TIER_CAPS[t].bookingsPerDatePerService <= 5, `${t}: no plan takes more than Ultra's 5 before add-ons`);
+  }
 });
 
 // ── 3 · the portfolio free base, grandfathered ─────────────────────────────────
@@ -189,7 +208,11 @@ test('4b · the database gate says the same number — the LATEST vendor_tier_li
   const arm = sql.slice(sql.indexOf("WHEN 'whitelist_per_date' THEN"), sql.indexOf("WHEN 'waitlist_acceptances' THEN"));
   assert.ok(arm.length > 50, `${latest}: could not find the whitelist arm`);
   const numbers = [...arm.matchAll(/(?:WHEN '(\w+)'|ELSE)\s+THEN\s+(\d+)|ELSE\s+(\d+)/g)].map((m) => Number(m[2] ?? m[3]));
-  assert.ok(numbers.length >= 7, `${latest}: expected every tier + ELSE in the whitelist arm, found ${numbers.length}`);
+  // Derived, not typed: every tier in VENDOR_TIERS + the ELSE (was a literal 7 until the Custom plan was retired 2026-11-06).
+  assert.ok(
+    numbers.length >= VENDOR_TIERS.length + 1,
+    `${latest}: expected every tier + ELSE in the whitelist arm, found ${numbers.length}`,
+  );
   assert.deepEqual(
     [...new Set(numbers)],
     [WHITELIST_PER_DATE_ALL_PLANS],

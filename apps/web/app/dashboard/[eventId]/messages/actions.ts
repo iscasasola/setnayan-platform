@@ -9,6 +9,7 @@ import { fetchThreadById } from '@/lib/chat';
 import { isFollowingVendor } from '@/lib/follow';
 import { followVendor } from '@/lib/follow-actions';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 
 /**
  * Withdraw a couple-side inquiry / remove a vendor (inquiry-followthrough
@@ -98,6 +99,16 @@ export async function startThreadByVendorEmail(formData: FormData) {
     );
   }
 
+  // 🧪 A real couple never messages a demo shop; a demo event messages only demo shops (owner 2026-11-06,
+  // lib/demo-scope.ts). Before the follow, so a refused shop gains no follower. Trigger backstop on chat_threads.
+  const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+    eventId,
+    vendorProfileId: vendor.vendor_profile_id,
+  });
+  if (demoRefusal) {
+    return redirect(`/dashboard/${eventId}/messages?error=${encodeURIComponent(demoRefusal)}`);
+  }
+
   // Iteration 0019 § Gate — a couple must FOLLOW before a thread can be
   // inserted. That gate is a restrictive INSERT policy on `chat_threads`, so it
   // is real and it is enforced in the database; nothing here removes it. An
@@ -158,7 +169,7 @@ export async function startThreadByVendorEmail(formData: FormData) {
 
   if (insertErr || !thread) {
     return redirect(
-      `/dashboard/${eventId}/messages?error=${encodeURIComponent(insertErr?.message ?? 'Could not start thread')}`,
+      `/dashboard/${eventId}/messages?error=${encodeURIComponent(demoRefusalFromDbError(insertErr) ?? insertErr?.message ?? 'Could not start thread')}`,
     );
   }
 

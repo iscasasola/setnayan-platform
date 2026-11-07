@@ -44,7 +44,7 @@ export type DeepSearchRunnerProps = {
   planAsks: boolean;
   /** Resolved price is ₱0 (Pro+ with the free allowance unused this cycle). */
   isFreeNow: boolean;
-  /** Does this tier get a free search per cycle at all (Pro/Ent/Custom)? */
+  /** Does this tier get a free search per cycle at all (Pro/Ultra)? */
   hasFreeAllowance: boolean;
   /** Standing per-search price (₱500) from the admin-managed catalog. */
   pricePhp: number;
@@ -147,7 +147,8 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
       {/* FREE run finished → the dossier, inline. */}
       {state.status === 'ran' ? (
         <div className="mt-5">
-          <DossierView dossier={state.dossier} />
+          {/* 📄 Running a search also makes its PDF (owner 2026-10-29) — Share it straight from the fresh result. */}
+          <DossierView dossier={state.dossier} pdf={{ dossierId: state.dossierId, searchedAt: state.searchedAt }} />
         </div>
       ) : null}
 

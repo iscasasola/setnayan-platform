@@ -17,7 +17,8 @@
  * server's (the service's shipped actions), handed in as `settings`.
  */
 
-import { useId, useState, useTransition, type ReactNode } from 'react';
+import { useId, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -95,6 +96,9 @@ export function HomeServiceCard({
   // 🔒 ONE OPEN AT A TIME (owner-approved 2026-10-24; `lib/one-open.ts`): opening a service closes the one open before.
   const oneOpenId = useOneOpen(open, setOpen);
   const regionId = useId();
+  // 🔭 A tap that grows the card glides its head to the pin line when it runs past the bottom (owner 2026-11-04).
+  const cardRef = useRef<HTMLDivElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: cardRef.current }));
   const router = useRouter();
   const [reloading, startReload] = useTransition();
 
@@ -173,7 +177,12 @@ export function HomeServiceCard({
       {tile && !open ? (
         /* The phone's closed face: the tile is the press that grows the card (or, for a card with nothing to grow, its
            door); the card's own control sits beside it, never inside it (no control in a control). */
-        <div className={`hc-svc-wrap md:hidden${tile.span ? ' hc-span' : ''}`} data-home-service-tile={svcKey}>
+        /* 🔭 The tile's press marks the open as the user's on its way down (capture), so the tile keeps its one handler. */
+        <div
+          className={`hc-svc-wrap md:hidden${tile.span ? ' hc-span' : ''}`}
+          data-home-service-tile={svcKey}
+          onClickCapture={(e) => (e.target as Element).closest('button.hc-svc-tile') && intend()}
+        >
           {grows ? (
             <button type="button" className="hc-tile hc-svc-tile" aria-expanded={false} aria-controls={regionId} onClick={() => setOpen(true)}>
               <ServiceTileFace name={name} tile={tile} />
@@ -188,14 +197,17 @@ export function HomeServiceCard({
       ) : null}
       <div className={`${tile && !open ? 'hidden md:flex' : 'flex'} col-span-full min-w-0 flex-col md:col-span-1`} data-home-card={open ? 'open' : 'rest'}>
       <OneOpenScope id={oneOpenId}>
-      <div className="sg-row" data-mood={statusMood} {...marker}>
+      <div ref={cardRef} className="sg-row" data-mood={statusMood} {...marker}>
         {/* THE HEAD — its one press grows the card in place (never another page); a card with nothing to grow is a door. */}
         {grows ? (
           <button
             type="button"
             aria-expanded={open}
             aria-controls={regionId}
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => {
+              intend();
+              setOpen((v) => !v);
+            }}
             className="block w-full min-w-0 text-left"
             data-home-card-head=""
             data-tour={tour}

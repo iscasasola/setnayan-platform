@@ -269,7 +269,7 @@ test('the event page never decides for itself who is one of the celebration’s 
   );
   assert.match(
     slugPage,
-    /findGuestSeatForUser\(event\.event_id, viewerAccount\.id\)/,
+    /findGuestSeatForUserMeasured\(event\.event_id, viewerAccount\.id\)/,
     'The signed-in guest with a seat and no current pass is unrecognised again — ' +
       'the most ordinary invited person there is, because the pass expires long ' +
       'before a wedding booked a year out.',

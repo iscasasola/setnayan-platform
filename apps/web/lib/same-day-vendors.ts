@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { haversineKm } from './geo';
+import type { DemoScope } from './demo-scope';
 
 /**
  * Day-of "Get help" shortlist (Event Lifecycle Menu §4 + §10 PR5).
@@ -58,6 +59,8 @@ type Row = {
 export async function findSameDayVendors(
   supabase: SupabaseClient,
   venue: VenueAnchor,
+  /** 🧪 The event's own demo scope (`demoScopeFor`, `lib/demo-scope.ts`) — required, so no caller can forget it. */
+  demoScope: DemoScope,
 ): Promise<SameDayVendor[]> {
   const { data, error } = await supabase
     .from('vendor_profiles')
@@ -71,7 +74,8 @@ export async function findSameDayVendors(
     // paid vendor is later demoted/rejected this keeps them out of the
     // couple-facing day-of "Get help" shortlist.
     .eq('verification_state', 'verified')
-    .eq('is_demo', false) // never suggest a demo shop (2026-09-30, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
+    // 🧪 A real event never gets a demo shop; a demo event (`events.is_sample`) gets only demo shops (owner 2026-11-06).
+    .eq('is_demo', demoScope.is_demo)
     .eq('same_day_available', true)
     .neq('tier_state', 'free')
     .limit(CANDIDATE_LIMIT);

@@ -768,6 +768,24 @@ export function EditorBridge() {
     document.addEventListener('click', onStray);
     cleanups.push(() => document.removeEventListener('click', onStray));
 
+    /* 🫥 THE COUPLE SCROLLS THE PAGE — a finger or a wheel, never the Maker's own scrolling (a pick brought into view
+       moves the page with no gesture): the Maker puts its editing toolbar away (owner 2026-10-30, "hides on … a
+       scroll"). Said at most once a moment; a guest's preview says nothing. */
+    let scrolledAt = 0;
+    const theirScroll = () => {
+      if (guest.on) return;
+      const now = Date.now();
+      if (now - scrolledAt < 400) return;
+      scrolledAt = now;
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'pageScroll' }, origin);
+    };
+    window.addEventListener('touchmove', theirScroll, { passive: true });
+    window.addEventListener('wheel', theirScroll, { passive: true });
+    cleanups.push(() => {
+      window.removeEventListener('touchmove', theirScroll);
+      window.removeEventListener('wheel', theirScroll);
+    });
+
     // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
     let selTimer: number | null = null;
     const onSelection = () => {
@@ -1098,12 +1116,12 @@ export function EditorBridge() {
         seqStop = playSequence(
           target,
           !part && !block,
-          (r) => {
-            if (r.phase === 'rest') seqStop = null;
-            window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
-          },
+          /* ✋ `rest` keeps the stop: the Maker holds the finished look until its Exit preview (or a tap) sends `playStop`. */
+          (r) => window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin),
           /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
           only === 'in' || only === 'act' || only === 'out' ? only : undefined,
+          /* ✋ …and holds on its finished look (owner 1 Nov 2026); a whole life's finished look is its rest. */
+          only === 'in' || only === 'act' || only === 'out',
         );
         return;
       }

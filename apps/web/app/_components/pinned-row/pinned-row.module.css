@@ -54,44 +54,7 @@
   min-width: 0;
   overflow: hidden;
 }
-/* A count door — the Guests pinned row's door: no frame, a 44-px target, the number bold, the word quiet. */
-.pinDoor {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 3px;
-  min-height: 44px;
-  align-self: stretch;
-  align-items: center;
-  padding: 0 5px;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 13.5px;
-  white-space: nowrap;
-  color: rgb(var(--color-ink) / 0.7);
-  cursor: pointer;
-}
-.pinDoor b {
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: rgb(var(--color-ink));
-  text-underline-offset: 4px;
-  text-decoration-thickness: 2px;
-}
-.pinDoor.hot,
-.pinDoor.hot b {
-  color: rgb(var(--color-mulberry-700));
-}
-/* Pressed = filtering to this door: the number underlined (the Guests door's pressed look). */
-.pinDoor[aria-pressed='true'] b {
-  text-decoration-line: underline;
-}
-.pinDoor:focus-visible {
-  outline: 2px solid rgb(var(--color-mulberry));
-  outline-offset: -2px;
-  border-radius: var(--m-r-sm);
-}
+/* A count door is the shared `PinDoor` (`pin-door.tsx`) — its look lives there, ONE drawing for every pinned row. */
 .pinNote {
   font-size: 13px;
   color: rgb(var(--color-ink) / 0.6);

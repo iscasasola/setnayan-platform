@@ -1,4 +1,15 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
+import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
+import { chaptersForGuest } from '@/lib/invitation-chapters';
+import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
+import { YourScheduleCard } from './_components/your-schedule-card';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
+import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
+import { guestMePath } from '@/lib/offline-copy-addresses';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
@@ -46,9 +57,10 @@ import { HeldPassLine } from './_components/held-pass-line';
 import { heldPassFirstNameFor } from './_lib/held-pass-name';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
-import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { findGuestSeatForUserMeasured } from '@/lib/guest-membership-session';
 import { guestAccountState, guestAnswersRead, moreAnswersOf, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
+import { YourNumberCard } from './_components/your-number-card';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
@@ -56,6 +68,9 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
+import { readWhoMadeTheDay } from '@/lib/who-made-the-day.server';
+import { isAfterTheDay } from '@/lib/who-made-the-day';
+import { WhoMadeTheDay } from './_components/who-made-the-day';
 import { PASS_ANCHOR, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
@@ -68,7 +83,7 @@ import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.serv
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
 import { hubUaFacts } from '@/lib/hub-view-key';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
@@ -179,6 +194,7 @@ import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
+import { readCheckedInEvents, readOwnFavoriteKeys } from '@/lib/favorites.server';
 
 /* 🗄 THIS ROUTE IS THE LIVE RENDER — AND IT ALWAYS WAS (EV1, 2026-10-28).
 
@@ -568,7 +584,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
   // 🗄 Never on the cached hub (the middleware does not send a request there while the cutover is on), so the
   // `headers()` read below is the live render's alone.
-  if (isUserNestingCutoverEnabled() && !cachedHubViewer()) {
+  if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
     const reqHeaders = await headers();
     const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
     const host = (reqHeaders.get('host') ?? '').toLowerCase();
@@ -1168,6 +1184,11 @@ async function invitationBody({
     // card was a real defect — a `<Link>` prefetch executed it when a card merely
     // scrolled into view. See lib/guest-membership-session.ts.
     let isSeatHolder = false;
+    // 🔌 The seat read was REFUSED (not "no seat"). Never admits — `isSeatHolder`
+    // stays false — but it must not end on the lock screen either, whose words
+    // ("ask your hosts to add you to the guest list") are a claim about a person
+    // we did not measure. See the throw below the gate.
+    let seatReadRefused = false;
     // Path E — a supplier this couple has BOOKED on this event.
     //
     // 🔴 THE BUG THIS CLOSES. The supplier doorway, its gate and its read have
@@ -1220,8 +1241,9 @@ async function invitationBody({
       if (user) {
         isAuthedHost = await loadHostMembership(admin, event.event_id, user.id);
         if (!isAuthedHost) {
-          isSeatHolder =
-            (await findGuestSeatForUser(event.event_id, user.id)) !== null;
+          const seatRead = await findGuestSeatForUserMeasured(event.event_id, user.id);
+          isSeatHolder = seatRead.seat !== null;
+          seatReadRefused = !seatRead.measured;
           if (!isSeatHolder && visibility === 'invited_accounts') {
             isInvitedAccountViewer = await isInvitedAccount(event.event_id, user.id);
           }
@@ -1252,6 +1274,13 @@ async function invitationBody({
       })
     ) {
       timer.flush();
+      // 🔌 A REFUSED SEAT READ IS NOT "NOT INVITED" (reads-are-honest, 2026-11-05).
+      // Nothing admitted them, but one of the questions was never answered, so
+      // the guest error page says "Your link is fine — try again" ([slug]/error.tsx)
+      // instead of the lock screen telling a listed guest to ask to be added.
+      if (seatReadRefused) {
+        throw new Error(`EventPage: could not read the signed-in viewer's seat on ${event.event_id}`);
+      }
       return (
         <PrivateLanding
           event={event}
@@ -1358,7 +1387,26 @@ async function invitationBody({
   const guestDeskP = isEditorCanvas ? Promise.resolve(false) : viewerIsInternal().then((internal) => guestHubDesktopEnabled({ internal })).catch(() => guestHubDesktopEnabled({ internal: false }));
   /* …and only a guest page the flag lets in writes its `<style>` (`lib/guest-hub-desktop.ts`) — every other page is the
      same bytes as before. */
-  const wearDraft = async (node: React.ReactNode) => {
+  // 🧪 (DEMO ONLY) — a demo event (`events.is_sample`) shows publicly beside real ones, marked (owner, DECISION_LOG
+  // 2026-11-06 "DEMO SHOPS + DEMO EVENTS": *"these demo events, and demo suppliers will show on with the rest … but has
+  // a marking of (DEMO ONLY)"*). Drawn ONCE, here, above every render path of the page (anonymous, guest, host). Not on
+  // a theme-gallery tile (`triedTheme` — the Details gallery paints this sample in each theme; a chip on every tile is
+  // chrome, not the page), and not in the Maker's canvas.
+  const demoEventMarker =
+    liveEvent.is_sample === true && triedTheme === null && !asksForHostCanvas(search) ? (
+      <div className="flex justify-center px-4 pt-3" data-demo-event-marker="">
+        <DemoOnlyMarker kind="event" align="center" />
+      </div>
+    ) : null;
+  const wearDraft = async (page: React.ReactNode) => {
+    const node = demoEventMarker ? (
+      <>
+        {demoEventMarker}
+        {page}
+      </>
+    ) : (
+      page
+    );
     const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
     const guestDesk = await guestDeskP;
     return guestDesk ? (
@@ -1474,6 +1522,7 @@ async function invitationBody({
   }
   const {
     scheduleBlocks,
+    invitationChapters,
     backdropConfig,
     liveWall,
     watchLive,
@@ -1606,11 +1655,16 @@ async function invitationBody({
   // the invited cousin is very often a signed-in account with a seat and no
   // cookie. The seat lookup already exists; it just only ran inside the
   // private-event gate, which never runs on a public event at all.
-  const viewerSeat =
+  // 🔌 MEASURED (2026-11-05): a refused read is `measured: false`, never "no
+  // seat" — so the stranger's door below cannot tell a LISTED guest "You're not
+  // on the guest list for this event yet" (or offer "Join as a guest") on a blip.
+  const viewerSeatRead =
     viewerAccount?.id && !ownerCapability
-      ? await findGuestSeatForUser(event.event_id, viewerAccount.id)
-      : null;
+      ? await findGuestSeatForUserMeasured(event.event_id, viewerAccount.id)
+      : { seat: null, measured: true };
+  const viewerSeat = viewerSeatRead.seat;
   const viewerHoldsASeat = viewerSeat !== null;
+  const viewerSeatUnread = !viewerSeatRead.measured;
   timer.mark('supplier-desk+seat');
 
   // ── WHO IS THIS GUEST, ON THIS EVENT (owner 2026-09-25) ──────────────────
@@ -1746,6 +1800,7 @@ async function invitationBody({
     ourPhotoUrls,
     widgets,
     scheduleBlocks,
+    invitationChapters,
     backdrop,
     liveWall,
     watchLive,
@@ -1867,8 +1922,12 @@ async function invitationBody({
           // Signed in, holding no seat here, and neither host nor booked
           // supplier → "You're not on the guest list for this event yet" +
           // "Ask to join" (owner 2026-09-26). Never an automatic entry.
+          // 🔌 ONLY when the seat read happened: a refused read draws the
+          // try-again door instead (`seatUnread`), never the not-listed copy.
           signedInNotListed:
-            Boolean(viewerAccount?.id) && !viewerHoldsASeat && !ownerCapability && !vendorCapability,
+            Boolean(viewerAccount?.id) && !viewerSeatUnread && !viewerHoldsASeat && !ownerCapability && !vendorCapability,
+          seatUnread:
+            Boolean(viewerAccount?.id) && viewerSeatUnread && !ownerCapability && !vendorCapability,
         })}
       />
       {pageFooter}
@@ -2136,6 +2195,23 @@ async function invitationBody({
     eventVendorCredits,
   } = guestContext;
 
+  /* 📅 YOUR SCHEDULE on Me (owner 2026-11-01, plan §3 · §3b · §11b): the chapters this guest is invited to, and after
+     Release (Pro) their own lines and exact call time. Started here, awaited where Me is drawn; never in the Maker's
+     canvas. A refused read is said on the card (`unread`), never drawn as no schedule. Nothing live: guests hold no
+     connection — this renders into the cached Event Hub copy. */
+  const yourScheduleAhead = isEditorCanvas
+    ? null
+    : startAhead(
+        readYourSchedule(admin, {
+          eventId: event.event_id,
+          guestId: guest.guest_id,
+          roles: [guest.role as string | null, ...(((guest as { extra_roles?: string[] | null }).extra_roles) ?? [])].filter(
+            (r): r is string => typeof r === 'string' && r.trim().length > 0,
+          ),
+          guestsArriveBy: guestsArriveTime(scheduleBlocks),
+        }).catch((): YourScheduleRead => ({ kind: 'unread' })),
+      );
+
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
   // holder doesn't need it, so gate on the absence of a Supabase auth session.
@@ -2271,9 +2347,26 @@ async function invitationBody({
                 }
               : null;
 
+  /* ♡ FAVORITES AFTER AN EVENT (owner 2026-11-06, prototype §F): only a guest the app can place at the event — a
+     door check-in on THEIR OWN guest row — may keep the services that made the day. Read only for a signed-in viewer,
+     once the day has come, and only when there is a supplier to keep. The press re-checks all of it on the server. */
+  const hubFavorites =
+    viewerAccount && !viewerAccount.is_anonymous && eventVendorCredits.length > 0 &&
+    Boolean(event.event_date) && String(event.event_date).slice(0, 10) <= manilaToday()
+      ? await Promise.all([
+          readCheckedInEvents(admin, viewerAccount.id, [event.event_id]),
+          readOwnFavoriteKeys(admin, viewerAccount.id, eventVendorCredits.map((c) => c.vendorProfileId)),
+        ]).then(([checked, kept]) => ({
+          door: checked === null ? ('unread' as const) : checked.has(event.event_id) ? ('open' as const) : ('closed' as const),
+          kept: kept ? [...kept] : [],
+        }))
+      : null;
+
   const saveFlash =
     search.save === 'ok'
-      ? 'Saved to your account — find it in your Library for your own plans.'
+      ? 'Added to your favorites — find it in your Library for your own plans.'
+      : search.save === 'not_there'
+        ? 'Favorites open for guests who checked in at the door.'
       : search.save === 'needs_account'
         ? 'Make a free account (the box above) to save suppliers for your future plans.'
         : search.save === 'error'
@@ -2390,6 +2483,35 @@ async function invitationBody({
       ticketNames={event.display_name}
     />
   );
+  const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL (`lib/offline-copies.ts`) — kept on this phone only when the day on screen is
+     the VIEWER'S OWN: the pass holder's (no account: `g-<guest>`), or the signed-in account whose seat this is. Never a
+     host's look at a guest (hosts keep their own day on the Schedule), a sample, or the Maker's canvas. */
+  const ownDayViewer: string | null =
+    isEditorCanvas || search.as !== undefined || ownerCapability
+      ? null
+      : viewerAccount?.id
+        ? seatHolderUserId === viewerAccount.id && passStandingNow.standing !== 'host_preview'
+          ? viewerAccount.id
+          : null
+        : session?.event_id === event.event_id && session?.guest_id === guest.guest_id
+          ? `g-${guest.guest_id}`
+          : null;
+  const meCopyPath = ownDayViewer ? guestMePath(event.slug ?? slug) : null;
+  const meSaved =
+    ownDayViewer && meCopyPath && yourScheduleRead ? (
+      <>
+        <OfflineViewerScript viewer={ownDayViewer} />
+        <ScheduleSavedMark
+          viewer={ownDayViewer}
+          eventKey={meCopyPath.slice(1, meCopyPath.indexOf('?'))}
+          eventDate={event.event_date ?? null}
+          eventEndDate={event.event_end_date ?? null}
+          path={meCopyPath}
+          version={yourScheduleRead.kind === 'ok' ? copyVersionOf(yourScheduleRead.schedule) : OFFLINE_COPY_UNREAD}
+        />
+      </>
+    ) : null;
   const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
@@ -2428,6 +2550,8 @@ async function invitationBody({
     {seatPassActive ? (
       <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
     ) : null}
+    {/* 🎟 The same "Your number" card Live carries, on Me (supplier scan prototype frame E). */}
+    <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} className="mb-6" />
     <GuestMe
       plain={me.inMe}
       name={
@@ -2456,6 +2580,7 @@ async function invitationBody({
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
       profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
+      yourSchedule={<YourScheduleCard read={yourScheduleRead} eventName={event.display_name ?? 'the event'} saved={meSaved} />}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={
@@ -2522,11 +2647,40 @@ async function invitationBody({
     timeZone: venueTz,
   });
 
+  /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
+     any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
+  /* ✉ …AND ONLY THE CHAPTERS THEY ARE INVITED TO (owner 2026-11-02, "Invited to"): the hosts may take one guest off a part
+     of the day on their card ("after party only"). The reply card, the notices and Details › Schedule all draw from this
+     one narrowed list. A refused read of what they were taken off is `null` — the page then draws as it does with no
+     chapters, never the whole invitation to a guest who was taken off part of it. */
+  const notInvitedHere = invitationChapters && invitationChapters.length > 0 ? await readGuestNotInvited(admin, guest.guest_id) : new Set<string>();
+  const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
+  const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
+  /* 🚪 "WHO MADE THE DAY?" (prototype 6 Nov § 8, door 2) — after the day only, and only for a guest the door checked in
+     with at least one delivered supplier on this event (`readWhoMadeTheDay`); otherwise absent. Read only after the
+     day, so every page before it pays nothing. Never in the Maker's canvas. */
+  const whoMadeTheDay =
+    !isEditorCanvas && isAfterTheDay(event.event_date, manilaToday())
+      ? await readWhoMadeTheDay(admin, event.event_id, guest.guest_id)
+      : null;
+  const afterDayNode = whoMadeTheDay ? <WhoMadeTheDay eventId={event.event_id} suppliers={whoMadeTheDay} /> : null;
   timer.flush();
   return wearDraft(
     <>
       <SiteBody
         {...siteProps}
+        invitationChapters={guestChapters}
+        /* 🚪 SIGNED IN AND ON THIS LIST (owner 2026-11-03): no door — the server answered with their seat and this is
+           their invitation — plus "Not [first name]? Switch account" under the cover's button. Only when the signed-in
+           account's OWN seat is the guest drawn (a pass held for somebody else has its own line, `heldPassNode`). */
+        switchAccountName={
+          viewerAccount?.id && viewerSeat?.guestId === guest.guest_id && !isEditorCanvas
+            ? (guest.first_name ?? '').trim().split(/\s+/)[0] ?? ''
+            : null
+        }
+        chapterReplies={chapterReplies}
+        removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         comingWith={myGuests.guests.map((g) => g.name ?? '')}
         identity={guestIdentity({
@@ -2551,6 +2705,7 @@ async function invitationBody({
           showClaimAccountCta: !viewerAccount,
           account,
           eventVendorCredits,
+          hubFavorites,
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
@@ -2571,7 +2726,7 @@ async function invitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab afterDay={afterDayNode} />
             )
           ) : null
         }
@@ -2607,6 +2762,7 @@ async function invitationBody({
         meSlot={guestPageTabbed ? null : meSlot}
         mePhotosHref={photosLeftThePage ? myPhotosHref : null}
         meInPage={guestPageTabbed}
+        meAfterDay={afterDayNode}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)
@@ -2617,6 +2773,21 @@ async function invitationBody({
           find-my-table) that still read the cookie recognise them too. */}
       {guestViewer.kind === 'seat' && !isEditorCanvas ? (
         <AdoptSeatSession eventId={event.event_id} />
+      ) : null}
+      {/* 🔕 QUIET SCHEDULE REFRESH (owner-approved 5 Nov, item 1) — on the Hub's other tabs the guest's saved Me copy is
+          re-rendered in the background, at most every 30 min, around event days; it draws nothing (Me shows freshness). */}
+      {ownDayViewer && meCopyPath && search.tab !== 'me' && !isEditorCanvas ? (
+        <QuietScheduleRefresh
+          viewer={ownDayViewer}
+          copies={[
+            {
+              eventKey: meCopyPath.slice(1, meCopyPath.indexOf('?')),
+              eventDate: event.event_date ?? null,
+              eventEndDate: event.event_end_date ?? null,
+              path: meCopyPath,
+            },
+          ]}
+        />
       ) : null}
       {pageFooter}
     </>

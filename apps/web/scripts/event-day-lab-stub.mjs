@@ -22,6 +22,9 @@
  *   GET /__keys?as=host|seat → { cookieName, cookieValue } — a Supabase session cookie for that account
  *   GET /__fixture → { events, guests: [{ guest_id, event_id, qr_token }] } — what the load test signs passes for
  *   GET /__fail?name=<table|rpc>&seconds=N → that table or rpc answers 504 for N seconds (a stalled database)
+ * WHO'S HERE (2026-10-29): `record_hub_view` is modelled as the migration writes it — a guest row moved at most once per
+ * 30 minutes, a stranger +1 on the event's quarter-hour counter — and `/__stats` carries `hubViews` (guest · debounced
+ * · visitor · refused, and `rowWrites` = the writes the database would really make). `event_hub_viewers` answers from it.
  * `maxInFlight` is the most requests the app had open at this stand-in at once: the stand-in for "database
  * connections in use" (the pass bar's "< 40 of 60").
  *
@@ -175,8 +178,11 @@ const failing = new Map(); // name → until (ms)
 const failsNow = (name) => (failing.get(name) ?? 0) > Date.now();
 let stats;
 const reset = () => {
-  stats = { since: new Date().toISOString(), total: 0, byKind: {}, byName: {}, maxInFlight: 0, inFlight: 0, perSecond: {}, writes: 0 };
+  stats = { since: new Date().toISOString(), total: 0, byKind: {}, byName: {}, maxInFlight: 0, inFlight: 0, perSecond: {}, writes: 0, hubViews: { guest: 0, debounced: 0, visitor: 0, refused: 0, rowWrites: 0 } };
 };
+// Who's here — the two tables `record_hub_view` writes, in memory (guest_id → last seen ms; event|quarter → opens).
+const hubGuestSeen = new Map();
+const hubBuckets = new Map();
 reset();
 const count = (kind, name) => {
   stats.total += 1;
@@ -262,6 +268,39 @@ const server = http.createServer((req, res) => {
       if (name === 'event_public_stamp') {
         const ev = db.events.find((r) => r.slug.toLowerCase() === String(a.p_slug ?? '').toLowerCase());
         return send(200, ev ? [{ event_id: ev.event_id, rev: revs[ev.event_id] }] : []);
+      }
+      if (name === 'record_hub_view') {
+        // The migration's semantics: a guest of THIS event moved at most once per 30 minutes; anyone else +1 per quarter.
+        const ev = db.events.find((r) => r.event_id === a.p_event_id);
+        let out = 'refused';
+        if (ev && a.p_guest_id) {
+          const g = db.guests.find((r) => r.guest_id === a.p_guest_id && r.event_id === a.p_event_id);
+          if (g) {
+            const last = hubGuestSeen.get(g.guest_id);
+            if (last !== undefined && Date.now() - last < 30 * 60_000) out = 'debounced';
+            else {
+              hubGuestSeen.set(g.guest_id, Date.now());
+              out = 'guest';
+            }
+          }
+        } else if (ev) {
+          const q = Math.floor(Date.now() / 900_000);
+          hubBuckets.set(`${ev.event_id}|${q}`, (hubBuckets.get(`${ev.event_id}|${q}`) ?? 0) + 1);
+          out = 'visitor';
+        }
+        stats.hubViews[out] += 1;
+        if (out === 'guest' || out === 'visitor') stats.hubViews.rowWrites += 1;
+        return send(200, out);
+      }
+      if (name === 'event_hub_viewers') {
+        const since = Date.now() - 30 * 60_000;
+        const seen = db.guests.filter((g) => g.event_id === a.p_event_id && (hubGuestSeen.get(g.guest_id) ?? 0) > since);
+        let visitors = 0;
+        for (const [k, n] of hubBuckets) if (k.startsWith(`${a.p_event_id}|`) && (Number(k.split('|')[1]) + 1) * 900_000 > since) visitors += n;
+        return send(200, {
+          team: true, may_name: true, window_minutes: 30, guest_total: seen.length, visitors,
+          guests: seen.slice(0, 24).map((g) => ({ guest_id: g.guest_id, first_name: g.first_name ?? null, last_name: g.last_name ?? null, display_name: g.display_name ?? null, photo_url: null, seen_at: new Date(hubGuestSeen.get(g.guest_id)).toISOString() })),
+        });
       }
       const fixed = {
         event_host_is_internal: false, event_has_comp_for_sku: false, event_host_holds_founder_seat: false,

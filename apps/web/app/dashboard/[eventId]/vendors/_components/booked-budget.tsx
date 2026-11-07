@@ -25,7 +25,7 @@ import { ActionButton } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
 import { formatPhp } from '@/lib/php';
 import { shortDate } from '@/lib/budget-page-view';
-import { yourTeamBudgetHref } from '@/lib/pillar-parts';
+import { budgetPageHref } from '@/lib/pillar-parts';
 import type { BookedBudgetBlock } from '@/lib/booked-budget';
 import styles from '@/app/dashboard/[eventId]/budget/_components/budget-page.module.css';
 import { NextPayButton } from './booked-row';
@@ -45,7 +45,7 @@ function Peso({ value, id }: { value: number; id: string }) {
 
 export function BookedBudgetSection({ eventId, budget }: { eventId: string; budget: BookedBudgetBlock }) {
   const b = budget;
-  const budgetHref = yourTeamBudgetHref(eventId);
+  const budgetHref = budgetPageHref(eventId);
   return (
     <section
       id="svc-budget"

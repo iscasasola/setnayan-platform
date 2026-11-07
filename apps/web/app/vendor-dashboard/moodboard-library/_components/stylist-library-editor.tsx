@@ -68,9 +68,12 @@ import {
   RIGHTS_WARRANTY_TEXT,
   SUPPLIER_GALLERY_ASSET_TYPE,
 } from '@/lib/moodboard-gallery-pure';
+import { compressImageForWeb } from '@/lib/image-compress';
 import { PHOTO_PART_GROUP_LABEL, type PhotoPartGroup } from '@/lib/inspiration-slots';
 import { ShopNotice } from '../../_components/kit';
 import { RejectionNotice } from './rejection-notice';
+import { InspirationCardPick } from '@/app/_components/inspiration-card-pick';
+import { preselectedCard, type CardChoice } from '@/lib/inspiration-card-link';
 import { formatCount } from '@/lib/format-number';
 
 export type StylistAsset = {
@@ -88,6 +91,8 @@ export type StylistAsset = {
   /** The celebration this photo came off. NULL = back-catalogue, which is the
    *  only thing the per-tier quota counts (MB11). */
   source_event_id: string | null;
+  /** 🔗 Offered to the library from a Mood Board suggestion (2026-10-30) — event-linked, yet counted in the quota. */
+  from_suggestion?: boolean;
   label: string;
   storage_path: string;
   approved_at: string | null;
@@ -129,6 +134,11 @@ export type StylistLibraryEditorProps = {
   importableEditorialFailed: boolean;
   /** 🧪 The dev lab's stand-ins; absent everywhere in the app (the shipped actions run). */
   actions?: Partial<StylistLibraryActions>;
+  /**
+   * 🔗 "Which of your services is this?" (owner 2026-10-30) — per part, the shop's live cards whose Service links it,
+   * worked out on the server (`shopCardChoices`). `null` = the cards could not be read (said); absent = not offered.
+   */
+  cardsByPart?: Record<string, CardChoice[]> | null;
 };
 
 export function StylistLibraryEditor({
@@ -140,6 +150,7 @@ export function StylistLibraryEditor({
   importableEditorial,
   importableEditorialFailed,
   actions: actionsIn,
+  cardsByPart,
 }: StylistLibraryEditorProps) {
   const { uploadStylistAsset, importEditorialMediaToGallery, saveStylistColorRanges, deleteStylistAsset } = actionsIn
     ? { ...SHIPPED_ACTIONS, ...actionsIn }
@@ -155,6 +166,12 @@ export function StylistLibraryEditor({
   // both need to know which shelf's count to read.
   const [uploadSlot, setUploadSlot] = useState<string>(gallerySlots[0]?.key ?? '');
   const [notice, setNotice] = useState<string | null>(null);
+  // 🔗 The card picked per part — absent = the preselection (exactly one card fits), '' = the shop only.
+  const [cardPicks, setCardPicks] = useState<Record<string, string>>({});
+  const choicesFor = (slot: string): CardChoice[] | null | undefined =>
+    cardsByPart === undefined ? undefined : cardsByPart === null ? null : (cardsByPart[slot] ?? []);
+  const cardFor = (slot: string): string => cardPicks[slot] ?? preselectedCard(choicesFor(slot) ?? []);
+  const pickCard = (slot: string, id: string) => setCardPicks((prev) => ({ ...prev, [slot]: id }));
   // 🌱🖼 One of the shop's own photos instead of a file — the same form, the same server gates.
   const [shopPhotoRef, setShopPhotoRef] = useState<string | null>(null);
   const [shopPickerOpen, setShopPickerOpen] = useState(false);
@@ -191,7 +208,7 @@ export function StylistLibraryEditor({
         (a) =>
           a.asset_type === SUPPLIER_GALLERY_ASSET_TYPE &&
           a.asset_subtype === uploadSlot &&
-          a.source_event_id === null &&
+          (a.source_event_id === null || a.from_suggestion === true) &&
           a.retired_at === null,
       ).length,
     [assets, uploadSlot],
@@ -219,7 +236,24 @@ export function StylistLibraryEditor({
         // bytes (see the file docblock). Adding one back prints it twice.
         setActionError(null);
         setNotice(null);
-        const { assetId, textScreen, colorRanges } = await uploadStylistAsset(formData);
+        // 🗜 COMPRESSED IN THE BROWSER FIRST (2026-11-05) — the same
+        // `compressImageForWeb` FileUpload's `compressImage` runs. A phone photo
+        // is often 5–12 MB; the bytes travel inside this server action, whose
+        // body limit is a few MB, so a full-size photo failed before any gate
+        // could speak. Best-effort: it returns the original file on any failure.
+        const picked = formData.get('file');
+        if (picked instanceof File && picked.size > 0) {
+          formData.set('file', await compressImageForWeb(picked), picked.name);
+        }
+        // A refusal comes back as a result, never a throw — a thrown message is
+        // blanked in production, so "wrong trade / quota full / confirm the
+        // rights" only ever reached the supplier in dev.
+        const answer = await uploadStylistAsset(formData);
+        if (!answer.ok) {
+          setActionError(answer.error);
+          return;
+        }
+        const { assetId, textScreen, colorRanges } = answer;
         const label = String(formData.get('label') ?? '');
         const uploadedType = String(
           formData.get('assetType') ?? '',
@@ -277,6 +311,7 @@ export function StylistLibraryEditor({
           mediaId,
           slotKey: importSlot,
           rightsWarranted: true,
+          vendorServiceId: cardFor(importSlot) || null,
         });
         setNotice(
           'Added to Inspiration. Photos from an event you were booked on never count against your back-catalogue allowance.',
@@ -525,6 +560,14 @@ export function StylistLibraryEditor({
                     className="!min-h-11"
                   />
                 </div>
+              ) : null}
+              {isGalleryUpload ? (
+                <InspirationCardPick
+                  choices={choicesFor(uploadSlot)}
+                  value={cardFor(uploadSlot)}
+                  onChange={(id) => pickCard(uploadSlot, id)}
+                  dataAttr="data-library-upload-card"
+                />
               ) : (
                 <input
                   name="assetSubtype"
@@ -614,6 +657,15 @@ export function StylistLibraryEditor({
                 dataAttr="data-library-import-part"
                 stickyGroups
                 className="!min-h-11"
+              />
+            </div>
+            <div className="mb-3">
+              <InspirationCardPick
+                choices={choicesFor(importSlot)}
+                value={cardFor(importSlot)}
+                onChange={(id) => pickCard(importSlot, id)}
+                dataAttr="data-library-import-card"
+                withHiddenField={false}
               />
             </div>
             <ul className="space-y-2">

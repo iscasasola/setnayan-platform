@@ -107,7 +107,9 @@ test('the tier cap itself is NOT dead — it still gates the premium page', () =
   // public layout — flipping it would have handed Free and Solo the whole Pro
   // website. This asserts the cap kept real work, so a later reader does not
   // "clean up" a cap that looks unused from the slug's side alone.
+  // 2026-11-04: the Pro page parts moved to their own cap, `premiumPage`, when the owner gave Solo its own web
+  // address ("website applies to solo as well") — `customWebsiteName` now gates the address alone.
   const pro = setEntries(ACTIONS, 'PRO_WEBSITE_FIELDS');
-  assert.ok(pro.length > 0, 'PRO_WEBSITE_FIELDS is empty — customWebsiteName now gates nothing here');
-  assert.ok(/caps\.customWebsiteName/.test(ACTIONS), 'the Pro gate no longer reads the cap');
+  assert.ok(pro.length > 0, 'PRO_WEBSITE_FIELDS is empty — premiumPage now gates nothing here');
+  assert.ok(/caps\.premiumPage/.test(ACTIONS), 'the Pro gate no longer reads the cap');
 });

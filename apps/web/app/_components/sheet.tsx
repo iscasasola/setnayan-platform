@@ -1,9 +1,11 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { createContext, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { OverlayBackdrop } from './overlay-backdrop';
 import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 
@@ -67,7 +69,19 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 //   - body scroll locked while open (no background scrolling under
 //     the sheet)
 //   - backdrop click closes
+//   - the phone's Back closes it (`useBackCloses`, one history entry of its own)
 //   - close-button is always rendered with a 44×44px hit target (the template's floor, 2026-10-12)
+//
+// 🔝 DRAWN ON TOP OF THE WHOLE SCREEN — THE SHEET PORTALS ITSELF (owner, live iPhone 2026-10-29: *"the pop up is
+// behind the bottom nav"*). A `fixed inset-0 z-50` box can only rise as high as its nearest stacking context, and every
+// event page lives inside one — `<main class="sn-vt-page">` carries a `view-transition-name`. Rendered in place, the
+// Home coordinator sheet and the Guests › Seats table sheet painted UNDER the bottom bar and the top bar (the "Full
+// access" row unreachable). Some callers had learned to wrap the sheet in `createPortal` themselves; the ones that
+// did not were trapped. Now the sheet is drawn into <body> by itself (`usePortalHost`), so no caller can get it wrong
+// — a caller's own portal around it still works (a portal inside a portal lands on <body> once). On the server and the
+// very first client render there is no <body> to reach yet, so a sheet open at mount is drawn in place for that one
+// frame (the server's HTML and the first paint agree), then moves (the focus trap engages
+// there). 🔒 `app/_components/an-open-panel-clears-the-top-bar.test.ts`.
 //
 // NOT handled here (consumer's responsibility):
 //   - the heading element itself — consumer renders it so it can
@@ -81,7 +95,7 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
  */
 const SHEET_AT: Record<
   ShellBoundary,
-  { root: string; panel: string; narrow: string; wide: string }
+  { root: string; panel: string; narrow: string; wide: string; full: string }
 > = {
   lg: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none',
@@ -89,6 +103,7 @@ const SHEET_AT: Record<
       'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
     narrow: 'lg:w-[22rem]',
     wide: 'lg:w-[min(34rem,92vw)]',
+    full: 'max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:rounded-t-none max-lg:border-0',
   },
   tab: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-stretch tab:justify-end focus:outline-none',
@@ -99,8 +114,18 @@ const SHEET_AT: Record<
        prototype narrows the Suppliers date sheet (≈540 at 1280) to match. Other surfaces keep `lg` as shipped. */
     narrow: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     wide: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
+    full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none max-tab:border-0',
   },
 };
+
+/**
+ * 🧭 "YOU ARE INSIDE A SHEET" — true for everything drawn in a `Sheet`'s body (context crosses the portal). For a part
+ * that floats itself at the foot of the screen by portalling to <body> (the supplier's thumb row) and would otherwise
+ * land UNDER the sheet: the service maker's Preview · Create row, opened in Today's New service sheet (live
+ * 2026-11-06), was drawn on <body> at z 25, behind the sheet's z-50 — no Create to press. Inside a sheet it stays in
+ * place, inside the sheet's own layer. 🔒 `vendor-dashboard/services/the-maker-sheets-open-on-top.test.ts`.
+ */
+export const InSheet = createContext(false);
 
 export type SheetProps = {
   open: boolean;
@@ -133,6 +158,30 @@ export type SheetProps = {
    * for one sheet would make Back press twice.
    */
   backCloses?: boolean;
+  /**
+   * ‹ A way BACK drawn at the left of the `title` row — for a sheet that is one step inside a place (Admin › Categories'
+   * drawer: ‹ the level it was opened from; owner 2026-10-29, *"add a back button properly"*). It names where it goes;
+   * the ✕ still closes. Needs `title` (it lives in that row). Default none: every other caller renders as before.
+   */
+  back?: { label: string; onBack: () => void };
+  /**
+   * 📌 THE PINNED ROW (owner 2026-10-29, Admin › Categories panels approved — prototype
+   * `carry-2026-10-29/admin-categories-proto`): in place of the `title` row, ‹ · the LEVEL word over the item's NAME
+   * (wraps, never cut) · `more` (a ⋯ of rare actions). The ‹ is the way out (`back`), so no ✕ is drawn; Esc, the
+   * backdrop and the phone's Back still close. Needs `back`. Default none: every other caller renders as before.
+   */
+  pinned?: { level: string; name: string; more?: ReactNode };
+  /** On a phone the sheet IS the screen — full height, no rounded top (the pinned row's drawer). Default false. */
+  full?: boolean;
+  /**
+   * 🧭 THE CALLER'S OWN HEAD (Shop › Promote, owner 2026-11-06: "what is the use of our prototype?"): an approved
+   * prototype draws its own top row (Prints: ‹ · title over its line · Save all; a QR code: its name · ⓘ · Done). In
+   * place of the `title` row and the ✕, this row is drawn above the scrolling body and stays put; the caller's row
+   * carries the way out (Esc, the backdrop and the phone's Back still close). Default none: every caller renders as before.
+   */
+  head?: ReactNode;
+  /** 👍 A row pinned BELOW the scrolling body — the thumb dock (Prints: Design ▾ · QR ▾). Default none. */
+  foot?: ReactNode;
   children: ReactNode;
 };
 
@@ -144,6 +193,11 @@ export function Sheet({
   wide = false,
   rise = false,
   backCloses = true,
+  back,
+  pinned,
+  full = false,
+  head,
+  foot,
   children,
 }: SheetProps) {
   // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
@@ -151,12 +205,15 @@ export function Sheet({
   const dialogRef = useRef<HTMLDivElement>(null);
   const viaBack = useBackCloses(open && backCloses, onClose);
   const close = backCloses ? viaBack : onClose;
-  useModalA11y({ open, onClose: close, containerRef: dialogRef });
+  const host = usePortalHost();
+  /* The focus trap, the still page and the inert behind it engage once the sheet stands on <body> — a sheet mounted
+     already open is drawn in place for its first frame, and the hook must hold the element that stays, not that one. */
+  useModalA11y({ open: open && host !== null, onClose: close, containerRef: dialogRef });
   const at = SHEET_AT[useShellBoundary()];
 
   if (!open) return null;
 
-  return (
+  const sheet = (
     <div
       ref={dialogRef}
       role="dialog"
@@ -173,13 +230,46 @@ export function Sheet({
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
         data-sheet-panel=""
-        className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}`}
+        className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}${full ? ` ${at.full}` : ''}`}
       >
-        {title ? (
-          <header className="flex items-center justify-between gap-3 border-b border-ink/10 px-5 py-3">
+        {head ? (
+          <div data-sheet-head="" className="shrink-0">
+            {head}
+          </div>
+        ) : pinned && back ? (
+          <header data-sheet-pinned="" data-peek-toast-under="" className="flex min-h-14 shrink-0 items-center gap-1 border-b border-ink/10 pl-2 pr-2 pt-[env(safe-area-inset-top)]">
+            <button
+              type="button"
+              onClick={back.onBack}
+              aria-label={`Back to ${back.label}`}
+              data-sheet-back=""
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-ink/5"
+            >
+              <ChevronLeft aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.75} />
+            </button>
+            <p id={labelledById} className="min-w-0 flex-1 py-2 text-[16px] font-semibold leading-tight text-ink [overflow-wrap:anywhere]">
+              <small className="block text-[11.5px] font-medium uppercase tracking-[0.08em] text-ink/55">{pinned.level}</small>
+              {pinned.name}
+            </p>
+            {pinned.more ?? null}
+          </header>
+        ) : title ? (
+          <header className={`flex items-center justify-between gap-3 border-b border-ink/10 py-3 ${back ? 'pl-2 pr-5' : 'px-5'}`}>
+            {back ? (
+              <button
+                type="button"
+                onClick={back.onBack}
+                aria-label={`Back to ${back.label}`}
+                data-sheet-back=""
+                className="inline-flex min-h-11 min-w-0 items-center gap-1 rounded-full pl-1 pr-3 text-left text-[14px] font-semibold text-ink hover:bg-ink/5"
+              >
+                <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={2} />
+                <span className="min-w-0 [overflow-wrap:anywhere]">{back.label}</span>
+              </button>
+            ) : null}
             <p
               id={labelledById}
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta"
+              className={`font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta${back ? ' ml-auto shrink-0' : ''}`}
             >
               {title}
             </p>
@@ -202,10 +292,16 @@ export function Sheet({
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),16px)]">
-          {children}
+        <div className={`flex-1 overflow-y-auto overscroll-contain${foot ? '' : ' pb-[max(env(safe-area-inset-bottom),16px)]'}`}>
+          <InSheet.Provider value>{children}</InSheet.Provider>
         </div>
+        {foot ? (
+          <div data-sheet-foot="" className="shrink-0 pb-[env(safe-area-inset-bottom)]">
+            {foot}
+          </div>
+        ) : null}
       </div>
     </div>
   );
+  return host ? createPortal(sheet, host) : sheet;
 }

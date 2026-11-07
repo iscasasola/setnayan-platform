@@ -165,6 +165,8 @@ export function CheckinDesk({
       } else {
         setOnline(false);
       }
+      // 🔌 The live read was REFUSED (not "not a guest"): decide from the saved list, as with no signal.
+      if (check?.verdict === 'unreadable') check = null;
       if (!check) {
         // 📶 NO SIGNAL: the list saved on this phone decides who it is; the live check (a declined request, a
         // screenshot) runs when the queued check-in is sent — and if it refuses then, the desk says so.

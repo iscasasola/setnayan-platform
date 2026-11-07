@@ -88,7 +88,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'business_owner_name, business_owner_position, business_slug, capacity_max, capacity_min, ' +
   'compatible_ceremony_types, compatible_venue_settings, contact_email, contact_phone, ' +
   'created_at, created_by_admin_user_id, demo_batch_id, demotion_count, event_types, ' +
-  'experience_verified_at, experience_verified_by, extra_agent_seats, fraud_banned_at, ' +
+  'experience_verified_at, experience_verified_by, extra_agent_seats, ' +
+  'extra_bookings_per_date, extra_parent_categories, extra_services_per_leaf, extra_waitlist_acceptances, ' +
+  'fraud_banned_at, ' +
   'fraud_suspended_at, fraud_tombstoned, gallery_video_links, hq_address, hq_country, hq_latitude, ' +
   'hq_longitude, hq_region, in_business_since_date, in_business_since_year, ' +
   'venue_width_m, venue_length_m, ' +
@@ -115,7 +117,8 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'real_name_unlocked_at, registered_address, registered_business_name, registered_zip, ' +
   'registration_number_needs_review, registration_number_normalized, ' +
   'registration_number_raw, registration_number_submitted_at, same_day_available, ' +
-  'screen_name, screen_name_id, screen_name_slug, screen_name_taxonomy, services, ' +
+  // self_published_at (migration 20271303245624) — the shop chose to show its page before verification. Their own choice.
+  'screen_name, screen_name_id, screen_name_slug, screen_name_taxonomy, self_published_at, services, ' +
   'show_team_bookings_in_backend_count, social_feature_opt_out, social_featured_at, ' +
   'social_post_url, subscription_credit_php, supplier_categories, tagline, ' +
   'tier_billing_cycle, tier_expires_at, ' +

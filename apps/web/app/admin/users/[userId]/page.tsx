@@ -433,7 +433,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               ) : null}
               {user.is_team_member ? (
                 <span className="rounded-md bg-success-100 px-2 py-1 text-xs font-medium text-success-800">
-                  Team pool
+                  Team member
                 </span>
               ) : null}
               {isAdminAcct ? (
@@ -502,7 +502,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                   <dd className="text-ink">{user.is_internal ? 'Yes' : 'No'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-ink/50">Team pool</dt>
+                  <dt className="text-xs text-ink/50">Team member</dt>
                   <dd className="text-ink">{user.is_team_member ? 'Yes' : 'No'}</dd>
                 </div>
               </dl>

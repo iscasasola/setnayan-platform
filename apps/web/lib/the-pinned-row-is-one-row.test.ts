@@ -12,8 +12,13 @@
  *   · GUESTS, AMENDED (owner 2026-10-27, "APPROVED — GUESTS CAROUSEL STYLE A": "Pinned row: List · Map · ✓ ✕ ? · ⚙
  *     (no Invite), pins once"): at rest the first row is NOT sticky — it scrolls away with the summary carousel under it;
  *     once the carousel has gone the block pins (fixed, in a holder that keeps its height). No Invite in the pinned row.
+ *   · GUESTS, AMENDED AGAIN (owner 2026-10-30, iPhone app: *"The menu does not work properly"* · *"Seat ls should be pinned
+ *     on top row and on map and 3d"* → *"Like this one"*): the full pill (the segmented `Guests | Seats ▾ | March`) is GONE
+ *     from every view. There is ONE face — `[Page · View ▾] · counts · ⋯ · ⚙` — and the block is pinned (fixed, in its
+ *     holder) from the start on every view; "pins once" no longer applies, because there is nothing to swap.
  *   · HOME — the cover band pins with a NEGATIVE top; stuck, one line `<names> · <date> · ⚙`. No selector; the ⚙
- *     (Event Details) is its one control.
+ *     (Event Settings) is its one control — ONE mount at the band's right end, drawn AT REST too (owner 2026-10-29,
+ *     *"keep it there"*), the pinned line leaving it room.
  *
  * ⚙ EVERY PINNED ROW ENDS WITH ITS MENU'S ⚙ (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO" and "THE
  * PINNED ROW IS THE APP-WIDE TEMPLATE": selector or name line · counts · one action · ⚙). Guests' ⚙ is ONE mounted
@@ -44,7 +49,7 @@ const read = (...p: string[]) => stripComments(readFileSync(join(APP, ...p), 'ut
 const count = (s: string, needle: string | RegExp) =>
   typeof needle === 'string' ? s.split(needle).length - 1 : (s.match(needle) ?? []).length;
 
-test('Guests — one row, pinned ONCE: List · Map · ✓ ✕ ? · ⚙, no Invite; the carousel scrolls; the block is not sticky at rest', async () => {
+test('Guests — ONE row on every view, pinned from the start: the one menu · ✓ ✕ ? · ⚙, no Invite; the carousel scrolls', async () => {
   const guests = [
     guestRow({ role: 'bride', rsvp_status: 'attending', custom_tags: [] } as never),
     guestRow({ role: 'groom', side: 'groom', rsvp_status: 'attending', custom_tags: [] } as never),
@@ -62,101 +67,111 @@ test('Guests — one row, pinned ONCE: List · Map · ✓ ✕ ? · ⚙, no Invit
   for (const piece of ['data-replied-ring', 'data-plus-filter', 'gs-replied-pct', 'data-snap-carousel', 'data-requests-door', 'Excel']) {
     assert.equal(count(stick, piece), 0, `"${piece}" is pinned again — the pinned block is one row`);
   }
-  assert.equal(count(stick, 'guests/send'), 0, 'Invite rides in the pinned row — the approved row is List · Map · ✓ ✕ ? · ⚙');
+  assert.equal(count(stick, 'guests/send'), 0, 'Invite rides in the pinned row — the approved row is menu · ✓ ✕ ? · ⚙');
   assert.equal(count(stick, 'data-roster-to-invite'), 0, 'a to-invite door rides in the pinned row');
 
-  // The summary face: List · Map (no Settings), the three doors, nothing else pressable.
+  // ONE face (owner 2026-10-30): no segmented pill, no second face — the one menu ("Guests · List ▾"), the three reply
+  // doors, nothing else pressable; no Settings.
+  assert.equal(count(stick, /data-guests-segmented|data-guests-seg=|<nav\b/g), 0, 'the segmented Guests | Seats | March pill is back');
+  assert.equal(count(stick, 'data-guests-pin-face="summary"'), 1, 'the row is not ONE face');
   const faceAt = stick.indexOf('data-guests-pin-face="summary"');
-  const fullAt = stick.indexOf('data-guests-segmented');
-  assert.ok(faceAt > -1 && fullAt > faceAt, 'the pinned summary face is gone (or drawn after the full pill)');
-  const face = stick.slice(faceAt, stick.lastIndexOf('<nav', fullAt));
-  const segs = [...face.matchAll(/data-guests-pin-seg="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(segs, ['list', 'map'], `the pinned selector reads ${segs.join(' · ')} — it is List · Map, simplified`);
-  assert.equal(count(face, /<nav\b/g), 1, 'the pinned face has one selector');
+  const face = stick.slice(faceAt, stick.indexOf('data-guests-view-rounds', faceAt));
+  assert.equal(count(face, 'data-guests-pin-menu=""'), 1, 'the pinned row is not ONE menu');
+  assert.match(face, /data-guests-pin-menu=""[^>]*>[^]*?Guests · List/, 'the pinned menu does not say where you are ("Guests · List")');
   assert.doesNotMatch(face, />Settings<|data-guests-seg="share"/, 'Settings rides in the pinned row');
   const doors = [...face.matchAll(/data-reply-filter="(\w+)"/g)].map((m) => m[1]);
   assert.deepEqual(doors, ['attending', 'declined', 'none'], 'the pinned row lost a reply door (or grew one)');
-  assert.equal(count(face, /<(a|button)\b/g), segs.length + doors.length, 'the pinned face holds a control besides List · Map and ✓ ✕ ?');
+  assert.equal(count(face, /<(a|button)\b/g), 1 + doors.length, 'the pinned face holds a control besides its menu and ✓ ✕ ?');
 
-  // The full pill — List · Map (Settings became the ⚙, 27 Oct) — is still the face at rest.
-  const fullEnd = stick.indexOf('</nav>', fullAt);
-  const full = stick.slice(fullAt, fullEnd);
-  assert.deepEqual([...full.matchAll(/data-guests-seg="(\w+)"/g)].map((m) => m[1]), ['list', 'map']);
-
-  // ⚙ THE ROW ENDS WITH ITS ⚙ — ONE mounted button that BOTH faces show: exactly one in the pinned block, not in the
-  // summary face, right after the full pill's </nav> as the first row's last child, and nothing pressable after it.
+  // ⚙ THE ROW ENDS WITH ITS ⚙ — exactly one in the pinned block, not in the face, the first row's last control.
   assert.equal(count(stick, 'data-menu-settings="guests"'), 1, 'the Guests pinned block does not hold exactly one ⚙');
-  assert.equal(count(face, 'data-menu-settings'), 0, 'the summary face mounts its own ⚙ — two buttons for one door');
+  assert.equal(count(face, 'data-menu-settings'), 0, 'the face mounts its own ⚙ — two buttons for one door');
+  const firstRowAt = stick.indexOf('data-first-row=""');
+  assert.ok(firstRowAt > -1 && firstRowAt < faceAt, 'the face is not inside the first row');
   const gearAt = stick.indexOf('data-menu-settings="guests"');
-  assert.ok(gearAt > fullEnd, 'the ⚙ is not after the selector — the row does not end with it');
-  const firstRow = stick.slice(stick.lastIndexOf('data-first-row', fullAt));
-  const afterGear = firstRow.slice(firstRow.indexOf('data-menu-settings="guests"'));
+  assert.ok(gearAt > faceAt, 'the ⚙ is not after the menu — the row does not end with it');
+  const afterGear = stick.slice(gearAt);
   assert.ok(/^[^]*?<\/button><\/span><\/div>/.test(afterGear), 'something sits after the ⚙ in the first row');
   assert.equal(count(afterGear.slice(0, afterGear.search(/<\/button><\/span><\/div>/)), /<(a|button)\b/g), 1, 'the ⚙ is not the row\'s last control');
-  assert.ok(stick.indexOf('data-has-gear') > -1, 'the pinned block does not say it holds a ⚙ — the summary face would cover it');
 
-  // Same box: the face is laid OVER the pill's 44 px; the block pads 8 / 8.
+  // Same box on every view: 8 + 44 + 8, one line that never wraps; the face is IN the flow (nothing laid over another).
   const css = readFileSync(join(APP, 'guests', '_components', 'guests-screen.module.css'), 'utf8');
   assert.match(css, /\.stick\.pinned \{\s*padding: 8px 0;/, 'the pinned block is not 8 + 44 + 8');
-  assert.match(css, /\.face \{\s*position: absolute;[^}]*height: 44px;/, 'the summary face is not laid over the pill — the swap would move the list');
-  assert.match(css, /\.stick\.pinned\[data-has-gear\] \.face \{\s*right: 52px;/, 'the summary face covers the ⚙ when pinned');
-  assert.match(css, /\.stick\.pinned\[data-collapsed\] \[data-first-row\] > \[data-guests-segmented\] \{\s*opacity: 0;/, 'pinned, the full pill no longer fades (or the whole first row — ⚙ included — does)');
-  assert.doesNotMatch(css, /\[data-collapsed\][^{]*\[data-first-row\]\s*\{|\[data-collapsed\][^{]*\[data-menu-settings/, 'pinned, the ⚙ is faded out');
+  assert.match(css, /\.topRow \{[^}]*height: 44px;[^}]*flex-wrap: nowrap;/, 'the row is not one 44-px line');
+  assert.doesNotMatch(css.slice(css.indexOf('.face {'), css.indexOf('}', css.indexOf('.face {'))), /position: absolute/, 'the face is laid over something again');
 
-  // 📌 PINS ONCE (owner 2026-10-27: "the selector double pins. we want them to pin only the new way and not the first
-  // pin it does"): on the List the block is NOT sticky at rest; it pins (fixed) only when collapsed, and its holder
-  // keeps the block's height so nothing moves. The Map keeps its shipped sticky row.
-  assert.match(css, /\.screen\[data-guests-screen='list'\] \.stick\.pinned \{\s*position: relative;/, 'the List’s first row is sticky at rest — it pins twice');
-  assert.match(
-    css,
-    /\.screen\[data-guests-screen='list'\] \.stick\.pinned\[data-collapsed\] \{\s*position: fixed;\s*top: var\(--gs-top, 0px\);/,
-    'scrolled past the carousel, the row does not pin under the bar',
-  );
+  // 📌 PINNED FROM THE START, EVERY VIEW: fixed under the bar in its holder's column; the holder keeps its height.
+  assert.match(css, /\.stick\.pinned\[data-pinned\] \{\s*position: fixed;\s*top: var\(--gs-top, 0px\);/, 'the row does not pin under the bar');
+  assert.doesNotMatch(css, /\.screen\[data-guests-screen='list'\] \.stick\.pinned \{\s*position: relative;/, 'the List’s row scrolls away at rest again');
   assert.match(css, /\.stickHold \{\s*min-height: var\(--gs-stick-h/, 'the holder does not keep the pinned block’s height');
-  // The swap is decided by the CAROUSEL's bottom edge — not the pill's: the row appears only once the carousel is gone.
   const screen = read('guests', '_components', 'guests-screen.tsx');
-  assert.match(screen, /const on = strip\.getBoundingClientRect\(\)\.bottom <= bar \+ st\.offsetHeight \+ 2;/, 'the row pins on something other than the carousel leaving');
-  assert.match(screen, /<div className=\{`\$\{styles\.summary\} \$\{styles\.rise\}`\} ref=\{stripRef\}/, 'the edge the row watches is not the carousel');
+  assert.match(screen, /st\.setAttribute\('data-pinned', ''\);/, 'the screen does not pin the row');
+  assert.doesNotMatch(screen, /getBoundingClientRect\(\)\.bottom <= bar/, 'the row waits for the carousel to leave again — it would wear two faces');
 });
 
-test('Suppliers — only Find · Build · Booked · ⚙ pins; the date · place line scrolls away above it', () => {
+test('Suppliers — ONE row pins, the same at rest: [Page · View ▾] · its count · ⚙; the date · place line scrolls away above it', () => {
+  // Owner 2026-10-30 "all yes" (DECISION_LOG "ONE SELECTOR FOR EVERY PAGE") + 2026-10-31 *"Suppliers. needs to have that
+  // drop down effect"*: the segmented Find | Build | Booked row and the face laid over it while pinned are ONE row.
   const src = read('vendors', '_components', 'services-takeover.tsx');
   const at = src.indexOf('data-suppliers-stick=""');
   assert.ok(at > -1, 'the pinned row is gone');
   const open = src.lastIndexOf('<div', at);
-  const close = src.indexOf('</ISegmented>', at);
-  assert.ok(close > at, 'the pinned row lost its selector');
+  const close = src.indexOf('<MenuSettingsButton', at);
+  assert.ok(close > at, 'the pinned row lost its ⚙');
   const stick = src.slice(open, close);
   assert.match(stick, /className="[^"]*\bsticky\b/, 'the selector row is not sticky');
-  assert.equal(count(stick, /<ISegmented\b/g), 1, 'the pinned row holds one selector');
-  assert.match(stick, /SUPPLIERS_MODES\.map\(/, 'the pinned selector is not Find · Build · Booked');
+  assert.equal(count(stick, /<PickMenu\b/g), 1, 'the pinned row holds one selector');
+  assert.match(stick, /<PickMenu\b[^>]*\bcompact\b/, 'the selector is not the shared compact face');
+  assert.doesNotMatch(stick, /<PickMenu\b[^>]*\b(trigger|className)=/, 'the selector wears a local look');
+  assert.equal(count(src, /<ISegmented\b|<ISeg\b|data-sup-face/g), 0, 'a segmented row (or the face laid over it) is back');
   assert.equal(count(stick, '{factsSlot}'), 0, 'the date · place line is pinned again — two rows');
   const facts = src.indexOf('{factsSlot}');
   assert.ok(facts > -1 && facts < open, 'the date · place line must sit above the pinned row, as plain content');
 
   // ⚙ The row ENDS with Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙" + "EVERY MENU'S ⚙ RIDES ITS PINNED ROW
-  // TOO"): the row is the menu's first row, and after the selector comes its ONE ⚙ and nothing else before </div>.
-  const rowEnd = src.indexOf('</div>', close);
-  const tail = src.slice(close + '</ISegmented>'.length, rowEnd);
+  // TOO"): the row is the menu's first row, and after the ⚙ nothing else before </div>.
+  const rowEnd = src.indexOf('\n      </div>', close);
+  const tail = src.slice(close, rowEnd);
   assert.match(src.slice(open, at + 400), /data-first-row=""/, 'the pinned row is not marked as the menu’s first row');
   assert.equal(count(tail, /<MenuSettingsButton\b[^>]*\bmenu="suppliers"/g), 1, 'the pinned row does not end with Suppliers ⚙');
-  assert.equal(count(tail, /<(?!\/|MenuSettingsButton\b)[A-Za-z]/g), 0, 'something besides the ⚙ is drawn after the selector');
+  assert.equal(count(tail.slice(tail.indexOf('</MenuSettingsButton>')), /<(?!\/)[A-Za-z]/g), 0, 'something is drawn after the ⚙');
 });
 
-test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one control', async () => {
+test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one control, drawn at rest too', async () => {
   const band = read('_components', 'home-cover-band.tsx');
   assert.match(band, /\bsticky top-\[calc\(var\(--home-bar\)-var\(--home-band-h\)\+52px\)\]/, 'the cover band does not pin with a negative top');
-  assert.match(band, /<HomeCoverPin name=\{cover\.name\} date=\{cover\.shortDate\} settingsHref=\{settingsHref\} \/>/);
-  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsHref=\{`\/dashboard\/\$\{eventId\}\/details`\}/, 'the Home does not hand its pinned line the ⚙');
+  assert.match(band, /<HomeCoverPin name=\{cover\.name\} date=\{cover\.shortDate\} gear=\{gear\} \/>/);
+  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsFor=\{eventSettings \|\| helperSettings \? eventId : undefined\}/, 'the Home does not hand its band the ⚙');
   const pin = read('_components', 'home-cover-pin.tsx');
-  assert.doesNotMatch(pin, /<button\b|<Link\b|<select\b|<nav\b/, 'the Home pin grew a control besides its ⚙ — Home has no selector');
+  assert.doesNotMatch(pin, /<button\b|<Link\b|<select\b|<nav\b|<a\b|ActionButton|MenuSettingsButton/, 'the Home pin grew a control — its ⚙ is the band’s one mount');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { HomeCoverPin } = await import('@/app/dashboard/[eventId]/_components/home-cover-pin');
-  const html = renderToStaticMarkup(React.createElement(HomeCoverPin, { name: 'Cale & Ice', date: 'Dec 5', settingsHref: '/dashboard/e1/details' }));
-  assert.match(html, /^<span data-home-cover-pin=""[^>]*\bh-\[52px\]/, 'the pinned line is not one 52-px line');
-  // <names> · <date> · ⚙ — the ⚙ the LAST thing in the line, its one control, opening Event Details.
-  assert.match(html, /Cale &amp; Ice<\/span><span[^>]*>Dec 5<\/span><span data-home-pin-gear=""[^>]*><a\b[^>]*href="\/dashboard\/e1\/details"[^>]*>(?:(?!<a\b|<button\b).)*<\/a><\/span><\/span>$/, 'the pinned line does not end with its ⚙');
-  assert.equal(count(html, /<(a|button)\b/g), 1, 'the pinned line holds another control besides its ⚙');
+  const { HomeCoverBand } = await import('@/app/dashboard/[eventId]/_components/home-cover-band');
+  const html = renderToStaticMarkup(
+    React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 5 Dec 2026', shortDate: 'Dec 5' }, settingsFor: 'e1' }),
+  );
+  assert.match(html, /<span data-home-cover-pin=""[^>]*\bh-\[52px\]/, 'the pinned line is not one 52-px line');
+  // <names> · <date>, then room for the ⚙ — the line itself holds no control.
+  const line = /<span data-home-cover-pin="[^"]*"[^>]*>(.*?)<\/span><\/span>/.exec(html);
+  assert.ok(line, 'no pinned line drawn');
+  assert.match(line![1]!, /Cale &amp; Ice<\/span><span[^>]*>Dec 5$/, 'the pinned line is not <names> · <date>');
+  assert.match(line![0], /^<span data-home-cover-pin=""[^>]*\bpr-\[54px\]/, 'the pinned line runs under the ⚙ — it leaves it no room');
+  // ⚙ ONE control in the band, the LAST thing drawn (its right end), and NEVER hidden at rest (owner 2026-10-29).
+  assert.equal(count(html, /<(a|button)\b/g), 1, 'the band holds another control besides its ⚙');
+  assert.equal(count(html, /data-menu-settings="home"/g), 1, 'the band does not draw Home’s ⚙ exactly once');
+  const gear = /<span data-home-settings-gear="" class="([^"]*)">(.*)<\/span><\/div>$/.exec(html);
+  assert.ok(gear, 'Home’s ⚙ is not the band’s last element — it is not at the right end');
+  const cls = gear![1]!.split(/\s+/);
+  for (const c of ['absolute', 'bottom-1', 'right-4']) assert.ok(cls.includes(c), `the ⚙ is not on the pinned line’s spot (bottom 52 px, right end) — no ${c}`);
+  // 🎴 On the event card (Home redraw 2026-11-02) the same ONE ⚙ sits by the name at rest and rides the pinned line once
+  // stuck — its stuck seat is still the pinned line's right end.
+  const card = stripComments(readFileSync(join(APP, '_components', 'home-settings-gear.tsx'), 'utf8'));
+  assert.match(card, /top-\[18px\] group-data-\[collapsed\]\/cover:bottom-1 group-data-\[collapsed\]\/cover:top-auto/, 'on the card, the ⚙ does not ride the pinned line once stuck');
+  assert.doesNotMatch(gear![1]!, /\binvisible\b|\bhidden\b|opacity-0/, 'Home’s ⚙ is hidden at rest — the owner asked to keep it there');
+  assert.match(gear![2]!, /<button[^>]*aria-label="Event settings"/, 'the ⚙ is not named "Event settings"');
+  // The loading screen's band (no event to open) draws no ⚙ and leaves no room for one.
+  const loading = renderToStaticMarkup(React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding', shortDate: 'Dec 5' } }));
+  assert.equal(count(loading, /<(a|button)\b/g), 0, 'the loading band draws a control');
+  assert.doesNotMatch(loading, /pr-\[54px\]/, 'the loading band leaves room for a ⚙ it does not draw');
 });
 
 /*

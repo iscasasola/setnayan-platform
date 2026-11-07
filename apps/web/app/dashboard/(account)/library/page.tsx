@@ -174,6 +174,7 @@ export default async function AlaalaPage({
                 endAt: b.end_at,
                 actualStartAt: b.actual_start_at,
                 actualEndAt: b.actual_end_at,
+                timeTba: b.time_tba === true,
               }))
             }
           />
@@ -212,7 +213,7 @@ export default async function AlaalaPage({
         eventValue={keep ?? 'all'}
         show={show}
         showValue={active}
-        download={picked && picked.role === 'couple' && picked.count > 0 ? `/dashboard/${picked.event.event_id}/studio/papic/gallery-zip` : null}
+        download={picked && picked.role === 'couple' && picked.count > 0 ? `/dashboard/${picked.event.event_id}/memories/download-all` : null}
       />
     </div>
   );

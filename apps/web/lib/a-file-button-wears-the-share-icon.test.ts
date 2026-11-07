@@ -99,7 +99,10 @@ test('the shipped default: PrintSaveButton draws Share when the caller names no 
   assert.match(psb, /\(icon \?\? Share\)/, 'the action variant’s default icon is not Share');
   assert.match(psb, /<Share aria-hidden className="h-4 w-4"/, 'the primary/secondary variant does not draw Share');
   const guests = SOURCES.find((s) => s.rel === 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx')!.src;
-  assert.match(guests, /icon: <Share /, 'the Guests "Save as Excel" choice lost its Share mark');
+  // 3 Nov: the Guests Excel left the List's ≡ for Guests ⚙ ("Download as Excel") — it keeps the Share mark there.
+  const rows = SOURCES.find((s) => s.rel === 'app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows.tsx')!.src;
+  assert.match(rows, /function DownloadExcelRow\([\s\S]*?icon=\{Share\}/, 'the Guests "Download as Excel" row lost its Share mark');
+  assert.match(guests, /<GuestsExcelContext\.Provider/, 'the Guests screen no longer hands its Excel to the ⚙');
 });
 
 test('Share, never Share2, on a file button: the save strip and the QR card’s file button', () => {

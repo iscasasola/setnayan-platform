@@ -2,12 +2,14 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AlertTriangle, Camera, Play } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
-import { groupIntoChapters, type ChapterBlock } from '@/lib/alaala-chapters';
+import type { ChapterBlock } from '@/lib/alaala-chapters';
+import { chapterDays } from '@/lib/papic-chapters';
 import { lensEmptyLine, selectLens, type AlaalaLensKey, type AlaalaWall, type WallItem } from '@/lib/alaala-wall';
 import { formatCount } from '@/lib/format-number';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import type { Album } from '../_data/photos-albums';
 import { GalleryDoor } from './gallery-doors';
+import { WallOpen, WallViewerRoot } from './memories-wall-viewer';
 
 /**
  * memories-chapters.tsx — Memories, wearing the Papic gallery (owner 2026-10-22: *"Memories must look similar to
@@ -21,23 +23,21 @@ import { GalleryDoor } from './gallery-doors';
  *     event including the empty ones (owner 2026-08-19, "show all eight events"), with its Gallery › door (the
  *     shipped `GalleryDoors`, on the heading now) and the event's monogram tile when nothing is kept yet. This
  *     replaces the cover shelf AND the Gallery rows — four shapes before the first photograph became one.
- *   · ONE EVENT — the day's chapters, from the run of show (`lib/alaala-chapters.ts`, the Papic gallery's own),
+ *   · ONE EVENT — the day's chapters, from the run of show (`chapterDays`, the ONE engine in `lib/papic-chapters.ts`),
  *     falling to time-of-day chapters when there is no schedule to read.
  * Owner, 22 Oct: NO counts line at the top ("remove these") — the page starts with the Life-Flash tile; the clip
  * and with-you marks live on the tiles. The foot line stays only where it explains a capped list.
  */
 
-/** Where a frame opens — unchanged from the lens body: the studio for a host, the photo for a guest. */
-function frameHref(item: WallItem): { href: string; external: boolean } {
-  if (item.role === 'couple') return { href: `/dashboard/${item.eventId}/memories`, external: false };
-  return { href: item.url, external: true };
-}
-
 export const MEMORIES_HEADING =
   'font-mono text-[11.5px] font-bold uppercase tracking-[0.16em] text-[color:var(--sn-gold-700)]';
 
+/**
+ * A frame opens IN THE SHARED VIEWER TEMPLATE (owner 2026-10-30, "the same template will show but no need for
+ * tagging" — `memories-wall-viewer.tsx`): the photo itself, Share, and for your own event its Memories door. It used to
+ * open the event's Memories (yours) or the bare picture in a new tab (theirs).
+ */
 function Tile({ item }: { item: WallItem }) {
-  const { href, external } = frameHref(item);
   const label = `${item.isClip ? 'Clip' : 'Photo'} from ${item.eventName}${item.withMe ? ' — you are in it' : ''}`;
   const media = (
     <>
@@ -54,14 +54,10 @@ function Tile({ item }: { item: WallItem }) {
     </>
   );
   const shell = 'relative block aspect-square overflow-hidden rounded-xl bg-ink/[0.06]';
-  return external ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className={shell} data-memories-tile="">
+  return (
+    <WallOpen item={item} label={label} className={shell}>
       {media}
-    </a>
-  ) : (
-    <Link href={href} aria-label={label} className={shell} data-memories-tile="">
-      {media}
-    </Link>
+    </WallOpen>
   );
 }
 
@@ -217,7 +213,7 @@ export async function MemoriesChapters({
         blocks = [];
       }
       const byId = new Map(shown.map((f) => [f.key, f]));
-      const { days, undated } = groupIntoChapters({
+      const { days, undated } = chapterDays({
         frames: shown.map((f) => ({ id: f.key, capturedAt: f.capturedAt })),
         blocks,
         tz: DEFAULT_EVENT_TZ,
@@ -229,6 +225,7 @@ export async function MemoriesChapters({
     }
     const door = <GalleryDoor event={picked.event} />;
     return (
+      <WallViewerRoot items={chapters.flatMap((c) => c.items)}>
       <div data-memories-body="event">
         {intro}
         {chapters.length === 0 ? (
@@ -251,12 +248,14 @@ export async function MemoriesChapters({
           ))
         )}
       </div>
+      </WallViewerRoot>
     );
   }
 
   // ── ALL EVENTS: one chapter per event, every event ───────────────────────
   const events = albumsForLens(albums, lens);
   return (
+    <WallViewerRoot items={events.flatMap((album) => shown.filter((f) => f.eventId === album.event.event_id))}>
     <div data-memories-body="all">
       {intro}
       {events.map((album) => {
@@ -284,6 +283,7 @@ export async function MemoriesChapters({
         </p>
       ) : null}
     </div>
+    </WallViewerRoot>
   );
 }
 

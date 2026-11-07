@@ -43,6 +43,14 @@ export function isHubViewPath(pathname: string): boolean {
 export const HUB_BUST_COOKIE = 'sn_hub_bust';
 
 /**
+ * Writes that change NOTHING the guest's Event Hub draws, so they must not move `HUB_BUST_COOKIE`. The "someone is
+ * looking" beacon (`/api/hub/seen`, Who's here 2026-10-29) is posted on every guest's open: were it a "write", every
+ * open would bust that guest's copy and their NEXT open would render live — the cache defeated by the act of reading.
+ * ⚠ Only a path whose write no guest page shows belongs here.
+ */
+export const HUB_BUST_EXEMPT_PATHS: readonly string[] = ['/api/hub/seen'];
+
+/**
  * EVERY query parameter the Event Hub page reads (its `Props.searchParams`, plus `generateMetadata`). Any of them on
  * the request — except `tab`, which is part of the key — keeps the live render: they are hosts' previews and one-shot
  * flashes (`?rsvp=ok`, `?save=`, `?invite=`…), and a cached copy must never answer them. A parameter the page does NOT

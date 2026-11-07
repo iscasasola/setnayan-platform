@@ -119,7 +119,8 @@ test('5 · the face is in the header over the panel, and only on the page in the
   assert.match(CARD, /\bpinSlot\b/, 'GuestCard must open the header’s pin slot');
   assert.match(BODY, /\{headerShown \? null : <GuestCardAvatar guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\} \/>\}/, 'over the panel the body must not draw the face a second time');
   assert.equal((BODY.match(/<GuestCardAvatar\b/g) ?? []).length, 1, 'the body draws the face in one place');
-  const av = BODY.slice(BODY.indexOf('export function GuestCardAvatar('));
+  const HEAD = read(`${G}/guest-card-head.tsx`);
+  const av = HEAD.slice(HEAD.indexOf('export function GuestCardAvatar('));
   assert.match(av.slice(0, 1400), /photoDisplayUrl \?[\s\S]*<img src=\{photoDisplayUrl\}[\s\S]*guestInitials\(guest\)/, 'the face is their photo, else their initials');
   assert.match(av.slice(0, 1400), /size === 'head' \? 'h-11 w-11'/, 'the header’s face is 44px');
 });
@@ -144,7 +145,7 @@ test('6c · the pinned Invite is the SAME cell’s button, drawn only while its 
   const portal = CELL.slice(CELL.indexOf('createPortal(') - 40, CELL.indexOf('pin.slot,') + 9);
   assert.match(portal, /^[\s\S]*\{pin\.pinned && pin\.slot\s*\?\s*createPortal\(/, 'the copy must be drawn ONLY while pinned');
   // 🎟 Since 2026-10-28 the card's send is the ONE Share (ticket row: Share · NFC · New QR) — the copy runs the same rowShare().
-  assert.match(portal, /onClick=\{\(\) => void rowShare\('head'\)\}/, 'the copy must run the same rowShare()');
+  assert.match(portal, /onClick=\{\(\) => rowShare\('head'\)\}/, 'the copy must run the same rowShare()');
   assert.match(portal, /icon=\{Share\}/, 'the copy is the Share icon');
   assert.equal((CELL.match(/createPortal\(/g) ?? []).length, 1, 'one portal — the header copy');
   assert.match(CELL, /<Popover anchorRef=\{from === 'head' && pin\.pinned \? pinRef : ref\}/, 'the sheet opens under whichever Invite was pressed');

@@ -254,6 +254,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
 
       <ChatInbox
         rows={inboxRows}
+        /* 🔌 A refused unread read is never "Nothing unread." (reads-are-honest, 2026-11-02 audit #11). */
+        unreadMeasured={unread.measured}
         viewerId={user.id}
         empty={
           <div className="py-10 text-center">

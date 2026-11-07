@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
-import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
+import { ELEMENT_SHEET_CLOSED, aGroundTapStows, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
 import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -15,7 +15,6 @@ import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
-  MAKER_MORE_ROWS_ID,
   MAKER_OPEN_PART_EVENT,
   MAKER_STAGE_TOOL_EVENT,
   MAKER_STAGE_PICK_EVENT,
@@ -254,7 +253,8 @@ const MAIN_ROWS = ['music'];
 
 /** The canvas's "Event Bar" switch (was "Guest bars"), remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
-const MORE_ROWS = ['go-live', 'visibility', 'launch-phase', 'open-browse'];
+/* (The old "Your Event Hub" rows — go-live · visibility · launch-phase · open-browse — are no longer drawn by the work
+   area: the Hub's ⚙ holds the shipped Studio rows for the same columns, 2026-10-30.) */
 
 export function MakerWork({
   eventId,
@@ -512,7 +512,9 @@ export function MakerWork({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [moreHost, setMoreHost] = useState<HTMLElement | null>(null);
+  /* ⚙ "Your Event Hub"'s rows are drawn into the Maker's ⚙ Event Hub settings sheet while it is open (the shell hands
+     its body over as `moreHost`, null shut) — no longer a sheet kept mounted to be found by id. */
+  const moreHost = maker?.moreHost ?? null;
   /* ＋ ADD A SCENE — one sheet, two doors: the toolbar's ＋ (the shell draws it
      from what is registered below) and "+ Add a scene" at the end of the
      navigator. Both open this. */
@@ -816,10 +818,6 @@ export function MakerWork({
       );
     }
   }, [initialScene, initialOpenRow, scenes, rows, select, setMakerItem]);
-
-  useEffect(() => {
-    setMoreHost(document.getElementById(MAKER_MORE_ROWS_ID));
-  }, []);
 
   /* ＋ ADD A SCENE — the shell's ＋ (desktop) and More ▾ row (phone) cannot know
      whether a scene may be added here, so the work area REGISTERS the answer
@@ -1198,8 +1196,11 @@ export function MakerWork({
       /* 🧰 THE PART'S TOOLS ON A PHONE ARE THE LOWER THIRD'S (owner 2026-10-05,
          "approve"): a tap on the canvas that hits no part CLOSES them — the
          navigator comes back — and the tap goes on to select what it hit. */
+      /* 🫥 …EXCEPT IN THE STAGES MAKER (owner 2026-10-30, "hides on a tap on empty page"): there a tap on the ground puts
+         the toolbar AWAY with the part still picked and its tools as they were (`stage-tools.tsx` stows) — closing them
+         here would let the part go (`aGroundTapStows`). */
       const phoneSheet = (window.innerWidth < 1024 || stagesStudioRef.current) && elementRef.current !== null;
-      if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
+      if (data?.source === 'setnayan-site' && phoneSheet && ((data.t === 'tapOutside' && !aGroundTapStows()) || (data.t === 'edit' && !isHubElementKey(data.el)))) {
         const was = elementRef.current!;
         sheetDo({ t: 'close' });
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: null });
@@ -2479,8 +2480,6 @@ export function MakerWork({
     );
   }
 
-  const moreRows = MORE_ROWS.filter((k) => rows[k]);
-
   /* ══ NO MADE-ONCE PAGE IS DRAWN HERE ANY MORE ═══════════════════════════
      Owner 2026-09-25: *"we do not want a pop up for details, logo, hero, reveal
      and love story. we want their actual page to be on the body of the editor
@@ -3592,20 +3591,13 @@ export function MakerWork({
         <button type="submit" data-op="down" formAction={moveDownAction} tabIndex={-1} />
       </form>
 
-      {/* The address rows live in the ⋯ sheet, with the rest of "your Event Hub". */}
+      {/* ⚙ The Hub's ⚙ Event Hub settings: its "Your Event Hub" group is the shipped Studio rows (address · Go live · who can
+          view · which version · Event Bar · the QR — `StudioHubSettings`, owner 2026-10-30), so the old navigator's rows
+          and their QR card are no longer drawn beside them (one setting, one place); only the Event Hub Pro line is the
+          work area's to add. */}
       {moreHost
         ? createPortal(
-            <>
-              {moreRows.map((key) => (
-                <RowBlock key={key} row={rows[key]!} />
-              ))}
-              <MoreExtras
-                liveHref={publicLandingUrl}
-                proUnlockHref={proUnlockHref}
-                proPriceLabel={proPriceLabel}
-                showProCta={showProCta}
-              />
-            </>,
+            <MoreExtras liveHref={null} proUnlockHref={proUnlockHref} proPriceLabel={proPriceLabel} showProCta={showProCta} />,
             moreHost,
           )
         : null}

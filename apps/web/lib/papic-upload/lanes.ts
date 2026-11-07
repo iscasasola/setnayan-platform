@@ -32,6 +32,8 @@ export function shotFields(shot: QueuedShot): Record<string, unknown> {
     captured_at_ms: shot.capturedAtMs,
   };
   if (shot.ownerTag) base.owner_tag = shot.ownerTag;
+  // 📷 The chapter the camera showed at the shutter — every op, so sign and record judge the same shot the same way.
+  if (shot.chapterId) base.chapter_id = shot.chapterId;
   if (shot.lane === 'vendor') base.consent = shot.consent === true;
   return base;
 }

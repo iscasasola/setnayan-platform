@@ -226,6 +226,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   // shelf as the manager above, posted through the same `saveEgiftMethod`
   // (`pabuyaQrPolicy`); its readers are already the manager's.
   'app/dashboard/[eventId]/launch/_components/studio-tools.tsx': 1, // thread-files → event_egift_methods.qr_r2_key
+  // The record card's "How to pay them" (2026-10-29) — a supplier's QR in the event's own private payment folder,
+  // kept by `saveSelfAddedServiceCard` only through `budgetPaymentProofPolicy`, read back only through
+  // `displayUrlForPrivateStoredAsset(…, budgetPaymentProofPolicy)` (`lib/self-added-pay-ways.server.ts`).
+  'app/dashboard/[eventId]/_components/pay-ways-editor.tsx': 1, // thread-files → event_manual_vendors.pay_ways[].qr
 };
 
 test('the private-bucket UPLOADERS are exactly the known ones (a new one names its reader first)', () => {
@@ -252,6 +256,7 @@ const RAW_SIGNER_CALLERS: Record<string, string> = {
   'lib/r2-client-ref.server.ts': 'presignClientRef — policy-validated',
   'lib/r2.ts': 'r2SignedGet itself',
   'app/api/upload/route.ts': 'preview of the object this request just minted',
+  'lib/papic-download-all.server.ts': 'the Download all zip this request just built under papic-zips/<event>/ — host-checked route, attachment link',
   'app/dashboard/[eventId]/studio/patiktok/actions.ts': 'R2_BUCKETS.media constant',
   'app/dashboard/[eventId]/studio/patiktok/page.tsx': 'R2_BUCKETS.media constant',
   'lib/auto-recap.ts': 'server-written output_bucket, allow-listed',

@@ -8,7 +8,7 @@
  * The rows MOVED here from Event Details, one home each (`SETTINGS_ROWS`, `one-home-per-setting.test.ts`):
  *   · Costs    — How you see costs, ONE `PickMenu` (Realtime · Final only); the writer `updatePaxSettings`, which writes
  *                both of its columns, so the stored reply-by date rides along (`lib/pax-settings-form.ts`).
- *   · Payments — the next supplier payments, as Event Details drew them (a read), and Budget › (`?part=budget`).
+ *   · Payments — the next supplier payments, as Event Details drew them (a read), and Budget › (the Budget page, `budgetPageHref`).
  *   · Photos   — each booked supplier's photos in your Memories, the shipped switch's copy, saved in place
  *                (`setVendorCapturesHiddenHere`).
  * Every save answers here: the sheet stays open, the screen never resets (owner 2026-10-26).
@@ -22,6 +22,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { updatePaxSettings } from '../../actions';
 import { setVendorCapturesHiddenHere } from '../../studio/papic/vendor-visibility-actions';
 import { SUPPLIERS_SETTINGS_CLUSTERS, type SuppliersSettingsView } from '@/lib/suppliers-settings';
+import { budgetPageHref } from '@/lib/pillar-parts';
 
 const COULD_NOT_READ = 'We couldn’t read it just now.';
 
@@ -57,7 +58,7 @@ export function SuppliersSettingsRows({ eventId, view }: { eventId: string; view
           />
         )}
         <FormRow data="budget" name="Budget" attrs={{ 'data-setup-row': 'budget' }}>
-          <ActionButton tone="neutral" icon={ChevronRight} label="Open" href={`/dashboard/${eventId}/vendors?part=budget`} />
+          <ActionButton tone="neutral" icon={ChevronRight} label="Open" href={budgetPageHref(eventId)} />
         </FormRow>
 
         {view.photos === null && view.photosRead ? null : (

@@ -1,0 +1,10 @@
+## 2026-11-04 · feat(suppliers): event chapters slice 2 — suppliers booked to chapters: "Which chapters will they serve?", trade defaults, "Suppliers in this chapter"
+
+Owner-approved 4 Nov 2026 (approved prototype "Event chapters — 4 Nov 2026", frames 2, 5, 6). Extends the shipped Where (`set_supplier_where`, migration 20271300598766; `lib/supplier-where.ts`; `booked-where.tsx`) — the Booked row's chapters ("Prep, Ceremony +2" · "Every chapter" · "Needs at least 1 chapter") were already built and are unchanged.
+
+- **A trade starts on its usual chapters**: migration `20271307273159` adds `service_categories.default_chapters` (the four default chapter keys), backfilled once (catering = Cocktail + Reception, the owner's example; HMUA = Prep; photo/video = every chapter; …) and edited on **Admin › Categories › a category › Usual chapters** through the existing map write (`setDefaultChapterCore`, audited). Read by `lib/trade-chapters.ts` the way the One per event switch is read (a booking's coarse category → the tier-2 categories filed under it), matched to the event's chapters by kind, then by default name.
+- **"Which chapters will they serve?"**: on Suppliers › Booked, the first booked supplier on no chapter yet gets one sheet, prefilled from their trade's usual chapters. Ticks are a draft; Confirm writes through `set_supplier_where` (which tells a booked supplier, as shipped); Not now keeps it closed for the visit.
+- **Count words**: "1 needs a chapter" / "2 need a chapter".
+- **Suppliers in this chapter**: a chapter's page lists who is booked to it (on the chapter, its moments or their tasks) by shop name and trade, then the coordinators ("Coordinator · every chapter").
+
+SPEC IMPACT: None — builds the approved 4 Nov prototype. Flagged: the backfill rows other than catering are a starting point for Admin › Categories (a prefill the couple confirms, never a price). The sheet opens when the couple next opens Suppliers after a supplier is booked, not on the supplier's own "yes" screen. "Call time follows: …" under the sheet's dropdown is not drawn — it comes with the venue hours and backstage slices (3–4).

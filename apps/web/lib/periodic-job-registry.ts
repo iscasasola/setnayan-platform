@@ -216,7 +216,14 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     key: 'papic-fullres-drop',
     kind: 'retention',
     gapMs: WEEKLY_GAP_MS,
-    what: 'Full-resolution originals replaced by the compressed copy at 6 months',
+    what: 'Full-resolution originals replaced by the 720p copy 3 months after the event’s last day',
+    reportsCount: true,
+  },
+  {
+    key: 'download-all-zip-sweep',
+    kind: 'retention',
+    gapMs: DAILY_GAP_MS,
+    what: 'Download all zips deleted from storage 48 hours after they were made',
     reportsCount: true,
   },
   {
@@ -291,6 +298,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: DAILY_GAP_MS,
     what: 'The two-week warning before full-resolution originals are compressed',
+    reportsCount: true,
+  },
+  {
+    key: 'papic-originals-reminders',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: "The in-app reminders at day 60 · 80 · 89 to keep a host's original photos (no email)",
     reportsCount: true,
   },
   {
@@ -445,6 +459,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: 10 * 60 * 1000,
     what: 'Asking Resend whether each email we sent was delivered or bounced',
+    reportsCount: true,
+  },
+  {
+    key: 'push-morning-release',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Sending the phone notices that waited through quiet hours (10 pm to 7 am), collapsed per kind',
+    reportsCount: true,
+  },
+  {
+    key: 'push-evening-summary',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'The one evening phone summary of the day\'s small updates ("Today on your event: 3 updates")',
     reportsCount: true,
   },
 ] as const;

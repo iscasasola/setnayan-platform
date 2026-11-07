@@ -52,6 +52,8 @@ const RENDER_READERS = [
   'lib/hub-draft-store.ts', // the Apply bar (`loadHubDraftBarData`)
   'lib/print-set.server.ts', // Prints & Tickets, /api/hub-print (`printOwnsPro`)
   'lib/qr-look.server.ts', // every QR (`resolveEventQrLook`)
+  'lib/schedule-view-as.server.ts', // the Schedule's View as ▾ — a view only, it never writes (Step 3c)
+  'lib/schedule-release.server.ts', // `readScheduleRelease` — what the 🔊 sheet DRAWS; the press asks `releasePro`, the real gate
   'app/[slug]/_lib/hub-look.ts', // the canvas = the public page (`websiteProActiveFor`)
 ].sort();
 

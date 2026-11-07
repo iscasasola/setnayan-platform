@@ -107,6 +107,12 @@ const SCOPE_FILES = [
   'lib/booking-payment-plan.server.ts',
   'lib/date-change.server.ts',
   'lib/schedule-request-notify.server.ts',
+  // The one accept path's "accepted / declined your timeline suggestion" moved here from schedule/actions.ts (Step 4b).
+  'lib/schedule-suggestion-decide.server.ts',
+  // 🤝 E1 (2026-11-02): a paid coordinator booking tells the coordinator their invite is waiting — in the app only.
+  'lib/coordinator-grant.ts',
+  // 🗓 D2 (2026-11-02): a host's or the coordinator's ask of a booked supplier — `schedule_ask`, in the app only.
+  'lib/schedule-ask.server.ts',
   'lib/schedule-shift-notify.server.ts',
   'lib/vendor-invite-actions.ts',
   'app/_components/negotiation-actions.ts',
@@ -533,7 +539,7 @@ test('5 · the emitter builds the mail from the notice\'s own link and event, an
   assert.doesNotMatch(fn, /isEmailConfigured\(\)/, 'the emitter checks configuration before sendEmail — an unconfigured send is skipped unrecorded again');
 
   // Three exits without a send, three rows: recipient unreadable, no address, threw.
-  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type)) {'), fn.indexOf('isWebPushConfigured()'));
+  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type)) {'), fn.indexOf('isAnyPushConfigured()'));
   const records = block.split('await recordDelivery(').length - 1;
   console.log(`# recordDelivery calls in the email block: ${records}`);
   assert.equal(records, 3, 'an exit from the email block stopped recording why no email went');

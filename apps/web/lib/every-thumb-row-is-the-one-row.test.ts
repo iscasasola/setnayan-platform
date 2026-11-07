@@ -161,7 +161,8 @@ describe('placeholders name the place, short', () => {
   }
   it('finds every placeholder (premise)', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
-      ['Search customers', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      // 2026-10-30: Customers' search says "Search events" (owner 2026-10-29, "Customers are events, not people").
+      ['Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {
@@ -199,8 +200,9 @@ describe('the signed-in top bar has no search', () => {
   });
   it('the shell draws neither search row for `false`', () => {
     const src = read('app/_components/frontdoor/front-door-shell.tsx');
-    // `search` is the prop (read as `searchProp`), or `false` on a page that searches in its own bottom row (/help, /features — 2026-10-25).
-    expect(src).toMatch(/const search = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : searchProp;/);
+    // `search` is the prop (read as `searchProp`), or `false` on a page that searches in its own bottom row (/help, /features — 2026-10-25),
+    // or `false` for a signed-in viewer nobody handed a search (2026-11-01) — one rule, `topBarSearch` (`shell-page-search.ts`).
+    expect(src).toMatch(/const search = topBarSearch\(\{[^}]*handed: searchProp,[^}]*signedIn: account\.signedIn,[^}]*pageHasOwnSearch: pageSearchPaths\?\.includes\(pathname \?\? ''\)/);
     expect(src).toMatch(/search === false \? null : \(\s*<div className="fd-searchwrap">/);
     expect(src).toMatch(/inApp \|\| search === false \? null : \(\s*<div className="fd-searchrow">/);
   });

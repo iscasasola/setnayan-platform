@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchGroupMembershipsByEventMeasured, fetchGuestsByEventMeasured, type GuestRow } from '@/lib/guests';
 import { fetchFloorPlanMeasured, fetchSeatingConstraintsMeasured, type FloorPlanRow, type KeepApartRule } from '@/lib/seating';
+import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
 
 /**
  * seating-inputs.ts — 🛑 A SEAT PLAN IS NEVER ARRANGED FROM A READ THAT DID NOT HAPPEN.
@@ -34,11 +35,17 @@ export class SeatingInputsUnreadError extends Error {
   }
 }
 
-/** The accepted, living guest list (what `fetchGuestsByEvent` returns) — or a stop. */
+/**
+ * The accepted, living guest list (what `fetchGuestsByEvent` returns) — or a stop. 🪑 Minus the guests taken off every
+ * seated chapter ("after party only", owner 2026-11-02 — `readNoSeatGuestIds`): they need no seat, so nothing arranges
+ * one for them. That read refused is a stop too — never a seat arranged for a guest who is not at the reception.
+ */
 export async function guestsOrStop(supabase: SupabaseClient, eventId: string): Promise<GuestRow[]> {
+  const noSeatAhead = readNoSeatGuestIds(supabase, eventId);
   const read = await fetchGuestsByEventMeasured(supabase, eventId);
-  if (!read.measured) throw new SeatingInputsUnreadError('guests');
-  return read.rows;
+  const noSeat = await noSeatAhead;
+  if (!read.measured || noSeat === null) throw new SeatingInputsUnreadError('guests');
+  return noSeat.size === 0 ? read.rows : read.rows.filter((g) => !noSeat.has(g.guest_id));
 }
 
 /** guest_id → their custom groups — or a stop. An empty map here means the couple really made no groups. */

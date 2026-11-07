@@ -589,10 +589,12 @@ test('8 · the Next card has no frame and no fill; every tap mark is terracotta;
   const nums = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-next'));
   assert.equal((nums.match(/<button[^>]*aria-pressed="(?:true|false)"[^>]*data-today-number=/g) ?? []).length, 3, 'a number stopped being a filter');
   assert.equal((nums.match(/aria-pressed="true"/g) ?? []).length, 1, 'not exactly one filter is on');
-  // Pressed = the filled pill (the accent fill, the on-accent ink); a waiting count NOT pressed wears the accent.
-  // Tokens only, never a colour written on the page.
-  assert.match(nums, /bg-sn-accent"[^>]*aria-pressed="true"[^>]*data-today-number="waiting"[\s\S]*?text-\[rgb\(var\(--sn-on-accent\)\)\]/, 'the pressed count is not the filled pill');
-  assert.match(code('app/vendor-dashboard/_components/today-counts.tsx'), /hot \? 'text-sn-accent'/, 'a waiting count lost its accent');
+  // 📌 2026-10-31 (ONE SELECTOR, Q3 — one door): pressed = the shared door's underlined number (`PinDoor`); a waiting
+  // count wears the brand colour (`hot`). Tokens only, never a colour written on the page.
+  assert.match(nums, /aria-pressed="true"[^>]*data-today-number="waiting"[^>]*data-pin-door=""/, 'the pressed count is not the shared door');
+  assert.match(code('app/_components/pinned-row/pin-door.tsx'), /\[&\[aria-pressed=true\]>b\]:underline/, 'pressed is no longer the underlined number');
+  assert.match(code('app/vendor-dashboard/_components/today-counts.tsx'), /door\('waiting', waiting, 'waiting', waitingNow\)/, 'a waiting count lost its accent');
+  assert.match(code('app/vendor-dashboard/_components/today-counts.tsx'), /hot=\{hot\}/, 'a waiting count lost its accent');
   const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.doesNotMatch(first, /mulberry|text-ink\/45|#[0-9a-fA-F]{3,8}\b/, 'the first screen writes a colour by hand again');
   // (c) A STATE is the shared Badge (soft fill, no border) — this page draws no pill of its own.

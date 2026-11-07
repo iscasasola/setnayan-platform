@@ -81,7 +81,8 @@ const guestAt = (stage: 'rsvp' | 'event', over: Partial<NavInput> = {}): NavSlot
 /* ══ 1 · THE MENUS ═══════════════════════════════════════════════════════════ */
 
 test('1 · the Invitation: Welcome · Details · Our Love Story · Me — keys home/details/story/me', () => {
-  const bar = guestAt('rsvp');
+  // 📷 Papic OFF: the four. Papic ON adds the Camera (owner 2026-10-30) — pinned in `papic-on-camera-every-stage.test.ts`.
+  const bar = guestAt('rsvp', { hostAllowsCamera: false });
   assert.deepEqual(bar.map((s) => s.label), ['Home', 'Details', 'Story', 'Me']);
   assert.deepEqual(bar.map((s) => s.key), ['home', 'details', 'story', 'me'], 'the keys stay (links keep working)');
 });
@@ -124,7 +125,9 @@ test('2 · a tabbed bar sends each in-page tab to its own address; a page of its
   assert.deepEqual(inPageTabs(day), ['live', 'home', 'gallery', 'me']);
   // Untabbed (the Maker's canvas, a page that is one scroll) keeps the marks.
   const scroll = guestAt('rsvp', { tabbed: false });
-  assert.ok(scroll.every((s) => s.href.startsWith('#')), 'a one-scroll page lost its marks');
+  // 📷 …except Papic's Camera (owner 2026-10-30), which LEAVES for the camera like the day's.
+  assert.ok(scroll.every((s) => s.href.startsWith('#') || s.key === 'camera'), 'a one-scroll page lost its marks');
+  assert.equal(scroll.find((s) => s.key === 'camera')?.href, '/papic/guest?from=ana', 'the Camera keeps its own address');
   assert.deepEqual(inPageTabs(scroll), [], 'a one-scroll page has no tab pages');
 });
 

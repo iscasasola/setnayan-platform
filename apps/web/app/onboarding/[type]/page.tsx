@@ -24,6 +24,7 @@
  *     and `vendorFree=true`, which drops the effort question + vendor reveal
  *     inside `GenericOnboarding` and saves no `interested_categories`.
  */
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { safeNext } from '@/lib/auth';
@@ -254,6 +255,7 @@ export default async function GenericOnboardingPage({
       // Manila today, so the anchor's next return is computed off the server's
       // clock rather than the visitor's device timezone.
       todayISO={manilaToday()}
+      dateExempt={await viewerIsInternal().catch(() => false)}
       setupView={setupView}
       setupSteps={setupSteps}
     />

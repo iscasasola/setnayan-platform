@@ -97,8 +97,16 @@ const facts: RosterFacts = {
   guestById: (id) => byId.get(id),
 };
 
-/** The property, over one list of sections: in the guest's section, right after the guest (or their earlier +1s). */
-function assertBeside(sections: readonly { label: string; guests: readonly GuestRow[] }[], where: string, ownAnswer = false) {
+/** "Groomsmen" → "Guests of Groomsmen"; a map leaf's key "side:groom:Groomsmen" → "side:groom:Guests of Groomsmen". */
+const guestsOf = (label: string) => label.replace(/([^:]+)$/, 'Guests of $1');
+
+/**
+ * The property, over one list of sections: in the guest's section, right after the guest (or their earlier +1s).
+ * 👥 `byRole` — a Role grouping (owner 2026-11-01, "GUESTS OF [ROLE]"): a +1 with no role of their own brought by a ROLE
+ * HOLDER is in "Guests of [that role]" instead (guests-of-each-role-add-up.test.ts holds the rest of that rule); a plain
+ * guest's +1 is still right after them.
+ */
+function assertBeside(sections: readonly { label: string; guests: readonly GuestRow[] }[], where: string, ownAnswer = false, byRole = false) {
   const sectionOf = new Map<string, string>();
   for (const s of sections) for (const g of s.guests) sectionOf.set(g.guest_id, s.label);
   let checked = 0;
@@ -108,6 +116,10 @@ function assertBeside(sections: readonly { label: string; guests: readonly Guest
       if (!host || !byId.has(host)) return;
       if (ownAnswer && sectionOf.get(host) !== s.label) return; // RSVP: their own answer, another heading
       checked++;
+      if (byRole && sectionOf.get(host) !== s.label && !/(^|:)Guests$/.test(sectionOf.get(host) ?? '')) {
+        assert.equal(s.label, guestsOf(sectionOf.get(host) ?? ''), `${where}: ${g.guest_id} is in "${s.label}", not with the guests of their guest's role`);
+        return;
+      }
       assert.equal(sectionOf.get(host), s.label, `${where}: ${g.guest_id} is in "${s.label}", their guest in "${sectionOf.get(host)}"`);
       const h = s.guests.findIndex((x) => x.guest_id === host);
       assert.ok(h >= 0 && h < i, `${where}: ${g.guest_id} comes before their guest`);
@@ -122,28 +134,31 @@ function assertBeside(sections: readonly { label: string; guests: readonly Guest
 test('every Sort: a +1 is in their guest’s section, right after them', () => {
   for (const v of ROSTER_VIEWS) {
     const secs = rosterSections(ROSTER, v.key, facts);
-    const n = assertBeside(secs, `Sort ${v.label}`, v.key === 'rsvp');
+    const n = assertBeside(secs, `Sort ${v.label}`, v.key === 'rsvp', v.key === 'role');
     if (v.key !== 'rsvp') assert.equal(n, 5, `Sort ${v.label}: all five +1s were checked`);
     // Nothing lost, nothing doubled: the section counts still add up to the list.
     assert.equal(secs.reduce((t, s) => t + s.guests.length, 0), ROSTER.length, `Sort ${v.label}: every row once`);
   }
-  // The bridesmaid's +1 is a bridesmaid's line, not under "Guests".
+  // The bridesmaid's +1 is with the bridesmaids' guests, not under "Guests"; a plain guest's +1 stays beside them.
   const role = rosterSections(ROSTER, 'role', facts);
   const guests = role.find((s) => s.key === 'role:guest')!;
   assert.deepEqual(guests.guests.map((g) => g.guest_id), ['ana', 'ana-tba', 'zed']);
+  assert.deepEqual(role.find((s) => s.key === 'role:guests-of:bridesmaids')?.guests.map((g) => g.guest_id), ['lauren-tba']);
 });
 
 test('a search that leaves the guest out still sections their +1 with that guest', () => {
   const secs = rosterSections([laurenSeat], 'role', facts);
   assert.equal(secs.length, 1);
-  assert.equal(secs[0]!.key, 'role:bridesmaids');
+  // 👥 With the bridesmaids' guests (2026-11-01) — found through Lauren though she is not in the search.
+  assert.equal(secs[0]!.key, 'role:guests-of:bridesmaids');
 });
 
 test('every map arrangement: a +1 is on their guest’s branch, right after them', () => {
   const leaves = (bs: readonly MapBranch[]): { label: string; guests: GuestRow[] }[] =>
-    bs.flatMap((b) => [{ label: b.key, guests: b.guests }, ...leaves(b.kids)]).filter((b) => b.guests.length > 0);
+    // A side's leaves by their key (one "Groomsmen" per side); every other arrangement by its heading.
+    bs.flatMap((b) => [{ label: b.key.startsWith('side:') ? b.key : b.label, guests: b.guests }, ...leaves(b.kids)]).filter((b) => b.guests.length > 0);
   for (const a of MAP_ARRANGE) {
-    const n = assertBeside(leaves(mapTree(ROSTER, a.key, facts)), `Map ${a.label}`, a.key === 'rsvp');
+    const n = assertBeside(leaves(mapTree(ROSTER, a.key, facts)), `Map ${a.label}`, a.key === 'rsvp', a.key === 'role' || a.key === 'side');
     if (a.key !== 'rsvp') assert.equal(n, 5, `Map ${a.label}: all five +1s were checked`);
   }
 });
@@ -166,9 +181,17 @@ test('the drawn row names its guest and wears their side', async () => {
   assert.match(tba.body, /Juanita Sacdalan’s \+1 · TBA/);
   assert.doesNotMatch(tba.body, />\+1 · TBA</, 'the bare seat label is gone');
   assert.match(tba.body, /sideGroom/, 'the +1 shows the side of the guest who brings them');
-  assert.match(tba.cls, /\bjoined\b/, 'drawn as part of the guest above');
-  assert.match(rows[2]!.body, /Pedro Cruz[\s\S]*\+1 of Juanita Sacdalan/);
+  // 👥 Juanita holds a role, so (Role view, 2026-11-01) her +1s are the first of "Guests of VIP · Immediate Family", right
+  // after her section — named with her ("guest of Juanita Sacdalan ↗"), a row of their own (not joined to the heading).
+  assert.match(rows[2]!.body, /Pedro Cruz[\s\S]*guest of Juanita Sacdalan[\s\S]*data-jump-to="juanita"/);
   assert.doesNotMatch(rows[0]!.cls, /\bjoined\b/);
+  // A PLAIN guest's +1 is still drawn as part of the guest above (owner 2026-11-01: "They can stay on guest already").
+  const plain = await renderGuestsScreen({ guests: ROSTER, initialQuery: 'Zamora' });
+  const seatRow = /<div class="([^"]*)" data-guest-row=""[^>]*data-guest-id="ana-tba"[^>]*>([\s\S]*?)(?=<div class="[^"]*" data-guest-row=""|<\/section>)/.exec(plain);
+  assert.ok(seatRow, 'Ana Zamora’s +1 is not drawn');
+  assert.match(seatRow![1]!, /\bjoined\b/, 'drawn as part of the guest above');
+  assert.match(seatRow![1]!, /\bplus\b/, 'indented under the guest who brings them');
+  assert.match(seatRow![2]!, /Ana Zamora’s \+1 · TBA/);
 });
 
 test('searching a guest’s name brings their +1s; a reply word does not', () => {
@@ -269,10 +292,10 @@ test('9 · the card on a +1 names the guest who brings them, in its title and it
   // own page, and the card data loads it.
   const card = stripComments(readFileSync(join(HERE, 'guest-card.tsx'), 'utf8'));
   assert.match(card, /eyebrow=\{guestCardEyebrow\(guest, \{[^}]*plusOneOf: data\.plusOneOf \}\)\}/);
-  assert.match(card, /const title = guestCardTitle\(guest, data\.plusOneOf\);[\s\S]*title=\{title\}/);
+  assert.match(card, /const title = guestCardTitle\(guest, data\.plusOneOf\);[\s\S]*title=\{(?:title|\s*<>\s*\{title\})/);
   const body = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
   assert.match(body, /guestCardEyebrow\(guest, \{ hasSides, roleNames, plusOneOf: data\.plusOneOf \}\)/);
-  assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}<\/h1>/);
+  assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}(?:<GuestNick nick=\{guestCardNick\(guest, data\.plusOneOf\)\} \/>)?<\/h1>/);
   const data = stripComments(readFileSync(join(HERE, 'guest-card-data.ts'), 'utf8'));
   assert.match(data, /return plusOneOfWords\(guest, host as never, Math\.max\(0, seatIndex\)\)/);
   assert.match(data, /\n\s+plusOneOf,\n/);

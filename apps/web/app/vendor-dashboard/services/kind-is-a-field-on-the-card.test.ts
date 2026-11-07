@@ -92,10 +92,12 @@ test('the new door opens the maker with no kind chosen, and hands it the list', 
   const src = (read(NEW_DOOR) + read(NEW_DOOR_MAKER));
   assert.match(src, /categoryValue=""/, 'the new door started pre-picking a kind');
   assert.match(src, /categoryOptions=\{ctx\.categoryOptions\}/, 'the new door stopped handing over the kinds');
-  // Drawn from the SAME groups My Shop draws (in the one loader), never a second hand-typed list.
+  // Drawn from the LIVE taxonomy (Admin › Categories) in the one loader, never a hand-typed list. Until 2026-11-04
+  // this pinned `SERVICE_GROUPS.map` — the hard-coded list the owner caught ("why is it that i only see these
+  // categories when we have a whole spectrum"); the live-tree build is pinned in lib/service-card-kind-groups.test.ts.
   const loader = read(LOADER);
-  assert.match(loader, /SERVICE_GROUPS\.map/, 'the kinds stopped coming from the shared groups');
-  assert.match(loader, /groupDisplayOptions\(/, 'the kinds stopped collapsing legacy keys that share a label');
+  assert.match(loader, /liveKindGroups\(\{\s*tree,/, 'the kinds stopped coming from the live taxonomy');
+  assert.ok(!/SERVICE_GROUPS/.test(loader), 'the kinds are drawn from the hard-coded SERVICE_GROUPS again');
 });
 
 test('the old door is untouched — a route-chosen kind has nothing to choose', () => {
@@ -156,7 +158,9 @@ test('the chooser asks that rule, with the shop’s real caps', () => {
   const src = read(LOADER);
   assert.match(src, /standingForCategory\(/, 'the chooser stopped asking which kinds are allowed');
   // The caps have to be THIS shop's, including the founder override the save applies.
-  assert.match(src, /tierCaps\(asVendorTier\(tierRow\?\.tier_state\)\)/, 'the chooser stopped reading the shop’s plan');
+  // Since 2026-11-06 the shop's plan PLUS the Ultra add-ons it bought (+1 category · +1 service card) — the same read as
+  // the save's (`fetchCapsWithAddOns`).
+  assert.match(src, /await fetchCapsWithAddOns\(supabase, vendorProfileId, tierRow\?\.tier_state\)/, 'the chooser stopped reading the shop’s plan');
   assert.match(src, /is_founder === true/, 'the chooser stopped honouring the founder override');
   // Families come from cards ∪ coverages — the coverages are read once and their families derived, the SAME union
   // `coverageParents()` gives the save.
@@ -350,7 +354,10 @@ test('every other field lives under More settings, and it starts shut', () => {
   const at = src.indexOf('data="more"');
   assert.ok(at > 0, 'More settings is gone');
   const head = src.slice(src.lastIndexOf('<Fold', at), at + 300);
-  assert.match(head, /defaultOpen=\{discountSeed !== null\}/, 'More settings opens by itself — the wall coming back one row lower');
+  // Since 2026-11-04 More settings is CONTROLLED (its first open plays the reveal sweep — owner "see all animating then
+  // return back to the first one which is price"), so "starts shut" is the state's initial value, not `defaultOpen`.
+  assert.match(head, /open=\{moreOpen\}/, 'More settings stopped reading its one open state');
+  assert.match(src, /const \[moreOpen, setMoreOpen\] = useState\(discountSeed !== null\);/, 'More settings opens by itself — the wall coming back one row lower');
   // The prototype's folds, in its order (makerMore()).
   const folds = ['m-price', 'm-disc', 'm-inc', 'm-addons', 'm-gift', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-details', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
   let last = at;

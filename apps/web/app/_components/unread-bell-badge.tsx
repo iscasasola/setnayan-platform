@@ -30,7 +30,10 @@ import { createPortal } from 'react-dom';
 import { Bell, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+// ⚡ The browser client (`@/lib/supabase/client` → supabase-js + its auth client, ~43KB gzipped) is
+// import()ed where it is first used, never statically: this file is in the first load of every signed-in page, and
+// a static import was one of the three edges that put the whole client in the Maker's first load
+// (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Nothing it draws waits on it.
 import type { NotificationRow, NotificationType } from '@/lib/notifications';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
@@ -56,7 +59,21 @@ const NotificationsList = dynamic(
  * reload. When the count goes UP the bell asks whether one of these arrived,
  * and refreshes the server render if so — no reload, nothing typed is lost.
  */
-const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation'];
+/*
+ * 🖼⏱ …and so does a coordinator's Mood Board change (owner 2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"): the notice
+ * is written by the database itself (the event_inspiration_assets trigger, 20271299051148), and the Undo it promises
+ * lives on Home's Today list (`MoodBoardAsksDoorway`). An owner already on Home sees that line appear at once.
+ */
+/*
+ * 📍 …and so does a host changing a booked supplier's Where (owner 2026-11-01, "SUPPLIERS PICK THEIR CHAPTERS"): the
+ * notice is written by the database itself (`set_supplier_where`, 20271300598766), and a supplier already on that
+ * client's page sees the chapters they are now on without a reload.
+ */
+/*
+ * 🔗 …and so does a couple's answer to a supplier who joined from their link (audit G3): the Today "Waiting for … to
+ * let you in" line goes, and the client appears.
+ */
+const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation', 'mood_board_changed', 'supplier_where_changed', 'claim_access_answered'];
 
 type Props = {
   userId: string;
@@ -99,20 +116,24 @@ export function UnreadBellBadge({
     // paint, and the bell is in the first load of every signed-in page.
     let stop: (() => void) | null = null;
     let gone = false;
-    void import('@/lib/unread-polls').then(({ pollBell }) => {
-      if (gone) return;
-      stop = pollBell({
-        supabase: createClient(),
-        userId,
-        shown: () => shown.current,
-        onValue: setUnread,
-        refreshOn: PAGE_CHANGING_TYPES,
-        onArrival: () => {
-          // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited); nothing was pressed here.
-          router.refresh();
-        },
-      });
-    });
+    // Both chunks are asked for at once; the poll starts when both are in.
+    const client = import('@/lib/supabase/client');
+    void import('@/lib/unread-polls').then(({ pollBell }) =>
+      client.then(({ createClient }) => {
+        if (gone) return;
+        stop = pollBell({
+          supabase: createClient(),
+          userId,
+          shown: () => shown.current,
+          onValue: setUnread,
+          refreshOn: PAGE_CHANGING_TYPES,
+          onArrival: () => {
+            // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited / a Mood Board change to undo); nothing was pressed here.
+            router.refresh();
+          },
+        });
+      }),
+    );
     return () => {
       gone = true;
       stop?.();
@@ -156,7 +177,10 @@ export function UnreadBellBadge({
     */
     void (async () => {
       try {
-        const { fetchOwnNotifications } = await import('@/lib/notifications');
+        const [{ fetchOwnNotifications }, { createClient }] = await Promise.all([
+          import('@/lib/notifications'),
+          import('@/lib/supabase/client'),
+        ]);
         const r = await fetchOwnNotifications(createClient(), userId, 8);
         if (live) setRows(r);
       } catch {

@@ -19,15 +19,19 @@
  *   · the first open FITS the whole map (scale 0.6–1.8, centred);
  *   · pinch on a phone, ctrl / trackpad-pinch wheel on a computer (0.5–2.5).
  *
- * The layout is the prototype's: every leaf gets a row, a parent sits centred
- * over its children (`layoutMap`, pure, exported for the guard).
+ * 🧠 R4 slice 10 (owner, Guests prototype v12–v18): the drawing is the MIND MAP — the couple in the centre, the ⇅ Group
+ * by's groups as hubs on one ring (≤ 6; the rest fold into "Other groups · N", which opens into its own map, "‹ All
+ * groups" back), each hub's people as faces around it (10 at most; "+N more" opens the hub alone), one hub alone shows
+ * everyone. Layout: `lib/guest-mind-map.ts` (pure). A face peeks (`onOpen`). The measure, the fit and the pinch below
+ * are the shipped canvas's, unchanged. (`lib/guest-map-layout.ts`'s tree stays for its own guard; nothing draws it.)
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { guestDisplayName, type GuestRow } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
+import { ChevronLeft } from 'lucide-react';
 import type { MapBranch, PlusOneWords } from '@/lib/guest-roster-view';
-import { layoutMap, type MapNode } from '@/lib/guest-map-layout';
+import { COUPLE_R, FACE_R, HUB_R, faceInitials, facePos, mindMapBounds, mindMapHubs, type MindDrill } from '@/lib/guest-mind-map';
 import styles from './guests-screen.module.css';
 import { displayPersonName } from '@/lib/person-name-case';
 
@@ -58,42 +62,56 @@ export function GuestMapCanvas({
   fitKey: string;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const [phone, setPhone] = useState(false);
+  const [drill, setDrill] = useState<MindDrill | null>(null);
+  const [hubSel, setHubSel] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
   const zoomRef = useRef(1);
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  /** `inset`: how much of the canvas's top the pinned row floats over (0 when nothing does). */
+  const [box, setBox] = useState<{ w: number; h: number; inset: number } | null>(null);
 
+  // A new arrangement (or list) starts at the whole map again.
   useEffect(() => {
-    const mql = window.matchMedia('(max-width: 1023px)');
-    const sync = () => setPhone(mql.matches);
-    sync();
-    mql.addEventListener('change', sync);
-    return () => mql.removeEventListener('change', sync);
-  }, []);
+    setDrill(null);
+    setHubSel(null);
+  }, [fitKey]);
+  const hubs = useMemo(() => mindMapHubs(tree, drill), [tree, drill]);
+  const bounds = useMemo(() => mindMapBounds(hubs), [hubs]);
+  const map = { width: bounds.width, height: bounds.height };
 
-  const map = useMemo(() => layoutMap(rootLabel, tree, phone), [rootLabel, tree, phone]);
-
-  // ── The canvas runs from its top down to the bottom bar ("extend map until here").
+  // ── The canvas runs from its top down to the bottom bar ("extend map until here"). 🗺 In the Guests screen it is the
+  //    WHOLE screen (owner 2026-10-30, *"They are all full screen"*): it fills the screen's full surface, which runs from
+  //    under the top nav to the bottom nav, and the ONE pinned row floats over its top — `inset`, measured off the row,
+  //    so the first fit and the centring start under the row instead of behind it.
   useIso(() => {
     const el = wrap.current;
     if (!el) return;
+    const surface = el.closest<HTMLElement>('[data-guests-full-surface]');
     const measure = () => {
       const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sn-bottomdock-h')) || 0;
       const top = el.getBoundingClientRect().top + window.scrollY;
-      const h = Math.max(320, window.innerHeight - top - dock);
+      const h = surface ? surface.clientHeight : Math.max(320, window.innerHeight - top - dock);
       el.style.height = `${h}px`;
-      setBox((prev) => (prev && prev.w === el.clientWidth && prev.h === h ? prev : { w: el.clientWidth, h }));
+      const row = document.querySelector<HTMLElement>('[data-guests-stick]')?.getBoundingClientRect();
+      const inset = surface && row ? Math.max(0, Math.round(row.bottom - el.getBoundingClientRect().top)) : 0;
+      setBox((prev) =>
+        prev && prev.w === el.clientWidth && prev.h === h && prev.inset === inset ? prev : { w: el.clientWidth, h, inset },
+      );
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const ro = surface && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (surface) ro?.observe(surface);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, []);
 
   // ── First open (and every new arrangement) FITS the whole map, 0.6–1.8.
   useIso(() => {
     if (!box) return;
     const lower = (document.querySelector('[data-guests-thumb]') as HTMLElement | null)?.offsetHeight ?? 0;
-    const fit = Math.min(1.8, Math.max(0.6, Math.min((box.w - 24) / map.width, (box.h - lower - 24) / map.height)));
+    const fit = Math.min(1.8, Math.max(0.6, Math.min((box.w - 24) / map.width, (box.h - box.inset - lower - 24) / map.height)));
     zoomRef.current = fit;
     setZoom(fit);
     if (wrap.current) {
@@ -101,7 +119,7 @@ export function GuestMapCanvas({
       wrap.current.scrollLeft = 0;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitKey, box?.w, box?.h, map.width, map.height]);
+  }, [fitKey, box?.w, box?.h, box?.inset, map.width, map.height, drill]);
 
   // ── Pinch (two fingers) and ctrl / trackpad-pinch wheel, 0.5–2.5.
   useEffect(() => {
@@ -147,13 +165,20 @@ export function GuestMapCanvas({
   const H = map.height;
   const lowerH = 70;
   const ml = box ? Math.max(12, (box.w - W * z) / 2) : 12;
-  const mt = box ? Math.max(12, (box.h - lowerH - H * z) / 2) : 12;
-  const nodeX = (n: MapNode) => map.colX[Math.min(n.depth, map.colX.length - 1)] ?? 0;
-  const linkStartX = (n: MapNode) =>
-    nodeX(n) + (n.kind === 'root' ? (phone ? 100 : 120) : n.kind === 'branch' && n.top ? (phone ? 120 : 150) : phone ? 110 : 130);
-
+  const mt = box ? box.inset + Math.max(12, (box.h - box.inset - lowerH - H * z) / 2) : 12;
+  // World → canvas: the couple at (0, 0) sits at (-minX, -minY).
+  const X = (x: number) => x - bounds.minX;
+  const Y = (y: number) => y - bounds.minY;
+  const many = hubs.length > 1;
   return (
-    <div ref={wrap} className={styles.mapwrap} data-guest-map="" data-map-zoom={z.toFixed(2)}>
+    <div ref={wrap} className={styles.mapwrap} data-guest-map="" data-map-zoom={z.toFixed(2)} data-mind-map="">
+      {/* ‹ Back to every group, after opening "Other" or a hub's "+N more". */}
+      {drill ? (
+        <button type="button" className={styles.mindBack} onClick={() => setDrill(null)} data-mind-back="">
+          <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+          All groups
+        </button>
+      ) : null}
       <div
         className={styles.mapcanvas}
         style={{
@@ -167,74 +192,90 @@ export function GuestMapCanvas({
           visibility: zoom === null ? 'hidden' : undefined,
         }}
       >
-        <svg className={styles.links} viewBox={`0 0 ${W} ${H}`} aria-hidden>
-          {map.links.map(([a, b]) => {
-            const A = map.nodes[a]!;
-            const B = map.nodes[b]!;
-            const x1 = linkStartX(A);
-            const x2 = nodeX(B);
-            const mx = (x1 + x2) / 2;
-            return <path key={`${a}-${b}`} d={`M${x1} ${A.y} C${mx} ${A.y} ${mx} ${B.y} ${x2} ${B.y}`} />;
-          })}
+        <svg className={styles.links} viewBox={`0 0 ${W} ${H}`} aria-hidden data-mind-links="">
+          {hubs.map((h) => (
+            <g key={h.key}>
+              {many ? <line x1={X(0)} y1={Y(0)} x2={X(h.x)} y2={Y(h.y)} /> : null}
+              {h.shown.map((g, i) => {
+                const p = facePos(h, i);
+                return <line key={g.guest_id} x1={X(h.x)} y1={Y(h.y)} x2={X(p.x)} y2={Y(p.y)} />;
+              })}
+            </g>
+          ))}
         </svg>
-        {map.nodes.map((n, i) => {
-          const style = { left: nodeX(n), top: n.y, animationDelay: `${Math.min(600, i * 18)}ms` };
-          if (n.kind === 'root') {
-            return (
-              <span key="root" className={`${styles.node} ${styles.nodeRoot}`} style={style} data-map-root="">
-                {n.label}
-              </span>
-            );
-          }
-          if (n.kind === 'branch') {
-            return (
-              <span
-                key={`b-${i}`}
-                className={`${styles.node} ${n.top ? styles.nodeSide : styles.nodeGrp}`}
-                style={style}
-                data-map-branch=""
-              >
-                {n.label} <span className={styles.mute}>· {formatCount(n.count)}</span>
-              </span>
-            );
-          }
-          const g = n.guest;
-          const toInvite = isToInvite(g) && g.rsvp_status === 'pending';
-          const r = REPLY_MARK[g.rsvp_status];
-          const tone = toInvite
-            ? ''
-            : g.rsvp_status === 'attending'
-              ? styles.leafYes
-              : g.rsvp_status === 'pending'
-                ? styles.leafNone
-                : g.rsvp_status === 'declined'
-                  ? styles.leafNo
-                  : '';
-          const words = plusWords?.get(g.guest_id);
-          const name = words?.name ?? displayPersonName(guestDisplayName(g));
-          const side = words?.side ?? g.side;
-          return (
+        {/* The couple in the centre (more than one hub). */}
+        {many ? (
+          <span
+            className={styles.mindCouple}
+            style={{ left: X(0), top: Y(0), width: COUPLE_R * 2, height: COUPLE_R * 2 }}
+            data-map-root=""
+          >
+            {rootLabel}
+          </span>
+        ) : null}
+        {hubs.map((h) => (
+          <span key={`hub-${h.key}`}>
             <button
-              key={g.guest_id}
               type="button"
-              className={`${styles.node} ${tone}`}
-              style={style}
-              onClick={(e) => onOpen(g.guest_id, e.currentTarget)}
-              aria-label={`${name}${words?.of ? `, ${words.of}` : ''} — ${toInvite ? 'to invite' : r.word}`}
-              data-map-leaf=""
-              data-plus-one-of={words?.hostId}
+              className={`${styles.mindHub} ${hubSel === h.key ? styles.mindHubOn : ''} ${h.isOther ? styles.mindOther : ''}`}
+              style={{ left: X(h.x), top: Y(h.y), width: HUB_R * 2, height: HUB_R * 2 }}
+              aria-pressed={h.isOther ? undefined : hubSel === h.key}
+              aria-label={`${h.label} · ${formatCount(h.guests.length)}${h.isOther ? ' — open them' : ''}`}
+              onClick={() => {
+                if (h.isOther && h.keys) {
+                  setHubSel(null);
+                  setDrill({ kind: 'other', keys: h.keys });
+                } else setHubSel((s) => (s === h.key ? null : h.key));
+              }}
+              data-mind-hub={h.key}
             >
-              <span
-                aria-hidden
-                className={`${styles.dot} ${side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth}`}
-              />
-              {name}
-              <span aria-hidden className={`${styles.pill} ${toInvite ? styles.pillGold : styles[r.cls]}`}>
-                {toInvite ? '✉' : r.mark}
-              </span>
+              {formatCount(h.guests.length)}
             </button>
-          );
-        })}
+            {/* The name, then "+N more", stacked in one column under the hub — they cannot meet at any zoom. */}
+            <div className={styles.mindUnder} style={{ left: X(h.x), top: Y(h.y + h.ext + 6) }}>
+              <span className={styles.mindLabel} aria-hidden>
+                {h.label}
+              </span>
+              {h.more > 0 ? (
+                <button
+                  type="button"
+                  className={styles.mindMore}
+                  onClick={() => {
+                    setHubSel(null);
+                    setDrill({ kind: 'hub', key: h.key });
+                  }}
+                  data-mind-more={h.key}
+                >
+                  +{formatCount(h.more)} more
+                </button>
+              ) : null}
+            </div>
+            {h.shown.map((g, i) => {
+              const p = facePos(h, i);
+              const toInvite = isToInvite(g) && g.rsvp_status === 'pending';
+              const r = REPLY_MARK[g.rsvp_status];
+              const words = plusWords?.get(g.guest_id);
+              const name = words?.name ?? displayPersonName(guestDisplayName(g));
+              const side = words?.side ?? g.side;
+              return (
+                <button
+                  key={g.guest_id}
+                  type="button"
+                  className={`${styles.mindFace} ${side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth} ${
+                    toInvite ? '' : g.rsvp_status === 'attending' ? styles.leafYes : g.rsvp_status === 'declined' ? styles.leafNo : styles.leafNone
+                  }`}
+                  style={{ left: X(p.x), top: Y(p.y), width: FACE_R * 2, height: FACE_R * 2 }}
+                  onClick={(e) => onOpen(g.guest_id, e.currentTarget)}
+                  aria-label={`${name}${words?.of ? `, ${words.of}` : ''} — ${toInvite ? 'to invite' : r.word}`}
+                  data-map-leaf=""
+                  data-plus-one-of={words?.hostId}
+                >
+                  {faceInitials(g)}
+                </button>
+              );
+            })}
+          </span>
+        ))}
       </div>
     </div>
   );

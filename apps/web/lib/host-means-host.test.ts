@@ -277,7 +277,8 @@ test('the shared gate admits a SEAT-HOLDER, exactly as the page already does', (
   // The CALL, not the import or a comment naming it — a file-level count cannot
   // say whether the arm still runs.
   const gate = count(read(SHARED_GATE), 'findGuestSeatForUser(eventId');
-  const page = count(read(PAGE), 'findGuestSeatForUser(event.event_id');
+  // The page asks the MEASURED form (2026-11-05) — same read, plus whether it happened.
+  const page = count(read(PAGE), 'findGuestSeatForUserMeasured(event.event_id');
   assert.ok(
     gate >= 1,
     'lib/slug-access.ts must admit a signed-in seat-holder. Without this arm the ' +

@@ -82,9 +82,9 @@ test('1 · the picked file is the all-guests file narrowed to exactly the ticked
   const sheet = read(join(LAUNCH, 'print-guest-sheet.tsx'));
   const many = sheet.slice(sheet.indexOf('export function GuestManySheet('));
   assert.match(many, /const out = pickedFile\(\{ href, file \}, ids, noun\);[\s\S]*<PrintSaveButton href=\{out\.href\} file=\{out\.file\}/, 'the sheet saves by its own rule, not `pickedFile`');
-  /* Above the Maker: the shared Sheet is z-50 and the Maker a fixed z-[80] — the pick sheet's own layer must sit over it. */
+  /* Above the Maker: the shared Sheet is z-50 and the Maker a fixed z-[40] (z-[80] until it kept the app's nav, 2026-10-30) — the pick sheet's own layer must sit over it. */
   const layer = /data-print-pick-sheet-layer="" className="relative z-\[(\d+)\]"/.exec(many);
-  const maker = /className="fixed inset-x-0 top-0 z-\[(\d+)\]/.exec(read(join(LAUNCH, 'maker-shell.tsx')));
+  const maker = /className="fixed z-\[(\d+)\]/.exec(read(join(LAUNCH, 'maker-shell.tsx')));
   assert.ok(layer && maker, 'the pick sheet’s layer or the Maker’s z moved — re-point this guard');
   assert.ok(Number(layer[1]) > Number(maker[1]), `the Pick guests sheet (z-${layer[1]}) opens BEHIND the Maker (z-${maker[1]})`);
 

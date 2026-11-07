@@ -19,8 +19,9 @@ import {
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { TIER_LABEL, canBuyExtraBranches, includedBranchesLeft, planHasBranches, tierCaps } from '@/lib/vendor-tier-caps';
 import { reverseGeocodeNominatim } from '@/lib/geo';
+import { formatCount } from '@/lib/format-number';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
 import { parseCoordPair } from '@/lib/parse-coord';
@@ -46,6 +47,8 @@ type BranchManager = {
   supabase: SupabaseClient;
   userId: string;
   vendorProfileId: string;
+  /** The shop's `tier_state` as read (null = unread → treated as Free, never as a plan with branches). */
+  tier: string | null;
 };
 
 /**
@@ -55,7 +58,7 @@ type BranchManager = {
  * an error string so the inline form can show it. Returns the manager context
  * or an error result.
  */
-async function requireBranchManager(): Promise<
+async function requireBranchManager(opts: { buying: boolean } = { buying: true }): Promise<
   BranchManager | { error: BranchActionState }
 > {
   const supabase = await createClient();
@@ -69,10 +72,10 @@ async function requireBranchManager(): Promise<
 
   // ⚠ SEC-4b FIX (F2): this was `resolveVendorRole(supabase, user.id)` — the
   // GLOBAL-HIGHEST role across every vendor the user sits on — which is the
-  // byte-identical bug fixed in subscription/custom/actions.ts in this PR. An
+  // byte-identical bug fixed in the (since retired) Custom plan actions in that PR. An
   // agent/viewer on THIS shop who happens to be owner/admin on some OTHER shop
   // passed the global check. Scope it to the profile actually being acted upon,
-  // matching deep-search / ai-addon / booth-addon / photo-challenge / custom.
+  // matching deep-search / ai-addon / booth-addon / photo-challenge.
   //
   // Not exploitable today — `vendor_branches` RLS
   // (`parent_vendor_profile_id IN current_vendor_profile_ids()`) blocks the
@@ -97,17 +100,17 @@ async function requireBranchManager(): Promise<
   } catch {
     tier = null;
   }
-  // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so the
-  // Custom tier inherits the branch feature without a hard equality edit.
-  // The Enterprise requirement is a PLAN PAYWALL, so it is asked through the
-  // one flag-aware question: while VENDOR_TIER_FEATURE_GATE is off any shop may
-  // add a branch (paying the branch's own fee, below); while on, this is where
-  // a non-Enterprise shop is asked for the plan — the final action, try-first.
-  if (vendorPaywallApplies(isTierAtLeast(tier, 'enterprise'))) {
-    return { error: err('Extra branches are part of Ultra. Pick Ultra on the Plans page to add one.') };
+  // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro and Ultra have branches (Pro 3 included,
+  // Ultra 6 included + buys more). A plan with none is a PLAN PAYWALL, asked through the one flag-aware question:
+  // while VENDOR_TIER_FEATURE_GATE is on, this is where a Free · Verified · Solo shop is asked for the plan — the final
+  // action, try-first. BUYING a branch is a separate rule, asked where the money is (createBranch past the included
+  // ones · renewBranch): ULTRA ONLY, ALWAYS, whatever the switch says (owner 2026-11-05, "Ultra only, always").
+  // Cancelling a branch a shop already holds is not a purchase and stays open to it (`buying: false`).
+  if (opts.buying && vendorPaywallApplies(planHasBranches(tier))) {
+    return { error: err(`Branches come with Pro and ${TIER_LABEL.enterprise}. Pick one on the Plans page to add a branch.`) };
   }
 
-  return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id };
+  return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, tier };
 }
 
 /**
@@ -216,7 +219,7 @@ export async function createBranch(
 ): Promise<BranchActionState> {
   const ctx = await requireBranchManager();
   if ('error' in ctx) return ctx.error;
-  const { supabase, userId, vendorProfileId } = ctx;
+  const { supabase, userId, vendorProfileId, tier } = ctx;
 
   const label = String(formData.get('branch_label') ?? '').trim();
   const city = String(formData.get('branch_city') ?? '').trim();
@@ -240,6 +243,50 @@ export async function createBranch(
   if (!city || city.length > BRANCH_CITY_MAX) {
     return err('Drop a pin on the map (or type the branch city).');
   }
+  // Coords are stored as a pair or not at all (a lone axis is meaningless).
+  const hasCoords = lat !== null && lng !== null;
+
+  // ── 📐 INCLUDED IN THE PLAN (owner 2026-11-04, "branches 0,0,3,10") ─────────────────────────────────────────────
+  // Pro includes 3 branches and Ultra 6 (trimmed the same day), fee-free. Counted from the shop's own LIVE included branches (a cancelled
+  // one frees its place). A shop already over a lowered allowance keeps every branch it has and gets 0 here — it
+  // just cannot add another (owner, same day). The database holds the same number and refuses an included branch
+  // past it (`enforce_included_branch_allowance`), so this count is the friendly answer, not the only gate.
+  const { count: includedInUse, error: includedErr } = await supabase
+    .from('vendor_branches')
+    .select('branch_id', { count: 'exact', head: true })
+    .eq('parent_vendor_profile_id', vendorProfileId)
+    .eq('included_in_plan', true)
+    .is('cancelled_at', null);
+  if (includedErr) return err('We could not check your plan’s branches just now. Please try again in a moment.');
+  if (includedBranchesLeft(tier, includedInUse ?? 0) > 0) {
+    const { error: incErr } = await supabase.from('vendor_branches').insert({
+      parent_vendor_profile_id: vendorProfileId,
+      branch_label: label,
+      branch_city: city,
+      branch_radius_km: branchAutoRadiusKm(tier),
+      branch_latitude: hasCoords ? lat : null,
+      branch_longitude: hasCoords ? lng : null,
+      branch_address: address || null,
+      included_in_plan: true,
+      // Bookkeeping only (see the column's comment) — an included branch is live, so it reads as live there too.
+      branch_subscription_active: true,
+    });
+    if (incErr) return err('Could not add the branch. Please try again.');
+    revalidateBranchSurfaces();
+    return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
+  }
+  // ⚖ Past the included ones, only Ultra may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
+  // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
+  // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
+  if (!canBuyExtraBranches(tier)) {
+    const total = tierCaps(tier).branchesIncluded;
+    return err(
+      total > 0
+        ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`
+        : `Branches come with Pro and ${TIER_LABEL.enterprise}.`,
+    );
+  }
+
   // Any account id the admin's list can hold — NOT just the two the list
   // replaced. `railForNewOrder` below is what decides whether it is OPEN.
   if (!isPayChannel(channelRaw)) {
@@ -249,18 +296,16 @@ export async function createBranch(
   // rail leaves no inactive branch behind as well as no order.
   const channel = await railForNewOrder(supabase, channelRaw);
   if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
-  // Coords are stored as a pair or not at all (a lone axis is meaningless).
-  const hasCoords = lat !== null && lng !== null;
 
   // 1) Branch row — starts INACTIVE; activates when the admin approves the fee.
-  //    Range is automatic (inherits the Enterprise tier reach).
+  //    Range is automatic (inherits the plan's reach).
   const { data: branchRow, error: bErr } = await supabase
     .from('vendor_branches')
     .insert({
       parent_vendor_profile_id: vendorProfileId,
       branch_label: label,
       branch_city: city,
-      branch_radius_km: branchAutoRadiusKm(),
+      branch_radius_km: branchAutoRadiusKm(tier),
       branch_latitude: hasCoords ? lat : null,
       branch_longitude: hasCoords ? lng : null,
       branch_address: address || null,
@@ -307,7 +352,7 @@ export async function renewBranch(
 ): Promise<BranchActionState> {
   const ctx = await requireBranchManager();
   if ('error' in ctx) return ctx.error;
-  const { supabase, userId, vendorProfileId } = ctx;
+  const { supabase, userId, vendorProfileId, tier } = ctx;
 
   const branchId = String(formData.get('branch_id') ?? '').trim();
   if (!branchId) return err('Missing branch.');
@@ -318,13 +363,21 @@ export async function renewBranch(
 
   const { data: branch } = await supabase
     .from('vendor_branches')
-    .select('branch_id,branch_label,cancelled_at')
+    .select('branch_id,branch_label,cancelled_at,included_in_plan')
     .eq('branch_id', branchId)
     .eq('parent_vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (!branch) return err('Branch not found.');
   if ((branch as { cancelled_at: string | null }).cancelled_at) {
     return err('This branch is cancelled — add a new branch instead.');
+  }
+  // An included branch is part of the plan (owner 2026-11-04) — there is no fee to renew, so no order is minted.
+  if ((branch as { included_in_plan?: boolean | null }).included_in_plan === true) {
+    return err('This branch is included in your plan — there is nothing to renew.');
+  }
+  // ⚖ Renewing a bought branch is a purchase — ULTRA ONLY, ALWAYS (owner 2026-11-05), whatever the switch says.
+  if (!canBuyExtraBranches(tier)) {
+    return err(`Extra branches are sold with ${TIER_LABEL.enterprise} only. Pick ${TIER_LABEL.enterprise} on the Plans page to renew this one.`);
   }
   const label = (branch as { branch_label: string }).branch_label;
 
@@ -347,7 +400,7 @@ export async function cancelBranch(
   _prev: BranchActionState,
   formData: FormData,
 ): Promise<BranchActionState> {
-  const ctx = await requireBranchManager();
+  const ctx = await requireBranchManager({ buying: false });
   if ('error' in ctx) return ctx.error;
   const { supabase, vendorProfileId } = ctx;
 

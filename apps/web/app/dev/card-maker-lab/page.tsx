@@ -12,13 +12,19 @@
  *   &s=edit                       an existing card in the same maker (the edit sheet) — Live · delete · copy
  *   &s=unread                     …an existing card whose add-ons could not be read (Save waits)
  *   &s=fixed                      a new card whose kind came with the address (/services/new/[category])
+ *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
+ *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
+ *                                 the photos…) can be checked over that sheet, not only on the standalone page
  *
  * Names are the prototype's samples: nobody real.
  */
 import { notFound } from 'next/navigation';
+import type { CoverageParent } from '@/lib/vendor-coverages';
+import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SupplierType } from '@/lib/service-card-maker';
+import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 
 const VP = '00000000-0000-4000-8000-0000000000bb';
 
@@ -79,32 +85,54 @@ const SHOPS: Record<'church' | 'caterer' | 'studio', Shop> = {
   },
 };
 
-const SOMETHING_ELSE: CategoryGroup[] = [
+/**
+ * A small FAKE live taxonomy (the shape `getCoverageTaxonomy()` returns) — the "Something else" folds are drawn from it
+ * by the SAME builder the loader uses (`liveKindGroups`), so this lab shows what a supplier sees, not a hand-made list.
+ */
+const FAKE_TREE: CoverageParent[] = [
   {
-    key: 'documentary',
+    folderId: 'documentary',
     label: 'Photo & video',
-    options: [
-      { value: 'photography', label: 'Photography', standing: 'open' },
-      { value: 'videography', label: 'Videography', standing: 'open' },
+    branches: [
+      { tileId: 't-photo', label: 'Photography', leaves: [
+        { canonicalService: 'photography', label: 'Photography', allowedEventTypes: null },
+        { canonicalService: 'drone_photography', label: 'Drone photography', allowedEventTypes: null },
+      ] },
+      { tileId: 't-video', label: 'Videography', leaves: [{ canonicalService: 'videography', label: 'Videography', allowedEventTypes: null }] },
     ],
   },
   {
-    key: 'feast',
+    folderId: 'feast',
     label: 'Food & drink',
-    options: [
-      { value: 'catering', label: 'Caterer', standing: 'open' },
-      { value: 'cake_maker', label: 'Cake', standing: 'open' },
+    branches: [
+      { tileId: 't-cater', label: 'Catering', leaves: [
+        { canonicalService: 'buffet_catering', label: 'Buffet catering', allowedEventTypes: null },
+        { canonicalService: 'catering', label: 'Plated catering', allowedEventTypes: null },
+      ] },
+      { tileId: 't-cart', label: 'Food cart', leaves: [{ canonicalService: 'sorbetes_cart', label: 'Sorbetes cart', allowedEventTypes: null }] },
+      { tileId: 't-cake', label: 'Cakes', leaves: [{ canonicalService: 'cake_maker', label: 'Cake', allowedEventTypes: null }] },
     ],
   },
   {
-    key: 'design',
+    folderId: 'design',
     label: 'Flowers & styling',
-    options: [
-      { value: 'florals', label: 'Florals', standing: 'open' },
-      { value: 'lights_and_sound', label: 'Lights & sound', standing: 'locked', why: 'Your plan covers one kind of business. Upgrade to list under another.' },
+    branches: [
+      { tileId: 't-flo', label: 'Florals', leaves: [{ canonicalService: 'florals', label: 'Florals', allowedEventTypes: null }] },
+      { tileId: 't-tent', label: 'Rentals', leaves: [{ canonicalService: 'tent_rental', label: 'Tent rental', allowedEventTypes: null }] },
+    ],
+  },
+  {
+    folderId: 'production',
+    label: 'Lights & production',
+    branches: [
+      { tileId: 't-ls', label: 'Lights & sound', leaves: [
+        { canonicalService: 'lights_and_sound', label: 'Lights & sound', allowedEventTypes: null },
+        { canonicalService: 'generator_hire', label: 'Generator hire', allowedEventTypes: null },
+      ] },
     ],
   },
 ];
+const LOCKED_FOLDER = 'production';
 
 function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditing } {
   const e = shop.edit;
@@ -195,7 +223,17 @@ export default async function CardMakerLabPage({
 
   const categoryOptions: CategoryGroup[] = [
     { key: 'your-coverage', label: 'What you cover', options: shop.covered.map((c) => ({ ...c, standing: 'covered' as const })) },
-    ...SOMETHING_ELSE.map((g) => ({ ...g, options: g.options.filter((o) => !shop.covered.some((c) => c.value === o.value)) })),
+    ...liveKindGroups({
+      tree: FAKE_TREE,
+      standingOf: (key) =>
+        FAKE_TREE.find((p) => p.folderId === LOCKED_FOLDER)?.branches.some((b) => b.leaves.some((l) => l.canonicalService === key))
+          ? { standing: 'locked', why: 'Your plan covers one kind of business. Upgrade to list under another.' }
+          : { standing: 'open' },
+      ownCategories: [],
+      leadWithOwnWords: true,
+      kindLabel: (k) => k,
+      alreadyListed: new Set(shop.covered.map((c) => c.value)),
+    }),
   ];
   const coverageAsk: Record<string, { leaf: string; label: string }> = {
     photography: { leaf: 'photography', label: 'Photography' },
@@ -208,18 +246,14 @@ export default async function CardMakerLabPage({
   const isEdit = s === 'edit' || s === 'unread';
   const fixed = s === 'fixed';
   const fx = isEdit ? editFixture(shop) : null;
+  const inToday = sp.host === 'today';
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
-      <div className="mb-2 flex min-h-11 items-center gap-2">
-        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
-        <h1 className="text-[17px] font-semibold tracking-tight text-ink">{isEdit ? shop.edit.title : 'New service'}</h1>
-      </div>
+  const maker = (
       <CanvasMaker
         categoryValue={isEdit || fixed ? shop.edit.kind : ''}
         categoryLabel={isEdit || fixed ? (shop.covered.find((c) => c.value === shop.edit.kind)?.label ?? shop.edit.kind) : ''}
         categoryOptions={isEdit || fixed ? [] : categoryOptions}
-        tradeOptions={[]}
+        tradeOptions={FAKE_TREE.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => ({ key: l.canonicalService, label: l.label, branch: b.label, standing: p.folderId === LOCKED_FOLDER ? ('locked' as const) : ('open' as const) }))))}
         coverageNames={shop.covered.map((c) => c.label)}
         shopName={shop.name}
         otherCategories={shop.other}
@@ -248,6 +282,24 @@ export default async function CardMakerLabPage({
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
       />
+  );
+
+  if (inToday) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker" data-lab-host="today">
+        <h1 className="mb-2 text-[17px] font-semibold tracking-tight text-ink">What you offer</h1>
+        <SetupOfferFold services={[{ service: shop.covered[0]?.value ?? 'service', label: shop.covered[0]?.label ?? 'Service', cards: [], toGo: 3 }]} maker={maker} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
+      <div className="mb-2 flex min-h-11 items-center gap-2">
+        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
+        <h1 className="text-[17px] font-semibold tracking-tight text-ink">{isEdit ? shop.edit.title : 'New service'}</h1>
+      </div>
+      {maker}
     </div>
   );
 }

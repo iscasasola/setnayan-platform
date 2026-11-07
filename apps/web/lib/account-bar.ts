@@ -15,12 +15,14 @@
  *   · Admin is NEVER a tab (internal accounts reach it from the avatar sheet).
  *   · No floating ＋ — Create stays on the Events board (Planning ＋ · "Create
  *     an event" · "+ Start planning").
- *   · In the app shell, while `/` is in middleware's
- *     `APP_EXCLUDED_MARKETING_PATHS` (Apple is reviewing 1.0), there is no
- *     Discover to tap — the shell bounces it to the board — so the bar is
- *     Events · Memories · People. `discoverOpen` is that question, answered on
- *     the server from the request (`discoverOpensHere()` in
- *     lib/request-platform.ts), so the first paint is already the right bar.
+ *   · Discover is a tab only where `/` actually OPENS. Since the owner's
+ *     2026-11-02 ruling ("let everything go live") that is everywhere — the
+ *     phone and desktop apps open Discover like the website, so they draw the
+ *     same four tabs. (While Apple reviewed 1.0 the app bounced `/` to the board
+ *     and drew Events · Memories · People.) `discoverOpen` is that question,
+ *     answered on the server (`discoverOpensHere()` in lib/request-platform.ts),
+ *     so if `/` is ever refused in a shell again the bar drops the tab in the
+ *     same change instead of drawing a press that lands where you stood.
  *
  * Pure and dependency-free so the server layouts, the client bar and the guard
  * all ask the same function (`app/dashboard/(launcher)/the-account-bar-is-the-ruling.test.ts`).

@@ -288,7 +288,7 @@ test('(5) who draws what: the toolbar draws row 4, the work area’s tool stands
   /* …and only then the work area's tool is three rows, standing one row and one gap above the toolbar's foot. */
   assert.ok(
     tools.includes(
-      '`[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}`',
+      '`[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}`',
     ),
     'with Colour + Size on, the work area’s tool still covers row 4',
   );

@@ -162,7 +162,8 @@ test('3 · every bottom row’s field rides — rendered — and an opt-out says
   // 👆 TAP AWAY, the one hook: a tap outside leaves the field AFTER the tap's own work (one tap opens a result), a drag
   // that starts outside leaves it, Escape leaves it.
   const tap = /export function useTapAway[\s\S]*?\n\}/.exec(tb)?.[0] ?? '';
-  assert.match(tap, /const onClick = \(e: MouseEvent\) => \{\s*if \(!inside\(e\.target\)\) later\(0\);/, 'a tap away blurs before the tap has acted (two taps to open a result)');
+  // (A click no person made — the iOS haptic switch's — is skipped first: `every-type-box-has-the-clear-button.test.ts`.)
+  assert.match(tap, /const onClick = \(e: MouseEvent\) => \{\s*if \(!e\.isTrusted\) return;\s*if \(!inside\(e\.target\)\) later\(0\);/, 'a tap away blurs before the tap has acted (two taps to open a result)');
   assert.match(tap, /window\.addEventListener\('click', onClick, true\);/, 'tap-away listens where a handler can swallow it');
   assert.match(tap, /dragFromOutside = !inside\(e\.target\);/);
   // On an iPhone a tap on plain content fires no click: the touch itself leaves — after the settle, so a click wins.

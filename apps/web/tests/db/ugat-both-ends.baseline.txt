@@ -46,7 +46,12 @@ table-no-writer	manual_payment_logs	1	no .from('manual_payment_logs').insert/ups
 table-no-writer	vendor_ad_subscriptions	1	no .from('vendor_ad_subscriptions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 notice-no-emitter	vendor_token_purchase_pending	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
 notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
-# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (5) ══
+# Meetings are In-person or Virtual 2026-11-04 (owner 2026-10-28 "remove both voice and video call", PR #7252): 1 row
+# ADDED, from the regenerator — appointment-join.tsx was the LAST importer of thread-call-room.tsx. The file is KEPT on
+# purpose: deleting the call code is an open owner call, and lib/the-chat-has-no-calls.test.ts requires it to exist.
+# Pay it down by deleting the call stack when the owner rules. 41 -> 42.
+# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (6) ══
+component-no-mount	app/_components/thread-call-room.tsx	1	no runtime importer in any source file
 rpc-no-caller	current_thread_ids	1	no 'current_thread_ids' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it

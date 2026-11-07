@@ -515,3 +515,4 @@ export async function settlePaymentDispute(formData: FormData) {
   if (eventId) revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`);
   redirect('/admin/disputes?settled=ok');
 }
+

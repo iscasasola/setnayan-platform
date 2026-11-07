@@ -1,0 +1,21 @@
+-- notification_type_coordinator_invited
+-- ============================================================================
+-- 🤝 A BOOKED COORDINATOR IS TOLD, IN THE APP, THAT THE COUPLE'S EVENT IS
+-- WAITING FOR THEM (supplier gate audit 2026-11-02, row E1).
+--
+-- `autoInviteCoordinator` (apps/web/lib/coordinator-grant.ts) has made a
+-- 7-day invite the moment a planner_coordinator booking is paid since
+-- 2026-06-22 — and told nobody: the couple had to copy the /host/accept link
+-- by hand. `coordinator_invited` → the account whose email the invite is for,
+-- opening that link, so they accept without the couple doing anything.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it. Same shape as
+-- 20271262858364_notification_type_schedule_change_requested.sql.
+--
+-- ⛔ IN-APP ONLY. Not on the email allowlist (lib/notification-emit.ts) —
+-- owner rule 2026-10-11: no new emails without his word.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'coordinator_invited';

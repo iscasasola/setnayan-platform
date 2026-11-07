@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { Check, Clock, Trophy } from 'lucide-react';
+import { Check, Trophy } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { type OpenRail } from '@/lib/payment-channels';
@@ -31,7 +31,7 @@ import { formatCount } from '@/lib/format-number';
  *
  * Honest states (mirror the 3D Booth card deliberately — same register, same
  * order, so a supplier reads three add-ons and not three inventions):
- *   • Papic Games switched off → "Coming soon", NO buy CTA. We never take money
+ *   • Papic Games switched off → card HIDDEN, NO buy CTA. We never take money
  *     for a product that cannot run.
  *   • not eligible (below Pro unless the tiered model is on, OR unverified) → a
  *     muted upsell, no CTA.
@@ -60,7 +60,7 @@ export type PapicChallengeCardProps = {
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
    *  (the server action refuses the same case). A free grant ignores it. */
   openRails: readonly OpenRail[];
-  /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ "Coming soon". */
+  /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ the card is hidden. */
   available: boolean;
   /** Tier gate (Solo and up — owner 2026-08-29) AND verified. */
   eligible: boolean;
@@ -104,6 +104,12 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
       toast.success(state.message);
     }
   }, [state, toast]);
+
+  // Switched off → the card is not shown at all (2026-11-05). It used to say
+  // "Coming soon", which on a supplier's Plan page reads as an unfinished
+  // product; with the switch off there is nothing to sell, so there is nothing
+  // to show. The server action still refuses on its own.
+  if (!available) return null;
 
   return (
     <section className="sn-tile mt-8 p-6">
@@ -153,18 +159,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
         </div>
       </div>
 
-      {!available ? (
-        <div
-          className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-          <span>
-            Coming soon — guest photo missions are being finalized. You&rsquo;ll be
-            able to turn Papic Challenges on here the moment they go live.
-          </span>
-        </div>
-      ) : !eligible ? (
+      {!eligible ? (
         <div
           className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
           style={{ borderColor: 'var(--m-line)' }}
@@ -177,8 +172,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
             </span>
           ) : (
             <span>
-              Papic Challenges comes with a paid plan — Solo, Pro, Ultra or
-              Custom. Move up above to add it.
+              Papic Challenges comes with a paid plan — Solo, Pro or Ultra.
+              Move up above to add it.
             </span>
           )}
         </div>

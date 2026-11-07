@@ -4,14 +4,16 @@
  *
  * Draws the REAL pieces the thread page mounts — the frame (`ChatBox`), the answer line, the quick replies, the ＋
  * Tools sheet on the real composer, the tray of tool panels with the customer card's booking-ask panel and the
- * one-screen quote (`ProposalMaker`, fed a `labSeed` so it opens filled without a server call). The message bubbles
- * and the "New inquiry" bar are stand-ins: the stream needs a live session (Realtime), and the bar is the page's own.
+ * one-screen quote (`ProposalMaker`, fed a `labSeed` so it opens filled without a server call) — inside the supplier's
+ * REAL shell and the ONE thread frame (`ChatThreadFrame`), with the shared head and the shared stream (fixture
+ * messages; Realtime cannot connect here). The "New inquiry" bar is a stand-in: the bar is the page's own.
  *
  *   ?m=inquiry   a new inquiry — the answer line, "Talk to them"
  *   ?m=tools     an accepted conversation, the couple spoke last — quick replies, ＋ beside the field (tap it)
  *   ?m=ask       the couple asked to book — "They asked to book" on the answer line, the panel open: fee BEFORE Agree
  *   ?m=agreed    …pressed Agree, the fee held the couple's news back — the live sentence and its Pay door
- *   ?m=quote     Send a quote — the one-screen quote, open
+ *   ?m=quote     Send a quote — the one-screen quote, open   &gifts=1 · &gifts=over · &gifts=short (Gifts from you)
+ *                &gifts=plus (their event has Event Plus · this one makes it Pro) · &gifts=pro (their event has Pro)
  *   ?m=full      the couple's date is full — no "Yes po, that day is free"
  *   &booked=1    the couple already booked you — every tool open
  *
@@ -19,10 +21,19 @@
  * Names are samples: nobody real.
  */
 import { notFound } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { shopGiftPacksFrom } from '@/lib/shop-gifts';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+import { BackButton } from '@/app/_components/back-button';
+import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
+import { ChatInfoRailTrigger } from '@/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail';
+import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
+import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF } from '@/app/dev/chat-lab/fixtures';
+import { dealEntryFor } from '@/lib/deal-entry';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
@@ -37,20 +48,48 @@ import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { QuestionsSendBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/questions-send-panel';
+import { startersForTiles } from '@/lib/emcee-questions';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { SupplierChats, type SupplierChatsRead } from '@/app/vendor-dashboard/messages/_components/supplier-chats';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
+
+/** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
+function labChatsRead(state: string): SupplierChatsRead {
+  if (state === 'refused') return { kind: 'refused' };
+  if (state === 'empty') return { kind: 'read', rows: [], unreadMeasured: true, complete: true };
+  const row = (id: string, name: string, eventLine: string, preview: string, timeLabel: string, unread: boolean, archived = false) => ({
+    threadId: id,
+    href: `/dev/supplier-chat-lab?m=tools`,
+    name,
+    logoUrl: null,
+    preview,
+    timeLabel,
+    unread,
+    eventLine,
+    archived,
+    archive: <ThreadArchiveToggle threadId={id} returnTo="/dev/supplier-chat-lab?m=chats" archived={archived} />,
+  });
+  return {
+    kind: 'read',
+    rows: [
+      row('lab-c1', "Ana's Wedding (Dec 12)", '', 'Is the garden buffet still free that day?', '2m', true),
+      row('lab-c2', "Bea's Debut (Jan 24, 2027)", '', 'You: Sent you the quote po — 150 pax.', '1h', false),
+      row('lab-c3', "Carlo's Wedding (Feb 14, 2027)", '', 'Can we add the coffee bar?', 'Mon', true),
+      row('lab-c4', "Dina's Christening (Nov 30)", '', 'Thank you! See you on the day.', 'Oct 28', false),
+      row('lab-c5', "Eli's Anniversary (Mar 2, 2027)", '', 'You: Booked — see you!', 'Sep 9', false, true),
+    ],
+    unreadMeasured: true,
+    complete: state !== 'partial',
+  };
+}
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
-const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
 const TODAY = '2026-10-14';
 const DAY = '2026-12-12';
 const NOW = new Date('2026-10-14T04:00:00Z');
 
-const BUBBLES: Array<['couple' | 'me', string, string]> = [
-  ['couple', 'Hi po! Are you free on Dec 12? We are about 150 guests, garden reception in Tagaytay.', '9:12'],
-  ['me', 'Hello po! Let me check our schedule.', '9:20'],
-  ['couple', 'Thank you! Could you send your price for the buffet?', '9:31'],
-];
 
 const CARDS = [
   { id: 'card-buffet', label: 'Garden buffet', fromPhp: 650, addons: [{ id: 1, label: 'Lechon station', fromPhp: 12000 }, { id: 2, label: 'Coffee bar', fromPhp: 6500 }], comesWith: [], giftOn: true },
@@ -65,6 +104,16 @@ export default async function SupplierChatLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const m = typeof sp.m === 'string' ? sp.m : 'tools';
+  // ?m=chats — the supplier's full-screen Chats inbox (owner 2026-11-06), the REAL `SupplierChats` in the real shell.
+  // &state=refused · &state=empty · &state=partial draw the honest states.
+  if (m === 'chats') {
+    const state = typeof sp.state === 'string' ? sp.state : 'rows';
+    return (
+      <SupplierLabShell measure="own" page="/vendor-dashboard/messages">
+        <SupplierChats read={labChatsRead(state)} viewerId="lab-supplier" />
+      </SupplierLabShell>
+    );
+  }
   const booked = sp.booked === '1';
   const inquiry = m === 'inquiry';
   const askOpen = m === 'ask';
@@ -83,6 +132,25 @@ export default async function SupplierChatLabPage({
         cards={CARDS}
         feeStanding={feeStanding}
         papicStanding={{ kind: 'silent' }}
+        shopGifts={
+          sp.gifts
+            ? {
+                // Lab-only stand-in packs — the page reads the catalogue.
+                packs: shopGiftPacksFrom([
+                  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
+                  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
+                  // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
+                  { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+                  { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
+                ]),
+                schedule: BOOKING_FEE,
+                free: { papic: sp.gifts === 'short' ? 400 : 2150, event_plus: 2, event_pro: 1 },
+                eventHas: sp.gifts === 'plus' ? 'plus' : sp.gifts === 'pro' ? 'pro' : 'none',
+              }
+            : null
+        }
+        shopGiftsBuy={sp.gifts ? { paysGiftPrice: true, openRails: [{ id: 'gcash', label: 'GCash' }] } : null}
+        labGiftCodes={sp.gifts === 'over' ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K'] : sp.gifts === 'plus' || sp.gifts === 'pro' ? ['PAPIC_GUEST_150', 'EVENT_PLUS'] : sp.gifts ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_150'] : undefined}
         savedQuotes={[{ id: 'tpl-garden', name: 'Garden wedding 150' }]}
         askedCardId="card-buffet"
         todayIso={TODAY}
@@ -112,36 +180,75 @@ export default async function SupplierChatLabPage({
       />
     ) : null,
     'offer-service': <VendorOfferService threadId={LAB_THREAD} options={[{ vendorServiceId: 'card-cocktail', label: 'Cocktail hour' }]} />,
+    // ❓ Questions for the couple (every supplier, 2026-11-04) — the caterer's starting set, not sent yet.
+    'questions-for-couple': (
+      <QuestionsSendBody
+        threadId={LAB_THREAD}
+        coupleName="Ana & Miguel"
+        asked={startersForTiles(['catering']).map((q, i) => ({ question_id: `lab-q${i}`, prompt: q.prompt }))}
+        sentAt={null}
+        answered={null}
+      />
+    ),
   };
 
   return (
-    <main className="mx-auto flex h-[calc(100dvh-2rem)] min-h-[27rem] w-full max-w-3xl px-2 py-2 sm:px-4" data-lab-supplier-chat={m}>
-      <ThreadToolHashReveal />
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        {notice ? (
-          <p role="status" className="mb-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink"> {/* no-card-ok: a copy of the thread page's own answer line, for the lab picture */}
-            {notice.text}{' '}
-            {notice.door ? (
-              <a href={notice.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
-                {notice.door.label}
-              </a>
-            ) : null}
-          </p>
-        ) : null}
+    // The supplier's thread as its page draws it: the supplier's REAL shell (rail · bar · tabs), the page's column, the
+    // ONE thread frame (`ChatThreadFrame`) holding one `ChatBox` — so a walk at 390 proves the takeover covers the
+    // supplier's bar and tabs, and a walk from 1024 proves the chat has the same column as the couple's.
+    <SupplierLabShell measure="own">
+      <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-supplier-chat={m}>
+      <ChatThreadFrame>
         <ChatBox
           header={
-            <>
-              <span className="grid h-11 w-9 shrink-0 place-items-center text-ink/60">
-                <ChevronLeft aria-hidden className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink">Ana &amp; Miguel</p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55">Catering · December 12, 2026 · Planning for ~150 guests</p>
-              </div>
-            </>
+            <ChatThreadHead
+              back={<BackButton href="/dev/supplier-lab" label="Customers" variant="chat" />}
+              nameHref="#customer"
+              name="Ana's Wedding (Dec 12)"
+              initials="AM"
+              line={
+                <>
+                  <span>Catering</span>
+                  <span>December 12, 2026</span>
+                  <span className="text-terracotta-700">Planning for ~150 guests</span>
+                </>
+              }
+              actions={
+                <>
+                  <ChatInfoRailTrigger
+                    displayName="Ana & Miguel"
+                    initials="AM"
+                    stage={{ label: THREAD_STAGE_LABEL[booked ? 'booked' : 'quoted'], tone: THREAD_STAGE_TONE[booked ? 'booked' : 'quoted'] }}
+                    summary={{
+                      sentence: 'Ana Reyes created a wedding called “Ana & Miguel” on September 2, 2026.',
+                      facts: [
+                        { label: 'Date', value: 'December 12, 2026' },
+                        { label: 'Guests', value: '~150' },
+                      ],
+                      lockedCategories: ['Venue'],
+                    }}
+                    service="Catering"
+                    threadId={LAB_THREAD}
+                    eventId={LAB_EVENT}
+                    source={{ label: 'Website Inquiry', returning: null }}
+                  />
+                  <ChatThreadMenu threadId={LAB_THREAD} returnTo="/dev/supplier-chat-lab" blockedByMe={false} links={[{ href: '#quote', label: 'Quote & payments', icon: 'quote' }, { href: '#files', label: 'Files & contracts', icon: 'files' }, { href: '#schedule', label: 'Schedule', icon: 'schedule' }, { href: '#details', label: 'Full customer profile', icon: 'customer' }]} />
+                </>
+              }
+            />
           }
           notice={
             <>
+              {notice ? (
+                <p role="status" className="border-b border-ink/10 bg-mulberry/[0.06] px-3.5 py-2 text-[13px] text-ink" data-lock-answer="">
+                  {notice.text}{' '}
+                  {notice.door ? (
+                    <a href={notice.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
+                      {notice.door.label}
+                    </a>
+                  ) : null}
+                </p>
+              ) : null}
               <ThreadAnswerLine initials="AM" eventDay={DAY} todayIso={TODAY} answer={answer} askOpen={askOpen} />
               <ChatPrivacyNotice inBox viewer="vendor" />
             </>
@@ -199,23 +306,20 @@ export default async function SupplierChatLabPage({
             )
           }
         >
-          {/* Stand-in bubbles (the real stream needs a live session). */}
-          <ul className="min-h-[14rem] space-y-2 py-2">
-            {BUBBLES.map(([who, text, at]) => (
-              <li key={at} className={`flex ${who === 'me' ? 'justify-end' : 'justify-start'}`}>
-                <span
-                  className={`max-w-[84%] rounded-2xl px-3.5 py-2 text-[15px] ${
-                    who === 'me' ? 'bg-sn-accent/10 text-ink' : 'border border-ink/10 bg-white text-ink'
-                  }`}
-                >
-                  {text}
-                  <span className="mt-1 block text-[11px] text-ink/45">{at}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <ChatMessageStream
+            flush
+            dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}
+            threadId={LAB_THREAD}
+            initialMessages={LAB_MESSAGES.map((x) => ({ ...x, thread_id: LAB_THREAD }))}
+            currentUserId={LAB_STAFF}
+            viewerRole="vendor"
+            counterpartyLabel="Ana & Miguel"
+            lockHandshake={null}
+            fileExpiry={{ eventDate: DAY, precision: 'day' }}
+          />
         </ChatBox>
-      </section>
-    </main>
+      </ChatThreadFrame>
+      </div>
+    </SupplierLabShell>
   );
 }

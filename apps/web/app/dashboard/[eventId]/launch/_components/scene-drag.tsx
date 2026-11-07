@@ -471,7 +471,7 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
               held && over ? 'bg-[var(--sp-bad)] text-[rgb(var(--sn-on-accent))]' : 'bg-[var(--sp-paper)] text-[var(--sp-ink)]'
             } ${held ? 'opacity-100' : 'opacity-0'}`}
             style={{
-              bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + var(--scene-bin-over, 30px))',
+              bottom: 'calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)) + var(--scene-bin-over, 30px))',
               transform: `translate(-50%, ${held ? 0 : 24}px) scale(${held ? (over ? 1.22 : 1) : 0.6})`,
               /* Its line and its lift: the toolbar's own line, the app's own shadow — tokens, never a colour typed here. */
               boxShadow: `0 0 0 1.5px var(${held && over ? '--sp-bad' : '--sp-line2'}), var(--m-shadow-md)`,

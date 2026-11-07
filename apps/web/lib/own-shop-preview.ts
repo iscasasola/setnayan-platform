@@ -8,13 +8,16 @@
  * Saysay, owner ruling 2026-09-29 "LANE 2 §2C" (1)) 404'd for their own owner. Helpers were never let in at all.
  *
  * ─── THE RULE (pure — {@link shopPageGate}) ───────────────────────────────────────────────────────────────────────
- *   PUBLIC  — anyone may open it when ALL of:
+ *   PUBLIC  — anyone may open it when BOTH of:
  *               1. `public_visibility = 'verified'`  (listed by Setnayan — `/admin/verify` writes it), AND
- *               2. `verification_state = 'verified'` (documents approved), AND
- *               3. `is_demo` is not true             (a demo shop never reads as a real supplier).
- *             An admin with demo mode on skips 2 and 3 (unchanged — that is how demo inventory is dogfooded).
- *             This is `isShopLive` (lib/vendor-visibility.ts) plus the demo half, the same three filters the vendor
- *             sitemap applies — so "the page opens for a stranger" and "the sitemap lists it" cannot disagree.
+ *               2. `verification_state = 'verified'` (documents approved).
+ *             That is `isShopLive` (lib/vendor-visibility.ts), exactly. An admin with demo mode on skips 2 (unchanged —
+ *             that is how unverified demo inventory is dogfooded).
+ *             🧪 A DEMO SHOP (`is_demo`) IS PUBLIC TOO, since 2026-11-06 (owner, DECISION_LOG "DEMO SHOPS + DEMO
+ *             EVENTS": demo suppliers *"will show on with the rest of suppliers … but has a marking of (DEMO ONLY)"*).
+ *             This supersedes the 2026-09-29 third half ("`is_demo` is not true"). The page wears `DemoOnlyMarker`
+ *             and is `noindex`; the vendor sitemap still leaves demo shops out (never index a demo), so "the page
+ *             opens for a stranger" and "the sitemap lists it" now differ by exactly the demo shops, on purpose.
  *   TEAM    — otherwise, the shop's OWNER (`vendor_profiles.user_id`) and its HELPERS (a `vendor_team_members` seat)
  *             see the page with a banner saying who can see it and what couples are waiting on ({@link ShopPreviewReason}).
  *   NOBODY  — everybody else gets the not-found page, which never says whether a shop exists. An `archived` (closed)
@@ -30,11 +33,31 @@ export type ShopPageGateRow = {
   public_visibility?: unknown;
   verification_state?: unknown;
   is_demo?: unknown;
+  /** 🏪 The shop chose to show its page before it is verified (`setShopPublished`, owner 2026-11-02). */
+  self_published_at?: unknown;
 };
+
+/**
+ * 🏪 A SHOP SHOWS ITS PAGE BEFORE IT IS VERIFIED — WHILE BOOKINGS ARE CLOSED (owner 2026-11-02: "we offer them space to
+ * create their website … and apply for verified account"; controller: "the website can go live; verified stays a
+ * badge"). True when the shop pressed Show my page (`self_published_at`), is not archived and not a demo shop, and
+ * bookings are closed (`platform_settings.bookings_open`, `lib/bookings-open.ts`) — so nothing on the page can be
+ * booked. The page only: the marketplace, search and every database door stay verified-only (migration
+ * 20271303245624). When bookings open, such a page goes back to its team until Setnayan verifies the shop.
+ */
+export function selfPublishedLive(row: ShopPageGateRow, bookingsOpen: boolean): boolean {
+  return (
+    !bookingsOpen &&
+    typeof row.self_published_at === 'string' &&
+    row.self_published_at.length > 0 &&
+    parseVisibility(row.public_visibility) !== 'archived' &&
+    row.is_demo !== true
+  );
+}
 
 /** What couples are waiting on — the banner's "Couples will see it once …". */
 export type ShopPreviewReason =
-  /** `is_demo = true` — a demo shop; only Setnayan can make it a real one. */
+  /** `is_demo = true` and not live yet — a demo shop only Setnayan lists (and verifies). */
   | 'demo'
   /** Documents not sent, turned down, or the badge was lost (`unverified` · `rejected` · `demoted` · unreadable). */
   | 'documents'
@@ -50,7 +73,12 @@ export type ShopPageGate =
 
 export function shopPageGate(
   row: ShopPageGateRow,
-  viewer: { isTeam: boolean; adminDemoMode: boolean },
+  viewer: {
+    isTeam: boolean;
+    adminDemoMode: boolean;
+    /** 🚪 `areBookingsOpen()`. Omitted = open — today's rule exactly, so no caller changes unless it passes it. */
+    bookingsOpen?: boolean;
+  },
 ): ShopPageGate {
   const visibility = parseVisibility(row.public_visibility);
   if (visibility === 'archived') return { open: 'nobody' };
@@ -58,12 +86,15 @@ export function shopPageGate(
   const demo = row.is_demo === true;
   const documentsApproved = row.verification_state === 'verified';
 
-  // Derived, never re-typed: the live half IS `isShopLive`. Demo mode (an admin) needs only the listing.
-  if (viewer.adminDemoMode ? visibility === 'verified' : isShopLive(row) && !demo) {
+  // Derived, never re-typed: the live half IS `isShopLive` — for a demo shop too (2026-11-06). Demo mode (an admin)
+  // needs only the listing.
+  if (viewer.adminDemoMode ? visibility === 'verified' : isShopLive(row)) {
     return { open: 'public' };
   }
+  if (selfPublishedLive(row, viewer.bookingsOpen ?? true)) return { open: 'public' };
   if (!viewer.isTeam) return { open: 'nobody' };
 
+  // A demo shop that is not live yet waits on Setnayan listing it, like any shop — but its banner says it is a demo.
   if (demo) return { open: 'team', reason: 'demo' };
   if (row.verification_state === 'pending_review') return { open: 'team', reason: 'in_review' };
   if (!documentsApproved) return { open: 'team', reason: 'documents' };
@@ -87,7 +118,7 @@ export const TEAM_PREVIEW_COPY: Record<ShopPreviewReason, { line: string; action
     action: { label: 'Open your shop', href: '/vendor-dashboard/shop' },
   },
   demo: {
-    line: 'Couples will see it once Setnayan makes it a real shop — today it is a demo shop.',
+    line: 'Couples will see it once Setnayan lists this demo shop — it will show marked (DEMO ONLY).',
     action: { label: 'Open your shop', href: '/vendor-dashboard/shop' },
   },
 };

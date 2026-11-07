@@ -34,7 +34,10 @@ export function useShellBarOffset(root: RefObject<HTMLElement | null>, name = '-
     const bar = document.querySelector<HTMLElement>('.shell-topbar');
     if (!el) return;
     const sync = () => {
-      el.style.setProperty(name, shellBarShows(bar) ? `${bar.getBoundingClientRect().height}px` : '0px');
+      /* Bar gone → the head pins at the top of the SAFE AREA, never at 0: on an iPhone 0 is under the clock and the
+         Dynamic Island (owner 2026-10-30, a screenshot of Home's pinned cover line "intersecting with the floating
+         island of iphone"). env() is 0 on every screen without an inset, so desktop and Android are unchanged. */
+      el.style.setProperty(name, shellBarShows(bar) ? `${bar.getBoundingClientRect().height}px` : 'env(safe-area-inset-top, 0px)');
     };
     sync();
     if (!bar) return;

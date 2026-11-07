@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { withoutSkipped } from './change-the-schedule';
 import {
   ceremonyMatches,
   isChineseWedding,
   isChineseOverlay,
   type CeremonyOverlayInput,
 } from '@/lib/chinese-wedding';
+import { isTimeTba } from '@/lib/schedule-chapters';
 
 export type ScheduleBlockType =
   | 'pre_ceremony'
@@ -95,13 +97,17 @@ export type ScheduleBlockRow = {
   /** Day-of run-of-show (migration 20270321980372). run_state is advanced by
    *  advance_schedule_block; actual_start_at is when the block actually went
    *  live (drives the "running ±N min" header). Additive — defaults to
-   *  'upcoming' / null on rows created before the run-of-show feature. */
-  run_state: 'upcoming' | 'live' | 'done';
+   *  'upcoming' / null on rows created before the run-of-show feature.
+   *  `skipped` (20271308380805): Change the schedule › Skip — it did not happen, and guests never see it. */
+  run_state: 'upcoming' | 'live' | 'done' | 'skipped';
   actual_start_at: string | null;
   actual_end_at: string | null;
   /** 👥 Who this moment is for (Studio › Schedule › For ▾, migration
    *  20271265788160). NULL = Everyone; see `lib/schedule-audience.ts`. */
   audience?: string | null;
+  /** ⏰ A chapter whose time is not known yet (migration 20271300482585): `start_at` holds only its DAY at 00:00. Ask
+   *  `isTimeTba` (lib/schedule-chapters.ts) before drawing, ranking or picking "now" by `start_at`. */
+  time_tba?: boolean | null;
 };
 
 /*
@@ -118,7 +124,7 @@ export type ScheduleBlockRow = {
   see `insertScheduleBlocks` — so there is still exactly one copy of the list.
 */
 const SELECT =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,time_tba,audience';
 
 /**
  * The SAME ordering `fetchScheduleBlocks` asks PostgREST for — `start_at`
@@ -244,6 +250,35 @@ export function onlyWhatGuestsMaySee<Q extends { eq: unknown; is: unknown; neq: 
 }
 
 /**
+ * ⏰ ONLY ROWS WITH A REAL CLOCK — for a reader that draws a time, ranks by it, picks "now" or derives a call time from
+ * `start_at`, and does not list a Time-TBA chapter itself (migration 20271300482585, plan §3 "Chapter time TBA = no
+ * call time"). A TBA chapter's `start_at` is its DAY at 00:00, a placeholder: unfenced, it reads as a 12:00 AM chapter,
+ * a 12:00 AM call time, or "started at midnight". Readers that CAN say "Time TBA" read `time_tba` and ask `isTimeTba`
+ * instead (the supplier .ics, Home's now/next). Held by `a-tba-chapter-is-never-midnight.test.ts`, which fails any
+ * schedule read of `start_at` that neither fences nor reads the flag.
+ */
+export function onlyTimedBlocks<Q extends { eq: unknown }>(query: Q): Q {
+  return (query as unknown as { eq(column: 'time_tba', value: false): Q }).eq('time_tba', false);
+}
+
+/**
+ * 🔒 WHAT A BOOKED SHOP MAY SEE OF THE SCHEDULE — for a read made on the SERVICE-ROLE client on a shop's behalf (its
+ * crew's phone, `app/join/crew/[token]/page.tsx`), which passes straight through RLS, so this filter IS the fence.
+ *
+ * It mirrors `event_schedule_blocks_booked_vendor_read` (20270901120000) EXACTLY, and nothing more:
+ *   `event_id IN (current_vendor_booked_event_ids()) AND visibility <> 'coordinator_only'`.
+ * The booked part is the caller's already-proven pass (scoped to its ONE event); this adds the second condition — a
+ * coordinator's unreleased prep block is never the shop's to read, so never its crew's. That policy has no branch for
+ * a coordinator SHOP (the coordinator reads staged rows through their own moderator seat, a person, not a shop), so
+ * neither does this. No public/audience filter: the shop reads the full timeline (locked D2).
+ *
+ * Pinned to the policy, row for row, by `tests/db/crew-pass-sees-only-its-event.db.test.ts` (the run of show test).
+ */
+export function onlyWhatABookedShopMaySee<Q extends { neq: unknown }>(query: Q): Q {
+  return (query as unknown as { neq(column: 'visibility', value: 'coordinator_only'): Q }).neq('visibility', 'coordinator_only');
+}
+
+/**
  * 🔒 THE SAME FENCE, ASKED OF ONE ROW ALREADY IN HAND — a realtime change's payload (2026-10-18, live-day polling).
  *
  * The guests' live header (`run-of-show-header.tsx`, `forGuests`) used to answer every change on
@@ -282,7 +317,10 @@ export async function fetchPublicScheduleBlocks(
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) throw new Error(`fetchPublicScheduleBlocks failed: ${error.message}`);
-  return (data ?? []) as ScheduleBlockRow[];
+  // ⏭ A SKIPPED PART IS NOT ON THE GUESTS' DAY (Change the schedule › Skip, 20271308380805): it will not happen, so the
+  // Event Hub's Details, the pass card's Arrive and Find my seat never name it. Dropped after the read, not in the
+  // fence: the fence's request is pinned condition for condition (the-guests-schedule-has-one-fence.test.ts B4).
+  return withoutSkipped((data ?? []) as ScheduleBlockRow[]);
 }
 
 /**
@@ -901,6 +939,131 @@ export function buildScheduleSeed(
   return { topLevel, buildChildren };
 }
 
+// ───────────────────  the four default chapters (owner 2026-11-03)  ───────────────────
+//
+// 📖 EVERY NEW EVENT STARTS WITH FOUR CHAPTERS (DECISION_LOG 3 Nov "EVERY EVENT IS BUILT FROM PREBUILT PARTS" + "ALL
+// FOUR PREBUILT PARTS ARE DEFAULT PUBLIC CHAPTERS"; approved prototype "Event chapters — 4 Nov 2026", frame 1):
+// Prep · Ceremony · Cocktail + Reception · After Party, each PUBLIC, After Party on. The host fills them.
+//
+// 🔑 EXTENDED FROM `buildScheduleSeed`, NEVER RE-WRITTEN: the Ceremony chapter and its rite-aware parts, the reception
+// parts and the dance-free rule are that seed's own output. Only the shape changes — Prep is added before, the cocktail
+// hour becomes the first moment of "Cocktail + Reception", and After Party runs "onward" (no end).
+// 🕊 A dance-free rite (`riteIsDanceFree`) keeps the shipped rule: no cocktail hour and no After Party, so its third
+// chapter is plain "Reception" and there are three chapters, not four (open owner call, flagged on the PR).
+
+export type DefaultChapterKey = 'prep' | 'ceremony' | 'cocktail_reception' | 'after_party';
+
+export type DefaultChapter = {
+  key: DefaultChapterKey;
+  label: string;
+  block_type: ScheduleBlockType;
+  start_at: string;
+  /** null = "onward" (After Party). */
+  end_at: string | null;
+  sort_order: number;
+  is_public: true;
+};
+
+export type DefaultChapterMoment = Omit<ScheduleSeedChild, 'parent_key'> & { parent_key: DefaultChapterKey };
+
+/** The words the four default chapters are called — one list, read by the seed and its guards. */
+export const DEFAULT_CHAPTER_LABELS: Readonly<Record<DefaultChapterKey, string>> = {
+  prep: 'Prep',
+  ceremony: 'Ceremony',
+  cocktail_reception: 'Cocktail + Reception',
+  after_party: 'After Party',
+};
+
+/** The approved prototype's hours (frame 1): Prep 7–12 · Ceremony 1:30–3:30 · Cocktail + Reception 5–10 · After Party
+ *  10:30 onward. The host re-times every one; these only place them on the day. */
+const DEFAULT_CHAPTER_HOURS = {
+  prep: [7, 0, 12, 0],
+  ceremony: [13, 30, 15, 30],
+  cocktail_reception: [17, 0, 22, 0],
+  cocktail_hour_end: [18, 0],
+  after_party: [22, 30],
+} as const;
+
+/** `labels` spread evenly across [startIso, endIso) — the shipped seed's own way of laying out its parts. */
+function spreadParts(
+  labels: readonly { label: string; block_type: ScheduleBlockType }[],
+  startIso: string,
+  endIso: string,
+  parent_key: DefaultChapterKey,
+  firstOrder = 10,
+): DefaultChapterMoment[] {
+  const from = new Date(startIso).getTime();
+  const step = labels.length > 0 ? (new Date(endIso).getTime() - from) / labels.length : 0;
+  return labels.map((p, i) => ({
+    parent_key,
+    label: p.label,
+    block_type: p.block_type,
+    start_at: new Date(from + i * step).toISOString(),
+    end_at: new Date(from + (i + 1) * step).toISOString(),
+    sort_order: firstOrder + i * 10,
+    is_public: false,
+  }));
+}
+
+/**
+ * The four default chapters on `eventDate` (or, with no date yet, the seed's placeholder day — `anchorIso`; the
+ * database moves them onto the real day the moment an exact date is set, migration 20271306532960).
+ */
+export function buildDefaultChapters(
+  ceremonyType: SeedCeremonyType | null,
+  eventDate: string | null,
+  overlay?: CeremonyOverlayInput | null,
+): { chapters: DefaultChapter[]; moments: DefaultChapterMoment[] } {
+  const seed = buildScheduleSeed(ceremonyType, eventDate, overlay);
+  const danceFree = riteIsDanceFree(overlay ?? { ceremony_type: ceremonyType });
+  const cocktails = seed.topLevel.some((b) => b.key === 'cocktails');
+  const afterParty = seed.topLevel.some((b) => b.key === 'after_party') && !danceFree;
+  const H = DEFAULT_CHAPTER_HOURS;
+  const at = (h: number, m: number) => anchorIso(eventDate, h, m);
+
+  const chapters: DefaultChapter[] = [
+    { key: 'prep', label: DEFAULT_CHAPTER_LABELS.prep, block_type: 'pre_ceremony', start_at: at(H.prep[0], H.prep[1]), end_at: at(H.prep[2], H.prep[3]), sort_order: 50, is_public: true },
+    { key: 'ceremony', label: DEFAULT_CHAPTER_LABELS.ceremony, block_type: 'ceremony', start_at: at(H.ceremony[0], H.ceremony[1]), end_at: at(H.ceremony[2], H.ceremony[3]), sort_order: 100, is_public: true },
+    {
+      key: 'cocktail_reception',
+      label: cocktails ? DEFAULT_CHAPTER_LABELS.cocktail_reception : 'Reception',
+      block_type: 'reception',
+      start_at: at(H.cocktail_reception[0], H.cocktail_reception[1]),
+      end_at: at(H.cocktail_reception[2], H.cocktail_reception[3]),
+      sort_order: 300,
+      is_public: true,
+    },
+  ];
+  if (afterParty) {
+    chapters.push({ key: 'after_party', label: DEFAULT_CHAPTER_LABELS.after_party, block_type: 'after_party', start_at: at(H.after_party[0], H.after_party[1]), end_at: null, sort_order: 400, is_public: true });
+  }
+
+  // The parts are the shipped seed's (rite-aware, dance-free aware) — only laid out again on these hours.
+  const parts = seed.buildChildren({ ceremony: '', reception: '' });
+  const ceremonyParts = parts.filter((p) => p.parent_key === 'ceremony');
+  const receptionParts = parts.filter((p) => p.parent_key === 'reception');
+  const [cer, rec] = [chapters[1]!, chapters[2]!];
+  const receptionFrom = cocktails ? at(H.cocktail_hour_end[0], H.cocktail_hour_end[1]) : rec.start_at;
+  const moments: DefaultChapterMoment[] = [
+    ...spreadParts(ceremonyParts, cer.start_at, cer.end_at!, 'ceremony'),
+    // The cocktail hour is the first moment of its chapter — private, like every seeded part.
+    ...(cocktails ? spreadParts([{ label: 'Cocktail hour', block_type: 'cocktails' }], rec.start_at, receptionFrom, 'cocktail_reception', 5) : []),
+    ...spreadParts(receptionParts, receptionFrom, rec.end_at!, 'cocktail_reception'),
+  ];
+  return { chapters, moments };
+}
+
+/** The tip a new event's Schedule opens with (prototype frame 1) — while its chapters are still the defaults, unfilled. */
+export const DEFAULT_CHAPTERS_TELL = "Your event starts with four chapters. Fill each one, or swipe one left if you don't have it.";
+export const DEFAULT_CHAPTERS_TIP =
+  'Every event starts from prebuilt chapters. Guests see only the chapters they are part of. A chapter you delete leaves the invitation and every booked supplier’s parts; Undo brings it back.';
+
+/** True while every chapter still carries a default name and none has a venue yet — the host has not filled them. */
+export function defaultChaptersUnfilled(chapters: readonly { label: string; location: string | null }[]): boolean {
+  const names = new Set<string>([...Object.values(DEFAULT_CHAPTER_LABELS), 'Reception']);
+  return chapters.length > 0 && chapters.every((c) => names.has(c.label) && !c.location);
+}
+
 // ── Overview schedule preview selection ──────────────────────────────────────
 // Pure block-selection for the Overview's Schedule section (owner directive
 // 2026-07-09: "add schedule there"). Lives here — not in the component — so the
@@ -929,15 +1092,19 @@ export function selectSchedulePreviewBlocks(
   now: Date,
 ): SchedulePreviewSelection {
   const topLevel = blocks.filter((b) => b.parent_block_id === null);
+  // ⏰ A Time-TBA chapter is NEVER RANKED BY TIME: its stored 00:00 is a placeholder for its day, so comparing it with
+  // "now" would drop it on the day itself and sort it first before. It is listed after the timed chapters, as "Time TBA".
+  const timed = topLevel.filter((b) => !isTimeTba(b));
+  const tba = topLevel.filter((b) => isTimeTba(b));
   // The VENUE's clock. `start_at` is the venue's wall clock stored in a UTC
   // column, so `now.getTime()` — a real instant — is not comparable with it and
   // was out by the venue's UTC offset. On a Manila wedding day that is eight
   // hours: the preview kept offering moments that had already happened.
   const nowMs = venueNowMs(DEFAULT_EVENT_TZ, now);
-  const upcoming = topLevel.filter(
+  const upcoming = timed.filter(
     (b) => new Date(b.start_at).getTime() >= nowMs,
   );
-  const source = upcoming.length > 0 ? upcoming : topLevel;
+  const source = [...(upcoming.length > 0 ? upcoming : timed), ...tba];
   const display = source.slice(0, SCHEDULE_PREVIEW_LIMIT);
   return {
     display,

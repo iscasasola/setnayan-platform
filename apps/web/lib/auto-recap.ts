@@ -108,6 +108,10 @@ export type RecapCoupleSummary = {
   publicVoices: number;
   guests: number | null;
   slug: string | null;
+  /** 🔌 TRUE when a count could not be READ — the numbers are then unknown, never zeros (reads-are-honest, 2026-11-02
+   *  audit #18). The Recap page and the keepsake row say they could not count; nothing "opens once the first photo
+   *  lands" over a recap that may already be full. */
+  unreadable: boolean;
 };
 
 /** Two-letter monogram initials from a display name ("Maria & Juan" → "MJ"). */
@@ -409,17 +413,18 @@ export async function loadRecapCoupleSummary(eventId: string): Promise<RecapCoup
     publicVoices: 0,
     guests: null,
     slug: null,
+    unreadable: true,
   };
 
   try {
     const [
-      { count: seat },
-      { count: guestCaps },
-      { count: approvedKwentos },
-      { count: wallSafe },
-      { count: publicVoices },
-      { count: guests },
-      { data: ev },
+      { count: seat, error: seatErr },
+      { count: guestCaps, error: guestCapsErr },
+      { count: approvedKwentos, error: approvedErr },
+      { count: wallSafe, error: wallSafeErr },
+      { count: publicVoices, error: voicesErr },
+      { count: guests, error: guestsErr },
+      { data: ev, error: evErr },
     ] = await Promise.all([
       admin
         .from('papic_photos')
@@ -475,6 +480,7 @@ export async function loadRecapCoupleSummary(eventId: string): Promise<RecapCoup
       publicVoices: publicVoices ?? 0,
       guests: guests ?? null,
       slug: (ev as { slug?: string } | null)?.slug ?? null,
+      unreadable: Boolean(seatErr || guestCapsErr || approvedErr || wallSafeErr || voicesErr || guestsErr || evErr),
     };
   } catch {
     return zero;

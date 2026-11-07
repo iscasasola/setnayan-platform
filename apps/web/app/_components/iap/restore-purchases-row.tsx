@@ -6,6 +6,9 @@ import { restoreWithApple } from '@/lib/iap/native-store';
 import { iapProductForServiceKey, iapProductIsRepeatable } from '@/lib/iap/products';
 import type { IapRestoreResult } from '@/lib/iap/iap-outcome';
 
+/** 🗑 A code no product on sale carries any more, still restorable (Setnayan AI left sale 2026-11-04) — its own name, never the raw code. */
+const RETIRED_NAME: Readonly<Record<string, string>> = { SETNAYAN_AI: 'Setnayan AI' };
+
 /**
  * 🍎 PROFILE › RESTORE PURCHASES (Apple requires it; prototype
  * `in_app_purchase_screens_2026-10-17_fable.html` frame 12). Mounted by the
@@ -57,7 +60,7 @@ export function RestorePurchasesRow({ className }: { className: string }) {
               <ul className="space-y-1">
                 {listed.map((r) => (
                   <li key={`${r.eventId}:${r.serviceKey}`}>
-                    ✓ {iapProductForServiceKey(r.serviceKey)?.appStoreName ?? r.serviceKey}
+                    ✓ {iapProductForServiceKey(r.serviceKey)?.appStoreName ?? RETIRED_NAME[r.serviceKey] ?? r.serviceKey}
                     {r.eventName ? ` · ${r.eventName}` : ''}
                   </li>
                 ))}

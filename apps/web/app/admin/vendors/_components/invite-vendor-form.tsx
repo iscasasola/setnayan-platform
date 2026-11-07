@@ -10,7 +10,9 @@ import { useSaveLoader } from '@/components/sd-loader';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SWITCH_TRACK } from '@/app/_components/switch-track';
+import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { svgDataUri, qrFileName } from '@/lib/qr-download';
+import { SHOP_NAME_MAX } from '@/lib/business-slug';
 import {
   PERSONAL_INVITE_PHOTO_ALLOWANCE,
   PERSONAL_INVITE_TIERS,
@@ -21,6 +23,9 @@ import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
 import { planWord } from '@/lib/vendor-plan-change-words';
 
 type Ok = Extract<AdminInviteResult, { status: 'ok' }>;
+
+/** The browser's own bar for `type="email"`: something, an @, something — the server checks it properly. */
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+$/;
 
 /** The small mono section label the supplier screens use ("The offer", "Invite card", "Message to send"). */
 function Sec({ children }: { children: string }) {
@@ -56,6 +61,8 @@ export function InviteVendorForm({
   const [state, setState] = useState<{ kind: 'idle' } | ({ kind: 'success' } & Ok) | { kind: 'error'; message: string }>({
     kind: 'idle',
   });
+  const [email, setEmail] = useState('');
+  const [business, setBusiness] = useState('');
   const [category, setCategory] = useState<string>('');
   const [plan, setPlan] = useState<string>('free');
   const [photos, setPhotos] = useState(false);
@@ -78,11 +85,17 @@ export function InviteVendorForm({
         continues filling in their profile — no setup work needed on your end.
       </p>
 
+      {/* The fields share the row only while each keeps room for its whole placeholder: three columns by the WINDOW
+          (`sm:grid-cols-3`) cut "hello@vendorbusiness.ph" wherever the card itself was narrow — a 512-px card, the admin
+          rail at tablet width. Columns by the CARD's own width instead. 🔒 the-invite-fields-fit-their-placeholder.test.ts */}
       <form
-        className="mt-4 grid gap-3 sm:grid-cols-3"
+        className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           const form = event.currentTarget;
+          // A required row still empty, or an email that is not one, shakes into view and nothing is sent — the raw
+          // boxes' `required` / `type="email"` did this in the browser; a Field row's carrier is hidden.
+          if (nudgeFormRows(form) > 0) return;
           const fd = new FormData(form);
           startTransition(async () => {
             const result: AdminInviteResult = await save.run(
@@ -92,6 +105,8 @@ export function InviteVendorForm({
             if (result.status === 'ok') {
               setState({ kind: 'success', ...result });
               form.reset();
+              setEmail('');
+              setBusiness('');
               setCategory('');
               setPlan('free');
               setPhotos(false);
@@ -112,27 +127,40 @@ export function InviteVendorForm({
           });
         }}
       >
-        <label className="space-y-1">
-          <span className="block text-xs font-medium text-ink/70">Supplier email</span>
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="hello@vendorbusiness.ph"
-            className="input-field"
-          />
-        </label>
-        <label className="space-y-1">
-          <span className="block text-xs font-medium text-ink/70">Business name</span>
-          <input
-            name="business_name"
-            type="text"
-            required
-            maxLength={128}
-            placeholder="ABC Catering"
-            className="input-field"
-          />
-        </label>
+        {/* ✍ The email and the business name are rows of the ONE Field template (`TypedRow`, owner 1 Nov 2026: every
+            field follows it), across the whole card — so the open field always holds its whole example. They post
+            `email` and `business_name` exactly as the raw boxes did; both are required, and the email is checked as it
+            is kept (the raw box's `type="email"` did that in the browser). */}
+        <div className="col-span-full">
+          <FormRows width="wide">
+            <TypedRow
+              name="Supplier email"
+              value={email}
+              required
+              empty="Their email"
+              placeholder="hello@vendorbusiness.ph"
+              inputMode="email"
+              autoCapitalize="off"
+              maxLength={254}
+              check={(t) => (EMAIL_SHAPE.test(t) ? null : 'Please enter a valid email address.')}
+              fieldName="email"
+              onKeep={(t) => setEmail(t)}
+              data="invite-email"
+            />
+            <TypedRow
+              name="Business name"
+              value={business}
+              required
+              empty="Their business"
+              placeholder="ABC Catering"
+              maxLength={SHOP_NAME_MAX}
+              autoCapitalize="words"
+              fieldName="business_name"
+              onKeep={(t) => setBusiness(t)}
+              data="invite-business"
+            />
+          </FormRows>
+        </div>
         <div className="space-y-1">
           <span className="block text-xs font-medium text-ink/70">Service category</span>
           <input type="hidden" name="service_category" value={category} />
@@ -147,7 +175,7 @@ export function InviteVendorForm({
         </div>
 
         {/* ── THE OFFER (owner 2026-10-23) ── */}
-        <div className="sm:col-span-3" data-invite-offer="">
+        <div className="col-span-full" data-invite-offer="">
           <Sec>The offer</Sec>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
@@ -191,7 +219,7 @@ export function InviteVendorForm({
           </label>
         </div>
 
-        <div className="sm:col-span-3">
+        <div className="col-span-full">
           <button
             type="submit"
             disabled={pending}

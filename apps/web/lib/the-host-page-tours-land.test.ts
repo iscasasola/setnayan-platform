@@ -95,7 +95,8 @@ test('the old carousels for the replaced pages are gone (two first-visit things 
 
 test('the Maker’s quiet line shows while its tour is due — it is stop 1', () => {
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /tourHint=\{makerSpotlightDue\}/, 'the launch page no longer tells the shell the tour is due');
+  /* 🖨 …except on the Prints page (R8): the same page drawing Prints alone has no stages and no lower third to tour. */
+  assert.match(page, /tourHint=\{makerSpotlightDue && !printsPage\}/, 'the launch page no longer tells the shell the tour is due');
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.match(shell, /useState\(\(firstVisit \|\| tourHint\) && hasWork\)/, 'the quiet line no longer shows for a due tour');
   assert.match(shell, /data-tour="maker-hint"/);

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { GuestRemovalActionsContext, type GuestRemovalActions } from '@/app/dashboard/[eventId]/guests/_components/guest-delete';
 import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS, labTimedAdds } from './lab-stand-ins';
 import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_components/guest-actions-context';
+import type { GuestCardResult } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 
 /**
  * The lab's stand-ins for the guest list's writes: they succeed LOCALLY — the row hides, the Undo toast shows, Undo brings
@@ -28,22 +29,44 @@ import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_componen
  * `/api/guest/pass-card`); Write to NFC (a browser API, no database); the card's Access line (a link to Event Details). The
  * Setup rows' two doors ("Send to N", "Pick who") are stand-ins too: they stay in the lab (`setupDoorHref`).
  */
-export function LabGuestActions({ refuse = false, addMs = 0, children }: { refuse?: boolean; addMs?: number; children: ReactNode }) {
+export function LabGuestActions({
+  refuse = false,
+  addMs = 0,
+  openCard,
+  children,
+}: {
+  refuse?: boolean;
+  addMs?: number;
+  /** 🪪 `?part=screen&open=1`: the lab's card-only read (an inline server action that answers with the lab card). */
+  openCard?: (guestId: string) => Promise<GuestCardResult>;
+  children: ReactNode;
+}) {
   /* A stand-in that must change what the page DRAWS (Finalize → the locked row) moves a search param the fixture reads, with
      `router.replace` — which refetches the page — never `replaceState` + `refresh()`, which Next does not follow. */
+  /* ⚡ The address is read WHEN asked (`window.location`), never subscribed to (`useSearchParams`): subscribed, every
+     address move — a guest's card opening in place moves `?inspect=` — redrew this provider, handed the list a new
+     actions object and redrew EVERY row, a lab-only second the real page does not pay (it has no provider). */
   const router = useRouter();
   const path = usePathname();
-  const search = useSearchParams();
   useEffect(() => {
     const go = (e: Event) => {
       const set = (e as CustomEvent<{ set: Record<string, string> }>).detail?.set ?? {};
-      const next = new URLSearchParams(search.toString());
+      const next = new URLSearchParams(window.location.search);
       for (const [k, v] of Object.entries(set)) next.set(k, v);
       router.replace(`${path}?${next.toString()}`, { scroll: false });
     };
     window.addEventListener(LAB_NAVIGATE_EVENT, go);
     return () => window.removeEventListener(LAB_NAVIGATE_EVENT, go);
-  }, [router, path, search]);
+  }, [router, path]);
+  const actions = useMemo(
+    () => ({
+      ...LAB_GUEST_ACTIONS,
+      ...(refuse ? LAB_SETUP_REFUSALS : {}),
+      ...labTimedAdds(addMs),
+      ...(openCard ? { openGuestCard: (_eventId: string, guestId: string) => openCard(guestId) } : {}),
+    }),
+    [refuse, addMs, openCard],
+  );
   const stand: GuestRemovalActions = {
     bulkSoftDeleteGuestsForUndo: async (_eventId, ids) =>
       refuse
@@ -53,7 +76,7 @@ export function LabGuestActions({ refuse = false, addMs = 0, children }: { refus
   };
   return (
     <GuestRemovalActionsContext.Provider value={stand}>
-      <GuestActionsProvider actions={{ ...LAB_GUEST_ACTIONS, ...(refuse ? LAB_SETUP_REFUSALS : {}), ...labTimedAdds(addMs) }}>{children}</GuestActionsProvider>
+      <GuestActionsProvider actions={actions}>{children}</GuestActionsProvider>
     </GuestRemovalActionsContext.Provider>
   );
 }

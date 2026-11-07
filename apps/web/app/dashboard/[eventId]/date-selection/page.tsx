@@ -25,12 +25,14 @@
  * when date_status != 'locked'). No new orphan routes.
  */
 
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { blockClosesDay, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { notFound, redirect } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
 import { ArrowLeft, Calendar, Heart, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { demoScopeFor } from '@/lib/demo-scope';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeAuspiciousReasonsDetailed,
@@ -373,6 +375,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       <section className="mx-auto max-w-2xl space-y-6">
         {chineseTradition ? <ChineseSpecialistNudge /> : null}
         <DatePicker
+          dateExempt={await viewerIsInternal().catch(() => false)}
           eventId={eventId}
           ceremonyType={ceremonyType}
           secondaryCeremonyType={secondaryCeremonyType}
@@ -416,6 +419,9 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
 
   if (!path && hasCandidates && !hasDate) {
     const admin = createAdminClient();
+    // 🧪 The pool is the event's own side of the demo line (owner 2026-11-06, `lib/demo-scope.ts`): a real event's
+    // date picker counts real shops only, a demo event's (`events.is_sample`) demo shops only.
+    const demoScope = await demoScopeFor(admin, eventId);
 
     const [vendors, vpRes, changeLines] = await Promise.all([
       fetchEventVendors(supabase, eventId),
@@ -446,7 +452,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
         .from('vendor_profiles')
         .select(VENDOR_POOL_SELECT)
         .eq('public_visibility', 'verified')
-        .or('is_demo.is.null,is_demo.eq.false')
+        .eq('is_demo', demoScope.is_demo)
         .not('services', 'is', null),
       // Changes agreed after a lock — one read for the page, so the budget range
       // below prices a booked supplier at its agreed total NOW (owner

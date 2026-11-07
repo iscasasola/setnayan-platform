@@ -200,6 +200,19 @@ jobs:
         continue-on-error: true
         run: node apps/web/scripts/lint-no-card.mjs
 
+      # EVERY FIELD IS THE ONE FIELD TEMPLATE (owner 1 Nov 2026: "It should
+      # have beed follow since the day it was made"). A per-file RATCHET, both
+      # ways, on hand-drawn typed boxes — <textarea>, and <input> of type
+      # absent|text|email|tel|url|non-literal — not drawn by TypedRow
+      # (app/_components/form-row.tsx): a count may not rise, and a fall must
+      # be locked into apps/web/scripts/field-template.baseline.txt in the same
+      # PR. The baseline is generated, never hand-merged. See
+      # apps/web/scripts/lint-field-template.mjs.
+      - name: Lint field template
+        id: guard_field_template
+        continue-on-error: true
+        run: node apps/web/scripts/lint-field-template.mjs
+
       # Every exported "use server" function is one Vercel route; production is
       # refused above 2,048 (stopped twice: 2026-09-23 and 2026-09-26). This
       # counts them on every PR, before Vercel does.
@@ -568,6 +581,7 @@ jobs:
           ADMIN_CHAT: ${{ steps.guard_admin_chat.outcome }}
           RADIUS: ${{ steps.guard_radius.outcome }}
           NO_CARD: ${{ steps.guard_no_card.outcome }}
+          FIELD_TEMPLATE: ${{ steps.guard_field_template.outcome }}
           SERVER_ACTION_BUDGET: ${{ steps.guard_server_action_budget.outcome }}
           COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
           EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
@@ -609,6 +623,7 @@ jobs:
           check 'lint admin chat-guard'       "$ADMIN_CHAT"
           check 'lint radius tokens'          "$RADIUS"
           check 'lint no new cards'           "$NO_CARD"
+          check 'lint field template'         "$FIELD_TEMPLATE"
           check 'lint server-action budget'   "$SERVER_ACTION_BUDGET"
           check 'lint colour names resolve'   "$COLOUR_EXISTS"
           check 'lint events column grants'  "$EVENTS_GRANTS"
@@ -894,7 +909,12 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Build web app
-        run: pnpm --filter @setnayan/web build
+        # Timed for check-build-budget.mjs below. bash -e stops on a failed
+        # build before the time is recorded.
+        run: |
+          start=$(date +%s)
+          pnpm --filter @setnayan/web build
+          echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
         env:
           # Provide dummy values for env vars next.config / next build read at
           # build time. Real values are set on Vercel; CI only needs the build
@@ -902,6 +922,13 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      # ⏱ Keeps the build near 7 minutes (2026-11-04). FAILS if the build wrote
+      # webpack's disk cache or pre-rendered more pages than the ceiling — both
+      # are the same on every machine. Only WARNS on wall time, because a
+      # runner's speed varies run to run. apps/web/scripts/check-build-budget.mjs.
+      - name: Check build budget
+        run: node apps/web/scripts/check-build-budget.mjs
 
       # 🚦 Vercel refuses a production deploy above 2,048 routes
       # (too_many_routes — 2026-09-23, 2026-09-26, 2026-10-02). The count is

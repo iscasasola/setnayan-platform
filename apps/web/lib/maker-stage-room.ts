@@ -94,6 +94,20 @@ export function stageBarGridPx(viewportH: number): number {
   const { row, gap } = stageBarRow(viewportH);
   return STAGE_BAR_ROWS * row + (STAGE_BAR_ROWS - 1) * gap;
 }
+/**
+ * 🫥 THE TOOLBAR SHOWS AND HIDES (owner 2026-10-30, verbatim: *"i was thinking having the bottom nav still and the
+ * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV
+ * STAYS; THE EDITING TOOLBAR SHOWS AND HIDES"). Stowed, the toolbar keeps only its own top strip — the handle and the
+ * "You're editing · … ▴" line — so the slim handle IS the toolbar's head, never a second bar: a tap on it brings the
+ * four rows back — 44 px, a whole tap target. A phone's (and a tablet's) only; a desktop's tools column never stows.
+ */
+export const STAGE_BAR_STOW_PX = STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + 10;
+/** Its glide — the app's ONE pin motion (`pin-glide.css`: 300 ms, the Guests curve), so stowing reads as a pin. */
+export const STAGE_BAR_STOW_GLIDE = 'var(--sn-pin-glide-ms,300ms) var(--sn-pin-glide-ease,cubic-bezier(0.2,0.8,0.2,1))';
+/** The stowed head's one button — the whole strip (handle + line), over it, curved as the toolbar's top. */
+export const STAGE_BAR_STOW_BUTTON = 'sn-press absolute inset-x-0 top-0 z-[3] block h-11 w-full rounded-t-2xl';
+/** How far a finger drags the toolbar down before it stows (the prototype's swipe, 40 px). */
+export const STAGE_BAR_SWIPE_PX = 40;
 /** The whole toolbar, from its curved top to the screen's edge — `safeBottom`: the phone's `env(safe-area-inset-bottom)` in px. */
 export function stageBarPx(viewportH: number, safeBottom: number): number {
   return STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + STAGE_BAR_BAND_PX + stageBarGridPx(viewportH) + Math.max(STAGE_BAR_FOOT_PX, safeBottom);
@@ -391,6 +405,7 @@ export const STAGE_TAP_TARGETS = {
   SP_STEP_BUTTON,
   SP_KEY_BAR,
   SP_KEY_DONE,
+  STAGE_BAR_STOW_BUTTON,
 } as const;
 
 /** How long the toolbar takes to slide away for ▶ and typing, and back (the prototype's 240 ms). */

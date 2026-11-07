@@ -52,15 +52,7 @@ const HOOKS = [
     extract: 'const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);',
     firstEffect: 'recomputeVendorExtraSeats(',
   },
-  {
-    name: 'custom plan',
-    // Re-anchored 2026-08-27: the hook now resolves the vendor AND the term
-    // together (28-day vs annual) from either service-key shape, so the old
-    // single-purpose extractor is gone. The gate is still this hook's first
-    // effect, which is what the assertion below actually checks.
-    extract: 'const target = customPlanTargetFromServiceKey(ctx.serviceKey);',
-    firstEffect: 'assertOrderOwnsVendorTarget(', // gate is this hook's first statement
-  },
+  // (The 'custom plan' hook was DELETED 2026-11-06 with the Custom supplier plan — owner: "from the app".)
   {
     // Added 2026-08-21 with the ONE payment page: a plan purchase now mints an
     // order, and approving that order's payment switches the plan on. Same
@@ -82,9 +74,23 @@ const HOOKS = [
     extract: 'async function grantVendorPapicPortfolioPack(ctx: ActivationContext)',
     firstEffect: "from('shop_papic_wallet_entries').insert(",
   },
+  {
+    // Added 2026-11-04 with SUPPLIER GIFTS: a gift order's shop (from the order) must be the shop the purchase row
+    // names before its credits land in that shop's gift stock.
+    name: 'shop gift purchase',
+    extract: 'async function grantShopGiftPurchase(ctx: ActivationContext)',
+    firstEffect: "from('shop_gift_stock_entries').insert(",
+  },
+  {
+    // Added 2026-11-06 with the ULTRA ADD-ONS (owner, "ULTRA ADD-ON PRICES"): the key names the buying shop, exactly
+    // like the extra seat — the paying order must be that shop's before its paid count is recomputed.
+    name: 'ultra add-on count',
+    extract: 'const target = parseCountAddOnServiceKey(ctx.serviceKey);',
+    firstEffect: 'recomputeVendorAddOnCount(ctx.admin',
+  },
 ] as const;
 
-test('every vendor-surface hook calls the ownership gate — six today', () => {
+test('every vendor-surface hook calls the ownership gate — seven today', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,

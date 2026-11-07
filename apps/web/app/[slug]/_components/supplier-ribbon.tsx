@@ -59,7 +59,9 @@ export function SupplierRibbon({
   return (
     <aside
       aria-label="Your booking"
-      className="sticky top-0 z-[90] mb-8 border border-ink/10 bg-paper-deep/95 px-4 py-2.5 backdrop-blur"
+      // 📱 The first row of the Save-the-Date phase: it pads its own top by the iPhone's inset so the row clears the
+      // clock and the Dynamic Island, and names both side insets (owner 2026-10-30). env() is 0 on a desktop.
+      className="sticky top-0 z-[90] mb-8 border border-ink/10 bg-paper-deep/95 pb-2.5 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-[calc(0.625rem+env(safe-area-inset-top,0px))] backdrop-blur"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/70">

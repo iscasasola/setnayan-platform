@@ -36,6 +36,7 @@ import { computeMonthlySubtotals, fetchVendorLedgerEarnings } from '@/lib/vendor
 import { buildPaydayTimeline, manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { readInChunks } from '@/lib/read-all-pages';
+import { recordedDepositPhp } from '@/lib/paid-to-vendor';
 import {
   readDeclinedDepositIds,
   readBookingsAwaitingCompletion,
@@ -162,6 +163,9 @@ export type WhatsNewCard =
       /** Vendor-visible deposit proof URL, when the couple attached one. */
       proofUrl: string | null;
       recordedAt: string;
+      /** What they say they paid (₱), and how — their own words (`deposit_paid_php` · `deposit_method_label`). */
+      amountPhp?: number | null;
+      method?: string | null;
     }
   /*
     THE BOOKING ASK WHOSE WINDOW CLOSED. Its own kind, because it is not a
@@ -651,6 +655,7 @@ export async function fetchVendorOverviewData(
     whatsNew.push(
       buildInquiryCard({
         threadId: t.thread_id,
+        eventId: t.event_id,
         createdAt: t.created_at,
         eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
         eventType: meta?.eventType ?? null,
@@ -745,6 +750,8 @@ export async function fetchVendorOverviewData(
       eventDate: meta?.eventDate ?? null,
       proofUrl: lr.proofUrl,
       recordedAt: lr.recordedAt,
+      amountPhp: lr.amountPhp,
+      method: lr.method,
     });
   }
 
@@ -1292,6 +1299,8 @@ type LockRequest = {
   coupleName: string | null;
   proofUrl: string | null;
   recordedAt: string;
+  amountPhp: number | null;
+  method: string | null;
 };
 
 /**
@@ -1408,6 +1417,26 @@ async function fetchLockRequests(
       vendor_profile_id: vendorProfileId,
     });
   }
+  /*
+    💸 WHAT THEY SAY THEY PAID, AND HOW (supplier dashboard v13: "Payment logged = amount · method · receipt"). The
+    couple's "Record deposit" writes the PAYMENT LOG (`event_vendor_payments`, its deposit row stamped
+    `is_deposit_record`), never the legacy column — so it is read from the log, through the ONE deposit rule
+    (`recordedDepositPhp`, `lib/paid-to-vendor.ts`). ONE read for every row on the desk. Refused → each row simply says
+    less (no amount), never ₱0.
+  */
+  const loggedBy = new Map<string, Array<{ amount_php: number | string | null; is_deposit_record: boolean | null; method: string | null }>>();
+  const lockIds = read.rows.map((r) => r.vendor_id);
+  if (lockIds.length > 0) {
+    const { data: logged, error: loggedError } = await admin
+      .from('event_vendor_payments')
+      .select('vendor_id, amount_php, is_deposit_record, method')
+      .in('vendor_id', lockIds)
+      .eq('is_deposit_record', true);
+    if (loggedError) logQueryError('vendor-overview:lockLogged', loggedError, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    for (const l of (logged ?? []) as Array<{ vendor_id: string; amount_php: number | string | null; is_deposit_record: boolean | null; method: string | null }>) {
+      loggedBy.set(l.vendor_id, [...(loggedBy.get(l.vendor_id) ?? []), l]);
+    }
+  }
   const rows = await Promise.all(
     read.rows.map(async (r) => ({
       eventId: r.event_id,
@@ -1420,6 +1449,8 @@ async function fetchLockRequests(
       // deposit folder, never the stored value (lib/deposit-proof.server.ts).
       proofUrl: await depositProofDisplayUrl(r.deposit_proof_url, r.event_id),
       recordedAt: r.deposit_recorded_at,
+      amountPhp: recordedDepositPhp(loggedBy.get(r.vendor_id) ?? [], null),
+      method: (loggedBy.get(r.vendor_id) ?? []).find((l) => l.method?.trim())?.method?.trim() ?? null,
     })),
   );
   return { rows, complete: read.complete };

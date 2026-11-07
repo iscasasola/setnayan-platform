@@ -21,6 +21,12 @@
  *
  * And Discover's bar is the SIGNED-IN viewer's only: signed out, `/` is the
  * public front door as it always was.
+ *
+ * 📲 IN THE APP TOO (owner 2026-11-02, "let everything go live"). While Apple
+ * reviewed 1.0 middleware bounced `/` out of the phone and desktop apps, so the
+ * app's bar drew no Discover tab at all. The bounce is gone; the app draws the
+ * same tabs, so every one of them must also LAND in the app — no tab's address
+ * may be sent away by middleware, or the bar disappears there instead.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 
 import { accountBarItems } from './_components/account-bottom-nav';
 import { stripComments } from '@/lib/strip-comments';
+import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const APP = join(WEB, 'app');
@@ -131,6 +138,23 @@ for (const tab of TABS) {
     }
   });
 }
+
+test('📲 in the app too: middleware sends no tab\'s address away, so every tab lands where it does on the web', () => {
+  // The native-shell brochure bounce is gone (owner 2026-11-02). Nothing in middleware may tell the generic app
+  // shell apart from a browser any more; the store shell's paid-feature gate is the only shell gate left.
+  const mw = src(join(WEB, 'middleware.ts'));
+  assert.doesNotMatch(
+    mw,
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware asks "is this the app?" again — a tab it sends away loses the bar in the app; make ' +
+      'discoverOpensHere()/accountBarTabs drop that tab there, then update this test',
+  );
+  for (const tab of TABS) {
+    const path = tab.href.split('?')[0]!;
+    assert.equal(isStoreShellWebOnlyPath(path), false, `${tab.label} (${path}) is refused in the iPhone app`);
+    assert.equal(isStoreShellWebOnlyPath(path, true), false, `${tab.label} (${path}) is refused in the iPhone app where Apple sells`);
+  }
+});
 
 test('🔒 Discover draws the bar for a signed-in viewer only — signed out, the front door is unchanged', () => {
   const fd = src(join(APP, '_components/frontdoor/front-door.tsx'));

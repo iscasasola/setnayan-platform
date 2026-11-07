@@ -16,14 +16,17 @@ import {
   extraSeatsFromPaidCount,
 } from '@/lib/vendor-seats';
 import {
-  customPlanTargetFromServiceKey,
-  selectActivatableCustomPlan,
-} from '@/lib/vendor-custom-catalog';
-import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
+  COUNT_ADDONS,
+  addOnCountFromPaid,
+  countAddOnServiceKey,
+  parseCountAddOnServiceKey,
+  type CountAddOnKind,
+} from '@/lib/vendor-ultra-addons';
+import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
-import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
+import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
   readOnboardingOrderItems,
@@ -52,8 +55,10 @@ import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
   VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+  shopPapicPackCodeOf,
   vendorPortfolioCreditsForFee,
 } from '@/lib/vendor-papic-credits';
+import { shopGiftCodeOf } from '@/lib/shop-gifts';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -403,6 +408,136 @@ async function grantSetnayanGiftForBookingFee(
  * buy. Ownership is asserted the same way as every `vendor_*` hook.
  */
 async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<void> {
+  await grantShopWalletCredits(ctx, async () => VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS);
+}
+
+/**
+ * 🛍 2026-11-04 — a shop buys one of the COUPLE's Papic packs (`vendor_papic_pack__<PAPIC_GUEST code>`) into its
+ * wallet. The credits are that rung's `papic_pass_tiers.points`, read through `papicPointsBoughtBySku` — the same
+ * reader a couple's order uses, which also grants a rung retired after the order was paid.
+ */
+async function grantShopPapicPack(ctx: ActivationContext): Promise<void> {
+  const code = shopPapicPackCodeOf(ctx.serviceKey);
+  if (!code) return;
+  await grantShopWalletCredits(ctx, () => papicPointsBoughtBySku(ctx.admin, code));
+}
+
+/**
+ * 🎁 2026-11-04 — a shop buys GIFTS (`vendor_gift__<PAPIC_GUEST code>`, owner "SUPPLIER GIFTS: BOUGHT IN QUANTITY,
+ * KEPT AS STOCK"). Approval lands `quantity × credits_each` in the shop's GIFT STOCK (`shop_gift_stock_entries`,
+ * kind 'bought'), read from the `shop_gift_purchases` row the buy action wrote — `orders` has no quantity. Never the
+ * shop wallet: gift stock can only ever reach a couple's event. Idempotent by (order_id, kind).
+ */
+async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  if (!shopGiftCodeOf(ctx.serviceKey)) return;
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_purchases')
+      .select('vendor_profile_id, gift_kind, quantity, credits_each')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const p = data as { vendor_profile_id: string; gift_kind: string; quantity: number; credits_each: number } | null;
+    if (!p) {
+      reportActivationFault(
+        'activate:shop_gift_purchase',
+        ctx,
+        new Error(`gift order ${ctx.orderId} has no shop_gift_purchases row — nothing says how many were bought`),
+      );
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, p.vendor_profile_id);
+    const credits = p.quantity * p.credits_each;
+    if (!Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: p.vendor_profile_id,
+      gift_kind: p.gift_kind,
+      delta: credits,
+      kind: 'bought',
+      order_id: ctx.orderId,
+      note: `Gifts bought · ${p.quantity} × ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already landed for this order
+      reportActivationFault('activate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: p.vendor_profile_id,
+        shop_gift_credits_granted: credits,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('activate:shop_gift_purchase', ctx, e);
+  }
+}
+
+/**
+ * A refunded / un-approved gift order takes its credits back OUT of the gift stock as a negative 'reversal' row —
+ * sized from the 'bought' row, so it takes back exactly what this order put in, and nothing when it never landed.
+ * The stock may go below zero when the gifts were already given; the delivery door then refuses until more land.
+ */
+async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_stock_entries')
+      .select('vendor_profile_id, gift_kind, delta')
+      .eq('order_id', ctx.orderId)
+      .eq('kind', 'bought')
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const bought = data as { vendor_profile_id: string; gift_kind: string; delta: number } | null;
+    if (!bought || !(bought.delta > 0)) return;
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: bought.vendor_profile_id,
+      gift_kind: bought.gift_kind,
+      delta: -bought.delta,
+      kind: 'reversal',
+      order_id: ctx.orderId,
+      note: `Gift order refunded or un-approved · ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already taken back
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: bought.vendor_profile_id,
+        shop_gift_credits_revoked: bought.delta,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_gift_purchase', ctx, e);
+  }
+}
+
+async function grantShopWalletCredits(
+  ctx: ActivationContext,
+  creditsOf: () => Promise<number | null>,
+): Promise<void> {
   try {
     const { data: order } = await ctx.admin
       .from('orders')
@@ -423,9 +558,14 @@ async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<vo
       return;
     }
     await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
+    const credits = await creditsOf();
+    if (credits === null || !Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_papic_wallet_pack_credits', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
     const { error } = await ctx.admin.from('shop_papic_wallet_entries').insert({
       vendor_profile_id: vendorProfileId,
-      delta: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+      delta: credits,
       kind: 'pack_order',
       order_id: ctx.orderId,
       note: `Papic credit pack · ${ctx.serviceKey}`,
@@ -444,7 +584,7 @@ async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<vo
       metadata: {
         service_key: ctx.serviceKey,
         vendor_profile_id: vendorProfileId,
-        shop_papic_wallet_credits_granted: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+        shop_papic_wallet_credits_granted: credits,
       },
     });
   } catch (e) {
@@ -509,7 +649,8 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   const eventId = ctx.eventId;
   try {
-    const points = await papicPassPointsForSku(ctx.admin, ctx.serviceKey);
+    // A rung retired after this order was paid still grants what it sold (papicPointsBoughtBySku).
+    const points = await papicPointsBoughtBySku(ctx.admin, ctx.serviceKey);
     if (points === null || points <= 0) return;
 
     // 🚨 SCOPED TO `source`, NOT JUST THE ORDER (fixed 2026-08-11). This used to
@@ -1168,7 +1309,81 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
 }
 
 // Exact-match hooks keyed by literal service_key.
+/**
+ * 💎 EVENT PLUS AND EVENT PRO (owner 2026-11-04, FINAL PRICE SHEET + "SETNAYAN AI IS NOT SOLD SEPARATELY" + "SIX
+ * OWNER ANSWERS"): each comes with Setnayan AI and with Papic credits for the event's shared pool — Plus 100, Pro
+ * 1,000. The credit count is the catalogue row's `included_papic_credits` (admin-managed), never a number here.
+ *
+ * TOP UP, NEVER ADD BOTH: the grant is the product's number LESS every `plan_included` credit this event already
+ * holds — so Plus then Pro lands 100 + 900 = 1,000 (owner 2026-11-02: "tops the grant up … never 600" in its day's
+ * numbers), and a re-approval grants nothing. A refund deletes this order's rows (`reversePapicPassPoints`, by
+ * order_id) and re-derives the AI flag (`deactivateSetnayanAiIfUnowned` now counts Plus and Pro).
+ */
+export const AI_INCLUDED_PLAN_SKUS: readonly string[] = ['EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY];
+
+async function activateEventPlan(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return;
+  const eventId = ctx.eventId;
+  // 1 · Setnayan AI — the same per-event boolean a standalone AI order set.
+  const { error: aiErr } = await ctx.admin.from('events').update({ setnayan_ai_active: true }).eq('event_id', eventId);
+  if (aiErr) reportActivationFault('activate:plan_setnayan_ai', ctx, aiErr);
+
+  // 2 · the included Papic credits, topped up to this product's number.
+  try {
+    const { data: row, error: rowErr } = await ctx.admin
+      .from('platform_retail_catalog_v2')
+      .select('included_papic_credits')
+      .eq('service_code', ctx.serviceKey)
+      .maybeSingle();
+    if (rowErr) {
+      reportActivationFault('activate:plan_included_credits_read', ctx, rowErr);
+      return;
+    }
+    const included = Number((row as { included_papic_credits?: number | null } | null)?.included_papic_credits ?? 0);
+    if (!Number.isInteger(included) || included <= 0) return;
+    const { data: held, error: heldErr } = await ctx.admin
+      .from('papic_event_point_grants')
+      .select('points')
+      .eq('event_id', eventId)
+      .eq('source', 'plan_included');
+    if (heldErr) {
+      reportActivationFault('activate:plan_included_credits_held', ctx, heldErr);
+      return;
+    }
+    const already = (held ?? []).reduce(
+      (sum: number, r: { points?: number | null }) => sum + (typeof r.points === 'number' ? r.points : 0),
+      0,
+    );
+    const grant = included - already;
+    if (grant <= 0) return;
+    const { error } = await ctx.admin.from('papic_event_point_grants').insert({
+      event_id: eventId,
+      points: grant,
+      source: 'plan_included',
+      order_id: ctx.orderId,
+      note: `Included with ${ctx.serviceKey}`,
+    });
+    if (error) {
+      reportActivationFault('activate:plan_included_credits_insert', ctx, error);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: eventId, points_granted: grant, setnayan_ai: true },
+    });
+  } catch (e) {
+    reportActivationFault('activate:plan_included_credits', ctx, e);
+  }
+}
+
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
+  // 💎 Event Plus / Event Pro → Setnayan AI on + their included Papic credits (owner 2026-11-04).
+  EVENT_PLUS: activateEventPlan,
+  [COUPLE_WEBSITE_PRO_SERVICE_KEY]: activateEventPlan,
+
   // 'vendor_photo_challenge' → Papic Challenges, a ₱2,500 / 28-day SHOP
   // subscription (owner 2026-08-28: "unlimited us 2500 for 4 weeks"). Stamps
   // vendor_profiles.papic_challenge_expires_at for the paying vendor — NOT a
@@ -1351,6 +1566,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // someone who has never paid us before. If it were absent from this map it
   // would be the very first order we ever took and silently failed to honour.
   PAPIC_GUEST_100: grantPapicPassPoints,
+  // 📸 THE THREE PACKS (owner 2026-11-03, migration *_papic_is_three_packs_and_no_signup_price.sql): 150 · 1,000
+  // (PAPIC_GUEST_1K) · 3,000 (PAPIC_GUEST). The 150 pack is the only new code. Every other rung below is OFF SALE and
+  // keeps its hook, so an order bought before the retirement still converts on approval.
+  PAPIC_GUEST_150: grantPapicPassPoints,
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
@@ -1542,7 +1761,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * Pro basket would page the team with a false fault — and an alarm that always
  * fires on a healthy order is how the real one gets ignored.
  */
-const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set([COUPLE_WEBSITE_PRO_SERVICE_KEY]);
+// 💎 2026-11-04: Event Pro LEFT this set — it now provisions Setnayan AI and its included Papic credits
+// (`activateEventPlan`), so a Pro inside a basket must run its hook like any other item. Its Hub gates still read
+// the order/basket status live; the set stays for the next item that truly needs nothing.
+const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>();
 
 async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
   const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
@@ -1640,16 +1862,44 @@ async function recomputeVendorExtraSeats(
   return paidSeats;
 }
 
+/**
+ * ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES") — recompute ONE paid count on vendor_profiles
+ * (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date) from the
+ * shop's PAID `<prefix><vendor_profile_id>` orders, exactly as {@link recomputeVendorExtraSeats} does for seats: on
+ * activation the just-paid order is counted in, on reversal the refunded one has already left 'paid', so the same
+ * recompute lowers it. Idempotent and self-healing. Throws on the write so the caller reports it.
+ */
+async function recomputeVendorAddOnCount(
+  admin: SupabaseClient,
+  kind: CountAddOnKind,
+  vendorProfileId: string,
+): Promise<number> {
+  const { count } = await admin
+    .from('orders')
+    .select('order_id', { count: 'exact', head: true })
+    .eq('service_key', countAddOnServiceKey(kind, vendorProfileId))
+    .eq('status', 'paid');
+  const paid = addOnCountFromPaid(count);
+  const column = COUNT_ADDONS[kind].column;
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({ [column]: paid })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    throw new Error(`${COUNT_ADDONS[kind].sku} recompute write failed: ${error.message}`);
+  }
+  return paid;
+}
+
 // Prefix/predicate hooks for dynamic-suffix service_keys (e.g. branch ids).
 /**
  * SEC-4b · THE ORDER MUST OWN WHAT IT PROVISIONS.
  *
- * The four `vendor_*__<id>` hooks below read their TARGET out of the service_key
+ * The `vendor_*__<id>` hooks below read their TARGET out of the service_key
  * string and act on it. Nothing downstream ever asked whether the ORDER belongs
  * to the vendor that owns that target — so an order minted from any other
  * surface (couple checkout, a comp grant, a hand-inserted row) could settle a
- * stranger's booking fee, activate a stranger's branch, or promote a stranger's
- * Custom plan.
+ * stranger's booking fee or activate a stranger's branch.
  *
  * This resolves the OWNING vendor of the target and compares it with the order's
  * own `vendor_profile_id`. Couple-side checkout pins that column to NULL, so a
@@ -1660,8 +1910,8 @@ async function recomputeVendorExtraSeats(
  * Its sibling — `isVendorSurfaceServiceKey` in couple checkout (landed
  * separately) — only guards ONE door, and what actually blocks that door today
  * is SEC-7's pricing refusal rather than the guard itself. This check holds for
- * every origin, including ones with no pricing step at all: a comp grant, an
- * admin-minted bespoke order from /admin/custom-plans, or any future minter.
+ * every origin, including ones with no pricing step at all: a comp grant, a
+ * hand-inserted row, or any future minter.
  *
  * THROWS rather than returning false. The dispatcher's catch logs it and leaves
  * the order recoverable (an admin can refund) — which is the right outcome:
@@ -1728,6 +1978,16 @@ const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
 }> = Object.freeze([
+  {
+    // 'vendor_papic_pack__<PAPIC_GUEST code>' → the couple's Papic pack, bought by a SHOP into its wallet (2026-11-04).
+    match: (serviceKey) => shopPapicPackCodeOf(serviceKey) !== null,
+    run: grantShopPapicPack,
+  },
+  {
+    // 'vendor_gift__<PAPIC_GUEST code>' → GIFTS a shop bought for its couples, into its gift stock (2026-11-04).
+    match: (serviceKey) => shopGiftCodeOf(serviceKey) !== null,
+    run: grantShopGiftPurchase,
+  },
   {
     // 'vendor_subscription__{purchase_id}' → SWITCH THE PLAN ON.
     //
@@ -1866,7 +2126,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
       if (!branchId) return;
       // SEC-4b: the paying order must belong to the branch's parent vendor.
       await assertOrderOwnsVendorTarget(ctx, await branchOwnerVendorId(ctx, branchId));
-      // ── 🚨 THIS RESET THE WINDOW TOO — same defect as the Custom hook ─────
+      // ── 🚨 THIS RESET THE WINDOW — a renewal must extend, never reset ─────
       // It wrote `now + 28 days` with no read of what the branch already had, so
       // renewing early THREW AWAY the remaining days: 20 days left plus a
       // renewal gave 28 from today, not 48. Same class, same harm, and it
@@ -1880,8 +2140,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // 🔑 THE BRANCH ROW HAS NO EXPIRY COLUMN — the window lives on
       // `orders.expires_at`, and `deriveBranchStatus` reads the LATEST order to
       // decide active/expired. So "what it already had" must be read from that
-      // same place, or the two disagree. Shares `customPlanExpiryFrom` with the
-      // Custom path: identical semantics, one implementation.
+      // same place, or the two disagree. `extendedExpiryFrom` (lib/term-extends.ts)
+      // is the one implementation of "a purchase extends".
       const { data: priorOrder } = await ctx.admin
         .from('orders')
         .select('expires_at')
@@ -1893,10 +2153,10 @@ const PREFIX_HOOKS: ReadonlyArray<{
       const priorExpiry = Date.parse(
         (priorOrder as { expires_at?: string | null } | null)?.expires_at ?? '',
       );
-      const expiresAt = customPlanExpiryFrom(
+      const expiresAt = extendedExpiryFrom(
         Date.now(),
         Number.isFinite(priorExpiry) ? priorExpiry : null,
-        '28d',
+        28,
       );
       await ctx.admin
         .from('vendor_branches')
@@ -1945,167 +2205,15 @@ const PREFIX_HOOKS: ReadonlyArray<{
     },
   },
   {
-    // 'vendor_custom_plan__{vendor_profile_id}' → PROVISION the negotiated
-    // Custom tier (owner-signed §11). When the admin approves the quote payment,
-    // flip the vendor to tier_state='custom' + promote THE PLAN THIS ORDER PAID
-    // FOR to 'active' so the effective-caps overlay (lib/vendor-effective-caps.ts)
-    // reads the composed ceilings. The one-active-plan unique index (WHERE
-    // status='active') means a stale prior active row must be demoted first — so
-    // this idempotently retires every OTHER active plan for the org to 'lapsed',
-    // then activates this order's plan.
-    //
-    // BINDING (security): the order has no custom_plan_id FK and the plan's
-    // composition is mutated in place, so the OLD "most-recently-updated
-    // non-terminal row" selection let a vendor pay a CHEAP quote and receive the
-    // row's latest (expensive) composition, or bind to a stale already-active
-    // plan. selectActivatableCustomPlan binds on the price the order was quoted
-    // at (a plan is activatable only when its CURRENT quoted_28d_php matches the
-    // paid amount AND it is in a payable, not-yet-live state), and we REFUSE
-    // (throw → order stays recoverable) rather than provision the wrong plan.
-    // Idempotent: a prior 'service_activated' ledger row for this order
-    // short-circuits, so a re-approval (whose plan is now 'active', not a
-    // payable candidate) is a safe no-op instead of a spurious refusal.
-    match: (serviceKey) => customPlanTargetFromServiceKey(serviceKey) !== null,
+    // ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES": +1 category · +1 service card · +1 wait list · +1
+    // booking per date, ₱199 per 4 weeks each, Ultra only) — '<prefix><vendor_profile_id>' → RECOMPUTE that add-on's
+    // paid count, the seat's pattern above. The key names the shop directly, so the order must be theirs (SEC-4b).
+    match: (serviceKey) => parseCountAddOnServiceKey(serviceKey) !== null,
     run: async (ctx) => {
-      const target = customPlanTargetFromServiceKey(ctx.serviceKey);
+      const target = parseCountAddOnServiceKey(ctx.serviceKey);
       if (!target) return;
-      const { vendorProfileId, term } = target;
-      // SEC-4b: the key names the vendor directly — the order must be theirs.
-      await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
-
-      // (0) Idempotency — already activated this order? (Lets us exclude 'active'
-      //     from the candidate set below without turning a re-approval into a
-      //     spurious "no matching plan" refusal.)
-      const { data: prior } = await ctx.admin
-        .from('order_ledger')
-        .select('order_id')
-        .eq('order_id', ctx.orderId)
-        .eq('event_type', 'service_activated')
-        .limit(1)
-        .maybeSingle();
-      if (prior) return;
-
-      // (1) The amount THIS order paid — the invariant the order pins.
-      const { data: order } = await ctx.admin
-        .from('orders')
-        .select('confirmed_total_php, requested_total_php')
-        .eq('order_id', ctx.orderId)
-        .maybeSingle();
-      const amountPhp = Number(
-        (order as { confirmed_total_php?: number | string | null } | null)?.confirmed_total_php ??
-          (order as { requested_total_php?: number | string | null } | null)?.requested_total_php ??
-          0,
-      );
-
-      // (2) Candidate plans — payable OR already-active rows for the org. Bind by
-      //     price (selectActivatableCustomPlan) among the PAYABLE ones; the
-      //     'active' rows are read only to recognise an already-provisioned order
-      //     (crash-recovery below), never to (re)activate.
-      const { data: candidates } = await ctx.admin
-        .from('vendor_custom_plans')
-        .select('custom_plan_id, status, quoted_28d_php, updated_at')
-        .eq('vendor_profile_id', vendorProfileId)
-        .in('status', ['quoted', 'pending_payment', 'active'])
-        .order('updated_at', { ascending: false });
-      const candidateRows = Array.isArray(candidates) ? candidates : [];
-      const targetId = selectActivatableCustomPlan(candidateRows, amountPhp, term);
-      if (!targetId) {
-        // Crash-recovery no-op: if the org already holds an ACTIVE plan priced at
-        // this order's amount, a prior run provisioned it but its final ledger
-        // write did not land (so the idempotency guard above didn't fire). The
-        // entitlement is already correct → treat as done rather than throwing a
-        // false "no matching plan" alarm. (This RECOGNISES an already-active plan
-        // by price; it never activates one — selectActivatableCustomPlan still
-        // refuses 'active' rows.)
-        const alreadyActive = candidateRows.some(
-          (c) =>
-            c.status === 'active' &&
-            Number.isFinite(Number(c.quoted_28d_php)) &&
-            Math.abs(Number(c.quoted_28d_php) - amountPhp) < 0.5,
-        );
-        if (alreadyActive) return;
-        // No plan matches this order's paid amount → do NOT provision a wrong
-        // plan. Throw so the order stays 'paid' + recoverable (Sentry-alerted by
-        // the dispatcher's outer catch); an admin reconciles the mismatch.
-        throw new Error(
-          `vendor_custom_plan: no payable plan for supplier ${vendorProfileId} matches the paid amount ${amountPhp}`,
-        );
-      }
-
-      // Stamp the Custom tier + lapse anchor FIRST — before touching the plan
-      // rows. tier_expires_at = the 28-day window end (also written to the order
-      // below). ORDERING IS A RACE GUARD: the lapse sweep (sweep_vendor_tier_expiry,
-      // fired post-response on dashboard load) and this hook are NOT in one
-      // transaction. Writing the fresh FUTURE expiry first means a concurrently-
-      // firing sweep sees a not-past-due tier and no-ops, instead of demoting the
-      // plan we are about to promote. The gate (lib/enterprise-vendor-gate.ts) +
-      // the sweep both read tier_expires_at, so a paid Custom tier now auto-lapses
-      // on non-renewal like Pro/Enterprise. (The comp lever activateCustomPlan
-      // intentionally leaves this NULL = never lapses — white-glove deals; do NOT
-      // copy this stamp there.)
-      // ── 🚨 THIS USED TO RESET THE TERM, AND IT WAS A REAL DEFECT ──────────
-      // It read `new Date(Date.now() + 28 days)` and wrote that STRAIGHT OVER
-      // `tier_expires_at` — no read of the existing value, no GREATEST. A Custom
-      // shop who renewed early lost every remaining day, and the earlier they
-      // renewed the more they lost: the good customer paid the price.
-      //
-      // 🔑 IT WAS MISSED BECAUSE THE FIX EXISTED ON THE OTHER PATH. The three
-      // ordinary tiers renew through `_apply_subscription_credit`, whose live
-      // body has always carried
-      //   GREATEST(now(), COALESCE(tier_expires_at, now())) + period_days
-      // and reading THAT is what produced a false all-clear for Custom — even
-      // though Custom provably never calls it. **A fix on a sibling path is not
-      // a fix on this one**, however similar the two look.
-      //
-      // Owner 2026-08-27: *"subscription will only extend their plans for an
-      // additional 28 days … or 1 year."* Both halves are honoured here: only
-      // two terms exist, and a purchase EXTENDS.
-      const { data: profileRow } = await ctx.admin
-        .from('vendor_profiles')
-        .select('tier_expires_at')
-        .eq('vendor_profile_id', vendorProfileId)
-        .maybeSingle();
-      const existingExpiry = Date.parse(
-        (profileRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? '',
-      );
-      const expiresAt = customPlanExpiryFrom(
-        Date.now(),
-        Number.isFinite(existingExpiry) ? existingExpiry : null,
-        term,
-      );
-      const { error: tierErr } = await ctx.admin
-        .from('vendor_profiles')
-        .update({ tier_state: 'custom', tier_expires_at: expiresAt })
-        .eq('vendor_profile_id', vendorProfileId);
-      if (tierErr) {
-        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
-      }
-
-      // Demote any OTHER active plan for the org so the one-active unique index
-      // never conflicts (only touches rows that are NOT our target).
-      await ctx.admin
-        .from('vendor_custom_plans')
-        .update({ status: 'lapsed', updated_at: new Date().toISOString() })
-        .eq('vendor_profile_id', vendorProfileId)
-        .eq('status', 'active')
-        .neq('custom_plan_id', targetId);
-
-      // Promote the target to active LAST — after the future expiry is committed,
-      // so a racing sweep (now disarmed by that future expiry) can never strand
-      // this freshly-activated plan.
-      const { error: planErr } = await ctx.admin
-        .from('vendor_custom_plans')
-        .update({ status: 'active', updated_at: new Date().toISOString() })
-        .eq('custom_plan_id', targetId);
-      if (planErr) {
-        throw new Error(`vendor_custom_plan activation write failed: ${planErr.message}`);
-      }
-
-      await ctx.admin
-        .from('orders')
-        .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
-        .eq('order_id', ctx.orderId);
-
+      await assertOrderOwnsVendorTarget(ctx, target.vendorProfileId);
+      const paid = await recomputeVendorAddOnCount(ctx.admin, target.kind, target.vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
         event_type: 'service_activated',
@@ -2113,9 +2221,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
         actor_role: 'admin',
         metadata: {
           service_key: ctx.serviceKey,
-          vendor_profile_id: vendorProfileId,
-          custom_plan_id: targetId,
-          tier_state: 'custom',
+          vendor_profile_id: target.vendorProfileId,
+          [COUNT_ADDONS[target.kind].column]: paid,
         },
       });
     },
@@ -2197,6 +2304,10 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
 async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
+  // 💎 Event Plus / Event Pro carry Setnayan AI (owner 2026-11-04) — still held → keep.
+  for (const sku of AI_INCLUDED_PLAN_SKUS) {
+    if (await eventSkuActive(ctx.admin, ctx.eventId, sku)) return;
+  }
   const { error } = await ctx.admin
     .from('events')
     .update({ setnayan_ai_active: false })
@@ -2457,9 +2568,12 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     } catch (e) {
       reportActivationFault('deactivate:vendor_3d_booth', ctx, e);
     }
-  } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE) {
+  } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
     // The shop-wallet pack — take its credits back as a reversal row.
     await reverseShopPapicWalletPack(ctx);
+  } else if (shopGiftCodeOf(ctx.serviceKey) !== null) {
+    // 🎁 A gift order — take its credits back out of the gift stock.
+    await reverseShopGiftPurchase(ctx);
   } else if (ctx.serviceKey === VENDOR_PHOTO_CHALLENGE_SKU_CODE) {
     try {
       await deactivatePhotoChallengeSponsorship(ctx);
@@ -2485,6 +2599,17 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     }
   }
 
+  // Ultra add-ons (owner 2026-11-06) — a refunded/cancelled add-on order LOWERS its paid count, symmetric to the
+  // activation hook. Recompute, never decrement; non-fatal.
+  const addOnTarget = parseCountAddOnServiceKey(ctx.serviceKey);
+  if (addOnTarget) {
+    try {
+      await recomputeVendorAddOnCount(ctx.admin, addOnTarget.kind, addOnTarget.vendorProfileId);
+    } catch (e) {
+      reportActivationFault(`deactivate:${COUNT_ADDONS[addOnTarget.kind].sku}`, ctx, e);
+    }
+  }
+
   // 🚨 THE BASKET COUNTS TOO (2026-08-11). Before this, refund-awareness knew
   // only the direct SKU and the STATIC bundle map — so refunding an onboarding
   // basket that included Setnayan AI clawed back the shots and the cameras and
@@ -2497,7 +2622,8 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       : [];
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
-    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
+    AI_INCLUDED_PLAN_SKUS.includes(ctx.serviceKey) ||
+    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI' || AI_INCLUDED_PLAN_SKUS.includes(i.serviceCode)) ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??

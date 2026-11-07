@@ -9,6 +9,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { settledValue } from '@/lib/settled-read';
 import { formatAudienceCount } from '@/lib/creator-audience';
 import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import {
@@ -74,19 +75,25 @@ export default async function VendorCreatorsPage({
   // unconditionally), so the switch cannot lift it — a ◆ note that vanished
   // with the switch off would promise a Send that the database refuses. Lifting
   // the floor is an owner call + a migration, not a flag.
-  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  //
+  // ⏱ ONE ROUND TRIP: the tier and the three lists below ask nothing of each other. Settled, not Promise.all — each
+  // failure still surfaces where it always did (`settledValue`): the tier's first, the lists' after the ◆ check.
+  const minReach = Math.max(0, Number.parseInt(search.minReach ?? '0', 10) || 0);
+  const [tierRead, listsRead] = await Promise.allSettled([
+    resolveVendorTier(supabase, profile.vendor_profile_id),
+    Promise.all([
+      fetchEligibleCreators({ minReach, limit: 60 }),
+      fetchVendorSentOffers(supabase, profile.vendor_profile_id),
+      // P3 per-creator ROI — ledger facts only (inquiries driven
+      // spent · collab status). NO "discount given" (settles off-platform).
+      fetchVendorCreatorRoi(supabase, profile.vendor_profile_id),
+    ]),
+  ]);
+  const tier = settledValue(tierRead);
   // 🔒 The ◆ note is a purchase hint → absent in the App Store / Play Store shell.
   const sendNeedsPro = !isTierAtLeast(tier, 'pro') && !(await isStoreShellRequest());
 
-  const minReach = Math.max(0, Number.parseInt(search.minReach ?? '0', 10) || 0);
-
-  const [creators, sentOffers, roi] = await Promise.all([
-    fetchEligibleCreators({ minReach, limit: 60 }),
-    fetchVendorSentOffers(supabase, profile.vendor_profile_id),
-    // P3 per-creator ROI — ledger facts only (inquiries driven
-    // spent · collab status). NO "discount given" (settles off-platform).
-    fetchVendorCreatorRoi(supabase, profile.vendor_profile_id),
-  ]);
+  const [creators, sentOffers, roi] = settledValue(listsRead);
 
   // Creators this vendor already has an OUTSTANDING (pending) offer to — hide
   // the send form for them (the DB also enforces one-pending-per-pair).

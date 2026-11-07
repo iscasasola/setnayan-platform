@@ -73,7 +73,21 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   // other vendor surface: the couple appears as the event display_name they
   // identified themselves with (personal names stay private). RLS already scopes
   // these threads to this vendor's profile.
-  const allThreads = await fetchVendorThreads(supabase, vendorProfileId);
+  //
+  // ⏱ ONE ROUND TRIP for the three reads that ask only of the shop: the threads, the suggestions already sent (below)
+  // and the shop's tiles (1 below). Only fetchVendorThreads can throw; the two query builders hand back their errors,
+  // so the batch rejects exactly when, and with what, the threads read alone did.
+  const [allThreads, { data: sentRows }, taxRead] = await Promise.all([
+    fetchVendorThreads(supabase, vendorProfileId),
+    supabase
+      .from('vendor_feature_recommendations')
+      .select('event_id, addon_key')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('status', 'pending'),
+    services.length > 0
+      ? supabase.from('canonical_service_taxonomy').select('tile_id').in('canonical_service', services)
+      : null,
+  ]);
   const connectedCouples: ConnectedCouple[] = allThreads
     .filter((t) => t.inquiry_status === 'accepted')
     .map((t) => ({
@@ -84,12 +98,7 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   // Existing pending suggestions this vendor has already sent, so a (couple,
   // add-on) pair the vendor already suggested renders "Suggested ✓" instead of
   // the picker. Key: "<event_id>::<addon_key>". RLS (vfr_vendor_select) scopes
-  // these to this vendor's own rows.
-  const { data: sentRows } = await supabase
-    .from('vendor_feature_recommendations')
-    .select('event_id, addon_key')
-    .eq('vendor_profile_id', vendorProfileId)
-    .eq('status', 'pending');
+  // these to this vendor's own rows. (Read in the batch above.)
   const suggestedKeys = new Set(
     ((sentRows ?? []) as { event_id: string; addon_key: string }[]).map(
       (r) => `${r.event_id}::${r.addon_key}`,
@@ -101,11 +110,9 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   //    `videography` maps to the `photo_video` tile; recommendations key off
   //    the tile, so two photo/video acts see the same map.
   let tileIds: string[] = [];
-  if (services.length > 0) {
-    const { data: taxRows } = await supabase
-      .from('canonical_service_taxonomy')
-      .select('tile_id')
-      .in('canonical_service', services);
+  if (taxRead) {
+    // Read in the batch above — only when the shop lists services, as before.
+    const { data: taxRows } = taxRead;
     tileIds = Array.from(
       new Set(
         ((taxRows ?? []) as { tile_id: string | null }[])
@@ -134,23 +141,17 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   // 2) Active recommendations for THIS vendor's leaves, joined to SKU
   //    title/price (platform_retail_catalog_v2) + leaf label (service_categories).
   //    Ordered by tile_id, priority so the panel groups + ranks consistently.
-  const { data: recRows } = await supabase
-    .from('vendor_service_recommendations')
-    .select('tile_id, service_code, is_opt_in, priority, rationale')
-    .eq('is_active', true)
-    .in('tile_id', tileIds)
-    .order('tile_id', { ascending: true })
-    .order('priority', { ascending: true });
-  const recs = (recRows ?? []) as {
-    tile_id: string;
-    service_code: string;
-    is_opt_in: boolean;
-    priority: number;
-    rationale: string | null;
-  }[];
-
   // 3) This vendor's own opt-in state + open (pending) feedback rows.
-  const [optinRes, feedbackRes, catalogRes, leafRes] = await Promise.all([
+  // ⏱ 2) and 3) are ONE ROUND TRIP: each asks only of the shop and its tiles, and none of the five query builders
+  //    throws (each hands back its own error).
+  const [{ data: recRows }, optinRes, feedbackRes, catalogRes, leafRes] = await Promise.all([
+    supabase
+      .from('vendor_service_recommendations')
+      .select('tile_id, service_code, is_opt_in, priority, rationale')
+      .eq('is_active', true)
+      .in('tile_id', tileIds)
+      .order('tile_id', { ascending: true })
+      .order('priority', { ascending: true }),
     supabase
       .from('vendor_recommendation_optins')
       .select('tile_id, service_code, enabled')
@@ -174,6 +175,13 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
       .select('id, label_en')
       .in('id', tileIds),
   ]);
+  const recs = (recRows ?? []) as {
+    tile_id: string;
+    service_code: string;
+    is_opt_in: boolean;
+    priority: number;
+    rationale: string | null;
+  }[];
 
   type CatalogRow = PaxPricingConfig & {
     service_code: string;

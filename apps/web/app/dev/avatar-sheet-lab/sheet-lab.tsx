@@ -19,7 +19,8 @@ function person(over: Partial<SwitcherData> & { shops?: SwitcherShop[]; isAdmin?
     displayName: over.displayName ?? 'Ice Casasola',
     email: over.email ?? 'iscasasolaii@gmail.com',
     isAnonymous: false,
-    photoUrl: null,
+    photoUrl: over.photoUrl ?? null,
+    photoFrame: over.photoFrame ?? null,
     events: [],
     eventsMeasured: true,
     context: {
@@ -47,6 +48,9 @@ const CASES: Record<
   owner2: { title: 'Today', data: person({ shops: [SETNAPROD, BLOOM] }), here: 'shop', activeShopId: SETNAPROD.id, unread: { events: 2, shop: null, admin: 0 }, refer: false, shopRows: true },
   owner2b: { title: 'Today', data: person({ shops: [SETNAPROD, BLOOM] }), here: 'shop', activeShopId: BLOOM.id, unread: { events: 2, shop: null, admin: 0 }, refer: false, shopRows: true },
   helper: { title: 'Today', data: person({ displayName: 'Pia Reyes', email: 'pia@example.com', shops: [BLOOM, LENS], canOpenShop: true }), here: 'shop', activeShopId: BLOOM.id, unread: { events: 1, shop: null, admin: 0 }, refer: false, shopRows: true },
+  // 🖼 A profile photo with its frame set (owner 2026-11-06: "yes, use the same control"; 7 Nov drag + pinch) —
+  // up and a little left, 1.5×. The fixture portrait is the You lab's (`/portraits/isabel-santos.avif`).
+  framed: { title: 'Events', data: person({ displayName: 'Isabel Santos', email: 'isabel@example.com', photoUrl: '/portraits/isabel-santos.avif', photoFrame: { x: 35, y: 20, zoom: 150 } }), here: 'events', unread: { events: 1, shop: null, admin: 0 }, refer: true, shopRows: false },
   couple: { title: 'Events', data: person({ displayName: 'Claire Casasola', email: 'claire@example.com', canOpenShop: true, otherAccounts: [{ uid: '11111111-1111-4111-8111-111111111111', email: 'iscasasolaii@gmail.com', name: 'Ice Casasola' }] }), here: 'events', unread: { events: 4, shop: null, admin: 0 }, refer: true, shopRows: false },
 };
 

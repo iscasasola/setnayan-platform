@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7279
+# facts: 7242
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     603
-#   col       5285
-#   policy    1055
+#   tpriv     601
+#   col       5253
+#   policy    1053
 #   view      9
-#   func      323
+#   func      322
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -417,8 +417,6 @@ tpriv	public.setnayan_pay_methods|anon	SIUD
 tpriv	public.setnayan_pay_methods|authenticated	SIUD
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
-tpriv	public.shop_badge_rewards|authenticated	S
-tpriv	public.shop_badge_upgrades|authenticated	S
 tpriv	public.shop_gift_purchases|authenticated	S
 tpriv	public.shop_gift_stock_entries|authenticated	S
 tpriv	public.shop_papic_wallet_entries|authenticated	S
@@ -718,7 +716,6 @@ col	public.blocked_users.created_at	anon=SIU authenticated=SIU
 col	public.blocked_users.id	anon=SIU authenticated=SIU
 col	public.blocked_users.reason	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.amount_charged_centavos	anon=SIU authenticated=SIU
-col	public.booking_fee_charges.badge_reward_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.charge_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.computed_fee_centavos	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.created_at	anon=SIU authenticated=SIU
@@ -4178,35 +4175,6 @@ col	public.shared_attribute_groups.display_name_en	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.display_name_tl	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.group_name	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.updated_at	anon=SIU authenticated=SIU
-col	public.shop_badge_rewards.badge	anon=- authenticated=S
-col	public.shop_badge_rewards.granted_at	anon=- authenticated=S
-col	public.shop_badge_rewards.note	anon=- authenticated=S
-col	public.shop_badge_rewards.returned_at	anon=- authenticated=S
-col	public.shop_badge_rewards.returned_from_charge_id	anon=- authenticated=S
-col	public.shop_badge_rewards.revoke_note	anon=- authenticated=S
-col	public.shop_badge_rewards.revoked_at	anon=- authenticated=S
-col	public.shop_badge_rewards.revoked_by	anon=- authenticated=S
-col	public.shop_badge_rewards.reward_id	anon=- authenticated=S
-col	public.shop_badge_rewards.reward_key	anon=- authenticated=S
-col	public.shop_badge_rewards.reward_kind	anon=- authenticated=S
-col	public.shop_badge_rewards.setnayan_gift_credits	anon=- authenticated=S
-col	public.shop_badge_rewards.setnayan_gift_grant_id	anon=- authenticated=S
-col	public.shop_badge_rewards.stock_delta	anon=- authenticated=S
-col	public.shop_badge_rewards.units	anon=- authenticated=S
-col	public.shop_badge_rewards.used_at	anon=- authenticated=S
-col	public.shop_badge_rewards.used_on_charge_id	anon=- authenticated=S
-col	public.shop_badge_rewards.vendor_profile_id	anon=- authenticated=S
-col	public.shop_badge_upgrades.badge	anon=- authenticated=S
-col	public.shop_badge_upgrades.choices	anon=- authenticated=S
-col	public.shop_badge_upgrades.ends_at	anon=- authenticated=S
-col	public.shop_badge_upgrades.granted_at	anon=- authenticated=S
-col	public.shop_badge_upgrades.note	anon=- authenticated=S
-col	public.shop_badge_upgrades.reward_key	anon=- authenticated=S
-col	public.shop_badge_upgrades.started_at	anon=- authenticated=S
-col	public.shop_badge_upgrades.started_choice	anon=- authenticated=S
-col	public.shop_badge_upgrades.started_period_days	anon=- authenticated=S
-col	public.shop_badge_upgrades.upgrade_id	anon=- authenticated=S
-col	public.shop_badge_upgrades.vendor_profile_id	anon=- authenticated=S
 col	public.shop_gift_purchases.created_at	anon=- authenticated=S
 col	public.shop_gift_purchases.created_by	anon=- authenticated=S
 col	public.shop_gift_purchases.credits_each	anon=- authenticated=S
@@ -4217,7 +4185,6 @@ col	public.shop_gift_purchases.quantity	anon=- authenticated=S
 col	public.shop_gift_purchases.service_code	anon=- authenticated=S
 col	public.shop_gift_purchases.unit_price_php	anon=- authenticated=S
 col	public.shop_gift_purchases.vendor_profile_id	anon=- authenticated=S
-col	public.shop_gift_stock_entries.badge_reward_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.created_at	anon=- authenticated=S
 col	public.shop_gift_stock_entries.created_by	anon=- authenticated=S
 col	public.shop_gift_stock_entries.delta	anon=- authenticated=S
@@ -5352,7 +5319,6 @@ col	public.vendor_profiles.website	anon=- authenticated=SIU
 col	public.vendor_profiles.weddings_done_approx	anon=- authenticated=SIU
 col	public.vendor_proposal_shop_gifts.created_at	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.credits	anon=- authenticated=S
-col	public.vendor_proposal_shop_gifts.from_badge_reward	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.gift_kind	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.gift_line_id	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.proposal_id	anon=- authenticated=S
@@ -6634,8 +6600,6 @@ policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERM
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
-policy	public.shop_badge_rewards|shop_badge_rewards_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
-policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -7207,7 +7171,6 @@ func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authen
 func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
-func	public.shop_gift_reward_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_papic_wallet_balance(p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_portfolio_commit(p_vendor_profile_id uuid, p_refs text[], p_spend_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp

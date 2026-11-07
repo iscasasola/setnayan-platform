@@ -7,6 +7,13 @@ import {
   type ClusterRow,
 } from '@/lib/identity-cluster-linkage';
 import { displayServiceLabel } from '@/lib/vendors';
+import {
+  phoneLookupVariants,
+  shopsSharingPhone,
+  type OtherShop,
+  type PhoneShop,
+} from '@/lib/shared-contact-phone';
+import { SharedPhoneNote } from './_components/shared-phone-note';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
@@ -196,6 +203,10 @@ type ApplicationRow = {
      *  no matview row. DORMANT (always null) until device-fingerprint capture is
      *  enabled — the matview is empty without it. */
     identityClusterOtherAccounts: number | null;
+    /** OTHER owners' shops carrying this shop's contact number (owner 2026-11-06,
+     *  "A CONTACT NUMBER ON TWO ACCOUNTS" — lenient, flagged here, never refused).
+     *  [] = checked, no match · null = could not be checked (the card says so). */
+    sharedPhoneShops: OtherShop[] | null;
   };
 };
 
@@ -497,6 +508,8 @@ async function ApplicationsSurface({
     }
   }
 
+  // Every shop on screen, with its owner — the input to the shared-number check below.
+  const phoneReviewed: PhoneShop[] = [];
   let vendorMap: Record<string, ApplicationRow['vendor']> = {};
   // A refused shop-details read leaves every card with a blank name and blank
   // contacts — and the automatic checks below would then "find" mismatches on a
@@ -506,7 +519,7 @@ async function ApplicationsSurface({
     const { data: vendorData, error: vendorErr } = await admin
       .from('vendor_profiles')
       .select(
-        'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
+        'vendor_profile_id,user_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
       )
       .in('vendor_profile_id', vendorIds);
     if (vendorErr) {
@@ -531,9 +544,11 @@ async function ApplicationsSurface({
           registrationNumberRaw: regMap[v.vendor_profile_id]?.raw ?? null,
           registrationNumberNeedsReview: regMap[v.vendor_profile_id]?.needsReview ?? false,
           identityClusterOtherAccounts: clusterLinkMap[v.vendor_profile_id] ?? null,
+          sharedPhoneShops: null,
         },
       ]),
     );
+    for (const v of vendorData ?? []) phoneReviewed.push(v as PhoneShop);
   }
 
   // Optional: a "demoted" tab also surfaces vendor rows that aren't tied to a
@@ -543,7 +558,7 @@ async function ApplicationsSurface({
     const { data: demotedVendors } = await admin
       .from('vendor_profiles')
       .select(
-        'vendor_profile_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
+        'vendor_profile_id,user_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
       )
       .eq('verification_state', 'demoted')
       .order('last_demoted_at', { ascending: false })
@@ -563,7 +578,37 @@ async function ApplicationsSurface({
       registrationNumberRaw: regMap[v.vendor_profile_id]?.raw ?? null,
       registrationNumberNeedsReview: regMap[v.vendor_profile_id]?.needsReview ?? false,
       identityClusterOtherAccounts: clusterLinkMap[v.vendor_profile_id] ?? null,
+      sharedPhoneShops: null,
     }));
+    for (const v of demotedVendors ?? []) phoneReviewed.push(v as PhoneShop);
+  }
+
+  // ── THE SAME NUMBER ON ANOTHER OWNER'S SHOP (owner 2026-11-06) ──────────
+  // DECISION_LOG "A CONTACT NUMBER ON TWO ACCOUNTS — LENIENT NOW, FLAGGED TO
+  // ADMIN": sign-up never refuses a number already on another shop (no SMS in
+  // V1, so nobody can prove a number; a block would let a squatter lock the real
+  // owner out). The reviewer is told instead, and the papers decide. One owner's
+  // own shops may share a number — `shopsSharingPhone` drops those.
+  // READ-ONLY, and an exact `in (…)` on the column (every stored spelling of
+  // each number on screen), never a scan of every shop.
+  // 🔑 A REFUSED READ IS NOT "NO MATCH": the card says it could not check.
+  const variants = Array.from(new Set(phoneReviewed.flatMap((r) => phoneLookupVariants(r.contact_phone))));
+  let sharedPhoneMap: Record<string, OtherShop[]> | null = {};
+  if (variants.length > 0) {
+    const { data: phoneRows, error: phoneErr } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id,user_id,business_name,business_slug,contact_phone')
+      .in('contact_phone', variants)
+      .limit(1000);
+    if (phoneErr) {
+      logQueryError('AdminVerifyPage (shared contact phone)', phoneErr);
+      sharedPhoneMap = null;
+    } else {
+      sharedPhoneMap = shopsSharingPhone(phoneReviewed, (phoneRows ?? []) as PhoneShop[]);
+    }
+  }
+  for (const v of [...Object.values(vendorMap), ...demotedFallback]) {
+    v.sharedPhoneShops = sharedPhoneMap === null ? null : (sharedPhoneMap[v.vendor_profile_id] ?? []);
   }
 
   const fullRows: ApplicationRow[] = apps.map((a) => ({
@@ -586,6 +631,7 @@ async function ApplicationsSurface({
       registrationNumberRaw: null,
       registrationNumberNeedsReview: false,
       identityClusterOtherAccounts: null,
+      sharedPhoneShops: null,
     },
   }));
 
@@ -852,6 +898,9 @@ function ApplicationCard({
           ) : null}
           {application.vendor.contact_phone ? (
             <p>{application.vendor.contact_phone}</p>
+          ) : null}
+          {application.vendor.contact_phone ? (
+            <SharedPhoneNote shops={application.vendor.sharedPhoneShops} />
           ) : null}
           {/* ── THE ADDRESS THE VENDOR CLAIMS (2026-08-10) ────────────────────
               Three of the required documents state a registered business

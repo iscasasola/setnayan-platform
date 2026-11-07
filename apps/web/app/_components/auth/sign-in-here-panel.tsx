@@ -25,10 +25,11 @@
  * panel is closed, and it only ever opens from a click.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { SidePanel } from '@/app/_components/side-panel';
 import { SignInCard } from '@/app/login/_components/sign-in-card';
 import { detectSignInOAuth, type SignInOAuth } from './detect-oauth-shell';
 import type { OpenSignInOptions } from './sign-in-here-types';
@@ -85,7 +86,8 @@ export function SignInHerePanel({
     `app/login/_components/sign-in-card-modal.tsx` is the shape that works and
     has always worked: no gate, `open: true`, ref attached on first commit.
   */
-  useModalA11y({ open: true, onClose, containerRef: ref });
+  // The third pane brings its own dialog (SidePanel runs the same hook on its own container) — one trap, not two.
+  useModalA11y({ open: !options.pane, onClose, containerRef: ref });
 
   /*
     WHERE OAUTH COMES BACK TO.
@@ -116,6 +118,40 @@ export function SignInHerePanel({
 
   if (typeof document === 'undefined') return null;
 
+  const card = (
+    <SignInCard
+      next={next}
+      signupHref={`/signup?next=${encodeURIComponent(next)}`}
+      showOAuth={oauth.show}
+      desktopOAuth={oauth.desktop}
+      nativeOAuth={oauth.native}
+      onNavigate={onClose}
+      onSignedIn={handleSignedIn}
+    />
+  );
+
+  // 🪟 THE THIRD PANE (owner 2026-11-06): the shipped SidePanel — wide on the right from 768px, the bottom sheet on a
+  // phone. The card keeps its own styles: they are scoped under `.home-reskin-ov`, so the pane's body wears that
+  // class with the overlay's backdrop, position and card chrome switched off.
+  if (options.pane) {
+    return (
+      <SidePanel
+        open
+        onClose={onClose}
+        title="Sign in to keep going"
+        info="Pick up where you left off — what you typed stays."
+        size="wide"
+        phone="sheet"
+      >
+        <div className="home-reskin-ov" style={PANE_HOST} data-sign-in-pane="">
+          <div className="hr-ov-card sn-signin-terra" style={PANE_CARD}>
+            {card}
+          </div>
+        </div>
+      </SidePanel>
+    );
+  }
+
   return createPortal(
     <div
       className="home-reskin-ov sn-signin-here"
@@ -131,17 +167,33 @@ export function SignInHerePanel({
         <button type="button" className="hr-ov-x" onClick={onClose} aria-label="Close">
           ✕
         </button>
-        <SignInCard
-          next={next}
-          signupHref={`/signup?next=${encodeURIComponent(next)}`}
-          showOAuth={oauth.show}
-          desktopOAuth={oauth.desktop}
-          nativeOAuth={oauth.native}
-          onNavigate={onClose}
-          onSignedIn={handleSignedIn}
-        />
+        {card}
       </div>
     </div>,
     document.body,
   );
 }
+
+/** `.home-reskin-ov` is a fixed full-screen backdrop; inside the pane it is only the scope its card's styles need. */
+const PANE_HOST: CSSProperties = {
+  position: 'static',
+  inset: 'auto',
+  zIndex: 'auto',
+  display: 'block',
+  padding: 0,
+  overflow: 'visible',
+  background: 'transparent',
+  backdropFilter: 'none',
+  WebkitBackdropFilter: 'none',
+  animation: 'none',
+};
+/** The pane is the frame; the card inside it draws none of its own. */
+const PANE_CARD: CSSProperties = {
+  background: 'transparent',
+  border: 0,
+  boxShadow: 'none',
+  padding: 0,
+  margin: 0,
+  maxWidth: 'none',
+  animation: 'none',
+};

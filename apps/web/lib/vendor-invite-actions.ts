@@ -9,7 +9,7 @@ import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
+import { buildClaimUrl, generateClaimToken, lookupExistingVendorByEmail } from '@/lib/vendor-invites';
 import {
   SUPPLIER_ALREADY_HAS_ACCOUNT_MESSAGE,
   canInviteSupplier,
@@ -188,8 +188,8 @@ async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
 
   // Fire the email. Best-effort: if Resend isn't configured, the row
   // already lives in the DB and the couple can still revoke / re-send.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const claimUrl = `${appUrl}/vendor/claim/${claimToken}`;
+  // The claim door, through the ONE builder (A6) — the same address the couple's QR and Share carry.
+  const claimUrl = buildClaimUrl(claimToken);
   await sendVendorInviteEmail({
     to: email,
     businessName: parent.vendor_name,

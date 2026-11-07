@@ -23,6 +23,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
+import { pictureFrameStyle } from '@/lib/picture-frame';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
 import { signOutAllAction } from '@/lib/account-jars';
@@ -230,7 +231,7 @@ export function SwitcherPanelBody({
   const currentShopId = here === 'shop' ? (activeShopId ?? (shops.length === 1 ? shops[0]!.id : null)) : null;
   const me = data.photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={data.photoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" />
+    <img src={data.photoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" style={pictureFrameStyle(data.photoFrame)} />
   ) : (
     initial
   );
@@ -753,7 +754,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
         <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-xs font-semibold text-cream">
           {data.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photoUrl} alt="" width={32} height={32} className="h-full w-full object-cover" />
+            <img src={data.photoUrl} alt="" width={32} height={32} className="h-full w-full object-cover" style={pictureFrameStyle(data.photoFrame)} />
           ) : (
             initial
           )}
@@ -834,7 +835,7 @@ export function AccountSwitcherIconTrigger({
     >
       {data.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={data.photoUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
+        <img src={data.photoUrl} alt="" width={44} height={44} className="h-full w-full object-cover" style={pictureFrameStyle(data.photoFrame)} />
       ) : (
         <span>{initial}</span>
       )}

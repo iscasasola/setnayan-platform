@@ -18,6 +18,10 @@ export type VendorProfileRow = {
    * R2 refs and passes legacy URLs through unchanged.
    */
   logo_url: string | null;
+  /** The logo's align (1–9) and zoom (100/120/150) — `lib/open-shop-logo.ts` (owner 2026-11-06, A2). NULL = default. */
+  logo_focal_x?: number | null;
+  logo_focal_y?: number | null;
+  logo_zoom?: number | null;
   services: string[];
   /**
    * Business owner / representative name — the person who owns or runs the
@@ -167,7 +171,7 @@ const SELF_SOURCE = 'vendor_profiles_self';
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,created_by_admin_user_id,compatible_ceremony_types,compatible_venue_settings,event_types,venue_type,venue_width_m,venue_length_m,capacity_min,capacity_max,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,created_by_admin_user_id,compatible_ceremony_types,compatible_venue_settings,event_types,venue_type,venue_width_m,venue_length_m,capacity_min,capacity_max,created_at,updated_at';
 
 // LEGACY select omits hq_address/lat/lng + 0043 compat cols so the page
 // can render against pre-0043 / pre-0521 schemas. Callers see hq_*

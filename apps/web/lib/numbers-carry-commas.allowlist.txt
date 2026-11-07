@@ -37,6 +37,10 @@ lib/iap/products.ts :: credits :: IDENTIFIER — the App Store product name "Pap
 lib/iap/products.ts :: credits :: IDENTIFIER — the supplier gift product's App Store name "Gift · Papic 1000", the same owner name, matched exactly in App Store Connect
 
 # ── BOUNDED: cannot reach 1,000 ──
+app/open-shop/_components/claim-door.tsx :: step :: BOUNDED — the claim door's step counter ("Step 2 of 6", aria-label); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000
+app/open-shop/_components/claim-door.tsx :: total :: BOUNDED — the claim door's step counter ("Step 2 of 6", aria-label); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000
+app/open-shop/_components/claim-door.tsx :: step :: BOUNDED — the claim door's step counter ("Step 2 of 6", the Your answers summary); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000
+app/open-shop/_components/claim-door.tsx :: total :: BOUNDED — the claim door's step counter ("Step 2 of 6", the Your answers summary); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000
 app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx :: j + 1 :: BOUNDED — the dish's position in an aria-label ("Dish 3 of Cocktails"); a moment holds at most MENU_MAX_DISHES (16) dishes (lib/print-pieces.ts)
 app/admin/pricing/_components/papic-ladder-editor.tsx :: rung.ratePerCredit.toFixed(3) :: BOUNDED — a per-credit rate of a few centavos (₱0.087), shown to three decimals so admins can compare rungs; formatPhp would round it to ₱0.09
 app/dashboard/[eventId]/launch/_components/maker-hero-design.tsx :: HERO_DESIGN_LABEL[shown].suits :: TEXT — HERO_DESIGN_LABEL[*].suits is the design's one-line description, static copy in lib/hero-design.ts

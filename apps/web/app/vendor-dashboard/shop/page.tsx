@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
@@ -83,6 +84,8 @@ type ShopData = {
   initials: string;
   /** Presigned display URL of the uploaded logo (Hero avatar), or null → initials. */
   logoUrl: string | null;
+  /** The logo's align + zoom (owner 2026-11-06, A2). */
+  logoFrame: LogoFrame;
   slug: string | null;
   city: string | null;
   primaryService: string | null;
@@ -258,6 +261,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     businessName,
     initials: deriveInitials(businessName),
     logoUrl,
+    logoFrame: readLogoFrame(profile),
     slug: profile.business_slug ?? null,
     city: profile.location_city ?? null,
     primaryService: profile.services?.[0] ? titleCase(profile.services[0]) : null,
@@ -560,6 +564,7 @@ function HeroCard({
     <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
       <VendorAvatar
         logoUrl={data.logoUrl}
+        frame={data.logoFrame}
         initials={data.initials}
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold tracking-wide"
       />

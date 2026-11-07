@@ -53,6 +53,7 @@ import {
   stampThreadProvenance,
 } from '@/lib/inquiry-attribution';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 import {
   eventVendorCategoryForCardKind,
   eventVendorCategoryKeyForCardKind,
@@ -268,6 +269,12 @@ export async function startServiceInquiry(input: {
 
   const admin = createAdminClient();
 
+  // 🧪 A REAL COUPLE NEVER MESSAGES A DEMO SHOP, and a demo event messages only demo shops (owner 2026-11-06,
+  // lib/demo-scope.ts). Refused before the thread, the follow or the interest rows are touched; the trigger
+  // `refuse_demo_cross_booking` on chat_threads is the backstop.
+  const demoRefusal = await demoBookingRefusal(admin, { eventId, vendorProfileId });
+  if (demoRefusal) return { status: 'error', message: demoRefusal };
+
   // Check for an existing non-declined thread BEFORE touching follow/upsert.
   // The composer uses this to surface "You already have an inquiry" + "View thread".
   const { data: existingThread } = await supabase
@@ -402,7 +409,7 @@ export async function startServiceInquiry(input: {
   if (threadErr || !thread?.thread_id) {
     return {
       status: 'error',
-      message: threadErr?.message ?? 'Could not open the conversation.',
+      message: demoRefusalFromDbError(threadErr) ?? threadErr?.message ?? 'Could not open the conversation.',
     };
   }
   const threadId = thread.thread_id as string;

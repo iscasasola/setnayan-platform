@@ -19,11 +19,7 @@ import { X } from 'lucide-react';
 
 const SESSION_DISMISS_KEY = 'setnayan_demo_mode_banner_dismissed';
 
-export function DemoModeBannerClient({
-  deadlineLabel,
-}: {
-  deadlineLabel: string;
-}) {
+export function DemoModeBannerClient() {
   // Default to "visible" so SSR + first paint never flash the
   // banner in then-out — the dismissed state is applied after
   // hydration if it was set.
@@ -60,8 +56,9 @@ export function DemoModeBannerClient({
         <p className="text-warn-900">
           <span className="font-semibold uppercase tracking-[0.12em]">Demo mode active</span>{' '}
           <span className="text-warn-800/85">
-            — synthetic suppliers are visible with pricing on display. Real-supplier
-            posture is unchanged. Demo data must be cleaned out before {deadlineLabel}.
+            — demo shops show their prices publicly. Real-supplier posture is unchanged.
+            {/* The Dec-1 "must be cleaned out" deadline is retired: demo shops are permanent and public,
+                marked "(DEMO ONLY)" (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). */}
           </span>
         </p>
         <button

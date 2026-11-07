@@ -207,6 +207,7 @@
         "CompareShortlistBanner",
         "ContextualPillOption",
         "CtaLine",
+        "DemoOnlyMarker",
         "EmptyState",
         "EventTypeNotifyForm",
         "EventTypeSearchOption",
@@ -240,7 +241,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
-        "SampleShopMarker",
+        "SampleMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -272,6 +273,7 @@
       "actions": [],
       "blocks": [
         "CompareRowEl",
+        "DemoOnlyMarker",
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
@@ -1282,6 +1284,7 @@
         "DayOfAnnouncement",
         "DayOfBanner",
         "DayOfFaceEnroll",
+        "DemoOnlyMarker",
         "Detail",
         "DetailsBigDate",
         "DetailsCard",
@@ -12393,14 +12396,18 @@
       ],
       "destinations": [
         "/",
+        "/[seg]",
         "/v/sampaguita-table/dates"
       ],
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "DemoOnlyMarker",
+        "FrontDoorFeed",
         "LabCard",
+        "LabEvent",
+        "LabShelf",
         "Link",
-        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
@@ -13854,10 +13861,10 @@
       ],
       "actions": [],
       "blocks": [
+        "DemoOnlyMarker",
         "EditorialContent",
         "Link",
-        "SampleEditorial",
-        "SampleMarker"
+        "SampleEditorial"
       ]
     },
     "/receipts/[receiptId]": {
@@ -14282,6 +14289,7 @@
         "CardRecordSection",
         "CheckADateLink",
         "ComingSoonBanner",
+        "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
@@ -14313,7 +14321,6 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
-        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -14392,6 +14399,7 @@
         "CalendarGrid",
         "CheckADateCalendar",
         "ChosenRow",
+        "DemoOnlyMarker",
         "FormRows",
         "Metadata",
         "Sheet",
@@ -16979,6 +16987,7 @@
         "Badge",
         "ColourPickerSheet",
         "DatesRow",
+        "DemoOnlyMarker",
         "DomainActionResult",
         "DomainManager",
         "ExistingReplySection",

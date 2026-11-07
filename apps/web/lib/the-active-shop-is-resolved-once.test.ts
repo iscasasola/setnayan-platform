@@ -57,7 +57,7 @@ const ENUMERATIONS: Record<string, { count: number; why: string }> = {
   'lib/deposit-acknowledged-effects.server.ts': { count: 1, why: 'catch-up sweep over EVERY shop the account owns.' },
   'lib/chapter-event-participation.ts': { count: 1, why: 'every event any of the account\'s shops was booked on.' },
   'lib/ghosting.ts': { count: 1, why: 'stale inquiries across EVERY shop the account owns.' },
-  'lib/enterprise-vendor-gate.ts': { count: 2, why: 'the public API key path (no session, no cookie): any owned Enterprise shop.' },
+  'lib/enterprise-vendor-gate.ts': { count: 1, why: 'the public API key path (no session, no cookie): any owned Enterprise shop. (Its second read, the Custom-plan API grant, went 2026-11-06 with the Custom plan.)' },
   'lib/erasure/purge.ts': { count: 5, why: 'account erasure: EVERY shop and seat of the person being erased.' },
   'lib/personal-data-export.ts': { count: 2, why: 'data export: EVERY shop of the person asking — the shop they own, and every team they sit on (supplier_team_memberships, 2026-11-05).' },
   'lib/self-purchase.ts': { count: 1, why: 'checkout\'s "is this your own shop?" warning: every shop the account sits on.' },

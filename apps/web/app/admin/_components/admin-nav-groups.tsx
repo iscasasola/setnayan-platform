@@ -937,17 +937,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/pricing?tab=pricing',
       },
       {
-        // Custom-tier composer (VENDOR_TIERS §11) — dial a negotiated Custom
-        // plan for a vendor org, apply a partner discount, send the quote for
-        // apply-then-pay approval. Sits with the money config (its unit prices
-        // ARE the /admin/pricing catalog).
-        key: 'custom-plans',
-        label: 'Custom plans',
-        href: '/admin/pricing?tab=custom-plans',
-        icon: BadgeCheck,
-        matchPrefix: '/admin/custom-plans',
-      },
-      {
         key: 'price-bands',
         label: 'Price bands',
         href: '/admin/pricing?tab=price-bands',

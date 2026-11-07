@@ -256,6 +256,7 @@ const RAW_SIGNER_CALLERS: Record<string, string> = {
   'lib/r2-client-ref.server.ts': 'presignClientRef — policy-validated',
   'lib/r2.ts': 'r2SignedGet itself',
   'app/api/upload/route.ts': 'preview of the object this request just minted',
+  'lib/papic-download-all.server.ts': 'the Download all zip this request just built under papic-zips/<event>/ — host-checked route, attachment link',
   'app/dashboard/[eventId]/studio/patiktok/actions.ts': 'R2_BUCKETS.media constant',
   'app/dashboard/[eventId]/studio/patiktok/page.tsx': 'R2_BUCKETS.media constant',
   'lib/auto-recap.ts': 'server-written output_bucket, allow-listed',

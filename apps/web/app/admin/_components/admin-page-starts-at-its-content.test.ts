@@ -275,10 +275,6 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
     namesItself: 'title="Pricing & Catalog"',
   },
   {
-    file: 'pricing/_surfaces/custom-plans-surface.tsx',
-    namesItself: 'title="Custom plans"',
-  },
-  {
     file: 'pricing/_surfaces/price-bands-surface.tsx',
     namesItself: 'title="Price bands"',
   },

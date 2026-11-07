@@ -89,7 +89,6 @@ const EXPECTED: Record<VendorTier, Omit<VendorSeoPlan, 'sitemapPriority'>> = {
   solo: { level: 'enhanced', indexable: true, entityGraph: true, offerGraph: false },
   pro: { level: 'aeo', indexable: true, entityGraph: true, offerGraph: true },
   enterprise: { level: 'priority', indexable: true, entityGraph: true, offerGraph: true },
-  custom: { level: 'priority', indexable: true, entityGraph: true, offerGraph: true },
 };
 
 test('gate ON: every tier matches the locked § 8 matrix', () => {
@@ -133,7 +132,6 @@ test('gate ON: enhanced SEO+GEO unlocks at Solo and never below', () => {
   assert.equal(vendorSeoPlan('solo', true).entityGraph, true);
   assert.equal(vendorSeoPlan('pro', true).entityGraph, true);
   assert.equal(vendorSeoPlan('enterprise', true).entityGraph, true);
-  assert.equal(vendorSeoPlan('custom', true).entityGraph, true);
 });
 
 test('gate ON: AEO offer graph unlocks at Pro and never below', () => {
@@ -142,13 +140,12 @@ test('gate ON: AEO offer graph unlocks at Pro and never below', () => {
   assert.equal(vendorSeoPlan('solo', true).offerGraph, false);
   assert.equal(vendorSeoPlan('pro', true).offerGraph, true);
   assert.equal(vendorSeoPlan('enterprise', true).offerGraph, true);
-  assert.equal(vendorSeoPlan('custom', true).offerGraph, true);
 });
 
 // ── ladder shape ─────────────────────────────────────────────────────────────
 
-test('ladder · SEO level is monotonic Free ≤ Verified ≤ Solo ≤ Pro ≤ Enterprise ≤ Custom', () => {
-  const order: VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'];
+test('ladder · SEO level is monotonic Free ≤ Verified ≤ Solo ≤ Pro ≤ Enterprise', () => {
+  const order: VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
   for (let i = 1; i < order.length; i += 1) {
     const lo = SEO_LEVEL_RANK[vendorSeoLevel(order[i - 1])];
     const hi = SEO_LEVEL_RANK[vendorSeoLevel(order[i])];
@@ -177,8 +174,6 @@ test('isSeoLevelAtLeast reads the matrix, not a hardcoded tier set', () => {
   assert.equal(isSeoLevelAtLeast('verified', 'enhanced'), false);
   assert.equal(isSeoLevelAtLeast('pro', 'aeo'), true);
   assert.equal(isSeoLevelAtLeast('solo', 'aeo'), false);
-  // 'custom' runs as Enterprise-or-better — it must inherit automatically.
-  assert.equal(isSeoLevelAtLeast('custom', 'priority'), true);
   assert.equal(isSeoLevelAtLeast(null, 'enhanced'), false);
 });
 
@@ -192,7 +187,7 @@ test('isSeoLevelAtLeast reads the matrix, not a hardcoded tier set', () => {
 const NOW = Date.parse('2026-07-26T00:00:00.000Z');
 const EXPIRED = '2026-07-01T00:00:00.000Z';
 const ACTIVE = '2026-08-30T00:00:00.000Z';
-const PAID_TIERS: VendorTier[] = ['solo', 'pro', 'enterprise', 'custom'];
+const PAID_TIERS: VendorTier[] = ['solo', 'pro', 'enterprise'];
 
 test('gate ON: a LAPSED paid tier collapses to the free plan at both render sites', () => {
   for (const tier of PAID_TIERS) {

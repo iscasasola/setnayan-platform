@@ -64,6 +64,10 @@ test('the red line names the service and carries no link', async () => {
   assert.match(named.text, /^Upgrade to accept this booking — Same-Day Edit is on hold on your plan\./);
   const html = renderToStaticMarkup(React.createElement(LockAnswerLine, { notice: named }));
   assert.doesNotMatch(html, /<a\b/, 'the pill is the one door — no link inside the red line');
+  // 🌙 The danger ramp is mirrored under html.dark (100 ↔ 900), so a `dark:text-danger-1xx` override inverts it twice
+  // and the line goes dark red on near-black (coordinator review of #7374). The line reads the mirrored ramp alone.
+  assert.match(html, /text-danger-900/);
+  assert.doesNotMatch(html, /dark:text-danger-/, 'a dark: override on the mirrored ramp draws the line dark-on-dark');
   // Unknown → still a sentence, never an empty name.
   assert.match(lockAgreeNotice('service_on_hold')!.text, /— the service they asked for is on hold/);
 });

@@ -178,8 +178,11 @@ export function LockAnswerLine({ notice }: { notice: LockAnswerNotice }) {
       role={notice.tone === 'refused' ? 'alert' : 'status'}
       data-lock-answer={notice.tone}
       // A status line, not a card (2026-10-11 look: frames only on what you press).
+      // 🌙 No `dark:` override: the danger ramp is already mirrored under html.dark (globals.css, 100 ↔ 900), so
+      // `text-danger-900` reads #F4D7C9 on the dark page. The old `dark:text-danger-100` inverted it TWICE — back to
+      // the deep #5F3021, dark red on near-black.
       className={`mt-3 border-l-2 py-1 pl-3 text-sm ${
-        notice.tone === 'refused' ? 'border-danger-500 text-danger-900 dark:text-danger-100' : 'border-mulberry text-ink'
+        notice.tone === 'refused' ? 'border-danger-500 text-danger-900' : 'border-mulberry text-ink'
       }`}
     >
       {notice.text}

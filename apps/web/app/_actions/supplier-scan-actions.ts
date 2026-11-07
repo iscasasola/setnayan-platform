@@ -9,6 +9,8 @@
  *   { op: 'claim' }         the Event Hub's Scanner view — one QR or tag → "✓ #0042 · Claimed 142 of 176"
  *   { op: 'ready' }         Ordered → Received — the supplier taps Ready on #0042; its guests are told on their Event Hub
  *   { op: 'numbers' }       "Your numbers" — number · guests · state, counts only
+ *   { op: 'session_open' }  Group session — New shot: one number for everyone scanned into it
+ *   { op: 'session_done' }  Group session — Done: the shot closes with its prints (default one per guest)
  *   { op: 'admin_remove' }  Admin › the event — Setnayan takes back a claim recorded in error (audited)
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route, and the repo budget
@@ -58,6 +60,10 @@ export async function supplierScan(req: SupplierScanRequest): Promise<SupplierSc
       return { op: 'ready', result: await markReady(req.eventId, req.coverageId, req.number) };
     case 'numbers':
       return { op: 'numbers', result: await readNumbers(req.eventId, req.coverageId) };
+    case 'session_open':
+      return { op: 'session_open', result: await sessionOpen(req.eventId, req.coverageId) };
+    case 'session_done':
+      return { op: 'session_done', result: await sessionDone(req.eventId, req.coverageId, req.prints) };
     case 'admin_remove':
       return { op: 'admin_remove', result: await adminRemove(req.eventId, req.kind, req.claimId) };
   }
@@ -117,9 +123,19 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
     logQueryError('supplierScan.claim', error, { eventId, coverageId });
     return { outcome: 'refused', message: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
   }
-  const a = (data ?? {}) as { outcome?: string; number?: number | null; claimed?: number | null; total?: number | null };
+  const a = (data ?? {}) as {
+    outcome?: string;
+    number?: number | null;
+    claimed?: number | null;
+    total?: number | null;
+    served?: number;
+    unique?: number;
+    guests?: number;
+    of?: number;
+  };
   if (a.outcome === 'not_guest') return { outcome: 'not_guest' };
-  const known = ['claimed', 'already', 'ordered', 'not_ready', 'received'];
+  if (a.outcome === 'no_session') return { outcome: 'no_session' };
+  const known = ['claimed', 'already', 'ordered', 'not_ready', 'received', 'served', 'added', 'in_session', 'picked_up', 'no_session'];
   if (!a.outcome || !known.includes(a.outcome)) return { outcome: 'refused', message: scanRefusalWords('') };
 
   // Host read parity — the guest list's own RLS decides, never this code. The two name columns only: this line on the
@@ -141,6 +157,10 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
   if (a.outcome === 'already') return { outcome: 'already', number: a.number ?? null, name };
   if (a.outcome === 'ordered') return { outcome: 'ordered', number: Number(a.number), name };
   if (a.outcome === 'not_ready') return { outcome: 'not_ready', number: Number(a.number), name };
+  if (a.outcome === 'served') return { outcome: 'served', number: Number(a.number), served: Number(a.served ?? 0), unique: Number(a.unique ?? 0), name };
+  if (a.outcome === 'added') return { outcome: 'added', number: Number(a.number), guests: Number(a.guests ?? 0), name };
+  if (a.outcome === 'in_session') return { outcome: 'in_session', number: Number(a.number), guests: Number(a.guests ?? 0), name };
+  if (a.outcome === 'picked_up') return { outcome: 'picked_up', number: Number(a.number), claimed: Number(a.claimed ?? 0), of: Number(a.of ?? 0), name };
   if (a.outcome === 'received') {
     return { outcome: 'received', number: Number(a.number), claimed: Number(a.claimed ?? 0), total: Number(a.total ?? 0), name };
   }
@@ -180,6 +200,8 @@ async function readNumbers(eventId: string, coverageId: number): Promise<ScanNum
     first_at: string;
     ready_at: string | null;
     received_at: string | null;
+    prints?: number | null;
+    open?: boolean;
   };
   return ((data ?? []) as Row[]).map((r) => ({
     number: r.scan_number,
@@ -190,7 +212,40 @@ async function readNumbers(eventId: string, coverageId: number): Promise<ScanNum
     firstAt: r.first_at,
     readyAt: r.ready_at,
     receivedAt: r.received_at,
+    prints: r.prints ?? null,
+    open: r.open === true,
   }));
+}
+
+/** New shot: one number, allocated now (an already-open shot is joined, never doubled). */
+async function sessionOpen(eventId: string, coverageId: number): Promise<{ ok: true; number: number; guests: number } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('supplier_scan_session_open', { p_event_id: eventId, p_coverage_id: coverageId });
+  if (error) {
+    logQueryError('supplierScan.session_open', error, { eventId, coverageId });
+    return { ok: false, error: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
+  }
+  const d = (data ?? {}) as { number?: number; guests?: number };
+  return { ok: true, number: Number(d.number), guests: Number(d.guests ?? 0) };
+}
+
+/** Done: the shot closes with its prints (null = one per guest); an empty shot is cancelled. */
+async function sessionDone(
+  eventId: string,
+  coverageId: number,
+  prints: number | null,
+): Promise<Extract<SupplierScanReply, { op: 'session_done' }>['result']> {
+  if (prints !== null && (!Number.isInteger(prints) || prints < 1 || prints > 99)) return { ok: false, error: scanRefusalWords('bad_prints') };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('supplier_scan_session_done', { p_event_id: eventId, p_coverage_id: coverageId, p_prints: prints });
+  if (error) {
+    logQueryError('supplierScan.session_done', error, { eventId, coverageId });
+    return { ok: false, error: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
+  }
+  const d = (data ?? {}) as { outcome?: string; number?: number; guests?: number; prints?: number };
+  if (d.outcome === 'done') return { ok: true, outcome: 'done', number: Number(d.number), guests: Number(d.guests), prints: Number(d.prints) };
+  if (d.outcome === 'cancelled') return { ok: true, outcome: 'cancelled', number: Number(d.number) };
+  return { ok: true, outcome: 'none_open' };
 }
 
 /** Setnayan takes back one claim recorded in error. The number is not reused — a gap here is a visible correction. */

@@ -122,7 +122,8 @@ export function YourNumbers({
                     <span className="w-16 flex-none font-pahina text-xl tabular-nums text-ink">{scanNumberLabel(r.number)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] text-ink">
-                        {formatCount(r.guests)} {r.guests === 1 ? 'guest' : 'guests'} · {formatWallClock(r.firstAt)}
+                        {formatCount(r.guests)} {r.guests === 1 ? 'guest' : 'guests'}
+                        {r.prints != null ? ` · ${formatCount(r.prints)} ${r.prints === 1 ? 'print' : 'prints'}` : ''} · {formatWallClock(r.firstAt)}
                       </span>
                       <span className={`block truncate text-[12.5px] ${st === 'ready' ? 'font-medium text-ink' : 'text-ink/60'}`}>{numberStateWords(r)}</span>
                     </span>
@@ -136,7 +137,7 @@ export function YourNumbers({
                           .filter(Boolean)
                           .join(' · ')}
                       </p>
-                      {r.ordered > 0 ? (
+                      {r.ordered > 0 && !r.open ? (
                         <ActionButton tone="brand" main icon={BellRing} label="Ready" name={`${scanNumberLabel(r.number)} is ready`} disabled={pending} onClick={() => ready(r)} />
                       ) : null}
                     </div>

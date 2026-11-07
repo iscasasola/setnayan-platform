@@ -36,6 +36,7 @@ async function asOwner(): Promise<void> {
 }
 
 type Shop = { uid: string; vp: string };
+let demoEventId = '';
 const S: Record<'photo' | 'florist' | 'band' | 'stranger' | 'future' | 'maybe' | 'sample', Shop> = {} as never;
 
 async function mkShop(email: string, name: string, cat: string): Promise<Shop> {
@@ -113,10 +114,13 @@ before(async () => {
   await book(coming, S.photo, 'photographer');
   await book(coming, S.future, 'florist');
 
-  // A past SAMPLE event — photo + sample booked. A showcase is not a served event.
-  const demo = await mkEvent('Sample Event', '2024-01-10', true);
-  await book(demo, S.photo, 'photographer');
-  await book(demo, S.sample, 'florist');
+  // A past SAMPLE event. A showcase is not a served event. Since
+  // 20271316355263 (a real event never books a demo shop) only a DEMO shop can
+  // be booked on it — S.sample is a demo shop, and a real shop (S.photo) is
+  // refused by the database itself (asserted in test 4).
+  await db.query(`UPDATE public.vendor_profiles SET is_demo = TRUE WHERE vendor_profile_id = $1`, [S.sample.vp]);
+  demoEventId = await mkEvent('Sample Event', '2024-01-10', true);
+  await book(demoEventId, S.sample, 'florist');
 });
 
 after(async () => {
@@ -143,6 +147,8 @@ test('3 · after a shared past event, both booked — the link is allowed (eithe
 test('4 · "considering" is not booked, and a sample event is not an event', async () => {
   await assert.rejects(propose(S.photo, S.maybe), /NOT_SERVED_TOGETHER/);
   await assert.rejects(propose(S.photo, S.sample), /NOT_SERVED_TOGETHER/);
+  // A real shop cannot even be booked on a sample event, so a sample event can never make two shops "served together".
+  await assert.rejects(book(demoEventId, S.photo, 'photographer'), /demo_cross_booking/);
 });
 
 test('5 · the picker read lists only eligible shops — type + date, never the event name — and only for your own shop', async () => {

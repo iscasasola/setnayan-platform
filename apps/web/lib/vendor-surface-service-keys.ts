@@ -57,6 +57,7 @@
 import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from './booking-fee-lock';
 import { BRANCH_SERVICE_KEY_PREFIX } from './vendor-branches';
 import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
+import { COUNT_ADDON_SERVICE_KEY_PREFIXES } from './vendor-ultra-addons';
 
 /**
  * Every service-key prefix whose suffix names an object owned by a vendor.
@@ -68,6 +69,9 @@ export const VENDOR_SURFACE_SERVICE_KEY_PREFIXES: readonly string[] = Object.fre
   BOOKING_FEE_LOCK_SERVICE_PREFIX,
   BRANCH_SERVICE_KEY_PREFIX,
   SEAT_SERVICE_KEY_PREFIX,
+  // vendor_extra_{category,service_card,waitlist,booking_per_date}__<vendor_profile_id> → recompute a paid Ultra
+  // add-on count (owner 2026-11-06).
+  ...COUNT_ADDON_SERVICE_KEY_PREFIXES,
   // (`vendor_custom_plan__` left this list 2026-11-06: the Custom supplier plan was retired from the app and
   // its activation hook deleted, so that key provisions nothing any more.)
 ]);

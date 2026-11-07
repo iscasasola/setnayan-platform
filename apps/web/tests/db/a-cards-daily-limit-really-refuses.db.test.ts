@@ -171,7 +171,10 @@ before(async () => {
   await db.query(
     `UPDATE public.vendor_profiles
         SET verification_state = 'verified'::public.vendor_verification_state, last_verified_at = NOW(),
-            public_visibility = 'verified'::public.vendor_public_visibility
+            public_visibility = 'verified'::public.vendor_public_visibility,
+            -- PRO, not the default Free: the card takes LIMIT (2) a day, and since 2026-11-06 a Free card takes at most
+            -- 1 a date (owner click, "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED"). Pro's 3 leaves LIMIT in charge.
+            tier_state = 'pro'
       WHERE vendor_profile_id = $1`,
     [F.vendorId],
   );

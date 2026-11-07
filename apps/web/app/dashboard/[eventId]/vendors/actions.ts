@@ -51,6 +51,7 @@ import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -1119,6 +1120,13 @@ export async function finalizeVendor(
   if (targetVendor.marketplace_vendor_id) {
     // 🚪 DOOR 2 · BOOKINGS CLOSED (owner 2026-11-02). A closed platform books nobody; the trigger is the backstop.
     if (!(await areBookingsOpen())) return { status: 'bookings_closed', vendorId };
+    // 🧪 A REAL EVENT NEVER BOOKS A DEMO SHOP, a demo event never books a real one (owner 2026-11-06,
+    // lib/demo-scope.ts). The trigger `refuse_demo_cross_booking` is the backstop.
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId,
+      vendorProfileId: targetVendor.marketplace_vendor_id as string,
+    });
+    if (demoRefusal) return { status: 'error', message: demoRefusal };
     const bookable = await isMarketplaceVendorBookable(
       createAdminClient(),
       targetVendor.marketplace_vendor_id,
@@ -1812,13 +1820,19 @@ export async function finalizeVendor(
       // the acquire having booked it.
     } else {
       // ── #2 DAILY-CAPACITY PATH (service has no active slots). ──
-      const { data: svcRow } = await supabase
-        .from('vendor_services')
-        .select('daily_capacity')
-        .eq('vendor_service_id', targetVendor.service_id)
-        .maybeSingle();
-      const capacity =
-        (svcRow as { daily_capacity?: number | null } | null)?.daily_capacity ?? null;
+      // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
+      // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified 1 each, like Solo,
+      // owner click 2026-11-06). ONE server-only definer answers it — `service_card_daily_limit`, the SAME limit
+      // the supplier's yes and the bench search read — and returns only a number. Its input is the card on the
+      // couple's own booking row, read through their session above. Degrades OPEN on a read error, like every
+      // capacity read here (the supplier's yes still refuses on it) — but never silently.
+      const { data: capacityRaw, error: capacityErr } = await createAdminClient().rpc('service_card_daily_limit', {
+        p_service_id: targetVendor.service_id,
+      });
+      if (capacityErr) {
+        console.error('[finalizeVendor] #2 daily-limit: limit read failed', capacityErr.message);
+      }
+      const capacity = typeof capacityRaw === 'number' ? capacityRaw : null;
       if (typeof capacity === 'number' && capacity > 0) {
         // event_date is the canonical DATE column; wedding_date is a generated
         // mirror with NO migration DDL, so it can silently no-op on a fresh DB
@@ -4121,6 +4135,12 @@ export async function attachMarketplaceVendorToCategory(
   if (!profile) {
     return { status: 'marketplace_vendor_not_found' };
   }
+  // 🧪 A real event never adds a demo shop; a demo event adds only demo shops (owner 2026-11-06, lib/demo-scope.ts).
+  const demoRefusal = await demoBookingRefusal(adminClient, {
+    eventId: eventIdRaw,
+    vendorProfileId: marketplaceVendorIdRaw,
+  });
+  if (demoRefusal) return { status: 'error', message: demoRefusal };
 
   const { data: serviceRow } = await adminClient
     .from('vendor_services')
@@ -4170,7 +4190,7 @@ export async function attachMarketplaceVendorToCategory(
     });
     return {
       status: 'error',
-      message: insertErr?.message ?? 'Insert failed',
+      message: demoRefusalFromDbError(insertErr) ?? insertErr?.message ?? 'Insert failed',
     };
   }
 
@@ -4696,6 +4716,16 @@ export async function recordDeposit(
   const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
   if (notYet) return { status: 'error', message: notYet };
 
+  // 🧪 A REAL COUPLE NEVER PAYS A DEMO SHOP (owner 2026-11-06, lib/demo-scope.ts) — not even on a booking that
+  // pre-dates the rule. Refused before anything is written.
+  if (ev.marketplace_vendor_id) {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId,
+      vendorProfileId: ev.marketplace_vendor_id,
+    });
+    if (demoRefusal) return { status: 'error', message: demoRefusal };
+  }
+
   // THE REQUESTED FIRST PAYMENT IS THE MINIMUM (owner, 2026-09-19: "it should
   // follow the amount requested and that means that is the minimum"). The
   // accepted quote's frozen schedule names it; `decideDepositAmount`
@@ -5175,6 +5205,16 @@ export async function raiseChangeOrder(
   // checked that it was one.
   const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
   if (notYet) return { status: 'error', message: notYet };
+
+  // 🧪 A REAL COUPLE NEVER PAYS A DEMO SHOP (owner 2026-11-06, lib/demo-scope.ts) — not even on a booking that
+  // pre-dates the rule. Refused before anything is written.
+  if (ev.marketplace_vendor_id) {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId,
+      vendorProfileId: ev.marketplace_vendor_id,
+    });
+    if (demoRefusal) return { status: 'error', message: demoRefusal };
+  }
 
   const { error: insertErr } = await supabase.from('vendor_change_orders').insert({
     event_vendor_id: vendorId,

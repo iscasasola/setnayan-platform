@@ -227,7 +227,7 @@ export function PasswordField({
   const box = (
     <>
       <input
-        // field-ok: this IS the one password primitive — each door wraps it in its own Field/label
+        // field-ok: the one password template; every password box routes through it (each door wraps it in its own label) — lib/one-password-field.test.ts
         {...input}
         {...(tracks
           ? {

@@ -126,7 +126,7 @@ import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
 import { BookingMoneySummary } from './_components/booking-money-summary';
-import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
+import { bookingMoney, manilaTodayIso, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
@@ -144,6 +144,8 @@ import {
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDeskAnswersBlock, readClientDeskAnswers } from './_components/client-desk-answers';
+import { detailsNumbers } from './_components/details-numbers';
+import { DetailsNumbersRow } from './_components/details-numbers-row';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
 import { PickedClientSettings } from './_components/picked-client-settings';
@@ -688,7 +690,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   //     rows, this org's suggestion history — all as before.
   const [
     { data: evRow },
-    { data: proposalRows },
+    { data: proposalRows, error: proposalRowsError },
     { data: contractRows },
     threads,
     editorialEligibility,
@@ -2260,6 +2262,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       • Quotation · Payment · Files — the shipped money and files sections.
       • Report   — the activity feed + private notes until C3's Report lands.
   */
+  // 🔢 The three numbers (v113): every input already read above — no new request. A refused read says so.
+  const sentQuote = [...proposals]
+    .filter((p) => p.status !== 'draft')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  const numbersCells = detailsNumbers({
+    isBooked,
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date,
+    ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
+    onPlan: planRowsAll.length > 0,
+    sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
+    peso: (php) => fmtPeso(php),
+  });
+
   // 🗓 The two answers Today used to own (date change · removal request), on THIS client — read only for a booked
   // client (both ask a booked/paid shop), with Today's own reads narrowed to this event (A2 A8).
   const deskAnswers = isBooked
@@ -2322,6 +2338,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </div>
       ) : null}
       {pipelineBlock}
+      <DetailsNumbersRow cells={numbersCells} />
       {nextMoveCard}
       {feeLockPanel}
       {/* Item 2 of the ruling — "the request to access features". The panel

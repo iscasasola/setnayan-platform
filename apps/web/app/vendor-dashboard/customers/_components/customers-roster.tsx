@@ -3,6 +3,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import type { ReactNode } from 'react';
 import { FileText, MessageSquare } from 'lucide-react';
+import { RememberPickedOrigin } from './remember-picked-origin';
 import { ActionButton } from '@/components/action-button';
 import { SupplierOpenRow } from '../../_components/supplier-open-row';
 import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
@@ -303,15 +304,17 @@ export function RosterRowView({
             />
           ) : href ? (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
-              <ActionButton
-                tone="brand"
-                main
-                icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
-                label={r.threadId ? 'Open the chat' : 'Open their card'}
-                name={`${title} — ${nextStepLabel(r)}`}
-                href={href}
-                className="min-h-11"
-              />
+              <RememberPickedOrigin to={href}>
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
+                  label={r.threadId ? 'Open the chat' : 'Open their card'}
+                  name={`${title} — ${nextStepLabel(r)}`}
+                  href={href}
+                  className="min-h-11"
+                />
+              </RememberPickedOrigin>
             </div>
           ) : null}
         </div>

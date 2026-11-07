@@ -254,7 +254,7 @@ test('6 · the claim answer names nobody, and the supplier cannot read the claim
   await asUser(F.booth);
   const tally = (await db.query<{ t: Record<string, unknown> }>(`SELECT public.supplier_scan_tally($1,$2) AS t`, [F.eventId, F.boothCov]))
     .rows[0]!.t;
-  assert.deepEqual(tally, { enabled: true, mode: 'once', souvenir: false, claimed: 3, total: 4, last_number: 3 });
+  assert.deepEqual(tally, { enabled: true, mode: 'once', souvenir: false, claimed: 3, ordered: 0, ready: 0, total: 4, last_number: 3 });
   const rows = await db.query(`SELECT * FROM public.supplier_scan_claims`);
   assert.equal(rows.rows.length, 0, 'a supplier read the claim rows directly');
   const services = await db.query<{ coverage_id: string }>(`SELECT coverage_id FROM public.supplier_scan_services($1)`, [F.eventId]);

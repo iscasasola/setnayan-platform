@@ -7,6 +7,8 @@
  *
  *   { op: 'set_scanner' }   Shop › Services — a service's scanner Off · <mode>, set once for every event booked for it
  *   { op: 'claim' }         the Event Hub's Scanner view — one QR or tag → "✓ #0042 · Claimed 142 of 176"
+ *   { op: 'ready' }         Ordered → Received — the supplier taps Ready on #0042; its guests are told on their Event Hub
+ *   { op: 'numbers' }       "Your numbers" — number · guests · state, counts only
  *   { op: 'admin_remove' }  Admin › the event — Setnayan takes back a claim recorded in error (audited)
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route, and the repo budget
@@ -40,6 +42,7 @@ import {
   scannerChoiceToSetting,
   type ScanAnswer,
   type ScanMode,
+  type ScanNumberRow,
   type ScannerSaveResult,
   type SupplierScanReply,
   type SupplierScanRequest,
@@ -51,6 +54,10 @@ export async function supplierScan(req: SupplierScanRequest): Promise<SupplierSc
       return { op: 'set_scanner', result: await setServiceScanner(req.coverageId, req.choice) };
     case 'claim':
       return { op: 'claim', result: await claim(req.eventId, req.coverageId, req.raw, req.via) };
+    case 'ready':
+      return { op: 'ready', result: await markReady(req.eventId, req.coverageId, req.number) };
+    case 'numbers':
+      return { op: 'numbers', result: await readNumbers(req.eventId, req.coverageId) };
     case 'admin_remove':
       return { op: 'admin_remove', result: await adminRemove(req.eventId, req.kind, req.claimId) };
   }
@@ -112,7 +119,8 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
   }
   const a = (data ?? {}) as { outcome?: string; number?: number | null; claimed?: number | null; total?: number | null };
   if (a.outcome === 'not_guest') return { outcome: 'not_guest' };
-  if (a.outcome !== 'claimed' && a.outcome !== 'already') return { outcome: 'refused', message: scanRefusalWords('') };
+  const known = ['claimed', 'already', 'ordered', 'not_ready', 'received'];
+  if (!a.outcome || !known.includes(a.outcome)) return { outcome: 'refused', message: scanRefusalWords('') };
 
   // Host read parity — the guest list's own RLS decides, never this code. The two name columns only: this line on the
   // scanner is a confirmation ("Ana Reyes" / "Ana"), not a guest card.
@@ -131,7 +139,58 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
   }
 
   if (a.outcome === 'already') return { outcome: 'already', number: a.number ?? null, name };
+  if (a.outcome === 'ordered') return { outcome: 'ordered', number: Number(a.number), name };
+  if (a.outcome === 'not_ready') return { outcome: 'not_ready', number: Number(a.number), name };
+  if (a.outcome === 'received') {
+    return { outcome: 'received', number: Number(a.number), claimed: Number(a.claimed ?? 0), total: Number(a.total ?? 0), name };
+  }
   return { outcome: 'claimed', number: Number(a.number), claimed: Number(a.claimed ?? 0), total: Number(a.total ?? 0), name };
+}
+
+/** Ready on one number: its ordered guests go ready and each is told on their Event Hub — the database writes both. */
+async function markReady(
+  eventId: string,
+  coverageId: number,
+  number: number,
+): Promise<{ ok: true; told: number } | { ok: false; error: string }> {
+  if (!Number.isSafeInteger(number) || number <= 0) return { ok: false, error: 'That number could not be found.' };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('supplier_scan_ready', { p_event_id: eventId, p_coverage_id: coverageId, p_number: number });
+  if (error) {
+    logQueryError('supplierScan.ready', error, { eventId, coverageId });
+    return { ok: false, error: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
+  }
+  return { ok: true, told: Number(data ?? 0) };
+}
+
+/** "Your numbers" — counts only (no guest id crosses). null = the read failed. */
+async function readNumbers(eventId: string, coverageId: number): Promise<ScanNumberRow[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('supplier_scan_numbers', { p_event_id: eventId, p_coverage_id: coverageId });
+  if (error) {
+    logQueryError('supplierScan.numbers', error, { eventId, coverageId });
+    return null;
+  }
+  type Row = {
+    scan_number: number;
+    guests: number;
+    ordered: number;
+    ready: number;
+    received: number;
+    first_at: string;
+    ready_at: string | null;
+    received_at: string | null;
+  };
+  return ((data ?? []) as Row[]).map((r) => ({
+    number: r.scan_number,
+    guests: r.guests,
+    ordered: r.ordered,
+    ready: r.ready,
+    received: r.received,
+    firstAt: r.first_at,
+    readyAt: r.ready_at,
+    receivedAt: r.received_at,
+  }));
 }
 
 /** Setnayan takes back one claim recorded in error. The number is not reused — a gap here is a visible correction. */

@@ -57,13 +57,15 @@ const RUN = {
  * result line: claimed · already · souvenir-desk · not · nosignal · name (a host-approved coordinator's view).
  */
 const SCAN_SERVICES: Record<string, EventScanService[] | 'unreadable'> = {
-  on: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false } }],
+  on: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false, ordered: 0, ready: 0 } }],
   two: [
-    { coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false } },
-    { coverageId: 2, label: 'Souvenir / Giveaways', mode: 'once', tally: { claimed: 96, total: 118, lastNumber: 88, souvenir: true } },
+    { coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false, ordered: 0, ready: 0 } },
+    { coverageId: 2, label: 'Souvenir / Giveaways', mode: 'once', tally: { claimed: 96, total: 118, lastNumber: 88, souvenir: true, ordered: 0, ready: 0 } },
   ],
-  fresh: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 0, total: 118, lastNumber: 0, souvenir: false } }],
+  fresh: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 0, total: 118, lastNumber: 0, souvenir: false, ordered: 0, ready: 0 } }],
   unread: 'unreadable',
+  // Ordered → Received (slice 2): prints — 38 numbers, 12 ordered, 3 ready, 20 received.
+  prints: [{ coverageId: 3, label: 'Photo booth prints', mode: 'ordered_received', tally: { claimed: 20, total: 118, lastNumber: 38, souvenir: false, ordered: 12, ready: 3 } }],
 };
 const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   claimed: { outcome: 'claimed', number: 42, claimed: 42, total: 118 },
@@ -73,6 +75,9 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   nosignal: { outcome: 'no_signal' },
   first: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana' },
   name: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana Reyes' },
+  ordered: { outcome: 'ordered', number: 42 },
+  'not-ready': { outcome: 'not_ready', number: 42 },
+  received: { outcome: 'received', number: 42, claimed: 21, total: 118 },
 };
 
 /**

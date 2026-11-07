@@ -46,6 +46,9 @@ export type ScanTally = {
   total: number;
   lastNumber: number;
   souvenir: boolean;
+  /** Ordered → Received only (0 otherwise). */
+  ordered: number;
+  ready: number;
 };
 
 export type EventScanService = {
@@ -65,7 +68,7 @@ export function tallyOf(raw: unknown): ScanTally | null {
   const total = n(t.total);
   const lastNumber = n(t.last_number);
   if (claimed === null || total === null || lastNumber === null) return null;
-  return { claimed, total, lastNumber, souvenir: t.souvenir === true };
+  return { claimed, total, lastNumber, souvenir: t.souvenir === true, ordered: n(t.ordered) ?? 0, ready: n(t.ready) ?? 0 };
 }
 
 /**
@@ -99,7 +102,14 @@ export async function readEventScanServices(
   );
 }
 
-export type GuestScanNumber = { number: number; service: string; shop: string | null; at: string };
+export type GuestScanNumber = {
+  number: number;
+  service: string;
+  shop: string | null;
+  at: string;
+  /** Ordered → Received: 'ordered' (being prepared) · 'ready' (claim it now) · 'received'. Souvenirs are received. */
+  state: 'ordered' | 'ready' | 'received';
+};
 
 /**
  * One guest's own numbers at one event (newest first) — for THEIR Event Hub only. The caller has already resolved the
@@ -112,7 +122,7 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
     const [claims, souvenirs] = await Promise.all([
       admin
         .from('supplier_scan_claims')
-        .select('scan_number, claimed_at, coverage_id, vendor_profile_id')
+        .select('scan_number, claimed_at, coverage_id, vendor_profile_id, state')
         .eq('event_id', eventId)
         .eq('guest_id', guestId),
       admin
@@ -126,7 +136,13 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
       logQueryError('readGuestScanNumbers', claims.error ?? souvenirs.error, { eventId });
       return null;
     }
-    type Row = { scan_number: number; claimed_at: string; coverage_id: number | string | null; vendor_profile_id: string | null };
+    type Row = {
+      scan_number: number;
+      claimed_at: string;
+      coverage_id: number | string | null;
+      vendor_profile_id: string | null;
+      state?: 'ordered' | 'ready' | 'received';
+    };
     const rows = [...((claims.data ?? []) as Row[]), ...((souvenirs.data ?? []) as Row[])];
     if (rows.length === 0) return [];
     const covIds = [...new Set(rows.map((r) => r.coverage_id).filter((c): c is number | string => c != null))];
@@ -150,6 +166,7 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
         service: (r.coverage_id != null ? covLabel.get(String(r.coverage_id)) : null) ?? 'A supplier',
         shop: r.vendor_profile_id ? (shopName.get(r.vendor_profile_id) ?? null) : null,
         at: r.claimed_at,
+        state: r.state ?? ('received' as const),
       }))
       .sort((a, b) => b.at.localeCompare(a.at));
   } catch (err) {
@@ -159,6 +176,8 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
 }
 
 export type CoupleScanClaim = {
+  /** 'ordered' · 'ready' while an Ordered → Received item is on its way; 'received' once handed over. */
+  state: 'ordered' | 'ready' | 'received';
   number: number;
   guestName: string;
   service: string;
@@ -176,7 +195,7 @@ export type CoupleScanClaim = {
 export async function readCoupleScanClaims(supabase: SupabaseClient, eventId: string): Promise<CoupleScanClaim[] | null> {
   const embed = 'scan_number, claimed_at, method, coverage_id, vendor_profile_id, guests(first_name, last_name, display_name)';
   const [scans, souvenirs] = await Promise.all([
-    supabase.from('supplier_scan_claims').select(embed).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
+    supabase.from('supplier_scan_claims').select(`${embed}, state`).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
     // A souvenir handed out at a supplier's scanner is the desk's own row — listed here too, so this is the whole night.
     supabase
       .from('guest_souvenir_claims')
@@ -196,6 +215,7 @@ export async function readCoupleScanClaims(supabase: SupabaseClient, eventId: st
     method: 'supplier_qr' | 'supplier_nfc';
     coverage_id: number | string | null;
     vendor_profile_id: string | null;
+    state?: 'ordered' | 'ready' | 'received';
     guests: { first_name: string | null; last_name: string | null; display_name: string | null } | null;
   };
   const rows = [...((scans.data ?? []) as unknown as Row[]), ...((souvenirs.data ?? []) as unknown as Row[])];
@@ -222,6 +242,7 @@ export async function readCoupleScanClaims(supabase: SupabaseClient, eventId: st
       const g = r.guests;
       const name = g?.display_name?.trim() || `${g?.first_name ?? ''} ${g?.last_name ?? ''}`.trim() || 'A guest';
       return {
+        state: r.state ?? ('received' as const),
         number: r.scan_number,
         guestName: name,
         service: (r.coverage_id != null ? covLabel.get(String(r.coverage_id)) : null) ?? 'A service',
@@ -244,7 +265,7 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
     const admin = createAdminClient();
     const embed = 'claim_id, scan_number, claimed_at, method, coverage_id, vendor_profile_id, guests(first_name, last_name, display_name)';
     const [scans, souvenirs, labels] = await Promise.all([
-      admin.from('supplier_scan_claims').select(embed).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
+      admin.from('supplier_scan_claims').select(`${embed}, state`).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
       admin
         .from('guest_souvenir_claims')
         .select(embed)
@@ -265,6 +286,7 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
       method: 'supplier_qr' | 'supplier_nfc';
       coverage_id: number | string | null;
       vendor_profile_id: string | null;
+      state?: 'ordered' | 'ready' | 'received';
       guests: { first_name: string | null; last_name: string | null; display_name: string | null } | null;
     };
     const tagged = [
@@ -292,6 +314,7 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
         return {
           claimId: r.claim_id,
           kind,
+          state: r.state ?? ('received' as const),
           number: r.scan_number,
           guestName: g?.display_name?.trim() || `${g?.first_name ?? ''} ${g?.last_name ?? ''}`.trim() || 'A guest',
           service: (r.coverage_id != null ? covLabel.get(String(r.coverage_id)) : null) ?? 'A service',

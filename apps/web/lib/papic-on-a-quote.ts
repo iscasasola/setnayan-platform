@@ -80,8 +80,13 @@ export const VENDOR_SERVICE_CARDS_PATH = '/vendor-dashboard/services';
  */
 export type PapicQuoteStanding =
   | { kind: 'silent' }
-  | { kind: 'included'; basis: GiftQuoteBasis }
-  | { kind: 'available'; basis: GiftQuoteBasis }
+  /**
+   * `freeWithBadge` (owner 2026-11-05): a free booking fee — a badge reward — pays (or, being the shop's next one,
+   * will pay) this booking's fee, and "the gift belongs with the booking, not the bill": the couple still gets the
+   * gift, and NOTHING is billed to the supplier for it. RPC arms `'badge_reward'` / `'badge_reward_card_says_no'`.
+   */
+  | { kind: 'included'; basis: GiftQuoteBasis; freeWithBadge?: true }
+  | { kind: 'available'; basis: GiftQuoteBasis; freeWithBadge?: true }
   | { kind: 'free_booking' }
   /**
    * RPC `'fee_waived'` (2026-10-12, owner #7 "no fee, no couple gift — the
@@ -153,6 +158,10 @@ export function standingForGiftArm(
       return basis ? { kind: 'included', basis } : { kind: 'unreadable' };
     case 'card_says_no':
       return basis ? { kind: 'available', basis } : { kind: 'unreadable' };
+    case 'badge_reward':
+      return basis ? { kind: 'included', basis, freeWithBadge: true } : { kind: 'unreadable' };
+    case 'badge_reward_card_says_no':
+      return basis ? { kind: 'available', basis, freeWithBadge: true } : { kind: 'unreadable' };
     default:
       return { kind: 'unreadable' };
   }
@@ -198,8 +207,14 @@ export function standingForQuoteSwitch(
   switchOn: boolean | null | undefined,
 ): PapicQuoteStanding {
   if (switchOn == null) return standing;
-  if (standing.kind === 'included' && !switchOn) return { kind: 'available', basis: standing.basis };
-  if (standing.kind === 'available' && switchOn) return { kind: 'included', basis: standing.basis };
+  // The badge reward's "no bill" travels with the switch — it is about the FEE, not the switch.
+  const badge = standing.kind === 'included' || standing.kind === 'available' ? standing.freeWithBadge : undefined;
+  if (standing.kind === 'included' && !switchOn) {
+    return badge ? { kind: 'available', basis: standing.basis, freeWithBadge: true } : { kind: 'available', basis: standing.basis };
+  }
+  if (standing.kind === 'available' && switchOn) {
+    return badge ? { kind: 'included', basis: standing.basis, freeWithBadge: true } : { kind: 'included', basis: standing.basis };
+  }
   return standing;
 }
 
@@ -281,6 +296,17 @@ export function papicTopUpForQuote(
       // smallest rung) ⇒ the gift block renders nothing, so a bare "that is the
       // most" would qualify a sentence that is not on the screen.
       if (!gift) return null;
+      // 🏅 A free booking fee (badge reward) covers the fee AND the gift — nothing is billed (owner 2026-11-05).
+      if (standing.freeWithBadge) {
+        return {
+          tone: 'good',
+          headline: 'Papic deal · on — free with your badge reward.',
+          detail:
+            'Your free booking fee (a badge reward) pays this booking’s fee and covers the Papic photos above. ' +
+            'Nothing is billed to you, and your couple still gets the photos. It is used by your next booking ' +
+            'that would carry a fee.',
+        };
+      }
       return {
         tone: 'good',
         headline: 'Papic deal · on — that is the most this booking can carry.',
@@ -312,6 +338,17 @@ export function papicTopUpForQuote(
         };
       }
       const gift = previewGiftForTotal(totalCentavos, standing.basis);
+      // 🏅 Free with a badge reward: switching it on costs the supplier nothing (owner 2026-11-05).
+      if (standing.freeWithBadge && gift) {
+        return {
+          tone: 'info',
+          headline: `Papic deal · off — switch it on for ${formatGiftPhotos(gift.credits)} free photos, free to you.`,
+          cta,
+          detail:
+            'Your free booking fee (a badge reward) pays this booking’s fee, and it covers the Setnayan gift too — ' +
+            'switch it on and your couple gets the photos with nothing billed to you.',
+        };
+      }
       if (!gift) {
         return {
           tone: 'info',

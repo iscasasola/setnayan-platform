@@ -3462,7 +3462,11 @@
     },
     "/admin/gifts": {
       "files": [
+        "admin/gifts/_components/badge-rewards-ledger.tsx",
+        "admin/gifts/_components/badge-upgrades-ledger.tsx",
         "admin/gifts/_components/shop-gifts-ledger.tsx",
+        "admin/gifts/_components/take-back-reason-field.tsx",
+        "admin/gifts/badge-reward-actions.ts",
         "admin/gifts/page.tsx"
       ],
       "destinations": [
@@ -3475,11 +3479,16 @@
         "createFreeWindow",
         "issueCompGrant",
         "issueVendorSkuComp",
+        "revokeBadgeFeeWaiver",
         "revokeCompGrant",
         "setFreeWindowActive",
         "setVendorTier"
       ],
       "blocks": [
+        "BadgeRewardLedgerRow",
+        "BadgeRewardsLedger",
+        "BadgeUpgradeLedgerRow",
+        "BadgeUpgradesLedger",
         "CompGrantRow",
         "CoupleFreeWindowRow",
         "Link",
@@ -3488,6 +3497,8 @@
         "ShopGiftLedgerRow",
         "ShopGiftsLedger",
         "SubmitButton",
+        "TakeBackReasonField",
+        "TypedRow",
         "VendorGiftRow"
       ]
     },
@@ -12676,9 +12687,12 @@
         "startSubscriptionPurchase"
       ],
       "blocks": [
+        "BadgeUpgradesLedger",
+        "BadgeUpgradesSection",
         "BusinessDoing",
         "ConsolePlate",
         "DatesRow",
+        "GrantedReward",
         "HelpersView",
         "MarchRead",
         "NotificationsView",
@@ -16247,6 +16261,7 @@
         "T",
         "Tile",
         "TrackerFacts",
+        "TrackerRewardInput",
         "VendorTierGate",
         "VendorTierTeaser",
         "VerifiedMedianCard",
@@ -16888,6 +16903,8 @@
     "/vendor-dashboard/subscription": {
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
+        "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
+        "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
@@ -16897,6 +16914,7 @@
         "vendor-dashboard/subscription/_components/ultra-addons-card.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
+        "vendor-dashboard/subscription/badge-upgrade-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx",
@@ -16919,6 +16937,10 @@
       "blocks": [
         "ActionButton",
         "AiAddonCard",
+        "BadgeUpgradeChoice",
+        "BadgeUpgradeRow",
+        "BadgeUpgradesSection",
+        "BadgeUpgradesSectionData",
         "BookingFeeStanding",
         "BoothAddonCard",
         "Column",
@@ -16927,6 +16949,7 @@
         "Fold",
         "GridPageSkeleton",
         "Icon",
+        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16938,7 +16961,10 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "Sheet",
         "ShopNotice",
+        "StartBadgeUpgradeState",
+        "StartUpgradeSheet",
         "SubmitButton",
         "SupplierSubmit",
         "UltraAddonsCard",

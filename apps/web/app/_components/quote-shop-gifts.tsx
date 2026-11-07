@@ -57,11 +57,11 @@ export function QuoteShopGifts({
 }) {
   const [buying, setBuying] = useState(false);
   const verdict = useMemo(
-    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas),
+    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas, basis.rewardFree ?? null),
     [codes, basis, totalCentavos],
   );
   const menu = useMemo(
-    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas),
+    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.free, basis.eventHas, basis.rewardFree ?? null),
     [codes, basis, totalCentavos],
   );
   const smallest = alwaysAllowedPack(basis.packs);
@@ -81,7 +81,8 @@ export function QuoteShopGifts({
       <InfoTip label="Gifts from you" labelClassName="text-sm font-semibold text-ink" align="start">
         Gifts from your own stock. They leave your stock when the couple&rsquo;s first payment clears, and land on their
         event — Papic credits in its shared credits, Event Plus or Event Pro unlocked on it. A second Event Plus on an
-        event that already has one makes it Event Pro.
+        event that already has one makes it Event Pro. Gifts from your badge rewards are used first and sit outside this
+        booking&rsquo;s gift limit.
       </InfoTip>
 
       <div className="flex items-start justify-between gap-3 text-sm" data-testid="quote-shop-gifts-limit">
@@ -132,6 +133,12 @@ export function QuoteShopGifts({
                         : pack.kind === 'event_plus' && basis.eventHas === 'plus' && i === firstPlusIndex
                           ? 'They already have Event Plus — this makes it Event Pro'
                           : giftPackLine(pack)}
+                      {pack && verdict.fromReward[i] ? (
+                        <span className="font-medium text-success-700" data-testid="quote-shop-gift-reward">
+                          {' '}
+                          · Badge reward
+                        </span>
+                      ) : null}
                     </span>
                   </span>
                 </div>
@@ -144,13 +151,16 @@ export function QuoteShopGifts({
       {verdict.state === 'ok' ? (
         <p className="text-xs text-ink/60" data-testid="quote-shop-gifts-worth">
           Gifts worth {formatCentavos(verdict.valueCentavos)} at the price couples pay
+          {verdict.rewardCentavos > 0 ? ` · ${formatCentavos(verdict.rewardCentavos)} from badge rewards, outside the limit` : ''}
           {verdict.alwaysAllowed ? '' : ` · of ${formatCentavos(verdict.limitCentavos)}`}
           {leftAfter !== null ? ` · ${giftCount(leftAfter)} credits left in your stock after` : ''}
         </p>
       ) : verdict.state === 'over_limit' ? (
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-over">
           <b className="font-semibold">
-            Gifts worth {formatCentavos(verdict.valueCentavos)} · over the {formatCentavos(verdict.limitCentavos)} limit.
+            Gifts worth {formatCentavos(verdict.valueCentavos - verdict.rewardCentavos)}
+            {verdict.rewardCentavos > 0 ? ' (not counting badge rewards)' : ''} · over the{' '}
+            {formatCentavos(verdict.limitCentavos)} limit.
           </b>{' '}
           Not on this quote until it fits — remove a gift or raise the booking.
         </p>

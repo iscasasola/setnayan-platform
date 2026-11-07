@@ -91,7 +91,10 @@ import { formatCount } from '@/lib/format-number';
 import { BusinessDoing, type DoingWindow } from './_components/business-doing';
 import { YourBadges } from './_components/your-badges';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { badgeShelf, badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
+import { badgeShelf, badgeTracker, type TrackerFacts, type TrackerRow } from '@/lib/shop-badges';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
+import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
 import {
   barHeights,
   businessSentence,
@@ -225,9 +228,22 @@ export default async function PerformanceHome({
     null,
     'badges',
   );
+  // 🎁 …and each badge's reward + 4-week upgrade (owner 2026-11-05 · table approved 2026-11-06): measured, paid once
+  // if newly earned, then read — so a reward shows the moment its badge does. Chained on the facts (no extra wait
+  // beside Batch A). A failure leaves the rows without reward lines; it never fails the page.
+  const badgeRewardsRead: Promise<TrackerRewardInput | null> = badgeFactsRead.then((facts) =>
+    facts
+      ? readBadgeRewardTracker(createAdminClient(), profile.vendor_profile_id, facts).catch((err: unknown) => {
+          logQueryError('PerformancePage.badgeRewards', err, { vendorProfileId: profile.vendor_profile_id });
+          return null;
+        })
+      : null,
+  );
+  const trackerRows = (facts: TrackerFacts | null, rewards: TrackerRewardInput | null): TrackerRow[] | null =>
+    facts ? (rewards ? badgeRowsWithRewards(badgeTracker(facts), rewards) : badgeTracker(facts)) : null;
 
   if (gateOn && !canSeePerformanceTrends(tier)) {
-    const gatedFacts = await badgeFactsRead;
+    const [gatedFacts, gatedRewards] = await Promise.all([badgeFactsRead, badgeRewardsRead]);
     const gatedShelf = badgeShelf(gatedFacts);
     return (
       <>
@@ -237,7 +253,7 @@ export default async function PerformanceHome({
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
           <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
           <div className="mt-6">
-            <YourBadges shelf={gatedShelf} rows={gatedFacts ? badgeTracker(gatedFacts) : null} />
+            <YourBadges shelf={gatedShelf} rows={trackerRows(gatedFacts, gatedRewards)} />
           </div>
         </div>
       <VendorTierGate
@@ -452,7 +468,7 @@ export default async function PerformanceHome({
       : null,
   );
   const shelf = badgeShelf(badgeFacts);
-  const badgeRows = badgeFacts ? badgeTracker(badgeFacts) : null;
+  const badgeRows = trackerRows(badgeFacts, await badgeRewardsRead);
 
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;

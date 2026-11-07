@@ -136,7 +136,7 @@ export async function quoteSetnayanGift(
      */
     quoteSwitch?: boolean | null;
   },
-): Promise<SetnayanGift | null> {
+): Promise<(SetnayanGift & { freeWithBadge?: true }) | null> {
   if (!isBookingFeeEnabled()) return null; // no fee is ever billed ⇒ no gift
   if (!Number.isFinite(args.amountCentavos) || args.amountCentavos <= 0) return null;
 
@@ -148,7 +148,12 @@ export async function quoteSetnayanGift(
     console.error('[supabase-error] setnayan-gift: setnayan_gift_quote_applies (quote)', error);
     return null;
   }
-  const arm = typeof applies === 'string' ? applies : '';
+  // 🏅 A free booking fee (badge reward) pays — or, as the shop's next one, will pay — this booking's fee, and the
+  // couple still gets the gift with nothing billed (owner 2026-11-05). Same promise as `applies` / `card_says_no`;
+  // only who pays differs, and that rides on the returned gift as `freeWithBadge`.
+  const rawArm = typeof applies === 'string' ? applies : '';
+  const freeWithBadge = rawArm === 'badge_reward' || rawArm === 'badge_reward_card_says_no';
+  const arm = rawArm === 'badge_reward' ? 'applies' : rawArm === 'badge_reward_card_says_no' ? 'card_says_no' : rawArm;
 
   /*
     ⚠ THE LADDER IS NOW READ FOR `card_says_no` TOO — one extra pair of reads on
@@ -176,6 +181,6 @@ export async function quoteSetnayanGift(
 
   const feeCentavos = Math.round(bookingFeePhp(args.amountCentavos / 100, schedule) * 100);
   const gift = setnayanGiftForFee(feeCentavos, ladder, { giftPrice });
-  return gift.credits > 0 ? gift : null;
+  return gift.credits > 0 ? (freeWithBadge ? { ...gift, freeWithBadge: true } : gift) : null;
 }
 

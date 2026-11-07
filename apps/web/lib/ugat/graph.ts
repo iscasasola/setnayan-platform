@@ -2285,6 +2285,27 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'vendor_proposal_shop_gifts', column: 'credits' },
+      // 🏅 BADGE REWARDS (owner 2026-11-05) — what each badge GAVE the shop, once per (shop, reward_key). Papic /
+      // Event Plus / Event Pro land in the SAME gift stock as a 'badge_reward' row (badge_reward_id, UNIQUE); a quote
+      // line paid from it is marked from_badge_reward and sits outside the 40% limit; a free booking fee is used by
+      // booking_fee_open_lock_charge, which names it on the charge (booking_fee_charges.badge_reward_id, UNIQUE).
+      { kind: 'table', table: 'shop_badge_rewards' },
+      { kind: 'fk', table: 'shop_badge_rewards', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'shop_badge_rewards', column: 'used_on_charge_id', references: 'booking_fee_charges' },
+      { kind: 'column', table: 'shop_badge_rewards', column: 'reward_key' },
+      { kind: 'check', table: 'shop_badge_rewards', name: 'shop_badge_rewards_waiver_is_one', mentions: 'units' },
+      // A reward is a count, never a price — the ₱ is the catalogue's.
+      { kind: 'no_column', table: 'shop_badge_rewards', column: 'price_php' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'badge_reward_id', references: 'shop_badge_rewards' },
+      { kind: 'fk', table: 'booking_fee_charges', column: 'badge_reward_id', references: 'shop_badge_rewards' },
+      { kind: 'column', table: 'vendor_proposal_shop_gifts', column: 'from_badge_reward' },
+      // ⏱ Badge upgrades (owner 2026-11-06): four weeks of an add-on for the shop itself, ready until Start —
+      // shop_badge_upgrade_start extends the add-on's own vendor_profiles expiry. Never stock, never a price.
+      { kind: 'table', table: 'shop_badge_upgrades' },
+      { kind: 'fk', table: 'shop_badge_upgrades', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'shop_badge_upgrades', column: 'reward_key' },
+      { kind: 'check', table: 'shop_badge_upgrades', name: 'shop_badge_upgrades_started_together', mentions: 'ends_at' },
+      { kind: 'no_column', table: 'shop_badge_upgrades', column: 'price_php' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
@@ -2295,7 +2316,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by the badge page, Today’s badge-facts read and the admin’s manual award; the one reward table is lib/badge-rewards.ts) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:

@@ -16,7 +16,7 @@ import { eventHubViewOf } from '@/lib/event-hub-views';
 import type { EventYouRun } from '@/lib/events-you-run';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import type { EventScanService } from '@/lib/supplier-scan.server';
-import type { ScanAnswer } from '@/lib/supplier-scan';
+import type { ScanAnswer, ScanNumberRow } from '@/lib/supplier-scan';
 
 const at = (hhmm: string) => `2026-12-18T${hhmm}:00Z`; // the venue's wall clock in a UTC column
 const block = (id: string, hhmm: string, label: string, run_state: RunOfShowBlock['run_state']): RunOfShowBlock => ({
@@ -70,6 +70,8 @@ const SCAN_SERVICES: Record<string, EventScanService[] | 'unreadable'> = {
   // Group session (slice 3): shot #0107 open with 3 guests; 41 shots so far.
   group: [{ coverageId: 5, label: 'Photo booth', mode: 'group_session', tally: { claimed: 88, total: 118, lastNumber: 107, souvenir: false, ordered: 9, ready: 6, served: 0, unique: 103, sessions: 41, open: { number: 107, guests: 3 } } }],
   'group-idle': [{ coverageId: 5, label: 'Photo booth', mode: 'group_session', tally: { claimed: 88, total: 118, lastNumber: 106, souvenir: false, ordered: 6, ready: 6, served: 0, unique: 100, sessions: 40, open: null } }],
+  // Roaming (slice 4): shot #0231 open with 2 guests.
+  roaming: [{ coverageId: 6, label: 'Photo & video', mode: 'roaming', tally: { claimed: 57, total: 118, lastNumber: 231, souvenir: false, ordered: 4, ready: 8, served: 0, unique: 70, sessions: 64, open: { number: 231, guests: 2 } } }],
   prints: [{ coverageId: 3, label: 'Photo booth prints', mode: 'ordered_received', tally: { claimed: 20, total: 118, lastNumber: 38, souvenir: false, ordered: 12, ready: 3, served: 0, unique: 0, sessions: 0, open: null } }],
 };
 const SCAN_ANSWERS: Record<string, ScanAnswer> = {
@@ -87,7 +89,17 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   added: { outcome: 'added', number: 107, guests: 3 },
   'picked-up': { outcome: 'picked_up', number: 107, claimed: 3, of: 5 },
   'no-session': { outcome: 'no_session' },
+  'roam-added': { outcome: 'added', number: 231, guests: 2, mode: 'roaming' },
 };
+
+const at2 = (hhmm: string) => `2026-12-18T${hhmm}:00+08:00`;
+/** `&numbers=1` — "Your numbers" drawn open on lab rows (frames D · F). */
+const LAB_NUMBERS: ScanNumberRow[] = [
+  { number: 43, guests: 1, ordered: 1, ready: 0, received: 0, firstAt: at2('20:05'), readyAt: null, receivedAt: null, prints: null, open: false },
+  { number: 42, guests: 3, ordered: 0, ready: 3, received: 0, firstAt: at2('19:41'), readyAt: at2('19:58'), receivedAt: null, prints: 3, open: false },
+  { number: 41, guests: 2, ordered: 0, ready: 0, received: 2, firstAt: at2('19:36'), readyAt: at2('19:50'), receivedAt: at2('20:01'), prints: 2, open: false },
+  { number: 40, guests: 5, ordered: 0, ready: 2, received: 3, firstAt: at2('19:30'), readyAt: at2('19:45'), receivedAt: at2('19:59'), prints: 5, open: false },
+];
 
 /**
  * 🗓 The run of show after a Change the schedule (2026-11-04): `moved` = Guests arrive moved later 10 min, the parts after
@@ -101,7 +113,7 @@ function blocksAfter(state: string | undefined): RunOfShowBlock[] {
   return BLOCKS;
 }
 
-export function EventHubLab({ view: rawView, scan, answer, state }: { view?: string; scan?: string; answer?: string; state?: string }) {
+export function EventHubLab({ view: rawView, scan, answer, numbers, state }: { view?: string; scan?: string; answer?: string; numbers?: string; state?: string }) {
   const view = eventHubViewOf(rawView);
   const blocks = blocksAfter(state);
   return (
@@ -132,6 +144,7 @@ export function EventHubLab({ view: rawView, scan, answer, state }: { view?: str
             floorIsYours={!scan}
             scan={scan ? (SCAN_SERVICES[scan] ?? []) : []}
             scanAnswer={answer ? (SCAN_ANSWERS[answer] ?? null) : null}
+            scanNumbers={numbers === '1' ? LAB_NUMBERS : null}
           />
         ) : view === 'announce' ? (
           <EventHubAnnounce

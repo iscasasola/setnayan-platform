@@ -29,7 +29,7 @@ export const SCAN_MODES: readonly { key: ScanMode; label: string; line: string }
 ];
 
 /** The modes that RUN today — the dropdown's options, and the database CHECK's list. */
-export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received', 'unlimited', 'group_session'];
+export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received', 'unlimited', 'group_session', 'roaming'];
 
 /** The modes whose number belongs to a SHOT (one number, many guests): Group session, and Roaming (slice 4). */
 export function isSessionMode(mode: ScanMode): boolean {
@@ -96,7 +96,7 @@ export type ScanAnswer =
   // Unlimited (slice 3): every scan counts, a new number each time.
   | { outcome: 'served'; number: number; served: number; unique: number; name?: string | null }
   // Group session (slice 3): everyone in the shot shares one number; pickups read "k of n".
-  | { outcome: 'added'; number: number; guests: number; name?: string | null }
+  | { outcome: 'added'; number: number; guests: number; name?: string | null; mode?: ScanMode }
   | { outcome: 'in_session'; number: number; guests: number; name?: string | null }
   | { outcome: 'picked_up'; number: number; claimed: number; of: number; name?: string | null }
   | { outcome: 'no_session' }
@@ -142,7 +142,10 @@ export function scanAnswerWords(a: ScanAnswer): ScanWords {
         line: a.name ?? `${formatCount(a.unique)} ${a.unique === 1 ? 'guest' : 'guests'} so far`,
       };
     case 'added':
-      return { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? 'Scan everyone in the shot, then Done.' };
+      // Roaming (slice 4): no station — scan the guests in frame, then shoot (prototype C′ "#0231 · 2 guests · shoot").
+      return a.mode === 'roaming'
+        ? { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'} · shoot`, line: a.name ?? 'Scan everyone in frame, then take the photo.' }
+        : { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? 'Scan everyone in the shot, then Done.' };
     case 'in_session':
       return { tone: 'quiet', title: `Already in ${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? null };
     case 'picked_up':
@@ -274,6 +277,9 @@ export type SupplierScanRequest =
   | { op: 'ready'; eventId: string; coverageId: number; number: number }
   | { op: 'numbers'; eventId: string; coverageId: number }
   | { op: 'session_open'; eventId: string; coverageId: number }
+  // Slice 5 — the guest's optional review of a SHOP after "received" (their pass decides who they are, never this
+  // request). It writes through the ONE guest-review writer (`submitGuestReview`, owner 2026-11-06); stars null = "Not now".
+  | { op: 'guest_review'; eventId: string; vendorProfileId: string; stars: number | null; line: string | null; shownAs: 'name' | 'initials' }
   | { op: 'session_done'; eventId: string; coverageId: number; prints: number | null }
   | { op: 'claim'; eventId: string; coverageId: number; raw: string; via: 'qr' | 'nfc' }
   | { op: 'admin_remove'; eventId: string; kind: 'scan' | 'souvenir'; claimId: string };
@@ -283,6 +289,7 @@ export type SupplierScanReply =
   | { op: 'ready'; result: { ok: true; told: number } | { ok: false; error: string } }
   | { op: 'numbers'; result: ScanNumberRow[] | null }
   | { op: 'session_open'; result: { ok: true; number: number; guests: number } | { ok: false; error: string } }
+  | { op: 'guest_review'; result: { ok: true; saved: boolean } | { ok: false; error: string } }
   | {
       op: 'session_done';
       result:
@@ -297,4 +304,48 @@ export type SupplierScanReply =
 /** A shot's prints: one per guest by default, the operator's –/+ kept within 1–99. */
 export function clampPrints(n: number): number {
   return Math.min(99, Math.max(1, Math.round(Number.isFinite(n) ? n : 1)));
+}
+
+// ── Slice 5 — the guest's optional review after "received" (DECISION_LOG 2026-09-25) ──────────────────────────────
+
+/** The rating dropdown (a set of choices is a dropdown — house rule): five stars down to one, each said in words. */
+export const REVIEW_STAR_OPTIONS: readonly { key: string; label: string }[] = [
+  { key: '5', label: '★★★★★ Loved it' },
+  { key: '4', label: '★★★★ Really good' },
+  { key: '3', label: '★★★ Okay' },
+  { key: '2', label: '★★ Not great' },
+  { key: '1', label: '★ Poor' },
+];
+
+/** The same ceiling as the one guest-review store (`GUEST_REVIEW_LINE_MAX`, its table CHECK). */
+export const REVIEW_LINE_MAX = 140;
+
+/** The card's question: "How was the Photo booth?" */
+export function reviewAskWords(service: string): string {
+  return `How was the ${service}?`;
+}
+
+/** One proof that a guest got something from a shop: a scanner claim RECEIVED, or a souvenir that shop's scanner handed over. */
+export type ReviewAskProof = {
+  vendor_profile_id: string | null;
+  coverage_id: number | string | null;
+  claimed_at: string;
+};
+
+/**
+ * ⭐ Which shops to ask a guest about, and which service names each question — the pure half of `readGuestReviewAsks`.
+ * A proof counts only when it names a shop (a souvenir from the couple's own desk names none, and proves presence for
+ * nobody's scanner — the same rule `vendor_guest_review_submit` applies). One ask per shop: its EARLIEST proof names
+ * the service. A shop the guest already reviewed or answered "Not now" to is never asked again.
+ * Returns shop → coverage id (or null when the proof carries no service).
+ */
+export function openReviewAsks(proofs: readonly ReviewAskProof[], answered: ReadonlySet<string>): Map<string, string | null> {
+  const open = new Map<string, string | null>();
+  const ordered = [...proofs].sort((a, b) => a.claimed_at.localeCompare(b.claimed_at));
+  for (const p of ordered) {
+    const vp = p.vendor_profile_id;
+    if (!vp || answered.has(vp) || open.has(vp)) continue;
+    open.set(vp, p.coverage_id == null ? null : String(p.coverage_id));
+  }
+  return open;
 }

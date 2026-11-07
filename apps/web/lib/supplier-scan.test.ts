@@ -6,7 +6,8 @@
  *   2. the dropdown offers exactly the BUILT modes, and the newest CHECK on `supplier_scan_settings.mode` accepts exactly
  *      those — a mode the code cannot run can never be saved;
  *   3. "#0042" is the one number format; the answer draws no name unless the action handed one in (the first name, after a recorded claim);
- *   4. NFC: every place says what works there, and only that.
+ *   4. NFC: every place says what works there, and only that;
+ *   5. the review pop-up asks once per shop, from a received claim OR a souvenir that shop's scanner handed over.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,6 +30,7 @@ import {
   tallyWords,
   scannerChoiceOptions,
   scannerChoiceToSetting,
+  openReviewAsks,
 } from './supplier-scan';
 import { TAXONOMY_MAP } from './taxonomy';
 
@@ -130,4 +132,36 @@ test('6 · Unlimited and Group session: their words, and prints kept within 1–
   assert.equal(clampPrints(140), 99);
   assert.ok(isSessionMode('group_session'));
   assert.ok(!isSessionMode('unlimited'));
+});
+
+test('7 · Roaming: scan the guests in frame, then shoot; the count is Shots · Ready · Claimed', () => {
+  assert.equal(scanAnswerWords({ outcome: 'added', number: 231, guests: 2, mode: 'roaming' }).title, '#0231 · 2 guests · shoot');
+  assert.equal(tallyWords('roaming', { claimed: 5, total: 118, ready: 2, sessions: 9 }), 'Shots 9 · Ready 2 · Claimed 5');
+});
+
+test('8 · the guest review: five choices in one dropdown, said in words; one line at most 140', async () => {
+  const { REVIEW_STAR_OPTIONS, REVIEW_LINE_MAX, reviewAskWords } = await import('./supplier-scan');
+  assert.deepEqual(REVIEW_STAR_OPTIONS.map((o) => o.key), ['5', '4', '3', '2', '1']);
+  assert.equal(REVIEW_LINE_MAX, 140, 'the database CHECK says 140');
+  assert.equal(reviewAskWords('Photo booth'), 'How was the Photo booth?');
+});
+
+test('5 · the review pop-up asks once per shop — a received claim or a shop souvenir — and never a desk souvenir', () => {
+  const open = openReviewAsks(
+    [
+      { vendor_profile_id: 'booth', coverage_id: 12, claimed_at: '2099-12-18T10:05:00Z' },
+      { vendor_profile_id: 'booth', coverage_id: 11, claimed_at: '2099-12-18T10:00:00Z' },
+      { vendor_profile_id: 'jars', coverage_id: '40', claimed_at: '2099-12-18T11:00:00Z' },
+      { vendor_profile_id: null, coverage_id: null, claimed_at: '2099-12-18T09:00:00Z' },
+      { vendor_profile_id: 'done', coverage_id: 7, claimed_at: '2099-12-18T08:00:00Z' },
+      { vendor_profile_id: 'bare', coverage_id: null, claimed_at: '2099-12-18T12:00:00Z' },
+    ],
+    new Set(['done']),
+  );
+  assert.deepEqual([...open.entries()], [
+    ['booth', '11'],
+    ['jars', '40'],
+    ['bare', null],
+  ]);
+  assert.equal(openReviewAsks([], new Set()).size, 0);
 });

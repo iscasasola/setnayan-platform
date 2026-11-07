@@ -78,21 +78,6 @@ export function isEventSignup(input: { ref: string | null | undefined; next: str
 }
 
 /**
- * The welcome email a new account is sent, or NULL for none. A guest from an
- * invitation gets NOTHING from here: "Your couple account is ready… create your
- * event" is a sentence about somebody else's plans, and the invitation's own
- * sign-in link is the only email that guest was expecting.
- */
-export function welcomeEmailKind(input: {
-  accountType: SignupAccountType;
-  fromEvent: boolean;
-}): 'couple' | 'vendor' | null {
-  if (input.accountType === 'vendor') return 'vendor';
-  if (input.fromEvent) return null;
-  return 'couple';
-}
-
-/**
  * After `signUp` signs the new account in: couples meet the You card; vendors go
  * straight on (their `next` is already `/open-shop`, whose step 3 asks the name);
  * a guest from an invitation goes straight back to it.

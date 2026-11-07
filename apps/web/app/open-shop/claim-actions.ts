@@ -9,7 +9,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken, opensTheClaimDoor } from '@/lib/vendor-invites';
 import { readClaimAccountVerdict } from '@/lib/claim-account-gate.server';
-import { CLAIM_DOOR_FIELD, claimDoorHref, parseClaimDoorAnswers } from '@/lib/claim-door';
+import { CLAIM_DOOR_FIELD, claimDoorHref, parseClaimDoorAnswers, splitClaimCards } from '@/lib/claim-door';
+import { readClaimDoor } from '@/lib/claim-door.server';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { parseVendorPhone } from '@/lib/phone-rules';
 import { resolvePickedLeaf } from '@/lib/open-shop-service-tree';
@@ -105,6 +106,15 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
 
   const answers = parseClaimDoorAnswers(formData.get(CLAIM_DOOR_FIELD));
   if (!answers) redirect(`${door}&error=${encodeURIComponent('Something went wrong. Please go through the steps again.')}`);
+
+  // 🔒 THE COUPLE'S BUNDLE IS THE COUPLE'S RECORD (owner 7 Nov: "on the sign up the supplier can add more services but
+  // not add them to the customers bundle"). Which services the couple recorded is read HERE, from the record — the
+  // post only says which card is which. A refused read stops before any write (the link stays unspent).
+  const recordRead = await readClaimDoor(token).catch(() => null);
+  if (!recordRead?.open) redirect(`${door}&error=${encodeURIComponent('Could not read the invite. Please try again.')}`);
+  const recorded = new Set(recordRead.record.services.map((s) => s.category));
+  // `theirs` = the couple's bundle · `added` = the supplier's own cards (never bundled, never in the package).
+  const { theirs, added } = splitClaimCards(answers.cards, recorded);
 
   // ── THE SHOP — the shipped find-or-open ──────────────────────────────────────────────────────────────────────────
   // A couple's link: `claim_ready_the_shop`, which fills only its BLANK name + service from the couple's record and
@@ -202,8 +212,9 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // `createVendorService` answers with a redirect (to `?saved=1` or `?error=`); it is read, never followed, so the
   // finish goes on to the next card. Its refusals (the plan's category cap, a phone number in an inclusion) are the
   // maker's own, and a card it refused is simply not made — the Today checklist still asks for it.
+  // The couple's cards, then the supplier's own — each added service is its own card on the shop, priced on its own.
   const made: string[] = [];
-  for (const card of answers.cards) {
+  for (const card of [...theirs, ...added]) {
     if (card.bundled || !card.price) continue;
     const fd = new FormData();
     fd.set('category', card.leaf ?? card.category);
@@ -228,15 +239,17 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   }
 
   // ── THE BUNDLE — the couple's confirmed price, through the SHIPPED package maker (dark while its flag is off) ──────
-  const total = answers.cards.find((c) => !c.bundled)?.price ?? null;
-  if (answers.bundle?.name && total && answers.cards.length > 0) {
+  // Only the couple's recorded services, at their confirmed price, plus their own extra lines. A service the supplier
+  // added is never in it.
+  const total = theirs.find((c) => !c.bundled)?.price ?? null;
+  if (answers.bundle?.name && total && theirs.length > 0) {
     const res = await savePackage({
       package_name: answers.bundle.name,
       total_price_centavos: total * 100,
       consumable_budget_centavos: 0,
       is_consumable_flexible: false,
       items: [
-        ...answers.cards.map((c, i) => ({
+        ...theirs.map((c, i) => ({
           ref: `card-${i}`,
           service_description: c.name,
           canonical_service: c.leaf ?? c.category,
@@ -248,7 +261,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
         ...answers.bundle.extras.map((x, i) => ({
           ref: `extra-${i}`,
           service_description: x,
-          canonical_service: answers.cards[0]?.leaf ?? answers.cards[0]?.category ?? '',
+          canonical_service: theirs[0]?.leaf ?? theirs[0]?.category ?? '',
           is_default_included: true,
           is_required: false,
           replacement_value_centavos: 0,

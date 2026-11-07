@@ -226,8 +226,14 @@ export function ClaimDoor({
   const next = () => go(order[Math.min(order.length - 1, at + 1)]!);
   const back = () => go(order[Math.max(0, at - 1)]!);
   // The cards follow the services: one per service, in order; a card the supplier touched keeps its words.
+  // 🔒 Only a service the COUPLE recorded can be part of their bundle (owner 7 Nov: "the supplier can add more services
+  // but not add them to the customers bundle"). A service the supplier adds is its own card, priced on its own.
   const syncCards = (services: Picked[]) =>
-    services.map((s, i) => d.cards.find((c) => c.name === s.label) ?? { name: s.label, price: '', inclusions: [], bundled: i > 0 && !!record.price, specialties: {} });
+    services.map((s, i) => {
+      const kept = d.cards.find((c) => c.name === s.label);
+      if (kept) return s.fromRecord ? kept : { ...kept, bundled: false };
+      return { name: s.label, price: '', inclusions: [], bundled: s.fromRecord && i > 0 && !!record.price, specialties: {} };
+    });
 
   const meter = d.services.map((s) => ({ categoryId: s.tileId ?? (s.leaf ? tileOfLeaf.get(s.leaf)?.tileId : null) ?? s.category, categoryLabel: s.label }));
   const split = planSplit(meter);
@@ -245,7 +251,8 @@ export function ClaimDoor({
       leaf: d.services[i]?.leaf ?? null,
       price: Number(digits(c.price)) || null,
       inclusions: c.inclusions.map((l) => l.trim()).filter(Boolean),
-      bundled: c.bundled,
+      bundled: c.bundled && d.services[i]?.fromRecord === true,
+      fromRecord: d.services[i]?.fromRecord === true,
     })),
     bundle: { name: d.bundleName.trim(), extras: d.extras.map((x) => x.trim()).filter(Boolean) },
     specialties: Object.fromEntries(
@@ -573,7 +580,10 @@ export function ClaimDoor({
     const i = Number(d.screen.slice(5));
     const c = d.cards[i]!;
     const s = d.services[i];
-    const first = d.cards.find((x) => !x.bundled);
+    const first = d.cards.find((x, m) => !x.bundled && d.services[m]?.fromRecord === true);
+    // A service the supplier added on the door: its own card on the shop, never part of the couple's booking.
+    const added = s?.fromRecord === false;
+    const inBundle = c.bundled && !added;
     const fields = s?.leaf ? specialties[s.leaf] ?? [] : [];
     // The couple named a CATEGORY; when it holds several services, the supplier may say which (optional — a dropdown,
     // the house rule for a set of choices). Picking one is what offers its specialties.
@@ -582,9 +592,11 @@ export function ClaimDoor({
       set({ services: d.services.map((x, m) => (m === i ? { ...x, leaf } : x)), cards: d.cards.map((x, m) => (m === i ? { ...x, specialties: {} } : x)) });
     const setCard = (patch: Partial<Card>) => set({ cards: d.cards.map((x, m) => (m === i ? { ...x, ...patch } : x)) });
     title = c.name || s?.label || 'Service card';
-    line = c.bundled
+    line = inBundle
       ? 'Part of their booking — nothing else is needed here.'
-      : team
+      : added
+        ? `Your own service — on your shop, priced on its own. Not part of ${team ? 'your invite' : `${record.inviterName}’s booking`}.`
+        : team
         ? 'Your service card — add your starting price and what’s included.'
         : 'Your service card — their confirmed price and lines, already in.';
     body = (
@@ -593,9 +605,9 @@ export function ClaimDoor({
           Card {formatCount(i + 1)} of {formatCount(d.cards.length)}
           {team ? '' : ` · for ${record.inviterName}`}
         </p>
-        {team
+        {team || added
           ? null
-          : c.bundled
+          : inBundle
           ? band(
               <>
                 Part of the <b>{peso(d.price)}</b> bundle {record.inviterName} confirmed — priced on the <b>{first?.name ?? 'first'}</b> card.
@@ -607,7 +619,7 @@ export function ClaimDoor({
               </>,
             )}
         {field('Service name', <Box value={c.name} maxLength={80} onChange={(e) => setCard({ name: e.target.value })} />, <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>Written for you · change it if you like</p>)}
-        {c.bundled ? (
+        {inBundle ? (
           <span>
             <ActionButton tone="neutral" icon={Tag} label="Price it on its own" onClick={() => setCard({ bundled: false })} />
           </span>
@@ -687,6 +699,8 @@ export function ClaimDoor({
     );
     primary = { label: order[at + 1]?.startsWith('card:') ? 'Next card' : 'Continue', onClick: next };
   } else if (d.screen === 'bundle') {
+    const theirCards = d.cards.filter((_, i) => d.services[i]?.fromRecord === true);
+    const ownCards = d.cards.filter((_, i) => d.services[i]?.fromRecord !== true);
     title = 'Your bundle';
     line = `What ${record.inviterName} booked, as one package.`;
     body = (
@@ -706,13 +720,19 @@ export function ClaimDoor({
             What’s included
           </span>
           <ul className="grid divide-y border-y text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>
-            {d.cards.map((c, i) => (
+            {/* 🔒 The couple's bundle = the services THEY recorded. One the supplier added is never listed here. */}
+            {theirCards.map((c, i) => (
               <li key={i} className="flex min-h-11 items-center justify-between gap-2">
                 <span style={{ color: 'var(--m-ink)' }}>{c.name}</span>
                 <small style={{ color: 'var(--m-slate-3)' }}>your service card{c.price && !c.bundled ? ` · from ${peso(c.price)}` : ''}</small>
               </li>
             ))}
           </ul>
+          {ownCards.length > 0 ? (
+            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-own-cards="">
+              Not in this bundle: {ownCards.map((c) => c.name).join(' · ')} — your own {ownCards.length === 1 ? 'card' : 'cards'} on your shop.
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-1">
           <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>

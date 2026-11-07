@@ -3571,6 +3571,7 @@
         "MayaCard",
         "OAuthCard",
         "PageMasthead",
+        "PasswordField",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -4237,6 +4238,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -5565,6 +5567,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -5903,6 +5906,7 @@
         "dashboard/[eventId]/_components/services-covered-picker.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
         "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
+        "dashboard/[eventId]/_components/sheet-lines.tsx",
         "dashboard/[eventId]/_components/std-media-picker.tsx",
         "dashboard/[eventId]/_components/supplier-connect-panel.tsx",
         "dashboard/[eventId]/_components/supplier-share-button.tsx",
@@ -5994,6 +5998,7 @@
         "AddOwnStep",
         "AddressPinField",
         "AfterSummary",
+        "AlsoCoversPicker",
         "AppPreload",
         "AppRailShell",
         "AppStoreTransactions",
@@ -6013,6 +6018,7 @@
         "BroadcastCardData",
         "Card",
         "ChannelToggle",
+        "ChosenProofField",
         "ChosenRow",
         "ClusterHead",
         "CohostWelcome",
@@ -6153,6 +6159,7 @@
         "Icon",
         "Image",
         "ImpactResult",
+        "InclusionLines",
         "InfoTip",
         "InlineCheckoutDrawer",
         "InspectorColumn",
@@ -6166,6 +6173,7 @@
         "LevelAsk",
         "LevelSeat",
         "LifecyclePhase",
+        "LineGrip",
         "LineItemSection",
         "Link",
         "LinkBody",
@@ -6204,6 +6212,7 @@
         "OverviewDecisionInspector",
         "OverviewWatchInspector",
         "PageMasthead",
+        "PaidAtAdd",
         "PaidMark",
         "PaidServiceRow",
         "PapicBuySheet",
@@ -6282,6 +6291,7 @@
         "SearchHead",
         "SendBroadcastResult",
         "ServiceGlanceRow",
+        "ServiceLines",
         "ServiceRow",
         "ServiceTileFace",
         "ServicesCard",
@@ -6310,6 +6320,7 @@
         "SupplierShareButton",
         "SupplierShareResult",
         "Suspense",
+        "SwipeToDelete",
         "SwitchTrack",
         "TeamMeta",
         "TinyAction",
@@ -8250,7 +8261,9 @@
         "dashboard/[eventId]/memories/page.tsx",
         "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/memories/download-all"
+      ],
       "actions": [],
       "blocks": [
         "AddToLibrary",
@@ -8260,6 +8273,7 @@
         "InfoTip",
         "InlineCheckoutDrawer",
         "LifeFlashCard",
+        "Link",
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
@@ -8273,6 +8287,20 @@
         "ServiceParts",
         "Spotlight",
         "UploadsOpenChoice"
+      ]
+    },
+    "/dashboard/[eventId]/memories/download-all": {
+      "files": [
+        "dashboard/[eventId]/memories/download-all/download-all-parts.tsx",
+        "dashboard/[eventId]/memories/download-all/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DownloadAllParts",
+        "InfoTip",
+        "OpenFileLink",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -10354,6 +10382,7 @@
         "OverlayBackdrop",
         "OwnPayWays",
         "PageMasthead",
+        "PaidAtAdd",
         "PayDueCtx.Provider",
         "PaySheet",
         "PayWayView",
@@ -10764,6 +10793,7 @@
         "dashboard/[eventId]/website/editor/_components/our-music.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
+        "dashboard/[eventId]/website/editor/_components/pick-done-row.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-off-row.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
         "dashboard/[eventId]/website/editor/_components/pick-menu-types.ts",
@@ -10959,6 +10989,7 @@
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PhotoTile",
+        "PickDoneRow",
         "PickListPlacement",
         "PickMenu",
         "PickOffRow",
@@ -11341,11 +11372,14 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AddManualSupplierResult",
         "CanvasMaker",
         "CoupleLinkDoor",
+        "LabAdd",
         "LabCard",
         "LabRecord",
         "NewManualVendorModal",
+        "ShellBoundaryProvider",
         "SupplierShareStandInCtx.Provider",
         "UpdateSelfAddedSupplierResult"
       ]
@@ -13031,6 +13065,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13136,6 +13171,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "SignInCard",
         "SignInCardModal",
         "SignInInPlaceState",
@@ -13303,6 +13339,7 @@
         "OnboardingVendorCounts",
         "OwnVenueForm",
         "PCard",
+        "PasswordField",
         "PaxCard",
         "PickCard",
         "PickMenu",
@@ -13369,6 +13406,7 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "PasswordField",
         "PickMenu",
         "ServicePicker",
         "SignInHereLink",
@@ -13906,6 +13944,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13993,6 +14032,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "Sk",
         "SubmitButton",
         "TermsFirst",

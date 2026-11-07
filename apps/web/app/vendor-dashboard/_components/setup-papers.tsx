@@ -186,7 +186,7 @@ function PaperRow({
   const tile = (
     <span
       aria-hidden
-      className="grid h-11 w-11 flex-none place-items-center overflow-hidden rounded-[10px] border border-ink/10 bg-ink/[0.04] text-ink/55"
+      className="grid h-11 w-11 flex-none place-items-center overflow-hidden rounded-lg bg-ink/[0.06] text-ink/55"
       data-setup-paper-thumb={hasFile ? (thumb ? 'image' : 'file') : held ? 'held' : 'number'}
     >
       {hasFile ? (
@@ -247,7 +247,7 @@ function PaperRow({
       )}
       {hasFile && open ? (
         <div className="grid gap-2.5 pb-3" data-setup-paper-preview="">
-          <div className="flex max-h-[220px] items-center justify-center gap-2 overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.04] p-2.5 text-[13px] text-ink/70">
+          <div className="flex max-h-[220px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-ink/[0.04] p-2.5 text-[13px] text-ink/70">
             {thumb ? (
               // eslint-disable-next-line @next/next/no-img-element -- the paper just picked (a local address) or its signed preview
               <img src={thumb} alt={`${p.label} — the copy on file`} className="block max-h-[200px] max-w-full object-contain" />

@@ -2172,8 +2172,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   /* 🔦 A NEW SHOP'S TODAY, AFTER STEP 6 (owner 7 Nov 2026, prototype `open-shop-redesign.html` v21 `TOUR_COPY`): it
      starts once, the moment the shop's QR is downloaded, and lights Today top → bottom. The words are the prototype's;
-     the last stop says the bar as it ships (the prototype's six-tab list is not the shipped bar — `vendor_today_v1`'s
-     sentence is). A stop not drawn on this screen is dropped by the engine. Mounted by `supplier-setup-folds.tsx`. */
+     the last stop says the bar THE ONE BUILD ships (Today · Clients · Shop · Portfolio — v113, BARS LOCKED 7 Nov). A stop not drawn on this screen is dropped by the engine. Mounted by `supplier-setup-folds.tsx`. */
   vendor_setup_tour_v1: {
     key: 'vendor_setup_tour_v1',
     label: 'Supplier — a new shop’s Today, after the QR',
@@ -2207,7 +2206,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'tab-vendor-dashboard',
           title: 'The menu',
-          body: 'The bar is Today, Customers, Shop and Hub.',
+          body: 'The bar is Today, Clients, Shop and Portfolio.',
         },
       ],
       finale: {

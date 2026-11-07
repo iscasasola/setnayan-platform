@@ -23,6 +23,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
 import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-shell';
 import { completePasswordReset } from './actions';
+import { PasswordField } from '@/app/_components/password-field';
 
 export const metadata: Metadata = {
   title: 'Choose a new password',
@@ -82,10 +83,9 @@ export default async function ResetPasswordPage({
           <label htmlFor="new_password" className="block text-sm font-medium text-ink">
             New password
           </label>
-          <input
+          <PasswordField
             id="new_password"
             name="new_password"
-            type="password"
             autoComplete="new-password"
             minLength={8}
             required
@@ -97,10 +97,9 @@ export default async function ResetPasswordPage({
           <label htmlFor="confirm_password" className="block text-sm font-medium text-ink">
             Confirm new password
           </label>
-          <input
+          <PasswordField
             id="confirm_password"
             name="confirm_password"
-            type="password"
             autoComplete="new-password"
             minLength={8}
             required

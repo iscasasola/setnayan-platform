@@ -11,7 +11,7 @@
  * deterministic and the rotation is stable for all visitors in a window.
  *
  * The airtime model is a WEIGHTED ROTATION RING: each eligible vendor is placed
- * in a ring `rotationWeight` times (Enterprise 3 · Pro/Custom 2 · +1 for an ad
+ * in a ring `rotationWeight` times (Enterprise 3 · Pro 2 · +1 for an ad
  * boost · Verified 1), so paid/boosted vendors recur more often but no vendor is
  * ever locked out. A window offset slides which ring segment is on-air; within
  * one window a vendor is shown at most once.
@@ -37,11 +37,11 @@ export type RotatableVendor = {
 };
 
 /** Ring copies for a vendor — more copies = more airtime. Enterprise leads, then
- *  Pro/Custom, an ad boost adds one, and a plain verified vendor gets one. */
+ *  Pro, an ad boost adds one, and a plain verified vendor gets one. */
 export function rotationWeight(tier: string | null, adRank: number): number {
   let w = 1;
   if (tier === 'enterprise') w = 3;
-  else if (tier === 'pro' || tier === 'custom') w = 2;
+  else if (tier === 'pro') w = 2;
   if (adRank > 0) w += 1;
   return w;
 }

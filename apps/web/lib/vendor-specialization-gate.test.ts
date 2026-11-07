@@ -77,7 +77,7 @@ test('THE FLOOR CONSTANT DRIVES THE OUTCOME — moving it flips a Solo vendor', 
 });
 
 test('moving the floor to pro keeps Pro and above unlocked', () => {
-  for (const tier of ['pro', 'enterprise', 'custom'] as const) {
+  for (const tier of ['pro', 'enterprise'] as const) {
     assert.equal(
       subscriptionClearsSpecializationFloor(sub(tier), NOW, 'pro'),
       true,
@@ -121,7 +121,7 @@ test('undefined / empty subscription row → generic kit only, no throw', () => 
 // ─── Tiers at / below the floor ─────────────────────────────────────────────
 
 test('EVERY PAID TIER AT OR ABOVE THE FLOOR unlocks the category set', () => {
-  const paid: VendorTier[] = ['solo', 'pro', 'enterprise', 'custom'];
+  const paid: VendorTier[] = ['solo', 'pro', 'enterprise'];
   const expected: Array<[string[], VendorSpecializationSet]> = [
     [BAND, 'song_desk'],
     [HOST, 'stage_script'],

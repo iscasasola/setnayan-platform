@@ -102,7 +102,7 @@ test('every gated PAGE resolves the gate and renders a locked screen', () => {
  * 4 · THE HUB'S SET-UP PAGE (supplier dashboard v13, owner "Approved." 2026-10-29) sets up ONE event picked from a list
  * of many, so it asks the gate ONCE for the whole list (`resolveEventFeeGates`, "one query for the whole Event Hub") —
  * and a locked event's Set up and Crew are its lock row (the gate's words + the way to pay) and nothing else, its brief
- * is never read, and "Open the Event Hub" is not drawn for it. The live page, which IS the event's room, keeps the
+ * is never read, and "Open the Hub" is not drawn for it. The live page, which IS the event's room, keeps the
  * single gate above.
  */
 test('4 · the Hub asks the gate for every event ahead, and a locked event is its lock — no tools, no crew, no brief', () => {
@@ -113,7 +113,7 @@ test('4 · the Hub asks the gate for every event ahead, and a locked event is it
   assert.match(src, /const open = booking != null && selected\.lock == null;/);
   assert.match(src, /if \(open\) \{\s*const \{ data, error: briefError \} = await supabase\.rpc\('get_vendor_event_brief'/, 'the brief is read for a locked event');
   const screen = read('app/vendor-dashboard/on-the-day/_components/hub-screen.tsx');
-  assert.match(screen, /const open = event\.booked && event\.when === 'today' && !event\.lock;/, '"Open the Event Hub" is drawn for a locked event');
+  assert.match(screen, /const open = event\.booked && event\.when === 'today' && !event\.lock;/, '"Open the Hub" is drawn for a locked event');
 });
 
 test('every gated SERVER ACTION refuses a locked event, in its own words', () => {

@@ -87,7 +87,7 @@ export const ALLOWED_SKIP: ReadonlyMap<string, string> = new Map([
   reading as a broken migration. Held by replay-order-is-honest.db.test.ts ("every skip the drain took …"), which fails
   at 2MB on today's corpus.
 */
-const BOOTSTRAP = `
+export const BOOTSTRAP = `
 SET max_stack_depth = '6MB';
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
@@ -282,7 +282,7 @@ VALUES ('${OWNER_UUID}', 'iscasasolaii@gmail.com')
 ON CONFLICT DO NOTHING;
 `;
 
-function preprocess(sql: string): string {
+export function preprocess(sql: string): string {
   // pg_cron / pg_net don't exist in PGlite — the cron/net schemas are stubbed.
   sql = sql.replace(/CREATE EXTENSION IF NOT EXISTS (pg_cron|pg_net)[^;]*;/gi, 'SELECT 1;');
   // pgvector unavailable — two inert embedding columns become text (see header).

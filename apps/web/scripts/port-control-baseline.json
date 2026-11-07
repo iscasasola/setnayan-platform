@@ -12701,6 +12701,16 @@
         "ShopPrintsSection"
       ]
     },
+    "/dev/supplier-print-lab": {
+      "files": [
+        "dev/supplier-print-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Wordmark"
+      ]
+    },
     "/dev/suppliers-lab": {
       "files": [
         "dev/suppliers-lab/booked-fixtures.ts",

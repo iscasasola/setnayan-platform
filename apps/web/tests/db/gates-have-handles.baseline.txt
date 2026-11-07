@@ -163,3 +163,6 @@ moodboard_library_assets.is_event_linked | GENERATED ALWAYS AS (source_event_id 
 
 # ── RETIRED SETTINGS: the control is gone, the column is kept ──────────────────
 users.planner_mode | RETIRED 2026-10-23 (owner): the Guided · DIY setting left Account settings › Preferences. Nothing ever read the column (handles-have-gates' 2026-08-17 finding), so removing its only writer changes no behaviour; Home's checklist shows for everyone, which is what "Guided" promised. Kept, not dropped — a column drop is a migration for no gain.
+
+# ── GENERATED: the database computes it; its INPUTS carry the handles ─────────
+vendor_profiles.is_findable | GENERATED ALWAYS AS … STORED (migration 20271320303985) — it cannot be written by anything, by design: it is the ONE findability rule computed from verification_state + find_locked_at. Its handles are its inputs: find_locked_at is stamped by the triggers stamp_find_lock_on_inquiry / stamp_find_lock_on_import and cleared by the admin lift in app/admin/verify/actions.ts; verification_state is flipped at the verification desk. DECISION_LOG 2026-11-07 "FINDABLE UNTIL ITS FIRST INQUIRY".

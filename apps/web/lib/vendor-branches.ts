@@ -6,7 +6,7 @@ import { tierCaps } from './vendor-tier-caps';
  *
  * 📐 BRANCHES PER PLAN (owner 2026-11-04, DECISION_LOG, verbatim: *"branches 0,0,3,10"*): Pro includes 3 branches and
  * Ultra 6 (trimmed the same day) — an INCLUDED branch (`vendor_branches.included_in_plan`) is live from the moment it is added, with no fee
- * and no order. Only Ultra (and Custom) may BUY more, through the paid flow below. The number lives in
+ * and no order. Only Ultra may BUY more, through the paid flow below. The number lives in
  * `TIER_CAPS[t].branchesIncluded`; the database holds the same number (`vendor_tier_limit(…,'branches_included')`) and
  * refuses an included branch past it, so the free path cannot be forged around the action. A shop already over a
  * lowered allowance keeps every included branch it has, live; it just cannot add another.
@@ -51,7 +51,7 @@ import { tierCaps } from './vendor-tier-caps';
  * `custom-sits-above-enterprise.db.test.ts` now compares every declared fallback
  * against its live catalog row and fails the build on drift.
  */
-export const BRANCH_FEE_PHP = 1990; // fallback only — the catalogue row (owner 2026-11-04) wins
+export const BRANCH_FEE_PHP = 990; // fallback only — the catalogue row wins (owner 2026-11-06 "ULTRA ADD-ON PRICES": ₱990, was ₱1,990)
 export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
 
 /** The catalog sku_code the branch fee is read from (seeded by migration). */

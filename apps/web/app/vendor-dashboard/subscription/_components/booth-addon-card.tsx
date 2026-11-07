@@ -16,7 +16,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 /**
  * 3D Booth add-on card — the sellable surface on the subscription hub
  * (owner-locked 2026-07-22; ₱3,000 flat since 2026-09-05). Free first 28-day cycle, then ₱3,000 / 28 days, on
- * Pro / Enterprise / Custom + verified shops only. When active, the vendor's
+ * Pro / Ultra + verified shops only. When active, the vendor's
  * booth renders BRANDED (logo + poster) inside their couples' published 3D
  * Plans; without it a Pro/Enterprise vendor keeps the generic booth.
  *
@@ -58,7 +58,7 @@ export type BoothAddonCardProps = {
    *  When OFF the whole add-on is hidden: no card renders (and the
    *  server action rejects), because a booth can't render if 3D is switched off. */
   available: boolean;
-  /** Pro+ (Pro / Enterprise / Custom) AND verified — the only shops that can buy. */
+  /** Pro+ (Pro / Ultra) AND verified — the only shops that can buy. */
   eligible: boolean;
   /** True while the shop is on a Pro+ tier but NOT yet verified. */
   paidButUnverified: boolean;
@@ -168,7 +168,7 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
           {paidButUnverified ? (
             <span>Get your shop verified to unlock 3D Booth — it&rsquo;s a verified-only add-on.</span>
           ) : (
-            <span>3D Booth is available on the Pro, Ultra, and Custom plans. Upgrade above to add it.</span>
+            <span>3D Booth is available on the Pro and Ultra plans. Upgrade above to add it.</span>
           )}
         </div>
       ) : (

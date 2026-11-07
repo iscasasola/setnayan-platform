@@ -11,8 +11,9 @@
  *                     arrived while it was joining, down or hidden.
  *   paused          — the tab is out of view: no poll (a hidden tab never asks anyway), no channel.
  *   joining · down · off
- *                   — today's 60 s poll (`startCountPoll`), unchanged. Going down also re-asks once, so a dropped
- *                     channel never leaves the badge older than it was.
+ *                   — today's 60 s poll (`startCountPoll`), unchanged. Going down does NOT re-ask: after an outage
+ *                     every tab fails at once (and up to six times each), and a re-ask per failure was measured to
+ *                     double the RPCs (scripts/loadtest-chat-live.mts); the poll's next minute is the catch-up, as on main.
  *
  * 🔒 THE SAME HONEST READ. Every re-ask is `readUnreadMessageThreads` — `null` when it could not read, and `null` is
  * never drawn (no false 0). A ping carries ids only; it can make the envelope ASK, never tell it a number.
@@ -81,7 +82,7 @@ export function followEnvelopeLive({
     onStatus: (s) => {
       if (stopped) return;
       poll(s !== 'live' && s !== 'paused');
-      if ((s === 'live' || s === 'down') && prev !== null && prev !== s) reread();
+      if (s === 'live' && prev !== 'live') reread();
       prev = s;
     },
   });

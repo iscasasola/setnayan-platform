@@ -49,9 +49,16 @@ export type LiveListener = { onPing?: (p: UserPing) => void; onStatus?: (s: Live
 
 /** The first join waits a random 0–this long: a deploy or a Realtime restart must not see every tab rejoin at once. */
 export const JOIN_JITTER_MS = 1_500;
-/** Failures in a row before this tab stops trying (the poll carries on). With the delays below: ~2 s … ~2.4 min. */
+/**
+ * Failures in a row before this tab stops trying (the poll carries on). With the delays below the five retries wait
+ * 5 · 15 · 45 · 135 · 300 s (each ×0.5–1.5): a Realtime outage costs a person at most five more joins over ~8 min.
+ */
 export const MAX_LIVE_FAILURES = 6;
-const RETRY_BASE_MS = 2_000;
+/**
+ * 5 s, not 2: after an outage EVERY tab fails at once, and the first wave of rejoins spreads over this band —
+ * 200 people ≈ 40 joins/s, 10,000 ≈ 2,000/s (Supabase channel joins/s: Free 100 · Pro 500 · Team 2,500).
+ */
+const RETRY_BASE_MS = 5_000;
 const RETRY_CAP_MS = 5 * 60_000;
 
 /** Exponential backoff with FULL jitter: a random point in [0.5, 1.5) × base·3^(n−1), capped. */

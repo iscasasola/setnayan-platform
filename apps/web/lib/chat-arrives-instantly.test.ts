@@ -188,7 +188,7 @@ test('A3 · a tab that opens hidden joins nothing until it is looked at', async 
   w.leave();
 });
 
-test(`A4 · a failing join backs off with full jitter (2 s × 3ⁿ) and gives up after ${MAX_LIVE_FAILURES} — no retry storm`, async () => {
+test(`A4 · a failing join backs off with full jitter (5 s × 3ⁿ) and gives up after ${MAX_LIVE_FAILURES} — no retry storm`, async () => {
   for (const r of [0, 0.999]) {
     const tab = fakeTab();
     const tr = fakeTransport('CHANNEL_ERROR');
@@ -202,7 +202,7 @@ test(`A4 · a failing join backs off with full jitter (2 s × 3ⁿ) and gives up
     for (let n = 1; n < tr.channels.length; n += 1) {
       const gap = tr.channels[n]!.openedAt - tr.channels[n - 1]!.openedAt;
       assert.equal(gap, retryDelayMs(n, () => r), `gap before join ${n + 1}`);
-      const base = 2_000 * 3 ** (n - 1);
+      const base = Math.min(5 * 60_000, 5_000 * 3 ** (n - 1));
       assert.ok(gap >= base * 0.5 && gap < base * 1.5, `gap ${gap} outside the jitter band of ${base}`);
     }
     assert.ok(w.seen.includes('down') && w.seen.at(-1) === 'off');
@@ -357,8 +357,10 @@ test('B3 · down or given up: today’s 60 s poll, exactly as on main', async ()
     ch.status('joining');
     ch.status('live');
     await tab.advance(1_000);
+    const beforeDown = reads;
     ch.status(s);
     await tab.advance(1_000);
+    assert.equal(reads, beforeDown, `${s}: no re-ask on the drop itself — after an outage every tab drops at once`);
     const at = reads;
     await tab.advance(3 * 60_000);
     assert.equal(reads - at, 3, `${s}: one read a minute`);

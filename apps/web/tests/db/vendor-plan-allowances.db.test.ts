@@ -15,7 +15,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { VENDOR_TIERS, TIER_CAPS, type VendorTier } from '../../lib/vendor-tier-caps';
+import {
+  VENDOR_TIERS,
+  TIER_CAPS,
+  type VendorTier,
+} from '../../lib/vendor-tier-caps';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -70,18 +74,26 @@ async function addBranch(vendor: string, included: boolean): Promise<{ id: strin
   }
 }
 
-test('vendor_tier_limit says exactly what TIER_CAPS says — waitlist and branches, every tier', async () => {
+test('vendor_tier_limit says exactly what TIER_CAPS says — waitlist, branches and bookings per date, every tier', async () => {
   for (const tier of VENDOR_TIERS) {
-    const r = await db.query<{ wa: number; br: number }>(
+    const r = await db.query<{ wa: number; br: number; bpd: number | null }>(
       `SELECT public.vendor_tier_limit($1,'waitlist_acceptances') AS wa,
-              public.vendor_tier_limit($1,'branches_included') AS br`,
+              public.vendor_tier_limit($1,'branches_included') AS br,
+              public.vendor_tier_limit($1,'bookings_per_date_per_service') AS bpd`,
       [tier],
     );
     assert.equal(r.rows[0]!.wa, TIER_CAPS[tier].waitlistAcceptances, `${tier} waitlist`);
     assert.equal(r.rows[0]!.br, TIER_CAPS[tier].branchesIncluded, `${tier} branches`);
+    // Owner 2026-11-06 ("BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE"): Solo 1 · Pro 3 · Ultra 5; and the owner
+    // click the same day ("… FREE AND VERIFIED"): Free 1 · Verified 1, like Solo. Every plan has a number — no NULL.
+    assert.equal(r.rows[0]!.bpd, TIER_CAPS[tier].bookingsPerDatePerService, `${tier} bookings per date per service`);
   }
-  const unknown = await db.query<{ br: number }>(`SELECT public.vendor_tier_limit(NULL,'branches_included') AS br`);
+  const unknown = await db.query<{ br: number; bpd: number | null }>(
+    `SELECT public.vendor_tier_limit(NULL,'branches_included') AS br,
+            public.vendor_tier_limit(NULL,'bookings_per_date_per_service') AS bpd`,
+  );
   assert.equal(unknown.rows[0]!.br, 0, 'an unknown tier reads as Free — no included branches');
+  assert.equal(unknown.rows[0]!.bpd, TIER_CAPS.free.bookingsPerDatePerService, 'an unknown tier reads as Free — 1 per date');
 });
 
 test('Pro may add its included branches and is refused the next one', async () => {

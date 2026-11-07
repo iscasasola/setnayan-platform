@@ -7,7 +7,7 @@ import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchClaimLandingByToken, isCoupleMadeInvite } from '@/lib/vendor-invites';
+import { fetchClaimLandingByToken, opensTheClaimDoor } from '@/lib/vendor-invites';
 import { readClaimAccountVerdict } from '@/lib/claim-account-gate.server';
 import { CLAIM_DOOR_FIELD, claimDoorHref, parseClaimDoorAnswers } from '@/lib/claim-door';
 import { titleCasePersonName } from '@/lib/person-name-case';
@@ -19,6 +19,11 @@ import { ATTRIBUTE_FIELD_NAME_PREFIX } from '@/lib/vendor-service-attributes';
 import { createVendorService } from '@/app/vendor-dashboard/services/actions';
 import { savePackage } from '@/app/vendor-dashboard/packages/actions';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
+import { captchaTokenFromForm } from '@/lib/turnstile';
+import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
+import { decideOpenShopAccount } from '@/lib/open-shop-account';
+import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
+import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -32,6 +37,12 @@ import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
  *
  * Order matters and is the same as finalize's: refuse a couple's own account BEFORE any write, so the link stays
  * unspent. Every refusal lands where its sentence already lives (the door, or the finalize refusal pages).
+ *
+ * ✉ CONTINUE WITH EMAIL (owner 7 Nov: "Yes"). Signed out with the account slide's email + password, the account is made
+ * by the SHIPPED `/open-shop` path — `decideOpenShopAccount` (email · password · Terms, in that order) then
+ * `createVendorAccountForShop` (the breach check, which speaks only here on submit · blacklist · Turnstile · signUp ·
+ * the L3 verification switch). Only after the invite is known to be usable, so a dead link never mints an account. With
+ * verification on, nobody is signed in yet: the link brings them back to the account slide to press "Claim it".
  */
 export async function finishClaimDoor(formData: FormData): Promise<void> {
   const token = String(formData.get('claim_token') ?? '').trim().slice(0, 200);
@@ -40,17 +51,53 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user: sessionUser },
   } = await supabase.auth.getUser();
-  // No account yet → back to the door's account slide; the slides' answers are kept in this browser.
-  if (!user) redirect(`${door}&step=account`);
 
   const admin = createAdminClient();
   const landing = await fetchClaimLandingByToken(admin, token).catch(() => null);
-  if (!landing || landing.invite.status !== 'pending' || !isCoupleMadeInvite(landing.invite.source)) {
+  if (!landing || landing.invite.status !== 'pending' || !opensTheClaimDoor(landing.invite.source)) {
     // Claimed · expired · revoked · declined · not found: the shipped page says which.
     redirect(`/vendor/claim/${encodeURIComponent(token)}`);
   }
+
+  const accountSlide = `${door}&step=account`;
+  let user: { id: string; email?: string | null } | null = sessionUser;
+  if (!user) {
+    // Signed out with no email + password posted (Google / Apple not finished) → back to the account slide; the
+    // slides' answers are kept in this browser.
+    if (!formData.has('password')) redirect(accountSlide);
+    const typed = String(formData.get('contact_email') ?? '').trim().toLowerCase().slice(0, 254);
+    const decision = decideOpenShopAccount({
+      hasSession: false,
+      email: isValidOpenShopEmail(typed) ? typed : null,
+      password: String(formData.get('password') ?? ''),
+      termsAgreed: hasAgreedToTerms(formData.get(TERMS_FIELD)),
+      termsError: TERMS_REQUIRED_MESSAGE,
+    });
+    const emailRefusal = (error: string, taken = false) =>
+      redirect(`${accountSlide}&way=email${taken ? '&taken=1' : ''}&error=${encodeURIComponent(error)}`);
+    if (decision.kind === 'refuse') emailRefusal(decision.error);
+    if (decision.kind === 'create') {
+      const created = await createVendorAccountForShop({
+        email: decision.email,
+        password: decision.password,
+        displayName: titleCasePersonName(parseClaimDoorAnswers(formData.get(CLAIM_DOOR_FIELD))?.who ?? '') || null,
+        terms: { acceptedAt: new Date().toISOString(), version: TERMS_VERSION },
+        // The widget rides in THIS form (<TurnstileField action="signup" /> on the account slide's email way).
+        captchaToken: captchaTokenFromForm(formData),
+        confirmNext: accountSlide,
+      });
+      if (created.ok === false) emailRefusal(created.error, created.taken === true);
+      else if (created.ok === 'created-not-signed-in') {
+        redirect(`/login?ready=${encodeURIComponent(created.email)}&next=${encodeURIComponent(accountSlide)}&as=vendor`);
+      } else if (created.ok === 'check-email') {
+        // Verification on: the account waits for its link, which signs them in and lands back on this slide.
+        redirect(`${accountSlide}&check_inbox=${encodeURIComponent(created.user.email)}`);
+      } else user = created.user;
+    }
+  }
+  if (!user) redirect(accountSlide);
 
   // ── A COUPLE'S OWN ACCOUNT NEVER SPENDS THE LINK (2026-11-05) — asked before any write ─────────────────────────────
   const verdict = await readClaimAccountVerdict(admin, user.id, 'app/open-shop/claim-actions.ts');
@@ -59,8 +106,13 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   const answers = parseClaimDoorAnswers(formData.get(CLAIM_DOOR_FIELD));
   if (!answers) redirect(`${door}&error=${encodeURIComponent('Something went wrong. Please go through the steps again.')}`);
 
-  // ── THE SHOP — the shipped find-or-open, which fills only its BLANK name + service from the couple's record ────────
-  const { data: readied, error: readyErr } = await admin.rpc('claim_ready_the_shop', {
+  // ── THE SHOP — the shipped find-or-open ──────────────────────────────────────────────────────────────────────────
+  // A couple's link: `claim_ready_the_shop`, which fills only its BLANK name + service from the couple's record and
+  // spends nothing (finalize spends the link). 🎁 Setnayan's own invite: `claim_ready_the_invited_shop` — the SAME call
+  // finalize makes for it — which hands the staged shop over, seats the admin, applies THE OFFER, and marks the invite
+  // claimed under its row lock (spent exactly once). So the offer is kept by the shipped mechanism, not re-made here.
+  const fromSetnayan = landing.invite.source === 'admin';
+  const { data: readied, error: readyErr } = await admin.rpc(fromSetnayan ? 'claim_ready_the_invited_shop' : 'claim_ready_the_shop', {
     p_user_id: user.id,
     p_claim_token: token,
   });
@@ -68,6 +120,10 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
     redirect(`${door}&error=${encodeURIComponent(readyErr?.message ?? 'Could not open your shop. Please try again.')}`);
   }
   const vendorProfileId = readied as string;
+  // After Setnayan's claim the link is spent, so the door would only say "already claimed": a refusal from here on
+  // lands on Your details — the page that edits exactly these details, on the shop that is now theirs.
+  const refusedAfterClaim = (message: string) =>
+    redirect(fromSetnayan ? `/vendor-dashboard/profile` : `${door}&error=${encodeURIComponent(message)}`);
 
   // ── WHAT THE SUPPLIER CONFIRMED REPLACES WHAT THE COUPLE TYPED, ON THE SHOP (owner 2026-11-06) ─────────────────────
   const { data: shopRow, error: shopErr } = await admin
@@ -78,14 +134,14 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // A refused read must not pass for an empty shop — the merge below would drop the services it already offers.
   if (shopErr) {
     console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_profiles.select', shopErr);
-    redirect(`${door}&error=${encodeURIComponent('Could not read your shop. Please try again.')}`);
+    refusedAfterClaim('Could not read your shop. Please try again.');
   }
   const shop = (shopRow ?? {}) as { services?: string[] | null; event_types?: string[] | null; business_name?: string | null };
-  const { data: ev } = await admin
-    .from('events')
-    .select('event_type')
-    .eq('event_id', landing.parentVendor?.event_id ?? '')
-    .maybeSingle();
+  // The couple's event type is ticked on the shop's events; Setnayan's invite has no event, so nothing is asked.
+  const eventId = landing.parentVendor?.event_id ?? null;
+  const { data: ev } = eventId
+    ? await admin.from('events').select('event_type').eq('event_id', eventId).maybeSingle()
+    : { data: null };
   const eventType = (ev as { event_type?: string | null } | null)?.event_type ?? null;
 
   // Each picked service, its leaf re-resolved server-side against the SAME tree the picker offered (never trusted).
@@ -115,8 +171,9 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   if (eventType) patch.event_types = [...new Set([...(shop.event_types ?? []), eventType])];
   const { error: updErr } = await admin.from('vendor_profiles').update(patch).eq('vendor_profile_id', vendorProfileId);
   if (updErr) {
+    console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_profiles.update', updErr);
     const dup = updErr.code === '23505' || /duplicate key|unique constraint/i.test(updErr.message ?? '');
-    redirect(`${door}&error=${encodeURIComponent(dup ? 'That shop name is taken. Please pick another.' : updErr.message)}`);
+    refusedAfterClaim(dup ? 'That shop name is taken. Please pick another.' : updErr.message);
   }
   // The shop is this account's now (claim_ready_the_shop), under the name just confirmed — its business alaga follows
   // the name, as on every door that names an owned shop. Best-effort: it never throws or redirects. Finalize runs it
@@ -203,6 +260,9 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/vendor-dashboard');
+  // 🎁 Setnayan's invite is already claimed (above, by the shipped call) — it lands where finalize lands it: Shop ›
+  // Your details (prototype frame B4). Finalize would only see "claimed by you" and send them to the dashboard.
+  if (fromSetnayan) redirect('/vendor-dashboard/profile');
   // ── THE CONSENT IS THE SHIPPED ONE ──────────────────────────────────────────────────────────────────────────────
   redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize`);
 }

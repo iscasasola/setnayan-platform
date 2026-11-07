@@ -9707,7 +9707,8 @@
       "blocks": [
         "CoupleChallengesManager",
         "Link",
-        "ListPageSkeleton"
+        "ListPageSkeleton",
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew": {
@@ -12147,6 +12148,7 @@
     "/dev/papic-camera-lab": {
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",
+        "dev/papic-camera-lab/lab-challenges.tsx",
         "dev/papic-camera-lab/page.tsx"
       ],
       "destinations": [
@@ -12155,12 +12157,15 @@
       "actions": [],
       "blocks": [
         "Blob",
+        "ChallengeRow",
         "LabCamera",
+        "LabChallenges",
         "LabPageSpotlight",
         "PapicBuyShell",
         "PapicCaptureController",
         "PapicGuestCapture",
         "PapicSeatCapture",
+        "UndoToastHost",
         "UploaderSnapshot"
       ]
     },

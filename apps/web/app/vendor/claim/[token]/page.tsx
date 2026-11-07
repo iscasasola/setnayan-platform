@@ -156,13 +156,11 @@ export default async function VendorClaimPage({ params }: Props) {
   // ------------------------------------------------------------------
   if (invite.source === 'admin') {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
-    // Admin invites always carry an email (enforced by the
-    // vendor_invites_source_vendor_consistency CHECK), but we defend
-    // against null just in case future drift relaxes the rule.
-    const emailQs = invite.email
-      ? `prefill_email=${encodeURIComponent(invite.email)}&`
-      : '';
-    const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
+    // 🔗 The claim door, pre-filled (owner 7 Nov: "yes" — Setnayan's personal invite moves to the door too). The door
+    // reads the staged shop + the offer itself (`readClaimDoor`), pre-fills the account slide's email from the
+    // invite, and its finish makes the same `claim_ready_the_invited_shop` call finalize makes — so the offer is kept.
+    const signupUrl = claimDoorHref(invite.claim_token);
+    // An email that already runs a shop signs in and claims through finalize, which folds the staged shop into theirs.
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
     // 🎁 THE PERSONAL INVITE (owner 2026-10-23, prototype frame B1): the admin's door with **Your offer**. Read on
     // its own (`readInviteOffer`) so a database without the columns still draws the door, just without the rows.

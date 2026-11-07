@@ -88,6 +88,14 @@ export function isCoupleMadeInvite(source: VendorInviteSource): boolean {
   return source === 'couple' || source === 'auto_share_link';
 }
 
+/**
+ * The links that open the claim door (`/open-shop?claim=<token>`): every couple-made one, and Setnayan's own personal
+ * invite (owner 7 Nov: "yes"). Every source there is today — named, so a new source is a decision, not a fall-through.
+ */
+export function opensTheClaimDoor(source: VendorInviteSource): boolean {
+  return isCoupleMadeInvite(source) || source === 'admin';
+}
+
 /** The pill variant rendered on the couple-side vendor row. */
 export type VendorPillVariant =
   | 'on_platform' // marketplace_vendor_id is set (joined / connected / picked from marketplace)

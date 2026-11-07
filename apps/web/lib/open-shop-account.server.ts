@@ -64,8 +64,15 @@ export async function createVendorAccountForShop(input: {
    * to the pre-captcha call, exactly as `/signup` behaves.
    */
   captchaToken: string | undefined;
+  /**
+   * Where the email link lands when verification is required. Default: the supplier dashboard (the wizard opens the
+   * shop on submit). The claim door passes its own account slide (`/open-shop?claim=<token>&step=account`): a claim
+   * cannot be finished without a session, so the link signs them in and brings them back to press "Claim it".
+   */
+  confirmNext?: string;
 }): Promise<CreateVendorAccountResult> {
   const { email, password, displayName, terms, captchaToken } = input;
+  const confirmNext = input.confirmNext ?? '/vendor-dashboard';
 
   // Same refusals as /signup, same sentences (OPEN_SHOP_ACCOUNT_ERRORS mirrors its
   // ERROR_COPY). The breach check fails OPEN when the service is unreachable — by
@@ -85,7 +92,7 @@ export async function createVendorAccountForShop(input: {
     password,
     options: {
       // Confirming opens the shop that was already created on submit — straight to the supplier dashboard.
-      emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(mustConfirm ? '/vendor-dashboard' : '/open-shop')}`,
+      emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(mustConfirm ? confirmNext : '/open-shop')}`,
       // The trigger reads raw_user_meta_data->>'account_type'. A shop owner is a
       // vendor from the first row — no later self-heal needed for this path.
       data: { account_type: 'vendor' },

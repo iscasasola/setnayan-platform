@@ -127,6 +127,8 @@ const DOORS: Array<[string, Array<[string, Kind]>]> = [
   ['app/login/_components/sign-in-card.tsx', [['current-password', 'current']]],
   ['app/signup/page.tsx', [['new-password', 'new']]],
   ['app/open-shop/_components/open-shop-wizard.tsx', [['new-password', 'new']]],
+  // The claim door's "Continue with Email" (owner 7 Nov: "Yes") — the wizard's account box, on the account slide.
+  ['app/open-shop/_components/claim-door.tsx', [['new-password', 'new']]],
   ['app/reset-password/page.tsx', [['new-password', 'new'], ['new-password', 'same']]],
   ['app/join/[eventId]/set-password/page.tsx', [['new-password', 'new']]],
   [

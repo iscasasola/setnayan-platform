@@ -8,12 +8,16 @@
  * `app/open-shop/_components/claim-door.tsx`; the finish is `app/open-shop/claim-actions.ts`, which hands the
  * consent to the SHIPPED `/vendor/claim/<token>/finalize` — only the screens changed.
  *
- * 🔒 NO EMAIL FIELD. The couple's `contact_email` is not a detail the supplier is asked to confirm, and the door has
- * no email box: the account's email comes from signing in (Google · Apple · an existing account), and the shop's
- * contact email is that account email (controller, A6, 7 Nov).
+ * 🔒 NO EMAIL DETAIL. The couple's `contact_email` is not a detail the supplier is asked to confirm. The only email box
+ * is the ACCOUNT slide's "Continue with Email" (owner 7 Nov: "Yes"), beside Google and Apple; the shop's contact email
+ * is the signed-in account's email, never a typed one.
+ *
+ * 🎁 SETNAYAN'S OWN INVITE uses the same door (owner 7 Nov: "yes" — `vendor_invites.source = 'admin'`, the personal
+ * invite with "Your offer"). Its record comes from the invite and the shop the admin staged, never from a couple; it
+ * carries the offer, which the shipped `claim_ready_the_invited_shop` applies on the finish.
  */
 
-/** The ONE place a couple-made claim link points. `/signup?as=vendor` is never a claim link again. */
+/** The ONE place a claim link points — a couple's and Setnayan's own. `/signup?as=vendor` is never a claim link again. */
 export const CLAIM_DOOR_PARAM = 'claim';
 export function claimDoorHref(token: string): string {
   return `/open-shop?${CLAIM_DOOR_PARAM}=${encodeURIComponent(token)}`;
@@ -34,8 +38,24 @@ export type ClaimDoorService = {
 
 export type ClaimDoorPayment = { label: string; due: string | null; amount: number };
 
+/** The personal invite's **Your offer** rows, exactly as the claim page draws them (`doorOffer`). */
+export type ClaimDoorOffer = {
+  plan: { word: string; until: string } | null;
+  photos: number | null;
+  fee: string;
+  note: string | null;
+};
+
 export type ClaimDoorRecord = {
   token: string;
+  /**
+   * WHO made the link: `couple` (a couple's QR / link / emailed invite — `couple` · `auto_share_link`) or `setnayan`
+   * (the admin's personal invite). Setnayan's door has no event, no booking and no couple to "see yours", so its words
+   * say "the Setnayan team", it has no bundle slide (nothing was booked), and it shows the offer.
+   */
+  from: 'couple' | 'setnayan';
+  /** Setnayan's invite only: the offer rows, or null (a couple's link never carries one — a DB CHECK says so). */
+  offer: ClaimDoorOffer | null;
   /** First names only (`inviterFirstNames`), never a surname. */
   inviterName: string;
   /** 'couple' · 'family' · 'host' — WHO sent it, for the eyebrow. */
@@ -48,6 +68,12 @@ export type ClaimDoorRecord = {
   business: string;
   contactPerson: string | null;
   contactPhone: string | null;
+  /**
+   * The address the invite was sent to (`vendor_invites.email`), else the couple's record (`event_vendors.contact_email`)
+   * — pre-fills ONLY the account slide's "Continue with Email" box (owner 7 Nov: "Yes" to Email on the claim door). Never a
+   * detail to tick, never written to the shop: the shop's contact email is the signed-in account's.
+   */
+  inviteEmail: string | null;
   services: ClaimDoorService[];
   /** The price the couple confirmed for the whole booking — the bundle price. */
   price: number | null;
@@ -111,7 +137,9 @@ export function seedClaimCards(r: Pick<ClaimDoorRecord, 'services' | 'price' | '
   return r.services.map((s, i) =>
     i === 0
       ? { service: i, name: s.label, price: r.price ?? s.price, inclusions: r.inclusions.length ? [...r.inclusions] : [...s.inclusions], bundled: false }
-      : { service: i, name: s.label, price: null, inclusions: [], bundled: true },
+      : // Bundled only onto a price that exists (the same rule as the door's `syncCards`) — with no confirmed price
+        // (Setnayan's invite, or a couple who set none) each card is priced on its own.
+        { service: i, name: s.label, price: r.price ? null : s.price, inclusions: r.price ? [] : [...s.inclusions], bundled: !!r.price },
   );
 }
 

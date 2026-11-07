@@ -15,6 +15,9 @@
  *   ?check_inbox=<email>  the check-your-email state (A1)
  *   ?screen=logo   the "Add your logo" screen (A2; its autosave answers from a stand-in that writes nothing) · &framed=1 with a public image already in, so the align + zoom
  *                  control shows (an upload needs R2, which a dummy env does not have)
+ *   ?screen=claim  the claim door on the prototype's couple record · &signed=1 signed in · &way=email the Email way
+ *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
+ *                  (a staged shop + "Your offer") · &start=account opens on the account slide
  */
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -152,6 +155,8 @@ async function labSaveLogo(): Promise<{ ok: true }> {
 /** The prototype v21 record (`REC`, `COUPLE`) — the couple's sample event, the prototype's photographer. */
 const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   token: 'x7k2qp-sample',
+  from: 'couple',
+  offer: null,
   inviterName: 'Maria & Jose',
   hostNoun: 'couple',
   eventWord: 'wedding',
@@ -160,6 +165,7 @@ const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   business: 'Banawe Florals',
   contactPerson: 'Ana Reyes',
   contactPhone: '+639178888889',
+  inviteEmail: 'ana@banaweflorals.ph',
   services: [
     { category: 'photographer', tileId: 'photo_video', label: 'Photographer', price: 85000, inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online gallery'] },
     { category: 'photo_booth', tileId: 'photo_booth', label: 'Photo booth', price: null, inclusions: [] },
@@ -172,10 +178,35 @@ const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   ],
 };
 
+/** Setnayan's personal invite (prototype `supplier_personal_invite_2026-10-23.html` frame B1): a staged shop + an offer. */
+const LAB_TEAM_RECORD: ClaimDoorRecord = {
+  token: 'p3rs0n-sample',
+  from: 'setnayan',
+  offer: {
+    plan: { word: 'Pro', until: '31 Jan 2027' },
+    photos: 100,
+    fee: 'Your first booking is on us',
+    note: 'Nothing to pay, nothing renews by itself. On 1 Feb 2027 you choose: stay on Free, or keep Pro.',
+  },
+  inviterName: 'the Setnayan team',
+  hostNoun: 'Setnayan',
+  eventWord: 'event',
+  eventType: null,
+  datePhrase: null,
+  business: 'Banawe Florals',
+  contactPerson: 'Ana Reyes',
+  contactPhone: '+639178888889',
+  inviteEmail: 'ana@banaweflorals.ph',
+  services: [{ category: 'florist', tileId: null, label: 'Florist', price: null, inclusions: [] }],
+  price: null,
+  inclusions: [],
+  plan: [],
+};
+
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string }>;
+  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -197,12 +228,17 @@ export default async function OpenShopLabPage({
     // 🔗 The claim door on the PROTOTYPE's record (v21 `REC` · `COUPLE`) — never a real token. `?signed=1` = signed in.
     return (
       <ClaimDoor
-        record={LAB_CLAIM_RECORD}
+        record={q.from === 'setnayan' ? LAB_TEAM_RECORD : LAB_CLAIM_RECORD}
         tree={fixtureTree()}
         specialties={LAB_SPECIALTIES}
         signedInAs={q.signed === '1' ? 'ana@banaweflorals.ph' : null}
         oauth={{ show: true, desktop: false, native: false }}
         signInHref="/login?next=%2Fopen-shop%3Fclaim%3Dx7k2qp-sample%26step%3Daccount&as=vendor"
+        error={q.error}
+        startOnAccount={q.start === 'account'}
+        startOnEmail={q.way === 'email'}
+        taken={q.taken === '1'}
+        sentTo={q.check_inbox ?? null}
       />
     );
   }

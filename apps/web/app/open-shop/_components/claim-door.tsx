@@ -1,13 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Heart, LogIn, Plus, Tag, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Heart, LogIn, Mail, MailCheck, Plus, Tag, Trash2, X } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
+import { OAUTH_VERB } from '@/lib/oauth-words';
+import { PasswordField } from '@/app/_components/password-field';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { TERMS_FIELD } from '@/lib/terms-agreement';
+import { OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
+import { TakenSignIn } from './taken-sign-in';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { formatCount } from '@/lib/format-number';
@@ -68,6 +75,8 @@ type Draft = {
   bundleName: string;
   extras: string[];
   planAgreed: boolean;
+  /** The account slide's email way — what was typed (pre-filled from the invite). The password is never kept. */
+  email: string;
 };
 
 const peso = (n: number | string | null | undefined) =>
@@ -86,6 +95,9 @@ function Box(props: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'className
   );
 }
 
+/** The in-place sign-in's success hook: nothing to do here — its own `router.refresh()` redraws the slide signed in. */
+const signedInHere = () => undefined;
+
 export function ClaimDoor({
   record,
   tree,
@@ -96,6 +108,9 @@ export function ClaimDoor({
   error,
   startOnAccount = false,
   declineAction,
+  startOnEmail = false,
+  taken = false,
+  sentTo = null,
 }: {
   record: ClaimDoorRecord;
   tree: PickerParentView[];
@@ -109,6 +124,12 @@ export function ClaimDoor({
   startOnAccount?: boolean;
   /** The shipped decline (`declineVendorInviteByToken`); the lab passes none. */
   declineAction?: (fd: FormData) => void | Promise<void>;
+  /** `&way=email` — a refusal of the email way came back: it opens chosen. */
+  startOnEmail?: boolean;
+  /** `&taken=1` — that email already has an account: the box becomes the shipped in-place sign-in. */
+  taken?: boolean;
+  /** `&check_inbox=` — the account waits for its email link (verification on), which lands back on this slide. */
+  sentTo?: string | null;
 }) {
   const leafOfTile = useMemo(() => {
     const m = new Map<string, { leaf: string; label: string } | null>();
@@ -154,33 +175,41 @@ export function ClaimDoor({
       bundleName: seedBundleName(record.services.map((s) => s.label)),
       extras: [],
       planAgreed: false,
+      email: record.inviteEmail ?? '',
     };
   };
   const [d, setD] = useState<Draft>(seed);
   const [planErr, setPlanErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // Google / Apple are drawn on this shell (the wizard's own rule); with neither, Email is the only way and starts open.
+  const waysShown = oauth.show && (oauth.desktop || oauth.native || ANY_OAUTH_ENABLED);
+  const [emailWay, setEmailWay] = useState(!waysShown || startOnEmail || taken);
 
-  // The draft survives signing in with Google / Apple (they leave the page) — this browser only, this link only.
+  // The draft survives signing in with Google / Apple (they leave the page) AND the email link (which can open in a
+  // NEW tab — so localStorage, not sessionStorage) — this browser only, this link only. The password is never in it.
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(claimDraftKey(record.token));
+      const raw = localStorage.getItem(claimDraftKey(record.token));
       if (raw) {
         const saved = JSON.parse(raw) as Draft;
-        setD({ ...saved, screen: startOnAccount ? 'account' : saved.screen });
+        setD({ ...saved, email: saved.email ?? record.inviteEmail ?? '', screen: startOnAccount ? 'account' : saved.screen });
       }
     } catch {
       /* no storage — the door works from the record */
     }
-  }, [record.token, startOnAccount]);
+  }, [record.token, record.inviteEmail, startOnAccount]);
   useEffect(() => {
     try {
-      sessionStorage.setItem(claimDraftKey(record.token), JSON.stringify(d));
+      localStorage.setItem(claimDraftKey(record.token), JSON.stringify(d));
     } catch {
       /* private window — nothing to keep */
     }
   }, [d, record.token]);
 
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
+  // 🎁 Setnayan's own personal invite (owner 7 Nov: "yes"): no couple to "see yours", no event, nothing booked — so
+  // its words name the Setnayan team, it shows the offer, and it has no bundle slide.
+  const team = record.from === 'setnayan';
   const detailKeys = claimDetailKeysOf(record);
   const editKeys = detailKeys.filter((k) => d.ticked.includes(k));
   const order: Screen[] = [
@@ -188,7 +217,7 @@ export function ClaimDoor({
     'details',
     ...editKeys.map((k) => `ed:${k}` as Screen),
     ...d.cards.map((_, i) => `card:${i}` as Screen),
-    'bundle',
+    ...(team ? [] : (['bundle'] as Screen[])),
     'plan',
     'account',
   ];
@@ -228,11 +257,14 @@ export function ClaimDoor({
   };
 
   // ── the shared frame pieces ────────────────────────────────────────────────────────────────────────────────────
-  const step = d.screen === 'invite' ? 1 : d.screen === 'details' || d.screen.startsWith('ed:') ? 2 : d.screen.startsWith('card:') ? 3 : d.screen === 'bundle' ? 4 : d.screen === 'plan' ? 5 : 6;
+  const stepOf = d.screen === 'invite' ? 1 : d.screen === 'details' || d.screen.startsWith('ed:') ? 2 : d.screen.startsWith('card:') ? 3 : d.screen === 'bundle' ? 4 : d.screen === 'plan' ? 5 : 6;
+  // Setnayan's door has no bundle step: plan and account move up one.
+  const step = team && stepOf > 4 ? stepOf - 1 : stepOf;
   const fromHint = (extra = '') => (
     <p className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
       <Heart aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-      From {record.inviterName} · change it and they’ll see yours{extra}
+      {team ? 'Set up by the Setnayan team · change what’s wrong' : `From ${record.inviterName} · change it and they’ll see yours`}
+      {extra}
     </p>
   );
   const band = (children: React.ReactNode) => (
@@ -289,20 +321,70 @@ export function ClaimDoor({
   let primary: { label: string; onClick: () => void } | null = { label: 'Continue', onClick: next };
 
   if (d.screen === 'invite') {
-    title = `You’re invited by ${record.inviterName}.`;
-    line = `For their ${record.eventWord}${record.datePhrase ? ` ${record.datePhrase}` : ''}.`;
+    // 🎁 Setnayan's invite says what the claim page's TeamInviteDoor says (frame B1): your shop is ready, set up for you.
+    title = team ? `Your shop is ready, ${record.business}.` : `You’re invited by ${record.inviterName}.`;
+    line = team
+      ? `Set up for you by the Setnayan team${record.services[0] ? ` as a ${record.services[0].label}` : ''}.`
+      : `For their ${record.eventWord}${record.datePhrase ? ` ${record.datePhrase}` : ''}.`;
+    const offer = team ? record.offer : null;
     body = (
       <div className="grid max-w-[620px] gap-3" data-claim-door-invite="">
+        {offer ? (
+          // The claim page's own offer rows (TeamInviteDoor, `doorOffer`) — kept on the door, and applied on the finish
+          // by the shipped `claim_ready_the_invited_shop`. Rows with dividers, nothing boxed.
+          <section data-claim-door-offer="">
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
+              Your offer
+            </p>
+            <dl className="mt-1.5 divide-y border-y text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>
+              {offer.plan ? (
+                <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-door-offer-row="plan">
+                  <dt className="shrink-0" style={{ color: 'var(--m-slate-3)' }}>Plan</dt>
+                  <dd className="min-w-0 text-right" style={{ color: 'var(--m-ink)' }}>
+                    <b>{offer.plan.word}</b> · free until {offer.plan.until}
+                  </dd>
+                </div>
+              ) : null}
+              {offer.photos ? (
+                <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-door-offer-row="photos">
+                  <dt className="shrink-0" style={{ color: 'var(--m-slate-3)' }}>Portfolio photos</dt>
+                  <dd className="min-w-0 text-right" style={{ color: 'var(--m-ink)' }}>
+                    <b>{formatCount(offer.photos)}</b> · yours to keep
+                  </dd>
+                </div>
+              ) : null}
+              <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-door-offer-row="fee">
+                <dt className="shrink-0" style={{ color: 'var(--m-slate-3)' }}>Booking fee</dt>
+                <dd className="min-w-0 text-right" style={{ color: 'var(--m-ink)' }}>
+                  {offer.fee}
+                </dd>
+              </div>
+            </dl>
+            {offer.note ? (
+              <p className="mt-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                {offer.note}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
         <p className="flex items-center gap-1 text-sm" style={{ color: 'var(--m-slate)' }}>
           <span>
-            They added <b style={{ color: 'var(--m-ink)' }}>{record.business}</b>
-            {record.services[0] ? ` as their ${record.services[0].label}` : ''}.
+            {team ? (
+              <>
+                Claim <b style={{ color: 'var(--m-ink)' }}>{record.business}</b> to add your photos, services and prices.
+              </>
+            ) : (
+              <>
+                They added <b style={{ color: 'var(--m-ink)' }}>{record.business}</b>
+                {record.services[0] ? ` as their ${record.services[0].label}` : ''}.
+              </>
+            )}
           </span>
           <InfoTip label="" ariaLabel="What you get" align="start">
             <span className="block space-y-1">
               <b className="block">What you get</b>
               <span className="block">A free supplier profile and marketplace listing</span>
-              <span className="block">Chat with {record.inviterName} in-app</span>
+              <span className="block">{team ? 'Chat with couples in-app' : `Chat with ${record.inviterName} in-app`}</span>
               <span className="block">Calendar, payments and contracts in one place</span>
               <span className="block">No upfront cost · no card needed</span>
             </span>
@@ -324,7 +406,7 @@ export function ClaimDoor({
     primary = { label: 'Confirm — continue', onClick: next };
   } else if (d.screen === 'details') {
     title = 'These are your business details.';
-    line = `Tick what is wrong. The rest stays as ${record.inviterName} entered it.`;
+    line = `Tick what is wrong. The rest stays as ${record.inviterName} ${team ? 'set it up' : 'entered it'}.`;
     const value = (k: ClaimDetailKey): React.ReactNode => {
       switch (k) {
         case 'name':
@@ -500,13 +582,20 @@ export function ClaimDoor({
       set({ services: d.services.map((x, m) => (m === i ? { ...x, leaf } : x)), cards: d.cards.map((x, m) => (m === i ? { ...x, specialties: {} } : x)) });
     const setCard = (patch: Partial<Card>) => set({ cards: d.cards.map((x, m) => (m === i ? { ...x, ...patch } : x)) });
     title = c.name || s?.label || 'Service card';
-    line = c.bundled ? 'Part of their booking — nothing else is needed here.' : 'Your service card — their confirmed price and lines, already in.';
+    line = c.bundled
+      ? 'Part of their booking — nothing else is needed here.'
+      : team
+        ? 'Your service card — add your starting price and what’s included.'
+        : 'Your service card — their confirmed price and lines, already in.';
     body = (
       <div className="grid gap-4" data-claim-door-card={i}>
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Card {formatCount(i + 1)} of {formatCount(d.cards.length)} · for {record.inviterName}
+          Card {formatCount(i + 1)} of {formatCount(d.cards.length)}
+          {team ? '' : ` · for ${record.inviterName}`}
         </p>
-        {c.bundled
+        {team
+          ? null
+          : c.bundled
           ? band(
               <>
                 Part of the <b>{peso(d.price)}</b> bundle {record.inviterName} confirmed — priced on the <b>{first?.name ?? 'first'}</b> card.
@@ -635,7 +724,7 @@ export function ClaimDoor({
     );
   } else if (d.screen === 'plan') {
     title = 'Which plan fits';
-    line = `${words(cats, 'category', 'categories')} · ${words(d.services.length, 'service', 'services')} from ${record.inviterName}’s record.`;
+    line = `${words(cats, 'category', 'categories')} · ${words(d.services.length, 'service', 'services')} from ${team ? 'your invite' : `${record.inviterName}’s record`}.`;
     body = holdsMoreThanFree(meter) ? (
       <PlanInline
         agreed={d.planAgreed}
@@ -659,32 +748,147 @@ export function ClaimDoor({
     if (holdsMoreThanFree(meter)) primary = null; // the plan body carries its own Continue
   } else {
     title = 'Your account';
-    line = signedInAs ? `Signed in as ${signedInAs}.` : 'Sign in to claim — your sign-in email becomes your login.';
+    line = signedInAs ? `Signed in as ${signedInAs}.` : 'This creates your Setnayan account.';
     const returnTo = claimDoorHref(record.token) + '&step=account';
-    body = signedInAs ? (
-      <div className="grid gap-4" data-claim-door-account="">
-        {field('Your role at the shop', <Box value={d.role} maxLength={64} placeholder="e.g. Owner" autoComplete="organization-title" onChange={(e) => set({ role: e.target.value })} />, undefined, 'optional')}
-      </div>
-    ) : (
-      <div className="grid max-w-[620px] gap-3" data-claim-door-account="">
-        {oauth.show ? (
-          oauth.desktop ? (
-            <DesktopOAuthButtons next={returnTo} />
-          ) : oauth.native ? (
-            <NativeOAuthButtons next={returnTo} accountType="vendor" />
-          ) : (
-            <OAuthButtonRow next={returnTo} withAccountType defaultAccountType="vendor" />
-          )
-        ) : null}
-        <span>
-          <ActionButton tone="neutral" icon={LogIn} label="Sign in with your account" href={signInHref} />
-        </span>
-      </div>
-    );
+    const roleBox = field('Your role at the shop', <Box value={d.role} maxLength={64} placeholder="e.g. Owner" autoComplete="organization-title" onChange={(e) => set({ role: e.target.value })} />, undefined, 'optional');
+    if (signedInAs) {
+      body = (
+        <div className="grid gap-4" data-claim-door-account="">
+          {roleBox}
+        </div>
+      );
+    } else if (sentTo) {
+      line = 'One more tap.';
+      body = (
+        <div className="grid max-w-[620px] gap-2" data-claim-door-account="" data-claim-door-sent="">
+          <p className="flex items-start gap-2 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+            <MailCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: 'var(--m-orange-deep)' }} />
+            <span>We sent a link to {sentTo} — tap it to finish.</span>
+          </p>
+          <p className="text-[13.5px]" style={{ color: 'var(--m-slate)' }}>
+            It signs you in and brings you back here, with everything you confirmed, to press “Claim it”.
+          </p>
+        </div>
+      );
+    } else if (taken && emailWay) {
+      body = (
+        <div className="grid max-w-[620px] gap-3" data-claim-door-account="">
+          <TakenSignIn key={d.email} email={d.email} next={returnTo} onSignedIn={signedInHere} />
+          <span>
+            <ActionButton tone="neutral" icon={X} label="Use another way" onClick={() => setEmailWay(false)} />
+          </span>
+        </div>
+      );
+    } else if (emailWay) {
+      // v19 (owner 7 Nov: "when email is picked, continue with google and apple hides"): Email chosen → the ways go;
+      // ONE grey "✕ Use another way" brings them back. Drawn INSIDE the finish form (below), so the boxes post.
+      body = (
+        <div className="grid max-w-[620px] gap-4" data-claim-door-account="" data-claim-door-email="">
+          {waysShown ? (
+            <span className="flex">
+              <ActionButton tone="neutral" icon={X} label="Use another way" onClick={() => setEmailWay(false)} data-testid="claim-door-another-way" />
+            </span>
+          ) : null}
+          <label className="block max-w-[620px] space-y-1">
+            <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+              Email{' '}
+              <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                you&rsquo;ll sign in with this
+              </small>
+            </span>
+            <input
+              // field-ok: the account's sign-in email — the shipped /open-shop email box's shape, a credential (not a typed fact of the shop)
+              id="claim-door-contact_email"
+              name="contact_email"
+              type="email"
+              value={d.email}
+              onChange={(e) => set({ email: e.target.value })}
+              required
+              maxLength={254}
+              placeholder="you@yourshop.ph"
+              autoComplete="email"
+              autoCapitalize="none"
+              inputMode="email"
+              className="input-field"
+            />
+            {record.inviteEmail && d.email.trim().toLowerCase() === record.inviteEmail ? (
+              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-email-from="">
+                From {record.inviterName}’s invite · your login, never shown on your page
+              </span>
+            ) : null}
+          </label>
+          <label className="block max-w-[620px] space-y-1">
+            <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+              Password
+            </span>
+            {/* The shipped field, quiet (prototype v19 `zPw`): ONE rule line once the box holds something, ticking as
+                they type. The leaked check runs on submit (createVendorAccountForShop) and speaks only if it fails. */}
+            <PasswordField
+              id="claim-door-password"
+              mode="new"
+              quiet
+              name="password"
+              required
+              autoComplete="new-password"
+              minLength={OPEN_SHOP_PASSWORD_MIN}
+              placeholder="At least 8 characters"
+              className="input-field"
+            />
+          </label>
+          {roleBox}
+          <label className="flex max-w-[620px] cursor-pointer items-start gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
+            <input id="claim-door-terms" type="checkbox" name={TERMS_FIELD} required className="mt-0.5 h-4 w-4 shrink-0" style={{ accentColor: 'var(--m-mulberry)' }} />
+            <span>
+              I agree to the{' '}
+              <a href="/terms" className="text-terracotta" target="_blank" rel="noreferrer">
+                Terms
+              </a>{' '}
+              and{' '}
+              <a href="/privacy" className="text-terracotta" target="_blank" rel="noreferrer">
+                Privacy Policy
+              </a>
+              .
+            </span>
+          </label>
+        </div>
+      );
+    } else {
+      body = (
+        <div className="grid max-w-[620px] gap-2" data-claim-door-account="" data-claim-door-ways="">
+          {waysShown ? (
+            oauth.desktop ? (
+              <DesktopOAuthButtons next={returnTo} />
+            ) : oauth.native ? (
+              <NativeOAuthButtons next={returnTo} accountType="vendor" />
+            ) : (
+              <OAuthButtonRow next={returnTo} withAccountType defaultAccountType="vendor" />
+            )
+          ) : null}
+          <button
+            type="button"
+            className={OAUTH_BUTTON_CLASS}
+            aria-pressed={false}
+            onClick={() => {
+              setEmailWay(true);
+              window.requestAnimationFrame(() => document.getElementById('claim-door-contact_email')?.focus({ preventScroll: true }));
+            }}
+            data-claim-door-email-way=""
+          >
+            <Mail aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            {OAUTH_VERB} Email
+          </button>
+          <span className="mt-1">
+            <ActionButton tone="neutral" icon={LogIn} label="Sign in with your account" href={signInHref} />
+          </span>
+        </div>
+      );
+    }
     primary = null;
   }
 
-  const total = 6;
+  /** The account slide's email way, signed out — the only body drawn inside the finish form. */
+  const emailForm = d.screen === 'account' && !signedInAs && !sentTo && emailWay && !taken;
+  const total = team ? 5 : 6;
   return (
     <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-claim-door="" data-claim-door-screen={d.screen}>
       <div className="hidden h-[60px] items-center gap-4 border-b px-7 md:flex lg:px-8" style={{ borderColor: 'var(--m-line)' }}>
@@ -702,7 +906,7 @@ export function ClaimDoor({
           </div>
           <div key={d.screen} className="os-in-r grid gap-[3px]">
             <span className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
-              {record.hostNoun.charAt(0).toUpperCase() + record.hostNoun.slice(1)} invite
+              {team ? 'Your invite' : `${record.hostNoun.charAt(0).toUpperCase() + record.hostNoun.slice(1)} invite`}
             </span>
             <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
               {title}
@@ -718,48 +922,60 @@ export function ClaimDoor({
               {error}
             </p>
           ) : null}
-          <div key={`b-${d.screen}`} className="os-in-r">
-            {body}
-          </div>
-          {/* The finish form holds ONLY the bar: the decline above is its own form (forms never nest). The plan slide's
-              body carries its own Continue + "Back to your bundle" (PlanInline), so the bar steps aside there — never two backs. */}
+          {/* The finish form is a layout-free wrapper (`contents`). It holds the BAR always, and the BODY only on the
+              account slide's email way, so the email + password + Terms post with it. Every other body stays outside:
+              the decline and the Google / Apple row are forms of their own (forms never nest). The plan slide's body
+              carries its own Continue + "Back to your bundle" (PlanInline), so the bar steps aside there — never two backs. */}
+          {emailForm ? null : (
+            <div key={`b-${d.screen}`} className="os-in-r">
+              {body}
+            </div>
+          )}
           {d.screen === 'plan' && !primary ? null : (
-          <form
-            action={finishClaimDoor}
-            className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
-            style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-            data-claim-door-bar=""
-          >
-            <input type="hidden" name="claim_token" value={record.token} />
-            <input type="hidden" name={CLAIM_DOOR_FIELD} value={JSON.stringify(answers)} />
-            {at > 0 ? (
-              <button type="button" onClick={back} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5" style={{ borderColor: 'var(--m-line)' }} aria-label="Back">
-                <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              </button>
-            ) : null}
-            {d.screen === 'account' && signedInAs ? (
-              <SubmitButton className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
-                Claim it — open my shop
-              </SubmitButton>
-            ) : primary ? (
-              <button type="button" onClick={primary.onClick} className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-claim-door-continue="">
-                {primary.label}
-                <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              </button>
-            ) : null}
-          </form>
+            <form action={finishClaimDoor} className="contents" data-claim-door-finish="">
+              {emailForm ? (
+                <div key={`b-${d.screen}`} className="os-in-r">
+                  {body}
+                </div>
+              ) : null}
+              {emailForm ? <TurnstileField action="signup" /> : null}
+              <div
+                className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
+                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+                data-claim-door-bar=""
+              >
+                <input type="hidden" name="claim_token" value={record.token} />
+                <input type="hidden" name={CLAIM_DOOR_FIELD} value={JSON.stringify(answers)} />
+                {at > 0 ? (
+                  <button type="button" onClick={back} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5" style={{ borderColor: 'var(--m-line)' }} aria-label="Back">
+                    <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  </button>
+                ) : null}
+                {d.screen === 'account' && (signedInAs || emailForm) ? (
+                  <SubmitButton className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
+                    Claim it — open my shop
+                  </SubmitButton>
+                ) : primary ? (
+                  <button type="button" onClick={primary.onClick} className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-claim-door-continue="">
+                    {primary.label}
+                    <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  </button>
+                ) : null}
+              </div>
+            </form>
           )}
         </div>
         <aside className="hidden md:block">
           <div className="sticky top-5 grid gap-3 rounded-2xl p-[18px]" style={{ background: 'var(--m-paper)' }} data-claim-door-glance="">
             <span className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
-              From {record.inviterName}
+              {team ? 'From the Setnayan team' : `From ${record.inviterName}`}
             </span>
             <span className="text-xl font-semibold leading-[1.1] [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
               {d.name || record.business}
             </span>
             {[
-              ['For their', `${record.eventWord}${record.datePhrase ? ` ${record.datePhrase}` : ''}`],
+              ['For their', team ? null : `${record.eventWord}${record.datePhrase ? ` ${record.datePhrase}` : ''}`],
+              ['Offer', team && record.offer?.plan ? `${record.offer.plan.word} · free until ${record.offer.plan.until}` : null],
               ['Services', d.services.map((s) => s.label).join(' · ')],
               ['Price', d.price ? peso(d.price) : null],
               ['Step', `${step} of ${total}`],

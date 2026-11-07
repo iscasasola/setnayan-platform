@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchClaimLandingByToken, isCoupleMadeInvite } from '@/lib/vendor-invites';
+import { fetchClaimLandingByToken, isCoupleMadeInvite, readInviteOffer, type ClaimLandingData } from '@/lib/vendor-invites';
+import { doorOffer, offerFromInvite } from '@/lib/personal-invite-offer';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -26,7 +27,10 @@ export async function readClaimDoor(
   if (!token || token.length > 200) return { open: false };
   const admin = createAdminClient();
   const data = await fetchClaimLandingByToken(admin, token).catch(() => null);
-  if (!data || data.invite.status !== 'pending' || !isCoupleMadeInvite(data.invite.source) || !data.parentVendor) {
+  if (!data || data.invite.status !== 'pending') return { open: false };
+  // 🎁 Setnayan's own personal invite (owner 7 Nov: "yes") — its own record: the invite + the shop the admin staged.
+  if (data.invite.source === 'admin') return { open: true, record: await readSetnayanInvite(admin, token, data) };
+  if (!isCoupleMadeInvite(data.invite.source) || !data.parentVendor) {
     return { open: false };
   }
   const parent = data.parentVendor;
@@ -111,6 +115,8 @@ export async function readClaimDoor(
     open: true,
     record: {
       token,
+      from: 'couple',
+      offer: null,
       inviterName: event?.couple_display_name ?? 'A Setnayan couple',
       hostNoun: words?.host ?? 'host',
       eventWord: words?.eventWord ?? 'event',
@@ -119,10 +125,62 @@ export async function readClaimDoor(
       business: parent.vendor_name || data.invite.business_name || '',
       contactPerson: parent.contact_person,
       contactPhone: parent.contact_phone,
+      inviteEmail: (data.invite.email || parent.contact_email || '').trim().toLowerCase() || null,
       services,
       price: total > 0 ? total : null,
       inclusions,
       plan,
     },
+  };
+}
+
+/**
+ * 🎁 SETNAYAN'S OWN INVITE, as the door reads it (owner 7 Nov: "yes" — the personal invite moves to the claim door,
+ * pre-filled and keeping the offer). No couple, no event, no booking: the details are the shop the admin STAGED
+ * (`vendor_invites.claimed_vendor_profile_id`, a row with no owner yet), else the invite's own snapshot; the offer is
+ * the claim page's own read (`readInviteOffer` → `doorOffer`). The claim itself — handing the staged shop over and
+ * applying the offer — stays the shipped `claim_ready_the_invited_shop`, called by the finish.
+ *
+ * A refused staged-shop read is logged and the door falls back to the invite's snapshot (name + service), which is
+ * what the claim page shows too; a refused offer read draws no offer rows, exactly as the claim page does — the SQL
+ * claim reads the offer from the invite row itself, so nothing is lost.
+ */
+async function readSetnayanInvite(
+  admin: ReturnType<typeof createAdminClient>,
+  token: string,
+  data: ClaimLandingData,
+): Promise<ClaimDoorRecord> {
+  const inv = data.invite;
+  type Staged = { business_name: string | null; business_owner_name: string | null; contact_phone: string | null; services: string[] | null };
+  let staged: Staged | null = null;
+  if (inv.claimed_vendor_profile_id) {
+    const { data: row, error } = await admin
+      .from('vendor_profiles')
+      .select('business_name, business_owner_name, contact_phone, services')
+      .eq('vendor_profile_id', inv.claimed_vendor_profile_id)
+      .is('user_id', null)
+      .maybeSingle();
+    if (error) console.error('[supabase-error] lib/claim-door.server.ts · from:vendor_profiles.select (staged shop)', error);
+    staged = (row as Staged | null) ?? null;
+  }
+  const stored = await readInviteOffer(admin, inv.invite_id);
+  const keys = [...new Set([...(staged?.services ?? []), ...(inv.service_category ? [inv.service_category] : [])].map((x) => String(x).trim()).filter(Boolean))];
+  return {
+    token,
+    from: 'setnayan',
+    offer: stored ? doorOffer(offerFromInvite(stored)) : null,
+    inviterName: 'the Setnayan team',
+    hostNoun: 'Setnayan',
+    eventWord: 'event',
+    eventType: null,
+    datePhrase: null,
+    business: (staged?.business_name || inv.business_name || '').trim(),
+    contactPerson: staged?.business_owner_name?.trim() || null,
+    contactPhone: staged?.contact_phone?.trim() || null,
+    inviteEmail: (inv.email || '').trim().toLowerCase() || null,
+    services: keys.map((category) => ({ category, tileId: null, label: displayServiceLabel(category), price: null, inclusions: [] })),
+    price: null,
+    inclusions: [],
+    plan: [],
   };
 }

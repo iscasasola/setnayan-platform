@@ -19,7 +19,16 @@ import { SIGN_IN_IN_PLACE_INITIAL } from '@/app/login/_components/sign-in-state'
  * 🔒 It is only ever shown AFTER a submit was refused with "taken" (`?taken=1`) — never checked while typing, which
  * would tell anybody which addresses have accounts.
  */
-export function TakenSignIn({ email, onSignedIn }: { email: string; onSignedIn: () => void }) {
+export function TakenSignIn({
+  email,
+  onSignedIn,
+  next = '/open-shop',
+}: {
+  email: string;
+  onSignedIn: () => void;
+  /** Where a sign-in that has to leave the page returns to — the claim door passes its own account slide. */
+  next?: string;
+}) {
   const router = useRouter();
   const [state, submit] = useActionState(signInInPlace, SIGN_IN_IN_PLACE_INITIAL);
   useEffect(() => {
@@ -32,7 +41,7 @@ export function TakenSignIn({ email, onSignedIn }: { email: string; onSignedIn: 
   }, [state.attempt, state.ok, onSignedIn, router]);
   return (
     <form action={submit} className="space-y-3" data-open-shop-taken="">
-      <input type="hidden" name="next" value="/open-shop" />
+      <input type="hidden" name="next" value={next} />
       <input type="hidden" name="remember" value="on" />
       <TurnstileField action="login" />
       <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>

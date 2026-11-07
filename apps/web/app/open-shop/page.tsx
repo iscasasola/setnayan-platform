@@ -49,9 +49,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string; way?: string }>;
 }) {
-  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim } = await searchParams;
+  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim, way } = await searchParams;
   const claimToken = typeof claim === 'string' && claim.trim() ? claim.trim().slice(0, 200) : null;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
@@ -272,6 +272,9 @@ export default async function OpenShopPage({
         error={error}
         startOnAccount={step === 'account'}
         declineAction={declineVendorInviteByToken}
+        startOnEmail={way === 'email'}
+        taken={taken === '1'}
+        sentTo={checkInbox ? checkInbox.slice(0, 254) : null}
       />
     );
   }

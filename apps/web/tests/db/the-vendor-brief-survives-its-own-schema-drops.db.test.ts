@@ -56,6 +56,7 @@ const PRE_AGREEMENT_KEYS = [
   'budget_band',
   'dietary',
   'event',
+  'hosts',
   'lock_request',
   'monogram',
   'palette',
@@ -72,6 +73,12 @@ const PRE_AGREEMENT_KEYS = [
  * and a not-yet-committed supplier was granted the locked CATEGORIES only.
  */
 const BOOKED_KEYS = [...PRE_AGREEMENT_KEYS.filter((k) => k !== 'lock_request'), 'vendor_roster'].sort();
+
+/**
+ * The one shape a `hosts` entry may ever have (THE ONE BUILD, 8 Nov 2026 — `event_chat_hosts`): who the hosts
+ * are, first name first. Present at EVERY rung (the thread already shows a supplier the host name at inquiry).
+ */
+const HOST_ITEM_KEYS = ['first_name', 'label', 'name', 'role', 'user_id'].sort();
 
 /** The one shape a vendor_roster entry may ever have — name + category, nothing else. */
 const VENDOR_ROSTER_ITEM_KEYS = ['category', 'vendor_name'].sort();
@@ -293,6 +300,11 @@ test('a BOOKED supplier can call the brief, and it carries every key its callers
   // No other vendor is booked in this test's event, so the roster is present
   // (never absent) and empty — never null, never a missing key.
   assert.deepEqual(b.vendor_roster, [], 'an empty roster must still be [], the shape-preserving default');
+
+  // THE ONE BUILD (8 Nov 2026): the hosts list resolves — one couple member on this event, one entry.
+  const hosts = b.hosts as Row[];
+  assert.equal(hosts.length, 1, 'the one couple member must be listed as the one host');
+  assert.deepEqual(sortedKeys(hosts[0]), HOST_ITEM_KEYS, 'a host entry may only ever be {first_name, label, name, role, user_id}');
 
   // Widening #2 (2026-09-08): a fresh event with no explicit deadline and an
   // event_date far in the future has not auto-finalized.

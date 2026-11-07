@@ -402,7 +402,8 @@ export async function updateCommunityIdentity(formData: FormData) {
 export async function postSamahanMessage(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
   if (!communityId) redirect(PEOPLE_GROUPS_HREF);
-  const back = `/dashboard/samahan/${communityId}?tab=usapan`;
+  // The chat IS the group page (owner 2026-10-28, "GROUPS AS A CHATROOM") — back to it, not the old Usapan tab.
+  const back = `/dashboard/samahan/${communityId}`;
 
   const supabase = await createClient();
   const {
@@ -414,14 +415,14 @@ export async function postSamahanMessage(formData: FormData) {
   // An empty box is a mis-tap, not an error worth a message.
   if (!body) redirect(back);
   if (body.length > 2000) {
-    redirect(`${back}&error=${encodeURIComponent('That message is too long.')}`);
+    redirect(`${back}?error=${encodeURIComponent('That message is too long.')}`);
   }
 
   const { error } = await supabase
     .from('samahan_messages')
     .insert({ community_id: communityId, user_id: user.id, body });
   if (error) {
-    redirect(`${back}&error=${encodeURIComponent('That didn’t send. Try again.')}`);
+    redirect(`${back}?error=${encodeURIComponent('That didn’t send. Try again.')}`);
   }
   // Tell the rest of the group — after the response, never in front of it, and
   // never able to fail the message that already landed. Collapsed to one unread
@@ -441,7 +442,7 @@ export async function deleteSamahanMessage(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
   const messageId = String(formData.get('message_id') ?? '');
   if (!communityId || !messageId) redirect(PEOPLE_GROUPS_HREF);
-  const back = `/dashboard/samahan/${communityId}?tab=usapan`;
+  const back = `/dashboard/samahan/${communityId}`;
 
   const supabase = await createClient();
   const {

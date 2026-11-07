@@ -28,6 +28,8 @@ import {
 } from '@/lib/booking-fee-disclosure.server';
 import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
+import { BookingFeeLine } from '@/app/_components/booking-fee-line';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 
 export const metadata = { title: 'Booking fees · Supplier' };
 
@@ -78,6 +80,9 @@ export default async function VendorBookingFeesPage() {
   // the count and says the amount is unreadable, instead of printing a sum that
   // silently counted the unreadable one as ₱0.
   const totalDue = sumFeeOrderTotalsPhp(due);
+
+  // The owner's LIVE rate for the fee line below — null prints no rate, never the code default.
+  const feeSchedule = await getLiveBookingFeeSchedule();
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -138,8 +143,9 @@ export default async function VendorBookingFeesPage() {
           />
           <p className="mt-3 text-sm font-medium text-ink">Nothing to pay yet.</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-            Your first booking from Setnayan is on us — it still shows the fee it
-            would have carried, so the next one is no surprise.
+            {/* Owner 2026-11-04 reword — the one fee line, from the live schedule. */}
+            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> The free one still
+            shows the fee it would have carried, so the next one is no surprise.
           </p>
         </div>
       ) : (

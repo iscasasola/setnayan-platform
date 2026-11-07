@@ -194,3 +194,41 @@ export function bookingFeeScheduleSummary(
   const floor = formatPhpAmount(schedule.minPhp);
   return `${head} of the first ${band}, then ${tail}, minimum ${floor}`;
 }
+
+/**
+ * The two bands as the short public line — today `5% up to ₱100,000, 1% above`.
+ *
+ * Owner, 2026-11-04, rewording the /for-suppliers fee line: the visible
+ * sentence names the bands, and the ₱50 minimum moves behind the ⓘ beside it
+ * (`bookingFeeMinimumAmount`). The minimum is still said — one tap away, never
+ * dropped — so the claim stays whole (see `bookingFeeScheduleSummary` on why
+ * the floor is part of the claim).
+ *
+ * NO DEFAULT SCHEDULE, on purpose: a page must hand in the live schedule it
+ * read (`getLiveBookingFeeSchedule`), so it cannot print the code default by
+ * forgetting an argument (`fee-copy-reads-the-live-rate.test.ts`).
+ */
+export function bookingFeeBandsLine(schedule: BookingFeeSchedule): string {
+  const head = formatRatePct(schedule.rate);
+  const tail = formatRatePct(schedule.tailRate);
+  const band = formatPhpAmount(schedule.tier1LimitPhp);
+  return `${head} up to ${band}, ${tail} above`;
+}
+
+/**
+ * The schedule's three public figures as display copy — today `{ head: '5%', tail: '1%', band: '₱100,000' }` — for a
+ * sentence that places them itself (the /for-suppliers hero ⓘ: "5% on the first ₱100,000 of a booking and 1%
+ * after"). Same rule as the line above: no default schedule, so a page cannot print the code default by forgetting.
+ */
+export function bookingFeeFigures(schedule: BookingFeeSchedule): { head: string; tail: string; band: string } {
+  return {
+    head: formatRatePct(schedule.rate),
+    tail: formatRatePct(schedule.tailRate),
+    band: formatPhpAmount(schedule.tier1LimitPhp),
+  };
+}
+
+/** The fee's floor as display copy — today `₱50`. Same rule: no default schedule. */
+export function bookingFeeMinimumAmount(schedule: BookingFeeSchedule): string {
+  return formatPhpAmount(schedule.minPhp);
+}

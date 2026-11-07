@@ -357,12 +357,14 @@ GRANT EXECUTE ON FUNCTION
   TO anon, authenticated, service_role;
 
 -- ── 2 · no flat pass any more ───────────────────────────────────────────────
+-- ALTER before UPDATE (house rule since 1 Nov: an UPDATE can queue deferred trigger events that make a later ALTER
+-- of the same table fail with 55006 in prod while the PGlite replay passes).
+ALTER TABLE public.papic_event_pool_config
+  ALTER COLUMN pass_service_codes SET DEFAULT ARRAY[]::TEXT[];
+
 UPDATE public.papic_event_pool_config
    SET pass_service_codes = ARRAY[]::TEXT[]
  WHERE pass_service_codes IS DISTINCT FROM ARRAY[]::TEXT[];
-
-ALTER TABLE public.papic_event_pool_config
-  ALTER COLUMN pass_service_codes SET DEFAULT ARRAY[]::TEXT[];
 
 -- ── 3 · the pack's provisioning RPC ─────────────────────────────────────────
 -- Not CASCADE: an unexpected dependant fails the push loudly.

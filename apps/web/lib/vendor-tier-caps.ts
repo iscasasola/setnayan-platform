@@ -98,7 +98,8 @@ export type VendorSeoLevel = 'basic' | 'enhanced' | 'aeo' | 'priority';
  *                           SERVICE IS A PLAN ALLOWANCE": *"Solo has 1 per date/service, pro has 3 per
  *                           date/service, ultra has 5 per date/service"*) — the per-card
  *                           `vendor_services.daily_capacity` is capped by
- *                           `TIER_CAPS[t].bookingsPerDatePerService`. Free/Verified: NOT RULED.
+ *                           `TIER_CAPS[t].bookingsPerDatePerService`. Free/Verified: 1 each, like Solo
+ *                           (owner click 2026-11-06, "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED").
  *   · answering couples   — NO weekly limit, on any plan, Free included.
  *   · service cards       — SUPERSEDED 2026-11-04 (owner, "SUPPLIER PLAN ALLOWANCES": *"service cards free 1,
  *                           solo 3, pro 10, ultra unlimited"*). Cards per category are a plan allowance again —
@@ -415,12 +416,12 @@ export interface TierCaps {
    * BOOKINGS PER DATE PER SERVICE CARD — the most bookings ONE service card may take on ONE date (owner 2026-11-06,
    * DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: *"Solo has 1 per date/service, pro has 3
    * per date/service, ultra has 5 per date/service"*). Solo 1 · Pro 3 · Ultra 5; Custom runs as Ultra. Ultra may buy
-   * more, +1 at a time ({@link canBuyExtraBookingsPerDate}).
+   * more, +1 at a time ({@link canBuyExtraBookingsPerDate}). FREE · VERIFIED: 1 each, like Solo (owner click
+   * 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": *"1 each, like Solo. Completes the
+   * allowance: Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5."*). Every plan now has a number; none is pending.
    *
    * A card's own "Bookings per day" (`vendor_services.daily_capacity`) may be LOWER, never higher; a blank card takes
-   * the plan's number. ⏳ FREE · VERIFIED: THE OWNER HAS NOT RULED — they read {@link DAILY_CAPACITY_MAX}, which the
-   * SQL twin spells NULL ("no plan cap"), so their cards behave exactly as before 2026-11-06 (the card's own number,
-   * or the schedule, decides).
+   * the plan's number.
    *
    * The SQL twin is `vendor_tier_limit(…,'bookings_per_date_per_service')`; the database refuses on it
    * (`service_card_daily_limit`, read by `vendor_agree_to_lock`, `vendor_day_check` and
@@ -430,23 +431,9 @@ export interface TierCaps {
   bookingsPerDatePerService: number;
 }
 
-/**
- * ⏳ PENDING THE OWNER (2026-11-06): the bookings-per-date-per-card number for Free and Verified. The ruling names Solo
- * · Pro · Ultra only, so these two keep their pre-ruling behaviour — no plan cap on a card's day. Spelled as the
- * database's own ceiling on any daily setting ({@link DAILY_CAPACITY_MAX}) so the field stays a finite number; the
- * SQL twin returns NULL for these two and `vendor-plan-allowances.db.test.ts` maps one to the other.
- */
-export const BOOKINGS_PER_DATE_NOT_RULED = DAILY_CAPACITY_MAX;
-
-/** True while the owner has not set this plan's bookings per date per card (Free · Verified, 2026-11-06). */
-export function bookingsPerDateIsPending(tier: string | null | undefined): boolean {
-  const t = asVendorTier(tier);
-  return t === 'free' || t === 'verified';
-}
-
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
-    bookingsPerDatePerService: BOOKINGS_PER_DATE_NOT_RULED, // ⏳ owner has not ruled for Free (2026-11-06) — unchanged behaviour
+    bookingsPerDatePerService: 1, // owner click 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": 1, like Solo
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
     waitlistAcceptances: 0, // FREE: no waitlist (owner 2026-08-09)
     serviceRadiusKm: 0,
@@ -488,7 +475,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // cap and the 2-per-category edge are GONE (owner 2026-10-23, "plans price reach,
   // not income"): Solo is better on reach and tools, never on how much a shop may sell.
   verified: {
-    bookingsPerDatePerService: BOOKINGS_PER_DATE_NOT_RULED, // ⏳ owner has not ruled for Verified (2026-11-06) — unchanged behaviour
+    bookingsPerDatePerService: 1, // owner click 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": 1, like Solo
     // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
     // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
     // tiers and `verified` was the row the build had to invent. Asked directly, the

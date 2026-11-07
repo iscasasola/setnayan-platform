@@ -1813,8 +1813,8 @@ export async function finalizeVendor(
     } else {
       // ── #2 DAILY-CAPACITY PATH (service has no active slots). ──
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
-      // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified not ruled, so the
-      // card's own number as before). ONE server-only definer answers it — `service_card_daily_limit`, the SAME limit
+      // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified 1 each, like Solo,
+      // owner click 2026-11-06). ONE server-only definer answers it — `service_card_daily_limit`, the SAME limit
       // the supplier's yes and the bench search read — and returns only a number. Its input is the card on the
       // couple's own booking row, read through their session above. Degrades OPEN on a read error, like every
       // capacity read here (the supplier's yes still refuses on it) — but never silently.

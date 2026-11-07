@@ -3,7 +3,9 @@
 --
 -- ⚖ OWNER 2026-11-06 (DECISION_LOG), verbatim:
 --   "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE" — *"Solo has 1 per date/service, pro has 3 per date/service,
---     ultra has 5 per date/service"*. Free/Verified: PENDING THE OWNER — left exactly as they behave today.
+--     ultra has 5 per date/service"*.
+--   "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED (owner click)" — *"1 each, like Solo. Completes the allowance:
+--     Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5."*
 --   "ULTRA ADD-ON PRICES" — *"seat, branch + 990 / the rest is +199"*: per 4 weeks, Ultra only — +1 team seat ₱990 ·
 --     +1 branch ₱990 (was ₱1,990) · +1 category ₱199 · +1 service card ₱199 · +1 wait list ₱199 · +1 booking per
 --     date ₱199. "These go into vendor_billing_catalog (the only price a supplier is charged)."
@@ -36,10 +38,11 @@
 -- 4 · `guard_vendor_profiles_entitlement` names the four counts — a shop cannot PATCH itself extra room
 --     (`vendor_profiles_owner` is FOR ALL on its own row). Re-emitted from its latest definition
 --     (20271221359289) with the four clauses added at INSERT and at UPDATE and nothing else changed.
--- 5 · `vendor_tier_limit` gains 'bookings_per_date_per_service': NULL · NULL · 1 · 3 · 5 · 5. NULL on Free/Verified
---     means "no plan cap — not ruled" (the existing arms are VERBATIM from 20271307996183). And ONE helper,
+-- 5 · `vendor_tier_limit` gains 'bookings_per_date_per_service': 1 · 1 · 1 · 3 · 5 · 5 (Free · Verified · Solo ·
+--     Pro · Ultra · Custom; the existing arms are VERBATIM from 20271307996183). And ONE helper,
 --     `service_card_daily_limit(card)`: the card's own "Bookings per day" inside its plan —
---         plan cap NULL  → NULLIF(daily_capacity, 0)                              (unchanged behaviour)
+--         plan cap NULL  → NULLIF(daily_capacity, 0)                              (no plan returns NULL today; kept
+--                                                                                  so a NULL can never read as 0)
 --         plan cap N     → LEAST(COALESCE(NULLIF(daily_capacity, 0), N), N)       (a blank card takes N)
 --     where N = the plan's number + the bought "+1 booking per date" count (Ultra/Custom only).
 -- 6 · Every reader of the per-card daily limit reads the helper instead of the raw column — one line each, bodies
@@ -403,20 +406,20 @@ AS $$
       END
     WHEN 'bookings_per_date_per_service' THEN
       CASE COALESCE(p_tier, 'free')
-        WHEN 'free'       THEN NULL -- ⏳ owner has NOT ruled for Free (2026-11-06): no plan cap, as before
-        WHEN 'verified'   THEN NULL -- ⏳ owner has NOT ruled for Verified (2026-11-06): no plan cap, as before
+        WHEN 'free'       THEN 1    -- owner click 2026-11-06 "FREE AND VERIFIED": "1 each, like Solo"
+        WHEN 'verified'   THEN 1    -- same ruling
         WHEN 'solo'       THEN 1    -- owner 2026-11-06: "Solo has 1 per date/service"
         WHEN 'pro'        THEN 3    -- "pro has 3 per date/service"
         WHEN 'enterprise' THEN 5    -- "ultra has 5 per date/service"
         WHEN 'custom'     THEN 5    -- runs as Ultra
-        ELSE NULL                   -- unknown tier reads as Free (not ruled)
+        ELSE 1                      -- unknown tier reads as Free (asVendorTier)
       END
     ELSE NULL                      -- unknown key: NULL, never a silent 0
   END;
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Owner-set per-tier limits. Keys: whitelist_per_date (5 on EVERY plan since 2026-10-23) · waitlist_acceptances (0/0/0/1/3/3 since 2026-11-04) · branches_included (0/0/0/3/6/6 since 2026-11-04) · bookings_per_date_per_service (most bookings ONE service card takes on ONE date — NULL/NULL/1/3/5/5 since 2026-11-06; NULL on Free/Verified = no plan cap, the owner has not ruled). Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by tests/db/vendor-tier-pipeline-caps.db.test.ts and tests/db/vendor-plan-allowances.db.test.ts, which derive from the TS side. An unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap.';
+  'Owner-set per-tier limits. Keys: whitelist_per_date (5 on EVERY plan since 2026-10-23) · waitlist_acceptances (0/0/0/1/3/3 since 2026-11-04) · branches_included (0/0/0/3/6/6 since 2026-11-04) · bookings_per_date_per_service (most bookings ONE service card takes on ONE date — 1/1/1/3/5/5 since 2026-11-06; Free/Verified 1 each, like Solo, owner click 2026-11-06). Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by tests/db/vendor-tier-pipeline-caps.db.test.ts and tests/db/vendor-plan-allowances.db.test.ts, which derive from the TS side. An unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap.';
 
 CREATE OR REPLACE FUNCTION public.service_card_daily_limit(p_service_id uuid)
 RETURNS integer
@@ -443,7 +446,7 @@ $function$;
 COMMENT ON FUNCTION public.service_card_daily_limit(uuid) IS
   'The most bookings this service card takes on one date: its own daily_capacity inside its plan''s bookings per date '
   'per card (owner 2026-11-06 — Solo 1 · Pro 3 · Ultra 5, + bought "+1 booking per date" on Ultra/Custom). A blank card '
-  'takes the plan''s number. Free/Verified (not ruled): the card''s own number, as before. NULL = no limit. Read by '
+  'takes the plan''s number. Free/Verified: 1 each, like Solo (owner 2026-11-06). NULL = no limit. Read by '
   'vendor_agree_to_lock, vendor_day_check and service_cards_unbookable_on. Bookings already held are never touched.';
 
 REVOKE ALL ON FUNCTION public.service_card_daily_limit(uuid) FROM PUBLIC, anon, authenticated;

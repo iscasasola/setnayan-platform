@@ -112,7 +112,7 @@ test('the service keys round-trip and join both registries', () => {
   assert.equal(parseCountAddOnServiceKey(null), null);
 });
 
-test('the card editor: a NEW number past the plan is refused; a grandfathered one and Free/Verified are not', () => {
+test('the card editor: a NEW number past the plan is refused on every plan; a grandfathered one is not', () => {
   // Solo takes 1 a date.
   assert.equal(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: 1, stored: null }), null);
   assert.equal(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: null, stored: 3 }), null, 'blank must save');
@@ -123,10 +123,16 @@ test('the card editor: a NEW number past the plan is refused; a grandfathered on
   // Ultra with two bought: 7.
   assert.equal(bookingsPerDateRefusal({ tier: 'enterprise', effectiveCap: 7, requested: 7, stored: null }), null);
   assert.match(bookingsPerDateHelp('enterprise', 7) ?? '', /up to 7 bookings per date.*Add more on your Plan page/);
-  // Free / Verified: not ruled — never refused, no words.
+  // Free / Verified: 1 each, like Solo (owner click 2026-11-06) — a NEW 2 is refused, 1 and blank save, a grandfathered
+  // number re-saves, and the editor names the cap and Ultra's number.
   for (const t of ['free', 'verified'] as const) {
-    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: TIER_CAPS[t].bookingsPerDatePerService, requested: 40, stored: null }), null);
-    assert.equal(bookingsPerDateHelp(t, TIER_CAPS[t].bookingsPerDatePerService), null);
+    const cap = TIER_CAPS[t].bookingsPerDatePerService;
+    assert.equal(cap, 1, `${t} takes 1 a date`);
+    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: 1, stored: null }), null);
+    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: null, stored: 3 }), null, `${t}: blank must save`);
+    assert.match(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: 2, stored: null }) ?? '', /up to 1 booking per date/);
+    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: 3, stored: 3 }), null, `${t}: grandfathered`);
+    assert.match(bookingsPerDateHelp(t, cap), new RegExp(`up to 1 booking per date.*Ultra takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}`));
   }
   // Below Ultra, the words name Ultra's number from the table, never typed.
   assert.match(bookingsPerDateHelp('pro', 3) ?? '', new RegExp(`Ultra takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}`));

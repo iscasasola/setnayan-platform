@@ -495,7 +495,7 @@ function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | nul
 /**
  * A CARD'S BOOKINGS PER DATE STAYS INSIDE ITS PLAN (owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A
  * PLAN ALLOWANCE": Solo 1 · Pro 3 · Ultra 5, plus any "+1 booking per date" bought). Null = it may be saved; else the
- * sentence to show. Free · Verified: the owner has not ruled — never refused here. A card re-saved with the SAME number
+ * sentence to show. Free · Verified: 1 each, like Solo (owner click 2026-11-06). A card re-saved with the SAME number
  * it already holds above a lowered cap is grandfathered (lib/card-bookings-per-date.ts). The database honours only the
  * cap either way (`service_card_daily_limit`).
  */
@@ -760,7 +760,7 @@ export async function createVendorService(formData: FormData) {
       : baseCaps;
 
   // (0) Per-service daily capacity (#2) — the supplier's own number, inside the plan's bookings per date per card
-  // (owner 2026-11-06; Free · Verified not ruled yet, so unbounded there as before).
+  // (owner 2026-11-06; Free · Verified 1 each, like Solo).
   let daily_capacity: number | null;
   try {
     daily_capacity = parseDailyCapacityOrThrow(formData.get('daily_capacity'));

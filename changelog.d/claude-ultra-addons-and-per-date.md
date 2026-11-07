@@ -9,8 +9,7 @@ date/service"* and *"seat, branch + 990 / the rest is +199"*.
   number), and every reader of the per-card daily limit now reads it: the supplier's yes (`vendor_agree_to_lock`), the
   day check (`vendor_day_check`), the bench search (`service_cards_unbookable_on`) and the couple's ask
   (`finalizeVendor` #2). A Solo card already booked once on a date refuses the second. Bookings a card already holds are
-  never touched. ⏳ **Free / Verified: the owner has not ruled** — unchanged (the card's own number; SQL NULL, TS
-  `BOOKINGS_PER_DATE_NOT_RULED`).
+  never touched. **Free / Verified: 1 each, like Solo** (owner click, 2026-11-06 — see the block below).
 - **The card editor** shows the cap and the Ultra add-on beside "How many a day · this card", bounds the field, and the
   three save paths refuse a NEW number past the plan (an untouched grandfathered number re-saves).
 - **Ultra add-ons** (`vendor_billing_catalog`, per 4 weeks, Ultra only): branch ₱1,990 → **₱990**; seat stays ₱990;
@@ -42,5 +41,28 @@ step), `lib/vendor-ultra-addons.test.ts` (new — a purchase raises the effectiv
 shop is now Pro, since Solo takes 1).
 
 SPEC IMPACT: None in this PR — the controller recorded both 2026-11-06 rulings in DECISION_LOG ("BOOKINGS PER DATE PER
-SERVICE IS A PLAN ALLOWANCE", "ULTRA ADD-ON PRICES"). Open for the owner: the Free/Verified bookings-per-date number;
+SERVICE IS A PLAN ALLOWANCE", "ULTRA ADD-ON PRICES"). Open for the owner:
 whether the plan cap should also bind a SLOTTED card (today its slots decide, unchanged).
+
+## 2026-11-07 · feat(plans): bookings per date per card — Free 1 · Verified 1, like Solo
+
+Owner click, DECISION_LOG 2026-11-06 "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": *"1 each, like Solo.
+Completes the allowance: Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5."*
+
+- `TIER_CAPS.free/verified.bookingsPerDatePerService` = **1**; `BOOKINGS_PER_DATE_NOT_RULED` and
+  `bookingsPerDateIsPending()` are removed (every plan now has a number). The SQL twin
+  `vendor_tier_limit(…,'bookings_per_date_per_service')` returns 1 for Free, Verified and an unknown tier (was NULL),
+  so `service_card_daily_limit` caps a Free/Verified card at 1 — the supplier's yes, the day check, the bench search
+  and the couple's ask all refuse the second booking on one card on one date. Grandfathered as before: bookings a card
+  already holds are never touched.
+- The card editor now shows the cap on Free/Verified too ("Your plan: up to 1 booking per date on this card. Ultra
+  takes 5, and can add more.") and refuses a NEW number above 1; a grandfathered number re-saves.
+- Tests: `plans-price-reach-not-income` 2c, `vendor-ultra-addons` (editor clamp on Free/Verified),
+  `vendor-plan-allowances.db` (SQL twin = TIER_CAPS on every tier, unknown tier = Free's 1),
+  `bookings-per-date-is-a-plan-allowance.db` (Free/Verified refuse the 2nd booking, keep held ones, a bought count on
+  their row never counts). Fixtures retargeted, assertions unchanged: `a-cards-daily-limit-really-refuses.db` (its
+  2-a-day shop is now Pro) and `a-full-card-leaves-bench-search.db` (shop is now Ultra — card A carries 3 pool bookings
+  a day; its booking-path mirror now reads `service_card_daily_limit`, as the real gate does).
+- Same migration file (`20271316466285`, unapplied) — edited in place, prefix kept.
+
+SPEC IMPACT: None — the ruling is already recorded in DECISION_LOG (2026-11-06, "… FREE AND VERIFIED").

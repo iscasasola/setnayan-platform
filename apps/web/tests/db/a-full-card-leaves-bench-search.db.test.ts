@@ -191,6 +191,13 @@ async function createVendor(email: string, name: string): Promise<string> {
      RETURNING vendor_profile_id`,
     [uid, name],
   );
+  // ULTRA, not the default Free: card H takes 2 a day and card A carries every pool booking (3 on some days), and since
+  // 2026-11-06 a Free card takes at most 1 a date (owner click, "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED":
+  // 1 each, like Solo; Pro 3 would bind card A too). Ultra's 5 leaves each card's own number and the pools in charge,
+  // so every fact below still tests its own rule. Assertions unchanged.
+  await db.query(`UPDATE public.vendor_profiles SET tier_state = 'enterprise' WHERE vendor_profile_id = $1`, [
+    r.rows[0]!.vendor_profile_id,
+  ]);
   return r.rows[0]!.vendor_profile_id;
 }
 
@@ -453,10 +460,8 @@ async function bookingPathRefuses(
     // event is). The count's own truth is checked independently below.
     let capacityRefused = false;
     if (slots.rows.length === 0) {
-      const cap = await db.query<{ c: number | null }>(
-        `SELECT daily_capacity AS c FROM public.vendor_services WHERE vendor_service_id = $1`,
-        [serviceId],
-      );
+      // The gate reads the card's number INSIDE its plan (`service_card_daily_limit`, migration 20271316466285).
+      const cap = await db.query<{ c: number | null }>(`SELECT public.service_card_daily_limit($1) AS c`, [serviceId]);
       const limit = cap.rows[0]?.c ?? null;
       if (typeof limit === 'number' && limit > 0) {
         const n = await db.query<{ n: number }>(

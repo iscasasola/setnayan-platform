@@ -144,5 +144,9 @@ test('4 · every old link still lands', () => {
   const rows = APP.filter((f) => f.path.startsWith('app/vendor-dashboard/') && /<ShopSegments\b/.test(f.code));
   const bare = rows.flatMap((f) => (f.code.match(/<ShopSegments\b[^>]*\/>/g) ?? []).filter((m) => !/gearBody=/.test(m)).map(() => f.path));
   assert.deepEqual(bare, [], `a Shop section draws a ⚙ that can never open: ${bare.join(', ')}`);
-  assert.ok(rows.length >= 6, `only ${rows.length} Shop section files walked`);
+  // THE ONE BUILD (v113): the Shop TAB and the Portfolio TAB draw their own pinned rows (no ▾) — Shop's ⚙ rides the
+  // cover (`gearBody={shopGearBody(sp)}` into `ShopCover`), Portfolio has its own ⚙ (`PortfolioSettings`).
+  assert.ok(rows.length >= 5, `only ${rows.length} Shop section files walked`);
+  assert.match(src('shop', 'page.tsx'), /gearBody=\{shopGearBody\(sp\)\}/, 'the Shop tab’s ⚙ can never open');
+  assert.match(src('collections', '_components', 'portfolio-view.tsx'), /<PortfolioSettings\b/, 'the Portfolio tab lost its ⚙');
 });

@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUpDown, Play, Plus, Upload } from 'lucide-react';
+import { Play, Plus, Upload } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { collectionRows, type CollectionKey, type CollectionsInput } from '@/lib/supplier-collections';
@@ -110,7 +111,7 @@ export function PortfolioView({
           style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : undefined, background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
           aria-hidden={pin < 0.5 ? true : undefined}
         >
-          <b className="text-[17px] font-semibold text-ink">Portfolio</b>
+          <PinWord barAbove>Portfolio</PinWord>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/60">{count}</span>
           {showButton}
           {pin >= 0.5 ? settings : null}
@@ -163,11 +164,11 @@ export function PortfolioView({
           ]}
           onPick={(k) => setOrder(k as 'listed' | 'name')}
           compact
+          buttonText={order === 'name' ? 'Sort · By name' : 'Sort'}
           dataAttr="data-portfolio-sort"
-          trigger={<ArrowUpDown aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
         />
         <ActionButton tone="neutral" iconOnly icon={<Play aria-hidden strokeWidth={1.9} />} label="Show" onClick={() => canShow && setShowing(true)} disabled={!canShow} />
-        <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add photos" href="#gallery-media" />
+        <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add photos" href="#gallery-media" tour="collections-add" />
       </SupplierThumbRow>
     </>
   );

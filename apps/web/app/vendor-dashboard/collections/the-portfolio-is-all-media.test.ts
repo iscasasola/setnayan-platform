@@ -37,7 +37,9 @@ test('2 · an album opens in place — 3 columns, first 9, "+N"; ✓ is its own 
 });
 
 test('3 · Show is greyed until a pick, and draws nothing but the photos', () => {
-  assert.match(VIEW, /disabled=\{!canShow\}/);
+  assert.match(VIEW, /const canShow = Boolean\(album && album\.urls\.length > 0\);/);
+  // Both Show doors (the pinned row's and the thumb row's ▶) are greyed until a pick.
+  assert.equal([...VIEW.matchAll(/disabled=\{!canShow\}/g)].length, 2, 'a Show door is live before an album is picked');
   assert.doesNotMatch(SHOW, />[^<{]*(₱|price|Edit|Delete|Remove|caption)[^<]*</i, 'Show draws a price, an edit or a caption');
   assert.doesNotMatch(SHOW, /<(form|input|ActionButton)\b|formatPhp|priceText/, 'Show carries a control or a price');
 });

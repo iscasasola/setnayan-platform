@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Check, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Pencil, Printer, QrCode, Settings, Share2, ShieldCheck, Star } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -148,7 +149,7 @@ export function ShopCover({
           className="flex h-11 items-center gap-2 px-4"
           style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : undefined, background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
         >
-          <b className="text-[17px] font-semibold text-ink">Shop</b>
+          <PinWord barAbove>Shop</PinWord>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/60">{counts}</span>
           {d.publicPath ? (
             <a href={d.publicPath} target="_blank" rel="noreferrer" tabIndex={pin < 0.5 ? -1 : undefined} className="inline-flex h-9 items-center gap-1 rounded-full bg-ink px-3 text-[13px] font-semibold text-[color:var(--m-paper)]">

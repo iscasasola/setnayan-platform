@@ -67,7 +67,8 @@ const SCREENS: Array<[seg: string, file: string, maker: RegExp]> = [
   // 📣 Promote (2026-11-05) — part 1 drew its row WITHOUT figures (only the QR codes, nothing counted). Part 2 brought
   // the gift stock, and with it the row's one figure: `promoteFigures(` fed by the gifts section's own read.
   ['promote', 'shop/promote/page.tsx', /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock\b/],
-  ['gallery', 'collections/page.tsx', /figures=\{galleryFigures\(/],
+  // ✂ THE ONE BUILD (v113/v114): Portfolio is its OWN bar tab (`collections/page.tsx` → `portfolio-view.tsx`, pinned row
+  // "Portfolio · N of 50 free photos · Show · ⚙"); its ▾ entry still opens it from the Shop sub-screens.
   ['insights', 'performance/page.tsx', /figures=\{pinFigures\}/],
 ];
 
@@ -80,7 +81,8 @@ test('3 · every Shop screen hands its row its own section and its own figures',
     assert.ok(rows.some((r) => maker.test(r)), `${file}: the row carries no ${seg} figures`);
     n += 1;
   }
-  assert.equal(n, SHOP_SEGMENT_ORDER.length - 1, 'a section has no screen in this check');
+  assert.equal(n, SHOP_SEGMENT_ORDER.length - 2, 'a section has no screen in this check');
+  assert.match(read('collections/_components/portfolio-view.tsx'), /<PinWord barAbove>Portfolio<\/PinWord>/, 'the Portfolio tab lost its pinned row');
   assert.doesNotMatch(read('shop/page.tsx'), /<ShopSegments\b/, 'the Shop tab draws the retired ▾ row again (v113)');
   assert.match(read('shop/_components/shop-cover.tsx'), /data-shop-pin="shop"/, 'the Shop tab lost its pinned row');
   assert.match(read('performance/page.tsx'), /const pinFigures = analyticsFigures\(/, 'Analytics figures are not the funnel’s own counts');

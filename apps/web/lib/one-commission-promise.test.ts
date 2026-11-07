@@ -173,10 +173,26 @@ test('a help topic couples read never names the supplier fee; a supplier-only on
 // SABOTAGE: delete a surface from the list → RED (the list must stay honest).
 test('the supplier list still covers what it claims to', () => {
   assert.ok(SUPPLIER_SURFACES.length >= 13, 'floored: a shrinking list guards less while looking the same');
+  // The pages where a supplier is pitched the zero — each must still make the claim (and so owe the fee
+  // sentence, above). This names the surfaces instead of only counting them, so the claim cannot quietly
+  // leave the pages that matter while the count stays up.
+  for (const f of [
+    'app/(shell)/for-suppliers/page.tsx',
+    'app/for-suppliers/_components/supplier-front-page.tsx',
+    'app/(shell)/pricing/page.tsx',
+    'app/vendor/claim/[token]/_components/claim-parts.tsx',
+    'lib/help.ts',
+  ]) {
+    assert.ok(SUPPLIER_SURFACES.includes(f), `${f} left the supplier list`);
+    assert.match(readCode(f), MAKES_THE_CLAIM, `${f} no longer makes the commission claim — if it moved, follow it`);
+  }
   let saying = 0;
   for (const f of SUPPLIER_SURFACES) if (MAKES_THE_CLAIM.test(readCode(f))) saying += 1;
+  // 9, not 10, since 2026-11-07: the admin Custom-plan composer (custom-composer.tsx) said the claim and was
+  // DELETED with the Custom plan (f4a93e99) — no supplier lost the sentence; the page that held it is gone.
+  // The named pages above are the stricter half of this check.
   assert.ok(
-    saying >= 10,
+    saying >= 9,
     `only ${saying} of the listed surfaces still mention commission — if the claim moved, this list is pointed at the wrong files`,
   );
 });

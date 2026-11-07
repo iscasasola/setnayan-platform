@@ -17,6 +17,8 @@ import {
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { shopGiftKindOf } from '@/lib/shop-gifts';
+import { fetchCardGiftMenu } from '@/lib/shop-gifts.server';
 import {
   deriveBranchStatus,
   fetchLatestBranchOrders,
@@ -1350,6 +1352,44 @@ async function titleForCard(
 }
 
 /**
+ * 🎁 Write the shop gift a card offers (`vendor_services.card_gift_code`, migration a_card_can_carry_a_shop_gift).
+ * The pack must be a giftable code on the live catalogue and the shop's stock must cover ONE of it now — "offered only
+ * while in stock" (DECISION_LOG 2026-11-04). Anything else writes NULL and is said. Owner-scoped. Returns the words for
+ * the "could not be" line, or null.
+ */
+async function writeCardShopGift(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  cardId: string,
+  vendorProfileId: string,
+  raw: FormDataEntryValue | null,
+  setnayanGiftOn: boolean,
+): Promise<string | null> {
+  const asked = typeof raw === 'string' ? raw.trim() : '';
+  let code: string | null = null;
+  let problem: string | null = null;
+  if (asked && !setnayanGiftOn) {
+    if (!shopGiftKindOf(asked)) {
+      problem = 'the gift';
+    } else {
+      const menu = await fetchCardGiftMenu(createAdminClient(), vendorProfileId).catch(() => null);
+      const pick = menu?.find((o) => o.code === asked) ?? null;
+      if (pick?.ok) code = asked;
+      else problem = pick?.why === 'Not enough in your stock · buy first' ? 'the gift (not enough in your stock · buy first)' : 'the gift';
+    }
+  }
+  const { error } = await supabase
+    .from('vendor_services')
+    .update({ card_gift_code: code })
+    .eq('vendor_service_id', cardId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    console.error('[supabase-error] commitVendorService · vendor_services.update (card_gift_code)', error);
+    return 'the gift';
+  }
+  return problem;
+}
+
+/**
  * commitVendorService — the guided "create a service" flow's SINGLE save.
  *
  * Validates EVERYTHING in TypeScript (reusing the same parse* helpers the legacy
@@ -1890,6 +1930,18 @@ export async function commitVendorService(formData: FormData) {
         (fields.title as string | null) ?? displayServiceLabel(category),
       );
       if (schedErr) partProblems.push('its schedule');
+    }
+    // 🎁 THE CARD'S GIFT (owner 2026-11-07): ONE Gift dropdown posts `includes_setnayan_gift` (the Setnayan gift) and
+    // `card_gift_code` (one of the shop's own packs) — never both. Written only when the maker drew the dropdown.
+    if (formData.has('card_gift_code')) {
+      const giftErr = await writeCardShopGift(
+        supabase,
+        cardId,
+        profile.vendor_profile_id,
+        formData.get('card_gift_code'),
+        parseSetnayanGift(formData),
+      );
+      if (giftErr) partProblems.push(giftErr);
     }
   }
 

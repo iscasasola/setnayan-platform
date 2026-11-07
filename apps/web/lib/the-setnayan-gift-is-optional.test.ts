@@ -156,15 +156,19 @@ test('2b · the trigger stopped RE-JUDGING a live card when its gift text change
   assert.match(judging, /starting_price_php/, 'the judging clause stopped watching the price');
 });
 
-test('3 · the maker never waits on the gift — it sits under More settings, and Create asks the gate alone', () => {
-  // The guided pass retired with the simpler maker (2026-10-14). The ruling survives in its new shape: the gift is
-  // NOT a first question, and the facts Create asks the gate with carry no gift.
+test('3 · the maker never waits on the gift — it is marked optional, starts at No gift, and Create asks the gate alone', () => {
+  // The owner-approved maker (2026-11-07, DECISION_LOG "THE FOUR MAKERS ARE APPROVED") moved the gift out of More
+  // settings to ONE Gift dropdown on the surface. The ruling survives in that shape: the field says "optional", a new
+  // card starts at No gift (never pre-filled on), and the facts Create asks the gate with carry no gift.
   const maker = read(
     join(WEB, 'app', 'vendor-dashboard', 'services', '_components', 'canvas-maker.tsx'),
   );
-  const more = maker.indexOf('data="more"');
-  const gift = maker.indexOf('data="m-gift"');
-  assert.ok(more > 0 && gift > more, 'the gift became a first question — a new shop would read it as required');
+  assert.match(maker, /<Topic data="gift" label="Gift" note="optional"/, 'the gift stopped saying it is optional — a new shop would read it as required');
+  assert.match(
+    maker,
+    /useState<string>\(\s*initial\?\.includesSetnayanGift \? SETNAYAN_GIFT : \(isEdit && initial\?\.cardGiftCode\) \|\| NO_GIFT,?\s*\)/,
+    'a new card no longer starts at No gift',
+  );
   const facts = maker.slice(maker.indexOf('const facts = {'), maker.indexOf('};', maker.indexOf('const facts = {')));
   assert.ok(facts.length > 20, 'the facts Create asks the gate with could not be read');
   assert.ok(!/gift|perk|Exclusive/i.test(facts), 'Create is feeding a gift fact to the gate again');

@@ -4,6 +4,13 @@ import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setServiceAddons } from '../addon-actions';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { AddLinePill } from './service-list-editors';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
+
+/** The maker's one box: 48 px, the house rhythm (owner-approved makers, 2026-11-07). */
+export const MAKER_BOX = 'h-12 w-full rounded-xl border bg-raised px-3.5 text-[16px] text-ink outline-none focus:border-sn-accent'; // no-card-ok: the 48 px frame of ONE input (a control)
 
 /**
  * Priced add-ons editor for a service card (Vendor Services rework 2026-07-02).
@@ -35,50 +42,58 @@ export function AddonsEditor({
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
 
   if (bare) {
+    /* 👈 THE MAKER'S EXTRAS (owner-approved card maker, 2026-11-07): each extra is two rows of the ONE Field template
+       (`TypedRow`, owner 1 Nov 2026: every field follows it) — what it is, and its "from ₱" as an AMOUNT row — exactly
+       as What's included draws its lines. Every row draws its carrier, filled or not, so `addon_label` / `addon_price`
+       stay index-aligned for `parseAddonRows`. A line swipes left to go, WITH UNDO (the shared `SwipeToDelete` +
+       `deleteWithUndo`; no ✕ on the row); the rows live in state, so an Undo brings back what was typed. */
+    const patch = (key: number, next: Partial<AddonDraft>) =>
+      setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
+    const swipeAway = (r: Row) => {
+      const before = rows;
+      deleteWithUndo({
+        label: r.label.trim() ? `“${r.label.trim()}” removed` : 'Extra removed',
+        hide: () => remove(r.key),
+        restore: () => setRows(before),
+        commit: () => undefined, // nothing was written — the card is not saved yet
+      });
+    };
     return (
-      <div className="space-y-2" data-addons-bare="">
+      <div data-addons-bare="">
         <input type="hidden" name="addons_present" value="1" />
-        {rows.map((r) => (
-          <div key={r.key} className="flex items-center gap-2">
-            <input
-              name="addon_label"
-              defaultValue={r.label}
-              maxLength={80}
-              aria-label="Add-on"
-              placeholder="e.g. Drone coverage"
-              className="input-field min-w-0 flex-[2]"
-            />
-            <input
-              name="addon_price"
-              defaultValue={r.price}
-              type="number"
-              min={0}
-              step={1}
-              aria-label="From (PHP)"
-              placeholder="from ₱"
-              className="input-field min-w-0 flex-1"
-            />
-            <button
-              type="button"
-              aria-label="Remove add-on"
-              onClick={() => remove(r.key)}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
-              style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-            >
-              <X className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-          </div>
-        ))}
-        {rows.length < 12 ? (
-          <button
-            type="button"
-            onClick={add}
-            className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            Add an add-on
-          </button>
+        {rows.length > 0 ? (
+          <FormRows width="short">
+            {rows.map((r, i) => (
+              <SwipeToDelete key={r.key} label={`Remove ${r.label.trim() || `extra ${i + 1}`}`} word="Remove" onDelete={() => swipeAway(r)}>
+                <div data-addon-line="">
+                  <TypedRow
+                    name={`Extra ${i + 1}`}
+                    value={r.label}
+                    empty="e.g. Extra hour of coverage"
+                    maxLength={80}
+                    fieldName="addon_label"
+                    onKeep={(t) => patch(r.key, { label: t })}
+                    data="addon-label"
+                  />
+                  <TypedRow
+                    name="From"
+                    value={r.price}
+                    amount
+                    empty="₱ —"
+                    fieldName="addon_price"
+                    onKeep={(t) => patch(r.key, { price: t })}
+                    data="addon-price"
+                  />
+                </div>
+              </SwipeToDelete>
+            ))}
+          </FormRows>
         ) : null}
+        <div className="pt-2">
+          <AddLinePill onClick={add} disabled={rows.length >= 12}>
+            Add an extra
+          </AddLinePill>
+        </div>
       </div>
     );
   }

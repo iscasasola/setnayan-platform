@@ -39,6 +39,22 @@ const OPTIONS: { key: Basis; label: string; hint: string }[] = [
   { key: 'per_hour', label: 'Per hour', hint: 'Priced by time (booths, hosts, lights)' },
 ];
 
+/**
+ * The three ways a price works, as the card maker's ONE basis dropdown lists them (owner-approved maker 2026-11-07:
+ * "the basis dropdown with its hint under it"). The words the maker's PickMenu shipped with ("One price", "Per
+ * guest" / "Per meal", "Per hour"), and each basis's hint from `OPTIONS` above — one list, never re-typed.
+ */
+export function basisChoices(category?: string): { key: Basis; label: string; hint: string }[] {
+  const crew = category === 'crew_meals';
+  return OPTIONS.map((o) =>
+    o.key === 'fixed'
+      ? { ...o, label: 'One price' }
+      : o.key === 'per_pax' && crew
+        ? { ...o, label: 'Per meal', hint: 'Priced per crew meal' }
+        : o,
+  );
+}
+
 export function PricingBasisEditor({
   idPrefix,
   defaults,
@@ -74,22 +90,41 @@ export function PricingBasisEditor({
   const [ownBasis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
   const basis = controlledBasis ?? ownBasis;
   if (part === 'main') {
+    /* 📐 THE ₱ BOX (owner-approved card maker 2026-11-07): ONE 48 px box with its ₱, the basis's unit at its end, and
+       "Whole pesos … Blank = quote on request." under it. The field names and what they post are unchanged. */
+    const [name, id, placeholder, unit] =
+      basis === 'fixed'
+        ? (['starting_price_php', `${idPrefix}-price`, 'e.g. 25000', null] as const)
+        : basis === 'per_pax'
+          ? (['per_pax_price_php', `${idPrefix}-perpax`, isCrewMeals ? 'e.g. 150' : 'e.g. 650', `per ${perPaxUnit}`] as const)
+          : (['hour_base_php', `${idPrefix}-hourbase`, 'e.g. 8000', 'covers your minimum hours'] as const);
+    const value =
+      basis === 'fixed' ? defaults.starting_price_php : basis === 'per_pax' ? defaults.per_pax_price_php : defaults.hour_base_php;
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5" data-price-box="">
         <input type="hidden" name="pricing_basis" value={basis} />
-        {basis === 'fixed' ? (
-          <PField label="From (PHP)" id={`${idPrefix}-price`} help="Whole pesos — couples see it as “from”.">
-            <input id={`${idPrefix}-price`} name="starting_price_php" type="number" min={0} step={1} defaultValue={defaults.starting_price_php ?? ''} placeholder="e.g. 25000" className="input-field" />
-          </PField>
-        ) : basis === 'per_pax' ? (
-          <PField label={`From, per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'}>
-            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
-          </PField>
-        ) : (
-          <PField label="From (PHP)" id={`${idPrefix}-hourbase`} help="Covers your minimum hours (set under More settings).">
-            <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} placeholder="e.g. 8000" className="input-field" />
-          </PField>
-        )}
+        <label
+          htmlFor={id}
+          className="flex h-12 items-center gap-2.5 rounded-xl border bg-raised px-3.5 focus-within:border-sn-accent" // no-card-ok: the ₱ input's own 48 px frame (a control)
+          style={{ borderColor: line }}
+        >
+          <span aria-hidden className="border-r pr-2.5 text-[16px] text-ink/70" style={{ borderColor: line }}>₱</span>
+          <input
+            key={name}
+            id={id}
+            name={name}
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            defaultValue={value ?? ''}
+            placeholder={placeholder}
+            aria-label={unit ? `From price, ${unit}` : 'From price'}
+            className="min-w-0 flex-1 bg-transparent text-[16px] text-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          {unit ? <span className="flex-none text-[13px] text-ink/55">{unit}</span> : null}
+        </label>
+        <p className="text-[13px] leading-snug text-ink/55">Whole pesos — couples see it as “from”. Blank = quote on request.</p>
       </div>
     );
   }

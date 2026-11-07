@@ -165,14 +165,15 @@ export default async function NewServicePage({
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Services
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">
+      {/* The card maker has no page title (owner-approved maker 2026-11-07) — its pinned row and surface say it. */}
+      <h1 className={canvas ? 'sr-only' : 'text-2xl font-semibold tracking-tight'}>
         {initial ? 'Start from one of your cards' : 'Add a service'}
       </h1>
-      <p className="mb-6 mt-1 text-sm text-ink/60">
-        {canvas
-          ? 'This is your card — the one couples will see. Tap any part of it to edit. Everything saves together.'
-          : 'A few quick answers — three to publish, the rest optional. Everything saves together at the end.'}
-      </p>
+      {canvas ? null : (
+        <p className="mb-6 mt-1 text-sm text-ink/60">
+          A few quick answers — three to publish, the rest optional. Everything saves together at the end.
+        </p>
+      )}
       {showClaimBanner && claimContext ? (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3">
           <Heart
@@ -210,6 +211,7 @@ export default async function NewServicePage({
           schedules={ctx.schedules}
           scheduleOfKind={ctx.scheduleOfKind}
           branches={ctx.branches}
+          cardGifts={ctx.cardGifts}
           detailsKind={details ? category : null}
           detailsSlot={
             details ? (

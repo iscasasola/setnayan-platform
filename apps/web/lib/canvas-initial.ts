@@ -41,6 +41,11 @@ export type CanvasInitial = {
    * prose stays with the card that made it.
    */
   includesSetnayanGift: boolean;
+  /**
+   * 🎁 The shop's own gift this card offers (`vendor_services.card_gift_code`, owner 2026-11-07) — read on the edit
+   * sheet only. A COPY never carries it: a gift is stock, and a new card offers it only when its maker picks it.
+   */
+  cardGiftCode?: string | null;
   coverageId: string;
   crewSize: string;
   recommendedLeadTimeMonths: string;

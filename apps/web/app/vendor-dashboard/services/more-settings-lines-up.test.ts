@@ -19,8 +19,10 @@ test('a nested row’s mark sits in the same box as the row above it', () => {
   assert.equal(box('SubIcon'), box('RowIcon'), 'nested marks are a different width — names no longer line up');
 });
 
-test('every top-level row puts its name on the fold head’s column (40 px mark + 8 px gap)', () => {
-  assert.match(src, /items-center gap-2 py-2" data-maker-row="name"/);
+test('every More-settings row puts its name on the fold head’s column (40 px mark + 8 px gap)', () => {
+  // 2026-11-07 (owner-approved maker): Name left the icon rows for the surface's topics (label over a 48 px box), so the
+  // icon-column rule now holds inside More settings only — the rows MakerRow draws there.
+  assert.match(src, /<Topic data="name" first>/, 'Name is no longer the surface’s first topic');
   const row = src.slice(src.indexOf('function MakerRow('), src.indexOf('function SlotRows('));
   assert.equal((row.match(/items-center gap-2 py-2/g) ?? []).length, 2, 'a MakerRow form went back to a different gap');
 });

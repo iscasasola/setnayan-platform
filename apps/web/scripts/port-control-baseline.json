@@ -3571,6 +3571,7 @@
         "MayaCard",
         "OAuthCard",
         "PageMasthead",
+        "PasswordField",
         "SecretCard",
         "SubmitButton",
         "TestResendButton"
@@ -4237,6 +4238,7 @@
         "HTMLInputElement",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "ReencryptCounts",
         "ReencryptPanel",
         "SecretRow",
@@ -5565,6 +5567,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PasswordField",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -8250,7 +8253,9 @@
         "dashboard/[eventId]/memories/page.tsx",
         "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/memories/download-all"
+      ],
       "actions": [],
       "blocks": [
         "AddToLibrary",
@@ -8260,6 +8265,7 @@
         "InfoTip",
         "InlineCheckoutDrawer",
         "LifeFlashCard",
+        "Link",
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
@@ -8273,6 +8279,20 @@
         "ServiceParts",
         "Spotlight",
         "UploadsOpenChoice"
+      ]
+    },
+    "/dashboard/[eventId]/memories/download-all": {
+      "files": [
+        "dashboard/[eventId]/memories/download-all/download-all-parts.tsx",
+        "dashboard/[eventId]/memories/download-all/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DownloadAllParts",
+        "InfoTip",
+        "OpenFileLink",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -13031,6 +13051,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13136,6 +13157,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "SignInCard",
         "SignInCardModal",
         "SignInInPlaceState",
@@ -13303,6 +13325,7 @@
         "OnboardingVendorCounts",
         "OwnVenueForm",
         "PCard",
+        "PasswordField",
         "PaxCard",
         "PickCard",
         "PickMenu",
@@ -13369,6 +13392,7 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "PasswordField",
         "PickMenu",
         "ServicePicker",
         "SignInHereLink",
@@ -13906,6 +13930,7 @@
         "DoorNotice",
         "DoorShell",
         "Link",
+        "PasswordField",
         "SubmitButton"
       ]
     },
@@ -13993,6 +14018,7 @@
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "PasswordField",
         "Sk",
         "SubmitButton",
         "TermsFirst",
@@ -16371,6 +16397,7 @@
         "/vendor-dashboard/attributes",
         "/vendor-dashboard/packages",
         "/vendor-dashboard/services/new/[seg]?from=[seg]",
+        "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -16390,12 +16417,13 @@
       "blocks": [
         "ActionButton",
         "AddCoverageForCardResult",
+        "AddLinePill",
         "AddRowButton",
         "AddServiceForm",
+        "AddonDraft",
         "AddonsEditor",
         "AmountInput",
         "AttributeFieldRenderer",
-        "Badge",
         "Basis",
         "BranchAssignment",
         "BranchSelect",
@@ -16440,6 +16468,7 @@
         "Link",
         "MakerRow",
         "ManagerTabs",
+        "MorePill",
         "Muted",
         "OverlayBackdrop",
         "PField",
@@ -16454,6 +16483,7 @@
         "Recap",
         "RefinementsEditor",
         "RequestStatusBadge",
+        "RoundButton",
         "Row",
         "RowIcon",
         "RowRemove",
@@ -16475,8 +16505,11 @@
         "SubmitButton",
         "SupplierSubmit",
         "SupplierThumbRow",
+        "SwipeToDelete",
         "SwitchTrack",
+        "Topic",
         "TypedRow",
+        "UndoToastHost",
         "YourCoverage"
       ]
     },
@@ -16485,8 +16518,7 @@
         "vendor-dashboard/services/[serviceId]/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/services/[seg]",
-        "/vendor-dashboard/shop"
+        "/vendor-dashboard/services/[seg]"
       ],
       "actions": [
         "setServiceHalls"
@@ -16495,7 +16527,6 @@
         "CanvasMaker",
         "CardRecordSection",
         "HallsUsesPick",
-        "Link",
         "RefinementsEditor"
       ]
     },
@@ -16505,13 +16536,11 @@
         "vendor-dashboard/services/new/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/services/new",
-        "/vendor-dashboard/shop"
+        "/vendor-dashboard/services/new"
       ],
       "actions": [],
       "blocks": [
         "CanvasMaker",
-        "Link",
         "NewServiceMaker",
         "RefinementsEditor"
       ]

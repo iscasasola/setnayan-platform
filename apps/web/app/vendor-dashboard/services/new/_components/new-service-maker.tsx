@@ -58,6 +58,7 @@ export function NewServiceMaker({
         }
         errorLine={error}
         returnTo="/vendor-dashboard/services/new"
+        cardGifts={ctx.cardGifts}
         initial={null}
       />
   );

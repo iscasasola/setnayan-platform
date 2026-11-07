@@ -56,11 +56,13 @@ test('while the price waits, its box is out of reach but still MOUNTED — the r
 });
 
 test('the Price row says what it waits for', () => {
-  assert.match(MAKER, /line=\{priceWaits \? priceWaitsLine\(priceFacts\) : 'Shown as “from”'\}/);
+  // 2026-11-07 (owner-approved maker): Price is a Topic — its small note says what it waits for.
+  assert.match(MAKER, /note=\{priceWaits \? priceWaitsLine\(priceFacts\) : 'shown as “from”'\}/);
 });
 
 test('the price the couple recorded is still shown while the box waits', () => {
+  // 2026-11-07 (owner-approved maker): said beside the waiting line, under Price.
   const at = MAKER.indexOf('data="price"');
   const head = MAKER.slice(at, at + 900);
-  assert.match(head, /aside=\{snap\.hasPrice \? <span[^>]*>\{snap\.priceLine/, 'the recorded price stopped showing on the row');
+  assert.match(head, /\{snap\.hasPrice \? <>[^]*?\{snap\.priceLine\.split\(' · '\)\[0\]\}/, 'the recorded price stopped showing under Price');
 });

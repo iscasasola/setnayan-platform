@@ -233,7 +233,8 @@ test('4a · no visible copy on the supplier app’s pages says "vendor"', () => 
 test('4b · the tab titles are the bar’s words (the root template adds · Setnayan)', () => {
   const want: Record<string, string> = {
     'app/vendor-dashboard/page.tsx': 'Today',
-    'app/vendor-dashboard/customers/page.tsx': 'Customers',
+    // THE ONE BUILD (8 Nov 2026, spec §9 #12): the tab says Clients — L1 renames the bar's word in its foundation.
+    'app/vendor-dashboard/customers/page.tsx': 'Clients',
     'app/vendor-dashboard/shop/page.tsx': 'Shop',
   };
   for (const [f, title] of Object.entries(want)) {

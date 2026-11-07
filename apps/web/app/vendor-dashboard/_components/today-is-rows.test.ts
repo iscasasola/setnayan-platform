@@ -281,7 +281,13 @@ test('2 · the two answers given only on Today are still given only on Today —
       .sort();
     assert.deepEqual(
       mounts,
-      ['app/dev/supplier-lab/page.tsx', 'app/vendor-dashboard/page.tsx'],
+      // THE ONE BUILD (8 Nov · A2 A8): the client's Details now takes both answers too (L2's mount) — C1 relaxes
+      // ANSWERED_ONLY_ON_TODAY and the fold rule in lib/supplier-today.ts.
+      [
+        'app/dev/supplier-lab/page.tsx',
+        'app/vendor-dashboard/clients/[eventId]/_components/client-desk-answers.tsx',
+        'app/vendor-dashboard/page.tsx',
+      ],
       `${action} is mounted by ${mounts.join(', ')} — if a customer card or a thread now takes this answer, ` +
         'ANSWERED_ONLY_ON_TODAY (lib/supplier-today.ts) and the fold rule can be relaxed; until then they cannot',
     );

@@ -58,9 +58,10 @@ test('the scan reads every file (an empty read is a green lie)', () => {
 test('1 · the rail’s "Full customer profile" names a section, never the bare client route', () => {
   assert.equal(count(rail, /clients\/\$\{eventId\}\?tab=details/g), 1, 'the profile button lost its ?tab=details');
   assert.equal(count(rail, /clients\/\$\{eventId\}`/g), 0, 'a bare client link on the rail redirects straight back to the thread');
-  // The redirect it would loop into is still there — the guard is only
-  // meaningful while the client page treats a bare landing as a chat landing.
-  assert.equal(count(client, /rawTab === 'chat'/g), 1);
+  // THE ONE BUILD (8 Nov 2026): the redirect it would loop into is GONE — a bare landing now opens the picked client
+  // on Details (`visiblePickedPage`), and Chat is a page of it. The ?tab=details above stays: it names the page.
+  assert.equal(count(client, /rawTab === 'chat'/g), 0, 'the client page treats a chat landing specially again');
+  assert.equal(count(client, /redirect\(`\/vendor-dashboard\/messages\//g), 0, 'the client page forwards to the thread again');
 });
 
 test('2 · the couple’s "ask them to lock" is built by the one lock-door rule, never the workspace', () => {
@@ -90,7 +91,8 @@ test('4 · the sent-quote page’s next step goes through the same rule', () => 
 });
 
 test('5 · both shells paint the tab the URL names, on the server', () => {
-  assert.equal(count(client, /initialTabId=\{rawTab\}/g), 1, 'the client page hard-codes its initial tab');
+  // The supplier side is the picked client since THE ONE BUILD (8 Nov 2026): it paints the page the URL names.
+  assert.equal(count(client, /initialPage=\{visiblePickedPage\(rawTab, isBooked\)\}/g), 1, 'the client page hard-codes its initial page');
   assert.equal(count(workspace, /initialTabId=\{rawLanding\}/g), 1, 'the workspace hard-codes its initial tab');
   for (const [rel, src] of [[CLIENT_PAGE, client], [WORKSPACE, workspace]] as const) {
     assert.equal(count(src, /initialTabId="chat"/g), 0, `${rel} names the link tab as its initial tab — that is never selectable`);

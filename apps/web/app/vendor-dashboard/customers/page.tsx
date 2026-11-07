@@ -117,7 +117,7 @@ import { CustomersMoney } from './_components/money-segment';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
 
-export const metadata = { title: 'Customers' };
+export const metadata = { title: 'Clients' };
 
 /**
  * /vendor-dashboard/customers — Customers = Events · Dates · Money (S-PR2,
@@ -1482,7 +1482,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
           className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'events' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
           data-customers-seg-open={seg}
         >
-          <h1 className="sr-only">Customers</h1>
+          <h1 className="sr-only">Clients</h1>
           {/* 📌 Each view draws its own pinned row, over what it read: Events with its three counts; Dates with the
               month's figures (`CustomersDates`) and Money with Received · To come in · Overdue (`CustomersMoney`) — v13,
               `customers-figures.tsx`. One day (Dates › a day) has its own back-headed sheet instead. */}

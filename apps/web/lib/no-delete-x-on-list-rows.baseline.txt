@@ -23,7 +23,6 @@ app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
 app/dashboard/[eventId]/monogram/studio.tsx 1
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
-app/dashboard/[eventId]/sponsors/page.tsx 1
 app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6
 app/dashboard/[eventId]/vendors/_components/build-body.tsx 3
 app/dashboard/[eventId]/vendors/_components/build-compare.tsx 1

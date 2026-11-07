@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, ChevronRight, FileText, ImagePlus, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FileUpload, filenameFromRef } from '@/app/_components/file-upload';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatCount } from '@/lib/format-number';
@@ -118,6 +119,8 @@ function PaperRow({
 }) {
   const toast = useToast();
   const root = useRef<HTMLLIElement>(null);
+  // The opened paper glides into view like every other fold (owner 2026-11-04, app-wide reveal-on-open).
+  const intend = useRevealOnOpen(open, () => ({ head: root.current }));
   const [pending, start] = useTransition();
   const [pct, setPct] = useState<number | null>(null);
   const [local, setLocal] = useState<Local | null>(null);
@@ -214,7 +217,10 @@ function PaperRow({
       {hasFile ? (
         <button
           type="button"
-          onClick={onToggle}
+          onClick={() => {
+            intend();
+            onToggle();
+          }}
           aria-expanded={open}
           className="sn-press flex min-h-[56px] w-full items-center gap-3 text-left"
           data-setup-paper-open=""

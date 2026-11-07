@@ -183,6 +183,7 @@ import type {
 } from '../_lib/types';
 import { DayOfBanner } from './day-of-banner';
 import { FaceDataNotice } from './face-data-notice';
+import { YourNumberCard } from './your-number-card';
 import { ScanTrailNotice } from './scan-trail-notice';
 import { HeroBackgroundMedia } from './hero-background-media';
 import { hubCanvasMediaRefs, hubSlotClipStillRefs, sanitizeHubCanvas } from '@/lib/hub-canvas';
@@ -3604,6 +3605,10 @@ export async function SiteBody({
                     nowTrigger={isGuestNowTriggerEnabled()}
                     eventType={event.event_type}
                   />
+                  {/* 🎟 "Your number #0042 · Photo booth" — one quiet card under Now (supplier scan prototype frame E),
+                      inside Now's own block: no new group, and nothing drawn until a supplier's scanner gives this
+                      guest a number. The same card is on Me. */}
+                  <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} className="mt-8" />
                 </section>
               ) : null, { chapters: true, className: 'space-y-12' })}
 

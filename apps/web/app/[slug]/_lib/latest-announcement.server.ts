@@ -75,18 +75,52 @@ async function currentPassSeals(eventId: string): Promise<ReadonlySet<string>> {
   return new Set(seals);
 }
 
-/** Does THIS request hold a current guest pass for THIS event? (The announcement's gate — see the docblock.) */
-export async function holdsThisEventsCurrentPass(eventId: string): Promise<boolean> {
+/**
+ * WHO holds a current guest pass for THIS event on this request — the guest id, or null (the announcement's gate —
+ * see the docblock). The id is the pass's own, never a parameter: it is what scopes a one-guest notice to its guest.
+ */
+export async function passHolderOf(eventId: string): Promise<string | null> {
   const jar = await cookies();
   if (jar.getAll().some((c) => isAuthCookieName(c.name))) {
     const session = await readGuestSession({ eventId });
-    return session?.event_id === eventId;
+    return session?.event_id === eventId ? session.guest_id : null;
   }
   const token = jar.get(GUEST_SESSION_COOKIE_NAME)?.value;
-  if (!token) return false;
+  if (!token) return null;
   const verified = await verifyGuestSessionToken(token);
-  if (!verified || verified.payload.event_id !== eventId || verified.expiresAtSeconds <= Date.now() / 1000) return false;
+  if (!verified || verified.payload.event_id !== eventId || verified.expiresAtSeconds <= Date.now() / 1000) return null;
   const { guest_id, qr_token } = verified.payload;
-  if ((await currentPassSeals(eventId)).has(await sealOf(guest_id, qr_token))) return true;
-  return guestSessionTokenStillCurrent(guest_id, qr_token);
+  if ((await currentPassSeals(eventId)).has(await sealOf(guest_id, qr_token))) return guest_id;
+  return (await guestSessionTokenStillCurrent(guest_id, qr_token)) ? guest_id : null;
+}
+
+/** Does THIS request hold a current guest pass for THIS event? */
+export async function holdsThisEventsCurrentPass(eventId: string): Promise<boolean> {
+  return (await passHolderOf(eventId)) !== null;
+}
+
+/**
+ * 🎟 THIS GUEST'S OWN LATEST NOTICE — a supplier's "#0042 is ready — claim it at Photo booth" (`target_guest_id`,
+ * migration 20271320900784; DECISION_LOG 2026-09-25 "ALL ANNOUNCEMENTS GO THROUGH THE ONE COORDINATOR ANNOUNCEMENT
+ * CHANNEL"). Never remembered across phones — it is one guest's. null = none; throws on a refused read.
+ */
+export async function latestNoticeForGuest(eventId: string, guestId: string): Promise<LatestAnnouncement | null> {
+  const { data, error } = await createAdminClient()
+    .from('coordinator_broadcasts')
+    .select('body, created_at')
+    .eq('event_id', eventId)
+    .eq('target_guest_id', guestId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) throw new Error('notice unreadable');
+  const row = (data ?? [])[0] as { body: string | null; created_at: string } | undefined;
+  if (!row?.body?.trim()) return null;
+  return { body: row.body.trim(), createdAt: row.created_at };
+}
+
+/** The newer of the room's announcement and this guest's own notice — the ONE card shows one line. */
+export function newerOf(a: LatestAnnouncement | null, b: LatestAnnouncement | null): LatestAnnouncement | null {
+  if (!a) return b;
+  if (!b) return a;
+  return b.createdAt > a.createdAt ? b : a;
 }

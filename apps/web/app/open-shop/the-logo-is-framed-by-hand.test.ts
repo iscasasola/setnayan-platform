@@ -124,7 +124,7 @@ test('6 · one picture per logo surface: the upload is `[Replace photo] [Remove]
   assert.match(upload, /isSingleImagePreview && !rowMode && !pillMode/, 'pill mode still draws the big preview');
   assert.match(upload, /<ActionButton\s+tone="neutral"\s+icon=\{ImagePlus\}\s+label=\{pills!\.replace\}/);
   assert.match(upload, /<ActionButton\s+tone="danger"\s+icon=\{Trash2\}\s+label="Remove"/, 'Remove is not the danger tone');
-  assert.match(upload, /const currentCount = \(pillMode \? 0 : items\.length\) \+ inFlight\.length;/, 'Replace is refused as "already have one file"');
+  assert.match(upload, /const currentCount = \(pillMode(?: \|\| thumbMode)? \? 0 : items\.length\) \+ inFlight\.length;/, 'Replace is refused as "already have one file"');
   // Remove saves on its own too; the shipped "verified" line is one line, only until a logo is in.
   assert.match(LOGO_SCREEN, /else saveSoon\(\{ ref: '', frame: DEFAULT_LOGO_FRAME \}, true\);/, 'Remove does not save');
   assert.match(LOGO_SCREEN, /\{hasSaved \? null : \(\s*<span className="block text-xs"[^>]*>\s*\{LOGO_LATER\.hint\}/);

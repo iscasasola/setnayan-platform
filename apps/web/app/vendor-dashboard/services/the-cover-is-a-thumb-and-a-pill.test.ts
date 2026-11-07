@@ -31,11 +31,11 @@ test('thumb mode draws one thumb and one ActionButton, and none of the big-box p
   assert.equal((block![0].match(/<ActionButton\b/g) ?? []).length, 1, 'exactly one pill');
   // The drop box, the big single preview, the filename rows and the help line all stand down in thumb mode.
   assert.match(fu, /\{!atCapacity && !rowMode && !thumbMode \? \(/);
-  assert.match(fu, /isSingleImagePreview && !rowMode && !thumbMode \? \(/);
+  assert.match(fu, /isSingleImagePreview && !rowMode && (?:!pillMode && )?!thumbMode \? \(/);
   assert.match(fu, /&& !rowMode && !thumbMode && \(/);
-  assert.match(fu, /help && !rowMode && !thumbMode \?/);
+  assert.match(fu, /help && !rowMode && (?:!\(pillMode && items\.length > 0\) && )?!thumbMode \?/);
   // A new file replaces the one there — it never hits "only one file".
-  assert.match(fu, /const currentCount = \(thumbMode \? 0 : items\.length\) \+ inFlight\.length;/);
+  assert.match(fu, /const currentCount = \((?:pillMode \|\| )?thumbMode \? 0 : items\.length\) \+ inFlight\.length;/);
 });
 
 test('adding a line or an extra is the shipped ActionButton pill, not a text link', () => {

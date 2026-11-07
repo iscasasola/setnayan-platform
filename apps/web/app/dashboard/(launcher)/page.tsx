@@ -102,7 +102,7 @@ import {
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { EventScene } from './_components/event-scene';
 import { getEventTypeVocab } from '@/lib/event-types-db';
-import { eventTypePhotoSrc } from '../(account)/create-event/_components/event-types';
+import { eventTypePhotoSrc, eventTypeRepoPhotoSrc } from '../(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveHero } from '@/lib/event-hero';
@@ -971,7 +971,7 @@ export default async function LauncherPage({
   const peoplePageIsLive = alagaCount != null || connectionCount != null;
 
   const heroFor = (type: string) =>
-    eventTypeHero.get(type) ?? `/event-types/${type}.webp`;
+    eventTypeHero.get(type) ?? eventTypeRepoPhotoSrc(type);
 
   const spaces: SpaceCardProps[] = [];
   // SPACES → the vendor's actual shop(s), by name. One card per shop the

@@ -6,7 +6,7 @@ import { EventScene } from '@/app/dashboard/(launcher)/_components/event-scene';
 import { resolveEventPoster } from '@/lib/event-poster.server';
 import { sceneCoverFor } from '@/lib/event-poster';
 import { getEventTypeVocab } from '@/lib/event-types-db';
-import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
+import { eventTypePhotoSrc, eventTypeRepoPhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -743,7 +743,7 @@ export async function EventDashboard({
       } catch {
         // Graceful-degrade to the repo asset, exactly as the home board does.
       }
-      return `/event-types/${eventType}.webp`;
+      return eventTypeRepoPhotoSrc(eventType);
     })(),
   );
   const ownHeroRead = startAhead(

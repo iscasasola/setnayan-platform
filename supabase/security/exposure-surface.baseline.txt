@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7169
+# facts: 7191
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     597
-#   col       5203
-#   policy    1046
+#   tpriv     598
+#   col       5220
+#   policy    1048
 #   view      9
-#   func      310
+#   func      312
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -506,6 +506,7 @@ tpriv	public.vendor_feature_recommendations|authenticated	SIUD
 tpriv	public.vendor_follows|anon	SIUD
 tpriv	public.vendor_follows|authenticated	SIUD
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
+tpriv	public.vendor_guest_reviews|authenticated	S
 tpriv	public.vendor_ig_media|anon	SIUD
 tpriv	public.vendor_ig_media|authenticated	SIUD
 tpriv	public.vendor_ig_oauth_state|authenticated	SIUD
@@ -4840,6 +4841,21 @@ col	public.vendor_guest_deliveries.guest_id	anon=- authenticated=SIU
 col	public.vendor_guest_deliveries.item_label	anon=- authenticated=SIU
 col	public.vendor_guest_deliveries.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_guest_deliveries.voided_at	anon=- authenticated=SIU
+col	public.vendor_guest_reviews.capture_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.created_at	anon=- authenticated=S
+col	public.vendor_guest_reviews.door	anon=- authenticated=S
+col	public.vendor_guest_reviews.event_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.guest_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.hidden_at	anon=- authenticated=S
+col	public.vendor_guest_reviews.hidden_by_user_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.line	anon=- authenticated=S
+col	public.vendor_guest_reviews.rating_overall	anon=- authenticated=S
+col	public.vendor_guest_reviews.review_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.service_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.shown_as	anon=- authenticated=S
+col	public.vendor_guest_reviews.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_guest_reviews.vendor_reply	anon=- authenticated=S
+col	public.vendor_guest_reviews.vendor_reply_at	anon=- authenticated=S
 col	public.vendor_ig_connections.connected_at	anon=- authenticated=S
 col	public.vendor_ig_connections.created_at	anon=- authenticated=S
 col	public.vendor_ig_connections.ig_user_id	anon=- authenticated=S
@@ -5417,6 +5433,8 @@ col	public.vendor_reviews.rating_overall	anon=SIU authenticated=SIU
 col	public.vendor_reviews.rating_quality	anon=SIU authenticated=SIU
 col	public.vendor_reviews.rating_value	anon=SIU authenticated=SIU
 col	public.vendor_reviews.review_id	anon=SIU authenticated=SIU
+col	public.vendor_reviews.reviewer_display	anon=SIU authenticated=SIU
+col	public.vendor_reviews.service_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_reviews.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.vendor_reply	anon=SIU authenticated=SIU
@@ -6687,6 +6705,8 @@ policy	public.vendor_guest_deliveries|vendor_guest_deliveries_couple_read	mode=P
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_guest_reviews|vendor_guest_reviews_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_guest_reviews|vendor_guest_reviews_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
 policy	public.vendor_ig_connections|vendor_ig_connections_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.vendor_ig_connections|vendor_ig_connections_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) check=NULL
 policy	public.vendor_ig_media|vendor_ig_media_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -6784,8 +6804,8 @@ policy	public.vendor_review_flags|vendor_review_flags_vendor_read	mode=PERMISSIV
 policy	public.vendor_reviews|lh_ro_del_vendor_reviews	mode=RESTRICTIVE cmd=DELETE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
 policy	public.vendor_reviews|lh_ro_ins_vendor_reviews	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT is_limited_helper(event_id))
 policy	public.vendor_reviews|lh_ro_upd_vendor_reviews	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
-policy	public.vendor_reviews|vendor_reviews_couple_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) check=NULL
-policy	public.vendor_reviews|vendor_reviews_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((couple_user_id = ( SELECT auth.uid() AS uid)) AND (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (EXISTS ( SELECT 1 FROM event_vendors ev WHERE ((ev.event_id = vendor_reviews.event_id) AND (ev.status = ANY (ARRAY['delivered'::vendor_status, 'complete'::vendor_status]))))))
+policy	public.vendor_reviews|vendor_reviews_couple_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.vendor_reviews|vendor_reviews_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((couple_user_id = ( SELECT auth.uid() AS uid)) AND (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND host_review_booking_is_complete(event_id, vendor_profile_id))
 policy	public.vendor_reviews|vendor_reviews_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((couple_user_id = ( SELECT auth.uid() AS uid)) AND (event_id IS NOT NULL)) check=((couple_user_id = ( SELECT auth.uid() AS uid)) AND (event_id IS NOT NULL) AND (vendor_reply IS NULL) AND (vendor_reply_at IS NULL))
 policy	public.vendor_reviews|vendor_reviews_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.vendor_reviews|vendor_reviews_vendor_reply	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid)))) check=(vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid))))
@@ -7003,6 +7023,7 @@ func	public.guest_link_capture(p_guest_id uuid, p_source_table text, p_source_id
 func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zone, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_unlink_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.host_ask_supplier_where(p_vendor_id uuid, p_block_ids uuid[], p_note text, p_by_name text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.host_review_booking_is_complete(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_client_name text, p_client_contact text, p_client_note text, p_start_date date, p_end_date date, p_client_time time without time zone)	secdef=yes exec=authenticated search_path=public
 func	public.incoming_requests_for_me()	secdef=yes exec=authenticated search_path=public
 func	public.inspiration_category_service_pairs()	secdef=no exec=authenticated search_path=public
@@ -7147,6 +7168,7 @@ func	public.vendor_decline_lock(p_event_vendor_id uuid, p_reason text)	secdef=ye
 func	public.vendor_decline_part(p_finalization_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_delete_cocktail_booth(p_event_id uuid, p_booth_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_delete_sign(p_event_id uuid, p_sign_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_guest_review_reply(p_review_id uuid, p_reply text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_inquiry_heatmap(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_inquiry_missed(p_vendor_profile_id uuid, p_sla_hours integer, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_inquiry_outcomes_rollup(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public

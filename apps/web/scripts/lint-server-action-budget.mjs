@@ -74,7 +74,11 @@ import { fileURLToPath } from 'node:url';
 // Both of those were raised separately from 1229 (+1 Ultra add-ons on main, +2 the sign-up's claim door on #7351).
 // MEASURED on their merge (2026-11-07): 1229 — other merges removed exports meanwhile (main alone measured 1227,
 // #7351's tip 1228), so the ceiling is set to the count that exists, not to the sum of the two raises.
-export const CEILING = 1229;
+// 1229 → 1230 (2026-11-07, merging main into #7351 again): main brought ONE new action — `supplierScan`
+// (`app/_actions/supplier-scan-actions.ts`, #7277/#7286) — which main absorbed inside its own headroom (main alone
+// measures 1228 against its 1230). MEASURED on the merged tree: 1230 = main's 1228 + this branch's two named above.
+// The route SUM stays gated by check-vercel-route-count.mjs on this PR's production build.
+export const CEILING = 1230;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

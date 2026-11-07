@@ -54,6 +54,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
 import { ON_YOUR_EVENT, YOUR_OWN_SUPPLIER } from '@/lib/own-supplier-items';
 import { ShellOnward } from './shell-search-onward';
+import { SampleMarker } from '@/app/_components/sample-marker';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 import type { ShellPeopleResults } from '@/lib/shell-people-results';
 import { ShellPeopleSection } from './shell-people-section';
@@ -161,6 +162,8 @@ function ShopHitCard({ s }: { s: FrontDoorShop }) {
         </span>
         <div className="fd-itxt">
           <p className="fd-ttl">{s.name}</p>
+          {/* 🧪 The same "(DEMO ONLY)" chip the shelf's card wears (owner 2026-11-06); bare — this card is one link. */}
+          {s.isDemo ? <SampleMarker /> : null}
           <p className="fd-by">
             {s.folderLabel}
             {s.verified ? ' · verified' : ''}

@@ -29,7 +29,7 @@ export const SCAN_MODES: readonly { key: ScanMode; label: string; line: string }
 ];
 
 /** The modes that RUN today — the dropdown's options, and the database CHECK's list. */
-export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received', 'unlimited', 'group_session'];
+export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received', 'unlimited', 'group_session', 'roaming'];
 
 /** The modes whose number belongs to a SHOT (one number, many guests): Group session, and Roaming (slice 4). */
 export function isSessionMode(mode: ScanMode): boolean {
@@ -96,7 +96,7 @@ export type ScanAnswer =
   // Unlimited (slice 3): every scan counts, a new number each time.
   | { outcome: 'served'; number: number; served: number; unique: number; name?: string | null }
   // Group session (slice 3): everyone in the shot shares one number; pickups read "k of n".
-  | { outcome: 'added'; number: number; guests: number; name?: string | null }
+  | { outcome: 'added'; number: number; guests: number; name?: string | null; mode?: ScanMode }
   | { outcome: 'in_session'; number: number; guests: number; name?: string | null }
   | { outcome: 'picked_up'; number: number; claimed: number; of: number; name?: string | null }
   | { outcome: 'no_session' }
@@ -142,7 +142,10 @@ export function scanAnswerWords(a: ScanAnswer): ScanWords {
         line: a.name ?? `${formatCount(a.unique)} ${a.unique === 1 ? 'guest' : 'guests'} so far`,
       };
     case 'added':
-      return { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? 'Scan everyone in the shot, then Done.' };
+      // Roaming (slice 4): no station — scan the guests in frame, then shoot (prototype C′ "#0231 · 2 guests · shoot").
+      return a.mode === 'roaming'
+        ? { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'} · shoot`, line: a.name ?? 'Scan everyone in frame, then take the photo.' }
+        : { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? 'Scan everyone in the shot, then Done.' };
     case 'in_session':
       return { tone: 'quiet', title: `Already in ${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? null };
     case 'picked_up':

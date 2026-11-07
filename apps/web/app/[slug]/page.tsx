@@ -1,4 +1,5 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
 import { chaptersForGuest } from '@/lib/invitation-chapters';
 import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
@@ -1385,7 +1386,26 @@ async function invitationBody({
   const guestDeskP = isEditorCanvas ? Promise.resolve(false) : viewerIsInternal().then((internal) => guestHubDesktopEnabled({ internal })).catch(() => guestHubDesktopEnabled({ internal: false }));
   /* …and only a guest page the flag lets in writes its `<style>` (`lib/guest-hub-desktop.ts`) — every other page is the
      same bytes as before. */
-  const wearDraft = async (node: React.ReactNode) => {
+  // 🧪 (DEMO ONLY) — a demo event (`events.is_sample`) shows publicly beside real ones, marked (owner, DECISION_LOG
+  // 2026-11-06 "DEMO SHOPS + DEMO EVENTS": *"these demo events, and demo suppliers will show on with the rest … but has
+  // a marking of (DEMO ONLY)"*). Drawn ONCE, here, above every render path of the page (anonymous, guest, host). Not on
+  // a theme-gallery tile (`triedTheme` — the Details gallery paints this sample in each theme; a chip on every tile is
+  // chrome, not the page), and not in the Maker's canvas.
+  const demoEventMarker =
+    liveEvent.is_sample === true && triedTheme === null && !asksForHostCanvas(search) ? (
+      <div className="flex justify-center px-4 pt-3" data-demo-event-marker="">
+        <DemoOnlyMarker kind="event" align="center" />
+      </div>
+    ) : null;
+  const wearDraft = async (page: React.ReactNode) => {
+    const node = demoEventMarker ? (
+      <>
+        {demoEventMarker}
+        {page}
+      </>
+    ) : (
+      page
+    );
     const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
     const guestDesk = await guestDeskP;
     return guestDesk ? (

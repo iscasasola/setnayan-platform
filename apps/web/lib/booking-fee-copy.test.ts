@@ -34,7 +34,7 @@ const SWEPT_FILES = [
   '../app/vendor-dashboard/booking-fees/page.tsx',
   '../app/for-suppliers/_components/vendor-grow-sections.tsx',
   '../app/for-suppliers/_components/vendor-tier-matrix.tsx',
-  '../app/for-suppliers/page.tsx',
+  '../app/(shell)/for-suppliers/page.tsx',
   './booking-fee-lock.ts',
 ] as const;
 
@@ -88,8 +88,12 @@ for (const rel of SWEPT_FILES) {
       2026-08-13 precedent recorded there.
     */
     const statesLiteral = /1\s*%[^\n]*₱100,000/.test(src);
+    // 2026-11-04: `bookingFeeBandsLine()` and `<BookingFeeLine>` (the owner's
+    // reworded fee line) derive the same bands from the same schedule.
     const derivesIt =
       /bookingFeeScheduleSummary\(/.test(src) ||
+      /bookingFeeBandsLine\(/.test(src) ||
+      /<BookingFeeLine\b/.test(src) ||
       /supplierCommission(Promise|Short)\(/.test(src);
     assert.ok(
       statesLiteral || derivesIt,

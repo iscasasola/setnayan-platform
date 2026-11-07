@@ -302,6 +302,36 @@
         "FeaturePageView"
       ]
     },
+    "/(shell)/for-suppliers": {
+      "files": [
+        "(shell)/for-suppliers/loading.tsx",
+        "(shell)/for-suppliers/page.tsx"
+      ],
+      "destinations": [
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "RevealOnView",
+        "VendorGrowAI",
+        "VendorGrowAnalytics",
+        "VendorGrowCTA",
+        "VendorGrowFairPay",
+        "VendorGrowGetPaid",
+        "VendorGrowHero",
+        "VendorGrowHub",
+        "VendorGrowNoFakes",
+        "VendorGrowReach",
+        "VendorGrowStyles",
+        "VendorGrowThesis",
+        "VendorGrowTools",
+        "VendorGrowTrust",
+        "VendorGrowWebsite",
+        "VendorTierDeltas",
+        "VendorTierMatrix"
+      ]
+    },
     "/(shell)/guest-list": {
       "files": [
         "(shell)/guest-list/loading.tsx",
@@ -12883,57 +12913,6 @@
         "Value"
       ]
     },
-    "/for-suppliers": {
-      "files": [
-        "for-suppliers/_components/for-vendors-motion.tsx",
-        "for-suppliers/_components/vendor-grow-hero.tsx",
-        "for-suppliers/_components/vendor-grow-sections.tsx",
-        "for-suppliers/_components/vendor-hero-gate.tsx",
-        "for-suppliers/_components/vendor-tier-deltas.tsx",
-        "for-suppliers/_components/vendor-tier-matrix.tsx",
-        "for-suppliers/page.tsx"
-      ],
-      "destinations": [
-        "/for-suppliers",
-        "/open-shop",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "CardGrid",
-        "CellView",
-        "Col",
-        "Eyebrow",
-        "FeatureLI",
-        "Fragment",
-        "GridCard",
-        "H2",
-        "HTMLAnchorElement",
-        "HTMLDivElement",
-        "Image",
-        "Lede",
-        "Link",
-        "RevealOnView",
-        "SoonPill",
-        "VendorGrowAI",
-        "VendorGrowAnalytics",
-        "VendorGrowCTA",
-        "VendorGrowFairPay",
-        "VendorGrowGetPaid",
-        "VendorGrowHero",
-        "VendorGrowHub",
-        "VendorGrowNoFakes",
-        "VendorGrowReach",
-        "VendorGrowStyles",
-        "VendorGrowThesis",
-        "VendorGrowTools",
-        "VendorGrowTrust",
-        "VendorGrowWebsite",
-        "VendorHeroGate",
-        "VendorTierDeltas",
-        "VendorTierMatrix"
-      ]
-    },
     "/forgot-password": {
       "files": [
         "forgot-password/actions.ts",
@@ -14796,6 +14775,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BookingFeeLine",
         "FeeGroup",
         "Link",
         "ListPageSkeleton",

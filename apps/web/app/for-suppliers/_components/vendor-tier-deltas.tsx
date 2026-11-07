@@ -60,6 +60,7 @@ import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/bookin
 // See the note in vendor-grow-sections.tsx: the launch-period 0% promise is
 // gated on the flag that decides whether anybody is actually billed.
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { tierTag, type VendorTierMatrixPrices } from './vendor-tier-matrix';
 
 /** The ladder as a person climbs it. `verified` is the real free-vendor state. */
@@ -366,11 +367,16 @@ export function VendorTierDeltas({
                     }}
                   >
                     Everything above is free, forever.{' '}
-                    {isBookingFeeEnabled()
-                      ? 'Your first booking from Setnayan is on us — after that'
-                      : '0% commission — no booking fee while it is switched off; if it is switched on'}{' '}
-                    {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples Setnayan
-                    brings you; your own clients stay free.
+                    {isBookingFeeEnabled() ? (
+                      // Owner 2026-11-04 reword — the one fee line, from the live schedule.
+                      <BookingFeeLine fee={feeSchedule} />
+                    ) : (
+                      <>
+                        0% commission — no booking fee while it is switched off; if it is switched on{' '}
+                        {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples
+                        Setnayan brings you; your own clients stay free.
+                      </>
+                    )}
                   </p>
                 ) : null}
               </article>

@@ -12,8 +12,8 @@
  * speaks the "free" thesis, never a number. Server components (no hooks).
  */
 import Link from 'next/link';
-import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
+import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
@@ -165,9 +165,8 @@ export function VendorGrowThesis({ fee }: FeeProp) {
     { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
     {
       b: 'First booking free',
-      s: fee
-        ? `${FIRST_BOOKING_ON_US_CLAUSE} — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
-        : `${FIRST_BOOKING_ON_US_CLAUSE} — after that a booking fee, only on couples we source`,
+      // Owner 2026-11-04 reword — the one fee line, from the live schedule.
+      s: <BookingFeeLine fee={fee} />,
     },
   ];
   return (
@@ -192,7 +191,8 @@ export function VendorGrowThesis({ fee }: FeeProp) {
           </div>
         ))}
       </div>
-      <style>{`@media(max-width:720px){ .m-thesis-in{grid-template-columns:1fr !important} }`}</style>
+      {/* The house ⓘ is ink-on-light; on this dark band it gets the band's own ink until hovered or open. */}
+      <style>{`@media(max-width:720px){ .m-thesis-in{grid-template-columns:1fr !important} } .m-thesis-in .sn-dot-btn:not(:hover):not(:has(+ .sn-tip[data-open='true'])){border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.75)}`}</style>
     </div>
   );
 }
@@ -424,15 +424,7 @@ export function VendorGrowFairPay({ fee }: FeeProp) {
               While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>{COMMISSION_PCT}%</b>.{' '}
             </>
           )}
-          Your first booking from Setnayan is on us —{' '}
-          {fee ? (
-            <>
-              {feeLive ? 'after that the booking fee is ' : 'after that, '}
-              <b style={{ color: 'var(--m-ink)' }}>{bookingFeeScheduleSummary(fee)}</b>, only on the couples we bring you.
-            </>
-          ) : (
-            <>after that a booking fee, only on the couples we bring you — its rate is shown in full before you agree to any booking.</>
-          )}{' '}
+          <BookingFeeLine fee={fee} leadStyle={{ color: 'var(--m-ink)' }} />{' '}
           Your imported and repeat clients stay free, forever.
         </Lede>
       </div>

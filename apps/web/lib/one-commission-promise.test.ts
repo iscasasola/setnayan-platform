@@ -64,7 +64,7 @@ const SUPPLIER_SURFACES = [
   // four days after the fee went live, because the page itself (as opposed to
   // its `_components/`) was never on this list; llms.txt said "no per-lead fee,
   // no listing fee, 0% commission" in five places and never once named the fee.
-  'app/for-suppliers/page.tsx',
+  'app/(shell)/for-suppliers/page.tsx',
   'lib/llms-txt.ts',
 ];
 

@@ -23,7 +23,7 @@ test('"Get your invite link" goes to the invite page for a supplier, and through
 });
 
 test('the page decides from the viewer, and the button reads that decision', () => {
-  const page = readFileSync('app/for-suppliers/page.tsx', 'utf8');
+  const page = readFileSync('app/(shell)/for-suppliers/page.tsx', 'utf8');
   assert.match(page, /<VendorGrowAI inviteHref=\{inviteLinkHref\(hasShop\)\} \/>/);
   const sections = readFileSync('app/for-suppliers/_components/vendor-grow-sections.tsx', 'utf8');
   const cta = sections.slice(sections.indexOf('Get your couples on Setnayan AI.'));

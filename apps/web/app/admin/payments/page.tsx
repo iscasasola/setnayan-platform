@@ -8,6 +8,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { InboxMatcher, type MatcherPayment } from './_components/inbox-matcher';
 import { BatchApproveBar, BatchApproveCheckbox } from './_components/batch-approve-controls';
+import { RemedyReasonRow } from './_components/remedy-reason-row';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -58,6 +59,7 @@ import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { readRemedyDesk, type RemedyDesk, type RemedyDeskRow } from '@/lib/admin/service-remedies.server';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -359,6 +361,15 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   const eventInfo = await fetchOrderEventInfo(admin, payments);
   const deskBills = await fetchDeskBills(admin, payments, eventInfo.byEventId);
   const dupExposure = await fetchDuplicateExposure(admin, payments);
+  // A paid service they cannot use → Papic credits, or their next event
+  // (owner 2026-11-05 "yes to refund"). One batched read for the paid rows.
+  const remedyDesk = await readRemedyDesk(
+    admin,
+    payments
+      // `lapsed` too: a converted order is switched off (lapsed) and its row still shows what was done.
+      .filter((p) => p.order && ['paid', 'fulfilled', 'lapsed'].includes(p.order.status))
+      .map((p) => p.order_id),
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
@@ -460,6 +471,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           eventInfo={eventInfo}
           deskBills={deskBills}
           dupExposure={dupExposure}
+          remedyDesk={remedyDesk}
           channelSettings={channelSettings}
           readFailed={readFailed}
           query={qDisplay}
@@ -663,10 +675,13 @@ function PaymentsList({
   eventInfo,
   deskBills,
   dupExposure,
+  remedyDesk,
   channelSettings,
   readFailed,
   query,
 }: {
+  /** Convert-to-credits / move-to-next-event state per paid order — see readRemedyDesk. */
+  remedyDesk: RemedyDesk;
   /** The receiving-accounts list, so a payment's channel id prints as its NAME. */
   channelSettings: ChannelSettings;
   /** Which read was refused, if any — see `readFailed` in the page. */
@@ -1107,12 +1122,32 @@ function PaymentsList({
                 </ConfirmForm>
               </div>
             ) : p.order && (p.order.status === 'paid' || p.order.status === 'fulfilled') ? (
+              <>
+              <ServiceRemedyForms
+                orderId={p.order_id}
+                orderPublicId={p.order.public_id}
+                row={remedyDesk.byOrderId.get(p.order_id) ?? null}
+                failed={remedyDesk.failed}
+                query={query}
+                closed={false}
+              />
               <RefundForm
                 orderId={p.order_id}
                 orderPublicId={p.order.public_id}
                 defaultAmountPhp={
                   p.order.confirmed_total_php ?? p.order.requested_total_php
                 }
+              />
+              </>
+            ) : p.order && p.order.status === 'lapsed' ? (
+              // Switched off — show what was done with it, no actions.
+              <ServiceRemedyForms
+                orderId={p.order_id}
+                orderPublicId={p.order.public_id}
+                row={remedyDesk.byOrderId.get(p.order_id) ?? null}
+                failed={remedyDesk.failed}
+                query={query}
+                closed
               />
             ) : null}
 
@@ -1153,6 +1188,137 @@ function PaymentsList({
       </ul>
       </div>
     </>
+  );
+}
+
+/**
+ * A PAID SERVICE THEY CANNOT USE — the two things the public refund page
+ * promises (`app/(shell)/refunds/page.tsx`; owner 2026-11-05 "yes to refund"):
+ * its value becomes Papic credits, or, unused, it moves to their next event.
+ * Neither moves money. Both post to `refundOrder` with an `intent` (the
+ * server-action budget is at its ceiling); the work and the double-click guard
+ * are one SQL transaction each (lib/admin/service-remedies.server.ts).
+ *
+ * ⚖ OWNER 2026-11-05: the credit figure is what they paid at the best-value
+ * Papic pack on sale, computed by the SQL function the conversion itself grants
+ * from — so there is NO box to type a number into. The form posts the figure it
+ * shows; the database refuses if prices moved in between. Converting also
+ * switches the service off (the order becomes `lapsed`).
+ */
+function ServiceRemedyForms({
+  orderId,
+  orderPublicId,
+  row,
+  failed,
+  query,
+  closed,
+}: {
+  orderId: string;
+  orderPublicId: string;
+  row: RemedyDeskRow | null;
+  failed: boolean;
+  query: string;
+  /** The order is switched off (`lapsed`): show the history, offer nothing. */
+  closed: boolean;
+}) {
+  if (closed && (!row || row.done.length === 0)) return null;
+  if (failed || !row) {
+    return (
+      <p className="border-t border-ink/10 pt-3 text-xs text-[color:var(--sn-warning)]">
+        Couldn’t check what was already done with this order, so Convert and Move are hidden. Refresh the page.
+      </p>
+    );
+  }
+  const label = 'block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55';
+  const hint = 'block text-xs text-ink/55';
+  const reasonBox = (placeholder: string) => <RemedyReasonRow placeholder={placeholder} />;
+  const button =
+    'inline-flex min-h-[44px] items-center justify-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sn-gold-500)] focus-visible:ring-offset-2 disabled:opacity-70';
+
+  return (
+    <div className="space-y-2 border-t border-ink/10 pt-3">
+      {row.done.length > 0 ? (
+        <ul className="space-y-1 text-xs text-ink/75">
+          {row.done.map((d, i) => (
+            <li key={`${d.kind}-${i}`}>
+              {d.kind === 'papic_credits'
+                ? `Converted to ${formatCount(d.credits ?? 0)} Papic credits`
+                : `Moved from ${d.fromEventName ? `“${d.fromEventName}”` : 'an earlier event'} to ${d.toEventName ? `“${d.toEventName}”` : 'their next event'}`}
+              <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+                · {d.createdAt.slice(0, 10)}
+              </span>
+              <span className="block text-ink/55">{d.reason}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {closed || row.converted || !row.credits ? null : (
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-ink/70 hover:text-ink">
+            Convert to Papic credits
+          </summary>
+          <ConfirmForm
+            action={refundOrder}
+            title={`Convert to ${formatCount(row.credits)} Papic credits?`}
+            confirmLabel="Convert · tell the couple"
+            message="Adds the credits to their event and switches this service off. Records who did it and why, and tells the couple in the app. No money is sent back. It can be done once per order."
+            className="mt-2 space-y-2"
+          >
+            <input type="hidden" name="intent" value="convert_to_papic_credits" />
+            <input type="hidden" name="order_id" value={orderId} />
+            {query ? <input type="hidden" name="q" value={query} /> : null}
+            <input type="hidden" name="expected_credits" value={String(row.credits ?? '')} />
+            <p className={hint}>
+              They paid {formatPhp(row.paidPhp)}.{' '}
+              {row.credits !== null && row.credits > 0 ? (
+                <>
+                  That is <span className="font-medium text-ink">{formatCount(row.credits)} Papic credits</span>
+                  {row.pack ? ` at the best-value pack (${row.pack}).` : '.'}
+                </>
+              ) : row.credits === 0 ? (
+                'That is too little to make even one Papic credit.'
+              ) : (
+                'No Papic pack is on sale right now, so this can’t be converted.'
+              )}
+            </p>
+            {reasonBox('E.g. The live video could not start on the day — our encoder failed.')}
+            <SubmitButton className={button} pendingLabel="Converting…">
+              Convert · tell the couple
+            </SubmitButton>
+          </ConfirmForm>
+        </details>
+      )}
+
+      {closed || row.converted ? null : row.nextEvent ? (
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-ink/70 hover:text-ink">
+            Move to their next event
+          </summary>
+          <ConfirmForm
+            action={refundOrder}
+            title={`Move to “${row.nextEvent.name ?? 'their next event'}”?`}
+            confirmLabel="Move · tell the couple"
+            message={`Order ${orderPublicId} leaves this event and goes to their next one. Only if they haven’t used it. Records who did it and why, and tells the couple in the app.`}
+            className="mt-2 space-y-2"
+          >
+            <input type="hidden" name="intent" value="move_to_next_event" />
+            <input type="hidden" name="order_id" value={orderId} />
+            <input type="hidden" name="to_event_id" value={row.nextEvent.id} />
+            {query ? <input type="hidden" name="q" value={query} /> : null}
+            <p className={hint}>
+              Their next event: <span className="font-medium text-ink">{row.nextEvent.name ?? 'Untitled event'}</span>
+            </p>
+            {reasonBox('E.g. Their wedding was called off before they used it.')}
+            <SubmitButton className={button} pendingLabel="Moving…">
+              Move · tell the couple
+            </SubmitButton>
+          </ConfirmForm>
+        </details>
+      ) : (
+        <p className={hint}>Unused? It waits for their next event — they haven’t created one yet.</p>
+      )}
+    </div>
   );
 }
 

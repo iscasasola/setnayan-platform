@@ -3944,6 +3944,7 @@
       "files": [
         "admin/payments/_components/batch-approve-controls.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
+        "admin/payments/_components/remedy-reason-row.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
         "admin/payments/page.tsx"
@@ -3972,6 +3973,7 @@
         "DeskMoneyBlock",
         "DuplicateExposureResult",
         "FilterChip",
+        "FormRows",
         "HTMLInputElement",
         "InboxMatcher",
         "OrderEventInfoResult",
@@ -3985,8 +3987,11 @@
         "RecordPaymentCard",
         "RecordTarget",
         "RefundForm",
+        "RemedyReasonRow",
+        "ServiceRemedyForms",
         "Stat",
-        "SubmitButton"
+        "SubmitButton",
+        "TypedRow"
       ]
     },
     "/admin/payouts": {

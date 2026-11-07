@@ -29,6 +29,7 @@ import { getSecretPresenceMapMeasured } from '@/lib/integration-config';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { PasswordField } from '@/app/_components/password-field';
 // Integration Activation Console.
 //
 // Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
@@ -254,12 +255,12 @@ export default async function AdminIntegrationsPage({
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
               {dbHasKey ? 'Replace API key (leave blank to keep current)' : 'Resend API key'}
             </span>
-            <input
-              type="password"
+            <PasswordField
+              wrapperClassName="mt-1"
               name="resend_api_key"
               autoComplete="off"
               placeholder={dbHasKey ? 're_••••••••••••••••' : 're_xxxxxxxxxxxxxxxx'}
-              className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
+              className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
             />
           </label>
           <label className="block">

@@ -30,7 +30,6 @@ import {
 import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from './booking-fee-lock';
 import { BRANCH_SERVICE_KEY_PREFIX } from './vendor-branches';
 import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
-import { CUSTOM_PLAN_SERVICE_KEY_PREFIX } from './vendor-custom-catalog';
 
 const CHECKOUT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -44,19 +43,18 @@ const CHECKOUT = join(
 
 /* ── the list itself ───────────────────────────────────────────────────────── */
 
-test('all four vendor-surface families are covered', () => {
+test('all three vendor-surface families are covered', () => {
   for (const prefix of [
     BOOKING_FEE_LOCK_SERVICE_PREFIX,
     BRANCH_SERVICE_KEY_PREFIX,
     SEAT_SERVICE_KEY_PREFIX,
-    CUSTOM_PLAN_SERVICE_KEY_PREFIX,
   ]) {
     assert.ok(
       VENDOR_SURFACE_SERVICE_KEY_PREFIXES.includes(prefix),
       `${prefix} dropped out of the guard list`,
     );
   }
-  assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 4);
+  assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 3);
 });
 
 test('the list is frozen — a caller cannot widen the gate at runtime', () => {
@@ -76,7 +74,6 @@ test('the prefixes are imported, not re-typed', () => {
     './booking-fee-lock',
     './vendor-branches',
     './vendor-seats',
-    './vendor-custom-catalog',
   ]) {
     assert.match(src, new RegExp(`from '${mod.replace('.', '\\.')}'`), `${mod} not imported`);
   }
@@ -89,7 +86,6 @@ test('every vendor-surface key is recognised', () => {
     `${BOOKING_FEE_LOCK_SERVICE_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
     `${BRANCH_SERVICE_KEY_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
     `${SEAT_SERVICE_KEY_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
-    `${CUSTOM_PLAN_SERVICE_KEY_PREFIX}0f4c1e6a-1111-2222-3333-444455556666`,
   ]) {
     assert.equal(isVendorSurfaceServiceKey(key), true, `${key} slipped through`);
   }

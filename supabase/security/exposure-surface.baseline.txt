@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7252
+# facts: 7238
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     603
-#   col       5259
-#   policy    1055
+#   tpriv     601
+#   col       5249
+#   policy    1053
 #   view      9
 #   func      322
 #
@@ -494,8 +494,6 @@ tpriv	public.vendor_creator_offers|authenticated	SIUD
 tpriv	public.vendor_credit_ledger|authenticated	S
 tpriv	public.vendor_crew_codes|authenticated	SIUD
 tpriv	public.vendor_crew_passes|authenticated	SU
-tpriv	public.vendor_custom_plans|anon	SIUD
-tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
 tpriv	public.vendor_date_waitlist|authenticated	SIUD
 tpriv	public.vendor_dayof_configs|authenticated	S
@@ -4786,16 +4784,6 @@ col	public.vendor_crew_passes.pass_id	anon=- authenticated=SU
 col	public.vendor_crew_passes.requested_at	anon=- authenticated=SU
 col	public.vendor_crew_passes.status	anon=- authenticated=SU
 col	public.vendor_crew_passes.vendor_profile_id	anon=- authenticated=SU
-col	public.vendor_custom_plans.composition	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.created_at	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.created_by	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.custom_plan_id	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.discount_type	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.discount_value	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.quoted_28d_php	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.status	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_custom_plans.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.created_at	anon=SIU authenticated=SIU
 col	public.vendor_date_waitlist.event_id	anon=SIU authenticated=SIU
@@ -6717,8 +6705,6 @@ policy	public.vendor_crew_passes|vendor_crew_passes_admin_read	mode=PERMISSIVE c
 policy	public.vendor_crew_passes|vendor_crew_passes_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
 policy	public.vendor_crew_passes|vendor_crew_passes_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(crew_user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.vendor_crew_passes|vendor_crew_passes_platform_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
-policy	public.vendor_custom_plans|vendor_custom_plans_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.vendor_custom_plans|vendor_custom_plans_vendor_access	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_date_waitlist|vendor_date_waitlist_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.vendor_date_waitlist|vendor_date_waitlist_couple_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=(((user_id = ( SELECT auth.uid() AS uid)) AND (status = ANY (ARRAY['pending'::text, 'cancelled'::text]))) OR ( SELECT is_admin() AS is_admin))
 policy	public.vendor_date_waitlist|vendor_date_waitlist_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

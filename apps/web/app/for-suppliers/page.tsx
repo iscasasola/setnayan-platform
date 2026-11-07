@@ -9,8 +9,8 @@
  * code names are frozen; only what a person reads says "supplier".
  *
  * Rebuilt 2026-07-05 to the owner-approved prototype (vendors_page_v2_final.html):
- * a free-forward, grow-with-us narrative → the tier ladder → a "for those who
- * need more" Custom callout → CTA. The ladder now LEADS with per-plan DELTAS
+ * a free-forward, grow-with-us narrative → the tier ladder → CTA. (The "for those
+ * who need more" Custom callout went 2026-11-06 with the Custom plan.) The ladder now LEADS with per-plan DELTAS
  * (what each plan adds, once) and keeps the ~90-row matrix behind a disclosure
  * inside the same section. The persistent glass nav +
  * footer are global site-chrome (SiteChrome) — this page renders neither.
@@ -22,19 +22,14 @@
  *   never-spend-a-peso-that-doesn't-grow-you → free website that ranks (SEO/GEO)
  *   → analytics + only-inquiries-that-matter → trust earned not bought →
  *   no-fakes → reach that compounds → the tools → get paid your way →
- *   tier DELTAS (Free·Verified / Solo / Pro / Enterprise / Custom), with the
- *   full 5-column matrix collapsed behind "Compare every tier side by side"
- *   → Custom "for those who need more" → CTA.
+ *   tier DELTAS (Free·Verified / Solo / Pro / Ultra), with the
+ *   full matrix collapsed behind "Compare every tier side by side" → CTA.
  *
  * PRICE SOURCING (owner-locked "prices based on the admin page, not hardcoded"):
  *   Every vendor tier price comes from getVendorPrices() (live vendor_billing_
  *   catalog). force-dynamic keeps it always-live. The narrative sections speak
  *   the "free" thesis and render NO number; the matrix column price tags are the
- *   DB-resolved labels. ⚠ Custom's "from" floor USED to read that it was "the
- *   shared VENDOR_CUSTOM_TIER constant (composed per plan, not a DB SKU)". That
- *   was wrong: `vendor_custom_base` is an active catalog row and is where the
- *   number came from. It now reads the catalog like every other price, as does
- *   the branch dial — neither is typed anywhere.
+ *   DB-resolved labels, as is the extra-branch price — none is typed anywhere.
  *
  * The matrix is DATA-DRIVEN (VENDOR_TIER_SECTIONS + TIER_CAPS via
  * VendorTierMatrix) — the ~90 rows are built from the canonical arrays, never
@@ -288,16 +283,14 @@ export default async function ForVendorsPage() {
             being restatement of the ~90 that carry information.
 
             Both are built from the SAME canonical data (VENDOR_TIER_SECTIONS +
-            TIER_CAPS + VENDOR_CUSTOM_TIER), and every price — including Custom's
-            "from" floor and the branch dial, which used to be typed into the
-            shared constant — reads the live catalog via getVendorPrices. */}
+            TIER_CAPS), and every price — including the extra-branch price —
+            reads the live catalog via getVendorPrices. */}
         <RevealOnView>
           <VendorTierDeltas
             prices={{
               soloMonthly: p.soloMonthly,
               proMonthly: p.proMonthly,
               enterpriseMonthly: p.enterpriseMonthly,
-              customFrom: p.customFrom,
               branch: p.branch,
             }}
             feeSchedule={fee}
@@ -308,8 +301,7 @@ export default async function ForVendorsPage() {
                   soloMonthly: p.soloMonthly,
                   proMonthly: p.proMonthly,
                   enterpriseMonthly: p.enterpriseMonthly,
-                  customFrom: p.customFrom,
-                  branch: p.branch,
+                      branch: p.branch,
                 }}
               />
             }

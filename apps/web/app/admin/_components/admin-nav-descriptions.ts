@@ -161,8 +161,6 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── Money group (key 'settings-group') — money config then settings tail
   pricing:
     'The admin-managed retail catalog — every SKU price lives here, never in code.',
-  'custom-plans':
-    'Negotiated Custom supplier plans — dial a quote, apply a partner discount, send it for apply-then-pay approval.',
   'vendor-recommendations':
     'The supplier-leaf → recommendable-SKU map and its two-way curation review queue.',
   'price-bands': 'Price bands used across the catalog.',

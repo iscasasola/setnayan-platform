@@ -45,7 +45,7 @@ test('REGRESSION: verified Free vendor, floor NOT lifted → still blocked (toda
 // ── verification NEVER relaxes, on any tier, with the floor lifted ──────────
 
 test('unverified is blocked even with the tier floor lifted', () => {
-  for (const tier of ['free', 'solo', 'pro', 'enterprise', 'custom', null]) {
+  for (const tier of ['free', 'solo', 'pro', 'enterprise', null]) {
     assert.equal(
       vendorAddonActivationAllowed({
         tier,
@@ -73,7 +73,6 @@ test('unverified is blocked even with the tier floor lifted', () => {
 test('unlifted floor: pro+ passes, below-pro fails', () => {
   assert.equal(vendorAddonActivationAllowed({ ...base, tier: 'pro' }), true);
   assert.equal(vendorAddonActivationAllowed({ ...base, tier: 'enterprise' }), true);
-  assert.equal(vendorAddonActivationAllowed({ ...base, tier: 'custom' }), true);
   assert.equal(vendorAddonActivationAllowed({ ...base, tier: 'verified' }), false);
   assert.equal(vendorAddonActivationAllowed({ ...base, tier: null }), false);
 });

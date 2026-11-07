@@ -74,7 +74,7 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
 
   // Team-seat math (owner 2026-07-02 ladder). Seats = members beyond the
   // always-free founding admin. Effective cap = the tier's base agentAccounts +
-  // any paid extra seats (Enterprise/Custom ₱250/28d add-on). Only Enterprise +
+  // any paid extra seats (Ultra ₱250/28d add-on). Only Enterprise +
   // Custom can buy extra seats, so the "Add a seat" card is gated on that.
   const canBuySeats = canBuyExtraSeats(ctx.tierState);
   // A plan with 0 seats is a paywall → asked through the one flag-aware

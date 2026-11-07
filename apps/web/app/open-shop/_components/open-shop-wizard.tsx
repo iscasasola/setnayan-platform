@@ -40,6 +40,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { inBusinessSinceChoices } from '@/lib/in-business-since';
+import { PasswordField } from '@/app/_components/password-field';
 
 /**
  * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
@@ -825,9 +826,8 @@ export function OpenShopWizard({
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Password<span className="ml-1 text-terracotta">*</span>
                 </span>
-                <input
+                <PasswordField
                   name="password"
-                  type="password"
                   autoComplete="new-password"
                   minLength={OPEN_SHOP_PASSWORD_MIN}
                   placeholder="At least 8 characters"

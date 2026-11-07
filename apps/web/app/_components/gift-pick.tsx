@@ -60,7 +60,7 @@ export function GiftPickRow({
         options={options}
         onPick={onPick}
         dataAttr={dataAttr}
-        className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-ink/15 bg-raised px-4 text-left text-[15px] text-ink"
+        className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-ink/15 bg-raised px-4 text-left text-[15px] text-ink" // no-card-ok: PickMenu's own trigger <button> — the dropdown you press, drawn as a 48 px field
         trigger={
           <>
             <span className={`flex min-w-0 items-center gap-2 truncate ${value ? '' : 'text-ink/55'}`}>

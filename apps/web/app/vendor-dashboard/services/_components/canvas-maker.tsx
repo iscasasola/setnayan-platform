@@ -205,7 +205,7 @@ const MORE_ANCHOR = 'maker-more-settings';
  */
 const LAB = 'mb-1.5 flex items-center gap-2 text-[14px] font-medium text-ink';
 const SMALL = 'text-[12px] font-normal text-ink/50';
-const BOX = 'h-12 w-full rounded-xl border border-ink/15 bg-raised px-4 text-[15px] text-ink outline-none focus:border-sn-accent';
+const BOX = 'h-12 w-full rounded-xl border border-ink/15 bg-raised px-4 text-[15px] text-ink outline-none focus:border-sn-accent'; // no-card-ok: the class of a text <input> (a field you type in, not a box)
 const HINT = 'mt-1.5 text-[12px] leading-snug text-ink/55';
 const TOPIC = 'border-t border-ink/10 pt-5';
 
@@ -997,7 +997,7 @@ export function CanvasMaker({
               divider, never a box around the group. */}
           <div className="space-y-5 pt-3" data-maker-first="">
             {aboutOpen ? (
-              <div className="space-y-1 rounded-2xl border px-4 py-3 text-[14px] leading-snug text-ink/75" style={{ borderColor: line }} data-maker-about="" role="note">
+              <div className="space-y-1 rounded-2xl bg-ink/[0.04] px-4 py-3 text-[14px] leading-snug text-ink/75" data-maker-about="" role="note">
                 <b className="block text-ink">This card</b>
                 <span className="block">
                   {isEdit
@@ -1502,7 +1502,7 @@ export function CanvasMaker({
 
         {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 820 up ═══ */}
         <aside className="hidden md:sticky md:top-24 md:block" data-maker-card="">
-          <div className="space-y-3 rounded-2xl border p-4" style={{ borderColor: line, background: paper }}>
+          <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[16px] font-semibold text-ink">As couples see it</h3>
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/45">Live</span>

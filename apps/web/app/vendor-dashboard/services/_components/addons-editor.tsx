@@ -65,7 +65,7 @@ export function AddonsEditor({
       <div className="space-y-2" data-addons-bare="">
         <input type="hidden" name="addons_present" value="1" />
         {rows.length > 0 ? (
-          <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
+          <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15" /* no-card-ok: the frame of each row's two text <input>s (what · ₱) — one field you type in, as prototype § 3 draws it */>
             {rows.map((r, i) => (
               <SwipeToDelete
                 key={r.key}
@@ -90,7 +90,7 @@ export function AddonsEditor({
                     name="addon_price"
                     value={r.price}
                     onChange={(e) => patch(r.key, { price: e.target.value.replace(/[^0-9]/g, '') })}
-                    type="text"
+                    type="text" // field-ok: an amount (₱) — the §6 number exception, typed as text + inputMode numeric so it carries no spinner
                     inputMode="numeric"
                     pattern="[0-9]*"
                     autoComplete="off"

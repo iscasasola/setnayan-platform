@@ -161,9 +161,20 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     // one-sign-up-discount change (d18); the one card left quotes the floor by name.
     ['app/admin/pricing/_components/signup-discount-card.tsx', /min=\{PAPIC_DISCOUNT_FLOOR_PCT\}/],
     ['app/admin/studio/_surfaces/social-queue-surface.tsx', /SHARE_PUBLISH_GATE_DAYS/],
-    ['app/for-suppliers/_components/vendor-grow-sections.tsx', /\{COMMISSION_PCT\}%/],
+    // The commission figure was quoted by name in vendor-grow-sections.tsx, deleted 2026-11-06 with the old
+    // /for-suppliers page; /pricing is the screen that still draws it. The approved /for-suppliers page draws no
+    // commission figure in its body (its metadata reads `supplierCommissionShort`), and is held below to type none.
+    ['app/(shell)/pricing/page.tsx', /\$\{COMMISSION_PCT\}% commission/],
   ];
   for (const [file, re] of quotes) assert.match(code(file), re, `${file} no longer quotes its rule by name`);
+  for (const file of [
+    'app/(shell)/for-suppliers/page.tsx',
+    'app/for-suppliers/_components/supplier-front-page.tsx',
+    'app/for-suppliers/_components/supplier-front-client.tsx',
+    'app/for-suppliers/_components/supplier-front-data.ts',
+  ]) {
+    assert.doesNotMatch(code(file), /\b\d+\s*%\s*commission/i, `${file} types the commission figure instead of reading COMMISSION_PCT`);
+  }
   // …and the named rules are real, single definitions.
   const rules = code('lib/rule-constants.ts');
   for (const name of ['REFUND_REPORT_WINDOW_DAYS', 'ERROR_LOG_RETENTION_DAYS', 'COMP_GRANT_CO_REVIEW_PESOS', 'DATE_CHANGE_DUE_DAYS']) {

@@ -37,7 +37,15 @@ const EDITOR = readFileSync(
   'app/vendor-dashboard/website/_components/page-parts.tsx',
   'utf8',
 );
-const MATRIX = readFileSync('app/for-suppliers/_components/vendor-tier-matrix.tsx', 'utf8');
+// The public price list. Since 2026-11-06 /for-suppliers is the owner-approved page, which replaced the tier
+// matrix (vendor-tier-matrix.tsx, deleted); its plans are drawn by these three files, read together.
+const MATRIX = [
+  'app/for-suppliers/_components/supplier-front-page.tsx',
+  'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-front-data.ts',
+]
+  .map((rel) => readFileSync(rel, 'utf8'))
+  .join('\n');
 
 /** The literal entries of a named `new Set([...])`, comments stripped. */
 function setEntries(src: string, name: string): string[] {
@@ -96,7 +104,7 @@ test('the public price list no longer sells it', () => {
   const visible = MATRIX.replace(/\/\/[^\n]*/g, '');
   assert.ok(
     !/Custom URL \/ slug/.test(visible),
-    'the tier matrix advertises "Custom URL / slug" again — it is free, on every ' +
+    'the public plans advertise "Custom URL / slug" again — it is free, on every ' +
       'tier, and can never be changed, so the row is false three ways',
   );
 });

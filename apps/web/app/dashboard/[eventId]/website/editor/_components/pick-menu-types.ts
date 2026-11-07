@@ -138,6 +138,12 @@ export type PickMenuProps = {
    */
   doneNote?: string;
   /**
+   * ✓ THE DONE THAT CLOSES THE LIST IS A GREEN BUTTON (owner 2026-11-07, makers-match § 1: *"green only on the Done
+   * that closes the dropdown"*). Multi-select only: the closing row draws the shipped ActionButton `tone="ok"` "Done",
+   * then `doneNote` beside it as a hint. Omitted = the row as it always was ("Tick as many as apply. · Done ✓").
+   */
+  doneButton?: boolean;
+  /**
    * 🔎 One row drawn ABOVE the options, inside the open list (owner 2026-10-20, the supplier card's "Also covers":
    * *"allow us to search that"*) — a search box the CALLER owns and filters `options` with. It must be an
    * `<li role="none">`; it is not an option, so the arrow keys and first-focus pass over its input. Omitted = none.

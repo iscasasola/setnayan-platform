@@ -3870,6 +3870,12 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'supplier_scan_claims', column: 'session_id', references: 'supplier_scan_sessions' },
       { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_state_check', mentions: 'state' },
       { kind: 'column', table: 'supplier_scan_sessions', column: 'prints' },
+      // Roaming (slice 4) is the same shot with no station — one CHECK names both.
+      { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_mode_check', mentions: 'mode' },
+      // ⭐ Slice 5: a guest's optional review after "received" is written into the ONE guest-review store
+      // (vendor_guest_reviews, owner 2026-11-06); the scanner keeps only its "Not now" — one row per event · guest · shop.
+      { kind: 'table', table: 'supplier_scan_review_skips' },
+      { kind: 'fk', table: 'supplier_scan_review_skips', column: 'vendor_profile_id', references: 'vendor_profiles' },
     ],
     chain: 22,
     pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],
@@ -3883,7 +3889,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
     traps:
-      'A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
+      'A guest’s review after “received” is NOT a scanner table: the pop-up writes through the one guest-review writer (submitGuestReview → vendor_guest_review_submit, which admits a received supplier_scan_claims row for that shop) into vendor_guest_reviews — one store, one “From guests” section, public at once, admin Hide/Show (owner 2026-11-06). The scanner keeps only supplier_scan_review_skips (“Not now”, service role). A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
   },
 ];
 

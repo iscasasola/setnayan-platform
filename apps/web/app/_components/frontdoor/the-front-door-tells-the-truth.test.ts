@@ -10,15 +10,19 @@
  *
  * WHAT IT HOLDS, read from the RENDERED hero (renderToStaticMarkup — the HTML a stranger
  * and a crawler get), not from the source text:
- *   1. the headline is "Plan any event free. Every photo in one album." — the promise is
- *      ONE ALBUM, not free photos;
+ *   1. the headline is the 4 Nov front page's — "Your wedding, beautifully handled on
+ *      Setnayan." (prototypes/front_page_2026-11-04.html; DECISION_LOG 2026-10-28 "THE FRONT
+ *      DOOR'S PREMIUM PITCH" + 2026-11-04) — and the photo promise under it is still ONE
+ *      ALBUM, not free photos (it moved from the old headline into the "Setnayan is …" line);
  *   2. neither the hero nor the home <title>/description says "never lose a photo" or
  *      "keep every photo" (both overpromise: photos use Papic credits);
  *   3. the Papic line is there and carries NO number (free credits are first-event only;
  *      an amount on the front door reads as per event);
  *   4. the main button opens `/start` — the public event-type picker, before sign-up
  *      (owner 2026-10-25) — which draws the SHIPPED create-event grid and routes each
- *      type by the same rule as the signed-in picker; "How it works" opens /features;
+ *      type by the same rule as the signed-in picker; "How it works" opens /features.
+ *      There is no sample or demo button, open or closed (owner, CLOUD_BOARD 5 Nov: "just do
+ *      not add buttons") — 4e;
  *   5. the main button wears the house terracotta token (`--m-mulberry`), not the gold.
  *
  * 🛡 Comments are stripped before any source match (`lib/strip-comments.ts`).
@@ -59,8 +63,14 @@ test('1 · the headline is the approved one', async () => {
   const text = textOf(h1[1] ?? '');
   assert.match(
     text,
-    /Plan any event free\. Every photo in one album\./,
-    `The front-door headline reads "${text}". Owner 2026-10-25: "Plan any event free. Every photo in one album." ` +
+    /^Your wedding ?, beautifully handled on Setnayan\.$/,
+    `The front-door headline reads "${text}". The 4 Nov front page (prototypes/front_page_2026-11-04.html): ` +
+      '"Your wedding, beautifully handled on Setnayan." — the turning word starts on "wedding".',
+  );
+  assert.match(
+    textOf(await hero()),
+    /every photo your guests take, in one album\./,
+    'The hero no longer says photos land in ONE ALBUM. Owner 2026-10-25: the promise is one album ' +
       '(not "Keep every photo" — photos use Papic credits).',
   );
 });
@@ -137,6 +147,17 @@ test('4d · every public picker tile goes straight to /onboarding/<type> — no 
     }
   }
   assert.equal(startHrefFor({ key: 'debut', onboardingHref: null }, true), '/onboarding/debut');
+});
+
+test('4e · no sample or demo button anywhere on the front page', async () => {
+  // Owner, CLOUD_BOARD 5 Nov: the marketing pages carry no demo or sample buttons — "just do not add buttons" —
+  // not hidden behind a switch either. Rendered hero, and every source file the signed-out page is built from.
+  assert.doesNotMatch(await hero(), /href="\/sample/, 'the hero links into /sample');
+  for (const f of ['front-door-anchor.tsx', 'front-door-landing.tsx', 'front-door-landing-data.ts', 'front-door.tsx']) {
+    const src = stripComments(readFileSync(path.join(HERE, f), 'utf8'));
+    assert.doesNotMatch(src, /['"`]\/sample(\/|['"`#?])/, `${f} links into /sample — no sample or demo buttons on the marketing pages`);
+    assert.doesNotMatch(src, /sampleOpensHere/, `${f} gates a sample door behind the switch — the owner said no buttons at all`);
+  }
 });
 
 test('4c · "How it works" opens the Features hub', async () => {

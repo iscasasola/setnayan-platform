@@ -70,6 +70,8 @@ const SCAN_SERVICES: Record<string, EventScanService[] | 'unreadable'> = {
   // Group session (slice 3): shot #0107 open with 3 guests; 41 shots so far.
   group: [{ coverageId: 5, label: 'Photo booth', mode: 'group_session', tally: { claimed: 88, total: 118, lastNumber: 107, souvenir: false, ordered: 9, ready: 6, served: 0, unique: 103, sessions: 41, open: { number: 107, guests: 3 } } }],
   'group-idle': [{ coverageId: 5, label: 'Photo booth', mode: 'group_session', tally: { claimed: 88, total: 118, lastNumber: 106, souvenir: false, ordered: 6, ready: 6, served: 0, unique: 100, sessions: 40, open: null } }],
+  // Roaming (slice 4): shot #0231 open with 2 guests.
+  roaming: [{ coverageId: 6, label: 'Photo & video', mode: 'roaming', tally: { claimed: 57, total: 118, lastNumber: 231, souvenir: false, ordered: 4, ready: 8, served: 0, unique: 70, sessions: 64, open: { number: 231, guests: 2 } } }],
   prints: [{ coverageId: 3, label: 'Photo booth prints', mode: 'ordered_received', tally: { claimed: 20, total: 118, lastNumber: 38, souvenir: false, ordered: 12, ready: 3, served: 0, unique: 0, sessions: 0, open: null } }],
 };
 const SCAN_ANSWERS: Record<string, ScanAnswer> = {
@@ -87,6 +89,7 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   added: { outcome: 'added', number: 107, guests: 3 },
   'picked-up': { outcome: 'picked_up', number: 107, claimed: 3, of: 5 },
   'no-session': { outcome: 'no_session' },
+  'roam-added': { outcome: 'added', number: 231, guests: 2, mode: 'roaming' },
 };
 
 /**

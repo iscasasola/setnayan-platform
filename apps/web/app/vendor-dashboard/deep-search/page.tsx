@@ -18,7 +18,7 @@ import { DossierView } from './_components/dossier-view';
  * /vendor-dashboard/deep-search — the Deep Search surface (owner-locked
  * 2026-07-22). A verified, paid-tier vendor runs the web-research deep search on
  * their OWN business and reviews the "What We Learned" result to auto-fill their
- * profile. ₱500 per search; Pro/Enterprise/Custom get 1 free per 28-day cycle,
+ * profile. ₱500 per search; Pro/Ultra get 1 free per 28-day cycle,
  * Solo always pays.
  *
  * Doorway: the "Plan & tokens" hub links here (mirrors the Custom-plan sub-route

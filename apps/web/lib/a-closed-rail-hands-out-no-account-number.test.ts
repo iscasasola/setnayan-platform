@@ -180,7 +180,9 @@ test('every supplier action that mints a payment asks the rail switch first', ()
   assert.deepEqual(offenders, [], 'These mint an order a closed rail cannot receive:\n  ' + offenders.join('\n  '));
   // Floor, not a ceiling: an empty sweep (moved folder, broken regex) must not
   // read as "nothing to check". Raise it when a new paid action lands.
-  assert.ok(minting.length >= 9, `only ${minting.length} minting actions found — the sweep went blind`);
+  // 8, not 9, since 2026-11-06: the Custom plan's checkout action was DELETED with the Custom plan (owner: "from
+  // the app") — one fewer paid action exists, not one fewer is seen.
+  assert.ok(minting.length >= 8, `only ${minting.length} minting actions found — the sweep went blind`);
 });
 
 test('every supplier "Pay with" choice offers only the open rails', () => {

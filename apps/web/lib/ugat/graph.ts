@@ -53,7 +53,8 @@ export type UgatEntityType =
   | 'signoff'
   | 'colourgrant'
   | 'march'
-  | 'inspirationpart';
+  | 'inspirationpart'
+  | 'supplierscan';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -1024,6 +1025,36 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'names the shelves of', to: 'TYPE-GALLERY' },
     ],
   },
+  {
+    /**
+     * 🎟 SUPPLIER SCANS — the supplier claim scanner (migration 20271320327933; DECISION_LOG 2026-09-25 "SUPPLIERS
+     * CLAIM A GUEST'S SERVICE BY SCANNING…", 2026-10-03 "SUPPLIER SCAN … APPROVED", 2026-10-29 "SET ONCE PER
+     * SERVICE"). A booked shop's service scans a guest's QR or NFC tag; the guest gets the next shared number (#0042).
+     * Souvenir services write the couple's own `guest_souvenir_claims` row instead — one record, two desks.
+     */
+    id: 'TYPE-SUPPLIER-SCANS',
+    type: 'supplierscan',
+    name: 'Supplier scans',
+    blurb: 'a booked supplier scans a guest — the guest gets #0042; the supplier sees counts, never names',
+    countKey: 'supplierscan',
+    icon: 'tag',
+    color: 'var(--ug-e-supplierscan)',
+    colorBg: 'var(--ug-e-supplierscan-bg)',
+    table: 'supplier_scan_claims',
+    x: 1060,
+    y: 980,
+    fields: [
+      { key: 'fk', name: '(event_id, guest_id)', note: 'composite → guests, ON DELETE CASCADE — always a guest OF THIS EVENT' },
+      { key: 'fk', name: 'coverage_id', note: '→ vendor_coverages: the SERVICE scanned for (its scanner is supplier_scan_settings, set once per service)' },
+      { key: '', name: 'scan_number', note: 'the shared #0001 sequence per service per event (supplier_scan_counters), moved only under the claim’s own lock' },
+      { key: '', name: 'method', note: 'supplier_qr · supplier_nfc — a tag carries the same link as the QR' },
+    ],
+    edges: [
+      { verb: 'claim for', to: 'TYPE-GUESTS' },
+      { verb: 'are scanned by', to: 'TYPE-VENDORS' },
+      { verb: 'happen at', to: 'TYPE-EVENTS' },
+    ],
+  },
 ];
 
 
@@ -1074,6 +1105,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'layers',
     color: 'var(--ug-e-inspirationpart)',
     colorBg: 'var(--ug-e-inspirationpart-bg)',
+  },
+  supplierscan: {
+    label: 'Supplier scan',
+    icon: 'tag',
+    color: 'var(--ug-e-supplierscan)',
+    colorBg: 'var(--ug-e-supplierscan-bg)',
   },
   community: {
     label: 'Group',
@@ -3794,6 +3831,52 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'A BEFORE trigger re-asks papic_chapter_capture_refusal for every captured link (the window, judged by the capture’s own captured_at, and the chapter’s photo_who); no INSERT grant on the links to any browser role; windows written by the couple only (RLS) · tests/db/papic-shoots-into-a-chapter.db.test.ts · lib/papic-chapter.test.ts',
     traps:
       'Deleting a CHAPTER deletes its links, never a photo — they fall back to Unsorted (ruled 1 Nov). A refused chapter never loses a shot when the camera was open anyway: it lands event-wide (papicChapterCaptureDecision). Not yet: the photo-URL membership check, Memories by chapter, and the moment-delete count (Step 7).',
+  },
+  {
+    /**
+     * 🎟 A SUPPLIER'S SCAN CLAIMS A GUEST'S SERVICE (migration 20271320327933). One function writes every claim
+     * (`supplier_scan_claim`, SECURITY DEFINER) after asking the shop, the booking, the booked service, the scanner and
+     * the guest; the number moves under the counter row's lock in the same transaction.
+     */
+    id: 'J61',
+    claims: [
+      { kind: 'table', table: 'supplier_scan_settings' },
+      { kind: 'fk', table: 'supplier_scan_settings', column: 'coverage_id', references: 'vendor_coverages' },
+      { kind: 'fk', table: 'supplier_scan_settings', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'supplier_scan_settings', name: 'supplier_scan_settings_mode_check', mentions: 'mode' },
+      { kind: 'table', table: 'supplier_scan_counters' },
+      { kind: 'fk', table: 'supplier_scan_counters', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'supplier_scan_counters', column: 'coverage_id', references: 'vendor_coverages' },
+      { kind: 'table', table: 'supplier_scan_claims' },
+      { kind: 'fk', table: 'supplier_scan_claims', column: 'coverage_id', references: 'vendor_coverages' },
+      { kind: 'fk', table: 'supplier_scan_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_scan_claims', column: 'scan_number' },
+      { kind: 'check', table: 'supplier_scan_claims', name: 'supplier_scan_claims_method_check', mentions: 'method' },
+      // Souvenirs: the couple's own record, extended — never a second souvenir table.
+      { kind: 'fk', table: 'guest_souvenir_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'guest_souvenir_claims', column: 'coverage_id', references: 'vendor_coverages' },
+      { kind: 'column', table: 'guest_souvenir_claims', column: 'scan_number' },
+      // The claim keeps no copy of the guest's name — the first name is read live (supplier_scan_first_name).
+      { kind: 'no_column', table: 'supplier_scan_claims', column: 'guest_name' },
+      // Ordered → Received (slice 2): the claim's state, and "#0042 is ready" as ONE guest's line in the one channel.
+      { kind: 'check', table: 'supplier_scan_claims', name: 'supplier_scan_claims_state_check', mentions: 'state' },
+      { kind: 'column', table: 'supplier_scan_claims', column: 'ready_at' },
+      { kind: 'column', table: 'coordinator_broadcasts', column: 'target_guest_id' },
+      { kind: 'check', table: 'coordinator_broadcasts', name: 'coordinator_broadcasts_supplier_is_one_guest', mentions: 'target_guest_id' },
+    ],
+    chain: 22,
+    pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],
+    title: 'Supplier scan → Guest (one claim, one shared number)',
+    joint: 'supplier_scan_claims',
+    cardinality: 'Once and Ordered → Received: one claim per guest per service per event (partial unique); the number is per service per event and kept through ordered → ready → received',
+    implementedBy:
+      'supplier_scan_claims (composite (event_id, guest_id) → guests CASCADE · coverage_id → vendor_coverages · scan_number from supplier_scan_counters) — or, for a souvenir service (supplier_scan_is_souvenir), the couple’s guest_souvenir_claims row with vendor_profile_id · coverage_id · scan_number',
+    writtenBy:
+      'ONLY supplier_scan_claim(event, coverage, token, method) — SECURITY DEFINER, called by app/_actions/supplier-scan-actions.ts (op claim) from the Event Hub’s Scanner view. Settings: the shop, under its own RLS (op set_scanner, Shop › Services). Ready: supplier_scan_ready(event, service, number) — moves the number’s ordered claims to ready AND writes one coordinator_broadcasts row per guest (target_guest_id, sender_role supplier; the words built in SQL). Removal: Setnayan admin only (op admin_remove, audited)',
+    guardedBy:
+      'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
+    traps:
+      'A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
   },
 ];
 

@@ -643,7 +643,11 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-services="">
         <ShopSegments on="services" figures={servicesFigures(rows)} />
-        <ShopServiceRows rows={rows} />
+        {/* 🎟 Each service's claim scanner — the first service's is on (Once), the rest Off (lab only; nothing saves). */}
+        <ShopServiceRows
+          rows={rows}
+          scan={rows ? new Map(rows.flatMap((r, i) => (r.coverageId != null ? [[r.coverageId, { enabled: i === 0, mode: 'once' as const }] as const] : []))) : null}
+        />
         <p className="text-[13px] text-ink/55" data-lab-stand-in="cards">
           The cards list (the shipped services manager) draws here — it reads the database itself.
         </p>

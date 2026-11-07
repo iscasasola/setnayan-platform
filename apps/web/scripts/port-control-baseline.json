@@ -302,6 +302,44 @@
         "FeaturePageView"
       ]
     },
+    "/(shell)/for-coordinators": {
+      "files": [
+        "(shell)/for-coordinators/_badges.generated.ts",
+        "(shell)/for-coordinators/_claims.server.ts",
+        "(shell)/for-coordinators/_claims.ts",
+        "(shell)/for-coordinators/_facts.ts",
+        "(shell)/for-coordinators/_fc-client.tsx",
+        "(shell)/for-coordinators/_prices.server.ts",
+        "(shell)/for-coordinators/loading.tsx",
+        "(shell)/for-coordinators/page.tsx"
+      ],
+      "destinations": [
+        "/open-shop",
+        "/v/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "AccessCard",
+        "CheckADate",
+        "ChipIcon",
+        "ClaimSwitches",
+        "CoordinatorPrices",
+        "FcEffects",
+        "FeeSlider",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HeroStage",
+        "Image",
+        "InfoToggle",
+        "Link",
+        "Pill",
+        "PlanTiers",
+        "QrMoments",
+        "RunTheDay",
+        "T"
+      ]
+    },
     "/(shell)/for-suppliers": {
       "files": [
         "(shell)/for-suppliers/loading.tsx",

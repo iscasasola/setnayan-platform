@@ -1,180 +1,94 @@
 /**
- * front-door-anchor.tsx — the five-second answer, for a stranger only.
+ * front-door-anchor.tsx — the hero of the signed-out front page.
  *
- * REPLACES `front-door-opening.tsx` (deleted) and `front-door-story.tsx`
- * (deleted) — 2026-09-03, this session, at the owner's direction across a
- * long conversation. Recorded here rather than assumed, because the file it
- * replaces was itself a deliberate, reasoned answer to a real objection (see
- * below), and a reversal of a reasoned decision needs its own reasoning, not
- * a silent overwrite.
+ * PORTED, NOT REDRAWN, from `prototypes/front_page_2026-11-04.html` (owner-approved 4 Nov 2026; DECISION_LOG
+ * "THE THREE MARKETING PAGES GO TO CLOUD BUILD"). It replaces the 25 Oct "Option B" opening (one headline, a
+ * before → after strip of grey tiles) with the 28 Oct premium pitch the prototype carries: a turning photo
+ * across the whole width, the copy over a white wash, and the headline with the turning word —
+ * "Your wedding, beautifully handled on Setnayan." (DECISION_LOG 2026-10-28 "THE FRONT DOOR'S PREMIUM PITCH").
  *
- * ─── WHAT THIS REPLACES, AND WHY ──────────────────────────────────────────
- * The retired opening was a full hero (headline + a paragraph making the
- * claim, framed by a two-part "group chat" narrative section) — itself a
- * deliberate answer to *"doesn't it feel like just a youtube rip off?"*: a
- * bare content feed with nothing above it reads as a feed, and a company
- * with no customers cannot borrow proof the way an established brand can.
+ * ─── WHAT CARRIED OVER FROM OPTION B, word for word ──────────────────────────────────────────────────────
+ *   • "Free to start · No guest limit · No credit card · Guests don't sign in";
+ *   • "Unlimited cameras · photos use Papic credits." — with NO number on the hero: the free credits are a
+ *     first-event-only grant and an amount here reads as per event (owner 2026-10-25). The prototype's ⓘ
+ *     names the amounts; this one names the rule and leaves the figures to the plans below
+ *     (`the-front-door-tells-the-truth.test.ts` §3);
+ *   • the Taglish line "Hindi na kalat sa GC, hindi na naiiwan sa phone ng iba."
  *
- * That reasoning does not disappear here — the counter-finding is that a
- * FULL narrative hero solves a stranger's "what is this" problem at the cost
- * of two other things this page needs at once: a visible marketplace (this
- * product's liquidity — its self-reported survival metric — needs real
- * supply seen, not buried under paragraphs) and a legible content feed
- * (comparable products' proof-by-recognition move only works once, then
- * becomes friction for a returning reader). Researched directly this
- * session: a first-time visitor needs the five-second answer, not the case
- * for it — recognition can be one sentence, not a scene.
+ * ─── THE TWO GOOGLE OAUTH GUARDS STILL HOLD (`app/google-can-verify-the-home-page.test.ts`) ─────────────
+ *   • "Setnayan" is typed INSIDE the one <h1> (refused 2026-10-22 for a home page whose name did not match);
+ *   • a paragraph opens "Setnayan is …" and says what the app does.
+ * The Privacy and Terms links left the hero with the prototype; they now sit in the page's own footer
+ * (`front-door-landing.tsx`), which the same guard reads.
  *
- * So: ONE headline (still the page's one visible `<h1>` — the OAuth-brand
- * rule that forced a visible heading here in the first place has not
- * changed), three short claims instead of a paragraph, one CTA. No essay, no
- * illustrated group-chat mockup, no second narrative section.
+ * ─── NO SAMPLE OR DEMO BUTTONS (owner, CLOUD_BOARD 5 Nov: "just do not add buttons") ─────────────────────────
+ * The prototype led with "Try Maria and Jose's wedding" → /sample. The owner ruled the marketing pages carry no
+ * demo or sample buttons — not hidden behind a switch, not added. So the main button is "Set up your event — free"
+ * (→ /start, the public type picker — owner 2026-10-25) and "How it works" (→ /features) stays beside it.
  *
- * ─── SIGNED-OUT ONLY ───────────────────────────────────────────────────────
- * Owner-confirmed this session: a signed-in visitor landing back on `/`
- * already knows what Setnayan is — showing them a stranger's pitch again is
- * the wrong sentence for that reader. The caller (`front-door.tsx`) renders
- * this only when `!account.signedIn`; a signed-in visitor gets no heading
- * prop at all and falls back to the shell's screen-reader-only `<h1>`,
- * exactly like every other converted app surface.
- *
- * ─── THE BRAND NAME STAYS VISIBLE ─────────────────────────────────────────
- * Google's app-verification review failed once (2026-07-25) partly because
- * the homepage did not obviously say what the app is or that it is called
- * Setnayan. The eyebrow carries the name in visible text, same as the
- * retired opening did — see `home-brand-name.test.ts`, which pins the SHELL
- * wordmark independently and is unaffected by this file either way, but the
- * belt-and-suspenders habit is worth keeping on the one page a reviewer is
- * sent to.
- *
- * ─── OPTION B, WITH THE HONESTY FIX (owner 2026-10-25) ───────────────────
- * Approved from `prototypes/ceremo_deltas_2026-10-25/01_front_door.html`
- * (Option B), corrected by the owner before it shipped: *"don't they pay for
- * papic?"* · *"unlimited camera but papic credits is used"* · *"free 50
- * credits is only on their first event"* · *"DO NOT INVENT … we want to tell
- * the truth"*. So:
- *   • the headline says photos land in ONE ALBUM, never that they are kept
- *     free or never lost ("never lose a photo" / "Keep every photo" are gone);
- *   • the small line under the chips says cameras are unlimited and photos
- *     use Papic credits — with NO number, because the free credits are a
- *     first-event-only grant and an amount here would be read as per event;
- *   • the strip's labels carry no invented counts.
- * The purpose paragraph still opens "Setnayan is …" — Google's OAuth review
- * (2026-10-22) needs it, and `google-can-verify-the-home-page.test.ts` holds it.
- * Pinned by `the-front-door-tells-the-truth.test.ts`.
+ * Signed in, this is not rendered at all (`front-door.tsx`).
  */
 import Link from 'next/link';
 
+import { InfoTip } from '@/app/_components/info-tip';
+import { HeroStage, HeroWord } from './front-door-hero';
+import { HERO_SLIDES } from './front-door-landing-data';
+
 export function FrontDoorAnchor() {
   return (
-    <section className="fd-opening" aria-labelledby="fd-opening-h">
-      {/*
-        THE PAGE'S ONLY <h1> — see the shell's `heading` prop note.
-
-        🔑 THE NAME IS INSIDE THE <h1>, AND IT IS TYPED "Setnayan" (2026-10-22).
-        Google refused OAuth brand verification a second time — "the app name
-        'Setnayan' … does not match the app name on your home page". The
-        capitals come from `text-transform` on `.fd-opening-kick`, so the
-        heading reads "Setnayan: Plan any event free…" to a crawler. Guarded by
-        app/google-can-verify-the-home-page.test.ts.
-      */}
-      <h1 id="fd-opening-h" className="fd-opening-h1">
-        <span className="fd-opening-kick">Setnayan</span>
-        <span className="sr-only">: </span>
-        Plan any event free. Every photo in one album.
-      </h1>
-      {/*
-        THE PURPOSE, IN ONE SENTENCE A REVIEWER CAN QUOTE (Google, 2026-10-22),
-        then the pain in the words our guests use. No claim that photos are free.
-      */}
-      <p className="fd-opening-lede">
-        Setnayan is one place for your guest list, RSVPs, budget, suppliers and
-        the Event Hub your guests open — for any event.{' '}
-        <i>Hindi na kalat sa GC, hindi na naiiwan sa phone ng iba.</i>
-      </p>
-      {/*
-        "No credit card" is true: sign-up asks for none, and every payment is
-        GCash or bank transfer after you apply. "No guest limit" is what
-        /help says (lib/help.ts).
-      */}
-      <ul className="fd-opening-trust">
-        <li>Free to start</li>
-        <li>No guest limit</li>
-        <li>No credit card</li>
-        <li>Guests don&rsquo;t sign in</li>
-      </ul>
-      <p className="fd-opening-papic">Unlimited cameras &middot; photos use Papic credits.</p>
-      <div className="fd-opening-acts">
-        {/*
-          🧭 ANY EVENT, SO THE DOOR ASKS WHICH ONE — BEFORE SIGN-UP (owner
-          2026-10-25). This went to `/onboarding/wedding` alone while the
-          headline said "any event". `/start` is the shipped create-event grid
-          on a public page; each type goes straight to its own
-          `/onboarding/<type>`, and each onboarding asks for the account where
-          it always has. A signed-in visitor is sent on to the full picker.
-
-          🎨 TERRACOTTA, NOT THIS PAGE'S GOLD (owner 2026-10-25: "If for event
-          hub then use the event's color but for setnayan use our template").
-          `.fd-btn-terra` wears `--m-mulberry`, the house main-button token.
-        */}
-        <Link href="/start" className="fd-btn-terra fd-opening-cta">
-          Start your event — free
-        </Link>
-        {/* "How it works" → the Features hub (owner 2026-10-25); /our-story is a
-            manifesto with no steps. */}
-        <Link href="/features" className="fd-opening-alt">
-          How it works
-        </Link>
-      </div>
-      {/*
-        BEFORE → AFTER (Option B). Drawn tiles, aria-hidden — an illustration,
-        not a count: no number here may read as a real figure.
-      */}
-      <div className="fd-opening-ba">
-        <div>
-          <p className="fd-opening-ba-lab">Before</p>
-          <div className="fd-opening-scatter" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
+    <section className="fl-hero" aria-labelledby="fd-opening-h">
+      <HeroStage slides={HERO_SLIDES}>
+        <div className="fl-hero-copy">
+          <p className="fl-eyebrow">Set na &rsquo;yan</p>
+          {/*
+            THE PAGE'S ONLY <h1>. "Setnayan" is typed in title case — "SETNAYAN" is the spelling Google
+            rejected (2026-07-25). The turning word is server markup on first paint (`HeroWord`).
+          */}
+          <h1 id="fd-opening-h" className="fl-h1">
+            Your{' '}
+            <span className="fl-nw">
+              <HeroWord />,
+            </span>{' '}
+            beautifully handled <span className="fl-h1-on">on Setnayan.</span>
+          </h1>
+          <p className="fl-hero-lede">
+            <b>Setnayan is the Filipino event-planning app</b> — guests, suppliers, the run of the day and your
+            Event Hub in one place, and every photo your guests take, in one album.{' '}
+            <i>Hindi na kalat sa GC, hindi na naiiwan sa phone ng iba.</i>
+          </p>
+          <div className="fl-ctas">
+            <Link href="/start" className="fd-btn-terra fd-opening-cta fl-btn">
+              Set up your event — free
+            </Link>
+            <Link href="/features" className="fd-opening-alt">
+              How it works
+            </Link>
           </div>
-          <p className="fd-opening-ba-line">Guest photos scattered across phones and group chats.</p>
-        </div>
-        <span className="fd-opening-ba-arrow" aria-hidden="true">
-          &rarr;
-        </span>
-        <div>
-          <p className="fd-opening-ba-lab">After</p>
-          <div className="fd-opening-album" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <p className="fd-opening-ba-line">
-            <b>One album</b> the whole event fills, from the first toast.
+          {/*
+            "No credit card" is true: sign-up asks for none, and every payment is GCash or bank transfer after
+            you apply. "No guest limit" is what /help says (lib/help.ts).
+          */}
+          <p className="fl-truths">
+            <span>Free to start</span>
+            <span className="fl-sep" aria-hidden="true">·</span>
+            <span>No guest limit</span>
+            <span className="fl-sep" aria-hidden="true">·</span>
+            <span>No credit card</span>
+            <span className="fl-sep" aria-hidden="true">·</span>
+            <span>Guests don&rsquo;t sign in</span>
+            <span className="fl-sep" aria-hidden="true">·</span>
+            <InfoTip
+              label="Unlimited cameras · photos use Papic credits."
+              ariaLabel="About Papic credits"
+              align="start"
+              className="fl-truths-papic"
+            >
+              Every guest&rsquo;s phone can be a camera. Each photo they take into your album uses Papic credits.
+              Your first event comes with free credits, Plus and Pro bring more, and you can buy more any time.
+            </InfoTip>
           </p>
         </div>
-      </div>
-      <p className="fd-opening-fine">
-        <i>Set na &rsquo;yan</i> — that&rsquo;s all set. Free to plan, and no
-        commission on your suppliers, ever.
-      </p>
-      {/*
-        THE TWO POLICIES, ON THE HOME PAGE ITSELF (2026-10-22). Google's
-        homepage requirement is a visible link to the privacy policy; Terms
-        sits beside it.
-      */}
-      <p className="fd-opening-legal">
-        <Link href="/privacy">Privacy Policy</Link>
-        <span aria-hidden="true"> · </span>
-        <Link href="/terms">Terms of Service</Link>
-      </p>
+      </HeroStage>
     </section>
   );
 }

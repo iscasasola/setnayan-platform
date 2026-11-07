@@ -108,6 +108,14 @@ const BANNED: ReadonlyArray<[string, RegExp]> = [
 /** Each allowance: the file, the exact phrase it permits, and why that is true. */
 const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: string }> = [
   {
+    file: 'app/_components/frontdoor/front-door-landing-data.ts',
+    phrase: /the “wedding website” is foreign and expensive/i,
+    why:
+      'The front page’s problem #8 (prototypes/front_page_2026-11-04.html, owner-approved 4 Nov) quotes the ' +
+      'category the Event Hub replaces — the other products — never our own page. Same exemption as /pawebsite.',
+  },
+
+  {
     file: /^app\/\(shell\)\/pawebsite\//,
     phrase: /\bweb ?sites?\b|\bwedding sites\b/i,
     why:

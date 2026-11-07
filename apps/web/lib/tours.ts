@@ -208,6 +208,7 @@ export type TourKey =
   | 'customer_suppliers_v1'
   | 'customer_library_v1'
   | 'vendor_today_v2'
+  | 'vendor_today_v3'
   | 'vendor_people_v1'
   | 'vendor_collections_v1'
   // 🔦 A new shop's Today, once its QR is downloaded (step 6 of "Get your shop live" — owner 7 Nov 2026, prototype
@@ -279,6 +280,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_suppliers_v1',
   'customer_library_v1',
   'vendor_today_v2',
+  'vendor_today_v3',
   'vendor_people_v1',
   'vendor_collections_v1',
   'vendor_setup_tour_v1',
@@ -1712,8 +1714,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'today-next',
-          title: 'One thing at a time',
-          body: 'The Next card is the most urgent thing waiting on you. Answer it and the next one takes its place.',
+          title: 'Needs you today',
+          body: 'One row for each thing waiting on you, the most urgent first. Tap a row to open where it is answered.',
         },
         {
           anchor: 'tab-shop',
@@ -1756,7 +1758,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'The Next card on Today always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        body: 'Needs you today on Today always lists what is waiting on you. To see this again, open your account menu and tap Show me around.',
         button: 'Done',
       },
     },
@@ -2148,11 +2150,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Every customer chat, in one place.',
         },
         {
-          anchor: 'today-numbers',
-          title: 'Three numbers',
-          body: 'Waiting on you, events this week, and what is still to come in. Tap one for its list.',
-        },
-        {
           anchor: 'today-coming-up',
           title: 'Coming up',
           body: 'Your next booked events, from Setnayan and outside. All dates opens your month.',
@@ -2166,6 +2163,55 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'The Next card on top always shows the one thing waiting on you.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 TODAY'S PAGE TOUR, THE ONE BUILD (8 Nov 2026 — v113 Today; spec A2 A13, owner Q10 default "bump so every
+     supplier sees the new Today once"): Messages → the cover → Next events → the stats → Needs you today → Show. A stop
+     not drawn on this screen (no event ahead) is dropped by the engine. Mounted by the supplier frame through
+     `lib/supplier-page-tours.ts`; `vendor_today_v2` (the Next card's tour) is kept only as the seen mark it is. */
+  vendor_today_v3: {
+    key: 'vendor_today_v3',
+    label: 'Supplier — Today page spotlight',
+    blurb: 'Messages, your greeting, the next events, your numbers, what needs you and Show.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'supplier-messages',
+          title: 'Messages',
+          body: 'Every customer chat, in one place.',
+        },
+        {
+          anchor: 'today-cover',
+          title: 'Your day',
+          body: 'Today’s date and how many things need you. Your Today settings are on the ⚙.',
+        },
+        {
+          anchor: 'today-next-events',
+          title: 'Next events',
+          body: 'Your next booked event. Tap it to open that client’s Hub.',
+        },
+        {
+          anchor: 'today-stats',
+          title: 'Your numbers',
+          body: 'Views, inquiries, bookings, photos and money to come in. Each one opens where it is counted.',
+        },
+        {
+          anchor: 'today-needs',
+          title: 'Needs you today',
+          body: 'One row for each thing waiting on you. Tap a row to open where it is answered.',
+        },
+        {
+          anchor: 'today-show',
+          title: 'Show',
+          body: 'Show only inquiries, bookings, payments and more — or search with the box beside it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Needs you today always lists what is waiting on you, most urgent first.',
         button: 'Done',
       },
     },

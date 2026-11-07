@@ -90,15 +90,13 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   // 💸 Said BEFORE the press: the deposit follows the booking's own terms.
   assert.match(body, /settled by the cancellation terms on the booking/);
   assert.doesNotMatch(body, /\bvendor\b/i, 'a supplier page says "supplier", never "vendor"');
-  // The page hands the ONE action to the ONE drawing (simpler Today 2026-10-14: `SupplierTodayScreen`, which the
-  // dev lab shares), and the drawing hands it to the card AND to every row (the asks and the closed lines are one
-  // list now) — counted, not matched.
+  // 🗓 THE ONE BUILD A8 (8 Nov, owner v112 "Jump"): the answer moved from Today to the client's Details — ONE mount
+  // (`client-day-answers.tsx`) hands the ONE action to the shipped body; Today mounts it no more. Counted, not matched.
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.equal((page.match(/answerDateChange: vendorAnswerDateChange,/g) ?? []).length, 1);
-  const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
-  assert.equal((screen.match(/answer: actions\.answerDateChange/g) ?? []).length, 1, 'the Next card lost the answer');
-  assert.equal((screen.match(/<WhatsNewFeed[\s\S]*?\{\.\.\.actions\}/g) ?? []).length, 1, 'the rows lost the answer');
-  assert.equal((sections.match(/answerDateChange=\{answerDateChange\}/g) ?? []).length, 2);
+  assert.equal((page.match(/vendorAnswerDateChange/g) ?? []).length, 0, 'Today answers a date change in place again');
+  const details = code('app/vendor-dashboard/_components/client-day-answers.tsx');
+  assert.equal((details.match(/<DateChangeBody card=\{card\} answerDateChange=\{vendorAnswerDateChange\} \/>/g) ?? []).length, 1, 'Details lost the answer');
+  assert.equal((sections.match(/answerDateChange=\{answerDateChange\}/g) ?? []).length, 2, 'the shipped feed lost a binding');
   // The action exists, reads the answer from the form, and asks the database.
   const actions = code('app/vendor-dashboard/clients/[eventId]/actions.ts');
   const fn = actions.slice(actions.indexOf('export async function vendorAnswerDateChange('), actions.indexOf('export async function vendorAgreeToDeletion('));
@@ -122,7 +120,7 @@ const dc = (id: string, dueAt: string): WhatsNewCard => ({
   dueAt,
 });
 
-test('4 · a date-change request becomes THE Next card on Today — "Date change request", soonest deadline first', () => {
+test('4 · a date-change request is FIRST on Today — soonest deadline first — and its row jumps to the client’s Details', () => {
   const older: WhatsNewCard = { kind: 'delete_request', id: 'd', eventId: 'e', eventVendorId: 'v', eventDate: null, requestedAt: '2020-01-01T00:00:00Z' };
   const a = dc('a', '2030-05-04T00:00:00Z');
   const b = dc('b', '2030-05-03T00:00:00Z');
@@ -133,7 +131,8 @@ test('4 · a date-change request becomes THE Next card on Today — "Date change
   assert.equal(next.title, 'Date change request');
   assert.match(next.body, /Ana & Miguel asks to move/);
   assert.match(next.body, /answer within 2 days/);
-  assert.deepEqual(next.target, { to: 'today' }, 'the one button opens the desk card with the two answers');
+  // 🗓 THE ONE BUILD A8: the row jumps to the client's Details, where Move · Unlock now are (`ClientDayAnswers`).
+  assert.deepEqual(next.target, { to: 'card', eventId: 'e1', tab: 'details' }, 'the row does not open the client’s Details');
 });
 
 test('5 · one rule for "may the date go live": every clashing supplier moved — a fitting date needs nobody (Q8)', () => {

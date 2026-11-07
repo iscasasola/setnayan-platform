@@ -233,10 +233,11 @@ test('7 · a Coming-up row is one link to its own door; the conversation is the 
   // v13 (owner 2026-10-29, "where is the expand look of these rows?"): the week and money rows OPEN (`OpenedRow`), and
   // their one door — inside — is still the row's own (`row.href`).
   assert.equal(count(firstScreen, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g), 1, 'the Coming-up row no longer opens the row’s own door');
-  assert.equal(count(firstScreen, /<OpenedRow\b[\s\S]{0,400}?href: row\.href \}\}/g), 2, 'a week / money row no longer carries the row’s own door');
+  // ⤴ THE ONE BUILD A5: the week and money lists left Today with the counts row (the stats JUMP to Clients instead).
+  assert.equal(count(firstScreen, /<OpenedRow\b/g), 0, 'a week / money list that opened in place is back on Today');
   const coming = firstScreen.slice(firstScreen.indexOf('data-today-coming-up'));
   assert.equal(count(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g), 1, 'the Coming-up row no longer opens its own door');
-  const rowFn = firstScreen.slice(firstScreen.indexOf('export function TodayRow('), firstScreen.indexOf('export type SupplierTodayNumbers'));
+  const rowFn = firstScreen.slice(firstScreen.indexOf('export function TodayRow('), firstScreen.indexOf('export function TodayNoteRow('));
   assert.equal(count(rowFn, /<Link\b/g), 1, 'a row holds more than one link — nested anchors do not work');
   assert.equal(count(sections, /row\.threadHref/g), 0, 'the old Upcoming list is back in the desk file');
 

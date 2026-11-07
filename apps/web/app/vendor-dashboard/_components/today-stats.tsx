@@ -59,6 +59,8 @@ export function TodayStats({ stats }: { stats: Stats }) {
             <Link
               href={TODAY_STAT_HREFS[s.id]}
               data-today-stat={s.id}
+              // 🔦 the app-wide supplier tour's "Get paid" stop (it lit the retired money count).
+              data-tour={s.id === 'money' ? 'today-money' : undefined}
               className="flex min-h-[88px] w-[104px] flex-col justify-center rounded-2xl bg-ink/[0.045] px-3 py-2.5"
             >
               {s.figure !== null ? (

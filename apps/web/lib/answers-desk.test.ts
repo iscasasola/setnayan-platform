@@ -215,8 +215,11 @@ test('the answer is taken ON the row, not linked away from', () => {
     /revalidatePath\('\/vendor-dashboard'\)/,
     'an answered review would sit on the desk still asking to be answered',
   );
-  // The page hands the shipped actions to the one drawing (`SupplierTodayScreen`, simpler Today 2026-10-14).
-  assert.match(read(PAGE), /postReviewReply: postVendorReply,/, 'the desk is not wired to the reply action');
+  // 🦘 THE ONE BUILD (8 Nov, owner v112 "Jump"): Today's review row JUMPS to the reviews page (`/vendor-dashboard/website#reply_<id>`),
+  // and the reply is posted there by the SAME shipped action — never a second one.
+  assert.doesNotMatch(read(PAGE), /postVendorReply/, 'Today answers a review in place again — its row jumps');
+  assert.match(read('../app/vendor-dashboard/website/_components/review-replies.tsx'), /\bpostVendorReply\b/, 'the page a review row jumps to does not post the reply');
+  assert.match(read('../app/vendor-dashboard/_components/supplier-today-first-screen.tsx'), /const href = `\/vendor-dashboard\/website#reply_\$\{t\.reviewId\}`;/, 'the review row does not land on its reply');
 });
 
 test('the money row offers BOTH answers, and shows what they sent', () => {
@@ -261,7 +264,10 @@ test('the money row offers BOTH answers, and shows what they sent', () => {
   // The refusal stays behind a fold: a no must not be one mis-tap from a yes.
   // (The fold is the shared `Fold` since 2026-10-12 — kind 19, one open at a time; it was a hand-made <details>.)
   assert.match(body, /<Fold\b[^>]*title="It hasn’t reached you\?"[\s\S]*action=\{rejectLock\}[\s\S]*<\/Fold>/, 'the refusal came out from behind its fold');
-  assert.match(read(PAGE), /rejectLock: vendorRejectDeposit,/, 'the desk is not wired to the shipped reject action');
+  // 🦘 THE ONE BUILD: the money row JUMPS to the client (`todayRowTarget` → `?tab=payments`), whose page posts the
+  // SAME shipped "no" — Today itself no longer mounts it.
+  assert.doesNotMatch(read(PAGE), /vendorRejectDeposit/, 'Today answers a payment in place again — its row jumps');
+  assert.match(read('../app/vendor-dashboard/clients/[eventId]/page.tsx'), /\bvendorRejectDeposit\b/, 'the client page the money row lands on lost the shipped reject action');
   /*
     ONE MECHANISM FOR ONE ANSWER. A second RPC or a second notification type
     would be two ways to say no, which is how they come to disagree.
@@ -282,10 +288,11 @@ test('the money row offers BOTH answers, and shows what they sent', () => {
       `a second way to say no appeared (${invented}) — reject_vendor_deposit already does this`,
     );
   }
+  // 🦘 THE ONE BUILD: the "no" is given on the client page the money row jumps to — through the SAME shipped action.
   assert.match(
-    read(PAGE),
-    /import \{[\s\S]*?vendorRejectDeposit[\s\S]*?\} from '\.\/clients\/\[eventId\]\/actions'/,
-    'the desk stopped using the shipped refusal action — check nothing has grown a rival',
+    read('../app/vendor-dashboard/clients/[eventId]/page.tsx'),
+    /import \{[\s\S]*?vendorRejectDeposit[\s\S]*?\} from '\.\/actions'/,
+    'the client page stopped using the shipped refusal action — check nothing has grown a rival',
   );
 });
 

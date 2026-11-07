@@ -197,14 +197,10 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
     now: NOW,
     since: () => new Date(NOW),
   } as unknown as Parameters<typeof assembleSupplierToday>[0]);
-  const noop = async () => {};
-  const actions = {
-    acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
-    agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
-  };
+  // THE ONE BUILD (8 Nov): Today answers nothing in place, so the screen takes no actions — the cover greets the shop.
   const draw = (library: boolean) =>
     renderToStaticMarkup(
-      React.createElement(SupplierTodayScreen, { view, outcome: null, feeForecasts: {}, cards: [], askStatus: '', deskIncomplete: false, actions, library }),
+      React.createElement(SupplierTodayScreen, { view, outcome: null, shopName: 'Bloom & Vine', todayIso: '2026-10-19', now: NOW, library }),
     );
   const on = draw(true);
   const shop = on.slice(on.indexOf('data-today-shop'));

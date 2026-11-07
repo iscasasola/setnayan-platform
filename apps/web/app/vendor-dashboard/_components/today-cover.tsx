@@ -83,7 +83,7 @@ export function TodayPinnedRow({
 }) {
   const shop = greetedShop(shopName);
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2" data-today-pinned-row="">
+    <span className="flex min-w-0 flex-1 items-center gap-2" data-today-pinned-row="" data-first-row="">
       <span className="min-w-0 truncate text-[16px] font-semibold text-ink">
         {greetingLine(now).replace(/,$/, '')}
         {shop ? `, ${shop}` : ''}

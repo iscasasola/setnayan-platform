@@ -97,17 +97,14 @@ test('1b · the envelope lands on Chats, its own full-screen page — never Cust
   assert.doesNotMatch(read('app/vendor-dashboard/messages/page.tsx'), /\bredirect\(\s*`\/vendor-dashboard\/customers/, 'Chats is a stub into Customers again');
 });
 
-async function renderToday(target: unknown, action = 'Go'): Promise<string> {
+/** Today's first screen with ONE Needs-you row aimed at `target` (THE ONE BUILD: rows jump; the Next card is retired). */
+async function renderToday(target: unknown): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SupplierTodayFirstScreen } = await import('./_components/supplier-today-first-screen');
   return renderToStaticMarkup(
     React.createElement(SupplierTodayFirstScreen, {
-      next: { kind: 'answer', title: 'T', body: 'B', action, target } as never,
-      look: { tone: 'brand', icon: 'forward' },
-      second: null,
-      counter: null,
-      meta: null,
-      numbers: { waiting: '1', waitingNow: true, thisWeek: '2', toComeIn: '3' },
+      needs: [{ key: 'row', kind: 'quotes', label: 'T', line: 'B', icon: 'file', target } as never],
+      needsCount: 1,
       comingUp: [],
       shop: { name: 'Shop', line: 'Photo & video · couples can find you', pill: 'Live' },
     }),
@@ -115,27 +112,21 @@ async function renderToday(target: unknown, action = 'Go'): Promise<string> {
 }
 const hrefs = (html: string) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!.replace(/&amp;/g, '&'));
 
-test('1c · the Next card’s Send quote / Send contract / Payday buttons land on their fold', async () => {
+test('1c · a Today row’s Send quote / Send contract / Payday door lands on its fold', async () => {
   for (const [to, key] of [['proposals', 'proposals'], ['contracts', 'contracts'], ['payday', 'payday']] as const) {
     const html = await renderToday({ to });
-    const next = html.slice(html.indexOf('data-today-next'));
-    const first = hrefs(next)[0];
-    assert.equal(first, customerLandingHref(key), `Next → ${to} lands at ${first}`);
+    const row = html.slice(html.indexOf('data-today-need="row"') - 300);
+    const first = hrefs(row.slice(row.indexOf('<a')))[0];
+    assert.equal(first, customerLandingHref(key), `a row → ${to} lands at ${first}`);
     assert.doesNotMatch(first!, BARE_STUB);
   }
 });
 
 test('1d · the "to come in" number lands on payday, in view', async () => {
-  // 📌 2026-10-28 (owner: the counts FILTER the list in place): the number is a filter now — it shows who still owes
-  // what, right under the row — and that list ends with the door to Payday, the same landing it used to be.
-  const html = await renderToday({ to: 'today' });
-  const tiles = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up'));
-  assert.match(tiles, /<button[^>]*data-today-number="money"[^>]*>(?:(?!<\/button>).)*to come in/s, 'the to-come-in number is not its filter');
-  const list = tiles.slice(tiles.indexOf('data-today-list="money"'));
-  assert.ok(list.length > 0, 'the money list is not drawn');
-  const door = list.match(/data-today-list-door=""[^>]*>\s*<a [^>]*href="([^"]+)"/);
-  assert.ok(door, 'the money list has no door to Payday');
-  assert.equal(door[1]!.replace(/&amp;/g, '&'), customerLandingHref('payday'));
+  // 📊 THE ONE BUILD A4 (v103/v104 "stats jump"): the number is the Money stat, a LINK — to Payday, the same landing.
+  const { TODAY_STAT_HREFS } = await import('./_components/today-stats');
+  assert.equal(TODAY_STAT_HREFS.money, customerLandingHref('payday'));
+  assert.doesNotMatch(TODAY_STAT_HREFS.money, BARE_STUB);
 });
 
 test('1e · the redirect stubs name their fold too (old links, emails, notifications)', async () => {

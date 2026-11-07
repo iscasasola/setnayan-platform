@@ -322,7 +322,9 @@ export function SupplierTodayFirstScreen({
 
       {/* 📋 NEEDS YOU TODAY — one row per thing waiting, in the app's words; EVERY row is ONE link to its page. */}
       <div data-today-needs="" data-tour="today-needs" id="whats-new">
-        <p className="hc-k2">
+        {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
+            section) is Today's own page tour's. */}
+        <p className="hc-k2" data-tour="today-next">
           <span>Needs you today</span>
           <em data-today-needs-count="">{needsCount === null ? '12 MN – 12 MN' : `${formatCount(needsCount)} · 12 MN – 12 MN`}</em>
         </p>

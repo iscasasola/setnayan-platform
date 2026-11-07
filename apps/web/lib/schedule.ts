@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { withoutSkipped } from './change-the-schedule';
 import {
   ceremonyMatches,
   isChineseWedding,
@@ -96,8 +97,9 @@ export type ScheduleBlockRow = {
   /** Day-of run-of-show (migration 20270321980372). run_state is advanced by
    *  advance_schedule_block; actual_start_at is when the block actually went
    *  live (drives the "running ±N min" header). Additive — defaults to
-   *  'upcoming' / null on rows created before the run-of-show feature. */
-  run_state: 'upcoming' | 'live' | 'done';
+   *  'upcoming' / null on rows created before the run-of-show feature.
+   *  `skipped` (20271308380805): Change the schedule › Skip — it did not happen, and guests never see it. */
+  run_state: 'upcoming' | 'live' | 'done' | 'skipped';
   actual_start_at: string | null;
   actual_end_at: string | null;
   /** 👥 Who this moment is for (Studio › Schedule › For ▾, migration
@@ -315,7 +317,10 @@ export async function fetchPublicScheduleBlocks(
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) throw new Error(`fetchPublicScheduleBlocks failed: ${error.message}`);
-  return (data ?? []) as ScheduleBlockRow[];
+  // ⏭ A SKIPPED PART IS NOT ON THE GUESTS' DAY (Change the schedule › Skip, 20271308380805): it will not happen, so the
+  // Event Hub's Details, the pass card's Arrive and Find my seat never name it. Dropped after the read, not in the
+  // fence: the fence's request is pinned condition for condition (the-guests-schedule-has-one-fence.test.ts B4).
+  return withoutSkipped((data ?? []) as ScheduleBlockRow[]);
 }
 
 /**
@@ -932,6 +937,131 @@ export function buildScheduleSeed(
   };
 
   return { topLevel, buildChildren };
+}
+
+// ───────────────────  the four default chapters (owner 2026-11-03)  ───────────────────
+//
+// 📖 EVERY NEW EVENT STARTS WITH FOUR CHAPTERS (DECISION_LOG 3 Nov "EVERY EVENT IS BUILT FROM PREBUILT PARTS" + "ALL
+// FOUR PREBUILT PARTS ARE DEFAULT PUBLIC CHAPTERS"; approved prototype "Event chapters — 4 Nov 2026", frame 1):
+// Prep · Ceremony · Cocktail + Reception · After Party, each PUBLIC, After Party on. The host fills them.
+//
+// 🔑 EXTENDED FROM `buildScheduleSeed`, NEVER RE-WRITTEN: the Ceremony chapter and its rite-aware parts, the reception
+// parts and the dance-free rule are that seed's own output. Only the shape changes — Prep is added before, the cocktail
+// hour becomes the first moment of "Cocktail + Reception", and After Party runs "onward" (no end).
+// 🕊 A dance-free rite (`riteIsDanceFree`) keeps the shipped rule: no cocktail hour and no After Party, so its third
+// chapter is plain "Reception" and there are three chapters, not four (open owner call, flagged on the PR).
+
+export type DefaultChapterKey = 'prep' | 'ceremony' | 'cocktail_reception' | 'after_party';
+
+export type DefaultChapter = {
+  key: DefaultChapterKey;
+  label: string;
+  block_type: ScheduleBlockType;
+  start_at: string;
+  /** null = "onward" (After Party). */
+  end_at: string | null;
+  sort_order: number;
+  is_public: true;
+};
+
+export type DefaultChapterMoment = Omit<ScheduleSeedChild, 'parent_key'> & { parent_key: DefaultChapterKey };
+
+/** The words the four default chapters are called — one list, read by the seed and its guards. */
+export const DEFAULT_CHAPTER_LABELS: Readonly<Record<DefaultChapterKey, string>> = {
+  prep: 'Prep',
+  ceremony: 'Ceremony',
+  cocktail_reception: 'Cocktail + Reception',
+  after_party: 'After Party',
+};
+
+/** The approved prototype's hours (frame 1): Prep 7–12 · Ceremony 1:30–3:30 · Cocktail + Reception 5–10 · After Party
+ *  10:30 onward. The host re-times every one; these only place them on the day. */
+const DEFAULT_CHAPTER_HOURS = {
+  prep: [7, 0, 12, 0],
+  ceremony: [13, 30, 15, 30],
+  cocktail_reception: [17, 0, 22, 0],
+  cocktail_hour_end: [18, 0],
+  after_party: [22, 30],
+} as const;
+
+/** `labels` spread evenly across [startIso, endIso) — the shipped seed's own way of laying out its parts. */
+function spreadParts(
+  labels: readonly { label: string; block_type: ScheduleBlockType }[],
+  startIso: string,
+  endIso: string,
+  parent_key: DefaultChapterKey,
+  firstOrder = 10,
+): DefaultChapterMoment[] {
+  const from = new Date(startIso).getTime();
+  const step = labels.length > 0 ? (new Date(endIso).getTime() - from) / labels.length : 0;
+  return labels.map((p, i) => ({
+    parent_key,
+    label: p.label,
+    block_type: p.block_type,
+    start_at: new Date(from + i * step).toISOString(),
+    end_at: new Date(from + (i + 1) * step).toISOString(),
+    sort_order: firstOrder + i * 10,
+    is_public: false,
+  }));
+}
+
+/**
+ * The four default chapters on `eventDate` (or, with no date yet, the seed's placeholder day — `anchorIso`; the
+ * database moves them onto the real day the moment an exact date is set, migration 20271306532960).
+ */
+export function buildDefaultChapters(
+  ceremonyType: SeedCeremonyType | null,
+  eventDate: string | null,
+  overlay?: CeremonyOverlayInput | null,
+): { chapters: DefaultChapter[]; moments: DefaultChapterMoment[] } {
+  const seed = buildScheduleSeed(ceremonyType, eventDate, overlay);
+  const danceFree = riteIsDanceFree(overlay ?? { ceremony_type: ceremonyType });
+  const cocktails = seed.topLevel.some((b) => b.key === 'cocktails');
+  const afterParty = seed.topLevel.some((b) => b.key === 'after_party') && !danceFree;
+  const H = DEFAULT_CHAPTER_HOURS;
+  const at = (h: number, m: number) => anchorIso(eventDate, h, m);
+
+  const chapters: DefaultChapter[] = [
+    { key: 'prep', label: DEFAULT_CHAPTER_LABELS.prep, block_type: 'pre_ceremony', start_at: at(H.prep[0], H.prep[1]), end_at: at(H.prep[2], H.prep[3]), sort_order: 50, is_public: true },
+    { key: 'ceremony', label: DEFAULT_CHAPTER_LABELS.ceremony, block_type: 'ceremony', start_at: at(H.ceremony[0], H.ceremony[1]), end_at: at(H.ceremony[2], H.ceremony[3]), sort_order: 100, is_public: true },
+    {
+      key: 'cocktail_reception',
+      label: cocktails ? DEFAULT_CHAPTER_LABELS.cocktail_reception : 'Reception',
+      block_type: 'reception',
+      start_at: at(H.cocktail_reception[0], H.cocktail_reception[1]),
+      end_at: at(H.cocktail_reception[2], H.cocktail_reception[3]),
+      sort_order: 300,
+      is_public: true,
+    },
+  ];
+  if (afterParty) {
+    chapters.push({ key: 'after_party', label: DEFAULT_CHAPTER_LABELS.after_party, block_type: 'after_party', start_at: at(H.after_party[0], H.after_party[1]), end_at: null, sort_order: 400, is_public: true });
+  }
+
+  // The parts are the shipped seed's (rite-aware, dance-free aware) — only laid out again on these hours.
+  const parts = seed.buildChildren({ ceremony: '', reception: '' });
+  const ceremonyParts = parts.filter((p) => p.parent_key === 'ceremony');
+  const receptionParts = parts.filter((p) => p.parent_key === 'reception');
+  const [cer, rec] = [chapters[1]!, chapters[2]!];
+  const receptionFrom = cocktails ? at(H.cocktail_hour_end[0], H.cocktail_hour_end[1]) : rec.start_at;
+  const moments: DefaultChapterMoment[] = [
+    ...spreadParts(ceremonyParts, cer.start_at, cer.end_at!, 'ceremony'),
+    // The cocktail hour is the first moment of its chapter — private, like every seeded part.
+    ...(cocktails ? spreadParts([{ label: 'Cocktail hour', block_type: 'cocktails' }], rec.start_at, receptionFrom, 'cocktail_reception', 5) : []),
+    ...spreadParts(receptionParts, receptionFrom, rec.end_at!, 'cocktail_reception'),
+  ];
+  return { chapters, moments };
+}
+
+/** The tip a new event's Schedule opens with (prototype frame 1) — while its chapters are still the defaults, unfilled. */
+export const DEFAULT_CHAPTERS_TELL = "Your event starts with four chapters. Fill each one, or swipe one left if you don't have it.";
+export const DEFAULT_CHAPTERS_TIP =
+  'Every event starts from prebuilt chapters. Guests see only the chapters they are part of. A chapter you delete leaves the invitation and every booked supplier’s parts; Undo brings it back.';
+
+/** True while every chapter still carries a default name and none has a venue yet — the host has not filled them. */
+export function defaultChaptersUnfilled(chapters: readonly { label: string; location: string | null }[]): boolean {
+  const names = new Set<string>([...Object.values(DEFAULT_CHAPTER_LABELS), 'Reception']);
+  return chapters.length > 0 && chapters.every((c) => names.has(c.label) && !c.location);
 }
 
 // ── Overview schedule preview selection ──────────────────────────────────────

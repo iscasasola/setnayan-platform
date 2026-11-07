@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
 import { createScheduleRequestFromChat } from './negotiation-actions';
-import { APPOINTMENT_KINDS, APPOINTMENT_KIND_LABEL, type AppointmentKind } from '@/lib/appointments';
+import { MeetingHowFields } from './meeting-how-fields';
 import {
   TIME_SLOTS,
   todayIsoLocal,
@@ -52,7 +52,6 @@ export function ScheduleSuggestChip({
 }) {
   const signal = detectNegotiation(body).signals.find((s) => s.type === 'schedule');
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<AppointmentKind>('video');
 
   if (!signal) return null;
 
@@ -79,24 +78,7 @@ export function ScheduleSuggestChip({
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="return_to" value={returnPath} />
-      <input type="hidden" name="kind" value={kind} />
-
-      <div className="flex flex-wrap gap-1.5">
-        {APPOINTMENT_KINDS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setKind(k)}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-              kind === k
-                ? 'bg-mulberry text-cream'
-                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
-            }`}
-          >
-            {APPOINTMENT_KIND_LABEL[k]}
-          </button>
-        ))}
-      </div>
+      <MeetingHowFields />
 
       <input
         type="text"
@@ -138,7 +120,9 @@ export function ScheduleSuggestChip({
       ) : null}
 
       <div className="flex gap-2">
-        <button className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
+        <button
+          className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
+        >
           Send request
         </button>
         <button

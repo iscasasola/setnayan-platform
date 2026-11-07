@@ -46,13 +46,17 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { keepTheTapInPlace, rememberTaps } from '@/lib/keep-the-tap-in-place';
 
 type Live = { id: string; close: () => void };
 const live = new Set<Live>();
 
 /** `id` just opened: close every other live opener that is not one of its ancestors (`chain`). */
 export function announceOpen(id: string, chain: readonly string[]): void {
-  for (const o of [...live]) if (o.id !== id && !chain.includes(o.id)) o.close();
+  const shut = [...live].filter((o) => o.id !== id && !chain.includes(o.id));
+  // A peer shutting above the tap moves the tap; Safari does not anchor the scroll, so we do (keep-the-tap-in-place.ts).
+  if (shut.length > 0) keepTheTapInPlace();
+  for (const o of shut) o.close();
 }
 
 /**
@@ -82,6 +86,9 @@ export function useOneOpen(open: boolean, setOpen: (open: false) => void, mounts
   const chain = useContext(Chain);
   const closeRef = useRef(setOpen);
   const was = useRef(mountsOpen ? false : open);
+  useLayoutEffect(() => {
+    rememberTaps();
+  }, []);
   useLayoutEffect(() => {
     closeRef.current = setOpen;
   });

@@ -129,12 +129,16 @@ test('4 · Delete chapter warns before it deletes', () => {
   assert.equal(removes.length, 1, 'a chapter can be removed from more than one place');
   const continueAt = sheet.indexOf('label="Continue"');
   const removeAt = sheet.indexOf('doors.remove(');
-  const warnAt = sheet.indexOf('This cannot be');
+  const warnAt = sheet.indexOf('<ChapterDeleteWords c={c}');
   assert.ok(warnAt > 0 && continueAt > warnAt && removeAt > continueAt, 'the chapter is removed without the warning and Continue');
   assert.match(sheet, /\? \(\s*<>[\s\S]*?\) : \(\s*<div data-chapter-delete=\{stage\}/, 'the warning is not its own stage');
-  // The warning says what goes and what stays.
-  assert.match(sheet, /c\.moments > 0 \? ` and its \$\{c\.moments\} moment/, 'the warning does not name the moments');
-  assert.match(sheet, /Its photos stay safe in Memories, under Unsorted/, 'the warning does not say the photos stay');
+  // The warning says what goes and what stays — ONE warning, read by the sheet and by a swipe on the rail (2026-11-03).
+  const words = body(code('_components/chapter-sheets.tsx'), 'ChapterDeleteWords');
+  assert.match(words, /c\.moments > 0 \? ` and its \$\{c\.moments\} moment/, 'the warning does not name the moments');
+  assert.match(words, /Its photos stay safe in Memories,\s+under Unsorted/, 'the warning does not say the photos stay');
+  // 🗑 Since 2026-11-03 a delete has an Undo (prototype frame 4) — the warning says so, never "cannot be undone".
+  assert.match(words, /You can undo it/, 'the warning does not say it can be undone');
+  assert.doesNotMatch(words, /cannot be\s+undone/, 'the warning still says it cannot be undone');
   assert.match(sheet, /setStage\('deleting'\);\s*const ok = await doors\.remove\(c\.block_id\);/, 'there is no deleting state');
 });
 

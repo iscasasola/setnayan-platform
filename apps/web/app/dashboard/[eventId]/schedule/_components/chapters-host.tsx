@@ -28,8 +28,8 @@
 import type { ChapterCount } from '@/lib/invitation-chapters';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
-import { actionButtonClass } from '@/components/action-button';
+import { ChevronDown, Eye, EyeOff, Pencil, Plus, Settings, Trash2, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { useThumbRoom } from '@/lib/thumb-room';
 import {
   TIME_TBA,
@@ -44,6 +44,7 @@ import {
   shiftWall,
   tasksLine,
   wallDay,
+  wallTime,
   wallIso,
   wallLocal,
   type Chapter,
@@ -52,16 +53,27 @@ import {
   type TaskPeople,
   type TaskRow,
 } from '@/lib/schedule-chapters';
-import type { ViewAsInput } from '@/lib/schedule-view-as';
+import { EVERYONE, type ViewAsInput, type ViewLens } from '@/lib/schedule-view-as';
 import { inRunOrder, momentAbove, momentClockWords } from '@/lib/moment-order';
 import type { TimeShape } from '@/lib/time-shape';
 import type { TaskContact } from '@/lib/task-contact';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
+import { ViewAsMenu } from './schedule-view-as';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
-import { ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors } from './chapter-sheets';
+import { ChapterDeleteWords, ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors, type ChapterDoors } from './chapter-sheets';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { SchedulePeople } from './schedule-people';
+import { chapterMove, draggedStart, type ChapterMove } from '@/lib/chapter-move';
+import { formatCount } from '@/lib/format-number';
+import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 import type { HostAsk } from '@/lib/schedule-ask';
+import { AskSupplierSection } from './ask-supplier-section';
+
+const HELD_HOURS_TIP =
+  'The venue booked to this chapter sets its hours, including setup and pack-up. Ask them to change; they answer on their schedule. Take the venue off this chapter and you set the hours yourself.';
+import { BACKSTAGE_TIP, BACKSTAGE_WORDS, CHAPTER_SUPPLIERS_TIP, chapterSupplierLine, chapterSuppliers, heldHoursLine, type ChapterSupplier } from '@/lib/schedule-chapters';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
 export type ChapterMoment = {
@@ -99,10 +111,18 @@ export type ChapterMoment = {
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
 export type TaskWhoList = {
-  suppliers: { id: string; name: string }[];
+  /** `trade` ("Photographer") and `everyChapter` (a coordinator) feed a chapter's "Suppliers in this chapter". `locked` 🔒 —
+   *  the supplier pressed Lock my times (audit D7): the moment sheet says so before a change. */
+  suppliers: { id: string; name: string; trade?: string | null; everyChapter?: boolean; locked?: boolean }[];
   people: TaskPeople | null;
   crews: { vendorId: string; crew: string }[];
 };
+
+/** "Bituin Catering" → "BC". */
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return ((words[0]?.[0] ?? '') + (words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : (words[0]?.[1] ?? ''))).toUpperCase();
+}
 
 export type ChaptersInput =
   | {
@@ -135,6 +155,8 @@ export type ChaptersInput =
       viewAs?: ViewAsInput | null;
       /** 🗓 The hosts' and the coordinator's asks of suppliers (D2); null = the read failed (said on the moment sheet). */
       asks?: HostAsk[] | null;
+      /** 📋 Booked suppliers with no chapter yet, by the chapters their trade usually serves (slice 8, dashed faces). */
+      picking?: Record<string, string[]>;
     }
   | { measured: false };
 
@@ -184,12 +206,85 @@ export function ChaptersHost({
   const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
   const [asks, setAsks] = useState<HostAsk[] | null | undefined>(input.measured ? input.asks : undefined);
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
+  /** 🔎 The day narrowed to one chapter from the "N chapters" door (slice 8). */
+  const [dayFilter, setDayFilter] = useState<string | null>(null);
+  /** ↕ The desktop board's last drag (slice 10): its Undo, or the failure said in words. */
+  const [moved, setMoved] = useState<{ id: string; label: string; back: ChapterMove } | { failed: string } | null>(null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
   const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
     lab && labOpen ? { kind: 'edit', id: labOpen.moment } : null,
   );
   const [momentDeleting, setMomentDeleting] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  /* 🗑 DELETE, WITH UNDO (owner 2026-11-03, prototype frames 3–4): a deleted chapter is gone from the page AT ONCE and
+     "<chapter> deleted · Undo" peeks for the toast's undo window. The write is sent only when that window closes (or
+     the page is left), so Undo writes nothing and loses nothing — the moments, tasks, replies and supplier parts the
+     database would cascade away are never touched. Closing the tab inside the window keeps the chapter: the safe way
+     round. A refused write brings the chapter back and says so. */
+  /* 👤 ⚙ The page's one View as and its Schedule settings (owner 2026-11-04, prototype frames 1–2). The settings parts
+     are handed up by the one line and the rail; they are kept in a ref so handing them up never re-renders the page,
+     and the open sheet redraws when one changes. */
+  const [lens, setLens] = useState<ViewLens>(EVERYONE);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsParts = useRef<{ line: ReactNode; tools: ReactNode; needs: ReactNode }>({ line: null, tools: null, needs: null });
+  const [, redrawSettings] = useState(0);
+  const settingsOpenRef = useRef(false);
+  settingsOpenRef.current = settingsOpen;
+  const setSettingsPart = useRef((part: 'line' | 'tools' | 'needs', node: ReactNode) => {
+    settingsParts.current = { ...settingsParts.current, [part]: node };
+    // The people column (desktop) is always on screen: what needs you redraws it at once.
+    if (settingsOpenRef.current || part === 'needs') redrawSettings((n) => n + 1);
+  }).current;
+  const [deleteAsk, setDeleteAsk] = useState<Chapter | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Chapter | null>(null);
+  const [deleteFailed, setDeleteFailed] = useState<string | null>(null);
+  const pendingRef = useRef<Chapter | null>(null);
+  pendingRef.current = pendingDelete;
+  const commitDelete = useRef<(c: Chapter) => void>(() => {});
+  commitDelete.current = (c: Chapter) => {
+    setPendingDelete((p) => (p?.block_id === c.block_id ? null : p));
+    void doors.remove(c.block_id).then((ok) => {
+      if (ok) setChapters((cs) => cs.filter((x) => x.block_id !== c.block_id));
+      else setDeleteFailed(`${c.label} wasn’t deleted. Nothing was changed — try again.`);
+    });
+  };
+  const deleteNow = (c: Chapter) => {
+    // One Undo at a time: a second delete sends the first.
+    const before = pendingRef.current;
+    if (before && before.block_id !== c.block_id) commitDelete.current(before);
+    setDeleteFailed(null);
+    setPendingDelete(c);
+    if (openId === c.block_id) {
+      setOpenId(null);
+      setSheet(null);
+      showScheduleView(chapterStage(c, input.measured ? input.eventDay : null) === 'planning' ? 'preparation' : 'event-day');
+    }
+  };
+  // Leaving the page (or the tab) inside the window sends the delete the host already confirmed.
+  useEffect(() => {
+    const send = () => {
+      const p = pendingRef.current;
+      if (p) commitDelete.current(p);
+    };
+    window.addEventListener('pagehide', send);
+    return () => {
+      window.removeEventListener('pagehide', send);
+      send();
+    };
+  }, []);
+  /** The sheet's own Delete chapter goes through the same window (its warning and Continue are unchanged). */
+  const sheetDoors = useMemo<ChapterDoors>(
+    () => ({
+      ...doors,
+      remove: async (id) => {
+        const c = chapters.find((x) => x.block_id === id);
+        if (c) deleteNow(c);
+        return Boolean(c);
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doors, chapters, openId],
+  );
   // A fresh server answer (a rail write revalidates the page) supersedes what this page laid on the list.
   useEffect(() => {
     if (!input.measured) return;
@@ -217,7 +312,7 @@ export function ChaptersHost({
     () =>
       input.measured
         ? {
-            chapters: sortChapters(chapters),
+            chapters: sortChapters(chapters.filter((c) => c.block_id !== pendingDelete?.block_id)),
             eventDay: input.eventDay,
             canEdit: input.canEdit,
             openId,
@@ -230,9 +325,42 @@ export function ChaptersHost({
               if (input.canEdit) setSheet('new');
             },
             viewAs: input.viewAs ?? null,
+            askDelete: (id) => {
+              const c = chapters.find((x) => x.block_id === id);
+              if (c && input.canEdit) setDeleteAsk(c);
+            },
+            lens,
+            setLens,
+            openSettings: () => setSettingsOpen(true),
+            setSettingsPart,
+            moments: moments.filter((m) => m.parent_block_id !== pendingDelete?.block_id),
+            tasks,
+            suppliers: who.suppliers,
+            picking: input.picking ?? {},
+            dayFilter: dayFilter && chapters.some((c) => c.block_id === dayFilter && c.block_id !== pendingDelete?.block_id) ? dayFilter : null,
+            setDayFilter,
+            moveChapter: (id, minutes) => {
+              const c = chapters.find((x) => x.block_id === id);
+              if (!c || !input.canEdit || c.time_tba) return;
+              const to = draggedStart(c.start_at, minutes);
+              const move = chapterMove(c, to.day, to.hhmm, input.lastDay);
+              if (!move || move.delta === 0) return;
+              const before: Partial<Chapter> = { start_at: c.start_at, end_at: c.end_at, time_tba: c.time_tba };
+              // In place, at once — the page never resets; a refused save puts it back and says so.
+              setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...move.next } : x)));
+              void doors.save(id, move.fields).then((ok) => {
+                if (!ok) {
+                  setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...before } : x)));
+                  setMoved({ failed: `${c.label} couldn’t be moved. Try again.` });
+                  return;
+                }
+                const back = chapterMove({ ...c, ...move.next }, wallDay(c.start_at), wallTime(c.start_at), input.lastDay);
+                if (back) setMoved({ id, label: c.label, back });
+              });
+            },
           }
         : null,
-    [chapters, input, openId],
+    [chapters, moments, tasks, who, input, openId, pendingDelete, lens, setSettingsPart, dayFilter, doors],
   );
 
   if (!input.measured || !api) {
@@ -246,8 +374,8 @@ export function ChaptersHost({
     );
   }
 
-  const sorted = sortChapters(chapters);
-  const current = openId ? (chapters.find((c) => c.block_id === openId) ?? null) : null;
+  const sorted = sortChapters(chapters.filter((c) => c.block_id !== pendingDelete?.block_id));
+  const current = openId && openId !== pendingDelete?.block_id ? (chapters.find((c) => c.block_id === openId) ?? null) : null;
   const openMoment = momentSheet?.kind === 'edit' ? (moments.find((x) => x.block_id === momentSheet.id) ?? null) : null;
   // ⚠ The moments with a task in two places at once (§3c #5) — flagged on their rows, never refused.
   const clashedMoments = new Set<string>();
@@ -259,6 +387,9 @@ export function ChaptersHost({
       if (clashesForMoment(mo.block_id, tasks, all, chapters, names).size > 0) clashedMoments.add(mo.block_id);
     }
   }
+  /** 👷 Who a delete takes off their parts: the suppliers on the chapter itself, on its moments, or on a task in them. */
+  const suppliersOn = (c: Chapter): string[] =>
+    chapterSuppliers(c, moments, tasks, who.suppliers).filter((s) => !s.everyChapter).map((s) => s.name);
   const patch = (id: string, next: Partial<Chapter>) => setChapters((cs) => cs.map((c) => (c.block_id === id ? { ...c, ...next } : c)));
   const back = (c: Chapter | null) => {
     setOpenId(null);
@@ -269,8 +400,14 @@ export function ChaptersHost({
 
   return (
     <ChaptersContext.Provider value={api}>
-      {/* The views stay mounted (each drawn once by the server) — a chapter's page lays over them, never a request. */}
-      <div hidden={current !== null}>{children}</div>
+      {/* 🖥 SLICE 10 — ONE PAGE, THREE WIDTHS. A phone and an iPad in portrait: the day, and a chapter's page laid over it.
+          An iPad in landscape: the day BESIDE the opened chapter. A desktop: the day · the chapter · the people. The
+          views stay mounted (each drawn once by the server) — opening a chapter is never a request. */}
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_17rem]" data-schedule-panes="">
+      <div className={current ? 'min-w-0 max-lg:hidden' : 'min-w-0'} data-schedule-day-pane="">
+        {children}
+      </div>
+      <div className={current ? 'min-w-0' : 'hidden min-w-0 lg:block'} data-schedule-chapter-pane="">
       {current ? (
         <ChapterPage
           key={`page:${current.block_id}`}
@@ -279,7 +416,6 @@ export function ChaptersHost({
           moments={moments.filter((m) => m.parent_block_id === current.block_id)}
           tasks={tasks}
           clashed={clashedMoments}
-          dateLine={dateLine}
           eventDay={input.eventDay}
           canEdit={input.canEdit}
           flash={flash}
@@ -296,8 +432,32 @@ export function ChaptersHost({
           onEdit={() => setSheet('edit')}
           onAddMoment={(section) => setMomentSheet({ kind: 'new', section })}
           onOpenMoment={(id) => setMomentSheet({ kind: 'edit', id })}
+          suppliers={chapterSuppliers(current, moments, tasks, who.suppliers)}
+          viewAs={input.viewAs ? { input: input.viewAs, lens, setLens } : null}
+          onSettings={() => setSettingsOpen(true)}
+          held={
+            current.hours_vendor_id
+              ? {
+                  vendorId: current.hours_vendor_id,
+                  name: who.suppliers.find((x) => x.id === current.hours_vendor_id)?.name ?? 'The venue',
+                  asMoment: { block_id: current.block_id, start_at: current.start_at, end_at: current.end_at, vendor_ids: [current.hours_vendor_id] },
+                  asks,
+                  ask: momentDoors.ask,
+                  onAsked: (row) => setAsks((a) => [row, ...(a ?? [])]),
+                }
+              : null
+          }
         />
-      ) : null}
+      ) : (
+        <p className="pt-16 text-center text-[14px] text-ink/55" data-schedule-chapter-empty="">
+          Open a chapter to see it here.
+        </p>
+      )}
+      </div>
+      <aside className="hidden min-w-0 xl:block" data-schedule-people="">
+        <SchedulePeople needs={settingsParts.current.needs} />
+      </aside>
+      </div>
 
       {/* ONE sheet for a moment — Add swaps the new moment's body for the moment's own, never a second sheet. */}
       {momentSheet && current && (momentSheet.kind === 'new' || openMoment) ? (
@@ -427,14 +587,100 @@ export function ChaptersHost({
           lastDay={input.lastDay}
           mayInvite={input.mayInvite}
           replyCount={input.replyCounts?.[current.block_id]}
-          doors={doors}
+          doors={sheetDoors}
+          heldBy={current.hours_vendor_id ? (who.suppliers.find((x) => x.id === current.hours_vendor_id)?.name ?? 'The venue') : null}
+          deleteSuppliers={suppliersOn(current)}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}
-          onDeleted={() => {
-            setChapters((cs) => cs.filter((c) => c.block_id !== current.block_id));
-            back(current);
-          }}
+          onDeleted={() => back(current)}
         />
+      ) : null}
+
+      {/* ⚙ SCHEDULE SETTINGS — the date line and its ⓘ, Announce, Share, and the day's tools, in one sheet. */}
+      {settingsOpen ? (
+        <Sheet open onClose={() => setSettingsOpen(false)} labelledById="schedule-settings-h" title="Schedule settings">
+          <div data-schedule-settings="" className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2" onClickCapture={(e) => {
+            // A tool that opens its own sheet closes this one first.
+            if ((e.target as HTMLElement).closest('[data-settings-closes]')) setSettingsOpen(false);
+          }}>
+            <h3 id="schedule-settings-h" className="sr-only">
+              Schedule settings
+            </h3>
+            {settingsParts.current.line}
+            {settingsParts.current.tools}
+          </div>
+        </Sheet>
+      ) : null}
+
+      {/* 🗑 A swipe left on the rail asks here — the SAME words as the chapter's own Delete chapter. */}
+      {deleteAsk ? (
+        <Sheet open onClose={() => setDeleteAsk(null)} labelledById={`swipe-delete-${deleteAsk.block_id}`} title={`Delete ${deleteAsk.label}?`}>
+          <div data-chapter-swipe-delete={deleteAsk.block_id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
+            <h3 id={`swipe-delete-${deleteAsk.block_id}`} className="sr-only">
+              Delete {deleteAsk.label}?
+            </h3>
+            <p className="text-[15px] text-ink">
+              <ChapterDeleteWords c={deleteAsk} suppliers={suppliersOn(deleteAsk)} />
+            </p>
+            <div className="flex justify-end gap-2">
+              <ActionButton tone="neutral" icon={X} label="Cancel" quiet onClick={() => setDeleteAsk(null)} />
+              <ActionButton
+                tone="danger"
+                main
+                icon={Trash2}
+                label="Delete"
+                data-testid="chapter-swipe-delete-continue"
+                onClick={() => {
+                  const c = deleteAsk;
+                  setDeleteAsk(null);
+                  deleteNow(c);
+                }}
+              />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+
+      {moved && 'back' in moved ? (
+        <PeekToast
+          key={`moved:${moved.id}:${moved.back.fields.start_at}`}
+          tone="ok"
+          data="chapter-moved"
+          action={{
+            label: 'Undo',
+            onPress: () => {
+              const { id, back } = moved;
+              setMoved(null);
+              setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...back.next } : x)));
+              void doors.save(id, back.fields);
+            },
+          }}
+          onGone={() => setMoved(null)}
+        >
+          {moved.label} moved
+        </PeekToast>
+      ) : moved ? (
+        <PeekToast tone="bad" data="chapter-move-failed" onGone={() => setMoved(null)}>
+          {moved.failed}
+        </PeekToast>
+      ) : null}
+      {pendingDelete ? (
+        <PeekToast
+          key={`deleted:${pendingDelete.block_id}`}
+          tone="ok"
+          data="chapter-deleted"
+          action={{ label: 'Undo', onPress: () => setPendingDelete(null) }}
+          onGone={() => {
+            const p = pendingRef.current;
+            if (p) commitDelete.current(p);
+          }}
+        >
+          {pendingDelete.label} deleted
+        </PeekToast>
+      ) : deleteFailed ? (
+        <PeekToast tone="bad" data="chapter-delete-failed" onGone={() => setDeleteFailed(null)}>
+          {deleteFailed}
+        </PeekToast>
       ) : null}
     </ChaptersContext.Provider>
   );
@@ -450,7 +696,6 @@ function ChapterPage({
   moments,
   tasks,
   clashed,
-  dateLine,
   eventDay,
   canEdit,
   flash,
@@ -459,14 +704,32 @@ function ChapterPage({
   onEdit,
   onAddMoment,
   onOpenMoment,
+  suppliers = [],
+  held = null,
+  viewAs = null,
+  onSettings,
 }: {
+  /** 🏛 The venue holding this chapter's hours, and the shipped ask to send it. */
+  held?: {
+    vendorId: string;
+    name: string;
+    asMoment: Pick<ChapterMoment, 'block_id' | 'start_at' | 'end_at' | 'vendor_ids'>;
+    asks: HostAsk[] | null | undefined;
+    ask: ((blockId: string, fields: Record<string, string>) => Promise<{ ok: true; value: string } | { ok: false; error: string }>) | null;
+    onAsked: (row: HostAsk) => void;
+  } | null;
+  /** 👷 The suppliers in this chapter (on it, its moments or their tasks) and the coordinators (every chapter). */
+  suppliers?: readonly ChapterSupplier[];
+  /** 👤 The page's one View as (shared with Event Day); null = none drawn here. */
+  viewAs?: { input: ViewAsInput; lens: ViewLens; setLens: (l: ViewLens) => void } | null;
+  /** ⚙ Opens Schedule settings. */
+  onSettings: () => void;
   chapter: Chapter;
   chapters: Chapter[];
   moments: ChapterMoment[];
   tasks: TaskRow[] | null;
   /** The moments with a task in two places at once. */
   clashed: ReadonlySet<string>;
-  dateLine: string;
   eventDay: string | null;
   canEdit: boolean;
   flash: string | null;
@@ -476,8 +739,11 @@ function ChapterPage({
   onAddMoment: (section: ChapterSection) => void;
   onOpenMoment: (id: string) => void;
 }) {
+  /* 🎭 Ingress · Event · Egress are all OPEN (owner 2026-11-04, prototype frame 2: "Ingress and Egress are open, one line
+     per supplier, marked Backstage"); a tap folds or unfolds one. `open` is the section last tapped — + Add a moment
+     goes there. */
   const [open, setOpen] = useState<ChapterSection>('Event');
-  const backTo = chapterStage(c, eventDay) === 'planning' ? 'Planning Stage' : 'Event Day';
+  const [shut, setShut] = useState<ReadonlySet<ChapterSection>>(() => new Set());
   const ingress = ingressAt(c);
   const egress = egressAt(c);
   const bySection = (k: ChapterSection) =>
@@ -488,7 +754,12 @@ function ChapterPage({
   const sections: { key: ChapterSection; sub: string; rows: ChapterMoment[] }[] = [];
   const inRows = bySection('Ingress');
   if (!c.time_tba && (ingress || inRows.length)) sections.push({ key: 'Ingress', sub: ingress ? `from ${clockWords(ingress)}` : 'no time set', rows: inRows });
-  sections.push({ key: 'Event', sub: c.on_invitation ? 'what guests can see' : 'only people on it', rows: bySection('Event') });
+  // 📐 The Event's own hours, as the prototype draws it (frame 2: "Event 5:00 PM – 10:00 PM · 4").
+  sections.push({
+    key: 'Event',
+    sub: c.time_tba ? TIME_TBA : `${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`,
+    rows: bySection('Event'),
+  });
   const egRows = bySection('Egress');
   if (!c.time_tba && (egress || egRows.length)) sections.push({ key: 'Egress', sub: egress ? `until ${clockWords(egress)}` : 'no time set', rows: egRows });
 
@@ -496,24 +767,20 @@ function ChapterPage({
   const about = [
     c.notes ? `Notes: ${c.notes}.` : null,
     c.time_tba ? 'No call time until the time is set.' : `Call time: ${c.call_lead_minutes} minutes before each person’s first task.`,
-    c.on_invitation ? 'On the invitation: guests reply to it.' : 'Not on the invitation.',
+    // 👁 Who sees this chapter lives here, in its ⓘ — never an eye on the day's rows (slice 8).
+    c.on_invitation
+      ? 'Who sees it: guests — it is on the invitation and they reply to it. Its Backstage moments stay hidden from them.'
+      : 'Who sees it: you, your coordinator and its suppliers. It is not on the invitation, so guests don’t see it.',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
     <div data-chapter-page={c.block_id} className="pb-28">
-      {/* ── THE ONE TOP ROW: ‹ back · the page's dropdown (the views, + New chapter, every chapter). */}
+      {/* ── THE ONE TOP ROW (owner 2026-11-04, "Match the 4 Nov prototype", frame 2): the page's dropdown (the views,
+          + New chapter, every chapter — Event Day is the way back) · what it holds · 👤 View as · ⚙ Schedule settings.
+          The chapter's name is the dropdown's own words; no title, no date line below it. */}
       <div className="flex min-h-11 items-center gap-1.5" data-chapter-line="">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label={`Back to ${backTo}`}
-          data-chapter-back=""
-          className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full border border-ink/15 text-ink"
-        >
-          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-        </button>
         <span className="flex min-w-0 shrink items-center">
           <PickMenu
             label="Page and schedule view"
@@ -530,20 +797,38 @@ function ChapterPage({
             compact
           />
         </span>
+        <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60" data-chapter-count="">
+          {formatCount(moments.length)} moment{moments.length === 1 ? '' : 's'} · {formatCount(suppliers.length)} supplier{suppliers.length === 1 ? '' : 's'}
+        </span>
+        {viewAs ? (
+          <ViewAsMenu
+            input={viewAs.input}
+            lens={viewAs.lens}
+            round
+            onLens={(l) => {
+              viewAs.setLens(l);
+              // The view is drawn on Event Day.
+              if (l.kind !== 'everyone') onBack();
+            }}
+          />
+        ) : null}
+        <button
+          type="button"
+          onClick={onSettings}
+          aria-label="Schedule settings"
+          data-chapter-settings-open=""
+          className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full border border-ink/15 text-ink"
+        >
+          <Settings aria-hidden className="h-5 w-5" strokeWidth={1.8} />
+        </button>
       </div>
-      <p className="mt-1 text-[13px] text-ink/60" data-schedule-date-line="">
-        {dateLine}
-      </p>
       {flash ? (
         <p role="status" data-chapters-flash="" className="mt-2 text-[13px] text-ink/70">
           {flash}
         </p>
       ) : null}
 
-      <h2 className="mt-3 font-display text-[26px] leading-tight text-ink" data-chapter-title="">
-        {c.label}
-      </h2>
-      <p className="mt-1 flex items-center gap-2 text-[14px] text-ink/65">
+      <p className="mt-1 flex items-center gap-2 text-[14px] text-ink/65" data-chapter-title={c.label}>
         {canEdit ? (
           <button type="button" onClick={onEdit} aria-label="Edit chapter details" data-chapter-when={c.time_tba ? 'tba' : 'set'} className="text-left">
             {line}
@@ -554,21 +839,56 @@ function ChapterPage({
         <Tip>{about}</Tip>
       </p>
 
+      {/* 🏛 VENUE HOURS (owner 2026-11-04, prototype frame 2): the venue booked to this chapter holds its hours — the
+          host asks it to change (the shipped host ask, answered by the venue). With no venue holding them, nothing. */}
+      {held ? (
+        <div data-chapter-held={c.block_id} className="mt-3 border-t border-ink/10 pt-2">
+          <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+            Hours from {held.name} <span aria-label="Held by the venue">🔒</span>
+          </p>
+          <p className="flex items-center gap-2 text-[13.5px] text-ink/65">
+            {heldHoursLine(c)}
+            <Tip>{HELD_HOURS_TIP}</Tip>
+          </p>
+          {canEdit && held.ask ? (
+            <AskSupplierSection
+              moment={{ ...(held.asMoment as ChapterMoment) }}
+              chapter={c}
+              suppliers={[{ id: held.vendorId, name: held.name }]}
+              asks={held.asks}
+              ask={held.ask}
+              onAsked={held.onAsked}
+              askLabel={`Ask ${held.name} to change`}
+              bare
+            />
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-3 border-t border-ink/10" data-chapter-sections="">
         {sections.map((s) => {
-          const on = open === s.key;
+          const on = !shut.has(s.key);
+          const backstage = s.key !== 'Event';
           return (
-            <section key={s.key} data-chapter-section={s.key}>
+            <section key={s.key} data-chapter-section={s.key} data-backstage={backstage ? '' : undefined}>
               <button
                 type="button"
                 aria-expanded={on}
-                onClick={() => setOpen(s.key)}
+                onClick={() => {
+                  setOpen(s.key);
+                  setShut((was) => {
+                    const next = new Set(was);
+                    if (next.has(s.key)) next.delete(s.key);
+                    else next.add(s.key);
+                    return next;
+                  });
+                }}
                 className="flex min-h-14 w-full items-center gap-3 border-b border-ink/10 text-left"
               >
                 <span
                   aria-hidden
                   className={`grid h-8 w-8 flex-none place-items-center rounded-md text-[13px] font-semibold ${
-                    s.key === 'Event' ? 'bg-terracotta text-cream' : 'bg-ink/10 text-ink/70'
+                    on ? 'bg-sn-accent text-sn-on-accent' : 'bg-ink/10 text-ink/70'
                   }`}
                 >
                   {SECTION_LETTER[s.key]}
@@ -579,6 +899,11 @@ function ChapterPage({
                 </span>
                 <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/50 transition-transform ${on ? 'rotate-180' : ''}`} />
               </button>
+              {on && backstage ? (
+                <p data-backstage-line="" className="flex items-center gap-1.5 pt-2 text-[12px] uppercase tracking-[0.06em] text-gold-deep">
+                  {BACKSTAGE_WORDS} <Tip>{BACKSTAGE_TIP}</Tip>
+                </p>
+              ) : null}
               {on ? (
                 s.rows.length === 0 ? (
                   <p className="py-3 text-[14px] text-ink/55">Nothing yet.</p>
@@ -586,7 +911,10 @@ function ChapterPage({
                   <ul>
                     {s.rows.map((m) => {
                       const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id);
-                      const sub = [
+                      // 🎭 A backstage line is one supplier's set-up or pack-up: their hours under their name (frame 2).
+                      const sub = backstage
+                        ? `${momentClockWords(m, c, clockWords)}${m.end_at && !m.time_tba ? ` – ${clockWords(m.end_at)}` : ''}`
+                        : [
                         m.travel_to ? `${m.travel_from ?? 'Here'} → ${m.travel_to}` : null,
                         tasksLine(mine, m, c) || m.who || null,
                         m.is_optional ? 'Optional' : null,
@@ -596,7 +924,7 @@ function ChapterPage({
                       const clash = clashed.has(m.block_id);
                       const inner = (
                         <>
-                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
+                          <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
                             {momentClockWords(m, c, clockWords)}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -614,7 +942,9 @@ function ChapterPage({
                             ) : (
                               <EyeOff aria-label="Hidden from guests" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
                             )
-                          ) : null}
+                          ) : (
+                            <EyeOff aria-label="Backstage — guests never see this" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
+                          )}
                         </>
                       );
                       return (
@@ -637,12 +967,59 @@ function ChapterPage({
                   </ul>
                 )
               ) : null}
+              {/* ＋ Add a moment at the foot of each open section (prototype frame 2) — into that section. */}
+              {on && canEdit ? (
+                <button
+                  type="button"
+                  data-section-add={s.key}
+                  onClick={() => onAddMoment(s.key)}
+                  className="sn-press flex min-h-11 w-full items-center justify-center border-b border-ink/10 text-[15px] font-semibold text-sn-accent"
+                >
+                  + Add a moment
+                </button>
+              ) : null}
             </section>
           );
         })}
       </div>
 
+      {/* 👷 SUPPLIERS IN THIS CHAPTER (owner 2026-11-04, prototype frame 2) — under the moments: who is booked to it, by
+          shop name and trade; a coordinator is on every chapter. Shown only when there is someone to show. */}
+      {suppliers.length > 0 ? (
+        <section data-chapter-suppliers="" className="mt-6">
+          <h3 className="flex items-center gap-1.5 pb-1 text-[15px] font-semibold text-ink">
+            Suppliers in this chapter <Tip>{CHAPTER_SUPPLIERS_TIP}</Tip>
+          </h3>
+          <ul>
+            {suppliers.map((s) => (
+              <li key={s.id} data-chapter-supplier={s.id} className="flex min-h-14 items-center gap-3 border-t border-ink/10 py-2">
+                <span aria-hidden className="grid h-11 w-11 flex-none place-items-center rounded-full bg-ink/[0.05] text-[14px] font-semibold text-ink/65">
+                  {initialsOf(s.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-ink">{s.name}</span>
+                  <span className="block truncate text-[13px] text-ink/60">{chapterSupplierLine(s)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {canEdit ? <ChapterThumbRow onEdit={onEdit} onAddMoment={() => onAddMoment(open)} /> : null}
+      {/* 🖥 A desktop's tools are inline (slice 10): Edit · + Add a moment, a right-aligned bar at the chapter's foot. */}
+      {canEdit ? (
+        <div className="mt-4 hidden justify-end gap-2 border-t border-ink/10 pt-3 xl:flex" data-chapter-foot="">
+          <button type="button" onClick={onEdit} className={actionButtonClass('neutral')}>
+            <Pencil aria-hidden strokeWidth={2} />
+            Edit
+          </button>
+          <button type="button" onClick={() => onAddMoment(open)} className={actionButtonClass('brand', { main: true })}>
+            <Plus aria-hidden strokeWidth={2} />
+            Add a moment
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -656,7 +1033,7 @@ function ChapterThumbRow({ onEdit, onAddMoment }: { onEdit: () => void; onAddMom
   if (!host) return null;
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto xl:hidden"
       data-chapter-thumb=""
       data-safe-x=""
     >

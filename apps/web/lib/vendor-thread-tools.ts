@@ -76,6 +76,17 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
     hint: 'Propose a schedule or a handshake',
   },
   {
+    /*
+      ❓ QUESTIONS FOR THE COUPLE — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"; prototype
+      `Supplier Four-Tab Dashboard` › chat ＋ › "Their event · for your service"). The panel shows the supplier's own
+      set and SENDS it into this event: the couple answers in their event, the answers come back to this customer's
+      card. Body: `QuestionsSendPanel` (thread page `toolNodes`).
+    */
+    id: 'questions-for-couple',
+    label: 'Questions for the couple',
+    hint: 'Your question set · they answer in their event',
+  },
+  {
     // ⚠ NOT "How did this inquiry end?" as a standing panel. It asked how a
     // conversation ended while the supplier was still having it.
     id: 'log-outcome',
@@ -147,16 +158,20 @@ export type VendorThreadToolIcon =
   | 'deal'
   | 'guests'
   | 'outcome'
-  | 'problem';
+  | 'problem'
+  | 'questions';
 
 /**
- * THE FOUR GROUPS OF THE SUPPLIER'S ＋ SHEET (owner-approved chat prototype 2026-10-28, frame D:
+ * THE GROUPS OF THE SUPPLIER'S ＋ SHEET (owner-approved chat prototype 2026-10-28, frame D:
  * `prototypes/chat_messenger_2026-10-28/index.html` — Money · Plan · Talk & files · Just you). Every tool names its
  * group; the sheet draws a quiet heading where the group changes, in this order.
  */
 export const THREAD_TOOL_GROUPS = [
   { key: 'money', label: 'Money' },
   { key: 'plan', label: 'Plan' },
+  // ❓ 2026-11-04 — the prototype's "Their event · for your service" group. ONE row approved for build (Questions for
+  // the couple); the prototype's other rows in this group are NOT approved and are not here.
+  { key: 'event', label: 'Their event · for your service' },
   { key: 'talk', label: 'Talk & files' },
   { key: 'you', label: 'Just you' },
 ] as const;
@@ -319,6 +334,18 @@ export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
     shutWhenNothing: { reason: 'Their count has not changed since your quote', counts: 'guestCountChanges' },
   },
   { key: 'offer-service', group: 'plan', label: 'Offer another service', line: 'Your other cards', icon: 'offer', reveal: ['offer-service'] },
+  // ── Their event · for your service ──
+  // ❓ Every supplier (owner 2026-11-04). DECISION_LOG: the set is sent "into a booked event" — so, like the other
+  // tools that open their event, it is shut (never hidden) with the reason until they book you.
+  {
+    key: 'questions-for-couple',
+    group: 'event',
+    label: 'Questions for the couple',
+    line: 'Your question set · they answer in their event',
+    icon: 'questions',
+    reveal: ['questions-for-couple'],
+    shutUntilAgreement: { reason: 'Opens once they book you' },
+  },
   // ── Talk & files ──
   // ONE Share a file (owner 2026-10-28, verbatim: *"Share a file can be file, photo or video"*) — the composer's own
   // picker, so a photo, a video, a PDF or the contract travels as an ordinary message through the shipped upload.

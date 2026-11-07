@@ -4,10 +4,11 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { micrositeCan } from '@/lib/vendor-microsite';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
 import { PageParts } from './_components/page-parts';
+import { ReviewReplies } from './_components/review-replies';
 import { ShopSegments } from '../shop/_components/shop-segments';
 import { pageFigures } from '@/lib/shop-section-figures';
 import { AutoReplySection } from '../shop/_components/autoreply-section';
@@ -46,8 +47,11 @@ export default async function YourPage({
   const d = await loadPageData(supabase, profile);
   // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for every plan
   // while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts). Your own web address
-  // (owner 2026-10-15) and the Pro page parts share it; the domain card reads it too, so it never also says "free".
+  // (owner 2026-10-15; Solo+ since 2026-11-04) reads `customWebsiteName`; the Pro page parts read `premiumPage` — two
+  // caps since the address moved down to Solo. The domain card reads the address one, so it never also says "free".
   const ownAddressAsks = vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell;
+  const proPartsAsk = vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).premiumPage) && !d.storeShell;
+  const addressPlan = TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'];
   const whereLine = d.city
     ? d.outerRadiusKm
       ? `${d.city} · travels up to ${d.outerRadiusKm} km`
@@ -83,7 +87,9 @@ export default async function YourPage({
           // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for
           // every plan while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts).
           personalizeAsks: vendorPaywallApplies(micrositeCan(d.tier).canPersonalize) && !d.storeShell,
-          proAsks: ownAddressAsks,
+          proAsks: proPartsAsk,
+          addressAsks: ownAddressAsks,
+          addressPlan,
           storeShell: d.storeShell,
           plans: d.plans,
           badges: d.badges,
@@ -101,6 +107,7 @@ export default async function YourPage({
           </>
         }
         autoReplyBody={vendorAutoReplyEnabled() ? <AutoReplySection vendorProfileId={d.vendorId} /> : null}
+        reviewsBody={<ReviewReplies reviews={d.replyRows} vendorName={d.businessName || 'Your business'} capped={d.replyCapped} guestReviews={d.guestReviews} />}
       />
     </section>
   );

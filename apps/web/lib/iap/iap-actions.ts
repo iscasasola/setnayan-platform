@@ -10,8 +10,7 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { iapProductById, iapProductFitsAiTier, iapProductIsRepeatable, papicCreditsMatch } from './products';
-import { setnayanAiTierInApp } from './setnayan-ai-in-app.server';
+import { iapProductById, iapProductIsRepeatable, papicCreditsMatch } from './products';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
@@ -89,14 +88,8 @@ export async function startAppStorePurchase(input: {
     const points = await papicPassPointsForSku(admin, product.serviceKey);
     if (!papicCreditsMatch(product, points)) return startRefusal('not_on_sale');
   }
-  // ✦ Setnayan AI: one product per web tier (owner 2026-10-23). The event's tier, read the way the web's charge
-  // reads it (setnayan-ai-in-app.server.ts), must be THIS product's — a Tier D product never unlocks a wedding.
-  if (product.serviceKey === 'SETNAYAN_AI') {
-    const sai = await setnayanAiTierInApp(admin, eventId);
-    if (sai.status === 'error') return startRefusal('try_again');
-    if (sai.status !== 'sellable') return startRefusal('not_on_sale');
-    if (!iapProductFitsAiTier(product, sai.tier)) return startRefusal('not_on_sale');
-  }
+  // 🗑 Setnayan AI is not sold on its own since 2026-11-04 (it comes with Event Plus and Event Pro): its four products
+  // left `IAP_PRODUCTS`, so `iapProductById` above already refuses one as unavailable.
   if ((product.kind === 'papic-credits' || DAY_OF_ONLY_KEYS.has(product.serviceKey)) && (await eventIsOver(admin, eventId))) {
     return startRefusal('event_over');
   }
@@ -107,17 +100,20 @@ export async function startAppStorePurchase(input: {
   // retired out of `IAP_PRODUCTS`, so one is an unknown product above. "Everything" is not sold in the app once ANY
   // part is owned (it would charge the full Apple price for what is less on the web, and the app may not say so);
   // such an event finishes on the web.
+  // 💰 Event Plus ⊂ Event Pro (owner 2026-11-04): an event with Pro already has everything Plus sells, and an event
+  // with Plus pays only the DIFFERENCE for Pro on the web. The app has no upgrade product yet, so Event Pro is not sold
+  // in the app to an event that owns Plus — the full Apple price would charge it twice for Plus (same reasoning as the
+  // part-owner rule above). Such an event upgrades on the web until an upgrade product exists.
   if (product.kind === 'event-hub-pro') {
     const own = await eventHubOwnership(admin, eventId, 'owned');
     if (own.full) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
+    if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
+  } else if (product.kind === 'event-plus') {
+    if ((await eventHubOwnership(admin, eventId, 'owned')).full) return startRefusal('owned');
+    if (await eventOwnsSku(admin, eventId, product.serviceKey)) return startRefusal('owned');
   } else if (!iapProductIsRepeatable(product) && (await eventOwnsSku(admin, eventId, product.serviceKey))) {
     return startRefusal('owned');
-  } else if (product.serviceKey === 'SETNAYAN_AI') {
-    // The stored flag is Setnayan AI's own "owned" (sku-activation.ts) — a comp or a bundle can set it with no order.
-    const { data: ev, error: evErr } = await admin.from('events').select('setnayan_ai_active').eq('event_id', eventId).maybeSingle();
-    if (evErr) return startRefusal('try_again');
-    if ((ev as { setnayan_ai_active?: boolean | null } | null)?.setnayan_ai_active === true) return startRefusal('owned');
   }
 
   const intent = await createPurchaseIntent(createMoneyWriterClient(), {

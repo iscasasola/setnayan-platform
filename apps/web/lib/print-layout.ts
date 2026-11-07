@@ -54,6 +54,7 @@ import {
   type PrintBrand,
   type PrintLook,
   type PrintMode,
+  type AnyPrintPieceKey,
   type PrintPieceKey,
   type PrintSetKey,
   type PrintStoryChapter,
@@ -90,7 +91,8 @@ export type PrintField = 'opening_line' | 'rsvp';
 export type PrintFieldBox = { field: PrintField; x: number; y: number; w: number; h: number };
 
 export type PrintDoc = {
-  piece: PrintPieceKey;
+  /** A couple's piece, or a shop's own (`SHOP_PRINT_PIECES` — the door sticker). */
+  piece: AnyPrintPieceKey;
   /** The tappable print-only words, where they landed — see `PrintField`. */
   fields?: PrintFieldBox[];
   /** Trim size, points. */

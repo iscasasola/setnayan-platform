@@ -36,11 +36,13 @@ export const MAX_ONBOARDING_DISCOUNT_PCT = 90;
 /**
  * What the rule falls back to when the setting cannot be read — the owner's
  * number, so a failed read neither retracts nor deepens the advertised saving.
- * ⚖ Owner tracker d18 (2026-10-02): 40% off everything bought during sign-up;
- * `platform_settings.onboarding_discount_pct` holds it (migration
- * `*_one_signup_discount_is_forty.sql`). Was 10 (the 2026-08-28 house rule).
+ * ⚖ OWNER 2026-11-03 (DECISION_LOG "PAPIC IS THREE PACKS … NO 40% SIGN-UP PRICE
+ * ON ANYTHING"): *"drop the 40% on all then"*. There is no sign-up price, so the
+ * fallback is 0 — a failed read can never bring a discount back. Migration
+ * `*_papic_is_three_packs_and_no_signup_price.sql` sets the dial to 0 too.
+ * (Was 40, owner tracker d18 2026-10-02; before that 10, 2026-08-28.)
  */
-export const DEFAULT_ONBOARDING_DISCOUNT_PCT = 40;
+export const DEFAULT_ONBOARDING_DISCOUNT_PCT = 0;
 
 /**
  * A percentage we are willing to act on, or the default.

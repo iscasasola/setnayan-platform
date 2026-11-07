@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
@@ -33,8 +33,16 @@ export function AskSupplierSection({
   asks,
   ask,
   onAsked,
+  askLabel = 'Ask a supplier to change their times',
+  bare = false,
+  opener,
+  noOpenButton = false,
 }: {
-  moment: ChapterMoment;
+  /** On a held chapter (frame 2): just the button under the hours — no "Asked of suppliers" heading until one is asked. */
+  bare?: boolean;
+  /** The button's words — "Ask Blue Leaf to change" on a chapter a venue holds (2026-11-04). */
+  askLabel?: string;
+  moment: Pick<ChapterMoment, 'block_id' | 'start_at' | 'end_at' | 'vendor_ids'>;
   chapter: Chapter;
   /** The event's BOOKED suppliers (booking id + shop name). */
   suppliers: readonly { id: string; name: string }[];
@@ -42,6 +50,11 @@ export function AskSupplierSection({
   asks: readonly HostAsk[] | null | undefined;
   ask: (blockId: string, fields: Record<string, string>) => Promise<Answer>;
   onAsked: (row: HostAsk) => void;
+  /** 🔒 "Send a request" on a locked supplier's moment (audit D7): opens the ask with that supplier picked. `n`
+   *  changes on every press, so a second press re-opens it. */
+  opener?: { vendorId: string; n: number } | null;
+  /** 🔒 A locked moment: no "Ask a supplier" button of its own — the sheet's "Send them a request" is the one door. */
+  noOpenButton?: boolean;
 }) {
   // The moment's own suppliers first, then every other booked one.
   const options = useMemo(
@@ -59,6 +72,11 @@ export function AskSupplierSection({
   const [note, setNote] = useState('');
   const [state, setState] = useState<'idle' | 'sending'>('idle');
   const [said, setSaid] = useState<{ tone: 'ok' | 'bad'; words: string } | null>(null);
+  useEffect(() => {
+    if (!opener) return;
+    setOpen(true);
+    setWho(opener.vendorId);
+  }, [opener]);
 
   if (suppliers.length === 0 || asks === undefined) return null;
   const mine = asks ? asksOnMoment(asks, m.block_id) : [];
@@ -100,11 +118,13 @@ export function AskSupplierSection({
   };
 
   return (
-    <section data-moment-asks={mine.length} aria-label="Asked of suppliers" className="mt-2 border-t border-ink/10 pt-3">
+    <section data-moment-asks={mine.length} aria-label="Asked of suppliers" className={bare ? '' : 'mt-2 border-t border-ink/10 pt-3'}>
+      {bare && mine.length === 0 ? null : (
       <InfoTip label="Asked of suppliers" labelAs="h4" labelClassName="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55" align="start">
         Ask a booked supplier to change their times on this moment. They answer Accept or Decline on their schedule; a
         Yes moves the moment for you, and either way you get a notice here in the app.
       </InfoTip>
+      )}
       {asks === null ? (
         <p role="alert" data-moment-asks-failed="" className="mt-2 text-[13px] font-semibold text-danger-700">
           What you asked suppliers couldn’t be read just now. Nothing is lost — close and open the moment again.
@@ -193,12 +213,12 @@ export function AskSupplierSection({
             />
           </div>
         </div>
-      ) : (
+      ) : noOpenButton ? null : (
         <div className="mt-2">
           <ActionButton
             tone="neutral"
             icon={Send}
-            label="Ask a supplier to change their times"
+            label={askLabel}
             data-testid="moment-ask-open"
             onClick={() => {
               setOpen(true);

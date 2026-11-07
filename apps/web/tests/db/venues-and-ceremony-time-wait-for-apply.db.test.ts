@@ -21,7 +21,9 @@
  *      DECISION_LOG "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE") — every
  *      block, every type, parents and parts, by the same number of days, each
  *      keeping its time — through the REAL `moveScheduleWithDate`, as the
- *      couple; pressing Apply again moves nothing; a date that was a month (no
+ *      couple (since 2026-11-05 the date saves to the event at once through
+ *      `updateEventDate`, which runs this same move — "it shouldn't rely on the
+ *      hub"); saving it again moves nothing; a date that was a month (no
  *      exact day) moves nothing; a stranger's session is refused;
  *   6. 🔒 the move is ALL OR NOTHING and ONCE (`move_event_schedule_with_date`,
  *      20271264726195): a block that refuses leaves every block where it was,
@@ -336,7 +338,7 @@ async function blocksOf(eventId: string) {
   ).rows;
 }
 
-/** The live date as Apply reads it — through the couple's session. */
+/** The live date as the date door reads it — through the couple's session. */
 async function liveDate(eventId: string) {
   const r = await as<{ event_date: string; event_date_precision: string }>(
     F.couple,
@@ -347,10 +349,10 @@ async function liveDate(eventId: string) {
   return r.rows[0]!;
 }
 
-/** Apply's date write, as the couple, asking for the row back. */
+/** The date door's write (`updateEventDate`), as the couple, asking for the row back. */
 async function applyDate(eventId: string, date: string) {
   const w = await as(F.couple, `UPDATE public.events SET event_date = $2 WHERE event_id = $1 RETURNING event_id`, [eventId, date]);
-  assert.equal(w.err, null, `Apply’s date write was refused: ${w.err}`);
+  assert.equal(w.err, null, `the date write was refused: ${w.err}`);
   assert.equal(w.n, 1, 'the date write reached no row');
 }
 
@@ -384,13 +386,10 @@ test('5 · setup — a full day on D1: hair at 8, the ceremony with a part, the 
   assert.equal((await blocksOf(G.eventId)).length, 5, 'anti-vacuity: the day has five blocks to move');
 });
 
-test('6 · APPLY moves EVERY block by the same days — each keeps its time, its length and its parent', async () => {
+test('6 · A SAVED DATE moves EVERY block by the same days — each keeps its time, its length and its parent', async () => {
   const before = await blocksOf(G.eventId);
-  // The draft and the plan the action runs: the date is the one change.
-  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: D2 } });
+  // The date door's write, then the move it runs (`updateEventDate`): the date is the one change — never a draft.
   const prior = await liveDate(G.eventId);
-  const plan = planHubDraftApply(draft, { events: { ...prior, ceremony_time: null } as HubLiveState['events'], widgets: [] }, false);
-  assert.ok(plan.apply.some((i) => i.kind === 'event' && i.column === 'event_date'), 'the plan does not write the date');
   await applyDate(G.eventId, D2);
   const r = await moveScheduleWithDate({
     supabase: coupleClient(F.couple),
@@ -417,12 +416,10 @@ test('6 · APPLY moves EVERY block by the same days — each keeps its time, its
   assert.equal(blockTime(ceremonyBlock(after)), '3:00 PM', 'the invitation no longer reads the ceremony at 3:00 PM');
 });
 
-test('7 · pressing Apply AGAIN moves nothing — the live date is already the new one', async () => {
+test('7 · saving the same date AGAIN moves nothing — the live date is already the new one', async () => {
   const before = await blocksOf(G.eventId);
-  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: D2 } });
   const live = await liveDate(G.eventId);
-  const plan = planHubDraftApply(draft, { events: { ...live, ceremony_time: null } as HubLiveState['events'], widgets: [] }, false);
-  assert.equal(plan.apply.length, 0, 'Apply would write the same date twice');
+  assert.equal(live.event_date, D2, 'anti-vacuity: the live date is already the new one');
   const r = await moveScheduleWithDate({
     supabase: coupleClient(F.couple),
     eventId: G.eventId,
@@ -430,7 +427,7 @@ test('7 · pressing Apply AGAIN moves nothing — the live date is already the n
     toDay: exactDayOf(D2, 'day'),
   });
   assert.deepEqual(r, { ok: true, status: 'unchanged', moved: 0 });
-  assert.deepEqual(await blocksOf(G.eventId), before, 'a second Apply moved the schedule again');
+  assert.deepEqual(await blocksOf(G.eventId), before, 'a second save moved the schedule again');
 });
 
 test('8 · a date that was NOT one exact day (a month) moves nothing — there is no day to measure from', async () => {

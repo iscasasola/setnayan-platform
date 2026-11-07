@@ -10,6 +10,7 @@ import { Plus, X } from 'lucide-react';
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor, type ScheduleBlockType } from '@/lib/schedule';
 import { approvableTogether, computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -32,6 +33,7 @@ import type { DayMoment, DayRequest } from './day-types';
 import { Eyebrow, PHASE_TINT, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions, type PickOption } from './day-ui';
 import { ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
 import { ActionButton } from '@/components/action-button';
+import { heldHoursLine } from '@/lib/schedule-chapters';
 
 const COULD_NOT_SAVE = 'That did not save. Check your connection and try again.';
 
@@ -555,10 +557,12 @@ export function RequestsSheet({
                 <li key={r.suggestion_id} className="border-b border-ink/[0.06] pb-5 pt-4">
                   <Eyebrow>
                     {r.by} ·{' '}
-                    {r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
+                    {r.kind === 'where' ? 'the chapters they serve' : r.kind === 'hours' ? 'the chapter’s hours' : r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
                   </Eyebrow>
                   <h3 className="mt-1 font-display text-[21px] leading-tight text-ink">
-                    {r.kind === 'new'
+                    {r.kind === 'where'
+                      ? 'Where they go'
+                      : r.kind === 'new'
                       ? (r.proposed_label ?? 'A new moment')
                       : (current?.label ?? r.proposed_label ?? 'A moment')}
                   </h3>
@@ -566,7 +570,13 @@ export function RequestsSheet({
                     <div>
                       <Eyebrow>Now</Eyebrow>
                       <p className="mt-0.5 text-base font-semibold text-ink/80">
-                        {current ? whenOf(current.start_at, current.end_at, refDate) : <span className="text-ink/50">free slot</span>}
+                        {r.kind === 'where' ? (
+                          (r.where?.now ?? '—')
+                        ) : current ? (
+                          whenOf(current.start_at, current.end_at, refDate)
+                        ) : (
+                          <span className="text-ink/50">free slot</span>
+                        )}
                       </p>
                     </div>
                     <span aria-hidden className="pb-0.5 text-lg text-ink/40">
@@ -575,7 +585,9 @@ export function RequestsSheet({
                     <div>
                       <Eyebrow>Asked</Eyebrow>
                       <p className="mt-0.5 text-base font-semibold text-mulberry-700">
-                        {r.kind === 'remove'
+                        {r.kind === 'where'
+                          ? (r.where?.asked ?? '—')
+                          : r.kind === 'remove'
                           ? 'remove it'
                           : r.proposed_start_at || r.proposed_end_at
                           ? whenOf(r.proposed_start_at ?? current?.start_at ?? null, r.proposed_end_at, refDate)
@@ -588,14 +600,37 @@ export function RequestsSheet({
                     </div>
                   </div>
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
+                  {r.kind === 'hours' && r.proposed_start_at ? (
+                    <p className="mt-2 text-[12.5px] text-ink/60" data-request-hours="">
+                      {heldHoursLine({
+                        start_at: r.proposed_start_at,
+                        end_at: r.proposed_end_at,
+                        ingress_minutes_before: r.proposed_ingress_minutes ?? null,
+                        egress_minutes_after: r.proposed_egress_minutes ?? null,
+                      })}
+                    </p>
+                  ) : null}
                   {r.proposed_crew?.length ? <p className="mt-1 text-[12.5px] text-ink/60">Their crew: {r.proposed_crew.join(', ')}</p> : null}
-                  <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
+                  {/* A Where pick's note only repeats "Asked" — not quoted again. */}
+                  {r.kind === 'where' ? null : <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>}
                   <div className="mt-3.5">
                     {/* A suggestion in WORDS changes nothing to approve or decline — the host says they read it. */}
-                    <RequestDecision eventId={eventId} suggestionId={r.suggestion_id} noteOnly={isNoteOnlySuggestion(r)} decide={resolveScheduleSuggestion} />
+                    <RequestDecision eventId={eventId} suggestionId={r.suggestion_id} acceptLabel={r.kind === 'where' ? 'OK' : undefined} noteOnly={isNoteOnlySuggestion(r)} decide={resolveScheduleSuggestion} />
+                    {r.kind === 'where' ? (
+                      /* 📍 Change — set their chapters yourself, on their Suppliers row (`set_supplier_where`). */
+                      <p className="mt-2 text-right">
+                        <Link href={`/dashboard/${eventId}/vendors`} className="text-[13px] font-semibold text-terracotta-700 underline-offset-2 hover:underline" data-where-change="">
+                          Change
+                        </Link>
+                      </p>
+                    ) : null}
                   </div>
                   <p className="mt-2 text-right text-[11.5px] text-ink/50">
-                    {r.kind === 'new'
+                    {r.kind === 'where'
+                      ? `OK puts them on those chapters. Change opens their row in Suppliers, where you pick for them.`
+                      : r.kind === 'hours'
+                      ? `Approving sets the chapter’s hours and ${r.by} holds them — you ask them to change.`
+                      : r.kind === 'new'
                       ? 'Approving adds it hidden from guests — flip the eye when they should see it.'
                       : r.kind === 'remove'
                         ? 'Approving takes the moment off the schedule.'

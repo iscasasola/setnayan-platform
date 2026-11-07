@@ -19,6 +19,7 @@ import './_components/fold.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
+import { NativePushRouter } from './_components/native-push-router';
 import { NfcTestSwitch } from './_components/use-nfc-enabled';
 import { StaleTabNotice } from './_components/stale-tab-notice';
 import { DemoModeBanner } from './_components/demo-mode-banner';
@@ -31,6 +32,7 @@ import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
 import { PressFeel } from './_components/press-feel';
+import { RevealDetailsOnOpen } from './_components/reveal-on-open';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
 import { THEME_COLOR } from '@/lib/appearance';
@@ -729,6 +731,9 @@ export default async function RootLayout({
         {/* ONE press feel for every control the app owns (owner 2026-10-08) — one delegated listener; the guest's
             Event Hub (`.sn-editorial`) is left alone. See _components/press-feel.tsx. */}
         <PressFeel />
+        {/* 🔭 A <details> a user opens glides its summary to the pin line when it runs past the bottom (owner
+            2026-11-04, app-wide) — one capture listener. See _components/reveal-on-open.ts. */}
+        <RevealDetailsOnOpen />
         {/* Global top loading bar — the future-proof catch-all that shows a
             loading indicator on EVERY route navigation (incl. routes without
             their own loading.tsx, and any added later). Pure client → no
@@ -781,6 +786,8 @@ export default async function RootLayout({
         {/* App Store / Play Store shell only: hides links to web-only routes (lib/store-shell.ts). */}
         <StoreShellLinkGuard />
         <NativeBridge />
+        {/* 📱 iPhone app only: a tapped notification opens its screen; an allowed phone keeps its APNs token fresh. */}
+        <NativePushRouter />
         {/* Remembers a phone's own `?nfc-test=1` NFC opt-in from any page. */}
         <NfcTestSwitch />
         {/* 🍪 NO COOKIE BANNER (owner 2026-10-22). Setnayan sets essential cookies

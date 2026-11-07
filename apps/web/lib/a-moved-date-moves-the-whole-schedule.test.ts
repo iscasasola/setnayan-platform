@@ -53,18 +53,22 @@ test('ONE exact-day rule: a month or a year is no day — no move', () => {
   assert.equal(wallClockDayShift('2031-06-07', '2031-06-21'), 14);
 });
 
-test('Apply moves the WHOLE Schedule when the date was written — before the ceremony time, never the ceremony alone', () => {
-  const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/hub-draft-actions.ts'), 'utf8'));
-  const move = src.search(/if \(dateWritten\) \{\s*const shifted = await moveScheduleWithDate\(\{ supabase, eventId, fromDay: priorDay, toDay: nextDay \}\);/);
-  const place = src.indexOf('await placeCeremonyBlock(');
-  assert.ok(move > 0, 'Apply does not move the whole Schedule when the date is written');
-  assert.ok(place > move, 'the ceremony time is placed before the Schedule moves — the move would drag a typed time off its day');
-  assert.match(src, /if \(nextDay && ceremonyTimeWrite !== undefined\) \{\s*const placed = await placeCeremonyBlock\(\{ supabase, eventId, day: nextDay, time: ceremonyTimeWrite \}\);/, 'the ceremony step still runs on a date-only move — the ceremony would move twice');
-  assert.doesNotMatch(src.slice(place, place + 400), /fromDay/, 'the ceremony step still drags the ceremony alone');
-  // One exact-day rule for the ceremony's day and the move's two days.
-  assert.match(src, /const priorDay = exactDayOf\(live\.events\.event_date, live\.events\.event_date_precision\);/);
-  // A failed move is SAID — the date is live, so Apply again would not finish it.
-  assert.match(src, /if \(!shifted\.ok\) \{[\s\S]{0,600}?your Schedule stayed on the old day/, 'a Schedule that did not move reads as "press Apply again", which cannot move it');
+test('a SAVED date moves the WHOLE Schedule — in the date’s one door; Apply only stands a ceremony time on the live day', () => {
+  /* 🗓 The date saves to the event at once (owner 2026-11-05, "it shouldn't rely on the hub"): the move left Apply for
+     `updateEventDate`, which runs it right after its write. */
+  const door = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/actions.ts'), 'utf8'));
+  const body = door.slice(door.indexOf('export async function updateEventDate'), door.indexOf('export async function setPlanningMode'));
+  const write = body.search(/\.update\(\{\s*event_date: eventDate/);
+  const move = body.search(/const shifted = await moveScheduleWithDate\(\{\s*supabase,\s*eventId,\s*fromDay: exactDayOf\(prior\.date, prior\.precision\),\s*toDay: exactDayOf\(eventDate, newPrecision\),\s*\}\);/);
+  assert.ok(write > 0, 'anti-vacuity: the date door writes the date');
+  assert.ok(move > write, 'the date door does not move the whole Schedule after it writes the date');
+  // A failed move is SAID beside a saved date — never "the date did not save".
+  assert.match(body.slice(move), /if \(!shifted\.ok\) \{[\s\S]{0,300}?your Schedule stayed on the old day/);
+  // Apply: the ceremony time stands on the LIVE day (one exact-day rule), and nothing there moves the Schedule.
+  const apply = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/hub-draft-actions.ts'), 'utf8'));
+  assert.match(apply, /const nextDay = exactDayOf\(live\.events\.event_date, live\.events\.event_date_precision\);/);
+  assert.match(apply, /if \(nextDay && ceremonyTimeWrite !== undefined\) \{\s*const placed = await placeCeremonyBlock\(\{ supabase, eventId, day: nextDay, time: ceremonyTimeWrite \}\);/);
+  assert.doesNotMatch(apply, /moveScheduleWithDate/, 'Apply moves the Schedule — it never holds a date any more');
 });
 
 /* 🔒 ALL OR NOTHING, AND ONCE (2026-10-04, train-g audit): the move is ONE SQL

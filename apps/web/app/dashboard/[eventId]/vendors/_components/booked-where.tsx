@@ -16,12 +16,19 @@
  *
  * Every word and every state is decided in `lib/supplier-where.ts`; this file draws it and calls the one action.
  */
-import { useContext, useRef, useState } from 'react';
+import { useContext, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChosenRow, FactRow } from '@/app/_components/form-row';
+import { ChosenRow, FactRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
+import { Check, Send, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
+  WHERE_ASK_WORDS,
   WHERE_WORDS,
+  isLockedRefusal,
+  whereAskRefusalWords,
   whereRefusalWords,
   whereSaveVerdict,
   type InHouseWhere,
@@ -41,9 +48,28 @@ async function saveWhere(args: { vendorId: string; blockIds: string[]; coveredGr
     p_block_ids: args.blockIds,
     p_covered_group: args.coveredGroup,
   });
-  if (error || !data) return { ok: false, message: whereRefusalWords(error?.message ?? '') };
+  if (error || !data) {
+    const message = error?.message ?? '';
+    return { ok: false, message: whereRefusalWords(message), locked: isLockedRefusal(message) };
+  }
   const r = data as { after: string[] | null; told: boolean | null };
   return { ok: true, picked: r.after ?? [], told: r.told === true };
+}
+
+/**
+ * 🔒 A supplier who LOCKED their part (migration 20271303409352) has their Where changed only by request (owner
+ * 2026-11-04): `host_ask_supplier_where` writes the ask and tells them in the app, in one statement; they answer on
+ * their Schedule (migration 20271308641275).
+ */
+async function askWhere(vendorId: string, blockIds: string[], note: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data, error } = await createClient().rpc('host_ask_supplier_where', {
+    p_vendor_id: vendorId,
+    p_block_ids: blockIds,
+    // ✍ Optional, one line (owner 2026-11-04, answer 4 on #7260): the supplier reads why, beside the ask.
+    p_note: note.trim() || null,
+  });
+  if (error || !data) return { ok: false, message: whereAskRefusalWords(error?.message ?? '') };
+  return { ok: true };
 }
 
 /** The pill's words: the picked chapters' own names, or the ask. */
@@ -79,6 +105,10 @@ function WherePick({
   const router = useRouter();
   const [picked, setPicked] = useState<string[]>([...initial]);
   const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  // 🔒 The set the lock refused — kept so "Send them a request" asks for exactly it.
+  const [refused, setRefused] = useState<string[] | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askNote, setAskNote] = useState('');
   // Ticks save IN ORDER (each save sends the whole set, so the last tap is what stays), and only the newest answer
   // speaks; a refusal puts back what was last saved.
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -117,8 +147,10 @@ function WherePick({
       if (!res.ok) {
         setPicked(saved.current);
         setSaid({ tone: 'error', text: res.message });
+        setRefused(res.locked && !covered ? next : null);
         return;
       }
+      setRefused(null);
       setSaid(res.told ? { tone: 'ok', text: 'Saved. They were told in the app.' } : null);
       // The row's own line and the "need a chapter" count read again — in place, the screen kept.
       // one-render: keep (client-write) — the write is the browser's own rpc, so nothing on the server revalidated
@@ -126,7 +158,19 @@ function WherePick({
     });
   };
 
+  const sendAsk = async () => {
+    if (!refused) return;
+    setAsking(true);
+    const r = await askWhere(vendorId, refused, askNote);
+    setAsking(false);
+    if (!r.ok) return setSaid({ tone: 'error', text: r.message });
+    setRefused(null);
+    setAskNote('');
+    setSaid({ tone: 'ok', text: 'Request sent. They answer on their Schedule.' });
+  };
+
   return (
+    <>
     <ChosenRow
       name={name}
       about={{ words: about }}
@@ -141,6 +185,34 @@ function WherePick({
       problem={said?.tone === 'error' ? said.text : undefined}
       note={said?.tone === 'ok' ? said.text : undefined}
     />
+    {refused && !standIn.setWhere ? (
+      <div className="flex flex-col gap-1 pt-1" data-where-locked-ask="">
+        <TypedRow
+          name="Note"
+          about={{ words: 'Optional, one line. They read it beside your request.' }}
+          value={askNote}
+          empty="Why the change"
+          maxLength={200}
+          onKeep={(t) => {
+            setAskNote(t.trim());
+            return { ok: true as const };
+          }}
+          data="where-locked-ask-note"
+        />
+        <div className="flex justify-end">
+        <ActionButton
+          tone="brand"
+          main
+          icon={Send}
+          label={asking ? 'Sending…' : 'Send them a request'}
+          disabled={asking}
+          onClick={() => void sendAsk()}
+          data-testid="where-locked-ask"
+        />
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
 
@@ -230,4 +302,130 @@ export function QuoteWhereFact({ where }: { where: SupplierWhere }) {
   }
   const labels = where.options.filter((o) => where.picked.includes(o.key)).map((o) => o.label);
   return <FactRow name="Where" value={labels.join('\n')} where="Picked by the couple" data="quote-where" />;
+}
+
+/**
+ * 📖 "WHICH CHAPTERS WILL THEY SERVE?" — ASKED ONCE A SUPPLIER IS BOOKED (owner 2026-11-04; approved prototype "Event
+ * chapters — 4 Nov 2026", frame 5: *"the moment a supplier is booked, one sheet asks 'Which chapters will they
+ * serve?', prefilled from the trade's default parts … The host confirms."*).
+ *
+ * The couple learns a supplier said yes whenever they next open Suppliers, so the sheet opens THERE: for the first
+ * booked supplier that is on no chapter yet (the row already says "Needs at least 1 chapter"), prefilled from the
+ * trade's usual chapters (`row.suggestWhere`, lib/trade-chapters.ts). Confirm writes through the ONE door
+ * (`set_supplier_where`, which also tells a booked supplier); Not now keeps it closed for this visit — the row and the
+ * count still say it is missing. Ticks here are only the draft: nothing is saved before Confirm.
+ */
+export function WhereAsk({
+  eventId,
+  rows,
+}: {
+  eventId: string;
+  rows: readonly { vendorId: string; name: string; where: SupplierWhere | null; suggestWhere: readonly string[] }[];
+}) {
+  const standIn = useContext(BookedStandInCtx);
+  const router = useRouter();
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => {
+    try {
+      return new Set(JSON.parse(sessionStorage.getItem(WHERE_ASK_SKIPPED) ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const row = rows.find((r) => r.where?.kind === 'set' && r.where.needsOne && !skipped.has(r.vendorId)) ?? null;
+  if (!row || row.where?.kind !== 'set') return null;
+  return (
+    <WhereAskSheet
+      key={row.vendorId}
+      name={row.name}
+      options={row.where.options}
+      initial={row.suggestWhere.filter((id) => row.where?.kind === 'set' && row.where.options.some((o) => o.key === id))}
+      onSkip={() => {
+        const next = new Set(skipped).add(row.vendorId);
+        setSkipped(next);
+        try {
+          sessionStorage.setItem(WHERE_ASK_SKIPPED, JSON.stringify([...next]));
+        } catch {
+          // No storage: it stays closed for this render only.
+        }
+      }}
+      onConfirm={async (blockIds) => {
+        const args = { eventId, vendorId: row.vendorId, blockIds, coveredGroup: null, coveredLabel: null };
+        let res: SetWhereResult;
+        try {
+          res = standIn.setWhere ? await standIn.setWhere(args) : await saveWhere(args);
+        } catch {
+          res = { ok: false, message: 'That didn’t save. Nothing changed — try again.' };
+        }
+        // one-render: keep (client-write) — the browser's own rpc; the row's line and the count read again in place.
+        if (res.ok && !standIn.setWhere) router.refresh();
+        return res;
+      }}
+    />
+  );
+}
+
+const WHERE_ASK_SKIPPED = 'sn:where-ask-skipped';
+
+function WhereAskSheet({
+  name,
+  options,
+  initial,
+  onSkip,
+  onConfirm,
+}: {
+  name: string;
+  options: readonly WhereOption[];
+  initial: readonly string[];
+  onSkip: () => void;
+  onConfirm: (blockIds: string[]) => Promise<SetWhereResult>;
+}) {
+  const headingId = useId();
+  const [picked, setPicked] = useState<string[]>([...initial]);
+  const [state, setState] = useState<{ kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; text: string } | { kind: 'done' }>({ kind: 'idle' });
+  if (state.kind === 'done') return null;
+  return (
+    <Sheet open onClose={onSkip} labelledById={headingId} title={`${name} is booked`}>
+      <div data-where-ask={name} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
+        <InfoTip label={WHERE_ASK_WORDS.question} labelAs="h3" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start">
+          {WHERE_ASK_WORDS.info}
+        </InfoTip>
+        <FormRows width="wide">
+          <ChosenRow
+            name="Chapters"
+            label="Chapters"
+            value={null}
+            options={options}
+            picked={picked}
+            onPick={(key) => {
+              const set = new Set(picked);
+              if (set.has(key)) set.delete(key);
+              else set.add(key);
+              setPicked(options.map((o) => o.key).filter((k) => set.has(k)));
+              setState({ kind: 'idle' });
+            }}
+            buttonText={pillText(options, picked)}
+            data="where-ask"
+            attrs={{ 'data-where-picked': picked.join(' ') }}
+            problem={state.kind === 'error' ? state.text : undefined}
+          />
+        </FormRows>
+        <div className="flex justify-end gap-2">
+          <ActionButton tone="neutral" icon={X} label="Not now" quiet onClick={onSkip} />
+          <ActionButton
+            tone="brand"
+            icon={Check}
+            main
+            label={state.kind === 'saving' ? 'Saving…' : 'Confirm'}
+            data-testid="where-ask-confirm"
+            disabled={picked.length === 0 || state.kind === 'saving'}
+            onClick={async () => {
+              setState({ kind: 'saving' });
+              const res = await onConfirm(picked);
+              setState(res.ok ? { kind: 'done' } : { kind: 'error', text: res.message });
+            }}
+          />
+        </div>
+      </div>
+    </Sheet>
+  );
 }

@@ -124,7 +124,7 @@ test('llms.txt stops requiring a price and stops printing one', () => {
     reason. A "neighbour" has to be something that is NOT part of the change.
   */
   assert.match(body, /^\s*'PAKANTA',/m);
-  assert.match(body, /^\s*'SETNAYAN_AI',/m);
+  assert.match(body, /^\s*'EVENT_PLUS',/m); // was SETNAYAN_AI until 2026-11-04, when it left the list (off sale on its own)
   /*
     🪤 STRIPPED, because the fix QUOTES the call it removed. On raw source this
     assertion failed on its own first run and reported the defect it had just

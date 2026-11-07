@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Dices } from 'lucide-react';
+import { PasswordField } from '@/app/_components/password-field';
 
 // Write-only secret input for the Secrets & Rotation board.
 //
@@ -63,12 +64,15 @@ export function SecretValueInput({
       <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
         {label}
       </span>
-      <input
+      <PasswordField
         id={inputId}
         ref={ref}
         // A generated value is shown once so the owner can copy it into any
-        // other system that needs the same secret; a pasted value stays masked.
-        type={revealGenerated ? 'text' : 'password'}
+        // other system that needs the same secret; a pasted value starts
+        // masked and shows only when the owner taps the eye.
+        revealed={revealGenerated}
+        onRevealedChange={setRevealGenerated}
+        wrapperClassName="mt-1"
         name={name}
         autoComplete="off"
         autoCorrect="off"
@@ -76,7 +80,7 @@ export function SecretValueInput({
         spellCheck={false}
         data-1p-ignore
         placeholder={placeholder ?? 'Paste the new value'}
-        className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
+        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
       />
       {canGenerate ? (
         <span className="mt-1.5 flex flex-wrap items-center gap-2">

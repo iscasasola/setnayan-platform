@@ -46,10 +46,15 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   supplier_where_changed: 'normal', // the host changed which chapters a booked supplier works
   supplier_part_changed: 'normal', // a host or coordinator changed a moment this supplier is on (one per save)
   claim_access_answered: 'normal', // the couple let in (or declined) a supplier who joined from their link
+  found_you_lead: 'normal', // the couple had found this supplier on Setnayan before adding them by hand (found-you)
+  fee_dispute_opened: 'normal', // a supplier's booking-fee dispute waits for an admin
+  fee_dispute_answered: 'normal', // an admin accepted or rejected a supplier's booking-fee dispute
   coordinator_invited: 'normal', // a booked coordinator's invite to the event, waiting on their Accept (E1)
   schedule_ask: 'normal', // a host or the coordinator asks a booked supplier to change their times (D2)
   schedule_ask_answered: 'normal', // the supplier said yes or no to that ask
+  supplier_where_asked: 'normal', // a booked supplier asks to serve these chapters — the host OKs it
   papic_originals_reminder: 'normal', // day 60 · 80 · 89 of the 3 months a host's originals are kept (photo rule)
+  supplier_questions_sent: 'normal', // a supplier sent their questions into the event from the chat ＋ (every supplier)
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
   vendor_inquiry_received: 'normal',
@@ -119,6 +124,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   completion_accepted: 'low',
   booking_fee_waived: 'low',
   guest_takedown_honored: 'low',
+  service_card_moderated: 'low',
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',

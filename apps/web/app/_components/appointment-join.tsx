@@ -1,181 +1,202 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Video, Phone } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { startThreadCall } from '@/app/_actions/thread-call-actions';
-import { ThreadCallRoom } from './thread-call-room';
-
 /**
- * The live "Join" affordance for a CONFIRMED video/voice appointment
- * (Relationship_Workspace_and_Appointments · Appointments · PR 12 follow-ups).
- * Replaces the old deep-link stub: pressing Join opens the SAME free P2P call
- * room the thread uses (keyed `call:{threadId}`), so the two parties connect
- * directly — media never touches a Setnayan server (lib/call-webrtc.ts, NOT
- * modified here).
+ * How a VIRTUAL meeting is reached — a Jitsi room Setnayan makes, opened OUT of Setnayan, never an in-app call
+ * (owner 2026-10-28 "remove both voice and video call"; 2026-11-04 "VIRTUAL = JITSI ONLY" and "ONE BUTTON THAT SAYS
+ * WHAT THE ROOM NEEDS"). Nothing from the call stack is imported here — guard:
+ * `lib/meetings-never-open-an-in-app-call.test.ts`.
  *
- * The appointment already fixes the kind (video / voice), so this is a
- * single-button twin of <ThreadCallLauncher/>: it reuses the exact same
- * startThreadCall action + ThreadCallRoom + thread_calls realtime probe, just
- * presented as one "Join" button instead of the voice/video launcher pair.
- *
- *   • If the OTHER party already started a call on this thread (a fresh
- *     `ringing` thread_calls row, server-fetched on mount + kept live via a
- *     Supabase Realtime subscription), Join joins THAT call.
- *   • Otherwise Join starts a new call of the appointment's kind.
- *
- * Both paths land in `call:{threadId}`, so whichever row is used the peers meet.
- * Fail-soft: startThreadCall returning an error (e.g. thread not yet accepted)
- * surfaces inline and never throws.
+ *   • A confirmed meeting, from 15 min before start → ONE button (`roomButtonFor`):
+ *       – no room yet → "Create the room" (ⓘ: you open it, signing in once). The proposer is offered it first
+ *         (filled); the other side sees it outlined with a note, and may press it too. Pressing records who/when
+ *         ONCE (`createMeetingRoom`) and opens the Jitsi link in a new tab;
+ *       – created → "Room created · Enter the room" for everyone (ⓘ: no account needed).
+ *     The state is read on load and set from the press's answer — no live connection.
+ *   • Before that, or while still proposed → the link read-only, with Copy.
+ *   • An older row's Meet / Zoom / Messenger link keeps its own "Join on …" (no room to create).
  */
 
-type CallKind = 'voice' | 'video';
-type OpenCall = { kind: CallKind; callId: string };
-type Incoming = { callId: string; kind: CallKind };
+import { useEffect, useState, useTransition } from 'react';
+import { Check, Copy, ExternalLink, Video } from 'lucide-react';
+import { InfoTip } from './info-tip';
+import {
+  joinIsOpen,
+  meetingHasRoom,
+  parseVirtualLocation,
+  roomButtonFor,
+  virtualHandoff,
+  virtualSummary,
+  virtualValueText,
+} from '@/lib/virtual-meeting';
+import { createMeetingRoom } from './appointments-actions';
 
-// A ringing row older than this is treated as stale and does NOT count as an
-// incoming call. Live INSERTs are always fresh; this only guards the mount fetch.
-const RINGING_MAX_AGE_MS = 2 * 60 * 1000;
+const FILLED =
+  'inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-2.5 py-1.5 text-[11px] font-semibold text-cream transition hover:bg-terracotta-800 disabled:opacity-60';
+const OUTLINED =
+  'inline-flex items-center gap-1.5 rounded-lg border border-terracotta-700/50 px-2.5 py-1.5 text-[11px] font-semibold text-terracotta-800 transition hover:bg-terracotta-700/[0.06] disabled:opacity-60'; // no-card-ok: the outlined "Create the room" <button> the other side is offered
 
-export function AppointmentJoinButton({
-  threadId,
-  currentUserId,
-  kind,
-  counterpartyLabel = 'them',
+export function AppointmentJoin({
+  appointmentId,
+  location,
+  scheduledAt,
+  confirmed,
+  isProposer,
+  roomCreatedAt,
+  returnPath,
 }: {
-  threadId: string;
-  currentUserId: string;
-  kind: CallKind;
-  counterpartyLabel?: string;
+  appointmentId: string;
+  /** `event_appointments.location` of a Virtual row (`"jitsi|<link>"`, an older app's value, a bare link, or null). */
+  location: string | null;
+  scheduledAt: string | null;
+  confirmed: boolean;
+  /** This viewer's side proposed the meeting (`initiated_by`) — offered "Create the room" first. */
+  isProposer: boolean;
+  /** `event_appointments.room_created_at` as read on load. */
+  roomCreatedAt: string | null;
+  returnPath: string;
 }) {
-  const supabase = useMemo(() => createClient(), []);
-  const [open, setOpen] = useState<OpenCall | null>(null);
-  const [incoming, setIncoming] = useState<Incoming | null>(null);
-  const [starting, setStarting] = useState(false);
+  const [place, setPlace] = useState(() => parseVirtualLocation(location));
+  const [createdAt, setCreatedAt] = useState(roomCreatedAt);
   const [error, setError] = useState<string | null>(null);
-
-  // Initial incoming-call fetch (RLS-scoped) + live subscription. Identical
-  // probe to ThreadCallLauncher so both surfaces agree on "is a call ringing".
+  const [pending, startTransition] = useTransition();
+  const [now, setNow] = useState(() => Date.now());
+  // Re-check the 15-minute window once a minute while the card is on screen (a clock, not a connection).
   useEffect(() => {
-    let cancelled = false;
+    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const [copied, setCopied] = useState(false);
 
-    (async () => {
-      const { data } = await supabase
-        .from('thread_calls')
-        .select('call_id, kind, status, started_by_user_id, started_at')
-        .eq('thread_id', threadId)
-        .eq('status', 'ringing')
-        .neq('started_by_user_id', currentUserId)
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled || !data) return;
-      const fresh =
-        Date.now() - new Date(data.started_at as string).getTime() < RINGING_MAX_AGE_MS;
-      if (fresh && (data.kind === 'voice' || data.kind === 'video')) {
-        setIncoming({ callId: data.call_id as string, kind: data.kind });
-      }
-    })();
+  const handoff = virtualHandoff(place);
+  const open = confirmed && joinIsOpen(scheduledAt, now);
 
-    const channel = supabase
-      .channel(`appt-calls-${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'thread_calls',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as {
-            call_id: string;
-            kind: CallKind;
-            status: string;
-            started_by_user_id: string | null;
-          };
-          if (row.status !== 'ringing') return;
-          if (row.started_by_user_id === currentUserId) return;
-          setIncoming({ callId: row.call_id, kind: row.kind });
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'thread_calls',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as { call_id: string; status: string };
-          if (row.status !== 'ringing') {
-            setIncoming((prev) => (prev && prev.callId === row.call_id ? null : prev));
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
-    };
-  }, [supabase, threadId, currentUserId]);
-
-  const join = useCallback(async () => {
-    setError(null);
-    // If the other side is already ringing, join their existing call.
-    if (incoming) {
-      setOpen({ kind: incoming.kind, callId: incoming.callId });
-      setIncoming(null);
-      return;
+  // An older row's own app — no room to create; its link just opens.
+  if (!meetingHasRoom(place)) {
+    if (handoff && open) {
+      return (
+        <a href={handoff.href} target="_blank" rel="noopener noreferrer" data-meeting-join className={FILLED}>
+          <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {handoff.label}
+          <ExternalLink aria-hidden className="h-3 w-3 opacity-70" strokeWidth={2} />
+        </a>
+      );
     }
-    setStarting(true);
-    try {
-      const fd = new FormData();
-      fd.set('thread_id', threadId);
-      fd.set('kind', kind);
-      const res = await startThreadCall(fd);
-      if (res.ok) {
-        setOpen({ kind: res.kind, callId: res.callId });
-      } else {
-        setError(res.error);
-      }
-    } catch {
-      setError('Could not start the call. Please try again.');
-    } finally {
-      setStarting(false);
-    }
-  }, [incoming, threadId, kind]);
+    return <ReadOnly text={virtualValueText(place)} copied={copied} setCopied={setCopied} note={confirmed && handoff ? `“${handoff.label}” shows 15 min before the start.` : null} />;
+  }
+
+  const room = roomButtonFor(createdAt, isProposer);
 
   if (open) {
+    if (room.kind === 'enter' && handoff) {
+      return (
+        // The ⓘ hangs from the ROW's start (`!static` + a `relative` row), not from the ⓘ: from the ⓘ, ~150 px in,
+        // an 18rem popover ran past a 390-px screen.
+        <div className="relative flex flex-wrap items-center gap-2" data-meeting-room="enter">
+          <span className="text-[11px] font-medium text-ink/60">{room.lead}</span>
+          <a href={handoff.href} target="_blank" rel="noopener noreferrer" data-meeting-join className={FILLED}>
+            <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {room.label}
+            <ExternalLink aria-hidden className="h-3 w-3 opacity-70" strokeWidth={2} />
+          </a>
+          <InfoTip label="About entering" align="start" labelClassName="sr-only" className="!static">
+            {room.tip}
+          </InfoTip>
+        </div>
+      );
+    }
     return (
-      <ThreadCallRoom
-        threadId={threadId}
-        kind={open.kind}
-        callId={open.callId}
-        counterpartyLabel={counterpartyLabel}
-        onLeave={() => setOpen(null)}
-      />
+      <div className="flex flex-col gap-1" data-meeting-room="create">
+        <div className="relative flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            className={room.primary ? FILLED : OUTLINED}
+            onClick={() => {
+              setError(null);
+              // Open the tab NOW, inside the tap — a tab opened after an await is blocked on iPhone.
+              const tab = window.open('', '_blank');
+              if (tab) {
+                tab.opener = null;
+                if (handoff) tab.location.href = handoff.href;
+              }
+              startTransition(async () => {
+                const res = await createMeetingRoom(appointmentId, returnPath);
+                if (!res.ok) {
+                  tab?.close();
+                  setError(res.error);
+                  return;
+                }
+                setCreatedAt(res.createdAt);
+                setPlace(parseVirtualLocation(`jitsi|${res.href}`));
+                if (tab && !handoff) tab.location.href = res.href;
+              });
+            }}
+          >
+            <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {pending ? 'Creating…' : room.label}
+          </button>
+          <InfoTip label="About creating the room" align="start" labelClassName="sr-only" className="!static">
+            {room.tip}
+          </InfoTip>
+        </div>
+        {room.note ? <p className="text-[10px] text-ink/50">{room.note}</p> : null}
+        {error ? (
+          <p role="alert" className="text-[11px] text-danger-700">
+            {error}
+          </p>
+        ) : null}
+      </div>
     );
   }
 
-  const Icon = kind === 'video' ? Video : Phone;
-  const ringing = Boolean(incoming);
+  // Not yet — the link read-only (or "No link yet": the room makes it), and when the button will show.
+  const when = confirmed ? `“${room.kind === 'enter' ? 'Enter the room' : 'Create the room'}” shows 15 min before the start.` : null;
+  if (!place.value) {
+    return (
+      <div className="flex flex-col gap-1" data-meeting-no-link>
+        <p className="text-[11px] font-medium text-ink/60">
+          {virtualSummary(place)} · <span className="text-ink/45">No link yet</span>
+        </p>
+        {when ? <p className="text-[10px] text-ink/45">{when}</p> : null}
+      </div>
+    );
+  }
+  return <ReadOnly text={virtualValueText(place)} copied={copied} setCopied={setCopied} note={when} />;
+}
 
+function ReadOnly({
+  text,
+  copied,
+  setCopied,
+  note,
+}: {
+  text: string;
+  copied: boolean;
+  setCopied: (v: boolean) => void;
+  note: string | null;
+}) {
   return (
-    <div className="inline-flex flex-col items-start gap-1">
-      <button
-        type="button"
-        onClick={join}
-        disabled={starting}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-2.5 py-1.5 text-[11px] font-semibold text-cream transition hover:bg-terracotta-800 disabled:opacity-60"
-        aria-label={ringing ? `Join the incoming ${kind} call` : `Join the ${kind} call`}
-      >
-        <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {starting ? 'Connecting…' : ringing ? 'Join now' : 'Join'}
-      </button>
-      {error ? <span className="text-[10px] text-danger-700">{error}</span> : null}
+    <div className="flex min-w-0 flex-col gap-1" data-meeting-readonly>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className="min-w-0 truncate text-[11px] text-ink/75">{text}</span>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(text).then(
+              () => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1600);
+              },
+              () => undefined,
+            );
+          }}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink/15 px-1.5 py-0.5 text-[10px] font-medium text-ink/65 hover:bg-ink/[0.04]"
+        >
+          {copied ? <Check aria-hidden className="h-3 w-3" /> : <Copy aria-hidden className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      {note ? <p className="text-[10px] text-ink/45">{note}</p> : null}
     </div>
   );
 }

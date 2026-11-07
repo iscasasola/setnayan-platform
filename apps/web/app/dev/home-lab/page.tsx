@@ -61,6 +61,11 @@
  *                                    puts "For SetnaProd" / "For Lola Nena" in the stance slot (prototype
  *                                    for_tag_on_event_cards_2026-10-22.html); `one=1` the one-card row
  *   ?order=a|b                       🔀 the header over "Claire & Indalecio" (a) or "Indalecio & Claire" (b), stored
+ *   ?nodate=1[&date=find]            🗓 a couple with no date yet ("No date yet"); the Countdown opens the REAL date sheet.
+ *   ?picked=YYYY-MM-DD               🗓 …and the same Home once a day is picked there: the date saves to the event at once
+ *                                    (owner 2026-11-05, "it shouldn't rely on the hub"), so the cover and the countdown
+ *                                    read it with no Apply. The lab's date door keeps the day in the `lab_home_date`
+ *                                    cookie and redraws (the lab has no database); `?picked=` sets it by hand.
  *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Hub Pro (owner 2026-10-14):
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
  *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
@@ -101,12 +106,18 @@ import { LabSpotlight } from './lab-spotlight';
 import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
 import { homeCoverWords } from '@/lib/home-cover-words';
+import { homeFacts } from '@/lib/home-facts';
+import type { GuestStats } from '@/lib/guests';
+
+/** No guest figures — the date lab reads only the countdown off `homeFacts`. */
+const LAB_NO_GUEST_STATS: GuestStats = { total: 0, attending: 0, pending: 0, declined: 0, maybe: 0, plus_ones: 0 };
 import { CollectionCard, CollectionGrid } from '@/app/_components/collection-card';
 import { EventPoster } from '@/app/_components/event-poster';
 import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
 import type { EventPosterFacts } from '@/lib/event-poster';
 import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
@@ -144,6 +155,7 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { OfflineScheduleLab } from './offline-schedule-lab';
 import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
 import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
@@ -361,7 +373,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -395,6 +407,27 @@ export default async function HomeLab({
             }),
           }
         : F0;
+  /* 🗓 `?nodate=1` / `?picked=` — the event's date as the lab's date door left it (owner 2026-11-05): no date yet, or the
+     day just picked, worded by the REAL `homeCoverWords` and counted down by the REAL `homeFacts`. */
+  const dayOf = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  const pickedDay = dayOf(q.picked) ?? (q.nodate === '1' ? dayOf((await cookies()).get('lab_home_date')?.value) : null);
+  const labDated = pickedDay
+    ? homeFacts({ eventDate: pickedDay, precision: 'day', timezone: null, guests: { stats: LAB_NO_GUEST_STATS, measured: false }, money: 'hidden' })
+    : null;
+  const labDate: { cover: Partial<typeof F>; countdown: { value: string; label: string; days: number | null; hasDate: boolean; long: string; placeLine: string } } | null = pickedDay && labDated
+    ? {
+        cover: homeCoverWords({ event_type: 'wedding', event_date: pickedDay, display_name: F.name }),
+        countdown: {
+          ...labDated.days,
+          days: labDated.figures.days,
+          hasDate: true,
+          long: new Date(`${pickedDay}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
+          placeLine: 'Tagaytay',
+        },
+      }
+    : q.nodate === '1'
+      ? { cover: { eyebrow: 'Wedding', shortDate: '' }, countdown: { value: '—', label: 'No date yet', days: null, hasDate: false, long: '', placeLine: 'Tagaytay' } }
+      : null;
   const labForWho: ForTag | undefined = 'forWho' in F ? (F.forWho as ForTag | undefined) : undefined;
   // 🏷 The Events board's Planning posters (owner 22 Oct 2026) — the real card parts on fixture facts.
   if (q.view === 'board') return <LabBoard tagged={q.for === '1'} one={q.one === '1'} />;
@@ -533,6 +566,7 @@ export default async function HomeLab({
   }
   if (q.view === 'offline') {
     /* 📶 EV3 — Ready for no signal · the supplier's saved mark · the Check-in desk's offline queue (offline-lab.tsx). */
+    if (q.schedule === '1') return <OfflineScheduleLab state={q.state} />;
     return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} />;
   }
   if (q.view === 'day') {
@@ -632,7 +666,9 @@ export default async function HomeLab({
   const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
     next,
     schedule: labSchedule,
-    countdown: weekOut
+    countdown: labDate
+      ? labDate.countdown
+      : weekOut
       ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' }
       : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
@@ -651,7 +687,7 @@ export default async function HomeLab({
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
-    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, drafted: false, venues: 'none' }} open={null}>
+    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, venues: 'none' }} open={null} landDateCookie="lab_home_date">
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
@@ -689,7 +725,12 @@ export default async function HomeLab({
           landed: null,
           renderKey: 'lab',
         }}
-        cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
+        cover={{
+          eyebrow: labDate?.cover.eyebrow ?? F.eyebrow,
+          shortDate: labDate ? labDate.cover.shortDate || undefined : F.shortDate,
+          name: F.name,
+          ...(labForWho ? { forWho: labForWho } : {}),
+        }}
         next={next}
         control={labControl}
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}

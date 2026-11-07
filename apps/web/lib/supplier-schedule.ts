@@ -18,6 +18,7 @@
  */
 
 import type { TaskContact } from './task-contact';
+import { chapterDayKey } from './supplier-where';
 import { inRunOrder, isRightAfter, momentClockWords } from './moment-order';
 import { VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
@@ -126,6 +127,10 @@ export type SupplierBlockRow = {
   responsible_vendor_ids: string[];
   created_at: string | null;
   updated_at: string | null;
+  ingress_minutes_before?: number | null;
+  egress_minutes_after?: number | null;
+  /** 🏛 The venue booking that holds the chapter's hours (migration 20271307658341). */
+  hours_vendor_id?: string | null;
 };
 
 /** One of this supplier's requests (`event_schedule_suggestions`, their org's own rows). */
@@ -143,6 +148,12 @@ export type SupplierRequestRow = {
   /** Went straight in under the host's Auto-agree (no person decided) — the Answered list says so. */
   auto_agreed?: boolean | null;
   created_at: string;
+  /** 🏛 A venue's hours request: setup / pack-up in minutes. */
+  proposed_ingress_minutes?: number | null;
+  proposed_egress_minutes?: number | null;
+  /** 📍 A Where request (kind 'where', migration 20271308641275): their booking and the chapters asked. */
+  where_vendor_id?: string | null;
+  proposed_block_ids?: string[] | null;
 };
 
 /** 📇 A task contact the supplier may read (RLS: only on moments they are on) — 4 additions (3). */
@@ -188,6 +199,14 @@ export type SupplierChapter = {
   moments: SupplierMoment[];
   /** Their waiting adds and times into this chapter. */
   waitingAdds: SupplierRequestRow[];
+  /** 🏛 VENUE HOURS (2026-11-04): this supplier is the venue booked to the chapter, so it sets the chapter's hours. */
+  setsHours: boolean;
+  /** The hours are approved and held by this venue (the host asks it to change). */
+  holdsHours: boolean;
+  ingress_minutes_before: number | null;
+  egress_minutes_after: number | null;
+  /** Their hours, sent and waiting for the host. */
+  hoursWaiting: SupplierRequestRow | null;
 };
 
 export type SupplierDay = {
@@ -218,7 +237,10 @@ export function buildSupplierDay(input: {
   requests: readonly SupplierRequestRow[];
   /** 📇 Task contacts RLS let them read; absent = none read. */
   contacts?: readonly SupplierContactRow[];
+  /** 🏛 Their bookings that are VENUES — a venue sets the hours of the chapters it is booked to. */
+  venueBookingIds?: readonly string[];
 }): SupplierDay {
+  const venueIds = new Set(input.venueBookingIds ?? []);
   const contactsByBlock = new Map<string, TaskContact[]>();
   for (const c of input.contacts ?? []) contactsByBlock.set(c.block_id, [...(contactsByBlock.get(c.block_id) ?? []), { name: c.name, phone: c.phone }]);
   const mine = new Set(input.myBookingIds);
@@ -234,7 +256,7 @@ export function buildSupplierDay(input: {
   }
 
   // A Time-TBA chapter's 00:00 is only its day: it sorts after that day's timed chapters, never first as if at midnight.
-  const dayKey = (b: SupplierBlockRow) => (b.time_tba ? `${(b.start_at ?? '').slice(0, 10)}~` : (b.start_at ?? ''));
+  const dayKey = (b: SupplierBlockRow) => chapterDayKey({ startAt: b.start_at, timeTba: b.time_tba });
   const tops = input.blocks
     .filter((b) => !b.parent_block_id)
     .slice()
@@ -281,6 +303,11 @@ export function buildSupplierDay(input: {
       linked,
       moments,
       waitingAdds: open.filter((r) => r.kind === 'new' && r.proposed_parent_block_id === c.block_id),
+      setsHours: c.responsible_vendor_ids.some((id) => venueIds.has(id)),
+      holdsHours: Boolean(c.hours_vendor_id && venueIds.has(c.hours_vendor_id)),
+      ingress_minutes_before: c.ingress_minutes_before ?? null,
+      egress_minutes_after: c.egress_minutes_after ?? null,
+      hoursWaiting: open.find((r) => r.kind === 'hours' && r.block_id === c.block_id) ?? null,
     };
   });
 
@@ -290,7 +317,8 @@ export function buildSupplierDay(input: {
   const otherWaiting = open.filter(
     (r) =>
       (r.kind === 'new' && (!r.proposed_parent_block_id || !chapterIds.has(r.proposed_parent_block_id))) ||
-      (r.kind !== 'new' && (!r.block_id || !ownMomentIds.has(r.block_id))),
+      // 📍 A Where request is drawn on its own row (their Where), never as "A suggestion".
+      (r.kind !== 'new' && r.kind !== 'hours' && r.kind !== 'where' && (!r.block_id || !ownMomentIds.has(r.block_id))),
   );
 
   return { chapters, otherWaiting, stamps };
@@ -363,6 +391,7 @@ export function timesRequests(input: {
 
 /** How a waiting request reads on the supplier's day. */
 export function waitingWords(r: Pick<SupplierRequestRow, 'kind' | 'proposed_label'>, momentLabel: string | null): string {
+  if (r.kind === 'where') return 'Your chapters';
   if (r.kind === 'remove') return `Delete “${momentLabel ?? r.proposed_label ?? 'a moment'}”`;
   if (r.kind === 'adjust') return momentLabel ? `Change “${momentLabel}”` : 'A suggestion';
   return r.proposed_label ?? 'A new moment';

@@ -90,3 +90,20 @@ export function lockedShopOnMoments(
   }
   return null;
 }
+
+/**
+ * 📖 The chapters' MOMENT SHEET (`moment-sheets.tsx`, the Schedule page's current editor): the first LOCKED supplier on
+ * this one moment, by shop name — or null. The sheet says it BEFORE a change ("<shop> isn’t taking changes. Send them a
+ * request instead.", with the Ask on the same sheet), and again in place of "Try again." when a save is refused.
+ * `locked` is the page's supplier read (`times === NOT_TAKING_CHANGES`), handed down on `who.suppliers`.
+ */
+export function lockedShopOnMoment(
+  vendorIds: readonly string[],
+  suppliers: ReadonlyArray<{ id: string; name: string; locked?: boolean }>,
+): string | null {
+  for (const id of vendorIds) {
+    const s = suppliers.find((x) => x.id === id && x.locked === true);
+    if (s) return s.name;
+  }
+  return null;
+}

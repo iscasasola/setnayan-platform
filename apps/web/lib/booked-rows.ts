@@ -33,6 +33,8 @@
  *
  * Pure: no React, no I/O, no clock of its own (`now` is a parameter).
  */
+import { keysForGroup, suggestedChapters } from '@/lib/trade-chapters';
+import type { DefaultChapterKey } from '@/lib/schedule';
 import { priceToday } from './price-summary';
 import { timesMarkLine, timesMarkOf, type ScheduleMarkFacts } from './supplier-schedule-marks';
 import { lockRequestFuseLabel } from './lock-request-state';
@@ -183,6 +185,11 @@ export type BookedRow = {
    * viewer cannot read the Schedule).
    */
   where: SupplierWhere | null;
+  /**
+   * 📖 "Which chapters will they serve?" starts here (owner 2026-11-04, prototype frame 5): the event's chapters this
+   * trade usually serves (`service_categories.default_chapters`, lib/trade-chapters.ts). Empty = no suggestion.
+   */
+  suggestWhere: string[];
   verbs: BookedVerb[];
   threadId: string | null;
   /**
@@ -190,6 +197,12 @@ export type BookedRow = {
    * their claim link (plan "Sync: … Move its door to the Team row. Until they join, the host enters their times.").
    */
   invite: boolean;
+  /**
+   * ♡ After the day, for a HOST (never a coordinator) and a booked shop on Setnayan: the service this booking names
+   * and whether they already keep it as a favorite (owner 2026-11-06, prototype §E). Absent = no heart.
+   * Decided by `offerHostFavorites` (lib/favorites.server.ts) in `BookedSlot`.
+   */
+  favorite?: { shopId: string; serviceId: string | null; on: boolean } | null;
 };
 
 /**
@@ -329,6 +342,7 @@ function bookedRowOf(
     plansKnown: boolean;
     chapters: readonly WhereChapter[] | null | undefined;
     venues: ReadonlyMap<string, string>;
+    tradeChapters: ReadonlyMap<string, readonly DefaultChapterKey[]> | null | undefined;
   },
 ): BookedRow {
   const thread = f.threadId !== null;
@@ -366,6 +380,7 @@ function bookedRowOf(
             covered: f.covered,
             coveredWhere: f.coveredWhere,
           }),
+    suggestWhere: extra.chapters ? suggestedChapters(extra.chapters, keysForGroup(f.groupId, extra.tradeChapters)) : [],
     threadId: f.threadId,
     invite: canInviteSupplier({ marketplace_vendor_id: f.shopId }),
   };
@@ -488,6 +503,8 @@ export function bookedView(args: {
    * `undefined` = nobody asked (no Where is drawn).
    */
   chapters?: readonly WhereChapter[] | null;
+  /** 📖 Each coarse category's default chapters (`readTradeChapters`); `null`/`undefined` = no suggestion. */
+  tradeChapters?: ReadonlyMap<string, readonly DefaultChapterKey[]> | null;
   now?: Date;
 }): BookedView {
   const factsById = new Map(args.facts.map((f) => [f.vendorId, f]));
@@ -526,6 +543,7 @@ export function bookedView(args: {
           plansKnown: args.plans !== null,
           chapters: args.chapters,
           venues,
+          tradeChapters: args.tradeChapters,
         }),
       );
     }

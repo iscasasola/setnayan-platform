@@ -25,7 +25,8 @@ import type { CustomerLane } from '@/lib/vendor-customer-pipeline';
   show people and not events"*). The first view's key and word are `events` / "Events".
 
   ⏭ QR is the ruling's fourth section, but it is not drawn here: the QR codes are their own page today
-  (`/vendor-dashboard/invite`, reached from Dates), and making them a Customers section is the S4 build. A ▾ choice that
+  (`/vendor-dashboard/invite`, reached from Dates — Booked · one-use and Crew; the marketing codes moved to Shop ›
+  Promote 2026-11-05), and making them a Customers section is the S4 build. A ▾ choice that
   leaves Customers would be a door to another page dressed as a section.
 */
 export const CUSTOMER_SEGMENTS = ['events', 'dates', 'money'] as const;

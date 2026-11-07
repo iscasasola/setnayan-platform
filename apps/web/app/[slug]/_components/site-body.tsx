@@ -36,8 +36,8 @@ import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-cap
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { saveAttendedVendorAction, submitRsvp } from '../actions';
+import { submitRsvp } from '../actions';
+import { HubSuppliersMadeThisDay } from './hub-suppliers-made-this-day';
 import { joinEventAction } from '@/app/join/[eventId]/actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
@@ -2098,6 +2098,7 @@ export async function SiteBody({
               dock={!isEditorCanvas}
               inFoot={inFoot}
               signedInNotListed={anon.signedInNotListed}
+              seatUnread={anon.seatUnread}
               theOrganizer={clientWords.theOrganizer}
               mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
               joinAction={
@@ -2751,6 +2752,7 @@ export async function SiteBody({
       account,
       profileDetails,
       eventVendorCredits,
+      hubFavorites,
       saveFlash,
       rsvpFlash,
       faceMode,
@@ -3809,78 +3811,14 @@ export async function SiteBody({
               {group('home', <>{!clientWords.solemn &&
               eventIsBehind &&
               eventVendorCredits.length > 0 ? (
-                <section
-                  aria-label="Suppliers who made this day"
-                  className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
-                >
-                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                    Suppliers who made this day
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a supplier? Keep them.</h2>
-                  <p className="mt-1 text-sm text-ink/70">
-                    Save any supplier here to your Setnayan account — they&rsquo;ll be waiting when you
-                    plan your own event.
-                  </p>
-                  {saveFlash ? (
-                    <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">
-                      {saveFlash}
-                    </p>
-                  ) : null}
-                  <ul className="mt-4 space-y-2">
-                    {eventVendorCredits.map((v) => (
-                      <li
-                        key={v.vendorProfileId}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-3"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          {v.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={v.logoUrl}
-                              alt=""
-                              className="h-10 w-10 shrink-0 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta">
-                              {v.displayName.trim().charAt(0).toUpperCase() || 'V'}
-                            </span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-ink">
-                              {v.businessSlug ? (
-                                <Link href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
-                                  {v.displayName}
-                                </Link>
-                              ) : (
-                                v.displayName
-                              )}
-                            </p>
-                            {v.categoryLabel ? (
-                              <p className="truncate text-sm text-ink/70">{v.categoryLabel}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                        {showClaimAccountCta ? (
-                          <span className="shrink-0 text-xs text-ink/70">Account needed</span>
-                        ) : (
-                          <form
-                            action={saveAttendedVendorAction.bind(
-                              null,
-                              event.event_id,
-                              event.slug ?? '',
-                              v.vendorProfileId,
-                            )}
-                            className="shrink-0"
-                          >
-                            <SubmitButton className="button-secondary text-sm" pendingLabel="Saving…">
-                              Save
-                            </SubmitButton>
-                          </form>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                <HubSuppliersMadeThisDay
+                  credits={eventVendorCredits}
+                  favorites={hubFavorites}
+                  accountNeeded={showClaimAccountCta}
+                  flash={saveFlash}
+                  eventId={event.event_id}
+                  slug={event.slug ?? ''}
+                />
               ) : null}</>, { chapters: true, className: 'space-y-12' })}
 
 

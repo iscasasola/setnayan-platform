@@ -7,7 +7,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StarRatingInput } from '@/app/_components/star-rating-input';
 import { OnTimeBinaryInput } from '@/app/_components/on-time-binary-input';
-import { fetchOwnReviewForVendor, REVIEW_AXIS_LABEL, REVIEW_ON_TIME_LABEL, type ReviewAxis } from '@/lib/reviews';
+import {
+  coupleInitials,
+  fetchOwnReviewForVendor,
+  REVIEW_AXIS_LABEL,
+  REVIEW_ON_TIME_LABEL,
+  shownCoupleName,
+  type ReviewAxis,
+} from '@/lib/reviews';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import {
   detectSelfReviewSignal,
@@ -19,6 +26,16 @@ import {
 import { submitCoupleReview, submitReviewAppeal, coupleConfirmReceived, coupleReportNonDelivery } from './actions';
 import { reviewState, type CompletionFields } from '@/lib/completion-handshake';
 import { RecommendVendorCard } from './_components/recommend-vendor-card';
+import { ReviewRequestCard, type ReviewRequestCardItem } from './_components/review-request-card';
+import { CoordinatorRefusedState } from './_components/coordinator-refused-state';
+import { ReviewThanks } from './_components/review-thanks';
+import { ShownAsRow } from './_components/shown-as-row';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { formatEventTypeLabel } from '@/lib/reviews';
+import { FavoriteAddCard } from '@/app/_components/favorite-heart';
+import { offerHostFavorites } from '@/lib/favorites.server';
+import { favoriteDay, favoriteEventPhrase } from '@/lib/favorites';
+import { resolveProfile } from '@/lib/event-type-profile';
 
 function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   if (!raw) return null;
@@ -40,11 +57,12 @@ const STAR_AXES: ReadonlyArray<ReviewAxis> = [
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
-  searchParams: Promise<{ blocked?: string; appeal_filed?: string; recommend?: string }>;
+  searchParams: Promise<{ blocked?: string; appeal_filed?: string; recommend?: string; refused?: string; sent?: string }>;
 };
 
 type EventVendorLookup = {
   vendor_id: string;
+  service_id: string | null;
   event_id: string;
   vendor_name: string;
   category: string;
@@ -68,7 +86,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   const { data: ev, error: evError } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, vendor_name, category, contact_email, marketplace_vendor_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
+      'vendor_id, event_id, service_id, vendor_name, category, contact_email, marketplace_vendor_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -90,7 +108,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   // 20270101000000) so the page and the DB agree.
   const { data: evtRow, error: evtRowError } = await supabase
     .from('events')
-    .select('event_date')
+    .select('event_date, display_name, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   if (evtRowError) {
@@ -101,7 +119,8 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
       'graceful_degrade',
     );
   }
-  const eventDate = (evtRow as { event_date?: string | null } | null)?.event_date ?? null;
+  const evt = evtRow as { event_date?: string | null; display_name?: string | null; event_type?: string | null } | null;
+  const eventDate = evt?.event_date ?? null;
   const completion: CompletionFields = {
     status: eventVendor.status,
     completion_status: eventVendor.completion_status,
@@ -225,6 +244,76 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     />
   );
 
+  // 🔒 HOSTS ONLY (owner, 6 Nov: "Coordinators do NOT write host reviews of other suppliers" — conflict of interest).
+  // A host review is the couple's and their co-hosts' (event_members.member_type = 'couple'). A coordinator who opens
+  // this page is told so here, not handed a form the server (and the INSERT policy) would then refuse.
+  const { data: hostRow, error: hostRowError } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (hostRowError) {
+    logQueryError('VendorReviewPage.host', hostRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  if (!hostRow || search.refused === 'coordinator') {
+    return (
+      <CoordinatorRefusedState
+        eventId={eventId}
+        vendorId={vendorId}
+        vendorName={vendorProfile.business_name || eventVendor.vendor_name}
+        unread={Boolean(hostRowError)}
+      />
+    );
+  }
+
+  // 🃏 The card(s) this review is for — THIS shop's cards booked on THIS event, by name and photo, never a price
+  // (owner, 6 Nov). Every booked row of this shop on the event, plus the row this page opened on.
+  const { data: shopRows, error: shopRowsError } = await supabase
+    .from('event_vendors')
+    .select('service_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', vendorProfile.vendor_profile_id)
+    .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']);
+  if (shopRowsError) {
+    logQueryError('VendorReviewPage.cards', shopRowsError, { event_id: eventId }, 'graceful_degrade');
+  }
+  const cardIds = [
+    ...new Set(
+      [eventVendor.service_id, ...((shopRows ?? []) as Array<{ service_id: string | null }>).map((r) => r.service_id)].filter(
+        (id): id is string => Boolean(id),
+      ),
+    ),
+  ];
+  let requestCards: ReviewRequestCardItem[] = [];
+  if (cardIds.length > 0) {
+    const { data: svcRows, error: svcError } = await admin
+      .from('vendor_services')
+      .select('vendor_service_id, title, primary_photo_r2_key')
+      .eq('vendor_profile_id', vendorProfile.vendor_profile_id)
+      .in('vendor_service_id', cardIds);
+    if (svcError) {
+      logQueryError('VendorReviewPage.cardTitles', svcError, { event_id: eventId }, 'graceful_degrade');
+    }
+    const byId = new Map(
+      ((svcRows ?? []) as Array<{ vendor_service_id: string; title: string | null; primary_photo_r2_key: string | null }>).map((r) => [
+        r.vendor_service_id,
+        r,
+      ]),
+    );
+    requestCards = cardIds.flatMap((id) => {
+      const r = byId.get(id);
+      return r?.title?.trim() ? [{ serviceId: id, title: r.title.trim(), photoUrl: publicUrlForStoredAsset(r.primary_photo_r2_key) }] : [];
+    });
+  }
+  const eventLine = [
+    eventDate ? new Date(eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
+    evt?.display_name?.trim() ? `${evt.display_name.trim()}’s ${formatEventTypeLabel(evt.event_type ?? null).toLowerCase()}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const existing = await fetchOwnReviewForVendor(
     supabase,
     vendorProfile.vendor_profile_id,
@@ -232,13 +321,63 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     user.id,
   );
 
+  const coupleName = evt?.display_name?.trim() || null;
+  const shownInitials = coupleInitials(coupleName);
+
+  // 💌 Just sent (prototype 6 Nov § 3): the thank-you, drawn from the row as written — not the "already reviewed" note.
+  if (existing && search.sent === '1') {
+    const cardTitle = existing.service_id ? (requestCards.find((c) => c.serviceId === existing.service_id)?.title ?? null) : null;
+    return (
+      <ReviewThanks
+        eventId={eventId}
+        vendorId={vendorId}
+        coupleName={coupleName}
+        shownName={shownCoupleName(coupleName, existing.reviewer_display)}
+        shopName={vendorProfile.business_name || eventVendor.vendor_name}
+        slug={vendorProfile.business_slug ?? null}
+        vendorProfileId={vendorProfile.vendor_profile_id}
+        cardTitle={cardTitle}
+        review={{
+          ratingOverall: existing.rating_overall,
+          body: existing.body,
+          createdAt: existing.created_at,
+          bookedThroughSetnayan: existing.booked_through_setnayan,
+        }}
+      />
+    );
+  }
+
   if (existing) {
+    // ♡ "Add <shop> to your favorites" (owner 2026-11-06, prototype §D) — only where the server already says this
+    // person may: a host of this event (never a coordinator), the day behind us, this booking a shop on Setnayan.
+    const offer = (await offerHostFavorites(admin, user.id, eventId))?.get(eventVendor.vendor_id) ?? null;
+    const shopName = vendorProfile.business_name || eventVendor.vendor_name;
+    let favoriteCard: React.ReactNode = null;
+    if (offer) {
+      // The event's own word ("wedding", "birthday") — from the events row read above (its error is already logged).
+      const profile = await resolveProfile((evtRow as { event_type?: string | null } | null)?.event_type ?? 'wedding');
+      const from = [
+        `From ${favoriteEventPhrase({ role: 'host', hostsName: null, eventWord: profile.terminology?.eventWord ?? null })}`,
+        favoriteDay(eventDate),
+      ].filter(Boolean).join(' · ');
+      favoriteCard = (
+        <FavoriteAddCard
+          from={from}
+          eventId={eventId}
+          shopId={offer.shopId}
+          serviceId={offer.serviceId}
+          name={shopName}
+          initiallyOn={offer.on}
+        />
+      );
+    }
     return (
       <AlreadyReviewedState
         eventId={eventId}
-        vendorName={vendorProfile.business_name || eventVendor.vendor_name}
+        vendorName={shopName}
         slug={vendorProfile.business_slug ?? null}
         recommendCard={recommendCard}
+        favoriteCard={favoriteCard}
       />
     );
   }
@@ -297,6 +436,8 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
         <input type="hidden" name="event_vendor_id" value={eventVendor.vendor_id} />
         <input type="hidden" name="vendor_profile_id" value={vendorProfile.vendor_profile_id} />
 
+        {requestCards.length > 0 ? <ReviewRequestCard cards={requestCards} eventLine={eventLine} /> : null}
+
         <section className="space-y-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Ratings
@@ -339,6 +480,10 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
           />
           <p className="text-xs text-ink/50">Up to 500 characters.</p>
         </section>
+
+        {/* 🪪 "Shown as" (prototype 6 Nov § 2) — the one dropdown above Submit. No name on the event → nothing to
+            abbreviate; the review shows "Verified couple" either way. */}
+        {coupleName && shownInitials ? <ShownAsRow names={coupleName} initials={shownInitials} /> : null}
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
           <p className="inline-flex items-center gap-2 text-xs text-ink/60">
@@ -657,11 +802,14 @@ function AlreadyReviewedState({
   vendorName,
   slug,
   recommendCard,
+  favoriteCard = null,
 }: {
   eventId: string;
   vendorName: string;
   slug: string | null;
   recommendCard?: React.ReactNode;
+  /** ♡ The favorites door (prototype §D) — null when this person may not favorite here. */
+  favoriteCard?: React.ReactNode;
 }) {
   return (
     <section className="space-y-4">
@@ -683,6 +831,8 @@ function AlreadyReviewedState({
           Open supplier profile
         </Link>
       ) : null}
+
+      {favoriteCard}
 
       {recommendCard}
     </section>

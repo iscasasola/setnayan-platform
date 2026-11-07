@@ -275,8 +275,10 @@ export default async function VendorOverviewPage({
           <p className="mt-2 text-sm text-ink/65">
             You don&rsquo;t own a supplier profile yet. Reach the team owner to be
             added to bookings + chats, or
+            {/* /open-shop, never /signup: this reader is already signed in, and
+                /signup sends a signed-in visitor straight back here. */}
             <Link
-              href="/signup?as=vendor"
+              href="/open-shop"
               className="ml-1 font-semibold underline"
               style={{ color: 'var(--sn-gold-700)' }}
             >

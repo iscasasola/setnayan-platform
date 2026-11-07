@@ -6,6 +6,7 @@ import { logQueryError } from './supabase/error-detect';
 import { isNoteOnlySuggestion } from './schedule-ros';
 import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
 import { directionOf, proposedPatch, sideMayDecide } from './schedule-ask';
+import { whereAskRefusalWords } from './supplier-where';
 
 /**
  * ✅ THE ONE ACCEPT PATH for a supplier's schedule request (`event_schedule_suggestions`) — shared by the host's Approve,
@@ -33,7 +34,7 @@ export type SuggestionOutcome = 'done' | 'gone' | 'words';
 export const NOTHING_CHANGED = 'Nothing on the schedule changed — the moment is gone, or this account cannot edit it.';
 
 const SUGGESTION_COLUMNS =
-  'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_parent_block_id, proposed_crew, note, status, vendor_profile_id, direction, suggested_by_user_id';
+  'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_parent_block_id, proposed_crew, note, status, vendor_profile_id, direction, suggested_by_user_id, proposed_ingress_minutes, proposed_egress_minutes, proposed_block_ids';
 
 type SuggestionRow = {
   suggestion_id: string;
@@ -50,7 +51,21 @@ type SuggestionRow = {
   vendor_profile_id: string | null;
   direction?: string | null;
   suggested_by_user_id?: string | null;
+  /** 📍 A Where request (kind 'where', migration 20271308641275): the chapters asked for. */
+  proposed_block_ids?: string[] | null;
 };
+
+/** 📍 The chapters' names, in time order — the words of a Where answer. Admin read, scoped by the ids on the request. */
+async function chapterNames(ids: readonly string[] | null | undefined): Promise<string> {
+  if (!ids || ids.length === 0) return 'their chapters';
+  const { data } = await createAdminClient()
+    .from('event_schedule_blocks')
+    .select('label')
+    .in('block_id', [...ids])
+    .order('start_at', { ascending: true });
+  const names = ((data ?? []) as { label: string | null }[]).map((b) => b.label?.trim() || 'Untitled chapter');
+  return names.length > 0 ? names.join(', ') : 'their chapters';
+}
 
 /** This supplier's booking rows on the event — admin read, scoped by the event and the supplier on the request. */
 async function bookingsOf(eventId: string, vendorProfileId: string | null): Promise<string[]> {
@@ -80,6 +95,22 @@ async function setCrewTasks(db: Db, blockId: string, booking: string, crew: stri
     crew.map((name, i) => ({ block_id: blockId, vendor_id: booking, crew: name, what: what.slice(0, 500) || 'Their part', sort_order: i })),
   );
   if (error) throw new Error(error.message);
+}
+
+/** Is this block a chapter whose hours a venue holds? Read as the caller, who could already read the block. */
+async function chapterIsHeld(db: Db, blockId: string): Promise<boolean> {
+  const { data, error } = await db.from('event_schedule_blocks').select('hours_vendor_id').eq('block_id', blockId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean((data as { hours_vendor_id: string | null } | null)?.hours_vendor_id);
+}
+
+/** The database's venue-hours refusals, in words (the codes `apply_venue_hours` raises). */
+export function venueHoursRefusal(message: string): string {
+  if (/schedulehours:gone/.test(message)) return 'That request was already answered.';
+  if (/schedulehours:not_the_venue/.test(message)) return 'Only the venue booked to this chapter can set its hours.';
+  if (/schedulehours:not_allowed/.test(message)) return 'This account can’t set these hours.';
+  if (/schedulehours:not_a_chapter/.test(message)) return 'Hours are set on a chapter, and this chapter is gone.';
+  return message;
 }
 
 export async function decideSuggestion(
@@ -129,7 +160,23 @@ export async function decideSuggestion(
 
   if (decision === 'accept') {
     const crew = Array.isArray(suggestion.proposed_crew) ? suggestion.proposed_crew : null;
-    if (suggestion.kind === 'adjust' && suggestion.block_id) {
+    if (suggestion.kind === 'where') {
+      // 📍 WHERE (migration 20271308641275): the one door puts their booking on exactly the chapters asked — through
+      // their change lock, for this request only. A supplier's Accept of a host's ask lands here the same way.
+      const { error } = await db.rpc('apply_supplier_where', { p_suggestion_id: suggestionId });
+      if (error) throw new Error(whereAskRefusalWords(error.message));
+      await flip();
+    } else if (suggestion.kind === 'hours' && suggestion.block_id) {
+      // 🏛 VENUE HOURS (migration 20271307658341): the one door writes the chapter's hours and holds them for the venue.
+      const { error } = await db.rpc('apply_venue_hours', { p_suggestion_id: suggestionId });
+      if (error) throw new Error(venueHoursRefusal(error.message));
+      await flip();
+    } else if (suggestion.kind === 'adjust' && suggestion.block_id && toSupplier && (await chapterIsHeld(db, suggestion.block_id))) {
+      // 🏛 "Ask <venue> to change", accepted by the venue: its held hours move through the same door.
+      const { error } = await db.rpc('apply_venue_hours', { p_suggestion_id: suggestionId });
+      if (error) throw new Error(venueHoursRefusal(error.message));
+      await flip();
+    } else if (suggestion.kind === 'adjust' && suggestion.block_id) {
       const patch = proposedPatch(suggestion);
       if (suggestion.proposed_start_at) {
         // ⏭ A real time ends "Time TBA" / "Right after the one above" (migration 20271302727358) — the row has a clock now.
@@ -218,19 +265,30 @@ export async function decideSuggestion(
       if (vendorRes.data?.user_id) {
         const eventName = eventRes.data?.display_name?.trim() || 'the couple';
         const accepted = decision === 'accept';
+        const chaptersAsked = suggestion.kind === 'where' ? await chapterNames(suggestion.proposed_block_ids) : null;
         await emitNotification({
           userId: vendorRes.data.user_id,
           type: 'schedule_suggestion',
-          title: accepted
-            ? `${eventName} accepted your timeline suggestion`
-            : `${eventName} declined your timeline suggestion`,
+          // 📍 A Where pick reads as chapters, never as "a timeline suggestion".
+          title:
+            chaptersAsked !== null
+              ? accepted
+                ? `${eventName} OK’d your chapters`
+                : `${eventName} kept your chapters as they were`
+              : accepted
+                ? `${eventName} accepted your timeline suggestion`
+                : `${eventName} declined your timeline suggestion`,
           body: accepted
-            ? suggestion.kind === 'remove'
-              ? 'That moment is off their schedule.'
-              : isNoteOnlySuggestion(suggestion)
-                ? 'They read your note — nothing on the schedule moved.'
-                : 'Your proposed change is now on their schedule.'
-            : 'Your proposed change was not applied.',
+            ? chaptersAsked !== null
+              ? `You’re on ${chaptersAsked}.`
+              : suggestion.kind === 'remove'
+                ? 'That moment is off their schedule.'
+                : isNoteOnlySuggestion(suggestion)
+                  ? 'They read your note — nothing on the schedule moved.'
+                  : 'Your proposed change is now on their schedule.'
+            : chaptersAsked !== null
+              ? `You asked for ${chaptersAsked}. Talk it through in your chat if it should change.`
+              : 'Your proposed change was not applied.',
           relatedUrl: `/vendor-dashboard/clients/${eventId}?tab=schedule`,
         });
       }
@@ -256,6 +314,17 @@ async function tellTheAsker(eventId: string, s: SuggestionRow, decision: 'accept
     const shop = (shopRes.data as { business_name: string | null } | null)?.business_name?.trim() || 'The supplier';
     const moment = (blockRes.data as { label: string | null } | null)?.label?.trim() || 'the moment';
     const yes = decision === 'accept';
+    if (s.kind === 'where') {
+      const names = await chapterNames(s.proposed_block_ids);
+      await emitNotification({
+        userId: s.suggested_by_user_id,
+        type: 'schedule_ask_answered',
+        title: yes ? `${shop} agreed to work ${names}` : `${shop} kept their chapters`,
+        body: yes ? 'Their chapters on your schedule changed.' : reason ? `Their reason: ${reason}` : 'Their chapters stay as they were.',
+        relatedUrl: `/dashboard/${eventId}/schedule`,
+      });
+      return;
+    }
     await emitNotification({
       userId: s.suggested_by_user_id,
       type: 'schedule_ask_answered',

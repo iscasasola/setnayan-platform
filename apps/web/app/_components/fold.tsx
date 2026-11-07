@@ -5,9 +5,13 @@ import { ChevronDown } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 /** How many OPEN folds this one sits inside — its head pins that many slim lines further down (flush under theirs). */
 const FoldDepth = createContext(0);
+/** Whether the fold this one sits in is clipping its body right now (moving, or shut) — a head cannot pin through a
+ *  clip, so a nested head re-checks the moment its parent stops clipping (a `popovers` fold, once settled). */
+const FoldClips = createContext(false);
 /** A slim head's height (owner 2026-10-29: "~40 px"). */
 export const FOLD_SLIM_PX = 40;
 
@@ -27,6 +31,7 @@ export const FOLD_SLIM_PX = 40;
  * 🔒 app/_components/the-open-fold-head-pins-slim.test.ts
  */
 function useSlimPin(on: boolean, depth: number) {
+  const parentClips = useContext(FoldClips);
   const pinRef = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -34,8 +39,19 @@ function useSlimPin(on: boolean, depth: number) {
     const root = box.current;
     if (!on || !pin || !root) return;
     // The box this head scrolls in: the page, or the nearest ancestor that scrolls on its own (a sheet, a panel).
+    // 🪤 A CLIPPING BOX IS A STICKY CONTAINER TOO (2026-11-04, owner's iPhone: "More settings" opened on a ~150 px
+    // blank and "Price · more" drew over "How the 'from' price works"). `overflow: hidden` — the PARENT fold's own body
+    // clip — is a scrollport for `position: sticky`, so a nested head pinned at `pin line + 40 px` stuck 40 px (+ the
+    // top bar) down INSIDE ITS OWN FOLD, opening a gap above itself and covering its first row. A head whose nearest
+    // scrollport only clips can never reach the page's pin line, so it does not pin at all.
+    // 🔒 app/_components/a-clipped-fold-head-never-pins.test.ts
     let inner: HTMLElement | null = root.parentElement;
-    while (inner && inner !== document.body && !/(auto|scroll)/.test(getComputedStyle(inner).overflowY)) inner = inner.parentElement;
+    while (inner && inner !== document.body) {
+      const cs = getComputedStyle(inner);
+      if (/(auto|scroll)/.test(cs.overflowY)) break;
+      if (cs.overflowY === 'hidden' || cs.overflowX === 'hidden') return;
+      inner = inner.parentElement;
+    }
     if (inner === document.body || inner === document.documentElement) inner = null;
     const offset = depth * FOLD_SLIM_PX;
     pin.setAttribute('data-fold-pin', inner ? 'inner' : 'page');
@@ -79,7 +95,7 @@ function useSlimPin(on: boolean, depth: number) {
       pin.style.top = '';
       pin.style.backgroundColor = '';
     };
-  }, [on, depth]);
+  }, [on, depth, parentClips]);
   return { pinRef, box };
 }
 
@@ -232,6 +248,17 @@ export function Fold({
   const id = useId();
   const depth = useContext(FoldDepth);
   const { pinRef, box } = useSlimPin(open, depth);
+  // 🔭 A USER'S open glides the head to the pin line when the body runs past the bottom (owner 2026-11-04, app-wide —
+  // `reveal-on-open.ts`). Only the head's own press counts: never `defaultOpen`, a controlled open or the `#anchor`.
+  const intend = useRevealOnOpen(open, () => ({ head: box.current }));
+  // The press is caught on its way down (capture), so the head and the title keep their ONE handler that flips open. Only
+  // THIS fold's head or title marks it — a press on the ⓘ, a leadPress, an endPress or a fold inside marks nothing.
+  const pressed = (e: { target: EventTarget }) => {
+    const t = e.target as Element;
+    if (t.closest('[data-fold-pinbox]') !== pinRef.current) return;
+    const b = t.closest('button');
+    if (b ? b.hasAttribute('data-fold-head') : t.closest('[data-fold-title]')) intend();
+  };
   useEffect(() => {
     if (!anchor) return;
     const apply = () => {
@@ -305,6 +332,7 @@ export function Fold({
       data-fold={data ?? ''}
       data-fold-open={open ? '' : undefined}
       className={anchor ? `scroll-mt-24 ${className}` : className}
+      onClickCapture={pressed}
     >
       <div ref={pinRef} data-fold-pinbox="">
       {leadPress || endPress ? (
@@ -339,10 +367,13 @@ export function Fold({
         className={`grid transition-[grid-template-rows] duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         {/* 4 px of room each side, so a row's focus ring and an open field's highlight are not cut by the fold's edge. */}
-        <div className={`-mx-1 min-h-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
+        {/* min-w-0: once a `popovers` fold stops clipping, its widest row must not widen the fold past the screen. */}
+        <div className={`-mx-1 min-h-0 min-w-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
+          <FoldClips.Provider value={!(popovers && open && settled)}>
           <FoldDepth.Provider value={open ? depth + 1 : depth}>
             <OneOpenScope id={scope}>{children}</OneOpenScope>
           </FoldDepth.Provider>
+          </FoldClips.Provider>
         </div>
       </div>
     </div>

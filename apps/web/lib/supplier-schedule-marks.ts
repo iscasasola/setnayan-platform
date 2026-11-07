@@ -55,5 +55,10 @@ export const SCHEDULE_MARK_COLUMNS = 'vendor_profile_id, seen_at, confirmed_at, 
 
 /** 🔒 The host's calm line when a change meets a locked part (the database says the same words). Host words: never "lock". */
 export function lockedLine(shop: string): string {
-  return `${shop} isn’t taking changes. Send them a request instead.`;
+  return `${lockedHead(shop)} Send them a request instead.`;
+}
+
+/** The first half alone — the moment sheet puts its own "Send them a request" button after it. */
+export function lockedHead(shop: string): string {
+  return `${shop} isn’t taking changes.`;
 }

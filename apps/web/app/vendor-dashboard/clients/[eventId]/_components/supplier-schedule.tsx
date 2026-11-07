@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MapPin, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
@@ -9,7 +9,7 @@ import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { chapterWhen, clockWords, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
+import { BACKSTAGE_WORDS, chapterWhen, clockWords, egressMinutesFrom, endIsoFrom, ingressMinutesFrom, shiftWall, wallDay, wallIso, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
 import { contactLine } from '@/lib/task-contact';
 import {
   MOMENT_MINUTES_DEFAULT,
@@ -24,6 +24,9 @@ import {
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
 import { askerWords, type ScheduleAsk } from '@/lib/schedule-ask';
 import { markDay } from '@/lib/supplier-schedule-marks';
+import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
+import type { CrewClash } from '@/lib/crew-elsewhere';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -43,6 +46,9 @@ import { markDay } from '@/lib/supplier-schedule-marks';
  * host" · Take back) unless the host chose Auto-agree (ruled 1 Nov: Off by default) — the database holds the own-items
  * and linked-chapter rules (migration 20271300619930), so this screen says what is true, it is not the rule.
  * `Seen` on a change, and a final-week `Confirm my times`.
+ * 📍 `Where` (owner 2026-11-04, *"They can pick and we can also pick for them"*): the chapters they serve — one
+ * dropdown of the event's chapters, sent as ONE request the host OKs (Auto-agree applies it), Take back while it
+ * waits (migration 20271308641275). The host can still set it directly, unless their times are locked.
  * 🔒 `Lock my times` (audit D7, owner: *"change lock (means the supplier cannot accept changes anymore)"*): while
  * locked, the database refuses the host's changes to their moments and crew (20271303409352); their own asks still go.
  *
@@ -82,6 +88,8 @@ export function SupplierSchedule({
   tasksRead,
   answered,
   asked = [],
+  where = [],
+  elsewhere = {},
   lab = false,
 }: {
   eventId: string;
@@ -98,6 +106,10 @@ export function SupplierSchedule({
   answered: SupplierRequestRow[];
   /** 🗓 What a host or the coordinator asked of THEM, still open (D2); null = could not be read (said). */
   asked?: ScheduleAsk[] | null;
+  /** 📍 Their own Where, one row per booked booking (never a coordinator); null = could not be read (said). */
+  where?: SupplierOwnWhere[] | null;
+  /** 🚗 Their crews on their OTHER events today, keyed by the moment here (slice 5); null = could not be checked (said). */
+  elsewhere?: Record<string, CrewClash[]> | null;
   lab?: boolean;
 }) {
   const send = useMemo(() => (lab ? labSend : realSend(eventId)), [lab, eventId]);
@@ -107,6 +119,7 @@ export function SupplierSchedule({
     | { kind: 'moment'; chapter: SupplierChapter; moment: SupplierMoment | null }
     | { kind: 'times' }
     | { kind: 'suggest' }
+    | { kind: 'hours'; chapter: SupplierChapter }
     | null
   >(null);
   const [said, setSaid] = useState<{ tone: 'ok' | 'bad'; words: string } | null>(null);
@@ -204,6 +217,21 @@ export function SupplierSchedule({
         </div>
       ) : null}
 
+      {/* 📍 WHERE — the chapters they serve: one dropdown, sent as a request; the details sit in the ⓘ. */}
+      {where === null ? (
+        <p role="alert" data-supplier-where="unread" className="text-sm font-semibold text-danger-700">
+          Your chapters couldn’t be read just now. Nothing is lost — pull to refresh.
+        </p>
+      ) : where.length > 0 && day.chapters.length > 0 ? (
+        <section data-supplier-where="" aria-label="Where you go">
+          <FormRows width="wide">
+            {where.map((w) => (
+              <SupplierWhereRow key={w.vendorId} w={w} send={send} autoAgree={autoAgree} locked={Boolean(lockedAt)} onSaid={setSaid} />
+            ))}
+          </FormRows>
+        </section>
+      ) : null}
+
       {/* 🗓 Asked of you (D2) — a host's or the coordinator's ask, answered in place, above everything else to do. */}
       {asked === null ? (
         <p role="alert" data-asked-of-you="unread" className="text-sm font-semibold text-danger-700">
@@ -224,9 +252,18 @@ export function SupplierSchedule({
                   a={a}
                   label={labelOf(day, a.block_id)}
                   send={send}
+                  whereNames={a.kind === 'where' ? (a.proposed_block_ids ?? []).map((id) => labelOf(day, id) ?? 'a chapter that is gone').join(', ') : null}
+                  whereNow={linked.map((c) => c.label).join(', ') || 'no chapter yet'}
                   onAnswered={(r, yes) => {
                     if (r.ok) setAnsweredNow((l) => [...l, a.suggestion_id]);
-                    after(r, yes ? 'Accepted. Their schedule has your new time.' : 'Declined. They’ve been told.');
+                    after(
+                      r,
+                      yes
+                        ? a.kind === 'where'
+                          ? 'Accepted. You’re on those chapters.'
+                          : 'Accepted. Their schedule has your new time.'
+                        : 'Declined. They’ve been told.',
+                    );
                   }}
                 />
               ))}
@@ -254,6 +291,19 @@ export function SupplierSchedule({
         </InfoTip>
       </div>
 
+      {/* 🚗 ONE CREW, TWO EVENTS (slice 5): said once here, and on each moment it touches. Only the supplier sees it. */}
+      {elsewhere === null ? (
+        <p data-crew-elsewhere="unread" className="text-sm text-warn-900">
+          Your other events today couldn’t be checked for crew clashes.
+        </p>
+      ) : clashCount(elsewhere) > 0 ? (
+        <p role="status" data-crew-elsewhere={clashCount(elsewhere)} className="text-sm font-semibold text-warn-900">
+          {clashCount(elsewhere) === 1
+            ? 'A crew of yours is also needed at another event today. See the moment marked below.'
+            : `Your crews are also needed at other events today on ${formatCount(clashCount(elsewhere))} moments. See the moments marked below.`}
+        </p>
+      ) : null}
+
       {said ? (
         <p role={said.tone === 'bad' ? 'alert' : 'status'} className={`text-sm ${said.tone === 'bad' ? 'font-semibold text-danger-700' : 'text-success-900'}`}>
           {said.words}
@@ -276,6 +326,27 @@ export function SupplierSchedule({
                   {chapterWhen({ start_at: c.start_at ?? '', end_at: c.end_at, time_tba: c.time_tba })} · {c.where}
                 </span>
               </div>
+              {/* 🏛 VENUE HOURS (2026-11-04): the venue booked to a chapter sets its hours; once approved, they are held. */}
+              {c.setsHours ? (
+                <div data-venue-hours={c.block_id} className="mt-1 flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-2">
+                  <span className="min-w-0 text-[13px] text-ink/70">
+                    {c.hoursWaiting
+                      ? `Your hours are waiting for the host · ${venueHoursLine(c.hoursWaiting.proposed_start_at, c.hoursWaiting.proposed_end_at, c.hoursWaiting.proposed_ingress_minutes ?? null, c.hoursWaiting.proposed_egress_minutes ?? null)}`
+                      : c.holdsHours
+                        ? `🔒 Your hours · ${venueHoursLine(c.start_at, c.end_at, c.ingress_minutes_before, c.egress_minutes_after)}`
+                        : 'You’re the venue: set this chapter’s hours.'}
+                  </span>
+                  {c.hoursWaiting ? null : (
+                    <ActionButton
+                      tone="neutral"
+                      icon={Clock}
+                      label={c.holdsHours ? 'Change hours' : 'Set hours'}
+                      data-testid="venue-hours-open"
+                      onClick={() => setSheet({ kind: 'hours', chapter: c })}
+                    />
+                  )}
+                </div>
+              ) : null}
               <ul className="mt-1 divide-y divide-ink/10">
                 {c.moments.length === 0 && c.waitingAdds.length === 0 ? (
                   <li className="py-2 text-xs text-ink/55">No moments yet.</li>
@@ -289,11 +360,11 @@ export function SupplierSchedule({
                         onClick={() => setSheet({ kind: 'moment', chapter: c, moment: m })}
                         className="sn-press my-1 flex min-h-11 w-full items-start gap-3 rounded-xl border border-ink/15 px-3 py-2 text-left"
                       >
-                        <MomentLine m={m} tasksRead={tasksRead} />
+                        <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} />
                       </button>
                     ) : (
                       <div data-their-moment={m.block_id} aria-disabled="true" className="flex min-h-11 items-start gap-3 px-3 py-2 opacity-55">
-                        <MomentLine m={m} tasksRead={tasksRead} />
+                        <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} />
                       </div>
                     )}
                   </li>
@@ -330,8 +401,16 @@ export function SupplierSchedule({
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                <span className={r.status === 'accepted' ? 'font-semibold text-success-900' : 'text-ink/55'}>
-                  {r.status === 'accepted' ? (r.auto_agreed ? 'In (Auto-agree)' : 'Approved') : r.status === 'withdrawn' ? 'Taken back' : 'Not approved'}
+                <span className={r.status === 'accepted' || r.status === 'answered_by_host' ? 'font-semibold text-success-900' : 'text-ink/55'}>
+                  {r.status === 'accepted'
+                    ? r.auto_agreed
+                      ? 'In (Auto-agree)'
+                      : 'Approved'
+                    : r.status === 'withdrawn'
+                      ? 'Taken back'
+                      : r.status === 'answered_by_host'
+                        ? 'Answered by the host'
+                        : 'Not approved'}
                 </span>
                 <span className="text-ink/70">{waitingWords(r, labelOf(day, r.block_id))}</span>
               </li>
@@ -369,6 +448,15 @@ export function SupplierSchedule({
           onSent={(r) => after(r, 'Sent. The host or coordinator approves your times.') && setSheet(null)}
         />
       ) : null}
+      {sheet?.kind === 'hours' ? (
+        <VenueHoursSheet
+          chapter={sheet.chapter}
+          autoAgree={autoAgree}
+          send={send}
+          onClose={() => setSheet(null)}
+          onSent={(r) => after(r, 'Sent. Once the host approves, the hours are yours to change.') && setSheet(null)}
+        />
+      ) : null}
       {sheet?.kind === 'suggest' ? (
         <SuggestSheet
           options={others}
@@ -391,7 +479,11 @@ function labelOf(day: SupplierDay, blockId: string | null): string | null {
   return null;
 }
 
-function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean }) {
+function clashCount(elsewhere: Record<string, CrewClash[]>): number {
+  return Object.values(elsewhere).filter((l) => l.length > 0).length;
+}
+
+function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: boolean; clashes: readonly CrewClash[] }) {
   return (
     <>
       <span className="w-16 flex-none pt-0.5 text-[13px] tabular-nums text-ink/70">{m.clock}</span>
@@ -399,8 +491,19 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         <span className="font-medium">{m.label}</span>
         {m.mine ? <span className="ml-1.5 text-xs font-semibold text-terracotta-700">yours</span> : null}
         {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
+        {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
+        {m.section !== 'Event' ? (
+          <span data-backstage-moment="" className="block text-[11px] uppercase tracking-[0.06em] text-gold-deep">
+            {m.section} · {BACKSTAGE_WORDS}
+          </span>
+        ) : null}
         {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/60">{m.crew.join(', ')}</span> : null}
         {m.mine && !tasksRead ? <span className="block text-xs text-ink/50">Your crew on it couldn’t be read.</span> : null}
+        {clashes.map((c) => (
+          <span key={`${c.crew}|${c.eventName}|${c.theirStartIso}`} data-crew-clash={c.kind} className="block text-xs font-medium text-warn-900">
+            {c.words}
+          </span>
+        ))}
         {/* 📇 A contact on this moment (the bridal-car driver) — only on a moment they are on (4 additions (3)). */}
         {m.contacts.map((c) => (
           <span key={`${c.name}|${c.phone}`} data-moment-contact="" className="block text-xs text-ink/70">
@@ -417,11 +520,17 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
 function AskedRow({
   a,
   label,
+  whereNames = null,
+  whereNow = '',
   send,
   onAnswered,
 }: {
   a: ScheduleAsk;
   label: string | null;
+  /** 📍 A host's Where ask: the chapters they ask you to serve. */
+  whereNames?: string | null;
+  /** The chapters they are on now — an accepted ask REPLACES them. */
+  whereNow?: string;
   send: Send;
   onAnswered: (r: SupplierScheduleAnswer, yes: boolean) => void;
 }) {
@@ -436,6 +545,12 @@ function AskedRow({
   };
   return (
     <li data-asked={a.suggestion_id} className="flex flex-col gap-2 py-3">
+      {whereNames !== null ? (
+        <p className="text-sm" data-asked-where="">
+          <span className="font-medium">{askerWords(a)}</span> asks you to work <span className="font-semibold">{whereNames}</span>.
+          <span className="block text-xs text-ink/60">Now: {whereNow}. Accept makes it exactly these chapters.</span>
+        </p>
+      ) : (
       <p className="text-sm">
         <span className="font-medium">{askerWords(a)}</span> asks you to move “{label ?? 'a moment'}”
         {a.proposed_start_at ? (
@@ -447,7 +562,9 @@ function AskedRow({
         ) : null}
         .
       </p>
-      {a.note ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
+      )}
+      {/* A Where ask's own note shows; the automatic "Asks you to work …" would only repeat the line above. */}
+      {a.note && (whereNames === null || !a.note.startsWith('Asks you to work ')) ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
       {declining ? (
         <>
           <FormRows width="wide">
@@ -478,6 +595,133 @@ function AskedRow({
         </div>
       )}
     </li>
+  );
+}
+
+/** The chapter names a pick reads as — "Preparation, Reception" (each option's own name, before " · venue"). */
+function pickNames(options: readonly WhereOption[], ids: readonly string[]): string {
+  return options
+    .filter((o) => ids.includes(o.key))
+    .map((o) => o.label.split(' · ')[0])
+    .join(', ');
+}
+
+/**
+ * 📍 ONE WHERE ROW — the shared Form Row with the shared dropdown and its ticks (`ChosenRow` + `picked`, as the host's
+ * own Where row draws it). A tick only changes the draft; Send writes ONE request (`supplier_ask_where`) — so the host
+ * is told once, not per tick. While it waits: what they asked, and Take back. The screen never resets.
+ */
+function SupplierWhereRow({
+  w,
+  send,
+  autoAgree,
+  locked,
+  onSaid,
+}: {
+  w: SupplierOwnWhere;
+  send: Send;
+  autoAgree: boolean;
+  locked: boolean;
+  onSaid: (s: { tone: 'ok' | 'bad'; words: string } | null) => void;
+}) {
+  const [picked, setPicked] = useState<string[]>(w.picked);
+  const [waiting, setWaiting] = useState(w.waiting);
+  const [draft, setDraft] = useState<string[]>(w.draft);
+  const [touched, setTouched] = useState(false);
+  const [busy, setBusy] = useState<'send' | 'back' | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const keys = w.options.map((o) => o.key);
+  const verdict = whereAskVerdict({ picked: draft, current: picked, chapterIds: keys });
+  const sameAsWaiting = waiting !== null && draft.length === waiting.ids.length && draft.every((id) => waiting.ids.includes(id));
+
+  const tick = (key: string) => {
+    const next = new Set(draft);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setDraft(keys.filter((k) => next.has(k)));
+    setTouched(true);
+    setProblem(null);
+  };
+
+  const sendIt = async () => {
+    if (!verdict.ok) return setProblem(verdict.words);
+    setBusy('send');
+    const r = await send({ request: 'where', vendor_id: w.vendorId, chapter_id: verdict.ids });
+    setBusy(null);
+    if (!r.ok) return setProblem(r.error);
+    setTouched(false);
+    if (r.outcome === 'applied') {
+      setPicked(verdict.ids);
+      setWaiting(null);
+      onSaid({ tone: 'ok', words: SUPPLIER_WHERE_WORDS.saved });
+    } else {
+      setWaiting({ suggestionId: r.suggestionId ?? waiting?.suggestionId ?? '', ids: verdict.ids, names: pickNames(w.options, verdict.ids) });
+      onSaid({ tone: 'ok', words: SUPPLIER_WHERE_WORDS.sent });
+    }
+  };
+
+  const takeBack = async () => {
+    if (!waiting?.suggestionId) return;
+    setBusy('back');
+    const r = await send({ request: 'take_back', suggestion_id: waiting.suggestionId });
+    setBusy(null);
+    if (!r.ok) return setProblem(r.error);
+    setWaiting(null);
+    setDraft(picked);
+    setTouched(false);
+    onSaid({ tone: 'ok', words: 'Taken back. Your chapters stay as they were.' });
+  };
+
+  const name = w.label ? `${SUPPLIER_WHERE_WORDS.name} · ${w.label}` : SUPPLIER_WHERE_WORDS.name;
+  const buttonText = pickNames(w.options, draft) || SUPPLIER_WHERE_WORDS.none;
+  const showSend = verdict.ok && !sameAsWaiting;
+  return (
+    <div data-supplier-where-row={w.vendorId} data-where-picked={picked.join(' ')}>
+      <ChosenRow
+        name={name}
+        about={{ words: locked ? `${SUPPLIER_WHERE_WORDS.info} ${SUPPLIER_WHERE_WORDS.lockedInfo}` : SUPPLIER_WHERE_WORDS.info }}
+        label={name}
+        value={null}
+        options={w.options}
+        picked={draft}
+        onPick={tick}
+        buttonText={buttonText}
+        data="supplier-where"
+        problem={problem ?? undefined}
+        note={
+          waiting && sameAsWaiting
+            ? SUPPLIER_WHERE_WORDS.waiting(waiting.names)
+            : w.fromTrade && !touched && picked.length === 0
+              ? SUPPLIER_WHERE_WORDS.fromTrade
+              : undefined
+        }
+      />
+      {(waiting && sameAsWaiting) || showSend ? (
+        <div className="flex flex-wrap justify-end gap-2 pt-1">
+          {waiting && sameAsWaiting ? (
+            <ActionButton
+              tone="neutral"
+              icon={Undo2}
+              label={busy === 'back' ? 'Taking back…' : 'Take back'}
+              disabled={busy !== null}
+              onClick={() => void takeBack()}
+              data-testid="supplier-where-take-back"
+            />
+          ) : null}
+          {showSend ? (
+            <ActionButton
+              tone="brand"
+              main
+              icon={MapPin}
+              label={busy === 'send' ? 'Sending…' : autoAgree ? 'Save' : 'Send'}
+              disabled={busy !== null}
+              onClick={() => void sendIt()}
+              data-testid="supplier-where-send"
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -789,6 +1033,93 @@ function MyTimesSheet({
                 fields[`arrive_${id}`] = times[id]!.arrive;
                 fields[`done_${id}`] = times[id]!.done;
               }
+              const r = await send(fields);
+              setBusy(false);
+              if (!r.ok) return setProblem(r.error);
+              onSent(r);
+            }}
+          />
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/* ── 🏛 Venue hours — Starts · Ends · Setup from · Pack-up until (migration 20271307658341) ─────────────────── */
+
+/** "5:00 PM – 10:00 PM · setup from 1:00 PM · out by 11:30 PM" */
+export function venueHoursLine(start: string | null, end: string | null, ingress: number | null, egress: number | null): string {
+  if (!start) return 'Time TBA';
+  const parts = [`${clockWords(start)}${end ? ` – ${clockWords(end)}` : ' onward'}`];
+  if (ingress !== null) parts.push(`setup from ${clockWords(shiftWall(start, -ingress))}`);
+  if (egress !== null) parts.push(`out by ${clockWords(shiftWall(start, egress))}`);
+  return parts.join(' · ');
+}
+
+function VenueHoursSheet({
+  chapter: c,
+  autoAgree,
+  send,
+  onClose,
+  onSent,
+}: {
+  chapter: SupplierChapter;
+  autoAgree: boolean;
+  send: Send;
+  onClose: () => void;
+  onSent: (r: SupplierScheduleAnswer) => void;
+}) {
+  const headingId = useId();
+  const day = wallDay(c.start_at);
+  const startIso0 = c.start_at && !c.time_tba ? c.start_at : null;
+  const [starts, setStarts] = useState(startIso0 ? wallTime(startIso0) : '');
+  const [ends, setEnds] = useState(c.end_at ? wallTime(c.end_at) : '');
+  const [setup, setSetup] = useState(startIso0 && c.ingress_minutes_before !== null ? wallTime(shiftWall(startIso0, -c.ingress_minutes_before)) : '');
+  const [packUp, setPackUp] = useState(startIso0 && c.egress_minutes_after !== null ? wallTime(shiftWall(startIso0, c.egress_minutes_after)) : '');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <Sheet open onClose={onClose} labelledById={headingId} title={`${c.label} · hours`}>
+      <div data-venue-hours-sheet={c.block_id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
+        <h3 id={headingId} className="sr-only">
+          {c.label} hours
+        </h3>
+        <p className="text-[13px] text-ink/60">
+          You are the venue, so you set this chapter’s hours and its setup and pack-up. {whereItGoesWords(autoAgree)}
+        </p>
+        <FormRows width="short">
+          <TimeRow name="Starts" value={starts} onKeep={(t) => (setStarts(t), { ok: true })} data="venue-hours-starts" />
+          <TimeRow name="Ends" value={ends} clearable onKeep={(t) => (setEnds(t), { ok: true })} data="venue-hours-ends" />
+          <TimeRow name="Setup from" value={setup} clearable onKeep={(t) => (setSetup(t), { ok: true })} data="venue-hours-setup" />
+          <TimeRow name="Pack-up until" value={packUp} clearable onKeep={(t) => (setPackUp(t), { ok: true })} data="venue-hours-packup" />
+        </FormRows>
+        {problem ? (
+          <p role="alert" className="text-[13px] font-semibold text-danger-700">
+            {problem}
+          </p>
+        ) : null}
+        <div className="sticky bottom-0 -mx-4 flex justify-end bg-cream px-4 pt-2">
+          <ActionButton
+            tone="brand"
+            main
+            icon={Clock}
+            label={busy ? 'Sending…' : autoAgree ? 'Save' : 'Send'}
+            disabled={busy}
+            data-testid="venue-hours-send"
+            onClick={async () => {
+              const startIso = wallIso(day, starts);
+              if (!startIso) return setProblem('Give the chapter a start time.');
+              const fields: Fields = {
+                request: 'hours',
+                chapter_id: c.block_id,
+                chapter_label: c.label,
+                start_at: startIso,
+                end_at: endIsoFrom(startIso, ends) ?? '',
+                ingress_minutes: String(ingressMinutesFrom(startIso, setup) ?? ''),
+                egress_minutes: String(egressMinutesFrom(startIso, packUp) ?? ''),
+              };
+              setBusy(true);
+              setProblem(null);
               const r = await send(fields);
               setBusy(false);
               if (!r.ok) return setProblem(r.error);

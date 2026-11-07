@@ -14,13 +14,13 @@ Owner 2026-10-29 ("how long does it take for us to receive a chat… is this opt
   second event on the same channel (chat hearts) is one more trigger. SELECT-only policy `user_topic_owner_can_read`
   on `realtime.messages` (predicate `user_topic_is_mine`, granted to authenticated); no INSERT policy.
 - **Client**: `lib/user-live.ts` (the machine: joins only while the tab is in view, 0–1.5 s jittered first join after
-  paint, lets go 30 s after hidden, backoff 5 s × 3ⁿ ×0.5–1.5 capped at 5 min, gives up after 6),
+  paint, lets go 30 s after hidden, backoff 5 s × 3ⁿ ×0.5–1.5 capped at 5 min, gives up after 6; failures forgiven only after 60 s live, so a flapping server cannot earn endless rejoins),
   `lib/user-live-channel.ts` (per-tab singleton, `private: true`, token primed, one listener per `USER_LIVE_EVENTS`),
   `lib/unread-follow.ts` (envelope: no poll while live, a ping re-asks — coalesced to 1 leading + 1 trailing per 1 s —
   the 60 s poll whenever not live; inbox: `router.refresh()` at most once per 5 s). The envelope calls
   `followEnvelope`, which with the flag OFF is `pollEnvelope` itself — nothing live is fetched. `LiveInboxRefresh`
   mounted on the couple's Messages and the supplier's Chats pages only.
-- **Guards**: `lib/chat-arrives-instantly.test.ts` (19 fake-clock + map tests, each sabotaged once),
+- **Guards**: `lib/chat-arrives-instantly.test.ts` (20 fake-clock + map tests, each sabotaged once),
   `tests/db/chat-pings-reach-only-their-people.db.test.ts`, the socket census and the burst guard amended for the one
   named per-user channel. Load model `apps/web/scripts/loadtest-chat-live.mts` (no network): 200 users · 50 msg/min ·
   5 min → main 1000 unread RPCs, live 947 + 200 joins + 750 broadcast rows; total Realtime outage → 755 rejoins

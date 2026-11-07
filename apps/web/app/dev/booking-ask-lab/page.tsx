@@ -10,6 +10,8 @@
  *   ?s=requested    the ask is open — Agree · Turn it down, in place
  *   ?s=agreed       …pressed Agree: the sentence the card says after it
  *   ?s=refused      …pressed Agree and was refused (other couples first)
+ *   ?s=on_hold      …pressed Agree on an ask for a service that is on PLAN hold (owner 2026-11-06, SERVICES
+ *                   LIFE CYCLE): the sentence names it, "Pick which stay on" takes Agree's place; the ask stays open
  *   ?s=declined     the ask closed: you said no (with your words)
  *   ?s=expired      …you did not answer in 48 hours
  *   ?s=cancelled    …they took it back
@@ -32,6 +34,8 @@ import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
+/** The asked-for service on plan hold in `?s=on_hold` (a sample name). */
+const LAB_HELD_SERVICE = 'Same-Day Edit';
 /** The lab's "now" — the fuse reads against it, so every picture says the same. */
 const NOW = new Date('2026-10-12T04:00:00Z');
 
@@ -89,9 +93,13 @@ export default async function BookingAskLabPage({
   const s = typeof sp.s === 'string' ? sp.s : 'requested';
 
   const notice =
-    s === 'agreed' ? lockAgreeNotice('ok') : s === 'refused' ? lockAgreeNotice('resolve_others_first', { competing: 2 }) : null;
+    s === 'agreed' ? lockAgreeNotice('ok') : s === 'refused'
+        ? lockAgreeNotice('resolve_others_first', { competing: 2 })
+        : s === 'on_hold'
+          ? lockAgreeNotice('service_on_hold', { heldService: LAB_HELD_SERVICE })
+          : null;
   const ended = s === 'declined' || s === 'expired' || s === 'cancelled' ? supplierAskOutcomeOf(ENDED[s], true) : null;
-  const open = s === 'requested' || s === 'refused';
+  const open = s === 'requested' || s === 'refused' || s === 'on_hold';
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6" data-lab-booking-ask={s}>
@@ -110,6 +118,7 @@ export default async function BookingAskLabPage({
           declineLock={vendorDeclineLock}
           dayCheck={typeof sp.day === 'string' ? labDay(sp.day) : null}
           waitlistAsk={vendorWaitlistTheAsk}
+          heldService={s === 'on_hold' ? LAB_HELD_SERVICE : null}
           now={NOW}
         />
       ) : ended ? (

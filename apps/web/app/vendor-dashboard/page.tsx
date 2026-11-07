@@ -61,6 +61,7 @@ import { businessMilestone, todayMilestoneWord } from '@/lib/vendor-milestone';
 import { BadgeEarnedLine } from './_components/badge-earned-line';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
+import { StayOnTodayLine } from './_components/stay-on-today-line';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -677,6 +678,7 @@ export default async function VendorOverviewPage({
 
       <BadgeEarnedLine />
       <ClaimWaitLines read={await claimWaitsP} />
+      <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <SupplierTodayScreen
         view={view}
         outcome={outcome}

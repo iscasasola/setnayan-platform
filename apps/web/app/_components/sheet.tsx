@@ -173,6 +173,15 @@ export type SheetProps = {
   pinned?: { level: string; name: string; more?: ReactNode };
   /** On a phone the sheet IS the screen — full height, no rounded top (the pinned row's drawer). Default false. */
   full?: boolean;
+  /**
+   * 🧭 THE CALLER'S OWN HEAD (Shop › Promote, owner 2026-11-06: "what is the use of our prototype?"): an approved
+   * prototype draws its own top row (Prints: ‹ · title over its line · Save all; a QR code: its name · ⓘ · Done). In
+   * place of the `title` row and the ✕, this row is drawn above the scrolling body and stays put; the caller's row
+   * carries the way out (Esc, the backdrop and the phone's Back still close). Default none: every caller renders as before.
+   */
+  head?: ReactNode;
+  /** 👍 A row pinned BELOW the scrolling body — the thumb dock (Prints: Design ▾ · QR ▾). Default none. */
+  foot?: ReactNode;
   children: ReactNode;
 };
 
@@ -187,6 +196,8 @@ export function Sheet({
   back,
   pinned,
   full = false,
+  head,
+  foot,
   children,
 }: SheetProps) {
   // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
@@ -221,7 +232,11 @@ export function Sheet({
         data-sheet-panel=""
         className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}${full ? ` ${at.full}` : ''}`}
       >
-        {pinned && back ? (
+        {head ? (
+          <div data-sheet-head="" className="shrink-0">
+            {head}
+          </div>
+        ) : pinned && back ? (
           <header data-sheet-pinned="" data-peek-toast-under="" className="flex min-h-14 shrink-0 items-center gap-1 border-b border-ink/10 pl-2 pr-2 pt-[env(safe-area-inset-top)]">
             <button
               type="button"
@@ -277,9 +292,14 @@ export function Sheet({
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),16px)]">
+        <div className={`flex-1 overflow-y-auto overscroll-contain${foot ? '' : ' pb-[max(env(safe-area-inset-bottom),16px)]'}`}>
           <InSheet.Provider value>{children}</InSheet.Provider>
         </div>
+        {foot ? (
+          <div data-sheet-foot="" className="shrink-0 pb-[env(safe-area-inset-bottom)]">
+            {foot}
+          </div>
+        ) : null}
       </div>
     </div>
   );

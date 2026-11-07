@@ -1,0 +1,24 @@
+## 2026-11-06 · feat(reviews): host reviews name their card; guests who were there get their own review, their own section, and never move the stars
+
+Owner rulings, 6 Nov 2026 (prototype `claude.ai/artifact/GWJhmWLcRijfyofpTLLs8o`, ruling A): a review request shows only that supplier's cards and never a price; host reviews (couple + co-hosts) and guest reviews are different things; the shop's overall stars are the hosts' only; coordinators do not write host reviews; ONE guest-review store and ONE "From guests" section, guest shown as "Gabriel D.", public at once, admin can hide it.
+
+- **Migration `20271316933967_host_and_guest_reviews`.** `vendor_reviews.service_id` (the card a host review is for). `vendor_reviews_couple_insert` / `_delete` re-created couple-and-co-host only (`current_couple_event_ids()`). New `vendor_guest_reviews` (RLS at CREATE TABLE; no browser INSERT/UPDATE grant; team + admin read), `vendor_guest_review_stats` (the guests' own line), and ONE writer `vendor_guest_review_submit` (service role; door check-in OR a received `supplier_scan_claims` row; booked supplier; the card is the shop's; the shot is the guest's own) plus `vendor_guest_review_reply` (the shop's one reply). `vendor_trusted_review_stats` is untouched — guest rows never feed it.
+- **Host review page** (`/dashboard/[eventId]/vendors/[vendorId]/review`): the booked card heads the form (photo, Verified booking, event line, a dropdown when the shop has several cards on the event), no price. A coordinator is refused on the page, in the action, and by the policy.
+- **Guest review page** (new, `/v/[slug]/guest-review?event=`): one screen, one supplier — card, Overall, one line (140), an optional own Papic shot through the blur gate, Shown as, Send; thank-you in place; every refusal said. The On-the-day guest QR now opens it for the selected event; print words "Were you there? Tell others what stood out."
+- **Shop page** (`/v/[slug]#reviews`): "4.8 overall · N reviews across all their services", the guests' own line under it, "From the hosts" (each review gains "For <card> · see the card"), then "From guests" (compact rows, blue "Guest at the event" chip). Refused read → said.
+- **Shop › Page › Reviews and stories**: the same two labelled groups; guest reviews take the same one public reply.
+- **Admin › Reviews**: a Guest reviews list with Hide / Show (no approval queue).
+- **Gift seam:** `guestReviewGiftFor` answers null — nothing on main (or in #7297/#7298) lets a supplier set a guest gift; the thank-you shows alone until it does.
+- Ugat joint J61; erasure + export classification for `vendor_guest_reviews`; dev lab `/dev/review-lab`.
+- **The database floor is tightened.** `vendor_reviews_couple_insert` now asks `host_review_booking_is_complete(event, supplier)`: THE REVIEWED supplier's booking on that event (marketplace link, linked profile, or contact-email match) is not disputed and is done by the app's own `reviewState` rules (received / confirmed / delivered / 7 days after marked complete / 30 days after the event). It was "any supplier on the event is delivered".
+- **Souvenir door.** `vendor_guest_review_submit` also admits a guest whose proof is a `guest_souvenir_claims` row from that supplier's scanner (`door = 'souvenir'`; dynamic, so inert until that column exists).
+- **Host "Shown as"** (`vendor_reviews.reviewer_display` names | initials): one dropdown above Submit; the card and the shop page show "A. & M." when chosen.
+- **Host thank-you** (`?sent=1`): the review as it shows, Keep <shop>, See it on <shop>'s page, Back to suppliers. No credits and no next-event offer — nothing on main grants either, so neither is drawn.
+- **The service card carries its own reviews**: "From the hosts" (the card's trusted number — `vendor_service_trusted_review_stats` copies the shop's filter, fenced by `card-review-stats-mirror-the-shop.test.ts`) and "From guests" with "+ N more guests · read all" → the shop page's `#guest-reviews`.
+- **Promote › Your gifts › Next event with us**: "Not set · can't be set here yet" — no gift invented.
+- **Guest hub, after the day › Me: "Who made the day?"** — a dropdown of this event's delivered suppliers, only for a checked-in guest; absent otherwise.
+- **Server-action budget held at 1229**: the guest reply, the admin hide/show and the recommendation withdraw fold into their sibling actions by `kind` / `mode`; the review lab's action became a client function.
+
+Tests: `lib/guest-reviews.test.ts`, `app/dashboard/[eventId]/vendors/[vendorId]/review/host-reviews-are-the-hosts.test.ts`, `app/v/[slug]/guest-review/no-price-on-the-review-card.test.ts`, `app/dev/review-lab/the-lab-never-ships.test.ts`, `tests/db/host-and-guest-reviews.db.test.ts`, `lib/card-reviews.test.ts`, `lib/card-review-stats-mirror-the-shop.test.ts`.
+
+SPEC IMPACT: The controller records the 6 Nov rulings (host vs guest reviews, ruling A) in DECISION_LOG.md. Corpus not edited by this PR.

@@ -15,7 +15,7 @@ import type { VendorDay } from '@/lib/vendor-day-picker';
  *
  * Pure: the page reads, this decides. 🔒 lib/supplier-qr-codes.test.ts
  */
-export const SUPPLIER_QR_MODES = ['shortlist', 'locked', 'dates', 'page', 'crew'] as const;
+export const SUPPLIER_QR_MODES = ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews'] as const;
 export type SupplierQrMode = (typeof SUPPLIER_QR_MODES)[number];
 
 /** `?mode=` → the code to show. Anything unknown is the Shortlist code, as before this list grew. */
@@ -33,8 +33,13 @@ export function supplierQrModeOf(raw: unknown): SupplierQrMode {
  *                 event (Hub › Crew's code)                            → `/vendor-dashboard/invite`
  *
  * The two lists split SUPPLIER_QR_MODES exactly — every code has ONE home (🔒 lib/supplier-qr-codes.test.ts).
+ *
+ * 🔳 OPTION B (owner 2026-11-06, *"B"* on the one-list prototype): Promote LISTS its four codes, one row each, in the
+ * prototype's order — Check a date · Shortlist · My page · **Reviews** (the printed review code joined the list: the
+ * prints and the list now pick from the same four). Booked · one-use and Crew stay per event on Customers › QR codes,
+ * in the same row + sheet design.
  */
-export const PROMOTE_QR_MODES = ['shortlist', 'dates', 'page'] as const satisfies readonly SupplierQrMode[];
+export const PROMOTE_QR_MODES = ['dates', 'shortlist', 'page', 'reviews'] as const satisfies readonly SupplierQrMode[];
 export type PromoteQrMode = (typeof PROMOTE_QR_MODES)[number];
 export const CUSTOMERS_QR_MODES = ['locked', 'crew'] as const satisfies readonly SupplierQrMode[];
 
@@ -64,6 +69,7 @@ export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = 
   dates: 'Check a date · free',
   page: 'My page',
   crew: 'Crew for an event',
+  reviews: 'Reviews',
 };
 
 /** The page "My page" opens. `origin` has no trailing slash (`siteOrigin()`). */

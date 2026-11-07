@@ -48,9 +48,10 @@ let lastCreditWarningCheckMs = 0;
  * REFUSES THE WHOLE QUERY for one unknown column rather than throwing, so the
  * sweep would have read zero rows, warned nobody, and looked completely healthy.
  * Read out of production, not remembered: the enum is
- * free · verified · solo · pro · enterprise · custom.
+ * free · verified · solo · pro · enterprise · custom — and `custom` can no
+ * longer be written (the Custom plan was retired 2026-11-06; a CHECK refuses it).
  */
-const SWEEPABLE_TIERS = ['solo', 'pro', 'enterprise', 'custom'] as const;
+const SWEEPABLE_TIERS = ['solo', 'pro', 'enterprise'] as const;
 
 export async function maybeSweepVendorCreditWarnings(): Promise<void> {
   const nowMs = Date.now();

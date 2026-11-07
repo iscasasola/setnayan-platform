@@ -158,7 +158,6 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     // (inquiry-handling-card.tsx quoted REPLY_SPREAD_PCT here; "Analytics, growing" — owner-approved 6 Nov 2026 —
     // retired that card, and no screen now prints the 90% spread, so there is no quote left to pin.)
     ['app/onboarding/_shared/date-calendar.tsx', /\$\{MAXSPAN \+ 1\} days/],
-    ['app/admin/custom-plans/_components/custom-composer.tsx', /CUSTOM_BASE\.seats\)\} seats included/],
     // The AI family's own discount card (and its "10% floor" sentence) was removed by the
     // one-sign-up-discount change (d18); the one card left quotes the floor by name.
     ['app/admin/pricing/_components/signup-discount-card.tsx', /min=\{PAPIC_DISCOUNT_FLOOR_PCT\}/],

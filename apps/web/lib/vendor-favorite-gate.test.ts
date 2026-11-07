@@ -29,7 +29,7 @@ const PAST = new Date(Date.now() - 86_400_000).toISOString();
 // ---------------------------------------------------------------------------
 
 test('paid tiers with a live (or null) expiry are favoritable', () => {
-  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     assert.equal(
       vendorHoldsActivePaidSub({ tier_state: tier, tier_expires_at: FUTURE }),
       true,
@@ -56,7 +56,7 @@ test('free tiers are never favoritable', () => {
 test('a lapsed paid tier (expiry in the past) is NOT favoritable', () => {
   // Lapse is login-driven, so a past-due vendor can still carry a paid
   // tier_state until the sweep runs — the expiry check is what hides them now.
-  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     assert.equal(
       vendorHoldsActivePaidSub({ tier_state: tier, tier_expires_at: PAST }),
       false,

@@ -56,9 +56,7 @@ const ALLOW: Record<string, { count: number; why: string }> = {
  * double inversion (1.4–3.0:1 in dark, except success-700 → 600 at 5.71:1 vs 8.53:1 mirrored).
  */
 const DEBT: Record<string, { count: number; pr: number }> = {
-  'app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx': { count: 1, pr: 7374 },
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx': { count: 9, pr: 7365 },
-  'app/dashboard/[eventId]/_components/payment-plan-rows.tsx': { count: 2, pr: 7365 },
   'app/vendor-dashboard/on-the-day/_components/crew-panel.tsx': { count: 3, pr: 7308 },
   'app/vendor-dashboard/on-the-day/_components/access-grants.tsx': { count: 1, pr: 7308 },
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx': { count: 1, pr: 7307 },

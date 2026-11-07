@@ -389,9 +389,9 @@ function DatedPlanRows({
                             />
                           ) : null}
                           {r.dueIso === '' && r.amount.trim() !== '' ? (
-                            <p className="text-[11.5px] text-warn-800 dark:text-warn-200">Pick the day it is due.</p>
+                            <p className="text-[11.5px] text-warn-800">Pick the day it is due.</p>
                           ) : unreachable ? (
-                            <p className="text-[11.5px] text-warn-800 dark:text-warn-200">
+                            <p className="text-[11.5px] text-warn-800">
                               Pick a day from {dates.lockIso} on — or set your event date first.
                             </p>
                           ) : null}
@@ -499,9 +499,9 @@ function DatedPlanRows({
                 </span>
               </div>
               {r.dueIso === '' && !r.settled ? (
-                <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">Pick the day it is due.</p>
+                <p className="mt-1 text-[11.5px] text-warn-800">Pick the day it is due.</p>
               ) : unreachable ? (
-                <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">
+                <p className="mt-1 text-[11.5px] text-warn-800">
                   Pick a day from {dates.lockIso} on — or set your event date first.
                 </p>
               ) : null}

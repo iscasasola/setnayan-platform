@@ -32,6 +32,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { DraftPackage, DraftParentRef } from './package-authoring';
+import { packageGiftOf } from './package-gift';
 import {
   PACKAGE_ITEM_AUTHORING_SELECT,
   PACKAGE_ITEM_OPTION_SELECT,
@@ -50,7 +51,7 @@ export type LoadPackageResult =
   | { ok: false; reason: 'read_failed'; message: string };
 
 const VENDOR_PACKAGE_HEAD_SELECT =
-  'package_id, package_name, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, is_active';
+  'package_id, package_name, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, is_active, includes_setnayan_gift, gift_pack_code';
 
 /**
  * `parent_option_id` → the draft's (itemRef, optionRef) pair.
@@ -138,6 +139,7 @@ export async function loadPackageDraft(
         total_price_centavos: pkg.total_price_centavos,
         consumable_budget_centavos: pkg.consumable_budget_centavos,
         is_consumable_flexible: pkg.is_consumable_flexible,
+        gift: packageGiftOf(pkg),
         items: (items ?? []).map((i) => ({
           ref: i.item_id,
           service_description: i.service_description,
@@ -153,6 +155,7 @@ export async function loadPackageDraft(
           pickMin: i.pick_min ?? null,
           pickMax: i.pick_max ?? null,
           maxExtraHours: i.max_extra_hours ?? null,
+          vendorServiceId: i.vendor_service_id ?? null,
           options: (options ?? [])
             .filter((o) => o.item_id === i.item_id)
             .map((o) => ({

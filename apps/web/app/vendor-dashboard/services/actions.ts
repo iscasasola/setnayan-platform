@@ -38,7 +38,8 @@ import {
   EMPTY_LEAF_INDEX,
   type LeafIndex,
 } from '@/lib/service-card-kind';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import { bookingsPerDateRefusal } from '@/lib/card-bookings-per-date';
 import {
   assignCardSchedule,
   checkSlot,
@@ -494,6 +495,41 @@ function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | nul
   return n;
 }
 
+/**
+ * A CARD'S BOOKINGS PER DATE STAYS INSIDE ITS PLAN (owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A
+ * PLAN ALLOWANCE": Solo 1 · Pro 3 · Ultra 5, plus any "+1 booking per date" bought). Null = it may be saved; else the
+ * sentence to show. Free · Verified: 1 each, like Solo (owner click 2026-11-06). A card re-saved with the SAME number
+ * it already holds above a lowered cap is grandfathered (lib/card-bookings-per-date.ts). The database honours only the
+ * cap either way (`service_card_daily_limit`).
+ */
+async function bookingsPerDatePlanRefusal(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  requested: number | null,
+  serviceId: string | null,
+): Promise<string | null> {
+  if (requested === null) return null;
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
+  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
+  let stored: number | null = null;
+  if (serviceId) {
+    const { data: row } = await supabase
+      .from('vendor_services')
+      .select('daily_capacity')
+      .eq('vendor_service_id', serviceId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    const n = Number((row as { daily_capacity?: number | null } | null)?.daily_capacity);
+    stored = Number.isInteger(n) && n > 0 ? n : null;
+  }
+  return bookingsPerDateRefusal({ tier, effectiveCap: caps.bookingsPerDatePerService, requested, stored });
+}
+
 /** Resolve a submitted coverage_id to a number ONLY if it belongs to this
  *  vendor (defense-in-depth; the UI already offers only the vendor's own
  *  coverages). Anything else → null (unassigned). */
@@ -714,7 +750,9 @@ export async function createVendorService(formData: FormData) {
   const tierRowTyped = tierRow as
     | { tier_state?: string | null; is_founder?: boolean | null }
     | null;
-  const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
+  // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06 — +1 category, +1 service card,
+  // +1 booking per date). Plan-only for every other tier (fetchCapsWithAddOns skips the read).
+  const baseCaps = await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
   // Founder override (owner 2026-06-09): unlimited categories + services-per-leaf
   // ONLY. There is NO founder token-gate bypass — the bypass was dropped at
   // migration 20270221294989, so founders burn tokens like any paid tier in
@@ -724,7 +762,8 @@ export async function createVendorService(formData: FormData) {
       ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
       : baseCaps;
 
-  // (0) Per-service daily capacity (#2) — the supplier's own number, no plan limit (2026-10-23).
+  // (0) Per-service daily capacity (#2) — the supplier's own number, inside the plan's bookings per date per card
+  // (owner 2026-11-06; Free · Verified 1 each, like Solo).
   let daily_capacity: number | null;
   try {
     daily_capacity = parseDailyCapacityOrThrow(formData.get('daily_capacity'));
@@ -732,6 +771,10 @@ export async function createVendorService(formData: FormData) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
+  }
+  {
+    const overPlan = await bookingsPerDatePlanRefusal(supabase, profile.vendor_profile_id, daily_capacity, null);
+    if (overPlan) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(overPlan)}`);
   }
 
   const { data: existingRows } = await supabase
@@ -1016,7 +1059,8 @@ export async function updateVendorService(formData: FormData) {
   }
   const branch_id = branchPick.branchId;
 
-  // Per-service daily capacity (#2) — the supplier's own number, no plan limit (2026-10-23).
+  // Per-service daily capacity (#2) — the supplier's own number, inside the plan's bookings per date per card
+  // (owner 2026-11-06; an unchanged number above a lowered cap is grandfathered).
   let daily_capacity: number | null;
   try {
     daily_capacity = parseDailyCapacityOrThrow(formData.get('daily_capacity'));
@@ -1024,6 +1068,10 @@ export async function updateVendorService(formData: FormData) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
     );
+  }
+  {
+    const overPlan = await bookingsPerDatePlanRefusal(supabase, profile.vendor_profile_id, daily_capacity, idRaw);
+    if (overPlan) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(overPlan)}`);
   }
 
   // QR-in-media guard (owner-locked 2026-07-03): scan only showcase photos NOT
@@ -1432,7 +1480,8 @@ export async function commitVendorService(formData: FormData) {
   const tierRowTyped = tierRow as
     | { tier_state?: string | null; is_founder?: boolean | null }
     | null;
-  const baseCaps = tierCaps(asVendorTier(tierRowTyped?.tier_state));
+  // Plan + bought Ultra add-ons (owner 2026-11-06), the same read as createVendorService.
+  const baseCaps = await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
   const caps =
     tierRowTyped?.is_founder === true
       ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
@@ -1613,6 +1662,17 @@ export async function commitVendorService(formData: FormData) {
   // stay". A card ALREADY live is held only to its price (`unmetForALiveCard`);
   // it is flagged for the rest, never refused. `save_vendor_service` and the
   // trigger draw the same line, in the same order, with the same sentences.
+  // A card's bookings per date stays inside its plan (owner 2026-11-06) — the maker's save, same rule as the editor's.
+  {
+    const overPlan = await bookingsPerDatePlanRefusal(
+      supabase,
+      profile.vendor_profile_id,
+      (fields.daily_capacity as number | null | undefined) ?? null,
+      serviceId,
+    );
+    if (overPlan) return back(overPlan);
+  }
+
   if (publish) {
     let alreadyLive = false;
     if (!isCreate) {

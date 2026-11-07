@@ -15,7 +15,9 @@ import {
 } from '@/lib/vendor-coverages';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
-import { tierCaps, asVendorTier, planHasBranches } from '@/lib/vendor-tier-caps';
+import { planHasBranches } from '@/lib/vendor-tier-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import { bookingsPerDateHelp } from '@/lib/card-bookings-per-date';
 import { parentsOfKind, standingForCategory } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind, type LeafIndex } from '@/lib/service-card-kind';
 import type { TradeMatch } from '@/lib/kind-search-trades';
@@ -78,6 +80,12 @@ export type MakerContext = {
   leaves: LeafIndex;
   /** A covered kind the shop has exactly one of — the maker pre-picks it. */
   onlyKind: string | null;
+  /**
+   * A card's bookings per date, inside the plan (owner 2026-11-06): `cap` = the plan's number plus any bought
+   * "+1 booking per date"; `help` = the words beside the field. Set on every plan (Free · Verified 1, owner 2026-11-06);
+   * the type stays nullable for the editor's existing blank-field path.
+   */
+  bookingsPerDate: { cap: number | null; help: string | null };
   kindLabel: (kind: string) => string;
   /**
    * 🎁 THE CARD'S GIFT ROW (makers prototype 7 Nov 2026 § 3) — the giftable packs on the live catalogue and what this
@@ -122,7 +130,12 @@ export async function loadMakerContext(
   for (const c of ownCategories) cardsByCategory[c] = (cardsByCategory[c] ?? 0) + 1;
 
   const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null } | null;
-  const baseCaps = tierCaps(asVendorTier(tierRow?.tier_state));
+  // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06), the same read as the save's.
+  const baseCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tierRow?.tier_state);
+  const bookingsPerDate = {
+    cap: baseCaps.bookingsPerDatePerService,
+    help: bookingsPerDateHelp(tierRow?.tier_state, baseCaps.bookingsPerDatePerService),
+  };
   // Founder override, identical to the save's (owner 2026-06-09).
   const caps =
     tierRow?.is_founder === true
@@ -301,6 +314,7 @@ export async function loadMakerContext(
     branches,
     leaves,
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,
+    bookingsPerDate,
     kindLabel,
     giftPacks,
     giftFree: freeByKind(giftStock),

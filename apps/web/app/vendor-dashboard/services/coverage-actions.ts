@@ -18,7 +18,7 @@ import {
 } from '@/lib/vendor-coverage-write';
 import { buildLeafIndex } from '@/lib/service-card-kind';
 import { coverageLeafForKind } from '@/lib/service-card-maker';
-import { asVendorTier, tierCaps } from '@/lib/vendor-tier-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 
 /** Validate a faiths[] submission against the ACTIVE `faith_vocab` keys (the
  *  DB is the vocab authority per the vendor_coverages.faiths column comment;
@@ -225,7 +225,7 @@ export async function deleteCoverage(formData: FormData): Promise<void> {
  *
  * The no-redirect door onto the SAME coverage write `createCoverage` makes (`lib/vendor-coverage-write.ts`), so the
  * card being made stays on screen and saves next, whatever this answers. Within the plan's family cap
- * (`tierCaps(...).parentCategories`, the founder override as everywhere); over it → `over_cap`, and the maker shows
+ * (`fetchCapsWithAddOns(...).parentCategories` — plan + bought "+1 category" — the founder override as everywhere); over it → `over_cap`, and the maker shows
  * the plan option while the card still saves.
  *
  * Its own action call, ALWAYS — `commitVendorService` never writes coverage.
@@ -245,8 +245,11 @@ export async function addCoverageForCard(kind: string): Promise<AddCoverageForCa
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   const t = tierRow as { tier_state?: string | null; is_founder?: boolean | null } | null;
+  // Plan + any bought "+1 category" (Ultra add-on, owner 2026-11-06).
   const parentCategories =
-    t?.is_founder === true ? Infinity : tierCaps(asVendorTier(t?.tier_state)).parentCategories;
+    t?.is_founder === true
+      ? Infinity
+      : (await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, t?.tier_state)).parentCategories;
   const eventTypes = await parseEventTypes([], leaf.allowedEventTypes);
   const res = await addCoverageForCardKind(supabase, profile.vendor_profile_id, {
     leaf: leafKey,

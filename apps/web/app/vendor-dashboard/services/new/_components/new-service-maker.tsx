@@ -46,6 +46,7 @@ export function NewServiceMaker({
         branches={ctx.branches}
         giftPacks={ctx.giftPacks}
         giftFree={ctx.giftFree}
+        bookingsPerDate={ctx.bookingsPerDate}
         detailsKind={details ? ctx.onlyKind : null}
         detailsSlot={
           details && ctx.onlyKind ? (

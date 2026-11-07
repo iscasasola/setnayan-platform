@@ -81,9 +81,16 @@ const HOOKS = [
     extract: 'async function grantShopGiftPurchase(ctx: ActivationContext)',
     firstEffect: "from('shop_gift_stock_entries').insert(",
   },
+  {
+    // Added 2026-11-06 with the ULTRA ADD-ONS (owner, "ULTRA ADD-ON PRICES"): the key names the buying shop, exactly
+    // like the extra seat — the paying order must be that shop's before its paid count is recomputed.
+    name: 'ultra add-on count',
+    extract: 'const target = parseCountAddOnServiceKey(ctx.serviceKey);',
+    firstEffect: 'recomputeVendorAddOnCount(ctx.admin',
+  },
 ] as const;
 
-test('every vendor-surface hook calls the ownership gate — six today', () => {
+test('every vendor-surface hook calls the ownership gate — seven today', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,

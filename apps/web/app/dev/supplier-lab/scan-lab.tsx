@@ -13,6 +13,8 @@ import type { CoupleScanClaim, GuestScanNumber } from '@/lib/supplier-scan.serve
  *   ?side=guest            the guest's Live: Now, then "Your number #0042 · Photo booth · Lumina Studio"
  *   ?side=guest&two=1      two numbers (a booth and the souvenir table)
  *   ?side=guest&state=ordered|ready   Ordered → Received: "Being prepared" · "Ready — claim it now" + the guest's notice
+ *   ?s=scan-guest&review=1 ⭐ slice 5 — "How was the Photo booth?" under the number (nothing is sent from the lab).
+ *                          Where the review lands — the shop page's one "From guests" group — is /dev/review-lab?s=shop.
  *   ?side=couple           the couple's souvenir table › Suppliers' scans, with names
  *   ?side=couple&state=empty|unread
  */
@@ -36,7 +38,7 @@ const CLAIMS: CoupleScanClaim[] = [
   { state: 'received', number: 41, guestName: 'Lito Santos', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T11:36:00Z' },
 ];
 
-export function ScanLab(q: { side?: string; two?: string; state?: string }) {
+export function ScanLab(q: { side?: string; two?: string; state?: string; review?: string }) {
   if (q.side === 'couple') {
     const claims = q.state === 'unread' ? null : q.state === 'empty' ? [] : CLAIMS;
     return (
@@ -57,6 +59,19 @@ export function ScanLab(q: { side?: string; two?: string; state?: string }) {
       </section>
       <YourNumberCardView
         numbers={q.state === 'ordered' || q.state === 'ready' ? [PRINT(q.state)] : q.two === '1' ? NUMBERS : NUMBERS.slice(0, 1)}
+        asks={
+          q.review === '1'
+            ? [
+                {
+                  vendorProfileId: '00000000-0000-4000-8000-000000000001',
+                  service: 'Photo booth',
+                  shop: 'Lumina Studio',
+                  names: { name: 'Ana R.', initials: 'A. R.' },
+                },
+              ]
+            : []
+        }
+        eventId="lab"
         className="mt-8"
       />
       {q.state === 'ready' ? (

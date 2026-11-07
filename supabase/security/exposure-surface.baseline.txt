@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7242
+# facts: 7248
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     600
-#   col       5255
-#   policy    1052
+#   tpriv     601
+#   col       5259
+#   policy    1053
 #   view      9
 #   func      322
 #
@@ -437,6 +437,7 @@ tpriv	public.supplier_night_before_email_log|authenticated	SIUD
 tpriv	public.supplier_page_photo_notices|authenticated	S
 tpriv	public.supplier_scan_claims|authenticated	SD
 tpriv	public.supplier_scan_counters|authenticated	S
+tpriv	public.supplier_scan_review_skips|authenticated	S
 tpriv	public.supplier_scan_sessions|authenticated	S
 tpriv	public.supplier_scan_settings|authenticated	SIUD
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
@@ -4327,6 +4328,10 @@ col	public.supplier_scan_claims.vendor_profile_id	anon=- authenticated=S
 col	public.supplier_scan_counters.coverage_id	anon=- authenticated=S
 col	public.supplier_scan_counters.event_id	anon=- authenticated=S
 col	public.supplier_scan_counters.last_number	anon=- authenticated=S
+col	public.supplier_scan_review_skips.event_id	anon=- authenticated=S
+col	public.supplier_scan_review_skips.guest_id	anon=- authenticated=S
+col	public.supplier_scan_review_skips.skipped_at	anon=- authenticated=S
+col	public.supplier_scan_review_skips.vendor_profile_id	anon=- authenticated=S
 col	public.supplier_scan_sessions.closed_at	anon=- authenticated=S
 col	public.supplier_scan_sessions.coverage_id	anon=- authenticated=S
 col	public.supplier_scan_sessions.event_id	anon=- authenticated=S
@@ -6623,6 +6628,7 @@ policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_rea
 policy	public.supplier_scan_claims|supplier_scan_claims_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_claims|supplier_scan_claims_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_claims.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.supplier_scan_counters|supplier_scan_counters_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.supplier_scan_review_skips|supplier_scan_review_skips_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_sessions|supplier_scan_sessions_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_sessions.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.supplier_scan_settings|supplier_scan_settings_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_settings|supplier_scan_settings_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))

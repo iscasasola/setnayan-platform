@@ -80,6 +80,7 @@ import {
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row';
 import { getIapGate } from '@/lib/request-platform';
+import { PasswordField } from '@/app/_components/password-field';
 
 export const metadata = { title: 'Profile' };
 
@@ -1159,10 +1160,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               <input type="hidden" name="return_to" value="/dashboard/profile" />
               <TurnstileField action="reauth" />
               <Field label="Current password" htmlFor="current_password">
-                <input
+                <PasswordField
                   id="current_password"
                   name="current_password"
-                  type="password"
                   required
                   autoComplete="current-password"
                   className="input-field"
@@ -1170,10 +1170,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="New password" htmlFor="new_password">
-                  <input
+                  <PasswordField
                     id="new_password"
                     name="new_password"
-                    type="password"
                     required
                     minLength={8}
                     autoComplete="new-password"
@@ -1181,10 +1180,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                   />
                 </Field>
                 <Field label="Confirm new password" htmlFor="confirm_password">
-                  <input
+                  <PasswordField
                     id="confirm_password"
                     name="confirm_password"
-                    type="password"
                     required
                     minLength={8}
                     autoComplete="new-password"

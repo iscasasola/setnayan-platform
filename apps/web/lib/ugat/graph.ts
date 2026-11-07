@@ -3863,12 +3863,21 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'supplier_scan_claims', column: 'ready_at' },
       { kind: 'column', table: 'coordinator_broadcasts', column: 'target_guest_id' },
       { kind: 'check', table: 'coordinator_broadcasts', name: 'coordinator_broadcasts_supplier_is_one_guest', mentions: 'target_guest_id' },
+      // Group session (slice 3): one shot = one number for everyone in it, with its prints.
+      { kind: 'table', table: 'supplier_scan_sessions' },
+      { kind: 'fk', table: 'supplier_scan_sessions', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'supplier_scan_sessions', column: 'coverage_id', references: 'vendor_coverages' },
+      { kind: 'fk', table: 'supplier_scan_claims', column: 'session_id', references: 'supplier_scan_sessions' },
+      { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_state_check', mentions: 'state' },
+      { kind: 'column', table: 'supplier_scan_sessions', column: 'prints' },
+      // Roaming (slice 4) is the same shot with no station — one CHECK names both.
+      { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_mode_check', mentions: 'mode' },
     ],
     chain: 22,
     pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],
     title: 'Supplier scan → Guest (one claim, one shared number)',
     joint: 'supplier_scan_claims',
-    cardinality: 'Once and Ordered → Received: one claim per guest per service per event (partial unique); the number is per service per event and kept through ordered → ready → received',
+    cardinality: 'Once and Ordered → Received: one claim per guest per service per event (partial unique); Unlimited: a claim per scan; Group session: one number per shot (supplier_scan_sessions), one claim per guest per shot. The number is per service per event and kept through ordered → ready → received',
     implementedBy:
       'supplier_scan_claims (composite (event_id, guest_id) → guests CASCADE · coverage_id → vendor_coverages · scan_number from supplier_scan_counters) — or, for a souvenir service (supplier_scan_is_souvenir), the couple’s guest_souvenir_claims row with vendor_profile_id · coverage_id · scan_number',
     writtenBy:

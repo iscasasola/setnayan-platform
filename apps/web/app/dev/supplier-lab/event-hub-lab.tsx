@@ -57,15 +57,22 @@ const RUN = {
  * result line: claimed · already · souvenir-desk · not · nosignal · name (a host-approved coordinator's view).
  */
 const SCAN_SERVICES: Record<string, EventScanService[] | 'unreadable'> = {
-  on: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false, ordered: 0, ready: 0 } }],
+  on: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false, ordered: 0, ready: 0, served: 0, unique: 0, sessions: 0, open: null } }],
   two: [
-    { coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false, ordered: 0, ready: 0 } },
-    { coverageId: 2, label: 'Souvenir / Giveaways', mode: 'once', tally: { claimed: 96, total: 118, lastNumber: 88, souvenir: true, ordered: 0, ready: 0 } },
+    { coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false, ordered: 0, ready: 0, served: 0, unique: 0, sessions: 0, open: null } },
+    { coverageId: 2, label: 'Souvenir / Giveaways', mode: 'once', tally: { claimed: 96, total: 118, lastNumber: 88, souvenir: true, ordered: 0, ready: 0, served: 0, unique: 0, sessions: 0, open: null } },
   ],
-  fresh: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 0, total: 118, lastNumber: 0, souvenir: false, ordered: 0, ready: 0 } }],
+  fresh: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 0, total: 118, lastNumber: 0, souvenir: false, ordered: 0, ready: 0, served: 0, unique: 0, sessions: 0, open: null } }],
   unread: 'unreadable',
   // Ordered → Received (slice 2): prints — 38 numbers, 12 ordered, 3 ready, 20 received.
-  prints: [{ coverageId: 3, label: 'Photo booth prints', mode: 'ordered_received', tally: { claimed: 20, total: 118, lastNumber: 38, souvenir: false, ordered: 12, ready: 3 } }],
+  // Unlimited (slice 3): 214 scans, 96 guests.
+  unlimited: [{ coverageId: 4, label: 'Photo booth', mode: 'unlimited', tally: { claimed: 96, total: 118, lastNumber: 214, souvenir: false, ordered: 0, ready: 0, served: 214, unique: 96, sessions: 0, open: null } }],
+  // Group session (slice 3): shot #0107 open with 3 guests; 41 shots so far.
+  group: [{ coverageId: 5, label: 'Photo booth', mode: 'group_session', tally: { claimed: 88, total: 118, lastNumber: 107, souvenir: false, ordered: 9, ready: 6, served: 0, unique: 103, sessions: 41, open: { number: 107, guests: 3 } } }],
+  'group-idle': [{ coverageId: 5, label: 'Photo booth', mode: 'group_session', tally: { claimed: 88, total: 118, lastNumber: 106, souvenir: false, ordered: 6, ready: 6, served: 0, unique: 100, sessions: 40, open: null } }],
+  // Roaming (slice 4): shot #0231 open with 2 guests.
+  roaming: [{ coverageId: 6, label: 'Photo & video', mode: 'roaming', tally: { claimed: 57, total: 118, lastNumber: 231, souvenir: false, ordered: 4, ready: 8, served: 0, unique: 70, sessions: 64, open: { number: 231, guests: 2 } } }],
+  prints: [{ coverageId: 3, label: 'Photo booth prints', mode: 'ordered_received', tally: { claimed: 20, total: 118, lastNumber: 38, souvenir: false, ordered: 12, ready: 3, served: 0, unique: 0, sessions: 0, open: null } }],
 };
 const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   claimed: { outcome: 'claimed', number: 42, claimed: 42, total: 118 },
@@ -78,6 +85,11 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   ordered: { outcome: 'ordered', number: 42 },
   'not-ready': { outcome: 'not_ready', number: 42 },
   received: { outcome: 'received', number: 42, claimed: 21, total: 118 },
+  served: { outcome: 'served', number: 215, served: 215, unique: 96 },
+  added: { outcome: 'added', number: 107, guests: 3 },
+  'picked-up': { outcome: 'picked_up', number: 107, claimed: 3, of: 5 },
+  'no-session': { outcome: 'no_session' },
+  'roam-added': { outcome: 'added', number: 231, guests: 2, mode: 'roaming' },
 };
 
 /**

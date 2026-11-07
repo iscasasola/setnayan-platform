@@ -4,7 +4,7 @@ Owner, 7 Nov 2026: *"do we have the wedding essentials taxonomy? for catholic we
 
 Measured first: none of these existed. The only near match, `wedding_veil` (the bride's veil, Look › Jewelleries & accessories), is a different thing and is left where it is.
 
-Migration `20271320042798_ceremony_essentials_category.sql` seeds the one source, Admin › Categories. It uses the same shape as Chairs & tents (`20271257951866`): `service_categories` + `canonical_service_taxonomy` + `canonical_service_schemas`, with `ON CONFLICT DO NOTHING` and a post-condition block that refuses a dead shelf. `getTaxonomy()` reads the rows.
+Migration `20271320560031_ceremony_essentials_category.sql` seeds the one source, Admin › Categories. It uses the same shape as Chairs & tents (`20271257951866`): `service_categories` + `canonical_service_taxonomy` + `canonical_service_schemas`, with `ON CONFLICT DO NOTHING` and a post-condition block that refuses a dead shelf. `getTaxonomy()` reads the rows.
 
 **The code fallback copy got the same rows.** This is not a second source. The one-source guards (`one-source-buckets`, `one-source-category-key`, `thin-event-types-are-scoped`, `taxonomy-folder-counts`, `category-hints`) require the fallback snapshot to equal the replayed seed, because it is what `getTaxonomy()` serves when the read fails. The files are the same ones Chairs & tents touched:
 

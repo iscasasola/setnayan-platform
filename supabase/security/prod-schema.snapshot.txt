@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1759
+# ledger: 1760
 # tables: 455
-# columns: 5610
-# notnull: 3390
+# columns: 5614
+# notnull: 3394
 [ledger]
 20260512000000
 20260513000000
@@ -1768,6 +1768,7 @@
 20271315529466
 20271316174617
 20271316355263
+20271316466285
 20271316625547
 20271316933967
 20271319497337
@@ -6726,6 +6727,10 @@ vendor_profiles.event_types
 vendor_profiles.experience_verified_at
 vendor_profiles.experience_verified_by
 vendor_profiles.extra_agent_seats
+vendor_profiles.extra_bookings_per_date
+vendor_profiles.extra_parent_categories
+vendor_profiles.extra_services_per_leaf
+vendor_profiles.extra_waitlist_acceptances
 vendor_profiles.fraud_banned_at
 vendor_profiles.fraud_suspended_at
 vendor_profiles.fraud_tombstoned
@@ -10377,6 +10382,10 @@ vendor_profiles.created_at
 vendor_profiles.demotion_count
 vendor_profiles.event_types
 vendor_profiles.extra_agent_seats
+vendor_profiles.extra_bookings_per_date
+vendor_profiles.extra_parent_categories
+vendor_profiles.extra_services_per_leaf
+vendor_profiles.extra_waitlist_acceptances
 vendor_profiles.fraud_tombstoned
 vendor_profiles.gallery_video_links
 vendor_profiles.is_demo

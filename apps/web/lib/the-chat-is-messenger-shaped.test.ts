@@ -72,7 +72,13 @@ test('the head is ‹ · avatar · name · event line · the chat menu — ONE h
     const s = read(p);
     const at = s.indexOf('header={');
     const h = s.slice(at, s.indexOf('notice={', at));
-    assert.match(h, /^header=\{\s*<ChatThreadHead\b/, `${p}: the head is not the shared ChatThreadHead`);
+    // THE ONE BUILD (8 Nov 2026, v111): inside the picked client the supplier's box draws NO head of its own — the
+    // client's pinned row is the head — so the supplier page may say `embed === 'chat' ? null :` first, and only that.
+    assert.match(
+      h,
+      /^header=\{\s*(?:embed === 'chat' \? null : \(\s*)?<ChatThreadHead\b/,
+      `${p}: the head is not the shared ChatThreadHead`,
+    );
     assert.equal((h.match(/<ChatThreadMenu\b/g) ?? []).length, 1, `${p}: the chat menu is not the head's action`);
   }
   assert.match(read('app/_components/chat-thread-menu.tsx'), /aria-label="About this chat"/);

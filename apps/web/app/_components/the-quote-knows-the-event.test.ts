@@ -22,10 +22,12 @@ const maker = readFileSync(join(ROOT, 'app/_components/proposal-maker.tsx'), 'ut
 const page = readFileSync(join(ROOT, 'app/vendor-dashboard/messages/[threadId]/page.tsx'), 'utf8');
 const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
 
-test('the brief is mounted once, under Start from ("Their event"), above the guests & hours header', () => {
+test('the brief is mounted once, under Pick service cards ("Their event"), above the guests & hours header', () => {
   // 2026-10-14 · the quote is ONE screen (simpler supplier dashboard step 4): step 1 became a fold under Start from.
+  // 2026-11-08 · THE ONE BUILD (v113, the owner's eleven steps): the fold sits under step 2 "Pick service cards",
+  // right above the guests counter it informs — where v113 draws "Their event". Still one fold, still above the header.
   assert.equal(count(maker, /data-testid="quote-event-brief"/g), 1);
-  const from = maker.indexOf('<QuoteSection id="start"');
+  const from = maker.indexOf('<QuoteSection id="cards"');
   const to = maker.indexOf('</QuoteSection>', from);
   const start = maker.slice(from, to);
   assert.match(start, /data-quote-their-event=""/, 'the brief lost its "Their event" fold');

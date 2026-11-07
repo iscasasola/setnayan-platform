@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
-import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { BuyGiftsSheet } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { bookingFeePhp } from '@/lib/booking-fee';
@@ -76,7 +75,6 @@ export function QuoteShopGifts({
 
   return (
     <div data-testid="quote-shop-gifts" className="mt-3 space-y-2">
-      <UndoToastHost />
       <InfoTip label="Gifts from you" labelClassName="text-sm font-semibold text-ink" align="start">
         Gifts from your own stock. They leave your stock when the couple&rsquo;s first payment clears, and land on their
         event — Papic credits in its shared credits, Event Plus or Event Pro unlocked on it. A second Event Plus on an

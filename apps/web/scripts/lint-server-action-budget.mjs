@@ -71,7 +71,12 @@ import { fileURLToPath } from 'node:url';
 // `export const dynamic` in app/dev/open-shop-lab/page.tsx, because that lab holds an inline 'use server' stand-in.
 // No unimported action was found to un-export. The production build measured 1835 routes on 2026-11-07,
 // 165 under check-vercel-route-count's ceiling of 2000, so there is room for these two.
-export const CEILING = 1232;
+// 1232 → 1233 (2026-11-08, THE ONE BUILD lane C2, owner v112 "Gift limit · % of the booking fee" in Admin › Gifts):
+// `admin/gifts/gift-limit-actions.ts` · `saveGiftLimitPct`, the setting's ONE audited writer (spec B2 §4 sanctions
+// "raise once with the reasoned line"). No unimported export was found in the lane's files to retire; message hearts
+// write through the browser client under their own RLS, so they spend no route. ⚠ Other lanes raise this too — the
+// controller reconciles the ONE number on the merged tree (sum of the lanes' +n), checked by check-vercel-route-count.
+export const CEILING = 1233;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

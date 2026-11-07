@@ -25,6 +25,9 @@ import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { QuoteCardLines } from '@/app/_components/quote-card-lines';
 import { quoteCardState } from '@/lib/quote-card-state';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import {
   resolvePackageLine,
   crewChargeCentavos,
@@ -784,6 +787,17 @@ export function ProposalMaker({
   // Tap to drop, tap to put back — never a delete (prototype "What's in it · tap to drop").
   const toggleDrop = (key: string) =>
     setItems((prev) => prev.map((l) => (l.key === key ? { ...l, dropped: !l.dropped } : l)));
+  /**
+   * SWIPE LEFT = DROP, WITH UNDO (house rule 4 Nov; THE ONE BUILD step 4). The drop is the shipped reversible one —
+   * the line stays, struck and out of the total — so "commit" writes nothing: the toast's Undo simply puts it back.
+   */
+  const dropWithUndo = (key: string, label: string) =>
+    deleteWithUndo({
+      label: `Dropped ${label.trim() || 'a line'}`,
+      hide: () => setItems((prev) => prev.map((l) => (l.key === key ? { ...l, dropped: true } : l))),
+      restore: () => setItems((prev) => prev.map((l) => (l.key === key ? { ...l, dropped: false } : l))),
+      commit: () => ({ ok: true }),
+    });
   const moveLine = (fromKey: string, toKey: string) =>
     setItems((prev) => {
       if (fromKey === toKey) return prev;
@@ -1153,6 +1167,8 @@ export function ProposalMaker({
       className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
     >
       <input type="hidden" name="thread_id" value={threadId} />
+      {/* ONE Undo toast for the quote — the line drop and the gift rows share it. */}
+      <UndoToastHost />
       <input type="hidden" name="payload" value={payload} />
 
 
@@ -1175,18 +1191,11 @@ export function ProposalMaker({
         </div>
       ) : null}
 
-      {/* ── THE ANSWER: what they pay you (prototype: the big number at the top of the quote) ───────────────── */}
-      <div className="flex items-baseline justify-between gap-3 border-b border-ink/10 px-4 py-3" data-quote-answer="">
-        <span className="text-sm text-ink/60">What they pay you</span>
-        <span className="text-right">
-          <b className="font-serif text-2xl font-semibold tabular-nums text-ink">{formatCentavos(netPayable)}</b>
-          {discountPhp > 0 ? (
-            <span className="block text-xs text-ink/55">after {formatCentavos(toCentavos(discountPhp))} off</span>
-          ) : null}
-        </span>
-      </div>
-
-      {/* ── START FROM ─────────────────────────────────────────────────────────────────────────────────────── */}
+      {/* ══ THE QUOTE IN THE OWNER'S ELEVEN STEPS (THE ONE BUILD, v113 / B2 §2.2) ═══════════════════════════════════
+          Start from · 1 Name · 2 Pick service cards · 3 Content placed · 4 Inclusions (+ From your catalogue) · 5 Gift ·
+          6 Travel and crew meal · 7 Discount · 8 Payment schedule · 9 Payment method · 10 Effectivity · 11 Total + Save
+          + Send, pinned. Every control is the shipped one, MOVED — nothing redrawn, nothing hidden behind a step. */}
+      {/* ── START FROM ── */}
       <QuoteSection id="start" title="Start from">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-quote-start-from="">
           <span className="text-sm text-ink/70">{seeding ? 'Loading…' : 'Card · a saved quote · blank'}</span>
@@ -1199,39 +1208,76 @@ export function ProposalMaker({
             className="min-h-11"
           />
         </div>
-      {/* YOUR CARDS — the shop's service cards seed the quote (owner 2026-09-22).
-          One or several; each contributes its priced line, its freebies and the
-          add-ons ticked under it. Mounted ONCE, and only when the shop has a card. */}
+      {/* Bundle picker (optional) */}
+      {packages.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-4 py-3">
+          <span className={lbl}>Start from a package</span>
+          <select
+            defaultValue=""
+            disabled={seeding}
+            onChange={(e) => {
+              void seedFromPackage(e.target.value);
+              e.target.value = '';
+            }}
+            className={`${selectField} min-w-[10rem]`}
+          >
+            <option value="" disabled>
+              {seeding ? 'Loading…' : 'Choose a bundle…'}
+            </option>
+            {packages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-ink/45">Seeds the line items — you can still edit each one.</span>
+        </div>
+      ) : null}
+      </QuoteSection>
+      {/* ── 1 · NAME ── */}
+      <QuoteSection id="name" title="Name of the quotation">
+          <label className="block px-4 py-3">
+            <span className="sr-only">Name of the quotation</span>
+            <input
+              type="text"
+              maxLength={160}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={cardTitle || 'Auto-titled if blank'}
+              aria-label="Name of the quotation"
+              className={`${field} h-11 w-full`}
+            />
+          </label>
+      </QuoteSection>
+      {/* ── 2–4 · PICK SERVICE CARDS · CONTENT PLACED · INCLUSIONS ── */}
+      <QuoteSection id="cards" title="Pick service cards" hint="pick as many">
+      {/* 2 · PICK SERVICE CARDS — the shop's service cards seed the quote (owner 2026-09-22), "pick as many" (v113 step 2).
+          ONE multi-pick PickMenu (house rule: any set of choices is one dropdown) over the SAME `toggleCard`; each card
+          contributes its priced line, its freebies and the add-ons ticked under it. Mounted ONCE, only when the shop has
+          a card. ⚖ A card's gift does NOT pre-fill the quote's gift (unruled money — spec §4, owner question). */}
       {cards.length > 0 ? (
         <div data-testid="quote-card-picker" className="space-y-2 border-b border-ink/10 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className={lbl}>Your cards</span>
-            <span className="text-[11px] text-ink/45">
-              {seeding ? 'Loading your card…' : 'Add another card · its lines join this quote'}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {cards.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => toggleCard(c.id)}
-                disabled={seeding}
-                aria-pressed={Boolean(pickedCards[c.id])}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${
-                  pickedCards[c.id]
-                    ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                    : 'border-ink/15 bg-white text-ink/70 hover:border-ink/40'
-                }`}
-              >
-                {pickedCards[c.id] ? '✓ ' : '+ '}
-                {c.label}
-                {c.fromPhp != null ? (
-                  <span className="text-ink/45">· from {formatCentavos(toCentavos(c.fromPhp))}</span>
-                ) : null}
-              </button>
-            ))}
-          </div>
+          <PickMenu
+            label="Pick service cards"
+            value={cards.find((c) => pickedCards[c.id])?.id ?? ''}
+            picked={cards.filter((c) => pickedCards[c.id]).map((c) => c.id)}
+            options={cards.map((c) => ({
+              key: c.id,
+              label: c.label,
+              ...(c.fromPhp != null ? { hint: `from ${formatCentavos(toCentavos(c.fromPhp))}` } : {}),
+            }))}
+            onPick={(id) => {
+              if (!seeding) toggleCard(id);
+            }}
+            buttonText={
+              seeding
+                ? 'Loading your card…'
+                : cards.filter((c) => pickedCards[c.id]).map((c) => c.label).join(' · ') || 'Pick service cards'
+            }
+            doneButton
+            dataAttr="data-quote-card-pick"
+            className="min-h-11 w-full"
+          />
           {cards
             .filter((c) => pickedCards[c.id] && c.comesWith.length > 0)
             .map((c) => (
@@ -1269,31 +1315,6 @@ export function ProposalMaker({
           ) : null}
         </div>
       ) : null}
-      {/* Bundle picker (optional) */}
-      {packages.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-4 py-3">
-          <span className={lbl}>Start from a package</span>
-          <select
-            defaultValue=""
-            disabled={seeding}
-            onChange={(e) => {
-              void seedFromPackage(e.target.value);
-              e.target.value = '';
-            }}
-            className={`${selectField} min-w-[10rem]`}
-          >
-            <option value="" disabled>
-              {seeding ? 'Loading…' : 'Choose a bundle…'}
-            </option>
-            {packages.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-ink/45">Seeds the line items — you can still edit each one.</span>
-        </div>
-      ) : null}
       {/* THEIR EVENT — folded under the start: what Setnayan can tell you about this couple, a tap away. */}
       {brief ? (
         <details className="border-t border-ink/10" data-quote-their-event="">
@@ -1327,10 +1348,6 @@ export function ProposalMaker({
       ) : null}
         </details>
       ) : null}
-      </QuoteSection>
-
-      {/* ── WHAT'S IN IT ───────────────────────────────────────────────────────────────────────────────────── */}
-      <QuoteSection id="lines" title="What's in it" hint="tap ✕ to drop">
       {/* Header — seeded pax/hours (rule 0) */}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
         <div className="min-w-0">
@@ -1408,13 +1425,24 @@ export function ProposalMaker({
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
           <span className={lbl}>Line items</span>
-          <span className="text-[11px] text-ink/45">✕ drops a line · ⠿ drag to reorder</span>
+          <span className="text-[11px] text-ink/45">swipe left to drop · ⠿ drag to reorder</span>
         </div>
         {items.map((l) => {
           const cents = resolveLineCentavos(l, pax, hours);
           return (
-            <div
+            /* SWIPE LEFT = DROP, with Undo (house rule 4 Nov; v113 step 4). The drop is the shipped reversible one:
+               struck, left out of the total, "Put back" — never deleted. */
+            <SwipeToDelete
               key={l.key}
+              label={`Drop ${l.label || 'this line'}`}
+              word="Drop"
+              disabled={Boolean(l.dropped)}
+              onDelete={(close) => {
+                close();
+                dropWithUndo(l.key, l.label);
+              }}
+            >
+            <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
@@ -1465,16 +1493,18 @@ export function ProposalMaker({
                 >
                   🎁
                 </button>
-                {/* TAP TO DROP — and back. A dropped line is left out of the total and the quote, never deleted. */}
-                <button
-                  type="button"
-                  onClick={() => toggleDrop(l.key)}
-                  aria-label={l.dropped ? 'Put this line back' : 'Drop this line'}
-                  aria-pressed={Boolean(l.dropped)}
-                  className="inline-flex h-11 min-w-11 items-center justify-center rounded-full px-2 text-sm text-ink/45 hover:text-ink"
-                >
-                  {l.dropped ? 'Put back' : '✕'}
-                </button>
+                {/* A DROPPED line keeps its way back — "Put back" (owner 4 Nov: swipe left drops; no ✕ on the row). */}
+                {l.dropped ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleDrop(l.key)}
+                    aria-label="Put this line back"
+                    aria-pressed
+                    className="inline-flex h-11 min-w-11 items-center justify-center rounded-full px-2 text-sm text-ink/45 hover:text-ink"
+                  >
+                    Put back
+                  </button>
+                ) : null}
               </div>
 
               {!l.free && !l.dropped ? (
@@ -1562,6 +1592,7 @@ export function ProposalMaker({
                 </div>
               ) : null}
             </div>
+            </SwipeToDelete>
           );
         })}
         <div className="flex gap-2 pt-1">
@@ -1641,187 +1672,9 @@ export function ProposalMaker({
         </QuoteSection>
       ) : null}
 
-      {/* ── THE MONEY ──────────────────────────────────────────────────────────────────────────────────────── */}
-      <QuoteSection id="money" title="The money">
-      {/* Crew meal & transportation */}
+      {/* ── 5 · GIFT — the Setnayan gift switch, the fee it is sized from, the ceiling, and the shop's own gifts ── */}
+      <QuoteSection id="gift" title="Gift">
       <div className="space-y-2 border-b border-ink/10 p-4">
-        <span className={lbl}>Crew meal &amp; transportation</span>
-        {coupleCrewProvider ? (
-          <div className="flex items-center gap-2 rounded-lg border border-success-300/60 bg-success-100/40 px-3 py-2 text-xs text-success-700">
-            ✓ Couple booked <strong>{coupleCrewProvider}</strong> — your crew is covered.
-          </div>
-        ) : null}
-
-        {/* Crew meal */}
-        <div className="rounded-xl border border-ink/10 bg-white p-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-ink/70">Crew meal</span>
-            <select
-              value={crew.mode}
-              onChange={(e) => setCrew({ ...crew, mode: e.target.value as CrewMode })}
-              aria-label="Crew meal handling"
-              className={`${selectField} ml-auto`}
-            >
-              <option value="included">Included</option>
-              <option value="charge">Charge</option>
-              <option value="offset">Offset — couple provides</option>
-            </select>
-          </div>
-          {crew.mode === 'included' ? (
-            <p className="mt-2 pl-1 text-xs text-ink/45">In the line price.</p>
-          ) : (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60">
-              <input
-                type="number"
-                min={0}
-                value={crew.size}
-                onChange={(e) => setCrew({ ...crew, size: Number(e.target.value) || 0 })}
-                aria-label="Crew size"
-                className={`${numField} w-14`}
-              />
-              <span>crew · ₱</span>
-              <input
-                type="number"
-                min={0}
-                value={crew.perHeadPhp}
-                onChange={(e) => setCrew({ ...crew, perHeadPhp: Number(e.target.value) || 0 })}
-                aria-label="Per head"
-                className={`${numField} w-20`}
-              />
-              <span>/head</span>
-              <span className={`ml-auto ${crew.mode === 'offset' ? 'text-success-700' : 'text-ink'}`}>
-                {crew.mode === 'charge'
-                  ? formatCentavos(crewChargeCentavos({ crew_meal_mode: 'charge', crew_size: crew.size, crew_per_head_centavos: toCentavos(crew.perHeadPhp) }))
-                  : `credit ${formatCentavos(credit)} → final payment`}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Transportation */}
-        <div className="rounded-xl border border-ink/10 bg-white p-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-ink/70">Transportation</span>
-            <select
-              value={transport.mode}
-              onChange={(e) => setTransport({ ...transport, mode: e.target.value as TransportMode })}
-              aria-label="Transportation handling"
-              className={`${selectField} ml-auto`}
-            >
-              <option value="included">Included</option>
-              <option value="flat">Flat fee</option>
-              <option value="distance">By distance</option>
-            </select>
-          </div>
-          {transport.mode === 'flat' ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60">
-              ₱
-              <input
-                type="number"
-                min={0}
-                value={transport.flatPhp}
-                onChange={(e) => setTransport({ ...transport, flatPhp: Number(e.target.value) || 0 })}
-                aria-label="Transport flat fee"
-                className={`${numField} w-24`}
-              />
-              <span className="ml-auto text-ink">
-                {formatCentavos(transportChargeCentavos({ transport_mode: 'flat', transport_flat_centavos: toCentavos(transport.flatPhp) }))}
-              </span>
-            </div>
-          ) : transport.mode === 'distance' ? (
-            <p className="mt-2 pl-1 text-xs text-ink/45">Quoted after site check.</p>
-          ) : (
-            <p className="mt-2 pl-1 text-xs text-ink/45">In the line price.</p>
-          )}
-        </div>
-      </div>
-      {/* Totals */}
-      <div className="space-y-2 border-b border-ink/10 bg-cream/70 p-4">
-        {/* PR-C — viewer-promo nudge: this inquiry arrived through a storyteller
-            chapter whose accepted collab promised the audience rate below. The
-            vendor enters the peso value as the Discount; the composed line is
-            labeled "Viewer promo" so the couple's quote reflects the deal. */}
-        {viewerPromo ? (
-          <div className="rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-xs text-ink/80">
-            <span className="font-semibold text-ink">Viewer promo promised</span>
-            {viewerPromo.creatorName ? (
-              <> via {viewerPromo.creatorName}&rsquo;s chapter</>
-            ) : null}
-            : <span className="font-medium text-ink">{viewerPromo.terms}</span>.
-            Enter the peso value below as the discount — it settles off-platform.
-          </div>
-        ) : null}
-        <div className="flex items-baseline justify-between text-sm text-ink/60">
-          <span>Subtotal</span>
-          <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm text-ink/60">
-          <span>
-            {viewerPromo ? 'Discount · viewer promo' : 'Discount'}
-            {discountReason ? (
-              <span data-testid="quote-discount-reason" className="ml-1 text-[11px] text-terracotta-700">
-                · {discountReason}
-              </span>
-            ) : null}
-          </span>
-          <span className="flex items-center gap-1">
-            ₱
-            <input
-              type="number"
-              min={0}
-              step={500}
-              value={discountPhp}
-              onChange={(e) => {
-                setDiscountPhp(Number(e.target.value) || 0);
-                // A hand-edited figure is the supplier's, not the card's — the card's caption goes with it; the
-                // supplier's own reason stays.
-                if (reasonFromCard) {
-                  setDiscountReason(null);
-                  setReasonFromCard(false);
-                }
-              }}
-              aria-label="Discount"
-              className={`${numField} w-24`}
-            />
-          </span>
-        </div>
-        {/* THE REASON — the couple reads it beside the discount (prototype "Discount · reason"). Nothing is filled
-            in for them: no discount and no reason until the supplier gives one (owner 2026-10-14). */}
-        {discountPhp > 0 && !viewerPromo ? (
-          <label className="flex items-center justify-between gap-3 text-sm text-ink/60">
-            <span>Why</span>
-            <input
-              type="text"
-              maxLength={160}
-              value={discountReason ?? ''}
-              onChange={(e) => {
-                setDiscountReason(e.target.value || null);
-                setReasonFromCard(false);
-              }}
-              placeholder="e.g. Booked early · they see this"
-              aria-label="Why you are giving a discount"
-              data-quote-discount-why=""
-              className={`${field} h-11 min-w-0 flex-1`}
-            />
-          </label>
-        ) : null}
-        <div className="flex items-baseline justify-between border-t border-ink/15 pt-2">
-          <span className="text-sm font-medium text-ink">Total</span>
-          <span className="font-serif text-2xl text-ink tabular-nums">{formatCentavos(gross)}</span>
-        </div>
-        {credit > 0 ? (
-          <>
-            <div className="flex items-baseline justify-between text-xs text-success-700">
-              <span>Crew-meal credit → final payment</span>
-              <span className="tabular-nums">−{formatCentavos(credit)}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm font-medium text-ink">Net payable</span>
-              <span className="font-serif text-lg text-ink tabular-nums">{formatCentavos(netPayable)}</span>
-            </div>
-          </>
-        ) : null}
-
         {/* THE SETNAYAN GIFT, while the price is still being decided.
             Sits under the total because that is the number it is derived from
             and the number the supplier is looking at when they decide it.
@@ -1932,10 +1785,196 @@ export function ProposalMaker({
           />
         ) : null}
       </div>
+      </QuoteSection>
+      {/* ── 6 · TRAVEL AND CREW MEAL ── */}
+      <QuoteSection id="travel" title="Travel and crew meal">
+      {/* Crew meal & transportation */}
+      <div className="space-y-2 border-b border-ink/10 p-4">
+        {coupleCrewProvider ? (
+          <div className="flex items-center gap-2 rounded-lg border border-success-300/60 bg-success-100/40 px-3 py-2 text-xs text-success-700">
+            ✓ Couple booked <strong>{coupleCrewProvider}</strong> — your crew is covered.
+          </div>
+        ) : null}
+
+        {/* Crew meal */}
+        <div className="rounded-xl border border-ink/10 bg-white p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-ink/70">Crew meal</span>
+            <select
+              value={crew.mode}
+              onChange={(e) => setCrew({ ...crew, mode: e.target.value as CrewMode })}
+              aria-label="Crew meal handling"
+              className={`${selectField} ml-auto`}
+            >
+              <option value="included">Included</option>
+              <option value="charge">Charge</option>
+              <option value="offset">Offset — couple provides</option>
+            </select>
+          </div>
+          {crew.mode === 'included' ? (
+            <p className="mt-2 pl-1 text-xs text-ink/45">In the line price.</p>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60">
+              <input
+                type="number"
+                min={0}
+                value={crew.size}
+                onChange={(e) => setCrew({ ...crew, size: Number(e.target.value) || 0 })}
+                aria-label="Crew size"
+                className={`${numField} w-14`}
+              />
+              <span>crew · ₱</span>
+              <input
+                type="number"
+                min={0}
+                value={crew.perHeadPhp}
+                onChange={(e) => setCrew({ ...crew, perHeadPhp: Number(e.target.value) || 0 })}
+                aria-label="Per head"
+                className={`${numField} w-20`}
+              />
+              <span>/head</span>
+              <span className={`ml-auto ${crew.mode === 'offset' ? 'text-success-700' : 'text-ink'}`}>
+                {crew.mode === 'charge'
+                  ? formatCentavos(crewChargeCentavos({ crew_meal_mode: 'charge', crew_size: crew.size, crew_per_head_centavos: toCentavos(crew.perHeadPhp) }))
+                  : `credit ${formatCentavos(credit)} → final payment`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Transportation */}
+        <div className="rounded-xl border border-ink/10 bg-white p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-ink/70">Transportation</span>
+            <select
+              value={transport.mode}
+              onChange={(e) => setTransport({ ...transport, mode: e.target.value as TransportMode })}
+              aria-label="Transportation handling"
+              className={`${selectField} ml-auto`}
+            >
+              <option value="included">Included</option>
+              <option value="flat">Flat fee</option>
+              <option value="distance">By distance</option>
+            </select>
+          </div>
+          {transport.mode === 'flat' ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink/60">
+              ₱
+              <input
+                type="number"
+                min={0}
+                value={transport.flatPhp}
+                onChange={(e) => setTransport({ ...transport, flatPhp: Number(e.target.value) || 0 })}
+                aria-label="Transport flat fee"
+                className={`${numField} w-24`}
+              />
+              <span className="ml-auto text-ink">
+                {formatCentavos(transportChargeCentavos({ transport_mode: 'flat', transport_flat_centavos: toCentavos(transport.flatPhp) }))}
+              </span>
+            </div>
+          ) : transport.mode === 'distance' ? (
+            <p className="mt-2 pl-1 text-xs text-ink/45">Quoted after site check.</p>
+          ) : (
+            <p className="mt-2 pl-1 text-xs text-ink/45">In the line price.</p>
+          )}
+        </div>
+      </div>
+      </QuoteSection>
+      {/* ── 7 · DISCOUNT — with the subtotal it comes off and the total it leaves ── */}
+      <QuoteSection id="discount" title="Discount">
+      <div className="space-y-2 border-b border-ink/10 bg-cream/70 p-4">
+        {/* PR-C — viewer-promo nudge: this inquiry arrived through a storyteller
+            chapter whose accepted collab promised the audience rate below. The
+            vendor enters the peso value as the Discount; the composed line is
+            labeled "Viewer promo" so the couple's quote reflects the deal. */}
+        {viewerPromo ? (
+          <div className="rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-xs text-ink/80">
+            <span className="font-semibold text-ink">Viewer promo promised</span>
+            {viewerPromo.creatorName ? (
+              <> via {viewerPromo.creatorName}&rsquo;s chapter</>
+            ) : null}
+            : <span className="font-medium text-ink">{viewerPromo.terms}</span>.
+            Enter the peso value below as the discount — it settles off-platform.
+          </div>
+        ) : null}
+        <div className="flex items-baseline justify-between text-sm text-ink/60">
+          <span>Subtotal</span>
+          <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm text-ink/60">
+          <span>
+            {viewerPromo ? 'Discount · viewer promo' : 'Discount'}
+            {discountReason ? (
+              <span data-testid="quote-discount-reason" className="ml-1 text-[11px] text-terracotta-700">
+                · {discountReason}
+              </span>
+            ) : null}
+          </span>
+          <span className="flex items-center gap-1">
+            ₱
+            <input
+              type="number"
+              min={0}
+              step={500}
+              value={discountPhp}
+              onChange={(e) => {
+                setDiscountPhp(Number(e.target.value) || 0);
+                // A hand-edited figure is the supplier's, not the card's — the card's caption goes with it; the
+                // supplier's own reason stays.
+                if (reasonFromCard) {
+                  setDiscountReason(null);
+                  setReasonFromCard(false);
+                }
+              }}
+              aria-label="Discount"
+              className={`${numField} w-24`}
+            />
+          </span>
+        </div>
+        {/* THE REASON — the couple reads it beside the discount (prototype "Discount · reason"). Nothing is filled
+            in for them: no discount and no reason until the supplier gives one (owner 2026-10-14). */}
+        {discountPhp > 0 && !viewerPromo ? (
+          <label className="flex items-center justify-between gap-3 text-sm text-ink/60">
+            <span>Why</span>
+            <input
+              type="text"
+              maxLength={160}
+              value={discountReason ?? ''}
+              onChange={(e) => {
+                setDiscountReason(e.target.value || null);
+                setReasonFromCard(false);
+              }}
+              placeholder="e.g. Booked early · they see this"
+              aria-label="Why you are giving a discount"
+              data-quote-discount-why=""
+              className={`${field} h-11 min-w-0 flex-1`}
+            />
+          </label>
+        ) : null}
+        <div className="flex items-baseline justify-between border-t border-ink/15 pt-2">
+          <span className="text-sm font-medium text-ink">Total</span>
+          <span className="font-serif text-2xl text-ink tabular-nums">{formatCentavos(gross)}</span>
+        </div>
+        {credit > 0 ? (
+          <>
+            <div className="flex items-baseline justify-between text-xs text-success-700">
+              <span>Crew-meal credit → final payment</span>
+              <span className="tabular-nums">−{formatCentavos(credit)}</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-medium text-ink">Net payable</span>
+              <span className="font-serif text-lg text-ink tabular-nums">{formatCentavos(netPayable)}</span>
+            </div>
+          </>
+        ) : null}
+      </div>
+      </QuoteSection>
+      {/* ── 8 · PAYMENT SCHEDULE ── */}
+      <QuoteSection id="plan" title="Payment schedule">
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
-          <span className={lbl}>Payment schedule</span>
+          <span className={lbl}>How they pay</span>
           {schedule.over_by_centavos > 0 ? (
             <span className="text-[11px] font-medium text-warn-900">
               over by {formatCentavos(schedule.over_by_centavos)} — trim a payment
@@ -2151,8 +2190,11 @@ export function ProposalMaker({
           settles the plan to ₱0{credit > 0 ? '; the crew-meal credit comes off it first' : ''}.
         </p>
       </div>
-      {/* Accepted payment methods (§ 9) — which of the vendor's rails the couple sees */}
-      <div className="space-y-2 border-b border-ink/10 p-4">
+      </QuoteSection>
+      {/* ── 9 · PAYMENT METHOD — ONE multi-pick PickMenu over the shop's OWN published methods (v113 step 9; no
+          hard-coded GCash/BDO/Cash). Untick all to fall back to every approved method, as before. ── */}
+      <QuoteSection id="methods" title="Payment method">
+      <div className="space-y-2 px-4 py-3" data-quote-methods="">
         <span className={lbl}>Accepted payment methods</span>
         {paymentMethods.length === 0 ? (
           <p className="text-xs text-ink/55">
@@ -2161,25 +2203,24 @@ export function ProposalMaker({
           </p>
         ) : (
           <>
-            <div className="flex flex-wrap gap-2">
-              {paymentMethods.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setSelectedMethods((s) => ({ ...s, [m.id]: !s[m.id] }))}
-                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs ${
-                    selectedMethods[m.id]
-                      ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                      : 'border-ink/15 bg-white text-ink/60 hover:border-ink/40'
-                  }`}
-                  title={`${METHOD_TYPE_LABEL[m.methodType]}${m.publishable ? '' : ' · pending review'}`}
-                >
-                  {m.label}
-                  {!m.publishable ? <span className="text-warn-900">·pending</span> : null}
-                  {selectedMethods[m.id] ? ' ✓' : ''}
-                </button>
-              ))}
-            </div>
+            <PickMenu
+              label="Accepted payment methods"
+              value={paymentMethods.find((m) => selectedMethods[m.id])?.id ?? ''}
+              picked={paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.id)}
+              options={paymentMethods.map((m) => ({
+                key: m.id,
+                label: m.label,
+                hint: `${METHOD_TYPE_LABEL[m.methodType]}${m.publishable ? '' : ' · pending review'}`,
+              }))}
+              onPick={(id) => setSelectedMethods((s) => ({ ...s, [id]: !s[id] }))}
+              buttonText={
+                paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.label).join(', ') ||
+                'Every approved method'
+              }
+              doneButton
+              dataAttr="data-quote-methods-pick"
+              className="min-h-11 w-full"
+            />
             <p className="text-[11px] text-ink/45">
               Only the methods you tick show on this quote&rsquo;s &ldquo;how to pay.&rdquo; Untick all to fall
               back to every approved method.
@@ -2187,23 +2228,13 @@ export function ProposalMaker({
           </>
         )}
       </div>
-      {/* Meta + send */}
-      <div className="space-y-3 p-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="block space-y-1">
-            <span className={lbl}>Title (optional)</span>
-            <input
-              type="text"
-              maxLength={160}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={cardTitle || 'Auto-titled if blank'}
-              className={`${field} w-full`}
-            />
-          </label>
+      </QuoteSection>
+      {/* ── 10 · QUOTE EFFECTIVITY ── */}
+      <QuoteSection id="effectivity" title="Quote effectivity">
+      <div className="space-y-3 px-4 py-3">
           {/* GOOD FOR (prototype "Good for · 7 / 14 / 30 days") — one dropdown; it writes the same valid-until date. */}
           <div className="block space-y-1" data-quote-good-for="">
-            <span className={lbl}>Good for</span>
+            <span className="sr-only">Good for</span>
             <PickMenu
               label="How long this quote is good for"
               value={goodForKey()}
@@ -2217,7 +2248,6 @@ export function ProposalMaker({
               className="min-h-11 w-full"
             />
           </div>
-        </div>
         <label className="block space-y-1">
           <span className={lbl}>Note to the couple (optional)</span>
           <textarea
@@ -2229,7 +2259,6 @@ export function ProposalMaker({
             className={`${field} w-full resize-y`}
           />
         </label>
-
         {/* SAVE THIS QUOTE — reuse it next time ("Start from · a saved quote"). Saves the prices and terms, never this
             couple: no name, no count, no date (lib/saved-quote.ts). */}
         <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3" data-quote-save="">
@@ -2322,8 +2351,15 @@ export function ProposalMaker({
         ) : null}
       </div>
 
-      {/* ── SEND — it goes into the chat ───────────────────────────────────────────────────────────────────── */}
-      <div className="space-y-3 p-4">
+      {/* ── 11 · TOTAL + SAVE + SEND, PINNED (v113 step 11). The total that used to head the quote ("What they pay you")
+          rides the bar; Save is the shipped "Save this quote · reuse it next time" (it opens its name field above);
+          Send is the ONE SubmitButton — the couple still reviews and accepts. "₱X to lock" is INVENTED and not built.
+          Sticky to the scrolling page, above the thumb row (safe area included). ── */}
+      <div
+        data-quote-pinned-bar=""
+        className="sticky bottom-0 z-10 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur"
+        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+      >
         {/*
           🔴 THIS SAID "accepting just adds it to their plan" AND THAT IS
           BACKWARDS. Owner, 2026-09-18: *"Plan should only fill at lock. not
@@ -2347,7 +2383,21 @@ export function ProposalMaker({
           combinations of suppliers. It books nothing and pays nothing; their
           plan fills only when they Lock.
         </p>
-        <div className="flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2">
+          <span className="min-w-0 flex-1" data-quote-answer="">
+            <span className="block text-[11px] text-ink/55">Total</span>
+            <b className="font-serif text-xl font-semibold tabular-nums text-ink">{formatCentavos(netPayable)}</b>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSaveName(title.trim() || cardTitle || '');
+              setSaveState('idle');
+            }}
+            className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/15 px-4 text-sm text-ink hover:border-ink/40"
+          >
+            Save
+          </button>
           <SubmitButton
             pendingLabel="Sending…"
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
@@ -2357,7 +2407,8 @@ export function ProposalMaker({
           <button
             type="button"
             onClick={closePanel}
-            className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-4 text-sm text-ink/70 hover:border-ink/40"
+            aria-label="Cancel this quote"
+            className="inline-flex h-11 items-center rounded-xl px-2 text-sm text-ink/60 hover:text-ink"
           >
             Cancel
           </button>

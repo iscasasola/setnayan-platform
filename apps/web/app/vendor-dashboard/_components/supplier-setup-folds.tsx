@@ -1,12 +1,34 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { formatCount } from '@/lib/format-number';
-import { nextOpenAfter, setupHeadline, type SetupFoldKey, type SetupView } from '@/lib/supplier-setup';
+import { SpotlightMount } from '@/app/_components/spotlight-mount';
+import { completeTour } from '@/lib/tour-actions';
+import type { SpotlightScript } from '@/lib/tours';
+import { SETUP_TOUR_KEY, nextOpenAfter, setupHeadline, type SetupFoldKey, type SetupView } from '@/lib/supplier-setup';
+
+/**
+ * 🔦 THE TOUR AFTER STEP 6 (owner 7 Nov 2026, prototype `open-shop-redesign.html` v21: "Download your QR → the tour
+ * starts", once). Step 6's body tells the folds the QR was handed over (`useSetupTour().qrSaved()`); the open step
+ * folds, and a moment later the HOUSE spotlight (`SpotlightMount` → `spotlight-tour.tsx`: dim + a gliding ring) runs
+ * `SETUP_TOUR_KEY`. Ending or skipping it records it with the shipped `completeTour` — that record is step 6's ✓.
+ * Never a centred popup; never a second run once it is on record (`seen`), and never on a refused read (`seen` null).
+ */
+const SetupTourContext = createContext<{ qrSaved: () => void } | null>(null);
+
+export function useSetupTour(): { qrSaved: () => void } | null {
+  return useContext(SetupTourContext);
+}
+
+/** The dev lab records nothing. */
+const labComplete = async () => {};
+
+/** How long the saved QR stays on screen before the tour takes over (the prototype's beat). */
+const TOUR_AFTER_MS = 1200;
 
 /**
  * 🧰 GET YOUR SHOP LIVE — a new shop's six steps, each DONE IN PLACE on Today (owner 2026-10-28, DECISION_LOG
@@ -25,13 +47,29 @@ export function SupplierSetupFolds({
   view,
   bodies,
   gear,
+  tour,
 }: {
   view: SetupView;
   bodies: Readonly<Record<SetupFoldKey, ReactNode>>;
   /** Today's ⚙ — the page mounts it once; it rides at the right of the eyebrow (the prototype's spot). */
   gear?: ReactNode;
+  /** The tour after step 6: its words (read on the server — `lib/tours.ts` never reaches the browser) and whether it
+      is already on record (null: the read was refused — it does not run). */
+  tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;
 }) {
   const [open, setOpen] = useState<SetupFoldKey | null>(view.firstOpen);
+  const [touring, setTouring] = useState(false);
+  const asked = useRef(false);
+  const canTour = tour != null && tour.seen === false;
+  const qrSaved = useCallback(() => {
+    if (!canTour || asked.current) return;
+    asked.current = true;
+    window.setTimeout(() => {
+      setOpen(null);
+      setTouring(true);
+    }, TOUR_AFTER_MS);
+  }, [canTour]);
+  const tourCtx = useMemo(() => ({ qrSaved }), [qrSaved]);
   const [saved, setSaved] = useState<number | null>(null);
   const doneBefore = useRef<Set<SetupFoldKey>>(new Set(view.folds.filter((f) => f.done).map((f) => f.key)));
   const doneKey = view.folds.map((f) => (f.done ? '1' : '0')).join('');
@@ -52,7 +90,8 @@ export function SupplierSetupFolds({
   const pct = Math.round((view.done / view.of) * 100);
 
   return (
-    <section data-today-setup="" aria-label="Get your shop live" className="pb-2">
+    <SetupTourContext.Provider value={tourCtx}>
+    <section data-today-setup="" data-tour="today-setup" aria-label="Get your shop live" className="pb-2">
       <div className="flex min-h-11 items-center gap-2" data-first-row="">
         <p className="home-k2 flex-1">Get your shop live</p>
         {gear}
@@ -81,6 +120,8 @@ export function SupplierSetupFolds({
             key={f.key}
             data={`setup-${f.key}`}
             anchor={`setup-${f.key}`}
+            // The papers' ⓘ opens near the fold's foot — let it hang past the edge once the fold is open.
+            popovers
             title={f.title}
             line={f.line}
             open={open === f.key}
@@ -108,7 +149,11 @@ export function SupplierSetupFolds({
           Saved ✓
         </PeekToast>
       ) : null}
+      {touring && tour ? (
+        <SpotlightMount tourKey={SETUP_TOUR_KEY} script={tour.script} seen={false} completeAction={tour.lab ? labComplete : completeTour} />
+      ) : null}
     </section>
+    </SetupTourContext.Provider>
   );
 }
 

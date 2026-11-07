@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, Share, Share2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button';
@@ -38,6 +38,9 @@ export function QrCard({
   stamp,
   retryHref,
   data,
+  primary = 'share',
+  note,
+  onDownloaded,
 }: {
   /** The code, drawn on the server (`renderUrlQrSvg`). */
   svg: string | null;
@@ -54,6 +57,16 @@ export function QrCard({
   retryHref?: string;
   /** `data-qr-card="<data>"`. */
   data?: string;
+  /**
+   * The row's one filled button. `share` (the default, owner answer 3 2026-10-12: Share main, Download second); a
+   * screen whose job IS the file — a new shop's step 6 "Download your QR" (owner 7 Nov 2026) — asks for `download`.
+   * The order never moves (Share · Copy link · Download, owner 2026-11-06) — only which one is filled.
+   */
+  primary?: 'share' | 'download';
+  /** Plain words between the name and the buttons (what the code opens · where to put it). */
+  note?: ReactNode;
+  /** The file was handed over (`SaveFileLink` `onSaved`). */
+  onDownloaded?: () => void;
 }) {
   const [big, setBig] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
@@ -131,10 +144,11 @@ export function QrCard({
       )}
       <b className="text-[16px] font-semibold text-ink">{title}</b>
       {line ? <span className="max-w-[22rem] text-[13px] text-ink/60">{line}</span> : null}
+      {note}
       {state === 'ready' ? (
         <>
           <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
-            <button type="button" onClick={share} className={actionButtonClass('brand', { main: true })} data-qr-share="">
+            <button type="button" onClick={share} className={actionButtonClass(primary === 'share' ? 'brand' : 'neutral', { main: primary === 'share' })} data-qr-share="">
               <Share2 aria-hidden strokeWidth={1.9} />
               <span className="lbl">Share</span>
             </button>
@@ -142,11 +156,17 @@ export function QrCard({
               {copied ? <Check aria-hidden strokeWidth={1.9} /> : <Copy aria-hidden strokeWidth={1.9} />}
               <span className="lbl">{copied ? 'Copied' : 'Copy link'}</span>
             </button>
-            <SaveFileLink href={dataUri} filename={filename} className={actionButtonClass('neutral')} data-qr-download="">
+            <SaveFileLink
+              href={dataUri}
+              filename={filename}
+              className={actionButtonClass(primary === 'download' ? 'brand' : 'neutral', { main: primary === 'download' })}
+              onSaved={onDownloaded}
+              data-qr-download=""
+            >
               {(s) => (
                 <>
                   <Share aria-hidden strokeWidth={1.9} />
-                  <span className="lbl">{s === 'saving' ? 'Saving…' : 'Download'}</span>
+                  <span className="lbl">{s === 'saving' ? 'Saving…' : primary === 'download' ? 'Download QR' : 'Download'}</span>
                 </>
               )}
             </SaveFileLink>

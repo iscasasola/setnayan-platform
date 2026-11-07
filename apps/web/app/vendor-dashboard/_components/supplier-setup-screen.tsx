@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { QrCard } from '@/app/_components/qr-card';
+import { Fold } from '@/app/_components/fold';
+import type { SpotlightScript } from '@/lib/tours';
 import { ProfileChecklistEditor } from '../shop/_components/profile-checklist-editor';
 import { VerifySection } from '../shop/_components/verify-section';
 import { CouldNotLoad } from '../shop/_components/could-not-load';
@@ -10,11 +11,13 @@ import { displayServiceLabel } from '@/lib/vendors';
 import { SupplierSetupFolds } from './supplier-setup-folds';
 import { SetupOfferFold } from './setup-offer-fold';
 import { SetupDaysOffRow } from './setup-days-off-row';
+import { SetupPapers } from './setup-papers';
+import { SetupQrStep } from './setup-qr-step';
 
 /** The parts of Your details the six steps mount (`loadDetailsData`, or the lab's fixture). */
 export type SetupDetails = Pick<
   DetailsData,
-  'vendorId' | 'businessName' | 'isVerified' | 'checklist' | 'profileComplete' | 'fieldsLeft' | 'profileFields' | 'verify' | 'verifyMeasured' | 'docsIn' | 'docsTotal' | 'logoUnavailable'
+  'vendorId' | 'businessName' | 'isVerified' | 'checklist' | 'profileComplete' | 'fieldsLeft' | 'profileFields' | 'verify' | 'verifyMeasured' | 'papers' | 'docsIn' | 'docsTotal' | 'logoUnavailable'
 > &
   // 🏷 Name/address by request (owner 2026-10-29) — optional so a fixture without them draws every row as it was.
   Partial<Pick<DetailsData, 'requestOnly' | 'openCorrections'>>;
@@ -27,9 +30,12 @@ export type SetupDetails = Pick<
  *   2 Your details         — the same rows: what you do · where · contact
  *   3 Add your logo        — the same editor's logo row (the shared `FileUpload`)
  *   4 What you offer       — Good · Better · Best per service; an empty slot opens the maker as a SHEET (`SetupOfferFold`)
- *   5 Send your documents  — `VerifySection`, exactly as Your details mounts it (the papers, their uploads, the
- *                            admin's reason when they came back)
- *   6 Your QR + days off   — the shop's own QR (`QrCard`: Share · Save) and a day marked off in place
+ *   5 Send your documents  — one row per required paper (`SetupPapers`, 7 Nov 2026: the shipped upload, each file
+ *                            saved on its own, each row's state read honestly); under them, `VerifySection` exactly as
+ *                            Your details mounts it, folded — the details beside the papers, the contacts, Send for
+ *                            review
+ *   6 Download your QR     — the shop's own page, `/v/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
+ *                            tour once; the days-off row stays under it
  *
  * Nothing is redrawn: each editor carries its own server action and saves itself. Server component — the page (and
  * the dev lab) hand in what was read.
@@ -42,17 +48,23 @@ export function SupplierSetupScreen({
   today,
   lab = false,
   gear,
+  tour = null,
+  paperUrls,
 }: {
   d: SetupDetails;
   rail: FirstStepsRail;
   /** The shipped maker, drawn (`NewServiceMaker`) — the sheet's body. */
   maker: ReactNode;
-  /** The shop's own QR — what a couple scans to reach this shop. Null when it could not be made (no address yet). */
+  /** The shop's own QR — its Setnayan page, `/v/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
   qr: { svg: string | null; url: string } | null;
+  /** The tour after step 6 (`SETUP_TOUR_KEY`): its words, and whether it is on record (null: the read was refused). */
+  tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;
   today: string;
   /** The dev lab: the days-off row writes nothing and says so. */
   lab?: boolean;
   gear?: ReactNode;
+  /** The lab's paper previews (ref → URL). Today leaves it out: the papers are private and signed on demand. */
+  paperUrls?: Record<string, string>;
 }) {
   const view = assembleSetup({
     checklist: d.checklist,
@@ -60,6 +72,7 @@ export function SupplierSetupScreen({
     offer: rail.offer,
     docs: { status: d.verify.status, docsIn: d.docsIn, docsTotal: d.docsTotal },
     shopName: d.businessName,
+    qrSaved: tour ? tour.seen : null,
   });
   const rows = (k: 'name' | 'details' | 'logo') => {
     const keys = setupChecklistKeys(k);
@@ -103,28 +116,30 @@ export function SupplierSetupScreen({
     ),
     docs: (
       <div className="space-y-3">
-        {!d.verifyMeasured ? <CouldNotLoad what="your documents" /> : null}
-        <VerifySection
-          businessName={d.businessName}
-          vendorProfileId={d.vendorId}
-          isVerified={d.isVerified}
-          profileComplete={d.profileComplete}
-          profileFieldsLeft={d.fieldsLeft}
-          verify={d.verify}
-        />
+        <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
+        <Fold
+          data="setup-papers-more"
+          title="Get verified"
+          line="The details beside your papers, then send them for review"
+        >
+          <div className="space-y-3 pb-2">
+            {!d.verifyMeasured ? <CouldNotLoad what="your documents" /> : null}
+            <VerifySection
+              businessName={d.businessName}
+              vendorProfileId={d.vendorId}
+              isVerified={d.isVerified}
+              profileComplete={d.profileComplete}
+              profileFieldsLeft={d.fieldsLeft}
+              verify={d.verify}
+            />
+          </div>
+        </Fold>
       </div>
     ),
     qr: (
       <div className="space-y-2">
         {qr ? (
-          <QrCard
-            svg={qr.svg}
-            url={qr.url}
-            title={d.businessName}
-            line="They scan, sign up free, and you join their shortlist."
-            filename="setnayan-shop-qr.svg"
-            data="setup-shop"
-          />
+          <SetupQrStep svg={qr.svg} url={qr.url} title={d.businessName} />
         ) : (
           <p className="text-[13px] text-ink/60" data-setup-qr-none="">
             Your QR is made once your shop has its web address.
@@ -135,5 +150,5 @@ export function SupplierSetupScreen({
     ),
   };
 
-  return <SupplierSetupFolds view={view} bodies={bodies} gear={gear} />;
+  return <SupplierSetupFolds view={view} bodies={bodies} gear={gear} tour={tour} />;
 }

@@ -168,3 +168,23 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
 
   return recs.sort((a, b) => b.weight - a.weight);
 }
+
+/**
+ * 🤝 THE "LINK UP" DOOR FIRES ONLY WHEN SOMEBODY IS THERE TO LINK UP WITH (owner 2026-11-06: "cannot link until they
+ * have served the same event"). `build_partnerships` routes to /vendor-dashboard/partnerships, whose propose list now
+ * holds only the live shops this supplier has served a past event with (`lib/partners-you-served-with.server.ts`). With
+ * nobody on that list the card would send them to an empty page — so it does not fire.
+ *
+ * A SEPARATE helper on purpose: `buildGrowthRecs` above keeps its own threshold (`partnership_count < 3`), and another
+ * branch edits that function's lines — this one composes on top of it instead of reaching in.
+ *
+ * `eligiblePartners`: how many shops they may propose to; `null` = that read failed → the card stays as it was (the
+ * partnerships page says the read failed itself — a refused read is never "nobody").
+ */
+export function withoutPartnershipRecWhenNobodyToLink(
+  recs: GrowthRec[],
+  eligiblePartners: number | null,
+): GrowthRec[] {
+  if (eligiblePartners === null || eligiblePartners > 0) return recs;
+  return recs.filter((r) => r.key !== 'build_partnerships');
+}

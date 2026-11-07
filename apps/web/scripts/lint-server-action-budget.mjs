@@ -60,14 +60,13 @@ import { fileURLToPath } from 'node:url';
 // `workspace/question-answers-actions.ts` · `saveSupplierAnswers` for the couple), less one dead export removed
 // (`studio/papic/actions.ts` · `reissuePapicSeat`). Measured on the tree merged with main after #7287: 1229. The route
 // SUM stays gated by check-vercel-route-count.mjs — read that job before merging.
-// 1229 → 1231 (2026-11-05/06, badge rewards; re-measured 2026-11-06 after #7248 shipped): TWO actions —
-// `revokeBadgeFeeWaiver` (Admin › Gifts › Badge rewards — the owner's "the admin can see it and revoke it"; no existing
-// action takes back a supplier's reward) and `startBadgeUpgrade` (Plan › Your upgrades — the owner's 6 Nov table: a
-// badge's 4-week upgrade waits until the supplier taps Start; no existing action starts add-on time without a
-// payment). No export nothing imports was left to drop (the two kept on purpose above). No fresh `vercel build` count
-// for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before
-// merging.
-export const CEILING = 1231;
+// 1229 → 1230 (2026-11-06, Ultra add-ons, owner "ULTRA ADD-ON PRICES"): ONE dispatcher
+// (`vendor-dashboard/subscription/ultra-addon-actions.ts` · `buyUltraAddOn`, addon=category|service_card|waitlist|
+// booking_per_date) instead of the four exports it would have been; no existing action buys an add-on by kind (the
+// seat's `buyExtraSeat` is seat-only and keeps its team-page contract), and the only unimported exports left are the
+// two kept on purpose above. No fresh `vercel build` count for this +1 — the SUM is gated by
+// check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1230;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

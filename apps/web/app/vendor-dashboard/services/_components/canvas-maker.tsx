@@ -234,6 +234,7 @@ export function CanvasMaker({
   returnTo,
   unread = [],
   discountSeed = null,
+  bookingsPerDate = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -299,6 +300,12 @@ export function CanvasMaker({
   unread?: string[];
   /** Arrived from the off-season nudge: Discounts opens with one off-peak line drafted (the supplier sets the amount). */
   discountSeed?: { expiry?: string; conditions?: string } | null;
+  /**
+   * A card's bookings per date, inside the plan (owner 2026-11-06 — Solo 1 · Pro 3 · Ultra 5, plus any bought "+1
+   * booking per date"). `cap` bounds the field; `help` says the cap and the Ultra add-on. Null / null fields = no plan
+   * cap (Free · Verified, not ruled yet).
+   */
+  bookingsPerDate?: { cap: number | null; help: string | null } | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
@@ -1216,13 +1223,25 @@ export function CanvasMaker({
                         <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
                       </Field>
                     </div>
-                    {/* ⚖ No plan limit on how many a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
-                    <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : 'Blank = the schedule decides.'}>
+                    {/* ⚖ The supplier's own number — inside the plan's bookings per date per card (owner 2026-11-06:
+                        Solo 1 · Pro 3 · Ultra 5, Ultra may add more). Free · Verified: not ruled, no plan cap. */}
+                    <Field
+                      label="How many a day · this card"
+                      htmlFor="daily_capacity"
+                      help={
+                        (editing?.slots.length ?? 0) > 0
+                          ? 'Time slots below set how many at once instead.'
+                          : bookingsPerDate?.help
+                            ? `Blank = up to your plan's number. ${bookingsPerDate.help}`
+                            : 'Blank = the schedule decides.'
+                      }
+                    >
                       <input
                         id="daily_capacity"
                         name="daily_capacity"
                         type="number"
                         min={1}
+                        max={bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? Math.max(bookingsPerDate.cap, Number(editing?.dailyCapacity) || 0) : undefined}
                         step={1}
                         defaultValue={editing?.dailyCapacity ?? ''}
                         disabled={(editing?.slots.length ?? 0) > 0}

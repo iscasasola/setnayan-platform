@@ -85,8 +85,10 @@ const ACTIONS = 'app/dashboard/[eventId]/vendors/actions.ts';
 function dailyLimitGate(src: string): string {
   const start = src.search(/export async function finalizeVendor\(/);
   assert.ok(start >= 0, 'finalizeVendor is gone — re-derive where the daily limit is enforced');
-  const from = src.indexOf(".select('daily_capacity')", start);
-  assert.ok(from > start, 'the #2 gate no longer reads daily_capacity — re-derive it');
+  // 2026-11-06: the gate reads the card's limit through `service_card_daily_limit` (the card's daily_capacity inside
+  // its plan's bookings per date per card) — the same one function the yes and the mirror read.
+  const from = src.indexOf("rpc('service_card_daily_limit'", start);
+  assert.ok(from > start, 'the #2 gate no longer reads service_card_daily_limit — re-derive it');
   const to = src.indexOf("'soft_hold_limit_reached'", from);
   assert.ok(to > from, 'the #2 gate no longer refuses with soft_hold_limit_reached — re-derive it');
   return src.slice(from, to);
@@ -326,11 +328,11 @@ const PREDICATES: Predicate[] = [
     mirror: [['capacity_refused', /AND public\.service_card_bookings_on\(svc\.sid, d\.day\)/]],
   },
   {
-    name: 'the limit is the card’s daily_capacity, only when set above zero',
+    name: 'the limit is the card’s daily_capacity inside its plan (service_card_daily_limit), only when set above zero',
     side: 'gate',
     booking: /typeof capacity === 'number' && capacity > 0/,
     mirror: [
-      ['svc', /s\.daily_capacity AS dcap/],
+      ['svc', /public\.service_card_daily_limit\(s\.vendor_service_id\) AS dcap/],
       ['capacity_refused', /WHERE svc\.dcap IS NOT NULL AND svc\.dcap > 0/],
     ],
   },
@@ -360,10 +362,16 @@ const PREDICATES: Predicate[] = [
     mirror: [['capacity_refused', /AND public\.service_card_bookings_on\(svc\.sid, d\.day\) >= svc\.dcap/]],
   },
   {
-    name: 'the yes reads the card’s own daily_capacity',
+    name: 'the yes reads the card’s daily_capacity inside its plan — the SAME function as the gate and the mirror',
     side: 'agree',
-    booking: /SELECT vs\.daily_capacity INTO v_daily_cap FROM public\.vendor_services vs WHERE vs\.vendor_service_id = v_service/,
-    mirror: [['svc', /s\.daily_capacity AS dcap/]],
+    booking: /v_daily_cap := public\.service_card_daily_limit\(v_service\);/,
+    mirror: [['svc', /public\.service_card_daily_limit\(s\.vendor_service_id\) AS dcap/]],
+  },
+  {
+    name: 'the gate reads the card’s daily_capacity inside its plan — the SAME function as the yes',
+    side: 'gate',
+    booking: /rpc\('service_card_daily_limit', \{ p_service_id: targetVendor\.service_id, \}\)/,
+    mirror: [['svc', /public\.service_card_daily_limit\(s\.vendor_service_id\) AS dcap/]],
   },
   {
     name: 'the yes applies a limit only when set above zero',

@@ -77,6 +77,9 @@ export const SEAT_PLAN_CATEGORIES: readonly VendorCategory[] = [
   'string_quartet', 'choir', 'planner_coordinator',
   'gown_designer', 'suit_designer', 'makeup_artist', 'hair_stylist',
   'security',
+  // 🪑 Owner, 6 Nov 2026 — DECISION_LOG "SUPPLIER ACCESS MAP (#6407): FOUR OWNER CALLS", call (2): booths, performers
+  // and AV production see the seat plan (migration 20271320476390, #7356).
+  'guest_booth', 'performers', 'av_production',
 ];
 
 /** Mirrors the dietary gate in `get_vendor_event_brief` and `get_vendor_seat_plan`. */

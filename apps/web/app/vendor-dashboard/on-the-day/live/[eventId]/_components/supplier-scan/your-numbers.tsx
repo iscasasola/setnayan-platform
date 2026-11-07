@@ -70,7 +70,7 @@ export function YourNumbers({
             : rs,
         );
         onReady(told);
-        setLine(told > 0 ? `${scanNumberLabel(r.number)} is ready — ${told === 1 ? 'the guest was' : `${formatCount(told)} guests were`} told on their Event Hub.` : 'Nothing was waiting on that number.');
+        setLine(told > 0 ? `${scanNumberLabel(r.number)} is ready — ${told === 1 ? 'the guest was' : `${formatCount(told)} guests were`} told on the guests’ page.` : 'Nothing was waiting on that number.');
       } catch {
         setLine('No signal — Ready was not sent. Try again when the signal is back.');
       }

@@ -7,6 +7,9 @@ import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import type { ShopServiceRow } from '@/lib/shop-services-summary';
+import { scannerChoiceOf } from '@/lib/supplier-scan';
+import type { ScanSetting } from '@/lib/supplier-scan.server';
+import { ServiceScannerPick } from './service-scanner-pick';
 
 /**
  * 🧰 SHOP › SERVICES — one row per service, before its cards (supplier dashboard v13, APPROVED 2026-10-29; prototype
@@ -16,9 +19,21 @@ import type { ShopServiceRow } from '@/lib/shop-services-summary';
  *
  * Title + one line visible, the rest in the ⓘ (house rule). No frame: a row is a link, drawn as a row.
  * HONEST: `rows === null` (the read failed) says so — never "No services yet", which would be a claim about the shop.
- * 🔒 lib/shop-services-summary.test.ts · shop/the-shop-sections-are-v13.test.ts
+ *
+ * 🎟 THE CLAIM SCANNER, SET ONCE PER SERVICE (DECISION_LOG 2026-10-29): under each service's row (not inside its link —
+ * a control is never nested in a row's tap), one dropdown — Off · Once — saved to `supplier_scan_settings`. Every event
+ * booked for the service gets it on the Event Hub's Scanner view. `scan === null` (the settings could not be read)
+ * draws no dropdown at all: a control showing "Off" for a service that is on would be a lie a tap could act on.
+ * 🔒 lib/shop-services-summary.test.ts · shop/the-shop-sections-are-v13.test.ts · lib/supplier-scan.test.ts
  */
-export function ShopServiceRows({ rows }: { rows: readonly ShopServiceRow[] | null }) {
+export function ShopServiceRows({
+  rows,
+  scan = null,
+}: {
+  rows: readonly ShopServiceRow[] | null;
+  /** The shop's scanner setting per service (coverage id); null = unread. */
+  scan?: ReadonlyMap<number, ScanSetting> | null;
+}) {
   return (
     <section id="shop-services" className="scroll-mt-28" aria-labelledby="shop-services-h" data-shop-services="">
       <h2 id="shop-services-h" className="sr-only">
@@ -51,7 +66,7 @@ export function ShopServiceRows({ rows }: { rows: readonly ShopServiceRow[] | nu
               r.cards === 0
                 ? 'No card yet'
                 : `${formatCount(r.cards)} ${r.cards === 1 ? 'card' : 'cards'}${r.fromPhp != null ? ` · from ${formatPhpRounded(r.fromPhp)}` : ''}`;
-            const tools = [...r.tools, r.scanner ? `${r.scanner} scanner` : 'No scanner'].join(' · ');
+            const tools = [...r.tools, ...(r.scanner ? [r.scanner] : [])].join(' · ') || 'None yet';
             const href = r.firstCardId ? `#svc-${r.firstCardId}` : SERVICE_MAKER_HREF;
             return (
               <li key={r.key} data-shop-service={r.key}>
@@ -77,6 +92,13 @@ export function ShopServiceRows({ rows }: { rows: readonly ShopServiceRow[] | nu
                     </span>
                   </span>
                 </Link>
+                {r.coverageId != null && scan ? (
+                  <ServiceScannerPick
+                    coverageId={r.coverageId}
+                    serviceLabel={r.label}
+                    initial={scannerChoiceOf(scan.get(r.coverageId))}
+                  />
+                ) : null}
               </li>
             );
           })}

@@ -59,6 +59,7 @@ import {
   Gift,
   Guitar,
   Hand,
+  HeartHandshake,
   HeartPulse,
   IceCreamCone,
   Laptop,
@@ -169,6 +170,7 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   grooming: Scissors,
   wellness_fitness: Dumbbell,
   jewelleries_accessories: Gem,
+  ceremony_essentials: HeartHandshake,
   // BOOTHS
   mobile_bar: Martini,
   coffee_espresso: Coffee,

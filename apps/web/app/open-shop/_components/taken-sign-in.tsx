@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { PasswordField } from '@/app/_components/password-field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInInPlace } from '@/app/login/actions';
@@ -58,7 +59,8 @@ export function TakenSignIn({ email, onSignedIn }: { email: string; onSignedIn: 
         <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
           Password
         </span>
-        <input name="password" type="password" autoComplete="current-password" className="input-field" autoFocus />
+        {/* The shared box with the eye (#7038) — every password box in the app is this one component. */}
+        <PasswordField name="password" autoComplete="current-password" className="input-field" autoFocus />
       </label>
       <SubmitButton
         className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"

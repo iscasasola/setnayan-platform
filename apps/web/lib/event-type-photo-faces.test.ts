@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -23,7 +23,13 @@ import {
   faceFramedObjectPosition,
   faceFramedOffsetPx,
 } from './event-card-art';
-import { EVENT_TYPE_PHOTO_ASPECT, EVENT_TYPE_PHOTO_FACES, faceSpanForTypePhoto } from '@/app/dashboard/(account)/create-event/_components/event-types';
+import {
+  EVENT_TYPE_PHOTO_ASPECT,
+  EVENT_TYPE_PHOTO_FACES,
+  eventTypePhotoSrc,
+  eventTypeRepoPhotoSrc,
+  faceSpanForTypePhoto,
+} from '@/app/dashboard/(account)/create-event/_components/event-types';
 
 const PHOTOS = join(__dirname, '..', 'public', 'event-types');
 
@@ -52,7 +58,18 @@ test('the span applies only to the repo file — an admin upload is a different 
   assert.deepEqual(faceSpanForTypePhoto('wedding', '/event-types/wedding.webp'), EVENT_TYPE_PHOTO_FACES.wedding);
   assert.equal(faceSpanForTypePhoto('wedding', 'https://media.example/wedding-hero.webp'), null);
   assert.equal(faceSpanForTypePhoto('wedding', '/event-types/debut.webp'), null);
-  assert.equal(faceSpanForTypePhoto('concert', '/event-types/concert.webp'), null);
+  // The versioned path every reader is handed is the same repo picture.
+  assert.deepEqual(faceSpanForTypePhoto('wedding', eventTypeRepoPhotoSrc('wedding')), EVENT_TYPE_PHOTO_FACES.wedding);
+  assert.deepEqual(
+    faceSpanForTypePhoto('concert', eventTypePhotoSrc({ key: 'concert', heroPhotoUrl: null })),
+    EVENT_TYPE_PHOTO_FACES.concert,
+  );
+  // A type with no repo file has no span. (This was `concert` until concert.webp
+  // shipped on 2026-11-07 — every vocab key now has a file, so a made-up key
+  // stands in for the next type an admin creates before its photo exists.)
+  assert.ok(!existsSync(join(PHOTOS, 'no_photo_yet.webp')));
+  assert.equal(faceSpanForTypePhoto('no_photo_yet', '/event-types/no_photo_yet.webp'), null);
+  assert.equal(faceSpanForTypePhoto('no_photo_yet', eventTypeRepoPhotoSrc('no_photo_yet')), null);
   assert.equal(faceSpanForTypePhoto('toString', '/event-types/toString.webp'), null);
 });
 

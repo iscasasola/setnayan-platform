@@ -23,7 +23,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stripComments } from '@/lib/strip-comments';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -538,7 +538,22 @@ test('🕊 the wake has its own picker photo, sized like its siblings', async ()
   assert.equal(meta.format, 'webp');
   assert.equal(`${meta.width}x${meta.height}`, '880x1100', 'every sibling tile is 880×1100');
   const bytes = readFileSync(file).length;
-  assert.ok(bytes > 20_000 && bytes < 90_000, `wake.webp is ${bytes} B — siblings sit at 33–77 KB`);
+  // "Sized like its siblings" is measured against the siblings, not a number copied
+  // from them: the bound was 33–77 KB for the 1 Oct set and went stale when the
+  // 7 Nov set (59–218 KB) replaced every photo. A real photograph, never a sliver
+  // or a stray full-size original.
+  const dir = join(APP, '..', 'public', 'event-types');
+  const siblings = readdirSync(dir)
+    .filter((f) => f.endsWith('.webp') && f !== 'wake.webp')
+    .map((f) => readFileSync(join(dir, f)).length);
+  const lo = Math.min(...siblings);
+  const hi = Math.max(...siblings);
+  assert.ok(siblings.length >= 10, 'the sibling set is read');
+  assert.ok(bytes > 20_000, `wake.webp is ${bytes} B — too small to be a photograph`);
+  assert.ok(
+    bytes >= lo && bytes <= hi,
+    `wake.webp is ${bytes} B — siblings sit at ${Math.round(lo / 1000)}–${Math.round(hi / 1000)} KB`,
+  );
 });
 
 test('the seat pass does not bloom at a wake, and the page hands it the register', () => {

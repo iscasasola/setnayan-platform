@@ -72,10 +72,10 @@ async function requireBranchManager(opts: { buying: boolean } = { buying: true }
 
   // ⚠ SEC-4b FIX (F2): this was `resolveVendorRole(supabase, user.id)` — the
   // GLOBAL-HIGHEST role across every vendor the user sits on — which is the
-  // byte-identical bug fixed in subscription/custom/actions.ts in this PR. An
+  // byte-identical bug fixed in the (since retired) Custom plan actions in that PR. An
   // agent/viewer on THIS shop who happens to be owner/admin on some OTHER shop
   // passed the global check. Scope it to the profile actually being acted upon,
-  // matching deep-search / ai-addon / booth-addon / photo-challenge / custom.
+  // matching deep-search / ai-addon / booth-addon / photo-challenge.
   //
   // Not exploitable today — `vendor_branches` RLS
   // (`parent_vendor_profile_id IN current_vendor_profile_ids()`) blocks the
@@ -275,7 +275,7 @@ export async function createBranch(
     revalidateBranchSurfaces();
     return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
   }
-  // ⚖ Past the included ones, only Ultra (and Custom) may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
+  // ⚖ Past the included ones, only Ultra may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
   // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
   // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
   if (!canBuyExtraBranches(tier)) {

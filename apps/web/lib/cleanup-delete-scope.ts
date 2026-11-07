@@ -267,6 +267,17 @@ export function giftShotScope(eventId: unknown, guestId?: unknown): CleanupScope
   return mintScope(`event_gift_records:${e}`, [{ bucket: THREAD_FILES, prefixes: [`gift-shots/${e}/`] }]);
 }
 
+/**
+ * 📦 Download all's built zips (owner 2026-11-03, "zips by chapter, ~2 GB numbered parts"): made on demand under
+ * `papic-zips/<event_id>/<random>/…` in the media bucket and swept 48 h later. The event's own folder and nothing
+ * wider — a listed key naming another event's folder, or any other prefix, is refused.
+ */
+export function downloadAllZipScope(eventId: unknown): CleanupScope {
+  const e = safeId(eventId);
+  if (!e) return emptyScope('download_all_zips');
+  return mintScope(`download_all_zips:${e}`, [{ bucket: MEDIA, prefixes: [`papic-zips/${e}/`] }]);
+}
+
 export function guestSelfieScope(eventId: unknown, guestId: unknown): CleanupScope {
   const e = safeId(eventId);
   const g = safeId(guestId);

@@ -2,6 +2,7 @@ import { KeyRound } from 'lucide-react';
 import type { OAuthIntegrationDef } from '@/lib/integrations/registry';
 import { saveOAuthConfig, saveOAuthField, clearOAuthSecret } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PasswordField } from '@/app/_components/password-field';
 
 // Integration Activation Console — PR3b. Generic card for an OAuth client:
 // one encrypted client secret + N non-secret config fields (client id/key +
@@ -66,12 +67,12 @@ export function OAuthCard({
             {secretInDb ? ' (leave blank to keep current)' : ''} ·{' '}
             <span className="text-ink/40">{secretSource}</span>
           </span>
-          <input
-            type="password"
+          <PasswordField
+            wrapperClassName="mt-1"
             name="client_secret"
             autoComplete="off"
             placeholder={secretInDb ? '••••••••••••••••' : 'paste secret'}
-            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
+            className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
           />
         </label>
 

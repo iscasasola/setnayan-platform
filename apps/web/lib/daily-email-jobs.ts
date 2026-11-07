@@ -1,4 +1,5 @@
 import 'server-only';
+import { sweepOldDownloadZips } from '@/lib/papic-download-all.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { runConnectionRequestExpiry } from '@/lib/connection-request-expiry';
@@ -724,6 +725,12 @@ export async function runDailyEmailJobs(): Promise<void> {
   await runClaimedJob('papic-originals-reminders', DAILY_GAP_MS, async () => {
     const { sent } = await runPapicOriginalsReminders();
     return sent;
+  });
+  // 📦 Not an email — the Download all zips (built into storage on demand, owner 2026-11-03) are deleted 48 h later.
+  await runClaimedJob('download-all-zip-sweep', DAILY_GAP_MS, async () => {
+    const deleted = await sweepOldDownloadZips();
+    if (deleted === null) throw new Error('download-all zip sweep could not list storage — see [download-all] in the logs');
+    return deleted;
   });
   // Not an email job — a RETENTION job, riding the same traffic-driven runner
   // because this codebase has no cron. It keeps the sentence `/privacy` prints

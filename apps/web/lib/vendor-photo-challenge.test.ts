@@ -98,7 +98,6 @@ test('a verified paid shop may turn it on', () => {
     photoChallengePurchaseEligibility({ ...BUY_OK, tier: 'enterprise' }).ok,
     true,
   );
-  assert.equal(photoChallengePurchaseEligibility({ ...BUY_OK, tier: 'custom' }).ok, true);
 });
 
 test('THE PAID PLANS BUY IT, THE FREE ONES DO NOT — owner 2026-08-29', () => {
@@ -111,7 +110,7 @@ test('THE PAID PLANS BUY IT, THE FREE ONES DO NOT — owner 2026-08-29', () => {
   //
   // Verbatim: *"they can only but if they are solo,pro,enterprise,custom. but
   // not when they are free"*.
-  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     assert.equal(
       photoChallengePurchaseEligibility({ ...BUY_OK, tier }).ok,
       true,
@@ -146,7 +145,7 @@ test('THE FLOOR IS UNCONDITIONAL — no price switch can lift it', () => {
 test('VERIFIED-THE-STATE is still required on every paid plan', () => {
   // Not to be confused with `verified`-the-TIER refused above: this is
   // verification_state, and it gates every plan including Custom.
-  for (const tier of ['solo', 'pro', 'enterprise', 'custom']) {
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     assert.deepEqual(
       photoChallengePurchaseEligibility({ ...BUY_OK, tier, verification: 'pending' }),
       { ok: false, reason: 'unverified' },

@@ -807,12 +807,10 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
  * enterprise → free, so premium disputes surface first). Tones step up with tier
  * priority; label copy reuses the canonical TIER_LABEL map.
  */
-// Glass PR-8 — tones step up with tier priority; violet (enterprise/custom) is
-// retired to info-slate (--sn-info, the canonical violet replacement), custom
-// being the strongest step (solid slate).
+// Glass PR-8 — tones step up with tier priority; violet (enterprise) is
+// retired to info-slate (--sn-info, the canonical violet replacement).
 const TIER_CHIP_TONE: Record<VendorTier, string> = {
   enterprise: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
-  custom: 'bg-[color:var(--sn-info)] text-white',
   pro: 'bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]',
   solo: 'bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]',
   verified: 'bg-ink/10 text-ink/70',

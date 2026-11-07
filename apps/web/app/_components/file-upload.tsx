@@ -1360,7 +1360,7 @@ export function FileUpload({
             ) : flying ? null : (
               <ImagePlus aria-hidden className="h-6 w-6" strokeWidth={1.6} />
             )}
-            {flying ? <Loader2 aria-hidden className="absolute h-5 w-5 animate-spin text-[#C24E25]" strokeWidth={1.75} /> : null}
+            {flying ? <Loader2 aria-hidden className="absolute h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} /> : null}
             {fileInput}
           </label>
           <div className="grid min-w-0 justify-items-start gap-1">

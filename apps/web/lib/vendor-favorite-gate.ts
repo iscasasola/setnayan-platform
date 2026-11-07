@@ -8,7 +8,7 @@ import { envFlagEnabled } from '@/lib/env-flag';
  *
  * Owner-locked 2026-07-18 (corpus DECISION_LOG): a vendor may be SEEN as a
  * favorite / saved only while they hold an ACTIVE PAID subscription (Solo ₱999+
- * / Pro / Enterprise / Custom). The moment a subscription lapses to a free tier
+ * / Pro / Ultra). The moment a subscription lapses to a free tier
  * the vendor's favorite is hidden from every couple/coordinator saved list —
  * IMMEDIATELY, no grace — but the underlying favorite ROW is never deleted, so
  * it reappears automatically when the vendor re-subscribes ("will only return if
@@ -54,7 +54,7 @@ export type VendorSubRow = {
 /**
  * The predicate: does this vendor hold an ACTIVE PAID subscription as of `now`?
  *
- * Paid = Solo or above (Solo / Pro / Enterprise / Custom). `free` and `verified`
+ * Paid = Solo or above (Solo / Pro / Ultra). `free` and `verified`
  * are free tiers. `tier_expires_at` is checked EXPLICITLY because lapse is
  * login-driven (`sweep_vendor_tier_expiry` runs on the vendor's next dashboard
  * visit), so a past-due vendor can still carry a paid `tier_state` with an

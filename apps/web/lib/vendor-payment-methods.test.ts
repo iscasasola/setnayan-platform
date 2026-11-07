@@ -73,15 +73,16 @@ test('PROD REALITY 2: one of 46 profiles being pro is enough', async () => {
   assert.equal(await isVendorProActive(client, 'u'), true);
 });
 
-test('enterprise and custom inherit the Pro gate', async () => {
-  for (const tier of ['enterprise', 'custom']) {
+test('enterprise inherits the Pro gate', async () => {
+  for (const tier of ['enterprise']) {
     const { client } = stubClient([{ tier_state: tier, tier_expires_at: null }]);
     assert.equal(await isVendorProActive(client, 'u'), true, `${tier} should pass`);
   }
 });
 
 test('tiers below pro are denied', async () => {
-  for (const tier of ['free', 'verified', 'solo', null]) {
+  // 'custom' — the retired Custom plan — reads as Free and is denied like any unknown tier.
+  for (const tier of ['free', 'verified', 'solo', 'custom', null]) {
     const { client } = stubClient([{ tier_state: tier, tier_expires_at: null }]);
     assert.equal(await isVendorProActive(client, 'u'), false, `${tier} should fail`);
   }

@@ -4,8 +4,8 @@
  *
  * # Why a vendor plan purchase needs an `orders` row at all
  *
- * Every other vendor purchase (extra seat, branch, deep search, booking fee,
- * Custom plan) already mints an `orders` row and hangs its proof off
+ * Every other vendor purchase (extra seat, branch, deep search, booking fee)
+ * already mints an `orders` row and hangs its proof off
  * `payments`. A SUBSCRIPTION did not: `create_vendor_subscription` wrote a
  * `vendor_subscriptions` row and nothing else, and `payments.order_id` is NOT
  * NULL — so a shop that paid for a plan had NOWHERE to put the screenshot or

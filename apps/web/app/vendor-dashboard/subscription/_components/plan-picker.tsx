@@ -74,7 +74,6 @@ export function PlanPicker({
   const plan = plans.find((p) => p.key === picked) ?? plans[0];
   if (!plan) return null;
   const isFree = plan.key === 'free';
-  const isCustom = plan.key === 'custom';
   const price = plan.price[cycle];
   const tooShort = plan.tooShort[cycle] ?? null;
   const onGift = Boolean(gift) && plan.key === current;
@@ -83,7 +82,7 @@ export function PlanPicker({
 
   const options = plans.map((p) => ({
     key: p.key,
-    label: p.key === 'free' || p.key === 'custom' ? p.name : p.price[cycle] !== undefined ? `${p.name} · ${formatPhp(p.price[cycle]!)} / ${CYCLE_WORD[cycle]}` : p.name,
+    label: p.key === 'free' ? p.name : p.price[cycle] !== undefined ? `${p.name} · ${formatPhp(p.price[cycle]!)} / ${CYCLE_WORD[cycle]}` : p.name,
   }));
 
   return (
@@ -106,7 +105,7 @@ export function PlanPicker({
           />
         }
       />
-      {isFree || isCustom ? null : (
+      {isFree ? null : (
         <DatesRow
           data="plan-cycle"
           lead={lead(CalendarDays)}
@@ -145,15 +144,13 @@ export function PlanPicker({
             ? `${formatPhp(0)} until ${gift.untilFull} · nothing renews by itself`
             : isFree
             ? 'Nothing to pay · nothing renews by itself'
-            : isCustom
-              ? 'Your Custom quote'
-              : price === undefined
+            : price === undefined
               ? 'Not sold on this cycle right now'
               : tooShort ?? `${formatPhp(price)} / ${CYCLE_WORD[cycle]} · Setnayan confirms your payment`
         }
         badge={onGift && !keepGift ? { tone: 'ok', word: formatPhp(0) } : undefined}
         end={
-          (onGift && !keepGift) || isFree || isCustom || price === undefined || tooShort ? undefined : verified ? (
+          (onGift && !keepGift) || isFree || price === undefined || tooShort ? undefined : verified ? (
             <form action={action} data-plan-pay-form="">
               <input type="hidden" name="sku_code" value={`${plan.key}_vendor_${cycle}`} />
               <SupplierSubmit
@@ -169,7 +166,7 @@ export function PlanPicker({
           )
         }
       />
-      {!verified && !isFree && !isCustom ? (
+      {!verified && !isFree ? (
         <p className="pb-1 text-[13px] text-ink/60" data-plan-unverified="">
           Plans open once Setnayan approves your shop. <Link href="/vendor-dashboard/profile#docs" className="font-medium text-sn-accent underline underline-offset-4">Get verified in Your shop</Link>
         </p>

@@ -65,7 +65,7 @@
  *  b. Test 3 taints only MONEY-SHAPED form keys — `/price|amount|total|
  *     centavos|php|fee|cost/i`. That is deliberate. "The browser picked 5
  *     cameras and the server priced them" is correct and common (Papic quotes,
- *     the vendor Custom configurator); "the browser sent the peso figure" is
+ *     the vendor seat and branch buys); "the browser sent the peso figure" is
  *     the bug. A money field named e.g. `formData.get('x')` defeats it.
  *  c. The taint trace follows `const <id> = <rhs>` bindings up to 6 hops within
  *     one file. It does not cross function boundaries or files — a price laundered
@@ -89,7 +89,6 @@ const read = (rel: string) => readFileSync(resolve(WEB, rel), 'utf8');
 
 const ORDERS_ACTIONS = 'app/dashboard/[eventId]/orders/actions.ts';
 const CHECKOUT_ACTIONS = 'app/dashboard/[eventId]/checkout/actions.ts';
-const ADMIN_CUSTOM_PLANS = 'app/admin/custom-plans/actions.ts';
 
 /* ── 1 · THE ACTION IS GONE ─────────────────────────────────────────────────── */
 
@@ -210,11 +209,6 @@ const ORDER_MINTERS: Record<string, string> = {
     'Vendor AI add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`); the free-first-cycle branch keeps its ' +
     'own admin client and its atomic is-null-guarded trial claim. Same vendor-role gate.',
-  'app/vendor-dashboard/subscription/custom/actions.ts':
-    'Vendor Custom plan. The form carries the COMPOSITION (branches/seats/photos…); unit ' +
-    'prices come from fetchCustomUnitPrices() and the total from computeCustomQuote(). ' +
-    'SEC-4b: now service-role (`moneyWriter`), and the role gate was tightened from the ' +
-    'global-highest resolveVendorRole to the PROFILE-scoped resolveVendorRoleForProfile.',
   'app/vendor-dashboard/team/actions.ts':
     'Extra vendor seat. feePhp from fetchSeatFeePhp() — catalog, not form. ' +
     'SEC-4b: now service-role (`moneyWriter`). Authorized by ensureAdmin() (vendorProfileId ' +
@@ -240,9 +234,6 @@ const ORDER_MINTERS: Record<string, string> = {
     'startAppStorePurchase BEFORE Apple’s sheet opened), never from the request. The client is a ' +
     'parameter: its callers (lib/iap/iap-actions.ts, lib/iap/notifications.server.ts via the ' +
     'notification route) pass createMoneyWriterClient(); tests/db passes its replay client.',
-  [ADMIN_CUSTOM_PLANS]:
-    'ADMIN-MINTED BESPOKE AMOUNT — legitimate and intentional. assertAdmin()-gated, service-role ' +
-    'write, per-quote unit-price overrides are an admin negotiation tool. Exempt from test 3.',
 };
 
 /** Recursively collect .ts files, skipping tests and build output. */
@@ -625,31 +616,11 @@ test('checkout writes the server-resolved base, not the posted one', () => {
   assert.ok(resolver < write, 'the resolve must happen before the amount is frozen for the row');
 });
 
-/* ── 5 · ADMIN STAYS ADMIN ──────────────────────────────────────────────────── */
-
-test('the bespoke-amount admin path stays admin-gated and service-role', () => {
-  const src = read(ADMIN_CUSTOM_PLANS);
-  assert.match(src, /async function assertAdmin\(\)/, 'the admin gate helper is gone');
-  assert.match(
-    src,
-    /is_internal \|\| me\?\.is_team_member \|\| me\?\.account_type === 'admin'/,
-    'the admin gate stopped checking internal / team / admin',
-  );
-  const insert = src.search(/\.from\(\s*['"]orders['"]\s*\)[\s\S]{0,80}?\.insert\b/);
-  assert.ok(insert > 0, 'the admin quote no longer mints an order — roster is stale');
-  assert.ok(
-    /await assertAdmin\(\);/.test(src.slice(0, insert)),
-    'every bespoke-amount mint must be behind assertAdmin() — otherwise it is SEC-4 with extra steps',
-  );
-  assert.match(
-    src,
-    // Either service-role constructor satisfies this — `createMoneyWriterClient`
-    // IS `createAdminClient` plus a refusal of the dev anon fallback. Pinning one
-    // identifier made a legitimate refactor read as a regression.
-    /const \{ data: orderRow, error: oErr \} = await (admin|createMoneyWriterClient\(\))\s*\n\s*\.from\('orders'\)/,
-    'the admin mint must go through a service-role client, not the caller session',
-  );
-});
+/* ── 5 · (retired) ADMIN STAYS ADMIN ──────────────────────────────────────────
+ * This section pinned `app/admin/custom-plans/actions.ts` — the one admin path that minted a bespoke-amount order.
+ * That path was DELETED 2026-11-06 with the Custom supplier plan (owner: "from the app"), so no admin path mints a
+ * bespoke amount any more and the roster below no longer exempts one. A new one would have to join the roster.
+ */
 
 /* ── 6 · SERVER-ONLY MINT (SEC-4b) ──────────────────────────────────────────── */
 

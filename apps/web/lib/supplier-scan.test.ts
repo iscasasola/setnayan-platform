@@ -6,7 +6,8 @@
  *   2. the dropdown offers exactly the BUILT modes, and the newest CHECK on `supplier_scan_settings.mode` accepts exactly
  *      those — a mode the code cannot run can never be saved;
  *   3. "#0042" is the one number format; the answer draws no name unless the action handed one in (the first name, after a recorded claim);
- *   4. NFC: every place says what works there, and only that.
+ *   4. NFC: every place says what works there, and only that;
+ *   5. the review pop-up asks once per shop, from a received claim OR a souvenir that shop's scanner handed over.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,6 +30,7 @@ import {
   tallyWords,
   scannerChoiceOptions,
   scannerChoiceToSetting,
+  openReviewAsks,
 } from './supplier-scan';
 import { TAXONOMY_MAP } from './taxonomy';
 
@@ -64,9 +66,10 @@ test('2 · the dropdown offers Off + the built modes, and the database accepts e
     [SCANNER_OFF, ...SCAN_MODES_BUILT],
   );
   for (const m of SCAN_MODES_BUILT) assert.ok(SCAN_MODES.some((x) => x.key === m));
-  const sql = newest(/supplier_scan_settings_mode_check CHECK/);
-  const check = sql.slice(sql.lastIndexOf('supplier_scan_settings_mode_check CHECK'));
-  const inSql = [...check.slice(0, check.indexOf(';')).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const src = String.raw`supplier_scan_settings_mode_check\s+CHECK\s*\(mode IN \(([^)]*)\)\)`;
+  const sql = newest(new RegExp(src));
+  const last = [...sql.matchAll(new RegExp(src, 'g'))].pop()!;
+  const inSql = [...last[1]!.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
   assert.deepEqual([...inSql].sort(), [...SCAN_MODES_BUILT].sort());
 
   assert.deepEqual(scannerChoiceToSetting('off', { enabled: true, mode: 'once' }), { enabled: false, mode: 'once' });
@@ -115,4 +118,50 @@ test('5 · Ordered → Received: the words for each step, and a number’s state
   assert.equal(numberStateWords({ guests: 5, ordered: 0, ready: 2, received: 3 }), '3 of 5 received');
   assert.equal(guestNumberStateWords('ready'), 'Ready — claim it now');
   assert.equal(guestNumberStateWords('received'), null, 'a done claim needs no line');
+});
+
+test('6 · Unlimited and Group session: their words, and prints kept within 1–99', async () => {
+  const { clampPrints, isSessionMode } = await import('./supplier-scan');
+  assert.equal(scanAnswerWords({ outcome: 'served', number: 43, served: 43, unique: 30 }).title, '✓ #0043 · Served 43');
+  assert.equal(scanAnswerWords({ outcome: 'added', number: 107, guests: 3 }).title, '#0107 · 3 guests');
+  assert.equal(scanAnswerWords({ outcome: 'picked_up', number: 107, claimed: 3, of: 5 }).title, '✓ #0107 · 3 of 5 claimed');
+  assert.equal(scanAnswerWords({ outcome: 'no_session' }).title, 'No shot open');
+  assert.equal(tallyWords('unlimited', { claimed: 30, total: 118, served: 43, unique: 30 }), 'Served 43 · 30 guests');
+  assert.equal(tallyWords('group_session', { claimed: 9, total: 118, ready: 4, sessions: 12 }), 'Shots 12 · Ready 4 · Claimed 9');
+  assert.equal(clampPrints(0), 1);
+  assert.equal(clampPrints(140), 99);
+  assert.ok(isSessionMode('group_session'));
+  assert.ok(!isSessionMode('unlimited'));
+});
+
+test('7 · Roaming: scan the guests in frame, then shoot; the count is Shots · Ready · Claimed', () => {
+  assert.equal(scanAnswerWords({ outcome: 'added', number: 231, guests: 2, mode: 'roaming' }).title, '#0231 · 2 guests · shoot');
+  assert.equal(tallyWords('roaming', { claimed: 5, total: 118, ready: 2, sessions: 9 }), 'Shots 9 · Ready 2 · Claimed 5');
+});
+
+test('8 · the guest review: five choices in one dropdown, said in words; one line at most 140', async () => {
+  const { REVIEW_STAR_OPTIONS, REVIEW_LINE_MAX, reviewAskWords } = await import('./supplier-scan');
+  assert.deepEqual(REVIEW_STAR_OPTIONS.map((o) => o.key), ['5', '4', '3', '2', '1']);
+  assert.equal(REVIEW_LINE_MAX, 140, 'the database CHECK says 140');
+  assert.equal(reviewAskWords('Photo booth'), 'How was the Photo booth?');
+});
+
+test('5 · the review pop-up asks once per shop — a received claim or a shop souvenir — and never a desk souvenir', () => {
+  const open = openReviewAsks(
+    [
+      { vendor_profile_id: 'booth', coverage_id: 12, claimed_at: '2099-12-18T10:05:00Z' },
+      { vendor_profile_id: 'booth', coverage_id: 11, claimed_at: '2099-12-18T10:00:00Z' },
+      { vendor_profile_id: 'jars', coverage_id: '40', claimed_at: '2099-12-18T11:00:00Z' },
+      { vendor_profile_id: null, coverage_id: null, claimed_at: '2099-12-18T09:00:00Z' },
+      { vendor_profile_id: 'done', coverage_id: 7, claimed_at: '2099-12-18T08:00:00Z' },
+      { vendor_profile_id: 'bare', coverage_id: null, claimed_at: '2099-12-18T12:00:00Z' },
+    ],
+    new Set(['done']),
+  );
+  assert.deepEqual([...open.entries()], [
+    ['booth', '11'],
+    ['jars', '40'],
+    ['bare', null],
+  ]);
+  assert.equal(openReviewAsks([], new Set()).size, 0);
 });

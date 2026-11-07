@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
-import type { ScanMode } from '@/lib/supplier-scan';
+import { guestShownName } from '@/lib/guest-reviews';
+import { openReviewAsks, type ReviewAskProof, type ScanMode } from '@/lib/supplier-scan';
 
 /**
  * 🎟 THE SUPPLIER CLAIM SCANNER — the reads (the pure half is `lib/supplier-scan.ts`; every permission check is in the
@@ -46,9 +47,15 @@ export type ScanTally = {
   total: number;
   lastNumber: number;
   souvenir: boolean;
-  /** Ordered → Received only (0 otherwise). */
+  /** Ordered → Received and shots (0 otherwise). */
   ordered: number;
   ready: number;
+  /** Unlimited: every scan, and the guests among them. */
+  served: number;
+  unique: number;
+  /** Group session: shots so far, and the one open now (null = none). */
+  sessions: number;
+  open: { number: number; guests: number } | null;
 };
 
 export type EventScanService = {
@@ -68,7 +75,19 @@ export function tallyOf(raw: unknown): ScanTally | null {
   const total = n(t.total);
   const lastNumber = n(t.last_number);
   if (claimed === null || total === null || lastNumber === null) return null;
-  return { claimed, total, lastNumber, souvenir: t.souvenir === true, ordered: n(t.ordered) ?? 0, ready: n(t.ready) ?? 0 };
+  const openNumber = n(t.open_number);
+  return {
+    claimed,
+    total,
+    lastNumber,
+    souvenir: t.souvenir === true,
+    ordered: n(t.ordered) ?? 0,
+    ready: n(t.ready) ?? 0,
+    served: n(t.served) ?? 0,
+    unique: n(t.unique) ?? 0,
+    sessions: n(t.sessions) ?? 0,
+    open: openNumber !== null ? { number: openNumber, guests: n(t.open_guests) ?? 0 } : null,
+  };
 }
 
 /**
@@ -326,6 +345,80 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
       .sort((a, b) => b.at.localeCompare(a.at));
   } catch (err) {
     logQueryError('readAdminEventScans', err, { eventId });
+    return null;
+  }
+}
+
+export type GuestReviewAsk = {
+  /** The shop being asked about — one ask per shop per event (the one store keeps one guest review per shop per event). */
+  vendorProfileId: string;
+  /** The service the scanner marked received ("Photo booth"); the first one when a shop has several. */
+  service: string;
+  shop: string | null;
+  /** How the guest's name would show publicly, for the "Shown as" dropdown: "Gabriel D." or "G. D.". */
+  names: { name: string; initials: string };
+};
+
+/**
+ * ⭐ The shops this guest RECEIVED from — a `supplier_scan_claims` row in state received, or a souvenir that shop's
+ * scanner handed over (`guest_souvenir_claims.vendor_profile_id`; the couple's own desk names no shop). Those are the two
+ * scanner doors the one writer `vendor_guest_review_submit` admits. Minus the shops the guest has already reviewed
+ * (`vendor_guest_reviews`, by any door) or answered "Not now" to (`supplier_scan_review_skips`) — their Event Hub's
+ * optional "How was the Photo booth?" card (slice 5).
+ * Service role, scoped to the one guest the page resolved from their pass.
+ * null = the read failed (no card is drawn — never a question asked on a guess).
+ */
+export async function readGuestReviewAsks(eventId: string, guestId: string): Promise<GuestReviewAsk[] | null> {
+  try {
+    const admin = createAdminClient();
+    const [claims, souvenirs, reviewed, skipped, guest] = await Promise.all([
+      admin
+        .from('supplier_scan_claims')
+        .select('coverage_id, vendor_profile_id, claimed_at')
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .eq('state', 'received'),
+      // A souvenir handed over at a shop's scanner (Once) is the desk's own row, not a scanner claim.
+      admin
+        .from('guest_souvenir_claims')
+        .select('coverage_id, vendor_profile_id, claimed_at')
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .not('vendor_profile_id', 'is', null),
+      admin.from('vendor_guest_reviews').select('vendor_profile_id').eq('event_id', eventId).eq('guest_id', guestId),
+      admin.from('supplier_scan_review_skips').select('vendor_profile_id').eq('event_id', eventId).eq('guest_id', guestId),
+      admin.from('guests').select('first_name, last_name').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
+    ]);
+    const failed = claims.error ?? souvenirs.error ?? reviewed.error ?? skipped.error ?? guest.error;
+    if (failed) {
+      logQueryError('readGuestReviewAsks', failed, { eventId });
+      return null;
+    }
+    const done = new Set(
+      [...((reviewed.data ?? []) as { vendor_profile_id: string }[]), ...((skipped.data ?? []) as { vendor_profile_id: string }[])].map((r) => r.vendor_profile_id),
+    );
+    // One ask per shop: the earliest thing that shop's scanner handed over names the question.
+    const open = openReviewAsks([...((claims.data ?? []) as ReviewAskProof[]), ...((souvenirs.data ?? []) as ReviewAskProof[])], done);
+    if (open.size === 0) return [];
+    const covIds = [...new Set([...open.values()].filter((c): c is string => c != null))];
+    const [covs, shops, labels] = await Promise.all([
+      covIds.length > 0 ? admin.from('vendor_coverages').select('id, canonical_service').in('id', covIds) : Promise.resolve({ data: [] }),
+      admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', [...open.keys()]),
+      resolveCoverageLabels(),
+    ]);
+    const label = new Map(((covs.data ?? []) as { id: number | string; canonical_service: string }[]).map((c) => [String(c.id), labels.leafLabel(c.canonical_service)]));
+    const shop = new Map(((shops.data ?? []) as { vendor_profile_id: string; business_name: string | null }[]).map((x) => [x.vendor_profile_id, x.business_name]));
+    const g = (guest.data ?? null) as { first_name: string | null; last_name: string | null } | null;
+    // The same words the "From guests" row will print (the guest-review page builds them the same way).
+    const names = { name: guestShownName(g?.first_name ?? null, g?.last_name ?? null, 'name'), initials: guestShownName(g?.first_name ?? null, g?.last_name ?? null, 'initials') };
+    return [...open.entries()].map(([vp, cov]) => ({
+      vendorProfileId: vp,
+      service: cov == null ? 'souvenir' : (label.get(cov) ?? 'supplier'),
+      shop: shop.get(vp) ?? null,
+      names,
+    }));
+  } catch (err) {
+    logQueryError('readGuestReviewAsks', err, { eventId });
     return null;
   }
 }

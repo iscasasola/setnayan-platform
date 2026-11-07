@@ -1,4 +1,5 @@
-import { readGuestScanNumbers, type GuestScanNumber } from '@/lib/supplier-scan.server';
+import { readGuestReviewAsks, readGuestScanNumbers, type GuestReviewAsk, type GuestScanNumber } from '@/lib/supplier-scan.server';
+import { ScanReviewAsk } from './scan-review-ask';
 import { guestNumberStateWords, scanNumberLabel } from '@/lib/supplier-scan';
 import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 
@@ -25,13 +26,24 @@ export async function YourNumberCard({
   className?: string;
 }) {
   if (preview || guestId === SIMULATED_GUEST_ID) return null;
-  const numbers = await readGuestScanNumbers(eventId, guestId);
+  const [numbers, asks] = await Promise.all([readGuestScanNumbers(eventId, guestId), readGuestReviewAsks(eventId, guestId)]);
   if (!numbers || numbers.length === 0) return null;
-  return <YourNumberCardView numbers={numbers} className={className} />;
+  return <YourNumberCardView numbers={numbers} asks={asks ?? []} eventId={eventId} className={className} />;
 }
 
 /** The card as drawn, from numbers already read (the dev lab draws it from fixtures). */
-export function YourNumberCardView({ numbers, className = '' }: { numbers: GuestScanNumber[]; className?: string }) {
+export function YourNumberCardView({
+  numbers,
+  asks = [],
+  eventId = '',
+  className = '',
+}: {
+  numbers: GuestScanNumber[];
+  /** ⭐ Slice 5 — the shops this guest received from and has not reviewed or skipped yet: "How was the Photo booth?". */
+  asks?: GuestReviewAsk[];
+  eventId?: string;
+  className?: string;
+}) {
   return (
     <section aria-label="Your number" className={className} data-your-number="">
       <ul className="space-y-2">
@@ -48,6 +60,13 @@ export function YourNumberCardView({ numbers, className = '' }: { numbers: Guest
           </li>
         ))}
       </ul>
+      {asks.length > 0 ? (
+        <div className="mt-6 space-y-6">
+          {asks.map((a) => (
+            <ScanReviewAsk key={a.vendorProfileId} eventId={eventId} vendorProfileId={a.vendorProfileId} service={a.service} shop={a.shop} names={a.names} />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import { KeyRound, ShieldAlert } from 'lucide-react';
 import { saveMayaConfig, clearMayaSecrets } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PasswordField } from '@/app/_components/password-field';
 
 // Integration Activation Console — PR4c. Bespoke card for Maya/PayMaya: TWO
 // secrets (public + secret key form the Basic-auth pair) + one config (checkout
@@ -59,12 +60,12 @@ export function MayaCard({
               {publicInDb ? 'saved here' : publicInEnv ? 'from env' : 'not set'}
             </span>
           </span>
-          <input
-            type="password"
+          <PasswordField
+            wrapperClassName="mt-1"
             name="maya_public_api_key"
             autoComplete="off"
             placeholder={publicInDb ? '••••••••••••••••' : 'pk-...'}
-            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
+            className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
           />
         </label>
         <label className="block">
@@ -74,12 +75,12 @@ export function MayaCard({
               {secretInDb ? 'saved here' : secretInEnv ? 'from env' : 'not set'}
             </span>
           </span>
-          <input
-            type="password"
+          <PasswordField
+            wrapperClassName="mt-1"
             name="maya_secret_api_key"
             autoComplete="off"
             placeholder={secretInDb ? '••••••••••••••••' : 'sk-...'}
-            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
+            className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
           />
         </label>
         <label className="block">

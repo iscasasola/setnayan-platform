@@ -18,6 +18,7 @@ import { join } from 'node:path';
 
 import { rankTaxonomyOptionsWithClose, type RankableOption } from './taxonomy-search-rank';
 import { TAXONOMY_MAP } from './taxonomy';
+import { stripComments } from './strip-comments';
 
 const labelFor = (key: string): string =>
   key
@@ -128,9 +129,7 @@ test('a reviewed alias (Admin › Categories search words) is matched exactly li
 });
 
 test('the ranker carries no hard-coded trade words — aliases come from the one source', () => {
-  const src = readFileSync(join(__dirname, 'taxonomy-search-rank.ts'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
+  const src = stripComments(readFileSync(join(__dirname, 'taxonomy-search-rank.ts'), 'utf8'));
   const literals = src.match(/'[a-z][a-z ]*'/g) ?? [];
   const trades = literals.filter((l) => /band|music|cake|photo|video|dj|emcee|lechon|florist|cater/.test(l));
   assert.deepEqual(trades, [], `trade words in code: ${trades.join(', ')}`);

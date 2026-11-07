@@ -60,7 +60,12 @@ import { fileURLToPath } from 'node:url';
 // `workspace/question-answers-actions.ts` · `saveSupplierAnswers` for the couple), less one dead export removed
 // (`studio/papic/actions.ts` · `reissuePapicSeat`). Measured on the tree merged with main after #7287: 1229. The route
 // SUM stays gated by check-vercel-route-count.mjs — read that job before merging.
-export const CEILING = 1229;
+// 1229 → 1231 (2026-11-07, supplier sign-up #7351): the claim door's finish (`finishClaimDoor`, one action for
+// the couple / auto-share / admin claim) is the one real new action. The second +1 is this script counting
+// `export const dynamic` in app/dev/open-shop-lab/page.tsx, because that lab holds an inline 'use server' stand-in.
+// No unimported action was found to un-export. The production build measured 1835 routes on 2026-11-07,
+// 165 under check-vercel-route-count's ceiling of 2000, so there is room for these two.
+export const CEILING = 1231;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

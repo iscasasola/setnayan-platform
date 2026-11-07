@@ -267,7 +267,11 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       : null;
 
   /** The gift block's two lines, from the ONE shared copy (see giftQuoteCopy). */
-  const giftCopy = giftQuoteCopy(gift, isVendorSide ? 'supplier' : 'couple', { businessName });
+  const giftCopy = giftQuoteCopy(gift, isVendorSide ? 'supplier' : 'couple', {
+    businessName,
+    // 🏅 A free booking fee (badge reward) covers the gift — the supplier is billed nothing for it (owner 2026-11-05).
+    freeWithBadge: gift?.freeWithBadge === true,
+  });
 
   /**
    * Accepting only shortlists the shop at a price (respond_vendor_proposal

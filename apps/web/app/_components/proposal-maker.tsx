@@ -688,7 +688,10 @@ export function ProposalMaker({
       ),
     [netPayable, giftBasis, switchedStanding],
   );
-  const giftCopy = giftQuoteCopy(gift, 'supplier');
+  const giftCopy = giftQuoteCopy(gift, 'supplier', {
+    freeWithBadge:
+      (switchedStanding?.kind === 'included' || switchedStanding?.kind === 'available') && switchedStanding.freeWithBadge === true,
+  });
 
   /**
    * THE FEE THIS QUOTE WOULD INCUR, re-priced as they type — off the SAME

@@ -79,6 +79,12 @@ const NOT_THE_SWITCH: Record<string, string> = {
   'on-the-day/page.tsx': 'a lapsed day-of purchase, not the plan tier',
   'team/actions.ts':
     'asks the switch for the zero-seat case; ALSO the Enterprise extra-seat add-on and the at-limit quota hint',
+  // Badge upgrades (owner approved 2026-11-06): "upgrade" names a REWARD a shop earned — four weeks of an add-on it
+  // starts itself — never a plan paywall. Its one plan rule (the 3D Booth starts on Solo; below that it starts as
+  // Papic Challenges) is enforced by the database door `shop_badge_upgrade_start`, which the switch cannot lift.
+  'performance/_components/your-badges.tsx': 'Badge upgrades — "upgrade" names an earned reward, not a plan paywall',
+  'subscription/_components/badge-upgrades-section.tsx': 'Badge upgrades on the Plans page — the reward’s Start sheet',
+  'subscription/badge-upgrade-actions.ts': 'Badge upgrades — Start; the plan rule is the database door’s own',
 };
 
 // Supplier-visible paywall copy. Words only as whole words: `upgradeHref` is

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { grantOwedBadgeRewards, readBadgeRewardFacts } from '@/lib/badge-rewards.server';
 import { badgesForPrint } from '@/lib/shop-badges';
 import { badgePrintSvg, type PrintGround } from '@/lib/shop-badge-print';
 
@@ -37,8 +38,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const g = sp.get('ground');
   const ground: PrintGround = g === 'white' || g === 'dark' || g === 'colour' ? g : 'light';
 
-  const facts = await readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id);
+  const admin = createAdminClient();
+  const facts = await readShopBadgeFacts(admin, profile.vendor_profile_id);
   if (sp.get('view') === 'facts') {
+    // 🎁 Today asks this after it has drawn, so it is where a newly earned badge pays its reward (owner 2026-11-05)
+    // without slowing Today. Exactly once (the database's key); a failure only means the next read pays it.
+    await readBadgeRewardFacts(admin, profile.vendor_profile_id, facts)
+      .then((rewardFacts) => grantOwedBadgeRewards(admin, profile.vendor_profile_id, rewardFacts))
+      .catch((err) => console.error('[badge-rewards] Today sweep failed', err));
     return NextResponse.json({ vendorId: profile.vendor_profile_id, facts }, { headers: { 'cache-control': 'private, no-store' } });
   }
   const all = badgesForPrint(facts);

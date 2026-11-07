@@ -76,7 +76,7 @@ export async function resolvePapicQuoteStanding(
     // Only the two eligible arms need the live arithmetic — the others are
     // decided by the arm alone, so a free or imported booking costs no reads.
     let basis: GiftQuoteBasis | null = null;
-    if (arm === 'applies' || arm === 'card_says_no') {
+    if (arm === 'applies' || arm === 'card_says_no' || arm === 'badge_reward' || arm === 'badge_reward_card_says_no') {
       const [schedule, ladder, giftPrice] = await Promise.all([
         getBookingFeeSchedule(admin),
         fetchGiftLadder(admin),

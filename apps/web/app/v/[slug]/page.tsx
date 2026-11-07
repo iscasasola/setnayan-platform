@@ -83,7 +83,8 @@ import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
 import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
 import { InquireSheet, type InquireEvent, type InquireService } from './_components/inquire-sheet';
-import { NO_SERVICES_LINE } from '@/lib/shop-inquire';
+import { inquireServiceList, NO_SERVICES_LINE } from '@/lib/shop-inquire';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import { ReportPageButton } from '@/app/_components/report-page-button';
@@ -1789,13 +1790,23 @@ export async function renderVendorBySlug({
             : o.title,
         }))
       : [];
-  const inquireServices: InquireService[] = activeServices.map((s) => ({
-    serviceId: s.vendor_service_id,
-    label: serviceLabel(s),
-    // The price line, or nothing — `servicePriceLabel` says "Inquire" for a hidden price, a word with no place inside the pop-up.
-    price: !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0 ? servicePriceLabel(s) : '',
-    category: s.category ?? null,
-  }));
+  // 📋 EVERY SERVICE THE SHOP PROVIDES (owner 2026-11-07, "Yes, list all"): the active cards as before, then each
+  // service picked at sign-up (`vendor_profiles.services`) that has no card — named by the ONE taxonomy resolver
+  // (`cardKindLabeller`, Admin › Categories), "Price on request". Inquire is never a dead end for a shop with no card.
+  // Read only when the pop-up is mounted and the shop lists services — a shop with none never asks for a name.
+  const inquireProvidedKeys = bookable ? (vendor.services ?? []) : [];
+  const inquireKindLabel = inquireProvidedKeys.length > 0 ? await cardKindLabeller() : (key: string) => key;
+  const inquireServices: InquireService[] = inquireServiceList(
+    activeServices.map((s) => ({
+      serviceId: s.vendor_service_id,
+      label: serviceLabel(s),
+      // The price line, or nothing — `servicePriceLabel` says "Inquire" for a hidden price, a word with no place inside the pop-up.
+      price: !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0 ? servicePriceLabel(s) : '',
+      category: s.category ?? null,
+    })),
+    inquireProvidedKeys,
+    inquireKindLabel,
+  );
   // Creator Economy PR-C/PR-D — provenance from the arrival URL, read ONCE for both the composer and the pop-up.
   // startServiceInquiry re-validates both server-side, so an unknown ?src is inert.
   const arrivalInquirySource =
@@ -3314,8 +3325,16 @@ export async function renderVendorBySlug({
                   conversation stays with your event.
                 </>
               ) : (
-                // No active service: still askable — the pop-up sends a general question (one plain line, no dead end).
-                <span data-inquire-general="">{NO_SERVICES_LINE(displayLabel)}</span>
+                // No active card: still askable. With services it provides, the pop-up lists them ("Yes, list all");
+                // with none at all, it sends a general question (one plain line, no dead end).
+                inquireServices.length > 0 ? (
+                  <span data-inquire-provided="">
+                    Send <span className="font-medium text-ink">{displayLabel}</span> an inquiry — they&rsquo;ll reply
+                    in your Setnayan inbox, and the conversation stays with your event.
+                  </span>
+                ) : (
+                  <span data-inquire-general="">{NO_SERVICES_LINE(displayLabel)}</span>
+                )
               )
             ) : (
               <>
@@ -3514,7 +3533,7 @@ export async function renderVendorBySlug({
             {bookable && !showInquiryComposer && anonComposerServices.length === 0 ? (
               <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2" data-inquire-general-ask="">
                 <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Ask a question
+                {inquireServices.length > 0 ? 'Inquire' : 'Ask a question'}
               </a>
             ) : null}
             {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This

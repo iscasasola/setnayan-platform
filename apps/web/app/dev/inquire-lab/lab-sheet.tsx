@@ -11,16 +11,18 @@ export function LabInquireSheet({
   services,
   events,
   signedIn,
+  name = 'SetnaProd (lab)',
 }: {
   services: InquireService[];
   events: InquireEvent[];
   signedIn: boolean;
+  name?: string;
 }) {
   const [last, setLast] = useState<string | null>(null);
   return (
     <>
       <InquireSheet
-        shop={{ vendorProfileId: 'S89V-LAB0000001', slug: 'setnaprod', name: 'SetnaProd (lab)' }}
+        shop={{ vendorProfileId: 'S89V-LAB0000001', slug: 'setnaprod', name }}
         services={services}
         signedIn={signedIn}
         events={events}
@@ -32,6 +34,7 @@ export function LabInquireSheet({
               eventId: input.eventId,
               initialServiceId: input.initialServiceId,
               alsoServiceIds: input.alsoServiceIds,
+              serviceKeys: input.serviceKeys ?? [],
               initialCategoryKey: input.initialCategoryKey,
               general: input.general ?? false,
             }),

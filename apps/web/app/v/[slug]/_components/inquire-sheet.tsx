@@ -8,7 +8,16 @@ import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow } from '@/app/_components/form-row';
 import { startServiceInquiry, type StartServiceInquiryResult } from '@/app/v/[slug]/inquiry-actions';
-import { INQUIRE_UNDO_MS, inquireClearedHref, inquireResumeHref, inquireResumeOf, NO_SERVICES_LINE } from '@/lib/shop-inquire';
+import {
+  INQUIRE_UNDO_MS,
+  inquireClearedHref,
+  inquireResumeHref,
+  inquireResumeOf,
+  inquireSendPicks,
+  NO_SERVICES_LINE,
+  PRICE_ON_REQUEST,
+  type InquireListItem,
+} from '@/lib/shop-inquire';
 
 /**
  * INQUIRE — the shop page's one pop-up (owner 2026-11-07, verbatim: *"inquire for your event is it should have been a
@@ -22,12 +31,15 @@ import { INQUIRE_UNDO_MS, inquireClearedHref, inquireResumeHref, inquireResumeOf
  * the SHIPPED `startServiceInquiry`. This is the same steps, the same parts (`Sheet`, `SwitchRow`, `ChosenRow`,
  * `ActionButton`, `SignInHereLink`) and the same ONE send — never a second inquiry path.
  *
- *   1 · Which services?  the shop's ACTIVE cards, several may be picked. A shop with none skips this step and sends a
- *       general question (`general: true`), saying so in one line.
+ *   1 · Which services?  EVERY service the shop provides (owner 2026-11-07, "Yes, list all"): its ACTIVE cards with
+ *       their prices, then each service it picked at sign-up (`vendor_profiles.services`) that has no card, by its
+ *       taxonomy name with "Price on request" (`inquireServiceList`). Several may be picked. A shop with neither skips
+ *       this step and sends a general question (`general: true`), saying so in one line.
  *   2 · For which event? the couple's events (`resolveAddShopToEvent`, the shipped picker's list), or Start a new event
  *       → create-event `?next=` this shop with `?inquire=1&isvc=…`, which reopens this sheet on this step.
  *   3 · Send (Undo 5 s) → the thread, the opening note + their words, the services as interests, the shop on that
- *       event's Suppliers › Find under the first picked card's category (`event_vendors` considering).
+ *       event's Suppliers › Find under the FIRST pick's category — a card's, or a card-less service's own key
+ *       (`serviceKeys`, `inquireSendPicks`) — as `event_vendors` considering.
  *
  * 🔑 SIGNED OUT: THE SIGN-IN SHEET FIRST (owner 2026-11-07, "never just link to /signup"). The press writes the ask
  * into the address, then opens the SHIPPED sign-in sheet (`useSignInPanel`) over the shop. Signed in there, the page
@@ -39,7 +51,7 @@ import { INQUIRE_UNDO_MS, inquireClearedHref, inquireResumeHref, inquireResumeOf
  * caught here and opens the sheet instead. `?inquire=1` on arrival (back from sign-in or a new event) reopens it.
  */
 
-export type InquireService = { serviceId: string; label: string; price: string; category: string | null };
+export type InquireService = InquireListItem;
 export type InquireEvent = { eventId: string; label: string };
 
 type Step = 'services' | 'event' | 'sending' | 'sent';
@@ -152,15 +164,18 @@ export function InquireSheet({
 
   const fire = async () => {
     if (!eventId) return;
-    const [first, ...also] = general ? [''] : chosen;
-    const svc = services.find((s) => s.serviceId === first);
+    // In pick order: the first pick is where the shop is filed on the event's Find (a card, or a card-less service).
+    const picks = inquireSendPicks(
+      general ? [] : chosen.map((id) => services.find((s) => s.serviceId === id)).filter((s): s is InquireService => !!s),
+    );
     try {
       const res = await send({
         vendorProfileId: shop.vendorProfileId,
         eventId,
-        initialServiceId: first ?? '',
-        initialCategoryKey: svc?.category ?? null,
-        alsoServiceIds: also,
+        initialServiceId: picks.initialServiceId,
+        initialCategoryKey: picks.initialCategoryKey,
+        alsoServiceIds: picks.alsoServiceIds,
+        serviceKeys: picks.serviceKeys,
         general,
         requirements: message.trim() ? { specialRequest: message.trim() } : undefined,
         inquirySource,
@@ -233,7 +248,7 @@ export function InquireSheet({
                   key={s.serviceId}
                   name={s.label}
                   on={chosen.includes(s.serviceId)}
-                  note={s.price || undefined}
+                  note={s.price || (s.provided ? PRICE_ON_REQUEST : undefined)}
                   onChange={(next) =>
                     setChosen((cur) => (next ? [...cur.filter((x) => x !== s.serviceId), s.serviceId] : cur.filter((x) => x !== s.serviceId)))
                   }

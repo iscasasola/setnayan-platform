@@ -82,7 +82,9 @@ test('1c · every bench save says which tile, and the save records that card', (
   const save = code('app/(shell)/explore/actions.ts');
   assert.match(save, /formData\.get\('tile'\)/);
   assert.match(save, /service_id: tileCard\?\.vendor_service_id \?\? null/, 'the new pick no longer records its card');
-  assert.match(save, /category = tileCategory \?\? coerceCategory\(/, 'the pick is filed by the shop’s first service again');
+  // The tile's card wins; next the service an Inquire named with no card (`service_key`, owner 2026-11-07 "Yes, list
+  // all"); only then the shop-level answer.
+  assert.match(save, /category = tileCategory \?\? (?:keyCategory \?\? )?coerceCategory\(/, 'the pick is filed by the shop’s first service again');
   // a re-save may fill a missing card, but never MOVE a pick between tiles
   assert.match(
     save,

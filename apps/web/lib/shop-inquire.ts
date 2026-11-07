@@ -47,3 +47,75 @@ export function inquireResumeOf(search: string): { serviceIds: string[] } | null
   if (q.get(INQUIRE_PARAM) !== '1') return null;
   return { serviceIds: (q.get(INQUIRE_SERVICES_PARAM) ?? '').split(',').map((s) => s.trim()).filter(Boolean) };
 }
+
+/**
+ * 📋 EVERY SERVICE THE SHOP SAYS IT PROVIDES (owner 2026-11-07, verbatim "Yes, list all"). The pop-up used to list only
+ * the shop's ACTIVE cards — and 4 of 5 real shops have services picked at sign-up (`vendor_profiles.services`) but no
+ * active card, so Rondo Musical (band_dj, band_live_music · 0 cards) read as a shop with nothing to ask about.
+ *
+ *   · a card                       → as before: its label, its price, `serviceId` = vendor_service_id.
+ *   · a provided service, no card  → its taxonomy label (the caller's `labelOf`, the ONE resolver), "Price on request",
+ *                                     `serviceId` = `k:<key>`, `provided: true`, `category` = the key.
+ *   · a provided service whose key a card already carries → the card row only, never a second row.
+ *   · a card whose category is not among the provided services → still listed (as before).
+ *
+ * Cards first (the first card stays the default pick), then the card-less services in the shop's own order.
+ */
+export const PRICE_ON_REQUEST = 'Price on request';
+/** The pop-up's id for a provided service with no card — never a vendor_service_id, so it cannot be mistaken for one. */
+export const PROVIDED_PREFIX = 'k:';
+
+export type InquireListItem = {
+  serviceId: string;
+  label: string;
+  price: string;
+  category: string | null;
+  /** A service the shop provides with no active card — no price, filed on the event under its own key. */
+  provided?: boolean;
+};
+
+export function inquireServiceList(
+  cards: ReadonlyArray<{ serviceId: string; label: string; price: string; category: string | null }>,
+  providedKeys: ReadonlyArray<string> | null | undefined,
+  labelOf: (key: string) => string,
+): InquireListItem[] {
+  const out: InquireListItem[] = cards.map((c) => ({ ...c }));
+  const carried = new Set(cards.map((c) => (c.category ?? '').trim()).filter(Boolean));
+  const seen = new Set<string>();
+  for (const raw of providedKeys ?? []) {
+    const key = typeof raw === 'string' ? raw.trim() : '';
+    if (!key || carried.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ serviceId: `${PROVIDED_PREFIX}${key}`, label: labelOf(key), price: '', category: key, provided: true });
+  }
+  return out;
+}
+
+/**
+ * What the pop-up hands the ONE send for the picks, in pick order. The FIRST pick is where the shop is filed on the
+ * event's Find (one Find pick per event and shop — `event_vendors_unique_marketplace_pick_per_event`):
+ *   · first is a card     → `initialServiceId` = that card (filed under its category, as before);
+ *   · first is a provided → `initialServiceId` = '' and `serviceKeys[0]` = its key (filed under THAT service).
+ * Every other pick rides along: cards as `alsoServiceIds`, provided services as `serviceKeys`.
+ */
+export function inquireSendPicks(
+  picked: ReadonlyArray<InquireListItem>,
+): { initialServiceId: string; initialCategoryKey: string | null; alsoServiceIds: string[]; serviceKeys: string[] } {
+  const first = picked[0];
+  const cards = picked.filter((s) => !s.provided);
+  const serviceKeys = picked.filter((s) => s.provided && s.category).map((s) => s.category as string);
+  if (first && !first.provided) {
+    return {
+      initialServiceId: first.serviceId,
+      initialCategoryKey: first.category ?? null,
+      alsoServiceIds: cards.slice(1).map((s) => s.serviceId),
+      serviceKeys,
+    };
+  }
+  return {
+    initialServiceId: '',
+    initialCategoryKey: first?.category ?? null,
+    alsoServiceIds: cards.map((s) => s.serviceId),
+    serviceKeys,
+  };
+}

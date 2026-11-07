@@ -17,21 +17,26 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { inquireClearedHref, inquireResumeHref, inquireResumeOf, NO_SERVICES_LINE } from '../../../lib/shop-inquire';
+import {
+  inquireClearedHref,
+  inquireResumeHref,
+  inquireResumeOf,
+  inquireSendPicks,
+  inquireServiceList,
+  NO_SERVICES_LINE,
+  PRICE_ON_REQUEST,
+} from '../../../lib/shop-inquire';
+import { stripComments } from '../../../lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..');
-const strip = (src: string) =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\s\/\/ .*$/gm, '');
-const read = (p: string) => strip(readFileSync(p, 'utf8'));
+// The ONE comment stripper (lib/strip-comments.ts) — a hand-rolled two-replace regex blanks code after a `video/*`.
+const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 
 const page = read(join(HERE, 'page.tsx'));
 const sheet = read(join(HERE, '_components', 'inquire-sheet.tsx'));
 const action = read(join(HERE, 'inquiry-actions.ts'));
+const save = read(join(APP, '(shell)', 'explore', 'actions.ts'));
 
 /** Every file that draws a shop page: /v/[slug] and everything under it, and the bare-root /[slug] that renders it. */
 function shopPageFiles(): string[] {
@@ -70,7 +75,7 @@ test('a shop with no service still has a working Inquire: the pop-up asks a gene
   assert.match(sheet, /NO_SERVICES_LINE\(shop\.name\)/, 'the one plain line must say the shop has no services listed');
   // …and the server accepts it, through the same send.
   assert.match(action, /const general = input\.general === true && !initialServiceId;/);
-  assert.match(action, /if \(!vendorProfileId \|\| \(!initialServiceId && !general\)\)/);
+  assert.match(action, /if \(!vendorProfileId \|\| \(!initialServiceId && !general && askedKeys\.length === 0\)\)/);
   assert.match(action, /if \(general\) \{[\s\S]{0,400}saveVendorToPicks\(form\)/, 'a general ask still puts the shop on the event');
   // The section's dead end is gone, and it has its own way in.
   assert.doesNotMatch(page, /Check back soon/, 'the dead-end "Check back soon" is back on the shop page');
@@ -99,4 +104,83 @@ test('the address carries the ask through sign-in and a new event, keeping where
   assert.equal(inquireClearedHref(`https://x.test${resume}`), '/setnaprod?src=discover');
   assert.equal(inquireResumeHref('/v/setnaprod?event=e1', []), '/v/setnaprod?event=e1&inquire=1');
   assert.match(NO_SERVICES_LINE('SetnaProd'), /^SetnaProd has no services listed yet/);
+});
+
+/*
+ * "Yes, list all" (owner, 7 Nov 2026): the pop-up lists EVERY service the shop says it provides — not only its active
+ * cards. Measured that day: 4 of 5 real shops have `vendor_profiles.services` and 0 active cards (Rondo Musical:
+ * band_dj, band_live_music), so their Inquire listed nothing to ask about.
+ */
+test('every provided service is listed: cards as before, card-less ones by name with "Price on request"', () => {
+  const name = (k: string) => `name-of-${k}`;
+  // Rondo Musical: services, no card.
+  const rondo = inquireServiceList([], ['band_dj', 'band_live_music'], name);
+  assert.deepEqual(
+    rondo.map((s) => [s.label, s.price, s.category, s.provided]),
+    [
+      ['name-of-band_dj', '', 'band_dj', true],
+      ['name-of-band_live_music', '', 'band_live_music', true],
+    ],
+  );
+  assert.ok(rondo.every((s) => s.serviceId.startsWith('k:')), 'a card-less service must never pose as a vendor_service_id');
+  // Mixed: the card wins over the same key (one row), a card outside `services` still shows, cards stay first.
+  const mixed = inquireServiceList(
+    [
+      { serviceId: 'card-bar', label: 'Mobile bar', price: '', category: 'mobile_bar' },
+      { serviceId: 'card-x', label: 'Other card', price: '', category: 'not_in_services' },
+    ],
+    ['pabati', 'mobile_bar', 'day_of_coordinator', 'pabati'],
+    name,
+  );
+  assert.deepEqual(mixed.map((s) => s.serviceId), ['card-bar', 'card-x', 'k:pabati', 'k:day_of_coordinator']);
+  assert.equal(PRICE_ON_REQUEST, 'Price on request');
+  // …and the pop-up prints it on the card-less rows.
+  assert.match(sheet, /note=\{s\.price \|\| \(s\.provided \? PRICE_ON_REQUEST : undefined\)\}/);
+});
+
+test('the names come from the ONE taxonomy resolver — never a label map on the shop page', () => {
+  assert.match(page, /import \{ cardKindLabeller \} from '@\/lib\/card-kind-labeller';/);
+  assert.match(page, /await cardKindLabeller\(\)/);
+  assert.match(page, /inquireServiceList\(\s*activeServices\.map\(/, 'the list must be built by `inquireServiceList`');
+  assert.match(page, /inquireProvidedKeys = bookable \? \(vendor\.services \?\? \[\]\) : \[\]/, 'the source is `vendor_profiles.services`');
+  // No hand-kept key → name table in the pop-up or on the page.
+  for (const [file, src] of [['inquire-sheet.tsx', sheet], ['page.tsx', page]] as const) {
+    assert.doesNotMatch(src, /\bband_live_music\b|\bday_of_coordinator\b|\bpabati\s*:/, `${file} hard-codes a taxonomy name`);
+  }
+});
+
+test('a card-less pick still files the shop on the event Find under THAT service, then sends', () => {
+  // The first pick anchors the filing: a card → that card; a provided service → its key.
+  const card = { serviceId: 'c1', label: 'C', price: '', category: 'mobile_bar' };
+  const pabati = { serviceId: 'k:pabati', label: 'P', price: '', category: 'pabati', provided: true };
+  const doc = { serviceId: 'k:day_of_coordinator', label: 'D', price: '', category: 'day_of_coordinator', provided: true };
+  assert.deepEqual(inquireSendPicks([pabati, card, doc]), {
+    initialServiceId: '',
+    initialCategoryKey: 'pabati',
+    alsoServiceIds: ['c1'],
+    serviceKeys: ['pabati', 'day_of_coordinator'],
+  });
+  assert.deepEqual(inquireSendPicks([card, pabati]), {
+    initialServiceId: 'c1',
+    initialCategoryKey: 'mobile_bar',
+    alsoServiceIds: [],
+    serviceKeys: ['pabati'],
+  });
+  assert.match(sheet, /serviceKeys: picks\.serviceKeys,/, 'the pop-up must hand the card-less picks to the send');
+  // The server holds each key to what the shop provides, and files the shop under the first one.
+  assert.match(action, /serviceKeys\?: string\[\];/);
+  assert.match(action, /\.from\('vendor_profiles'\)\s*\.select\('services'\)/);
+  assert.match(action, /providedKeys = askedKeys\.filter\(\(k\) => provides\.has\(k\)/);
+  assert.match(action, /if \(keyed\) \{[\s\S]{0,500}form\.set\('service_key', anchorKey\);[\s\S]{0,80}saveVendorToPicks\(form\)/);
+  // …and the shipped shop-level save honours it, only for the shop's own services.
+  assert.match(save, /const serviceKey = String\(formData\.get\('service_key'\) \?\? ''\)\.trim\(\);/);
+  assert.match(save, /\(vendor\.services \?\? \[\]\) as string\[\]\)\.includes\(serviceKey\)/);
+  assert.match(save, /const category = tileCategory \?\? keyCategory \?\? coerceCategory\(/);
+});
+
+test('the general question is only for a shop with no card AND no provided service', () => {
+  assert.equal(inquireServiceList([], [], (k) => k).length, 0);
+  assert.equal(inquireServiceList([], null, (k) => k).length, 0);
+  assert.match(sheet, /const general = services\.length === 0;/);
+  assert.match(page, /inquireServices\.length > 0 \? \(\s*<span data-inquire-provided="">/, 'a shop with provided services must not say it has none');
 });

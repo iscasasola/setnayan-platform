@@ -23,6 +23,8 @@ import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
+import { TodayNextEvents } from '@/app/vendor-dashboard/_components/today-next-events';
+import { TodayThumbRow } from '@/app/vendor-dashboard/_components/today-thumb-row';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
@@ -478,7 +480,8 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         shopName={sup.name}
         todayIso={TODAY}
         now={NOW}
-        nextEvents={nextEvents}
+        nextEvents={<TodayNextEvents next={nextEvents} />}
+        thumb={<TodayThumbRow />}
         eventsYouRun={eventsYouRun}
         library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={

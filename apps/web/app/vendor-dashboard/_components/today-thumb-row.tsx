@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { ListFilter } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from './supplier-thumb-row';
-import { TODAY_SHOW_OPTIONS, type TodayNeedKind } from '@/lib/supplier-today';
+import { TODAY_SHOW_OPTIONS } from '@/lib/supplier-today';
+import { narrowTodayNeeds, type TodayShow as Show } from '@/lib/today-needs-narrow';
 
 /**
  * 🔍 TODAY'S THUMB ROW (THE ONE BUILD A10, v113): [ 🔍 Search today ] · Show ▾ — the shared `ThumbRow` in the supplier's
@@ -17,31 +18,6 @@ import { TODAY_SHOW_OPTIONS, type TodayNeedKind } from '@/lib/supplier-today';
  * search" (the shipped "No services match that search" pattern), never a blank list.
  * 🔒 app/vendor-dashboard/_components/today-rows-jump.test.ts
  */
-type Show = 'all' | TodayNeedKind;
-
-/** Hide every Needs-you row whose words / kind do not match; say so when none is left. */
-export function narrowTodayNeeds(root: ParentNode, words: string, show: Show): number {
-  const needle = words.trim().toLowerCase();
-  let shown = 0;
-  const fits = (el: Element, kind: string | null) =>
-    (show === 'all' || kind === show) && (!needle || (el.textContent ?? '').toLowerCase().includes(needle));
-  for (const row of root.querySelectorAll<HTMLElement>('[data-today-need]')) {
-    const hit = fits(row, row.getAttribute('data-today-need-kind'));
-    row.hidden = !hit;
-    if (hit) shown += 1;
-  }
-  // The unpaid booking fees are the shipped rows (`BookingFeeBills today`) — each is a payment.
-  for (const bill of root.querySelectorAll<HTMLElement>('[data-today-need-bills] [data-fee-bill-today]')) {
-    const hit = fits(bill, 'payments');
-    bill.style.display = hit ? '' : 'none';
-    if (hit) shown += 1;
-  }
-  const none = root.querySelector<HTMLElement>('[data-today-needs-none]');
-  const total = root.querySelectorAll('[data-today-need], [data-today-need-bills] [data-fee-bill-today]').length;
-  if (none) none.hidden = shown > 0 || total === 0;
-  return shown;
-}
-
 export function TodayThumbRow() {
   const [show, setShow] = useState<Show>('all');
   const words = useRef('');

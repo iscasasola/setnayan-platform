@@ -47,7 +47,7 @@ export function TodayCover({
         {greetingLine(now)}
       </p>
       {shop ? (
-        <p className="hc-ecard-name truncate text-[30px] font-semibold leading-[1.1] tracking-[-0.01em]" data-today-shop-name="">
+        <p className="hc-ecard-name truncate text-[30px] font-semibold leading-[1.1] tracking-[-0.01em]" data-today-greeted="">
           {shop}
         </p>
       ) : null}

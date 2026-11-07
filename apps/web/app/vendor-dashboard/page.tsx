@@ -69,6 +69,8 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { SupplierToast } from './_components/supplier-toast';
+import { TodayNextEvents } from './_components/today-next-events';
+import { TodayThumbRow } from './_components/today-thumb-row';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { getPortfolioCountStub } from '@/lib/supplier-today-portfolio';
@@ -683,7 +685,8 @@ export default async function VendorOverviewPage({
         shopName={profile.business_name ?? null}
         todayIso={todayIso}
         now={renderNow}
-        nextEvents={nextEvents}
+        nextEvents={<TodayNextEvents next={nextEvents} />}
+        thumb={<TodayThumbRow />}
         eventsYouRun={eventsYouRun}
         setup={setup}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).

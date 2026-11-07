@@ -4,12 +4,9 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { EventYouRun } from '@/lib/events-you-run';
-import type { NextEvents } from '@/lib/supplier-today-next-events';
 import { SupplierTodayFirstScreen, type TodayOutcome } from './supplier-today-first-screen';
 import { TodayCover } from './today-cover';
-import { TodayNextEvents } from './today-next-events';
 import { TodayStats } from './today-stats';
-import { TodayThumbRow } from './today-thumb-row';
 
 type Act = (formData: FormData) => void | Promise<void>;
 
@@ -48,6 +45,7 @@ export function SupplierTodayScreen({
   todayIso,
   now,
   nextEvents = null,
+  thumb = null,
   library = false,
   eventsYouRun = [],
   setup = null,
@@ -58,8 +56,13 @@ export function SupplierTodayScreen({
   shopName: string | null;
   todayIso: string;
   now: number;
-  /** 📸 The next event day's cards (`assembleNextEvents`), or null when nothing is booked ahead. */
-  nextEvents?: NextEvents | null;
+  /**
+   * 📸 Next events (`<TodayNextEvents next={assembleNextEvents(…)} />`) and 🔍 the thumb row (`<TodayThumbRow />`),
+   * drawn by the page and the lab: both carry the shared carousel's and thumb row's CSS modules, so they are handed in
+   * and this screen stays renderable on its own (the Today guards render it).
+   */
+  nextEvents?: ReactNode;
+  thumb?: ReactNode;
   /** 🌱🖼 Draw "Add to the inspiration library" under the Shop row (the shop's trades supply a part). */
   library?: boolean;
   /** 🗂 The events this person runs as the hosts' coordinator, live — empty for everyone else. */
@@ -70,7 +73,7 @@ export function SupplierTodayScreen({
   return (
     <SupplierTodayFirstScreen
       cover={<TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} gear={<TodaySettings cover />} />}
-      nextEvents={<TodayNextEvents next={nextEvents} />}
+      nextEvents={nextEvents}
       stats={<TodayStats stats={view.stats} />}
       needs={view.needs}
       needsCount={view.needsCount}
@@ -82,7 +85,7 @@ export function SupplierTodayScreen({
       business={view.business}
       library={library}
       setup={setup}
-      thumb={<TodayThumbRow />}
+      thumb={thumb}
       // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
       // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing
       // when there is no unpaid fee, and nothing when the read failed — an unread bill list is not "you owe nothing".

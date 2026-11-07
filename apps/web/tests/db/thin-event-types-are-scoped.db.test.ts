@@ -74,7 +74,7 @@ const WEDDING_CATEGORIES_2026_10_02 = [
   'grooming',
   'wellness_fitness',
   'jewelleries_accessories',
-  // Added deliberately 2026-11-07 (owner: "add that to the taxonomy") — migration 20271321431508.
+  // Added deliberately 2026-11-07 (owner: "add that to the taxonomy") — migration 20271321738256.
   'ceremony_essentials',
   'mobile_bar',
   'coffee_espresso',

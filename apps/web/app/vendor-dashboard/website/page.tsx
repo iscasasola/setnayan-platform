@@ -69,6 +69,7 @@ export default async function YourPage({
           publicPath: d.publicPath,
           displayHost: DISPLAY_HOST,
           live: d.live,
+          isDemo: d.isDemo,
           showBeforeVerified: d.showBeforeVerified,
           visible: d.visible,
           isVerified: d.isVerified,

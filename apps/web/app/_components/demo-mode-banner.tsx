@@ -33,7 +33,7 @@ import { DEMO_MODE_HINT_COOKIE_NAME } from '@/lib/demo-mode-constants';
 import { isBroadcastCaptureRoute, isRoomDisplayRoute } from './capture-safe-routes';
 import { DemoModeBannerClient } from './demo-mode-banner-client';
 
-type Status = { show: boolean; deadlineLabel?: string };
+type Status = { show: boolean };
 
 export function DemoModeBanner() {
   const pathname = usePathname();
@@ -65,5 +65,5 @@ export function DemoModeBanner() {
   // Never paint into a window an encoder is capturing, or onto a venue screen a
   // room is watching (see capture-safe-routes).
   if (isBroadcastCaptureRoute(pathname) || isRoomDisplayRoute(pathname)) return null;
-  return <DemoModeBannerClient deadlineLabel={status.deadlineLabel ?? ''} />;
+  return <DemoModeBannerClient />;
 }

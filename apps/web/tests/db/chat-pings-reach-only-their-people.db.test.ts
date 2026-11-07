@@ -1,7 +1,7 @@
 /**
  * ⚡ CHAT ARRIVES INSTANTLY — the database half, executed (not prose).
  *
- * Migration 20271296339552 adds an AFTER INSERT trigger on chat_messages that sends one content-free ping
+ * Migration 20271323859288 adds an AFTER INSERT trigger on chat_messages that sends one content-free ping
  * (`realtime.send`) to each recipient's PRIVATE topic `user:<uid>`, and a policy on realtime.messages that lets a
  * person listen to their OWN topic and nobody else's. What this file proves:
  *

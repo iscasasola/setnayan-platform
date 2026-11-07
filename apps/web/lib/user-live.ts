@@ -25,8 +25,13 @@ import { browserTabEnv, HIDDEN_PAUSE_MS, type TabEnv } from './tab-return';
 
 export type LiveStatus = 'joining' | 'live' | 'paused' | 'down' | 'off';
 
-/** What the trigger sends (migration 20271296339552) — ids only, never content. */
-export type ChatPing = { thread_id?: string; message_id?: string; at?: string };
+/**
+ * One broadcast on the person's `user:<uid>` topic: the event name the database sent it with, and its payload — ids
+ * only, never content. `chat_message` (migration 20271323859288: thread_id · message_id · at) is the first; a later
+ * event (a heart on a message) arrives on the same channel with its own name — see `USER_LIVE_EVENTS` in
+ * lib/user-live-channel.ts. Listeners switch on `event`, so a new name is never mistaken for an old one.
+ */
+export type UserPing = { event: string; payload: Record<string, unknown> };
 
 /** The realtime-js subscribe statuses this machine reacts to. */
 export type TransportStatus = 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED';
@@ -36,11 +41,11 @@ export type TransportStatus = 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CL
  * left). The machine never opens a second one before the previous close has resolved.
  */
 export type Transport = (h: {
-  onPing: (p: ChatPing) => void;
+  onPing: (p: UserPing) => void;
   onStatus: (s: TransportStatus | string) => void;
 }) => () => void | Promise<unknown>;
 
-export type LiveListener = { onPing?: (p: ChatPing) => void; onStatus?: (s: LiveStatus) => void };
+export type LiveListener = { onPing?: (p: UserPing) => void; onStatus?: (s: LiveStatus) => void };
 
 /** The first join waits a random 0–this long: a deploy or a Realtime restart must not see every tab rejoin at once. */
 export const JOIN_JITTER_MS = 1_500;
@@ -107,13 +112,23 @@ export function createUserLive({
 
   const open = () => {
     joinTimer = null;
-    if (listeners.size === 0 || close || !env.isVisible() || status === 'off') return;
+    if (listeners.size === 0 || close || status === 'off') return;
+    // A retry that comes due while the tab is hidden joins nothing — and says 'paused', so coming back into view
+    // schedules the join (a 'down' left standing here would never be retried).
+    if (!env.isVisible()) {
+      set('paused');
+      return;
+    }
     const mine = ++attempt;
     set('joining');
     // Re-open only once the old channel has left — the client hands back a still-closing channel of the same topic.
     void closing.then(() => {
-      if (mine !== attempt || listeners.size === 0 || !env.isVisible()) return;
-      close = transport({
+      if (mine !== attempt || listeners.size === 0) return;
+      if (!env.isVisible()) {
+        set('paused');
+        return;
+      }
+      const opened = transport({
         onPing: (p) => {
           if (mine !== attempt) return;
           for (const l of [...listeners]) l.onPing?.(p);
@@ -128,6 +143,14 @@ export function createUserLive({
           if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED') fail();
         },
       });
+      if (mine === attempt) {
+        close = opened;
+      } else {
+        // It failed (or was stopped) before it even returned — close what it opened, never leak a channel.
+        closing = Promise.resolve()
+          .then(opened)
+          .catch(() => {});
+      }
     });
   };
 
@@ -151,7 +174,7 @@ export function createUserLive({
   const onVisibility = () => {
     if (listeners.size === 0) return;
     if (!env.isVisible()) {
-      if (hideTimer === null && (close || joinTimer !== null)) {
+      if (hideTimer === null && status !== 'paused' && status !== 'off') {
         hideTimer = env.setTimeout(() => {
           hideTimer = null;
           if (env.isVisible()) return;
@@ -163,13 +186,19 @@ export function createUserLive({
       return;
     }
     clearHide();
-    if (status === 'paused' && !close && joinTimer === null) schedule(Math.round(random() * joinJitterMs));
+    if (status === 'paused' && !close && joinTimer === null) {
+      set('joining');
+      schedule(Math.round(random() * joinJitterMs));
+    }
   };
 
   const start = () => {
     unvis = env.onVisibility(onVisibility);
-    if (env.isVisible()) schedule(Math.round(random() * joinJitterMs));
-    else set('paused');
+    if (env.isVisible()) {
+      // 'joining' from the moment the join is asked for (the jitter included) — 'paused' means out of view only.
+      set('joining');
+      schedule(Math.round(random() * joinJitterMs));
+    } else set('paused');
   };
 
   const stop = () => {

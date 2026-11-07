@@ -2581,8 +2581,8 @@ export async function renderVendorBySlug({
             {/*
               🗓 THE "SINCE" FACT LINE (supplier website by plan, owner-approved 2026-10-30) — "In business since 2019 ✓ ·
               120+ events › · On Setnayan since Oct 2026". Replaces the "N yrs in business · N+ weddings" pill and the
-              "On the marketplace since" line that sat here; every fact they carried is still on it (✓ DTI-verified or
-              "self-reported"; the declared count inside the events sheet). The two tenures stay told apart by their
+              "On the marketplace since" line that sat here; every fact they carried is still on it (✓ DTI-verified, or the
+              year alone; the declared count inside the events sheet). The two tenures stay told apart by their
               words — "In business since" is the credential, "On Setnayan since" is only how long they have been here —
               and the joined-here half is NEVER hidden to flatter a new shop: its absence would be a tell.
             */}

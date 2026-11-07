@@ -669,6 +669,8 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
         currentValue={data.logo_url}
         initialDisplayUrls={data.logoDisplayMap}
         maxSizeMB={2}
+        // 🗜 Compressed in the browser before it is sent (owner rule 2026-09-25; THE ONE BUILD A3 W16).
+        compressImage
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         variant="square"
         roundPreview

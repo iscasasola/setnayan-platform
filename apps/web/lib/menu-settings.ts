@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio';
 
 export type SettingsEntry = {
   /**
@@ -179,6 +179,20 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'Your plan, who helps run the shop, your papers, how we reach you.',
     live: true,
     tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
+  },
+  /**
+   * 🖼 PORTFOLIO ⚙ (THE ONE BUILD, lane C4 — spec §9 #12: "portfolio-settings.tsx and the portfolio menu-settings entry →
+   * C4 only"; L1 adds the `portfolio` key to `SettingsMenu`): the right end of the Portfolio tab's pinned row
+   * (`collections/_components/portfolio-settings.tsx`, one mount). Your free photos and what past them costs. Storage
+   * purchase is out of this build (spec §1, owner 8 Nov: "later") — the sheet says "not on sale yet", never a price.
+   * No "what Show includes" switches (map row 70: INVENTED; spec §9 #18).
+   */
+  portfolio: {
+    door: 'first-row-gear',
+    sheet: 'Portfolio settings',
+    line: 'Your free photos, and what comes after them.',
+    live: true,
+    tip: 'Rare, shop-wide things about your portfolio. Adding, sorting and showing your photos stays on the Portfolio page.',
   },
 };
 

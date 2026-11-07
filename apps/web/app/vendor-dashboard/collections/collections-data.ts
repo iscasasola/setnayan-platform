@@ -51,7 +51,17 @@ export type CollectionsData = {
   igConnection: VendorIgConnectionStatus | null;
   igMedia: VendorIgMediaRow[];
   igUnavailable: boolean;
+  /**
+   * 🖼 THE ALBUMS OPEN IN PLACE (owner 8 Nov, spec §10 #24: "each album can expand"): up to 9 display URLs per
+   * collection that can show its photos here (the page gallery, the service cards, Instagram), plus how many it holds
+   * — the grid's last tile says "+N". A collection not listed opens its own screen (albums by event, own shots,
+   * delivered, the mood board). A URL that could not be presigned is left out, never drawn broken.
+   */
+  previews: Partial<Record<'page' | 'cards' | 'instagram', { urls: string[]; total: number }>>;
 };
+
+/** How many photos an opened album shows before its "+N" tile (spec §10 #24: "first 9"). */
+export const ALBUM_PREVIEW = 9;
 
 /** The Instagram media read is capped (`fetchVendorIgMediaForOwner`); at the cap the count says "N+". */
 const IG_LIMIT = 30;
@@ -82,7 +92,8 @@ export async function loadCollectionsData(
     const { data, error } = await supabase
       .from('vendor_services')
       .select('primary_photo_r2_key, showcase_photo_r2_keys, showcase_video_r2_key')
-      .eq('vendor_profile_id', vendorId);
+      .eq('vendor_profile_id', vendorId)
+      .order('created_at', { ascending: false });
     if (error) {
       logQueryError('VendorCollections.cards', error, { vendorId }, 'graceful_degrade');
       return null;
@@ -92,10 +103,12 @@ export async function loadCollectionsData(
       showcase_photo_r2_keys: string[] | null;
       showcase_video_r2_key: string | null;
     }[];
+    const keys = rows.flatMap((r) => [r.primary_photo_r2_key, ...(r.showcase_photo_r2_keys ?? [])]).filter((k): k is string => Boolean(k));
     return {
       cards: rows.length,
       photos: rows.reduce((a, r) => a + (r.primary_photo_r2_key ? 1 : 0) + (r.showcase_photo_r2_keys?.length ?? 0), 0),
       videos: rows.filter((r) => r.showcase_video_r2_key).length,
+      previewKeys: keys.slice(0, ALBUM_PREVIEW),
     };
   })().catch((err) => {
     logQueryError('VendorCollections.cards', err, { vendorId });
@@ -202,7 +215,20 @@ export async function loadCollectionsData(
   const allowanceRead = readPortfolioAllowance(supabase, vendorId);
   // 💳 The shop wallet the portfolio spends past its free room (owner 2026-10-23). Unread → null, never 0.
   const walletRead = fetchShopWalletBalance(supabase, vendorId);
-  const [own, cards, albums, ownShots, delivered, ig, moodboard, portfolioDisplayMap] = await Promise.all([
+  // The service cards' first photos, presigned beside the rest (chained on the cards read only).
+  const cardThumbsRead = cardsRead.then(async (c) => {
+    if (!c) return [] as string[];
+    const urls = await Promise.all(
+      c.previewKeys.map((key) =>
+        displayUrlForStoredAsset(key).catch((err) => {
+          logQueryError('VendorCollections.cardThumb', err, { vendorId, key });
+          return null;
+        }),
+      ),
+    );
+    return urls.filter((u): u is string => Boolean(u));
+  });
+  const [own, cards, albums, ownShots, delivered, ig, moodboard, portfolioDisplayMap, cardThumbs] = await Promise.all([
     ownRead,
     cardsRead,
     albumsRead,
@@ -211,6 +237,7 @@ export async function loadCollectionsData(
     igRead,
     moodRead,
     thumbsRead,
+    cardThumbsRead,
   ]);
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
@@ -226,7 +253,7 @@ export async function loadCollectionsData(
     saved,
     input: {
       page: { photos: portfolioRefs.length, videos: galleryVideoLinks.length, shown: saved.sections.portfolio },
-      cards,
+      cards: cards ? { cards: cards.cards, photos: cards.photos, videos: cards.videos } : null,
       albums,
       own: ownShots,
       delivered,
@@ -251,5 +278,12 @@ export async function loadCollectionsData(
     igConnection: ig.connection,
     igMedia: ig.media,
     igUnavailable: ig.unavailable,
+    previews: {
+      page: { urls: portfolioRefs.map((k) => portfolioDisplayMap[k]).filter((u): u is string => Boolean(u)).slice(0, ALBUM_PREVIEW), total: portfolioRefs.length },
+      ...(cards ? { cards: { urls: cardThumbs, total: cards.photos } } : {}),
+      ...(ig.unavailable
+        ? {}
+        : { instagram: { urls: ig.media.map((m) => m.displayUrl).filter((u): u is string => Boolean(u)).slice(0, ALBUM_PREVIEW), total: ig.media.length } }),
+    },
   };
 }

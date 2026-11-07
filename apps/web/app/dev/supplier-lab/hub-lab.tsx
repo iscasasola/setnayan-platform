@@ -55,7 +55,7 @@ const RUNS = [
   { eventId: 'mj', name: 'Marco & Joy', date: '2027-02-06', href: '/dashboard/mj', canAnnounce: true, rank: 0 as const },
 ];
 const LOCK = {
-  headline: 'Pay the booking fee to open this event — its details, its Event Hub and its crew.',
+  headline: 'Pay the booking fee to open this event — its details, its Hub and its crew.',
   cta: 'Pay the booking fee',
   payHref: '/vendor-dashboard/booking-fees',
 };
@@ -144,7 +144,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
       />
       </div>
     ) : (
-      <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Event Hub for a crew to join.</p>
+      <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Hub for a crew to join.</p>
     );
   } else if (seg === 'pages') {
     // The page's own rule: Guests counts only where the brief is read (booked + unlocked); Schedule from the run of show.
@@ -160,7 +160,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
           <HubPageRow pageKey="guests" icon={Users} label="Guests" line={guests} href={`${event.runHref}/guests`} access={help} />
           <HubPageRow pageKey="seats" icon={Armchair} label="Seats" line="Tables and who sits where" href={`${event.runHref}/seating`} access={help} />
           <HubPageRow pageKey="schedule" icon={CalendarDays} label="Schedule" line={sched ?? 'The run of show, hour by hour'} href={`${event.runHref}/schedule`} access={help} />
-          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${event.runHref}/launch`} access={help} />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="The Maker" line="The guests’ page for the event" href={`${event.runHref}/launch`} access={help} />
         </HubPageRows>
       </div>
     ) : (
@@ -202,7 +202,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
         {run ? <MessageEveryoneRows events={[run]} enabled /> : null}
         {event.when === 'today' ? (
           <div className="space-y-3" data-hub-day="">
-            <HubEyebrow about="Today's tools. The Event Hub has the run of the day itself.">The Day</HubEyebrow>
+            <HubEyebrow about="Today's tools. The Hub has the run of the day itself.">The Day</HubEyebrow>
             <SeatFinderRow eventId={event.eventId} name={event.name} />
           </div>
         ) : null}

@@ -6,8 +6,10 @@ import path from 'node:path';
 /**
  * THE RENAME IS LABELS ONLY — and a rename that misses a copy is a diff.
  *
- * The supplier's day-of room is called the **Event Hub**, because that is what a
- * supplier walks into on the day (owner, 2026-08-28, on the drawing). The word
+ * The supplier's day-of room was called the **Event Hub** (owner, 2026-08-28, on the drawing) and is now the
+ * **Hub** — the word its tab already said (2026-10-21) — because "Event Hub" became a couple-side word for the front
+ * page only, never in supplier or coordinator material (owner, the For Suppliers brief, 2026-11-05). The file keeps
+ * its name so its history stays findable; what it holds is that the room has ONE name everywhere it is written. The word
  * is written in SIX places, not the five the plan listed — the sixth is the
  * 72px icon strip's caption, which is keyed by the stable key and would have
  * gone on saying "On the day" beside five renamed rows.
@@ -27,11 +29,11 @@ import path from 'node:path';
  */
 
 const WEB = path.resolve(__dirname, '../../..');
-const NAME = 'Event Hub';
+const NAME = 'Hub';
 /**
  * The TAB's word since 2026-10-21 (owner "Yes to all": the bar is Today ·
- * Customers · Shop · Hub — the couple's fourth word in the couple's slot). The
- * ROOM is still the Event Hub: its title, its headings, its back links.
+ * Customers · Shop · Hub — the couple's fourth word in the couple's slot). Since
+ * 2026-11-05 the ROOM says the same word: its title, its headings, its back links.
  */
 const TAB_WORD = 'Hub';
 const OLD = /On the Day/;
@@ -105,7 +107,7 @@ test('NO RENDERED SITE STILL SAYS "On the Day"', () => {
   }
 });
 
-test('the room says Event Hub; its tab — on the bar and the rail — says Hub', () => {
+test('the room and its tab — on the bar and the rail — both say Hub', () => {
   const registry = read('lib/nav-registry-defaults.ts');
   // Both registry slots — the rail row AND the bar tab. The registry label wins
   // over the word in the code, so a slot still saying "Event Hub" would put the
@@ -122,7 +124,7 @@ test('the room says Event Hub; its tab — on the bar and the rail — says Hub'
     stripComments(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts')),
     /key: 'on-the-day',\s*\n\s*label: 'Hub',\s*\n\s*href: '\/vendor-dashboard\/on-the-day'/,
   );
-  // The room itself keeps its name.
+  // The room itself says the same word (and never the couple's "Event Hub" — suppliers-read-hub-not-event-hub.test.ts).
   assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), new RegExp(`title: '${NAME} · Supplier'`));
 });
 

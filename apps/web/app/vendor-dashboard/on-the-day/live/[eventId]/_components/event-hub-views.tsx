@@ -54,12 +54,12 @@ export function EventHubAnnounce({
   const may = enabled && run?.canAnnounce === true;
   return (
     <div data-event-hub-announce={may ? 'open' : 'closed'}>
-      <HubEyebrow about="One message to every guest who opened their invitation — it sits at the top of their Event Hub. The hosts and the coordinator they let announce can send.">
+      <HubEyebrow about="One message to every guest who opened their invitation — it sits at the top of their guests’ page. The hosts and the coordinator they let announce can send.">
         Announce
       </HubEyebrow>
       {may ? (
         <div className="space-y-2 py-2">
-          <p className="text-[14px] text-ink/70">Goes to every guest and the hosts, on their Event Hub.</p>
+          <p className="text-[14px] text-ink/70">Goes to every guest and the hosts, on their guests’ page.</p>
           <AnnounceButton eventId={eventId} isEventDay recent={recent === 'unreadable' ? null : recent} />
         </div>
       ) : (

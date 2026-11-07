@@ -13,6 +13,8 @@ import { LiveRefresher } from '@/app/_components/live-refresher';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { companionNames } from '@/lib/extra-seats';
+import { readCoupleScanClaims } from '@/lib/supplier-scan.server';
+import { SupplierScanList } from './_components/supplier-scan-list';
 
 export const metadata = { title: 'Souvenir table' };
 
@@ -96,6 +98,11 @@ export default async function SouvenirTablePage({ params }: Props) {
       .eq('event_id', eventId),
     supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
   ]);
+  // 🎟 Suppliers' scans at this event, with names — under the couple's own access (null = unread, said so).
+  const supplierScans = await readCoupleScanClaims(supabase, eventId).catch((err) => {
+    logQueryError('GuestSouvenirsPage.supplierScans', err, { event_id: eventId });
+    return null;
+  });
   if (guestsRawError) {
     logQueryError('GuestSouvenirsPage.guestsRaw', guestsRawError, { event_id: eventId }, 'graceful_degrade');
   }
@@ -178,6 +185,8 @@ export default async function SouvenirTablePage({ params }: Props) {
       <div className="mt-5">
         <SouvenirDesk eventId={eventId} guests={guests} initialClaims={claims} />
       </div>
+
+      <SupplierScanList claims={supplierScans} />
 
       {/* Day-of: silently re-pull so a guest added at the door appears here. */}
       <LiveRefresher eventDate={(eventRow?.event_date as string | null) ?? null} />

@@ -11,9 +11,10 @@
  *     anything — it reports what is on.
  *   · TOOLS = the day-of tools every event booked for this service starts with — the SHIPPED defaults
  *     (`lib/vendor-dayof-modules.ts`, the same resolver the Hub uses), worked out per service instead of per shop. The
- *     scanner is the one tool that scans a guest (`qr_scanner`). A supplier picking their own per service (DECISION_LOG
- *     2026-10-29 "A SUPPLIER'S TOOLS + SCANNER ARE SET ONCE PER SERVICE") needs somewhere to keep it — not built; the
- *     line says what arrives, never a choice it cannot save.
+ *     seat finder (`qr_scanner`, "Find a guest's seat") is said apart.
+ *   · THE CLAIM SCANNER is the one per-service choice that SAVES (DECISION_LOG 2026-10-29 "A SUPPLIER'S TOOLS + SCANNER
+ *     ARE SET ONCE PER SERVICE"): `supplier_scan_settings`, keyed on `coverageId` below, set by the row's own dropdown
+ *     (`ServiceScannerPick`). Picking the other tools per service still has no store — the line says what arrives.
  *
  * Pure: the page reads, this words. 🔒 lib/shop-services-summary.test.ts
  */
@@ -35,6 +36,8 @@ export type ShopCoverageLite = { id: number; canonical_service: string };
 export type ShopServiceRow = {
   /** `cov-<id>`, or `none` for cards filed under no service. */
   key: string;
+  /** The service's coverage id — where its claim scanner is kept; null for the "not filed" row (it has no scanner). */
+  coverageId: number | null;
   label: string;
   cards: number;
   live: boolean;
@@ -66,11 +69,12 @@ export function shopServiceRows(
   cards: readonly ShopCardLite[],
   labelOf: (canonicalService: string) => string,
 ): ShopServiceRow[] {
-  const row = (key: string, label: string, mine: ShopCardLite[], keys: string[]): ShopServiceRow => {
+  const row = (key: string, coverageId: number | null, label: string, mine: ShopCardLite[], keys: string[]): ShopServiceRow => {
     const prices = mine.map((c) => serviceReach(c).startsAtPhp).filter((p): p is number => p != null);
     const { tools, scanner } = serviceToolsOf(keys);
     return {
       key,
+      coverageId,
       label,
       cards: mine.length,
       live: mine.some((c) => c.is_active),
@@ -83,11 +87,11 @@ export function shopServiceRows(
   const known = new Set(coverages.map((c) => c.id));
   const out = coverages.map((cov) => {
     const mine = cards.filter((c) => c.coverage_id === cov.id);
-    return row(`cov-${cov.id}`, labelOf(cov.canonical_service), mine, [cov.canonical_service, ...new Set(mine.map((c) => c.category))]);
+    return row(`cov-${cov.id}`, cov.id, labelOf(cov.canonical_service), mine, [cov.canonical_service, ...new Set(mine.map((c) => c.category))]);
   });
   // Cards filed under no service (older cards) still count — one row, so the total never hides them.
   const loose = cards.filter((c) => c.coverage_id == null || !known.has(c.coverage_id));
-  if (loose.length) out.push(row('none', 'Not filed under a service', loose, [...new Set(loose.map((c) => c.category))]));
+  if (loose.length) out.push(row('none', null, 'Not filed under a service', loose, [...new Set(loose.map((c) => c.category))]));
   return out;
 }
 

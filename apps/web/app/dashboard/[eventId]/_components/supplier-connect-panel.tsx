@@ -178,7 +178,7 @@ export function SupplierConnectPanel({
             <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} prepareOnMount />
           </div>
           {saved === 'failed' ? (
-            <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800 dark:text-danger-200">
+            <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800">
               The picture could not be saved. Copy the link instead.
             </p>
           ) : null}
@@ -197,7 +197,7 @@ export function SupplierConnectPanel({
       )}
 
       {err ? (
-        <p role="alert" className="mt-1.5 text-[12px] text-danger-800 dark:text-danger-200">
+        <p role="alert" className="mt-1.5 text-[12px] text-danger-800">
           {err}
         </p>
       ) : null}
@@ -272,7 +272,7 @@ function ConnectTop({
               {invite.url.replace(/^https?:\/\//, '')}
             </p>
             {saved === 'failed' ? (
-              <p role="alert" className="mt-1 text-[12px] text-danger-800 dark:text-danger-200">
+              <p role="alert" className="mt-1 text-[12px] text-danger-800">
                 The picture could not be saved. Copy the link instead.
               </p>
             ) : null}
@@ -281,12 +281,12 @@ function ConnectTop({
           /* The record card hands this a link that is already made (owner 2026-10-30: "create an automatic link"), so
              there is no "no link yet" state to draw — reaching here means it could not be made, and that is said. */
           <div role="alert" className="mt-1 flex flex-wrap items-center gap-2">
-            <p className="text-[12.5px] font-medium text-danger-800 dark:text-danger-200">Their link is not ready yet.</p>
+            <p className="text-[12.5px] font-medium text-danger-800">Their link is not ready yet.</p>
             <ActionButton tone="neutral" icon={Share2} label={pending ? 'Trying…' : 'Try again'} onClick={onCreate} disabled={pending} />
           </div>
         )}
         {err ? (
-          <p role="alert" className="mt-1.5 text-[12px] text-danger-800 dark:text-danger-200">
+          <p role="alert" className="mt-1.5 text-[12px] text-danger-800">
             {err}
           </p>
         ) : null}

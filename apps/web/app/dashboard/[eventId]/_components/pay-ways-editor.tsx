@@ -61,7 +61,7 @@ export function PayWaysEditor({
 
   if (initial === null) {
     return (
-      <p role="alert" data-pay-ways-unreadable="" className="text-[12.5px] text-danger-800 dark:text-danger-200">
+      <p role="alert" data-pay-ways-unreadable="" className="text-[12.5px] text-danger-800">
         We couldn&apos;t load how to pay them just now — close this and open it again. Saving leaves them as they are.
       </p>
     );

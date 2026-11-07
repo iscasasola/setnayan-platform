@@ -26,18 +26,25 @@ Early-push branch for the foundation: `claude/supplier-1build-foundation`.
 | Event B8 | card saves land on Memories (`return_to=memories`, `papicSeatBack`; `home` still honoured) | tests pending |
 | Event B9 | Today draws no card; Papic row stands down where the card is in Memories; day console row opens the card | tests pending |
 | Event B10 | tours: menu tour (Today first, Memories before Hub), Memories tour gains the Papic stop | tests pending |
+| Guards | NEW: G1 `supplier-bar-is-today-clients-shop-portfolio` (git mv of vendor-bar-is-four), G2 `nav/the-bar-is-laid-out-by-its-tabs`, G3 `vendor-dashboard/the-tab-is-called-clients` (ratchet), G4 `no-cut-line-under-a-pinned-row` (ratchet), G5 `the-top-scrolls-up-and-locks`, G6 `the-chrome-steps-away`, G8 `the-hub-has-doors-without-a-tab`, G10 `account-switcher/the-supplier-sheet-order`, §10 #23 `the-layers-are-ruled`, `category-colours-are-tokens`. Each NEW guard sabotaged once, seen red, restored (recorded in its docblock). G9 (sheet above thumb row) is held inside `the-layers-are-ruled`. | green (run singly) |
 
 ## NEEDS FROM OTHER LANES
 
 - **L2 / C1 / C4** — apply `sn-pin-hair` (or `box-shadow: 0 1px 0 var(--sn-hair)`) to their own sticky rows listed as KNOWN in
   `app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts` and delete each line from KNOWN (the list only shrinks):
-  L2 `customers-pin.tsx`, `clients/[eventId]/page.tsx`; C1 `supplier-open-row.tsx`, `today-counts.tsx`; C4 `shop-segments.tsx`,
+  L2 `customers-pin.tsx`, `clients/[eventId]/page.tsx`, `customers-calendar.tsx`; C1 `supplier-open-row.tsx`, `today-counts.tsx`; C4 `shop-segments.tsx`,
   `services/_components/canvas-maker.tsx`.
 - **C4** — drop `gallery` from `SHOP_SEGMENT_ORDER` with its Portfolio row (until then `supplier-page-menu.tsx` checks Portfolio
   BEFORE Shop so `/collections` lights Portfolio); flip `SETTINGS_ENTRY.portfolio` to its live door + own line; drop the
   `runsEvents` prop from `dev/supplier-lab/coord-lab.tsx` (`CoordLabBar` still accepts it, ignored).
 - **L2** — use `useChromeAway` / `useTabReselect` (`app/_components/nav/use-chrome-away.ts`), `riseFromRect` (`lib/rise-motion.ts`),
   `--sn-pin-h`; "Clients" wording in `customers-pin.tsx` / `customers/page.tsx`.
+- **L2** — "Customers" → "Clients" in `customers/page.tsx` (metadata + h1), `customers-pin.tsx` (aria-label, label, button
+  text), `clients/[eventId]/page.tsx` (back link); then delete each from KNOWN in
+  `app/vendor-dashboard/the-tab-is-called-clients.test.ts` (it only shrinks).
+- **L2** — the picked client's Hub page should link the Hub room (`/vendor-dashboard/on-the-day`, spec G8 "Today + client
+  card"). Today it has no such door; G8 holds ≥2 doors (7 today) and Today's — add the client page to its required list
+  when it lands.
 - **Every lane** — z-index only through the tokens (`z-sn-thumb` / `z-sn-nav` / `z-sn-pop` / `z-sn-modal`), never raw.
 
 ## Generated-file / Ugat needs (controller)
@@ -47,6 +54,14 @@ Early-push branch for the foundation: `claude/supplier-1build-foundation`.
 - `scripts/port-control-baseline.json` (`node scripts/gen-port-baseline.mjs`): Papic's controls moved Today → Memories.
 - `lib/design-rules.baseline.json` only if a back/adhoc entry DROPS.
 - `lib/ugat/graph.ts` hub-viewers title "… Home › Who's here" → "… Today › Who's here" (I do not edit graph.ts).
+
+## Registry requests from other lanes
+
+- C4 (`lib/tours.ts`): Shop tour stops → `shop-details`, `shop-analytics`, `shop-badges` (page order). **DEFERRED TO
+  INTEGRATION**: those anchors exist only on `claude/supplier-1build-c4`, so on L1 alone `lib/spotlight-anchors-exist.test.ts`
+  would go red. Ready edit: `vendor_shop_v1.spotlight.steps` = [shop-details "Your details", shop-analytics "How it is going",
+  shop-badges "Your badges"], dropping `shop-segments` / `shop-page-list` / `shop-details-row`.
+- L2, C1: no registry requests in their notes (as of 07:40).
 
 ## Questions (not guessed)
 

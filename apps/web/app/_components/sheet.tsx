@@ -186,6 +186,7 @@ export type SheetProps = {
    * phone it is the same bottom sheet. Default false: every other caller renders byte-identically.
    */
   page?: boolean;
+  /**
    * 🧭 THE CALLER'S OWN HEAD (Shop › Promote, owner 2026-11-06: "what is the use of our prototype?"): an approved
    * prototype draws its own top row (Prints: ‹ · title over its line · Save all; a QR code: its name · ⓘ · Done). In
    * place of the `title` row and the ✕, this row is drawn above the scrolling body and stays put; the caller's row

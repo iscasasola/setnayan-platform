@@ -60,12 +60,18 @@ import { fileURLToPath } from 'node:url';
 // `workspace/question-answers-actions.ts` · `saveSupplierAnswers` for the couple), less one dead export removed
 // (`studio/papic/actions.ts` · `reissuePapicSeat`). Measured on the tree merged with main after #7287: 1229. The route
 // SUM stays gated by check-vercel-route-count.mjs — read that job before merging.
-// 1229 → 1231 (2026-11-07, supplier sign-up #7351): the claim door's finish (`finishClaimDoor`, one action for
+// 1229 → 1230 (2026-11-06, Ultra add-ons, owner "ULTRA ADD-ON PRICES"): ONE dispatcher
+// (`vendor-dashboard/subscription/ultra-addon-actions.ts` · `buyUltraAddOn`, addon=category|service_card|waitlist|
+// booking_per_date) instead of the four exports it would have been; no existing action buys an add-on by kind (the
+// seat's `buyExtraSeat` is seat-only and keeps its team-page contract), and the only unimported exports left are the
+// two kept on purpose above. No fresh `vercel build` count for this +1 — the SUM is gated by
+// check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// 1230 → 1232 (2026-11-07, supplier sign-up #7351, merged after the Ultra add-on +1): the claim door's finish (`finishClaimDoor`, one action for
 // the couple / auto-share / admin claim) is the one real new action. The second +1 is this script counting
 // `export const dynamic` in app/dev/open-shop-lab/page.tsx, because that lab holds an inline 'use server' stand-in.
 // No unimported action was found to un-export. The production build measured 1835 routes on 2026-11-07,
 // 165 under check-vercel-route-count's ceiling of 2000, so there is room for these two.
-export const CEILING = 1231;
+export const CEILING = 1232;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

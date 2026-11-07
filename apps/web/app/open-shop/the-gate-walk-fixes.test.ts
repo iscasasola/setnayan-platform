@@ -46,7 +46,10 @@ test('A1 · flag on → nobody is signed in, the shop opens, the page says "We s
   assert.match(ACCOUNT, /if \(mustConfirm\) return \{ ok: 'check-email', user: \{ id: userId, email \} \};/);
   // Returned BEFORE the direct sign-in, which an unconfirmed account would be refused.
   assert.ok(ACCOUNT.indexOf("if (mustConfirm) return") < ACCOUNT.indexOf('signInWithPassword'));
-  assert.match(ACCOUNT, /mustConfirm \? '\/vendor-dashboard' : '\/open-shop'/, 'the link does not land on the dashboard');
+  // The wizard's link lands on the dashboard (the default); only the claim door names its own slide (7 Nov).
+  assert.match(ACCOUNT, /const confirmNext = input\.confirmNext \?\? '\/vendor-dashboard';/, 'the link does not land on the dashboard');
+  assert.match(ACCOUNT, /mustConfirm \? confirmNext : '\/open-shop'/);
+  assert.doesNotMatch(ACTIONS, /confirmNext/, 'the wizard no longer lands its link on the dashboard');
   assert.match(ACTIONS, /checkEmail = created\.user\.email;/);
   assert.match(ACTIONS, /if \(checkEmail\) redirect\(`\/open-shop\?check_inbox=\$\{encodeURIComponent\(checkEmail\)\}`\);/);
   // The shop is written for that account first: the check-email redirect is after the shop's own update.

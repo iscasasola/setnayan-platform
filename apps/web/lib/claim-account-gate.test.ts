@@ -48,7 +48,14 @@ test('the claim door’s finish asks BEFORE it writes anything (A6)', () => {
   const act = stripComments(readFileSync('app/open-shop/claim-actions.ts', 'utf8'));
   const gate = act.indexOf('readClaimAccountVerdict(');
   assert.ok(gate > 0, 'the claim door’s finish no longer checks the account type');
-  for (const write of ["rpc('claim_ready_the_shop'", ".from('vendor_profiles').update(", 'createVendorService(', 'savePackage(']) {
+  // The shop call names both claim functions since Setnayan's own invite joined the door (7 Nov): a couple's link →
+  // claim_ready_the_shop, the admin's personal invite → claim_ready_the_invited_shop. Both after the account check.
+  for (const write of [
+    "rpc(fromSetnayan ? 'claim_ready_the_invited_shop' : 'claim_ready_the_shop'",
+    ".from('vendor_profiles').update(",
+    'createVendorService(',
+    'savePackage(',
+  ]) {
     const at = act.indexOf(write);
     assert.ok(at > gate, `${write} runs before the account check — a couple account would get a shop`);
   }

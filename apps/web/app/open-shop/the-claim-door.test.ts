@@ -2,15 +2,19 @@
  * GUARD — 🔗 THE CLAIM DOOR (controller A6, 7 Nov; owner 2026-11-06 "A SUPPLIER WHO JOINS FROM A COUPLE'S QR / LINK GOES
  * THROUGH THE SAME DOOR, PRE-FILLED"; v21 slides).
  *
- *   1. no couple-made claim link builds `/signup?as=vendor` — the URL builder, the emailed invite and the claim page's
- *      "Claim & sign up" all open `/open-shop?claim=<token>`;
+ *   1. no claim link builds `/signup?as=vendor` — the URL builder, the emailed invite and the claim page's
+ *      "Claim & sign up" all open `/open-shop?claim=<token>`, Setnayan's own personal invite included (owner 7 Nov:
+ *      "yes"), which keeps its offer: the finish makes the same `claim_ready_the_invited_shop` call finalize makes;
  *   2. the door pre-fills from the couple's record, read through the SHIPPED token check, in v21's slide order;
- *   3. the door has NO Email field — the account's email comes from signing in;
+ *   3. no slide before the account asks for an email; the ACCOUNT slide offers Google · Apple · Email (owner 7 Nov,
+ *      "Yes") — Email chosen hides the other two, "Use another way" brings them back — through the shipped /open-shop
+ *      account path; the shop's contact email is still the signed-in account's;
  *   4. only the screens changed: the finish hands the consent to the shipped finalize.
  *
  * Sabotage (7 Nov, each reverted, each red): `buildClaimUrl` back to `/vendor/claim/` + the auto-share branch back to
  * `/signup?as=vendor` (1) · the door's shop name seeded '' instead of `record.business` (2) · an Email box added to the
- * account slide (3).
+ * account slide (3, before Email was ruled in) · Google / Apple drawn beside the chosen Email way (3, 7 Nov) · the
+ * admin branch's "Claim & sign up" back to `/signup?as=vendor` (1, 7 Nov).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,6 +39,8 @@ const CLAIM_PAGE = src('app/vendor/claim/[token]/page.tsx');
 
 const REC: ClaimDoorRecord = {
   token: 't0k3n',
+  from: 'couple',
+  offer: null,
   inviterName: 'Maria & Jose',
   hostNoun: 'couple',
   eventWord: 'wedding',
@@ -43,6 +49,7 @@ const REC: ClaimDoorRecord = {
   business: 'Banawe Florals',
   contactPerson: 'Ana Reyes',
   contactPhone: '+639178888889',
+  inviteEmail: 'ana@banaweflorals.ph',
   services: [
     { category: 'photographer', tileId: 'photo_video', label: 'Photographer', price: 85000, inclusions: ['Two photographers'] },
     { category: 'photo_booth', tileId: 'photo_booth', label: 'Photo booth', price: null, inclusions: [] },
@@ -64,24 +71,29 @@ test('1 · the ONE claim address is the door', () => {
   assert.doesNotMatch(mail, /`\$\{appUrl\}\/vendor\/claim\//);
 });
 
-test('1 · the claim page’s "Claim & sign up" opens the door — /signup?as=vendor is left ONLY on Setnayan’s own (admin) invite', () => {
+test('1 · the claim page’s "Claim & sign up" opens the door on EVERY source — /signup?as=vendor is gone from the page', () => {
   const auto = CLAIM_PAGE.slice(CLAIM_PAGE.indexOf("if (invite.source === 'auto_share_link') {"), CLAIM_PAGE.indexOf("if (invite.source === 'admin') {"));
   const admin = CLAIM_PAGE.slice(CLAIM_PAGE.indexOf("if (invite.source === 'admin') {"), CLAIM_PAGE.indexOf('if (existingVendor) {'));
   const couple = CLAIM_PAGE.slice(CLAIM_PAGE.lastIndexOf('const signupUrl'), CLAIM_PAGE.indexOf('function TerminalCard('));
-  for (const [name, part] of [['auto_share_link', auto], ['couple', couple]] as const) {
+  for (const [name, part] of [['auto_share_link', auto], ['admin', admin], ['couple', couple]] as const) {
+    assert.ok(part.length > 40, `${name}: its branch could not be found`);
     assert.match(part, /const signupUrl = claimDoorHref\(invite\.claim_token\);/, `${name}: "Claim & sign up" no longer opens the door`);
-    assert.doesNotMatch(part, /signup\?as=vendor/, `${name}: a couple-made claim link builds /signup?as=vendor again`);
   }
-  // Every remaining /signup?as=vendor on the page is inside the admin branch (its own door, its own finalize path).
-  const all = CLAIM_PAGE.match(/signup\?as=vendor/g)?.length ?? 0;
-  const inAdmin = admin.match(/signup\?as=vendor/g)?.length ?? 0;
-  assert.equal(all, inAdmin, '/signup?as=vendor appears outside the admin branch');
+  // 🎁 Setnayan's invite: the door for a new account, finalize for an email that already runs a shop.
+  assert.match(admin, /claimHref=\{existingVendor \? signInUrl : signupUrl\}/);
+  assert.equal(CLAIM_PAGE.match(/signup\?as=vendor/g)?.length ?? 0, 0, 'a claim link builds /signup?as=vendor again');
+  // Which links open the door: named, one rule (a new source is a decision, not a fall-through).
+  const invites = src('lib/vendor-invites.ts');
+  assert.match(invites, /export function opensTheClaimDoor\(source: VendorInviteSource\): boolean \{\s*return isCoupleMadeInvite\(source\) \|\| source === 'admin';/);
+  assert.match(ACT, /!opensTheClaimDoor\(landing\.invite\.source\)/);
 });
 
 test('2 · the door reads the record through the SHIPPED token check, and the page hands it over', () => {
   const read = src('lib/claim-door.server.ts');
   assert.match(read, /fetchClaimLandingByToken\(admin, token\)/, 'the door grew its own token check');
-  assert.match(read, /data\.invite\.status !== 'pending' \|\| !isCoupleMadeInvite\(data\.invite\.source\)/);
+  assert.match(read, /if \(!data \|\| data\.invite\.status !== 'pending'\) return \{ open: false \};/);
+  assert.match(read, /if \(data\.invite\.source === 'admin'\) return \{ open: true, record: await readSetnayanInvite\(admin, token, data\) \};/);
+  assert.match(read, /if \(!isCoupleMadeInvite\(data\.invite\.source\) \|\| !data\.parentVendor\) \{/);
   const page = src('app/open-shop/page.tsx');
   assert.match(page, /const claimDoor = claimToken \? await readClaimDoor\(claimToken\) : null;/);
   assert.match(page, /if \(claimToken && !claimDoor\?\.open\) redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(claimToken\)\}`\);/);
@@ -114,7 +126,7 @@ test('2 · every field the couple recorded pre-fills the door', () => {
 test('2 · v21’s order: invited by → tick what is wrong → one detail per slide → one slide per card → bundle → plan → account', () => {
   assert.match(
     DOOR,
-    /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),\s*'bundle',\s*'plan',\s*'account',\s*\];/,
+    /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),\s*\.\.\.\(team \? \[\] : \(\['bundle'\] as Screen\[\]\)\),\s*'plan',\s*'account',\s*\];/,
   );
   // Slide 1 wears the door's frame: one terracotta Confirm, the grey pills for Sign in & claim and I'm not this supplier.
   assert.match(DOOR, /primary = \{ label: 'Confirm — continue', onClick: next \};/);
@@ -124,15 +136,87 @@ test('2 · v21’s order: invited by → tick what is wrong → one detail per s
   assert.match(DOOR, /Specialties[\s\S]{0,400}optional/);
 });
 
-test('3 · NO EMAIL FIELD — the account’s email comes from signing in', () => {
-  assert.doesNotMatch(DOOR, /type="email"/, 'the claim door asks for an email');
-  assert.doesNotMatch(DOOR, /name="(contact_)?email"/, 'the claim door posts an email field');
-  assert.doesNotMatch(DOOR, /field\(\s*'Email'/, 'the claim door draws an Email box');
+// The account slide's branch — the ONE place an email box may be (owner 7 Nov: "Yes" to Continue with Email).
+const ACCOUNT = DOOR.slice(DOOR.indexOf("title = 'Your account';"), DOOR.indexOf('primary = null;', DOOR.indexOf("title = 'Your account';")));
+const BEFORE_ACCOUNT = DOOR.replace(ACCOUNT, '');
+
+test('3 · NO EMAIL FIELD on the slides before the account — the record’s details never include an email', () => {
+  assert.ok(ACCOUNT.length > 500, 'the account slide could not be found');
+  assert.doesNotMatch(BEFORE_ACCOUNT, /type="email"/, 'a slide before the account asks for an email');
+  assert.doesNotMatch(BEFORE_ACCOUNT, /name="(contact_)?email"/, 'a slide before the account posts an email field');
+  assert.doesNotMatch(BEFORE_ACCOUNT, /field\(\s*'Email'/, 'a slide before the account draws an Email box');
   assert.ok(!(CLAIM_DETAIL_KEYS as readonly string[]).includes('email'), 'email became a detail to tick');
   assert.equal('email' in (parseClaimDoorAnswers(JSON.stringify({ email: 'x@y.z', name: 'A' })) ?? {}), false);
-  // The shop's contact email is the signed-in account's — from nowhere else.
+  // The shop's contact email is the signed-in account's — from nowhere else. The typed box only makes the account.
   assert.match(ACT, /contact_email: user\.email \?\? null,/);
-  assert.equal(ACT.match(/contact_email/g)?.length, 1, 'the finish writes contact_email from somewhere besides the account');
+  assert.equal(ACT.match(/contact_email:/g)?.length, 1, 'the finish writes contact_email from somewhere besides the account');
+  assert.equal(ACT.match(/formData\.get\('contact_email'\)/g)?.length, 1);
+  assert.match(ACT, /const typed = String\(formData\.get\('contact_email'\) \?\? ''\)[^\n]*\n\s*const decision = decideOpenShopAccount\(/);
+});
+
+test('3 · the account slide: Google · Apple · Email — Email chosen hides the others, "Use another way" brings them back', () => {
+  const ways = ACCOUNT.slice(ACCOUNT.indexOf('data-claim-door-ways=""'));
+  const email = ACCOUNT.slice(ACCOUNT.indexOf('} else if (emailWay) {'), ACCOUNT.indexOf('data-claim-door-ways=""'));
+  assert.ok(ways.length > 100 && email.length > 500, 'the two halves of the account slide could not be found');
+  // Not chosen: the shipped Google / Apple row, then Email in the same button shape.
+  assert.match(ways, /<OAuthButtonRow next=\{returnTo\}/);
+  assert.match(ways, /className=\{OAUTH_BUTTON_CLASS\}[\s\S]{0,300}setEmailWay\(true\)[\s\S]{0,400}\{OAUTH_VERB\} Email/);
+  // Chosen: no Google / Apple at all, one grey "Use another way".
+  assert.doesNotMatch(email, /OAuthButtonRow|DesktopOAuthButtons|NativeOAuthButtons/, 'Email chosen still shows Google / Apple');
+  assert.match(email, /<ActionButton tone="neutral" icon=\{X\} label="Use another way" onClick=\{\(\) => setEmailWay\(false\)\}/);
+  // The shipped boxes: one email, the shipped password field (quiet: one rule line), the Terms tick.
+  assert.equal(email.match(/type="email"/g)?.length, 1);
+  assert.equal(email.match(/name="contact_email"/g)?.length, 1);
+  assert.match(email, /<PasswordField[\s\S]{0,80}mode="new"\s+quiet\s+name="password"/);
+  assert.match(email, /minLength=\{OPEN_SHOP_PASSWORD_MIN\}/);
+  assert.match(email, /name=\{TERMS_FIELD\} required/);
+  // Pre-filled from the invite; a taken address becomes the shipped in-place sign-in, returning to this slide.
+  assert.match(DOOR, /email: record\.inviteEmail \?\? '',/);
+  assert.match(ACCOUNT, /<TakenSignIn key=\{d\.email\} email=\{d\.email\} next=\{returnTo\}/);
+  // The draft (kept in this browser) never holds the password.
+  const draft = DOOR.slice(DOOR.indexOf('type Draft = {'), DOOR.indexOf('};', DOOR.indexOf('type Draft = {')));
+  assert.ok(draft.length > 50, 'the Draft type could not be found');
+  assert.doesNotMatch(draft, /password/i, 'the kept draft holds the password');
+});
+
+test('3 · the email way IS the shipped /open-shop path, after the invite is known to be usable', () => {
+  // The boxes post with the finish form, which carries the bot check (lib/captcha-is-wired.test.ts pairs them).
+  const form = DOOR.slice(DOOR.indexOf('<form action={finishClaimDoor}'), DOOR.indexOf('</form>', DOOR.indexOf('<form action={finishClaimDoor}')));
+  assert.match(form, /\{emailForm \? <TurnstileField action="signup" \/> : null\}/);
+  assert.match(form, /\{emailForm \? \([\s\S]{0,120}\{body\}/, 'the email boxes are drawn outside the form that posts them');
+  assert.match(DOOR, /const emailForm = d\.screen === 'account' && !signedInAs && !sentTo && emailWay && !taken;/);
+  // Server: the shipped decision + account maker, never a second signUp.
+  assert.match(ACT, /decideOpenShopAccount\(\{/);
+  assert.match(ACT, /createVendorAccountForShop\(\{/);
+  assert.match(ACT, /captchaToken: captchaTokenFromForm\(formData\),/);
+  assert.match(ACT, /confirmNext: accountSlide,/);
+  assert.doesNotMatch(ACT, /auth\.signUp\(/, 'the door grew its own signUp');
+  // A dead / claimed link never mints an account: the landing check runs first.
+  assert.ok(ACT.indexOf('fetchClaimLandingByToken(admin, token)') < ACT.indexOf('createVendorAccountForShop({'));
+});
+
+test('1 · 🎁 Setnayan’s invite: pre-filled from the staged shop, the offer kept by the SHIPPED claim call', () => {
+  const read = src('lib/claim-door.server.ts');
+  const team = read.slice(read.indexOf('async function readSetnayanInvite('));
+  assert.ok(team.length > 300, 'readSetnayanInvite could not be found');
+  // The staged shop (no owner yet) is the pre-fill; the invite's snapshot when there is none.
+  assert.match(team, /\.eq\('vendor_profile_id', inv\.claimed_vendor_profile_id\)\s*\.is\('user_id', null\)/);
+  assert.match(team, /business: \(staged\?\.business_name \|\| inv\.business_name \|\| ''\)\.trim\(\),/);
+  assert.match(team, /inviteEmail: \(inv\.email \|\| ''\)\.trim\(\)\.toLowerCase\(\) \|\| null,/);
+  // The offer: the claim page's own read and rows.
+  assert.match(team, /const stored = await readInviteOffer\(admin, inv\.invite_id\);/);
+  assert.match(team, /offer: stored \? doorOffer\(offerFromInvite\(stored\)\) : null,/);
+  assert.match(team, /from: 'setnayan',/);
+  // The finish: the same call finalize makes for an admin invite — it applies the offer and spends the link once.
+  assert.match(ACT, /admin\.rpc\(fromSetnayan \? 'claim_ready_the_invited_shop' : 'claim_ready_the_shop', \{/);
+  assert.match(src('app/vendor/claim/[token]/finalize/page.tsx'), /admin\.rpc\('claim_ready_the_invited_shop', \{/);
+  assert.match(ACT, /if \(fromSetnayan\) redirect\('\/vendor-dashboard\/profile'\);/);
+  // The door shows the offer on slide 1 and skips the bundle (nothing was booked).
+  assert.match(DOOR, /const offer = team \? record\.offer : null;/);
+  assert.match(DOOR, /data-claim-door-offer=""/);
+  // No confirmed price → each card is priced on its own, never "part of a ₱0 bundle".
+  const seeded = seedClaimCards({ services: [REC.services[0]!, REC.services[1]!], price: null, inclusions: [] });
+  assert.deepEqual(seeded.map((c) => c.bundled), [false, false]);
 });
 
 test('4 · only the screens changed — the consent is the shipped finalize', () => {

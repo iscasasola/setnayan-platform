@@ -9671,7 +9671,8 @@
       "blocks": [
         "CoupleChallengesManager",
         "Link",
-        "ListPageSkeleton"
+        "ListPageSkeleton",
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew": {
@@ -12099,6 +12100,7 @@
     "/dev/papic-camera-lab": {
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",
+        "dev/papic-camera-lab/lab-challenges.tsx",
         "dev/papic-camera-lab/page.tsx"
       ],
       "destinations": [
@@ -12107,12 +12109,15 @@
       "actions": [],
       "blocks": [
         "Blob",
+        "ChallengeRow",
         "LabCamera",
+        "LabChallenges",
         "LabPageSpotlight",
         "PapicBuyShell",
         "PapicCaptureController",
         "PapicGuestCapture",
         "PapicSeatCapture",
+        "UndoToastHost",
         "UploaderSnapshot"
       ]
     },
@@ -12484,8 +12489,6 @@
         "/dev/supplier-lab?s=library&view=review",
         "/dev/supplier-lab?s=money",
         "/dev/supplier-lab?s=people",
-        "/dev/supplier-lab?s=qr",
-        "/dev/supplier-lab?s=qr-booked",
         "/dev/supplier-lab?thumb=customer",
         "/dev/supplier-lab?thumb=people",
         "/help",
@@ -12583,6 +12586,7 @@
         "PageLab",
         "PageParts",
         "PeopleLab",
+        "PromoteBridge",
         "QrCodes",
         "ReviewReplies",
         "RosterRow",
@@ -12594,6 +12598,7 @@
         "SeatFinderRow",
         "ServiceCardView",
         "ShopBadgePill",
+        "ShopPrintsSection",
         "ShopSegments",
         "ShopServiceRows",
         "ShopSettingsRows",
@@ -15497,8 +15502,8 @@
     },
     "/vendor-dashboard/invite": {
       "files": [
-        "vendor-dashboard/invite/_components/door-sticker.tsx",
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
+        "vendor-dashboard/invite/_components/qr-code-list.tsx",
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
@@ -15511,23 +15516,24 @@
         "issueLockedQr"
       ],
       "blocks": [
+        "BookedBody",
         "CrewCode",
         "CrewQr",
         "CustomersPick",
         "DatesRow",
-        "DoorSticker",
-        "DoorStickerCode",
-        "DoorStickerSize",
         "Fold",
         "HTMLInputElement",
         "Icon",
+        "InfoTip",
         "Link",
         "LockedQrGenerator",
-        "PickMenu",
+        "PutOnRow",
         "QrCard",
+        "QrCodeList",
         "QrCodes",
+        "QrThumb",
         "Row",
-        "SaveFileLink",
+        "Sheet",
         "SubmitButton"
       ]
     },
@@ -16750,6 +16756,7 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/promote-bridge.tsx",
         "vendor-dashboard/shop/promote/_components/share-your-work-data.ts",
         "vendor-dashboard/shop/promote/_components/share-your-work.tsx",
         "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
@@ -16770,10 +16777,14 @@
         "Big",
         "BigPiece",
         "BigScene",
+        "Bridge",
         "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
         "Counter",
         "DatesRow",
+        "DockFace",
+        "FactRow",
+        "FactSwitch",
         "Fold",
         "HTMLDivElement",
         "Hidden.Provider",
@@ -16785,22 +16796,29 @@
         "PiecePicture",
         "PrintQrMode",
         "PrintsSheet",
+        "PromoteBridge",
+        "PromoteBridgeCtx.Provider",
+        "PutOnAsk",
         "QrCodes",
+        "SaveAllButton",
         "SaveButton",
         "SaveFileLink",
         "SaveStoryCardButton",
         "Scene",
+        "SecHead",
         "ShareButtons",
         "ShareRow",
         "ShareYourWork",
         "ShareYourWorkData",
         "Sheet",
+        "ShopBadgeFacts",
         "ShopBadgePill",
         "ShopGiftsSection",
         "ShopGiftsSectionData",
         "ShopPrintsSection",
         "ShopSegments",
-        "SupplierSubmit"
+        "SupplierSubmit",
+        "SwitchTrack"
       ]
     },
     "/vendor-dashboard/subscription": {

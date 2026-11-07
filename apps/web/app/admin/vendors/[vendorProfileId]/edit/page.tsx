@@ -8,6 +8,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { saveUnclaimedVendorProfile } from '../../actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { SHOP_NAME_MAX } from '@/lib/business-slug';
+
 export const metadata = {
   title: 'Edit unclaimed supplier · Admin',
   robots: { index: false, follow: false },
@@ -127,7 +129,7 @@ export default async function AdminEditUnclaimedVendorPage({
             id="business_name"
             name="business_name"
             type="text"
-            maxLength={128}
+            maxLength={SHOP_NAME_MAX}
             required
             defaultValue={profile.business_name ?? ''}
             className="input-field"

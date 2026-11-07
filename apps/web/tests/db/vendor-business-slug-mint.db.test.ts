@@ -454,9 +454,9 @@ test('NEUTRALISATION: the shared answer is what does the refusing', async () => 
 });
 
 test('a very long business name is truncated to a usable address', async () => {
-  const id = await registerShop(
-    'The Extraordinarily Long And Very Descriptive Wedding Photography Company Of Metro Manila',
-  );
+  // 48 characters: inside the 50-character shop-name cap (20271320245383),
+  // still longer than the 32-character address ceiling, so truncation runs.
+  const id = await registerShop('The Extraordinarily Long And Very Descriptive Co');
   const row = await readShop(id);
 
   assert.ok(row.business_slug);

@@ -26,16 +26,21 @@ const RULED = {
   collect: { light: '#A2457E', dark: '#D98AC0' },
 } as const;
 
-/** The body of the FIRST `:root {` block and of the first `html.dark {` block after it (the token blocks). */
+/** Every `${sel} {` block's body, joined — globals.css opens `:root` more than once (fonts first, tokens later). */
 function block(sel: string): string {
-  const at = CSS.indexOf(`${sel} {`);
-  assert.ok(at >= 0, `no ${sel} block`);
-  let depth = 0;
-  for (let i = CSS.indexOf('{', at); i < CSS.length; i++) {
-    if (CSS[i] === '{') depth++;
-    else if (CSS[i] === '}' && --depth === 0) return CSS.slice(at, i);
+  const out: string[] = [];
+  for (let at = CSS.indexOf(`${sel} {`); at >= 0; at = CSS.indexOf(`${sel} {`, at + 1)) {
+    let depth = 0;
+    for (let i = CSS.indexOf('{', at); i < CSS.length; i++) {
+      if (CSS[i] === '{') depth++;
+      else if (CSS[i] === '}' && --depth === 0) {
+        out.push(CSS.slice(at, i));
+        break;
+      }
+    }
   }
-  return '';
+  assert.ok(out.length, `no ${sel} block`);
+  return out.join('\n');
 }
 
 test('each category colour is a token with the ruled light and dark value', () => {

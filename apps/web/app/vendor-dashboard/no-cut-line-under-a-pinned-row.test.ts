@@ -41,6 +41,7 @@ function walk(dir: string, out: string[] = []): string[] {
 const KNOWN: Record<string, string> = {
   'app/vendor-dashboard/customers/_components/customers-pin.tsx': 'L2 — Clients pinned row',
   'app/vendor-dashboard/clients/[eventId]/page.tsx': 'L2 — the client page header',
+  'app/vendor-dashboard/customers/_components/customers-calendar.tsx': 'L2 — the Clients calendar head',
   'app/vendor-dashboard/shop/_components/shop-segments.tsx': 'C4 — Shop segments row',
   'app/vendor-dashboard/_components/supplier-open-row.tsx': 'C1 — Today open row',
   'app/vendor-dashboard/_components/today-counts.tsx': 'C1 — Today counts row',

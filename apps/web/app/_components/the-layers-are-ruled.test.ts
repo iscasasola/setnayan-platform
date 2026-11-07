@@ -8,13 +8,14 @@
  *
  * Held from the real sources:
  *   1. the scale tokens: `--sn-z-thumb` (25) < `--sn-z-nav` (30) < `--sn-z-pop` (40) ≤ `--sn-z-modal` (50, the Sheet);
- *   2. no thumb-row file (one that draws a ThumbRow/ThumbDock/AccountThumbRow/SupplierThumbRow, or is one) sets a z
- *      above the thumb layer — so never at or over the bar;
+ *   2. no thumb-row PART (a file named `*thumb-row*` / `*thumb-dock*`) sets a z above the thumb layer, and every row that
+ *      stands on the bar (`fixed … bottom-[var(--sn-ride-h,…)]`) is on the thumb layer through the token, never a raw z;
  *   3. the bottom dock stands on the nav layer;
- *   4. every pop-up a thumb-row file opens (an imported …Menu / …Sheet / …Popover / …Dialog / …Popup, or `Sheet` /
+ *   4. every pop-up a thumb-row part opens (an imported …Menu / …Sheet / …Popover / …Dialog / …Popup, or `Sheet` /
  *      `PickMenu`) floats at or above the pop layer — over the bar, so over the thumb row.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): `z-sn-thumb` → `z-[35]` in account-thumb-row.tsx (red: test 2);
+ * `z-sn-thumb` → `z-[25]` on the Memories row in event-memories-gallery.tsx (red: test 2, raw z);
  * PickMenu's list `z-[95]` → `z-20` (red: test 4); `--sn-z-thumb: 25` → `35` (red: test 1).
  */
 import { test } from 'node:test';
@@ -57,9 +58,12 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const ROW_PART = /\b(ThumbRow|ThumbDock|AccountThumbRow|SupplierThumbRow)\b/;
 const FILES = [...walk(join(WEB, 'app')), ...walk(join(WEB, 'components'))];
-const THUMB_FILES = FILES.filter((f) => /thumb-(row|dock)/.test(f) || (f.endsWith('.tsx') && ROW_PART.test(stripComments(read(f)))));
+/* The PARTS: the files that ARE a thumb row or its dock. (A page that merely draws one sets other layers of its own —
+   a sticky header, a scrim — which this rule does not govern; the row it stands on the bar is caught by STANDING.) */
+const THUMB_FILES = FILES.filter((f) => /thumb-(row|dock)[^/]*$/.test(f));
+/** A row standing on the bar: fixed, its bottom on the ride/dock height — a thumb row by position. */
+const STANDING = /fixed[^"`']*?bottom-\[var\(--sn-ride-h,var\(--sn-bottomdock-h,64px\)\)\][^"`']*/g;
 
 /** `@/x` and `./x` → a file on disk. */
 function resolve(from: string, spec: string): string | null {
@@ -78,13 +82,23 @@ test('the scale: thumb row < bottom nav < pop-ups ≤ sheets', () => {
   assert.match(read(join(WEB, 'tailwind.config.ts')), /'sn-thumb': 'var\(--sn-z-thumb\)'/);
 });
 
-test('no thumb-row file sets a z at or above the bottom nav', () => {
-  assert.ok(THUMB_FILES.length >= 8, `the scan found only ${THUMB_FILES.length} thumb-row files — it has gone blind`);
+test('no thumb-row part sets a z at or above the bottom nav; every row standing on the bar is on the thumb token', () => {
+  assert.ok(THUMB_FILES.length >= 8, `the scan found only ${THUMB_FILES.length} thumb-row parts — it has gone blind`);
   const over: string[] = [];
   for (const f of THUMB_FILES) {
     for (const z of zOf(stripComments(read(f)))) if (z > Z.thumb!) over.push(`${relative(WEB, f)}: z ${z}`);
   }
   assert.deepEqual(over, [], `a thumb row paints at or over the bar — use z-sn-thumb / var(--sn-z-thumb):\n${over.join('\n')}`);
+  const raw: string[] = [];
+  let standing = 0;
+  for (const f of FILES.filter((x) => x.endsWith('.tsx'))) {
+    for (const m of stripComments(read(f)).matchAll(STANDING)) {
+      standing++;
+      if (!/(^|\s)z-sn-thumb(\s|$)/.test(m[0])) raw.push(`${relative(WEB, f)}: ${m[0].slice(0, 120)}`);
+    }
+  }
+  assert.ok(standing >= 4, `only ${standing} rows standing on the bar found — the scan has gone blind`);
+  assert.deepEqual(raw, [], `a row standing on the bar is not on the thumb layer token (z-sn-thumb):\n${raw.join('\n')}`);
 });
 
 test('the bottom dock stands on the nav layer', () => {

@@ -24,19 +24,24 @@ const HOOK = stripComments(readFileSync(join(WEB, 'app/_components/nav/use-chrom
 const NAV = stripComments(readFileSync(join(WEB, 'app/_components/nav/bottom-nav.tsx'), 'utf8'));
 const FD = readFileSync(join(WEB, 'app/_components/frontdoor/front-door.css'), 'utf8');
 
-test('(a) the chrome steps away below 1024 — 0.32 s each way — and always comes back', () => {
+test('(a) the chrome steps away (the bar below 1024, the top below 701) — 0.32 s each way — and always comes back', () => {
   assert.equal(CHROME_AWAY_ATTR, 'data-chrome-away');
   assert.equal(CHROME_AWAY_MS, 320);
   assert.match(HOOK, /root\.setAttribute\(CHROME_AWAY_ATTR, ''\);/);
   assert.match(HOOK, /return \(\) => \{\s*root\.removeAttribute\(CHROME_AWAY_ATTR\);/, 'leaving the page could strand the chrome away');
   assert.doesNotMatch(HOOK, /\buseState\b/);
-  const block = FD.slice(FD.indexOf('@media (max-width: 1023.98px) {\n  html[data-chrome-away]'));
-  assert.ok(block.length > 0, 'the chrome-away rules are not inside the < 1024 query');
-  assert.match(block, /html\[data-chrome-away\] \.fd\[data-chrome='app'\] \.fd-topwrap \{\s*transform: translateY\(-100%\);\s*transition: transform 0\.32s/);
+  // The bottom bar steps away below 1024; the TOP bar below 701 only (the tablet band keeps its 72-px strip).
+  const block = FD.slice(FD.indexOf('@media (max-width: 1023.98px) {\n  html[data-chrome-away] [data-bottom-dock]'));
+  assert.ok(FD.includes('@media (max-width: 1023.98px) {\n  html[data-chrome-away] [data-bottom-dock]'), 'the bottom bar rules are not inside the < 1024 query');
   assert.match(block, /html\[data-chrome-away\] \[data-bottom-dock\] \{\s*transform: translateY\(100%\);/);
   assert.match(block, /html\[data-chrome-away\] \{\s*--sn-bottomdock-h: env\(safe-area-inset-bottom, 0px\) !important;/, 'the thumb row would float where the bar was');
-  assert.match(block, /html\[data-chrome-back\] \.fd\[data-chrome='app'\] \.fd-topwrap,\s*html\[data-chrome-back\] \[data-bottom-dock\] \{\s*transition: transform 0\.32s cubic-bezier\(0\.2, 0\.8, 0\.2, 1\);/, 'the way back is not the same curve');
-  assert.match(block, /prefers-reduced-motion: reduce/);
+  assert.match(block, /html\[data-chrome-back\] \[data-bottom-dock\] \{\s*transition: transform 0\.32s cubic-bezier\(0\.2, 0\.8, 0\.2, 1\);/, 'the way back is not the same curve');
+  const top = FD.slice(FD.indexOf('@media (max-width: 700.98px) {\n  html[data-chrome-away]'));
+  assert.ok(FD.includes('@media (max-width: 700.98px) {\n  html[data-chrome-away]'), 'the top-bar rules are not inside the phone query');
+  assert.match(top, /html\[data-chrome-away\] \.fd\[data-chrome='app'\] \.fd-topwrap \{\s*transform: translateY\(-100%\);\s*transition: transform 0\.32s/);
+  assert.match(top, /html\[data-chrome-back\] \.fd\[data-chrome='app'\] \.fd-topwrap \{\s*transition: transform 0\.32s cubic-bezier\(0\.2, 0\.8, 0\.2, 1\);/, 'the top bar’s way back is not the same curve');
+  assert.match(FD, /@media \(max-width: 1023\.98px\) and \(prefers-reduced-motion: reduce\)/);
+  assert.match(FD, /@media \(max-width: 700\.98px\) and \(prefers-reduced-motion: reduce\)/);
 });
 
 test('(b) a re-tap on the ACTIVE tab tells the page; a handled one skips the tab’s own navigation', () => {

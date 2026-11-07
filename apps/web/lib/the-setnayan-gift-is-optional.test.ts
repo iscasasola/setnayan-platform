@@ -156,15 +156,19 @@ test('2b · the trigger stopped RE-JUDGING a live card when its gift text change
   assert.match(judging, /starting_price_php/, 'the judging clause stopped watching the price');
 });
 
-test('3 · the maker never waits on the gift — it sits under More settings, and Create asks the gate alone', () => {
-  // The guided pass retired with the simpler maker (2026-10-14). The ruling survives in its new shape: the gift is
-  // NOT a first question, and the facts Create asks the gate with carry no gift.
+test('3 · the maker never waits on the gift — it says "optional", starts at No gift, and Create asks the gate alone', () => {
+  // The guided pass retired with the simpler maker (2026-10-14). The ruling survives in its new shape: the facts
+  // Create asks the gate with carry no gift.
+  // 2026-11-07 (owner, DECISION_LOG "THE FOUR MAKERS ARE APPROVED…"; makers prototype § 3): the gift moved UP from
+  // More settings to the one page of fields as ONE dropdown — so "not required" is now said on the row itself
+  // ("Gift · optional", default No gift), not by burying it.
   const maker = read(
     join(WEB, 'app', 'vendor-dashboard', 'services', '_components', 'canvas-maker.tsx'),
   );
-  const more = maker.indexOf('data="more"');
-  const gift = maker.indexOf('data="m-gift"');
-  assert.ok(more > 0 && gift > more, 'the gift became a first question — a new shop would read it as required');
+  const row = read(join(WEB, 'app', '_components', 'gift-pick.tsx'));
+  assert.match(row, /Gift <span[^>]*>optional<\/span>/, 'the Gift row stopped saying it is optional — a new shop would read it as required');
+  assert.match(read(join(WEB, 'lib', 'gift-pick.ts')), /\{ key: GIFT_NONE, label: 'No gift' \},\s*\{ key: GIFT_SETNAYAN/, 'No gift is no longer the first answer');
+  assert.match(maker, /giftPickOf\(\{ includes_setnayan_gift: initial\?\.includesSetnayanGift \?\? false/, 'a new card no longer starts with no gift');
   const facts = maker.slice(maker.indexOf('const facts = {'), maker.indexOf('};', maker.indexOf('const facts = {')));
   assert.ok(facts.length > 20, 'the facts Create asks the gate with could not be read');
   assert.ok(!/gift|perk|Exclusive/i.test(facts), 'Create is feeding a gift fact to the gate again');

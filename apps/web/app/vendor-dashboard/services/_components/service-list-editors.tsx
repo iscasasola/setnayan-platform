@@ -1,9 +1,12 @@
 'use client';
 
-import { Fragment, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 
 /**
  * Repeatable list editors for a service card (service-card redesign · Phase 3b).
@@ -128,38 +131,66 @@ export function InclusionsEditor({
        pesos (`amountDigits`) — no spinner, nothing but digits posted. */
     const patch = (key: number, next: Partial<InclusionDraft>) =>
       setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
+    /**
+     * 👈 A LINE LEAVES BY ITS SWIPE, WITH UNDO (owner 7 Nov 2026 on the makers: *"all swipe to delete works"*; makers
+     * prototype § 3 "Rows … are removed by swiping left, with Undo. No row buttons"). THE ONE SWIPE (`SwipeToDelete`)
+     * and the shipped Undo toast (`undo-store`) — the maker mounts the toast host. Nothing is written until the card's
+     * save, so Undo simply puts the line back where it was.
+     */
+    const swipeOut = (row: InclusionRow) => {
+      const at = rows.findIndex((r) => r.key === row.key);
+      remove(row.key);
+      pushUndo({
+        label: row.label.trim() ? `“${row.label.trim()}” removed` : 'Line removed',
+        undo: async () => {
+          setRows((cur) => {
+            if (cur.some((r) => r.key === row.key)) return cur;
+            const next = [...cur];
+            next.splice(at < 0 ? next.length : Math.min(at, next.length), 0, row);
+            return next;
+          });
+        },
+      });
+    };
     return (
       <div data-inclusions-bare="">
         <FormRows width="short">
           {rows.map((r, i) => (
-            <Fragment key={r.key}>
-              <TypedRow
-                name={`Included ${i + 1}`}
-                value={r.label}
-                empty="e.g. Same-day highlight reel"
-                maxLength={80}
-                fieldName="inclusion_label"
-                onKeep={(t) => patch(r.key, { label: t })}
-                data="inclusion-label"
-              />
-              <TypedRow
-                name="Worth"
-                value={r.worth}
-                amount
-                empty="Optional"
-                fieldName="inclusion_worth"
-                onKeep={(t) => patch(r.key, { worth: t })}
-                data="inclusion-worth"
-                below={
-                  <div className="flex justify-end pb-2">
-                    <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
-                  </div>
-                }
-              />
-            </Fragment>
+            <SwipeToDelete
+              key={r.key}
+              label={`Remove ${r.label.trim() || `line ${i + 1}`}`}
+              word="Remove"
+              radiusClass="rounded-none"
+              surfaceClass="bg-cream"
+              onDelete={() => swipeOut(r)}
+            >
+              <div data-inclusion-line="">
+                <TypedRow
+                  name={`Included ${i + 1}`}
+                  value={r.label}
+                  empty="e.g. Same-day highlight reel"
+                  maxLength={80}
+                  fieldName="inclusion_label"
+                  onKeep={(t) => patch(r.key, { label: t })}
+                  data="inclusion-label"
+                />
+                <TypedRow
+                  name="Worth"
+                  value={r.worth}
+                  amount
+                  empty="Optional"
+                  fieldName="inclusion_worth"
+                  onKeep={(t) => patch(r.key, { worth: t })}
+                  data="inclusion-worth"
+                />
+              </div>
+            </SwipeToDelete>
           ))}
         </FormRows>
-        <AddRowButton onClick={add}>Add a line</AddRowButton>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-inclusion-add="">
+          <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={add} />
+          <span className="text-[12px] text-ink/55">{rows.length > 0 ? 'Every line is part of the price · swipe a line left to remove it.' : 'Every line is part of the price.'}</span>
+        </div>
       </div>
     );
   }

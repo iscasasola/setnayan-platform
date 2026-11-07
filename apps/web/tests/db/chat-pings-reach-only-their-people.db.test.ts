@@ -17,9 +17,12 @@
  *   5 · A USER ONLY RECEIVES THEIR OWN TOPIC. `user_topic_is_mine` is TRUE for `user:<me>` and FALSE for another
  *       person's uid, anon, NULL, a lookalike prefix — and never raises. The policy is READ only (no INSERT policy:
  *       a browser cannot send into anyone's topic).
- *   6 · NOT CALLABLE BY A CLIENT. Neither the recipient list nor the trigger function is executable by anon or
- *       authenticated; the topic predicate IS executable by authenticated (the grant every private channel needs —
- *       see realtime-policy-predicates-are-callable.db.test.ts).
+ *   6 · NOT CALLABLE BY A CLIENT. Neither the recipient list, the gate, the sender nor the trigger function is
+ *       executable by anon or authenticated; the topic predicate IS executable by authenticated (the grant every
+ *       private channel needs — see realtime-policy-predicates-are-callable.db.test.ts).
+ *   7 · OFF MEANS OFF IN THE DATABASE TOO. With `platform_settings.chat_live_pings_live` NULL (never stamped) or FALSE
+ *       (production runs with NEXT_PUBLIC_CHAT_LIVE_ENABLED off — lib/chat-live-stamp.ts) the trigger sends NOTHING,
+ *       and the message still lands.
  *
  * The replay has no `realtime` schema, so a stub `realtime.send` that records its calls is created HERE, in this
  * file's own database, after the replay — the trigger's `to_regprocedure` check then finds it exactly as it finds the
@@ -165,7 +168,15 @@ before(async () => {
     [F.eventId, F.vendorId, F.bride],
   );
   F.threadId = th.rows[0]!.thread_id;
+
+  // Production stamps this from NEXT_PUBLIC_CHAT_LIVE_ENABLED (lib/chat-live-stamp.ts). ON for the tests below; the
+  // OFF test sets it back itself.
+  await stampLive(true);
 });
+
+async function stampLive(v: boolean | null): Promise<void> {
+  await db.query(`UPDATE public.platform_settings SET chat_live_pings_live = $1 WHERE id = 1`, [v]);
+}
 
 after(async () => {
   await replay?.db?.close?.();
@@ -242,6 +253,26 @@ test('the recipient list is the unread count read backwards — each pinged pers
     );
   }
   assert.ok(rose >= 3, `only ${rose} counts rose — the comparison proves nothing`);
+});
+
+test('off means off — never stamped, or stamped FALSE, the trigger sends nothing and the message lands', async () => {
+  await stubRealtime('record');
+  try {
+    for (const v of [null, false] as const) {
+      await stampLive(v);
+      const mark = await lastSent();
+      const id = await sendAs(F.bride, `sent with the stamp ${String(v)}`);
+      assert.ok(id, 'the message must land with the switch off');
+      assert.deepEqual(await sentSince(mark), [], `the stamp is ${String(v)} — the trigger must send nothing`);
+    }
+    // …and the same fixture DOES ping with the stamp on — the silence above is the switch, not a broken trigger.
+    await stampLive(true);
+    const mark = await lastSent();
+    await sendAs(F.bride, 'sent with the stamp on');
+    assert.ok((await sentSince(mark)).length >= 3, 'with the stamp TRUE the same send must ping');
+  } finally {
+    await stampLive(true);
+  }
 });
 
 test('a ping never costs a message — Realtime raising, or absent, the INSERT still lands', async () => {
@@ -321,6 +352,8 @@ test('no client role can run the recipient list or the trigger; authenticated CA
   for (const role of ['anon', 'authenticated']) {
     assert.equal(await can(role, 'public.chat_message_recipient_ids(uuid,uuid,uuid)'), false, `${role} can enumerate a thread's people`);
     assert.equal(await can(role, 'public.chat_messages_ping_recipients()'), false, `${role} can execute the ping trigger function`);
+    assert.equal(await can(role, 'public.user_live_send(uuid[],text,jsonb)'), false, `${role} can send into anyone's user: topic`);
+    assert.equal(await can(role, 'public.user_live_pings_on()'), false, `${role} can run the internal gate`);
   }
   assert.equal(await can('anon', 'public.user_topic_is_mine(text)'), false, 'anon can run the topic predicate');
   assert.equal(
@@ -340,6 +373,8 @@ test('the policy is READ-only on user: topics, and the client opens the channel 
 
   const client = fs.readFileSync(path.join(import.meta.dirname, '..', '..', 'lib', 'user-live-channel.ts'), 'utf8');
   assert.match(client, /\.channel\(`user:\$\{userId\}`,\s*\{\s*config:\s*\{\s*private:\s*true/, 'the client must open `user:{uid}` PRIVATE — a public channel bypasses the policy entirely');
-  assert.match(client, /'broadcast',\s*\{\s*event:\s*'chat_message'\s*\}/, "the client listens for the event the trigger sends ('chat_message')");
-  assert.match(sql, /realtime\.send\(v_payload, 'chat_message', 'user:' \|\| v_uid::text, true\)/, 'the trigger sends the event + topic the client listens on');
+  assert.match(client, /export const USER_LIVE_EVENTS = \[[^\]]*'chat_message'[^\]]*\]/, "the client listens for the event the trigger sends ('chat_message')");
+  assert.match(client, /for \(const event of USER_LIVE_EVENTS\)[\s\S]{0,80}\.on\('broadcast',\s*\{\s*event\s*\}/, 'one broadcast listener per name in USER_LIVE_EVENTS');
+  assert.match(sql, /realtime\.send\(p_payload, p_event, 'user:' \|\| v_uid::text, true\)/, 'the sender writes to the topic the client listens on, PRIVATE');
+  assert.match(sql, /public\.user_live_send\(\s*ARRAY\([\s\S]*?\),\s*'chat_message',/, 'the chat trigger sends the event name the client listens for');
 });

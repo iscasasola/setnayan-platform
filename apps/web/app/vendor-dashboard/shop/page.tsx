@@ -37,6 +37,7 @@ import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
 import { ShopServiceRows } from './_components/shop-service-rows';
+import { readShopScanSettings, type ScanSetting } from '@/lib/supplier-scan.server';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { ActionButton } from '@/components/action-button';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
@@ -105,6 +106,8 @@ type ShopData = {
   libraryOpen: boolean;
   /** 🧰 One row per service (v13 Shop › Services) — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
+  /** 🎟 Each service's claim scanner (coverage id → setting) — `null` = unread: no dropdown is drawn. */
+  scanSettings: Map<number, ScanSetting> | null;
 };
 
 type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
@@ -231,12 +234,19 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
+  // 🎟 Each service's claim scanner (set once per service, DECISION_LOG 2026-10-29) — null = unread, no dropdown drawn.
+  const scanSettingsRead = readShopScanSettings(supabase, vendorId).catch((err) => {
+    logQueryError('VendorShopPage.scanSettings', err, { vendorId });
+    return null;
+  });
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [tier, verifyApp, { logoUrl, logoUnavailable }, serviceRows] = await Promise.all([
+  const [tier, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings] = await Promise.all([
     tierRead,
     verifyAppRead,
     logoRead,
     serviceRowsRead,
+    scanSettingsRead,
   ]);
 
   const completion = businessProfileChecklist(profile);
@@ -267,6 +277,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // The shared predicate, off the profile already read — no second query (lib/moodboard-library-access.ts).
     libraryOpen: moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed,
     serviceRows,
+    scanSettings,
   };
 }
 
@@ -346,7 +357,7 @@ async function ShopHome({
       {/* 📌 Shop ▾ + Services' three figures — the pinned row (v13), then one row per service with its tools. */}
       <ShopSegments on="services" figures={servicesFigures(data.serviceRows)} gearBody={shopGearBody(sp)} />
       <div className="mx-auto max-w-3xl">
-        <ShopServiceRows rows={data.serviceRows} />
+        <ShopServiceRows rows={data.serviceRows} scan={data.scanSettings} />
       </div>
       <HeroCard data={data} publicPath={publicPath} />
 

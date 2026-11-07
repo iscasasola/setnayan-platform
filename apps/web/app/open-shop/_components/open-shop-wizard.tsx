@@ -14,6 +14,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { AddressPreview } from './address-preview';
+import { NameHold } from './name-hold';
+import { SHOP_NAME_HELD_MESSAGE } from '@/lib/shop-name-hold';
 import { locationStepError } from '@/lib/open-shop-location-gate';
 import { isPhPhone } from '@/lib/ph-phone';
 import { CityPin } from './city-pin';
@@ -175,6 +177,10 @@ export function OpenShopWizard({
     initialStep && initialStep >= 1 && initialStep <= TOTAL_STEPS ? initialStep : 1,
   );
   const [shopName, setShopName] = useState(defaults.shopName);
+  // A held name (owner 2026-11-06): step 1 cannot be passed on it unless the vendor said "It's my business" for
+  // that exact name — then the claim rides with the submit (`NameHold`).
+  const [nameHeld, setNameHeld] = useState(false);
+  const [claimedName, setClaimedName] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
   // The picked leaf's LABEL, held alongside its key so the chosen row reads
@@ -232,6 +238,7 @@ export function OpenShopWizard({
   const validateStep = (n: Step): string | null => {
     if (n === 1) {
       if (!shopName.trim()) return OPEN_SHOP_ERRORS.shopName;
+      if (nameHeld && claimedName !== shopName.trim()) return SHOP_NAME_HELD_MESSAGE;
       // Same shared flag the server action gates on — the two can't drift.
       if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) return OPEN_SHOP_ERRORS.logo;
       return null;
@@ -590,13 +597,26 @@ export function OpenShopWizard({
                   while they type is the only moment a vendor can still choose a
                   different name over it — afterwards the address is permanent,
                   because a save-the-date already points at it. */}
-              <AddressPreview
-                key={restoredSlug ?? 'typed'}
-                shopName={shopName}
-                existingSlug={existingSlug}
-                initialValue={restoredSlug}
-              />
+              {/* While a held name waits for the team, no address is chosen — it is made from the name they approve. */}
+              {nameHeld && claimedName === shopName.trim() ? null : (
+                <AddressPreview
+                  key={restoredSlug ?? 'typed'}
+                  shopName={shopName}
+                  existingSlug={existingSlug}
+                  initialValue={restoredSlug}
+                />
+              )}
             </label>
+            {/* Outside the <label>: it carries a button, and a press inside a label belongs to the label's input. */}
+            <NameHold
+              shopName={shopName}
+              claimed={claimedName !== null && claimedName === shopName.trim()}
+              onClaim={() => {
+                setClaimedName(shopName.trim());
+                setBanner(null);
+              }}
+              onHeldChange={setNameHeld}
+            />
           </div>
           {/* 2 · What you do. Service and events are the same question asked twice;
               splitting them would add a tap and remove no thinking. */}

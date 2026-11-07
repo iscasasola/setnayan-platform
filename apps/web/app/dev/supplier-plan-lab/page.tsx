@@ -15,7 +15,7 @@
  *   ?s=gifts           Shop › Promote › Your gifts (supplier gift stock, 2026-11-04; on Plan until 2026-11-05)  &unverified=1 (list price) · &fail=1 (unread)
  *                      &app=1 (the iPhone app: stock + Bought, no Buy)
  *                      &buy=1 opens nothing by itself — press "Buy gifts"
- *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment)
+ *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment) · &unlock=1 (+ Event Plus)
  *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)
  *   ?s=prints          Shop › Promote › Prints (2026-11-05) — the REAL section; its pictures come from the lab's twin of
  *                      `/api/vendor/prints` (`./prints-art/[shop]`, same renderer, a fixture shop)   &long=1 (long name + seal,
@@ -282,6 +282,14 @@ function businessFixture(who: Who, fresh: boolean) {
   );
 }
 
+/** YOUR FACTS' Verified seal + the badges piece read these on the lab — the fixture shop's facts as a data: URI (no route). */
+function labBadgeFactsUrl(long: boolean): string {
+  const facts = long
+    ? { verified: true, completedEvents: 100, trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 }, inBusinessSinceYear: 2014, awards: [], nowYear: 2026 }
+    : { verified: false, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 };
+  return `data:application/json;base64,${Buffer.from(JSON.stringify({ facts })).toString('base64')}`;
+}
+
 export default async function SupplierPlanLabPage({
   searchParams,
 }: {
@@ -342,6 +350,9 @@ export default async function SupplierPlanLabPage({
         canShare={sp.noaddress !== '1'}
         setupHref="/dev/supplier-plan-lab?s=prints"
         artBase={`/dev/supplier-plan-lab/prints-art/${sp.long === '1' ? 'long' : 'plain'}`}
+        member={sp.noname === '1' ? null : { name: 'Juan dela Cruz', role: sp.long === '1' ? 'Head chef' : null }}
+        facts={sp.long === '1' ? { name: 'Casa Buenaventura Catering & Events Services', line: 'Catering' } : { name: 'Setnayan Productions', line: 'Weddings & Events' }}
+        badgeFactsUrl={labBadgeFactsUrl(sp.long === '1')}
       />
     );
   else if (s === 'gifts-couple')
@@ -352,7 +363,14 @@ export default async function SupplierPlanLabPage({
           <span>Total</span>
           <span className="tabular-nums">{formatCentavos(11_250_000)}</span>
         </p>
-        <QuoteShopGiftNote credits={1150} given={sp.given === '1' ? 1150 : 0} shopName="Saysay Catering" side="couple" />
+        <QuoteShopGiftNote
+          credits={1150}
+          given={sp.given === '1' ? 1150 : 0}
+          unlocks={sp.unlock === '1' ? ['Event Plus'] : []}
+          unlocksGiven={sp.given === '1' && sp.unlock === '1' ? 1 : 0}
+          shopName="Saysay Catering"
+          side="couple"
+        />
       </section>
     );
   else if (s === 'gifts-admin')
@@ -370,6 +388,9 @@ export default async function SupplierPlanLabPage({
 const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
   { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
+  // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
+  { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+  { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
 ]);
 
 /** `inApp` — `&app=1`: the section as the iPhone app (store shell) draws it — the stock and Bought show, Buy does not
@@ -378,12 +399,19 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
   return (
     <ShopGiftsSection
       data={{
-        stock: fail ? null : { balance: 2150, held: 1150 },
+        stock: fail
+          ? null
+          : {
+              papic: { balance: 2150, held: 1150 },
+              event_plus: { balance: 3, held: 1 },
+              event_pro: { balance: 1, held: 0 },
+            },
         packs: LAB_GIFT_PACKS,
         paysGiftPrice: !unverified,
         bought: fail
           ? null
           : [
+              { orderId: 'o4', title: 'Event Plus', quantity: 3, paidPhp: 8070, createdAt: '2026-11-05T05:00:00Z', state: 'checking' },
               { orderId: 'o3', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-11-04T05:00:00Z', state: 'checking' },
               { orderId: 'o2', title: 'Papic 1000', quantity: 2, paidPhp: 898, createdAt: '2026-11-02T05:00:00Z', state: 'in_stock' },
               { orderId: 'o1', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-10-30T05:00:00Z', state: 'in_stock' },
@@ -399,12 +427,14 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
 }
 
 const LAB_GIFT_LEDGER = [
-  { entryId: 'e4', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, delta: -1150, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-04T06:00:00Z' },
-  { entryId: 'e3', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, delta: 2000, eventId: null, eventName: null, orderReference: 'SN-8Q2K', landed: false, createdAt: '2026-11-02T05:00:00Z' },
-  { entryId: 'e2', vendorProfileId: 'v2', shopName: 'Lente Studio', kind: 'reversal' as const, delta: -150, eventId: null, eventName: null, orderReference: 'SN-7XRT', landed: false, createdAt: '2026-11-01T05:00:00Z' },
-  { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
+  { entryId: 'e6', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, giftKind: 'event_plus' as const, unlocksSku: 'COUPLE_WEBSITE_PRO', delta: -1, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-05T07:00:00Z' },
+  { entryId: 'e5', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'event_plus' as const, unlocksSku: null, delta: 3, eventId: null, eventName: null, orderReference: 'SN-9VQD', landed: false, createdAt: '2026-11-05T05:00:00Z' },
+  { entryId: 'e4', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, giftKind: 'papic' as const, unlocksSku: null, delta: -1150, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-04T06:00:00Z' },
+  { entryId: 'e3', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, delta: 2000, eventId: null, eventName: null, orderReference: 'SN-8Q2K', landed: false, createdAt: '2026-11-02T05:00:00Z' },
+  { entryId: 'e2', vendorProfileId: 'v2', shopName: 'Lente Studio', kind: 'reversal' as const, giftKind: 'papic' as const, unlocksSku: null, delta: -150, eventId: null, eventName: null, orderReference: 'SN-7XRT', landed: false, createdAt: '2026-11-01T05:00:00Z' },
+  { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
 ];
 const LAB_GIFT_HOLDS = [
-  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000 },
-  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150 },
+  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000, plus: 1, pro: 0 },
+  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150, plus: 0, pro: 0 },
 ];

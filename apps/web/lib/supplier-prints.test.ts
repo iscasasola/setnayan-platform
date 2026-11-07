@@ -55,9 +55,11 @@ test('the 7 pieces — the prototype’s names and sizes', () => {
 });
 
 test('the QR choices are the shop’s own Promote codes + Reviews, Check a date first, with their printed captions', () => {
-  // Every Promote code prints; Reviews joins them on prints only (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL").
-  assert.deepEqual([...PRINT_QR_ORDER].sort(), [...PROMOTE_QR_MODES, 'reviews'].sort());
-  assert.ok(!(PROMOTE_QR_MODES as readonly string[]).includes('reviews'), 'Reviews leaked into the Promote screen’s code picker');
+  // Every Promote code prints (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL"). Retargeted 2026-11-06 for QR codes
+  // Option B: Reviews is now a ROW of Promote's list too (the prototype's four), so the print choices ARE the Promote
+  // codes, one for one — a code a print offers that the list cannot show (or the reverse) is the drift this catches.
+  assert.deepEqual([...PRINT_QR_ORDER].sort(), [...PROMOTE_QR_MODES].sort());
+  assert.ok((PROMOTE_QR_MODES as readonly string[]).includes('reviews'), 'Reviews left Promote’s QR list — Option B has four rows');
   assert.equal(PRINT_QR_ORDER[0], 'dates');
   assert.equal(printQrMode(null), 'dates');
   assert.equal(printQrMode('reviews'), 'reviews');
@@ -65,7 +67,7 @@ test('the QR choices are the shop’s own Promote codes + Reviews, Check a date 
   assert.deepEqual(
     PRINT_QR_ORDER.map((k) => PRINT_QR[k].cap),
     // the first three are the prototype's; the Reviews caption is this build's words (flagged for the owner)
-    ['Scan to check our dates', 'Scan to save us', 'Scan to see our work', 'Scan to read our reviews'],
+    ['Scan to check our dates', 'Scan to save us', 'Scan to see our work', 'Scan to review us'],
   );
 });
 

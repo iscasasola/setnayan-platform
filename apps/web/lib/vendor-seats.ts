@@ -64,7 +64,7 @@ export function extraSeatsFromPaidCount(count: number | null | undefined): numbe
 
 /**
  * Effective team-seat cap = the tier's base `agentAccounts` + paid extra seats.
- * Extra seats are only ever > 0 for Enterprise/Custom (the buy flow is gated),
+ * Extra seats are only ever > 0 for Ultra (the buy flow is gated),
  * so this is a no-op for every other tier. `Infinity` base stays `Infinity`.
  */
 export function effectiveSeatCap(baseCap: number, extraSeats: number): number {

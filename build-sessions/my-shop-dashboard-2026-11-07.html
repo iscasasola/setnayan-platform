@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Supplier Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="The full supplier dashboard — Today · Shop · Customers · Hub — as tiles with the shop's real figures, each with its own phone, tablet and desktop design, two sample shops, light and dark. 2026-11-07.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+
+/* ─── THE APP'S REAL TOKENS — copied from apps/web/app/globals.css (light = `:root`, dark = `html.dark`). Prototypes use the app's tokens, never their own (owner 4 Nov).
+   Layout: a slim control strip, then one device frame scaled to fit; inside it the shipped supplier shell — rail · bar · pinned row — and under the pinned row a DASHBOARD:
+   1440 = a 4-column bento · 820 = a 2-column bento with a wide hero · 390 = a phone home screen (hero, a swipeable KPI strip, recent, a swipeable services strip, mini tiles, the next step in the thumb zone). */
+:root{
+  --cream:255 255 255; --ink:44 42 41; --accent:194 78 37; --on-accent:255 255 255; --ok:43 116 74; --warn:150 90 0; --danger:179 38 30; --link:59 78 103;
+  --sn-canvas:#F7F5F0; --m-paper:#FFFFFF; --m-paper-2:#F4F2EC; --m-line:#E1DCD1; --m-line-soft:#EDE8DE; --m-ink:#2C2A29; --m-slate:#3A382F; --m-slate-3:#8A857B; --m-slate-4:#B5AF9E;
+  --m-orange:#A9834B; --m-orange-2:#8A6B39; --m-orange-3:#CBA766; --m-orange-4:#F3ECDF; --m-orange-deep:#5C4726; --sn-gold-700:#8A6B39;
+  --m-shadow-md:0 8px 24px -10px rgba(30,26,18,.18),0 2px 6px -2px rgba(30,26,18,.08);
+  --raised:255 255 255; --font:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+  --scrim:rgba(30,26,18,.38);
+  /* the one dark promo tile (the refs' "Upgrade Now") — the app's ink on light, the app's gold wash (--m-orange-4 dark) on dark */
+  --promo-bg:#2C2A29; --promo-fg:#FBFAF7; --promo-soft:rgba(251,250,247,.66); --promo-pill:#E5794E; --promo-on-pill:#17160F;
+  --photo-a:#D9C7A6; --photo-b:#8A6B39; --photo-c:#5C4726;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --cream:23 22 15; --ink:251 250 247; --accent:229 121 78; --on-accent:23 22 15; --ok:111 207 151; --warn:240 180 90; --danger:242 129 122; --link:157 178 206;
+  --sn-canvas:#17160F; --m-paper:#232019; --m-paper-2:#2B2821; --m-line:rgba(251,250,247,.16); --m-line-soft:rgba(251,250,247,.10); --m-ink:#FBFAF7; --m-slate:#D6D1C7; --m-slate-3:#9A958C; --m-slate-4:#6A665E;
+  --m-orange:#CBA766; --m-orange-2:#E2C98B; --m-orange-3:#A9834B; --m-orange-4:#413827; --m-orange-deep:#ECD9AE; --sn-gold-700:#E2C98B;
+  --m-shadow-md:0 8px 24px -10px rgba(0,0,0,.6),0 2px 6px -2px rgba(0,0,0,.35); --raised:35 32 25; --scrim:rgba(0,0,0,.55); color-scheme:dark;
+  --promo-bg:#413827; --promo-fg:#FBFAF7; --promo-soft:rgba(251,250,247,.7); --promo-pill:#E5794E; --promo-on-pill:#17160F;
+  --photo-a:#6A5A3C; --photo-b:#3E3222; --photo-c:#2B2418;
+}}
+:root[data-theme="dark"]{
+  --cream:23 22 15; --ink:251 250 247; --accent:229 121 78; --on-accent:23 22 15; --ok:111 207 151; --warn:240 180 90; --danger:242 129 122; --link:157 178 206;
+  --sn-canvas:#17160F; --m-paper:#232019; --m-paper-2:#2B2821; --m-line:rgba(251,250,247,.16); --m-line-soft:rgba(251,250,247,.10); --m-ink:#FBFAF7; --m-slate:#D6D1C7; --m-slate-3:#9A958C; --m-slate-4:#6A665E;
+  --m-orange:#CBA766; --m-orange-2:#E2C98B; --m-orange-3:#A9834B; --m-orange-4:#413827; --m-orange-deep:#ECD9AE; --sn-gold-700:#E2C98B;
+  --m-shadow-md:0 8px 24px -10px rgba(0,0,0,.6),0 2px 6px -2px rgba(0,0,0,.35); --raised:35 32 25; --scrim:rgba(0,0,0,.55); color-scheme:dark;
+  --promo-bg:#413827; --promo-fg:#FBFAF7; --promo-soft:rgba(251,250,247,.7); --promo-pill:#E5794E; --promo-on-pill:#17160F;
+  --photo-a:#6A5A3C; --photo-b:#3E3222; --photo-c:#2B2418;
+}
+*{box-sizing:border-box} html{-webkit-text-size-adjust:100%;height:100%}
+body{margin:0;min-height:100%;background:rgb(var(--cream));color:rgb(var(--ink));font-family:var(--font);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid rgb(var(--accent));outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ─── the control strip ─── */
+.strip{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgb(var(--cream) / .92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--m-line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:31;background:rgb(var(--cream))}
+.strip .eye{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sn-gold-700);margin-right:4px}
+.strip .grow{flex:1}
+.pb{appearance:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--m-line);background:var(--m-paper);font-size:13px;font-weight:600;color:rgb(var(--ink));white-space:nowrap}
+.pb .soft{color:var(--m-slate-3);font-weight:500} .pb .vv{font-size:11px;color:rgb(var(--accent))}
+.pb.rnd{width:40px;padding:0;justify-content:center;font-size:16px}
+
+/* ─── the stage: one device frame, scaled to fit ─── */
+.stage{padding-block:12px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;justify-content:center}
+.fit{position:relative;overflow:hidden;border:1px solid var(--m-line);border-radius:14px;background:var(--sn-canvas);box-shadow:var(--m-shadow-md);max-width:100%}
+.frame{transform-origin:0 0;position:relative;background:var(--sn-canvas);color:var(--m-ink);font-family:var(--font);display:grid;grid-template-rows:60px 1fr;overflow:hidden;height:var(--fh)}
+.frame.w1440{width:1440px;grid-template-columns:240px 1fr}
+.frame.w820{width:820px;grid-template-columns:72px 1fr}
+.frame.w390{width:390px;grid-template-columns:1fr;grid-template-rows:56px 1fr}
+
+/* rail — layout.tsx / front-door.css (unchanged) */
+.rail{grid-row:1 / span 2;background:var(--m-paper);border-right:1px solid var(--m-line);padding:18px 20px;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:auto}
+.rail .home{display:flex;align-items:center;gap:12px;font-size:15px;padding:0 0 14px;border-bottom:1px solid var(--m-line);background:none;border-left:0;border-right:0;border-top:0;text-align:left;color:var(--m-ink);min-height:44px}
+.rail .shop{font-size:13.5px;font-weight:700;color:var(--m-slate-3);margin-top:16px}
+.rail .menu{font-size:10.5px;letter-spacing:.14em;color:var(--m-slate-4);font-weight:700}
+.rail .it{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--m-slate-3);padding:11px 10px;border-radius:12px;margin:0 -10px;background:none;border:0;text-align:left;min-height:44px}
+.rail .it.on{background:var(--m-orange-4);color:rgb(var(--accent));font-weight:600}
+.rail .it .ic{width:22px;height:22px;display:inline-grid;place-items:center;font-size:16px}
+.rail .it .ct{margin-left:auto;font-size:12px;color:var(--m-slate-3)}
+.rail .foot{margin-top:auto;font-size:12px;color:var(--m-slate-3);line-height:1.6;border-top:1px solid var(--m-line);padding-top:16px}
+.w820 .rail{padding:14px 8px;align-items:center;gap:8px}
+.w820 .rail .it{flex-direction:column;gap:3px;font-size:10px;padding:8px 4px;margin:0;width:56px;text-align:center;justify-content:center}
+.w820 .rail .home{flex-direction:column;font-size:10px;gap:3px;padding:0 0 10px;width:56px;text-align:center;justify-content:center}
+
+/* bar (unchanged) */
+.bar{height:60px;background:var(--m-paper);border-bottom:1px solid var(--m-line);display:flex;align-items:center;gap:10px;padding:0 24px;min-width:0}
+.w390 .bar{height:56px;padding:0 12px}
+.pick{appearance:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;background:var(--sn-canvas);border:0;font-size:14px;font-weight:600;color:var(--m-ink);white-space:nowrap}
+.pick .soft{color:var(--m-slate-3);font-weight:500} .pick .vv{font-size:11px;color:rgb(var(--accent))}
+.bar .grow{flex:1}
+.ava{width:44px;height:44px;border-radius:999px;background:var(--m-orange-4);color:var(--m-orange-deep);display:inline-grid;place-items:center;font-size:12px;font-weight:700;border:0;flex:none}
+.rnd{width:44px;height:44px;border-radius:999px;border:1px solid var(--m-line);background:var(--m-paper);display:inline-grid;place-items:center;font-size:16px;color:var(--m-ink);flex:none}
+
+/* BUTTON_RULE_2026-10-07: every control a 44-px pill, icon + word; terracotta = forward · green = confirm · grey = cancel · red = remove */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;border:1px solid transparent;position:relative;text-decoration:none}
+.btn.pri{background:rgb(var(--accent));color:rgb(var(--on-accent))}
+.btn.okb{background:rgb(var(--ok));color:#fff}
+.btn.sec{background:var(--m-paper);border-color:var(--m-line);color:var(--m-ink)}
+.btn.gry{background:color-mix(in srgb,var(--m-ink) 8%,transparent);color:var(--m-ink)}
+.btn.red{background:rgb(var(--danger));color:#fff}
+.btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+.btn .i{font-size:15px;line-height:1}
+
+/* main column — the scroll box; the pinned row sticks to its top (unchanged) */
+.main{grid-column:2;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:auto;position:relative;scroll-behavior:smooth}
+.w390 .main{grid-column:1}
+.pin{position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:4px;height:60px;padding:8px 24px;border-bottom:1px solid var(--m-line);background:var(--sn-canvas);flex:none}
+.w390 .pin{padding:6px 16px;height:56px}
+.door{appearance:none;display:inline-flex;align-items:center;gap:3px;min-height:44px;padding:0 5px;border:0;background:none;border-radius:10px;font-size:13.5px;color:color-mix(in srgb,var(--m-ink) 70%,transparent);white-space:nowrap}
+.door b{font-size:15px;font-weight:700;color:var(--m-ink);font-variant-numeric:tabular-nums}
+.door.hot,.door.hot b{color:rgb(var(--accent))}
+.pin .grow{flex:1}
+
+/* ─── THE DASHBOARD ─── */
+.dash{padding:14px 24px 60px;min-width:0}
+.w390 .dash{padding:10px 16px 150px}
+.greet{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:6px 0 16px}
+.greet h1{font-size:28px;font-weight:800;letter-spacing:-.025em;line-height:1.05;margin:0;text-wrap:balance}
+.greet p{margin:4px 0 0;font-size:14px;color:var(--m-slate-3)}
+.greet .grow{flex:1}
+.greet .date{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--m-line);background:var(--m-paper);font-size:13px;font-weight:600;white-space:nowrap}
+.w390 .greet h1{font-size:24px}
+.w390 .greet .date{display:none}
+.grid{display:grid;gap:14px;align-items:stretch}
+.w1440 .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.w820 .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.w390 .grid{grid-template-columns:1fr;gap:12px}
+.w390 .grid.mini{grid-template-columns:1fr 1fr}
+/* a tile = a door. Frames only on what you press: every tile is pressable, so every tile has one. */
+.tile{position:relative;border:1px solid var(--m-line);background:var(--m-paper);border-radius:18px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--m-ink);cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.tile:hover{border-color:color-mix(in srgb,var(--m-ink) 30%,var(--m-line))}
+.tile.s2{grid-column:span 2} .tile.r2{grid-row:span 2}
+.w390 .tile.s2,.w390 .tile.r2{grid-column:auto;grid-row:auto}
+.tile.open{grid-column:1 / -1;grid-row:auto;cursor:default;border-color:rgb(var(--accent));box-shadow:var(--m-shadow-md)}
+.tile .th{display:flex;align-items:center;gap:8px;min-height:28px}
+.tile .th .ti{width:28px;height:28px;border-radius:999px;background:color-mix(in srgb,rgb(var(--accent)) 12%,transparent);display:inline-grid;place-items:center;font-size:14px;flex:none}
+.tile .th .tt{font-size:14px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .th .chev{color:rgb(var(--accent));font-size:16px;font-weight:700;flex:none}
+.tile .big{font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;margin-top:4px}
+.tile .big small{font-size:14px;font-weight:600;color:var(--m-slate-3);letter-spacing:0;margin-left:6px}
+.tile .big.dash{color:var(--m-slate-4)}
+.tile .ln{font-size:13px;color:var(--m-slate-3);line-height:1.35}
+.tile .ln.warn{color:rgb(var(--warn))}
+.trend{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--m-slate-3);margin-top:2px}
+.trend b{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-weight:700;font-size:12px;background:color-mix(in srgb,var(--m-ink) 7%,transparent);color:var(--m-slate)}
+.trend b.up{background:color-mix(in srgb,rgb(var(--ok)) 12%,transparent);color:rgb(var(--ok))}
+.trend b.down{background:color-mix(in srgb,rgb(var(--danger)) 12%,transparent);color:rgb(var(--danger))}
+.tile .x{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:999px;background:var(--m-paper-2);border:0;display:inline-grid;place-items:center;font-size:14px;color:var(--m-ink);z-index:2}
+.tbody{padding-top:8px;border-top:1px solid var(--m-line);margin-top:4px;animation:pane-in .22s ease;cursor:default}
+@keyframes pane-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.w1440 .tbody,.w820 .tbody{max-width:720px}
+.foot-l{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:6px;font-size:13px;color:var(--m-slate-3);border-top:1px solid var(--m-line-soft)}
+.foot-l b{color:var(--m-ink);font-weight:600}
+
+/* the hero tile — the shop card */
+.tile.hero{gap:12px}
+.hero-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{flex:none;width:64px;height:64px;border-radius:16px;background:var(--m-paper-2);color:var(--m-ink);display:grid;place-items:center;font-size:20px;font-weight:600;letter-spacing:.05em}
+.w390 .logo{width:52px;height:52px;font-size:17px;border-radius:14px}
+.hero .mid{flex:1;min-width:160px}
+.hero .nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.w390 .hero .nm{font-size:18px}
+.hero .sub{font-size:13.5px;color:var(--m-slate);margin-top:2px}
+.hero .addr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--m-orange-2)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:500;border:0;white-space:nowrap}
+.chip.ver{background:color-mix(in srgb,rgb(var(--ok)) 12%,transparent);color:rgb(var(--ok))}
+.chip.get{background:var(--m-orange-4);color:var(--m-orange-deep)}
+.ring{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px}
+.ring .r{width:80px;height:80px;border-radius:999px;display:grid;place-items:center;background:conic-gradient(var(--m-orange) var(--deg),var(--m-orange-3) 0)}
+.ring .r i{width:60px;height:60px;border-radius:999px;background:var(--m-orange-4);display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:16px;color:var(--m-ink);font-style:normal}
+.w390 .ring .r{width:64px;height:64px} .w390 .ring .r i{width:48px;height:48px;font-size:13px}
+.eye{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sn-gold-700)}
+.next{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:14px;padding:12px 14px;background:color-mix(in srgb,rgb(var(--accent)) 8%,transparent);margin-top:auto}
+.next .t{flex:1;min-width:160px} .next .t b{display:block;font-size:14px;font-weight:600} .next .t span{font-size:12.5px;color:var(--m-slate-3)}
+.w390 .next{display:none} /* on the phone the next step lives in the thumb zone */
+
+/* phone strips — swipeable rows of tiles */
+.hstrip{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:2px 16px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.hstrip::-webkit-scrollbar{display:none}
+.hstrip .tile{flex:0 0 150px;scroll-snap-align:start;padding:14px}
+.hstrip .tile.photo{flex-basis:160px}
+.hstrip .tile .big{font-size:28px}
+.sec-h{display:flex;align-items:center;gap:8px;padding:16px 0 8px;font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:color-mix(in srgb,var(--m-ink) 55%,transparent)}
+.sec-h .inf{margin-left:auto}
+.inf{width:28px;height:28px;border-radius:999px;border:0;background:none;display:inline-grid;place-items:center;padding:0}
+.inf i{width:16px;height:16px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--m-ink) 55%,transparent);display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:color-mix(in srgb,var(--m-ink) 65%,transparent);font-family:var(--mono);font-style:normal;text-transform:none;letter-spacing:0}
+
+/* people rows (recent asks · helpers) */
+.prow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 0;border-top:1px solid var(--m-line-soft)}
+.prow.first{border-top:0}
+.pava{flex:none;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--m-orange-4);color:var(--m-orange-deep)}
+.pava.q{background:color-mix(in srgb,var(--m-ink) 6%,transparent);color:var(--m-slate-3)}
+.prow .t{flex:1;min-width:0} .prow .nm{display:block;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .prow .ln{display:block;font-size:12.5px;color:var(--m-slate-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .amt{font-weight:700;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+.badge{flex:none;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.badge.ok{color:rgb(var(--ok));background:color-mix(in srgb,rgb(var(--ok)) 12%,transparent)}
+.badge.wait{color:rgb(var(--warn));background:color-mix(in srgb,rgb(var(--warn)) 12%,transparent)}
+.badge.quiet{color:color-mix(in srgb,var(--m-ink) 62%,transparent);background:color-mix(in srgb,var(--m-ink) 7%,transparent)}
+
+/* services as photo tiles — "Top Selling Products" */
+.svcgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.w820 .svcgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.svc{position:relative;border:1px solid var(--m-line);border-radius:14px;overflow:hidden;background:var(--m-paper-2);min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;text-align:left;color:var(--m-ink);cursor:pointer}
+.svc .cover{position:absolute;inset:0;background:linear-gradient(135deg,var(--photo-a),var(--photo-b) 60%,var(--photo-c))}
+.svc .cover::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 50% at 70% 20%,rgba(255,255,255,.35),transparent 70%)}
+.svc .cover.none{background:repeating-linear-gradient(135deg,var(--m-paper-2) 0 8px,var(--m-line-soft) 8px 10px)}
+.svc .cover.none::after{content:none}
+.svc .lab{position:relative;z-index:1;background:var(--m-paper);border-radius:10px;padding:8px 10px}
+.svc .lab b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .svc .lab span{display:block;font-size:12px;color:var(--m-slate-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.svc .lab .on{color:rgb(var(--ok))} .svc .lab .wn{color:rgb(var(--warn))}
+.svc.addt{border-style:dashed;background:none;justify-content:center;align-items:center;gap:6px;font-size:13px;color:var(--m-slate-3)}
+.hstrip .svc{flex:0 0 160px;min-height:150px;scroll-snap-align:start}
+
+/* meters — verification · gallery */
+.meter{height:10px;border-radius:999px;background:color-mix(in srgb,var(--m-ink) 8%,transparent);overflow:hidden;margin-top:4px}
+.meter i{display:block;height:100%;border-radius:999px;background:rgb(var(--ok));width:var(--w)}
+.meter i.gold{background:var(--m-orange)}
+.steps{display:flex;gap:6px;margin-top:6px}
+.steps i{flex:1;height:8px;border-radius:999px;background:color-mix(in srgb,var(--m-ink) 8%,transparent)} .steps i.on{background:rgb(var(--ok))} .steps i.half{background:rgb(var(--warn))}
+
+/* the bar chart — one scale, labels on values the chart reaches */
+.chart{display:block;width:100%;height:auto;margin-top:4px}
+.chart text{font-family:var(--font);font-size:11px;fill:var(--m-slate-3)}
+.chart .bar{fill:color-mix(in srgb,var(--m-ink) 12%,transparent)} .chart .bar.now{fill:rgb(var(--accent))} .chart .grid{stroke:var(--m-line-soft);stroke-width:1}
+.chart .val{fill:var(--m-ink);font-weight:700}
+.srow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:13px;padding:5px 0}
+.srow .bar{grid-column:1 / -1;height:8px;border-radius:999px;background:color-mix(in srgb,var(--m-ink) 8%,transparent);overflow:hidden}
+.srow .bar i{display:block;height:100%;background:var(--m-orange);width:var(--w);border-radius:999px}
+.srow b{font-variant-numeric:tabular-nums}
+
+/* QR */
+.qr{width:72px;height:72px;border-radius:10px;background:
+  conic-gradient(var(--m-ink) 25%,transparent 0) 0 0/16px 16px,
+  conic-gradient(transparent 75%,var(--m-ink) 0) 8px 8px/16px 16px,var(--m-paper);border:1px solid var(--m-line);flex:none;opacity:.9}
+.qr.off{opacity:.3}
+
+/* the promo tile */
+.tile.promo{background:var(--promo-bg);color:var(--promo-fg);border-color:transparent}
+.tile.promo .th .tt{color:var(--promo-fg)} .tile.promo .th .ti{background:rgba(251,250,247,.14)}
+.tile.promo .ln{color:var(--promo-soft)}
+.tile.promo .h{font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-top:2px;text-wrap:balance}
+.tile.promo .btn.pri{background:var(--promo-pill);color:var(--promo-on-pill);align-self:flex-start;margin-top:auto}
+.tile.promo.open{background:var(--m-paper);color:var(--m-ink)} .tile.promo.open .th .tt,.tile.promo.open .h{color:var(--m-ink)} .tile.promo.open .ln{color:var(--m-slate-3)}
+.tile.promo::after{content:"";position:absolute;right:-30px;bottom:-40px;width:140px;height:140px;border-radius:999px;background:radial-gradient(circle,rgba(229,121,78,.45),transparent 70%);pointer-events:none}
+.tile.promo.open::after{content:none}
+
+/* rooms — rows, key-values, fields (shop/page.tsx · fold.tsx), used inside an open tile */
+.row{position:relative;border-top:1px solid var(--m-line);overflow:hidden}
+.row.first{border-top:0}
+.rowin{position:relative;z-index:1;display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 0;cursor:pointer}
+.ric{flex:none;width:36px;height:36px;border-radius:999px;background:color-mix(in srgb,var(--m-ink) 5%,transparent);color:color-mix(in srgb,var(--m-ink) 75%,transparent);display:inline-grid;place-items:center;font-size:15px}
+.row .t{min-width:0;flex:1} .row .nm{display:block;font-size:15px;font-weight:500;line-height:1.2;color:var(--m-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .ln{display:block;margin-top:3px;font-size:13px;color:color-mix(in srgb,var(--m-ink) 60%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .ln.warn{color:rgb(var(--warn))}
+.chev{flex:none;color:rgb(var(--accent));font-size:16px;font-weight:700}
+.sec-l{display:flex;align-items:center;gap:8px;padding:14px 0 4px;font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:color-mix(in srgb,var(--m-ink) 55%,transparent)}
+.sec-l .inf{margin-left:auto}
+.kv{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 0;border-top:1px solid var(--m-line);font-size:14px}
+.kv > span:first-child{min-width:0} .kv small{display:block;font-size:12.5px;color:color-mix(in srgb,var(--m-ink) 60%,transparent)}
+.sw{flex:none;width:44px;height:26px;border-radius:999px;border:0;padding:0;background:color-mix(in srgb,var(--m-ink) 18%,transparent);position:relative;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:999px;background:#fff;transition:left .2s}
+.sw[aria-checked="true"]{background:rgb(var(--ok))} .sw[aria-checked="true"]::after{left:21px}
+.acts{display:flex;gap:10px;flex-wrap:wrap;padding:14px 0 4px}
+.sp{font-size:13px;color:var(--m-slate-3);padding:10px 0 0;margin:0}
+.fld{padding:12px 0 2px} .fld label{display:block;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:color-mix(in srgb,var(--m-ink) 60%,transparent);margin-bottom:6px}
+.fld .hint{display:block;font-size:13px;color:var(--m-slate-3);margin-top:5px}
+.in{width:100%;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--m-line);background:var(--m-paper);color:var(--m-ink);font:inherit;font-size:15px}
+textarea.in{min-height:72px;padding:10px 14px;resize:vertical}
+.drop{display:grid;place-items:center;gap:8px;min-height:100px;border:1px dashed var(--m-line);border-radius:14px;color:var(--m-slate-3);font-size:13px;padding:12px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 0 10px}
+.w390 .cards{grid-template-columns:repeat(2,1fr)}
+.card{border:1px solid var(--m-line);background:var(--m-paper);border-radius:12px;padding:12px;min-width:0}
+.card .eye{display:block;margin-bottom:4px} .card b{display:block;font-size:14px;font-weight:600} .card span{font-size:13px;color:var(--m-slate-3)}
+.card.add{display:grid;place-items:center;border-style:dashed;background:none}
+
+/* phone: the opened tile is a full screen over the dashboard, with a back bar */
+.ppane{position:absolute;inset:0;z-index:8;background:var(--sn-canvas);overflow:auto;padding:0 16px 120px;animation:slide-in .24s ease;scroll-behavior:smooth}
+@keyframes slide-in{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+.pback{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;min-height:56px;margin:0 -16px;padding:0 8px;background:var(--sn-canvas);border-bottom:1px solid var(--m-line)}
+.pback .bk{display:inline-flex;align-items:center;gap:2px;min-height:44px;padding:0 8px;border:0;background:none;color:rgb(var(--accent));font-size:15px;font-weight:500}
+.pback b{font-size:17px;font-weight:600;letter-spacing:-.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppane .tbody{border-top:0;padding-top:12px}
+
+/* phone chrome — the thumb zone + the four tabs */
+.tabs{position:absolute;left:0;right:0;bottom:0;height:78px;background:var(--m-paper);border-top:1px solid var(--m-line);display:grid;grid-template-columns:repeat(4,1fr);align-items:center;text-align:center;font-size:11px;color:var(--m-slate-3);z-index:9}
+.tabs button{background:none;border:0;color:inherit;height:100%;display:grid;place-items:center;align-content:center;gap:2px}
+.tabs .on{color:rgb(var(--accent));font-weight:600} .tabs i{display:block;font-style:normal;font-size:18px}
+.thumb{position:absolute;left:16px;right:16px;bottom:92px;display:flex;justify-content:flex-end;gap:8px;z-index:7}
+.thumb .btn{box-shadow:var(--m-shadow-md)}
+.thumb .btn.pri{flex:1;justify-content:space-between;padding-left:18px}
+.glassfade{position:absolute;left:0;right:0;bottom:78px;height:110px;background:linear-gradient(to top,var(--sn-canvas),transparent);pointer-events:none;z-index:6}
+
+/* the one PickMenu — a listbox under its button; a sheet on the phone */
+.fov{position:absolute;inset:0;z-index:40;pointer-events:none} .fov > *{pointer-events:auto}
+.pm{position:absolute;z-index:60;min-width:220px;max-width:min(92%,360px);background:rgb(var(--raised));border:1px solid var(--m-line-soft);border-radius:16px;padding:6px;margin:0;list-style:none;box-shadow:0 18px 40px -18px rgba(30,26,18,.45);animation:pane-in .16s ease}
+.pm li{margin:0}
+.pm .op{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;width:100%;padding:0 12px;border-radius:12px;font-size:14px;background:none;border:0;color:var(--m-ink);text-align:left}
+.pm .op:hover{background:color-mix(in srgb,var(--m-ink) 5%,transparent)}
+.pm .op[aria-selected="true"]{font-weight:600}
+.pm .op .tick{color:rgb(var(--accent));font-weight:700;visibility:hidden} .pm .op[aria-selected="true"] .tick{visibility:visible}
+.pm .op small{display:block;font-size:12px;color:var(--m-slate-3);font-weight:400}
+.pm.sheet{position:absolute;left:0;right:0;bottom:0;max-width:none;border-radius:20px 20px 0 0;padding:10px 10px 28px;animation:up .22s ease}
+.pm .ttl{padding:8px 12px 10px;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--m-slate-3)}
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:55;border:0;padding:0;cursor:default}
+.scrim.clear{background:transparent}
+@keyframes up{from{transform:translateY(24px);opacity:.5}to{transform:none;opacity:1}}
+
+/* sheets inside the frame */
+.fsheet{position:absolute;inset:0;z-index:70;display:grid;align-items:end}
+.fsheet .scrim{position:absolute}
+.fsheet .cardx{position:relative;z-index:1;background:var(--sn-canvas);border-radius:20px 20px 0 0;padding:14px 16px 28px;max-height:86%;overflow:auto;animation:up .24s ease}
+.w1440 .fsheet,.w820 .fsheet{align-items:center;justify-items:center}
+.w1440 .fsheet .cardx,.w820 .fsheet .cardx{border-radius:20px;width:min(560px,92%);max-height:80%;padding:18px 20px 22px}
+.fsheet .th{display:flex;align-items:center;gap:8px;padding-bottom:8px} .fsheet .th b{font-size:18px;font-weight:600;flex:1}
+.xs{width:44px;height:44px;border-radius:999px;background:var(--m-paper-2);border:0;display:inline-grid;place-items:center;font-size:14px;flex:none;color:var(--m-ink)}
+
+/* toast — supplier-toast.tsx shape */
+.toast{position:absolute;left:16px;right:16px;bottom:16px;z-index:80;background:var(--m-ink);color:var(--m-paper);border-radius:14px;padding:6px 6px 6px 14px;display:flex;align-items:center;gap:12px;font-size:14px;box-shadow:var(--m-shadow-md);animation:up .2s ease}
+.w390 .toast{bottom:92px}
+
+/* the page-level ⓘ sheet */
+.info{position:fixed;inset:0;z-index:90;display:grid;align-items:end;justify-items:center}
+.info .scrim{position:fixed}
+.info .cardx{position:relative;z-index:1;width:min(760px,100%);max-height:88vh;overflow:auto;background:rgb(var(--cream));color:rgb(var(--ink));border-radius:20px 20px 0 0;padding-block:16px 40px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));animation:up .24s ease}
+@media (min-width:760px){.info{align-items:center}.info .cardx{border-radius:20px;max-height:84vh}}
+.info h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0;flex:1}
+.info h3{font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sn-gold-700);margin:22px 0 6px}
+.info ol,.info ul{margin:0;padding-left:20px;font-size:14px;color:var(--m-slate)} .info li{margin:5px 0} .info li b{color:rgb(var(--ink))}
+.info p{font-size:14px;color:var(--m-slate);margin:6px 0}
+.info code{font-family:var(--mono);font-size:12px;background:color-mix(in srgb,rgb(var(--ink)) 6%,transparent);padding:1px 5px;border-radius:5px}
+.info table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px} .info th,.info td{text-align:left;padding:6px 8px 6px 0;border-bottom:1px solid var(--m-line);vertical-align:top} .info th{font-weight:600}
+.info .tw{overflow-x:auto}
+.pmx{position:fixed;z-index:95}
+/* ─── additions for the full dashboard ─── */
+.tile{transition:border-color .15s,box-shadow .15s,transform .12s}
+.tile:active:not(.open){transform:scale(.985)}
+.hstrip .tile:active{transform:scale(.97)}
+.svc:active{transform:scale(.97)} .svc{transition:transform .12s}
+.rowin:active{background:color-mix(in srgb,var(--m-ink) 4%,transparent)}
+.big.rise{animation:rise .5s ease}
+@keyframes rise{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pop{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:999px;background:rgb(var(--ok));color:#fff;font-weight:700;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.ring.done .r{background:conic-gradient(rgb(var(--ok)) 360deg,rgb(var(--ok)) 0)} .ring.done .r i{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.tile.nextc{gap:10px}
+.nextc .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgb(var(--accent))}
+.nextc .h{font-size:26px;font-weight:800;letter-spacing:-.025em;line-height:1.08;text-wrap:balance}
+.w390 .nextc .h{font-size:22px}
+.nextc .who{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--m-slate)}
+.nextc .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:6px}
+.nextc .then{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--m-slate-3);border-top:1px solid var(--m-line-soft);padding-top:10px}
+.nextc .then b{color:var(--m-ink);font-weight:500}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:4px}
+.day{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border-radius:12px;background:color-mix(in srgb,var(--m-ink) 4%,transparent);font-size:11px;color:var(--m-slate-3);min-width:0}
+.day b{font-size:16px;font-weight:700;color:var(--m-ink);font-variant-numeric:tabular-nums}
+.day.booked{background:color-mix(in srgb,rgb(var(--ok)) 14%,transparent)} .day.booked b{color:rgb(var(--ok))}
+.day.asking{background:color-mix(in srgb,rgb(var(--accent)) 12%,transparent)} .day.asking b{color:rgb(var(--accent))}
+.day.off{background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--m-ink) 7%,transparent) 5px 7px)}
+.day.today{outline:2px solid rgb(var(--accent));outline-offset:-2px}
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:6px}
+.month .dow{font-size:10.5px;text-align:center;color:var(--m-slate-4);font-weight:700;letter-spacing:.06em}
+.month .d{aspect-ratio:1;display:grid;place-items:center;border-radius:10px;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--m-ink);background:color-mix(in srgb,var(--m-ink) 3%,transparent)}
+.month .d.pad{background:none;color:transparent}
+.month .d.booked{background:color-mix(in srgb,rgb(var(--ok)) 16%,transparent);color:rgb(var(--ok));font-weight:700}
+.month .d.asking{background:color-mix(in srgb,rgb(var(--accent)) 14%,transparent);color:rgb(var(--accent));font-weight:700}
+.month .d.off{background:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--m-ink) 8%,transparent) 4px 6px);color:var(--m-slate-3)}
+.month .d.today{outline:2px solid rgb(var(--accent));outline-offset:-2px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--m-slate-3);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.lanes{display:flex;height:12px;border-radius:999px;overflow:hidden;gap:2px;margin-top:6px}
+.lanes i{display:block;height:100%;background:var(--m-orange-3);flex:var(--n) 0 0}
+.lanes i.w{background:rgb(var(--accent))} .lanes i.t{background:var(--m-orange)} .lanes i.b{background:rgb(var(--ok))} .lanes i.f{background:color-mix(in srgb,var(--m-ink) 18%,transparent)}
+.lanekey{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;font-size:12.5px;color:var(--m-slate-3);margin-top:8px}
+.lanekey b{color:var(--m-ink);font-variant-numeric:tabular-nums;margin-right:4px}
+.chart .bar{cursor:pointer} .chart .bar.hit{fill:var(--m-orange)} .chart .callout{fill:var(--m-ink);font-weight:700;font-size:12px}
+.count{display:flex;gap:14px;align-items:baseline;margin-top:4px} .count b{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums} .count span{font-size:13px;color:var(--m-slate-3)}
+.w390 .count b{font-size:34px}
+.mods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px}
+.mod{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--m-ink) 4%,transparent);font-size:13px;font-weight:500;min-width:0}
+.mod .ic{width:26px;height:26px;border-radius:999px;background:var(--m-paper);display:inline-grid;place-items:center;font-size:12px;flex:none;border:1px solid var(--m-line)}
+.mod span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row{overflow:hidden} .rowin{background:var(--m-paper);transition:transform .2s ease;touch-action:pan-y}
+.rv{position:absolute;top:0;bottom:0;right:0;width:84px;border:0;background:rgb(var(--danger));color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;z-index:0;visibility:hidden}
+.row.rev .rv,.row.drag .rv{visibility:visible}
+.row.gone{animation:gone .22s ease forwards}
+@keyframes gone{to{opacity:0;max-height:0;min-height:0;transform:translateX(-40px)}}
+.toast .u{margin-left:auto;color:var(--m-orange-3);font-weight:700;background:none;border:0;min-height:44px;padding:0 12px;border-radius:10px}
+.pava.ev{background:color-mix(in srgb,rgb(var(--ok)) 14%,transparent);color:rgb(var(--ok))}
+.empty{display:grid;gap:6px;padding:8px 0 4px}
+/* phone: the profile ring sits top-right of the shop card, out of the address line's way */
+.w390 .hero-top{position:relative;padding-right:78px;align-items:flex-start}
+.w390 .hero-top .ring{position:absolute;top:0;right:0}
+.w390 .hero .nm{font-size:17px}
+.w390 .hstrip .tile{flex-basis:168px}
+.w390 .hstrip .tile .th .tt{font-size:13.5px}
+.w390 .grid.mini .tile .big{font-size:26px}
+</style>
+</head>
+<body>
+<div class="strip" id="strip">
+  <span class="eye">Supplier dashboard</span>
+  <button class="pb" id="x-btn" type="button" aria-haspopup="listbox"><span class="soft">Section</span> <span id="x-lbl">Today</span> <span class="vv">▾</span></button>
+  <button class="pb" id="w-btn" type="button" aria-haspopup="listbox"><span class="soft">Width</span> <span id="w-lbl">Desktop 1440</span> <span class="vv">▾</span></button>
+  <button class="pb" id="s-btn" type="button" aria-haspopup="listbox"><span class="soft">Sample</span> <span id="s-lbl">As today</span> <span class="vv">▾</span></button>
+  <span class="grow"></span>
+  <button class="pb rnd" id="t-btn" type="button" aria-label="Light or dark">◐</button>
+  <button class="pb rnd" id="i-btn" type="button" aria-label="The tiles, their sources, and what does not exist yet">ⓘ</button>
+</div>
+<div class="stage"><div class="fit" id="fit"><div class="frame w1440" id="frame" style="--fh:980px"></div></div></div>
+<div id="page-layer"></div>
+<script>
+/* ═══════════════ data — the shipped words; sample B's figures are SAMPLE values of figures the app really reads ═══════════════ */
+const I={layers:'☰',doc:'▭',pay:'▣',page:'▢',photo:'▦',spark:'✦',people:'👥',shield:'⛨',reply:'↩',crew:'⛑',gem:'◇',wallet:'▣',receipt:'▭',check:'✓',images:'▦',store:'⌂',cam:'◉',star:'☆',globe:'◍',pin:'⌖',search:'⌕',bell:'◌',mail:'✉',today:'▤',cust:'👥',shop:'◫',hub:'▦',id:'▢',clock:'◷',map:'⌖',txt:'≡',eye:'◉',ask:'✉',book:'✓',peso:'₱',chart:'▥',qr:'▦',cal:'▤',run:'▶',guest:'👥',seat:'⌖',mic:'♪',brief:'≡',shot:'◉',team:'👥',pages:'▢',hand:'↗'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const FH={390:844,820:1180,1440:980};
+const SHOP={name:'Rondo Musical',ini:'RM',city:'Quezon City',trade:'Band / DJ',addr:'www.setnayan.com/rondomusical',email:'hello@rondomusical.ph',phone:'0917 ••• ••••'};
+const MONTHS=['Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'];
+const TODAY_ISO='2026-11-07'; /* the frame's "today" — a Saturday */
+const SVCS_B=()=>[
+  {id:'band',t:'Band / DJ',cards:[['Good','Ceremony set','₱25,000'],['Better','Ceremony + cocktails','₱38,000']],live:true,cover:true,tools:[['Setlist','Songs in order, first dance marked',true],['Song requests','Guests ask from their phone',true],['Announcements','Message everyone on the event',false]],scanner:'No scanner'},
+  {id:'trio',t:'Acoustic trio',cards:[['Good','Cocktail hour','₱18,000']],live:false,cover:true,tools:[['Setlist','Songs in order, first dance marked',true],['Song requests','Guests ask from their phone',false]],scanner:'No scanner'},
+  {id:'sound',t:'Sound &amp; lights',cards:[],live:false,cover:false,tools:[['Setup checklist','',true]],scanner:'No scanner'},
+];
+/* customers — the roster (lib/vendor-customer-pipeline.ts lanes: waiting · holding · talking · booked · finished) */
+const CUST_B=()=>[
+  {id:'mp',who:'Mika &amp; Paolo',ini:'MP',date:'2026-12-12',place:'Tagaytay',lane:'waiting',l:'Asked to book · answer by Mon',paid:0,total:38000},
+  {id:'anon',who:'A couple',ini:'?',date:'2027-02-20',place:null,lane:'waiting',l:'Asked yesterday · not yet accepted',paid:0,total:null},
+  {id:'al',who:'Ana &amp; Luis',ini:'AL',date:'2027-01-24',place:'Makati',lane:'booked',l:'Deposit paid · ₱25,500 to come',paid:12500,total:38000},
+  {id:'dc',who:'Dela Cruz wedding',ini:'DC',date:'2026-11-14',place:'Quezon City',lane:'booked',l:'This Saturday · paid in full',paid:25000,total:25000},
+  {id:'sr',who:'Santos &amp; Reyes',ini:'SR',date:'2027-03-06',place:'Antipolo',lane:'talking',l:'Quote sent · ₱18,000',paid:0,total:18000},
+  {id:'rd',who:'Reyes debut',ini:'RD',date:'2026-10-10',place:'Pasig',lane:'finished',l:'Done · review received · 5 ★',paid:18000,total:18000},
+];
+const FIG={
+  a:{views:0,viewsBefore:0,asks:0,asksBefore:0,booked:0,bookedBefore:0,monthPhp:0,monthCount:0,ytdPhp:0,months:[0,0,0,0,0,0,0,0,0,0,0,0],reviews:0,rating:null,docsIn:0,docsTotal:4,contacts:0,photos:0,videos:0,credits:50,gifts:0,helpers:[],plan:'Free',recent:[],sources:null,profileDone:7,profileOf:8,missing:'In business since',
+     waiting:0,thisWeek:0,toCome:0,received:0,overdue:0,off:[],setupDone:2,setupOf:8,cust:[]},
+  b:{views:142,viewsBefore:104,asks:9,asksBefore:5,booked:2,bookedBefore:2,monthPhp:38000,monthCount:1,ytdPhp:234000,months:[0,18,25,0,38,18,0,25,0,18,54,38],reviews:4,rating:4.8,docsIn:4,docsTotal:4,contacts:2,photos:36,videos:2,credits:14,gifts:12,helpers:[['Jo Reyes','JR','Helper · free seat']],plan:'Solo',
+     recent:[{k:'lock',who:'Mika &amp; Paolo',ini:'MP',l:'Asked to book · 12 Dec 2026 · 2 h ago',badge:['wait','Answer']},{k:'ask',who:'A couple',ini:'?',l:'Asked · Feb 2027 · yesterday',badge:['quiet','New']},{k:'booked',who:'Ana &amp; Luis',ini:'AL',l:'Deposit confirmed · 24 Jan 2027',amt:'₱12,500'}],
+     sources:[['Explore card',86],['Marketplace search',41],['Profile (direct)',15],['Added by couple',3]],profileDone:8,profileOf:8,missing:null,
+     waiting:2,thisWeek:1,toCome:43500,received:56000,overdue:0,off:['2026-11-21','2026-11-22'],setupDone:8,setupOf:8,cust:CUST_B()},
+};
+const SETUP=[['Your details','done'],['Add your logo','done'],['Add what you offer','now'],['Send your documents','later'],['Mark the days you are not available','later'],['Add the bookings you already have','later'],['Show your QR to the next couple','later'],['Setnayan approves you — you go live','waiting']]; /* lib/vendor-first-steps.ts buildFirstStepsRail */
+const GIVES=[['Services you can put up','1 per kind · 1 kind of work'],['Helpers','1 team seat + 1 free Helper'],['Waiting list','1 a date'],['Asking for a date · couples at once','5 a date'],['How far you reach','Not in couples’ search on this plan'],['Branches beyond your main shop','Not on this plan'],['How is my business doing','All of it — open to every plan today'],['Your own web address','Comes with Solo']];
+const PAPERS=[['DTI or SEC Registration','Required'],['BIR Form 2303 (Certificate of Registration)','Required'],['Mayor’s Permit (current year)','Required'],['Bank account proof','Required · name should match your DTI/SEC name']];
+const KINDS=['Band / DJ','Acoustic trio','Sound &amp; lights'];
+const PRICES=['Per hour · minimum hours · extra hour','Per guest · minimum','Per meal · minimum'];
+const SEGS={shop:['Details','Services','Page','Promote','Portfolio','Analytics','Plan'],customers:['Events','Dates','Money']};
+const PLANS=['Free','Solo','Pro','Ultra'];
+const FUNNEL_MIN_N=5; /* lib/vendor-funnel.ts — slices under the floor draw "—" */
+const HUB_MODS=[['Run the floor',I.run],['Final headcount &amp; meal splits',I.guest],['Your setlist',I.mic],['Your event brief',I.brief]]; /* on-the-day/page.tsx — a band's day-of modules (lib/vendor-dayof-modules.ts) */
+const SECTIONS=[['today','Today'],['shop','Shop'],['customers','Customers'],['hub','Hub']];
+
+/* ═══════════════ state ═══════════════ */
+const S={sec:'today',w:1440,sample:'a',open:null,seg:{shop:'Services',customers:'Events'},svcs:[],cust:[],removed:[],plan:'Free',docs:[0,0,0,0],codes:{email:false,phone:false},since:false,auto:false,autoAccept:false,toast:null,sheet:null,kind:'',price:'',name:'',pricing:'',pay:[],gigs:'Open gigs',hit:null,hubEvent:'dc',checked:0,setup:[]};
+let toastTimer=null,n=0;const counted=new Set();
+const F=()=>FIG[S.sample];
+const verified=()=>S.sample==='b';
+const profileDone=()=>F().profileDone+(S.since&&F().missing?1:0);
+const profilePct=()=>Math.round(profileDone()/F().profileOf*100);
+const missing=()=>S.since?null:F().missing;
+const figures=()=>({services:S.svcs.length,live:S.svcs.filter(s=>s.live).length,tools:S.svcs.reduce((a,s)=>a+s.tools.filter(t=>t[2]).length+(s.scanner&&s.scanner!=='No scanner'?1:0),0)});
+function resetSample(){S.svcs=S.sample==='b'?SVCS_B():[];S.cust=F().cust.map(c=>({...c}));S.removed=[];S.open=null;S.plan=F().plan;S.docs=[0,0,0,0];S.codes={email:false,phone:false};S.since=false;S.pay=S.sample==='b'?['GCash']:[];S.hit=null;S.checked=0;S.setup=SETUP.map(s=>s[1]);counted.clear();}
+const php=v=>v===null?'—':'₱'+v.toLocaleString('en-PH');
+const changeWord=(now,before)=>now===null||before===null?null:now===before?'same':now>before?`+${now-before}`:`−${before-now}`; /* lib/shop-section-figures.ts changeWord */
+const greeting=()=>{const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening';};
+const fmtDate=(iso,o={})=>new Date(iso+'T00:00:00').toLocaleDateString('en-PH',{day:'numeric',month:'short',...o});
+const daysUntil=iso=>Math.round((new Date(iso+'T00:00:00')-new Date(TODAY_ISO+'T00:00:00'))/86400000);
+const lane=k=>S.cust.filter(c=>c.lane===k);
+const laneWord={waiting:'asking',holding:'holding',talking:'talking',booked:'booked',finished:'done'};
+
+/* ═══════════════ shared pieces ═══════════════ */
+const btn=(tone,icon,label,act,cls='')=>`<button type="button" class="btn ${tone} ${cls}" data-act="${act}">${icon?`<span class="i">${icon}</span>`:''}${label}</button>`;
+const pickBtn=(id,lead,val,soft)=>`<button type="button" class="pick" data-act="menu:${id}" aria-haspopup="listbox">${lead?`${lead} `:''}${soft?`<span class="soft">· ${val}</span>`:val} <span class="vv">▾</span></button>`;
+const trend=(now,before,word='vs the 30 d before')=>{const c=changeWord(now,before);if(c===null)return `<span class="trend"><b>not read</b></span>`;const cls=c==='same'?'':c.startsWith('+')?'up':'down';return `<span class="trend"><b class="${cls}">${c}</b>${word}</span>`;};
+/* a number that counts up the first time its tile is drawn (once per section · sample · key) */
+const num=(key,v,small='')=>{const id=`${S.sec}:${S.sample}:${key}`;const fresh=!counted.has(id);counted.add(id);return `<div class="big ${fresh?'rise':''}" ${fresh&&typeof v==='number'?`data-count="${v}"`:''}>${typeof v==='number'?v.toLocaleString('en-PH'):v}${small?`<small>${small}</small>`:''}</div>`;};
+const nump=(key,v,small='')=>{const id=`${S.sec}:${S.sample}:${key}`;const fresh=!counted.has(id);counted.add(id);return `<div class="big ${fresh?'rise':''}" ${fresh?`data-count="${v}" data-peso="1"`:''}>${php(v)}${small?`<small>${small}</small>`:''}</div>`;};
+function countUp(){document.querySelectorAll('.big[data-count]').forEach(el=>{const to=+el.dataset.count;const peso=el.dataset.peso;const small=el.querySelector('small');const smallHtml=small?small.outerHTML:'';const t0=performance.now();const dur=Math.min(900,400+to/2);
+  const step=t=>{const p=Math.max(0,Math.min(1,(t-t0)/dur));const e=1-Math.pow(1-p,3);const v=Math.round(to*e);el.innerHTML=(peso?'₱'+v.toLocaleString('en-PH'):v.toLocaleString('en-PH'))+smallHtml;if(p<1)requestAnimationFrame(step);};
+  if(to>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches)requestAnimationFrame(step);el.removeAttribute('data-count');});}
+function rail(){
+  const items=[['today','Today',''],['customers','Customers',F().waiting?String(F().waiting):''],['shop','Shop',''],['hub','Hub','']];
+  if(S.w===390) return '';
+  const it=items.map(([k,l,c])=>`<button type="button" class="it ${k===S.sec?'on':''}" data-act="sec:${k}"><span class="ic">${I[k==='customers'?'cust':k]}</span>${l}${c&&S.w===1440?`<span class="ct">${c}</span>`:''}</button>`).join('');
+  if(S.w===820) return `<aside class="rail"><button type="button" class="home" data-act="nope:My Home"><span>←</span>Home</button>${it}</aside>`;
+  return `<aside class="rail"><button type="button" class="home" data-act="nope:My Home"><span>←</span> My Home</button><div class="shop">◫ ${SHOP.name}</div><div class="menu">MENU</div>${it}<div class="foot">About · Pricing · Help · Open your shop<br>Terms · Privacy · Acceptable use · Cookies<br>Refunds · Download · Articles · For storytellers · For suppliers<br><br>© 2026 Setnayan<br><i>Set na ’yan — that’s all set.</i></div></aside>`;
+}
+function bar(){
+  const lead=S.sec==='shop'?pickBtn('seg:shop','Shop',S.seg.shop,true):S.sec==='customers'?pickBtn('seg:customers','Customers',S.seg.customers,true):`<span class="pick" style="cursor:default">${S.sec==='today'?'Today':'Hub'}</span>`;
+  const tool=S.w===390?'':S.sec==='shop'?btn('pri','＋','Add a service','add'):S.sec==='customers'?btn('pri','＋','Add a booking','nope:Add a booking'):S.sec==='hub'?btn('pri','＋','Add a moment, tool or helper','nope:Add a moment, tool or helper'):'';
+  return `<div class="bar">${lead}<span class="grow"></span>${tool}${S.w!==390?`<button type="button" class="rnd" data-act="nope:Notifications" aria-label="Notifications">${I.bell}</button><button type="button" class="rnd" data-act="nope:Messages" aria-label="Messages">${I.mail}</button>`:''}<button type="button" class="ava" data-act="nope:Your account" aria-label="Your account">${SHOP.ini}</button></div>`;
+}
+function pinFigs(){ /* the pinned row's three figures per section — each one a PinFigure the app already builds */
+  const f=F();
+  if(S.sec==='today') return [{v:f.waiting,w:'waiting',a:'tile:td-waiting',hot:f.waiting>0},{v:f.thisWeek,w:'this week',a:'tile:td-week'},{v:php(f.toCome),w:'to come in',a:'tile:td-money'}];
+  if(S.sec==='shop'){const g=figures();return [{v:g.services,w:g.services===1?'service':'services',a:'tile:services'},{v:g.live,w:'live',a:'tile:services',hot:g.services>0&&g.live===0},{v:g.tools,w:'tools ready',a:'tile:services'}];}
+  if(S.sec==='customers'){const seg=S.seg.customers;
+    if(seg==='Dates') return [{v:lane('booked').length,w:'booked',a:'tile:cu-dates'},{v:lane('waiting').length,w:'asking',a:'tile:cu-dates',hot:lane('waiting').length>0},{v:f.off.length,w:'days off',a:'tile:cu-dates'}];
+    if(seg==='Money') return [{v:php(f.received),w:'received',a:'tile:cu-money'},{v:php(f.toCome),w:'to come in',a:'tile:cu-money'},{v:f.overdue,w:'overdue',a:'tile:cu-money',hot:f.overdue>0}];
+    return [{v:lane('waiting').length,w:'asking',a:'tile:cu-events',hot:lane('waiting').length>0},{v:lane('booked').length,w:'booked',a:'tile:cu-events'},{v:lane('finished').length,w:'done',a:'tile:cu-events'}];}
+  const ev=S.cust.filter(c=>c.lane==='booked');return [{v:ev.length,w:ev.length===1?'event':'events',a:'tile:hb-events'},{v:ev.length?daysUntil(hubEvent().date):'—',w:'days to go',a:'tile:hb-day'},{v:S.checked,w:'checked in',a:'tile:hb-guests'}];
+}
+function pin(){ return `<div class="pin">${pinFigs().map(f=>`<button type="button" class="door ${f.hot?'hot':''}" data-act="${f.a}"><b>${f.v}</b>${f.w}</button>`).join('')}<span class="grow"></span><button type="button" class="rnd" data-act="gear" aria-label="Settings">⚙</button></div>`; }
+const secl=(t,tip)=>`<div class="sec-l">${t}<button type="button" class="inf" data-act="tip:${esc(tip||t)}" aria-label="About ${t}"><i>i</i></button></div>`;
+const sech=(t,tip)=>`<div class="sec-h">${t}<button type="button" class="inf" data-act="tip:${esc(tip||t)}" aria-label="About ${t}"><i>i</i></button></div>`;
+function row(o){
+  const act=o.act||(o.k?`tile:${o.k}`:'');
+  const chev=o.end||o.chev===false?'':`<span class="chev">›</span>`;
+  return `<div class="row ${o.first?'first':''}" ${o.swipe?`data-swipe="${o.swipe}"`:''}><div class="rowin" ${act?`role="button" tabindex="0" data-act="${act}"`:''}>${o.ic?`<span class="ric">${o.ic}</span>`:''}<span class="t"><span class="nm">${o.t}</span>${o.l?`<span class="ln ${o.lc||''}">${o.l}</span>`:''}</span>${o.badge?`<span class="badge ${o.badge[0]}">${o.badge[1]}</span>`:''}${o.end||''}${chev}</div>${o.swipe?`<button type="button" class="rv" data-act="remove:${o.swipe}" aria-label="Remove ${o.t}">${o.rvWord||'Remove'}</button>`:''}</div>`;
+}
+const prow=(p,i,end='')=>`<div class="prow ${i===0?'first':''}" ${p.act?`role="button" tabindex="0" data-act="${p.act}"`:''}><span class="pava ${p.ini==='?'?'q':''} ${p.cls||''}">${p.ini}</span><span class="t"><span class="nm">${p.who}</span><span class="ln">${p.l}</span></span>${end}</div>`;
+function svcLine(s){ if(!s.cards.length) return 'No card yet'; const from=s.cards.map(c=>c[2]).sort()[0]; return `${s.cards.length} card${s.cards.length>1?'s':''} · from ${from}`; }
+function svcTools(s){ const on=s.tools.filter(t=>t[2]).map(t=>t[0]); return [...on,s.scanner||'No scanner'].join(' · '); }
+const T={};
+const head=(k,ic,t)=>`<div class="th"><span class="ti">${ic}</span><span class="tt">${t}</span>${S.open===k?'':'<span class="chev">›</span>'}</div>`;
+const kpi=(k,ic,t,v,tr,ln,small='')=>`${head(k,ic,t)}${num(k,v,small)}${tr||''}${ln?`<span class="ln">${ln}</span>`:''}`;
+/* ═══════════════ SHOP — one tile per door; `face` is the closed tile, `room` what opens ═══════════════ */
+const nextStep=()=>{const A=!verified();if(!S.svcs.length)return {t:'Add your first service',l:'Couples find and book you by it',act:'add',ic:'＋'};if(A&&missing())return {t:`Add “${missing()}”`,l:'The one field left on your profile',act:'tile:hero',ic:'✎'};if(A)return {t:'Send your documents',l:'Get verified — the papers, then your contacts',act:'tile:verify',ic:'⛨'};return {t:'Answer Mika & Paolo',l:'They asked to book 12 Dec 2026',act:'tile:asks',ic:'↩'};};
+T.hero={k:'hero',cls:'hero s2 r2',title:'Your details',face(){
+  const A=!verified();const ns=nextStep();const done=profilePct()===100;
+  const chip=A?`<button type="button" class="chip get" data-act="tile:verify">⛨ Get verified · ${S.docs.some(Boolean)?1:0} of 2</button>`:`<span class="chip ver">✓ Verified</span>`;
+  return `<div class="hero-top"><span class="logo">${SHOP.ini}</span><div class="mid"><div class="nm">${SHOP.name} ${chip}</div><div class="sub">${S.plan} · ${SHOP.trade} · ${SHOP.city}</div><div class="addr">${I.globe} ${SHOP.addr} ${btn('sec sm','⧉','Copy link','copy')}</div></div><div class="ring ${done?'done':''}"><div class="r" style="--deg:${profilePct()*3.6}deg"><i>${done?'✓':profilePct()+'%'}</i></div><span class="eye">Profile</span></div></div>
+  ${A?`<p class="ln">This is your address for good — it goes live to couples once Setnayan approves your shop.</p>`:''}
+  <div class="next"><span class="t"><b>${ns.t}</b><span>${ns.l}</span></span>${btn('pri',ns.ic,'Do it now',ns.act)}</div>`;
+},room(){
+  const A=!verified();
+  const rows=[['Name and logo',SHOP.name,I.id,'nope:Name and logo'],['In business since',A&&!S.since?'Not set yet':'2019',I.clock,A&&!S.since?'set-since':'nope:In business since'],['On Setnayan since','When your shop opened here · 2026',I.clock,'nope:On Setnayan since'],['What you do',SHOP.trade,I.layers,'nope:What you do'],['Where you work',SHOP.city,I.map,'nope:Where you work'],['Contact',(S.codes.phone||!A?'Phone confirmed':'Phone not confirmed yet')+' · '+(S.codes.email||!A?'Email confirmed':'Email not confirmed yet'),I.mail,'nope:Contact'],['About','Optional · one paragraph on your page',I.txt,'nope:About']];
+  return `${secl('Your details',missing()?'1 field left — tap it':'Every field filled')}
+  ${rows.map((r,i)=>row({t:r[0],l:r[1],lc:r[1]==='Not set yet'?'warn':'',ic:r[2],first:i===0,act:r[3],badge:r[1]==='Not set yet'?['wait','Tap to set 2019']:null})).join('')}
+  ${row({k:'verify',t:'Your documents',l:A?'DTI or SEC · BIR 2303 · permit · a bank proof':'Verified',ic:I.doc})}
+  ${row({k:'earned',t:'How clients pay you',l:S.pay.length?S.pay.join(' · '):'Add GCash or a bank',ic:I.wallet})}
+  <div class="acts">${btn('sec','?','Something wrong? Ask us to correct it','nope:Ask us to correct it')}</div>`;
+}};
+T.opened={k:'opened',cls:'kpi',title:'Opened your page',face(){const f=F();return kpi('opened',I.eye,'Opened your page',f.views,trend(f.views,f.viewsBefore),f.views===0&&!verified()?'Not shown to couples until you are verified':'Last 30 days · people, not visits');},room(){return funnelRoom();}};
+T.asked={k:'asked',cls:'kpi',title:'Asked',face(){const f=F();return kpi('asked',I.ask,'Asked',f.asks,trend(f.asks,f.asksBefore),f.asks===0?'No one has asked yet':'Couples who sent a first message');},room(){return funnelRoom();}};
+T.booked={k:'booked',cls:'kpi',title:'Booked',face(){const f=F();return kpi('booked',I.book,'Booked',f.booked,trend(f.booked,f.bookedBefore),f.booked===0?'Nothing booked yet':'Deposits confirmed');},room(){return funnelRoom();}};
+T.earned={k:'earned',cls:'kpi',title:'Paid to you',face(){const f=F();return `${head('earned',I.peso,'Paid to you · this month')}${nump('earned',f.monthPhp,`${f.monthCount} payment${f.monthCount===1?'':'s'}`)}<span class="ln">${f.monthPhp===0?'Nothing confirmed yet':`${php(f.ytdPhp)} this year`}</span>`;},room(){return earningsRoom();}};
+function funnelRoom(){
+  const f=F();const steps=[['Opened your page',f.views,f.viewsBefore],['Asked',f.asks,f.asksBefore],['Booked',f.booked,f.bookedBefore]];
+  const max=Math.max(1,...steps.map(s=>s[1]));
+  return `${secl('Opened · asked · booked, last 30 days','The funnel against the 30 days before. Read by lib/vendor-funnel.ts, worded by lib/shop-section-figures.ts analyticsFigures.')}
+  ${steps.map(s=>`<div class="srow"><span>${s[0]}</span><b>${s[1]} <span class="ln">· ${changeWord(s[1],s[2])}</span></b><span class="bar"><i style="--w:${Math.round(s[1]/max*100)}%"></i></span></div>`).join('')}
+  <p class="sp">${f.views===0?'Your page has not been opened. '+(verified()?'':'It is not shown to couples until Setnayan approves your shop.'):'Opened counts people, not visits — one person opening twice counts once.'}</p>`;
+}
+function earningsRoom(){
+  const f=F();
+  return `${secl('Your money','Confirmed payments from the ledger (lib/vendor-earnings-view.ts). A ledger that could not be read says so — it never shows ₱0.')}
+  <div class="kv" style="border-top:0"><span>This month<small>${f.monthCount} confirmed payment${f.monthCount===1?'':'s'}</small></span><b>${php(f.monthPhp)}</b></div>
+  <div class="kv"><span>This year</span><b>${php(f.ytdPhp)}</b></div>
+  ${chart(f.months)}
+  ${secl('How clients pay you','What couples see when they pay you.')}
+  ${S.pay.length?S.pay.map((p,i)=>row({t:p,l:'Main account',ic:I.wallet,first:i===0,swipe:'pay:'+i})).join(''):row({t:'Add GCash or a bank',l:'Getting paid',ic:I.wallet,first:true,chev:false})}
+  ${row({t:'Bank / e-wallet',l:'Account number or mobile',ic:I.pay,first:!S.pay.length,act:'pay-add:Bank / e-wallet'})}
+  ${row({t:'QR code',l:'Upload your scan-to-pay image',ic:I.photo,act:'pay-add:QR code'})}
+  ${row({t:'Payment link',l:'Part of Pro — fill it in here; saving asks for Pro',ic:I.globe,badge:['quiet','Pro'],act:'pay-add:Payment link'})}
+  <p class="sp">Swipe a payment option left to remove it.</p>`;
+}
+function chart(m){ /* one scale; a tapped bar says its value */
+  const W=560,H=150,pad=28,bw=W/12;const max=Math.max(1,...m);
+  const bars=m.map((v,i)=>{const h=v/max*(H-pad-30);const x=i*bw+6,y=H-pad-h;const hit=S.hit===i;return `<rect class="bar ${i===11?'now':''} ${hit?'hit':''}" x="${x}" y="${Math.min(y,H-pad-2)}" width="${bw-12}" height="${Math.max(h,2)}" rx="5" data-act="bar:${i}"></rect>${hit?`<text class="callout" x="${x+(bw-12)/2}" y="${y-6}" text-anchor="middle">${v?'₱'+v+',000':'₱0'}</text>`:''}<text x="${x+(bw-12)/2}" y="${H-10}" text-anchor="middle">${MONTHS[i]}</text>`;}).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Paid to you, each of the last 12 months"><line class="grid" x1="0" x2="${W}" y1="${H-pad}" y2="${H-pad}"></line>${bars}</svg><p class="sp">${max===1?'Nothing paid in the last 12 months.':'Tap a month for its amount. Terracotta = this month.'}</p>`;
+}
+T.money={k:'money',cls:'s2',title:'Paid to you, 12 months',face(){return `${head('money',I.chart,'Paid to you · last 12 months')}${chart(F().months)}`;},room(){return earningsRoom();}};
+T.asks={k:'asks',cls:'',title:'Recent',face(){
+  const r=F().recent;
+  return `${head('asks',I.people,'Recent')}${r.length?r.map((p,i)=>prow(p,i,p.amt?`<span class="amt">${p.amt}</span>`:p.badge?`<span class="badge ${p.badge[0]}">${p.badge[1]}</span>`:'')).join(''):`${num('asks-none','—')}<span class="ln">No one has asked yet. Couples who message you appear here.</span>`}
+  <div class="foot-l">Auto-reply · <b>${S.auto?'answers the first message':'off'}</b></div>`;
+},room(){
+  const r=F().recent;
+  return `${secl('Who asked, who booked','The desk’s cards (lib/vendor-overview.ts WhatsNewCard). A couple who has not yet accepted shows no name — that is by construction, not a gap.')}
+  ${r.length?r.map((p,i)=>row({t:p.who,l:p.l,ic:p.ini,first:i===0,badge:p.badge,act:'sec:customers'})).join(''):row({t:'No one yet',l:'Couples who message you appear here',ic:I.people,first:true,chev:false})}
+  ${secl('Auto-reply','Answers the first message')}
+  <div class="kv" style="border-top:0"><span>Auto-Reply Assistant<small>${S.auto?'It answers':'It hands to you'}</small></span><button type="button" class="sw" role="switch" aria-checked="${S.auto}" aria-label="Auto-Reply Assistant" data-act="sw:auto"></button></div>
+  <div class="kv"><span>Auto-accept<small>Daily auto-accept cap</small></span><button type="button" class="sw" role="switch" aria-checked="${S.autoAccept}" aria-label="Auto-accept" data-act="sw:autoAccept"></button></div>
+  <div class="kv"><span>Daily reply cap</span>${pickBtn('cap','','20 a day')}</div>`;
+}};
+T.sources={k:'sources',cls:'',title:'Where they came from',face(){
+  const s=F().sources;
+  if(!s) return `${head('sources',I.search,'Where they came from')}${num('src-none','—')}<span class="ln">Once couples open your page, this says where from — Explore, search, your link.</span>`;
+  const tot=s.reduce((a,x)=>a+x[1],0);
+  return `${head('sources',I.search,'Where they came from')}${s.map(x=>`<div class="srow"><span>${x[0]}</span><b>${x[1]>=FUNNEL_MIN_N?Math.round(x[1]/tot*100)+'%':'—'}</b><span class="bar"><i style="--w:${x[1]>=FUNNEL_MIN_N?Math.round(x[1]/tot*100):0}%"></i></span></div>`).join('')}`;
+},room(){
+  const s=F().sources;
+  return `${secl('By source','lib/vendor-funnel.ts fetchViewsBySource — a slice under 5 people draws “—” so nobody can be picked out.')}
+  ${s?s.map((x,i)=>row({t:x[0],l:x[1]>=FUNNEL_MIN_N?`${x[1]} people`:'Fewer than 5 — not shown',ic:I.search,first:i===0,chev:false})).join(''):row({t:'Nothing to show yet',l:'Your page has not been opened',ic:I.search,first:true,chev:false})}`;
+}};
+T.services={k:'services',cls:'s2',title:'Your services',face(){
+  const f=figures();
+  const tiles=S.svcs.map(s=>`<div class="svc" role="button" tabindex="0" data-act="svc:${s.id}"><span class="cover ${s.cover?'':'none'}"></span><span class="lab"><b>${s.t}</b><span class="${s.live?'on':s.cards.length?'':'wn'}">${s.live?'● Live · ':''}${svcLine(s)}</span></span></div>`).join('');
+  const add=`<div class="svc addt" role="button" tabindex="0" data-act="add"><span style="font-size:22px">＋</span>${S.svcs.length?'Add a service':'Add your first service'}</div>`;
+  return `${head('services',I.layers,'Your services')}${S.w===390?`<div class="hstrip">${tiles}${add}</div>`:`<div class="svcgrid">${tiles}${add}</div>`}
+  <div class="foot-l">${f.services} ${f.services===1?'service':'services'} · <b>${f.live} live</b> · ${f.tools} tools ready</div>`;
+},room(){
+  return `${secl('Coverage','What you do — the kinds of work couples find you under.')}${row({t:SHOP.trade,l:'1 kind of work',ic:I.layers,first:true,act:'nope:Coverage'})}
+  ${secl('Service cards','Good · better · best, per service. Tap one to open it; swipe left to remove it.')}${S.svcs.length?S.svcs.map((s,i)=>row({t:s.t,l:svcLine(s)+' · '+svcTools(s),ic:I.layers,first:i===0,badge:s.live?['ok','Live']:['quiet','Ready'],act:'svc:'+s.id,swipe:'svc:'+s.id})).join(''):row({t:'Add your first service',l:'Couples find and book you by it',ic:I.layers,first:true,act:'add'})}
+  ${secl('Tier &amp; specialist tools','Tools on every event, per service.')}${row({t:'Tools on every event',l:`${figures().tools} ready`,ic:I.check,first:true,chev:false})}
+  <div class="acts">${btn('pri','＋','Add a service','add')}</div>`;
+}};
+T.verify={k:'verify',cls:'',title:'Get verified',face(){
+  const f=F();const A=!verified();const inN=A?S.docs.filter(Boolean).length:f.docsIn;const contacts=A?(S.codes.email?1:0)+(S.codes.phone?1:0):2;const steps=(inN===4?1:0)+(contacts===2?1:0);
+  return `${head('verify',I.shield,'Get verified')}${A?num('verify',steps,'of 2 steps'):`<div class="big">✓<small>Verified</small></div>`}
+  <div class="steps"><i class="${inN===4?'on':inN?'half':''}"></i><i class="${contacts===2?'on':contacts?'half':''}"></i></div>
+  <span class="ln">${A?`Papers ${inN} of ${f.docsTotal} · contacts ${contacts} of 2`:'Badge shown · reach by distance · paid plans open'}</span>`;
+},room(){
+  const A=!verified();
+  const papers=PAPERS.map((p,i)=>row({t:p[0],l:p[1],ic:I.doc,first:i===0,end:A?(S.docs[i]?`<span class="badge wait">Checking</span>`:`<span class="badge wait">Not sent</span>${btn('pri sm','↑','Add','doc:'+i)}`):`<span class="badge ok">Verified</span>`})).join('');
+  const code=k=>A?(S.codes[k]?`<span class="badge ok">Confirmed</span>`:`<span class="badge wait">Not sent</span>${btn('sec sm','✉','Send code','code:'+k)}`):`<span class="badge ok">Confirmed</span>`;
+  return `${secl('Your documents','Setnayan checks each paper. Verified shops show the badge, reach couples by distance and open the paid plans.')}${papers}
+  ${secl('Confirm your contacts','A code goes to each; enter it to confirm.')}${row({t:'Email',l:SHOP.email,ic:I.mail,first:true,end:code('email')})}${row({t:'Phone',l:SHOP.phone,ic:I.pin,end:code('phone')})}`;
+}};
+T.page={k:'page',cls:'',title:'Your page',face(){
+  const f=F();const A=!verified();
+  return `${head('page',I.page,'Your page')}<div style="display:flex;gap:12px;align-items:center"><span class="qr ${A?'off':''}"></span><div style="min-width:0;flex:1"><div class="big" style="font-size:24px">${f.reviews===0?'New':f.rating.toFixed(1)+' ★'}<small>${f.reviews} review${f.reviews===1?'':'s'}</small></div><span class="ln">${A?'Not shown yet · your QR works once you are verified':'Couples can see it · share the QR'}</span></div></div>
+  <div class="foot-l">${I.globe} <b>${SHOP.addr.replace('www.setnayan.com/','/')}</b> · Copy link</div>`;
+},room(){
+  const A=!verified();
+  return `<div class="acts" style="padding-top:12px">${btn('pri','👁','View my page','nope:Your page as couples see it')}${btn('sec','⇪','Share my page','copy')}${btn('sec','▦','Show the QR','nope:Your QR')}</div>
+  ${secl('Tap a part to change it','Each part of the page, in the order couples scroll it.')}
+  ${row({k:'hero',t:'Your details',l:'Name and logo · what you do · where · contact · documents',first:true})}
+  ${row({t:'Cover',l:A?'Automatic — your first photo · No photos yet':'Automatic — your first photo',act:'nope:Use as cover'})}
+  ${row({t:'About',l:'One paragraph · optional',act:'nope:About'})}
+  ${row({k:'gallery',t:'Photos and videos',l:A?'Hidden · Pick from your portfolio':`${F().photos} photos · ${F().videos} videos`})}
+  ${row({t:'Reviews',l:F().reviews?`${F().reviews} reviews · ${F().rating.toFixed(1)} ★`:'No reviews yet',chev:false})}
+  ${row({k:'asks',t:'Auto-reply',l:'Answers the first message'})}`;
+}};
+T.plan={k:'plan',cls:'promo',title:'Your plan',face(){
+  const A=!verified();
+  return `${head('plan',I.gem,`${S.plan} plan`)}<div class="h">${S.plan==='Free'?'Reach couples by distance, and your own web address':S.plan==='Solo'?'More services, more helpers, nationwide reach':'Everything is on'}</div><span class="ln">${A?'Get verified first — the paid plans open after.':'Nothing renews by itself · prices from the catalogue'}</span>
+  ${btn('pri','→',S.plan==='Free'?'See Solo':S.plan==='Ultra'?'Your plan':'See what Pro adds','tile:plan')}`;
+},room(){
+  const paid=S.plan!=='Free',A=!verified();
+  return `<div class="kv" style="border-top:0"><span>Your plan<small>${paid?`${S.plan} · the catalogue’s price, read when you pick`:'You are on Free — nothing to pay'}</small></span>${pickBtn('plan','',S.plan)}</div>
+  ${paid?`<div class="kv"><span>What you pay<small>${S.plan} · every 28 days</small></span>${A?btn('sec sm','⛨','Get verified first','tile:verify'):btn('pri sm','₱','Pay','nope:Pay')}</div>`:''}
+  <div class="kv"><span>Booking fee<small>5% of the first ₱100,000, then 1%, minimum ₱50</small></span><span class="badge quiet">First booking free</span></div>
+  ${secl(`What ${S.plan} gives you`,'Read from your plan')}${GIVES.map((g,i)=>row({t:g[0],l:g[1],first:i===0,chev:false})).join('')}
+  ${secl('More','Add-ons · Papic credits · Receipts · Custom plan')}
+  ${row({t:'Add-ons',l:'AI replies · 3D booth · Papic Challenges · Deep Search',ic:I.store,first:true,act:'nope:Add-ons'})}
+  ${row({t:'Papic credits',l:'Packs from ₱99 · into your shop wallet',ic:I.cam,act:'nope:Papic credits'})}
+  ${row({t:'Receipts',l:paid?'Each payment leaves a receipt here':'None yet',ic:I.receipt,act:'nope:Receipts'})}
+  ${row({t:'Custom plan',l:'Branches · reach · seats — beyond Ultra',ic:I.spark,act:'nope:Custom plan'})}`;
+}};
+T.gallery={k:'gallery',cls:'',title:'Your portfolio',face(){
+  const f=F();return `${head('gallery',I.images,'Your portfolio')}${num('gallery',f.photos,`photos · ${f.videos} video${f.videos===1?'':'s'}`)}<div class="meter"><i class="gold" style="--w:${Math.min(100,Math.round(f.photos/50*100))}%"></i></div><span class="ln">${f.photos} of 50 free kept · ${f.credits} credits left</span>
+  <div class="foot-l">Inspiration library · <b>${f.photos?'add your best':'add photos first'}</b></div>`;
+},room(){
+  const f=F();
+  return `${secl('Your collections','Your page’s photos · videos · Instagram')}
+  ${row({t:'Portfolio',l:`${f.photos} kept · 50 free · more with Papic credits`,ic:I.images,first:true,act:'nope:Portfolio'})}
+  ${row({t:'Show on my page',l:'Shown on your page after Apply',ic:I.page,end:`<button type="button" class="sw" role="switch" aria-checked="${f.photos>0}" aria-label="Show on my page" data-act="nope:Shown on your page after Apply"></button>`})}
+  ${secl('Add to the inspiration library','Your photos help couples find you')}
+  ${row({t:f.photos?'Pick the ones couples should find':'Add photos to your portfolio first',l:f.photos?'Each one links back to your shop':'The library takes from your portfolio',ic:I.spark,first:true,act:f.photos?'nope:Add to the inspiration library':'nope:Add photos',chev:!!f.photos})}
+  <div class="acts">${btn('pri','↑','Add photos','nope:Add photos')}</div>`;
+}};
+T.helpers={k:'helpers',cls:'',title:'Helpers',face(){
+  const h=F().helpers;
+  return `${head('helpers',I.people,'Helpers')}${h.length?h.map((p,i)=>prow({who:p[0],ini:p[1],l:p[2]},i)).join(''):`${num('helpers',1,'just you')}<span class="ln">One Helper is free on every plan</span>`}
+  <div class="foot-l">Seats on ${S.plan} · <b>1 team seat + 1 free Helper</b></div>`;
+},room(){
+  const h=F().helpers;
+  return `${secl('Who works what','Helpers on your plan · 1 team seat + 1 free Helper')}
+  ${h.length?h.map((p,i)=>row({t:p[0],l:p[2],ic:p[1],first:i===0,act:'nope:'+p[0]})).join(''):row({t:'Just you so far',l:'Invite a helper — one Helper is free on every plan',ic:I.people,first:true,chev:false})}
+  <div class="acts">${btn('pri','＋','Invite a helper','nope:Invite a helper')}${btn('sec','＋','Add a seat','tile:plan')}</div>`;
+}};
+T.promote={k:'promote',cls:'',title:'Promote',face(){
+  const f=F();return `${head('promote',I.star,'Promote')}${num('promote',f.gifts,`gift credit${f.gifts===1?'':'s'}`)}<span class="ln">${f.gifts?'Gifts you can hand couples on the day':'Buy gift credits to hand couples on the day'}</span><div class="foot-l">QR codes · <b>scans not counted yet</b></div>`;
+},room(){
+  return `${secl('Your gifts','shop_gift_stock_status — the one count Promote has (owner 2026-11-05).')}${row({t:`${F().gifts} gift credits`,l:'Hand a couple a gift on the day',ic:I.star,first:true,chev:false})}
+  ${secl('Your QR codes','Nothing records a scan per code yet — so no count is drawn.')}${row({t:'Shop QR',l:'Print it · put it on the table',ic:I.qr,first:true,act:'nope:Shop QR'})}
+  <div class="acts">${btn('pri','＋','Buy gift credits','nope:Buy gift credits')}</div>`;
+}};
+T.manpower={k:'manpower',cls:'',title:'Manpower',face(){return `${head('manpower',I.crew,'Manpower')}${num('manpower','—')}<span class="ln">Paid crew gigs from events already booked. Gigs appear once an event near you needs crew.</span>`;},
+  room(){return `<div class="acts" style="padding-top:12px">${pickBtn('gigs','',S.gigs)}</div>${secl('Manpower gigs','Pick up paid crew gigs from events already booked.')}${row({t:S.gigs+' · ready to claim',l:'Gigs appear here once an event near you needs crew',ic:I.crew,first:true,chev:false})}`;}};
+function svcRoom(id){
+  const s=S.svcs.find(x=>x.id===id);if(!s)return '';
+  const cards=s.cards.map(c=>`<div class="card"><span class="eye">${c[0]}</span><b>${c[1]}</b><span>${c[2]}</span></div>`).join('')+(s.cards.length<3?`<div class="card add">${btn('sec sm','＋','Add a card','nope:Start a new card from '+s.t)}</div>`:'');
+  const tools=s.tools.map((t,i)=>`<div class="kv"><span>${t[0]}${t[1]?`<small>${t[1]}</small>`:''}</span><button type="button" class="sw" role="switch" aria-checked="${t[2]}" aria-label="${t[0]}" data-act="tool:${id}:${i}"></button></div>`).join('');
+  return `<p class="sp">${s.live?'● Live · couples can find and book it':'Ready · goes live when you are verified'}</p>
+  ${secl('Cards · good · better · best','Shown once it has a cover, a price and what’s included.')}<div class="cards">${cards}</div>
+  ${secl('Tools for this service','Tools on every event this service is booked for.')}${tools}
+  <div class="kv"><span>Scanner<small>One scan per guest · shows their table</small></span>${pickBtn('scanner:'+id,'',s.scanner||'No scanner')}</div>
+  <div class="acts">${s.live?btn('gry','◌','Hide from Explore','live:'+id):btn('pri','●','Show on Explore','live:'+id)}${btn('red','⊗','Remove','remove:svc:'+id)}</div>`;
+}
+function addRoom(){
+  return `<div class="fld"><label>What you offer</label>${pickBtn('kind','',S.kind||'Pick what you offer')}<span class="hint">From your shop · change</span></div>
+  <div class="fld"><label for="svc-name">Service name</label><input class="in" id="svc-name" value="${esc(S.name)}" placeholder="${esc(S.kind||'Written for you · change it if you like')}" data-bind="name"></div>
+  <div class="fld"><label>Cover photo</label><div class="drop">One cover is enough ${btn('sec sm','↑','Add a cover','nope:Cover photo')}</div></div>
+  <div class="fld"><label for="svc-incl">What’s included</label><textarea class="in" id="svc-incl" placeholder="One line is enough"></textarea></div>
+  <div class="fld"><label>How the price works</label>${pickBtn('pricing','',S.pricing||PRICES[0])}</div>
+  <div class="fld"><label for="svc-price">Price</label><input class="in" id="svc-price" inputmode="numeric" value="${esc(S.price)}" placeholder="₱" data-bind="price"></div>
+  <div class="acts">${btn('pri','✓','Save','save-svc')}${btn('gry','✕','Cancel','close')}</div>`;
+}
+/* ═══════════════ TODAY — the home: the Next card, the numbers, what is coming ═══════════════ */
+const weekDays=()=>{const out=[];for(let i=0;i<7;i++){const d=new Date(TODAY_ISO+'T00:00:00');d.setDate(d.getDate()+i);const iso=d.toISOString().slice(0,10);const ev=S.cust.find(c=>c.date===iso&&c.lane==='booked');const ask=S.cust.find(c=>c.date===iso&&c.lane==='waiting');out.push({iso,dow:d.toLocaleDateString('en-PH',{weekday:'short'}),n:d.getDate(),cls:ev?'booked':ask?'asking':F().off.includes(iso)?'off':'',ev,ask});}return out;};
+const todayNext=()=>{ /* lib/supplier-today-view.ts assembleSupplierToday → next (LIVE's rule order: the couple's ask first) */
+  const A=!verified();const w=lane('waiting').filter(c=>c.ini!=='?');
+  if(w.length) return {eyebrow:'A couple is asking',h:`${w[0].who} asked to book ${fmtDate(w[0].date,{year:'numeric'})}`,who:`${w[0].place||''} · answer by Monday`,ini:w[0].ini,cta:[['okb','✓','Agree','agree:'+w[0].id],['gry','✕','Decline','nope:Decline'],['sec','✉','Chat','nope:Chat']],then:null};
+  const step=SETUP.find((s,i)=>S.setup[i]==='now');
+  if(A&&step){const i=SETUP.indexOf(step);const act=step[0]==='Add what you offer'?'add':step[0]==='Send your documents'?'go:shop:verify':step[0]==='Mark the days you are not available'?'go:customers:cu-dates':'nope:'+step[0];return {eyebrow:`Get your shop live · step ${i+1} of 8`,h:step[0],who:'Couples cannot find you yet',ini:null,cta:[['pri','→','Do it now',act]],then:SETUP.slice(i+1,i+3).map(s=>s[0])};}
+  const next=S.cust.filter(c=>c.lane==='booked'&&daysUntil(c.date)>=0).sort((a,b)=>a.date<b.date?-1:1)[0];
+  if(next) return {eyebrow:`In ${daysUntil(next.date)} days`,h:`${next.who} · ${fmtDate(next.date)}`,who:`${next.place} · ${next.l}`,ini:next.ini,cta:[['pri','▶','Open the Hub','sec:hub'],['sec','✉','Chat','nope:Chat']],then:null};
+  return {eyebrow:'All caught up',h:'Nothing needs you today',who:'Share your QR with the next couple',ini:null,cta:[['pri','▦','Show my QR','go:shop:page']],then:null};
+};
+T['td-next']={k:'td-next',cls:'nextc s2 r2',title:'Next',face(){
+  const nx=todayNext();
+  return `<span class="eyebrow">${nx.eyebrow}</span><div class="h">${nx.h}</div><div class="who">${nx.ini?`<span class="pava">${nx.ini}</span>`:''}${nx.who}</div>
+  ${nx.then?`<div class="then">${nx.then.map((t,i)=>`<span>Then · <b>${t}</b></span>`).join('')}</div>`:''}
+  <div class="cta">${nx.cta.map(c=>btn(c[0],c[1],c[2],c[3])).join('')}</div>`;
+},room(){
+  const w=lane('waiting');
+  return `${secl('Waiting on you','Every card that needs an answer, oldest first — the desk (lib/vendor-overview.ts).')}${w.length?w.map((c,i)=>row({t:c.who,l:c.l,ic:c.ini,first:i===0,badge:['wait','Answer'],act:'cust:'+c.id})).join(''):row({t:'Nothing waiting',l:'When a couple asks, it lands here first',ic:I.check,first:true,chev:false})}
+  ${secl('Get your shop live','lib/vendor-first-steps.ts buildFirstStepsRail — done · now · later · waiting')}${SETUP.map((s,i)=>row({t:s[0],l:S.setup[i]==='done'?'Done':S.setup[i]==='now'?'Next':S.setup[i]==='waiting'?'Setnayan’s turn':'Later',ic:S.setup[i]==='done'?'✓':I.clock,first:i===0,badge:S.setup[i]==='done'?['ok','Done']:S.setup[i]==='now'?['wait','Now']:null,act:S.setup[i]==='now'?'setup-done:'+i:'nope:'+s[0]})).join('')}`;
+}};
+T['td-waiting']={k:'td-waiting',cls:'kpi',title:'Waiting on you',face(){const w=lane('waiting').length;return kpi('td-waiting',I.ask,'Waiting on you',w,null,w?'Couples asking — oldest first':'Nothing waiting');},room(){return T['td-next'].room();}};
+T['td-week']={k:'td-week',cls:'kpi',title:'This week',face(){const w=S.cust.filter(c=>c.lane==='booked'&&daysUntil(c.date)>=0&&daysUntil(c.date)<7);return kpi('td-week',I.cal,'This week',w.length,null,w.length?`${w[0].who} · ${fmtDate(w[0].date)}`:'No events in the next 7 days');},room(){return T['td-days'].room();}};
+T['td-money']={k:'td-money',cls:'kpi',title:'To come in',face(){const f=F();return `${head('td-money',I.peso,'To come in')}${nump('td-money',f.toCome)}<span class="ln">${f.toCome?`${S.cust.filter(c=>c.total&&c.paid<c.total&&c.lane==='booked').length} booking with a balance`:'Nothing owed to you'}</span>`;},room(){
+  const owed=S.cust.filter(c=>c.total&&c.paid<c.total&&c.lane==='booked');
+  return `${secl('Money still to come','Each booking with a balance, most urgent first — payday (lib/vendor-payday-read.ts). Unread → “—”, never ₱0.')}${owed.length?owed.map((c,i)=>row({t:c.who,l:`${fmtDate(c.date)} · ${php(c.paid)} paid of ${php(c.total)}`,ic:c.ini,first:i===0,end:`<span class="amt">${php(c.total-c.paid)}</span>`,act:'cust:'+c.id})).join(''):row({t:'Nothing to come in',l:'Paid bookings show nothing here',ic:I.check,first:true,chev:false})}
+  <div class="acts">${btn('sec','₱','Money','go:customers:cu-money')}</div>`;
+}};
+T['td-opened']={k:'td-opened',cls:'kpi',title:'Opened your page',face(){const f=F();return kpi('td-opened',I.eye,'Opened your page',f.views,trend(f.views,f.viewsBefore),f.views===0&&!verified()?'Not shown until you are verified':'Last 30 days');},room(){return funnelRoom();}};
+T['td-days']={k:'td-days',cls:'',title:'The next 7 days',face(){
+  const d=weekDays();
+  return `${head('td-days',I.cal,'The next 7 days')}<div class="week">${d.map((x,i)=>`<div class="day ${x.cls} ${i===0?'today':''}"><span>${x.dow}</span><b>${x.n}</b></div>`).join('')}</div>
+  <div class="legend"><span><i style="background:rgb(var(--ok))"></i>booked</span><span><i style="background:rgb(var(--accent))"></i>asking</span><span><i style="background:var(--m-line)"></i>day off</span></div>`;
+},room(){
+  const w=weekDays().filter(x=>x.ev||x.ask);
+  return `${secl('This week','Every booking in the next seven days — the rows the “this week” number counts.')}${w.length?w.map((x,i)=>row({t:(x.ev||x.ask).who,l:`${x.dow} ${x.n} · ${(x.ev||x.ask).place||''} · ${(x.ev||x.ask).l}`,ic:(x.ev||x.ask).ini,first:i===0,badge:x.ev?['ok','Booked']:['wait','Asking'],act:'cust:'+(x.ev||x.ask).id})).join(''):row({t:'A quiet week',l:'No bookings in the next seven days',ic:I.cal,first:true,chev:false})}
+  <div class="acts">${btn('sec','▤','All dates','go:customers:cu-dates')}</div>`;
+}};
+T['td-coming']={k:'td-coming',cls:'',title:'Coming up',face(){
+  const up=S.cust.filter(c=>c.lane==='booked'&&daysUntil(c.date)>=0).sort((a,b)=>a.date<b.date?-1:1).slice(0,3);
+  return `${head('td-coming',I.people,'Coming up')}${up.length?up.map((c,i)=>prow({who:c.who,ini:c.ini,l:`${fmtDate(c.date)} · ${c.place}`,cls:'ev'},i,`<span class="ln">${daysUntil(c.date)} d</span>`)).join(''):`${num('td-coming','—')}<span class="ln">No events booked yet. Add the bookings you already have.</span>`}`;
+},room(){
+  const up=S.cust.filter(c=>c.lane==='booked').sort((a,b)=>a.date<b.date?-1:1);
+  return `${secl('Events you run','Upcoming · After the event (events-you-run-screen.tsx)')}${up.length?up.map((c,i)=>row({t:c.who,l:`${fmtDate(c.date,{year:'numeric'})} · ${c.place} · ${c.l}`,ic:c.ini,first:i===0,act:'cust:'+c.id})).join(''):row({t:'No events yet',l:'Add the bookings you already have',ic:I.cal,first:true,act:'nope:Add a booking'})}
+  <div class="acts">${btn('pri','＋','Add a booking','nope:Add a booking')}</div>`;
+}};
+T['td-also']={k:'td-also',cls:'',title:'Also today',face(){
+  const items=[];const f=F();
+  if(!verified()&&S.docs.some(Boolean))items.push(['Setnayan is checking your papers','Verification',I.shield]);
+  if(f.reviews)items.push([`A new review · ${f.rating.toFixed(1)} ★`,'Reyes debut',I.star]);
+  if(!S.pay.length)items.push(['Add how clients pay you','GCash or a bank',I.wallet]);
+  if(f.gifts)items.push([`${f.gifts} gift credits ready`,'Hand one on the day',I.star]);
+  return `${head('td-also',I.bell,'Also today')}${items.length?items.slice(0,3).map((x,i)=>prow({who:x[0],ini:x[2],l:x[1]},i)).join(''):`${num('td-also','—')}<span class="ln">Nothing else today.</span>`}`;
+},room(){return `${secl('Also today','Reviews · papers being checked · credits · the small things, each a door.')}${row({t:'Your shop',l:`${SHOP.name} · ${S.plan} · ${verified()?'Verified':'Not verified yet'}`,ic:I.shop,first:true,act:'go:shop:hero'})}${row({t:'How it is going',l:'Opened · asked · booked',ic:I.chart,act:'go:shop:opened'})}${row({t:'Notifications',l:'Everything Setnayan told you',ic:I.bell,act:'nope:Notifications'})}`;}};
+T['td-setup']={k:'td-setup',cls:'',title:'Get your shop live',face(){
+  const done=S.setup.filter(s=>s==='done').length;const all=done===8;
+  return `${head('td-setup',I.shield,'Get your shop live')}${all?`<div class="big">${'<span class="pop">✓</span>'}<small>You are live</small></div>`:num('td-setup',done,'of 8 steps')}<div class="meter"><i style="--w:${Math.round(done/8*100)}%"></i></div><span class="ln">${all?'Couples can find and book you':`Next · ${(SETUP.find((s,i)=>S.setup[i]==='now')||SETUP[7])[0]}`}</span>`;
+},room(){return T['td-next'].room();}};
+T['td-shop']={k:'td-shop',cls:'',title:'Your shop',face(){return `${head('td-shop',I.shop,'Your shop')}<div class="hero-top"><span class="logo">${SHOP.ini}</span><div class="mid"><div class="nm" style="font-size:16px">${SHOP.name}</div><div class="sub">${verified()?'✓ Verified':'Not verified yet'} · ${S.plan}</div></div></div><div class="foot-l">Profile · <b>${profilePct()}%</b> · ${figures().services} services</div>`;},room(){return T.hero.room();}};
+/* ═══════════════ CUSTOMERS — Events · Dates · Money (customers/page.tsx) ═══════════════ */
+const laneBadge=c=>c.lane==='waiting'?['wait','Asking']:c.lane==='booked'?['ok','Booked']:c.lane==='finished'?['quiet','Done']:c.lane==='talking'?['quiet','Talking']:['quiet','Holding'];
+const custRow=(c,i,o={})=>row({t:c.who,l:`${fmtDate(c.date,{year:'numeric'})}${c.place?' · '+c.place:''} · ${c.l}`,ic:c.ini,first:i===0,badge:laneBadge(c),act:'cust:'+c.id,swipe:o.swipe?'cust:'+c.id:null,rvWord:'Archive'});
+T['cu-events']={k:'cu-events',cls:'s2 r2',title:'Events',face(){
+  const list=[...lane('waiting'),...lane('talking'),...lane('booked').sort((a,b)=>a.date<b.date?-1:1)].slice(0,S.w===390?4:6);
+  return `${head('cu-events',I.people,'Events · waiting first')}${list.length?list.map((c,i)=>prow({who:c.who,ini:c.ini,l:`${fmtDate(c.date)}${c.place?' · '+c.place:''} · ${c.l}`,cls:c.lane==='booked'?'ev':''},i,`<span class="badge ${laneBadge(c)[0]}">${laneBadge(c)[1]}</span>`)).join(''):`<div class="empty">${num('cu-events','—')}<span class="ln">No customers yet. Couples who ask, and the bookings you add, appear here — waiting first.</span></div>`}
+  <div class="foot-l">${lane('waiting').length} asking · <b>${lane('booked').length} booked</b> · ${lane('finished').length} done</div>`;
+},room(){
+  const up=S.cust.filter(c=>c.lane!=='finished');const after=lane('finished');
+  return `${secl('Upcoming','Waiting first, then by date. Tap a customer to open their event; swipe left to archive the chat (Undo).')}${up.length?up.map((c,i)=>custRow(c,i,{swipe:true})).join(''):row({t:'No one yet',l:'Add the bookings you already have',ic:I.people,first:true,act:'nope:Add a booking'})}
+  ${secl('After the event','Done · review · recap')}${after.length?after.map((c,i)=>custRow(c,i)).join(''):row({t:'Nothing finished yet',ic:I.check,first:true,chev:false})}
+  ${secl('Customer tools','Bookings · Quotes · Contracts — the folds under Events.')}${row({t:'Bookings',l:'Each booking’s status and prep items',ic:I.doc,first:true,act:'nope:Bookings'})}${row({t:'Quotes',l:'Build quotes and reusable quote templates',ic:I.receipt,act:'nope:Quotes'})}${row({t:'Contracts',l:'Send, sign, and track your booking contracts',ic:I.pay,act:'nope:Contracts'})}
+  <div class="acts">${btn('pri','＋','Add a booking','nope:Add a booking')}${btn('sec','＋','Add an outside client','nope:Add an outside client')}</div>`;
+}};
+T['cu-asking']={k:'cu-asking',cls:'kpi',title:'Asking',face(){const w=lane('waiting').length;return kpi('cu-asking',I.ask,'Asking',w,null,w?'Answer by Monday':'No one asking');},room(){return T['cu-events'].room();}};
+T['cu-booked']={k:'cu-booked',cls:'kpi',title:'Booked',face(){const b=lane('booked').length;return kpi('cu-booked',I.book,'Booked',b,null,b?`Next · ${fmtDate(lane('booked').sort((a,b)=>a.date<b.date?-1:1)[0].date)}`:'Nothing booked yet');},room(){return T['cu-events'].room();}};
+T['cu-done']={k:'cu-done',cls:'kpi',title:'Done',face(){const d=lane('finished').length;return kpi('cu-done',I.check,'Done',d,null,d?`${F().reviews} reviews · ${F().rating?F().rating.toFixed(1)+' ★':'New'}`:'No events finished yet');},room(){return T['cu-events'].room();}};
+T['cu-lanes']={k:'cu-lanes',cls:'',title:'Where everyone is',face(){
+  const L=['waiting','talking','booked','finished'];const tot=S.cust.length;
+  return `${head('cu-lanes',I.chart,'Where everyone is')}${tot?`<div class="lanes">${L.map(k=>`<i class="${k[0]}" style="--n:${lane(k).length}"></i>`).join('')}</div><div class="lanekey">${L.map(k=>`<span><b>${lane(k).length}</b>${laneWord[k]}</span>`).join('')}</div>`:`${num('cu-lanes','—')}<span class="ln">Asking · talking · booked · done — once someone is here.</span>`}`;
+},room(){return T['cu-events'].room();}};
+const monthGrid=()=>{const first=new Date('2026-11-01T00:00:00');const pad=first.getDay();const cells=[];for(let i=0;i<pad;i++)cells.push('<span class="d pad">0</span>');for(let d=1;d<=30;d++){const iso=`2026-11-${String(d).padStart(2,'0')}`;const ev=S.cust.find(c=>c.date===iso&&c.lane==='booked');const ask=S.cust.find(c=>c.date===iso&&c.lane==='waiting');const cls=ev?'booked':ask?'asking':F().off.includes(iso)?'off':'';cells.push(`<span class="d ${cls} ${iso===TODAY_ISO?'today':''}" role="button" tabindex="0" data-act="day:${iso}">${d}</span>`);}return cells.join('');};
+T['cu-dates']={k:'cu-dates',cls:'s2 r2',title:'Dates',face(){
+  return `${head('cu-dates',I.cal,'November 2026')}<div class="month">${['S','M','T','W','T','F','S'].map(d=>`<span class="dow">${d}</span>`).join('')}${monthGrid()}</div>
+  <div class="legend"><span><i style="background:rgb(var(--ok))"></i>booked</span><span><i style="background:rgb(var(--accent))"></i>asking</span><span><i style="background:var(--m-line)"></i>day off</span></div>
+  <div class="foot-l">Tap a day · <b>${F().off.length} days off</b> this month</div>`;
+},room(){
+  return `${secl('Date tools','Dates has no accordion: its tools are its own folds (dates-folds.tsx).')}
+  ${row({t:'Keep a waiting list',l:'For full days · 1 a date on Free',ic:I.people,first:true,act:'nope:Keep a waiting list'})}
+  ${row({t:'How many a date',l:'Couples you take on one day',ic:I.layers,act:'nope:How many a date'})}
+  ${row({t:'Which services share a schedule',l:'Main · one pool',ic:I.cal,act:'nope:Which services share a schedule'})}
+  ${row({t:'Days you are not available',l:F().off.length?F().off.map(d=>fmtDate(d)).join(' · '):'Nothing marked yet',ic:I.clock,act:'nope:Mark the days you are not available'})}
+  <div class="acts">${btn('pri','＋','Add a booking','nope:Add a booking')}${btn('sec','◷','Mark a day off','nope:Mark a day off')}</div>`;
+}};
+T['cu-money']={k:'cu-money',cls:'s2',title:'Money',face(){
+  const f=F();const owed=S.cust.filter(c=>c.total&&c.paid<c.total&&c.lane==='booked');
+  return `${head('cu-money',I.peso,'Money')}<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px"><div>${nump('cu-received',f.received)}<span class="ln">received · this year</span></div><div>${nump('cu-tocome',f.toCome)}<span class="ln">to come in</span></div><div>${num('cu-overdue',f.overdue)}<span class="ln">overdue</span></div></div>
+  ${owed.length?`<div class="foot-l">Next · <b>${owed[0].who}</b> · ${php(owed[0].total-owed[0].paid)} · ${fmtDate(owed[0].date)}</div>`:`<div class="foot-l">${f.received?'Nothing owed to you':'No payments yet'}</div>`}`;
+},room(){
+  const owed=S.cust.filter(c=>c.total&&c.paid<c.total&&c.lane==='booked');
+  return `${secl('To come in','Each booking with a balance, most urgent first (money-pin-figures.ts · payday). Unread → “—”, never ₱0.')}${owed.length?owed.map((c,i)=>row({t:c.who,l:`${fmtDate(c.date)} · ${php(c.paid)} paid of ${php(c.total)}`,ic:c.ini,first:i===0,end:`<span class="amt">${php(c.total-c.paid)}</span>`,act:'cust:'+c.id})).join(''):row({t:'Nothing to come in',ic:I.check,first:true,chev:false})}
+  ${secl('Received · this year','Confirmed payments — the ledger’s months.')}${chart(F().months)}
+  ${secl('How clients pay you','GCash · bank · what couples see')}${row({k:'earned',t:S.pay.length?S.pay.join(' · '):'Add GCash or a bank',l:'What couples see when they pay you',ic:I.wallet,first:true,act:'go:shop:earned'})}`;
+}};
+T['cu-tools']={k:'cu-tools',cls:'',title:'Customer tools',face(){return `${head('cu-tools',I.doc,'Customer tools')}<div class="mods"><div class="mod"><span class="ic">${I.doc}</span><span>Bookings</span></div><div class="mod"><span class="ic">${I.receipt}</span><span>Quotes</span></div><div class="mod"><span class="ic">${I.pay}</span><span>Contracts</span></div><div class="mod"><span class="ic">${I.people}</span><span>Waiting list</span></div></div>`;},room(){return T['cu-events'].room();}};
+function custRoom(id){ /* one customer's event — the customer card */
+  const c=S.cust.find(x=>x.id===id);if(!c)return '';
+  const A=c.lane==='waiting';
+  return `<div class="hero-top" style="padding-top:8px"><span class="pava ${c.ini==='?'?'q':''}" style="width:52px;height:52px;font-size:16px">${c.ini}</span><div class="mid"><div class="nm" style="font-size:18px">${c.who} <span class="badge ${laneBadge(c)[0]}">${laneBadge(c)[1]}</span></div><div class="sub">${fmtDate(c.date,{year:'numeric',weekday:'short'})}${c.place?' · '+c.place:''}${c.ini==='?'?' · name shown once they accept':''}</div></div></div>
+  ${A?`<div class="acts">${btn('okb','✓','Agree','agree:'+c.id)}${btn('gry','✕','Decline','nope:Decline')}${btn('sec','✉','Chat','nope:Chat')}</div>`:`<div class="acts">${btn('pri','✉','Chat','nope:Chat')}${c.lane==='booked'?btn('sec','▶','Open the Hub','hub:'+c.id):''}</div>`}
+  ${c.total?`${secl('Money','This booking’s position — paid · to come (lib/vendor-customers.ts computeEventMoneyPositions).')}<div class="kv" style="border-top:0"><span>Paid</span><b>${php(c.paid)}</b></div><div class="kv"><span>To come</span><b>${php(c.total-c.paid)}</b></div><div class="meter"><i style="--w:${Math.round(c.paid/c.total*100)}%"></i></div>`:''}
+  ${secl('Prep','Bookings’ prep items — Add to prep schedule.')}${row({t:'Prep schedule',l:'Nothing added yet',ic:I.check,first:true,act:'nope:Add to prep schedule'})}${row({t:'Quote',l:c.lane==='talking'?'Sent · '+php(c.total):'None',ic:I.receipt,act:'nope:Quote'})}${row({t:'Contract',l:'None',ic:I.pay,act:'nope:Contract'})}
+  ${c.lane==='booked'?`${secl('On the day','Check-in desk · Message everyone · Find a guest’s seat (events-you-run-rows.tsx)')}${row({t:'Check-in desk',l:'Scan guests in',ic:I.qr,first:true,act:'hub:'+c.id})}${row({t:'Message everyone',l:'An announcement every guest sees',ic:I.mail,act:'nope:Message everyone'})}${row({t:'Find a guest’s seat',l:'By name',ic:I.seat,act:'nope:Find a guest’s seat'})}`:''}`;
+}
+function dayRoom(iso){
+  const ev=S.cust.find(c=>c.date===iso&&c.lane==='booked');const ask=S.cust.find(c=>c.date===iso&&c.lane==='waiting');const off=F().off.includes(iso);
+  const word=ev?['ok','Booked']:ask?['wait','Asking']:off?['quiet','Day off']:['ok','Free'];
+  return `<div class="kv" style="border-top:0"><span>${fmtDate(iso,{weekday:'long',year:'numeric'})}<small>${ev?ev.who+' · '+ev.place:ask?ask.who+' asked':off?'You are not available':'Nothing on this day'}</small></span><span class="badge ${word[0]}">${word[1]}</span></div>
+  ${ev?row({t:ev.who,l:ev.l,ic:ev.ini,first:true,act:'cust:'+ev.id}):ask?row({t:ask.who,l:ask.l,ic:ask.ini,first:true,act:'cust:'+ask.id}):''}
+  <div class="kv"><span>Open for bookings<small>Switch it off to mark a day off</small></span><button type="button" class="sw" role="switch" aria-checked="${!off}" aria-label="Open for bookings" data-act="dayoff:${iso}"></button></div>
+  <div class="acts">${btn('pri','＋','Add a booking on this day','nope:Add a booking')}</div>`;
+}
+/* ═══════════════ HUB — the Event Hub (on-the-day/page.tsx) ═══════════════ */
+const hubEvent=()=>S.cust.find(c=>c.id===S.hubEvent&&c.lane==='booked')||S.cust.filter(c=>c.lane==='booked').sort((a,b)=>a.date<b.date?-1:1)[0]||null;
+T['hb-day']={k:'hb-day',cls:'nextc s2 r2',title:'The Day',face(){
+  const e=hubEvent();
+  if(!e) return `<span class="eyebrow">The Day</span><div class="h">Your first event’s Hub appears once a couple books you</div><div class="who">Run of show · headcount · your setlist · the review QR — all on the day</div><div class="cta">${btn('pri','＋','Add a booking you already have','nope:Add a booking')}${btn('sec','▦','Show my QR','go:shop:page')}</div>`;
+  const d=daysUntil(e.date);
+  return `<span class="eyebrow">${d===0?'Today':'Next event'}</span><div class="h">${e.who} · ${fmtDate(e.date,{weekday:'short'})}</div><div class="who"><span class="pava ev">${e.ini}</span>${e.place} · ${e.l}</div>
+  <div class="count"><b>${d}</b><span>days to go</span><b>${S.checked}</b><span>checked in</span></div>
+  <div class="cta">${btn('pri','▶','Run the day','tile:hb-run')}${btn('sec','✉','Chat','nope:Chat')}${S.cust.filter(c=>c.lane==='booked').length>1?pickBtn('hubev','',e.who):''}</div>`;
+},room(){
+  const e=hubEvent();if(!e)return '';
+  return `${secl('Run of show','The hosts’ moments, in order — from their schedule. Skipped moments stay listed.')}${[['Guests arrive','5:00 pm'],['Ceremony','5:30 pm'],['Cocktails · acoustic set','6:30 pm'],['First dance','7:45 pm'],['Band · set 1','8:00 pm']].map((m,i)=>row({t:m[0],l:m[1],ic:I.clock,first:i===0,chev:false,badge:i===0?['wait','Next']:null})).join('')}
+  ${secl('Your tools on this event','lib/vendor-dayof-modules.ts — the band’s defaults, per service.')}${HUB_MODS.map((m,i)=>row({t:m[0],ic:m[1],first:i===0,act:'nope:'+m[0]})).join('')}`;
+}};
+T['hb-run']={k:'hb-run',cls:'',title:'Run the day',face(){return `${head('hb-run',I.run,'Your tools')}<div class="mods">${HUB_MODS.map(m=>`<div class="mod"><span class="ic">${m[1]}</span><span>${m[0]}</span></div>`).join('')}</div>`;},room(){return T['hb-day'].room();}};
+T['hb-guests']={k:'hb-guests',cls:'kpi',title:'Guests',face(){const e=hubEvent();return `${head('hb-guests',I.guest,'Guests')}${num('hb-guests',S.checked,'checked in')}<span class="ln">${e?(daysUntil(e.date)===0?'Scan guests in at the desk':'Counts on the day · the hosts’ list is theirs'):'No event yet'}</span>`;},room(){
+  return `${secl('Check-in desk','One scan per guest · shows their table. The count climbs as you scan.')}<div class="acts" style="padding-top:12px">${btn('pri','▦','Scan a guest','checkin')}${btn('sec','⌖','Find a guest’s seat','nope:Find a guest’s seat')}</div>
+  ${secl('Final headcount &amp; meal splits','From the hosts’ list — read, never edited here.')}${row({t:'Headcount',l:'Shown once the hosts finalise',ic:I.guest,first:true,chev:false})}`;
+}};
+T['hb-reviews']={k:'hb-reviews',cls:'',title:'Instant reviews from guests',face(){const A=!verified();return `${head('hb-reviews',I.star,'Instant reviews')}<div style="display:flex;gap:12px;align-items:center"><span class="qr ${A?'off':''}"></span><div style="flex:1;min-width:0">${num('hb-reviews',F().reviews,'review'+(F().reviews===1?'':'s'))}<span class="ln">${A?'Your review QR appears once your page is live':'Guests scan · they review you on the spot'}</span></div></div>`;},room(){return `${secl('Live reviews','Guests scan the QR at the event and leave a review on the spot (live-reviews.tsx).')}${F().reviews?[['Cruz','Lovely. Danced all night.','5'],['Reyes debut','Professional and warm.','5']].map((r,i)=>row({t:r[0],l:r[1],ic:'★',first:i===0,end:`<span class="badge ok">${r[2]} ★</span>`})).join(''):row({t:'No reviews yet',l:'They arrive on the day',ic:I.star,first:true,chev:false})}<div class="acts">${btn('pri','▦','Show the review QR','nope:Review QR')}</div>`;}};
+T['hb-capture']={k:'hb-capture',cls:'',title:'Capture for your website + their recap',face(){return `${head('hb-capture',I.cam,'Capture the day')}<div class="mods"><div class="mod"><span class="ic">${I.cam}</span><span>Recap capture</span></div><div class="mod"><span class="ic">${I.photo}</span><span>Photos</span></div><div class="mod"><span class="ic">${I.star}</span><span>Review the couple</span></div><div class="mod"><span class="ic">${I.shot}</span><span>Shot list</span></div></div>`;},room(){return `${secl('Capture for your website + their recap','Photos you take go to your portfolio and the couple’s recap.')}${row({t:'Recap capture',l:'A few clips for their recap',ic:I.cam,first:true,act:'nope:Recap capture'})}${row({t:'Photos',l:'Into your portfolio · credited to you',ic:I.photo,act:'nope:Photos'})}${row({t:'Review the couple',l:'After the event',ic:I.star,act:'nope:Review the couple'})}${secl('Shot list · the couple can follow along','shot-list.tsx')}${row({t:'Shot list',l:'Nothing listed yet',ic:I.shot,first:true,act:'nope:Shot list'})}`;}};
+T['hb-team']={k:'hb-team',cls:'',title:'Your team on this event',face(){const h=F().helpers;return `${head('hb-team',I.team,'Your team on this event')}${h.length?h.map((p,i)=>prow({who:p[0],ini:p[1],l:'Crew · scanner access'},i)).join(''):`${num('hb-team',1,'just you')}<span class="ln">Only you so far — add teammates under Shop › Helpers.</span>`}`;},room(){return `${secl('Your team on this event','Who holds the scanner on the day (access-grants.tsx · crew-panel.tsx).')}${F().helpers.length?F().helpers.map((p,i)=>row({t:p[0],l:'Crew · scanner access',ic:p[1],first:i===0,act:'nope:'+p[0]})).join(''):row({t:'Only you so far',l:'Add teammates under Shop › Helpers',ic:I.people,first:true,act:'go:shop:helpers'})}<div class="acts">${btn('pri','＋','Add a helper to this event','nope:Add a helper')}</div>`;}};
+T['hb-pages']={k:'hb-pages',cls:'',title:'The event’s pages',face(){return `${head('hb-pages',I.pages,'The event’s pages')}${num('hb-pages','View')}<span class="ln">You run it — as much as the hosts allowed you.</span><div class="foot-l">Delivery to the couple · <b>after the event</b></div>`;},room(){return `${secl('The event’s pages','View only unless the hosts allow more — ask them in chat.')}${row({t:'Their Event Hub',l:'As guests see it',ic:I.pages,first:true,act:'nope:Their Event Hub'})}${row({t:'Ask the hosts for more',l:'Edit rights on their pages',ic:I.mail,act:'nope:Chat'})}${secl('Delivery to the couple','Photos · recap · hand over')}${row({t:'Hand over to the couple',l:'After the event',ic:I.hand,first:true,act:'nope:Hand over'})}`;}};
+T['hb-events']={k:'hb-events',cls:'',title:'Your events',face(){const ev=S.cust.filter(c=>c.lane==='booked').sort((a,b)=>a.date<b.date?-1:1);return `${head('hb-events',I.cal,'Your events')}${ev.length?ev.map((c,i)=>prow({who:c.who,ini:c.ini,l:`${fmtDate(c.date)} · ${c.place}`,cls:'ev',act:'hub:'+c.id},i,`<span class="ln">${daysUntil(c.date)} d</span>`)).join(''):`${num('hb-events','—')}<span class="ln">No events yet</span>`}`;},room(){return `${secl('Your events','Each booked event has its own Hub. Tap one to switch.')}${S.cust.filter(c=>c.lane==='booked').map((c,i)=>row({t:c.who,l:`${fmtDate(c.date,{year:'numeric'})} · ${c.place}`,ic:c.ini,first:i===0,act:'hub:'+c.id})).join('')||row({t:'No events yet',ic:I.cal,first:true,chev:false})}`;}};
+/* ═══════════════ THE LAYOUTS — per section, three designs ═══════════════ */
+const ROOM_TITLE=k=>k==='add'?'New service':k.startsWith('svc:')?(S.svcs.find(s=>s.id===k.slice(4))||{t:''}).t:k.startsWith('cust:')?(S.cust.find(c=>c.id===k.slice(5))||{who:''}).who:k.startsWith('day:')?fmtDate(k.slice(4),{weekday:'long'}):(T[k]||{}).title||'';
+const roomFor=k=>k==='add'?addRoom():k.startsWith('svc:')?svcRoom(k.slice(4)):k.startsWith('cust:')?custRoom(k.slice(5)):k.startsWith('day:')?dayRoom(k.slice(4)):T[k]?T[k].room():'';
+const isRoomKey=k=>k&&(k==='add'||k.startsWith('svc:')||k.startsWith('cust:')||k.startsWith('day:'));
+function tile(k,extra=''){
+  const t=T[k];const open=S.open===k&&S.w!==390;
+  return `<div class="tile ${t.cls} ${extra} ${open?'open':''}" role="button" tabindex="0" data-act="tile:${k}" data-tile="${k}">${open?`<button type="button" class="x" data-act="close" aria-label="Close">✕</button>`:''}${t.face()}${open?`<div class="tbody">${t.room()}</div>`:''}</div>`;
+}
+/* an opened room that is not a tile (a service, a customer, a day, the add step) takes the grid's full width */
+const roomTile=()=>isRoomKey(S.open)&&S.w!==390?`<div class="tile open" data-tile="${S.open}" style="grid-column:1/-1"><button type="button" class="x" data-act="close" aria-label="Close">✕</button><div class="th"><span class="ti">${I.layers}</span><span class="tt">${ROOM_TITLE(S.open)}</span></div><div class="tbody">${roomFor(S.open)}</div></div>`:'';
+const greet=(h,p)=>`<div class="greet"><div><h1>${h}</h1><p>${p}</p></div><span class="grow"></span><span class="date">▤ ${fmtDate(TODAY_ISO,{weekday:'short',year:'numeric'})}</span></div>`;
+const grid=(...ks)=>`<div class="grid">${ks.map(k=>Array.isArray(k)?tile(k[0],k[1]):k==='ROOM'?roomTile():tile(k)).join('')}</div>`;
+const LAYOUT={
+  today:{
+    desk:()=>greet(`${greeting()}, ${SHOP.name}`,'Here is your day.')+grid('td-next','td-waiting','td-week','td-money','td-opened','ROOM','td-days','td-coming','td-also',verified()?'td-shop':'td-setup'),
+    tab:()=>greet(`${greeting()}, ${SHOP.name}`,'Here is your day.')+grid('td-next','td-waiting','td-week','td-money','td-opened','ROOM',['td-days','s2'],'td-coming','td-also',[verified()?'td-shop':'td-setup','s2']),
+    phone:()=>greet(`${greeting()}, ${SHOP.name}`,'Here is your day.')+grid('td-next')+sech('Your numbers','Waiting · this week · to come in · opened your page. Swipe.')+`<div class="hstrip">${tile('td-waiting')}${tile('td-week')}${tile('td-money')}${tile('td-opened')}</div>`+`<div class="grid" style="padding-top:12px">${tile('td-days')}${tile('td-coming')}</div>`+sech('Also','The small things, two-up.')+`<div class="grid mini">${tile('td-also')}${tile(verified()?'td-shop':'td-setup')}</div>`,
+    thumb:()=>{const nx=todayNext();const c=nx.cta[0];return btn(c[0],c[1],c[2]+' <span class="i">›</span>',c[3]);},
+  },
+  shop:{
+    desk:()=>greet('Your shop','Here is how it is doing.')+grid('hero','opened','asked','booked','earned','ROOM','money','asks','sources','services','verify','page','plan','gallery','helpers','promote','manpower'),
+    tab:()=>greet('Your shop','Here is how it is doing.')+grid('hero','opened','asked','booked','earned','ROOM','money','asks','sources','services','verify','page','plan','gallery','helpers','promote',['manpower','s2']),
+    phone:()=>greet('Your shop','Here is how it is doing.')+grid('hero')+sech('Last 30 days','Opened your page · asked · booked, against the 30 days before — and what was paid to you this month. Swipe.')+`<div class="hstrip">${tile('opened')}${tile('asked')}${tile('booked')}${tile('earned')}</div>`+`<div class="grid" style="padding-top:12px">${tile('asks')}</div>`+sech('Your services','Each service couples can find and book you by. Swipe; tap one to open it.')+tile('services')+`<div class="grid" style="padding-top:12px">${tile('money')}</div>`+sech('Your shop','Verification · page · plan · portfolio · helpers · promote · manpower')+`<div class="grid mini">${tile('verify')}${tile('page')}${tile('plan')}${tile('gallery')}${tile('helpers')}${tile('promote')}${tile('sources')}${tile('manpower')}</div>`,
+    thumb:()=>{const ns=nextStep();return btn('pri',ns.ic,ns.t+' <span class="i">›</span>',ns.act)+(S.svcs.length&&ns.act!=='add'?`<button type="button" class="rnd" data-act="add" aria-label="Add a service">＋</button>`:'');},
+  },
+  customers:{
+    desk:()=>greet('Customers','Who is asking, who is booked, what is coming in.')+grid('cu-events','cu-asking','cu-booked','cu-done','cu-lanes','ROOM','cu-dates','cu-money','cu-tools'),
+    tab:()=>greet('Customers','Who is asking, who is booked, what is coming in.')+grid('cu-events','cu-asking','cu-booked','cu-done','cu-lanes','ROOM','cu-dates','cu-money',['cu-tools','s2']),
+    phone:()=>greet('Customers','Who is asking, who is booked.')+sech('This month','Asking · booked · done. Swipe.')+`<div class="hstrip">${tile('cu-asking')}${tile('cu-booked')}${tile('cu-done')}${tile('cu-lanes')}</div>`+`<div class="grid" style="padding-top:12px">${tile('cu-events')}${tile('cu-dates')}${tile('cu-money')}</div>`+sech('Tools','Bookings · quotes · contracts · waiting list')+`<div class="grid mini">${tile('cu-tools')}</div>`,
+    thumb:()=>{const w=lane('waiting')[0];return w?btn('pri','↩','Answer '+w.who+' <span class="i">›</span>','cust:'+w.id):btn('pri','＋','Add a booking <span class="i">›</span>','nope:Add a booking');},
+  },
+  hub:{
+    desk:()=>greet('Event Hub','The day, as you run it.')+grid('hb-day','hb-guests','hb-run','hb-events','hb-reviews','ROOM','hb-capture','hb-team','hb-pages'),
+    tab:()=>greet('Event Hub','The day, as you run it.')+grid('hb-day','hb-guests','hb-run','hb-events','hb-reviews','ROOM','hb-capture','hb-team',['hb-pages','s2']),
+    phone:()=>greet('Event Hub','The day, as you run it.')+grid('hb-day')+sech('On the day','Guests · tools · reviews. Swipe.')+`<div class="hstrip">${tile('hb-guests')}${tile('hb-reviews')}${tile('hb-events')}</div>`+`<div class="grid" style="padding-top:12px">${tile('hb-run')}</div>`+sech('The event','Capture · team · pages')+`<div class="grid mini">${tile('hb-capture')}${tile('hb-team')}${tile('hb-pages')}</div>`,
+    thumb:()=>hubEvent()?btn('pri','▶','Run the day <span class="i">›</span>','tile:hb-run'):btn('pri','＋','Add a booking <span class="i">›</span>','nope:Add a booking'),
+  },
+};
+function sheetHtml(){
+  if(!S.sheet) return '';
+  const {t,l,rows}=S.sheet;
+  return `<div class="fsheet"><button type="button" class="scrim" data-act="close-sheet" aria-label="Close"></button><div class="cardx"><div class="th"><b>${t}</b><button type="button" class="xs" data-act="close-sheet" aria-label="Close">✕</button></div>${l?`<p class="sp" style="padding:0 0 6px">${l}</p>`:''}${rows||''}${rows?'':`<div class="acts">${btn('gry','✕','Close','close-sheet')}</div>`}</div></div>`;
+}
+function frameHtml(){
+  const phone=S.w===390;const L=LAYOUT[S.sec];
+  const dash=`<div class="dash">${phone?L.phone():S.w===820?L.tab():L.desk()}</div>`;
+  const ppane=phone&&S.open?`<div class="ppane" id="ppane"><div class="pback"><button type="button" class="bk" data-act="close">‹ ${SECTIONS.find(s=>s[0]===S.sec)[1]}</button><b>${ROOM_TITLE(S.open)}</b></div><div class="tbody">${roomFor(S.open)}</div></div>`:'';
+  const chrome=phone?`${ppane?'':`<div class="glassfade"></div><div class="thumb">${L.thumb()}</div>`}<div class="tabs">${SECTIONS.map(([k,l])=>`<button type="button" class="${k===S.sec?'on':''}" data-act="sec:${k}"><i>${I[k==='customers'?'cust':k]}</i>${l}</button>`).join('')}</div>`:'';
+  const toast=S.toast?`<div class="toast" role="status">${S.toast.t}${S.toast.undo?`<button type="button" class="u" data-act="undo">Undo</button>`:''}</div>`:'';
+  return `${rail()}${bar()}<div class="main" id="scroller">${pin()}${dash}${ppane}</div>${chrome}<div class="fov" id="fov"></div>${sheetHtml()}${toast}`;
+}
+const frame=document.getElementById('frame'),fitBox=document.getElementById('fit');
+function render(o={}){
+  const sc=document.getElementById('scroller');const st=sc?sc.scrollTop:0;
+  frame.className=`frame w${S.w}`;frame.style.setProperty('--fh',FH[S.w]+'px');
+  frame.innerHTML=frameHtml();
+  const sc2=document.getElementById('scroller');if(sc2&&!o.top){sc2.style.scrollBehavior='auto';sc2.scrollTop=st;sc2.style.scrollBehavior='';}
+  if(o.glide) glide(o.glide);
+  document.getElementById('x-lbl').textContent=SECTIONS.find(s=>s[0]===S.sec)[1];
+  countUp();fit();
+}
+/* 📌 an opened section glides into view (owner 4 Nov, app-wide): tap-open + overflow → its head glides to the pin line; it fits → no move */
+function glide(k){
+  const sc=document.getElementById('scroller');const r=sc&&sc.querySelector(`[data-tile="${CSS.escape(k)}"]`);if(!r) return;
+  const pinH=S.w===390?56:60;const top=r.offsetTop-pinH;
+  const bottom=r.offsetTop+r.offsetHeight;const viewTop=sc.scrollTop+pinH,viewBot=sc.scrollTop+sc.clientHeight;
+  if(r.offsetTop<viewTop||bottom>viewBot) sc.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+}
+function fit(){const w=S.w,fh=FH[w];const avail=Math.min(document.querySelector('.stage').clientWidth,w);const s=Math.min(1,avail/w);frame.style.transform=`scale(${s})`;fitBox.style.width=(w*s)+'px';fitBox.style.height=(fh*s)+'px';}
+window.addEventListener('resize',fit);
+
+/* ═══════════════ actions ═══════════════ */
+function toast(t,undo){S.toast={t,undo};clearTimeout(toastTimer);toastTimer=setTimeout(()=>{S.toast=null;render();},undo?6000:2600);}
+function openTile(k){ if(S.w!==390&&S.open===k){S.open=null;render();return;} S.open=k;render({glide:k}); }
+function notice(t){S.sheet={t,l:'Not drawn in this prototype — the shipped page opens here. Nothing moves there.'};render();}
+function goSec(sec,open){S.sec=sec;S.open=null;S.hit=null;render({top:true});if(open)setTimeout(()=>openTile(open),60);}
+function act(a,el){
+  const [v,...rest]=a.split(':');const arg=rest.join(':');
+  switch(v){
+    case 'tile': openTile(arg); break;
+    case 'svc': openTile('svc:'+arg); break;
+    case 'cust': openTile('cust:'+arg); break;
+    case 'day': openTile('day:'+arg); break;
+    case 'close': S.open=null; render(); break;
+    case 'sec': goSec(arg); break;
+    case 'go': {const [sec,k]=arg.split(':');goSec(sec,k);break;}
+    case 'hub': S.hubEvent=arg;goSec('hub');break;
+    case 'add': S.kind='';S.name='';S.price='';S.pricing='';openTile('add');break;
+    case 'save-svc': {
+      const nm=(S.name||S.kind||'').trim();if(!nm){toast('Pick what you offer first');render();break;}
+      const id='new'+(++n);S.svcs.push({id,t:esc(nm),cards:S.price?[['Good',esc(nm),'₱'+esc(S.price)]]:[],live:false,cover:false,tools:[],scanner:'No scanner'});
+      const i=SETUP.findIndex(s=>s[0]==='Add what you offer');if(i>=0&&S.setup[i]==='now'){S.setup[i]='done';if(S.setup[i+1]==='later')S.setup[i+1]='now';}
+      S.open='svc:'+id;toast('✓ Saved · Ready — goes live when you are verified');render({glide:'svc:'+id});break;}
+    case 'remove': {
+      if(arg.startsWith('svc:')){const k=arg.slice(4);const i=S.svcs.findIndex(s=>s.id===k);if(i<0)break;const [s]=S.svcs.splice(i,1);S.removed.push({kind:'svc',s,i});if(S.open==='svc:'+k)S.open=null;toast(`Removed ${s.t}`,true);render();}
+      else if(arg.startsWith('cust:')){const k=arg.slice(5);const i=S.cust.findIndex(c=>c.id===k);if(i<0)break;const [c]=S.cust.splice(i,1);S.removed.push({kind:'cust',s:c,i});if(S.open==='cust:'+k)S.open=null;toast(`Archived ${c.who}`,true);render();}
+      else if(arg.startsWith('pay:')){const i=+arg.slice(4);const [p]=S.pay.splice(i,1);S.removed.push({kind:'pay',s:p,i});toast(`Removed ${p}`,true);render();}
+      break;}
+    case 'undo': {const r=S.removed.pop();if(r){const arr=r.kind==='svc'?S.svcs:r.kind==='cust'?S.cust:S.pay;arr.splice(Math.min(r.i,arr.length),0,r.s);S.toast=null;clearTimeout(toastTimer);render();}break;}
+    case 'tool': {const [id,i]=arg.split(':');const s=S.svcs.find(x=>x.id===id);if(s){s.tools[+i][2]=!s.tools[+i][2];render();}break;}
+    case 'live': {const s=S.svcs.find(x=>x.id===arg);if(s){if(!s.live&&!verified()){toast('Get verified first — it goes live once Setnayan approves your shop');render();break;}s.live=!s.live;toast(s.live?'✓ Shown on Explore':'Hidden from Explore');render();}break;}
+    case 'agree': {const c=S.cust.find(x=>x.id===arg);if(c){c.lane='booked';c.l='Agreed · deposit to come';F().waiting=Math.max(0,F().waiting-1);toast(`✓ Agreed · ${c.who} is booked`);S.open=null;render();}break;}
+    case 'set-since': S.since=true;toast(profilePct()===100?'✓ Profile complete':'✓ Saved');render();break;
+    case 'setup-done': {const i=+arg;S.setup[i]='done';if(S.setup[i+1]==='later')S.setup[i+1]='now';toast(`✓ ${SETUP[i][0]} · done`);render();break;}
+    case 'checkin': S.checked++;toast(`✓ Checked in · ${S.checked}`);render();break;
+    case 'dayoff': {const off=F().off;const i=off.indexOf(arg);if(i>=0)off.splice(i,1);else off.push(arg);toast(i>=0?'Open for bookings':'Marked as a day off');render();break;}
+    case 'bar': S.hit=S.hit===+arg?null:+arg;render();break;
+    case 'gear': {const rows=S.sec==='shop'?[['verify','Verification and documents'],['plan','Plan and billing'],['helpers','Helpers'],['nope:Notifications','Notifications']]:S.sec==='customers'?[['cu-dates','Date tools'],['cu-tools','Customer tools'],['nope:Archived and closed chats','Archived and closed chats'],['nope:Notifications','Notifications']]:S.sec==='hub'?[['hb-team','Your team on this event'],['hb-pages','The event’s pages'],['nope:Hub settings','Hub settings'],['nope:Notifications','Notifications']]:[['td-setup','Get your shop live'],['go:shop:hero','Your shop'],['nope:Days off','Days off'],['nope:Notifications','Notifications']];
+      S.sheet={t:'Settings',l:`${SECTIONS.find(s=>s[0]===S.sec)[1]} ⚙ — the set-once things, as folds.`,rows:rows.map((r,i)=>row({t:r[1],ic:I.doc,first:i===0,act:r[0].includes(':')?r[0]:'gear-go:'+r[0]})).join('')};render();break;}
+    case 'gear-go': S.sheet=null;openTile(arg);break;
+    case 'close-sheet': S.sheet=null;render();break;
+    case 'nope': S.sheet=null;notice(arg);break;
+    case 'tip': S.sheet={t:'About this',l:arg};render();break;
+    case 'copy': {const t=SHOP.addr;const done=()=>{toast('✓ Copied');};(navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(done,done);break;}
+    case 'doc': S.docs[+arg]=1;toast(S.docs.every(Boolean)?'✓ All four sent · Setnayan is checking':'Sent · Setnayan is checking it');render();break;
+    case 'code': S.codes[arg]=true;toast(S.codes.email&&S.codes.phone?'✓ Both contacts confirmed':'Code sent · confirmed');render();break;
+    case 'sw': S[arg]=!S[arg];render();break;
+    case 'pay-add': S.pay.push(arg);toast('✓ Added · '+arg);render();break;
+    case 'pick': {const [m,val]=[arg.split(':')[0],arg.split(':').slice(1).join(':')];pick(m,val,arg);break;}
+    case 'menu': openMenu(el,arg);break;
+  }
+}
+function pick(m,val,arg){
+  if(m==='seg'){const sec=arg.split(':')[1];const v=arg.split(':').slice(2).join(':');S.seg[sec]=v;
+    if(sec==='shop'){({Services:()=>openTile('services'),Details:()=>openTile('hero'),Page:()=>openTile('page'),Portfolio:()=>openTile('gallery'),Promote:()=>openTile('promote'),Analytics:()=>openTile('opened'),Plan:()=>openTile('plan')}[v]||render)();}
+    else {({Events:()=>openTile('cu-events'),Dates:()=>openTile('cu-dates'),Money:()=>openTile('cu-money')}[v]||render)();}
+    return;}
+  if(m==='plan'){S.plan=val;render();return;}
+  if(m==='kind'){S.kind=val;render();return;}
+  if(m==='pricing'){S.pricing=val;render();return;}
+  if(m==='gigs'){S.gigs=val;render();return;}
+  if(m==='hubev'){const c=S.cust.find(x=>x.who===val);if(c)S.hubEvent=c.id;render();return;}
+  if(m.startsWith('scanner')){const id=arg.split(':')[1];const s=S.svcs.find(x=>x.id===id);if(s){s.scanner=arg.split(':').slice(2).join(':');render();}return;}
+  render();
+}
+const MENUS={
+  'seg:shop':()=>({label:'Shop',opts:SEGS.shop.map(s=>[s,s]),cur:S.seg.shop}),
+  'seg:customers':()=>({label:'Customers',opts:SEGS.customers.map(s=>[s,s]),cur:S.seg.customers}),
+  plan:()=>({label:'Your plan',opts:PLANS.map(p=>[p,p,p==='Free'?'Nothing to pay':'Price from the catalogue']),cur:S.plan}),
+  kind:()=>({label:'What you offer',opts:KINDS.map(k=>[k,k]),cur:S.kind}),
+  pricing:()=>({label:'How the price works',opts:PRICES.map(p=>[p,p]),cur:S.pricing||PRICES[0]}),
+  gigs:()=>({label:'Manpower gigs',opts:['Open gigs','My accepted','Completed','Cancelled'].map(g=>[g,g]),cur:S.gigs}),
+  cap:()=>({label:'Daily reply cap',opts:[['20 a day','20 a day']],cur:'20 a day'}),
+  hubev:()=>({label:'Which event',opts:S.cust.filter(c=>c.lane==='booked').map(c=>[c.who,c.who,fmtDate(c.date)]),cur:(hubEvent()||{}).who}),
+};
+function menuModel(id){ if(id.startsWith('scanner:')){const s=S.svcs.find(x=>x.id===id.slice(8));return {label:'Scanner',opts:[['No scanner','No scanner'],['One scan per guest','One scan per guest']],cur:s?s.scanner:'No scanner'};} return MENUS[id](); }
+function listbox(id,m,sheet){ return `<ul class="pm ${sheet?'sheet':''}" role="listbox" aria-label="${m.label}">${sheet?`<li class="ttl">${m.label}</li>`:''}${m.opts.map(o=>`<li role="none"><button type="button" class="op" role="option" aria-selected="${o[0]===m.cur}" data-act="pick:${id}:${esc(o[0])}"><span>${o[1]}${o[2]?`<small>${o[2]}</small>`:''}</span><span class="tick">✓</span></button></li>`).join('')}</ul>`; }
+function openMenu(btnEl,id){
+  const fov=document.getElementById('fov');const m=menuModel(id);const sheet=S.w===390;
+  fov.innerHTML=`<button type="button" class="scrim ${sheet?'':'clear'}" data-menu-close aria-label="Close"></button>${listbox(id,m,sheet)}`;
+  if(!sheet){const ul=fov.querySelector('.pm');const fr=frame.getBoundingClientRect(),br=btnEl.getBoundingClientRect();const s=fr.width/S.w;let left=(br.left-fr.left)/s,top=(br.bottom-fr.top)/s+6;const w=ul.offsetWidth;if(left+w>S.w-12)left=S.w-12-w;ul.style.left=left+'px';ul.style.top=top+'px';}
+  const close=()=>{fov.innerHTML='';};
+  fov.querySelector('[data-menu-close]').addEventListener('click',close);
+  fov.querySelectorAll('.op').forEach(b=>b.addEventListener('click',()=>{close();act(b.dataset.act,b);}));
+  const first=fov.querySelector('.op[aria-selected="true"]')||fov.querySelector('.op');if(first)first.focus();
+}
+frame.addEventListener('click',e=>{
+  if(swallow){e.stopPropagation();e.preventDefault();return;}
+  if(e.target.closest('#fov')) return;
+  const rv=e.target.closest('.row.rev');if(rv&&!e.target.closest('.rv')){rv.classList.remove('rev');rv.querySelector('.rowin').style.transform='';return;}
+  const t=e.target.closest('[data-act]');if(!t||!frame.contains(t))return;
+  if(t.classList.contains('tile')&&t.classList.contains('open'))return; /* a tap inside an OPEN tile's body does not close it; the ✕ does */
+  e.preventDefault();act(t.dataset.act,t);
+});
+frame.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[role="button"][data-act]')&&!e.target.classList.contains('open')){e.preventDefault();act(e.target.dataset.act,e.target);}});
+frame.addEventListener('input',e=>{const b=e.target.dataset.bind;if(b)S[b]=e.target.value;});
+
+/* ─── swipe left to remove (swipe-to-delete.tsx: axis locks at 8 px; reveal 84 px; a long pull removes at once) ─── */
+let D=null,swallow=false;
+frame.addEventListener('pointerdown',e=>{
+  const r=e.target.closest('.row[data-swipe]');if(!r||e.button!==0)return;if(e.target.closest('.rv'))return;
+  D={r,inn:r.querySelector('.rowin'),x0:e.clientX,y0:e.clientY,horiz:false,tx:0,open:r.classList.contains('rev'),s:frame.getBoundingClientRect().width/S.w};
+});
+frame.addEventListener('pointermove',e=>{
+  if(!D)return;const dx=(e.clientX-D.x0)/D.s,dy=(e.clientY-D.y0)/D.s;
+  if(!D.horiz){ if(Math.abs(dy)>8&&Math.abs(dy)>=Math.abs(dx)){D=null;return;} if(Math.abs(dx)>8){D.horiz=true;D.r.classList.add('drag');D.inn.style.transition='none';try{D.r.setPointerCapture(e.pointerId)}catch(_){}} else return; }
+  let tx=(D.open?-84:0)+dx;tx=Math.min(0,Math.max(tx,-S.w*0.6));D.tx=tx;D.inn.style.transform=`translateX(${tx}px)`;
+});
+function endSwipe(){
+  if(!D)return;const d=D;D=null;if(!d.horiz)return;
+  swallow=true;setTimeout(()=>{swallow=false;},350);
+  d.inn.style.transition='';const rowW=d.r.offsetWidth;const k=d.r.dataset.swipe;
+  if(d.tx<-rowW*0.55){d.inn.style.transform=`translateX(${-rowW}px)`;d.r.classList.add('gone');setTimeout(()=>act('remove:'+k),180);return;}
+  if(d.tx<-84*0.6){d.inn.style.transform='translateX(-84px)';d.r.classList.add('rev');}
+  else {d.inn.style.transform='';d.r.classList.remove('rev');}
+  setTimeout(()=>d.r.classList.remove('drag'),250);
+}
+frame.addEventListener('pointerup',endSwipe);frame.addEventListener('pointercancel',endSwipe);
+
+/* ═══════════════ the strip ═══════════════ */
+const layer=document.getElementById('page-layer');
+function stripMenu(btnEl,opts,cur,on){
+  layer.innerHTML=`<button type="button" class="scrim clear" style="position:fixed;z-index:94" aria-label="Close"></button><ul class="pm pmx" role="listbox">${opts.map(o=>`<li role="none"><button type="button" class="op" role="option" aria-selected="${o[0]===cur}" data-v="${o[0]}"><span>${o[1]}</span><span class="tick">✓</span></button></li>`).join('')}</ul>`;
+  const ul=layer.querySelector('.pm');const br=btnEl.getBoundingClientRect();let left=br.left;if(left+ul.offsetWidth>innerWidth-12)left=innerWidth-12-ul.offsetWidth;ul.style.left=Math.max(8,left)+'px';ul.style.top=(br.bottom+6)+'px';
+  const close=()=>{layer.innerHTML='';};layer.querySelector('.scrim').addEventListener('click',close);
+  ul.querySelectorAll('.op').forEach(b=>b.addEventListener('click',()=>{close();on(b.dataset.v);}));
+}
+const WL={390:'Phone 390',820:'Tablet 820',1440:'Desktop 1440'};
+function setWidth(v){S.w=+v;document.getElementById('w-lbl').textContent=WL[v];S.open=null;render({top:true});}
+function setSample(v){S.sample=v;document.getElementById('s-lbl').textContent=v==='a'?'As today':'Verified · busy';resetSample();render({top:true});}
+document.getElementById('x-btn').addEventListener('click',e=>stripMenu(e.currentTarget,SECTIONS,S.sec,v=>goSec(v)));
+document.getElementById('w-btn').addEventListener('click',e=>stripMenu(e.currentTarget,[['390','Phone 390'],['820','Tablet 820'],['1440','Desktop 1440']],String(S.w),setWidth));
+document.getElementById('s-btn').addEventListener('click',e=>stripMenu(e.currentTarget,[['a','As today · Rondo Musical, 0 services, unverified'],['b','Verified · busy — 3 services, 6 customers, money (sample figures)']],S.sample,setSample));
+const root=document.documentElement;
+const isDark=()=>root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+document.getElementById('t-btn').addEventListener('click',()=>{root.dataset.theme=isDark()?'light':'dark';try{localStorage.setItem('proto-theme',root.dataset.theme)}catch(_){}});
+try{const t=localStorage.getItem('proto-theme');if(t)root.dataset.theme=t;}catch(_){}
+if(location.hash==='#dark')root.dataset.theme='dark';if(location.hash==='#light')root.dataset.theme='light';
+const SEC_HASH={today:'today',shop:'shop',customers:'customers',hub:'hub'};
+if(SEC_HASH[location.hash.slice(1)])S.sec=location.hash.slice(1);
+/* ─── the ⓘ sheet: the tiles, where each number comes from, what does not exist, the same functions at every width ─── */
+const INFO=`<div class="info"><button type="button" class="scrim" data-x aria-label="Close"></button><div class="cardx">
+<div style="display:flex;align-items:center;gap:8px"><h2>The supplier dashboard</h2><button type="button" class="xs" data-x aria-label="Close">✕</button></div>
+<p>The owner: <i>“it doesn’t feel like a dashboard”</i> · <i>“we want the feel. but our functions”</i> · <i>“clean and interactive”</i>. From the references only the FEEL is taken — a rhythm of tiles, big numbers, white space, one strong action, motion. Every tile is a Setnayan supplier function the app already has, in Setnayan’s tokens, with the shipped rail, bar and pinned row. Four sections — Today · Shop · Customers · Hub — each with its own phone, tablet and desktop design. Prototype 2026-11-07 · no app code touched.</p>
+<h3>Three designs, the same functions</h3>
+<ul>
+<li><b>390 — the smaller, simpler version.</b> Greeting, ONE hero, a swipeable strip of the numbers, then the lists; the smaller tiles two-up. The one next step sits in the thumb zone above the four tabs. A tapped tile opens as its own screen with a back bar.</li>
+<li><b>820 — between.</b> A 2-column bento on the real 1 : 1 columns from 701 px; the hero wide, numbers 2 × 2, lists wide.</li>
+<li><b>1440 — the creative one.</b> A 4-column bento: the hero 2 × 2 beside four numbers, the chart with room, photo tiles for services, a month calendar, the dark plan tile.</li>
+</ul>
+<h3>Interactive</h3>
+<p>Tiles press (a 1.5 % settle) and open in place, full width, ✕ closes · numbers count up the first time a tile is drawn · a tapped month on the chart says its amount · the phone’s strips swipe · service rows, payment options and customer chats swipe left to remove / archive, with Undo · an opened tile glides to the pin line · a finished step pops a ✓ — “Profile complete”, “Agreed · Mika &amp; Paolo is booked”, “Checked in · 1”, “All four sent”.</p>
+<h3>Same functions at every width</h3>
+<div class="tw"><table><tr><th>Function</th><th>390</th><th>820</th><th>1440</th></tr>
+<tr><td>Today · the next thing (ask / step / event)</td><td>Next card first + the thumb pill</td><td>Next card, wide</td><td>Next card 2 × 2</td></tr>
+<tr><td>Today · waiting · this week · to come in · opened</td><td>swipeable strip (+ pinned row)</td><td>four tiles 2 × 2</td><td>four tiles beside the card</td></tr>
+<tr><td>Today · the next 7 days · coming up · also today · set-up</td><td>stacked, then two-up</td><td>pairs</td><td>one row</td></tr>
+<tr><td>Shop · the shop card · profile ring · next step</td><td>card first + thumb pill</td><td>card wide</td><td>card 2 × 2</td></tr>
+<tr><td>Shop · opened · asked · booked · paid this month</td><td>swipeable strip</td><td>2 × 2</td><td>beside the card</td></tr>
+<tr><td>Shop · services as photo tiles · add a service</td><td>swipeable photo strip + ＋ in the thumb zone</td><td>2-up grid + bar button</td><td>3-up grid + bar button</td></tr>
+<tr><td>Shop · 12-month money · recent · sources</td><td>stacked / two-up</td><td>chart wide, pair</td><td>chart 2 + two tiles</td></tr>
+<tr><td>Shop · verify · page + QR · plan · portfolio · helpers · promote · manpower</td><td>two-up mini tiles</td><td>pairs</td><td>one row of four + one</td></tr>
+<tr><td>Shop ▾ menu (Details · Services · Page · Promote · Portfolio · Analytics · Plan)</td><td colspan="3">the bar’s dropdown opens the matching tile, every width</td></tr>
+<tr><td>Customers · asking · booked · done · where everyone is</td><td>swipeable strip</td><td>2 × 2</td><td>beside the list</td></tr>
+<tr><td>Customers · the list (waiting first) · one customer’s event</td><td>list tile → full-screen card</td><td>list wide → opens in place</td><td>list 2 × 2 → opens in place</td></tr>
+<tr><td>Customers · the month · a day · days off</td><td>month tile → day sheet</td><td>month 2 × 2</td><td>month 2 × 2</td></tr>
+<tr><td>Customers · money · tools (bookings · quotes · contracts · waiting list)</td><td>stacked / two-up</td><td>wide + wide</td><td>wide + one</td></tr>
+<tr><td>Customers ▾ (Events · Dates · Money) · the pinned figures change with it</td><td colspan="3">the bar’s dropdown, every width</td></tr>
+<tr><td>Hub · the day · days to go · checked in · run the day</td><td>hero + strip + thumb pill</td><td>hero wide + pair</td><td>hero 2 × 2 + tiles</td></tr>
+<tr><td>Hub · guests · reviews QR · capture · team · pages · events</td><td>strip + two-up</td><td>pairs</td><td>one row</td></tr>
+<tr><td>⚙ on the pinned row · ⓘ on every section head</td><td colspan="3">the same sheet, every width</td></tr></table></div>
+<h3>Every tile, and the figure behind it</h3>
+<div class="tw"><table><tr><th>Tile</th><th>Source (file : symbol)</th></tr>
+<tr><td>Today · Next</td><td><code>lib/supplier-today-view.ts : assembleSupplierToday → next</code> (LIVE’s rule order: a couple’s ask first, then the set-up step, then the next event)</td></tr>
+<tr><td>Today · waiting · this week · to come in</td><td><code>assembleSupplierToday → numbers.waiting · thisWeek · toComeInPhp</code> (payday unread → “—”, never ₱0)</td></tr>
+<tr><td>Today · the next 7 days · coming up</td><td><code>→ week · comingUp</code> · <code>lib/vendor-overview.ts : UpcomingEventRow</code></td></tr>
+<tr><td>Today · Get your shop live</td><td><code>lib/vendor-first-steps.ts : buildFirstStepsRail</code> — done · now · later · waiting</td></tr>
+<tr><td>Shop · the shop card · ring · next step</td><td><code>lib/vendor-profile.ts : businessProfileChecklist</code> (done / total; <code>missing[0]</code>)</td></tr>
+<tr><td>Shop · opened · asked · booked (+n vs 30 d before)</td><td><code>lib/vendor-funnel.ts : fetchVendorFunnelTotals</code> → <code>lib/shop-section-figures.ts : analyticsFigures · changeWord</code>; views by <code>lib/record-vendor-view.ts</code></td></tr>
+<tr><td>Shop · paid this month · 12 months</td><td><code>lib/vendor-earnings-view.ts : earningsView</code> (<code>thisMonthPhp · ytdPhp · months</code>)</td></tr>
+<tr><td>Shop · Recent</td><td><code>lib/vendor-overview.ts : WhatsNewCard</code> — a pre-accept inquiry is masked by construction (“A couple”)</td></tr>
+<tr><td>Shop · Where they came from</td><td><code>lib/vendor-funnel.ts : fetchViewsBySource · SOURCE_LABELS · minNOk</code> (under 5 → “—”)</td></tr>
+<tr><td>Shop · services</td><td><code>lib/shop-services-summary.ts : shopServiceRows · servicesFigures</code></td></tr>
+<tr><td>Shop · Get verified</td><td><code>lib/vendor-verification.ts : DOC_SLOTS</code> · <code>detailsFigures</code></td></tr>
+<tr><td>Shop · Your page</td><td><code>pageFigures</code> (“New”, never 0 ★) · <code>lib/vendor-fit-qr.ts</code></td></tr>
+<tr><td>Shop · plan</td><td><code>lib/vendor-plan-rows.ts</code>; no price drawn — only <code>platform_retail_catalog_v2</code> may</td></tr>
+<tr><td>Shop · portfolio · promote · helpers · manpower</td><td><code>galleryFigures · promoteFigures</code> · <code>lib/vendor-team.ts</code> · <code>lib/vendor-manpower-reads.ts</code></td></tr>
+<tr><td>Customers · asking · booked · done · lanes</td><td><code>lib/vendor-customer-pipeline.ts : customerLaneOf</code> · <code>customers/page.tsx</code> doors</td></tr>
+<tr><td>Customers · the month · booked · asking · days off</td><td><code>lib/vendor-customers.ts : buildCustomerCalendarMonth</code> · <code>customers/dates-figures.ts</code></td></tr>
+<tr><td>Customers · received · to come in · overdue</td><td><code>customers/money-pin-figures.ts</code> · <code>lib/vendor-customers.ts : computeEventMoneyPositions</code></td></tr>
+<tr><td>Hub · days to go · run of show · tools</td><td><code>on-the-day/page.tsx</code> · <code>lib/vendor-dayof-modules.ts</code> (the band’s defaults)</td></tr>
+<tr><td>Hub · checked in</td><td>the check-in desk (<code>events-you-run-rows.tsx</code>) — counts only on the day</td></tr>
+<tr><td>Hub · reviews QR · capture · team · pages</td><td><code>live-reviews.tsx · guest-review-qr.tsx · shot-list.tsx · access-grants.tsx</code></td></tr></table></div>
+<h3>What does NOT exist yet — shown honestly, never invented</h3>
+<ul>
+<li><b>Seen in Find / impressions</b> — Find records no impressions. Not drawn.</li>
+<li><b>QR scans per code</b> — nothing records a scan; Promote says “scans not counted yet”.</li>
+<li><b>A target</b> (sales vs target) — no target exists for a shop. Not drawn.</li>
+<li><b>Where the couples are</b> — views are not kept by place; “Where they came from” is by source, which exists.</li>
+<li><b>A day-by-day line</b> — the funnel is two 30-day windows, so the trend is a word (+38), not a line; the 12-month bars are real.</li>
+<li><b>Reply time</b> exists (<code>lib/vendor-reply-time.ts</code>) but needs 3 answered asks; left off the first screen.</li>
+<li><b>The run of show’s moments</b> are the hosts’ schedule — drawn here as sample moments for the busy shop.</li>
+</ul>
+<p>Sample B’s numbers are <b>sample values</b> of figures the app reads — not Rondo’s. A figure that could not be <i>read</i> draws “—”; one read as zero draws 0 with its reason.</p>
+<h3>Three questions for the owner</h3>
+<ol type="a">
+<li><b>The greeting</b> — “Good morning, Rondo Musical” reads the shop name. <code>business_owner_name</code> exists — greet the person?</li>
+<li><b>Today vs Shop</b> — “Opened your page” is on both (Today as a number, Shop with its funnel). Keep both, or only on Shop?</li>
+<li><b>The dark plan tile</b> — one per screen, as the references do, or a plain tile?</li>
+</ol>
+<h3>How to use this screen</h3>
+<p>Section ▾ · Width ▾ · Sample ▾ in the strip. The rail, the phone tabs and “Open the Hub”-style buttons also move between sections. Tap a tile; tap ✕ or ‹ to come back. ◐ is the app’s <code>html.dark</code> block.</p>
+</div></div>`;
+document.getElementById('i-btn').addEventListener('click',()=>{layer.innerHTML=INFO;layer.querySelectorAll('[data-x]').forEach(b=>b.addEventListener('click',()=>{layer.innerHTML='';}));});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){layer.innerHTML='';const fov=document.getElementById('fov');if(fov&&fov.innerHTML){fov.innerHTML='';return;}if(S.sheet){S.sheet=null;render();return;}if(S.open){S.open=null;render();}}});
+
+/* ═══════════════ boot ═══════════════ */
+resetSample();render({top:true});setTimeout(fit,300);setTimeout(fit,1200);
+</script>
+</body>
+</html>

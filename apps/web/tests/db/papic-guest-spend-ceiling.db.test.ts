@@ -386,7 +386,9 @@ test('the gate lives INSIDE the writer, which is the one door an anonymous calle
   assert.match(def, /SUM\(points_cost\)/, 'and it must meter in credits');
   assert.match(
     def,
-    /v_unlimited\s*:=\s*v_unlimited\s*OR\s*\(COALESCE\(v_pool_applies, FALSE\) AND v_ceiling IS NULL\)/,
+    // The Unlock-pass disjunct went with the pass (20271309535584), so the pot's
+    // yield is now the whole assignment rather than "v_unlimited OR …".
+    /v_unlimited\s*:=\s*\(COALESCE\(v_pool_applies, FALSE\) AND v_ceiling IS NULL\)/,
     'the pool must only stand the per-guest gate down when NO ceiling is set',
   );
 });

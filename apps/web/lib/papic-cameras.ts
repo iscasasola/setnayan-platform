@@ -1,71 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
-import { eventSkuActive } from '@/lib/entitlements';
 import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost, type PapicCaptureSource } from '@/lib/papic-cameras-pure';
 import { formatCount } from '@/lib/format-number';
 
 /**
  * ⚠ THE POINT WEIGHTS AND THE FREE-CAMERA ALLOWANCE ARE NOT IN THIS FILE — they
- * are in `./papic-cameras-pure`, because the unlock gates below reach
- * `eventSkuActive` → the service-role client, and the pickers, the gallery grid
+ * are in `./papic-cameras-pure`, because this module reaches the service-role
+ * client, and the pickers, the gallery grid
  * and `papic-tier-copy.ts` all need the prices without it. Re-exported here, so
  * `@/lib/papic-cameras` still resolves every symbol it always did.
  */
 export * from '@/lib/papic-cameras-pure';
 
-/**
- * The "Unlock all of Papic" umbrella bundle (owner 2026-06-26 ·
- * platform_package_catalog 'PAPIC_UNLOCK'). Owning it makes the UNLIMITED (Unli)
- * camera tier free + uncapped for the whole event — both the per-camera paid-gate
- * (capture stays blocked until paid) and the picker's Unli price collapse to ₱0.
- * Roll (Ltd) cameras are NOT freed — the umbrella covers Unli only.
- */
-export const PAPIC_UNLOCK_BUNDLE_KEY = 'PAPIC_UNLOCK';
-
-/**
- * The Ltd-tier twin (owner 2026-07-11 · platform_package_catalog
- * 'PAPIC_UNLOCK_LTD', ₱9,000). Owning it makes the LIMITED (Ltd/Roll) camera tier
- * free + uncapped for the whole event, plus Photo Wall + Camera Bridge. The Unli
- * tier is NOT freed by this pass — that's the separate ₱15,000 PAPIC_UNLOCK.
- */
-export const PAPIC_UNLOCK_LTD_BUNDLE_KEY = 'PAPIC_UNLOCK_LTD';
-
-/**
- * Does owning the Unlock-all umbrella make Unli cameras free for this event?
- *
- * The admin-approved, bundle-aware FEATURE GATE: TRUE only when the event owns an
- * ACTIVE (paid/fulfilled) PAPIC_UNLOCK order — so an unpaid/pending umbrella never
- * frees a camera. Read on the ADMIN client at capture surfaces (a seat claimer is
- * not an event member, so an RLS-scoped read would see nothing). Fail-CLOSED:
- * any read error returns false so a hiccup can never free a paid camera for a
- * non-owner — this is money logic.
- */
-export async function eventUnliFreeViaUnlock(
-  admin: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  try {
-    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Ltd-tier mirror of {@link eventUnliFreeViaUnlock}: does owning the ₱9,000
- * PAPIC_UNLOCK_LTD pass make Ltd (Roll) cameras free for this event? Same
- * fail-CLOSED money-logic contract — TRUE only on an ACTIVE PAPIC_UNLOCK_LTD order.
- */
-export async function eventLtdFreeViaUnlock(
-  admin: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  try {
-    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_LTD_BUNDLE_KEY);
-  } catch {
-    return false;
-  }
-}
+// The "Unlock all of Papic" umbrellas (PAPIC_UNLOCK, PAPIC_UNLOCK_LTD) used to
+// free the paid camera rungs for a whole event. Retired with the pass (owner
+// 2026-11-05: "no one. remove both") — every camera is metered now.
 
 /**
  * apps/web/lib/papic-cameras.ts
@@ -325,26 +274,6 @@ export function papicRungSku(rung: PapicRung): string {
   if (rung === 'ltd') return PAPIC_CAMERA_LTD_SKU;
   return PAPIC_CAMERA_MINI_SKU;
 }
-
-/**
- * Per-camera per-day capture quota. null = unlimited.
- *
- * @deprecated Superseded by the capture-POINTS budget in papic_tier_config (see
- * papicCaptureCost + the points RPCs). Retained only for the deprecated
- * papicTierDailyLimit below; the mini/ltd rows are the points budget expressed
- * in the old per-kind shape (20 pts → 20 photos, 6 clips · 70 pts → 70 photos,
- * 23 clips) and are NOT an independent source of truth.
- */
-export const PAPIC_TIER_QUOTA: Record<
-  CameraTier,
-  { photos: number | null; videos: number | null }
-> = {
-  free: { photos: 10, videos: 3 }, // owner 2026-07-11 (was 5 + 1) — fatter free taste
-  roll: { photos: 30, videos: 10 },
-  mini: { photos: 20, videos: 6 },
-  ltd: { photos: 70, videos: 23 },
-  unlimited: { photos: null, videos: null },
-};
 
 /**
  * Live per-camera-per-day rates, in PHP, keyed by rung. `roll` is carried
@@ -825,40 +754,18 @@ export function papicPerCameraTier(
   return null;
 }
 
-/**
- * The per-camera per-day limit for a capture kind (null = unlimited).
- *
- * @deprecated Papic v3 (owner 2026-07-17) replaced the per-kind photo/video
- * quotas with a single capture-POINTS budget (1 photo = 1 pt · 1 clip = 8 pts)
- * resolved from the admin-editable papic_tier_config table. Both enforcement
- * seams (api/upload presign + papic/actions record) now call the points RPCs
- * (migration 20270821110100). Kept one release alongside the deprecated
- * papic_camera_remaining / papic_reserve_camera_capture DB fns, both dropped
- * 2026-09-18 (20271234330879).
- */
-export function papicTierDailyLimit(
-  tier: CameraTier,
-  kind: 'photo' | 'clip',
-): number | null {
-  const q = PAPIC_TIER_QUOTA[tier];
-  return kind === 'clip' ? q.videos : q.photos;
-}
-
 // ── Capture POINTS (Papic v3 · owner 2026-07-17 · brief PR-3) ───────────────
 //
-// One per-camera-per-day budget, spent in POINTS: 1 photo = 1 point · 1
-// ten-second clip = 8 points. Budgets live in the admin-editable
-// papic_tier_config table (roll 20 · ltd 70 · free/mini/unlimited NULL=∞) —
-// NEVER hardcoded here. Free + Papic One ('mini') were flipped to NULL by the
-// one-pool migration (owner 2026-07-22 · §0): their per-camera reserve passes
-// through, so a free/One seat draws ONLY the shared event pool
-// (papic_reserve_event_points), no per-seat reserve. The DB RPCs (migration
-// 20270821110100) resolve the budget internally:
-//   • papic_camera_points_remaining(seat) — read-only probe for the PRESIGN
-//     seam (api/upload): refuse the upload URL at 0 so no orphan R2 bytes.
-//   • The record-layer gate WAS papic_reserve_camera_points; it was replaced
-//     by papic_reserve_capture_split (dedicated first, pool for the rest —
-//     owner 2026-08-11) and dropped 2026-09-18 (20271234330879).
+// Captures are priced in CREDITS (papicCaptureCost below) and spent from the
+// camera's own credits first, if it has any, then the event's ONE shared pool —
+// both in papic_reserve_capture_split, called by papic_record_seat_capture.
+// There is NO per-camera or per-day budget: the old per-day meter
+// (papic_tier_config.points_per_day vs papic_seat_day_usage) is retired (owner
+// 5 Nov 2026 · DECISION_LOG 2026-09-16 "ONE POOL OF CREDITS"), and its quota
+// helpers (PAPIC_TIER_QUOTA, papicTierDailyLimit) were deleted with it.
+// The presign seam (api/upload) only probes papic_capture_points_available and
+// papic_event_points_remaining_for_seat so no URL is minted for a shot nobody
+// can pay for.
 
 /**
  * Postgres "function does not exist" (42883) / PostgREST schema-cache miss

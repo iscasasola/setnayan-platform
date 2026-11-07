@@ -43,42 +43,38 @@ const code = (s: string) => stripComments(s);
 // 1 · THE RULE — a ceiling always overrides, in every combination
 // ─────────────────────────────────────────────────────────────────────────
 
-test('a set ceiling ALWAYS caps — even under Unlock, even under a pool', () => {
-  for (const hasUnlock of [false, true])
-    for (const poolApplies of [false, true])
-      for (const poolUnknown of [false, true]) {
-        assert.equal(
-          papicGuestCapAppliesWithCeiling({
-            hasUnlock,
-            poolApplies,
-            poolUnknown,
-            guestCeiling: 14,
-          }),
-          true,
-          `a ceiling of 14 stopped binding at ${JSON.stringify({ hasUnlock, poolApplies, poolUnknown })} — ` +
-            'a bought Unlock pass is not permission to walk through a limit the couple set on one guest',
-        );
-      }
+test('a set ceiling ALWAYS caps — even under a pool', () => {
+  for (const poolApplies of [false, true])
+    for (const poolUnknown of [false, true]) {
+      assert.equal(
+        papicGuestCapAppliesWithCeiling({
+          poolApplies,
+          poolUnknown,
+          guestCeiling: 14,
+        }),
+        true,
+        `a ceiling of 14 stopped binding at ${JSON.stringify({ poolApplies, poolUnknown })} — ` +
+          'a shared pot is not permission to walk through a limit the couple set on one guest',
+      );
+    }
 });
 
 test('no ceiling (null) collapses back to the pre-S2 rule exactly', () => {
-  for (const hasUnlock of [false, true])
-    for (const poolApplies of [false, true])
-      for (const poolUnknown of [false, true]) {
-        const i = { hasUnlock, poolApplies, poolUnknown };
-        assert.equal(
-          papicGuestCapAppliesWithCeiling({ ...i, guestCeiling: null }),
-          papicGuestCapApplies(i),
-          `a null ceiling changed the pre-S2 answer at ${JSON.stringify(i)} — a database ` +
-            'that predates the migration must behave byte-identically',
-        );
-      }
+  for (const poolApplies of [false, true])
+    for (const poolUnknown of [false, true]) {
+      const i = { poolApplies, poolUnknown };
+      assert.equal(
+        papicGuestCapAppliesWithCeiling({ ...i, guestCeiling: null }),
+        papicGuestCapApplies(i),
+        `a null ceiling changed the pre-S2 answer at ${JSON.stringify(i)} — a database ` +
+          'that predates the migration must behave byte-identically',
+      );
+    }
 });
 
 test('a ceiling of exactly 0 still caps — 0 is a real number, not "unset"', () => {
   assert.equal(
     papicGuestCapAppliesWithCeiling({
-      hasUnlock: true,
       poolApplies: true,
       poolUnknown: false,
       guestCeiling: 0,

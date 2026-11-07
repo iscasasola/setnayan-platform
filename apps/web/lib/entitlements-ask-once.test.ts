@@ -38,7 +38,6 @@ import {
   eventActiveSkus,
   eventCompActiveSkus,
   eventHasCompGrant,
-  eventHasPapicUnlock,
   eventHostIsInternal,
   eventOwnsSku,
   eventSkuActive,
@@ -207,7 +206,6 @@ const MAKER_AND_GUEST_ASKS: Array<(db: () => SupabaseClient, eventId: string) =>
   (db, e) => eventSkuActive(db(), e, 'PAPIC_GUEST_6K'),
   (db, e) => eventSkuActive(db(), e, 'PAPIC_GUEST_10K'),
   (db, e) => eventSkuActive(db(), e, 'PAPIC_GUEST_TOPUP'),
-  (db, e) => eventHasPapicUnlock(db(), e),
   (db, e) => eventHostIsInternal(db(), e),
 ];
 
@@ -569,7 +567,6 @@ async function everyAnswer(db: () => SupabaseClient): Promise<Answers> {
   out['grid:active'] = [...all.active].sort();
   out['grid:pending'] = [...all.pending].sort();
   out['comp-list'] = [...(await eventCompActiveSkus(db(), E1))].sort();
-  out['papic-unlock'] = await eventHasPapicUnlock(db(), E1);
   out['internal'] = await eventHostIsInternal(db(), E1);
   out['bundles'] = await fetchBundleComponents(db());
   return out;

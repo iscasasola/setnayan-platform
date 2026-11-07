@@ -74,11 +74,10 @@ test('a pick costs exactly what the server will charge for it, file by file', ()
   assert.equal(server, 3 + 6 + 15 + 3 + 24);
 });
 
-test('the pot decides BEFORE anything uploads — short says by how much; unread or a pass never blocks', () => {
+test('the pot decides BEFORE anything uploads — short says by how much; an unread pot never blocks', () => {
   assert.deepEqual(coverVerdict(17, 9), { ok: false, cost: 17, left: 9, short: 8 });
   assert.deepEqual(coverVerdict(9, 9), { ok: true, cost: 9 });
   assert.deepEqual(coverVerdict(1, 0), { ok: false, cost: 1, left: 0, short: 1 });
-  assert.equal(coverVerdict(500, 'unmetered').ok, true, 'the Unlock pass shoots unmetered — as at the gate');
   assert.equal(coverVerdict(500, null).ok, true, 'an unread pot is not a refusal — the server still decides each file');
 });
 

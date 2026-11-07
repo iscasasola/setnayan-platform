@@ -124,9 +124,8 @@ test('🚨 the three retired camera sales REFUSE — couple-checked, and nothing
 test('the refusal is spoken on the page, once, and historical camera money is untouched', () => {
   const page = cardSources();
   assert.match(page, /papicError === PAPIC_CAMERA_SALE_REFUSED[\s\S]{0,200}PAPIC_CAMERA_SALE_REFUSED_WORDS/, 'the page no longer says why');
-  // The activation hooks for orders already paid stay wired — retiring a door is not abandoning its orders.
-  const activation = read(join(WEB, 'lib/sku-activation.ts'));
-  assert.match(activation, /provisionPapicSeatsAdmin\(/, 'the PAPIC_SEATS activation hook is gone — paid orders would strand');
+  // The PAPIC_SEATS activation hook is gone ON PURPOSE: nobody holds the pack (owner 2026-11-05:
+  // "no one. remove both"), so there is no paid order for it to strand.
   // …and the page still keeps a paid Limited snapshot's cameras in step with RSVPs.
   assert.match(page, /syncGuestCameras\(/, 'a paid guest-camera snapshot no longer syncs');
 });

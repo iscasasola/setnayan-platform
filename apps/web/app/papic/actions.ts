@@ -27,23 +27,16 @@ import { autoTagCapture } from '@/lib/face-match';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { buildPapicGeoFields, type PapicGeoInput } from '@/lib/papic-geo';
 import { capturedAtIso } from '@/lib/papic-capture-minute';
-import {
-  eventOwnsPapicSeats,
-  papicSeatAnonEnabled,
-} from '@/lib/papic-seats';
+import { papicSeatAnonEnabled } from '@/lib/papic-seats';
 import {
   papicPerCameraTier,
-  papicRungForTier,
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
   papicSeatCaptureSource,
-  eventUnliFreeViaUnlock,
-  eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
 import { papicManualUploadsClosed } from '@/lib/papic-uploads-open';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
-import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm, isCaptchaRefusal } from '@/lib/turnstile';
 import { venueDoorThrottleEnabled } from '@/lib/venue-door-flag';
 import { allowVenueDoorAttempt, VENUE_DOORS, VENUE_DOOR_STATE } from '@/lib/venue-door-throttle';
@@ -430,20 +423,16 @@ export async function recordSeatCapture(
   // nothing under their session and wrongly block every capture. Fail-OPEN on a
   // config/transient error (admin client unavailable) — a refunded event still
   // capturing is far better than the camera breaking for a paying couple.
-  if (!cameraTier) {
-    let owned = true;
-    try {
-      const admin = createAdminClient();
-      owned = await eventOwnsPapicSeats(admin, seat.event_id as string);
-    } catch {
-      owned = true; // fail-open — never break the camera on an entitlement read
-    }
-    if (!owned) return { ok: false, error: 'not_owned' };
-  }
+  //
+  // 🛑 THE PACK IS RETIRED (owner 2026-11-05: "no one. remove both"). A pack
+  // seat shot UNMETERED (cost 0) while its event owned PAPIC_SEATS; nobody owns
+  // it now, so such a seat is refused outright — the same 'not_owned' it already
+  // got from every event that did not hold the pack. Never a free shot.
+  if (!cameraTier) return { ok: false, error: 'not_owned' };
 
   // ── Per-CAMERA enforcement (per-camera model · PR3) ─────────────────────
-  // Applies ONLY to per-camera seats (sku_code PAPIC_CAMERA_*) — the legacy
-  // PAPIC_SEATS pack stays uncapped (feature-loss firewall). A paid camera
+  // Every seat that reaches here is a per-camera seat (the retired pack was
+  // refused just above). A paid camera
   // (roll/unlimited) only shoots once its order is PAID; the daily capture-
   // POINTS budget is reserved atomically at the record layer (the
   // authoritative gate; the presign probe in /api/upload is the orphan-byte
@@ -474,9 +463,8 @@ export async function recordSeatCapture(
     satisfied by the buggy placement too — an ORDER check says nothing about
     which conditional you are nested inside.
 
-    Not folded into the record call below either: metering is skipped entirely
-    for an event holding the Papic Unlock pass (cost 0), so a gate expressed as
-    part of the spend would be missing on exactly the events that paid the most.
+    Not folded into the record call below either: a rule about the EVENT
+    belongs before the spend, not inside it.
 
     Fails OPEN — see the helper for why a read failure must never stop a live
     celebration's cameras. Wrapped, because an unavailable admin client must
@@ -531,10 +519,10 @@ export async function recordSeatCapture(
     if (uploadsClosed) return { ok: false, error: 'uploads_closed' };
   }
 
-  // The capture's price, in credits. 0 means "do not meter this one" — an event
-  // holding the Papic Unlock pass, or a legacy PAPIC_SEATS pack seat, both of
-  // which have always skipped the reserve. ONE number describing what this
-  // capture is worth, handed to the record function, which spends it or refuses.
+  // The capture's price, in credits. ONE number describing what this capture is
+  // worth, handed to the record function, which spends it or refuses. It is
+  // never 0 for a real capture any more: the two things that used to zero it
+  // (the Unlock pass and the PAPIC_SEATS pack) are retired, owner 2026-11-05.
   let meterCost = 0;
   {
     if (cameraTier) {
@@ -558,24 +546,14 @@ export async function recordSeatCapture(
         return { ok: false, error: 'capture_window_closed' };
       }
 
-      // Papic Unlock (the "Unlock all of Papic" pass · PR9 #2269 grants the
-      // FEATURES; this is the deferred ALLOWANCE half): every camera on the event
-      // shoots UNLIMITED with NO per-camera payment — skip both the paid-gate and
-      // the daily reservation. Fail toward the normal metered gate on a read
-      // error (a paying couple is never worse off than today).
-      let unlocked = false;
-      try {
-        unlocked = await eventHasPapicUnlock(
-          createAdminClient(),
-          seat.event_id as string,
-        );
-      } catch {
-        unlocked = false;
-      }
+      // 🛑 NO UNLOCK PASS. The "Unlock all of Papic" pass used to make every
+      // camera on its event shoot unmetered (cost 0) and, through its two
+      // umbrellas, free the paid rungs. It is retired (owner 2026-11-05:
+      // "no one. remove both"): every capture is metered.
       // Every PAID rung (mini · legacy roll · ltd · unlimited) is gated; only the
       // free tier skips. Expressed as "not free" so a new rung can never slip
       // through the paid-gate by being missing from an allow-list.
-      if (!unlocked && isPaidCameraTier(cameraTier)) {
+      if (isPaidCameraTier(cameraTier)) {
         let paid = false;
         try {
           const admin = createAdminClient();
@@ -583,18 +561,6 @@ export async function recordSeatCapture(
             admin,
             seat.paid_order_id as string | null,
           );
-          // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
-          // non-owner's camera is never freed): PAPIC_UNLOCK (₱15,000) frees
-          // Unli; PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees the ₱30 rung
-          // it was sold against — legacy 'roll', today's Mini. The new ₱50 Ltd
-          // rung is covered by NO pass (owner pricing call) and stays gated.
-          const rung = papicRungForTier(cameraTier);
-          if (!paid && rung === 'unlimited') {
-            paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
-          }
-          if (!paid && rung === 'mini') {
-            paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
-          }
         } catch {
           paid = false;
         }
@@ -610,16 +576,12 @@ export async function recordSeatCapture(
       // spoofable (see the clip_too_long check). papicSnippetCost bills an absent
       // or nonsense length at the TOP band, so the only thing a tampered client
       // can do by lying is pay MORE.
-      //
-      // An event holding the Papic Unlock pass shoots unmetered — cost stays 0.
-      if (!unlocked) {
-        // 📤 Added by hand (the Uploads camera's seat) → the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26).
-        meterCost = papicCaptureCost(
-          kind === 'clip' ? 'clip' : 'photo',
-          durationMs,
-          papicSeatCaptureSource(typeof seat.seat_index === 'number' ? seat.seat_index : null),
-        );
-      }
+      // 📤 Added by hand (the Uploads camera's seat) → the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26).
+      meterCost = papicCaptureCost(
+        kind === 'clip' ? 'clip' : 'photo',
+        durationMs,
+        papicSeatCaptureSource(typeof seat.seat_index === 'number' ? seat.seat_index : null),
+      );
     }
   }
 

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { envFlagEnabled } from '@/lib/env-flag';
-import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventActiveSkus } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-seats.ts
@@ -88,36 +88,6 @@ export function papicSeatAnonEnabled(): boolean {
  * pass is the five-seat pass (the V1 3-seat tier was dropped in the merge).
  */
 export const PAPIC_SEAT_COUNT = 5;
-
-/**
- * Does this event own the paid Papic Seats pass?
- *
- * Delegates to the bundle-aware eventOwnsSku() reader (lib/entitlements.ts) —
- * refund-aware, graceful-degrade on a missing orders table, AND counts a
- * MEDIA_PACK bundle (which includes PAPIC_SEATS) as owning the seats pass.
- * Kept in lockstep with the DB RPC papic_event_owns_service (migration
- * 20270103010000), so the seats page gate and the provisioning RPC agree — a
- * Media-Pack buyer both SEES the provision UI and can materialize the 5 seats.
- */
-export async function eventOwnsPapicSeats(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  return eventOwnsSku(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
-}
-
-/**
- * Are the paid Papic seats ACTIVE (admin-approved)? The handshake FEATURE GATE —
- * the paid Papic feature set (crew, moderation) unlocks only after
- * the Setnayan team verifies the payment (owner 2026-06-18). The buy surface
- * keeps eventOwnsPapicSeats (which counts a pending order).
- */
-export async function eventPapicSeatsActive(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  return eventSkuActive(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
-}
 
 /**
  * Papic-inclusive SKUs/bundles — owning ANY active one means "Papic is set up"
@@ -266,71 +236,3 @@ export function papicSeatJoinUrl(appUrl: string, token: string): string {
   return `${base}/papic/join/${encodeURIComponent(token)}?kind=seat`;
 }
 
-/**
- * Admin-side idempotent seat provisioning — the activation-hook half of "a paid
- * feature is ready with NO manual activate step once the order is approved".
- *
- * The couple-facing provisionPapicSeats() server action goes through the
- * SECURITY DEFINER papic_provision_seats() RPC, but that RPC raises on
- * `auth.uid() IS NULL` — so it can't be called from the PAPIC_SEATS activation
- * hook, which runs under the SERVICE-ROLE admin client (no auth.uid()). This
- * helper does the SAME idempotent insert directly with the admin client (which
- * bypasses RLS) so the seats exist the instant the Setnayan team approves the
- * order — the approval IS the activation moment. The couple lands on /crew with
- * five ready-to-share links instead of a "set up your seats" button.
- *
- * Idempotent + a strict TOP-UP: it reads the existing seat_index set first and
- * inserts ONLY the missing indexes in 1..PAPIC_SEAT_COUNT, so re-running on a
- * re-approved order (or after the couple already provisioned via /crew) never
- * duplicates a seat and never disturbs an already-claimed one. The
- * (event_id, seat_index) UNIQUE constraint is the hard backstop. Mirrors the
- * RPC's behaviour exactly (dense 1..5, sku_code 'PAPIC_SEATS', fresh token).
- *
- * Best-effort + non-fatal: any error returns 0 so a write failure here can never
- * roll back the payment approval. Returns the number of NEW seats inserted (0
- * when all five already existed).
- */
-export async function provisionPapicSeatsAdmin(
-  admin: SupabaseClient,
-  eventId: string,
-): Promise<number> {
-  if (!eventId) return 0;
-  try {
-    // Which paid pack seat indexes (1..5) already exist?
-    const { data: existing, error: readError } = await admin
-      .from('paparazzi_seats')
-      .select('seat_index')
-      .eq('event_id', eventId)
-      .lte('seat_index', PAPIC_SEAT_COUNT);
-    if (readError) console.error('[supabase-error] lib/papic-seats.ts · from:paparazzi_seats.select', readError);
-    // Missing/legacy table (42P01) or column (42703) → a pre-bootstrap DB; the
-    // couple can still self-serve from /crew once migrated. Don't throw.
-    if (readError) return 0;
-
-    const have = new Set((existing ?? []).map((r) => r.seat_index as number));
-    const missing = [];
-    for (let i = 1; i <= PAPIC_SEAT_COUNT; i += 1) {
-      if (!have.has(i)) {
-        missing.push({
-          event_id: eventId,
-          seat_index: i,
-          sku_code: PAPIC_SEATS_SERVICE_KEY,
-          claim_qr_token: generateSeatClaimToken(),
-        });
-      }
-    }
-    if (missing.length === 0) return 0; // already fully provisioned — no-op.
-
-    // ignoreDuplicates so a seat raced in between the read and this insert
-    // (the UNIQUE (event_id, seat_index) backstop) is silently skipped, never
-    // a hard error — same DO-NOTHING semantics as the RPC's ON CONFLICT.
-    const { error: insertError } = await admin
-      .from('paparazzi_seats')
-      .upsert(missing, { onConflict: 'event_id,seat_index', ignoreDuplicates: true });
-    if (insertError) console.error('[supabase-error] lib/papic-seats.ts · from:paparazzi_seats.upsert', insertError);
-    if (insertError) return 0;
-    return missing.length;
-  } catch {
-    return 0;
-  }
-}

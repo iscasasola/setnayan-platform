@@ -14,7 +14,8 @@
  * Enforcement, meanwhile, runs on capture POINTS resolved from the
  * admin-editable `public.papic_tier_config` table (migration 20270821110000 +
  * the RPCs in 20270821110100): 1 photo = 1 point · 1 ten-second clip = 8
- * points, budget `points_per_day` per tier (NULL = unlimited).
+ * points. (The per-tier `points_per_day` budget is retired — owner 5 Nov 2026:
+ * one shared pool of credits, no per-camera or per-day allowance.)
  *
  * THE RULE this module enforces: a display surface must never spell a photo
  * count, a clip count, a free-camera count, or a cap peso figure as a literal.
@@ -54,8 +55,6 @@ export type PapicTierCode = 'free' | 'mini' | 'roll' | 'ltd' | 'unlimited';
 export type PapicTierConfigRow = {
   tierCode: PapicTierCode;
   displayTitle: string;
-  /** Daily capture-point budget per camera. NULL = unlimited. */
-  pointsPerDay: number | null;
   /** platform_retail_catalog_v2 service_code carrying the per-camera-per-day rate. */
   rateServiceCode: string | null;
   /** Free-of-charge seats provisioned per event (only the free tier has these). */
@@ -78,7 +77,6 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
   free: {
     tierCode: 'free',
     displayTitle: 'Free',
-    pointsPerDay: 20,
     rateServiceCode: null,
     seatsPerEvent: PAPIC_FREE_CAMERA_COUNT,
     weddingCapPhp: null,
@@ -104,7 +102,6 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
     // PAPIC_CAMERAS row on /pricing), and "legacy" is not a word to sell with.
     // It renders only while a rung is active; today none is.
     displayTitle: 'A camera with its own credits',
-    pointsPerDay: 20,
     rateServiceCode: 'PAPIC_CAMERA_MINI_DAY',
     seatsPerEvent: 0,
     weddingCapPhp: 6000,
@@ -119,7 +116,6 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
   roll: {
     tierCode: 'roll',
     displayTitle: 'Papic Mini (legacy roll)',
-    pointsPerDay: 20,
     rateServiceCode: 'PAPIC_CAMERA_ROLL_DAY',
     seatsPerEvent: 0,
     weddingCapPhp: 6000,
@@ -129,7 +125,6 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
   ltd: {
     tierCode: 'ltd',
     displayTitle: 'Papic Ltd',
-    pointsPerDay: 70,
     rateServiceCode: 'PAPIC_CAMERA_LTD_DAY',
     seatsPerEvent: 0,
     weddingCapPhp: 10000,
@@ -142,7 +137,6 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
   unlimited: {
     tierCode: 'unlimited',
     displayTitle: 'Papic Unli',
-    pointsPerDay: null,
     rateServiceCode: 'PAPIC_CAMERA_UNLIMITED_DAY',
     seatsPerEvent: 0,
     weddingCapPhp: 15000,
@@ -173,7 +167,7 @@ export async function fetchPapicTierConfig(
     const { data, error } = await supabase
       .from('papic_tier_config')
       .select(
-        'tier_code, display_title, points_per_day, rate_service_code, seats_per_event, wedding_day_cap_php, sort_order, is_active',
+        'tier_code, display_title, rate_service_code, seats_per_event, wedding_day_cap_php, sort_order, is_active',
       );
     if (error) console.error('[supabase-error] lib/papic-tier-copy.ts · from:papic_tier_config.select', error);
     if (error || !data) return { ...PAPIC_TIER_CONFIG_FALLBACK };
@@ -181,7 +175,6 @@ export async function fetchPapicTierConfig(
     for (const raw of data as Array<Record<string, unknown>>) {
       const code = raw.tier_code;
       if (!isTierCode(code)) continue;
-      const pts = raw.points_per_day;
       const cap = raw.wedding_day_cap_php;
       const seats = raw.seats_per_event;
       out[code] = {
@@ -190,7 +183,6 @@ export async function fetchPapicTierConfig(
           typeof raw.display_title === 'string' && raw.display_title
             ? raw.display_title
             : PAPIC_TIER_CONFIG_FALLBACK[code].displayTitle,
-        pointsPerDay: pts == null ? null : Number(pts),
         rateServiceCode:
           typeof raw.rate_service_code === 'string' ? raw.rate_service_code : null,
         seatsPerEvent: seats == null ? null : Number(seats),
@@ -218,9 +210,10 @@ export async function fetchPapicTierConfig(
 // the live catalog, phrased through `papicPoolRungPhrase` / `papicOneRungPhrase` at
 // the bottom of this file. `app/pricing/page.tsx` is the reference implementation.
 //
-// What survives here is what a per-CAMERA surface still legitimately needs:
-// `papicCapacityPhrase` (the studio's guest-camera picker), the free-seat count,
-// and the cap sentence.
+// What survives here is the free-seat count and the cap sentence.
+// `papicCapacityPhrase` ("about N photos a day") went with the per-day budget
+// (retired, owner 5 Nov 2026); it had no caller left. A capacity sentence is
+// `papicBucketPhrase` — a lifetime bucket, never a daily one.
 
 /** How many free cameras every event gets — from config, never a literal. */
 export function papicFreeCameraCount(config: PapicTierConfig): number {
@@ -324,30 +317,6 @@ export async function fetchPapicFreeGrantRead(
   }
 }
 
-/**
- * The honest capacity sentence for a points budget.
- *
- * NOT "N photos + M snippets" — the budget is one purse, so snippets eat into
- * the photo count. "about N photos a day, or fewer if you shoot snippets — a
- * 10-second snippet counts as 8" is the true shape, and it stays true whether
- * the budget is 20 points or 60.
- *
- * ⚠ The word is SNIPPET, owner 2026-09-22: "use snippet everywhere". It was
- * already the word on /papic and in papicPointCurrencyTerms below; these
- * older phrases still said "clip", so one product said two things. The
- * CONSTANT is still PAPIC_POINTS_PER_SNIPPET — an internal identifier nobody
- * reads, deliberately left alone rather than churn 26 call sites for no
- * customer-visible gain.
- */
-export function papicCapacityPhrase(pointsPerDay: number | null): string {
-  if (pointsPerDay == null) return 'unlimited photos and 10-second snippets, every day';
-  const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
-  return (
-    `about ${formatCount(photos)} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
-    `snippets, since one 10-second snippet counts as ${formatCount(PAPIC_POINTS_PER_SNIPPET)}`
-  );
-}
-
 /** Peso formatter local to this module (avoids importing the catalog reader). */
 function peso(n: number): string {
   return `₱${Math.round(n).toLocaleString('en-PH')}`;
@@ -432,7 +401,7 @@ export function papicPointCurrencyTerms(): readonly [string, string] {
  * The honest capacity sentence for a LIFETIME bucket of points (a Papic One
  * camera, or the shared pool) as opposed to a per-day budget.
  *
- * Same "one purse" honesty as papicCapacityPhrase: an exact "N photos + M
+ * "One purse" honesty: an exact "N photos + M
  * snippets" promise is unkeepable, because spending points on snippets takes
  * them from photos.
  */

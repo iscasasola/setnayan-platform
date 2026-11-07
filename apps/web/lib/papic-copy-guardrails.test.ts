@@ -31,7 +31,6 @@ import { dirname, join } from 'node:path';
 import {
   PAPIC_TIER_CONFIG_FALLBACK,
   papicCapPhrase,
-  papicCapacityPhrase,
   papicFreeCameraCount,
   papicFreeGrantPoints,
   type PapicTierCode,
@@ -109,7 +108,7 @@ const SPELLED_POINTS = /\b\d+\s*(?:capture\s*)?points?\b(?!\s*=)/i;
 // The clip weight has ALREADY moved once (7 → 8, owner-locked 2026-07-29), so a
 // hand-written divisor is not merely wrong today, it is guaranteed to rot.
 // Divide by PAPIC_POINTS_PER_SNIPPET / PAPIC_POINTS_PER_PHOTO, or better, render
-// papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic at all.
+// papicBucketPhrase() and do no arithmetic at all.
 const COMPUTED_POINTS_DIVISOR = /\bpoints?[A-Za-z]*\s*\/\s*\d/i;
 
 for (const rel of PAPIC_COPY_FILES) {
@@ -118,10 +117,10 @@ for (const rel of PAPIC_COPY_FILES) {
     assert.equal(
       m,
       null,
-      `${rel} carries "${m?.[0]}". Photos and clips share ONE daily points ` +
+      `${rel} carries "${m?.[0]}". Photos and clips share ONE purse of credits ` +
         `purse (1 photo = 1 pt · 1 clip = ${PAPIC_POINTS_PER_SNIPPET} pts), so an exact ` +
         `"N photos + M clips" promise is false by construction. Render ` +
-        `papicCapacityPhrase() / papicBucketPhrase() from lib/papic-tier-copy.ts.`,
+        `papicBucketPhrase() from lib/papic-tier-copy.ts.`,
     );
   });
 
@@ -135,7 +134,7 @@ for (const rel of PAPIC_COPY_FILES) {
         `the next time the currency moves (the clip weight is already on its ` +
         `second value — now ${PAPIC_POINTS_PER_SNIPPET}). Divide by ` +
         `PAPIC_POINTS_PER_SNIPPET / PAPIC_POINTS_PER_PHOTO, or render ` +
-        `papicCapacityPhrase() / papicBucketPhrase() and do no arithmetic.`,
+        `papicBucketPhrase() and do no arithmetic.`,
     );
   });
 
@@ -165,31 +164,11 @@ for (const rel of PAPIC_COPY_FILES) {
     assert.equal(
       m,
       null,
-      `${rel} carries "${m?.[0]}". Point budgets live in ` +
-        `papic_tier_config.points_per_day — render them via papicCapacityPhrase().`,
+      `${rel} carries "${m?.[0]}". A credits figure is never typed — ` +
+        `render it via papicBucketPhrase() from a value read at runtime.`,
     );
   });
 }
-
-test('papicCapacityPhrase is derived — it tracks the budget, whatever it is', () => {
-  // The owner has NOT decided whether existing ₱30 buyers get grandfathered at
-  // 60 points. The copy must read correctly either way — so assert on the
-  // DERIVATION, not on a specific number.
-  assert.match(papicCapacityPhrase(20), /about 20 photos a day/);
-  assert.match(papicCapacityPhrase(60), /about 60 photos a day/);
-  assert.match(papicCapacityPhrase(70), /about 70 photos a day/);
-  // and it always discloses that snippets cost more. The WORD is the owner's
-  // (2026-09-22, "use snippet everywhere"); the NUMBER is still derived.
-  for (const pts of [20, 60, 70]) {
-    assert.match(
-      papicCapacityPhrase(pts),
-      new RegExp(`snippet counts as ${PAPIC_POINTS_PER_SNIPPET}`),
-    );
-  }
-  assert.match(papicCapacityPhrase(null), /unlimited/i);
-  // Never an exact split promise — the very thing the guard above forbids.
-  assert.equal(SPLIT_PROMISE.test(papicCapacityPhrase(20)), false);
-});
 
 test('free-camera count comes from config, not a literal', () => {
   assert.equal(papicFreeCameraCount(PAPIC_TIER_CONFIG_FALLBACK), PAPIC_FREE_CAMERA_COUNT);
@@ -272,11 +251,11 @@ test('the fallback tier table mirrors the migration seed exactly', () => {
     /\(\s*'(free|mini|roll|ltd|unlimited)'\s*,\s*'([^']*)'\s*,\s*(\d+|NULL)\s*,\s*(?:'([^']*)'|NULL)\s*,\s*(\d+|NULL)\s*,\s*(\d+|NULL)\s*,\s*(\d+)\s*\)/g;
   const seeded: Record<string, unknown> = {};
   for (const m of sql.matchAll(ROW)) {
-    const [, code, title, points, rateSku, seats, cap, sort] = m;
+    // The points column is the retired per-day budget — not pinned, not read.
+    const [, code, title, , rateSku, seats, cap, sort] = m;
     if (!code) continue;
     seeded[code] = {
       displayTitle: title,
-      pointsPerDay: points === 'NULL' ? null : Number(points),
       rateServiceCode: rateSku ?? null,
       seatsPerEvent: seats === 'NULL' ? null : Number(seats),
       weddingCapPhp: cap === 'NULL' ? null : Number(cap),
@@ -312,7 +291,6 @@ test('the fallback tier table mirrors the migration seed exactly', () => {
     assert.deepEqual(
       {
         displayTitle: fb.displayTitle,
-        pointsPerDay: fb.pointsPerDay,
         rateServiceCode: fb.rateServiceCode,
         seatsPerEvent: fb.seatsPerEvent,
         weddingCapPhp: fb.weddingCapPhp,

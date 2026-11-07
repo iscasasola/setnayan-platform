@@ -37,6 +37,7 @@ export function LabInquireSheet({
               serviceKeys: input.serviceKeys ?? [],
               initialCategoryKey: input.initialCategoryKey,
               general: input.general ?? false,
+              message: input.requirements?.specialRequest ?? null,
             }),
           );
           await new Promise((r) => setTimeout(r, 300));

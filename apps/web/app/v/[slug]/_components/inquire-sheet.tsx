@@ -6,7 +6,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
-import { ChosenRow, FormRows, SwitchRow } from '@/app/_components/form-row';
+import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { startServiceInquiry, type StartServiceInquiryResult } from '@/app/v/[slug]/inquiry-actions';
 import {
   INQUIRE_UNDO_MS,
@@ -227,6 +227,10 @@ export function InquireSheet({
     setNote('Not sent.');
   };
 
+  const messagePlaceholder = general
+    ? `What would you like to ask ${shop.name}?`
+    : 'Your date, your guest count, anything they should know';
+
   const createHref = `/dashboard/create-event?next=${encodeURIComponent(
     typeof window === 'undefined' ? `/${shop.slug}` : inquireResumeHref(window.location.href, chosen),
   )}`;
@@ -302,19 +306,24 @@ export function InquireSheet({
                     data-testid="inquire-start-event"
                   />
                 </div>
-                <label className="mt-3 block text-[13px] text-ink/60" htmlFor="inquire-message">
-                  {general ? 'Your question' : 'Anything to add? (optional)'}
-                </label>
-                <textarea
-                  id="inquire-message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={3}
-                  maxLength={1000}
-                  className="mt-1 w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[15px] text-ink placeholder:text-ink/40"
-                  placeholder={general ? `What would you like to ask ${shop.name}?` : 'Your date, your guest count, anything they should know'}
-                  data-inquire-message=""
-                />
+                {/* ✍ The words go in the house field (`TypedRow`, long + boxed — the multi-line box at rest and open), never a
+                    hand-drawn box. `onType` follows every keystroke, so Send carries what is typed even before tap-out. */}
+                <div className="mt-3">
+                  <FormRows data="inquire-message">
+                    <TypedRow
+                      name={general ? 'Your question' : 'Anything to add? (optional)'}
+                      value={message}
+                      long
+                      boxed
+                      maxLength={1000}
+                      empty={messagePlaceholder}
+                      placeholder={messagePlaceholder}
+                      onType={(t) => setMessage(t)}
+                      onKeep={(t) => setMessage(t.trim())}
+                      attrs={{ 'data-inquire-message': '' }}
+                    />
+                  </FormRows>
+                </div>
                 {note ? (
                   <p role="status" className="mt-2 text-[13px] text-ink/70" data-inquire-note="">
                     {note}

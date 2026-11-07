@@ -184,3 +184,9 @@ test('the general question is only for a shop with no card AND no provided servi
   assert.match(sheet, /const general = services\.length === 0;/);
   assert.match(page, /inquireServices\.length > 0 \? \(\s*<span data-inquire-provided="">/, 'a shop with provided services must not say it has none');
 });
+
+test('the message is the house field — TypedRow, long + boxed — never a hand-drawn box', () => {
+  assert.doesNotMatch(sheet, /<textarea\b/, 'a hand-drawn <textarea> is back in the pop-up');
+  assert.match(sheet, /<TypedRow\s+name=\{general \? 'Your question' : 'Anything to add\? \(optional\)'\}[\s\S]{0,120}\blong\s+boxed\b/);
+  assert.match(sheet, /onType=\{\(t\) => setMessage\(t\)\}/, 'Send must carry what is typed before tap-out');
+});

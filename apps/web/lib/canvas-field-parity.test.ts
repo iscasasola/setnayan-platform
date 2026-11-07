@@ -84,7 +84,38 @@ function ignoredBlocks(source: string): string[] {
   );
 }
 
-function namesIn(source: string): string[] {
+/**
+ * The shared Field template (`<TypedRow>`, app/_components/form-row.tsx) posts under `fieldName=` — its `name=` is the
+ * row's VISIBLE LABEL ("Extra 1", "Worth"), not a form field. So inside a TypedRow tag the label is dropped and the
+ * `fieldName` is counted as the field it posts (2026-11-07: the card maker's Extras became TypedRow rows, and their
+ * labels read as fields nobody listed). Tags are cut by brace depth, never by `[^>]*` — `onKeep={(t) => …}` holds a `>`.
+ */
+function typedRowsAsFields(source: string): string {
+  let out = '';
+  let i = 0;
+  for (;;) {
+    const at = source.indexOf('<TypedRow', i);
+    if (at === -1) return out + source.slice(i);
+    let depth = 0;
+    let end = at + '<TypedRow'.length;
+    for (; end < source.length; end++) {
+      const c = source[end];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === '>' && depth === 0) break;
+    }
+    const tag = source.slice(at, end + 1);
+    const posted = /\bfieldName\s*=\s*"([^"]*)"/.exec(tag)?.[1];
+    const relabelled = tag
+      .replace(/(?<![\w$.])name(\s*=)/g, 'label$1')
+      .replace(/\bfieldName(\s*=)/g, 'name$1');
+    out += source.slice(i, at) + (posted !== undefined ? relabelled : tag.replace(/(?<![\w$.])name(\s*=)/g, 'label$1'));
+    i = end + 1;
+  }
+}
+
+function namesIn(raw: string): string[] {
+  const source = typedRowsAsFields(raw);
   const out: string[] = [];
   // name="literal"
   for (const m of source.matchAll(/(?<![\w$.])name\s*=\s*"([^"]*)"/g)) {

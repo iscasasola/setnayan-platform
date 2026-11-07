@@ -22,15 +22,18 @@ export function YourNumbers({
   eventId,
   coverageId,
   onReady,
+  labRows = null,
 }: {
+  /** The dev lab's list, drawn open (its frames only — `/dev/supplier-lab?s=event-hub&view=scanner&numbers=1`). */
+  labRows?: ScanNumberRow[] | null;
   eventId: string;
   coverageId: number;
   /** Tells the scanner's count that `told` guests moved from Ordered to Ready. */
   onReady: (told: number) => void;
 }) {
-  const [shown, setShown] = useState(false);
-  const [rows, setRows] = useState<ScanNumberRow[] | null | 'loading'>('loading');
-  const [open, setOpen] = useState<number | null>(null);
+  const [shown, setShown] = useState(labRows !== null);
+  const [rows, setRows] = useState<ScanNumberRow[] | null | 'loading'>(labRows ?? 'loading');
+  const [open, setOpen] = useState<number | null>(labRows?.find((r) => r.ordered > 0 && !r.open)?.number ?? null);
   const [line, setLine] = useState<string | null>(null);
   const [pending, start] = useTransition();
   // Opening the list glides its head up when it runs past the bottom — the app-wide reveal-on-open (owner 2026-11-04).
@@ -48,8 +51,8 @@ export function YourNumbers({
   }, [eventId, coverageId]);
 
   useEffect(() => {
-    if (shown) void load();
-  }, [shown, load]);
+    if (shown && labRows === null) void load();
+  }, [shown, load, labRows]);
 
   const ready = (r: ScanNumberRow) => {
     setLine(null);

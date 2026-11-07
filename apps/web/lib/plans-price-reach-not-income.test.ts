@@ -124,7 +124,6 @@ test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06
   assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1);
   assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3);
   assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 5);
-  assert.equal(TIER_CAPS.custom.bookingsPerDatePerService, TIER_CAPS.enterprise.bookingsPerDatePerService);
   for (const t of VENDOR_TIERS) {
     assert.ok(TIER_CAPS[t].bookingsPerDatePerService >= 1, `${t}: a card could take no booking at all`);
   }

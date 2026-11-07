@@ -167,11 +167,11 @@ const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   contactPhone: '+639178888889',
   inviteEmail: 'ana@banaweflorals.ph',
   services: [
-    { category: 'photographer', tileId: 'photo_video', label: 'Photographer', price: 85000, inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online gallery'] },
+    { category: 'photographer', tileId: 'photo_video', label: 'Photographer', price: 85000, inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online photo album'] },
     { category: 'photo_booth', tileId: 'photo_booth', label: 'Photo booth', price: null, inclusions: [] },
   ],
   price: 85000,
-  inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online gallery'],
+  inclusions: ['Full-day coverage', 'Two photographers', 'Same-day edit video', 'Online photo album'],
   plan: [
     { label: 'Reservation', due: null, amount: 25500 },
     { label: 'Balance', due: null, amount: 59500 },

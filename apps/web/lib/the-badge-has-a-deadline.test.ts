@@ -179,6 +179,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'A per-service STATS counter (how many verified vendors per category) — not a rendered badge.' },
   ],
   [
+    'lib/service-plan-hold.server.ts',
+    { count: 1, why: "The supplier's OWN plan-hold read (which services their plan holds; held ones return when verified + upgraded) — a gate on their own Services list, never a couple-facing badge." },
+  ],
+  [
     'lib/vendor-first-steps.server.ts',
     { count: 1, why: "A vendor's OWN onboarding-checklist gate (is this vendor verified, to show their own next step) — not a couple-facing badge." },
   ],

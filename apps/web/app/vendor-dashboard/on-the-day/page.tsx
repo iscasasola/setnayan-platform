@@ -158,6 +158,13 @@ export default async function VendorOnTheDayPage({
   const sp = await searchParams;
   const configureId = typeof sp.event === 'string' ? sp.event : null;
   const seg = hubSegmentOf(sp.seg);
+  /**
+   * THE ONE BUILD (8 Nov 2026, v111 "Hub stays reachable per client") — INTERNAL, set only by the picked client's
+   * Hub page (`clients/[eventId]/_pages/hub.tsx`): THIS page, for ONE event, with no Hub chrome — the two doors
+   * (Open Hub · Launch Hub) first, then the event's Set up, Crew and pages stacked. One body, two doors: nothing is
+   * re-read or re-drawn for the client page.
+   */
+  const embedHub = sp.__embed === 'hub' && configureId != null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -255,6 +262,16 @@ export default async function VendorOnTheDayPage({
   });
   const selected = pickHubEvent(hub, configureId);
 
+  // The client's Hub page asks for ONE event. `pickHubEvent` falls back to another event when this one is not in the
+  // Hub (not booked, not run) — inside the client that would draw a different couple's Hub, so it says so instead.
+  if (embedHub && (!selected || selected.eventId !== configureId)) {
+    return (
+      <div className="px-4 py-6 text-sm text-ink/70" data-picked-client-page="hub" data-empty="not-in-hub">
+        <p>This event&rsquo;s Hub opens here once they book you, or once you run it for the hosts.</p>
+      </div>
+    );
+  }
+
   if (!selected) {
     // Nothing booked and nothing run — the honest empty Hub: what it is for and where the customers are.
     return (
@@ -336,6 +353,56 @@ export default async function VendorOnTheDayPage({
     />
   );
 
+  // ↩ ONE Undo toast for the console, whichever way it is drawn (full screen, or inside the client's Hub page).
+  const undoHost = <UndoToastHost />;
+
+  if (embedHub && selected) {
+    const [setup, crew] = await Promise.all([
+      setupBody({
+        supabase,
+        userId: user.id,
+        profile,
+        kind,
+        event: selected,
+        booking,
+        isToday,
+        run,
+        announceOn,
+        brief,
+        coupleName,
+        invited,
+        attending,
+      }),
+      crewBody({ supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, coordinator: isCoordinatorTrade(profile.services), event: selected, open }),
+    ]);
+    const blocks = selected.lock == null ? await fetchRunOfShowBlocks(selected.eventId) : null;
+    const pages = pagesBody({
+      event: selected,
+      services: profile.services,
+      bookedCategories: brief?.booked_categories ?? null,
+      invited,
+      attending,
+      scheduleLine: hubScheduleLine(blocks),
+    });
+    return (
+      <div data-picked-client-page="hub" className="px-4 pb-6">
+        {/* The two doors first (v111/v113): this event's Hub set-up, and its live page on the day. A locked event has
+            neither — Set up below says why (the shipped lock row). */}
+        {open ? (
+          <div data-hub-doors="">
+            <HubDoorRow href={`/vendor-dashboard/on-the-day?event=${selected.eventId}`} label="Open Hub" line="This event's Hub · set up its parts and what guests see" data="open-hub" />
+            <HubDoorRow href={`/vendor-dashboard/on-the-day/live/${selected.eventId}`} label="Launch Hub" line="The live page · The Day · Scanner · Announce" data="launch-hub" />
+          </div>
+        ) : null}
+        {setup}
+        <HubEyebrow>Crew for the day</HubEyebrow>
+        {crew}
+        {pages}
+        {undoHost}
+      </div>
+    );
+  }
+
   let body: ReactNode;
   if (seg === 'crew') {
     body = await crewBody({ supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, coordinator: isCoordinatorTrade(profile.services), event: selected, open });
@@ -377,7 +444,7 @@ export default async function VendorOnTheDayPage({
       ) : null}
       {body}
       {/* ↩ ONE Undo toast for the console — the shot list and issues log delete by swipe with Undo (owner 2026-11-03). */}
-      <UndoToastHost />
+      {undoHost}
     </HubScreen>
   );
 }

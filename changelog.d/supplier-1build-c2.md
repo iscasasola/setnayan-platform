@@ -20,6 +20,26 @@ Lane C2 of the supplier dashboard redesign (owner-approved prototype v113). Four
   first booked event with the shop) who booked it on 2+ events; service_role only. Test:
   `tests/db/a-shop-counts-its-booked-loops.db.test.ts`.
 
+Then, on top of the data:
+
+- **Gift limit = one admin setting.** `getGiftLimitPct` (fails toward the ruled 40); `GiftQuoteBasis.limitPct` and
+  `ShopGiftQuoteBasis.limitPct` carry the live % into `judgeQuoteGifts` / `addGiftMenu` / `giftLimitCentavos` and the
+  Setnayan gift sizing; `GIFT_SHARE_OF_FEE_PCT` retired. Admin › Gifts "Gift limit · % of the booking fee" with
+  `saveGiftLimitPct` (0–100, audit row `gift_limit_pct_edit`, settings tag cleared). Guard
+  `lib/the-gift-limit-is-one-setting.test.ts` (shrink-only list of other lanes' typed "40%").
+- **Quotation** (`clients/[eventId]/_pages/quotation.tsx`): ProposalMaker in the owner's eleven steps — Start from · Name ·
+  Pick service cards (one multi PickMenu) · From your catalogue · Gift · Travel and crew meal · Discount · Payment
+  schedule · Payment method (one multi PickMenu) · Effectivity · pinned Total + Save + Send quote; a line drops by swipe
+  with Undo. The card gift does not pre-fill (unruled money).
+- **Chat** (`_pages/chat.tsx`): `SupplierThreadBody` renders the shipped thread page with an internal `__embed` view —
+  one read path, one stream mount, the full-screen route unchanged. Hosts read through `event_chat_hosts`; the stream
+  draws the hosts strip (presence ring from its existing channel), host first names + initials on incoming runs, and
+  tap-to-heart (browser upsert under RLS, a second `.on()` on the existing channel).
+- **Hub** (`_pages/hub.tsx`): the shipped on-the-day page for ONE event (`__embed=hub`) — Open Hub · Launch Hub, then
+  Set up · Crew · The event's pages.
+- Guards updated honestly (quote section order, "Their event" placement, the frame's child read through the one
+  `chatBox` const, the embedded head, one Undo host) and new ones added — each sabotaged once.
+
 SPEC IMPACT: None to the corpus from this lane (the controller writes the build's DECISION_LOG row). Flagged for
 the controller: the shipped `chat_messages_block_guard` has the same caller-RLS gap (see
 `build-notes/supplier-1build-c2.md`).

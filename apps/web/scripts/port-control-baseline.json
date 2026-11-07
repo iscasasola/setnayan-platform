@@ -11525,6 +11525,16 @@
         "TraditionNotes"
       ]
     },
+    "/dev/bundle-maker-lab": {
+      "files": [
+        "dev/bundle-maker-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "PackageEditor"
+      ]
+    },
     "/dev/card-maker-lab": {
       "files": [
         "dev/card-maker-lab/page.tsx"
@@ -14476,6 +14486,7 @@
         "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
+        "ShopPagePackage",
         "ShopReachLine",
         "ShopReachMap",
         "ShopSinceLine",
@@ -14492,7 +14503,7 @@
         "TrustedByVendor",
         "VendorCompletedEventRow",
         "VendorLocationMap",
-        "VendorPackageWithItems",
+        "VendorPackageRow",
         "VendorPackagesSection",
         "VendorReplyBlock",
         "VendorServiceRow",
@@ -16177,18 +16188,28 @@
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/packages",
         "/vendor-dashboard/packages/[seg]",
         "/vendor-dashboard/packages/new"
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "DraftItem",
         "DraftOption",
         "DraftPackage",
+        "Fold",
+        "InfoTip",
         "Link",
         "OptionList",
+        "PackageCard",
+        "PickMenu",
         "ProblemLine",
-        "SavePackageResult"
+        "SavePackageResult",
+        "Sheet",
+        "SupplierThumbRow",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/packages/[packageId]": {

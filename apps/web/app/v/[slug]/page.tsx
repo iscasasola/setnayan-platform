@@ -94,6 +94,9 @@ import {
 import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
+import { coupleBundleGift, packageGiftOf, PACKAGE_GIFT_SETNAYAN, type PackageGift } from '@/lib/package-gift';
+import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
+import type { ShopGiftPack } from '@/lib/shop-gifts';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
 import { BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
@@ -3203,6 +3206,7 @@ export async function renderVendorBySlug({
                vendor as a question instead of locking it. Empty ⇒ the modal is
                byte-identical to today. */
             askTargets={packageAskTargets}
+            shopName={displayLabel}
           />
         ) : null}
 
@@ -4355,14 +4359,24 @@ function VendorReplyBlock({
  * an empty array so /v/[slug] keeps rendering without the Packages
  * section. Migrations applied → real data flows.
  */
+/**
+ * 🎁 A bundle as this page draws it: the package, its lines, and its GIFT (the bundle maker's Gift row, owner
+ * 2026-11-07) — the stored value plus, for a shop pack, the live catalogue pack it names (so the couple's line says
+ * the catalogue's own count, never a typed one).
+ */
+type ShopPagePackage = VendorPackageWithItems & { gift: PackageGift; giftPack: ShopGiftPack | null };
+
+/** The gift columns, read in the SAME query as the package (one request). Display only — the money path never reads them. */
+const VENDOR_PACKAGE_GIFT_COLUMNS = 'includes_setnayan_gift, gift_pack_code';
+
 async function fetchVendorPackagesWithItems(
   admin: ReturnType<typeof createAdminClient>,
   vendorProfileId: string,
-): Promise<VendorPackageWithItems[]> {
+): Promise<ShopPagePackage[]> {
   try {
     const { data: pkgs, error: pkgsErr } = await admin
       .from('vendor_packages')
-      .select(VENDOR_PACKAGE_SELECT)
+      .select(`${VENDOR_PACKAGE_SELECT}, ${VENDOR_PACKAGE_GIFT_COLUMNS}`)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .order('created_at', { ascending: true });
@@ -4456,10 +4470,21 @@ async function fetchVendorPackagesWithItems(
       });
       itemsByPackage.set(row.package_id, list);
     }
-    return (pkgs as VendorPackageRow[]).map((p) => ({
-      ...p,
-      items: itemsByPackage.get(p.package_id) ?? [],
-    }));
+    // 🎁 A shop pack's live catalogue row — read only when a bundle names one (most never do). A refused read drops the
+    // pack line (logged inside) rather than printing a count nobody read: `coupleBundleGift` says nothing for it.
+    const rows = pkgs as unknown as Array<VendorPackageRow & { includes_setnayan_gift?: boolean | null; gift_pack_code?: string | null }>;
+    const gifts = new Map(rows.map((p) => [p.package_id, packageGiftOf({ includes_setnayan_gift: p.includes_setnayan_gift === true, gift_pack_code: p.gift_pack_code ?? null })]));
+    const wantsPack = [...gifts.values()].some((g) => g && g !== PACKAGE_GIFT_SETNAYAN);
+    const packs = wantsPack ? await fetchShopGiftPacks(admin) : null;
+    return rows.map((p) => {
+      const gift = gifts.get(p.package_id) ?? '';
+      return {
+        ...p,
+        items: itemsByPackage.get(p.package_id) ?? [],
+        gift,
+        giftPack: packs?.find((x) => x.code === gift) ?? null,
+      };
+    });
   } catch {
     return [];
   }
@@ -4482,8 +4507,11 @@ function VendorPackagesSection({
   hidePrices,
   paxCount,
   askTargets,
+  shopName,
 }: {
-  packages: ReadonlyArray<VendorPackageWithItems>;
+  packages: ReadonlyArray<ShopPagePackage>;
+  /** The name this page shows for the shop — the gift line says "Gift from <it>", as a quote does. */
+  shopName: string | null;
   coupleEventId: string | null;
   isComingSoon: boolean;
   /** 🚪 FALSE while bookings are closed (owner 2026-11-02) — no Book button on any package. */
@@ -4550,7 +4578,15 @@ function VendorPackagesSection({
               </SignInHereLink>
             );
           }
-          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} hidePrice={hidePrices} />;
+          return (
+            <PackageCard
+              key={pkg.package_id}
+              pkg={pkg}
+              ctaSlot={cta}
+              hidePrice={hidePrices}
+              gift={coupleBundleGift(pkg.gift, pkg.giftPack ? [pkg.giftPack] : null, shopName)}
+            />
+          );
         })}
       </div>
     </section>

@@ -182,3 +182,5 @@ ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic
 # #7298 (2026-11-05): the same Papic pack service code (PAPIC_GUEST_150) in the badge-rewards test — a catalogue code,
 # not a credential. Pinned for its introducing commit only.
 a853e2a422fb214dcab13cda675fa61b007a4b22:apps/web/lib/badge-rewards.test.ts:generic-api-key:266
+# #7367 (2026-11-07): Papic pack code PAPIC_GUEST_500 in the bundle-gift db test. A catalogue code, not a credential.
+22775754a112ca11e0f2d99ac02ce0d18393d13f:apps/web/tests/db/a-bundle-carries-its-cards-and-a-gift.db.test.ts:generic-api-key:114

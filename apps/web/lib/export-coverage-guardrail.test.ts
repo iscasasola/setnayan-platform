@@ -182,6 +182,10 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-04 with the table itself (the supplier claim scanner, slice 1) ──
+  supplier_scan_settings:
+    'A shop’s per-service scanner switch (on/off + mode). updated_by_user_id is the operator who flipped it — a staff ' +
+    'actor stamp on the shop’s own configuration, carrying nothing about the person.',
   // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
   app_store_purchases:
     'The subject IS the buyer here, and every purchase is already in their export as an ' +

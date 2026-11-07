@@ -1097,6 +1097,7 @@
         "[slug]/_components/who-made-the-day.tsx",
         "[slug]/_components/you-will-be-at.tsx",
         "[slug]/_components/your-guests.tsx",
+        "[slug]/_components/your-number-card.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-schedule-card.tsx",
         "[slug]/_components/your-seat-block.tsx",
@@ -1745,6 +1746,8 @@
         "YouWillBeAt",
         "YourColours",
         "YourGuests",
+        "YourNumberCard",
+        "YourNumberCardView",
         "YourOwnConsent",
         "YourOwnDay",
         "YourPhotosWidget",
@@ -3351,6 +3354,7 @@
     },
     "/admin/events/[eventId]": {
       "files": [
+        "admin/events/[eventId]/_components/supplier-scans-admin.tsx",
         "admin/events/[eventId]/page.tsx"
       ],
       "destinations": [
@@ -3365,7 +3369,8 @@
         "ConsoleTable",
         "Link",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "SupplierScansAdmin"
       ]
     },
     "/admin/force-majeure": {
@@ -7449,6 +7454,7 @@
     "/dashboard/[eventId]/guests/souvenirs": {
       "files": [
         "dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx",
+        "dashboard/[eventId]/guests/souvenirs/_components/supplier-scan-list.tsx",
         "dashboard/[eventId]/guests/souvenirs/actions.ts",
         "dashboard/[eventId]/guests/souvenirs/page.tsx"
       ],
@@ -7458,6 +7464,7 @@
       "actions": [],
       "blocks": [
         "HTMLVideoElement",
+        "InfoTip",
         "Link",
         "LiveRefresher",
         "MediaStream",
@@ -7465,6 +7472,7 @@
         "ReadRefusedNotice",
         "SouvenirActionResult",
         "SouvenirDesk",
+        "SupplierScanList",
         "UndoActionResult"
       ]
     },
@@ -12566,6 +12574,7 @@
         "dev/supplier-lab/page-lab.tsx",
         "dev/supplier-lab/page.tsx",
         "dev/supplier-lab/people-lab.tsx",
+        "dev/supplier-lab/scan-lab.tsx",
         "dev/supplier-lab/schedule-lab.tsx",
         "dev/supplier-lab/suggest-lab.tsx",
         "dev/supplier-lab/suggestion-lab-fixture.ts",
@@ -12684,6 +12693,7 @@
         "ReviewReplies",
         "RosterRow",
         "RunOfShowHeader",
+        "ScanLab",
         "ScheduleLab",
         "ScheduleUpdater",
         "ScreenFindingsPanel",
@@ -12700,6 +12710,7 @@
         "SuggestBoardActions",
         "SuggestLab",
         "SupplierLabShell",
+        "SupplierScanList",
         "SupplierSchedule",
         "SupplierSetupScreen",
         "SupplierSubmit",
@@ -12712,7 +12723,8 @@
         "TodayLab",
         "TodaySettings",
         "VerifySection",
-        "YourBadges"
+        "YourBadges",
+        "YourNumberCardView"
       ]
     },
     "/dev/supplier-plan-lab": {
@@ -15988,6 +16000,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/supplier-scan/supplier-scanner.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/loading.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/page.tsx"
       ],
@@ -16062,6 +16075,7 @@
         "RequestsInbox",
         "RunOfDay",
         "RunOfShowHeader",
+        "ScanAnswer",
         "ScheduleUpdater",
         "ScriptCard",
         "SeatLookupResponse",
@@ -16077,6 +16091,7 @@
         "StageNoteCompose",
         "StageNotesCard",
         "SubmitButton",
+        "SupplierClaimScanner",
         "SupplierSavedStrip",
         "Surface",
         "SwipeToDelete",
@@ -16675,6 +16690,7 @@
         "vendor-dashboard/shop/_components/reach-map.tsx",
         "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
+        "vendor-dashboard/shop/_components/service-scanner-pick.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
         "vendor-dashboard/shop/_components/shop-door-section.tsx",
         "vendor-dashboard/shop/_components/shop-gear-sections.ts",
@@ -16806,9 +16822,11 @@
         "Row",
         "RowIcon",
         "RowPreview",
+        "ScannerChoice",
         "ServiceCoverageRow",
         "ServiceRadiusFields",
         "ServiceRadiusSaveResult",
+        "ServiceScannerPick",
         "ServicesDisclosure",
         "ShopData",
         "ShopDoorSection",

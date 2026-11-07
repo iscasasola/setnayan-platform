@@ -211,6 +211,8 @@ social_posts.created_by                                   SET NULL     nullable 
 stewardship_transfers.created_by_user_id                  SET NULL     nullable  -> users
 stewardship_transfers.from_user_id                        SET NULL     nullable  -> users
 stewardship_transfers.to_user_id                          SET NULL     nullable  -> users
+supplier_scan_claims.scanned_by_user_id                   SET NULL     nullable  -> auth.users
+supplier_scan_settings.updated_by_user_id                 SET NULL     nullable  -> auth.users
 thread_calls.started_by_user_id                           SET NULL     nullable  -> users
 user_devices.user_id                                      CASCADE      NOT NULL  -> users
 user_face_profiles.user_id                                CASCADE      NOT NULL  -> users

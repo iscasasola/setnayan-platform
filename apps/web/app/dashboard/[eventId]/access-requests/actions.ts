@@ -337,6 +337,9 @@ async function answerClaimAccess(
  * difference lands on the ask (`decisions.updated`), which only this event's couple and the supplier can read: the
  * Suppliers page draws the shop's real name for that row and marks what changed (`lib/supplier-corrections.ts`).
  * NOTHING is written to `event_vendors` or `event_manual_vendors` — no price, no service, not even the name.
+ * 📞 The new phone and address are kept IN FULL and shown to this couple (owner 2026-11-07: *"we are giving them more
+ * freedom to talk outside since we already tracked them from our website"*) — the one surface the no-door-out guard
+ * lets through by name (`lib/no-door-out-of-the-app.test.ts`).
  * Every couple member gets one in-app notice (`vendor_joined`, app-only; no email).
  */
 async function takeSupplierCorrections(

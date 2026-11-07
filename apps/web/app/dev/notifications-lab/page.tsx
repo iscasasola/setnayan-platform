@@ -77,8 +77,8 @@ export default async function NotificationsLabPage({
     eventVendorId: 'v-bituin',
     shopName: 'Bituin Catering',
     corrections: supplierCorrections(
-      { name: 'Bituin Caterers', phone: '0917 555 0101' },
-      { name: 'Bituin Catering', person: 'Mila Bituin', phone: '+639181112222' },
+      { name: 'Bituin Caterers', phone: '0917 555 0101', address: 'Quezon City' },
+      { name: 'Bituin Catering', person: 'Mila Bituin', phone: '+639181112222', address: '18 Mabini St, Marikina' },
     ),
   }) : null;
   const all: NotificationRow[] = sp.empty === '1' ? [] : [

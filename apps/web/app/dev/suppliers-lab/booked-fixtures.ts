@@ -173,8 +173,8 @@ export type LabBookedOptions = {
 
 /** What Bituin corrected at the claim door, against what the couple typed. */
 export const LAB_BITUIN_CORRECTIONS = supplierCorrections(
-  { name: 'Bituin Caterers', person: null, phone: '0917 555 0101' },
-  { name: 'Bituin Catering', person: 'Mila Bituin', phone: '+639181112222' },
+  { name: 'Bituin Caterers', person: null, phone: '0917 555 0101', address: 'Quezon City' },
+  { name: 'Bituin Catering', person: 'Mila Bituin', phone: '+639181112222', address: '18 Mabini St, Marikina' },
 );
 
 /** The hand-added planner's stored row, its payment, and what the resolver makes of it. */

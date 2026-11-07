@@ -31,6 +31,7 @@ import {
   correctionsMark,
   correctionsNotice,
   invitedCoupleName,
+  readCorrections,
   revealFor,
   supplierCorrections,
 } from './supplier-corrections';
@@ -142,22 +143,34 @@ test('7 · the corrections’ words', () => {
     person: { from: null, to: 'Lorna Cruz' },
   }, 'the same phone written two ways is not a correction; a blank shop detail never is');
   assert.deepEqual(supplierCorrections({ name: 'Lente Studio' }, { name: '  lente  studio ' }), {}, 'case and spacing are not corrections');
-  // 🚪 A phone or an address is a door out of the app: said to have changed, the value never kept.
+  // 📞 The phone and the address are shown IN FULL beside the old ones — to the inviting couple, who brought this
+  // supplier here (owner 2026-11-07: "we are giving them more freedom to talk outside since we already tracked them").
   const door = supplierCorrections({ phone: '0917 000 0000', address: 'Pasig' }, { phone: '+639181112222', address: '12 Kalye, Makati' });
-  assert.deepEqual(door, { phone: { from: null, to: null }, address: { from: null, to: null } });
-  assert.ok(!JSON.stringify(door).includes('918') && !JSON.stringify(door).includes('Makati'), 'a door out was kept');
+  assert.deepEqual(door, {
+    phone: { from: '0917 000 0000', to: '+639181112222' },
+    address: { from: 'Pasig', to: '12 Kalye, Makati' },
+  });
   assert.deepEqual(correctionsDetail(door), [
-    'Phone: changed. Talk to them in your Setnayan chat.',
-    'Address: changed. Talk to them in your Setnayan chat.',
+    'Phone: +63 918 111 2222 (was +63 917 000 0000)',
+    'Address: 12 Kalye, Makati (was Pasig)',
   ]);
+  assert.deepEqual(
+    correctionsDetail(supplierCorrections({ phone: null }, { phone: '+639181112222' })),
+    ['Phone: +63 918 111 2222'],
+    'a number the couple never typed is simply learnt',
+  );
+  assert.deepEqual(readCorrections({ updated: door }), door, 'what the approval kept reads back whole');
   assert.equal(correctionsMark(door), 'Phone and address updated by the supplier');
   assert.equal(correctionsMark({ name: c.name }), 'Name updated by the supplier');
   assert.equal(correctionsMark(c), 'Name and contact person updated by the supplier');
   assert.equal(correctionsMark({}), null);
-  assert.deepEqual(correctionsDetail(c), ['Name: Kusina ni Lola Catering (you had Kusina ni Lola)', 'Contact person: Lorna Cruz']);
+  assert.deepEqual(correctionsDetail(c), ['Name: Kusina ni Lola Catering (was Kusina ni Lola)', 'Contact person: Lorna Cruz']);
   const n = correctionsNotice({ eventId: 'E1', eventVendorId: 'V1', shopName: 'Kusina ni Lola Catering', corrections: c });
   assert.equal(n?.title, 'Kusina ni Lola Catering updated their name and contact person');
   assert.equal(n?.relatedUrl, '/dashboard/E1/vendors?tab=budget&team=V1');
+  const nd = correctionsNotice({ eventId: 'E1', eventVendorId: 'V1', shopName: 'Kusina ni Lola Catering', corrections: door });
+  assert.equal(nd?.title, 'Kusina ni Lola Catering updated their phone and address');
+  assert.equal(nd?.body, 'Phone: +63 918 111 2222 (was +63 917 000 0000) · Address: 12 Kalye, Makati (was Pasig). Your Suppliers list shows their details now.');
   assert.equal(correctionsNotice({ eventId: 'E1', eventVendorId: 'V1', shopName: 'X', corrections: {} }), null, 'nothing changed → no notice');
 });
 
@@ -211,7 +224,7 @@ test('9 · the page reads the asks as the couple, draws the real name for them, 
   assert.ok(row, 'the booked row was not drawn');
   assert.deepEqual(row.updated, {
     mark: 'Name updated by the supplier',
-    detail: ['Name: Kusina ni Lola Catering (you had Kusina ni Lola)'],
+    detail: ['Name: Kusina ni Lola Catering (was Kusina ni Lola)'],
   });
 
   const ui = read('app/dashboard/[eventId]/vendors/_components/booked-row.tsx');

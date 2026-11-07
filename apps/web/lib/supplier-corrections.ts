@@ -16,7 +16,12 @@
  *     bonded to the same shop), draws the shop's REAL name — even while the shop is anonymous to everyone else — and
  *     marks what changed.
  *
- * 🚪 A PHONE OR AN ADDRESS IS SAID TO HAVE CHANGED, NEVER SHOWN (`WITHHELD_FIELDS`, the no-door-out-of-the-app rule).
+ * 📞 THE PHONE AND THE ADDRESS ARE SHOWN IN FULL, TO THE INVITING COUPLE ONLY (owner, 2026-11-07, verbatim: *"we are
+ * giving them more freedom to talk outside since we already tracked them from our website that they have been
+ * discovered by others. we allow their calling on the app and video calls on the app. that is already built. but only
+ * for booked."*). The couple brought this supplier to Setnayan themselves, so the number and address are theirs to
+ * see; the reveal is the same couple-scoped RLS on the ask that reveals the real name, and nobody else ever reads it.
+ * This is the one surface `lib/no-door-out-of-the-app.test.ts` lets through, by name.
  *
  * 🛑 CONTACT DETAILS ONLY. A price, or the services on the couple's booking or package, is never part of this — a change
  * to what they BOUGHT reaches them only as an amendment through the shipped flow (`proposal_amendments`,
@@ -33,19 +38,8 @@ export type CorrectableField = (typeof CORRECTABLE_FIELDS)[number];
 
 export type ContactDetails = Partial<Record<CorrectableField, string | null>>;
 
-/**
- * 🚪 A PHONE AND AN ADDRESS ARE DOORS OUT OF THE APP (owner 2026-09-10: *"not to let them communicate outside the
- * app"*; `lib/no-door-out-of-the-app.test.ts`). So for these two the couple is told THAT the supplier changed it, and
- * the value itself is never kept, never sent to a page and never put in a notice — the conversation stays in Setnayan.
- * A name and a contact person are not a way to reach anyone, so those are said in full.
- */
-export const WITHHELD_FIELDS: ReadonlySet<CorrectableField> = new Set<CorrectableField>(['phone', 'address']);
-
-/**
- * One corrected detail: what the couple had (null = nothing typed) and what the supplier says. For a withheld field
- * (phone, address) both are null: it changed, and that is all that is kept.
- */
-export type Correction = { from: string | null; to: string | null };
+/** One corrected detail: what the couple had (null = nothing typed) and what the supplier says. */
+export type Correction = { from: string | null; to: string };
 export type SupplierCorrections = Partial<Record<CorrectableField, Correction>>;
 
 const FIELD_WORD: Readonly<Record<CorrectableField, string>> = {
@@ -87,7 +81,7 @@ export function supplierCorrections(couple: ContactDetails, shop: ContactDetails
     if (!to) continue;
     const from = clean(couple[field]);
     if (from && sameDetail(field, from, to)) continue;
-    out[field] = WITHHELD_FIELDS.has(field) ? { from: null, to: null } : { from: from || null, to };
+    out[field] = { from: from || null, to };
   }
   return out;
 }
@@ -112,15 +106,22 @@ export function correctionsMark(c: SupplierCorrections | null | undefined): stri
 /** The row's short word, for a line that is already tight. */
 export const CORRECTIONS_SHORT = 'updated by the supplier';
 
-/** Said for a phone or an address that changed — the value is not shown; the chat is the way to them. */
-export const WITHHELD_CHANGED = 'changed. Talk to them in your Setnayan chat.';
+/** A phone reads the one way the app writes numbers (`+63 918 111 2222`); anything unparseable reads as typed. */
+function shown(field: CorrectableField, value: string): string {
+  if (field !== 'phone') return value;
+  const p = parseVendorPhone(value, 'PH');
+  return p.ok ? p.display : value;
+}
 
-/** The ⓘ's lines: "Name: Kusina ni Lola Catering (you had Kusina ni Lola)" · "Phone: changed. Talk to them…". */
+/**
+ * The ⓘ's lines, the new value in full beside the old one:
+ * "Name: Kusina ni Lola Catering (was Kusina ni Lola)" · "Phone: +63 918 111 2222 (was +63 917 000 0000)".
+ */
 export function correctionsDetail(c: SupplierCorrections | null | undefined): string[] {
   return correctedFields(c).map((f) => {
     const x = c![f]!;
-    if (WITHHELD_FIELDS.has(f) || !x.to) return `${FIELD_LABEL[f]}: ${WITHHELD_CHANGED}`;
-    return x.from ? `${FIELD_LABEL[f]}: ${x.to} (you had ${x.from})` : `${FIELD_LABEL[f]}: ${x.to}`;
+    const to = shown(f, x.to);
+    return x.from ? `${FIELD_LABEL[f]}: ${to} (was ${shown(f, x.from)})` : `${FIELD_LABEL[f]}: ${to}`;
   });
 }
 
@@ -132,11 +133,6 @@ export function readCorrections(decisions: unknown): SupplierCorrections {
   for (const f of CORRECTABLE_FIELDS) {
     const v = (raw as Record<string, unknown>)[f] as { from?: unknown; to?: unknown } | undefined;
     if (!v || typeof v !== 'object') continue;
-    // A withheld field never carries its value back out, even if a row somehow holds one.
-    if (WITHHELD_FIELDS.has(f)) {
-      out[f] = { from: null, to: null };
-      continue;
-    }
     if (typeof v.to !== 'string' || !v.to.trim()) continue;
     out[f] = { from: typeof v.from === 'string' && v.from.trim() ? v.from : null, to: v.to };
   }

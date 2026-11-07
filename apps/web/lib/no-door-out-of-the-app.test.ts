@@ -305,9 +305,9 @@ const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }
     {
       count: 1,
       why:
-        'A server action: on the couple\'s Approve of a supplier who joined from their link, the shop\'s phone is ' +
-        'compared with the one the couple typed (DECISION_LOG 2026-11-07). Only WHETHER it changed is kept ' +
-        '(`lib/supplier-corrections.ts` WITHHELD_FIELDS) — the number never leaves the server.',
+        'A server action: on the couple\'s Approve of a supplier who joined from THEIR OWN link, the shop\'s phone is ' +
+        'compared with the one the couple typed (DECISION_LOG 2026-11-07) and the new number is kept on the answered ' +
+        'ask, which only that couple can read — the one surface SUPPLIER_CORRECTIONS_SURFACE (below) lets through.',
     },
   ],
   [
@@ -803,12 +803,90 @@ test('no couple-facing or public surface still promises the retired sentences', 
   assert.deepEqual(hits, [], hits.join('\n'));
 });
 
+// ── 📞 THE ONE SURFACE THAT SHOWS A SUPPLIER'S NEW PHONE AND ADDRESS — TO THE COUPLE WHO INVITED THEM ───────────────
+/**
+ * Owner, verbatim, 2026-11-07:
+ *
+ *   "we are giving them more freedom to talk outside since we already tracked them from our website that they have
+ *    been discovered by others. we allow their calling on the app and video calls on the app. that is already built.
+ *    but only for booked."
+ *
+ * When a couple approves a supplier who joined from the couple's OWN invite link, the couple's notice and the Booked
+ * row's ⓘ show the corrected phone and address in full ("Phone: +63 918 111 2222 (was +63 917 000 0000)"). The
+ * couple brought this supplier here, so the sourcing is already recorded and no booking fee is lost. Nothing else
+ * moves: the value leaves the server ONLY through `lib/supplier-corrections.ts`, ONLY from the answered claim ask
+ * (`event_access_requests`, couple-scoped RLS — no other couple, guest or signed-out reader can see it), and ONLY
+ * into the files listed here. Every other surface stays under Rules 1–6, unchanged.
+ */
+const SUPPLIER_CORRECTIONS_SURFACE: ReadonlyMap<string, string> = new Map([
+  ['app/dashboard/[eventId]/access-requests/actions.ts', 'The Approve action: compares, keeps the corrections on the ask, sends the in-app notice.'],
+  ['app/dashboard/[eventId]/vendors/page.tsx', "The couple's Suppliers page: reads the asks on the couple's OWN session and hands them to the Booked rows."],
+  ['lib/booked-rows.ts', "The Booked row model: turns the kept corrections into the row's mark and the ⓘ lines."],
+  ['app/dashboard/[eventId]/vendors/_components/booked-row.tsx', 'Draws the mark (the short word only) and the ⓘ lines the model built.'],
+  ['app/dev/suppliers-lab/booked-fixtures.ts', 'The suppliers lab: a fictional fixture, no database read, nothing real.'],
+  ['app/dev/notifications-lab/page.tsx', 'The notifications lab: a fictional fixture, no database read, nothing real.'],
+]);
+
+const CORRECTIONS_IMPORT_RE = /from\s+['"](?:@\/lib|\.{1,2}(?:\/\.\.)*(?:\/lib)?)\/supplier-corrections['"]/;
+
+test("📞 a supplier's corrected phone reaches only the inviting couple's surface (owner 2026-11-07)", () => {
+  const readers = [...STRIPPED].filter(([, src]) => CORRECTIONS_IMPORT_RE.test(src)).map(([f]) => f);
+  // Anti-vacuity: the derivation really does reach the surface it exempts.
+  assert.ok(readers.includes('lib/booked-rows.ts'), `the walk never reached the Booked row model: ${readers.join(', ')}`);
+  const stray = readers.filter((f) => !SUPPLIER_CORRECTIONS_SURFACE.has(f));
+  assert.deepEqual(stray, [], `NEW  a couple or public surface reads a supplier's corrected contact: ${stray.join(', ')}`);
+  for (const f of SUPPLIER_CORRECTIONS_SURFACE.keys()) {
+    assert.ok(readers.includes(f), `STALE ${f} is on the corrections surface but no longer reads it — delete its line`);
+  }
+  // The page feeds the rows ONLY from the couple's own read of the ask, never the admin client.
+  const page = STRIPPED.get('app/dashboard/[eventId]/vendors/page.tsx') ?? '';
+  assert.equal(count(page, /\bcorrections:/g), 1, 'the Suppliers page feeds corrections to the rows from one place only');
+  assert.match(page, /corrections: revealFor\(claimRevealByRow, /);
+  assert.match(page, /\bsupabase\s*\.from\('event_access_requests'\)/, "the asks must be read on the couple's own session");
+  assert.doesNotMatch(page, /\b(?:enrichmentAdmin|admin)\s*\.from\('event_access_requests'\)/, 'an admin read reveals to every viewer');
+});
+
+test("📞 the Booked row carries the supplier's phone only in the inviting couple's ⓘ", async () => {
+  const { bookedView } = await import('./booked-rows');
+  const { teamRows } = await import('./your-team-rows');
+  const { supplierCorrections } = await import('./supplier-corrections');
+  const PHONE_DIGITS = '9181112222';
+  const rows = teamRows(
+    [
+      {
+        vendorId: 'V1', name: 'Kusina ni Lola Catering', service: 'Catering', logoUrl: null, status: 'contracted',
+        lockRequestState: null, lockRequestExpiresAt: null, inBuild: false, lockGroupId: null, lockBlocked: null,
+        inquiryStatus: null, threadId: null, pricePhp: 50000, depositStep: null, reviewStatus: null, quoteWaitingOnCouple: false,
+      },
+    ] as unknown as Parameters<typeof teamRows>[0],
+    { eventId: 'E1', lockHandshakeEnabled: true },
+  );
+  const viewFor = (corrections: unknown) =>
+    bookedView({
+      rows,
+      facts: [{ vendorId: 'V1', groupId: 'catering', own: false, shopId: 'S1', pricePhp: 50000, threadId: null, moneyMoved: false, lockRequestExpiresAt: null, corrections }],
+      money: null,
+      plans: null,
+    } as unknown as Parameters<typeof bookedView>[0]);
+  const digits = (x: unknown) => JSON.stringify(x).replace(/\D/g, '');
+
+  const couple = viewFor(supplierCorrections({ phone: '0917 000 0000' }, { phone: '+639181112222' }));
+  const row = couple.booked.find((b) => b.vendorId === 'V1');
+  assert.ok(row?.updated, 'anti-vacuity: the inviting couple’s row never carried the correction');
+  assert.ok(digits(row.updated).includes(PHONE_DIGITS), 'the inviting couple is shown the new number in full');
+  const { updated: _shown, ...rest } = row;
+  assert.ok(!digits(rest).includes(PHONE_DIGITS), 'the number rides somewhere on the row besides the ⓘ');
+  // Every other viewer reads no ask, so the page hands no corrections: the row carries no number at all.
+  assert.ok(!digits(viewFor(null)).includes(PHONE_DIGITS), 'a viewer who is not the inviting couple was handed the number');
+});
+
 test('the bill and the exclusions carry reasons', () => {
   for (const [f, b] of CONTACT_TEXT_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const [f, b] of SHOP_CONTACT_READ_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const [f, b] of GUEST_CONTACT_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const [f, b] of BOOKED_HANDOFF_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const t of STAFF_OR_SHOP_OWN_TREES) assert.ok(t.why.length > 20, `${t.prefix} has no reason`);
+  for (const [f, why] of SUPPLIER_CORRECTIONS_SURFACE) assert.ok(why.length > 40, `${f} has no real reason`);
 });
 
 // ── THE TWO 2026-11-04 EXEMPTIONS, EXECUTED — a bill line says a file MAY; these say it REFUSES ────────────────────

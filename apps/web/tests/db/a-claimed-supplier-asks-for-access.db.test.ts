@@ -30,7 +30,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
-import { claimReveals, invitedCoupleName, revealFor, supplierCorrections, type AnsweredClaimAsk } from '../../lib/supplier-corrections';
+import { claimReveals, correctionsDetail, invitedCoupleName, revealFor, supplierCorrections, type AnsweredClaimAsk } from '../../lib/supplier-corrections';
 import { resolveVendorDisplayName } from '../../lib/vendors';
 
 let replay: ReplayResult;
@@ -354,7 +354,7 @@ async function answeredClaimAsksAs(uid: string | 'anon'): Promise<AnsweredClaimA
   return r;
 }
 
-test('6 · the corrections ride on the ask; only the inviting couple sees the real name', async () => {
+test('6 · the corrections ride on the ask; only the inviting couple sees the real name and the new phone', async () => {
   // The caterer (approved in 3) corrected their shop at the claim door; the shop is still anonymous (no reveal).
   await asServer();
   await db.query(
@@ -408,12 +408,13 @@ test('6 · the corrections ride on the ask; only the inviting couple sees the re
   const couple = await nameFor(F.host);
   assert.equal(couple.name, 'Kusina ni Lola Catering', 'the couple who invited them sees the real name');
   assert.equal(couple.reveal?.corrections.name?.from, 'Kusina ni Lola');
-  assert.deepEqual(couple.reveal?.corrections.phone, { from: null, to: null }, 'a phone is said to have changed, never kept');
-  await asServer();
-  const kept = (await db.query<{ d: string }>(`SELECT decisions::text AS d FROM public.event_access_requests WHERE request_id = $1`, [F.ask]))
-    .rows[0]!.d;
-  await asOwner();
-  assert.ok(!kept.includes('9181112222'), `the shop's number reached the ask: ${kept}`);
+  // 📞 Owner 2026-11-07: the inviting couple is shown the new phone IN FULL ("we are giving them more freedom to talk
+  // outside since we already tracked them from our website").
+  assert.deepEqual(couple.reveal?.corrections.phone, { from: card.contact_number, to: '+639181112222' });
+  assert.ok(
+    correctionsDetail(couple.reveal?.corrections).includes('Phone: +63 918 111 2222 (was +63 917 000 0000)'),
+    `the couple's ⓘ does not show the new number: ${correctionsDetail(couple.reveal?.corrections).join(' · ')}`,
+  );
 
   // Another event's couple.
   const otherHost = await signUp('other-host@ask-e2e.test', 'customer');
@@ -438,5 +439,7 @@ test('6 · the corrections ride on the ask; only the inviting couple sees the re
     const seen = await nameFor(viewer);
     assert.equal(seen.reveal, null, `${who} read the couple’s answered ask`);
     assert.equal(seen.name, 'Manila Caterer #4101', `${who} saw the real name`);
+    const raw = JSON.stringify(await answeredClaimAsksAs(viewer));
+    assert.ok(!raw.replace(/\D/g, '').includes('9181112222'), `${who} was handed the supplier's new number: ${raw}`);
   }
 });

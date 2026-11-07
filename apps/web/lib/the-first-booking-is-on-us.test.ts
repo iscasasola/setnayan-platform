@@ -43,10 +43,10 @@ import { stripComments } from './strip-comments';
 const WEB = join(__dirname, '..');
 
 test('1 · the money: booking #1 is waived, booking #2 is billed (no launch offer)', () => {
-  const first = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000 });
+  const first = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000, businessFree: 'available' });
   assert.deepEqual(first, { charge: true, free: true, feePhp: 0, createOrder: false }, 'the first booking was not waived');
 
-  const second = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 2, agreedTotalPhp: 100_000 });
+  const second = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 2, agreedTotalPhp: 100_000, businessFree: 'available' });
   assert.equal(second.free, false, 'booking #2 was still free — the old five-booking rule is back');
   assert.equal(second.charge, true);
   assert.ok(second.feePhp > 0, 'booking #2 carried no fee');

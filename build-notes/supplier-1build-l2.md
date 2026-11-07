@@ -51,6 +51,11 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 
 ## Generated-file / Ugat needs (controller)
 - New intercept route `vendor-dashboard/customers/@client/(..)clients/[eventId]` → `pnpm ugat:screens`, port baseline.
+- `pnpm --filter @setnayan/web port:baseline` — DELIBERATE removals on `/vendor-dashboard/clients/[eventId]`:
+  `<FilesTab>` → `_pages/files.tsx` `<FilesPage>` · `<RelationshipTabShell>` → `<PickedClientShell>` · `<ShopEmpty>`
+  (moved with the Files body) · the old rail's `?tab=payments` link (Payment is a menu page now).
+- `lint:no-card` baseline: the 3 bordered lines of the shipped FilesTab MOVED verbatim from `clients/[eventId]/page.tsx`
+  into `_pages/files.tsx` (net 0; page.tsx count drops by 3). C1 rebuilds that body as the Finder view anyway.
 
 ## Questions
 - "Your next move" card (shipped desktop-only context rail, `lib/supplier-next-move.ts` + its guard) is NOT in v113.

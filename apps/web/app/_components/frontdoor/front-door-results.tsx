@@ -41,6 +41,7 @@
  * `fd-kindtag`, `fd-sechead`, `fd-invite`, `fd-go`. A results page that
  * introduced its own card would be a second design for one shelf.
  */
+import { SHOP_ARRIVAL_SRC, withShopArrival } from '@/lib/shop-back';
 import 'server-only';
 
 import Image from 'next/image';
@@ -143,7 +144,9 @@ function ReadCard({
 /** A matched shop, in the same card the "first shops" shelf already renders. */
 function ShopHitCard({ s }: { s: FrontDoorShop }) {
   return (
-    <Link href={s.href} className="fd-item">
+    /* 🧭 `?src=search` — a search hit: the inquiry is a Search Inquiry (lib/inquiry-source.ts) and the shop page's "Back"
+       returns to Discover, where search lives (lib/shop-back.ts; owner 2026-11-07). */
+    <Link href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.search })} className="fd-item">
       <div className="fd-thumb fd-thumb-shop">
         {s.logoUrl ? (
           // A plain <img> for the reason the shelf's card states: an r2:// logo

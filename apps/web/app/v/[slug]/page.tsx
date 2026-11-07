@@ -109,6 +109,7 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
+import { arrivalParams, shopBackDoor, withShopArrival } from '@/lib/shop-back';
 import {
   SHOP_ARTICLE_WIDTH,
   SHOP_CARD_COLUMN_CLASS,
@@ -1603,6 +1604,9 @@ export async function renderVendorBySlug({
   const viewerOwnsShop =
     user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
   let coupleEventId: string | null = null;
+  /** `?event=` once CHECKED against the viewer's own events — the event this visit came for (lib/shop-back.ts).
+   *  Never the `events[0]` fallback: only an event the link named can be "where you came from". */
+  let arrivalEventId: string | null = null;
   /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
    *  Waitlist CTA when the vendor is unavailable on it. */
   let coupleEventDate: string | null = null;
@@ -1658,6 +1662,7 @@ export async function renderVendorBySlug({
         ? events.find((e) => e.event_id === requestedEventId)
         : undefined;
     coupleEventId = chosen?.event_id ?? events[0]?.event_id ?? null;
+    arrivalEventId = chosen?.event_id ?? null;
     coupleEventDate = chosen?.event_date ?? events[0]?.event_date ?? null;
     if (coupleEventId) {
       const threadResult = await supabase
@@ -1760,9 +1765,14 @@ export async function renderVendorBySlug({
     today's behaviour exactly. This is the whole reason the fallback above stays.
   */
   const shopEventPicker = showInquiryComposer ? await resolveAddShopToEvent(slug) : null;
+  /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
+     back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
+  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId };
+  const shopBack = shopBackDoor(shopArrival);
   const shopEventOptions =
     shopEventPicker?.signedIn && shopEventPicker.options.length > 1
-      ? shopEventPicker.options
+      ? // Choosing an event keeps where you came from — a picked row is this page again, not a new arrival.
+        shopEventPicker.options.map((o) => ({ ...o, href: withShopArrival(o.href, { src: shopArrival.src }) }))
       : [];
 
   // The event-type question in the anon composer (owner 2026-08-06: "for what
@@ -2705,12 +2715,12 @@ export async function renderVendorBySlug({
                     approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
                     Available · Not bookable, nothing about other couples' asks. Same `bookable` gate as Inquire. */}
                 <CheckADateLink
-                  href={`/v/${vendor.business_slug ?? slug}/dates`}
+                  href={withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival)}
                   className="button-secondary inline-flex items-center gap-2"
                 />
                 {canShowBooth ? (
                   <Link
-                    href={`/v/${vendor.business_slug ?? slug}/booth`}
+                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/booth`, shopArrival)}
                     className="button-secondary inline-flex items-center gap-2"
                   >
                     Walk into my booth
@@ -3213,7 +3223,7 @@ export async function renderVendorBySlug({
           guestReviews={guestReviews}
           guestReviewPhotoUrls={guestReviewPhotoUrls}
           hasMore={hasMore}
-          nextPage={reviewsPage + 1}
+          moreHref={withShopArrival(`/${slug}?reviewsPage=${reviewsPage + 1}#reviews`, shopArrival)}
           /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (owner ruling
              re-confirmed 2026-08-09): reviews are never hidden or unlocked by
              what a vendor pays. Both caps are now true on every tier, so these
@@ -3454,6 +3464,9 @@ export async function renderVendorBySlug({
                       value={vendor.vendor_profile_id}
                     />
                     <input type="hidden" name="requested_date" value={waitlistDate} />
+                    {/* Where this visit came from, so the page the join returns to keeps its back door. */}
+                    {shopArrival.src ? <input type="hidden" name="src" value={shopArrival.src} /> : null}
+                    {shopArrival.eventId ? <input type="hidden" name="event" value={shopArrival.eventId} /> : null}
                     <SubmitButton
                       pendingLabel="Joining…"
                       className="rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
@@ -3470,8 +3483,11 @@ export async function renderVendorBySlug({
             <Link href="/signup" className="button-primary">
               Plan with Setnayan
             </Link>
-            <Link href="/explore" className="button-secondary">
-              Back to suppliers
+            {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This
+                was a fixed `/explore` for every arrival — Discover, an event's Suppliers, a saved supplier. The door
+                is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back". */}
+            <Link href={shopBack.href} className="button-secondary" data-shop-back={shopBack.back ? 'back' : 'cold'}>
+              {shopBack.label}
             </Link>
           </div>
         </section>
@@ -3936,7 +3952,7 @@ function ReviewsSection({
   guestReviews,
   guestReviewPhotoUrls,
   hasMore,
-  nextPage,
+  moreHref,
   showStars,
   showComments,
   recommendingCouples,
@@ -3957,7 +3973,8 @@ function ReviewsSection({
   /** The guests' own shots, through the blur gate. */
   guestReviewPhotoUrls: ReadonlyMap<string, string>;
   hasMore: boolean;
-  nextPage: number;
+  /** The next page of reviews — this page again, carrying where the visit came from. */
+  moreHref: string;
   /** Phase C: Free hides the star average + per-review star rows. */
   showStars: boolean;
   /** Phase C: Free + Verified hide review bodies + axis stats + replies. */
@@ -4048,7 +4065,7 @@ function ReviewsSection({
       {hasMore && (showStars || showComments) ? (
         <div className="pt-2">
           <Link
-            href={`/${slug}?reviewsPage=${nextPage}#reviews`}
+            href={moreHref}
             className="button-secondary inline-flex h-10 px-4"
           >
             Show more reviews

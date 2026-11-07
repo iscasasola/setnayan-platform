@@ -18,6 +18,8 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { guestFullName } from '@/lib/guests';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
+import { readAdminEventScans } from '@/lib/supplier-scan.server';
+import { SupplierScansAdmin } from './_components/supplier-scans-admin';
 import { NOT_TAKING_CHANGES, SCHEDULE_MARK_COLUMNS, marksByShop, markDay, timesMarkOf } from '@/lib/supplier-schedule-marks';
 import { adminWhereLine, whereChaptersFrom, type WhereBlockRow, type WhereRequestRow } from '@/lib/supplier-where';
 
@@ -226,6 +228,8 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
     : marksByShop(
         (marksRead.data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null; locked_at: string | null }>,
       );
+  // 🎟 Suppliers' scans (the claim scanner) — every claim at this event, to see and to fix. null = unread.
+  const supplierScans = await readAdminEventScans(eventId);
   // 📍 Each supplier's Where (owner 2026-11-04, migration 20271308641275): the chapters they are on, and a Where request
   // still waiting either way. Read-only; a refused read is said on the row, never "no chapter".
   const chaptersRead = await admin
@@ -483,6 +487,20 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* 🎟 Suppliers' scans — the claim scanner's record at this event; Remove takes back one recorded in error. */}
+      <section className="border-t border-ink/10 pt-5" data-admin-supplier-scans="">
+        <h2 className="mb-3 text-sm font-medium text-ink">Suppliers&rsquo; scans</h2>
+        {supplierScans === null ? (
+          <p role="alert" className="text-sm text-mulberry">
+            {COULD_NOT_LOAD} the suppliers&rsquo; scans — the read failed, so this is not &ldquo;no scans&rdquo;.
+          </p>
+        ) : supplierScans.length === 0 ? (
+          <p className="text-sm text-ink/60">Verified: no supplier has scanned a guest at this event.</p>
+        ) : (
+          <SupplierScansAdmin eventId={eventId} claims={supplierScans} />
         )}
       </section>
 

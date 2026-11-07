@@ -534,6 +534,20 @@ export type NotificationType =
      Sent by `answerClaimAccess` (app/dashboard/[eventId]/access-requests/actions.ts) after
      `answer_claim_access_request`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302590530. */
   | 'claim_access_answered'
+  /* 🕵️ FOUND-YOU LEAD ALERT (DECISION_LOG 2026-07-27, built 2026-11-05). → the supplier who claimed a couple's link,
+     when the couple's Approve finds the couple had already opened that shop on Setnayan before typing it in by hand
+     (`found_you_check_at_claim`): "<couple> found you on Setnayan on <date>". Data-minimal: the couple's event name,
+     its type and date, the first-seen date and how many times — never a contact. Sent by `answerClaimAccess`
+     (app/dashboard/[eventId]/access-requests/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES.
+     ⚠ ENUM value in 20271314066142. */
+  | 'found_you_lead'
+  /* 🕵️ BOOKING-FEE DISPUTES (DECISION_LOG 2026-07-27 grace-first ladder; built 2026-11-05).
+     `fee_dispute_opened` → every admin, when a supplier's SECOND or later dispute waits for review (their first is
+     accepted on the spot). `fee_dispute_answered` → the supplier, when an admin accepts or rejects it. Sent by
+     `disputeBookingFee` (app/vendor-dashboard/booking-fees/[orderId]/actions.ts) and `decideBookingFeeDispute`
+     (app/admin/disputes/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM values in 20271314517155. */
+  | 'fee_dispute_opened'
+  | 'fee_dispute_answered'
   /* 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART (supplier gate audit D6, 2026-11-02; owner: *"getting
      notifications if they are changed by user"*). → each booked supplier named on the moment (`responsible_vendor_ids`,
      before AND after the edit), ONE notice per save however many moments it touched — retimed, edited, re-assigned or
@@ -568,7 +582,12 @@ export type NotificationType =
      after the event's LAST day; each host is told at day 60, 80 and 89 — "Copy to Google Drive (free) or Download all".
      Sent by `lib/papic-originals-reminder.ts`, once per stage per host. ⚠ IN-APP ONLY (owner: no new emails): NOT on
      EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271304032942. */
-  | 'papic_originals_reminder';
+  | 'papic_originals_reminder'
+  /* ❓ QUESTIONS FOR THE COUPLE — EVERY SUPPLIER (owner 2026-11-04, "Yes, every supplier"): a supplier sent their
+     question set into the event from the chat ＋; each host is told, linking to that supplier's room where they answer.
+     Sent by `app/vendor-dashboard/messages/[threadId]/questions-actions.ts`. ⚠ IN-APP ONLY (no new emails): NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271315529466. */
+  | 'supplier_questions_sent';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -697,11 +716,15 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   access_more_asked: 'A helper asks for more access',
   supplier_where_changed: 'Where you go changed',
   claim_access_answered: 'A couple answered your link',
+  found_you_lead: 'A couple found you on Setnayan',
+  fee_dispute_opened: 'A booking fee is disputed',
+  fee_dispute_answered: 'Your fee dispute was answered',
   coordinator_invited: 'You’re invited to coordinate',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
   supplier_where_asked: 'A supplier picked their chapters',
   papic_originals_reminder: 'Keep your original photos',
+  supplier_questions_sent: 'A supplier sent you questions',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -935,10 +958,17 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // News the supplier plans around (which chapters), not a yes or no → the informational sky.
   supplier_where_changed: 'bg-sky-100 text-sky-800',
   claim_access_answered: 'bg-sky-100 text-sky-800',
+  // Good news for the supplier, not a yes or no → the informational sky.
+  found_you_lead: 'bg-sky-100 text-sky-800',
+  // Waiting on an admin's answer → the action-needed amber, like every other ask.
+  fee_dispute_opened: 'bg-warn-100 text-warn-900',
+  fee_dispute_answered: 'bg-sky-100 text-sky-800',
   // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
   coordinator_invited: 'bg-warn-100 text-warn-900',
   // A deadline on the couple's own originals → the action-needed amber.
   papic_originals_reminder: 'bg-warn-100 text-warn-900',
+  // A supplier waits on the couple's answers → the action-needed amber, like every other ask.
+  supplier_questions_sent: 'bg-warn-100 text-warn-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1202,6 +1232,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   change_order_proposed: 'receipt',
   change_order_answered: 'receipt',
   booking_fee_waived: 'receipt',
+  fee_dispute_opened: 'receipt',
+  fee_dispute_answered: 'receipt',
   payment_info_sent: 'receipt',
   vendor_payment_asked: 'receipt',
   ai_payment_due: 'receipt',
@@ -1235,6 +1267,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_ask_answered: 'calendar',
   supplier_where_asked: 'calendar',
   papic_originals_reminder: 'image',
+  supplier_questions_sent: 'message',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

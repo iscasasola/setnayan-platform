@@ -59,6 +59,8 @@ import { AiAddonCard } from './ai-addon-card';
 import { BoothAddonCard } from './booth-addon-card';
 import { PapicChallengeCard } from './papic-challenge-card';
 import { PlanChangeNotice } from './plan-change-notice';
+import { UltraAddonsCard } from './ultra-addons-card';
+import { ultraAddOns, fetchAddOnExtras, canBuyUltraAddOn } from '@/lib/vendor-ultra-addons';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
@@ -71,11 +73,6 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
-import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import { isStoreShellRequest } from '@/lib/request-platform';
-import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
-import { ShopGiftsSection } from './shop-gifts-section';
 
 
 /**
@@ -201,6 +198,14 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // Paid (Solo+) + verified only. Soft reads (fetchVendorAiAddonState is
   // try/catch) so a pre-migration DB degrades to "not activated, trial
   // available" instead of blanking the page.
+  // ── Ultra add-ons (owner 2026-11-06) — every row and price from vendor_billing_catalog; what this shop bought ──
+  const ultraCanBuy = canBuyUltraAddOn('category', currentTier);
+  const [ultraRows, ultraExtras] = await Promise.all([
+    ultraAddOns(supabase),
+    ultraCanBuy ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
+  ]);
+  const ultraOwned = ultraExtras ?? {};
+
   const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
   // 2026-11-04 ("DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN"): each band is its own catalogue row — the card
   // reads THIS shop's row, exactly as ai-addon-actions.ts / deep-search/actions.ts charge it.
@@ -215,7 +220,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
-  // PRO+ (Pro / Enterprise / Custom) + verified only — booth branding is a
+  // PRO+ (Pro / Ultra) + verified only — booth branding is a
   // Pro/Enterprise perk, so the add-on that turns it on is Pro+ too. Soft reads
   // (try/catch inside) degrade to "not activated, trial available" on a
   // pre-migration DB instead of blanking the page.
@@ -330,14 +335,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     new Date(tierExpiresAt).getTime() - now <= fourteenDaysMs &&
     new Date(tierExpiresAt).getTime() > now;
 
-  // Custom is a paid tier too (composed via the Stage-2 configurator / admin
-  // handshake, not self-serve-buyable from PAID_TIERS below) — include it so the
-  // renewal/expiry chip renders for Custom vendors.
   const isPaid =
     currentTier === 'solo' ||
     currentTier === 'pro' ||
-    currentTier === 'enterprise' ||
-    currentTier === 'custom';
+    currentTier === 'enterprise';
 
   // Booking-fee doorway (surfacing layer). Flag-gated AND count-gated so nothing
   // shows when the fee system is dark OR the vendor owes nothing ("no fee →
@@ -394,10 +395,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const pickCurrent = currentTier === 'verified' ? 'free' : currentTier;
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
-    // A Custom shop's own plan is not sold here — it is listed so the dropdown shows what they are on.
-    ...(currentTier === 'custom'
-      ? [{ key: 'custom', name: 'Custom', price: {}, tooShort: {}, pickLine: 'Your own plan — change it under Custom plan below' }]
-      : []),
     ...visibleTiers.map((tier) => ({
       key: tier,
       name: planWord(tier),
@@ -420,13 +417,11 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       ? priceBySku.get(skuFor(currentTier, currentCycleKey)) ?? null
       : null;
   const pays =
-    currentTier === 'custom'
-      ? 'your Custom quote'
-      : currentPrice !== null
-        ? `${formatPhp(currentPrice)} / ${currentCycleKey === 'annual' ? 'year' : '28 days'}`
-        : isPaid
-          ? 'paid'
-          : 'nothing to pay';
+    currentPrice !== null
+      ? `${formatPhp(currentPrice)} / ${currentCycleKey === 'annual' ? 'year' : '28 days'}`
+      : isPaid
+        ? 'paid'
+        : 'nothing to pay';
   // 🛍 2026-11-04: the shop buys the couple's Papic packs — the row quotes the smallest one's catalogue price.
   const papicPackPrice = (await fetchShopPapicPacks(createAdminClient()))?.[0]?.pricePhp ?? null;
   const gives = planGivesLines(currentTier, isVendorFeatureGateEnabled());
@@ -457,17 +452,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     !gift && !isPaid && invited?.tier && invited.untilDay && invited.untilDay < todayDay
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
-  // 🎁 YOUR GIFTS (owner 2026-11-04) — the shop's gift stock, read with the shop's own client (RLS: its own rows);
-  // the catalogue and the tier with the service role, as the buy action prices them.
-  const giftsAdmin = createAdminClient();
-  const [giftStock, giftBought, giftPacks, giftPaysGiftPrice, giftPapicOn, giftStoreShell] = await Promise.all([
-    fetchShopGiftStock(supabase, profile.vendor_profile_id, null),
-    fetchShopGiftBought(supabase, profile.vendor_profile_id),
-    fetchShopGiftPacks(giftsAdmin),
-    fetchVendorPaysGiftPrice(giftsAdmin, profile.vendor_profile_id),
-    isVendorPapicCaptureEnabled(),
-    isStoreShellRequest(),
-  ]);
 
   // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
   const photosLine = allowance.ok
@@ -554,21 +538,18 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         photosLine={photosLine}
       />
 
-      <ShopGiftsSection
-        data={{
-          stock: giftStock,
-          packs: giftPacks,
-          paysGiftPrice: giftPaysGiftPrice,
-          bought: giftBought,
-          openRails,
-          canBuy: giftPapicOn && !giftStoreShell,
-        }}
-      />
+      {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE
+          SUPPLIER QR CODES, PRINTS AND GIFTS") — one place for every marketing tool. Not linked from here: the Plan is
+          what the shop pays Setnayan; gifts are what it gives its couples. 🔒 shop/promote/gifts-live-on-promote.test.ts */}
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
       <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">
         Add-ons
       </h2>
+
+      {/* Every Ultra add-on, from the catalogue (owner 2026-11-06, "ULTRA ADD-ON PRICES") — Ultra buys here; every
+          other plan reads "Only Ultra can add these". */}
+      <UltraAddonsCard rows={ultraRows} canBuy={ultraCanBuy} owned={ultraOwned} />
 
       {/* Vendor AI ("the AI Chatbot") add-on — free first 28-day cycle, then
           ₱1,500/28d, on paid + verified shops (owner 2026-07-22). */}
@@ -584,7 +565,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       />
 
       {/* 3D Booth add-on — free first 28-day cycle, then ₱3,000/28d (flat, 2026-09-05), on
-          Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
+          Pro/Ultra + verified shops (owner 2026-07-22). Turns on the
           vendor's branded booth inside their couples' published 3D Plans.
           With the 2026-07-25 tiered model on: every verified tier, at ₱2,000
           (Free/Solo) or ₱1,500 (Pro/Ent). */}

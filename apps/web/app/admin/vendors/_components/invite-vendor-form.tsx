@@ -12,6 +12,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { SWITCH_TRACK } from '@/app/_components/switch-track';
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { svgDataUri, qrFileName } from '@/lib/qr-download';
+import { SHOP_NAME_MAX } from '@/lib/business-slug';
 import {
   PERSONAL_INVITE_PHOTO_ALLOWANCE,
   PERSONAL_INVITE_TIERS,
@@ -152,7 +153,7 @@ export function InviteVendorForm({
               required
               empty="Their business"
               placeholder="ABC Catering"
-              maxLength={128}
+              maxLength={SHOP_NAME_MAX}
               autoCapitalize="words"
               fieldName="business_name"
               onKeep={(t) => setBusiness(t)}

@@ -12,6 +12,9 @@
  *   &s=edit                       an existing card in the same maker (the edit sheet) — Live · delete · copy
  *   &s=unread                     …an existing card whose add-ons could not be read (Save waits)
  *   &s=fixed                      a new card whose kind came with the address (/services/new/[category])
+ *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
+ *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
+ *                                 the photos…) can be checked over that sheet, not only on the standalone page
  *
  * Names are the prototype's samples: nobody real.
  */
@@ -21,6 +24,7 @@ import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SupplierType } from '@/lib/service-card-maker';
+import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 
 const VP = '00000000-0000-4000-8000-0000000000bb';
 
@@ -242,13 +246,9 @@ export default async function CardMakerLabPage({
   const isEdit = s === 'edit' || s === 'unread';
   const fixed = s === 'fixed';
   const fx = isEdit ? editFixture(shop) : null;
+  const inToday = sp.host === 'today';
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
-      <div className="mb-2 flex min-h-11 items-center gap-2">
-        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
-        <h1 className="text-[17px] font-semibold tracking-tight text-ink">{isEdit ? shop.edit.title : 'New service'}</h1>
-      </div>
+  const maker = (
       <CanvasMaker
         categoryValue={isEdit || fixed ? shop.edit.kind : ''}
         categoryLabel={isEdit || fixed ? (shop.covered.find((c) => c.value === shop.edit.kind)?.label ?? shop.edit.kind) : ''}
@@ -282,6 +282,24 @@ export default async function CardMakerLabPage({
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
       />
+  );
+
+  if (inToday) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker" data-lab-host="today">
+        <h1 className="mb-2 text-[17px] font-semibold tracking-tight text-ink">What you offer</h1>
+        <SetupOfferFold services={[{ service: shop.covered[0]?.value ?? 'service', label: shop.covered[0]?.label ?? 'Service', cards: [], toGo: 3 }]} maker={maker} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
+      <div className="mb-2 flex min-h-11 items-center gap-2">
+        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
+        <h1 className="text-[17px] font-semibold tracking-tight text-ink">{isEdit ? shop.edit.title : 'New service'}</h1>
+      </div>
+      {maker}
     </div>
   );
 }

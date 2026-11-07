@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import { createContext, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -118,6 +118,15 @@ const SHEET_AT: Record<
   },
 };
 
+/**
+ * 🧭 "YOU ARE INSIDE A SHEET" — true for everything drawn in a `Sheet`'s body (context crosses the portal). For a part
+ * that floats itself at the foot of the screen by portalling to <body> (the supplier's thumb row) and would otherwise
+ * land UNDER the sheet: the service maker's Preview · Create row, opened in Today's New service sheet (live
+ * 2026-11-06), was drawn on <body> at z 25, behind the sheet's z-50 — no Create to press. Inside a sheet it stays in
+ * place, inside the sheet's own layer. 🔒 `vendor-dashboard/services/the-maker-sheets-open-on-top.test.ts`.
+ */
+export const InSheet = createContext(false);
+
 export type SheetProps = {
   open: boolean;
   onClose: () => void;
@@ -164,6 +173,15 @@ export type SheetProps = {
   pinned?: { level: string; name: string; more?: ReactNode };
   /** On a phone the sheet IS the screen — full height, no rounded top (the pinned row's drawer). Default false. */
   full?: boolean;
+  /**
+   * 🧭 THE CALLER'S OWN HEAD (Shop › Promote, owner 2026-11-06: "what is the use of our prototype?"): an approved
+   * prototype draws its own top row (Prints: ‹ · title over its line · Save all; a QR code: its name · ⓘ · Done). In
+   * place of the `title` row and the ✕, this row is drawn above the scrolling body and stays put; the caller's row
+   * carries the way out (Esc, the backdrop and the phone's Back still close). Default none: every caller renders as before.
+   */
+  head?: ReactNode;
+  /** 👍 A row pinned BELOW the scrolling body — the thumb dock (Prints: Design ▾ · QR ▾). Default none. */
+  foot?: ReactNode;
   children: ReactNode;
 };
 
@@ -178,6 +196,8 @@ export function Sheet({
   back,
   pinned,
   full = false,
+  head,
+  foot,
   children,
 }: SheetProps) {
   // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
@@ -212,7 +232,11 @@ export function Sheet({
         data-sheet-panel=""
         className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}${full ? ` ${at.full}` : ''}`}
       >
-        {pinned && back ? (
+        {head ? (
+          <div data-sheet-head="" className="shrink-0">
+            {head}
+          </div>
+        ) : pinned && back ? (
           <header data-sheet-pinned="" data-peek-toast-under="" className="flex min-h-14 shrink-0 items-center gap-1 border-b border-ink/10 pl-2 pr-2 pt-[env(safe-area-inset-top)]">
             <button
               type="button"
@@ -268,9 +292,14 @@ export function Sheet({
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),16px)]">
-          {children}
+        <div className={`flex-1 overflow-y-auto overscroll-contain${foot ? '' : ' pb-[max(env(safe-area-inset-bottom),16px)]'}`}>
+          <InSheet.Provider value>{children}</InSheet.Provider>
         </div>
+        {foot ? (
+          <div data-sheet-foot="" className="shrink-0 pb-[env(safe-area-inset-bottom)]">
+            {foot}
+          </div>
+        ) : null}
       </div>
     </div>
   );

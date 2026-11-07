@@ -31,6 +31,8 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
@@ -489,6 +491,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     });
   })();
 
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
+  // check; the shop's number is read only once it says yes (bookedCounterpartyPhone returns null without it).
+  const shopBookedRead = shopIsBookedOnEvent(thread.event_id, thread.vendor_profile_id);
+  const shopPhoneRead = shopBookedRead.then((booked) =>
+    bookedCounterpartyPhone({ booked, viewer: 'couple', eventId: thread.event_id, vendorProfileId: thread.vendor_profile_id }),
+  );
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
@@ -506,6 +515,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     conversationRows,
     receipts,
     eventDay,
+    shopBooked,
+    shopPhone,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -522,6 +533,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     conversationRowsRead,
     receiptsRead,
     eventDayRead,
+    shopBookedRead,
+    shopPhoneRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -697,6 +710,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 </>
               }
               actions={
+                <>
+                <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/dashboard/${eventId}/messages/${threadId}`}
@@ -719,6 +734,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                       : []
                   }
                 />
+                </>
               }
             />
           }

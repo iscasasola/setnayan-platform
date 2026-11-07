@@ -54,9 +54,17 @@ export const VENDOR_PAYS_SETNAYAN_PREFIXES: readonly string[] = [
   'vendor_booking_fee__',
   // 2026-11-04 — the shop buys the couple's Papic packs into its wallet (`SHOP_PAPIC_PACK_KEY_PREFIX`).
   'vendor_papic_pack__',
+  // ⚠ KEPT AFTER THE CUSTOM PLAN WAS RETIRED (2026-11-06), ON PURPOSE. Nothing mints these keys any more, but an
+  // order that already carries one is still a supplier paying Setnayan — dropping the prefix would make such an
+  // order look payable to a supplier. A list that refuses payouts may only grow while old orders exist.
   'vendor_custom_plan__',
   'vendor_custom_plan_annual__',
   'vendor_extra_seat__',
+  // 2026-11-06 — the four Ultra add-ons (owner, "ULTRA ADD-ON PRICES"; lib/vendor-ultra-addons.ts).
+  'vendor_extra_category__',
+  'vendor_extra_service_card__',
+  'vendor_extra_waitlist__',
+  'vendor_extra_booking_per_date__',
   'vendor_subscription__',
 ] as const;
 

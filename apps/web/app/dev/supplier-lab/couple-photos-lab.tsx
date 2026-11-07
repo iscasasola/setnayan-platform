@@ -19,7 +19,7 @@ export const LAB_COUPLE_PHOTOS: ShopCouplePhoto[] = [
   { shareId: 'lab-share-3', state: 'approved', imageUrl: LAB_SUGGEST_PHOTO.bq2, creditLine: 'Maria & Jose · Dec 2026', serviceTitle: 'Garden bridal bouquet' },
 ];
 
-const LAB_CARD: ServiceCard = {
+export const LAB_CARD: ServiceCard = {
   id: 'lab-card-bouquet',
   label: 'Garden bridal bouquet',
   priceLabel: 'from ₱8,500',
@@ -35,9 +35,11 @@ const LAB_CARD: ServiceCard = {
   record: null,
   recordRating: null,
   givesSetnayanGift: false,
+  // Two booked couples carry the ✓ Verified booking mark; the third shared from an event where this shop was only on
+  // the couple's list (not booked), so it shows its credit line and NO mark — the card never claims a booking it lacks.
   coupleLooks: [
-    { id: 'lab-share-3', url: LAB_SUGGEST_PHOTO.bq2, credit: 'Maria & Jose · Dec 2026' },
-    { id: 'lab-share-1', url: LAB_SUGGEST_PHOTO.bq1, credit: 'Ana & Ben · Feb 2027' },
+    { id: 'lab-share-3', url: LAB_SUGGEST_PHOTO.bq2, credit: 'Maria & Jose · Dec 2026', verifiedBooking: true },
+    { id: 'lab-share-1', url: LAB_SUGGEST_PHOTO.bq1, credit: 'Ana & Ben · Feb 2027', verifiedBooking: true },
     { id: 'lab-share-4', url: LAB_SUGGEST_PHOTO.cp2, credit: 'A couple' },
   ],
 };

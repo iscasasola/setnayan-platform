@@ -7,10 +7,12 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { QUESTION_HINT_MAX, QUESTION_PROMPT_MAX } from '@/lib/emcee-questions';
 
 /**
- * The emcee's question set — write actions. (Register row DAY-7.)
+ * The supplier's question set — write actions. (Register row DAY-7; every
+ * supplier since 2026-11-04, owner "Yes, every supplier".)
  *
  * Same shape as `./actions.ts` (his segments): a vendor-owned reusable list,
- * plain form posts, redirect back. AUTHORISATION IS RLS'S —
+ * plain form posts. A save lands IN PLACE (revalidate, no redirect); only a
+ * refusal redirects, to print its sentence. AUTHORISATION IS RLS'S —
  * `vendor_questions_owner_write` scopes every write to `current_vendor_ids()`;
  * a forged `question_id` belonging to another vendor matches zero rows.
  *
@@ -68,8 +70,8 @@ export async function addQuestion(formData: FormData) {
   });
   if (error) back({ error: 'Could not save that question. Please try again.' });
 
+  // 💾 A save never resets the screen (owner 2026-10-26): revalidate in place, no redirect back to this page.
   revalidatePath(BASE);
-  back();
 }
 
 export async function updateQuestion(formData: FormData) {
@@ -93,8 +95,8 @@ export async function updateQuestion(formData: FormData) {
     .select('question_id');
   if (error || !data || data.length === 0) back({ error: 'Could not update that question.' });
 
+  // 💾 A save never resets the screen (owner 2026-10-26): revalidate in place, no redirect back to this page.
   revalidatePath(BASE);
-  back();
 }
 
 /** Stop asking / ask again. Soft, so past couples' answers keep resolving. */
@@ -111,6 +113,6 @@ export async function toggleQuestionAsked(formData: FormData) {
     .select('question_id');
   if (error || !data || data.length === 0) back({ error: 'Could not change that question.' });
 
+  // 💾 A save never resets the screen (owner 2026-10-26): revalidate in place, no redirect back to this page.
   revalidatePath(BASE);
-  back();
 }

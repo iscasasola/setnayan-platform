@@ -1,8 +1,8 @@
 import type { VendorDay } from '@/lib/vendor-day-picker';
 
 /**
- * 🔳 THE SHOP'S QR CODES — the choices of the ONE "Which code ▾" dropdown on Customers › QR codes
- * (`app/vendor-dashboard/invite`).
+ * 🔳 THE SHOP'S QR CODES — the choices of the "Which code ▾" dropdown. Since 2026-11-05 the list is split between two
+ * homes (Shop › Promote · Customers › QR codes — `PROMOTE_QR_MODES` below); each home's dropdown lists its own codes.
  *
  * Owner 2026-10-29 (DECISION_LOG "🔳 CORRECTS THE QR ROW ABOVE — THE QR DROPDOWN ALREADY EXISTS; EXTEND IT, DON'T
  * REDRAW IT"): keep the live dropdown (Shortlist · Booked) and ADD **Check a date** (after #7007 — shipped), **My page**
@@ -15,12 +15,52 @@ import type { VendorDay } from '@/lib/vendor-day-picker';
  *
  * Pure: the page reads, this decides. 🔒 lib/supplier-qr-codes.test.ts
  */
-export const SUPPLIER_QR_MODES = ['shortlist', 'locked', 'dates', 'page', 'crew'] as const;
+export const SUPPLIER_QR_MODES = ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews'] as const;
 export type SupplierQrMode = (typeof SUPPLIER_QR_MODES)[number];
 
 /** `?mode=` → the code to show. Anything unknown is the Shortlist code, as before this list grew. */
 export function supplierQrModeOf(raw: unknown): SupplierQrMode {
   return typeof raw === 'string' && (SUPPLIER_QR_MODES as readonly string[]).includes(raw) ? (raw as SupplierQrMode) : 'shortlist';
+}
+
+/**
+ * 📣 SHOP › PROMOTE (owner 2026-11-05): the codes that MARKET the shop leave Customers and live in Shop › Promote, beside
+ * the website, print materials and gifts — one place for every marketing tool (owner, verbatim: "So the location of our
+ * for page is correct" — the For Suppliers page already presents them that way). Same codes, same words, new home.
+ *
+ *   · PROMOTE   — Shortlist · free · Check a date · free · My page   → `/vendor-dashboard/shop/promote`
+ *   · CUSTOMERS — Booked · one-use (one customer's deal; moves onto the customer card in a later part) · Crew for an
+ *                 event (Hub › Crew's code)                            → `/vendor-dashboard/invite`
+ *
+ * The two lists split SUPPLIER_QR_MODES exactly — every code has ONE home (🔒 lib/supplier-qr-codes.test.ts).
+ *
+ * 🔳 OPTION B (owner 2026-11-06, *"B"* on the one-list prototype): Promote LISTS its four codes, one row each, in the
+ * prototype's order — Check a date · Shortlist · My page · **Reviews** (the printed review code joined the list: the
+ * prints and the list now pick from the same four). Booked · one-use and Crew stay per event on Customers › QR codes,
+ * in the same row + sheet design.
+ */
+export const PROMOTE_QR_MODES = ['dates', 'shortlist', 'page', 'reviews'] as const satisfies readonly SupplierQrMode[];
+export type PromoteQrMode = (typeof PROMOTE_QR_MODES)[number];
+export const CUSTOMERS_QR_MODES = ['locked', 'crew'] as const satisfies readonly SupplierQrMode[];
+
+/** Shop › Promote — where the shop's marketing codes live. */
+export const PROMOTE_HREF = '/vendor-dashboard/shop/promote';
+/** Customers › QR codes — Booked · one-use and Crew for an event. */
+export const CUSTOMERS_QR_HREF = '/vendor-dashboard/invite';
+
+export function isPromoteQrMode(mode: SupplierQrMode): mode is PromoteQrMode {
+  return (PROMOTE_QR_MODES as readonly string[]).includes(mode);
+}
+
+/** `?mode=` on Shop › Promote → its code. Anything else is the Shortlist code. */
+export function promoteQrModeOf(raw: unknown): PromoteQrMode {
+  const m = supplierQrModeOf(raw);
+  return isPromoteQrMode(m) ? m : 'shortlist';
+}
+
+/** Where a code lives, with its `?mode=` — the one place every link to a code is built from. */
+export function supplierQrHref(mode: SupplierQrMode): string {
+  return `${isPromoteQrMode(mode) ? PROMOTE_HREF : CUSTOMERS_QR_HREF}?mode=${mode}`;
 }
 
 export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = {
@@ -29,6 +69,7 @@ export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = 
   dates: 'Check a date · free',
   page: 'My page',
   crew: 'Crew for an event',
+  reviews: 'Reviews',
 };
 
 /** The page "My page" opens. `origin` has no trailing slash (`siteOrigin()`). */

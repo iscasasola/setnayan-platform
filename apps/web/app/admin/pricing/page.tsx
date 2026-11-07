@@ -2,7 +2,6 @@ import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   DollarSign,
-  BadgeCheck,
   Gauge,
   Gift,
   Sparkles,
@@ -14,7 +13,6 @@ import {
 } from '@/components/skeletons';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PricingSurface } from './_surfaces/pricing-surface';
-import { CustomPlansSurface } from './_surfaces/custom-plans-surface';
 import { PriceBandsSurface } from './_surfaces/price-bands-surface';
 import { FreeWindowsSurface } from './_surfaces/free-windows-surface';
 import { AiPricesSurface } from './_surfaces/ai-prices-surface';
@@ -23,8 +21,9 @@ import { PapicLadderSurface } from './_surfaces/papic-ladder-surface';
 /**
  * Catalog Studio — the tabbed /admin/pricing shell that consolidates the Money
  * menu's pricing-config pages into ONE surface (owner: "yes" · Money split ·
- * 2026-07-10). Four tabs: Pricing (the shell/default tab) · Custom plans ·
- * Price bands · Free windows. Same pattern as the Accounts + Studio +
+ * 2026-07-10). Tabs: Pricing (the shell/default tab) · Setnayan AI prices ·
+ * Papic shot prices · Price bands · Free windows. (The Custom plans tab was
+ * removed 2026-11-06 with the Custom supplier plan itself.) Same pattern as the Accounts + Studio +
  * Insights studios (page shell + _surfaces/* + ?tab=).
  *
  * The Token bands tab was REMOVED 2026-08-07 with the rest of the token
@@ -61,7 +60,6 @@ const TABS = [
   'pricing',
   'setnayan-ai',
   'papic-shots',
-  'custom-plans',
   'price-bands',
   'free-windows',
 ] as const;
@@ -88,7 +86,6 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
   { key: 'pricing', label: 'Pricing', icon: DollarSign },
   { key: 'setnayan-ai', label: 'Setnayan AI prices', icon: Sparkles },
   { key: 'papic-shots', label: 'Papic shot prices', icon: Camera },
-  { key: 'custom-plans', label: 'Custom plans', icon: BadgeCheck },
   { key: 'price-bands', label: 'Market price bands', icon: Gauge },
   { key: 'free-windows', label: 'Free windows', icon: Gift },
 ];
@@ -97,7 +94,6 @@ const TAB_TITLE: Record<Tab, string> = {
   pricing: 'Pricing',
   'setnayan-ai': 'Setnayan AI prices',
   'papic-shots': 'Papic shot prices',
-  'custom-plans': 'Custom plans',
   'price-bands': 'Market price bands',
   'free-windows': 'Free windows',
 };
@@ -144,12 +140,6 @@ function activeSurface(
             saved: first(search.saved),
             error: first(search.error),
           })}
-        />
-      );
-    case 'custom-plans':
-      return (
-        <CustomPlansSurface
-          searchParams={Promise.resolve({ vendor: first(search.vendor) })}
         />
       );
     case 'price-bands':

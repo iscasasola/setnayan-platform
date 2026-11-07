@@ -338,15 +338,22 @@ test('7 · the Counter (kind 17): 44-px signs, the minus greys at the lowest, it
 
 /* ── 8 · one QR page ──────────────────────────────────────────────────── */
 
-test('8 · the shop’s codes are ONE page — one dropdown, the QR card (Share before Download, dark on white), the ledger inside', async () => {
+test('8 · the shop’s codes are ONE list — a row per code, the QR card (Share before Download, dark on white), the ledger inside', async () => {
   const page = code(join(VD, 'invite', 'page.tsx'));
   const view = code(join(VD, 'invite', '_components', 'qr-codes.tsx'));
   // The dropdown's list lives in one place since 2026-11-01 (Check a date · My page · Crew joined it) — the two live
   // codes still lead it.
-  assert.match(page, /SUPPLIER_QR_MODES\.map\(/);
+  // 📣 Two homes since 2026-11-05 (owner: the marketing codes belong in Shop › Promote) — each builds ITS rows from its
+  // slice of the one list; the shared view draws both.
+  // 📋 Retargeted 2026-11-06 (QR codes Option B, owner "B"): the one-code "Which code ▾" dropdown became ONE LIST — a
+  // row per code (`QrCodeList`), each opening its own sheet. Customers' rows link by `CUSTOMERS_QR_MODES`; Promote opens
+  // a sheet only for a code in `PROMOTE_QR_MODES`.
+  assert.match(page, /CUSTOMERS_QR_MODES\.map\(/);
+  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /\['shortlist', 'locked',[^\]]*\]/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /shortlist: 'Shortlist · free',\s*locked: 'Booked · one-use'/);
-  assert.match(view, /<CustomersPick label="Which code"/, 'the two codes are not ONE dropdown');
+  assert.doesNotMatch(view + page, /<CustomersPick label="Which code"/, 'the one-code dropdown is back — Option B is one list');
+  assert.match(view, /<QrCodeList rows=\{rows\}/, 'the codes are not ONE list');
   assert.doesNotMatch(view + page, /<PillTrack|role="tablist"/, 'the QR type is a pill track again');
   assert.match(code(join(VD, 'locked-qr', 'page.tsx')), /redirect\('\/vendor-dashboard\/invite\?mode=locked&ledger=1#issued'\)/, '/locked-qr does not land on the Issued fold');
   assert.match(view, /<Fold\s+title="Issued"/);

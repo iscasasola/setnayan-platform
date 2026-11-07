@@ -33,6 +33,7 @@ import {
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
+import { GuestCallButtons } from './guest-call-buttons';
 import { FormPick, FormSplitPick } from './card-fields';
 import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE, rolePillWord } from '@/lib/guest-group-role-pick';
 import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
@@ -697,6 +698,8 @@ export function GuestCardBody({
                 card") — the row's closed summary says it, and it is the first thing in the row. */}
             <K.Field id="mobile" label="Mobile" type="tel" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
             </K.List>
+            {/* 📞 Call · Viber call, under the saved mobile (owner 2026-11-04 "Guest card 1. Yes.") — nothing without one. */}
+            <GuestCallButtons mobile={guest.mobile} name={name} />
             </div>
           </K.Fold>
 

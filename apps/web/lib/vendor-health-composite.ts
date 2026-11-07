@@ -99,23 +99,43 @@ const BAND_LABEL: Record<VendorHealthComposite['band'], string> = {
   no_data: 'NEW',
 };
 
+function emptyPillars(): HealthPillar[] {
+  return [
+    { key: 'responsiveness', label: 'Responsiveness', score: null, hint: 'Reply to inquiries within 48 hours to build this up.' },
+    { key: 'reputation', label: 'Reputation', score: null, hint: 'Ask your couples to leave a review.' },
+    { key: 'demand', label: 'Demand', score: null, hint: 'See where demand is building in Demand Radar.' },
+    { key: 'conversion', label: 'Conversion', score: null, hint: 'Turn inquiries into booked events.' },
+    { key: 'delivery', label: 'Delivery', score: null, hint: 'Complete every booking you take on.' },
+  ];
+}
+
+/**
+ * The composite when the activity-stats read was REFUSED (an error, or a throw) — NOT the new-shop state.
+ * `buildVendorHealthComposite(null)` says "NEW · fills in as couples find you", which is true of a shop with no
+ * row yet and false of a shop whose row we simply could not read. Same layout, empty pillars, no score — but
+ * the label and the sentence say the read failed (the house rule `vendor-dashboard/reads-are-honest.test.ts`).
+ */
+export function unmeasuredVendorHealthComposite(): VendorHealthComposite {
+  return {
+    pillars: emptyPillars(),
+    composite: null,
+    band: 'no_data',
+    bandLabel: 'Couldn’t load',
+    coaching: 'We couldn’t load your numbers just now. Refresh to try again.',
+  };
+}
+
 /**
  * Build the vendor-safe health composite from an activity-stats row.
- * Pure + deterministic — no I/O, unit-testable.
+ * Pure + deterministic — no I/O, unit-testable. `null` = NO ROW (a new shop); a REFUSED read is
+ * `unmeasuredVendorHealthComposite()`, never this.
  */
 export function buildVendorHealthComposite(
   stats: VendorHealthInputs | null,
 ): VendorHealthComposite {
   if (!stats) {
-    const emptyPillars: HealthPillar[] = [
-      { key: 'responsiveness', label: 'Responsiveness', score: null, hint: 'Reply to inquiries within 48 hours to build this up.' },
-      { key: 'reputation', label: 'Reputation', score: null, hint: 'Ask your couples to leave a review.' },
-      { key: 'demand', label: 'Demand', score: null, hint: 'See where demand is building in Demand Radar.' },
-      { key: 'conversion', label: 'Conversion', score: null, hint: 'Turn inquiries into booked events.' },
-      { key: 'delivery', label: 'Delivery', score: null, hint: 'Complete every booking you take on.' },
-    ];
     return {
-      pillars: emptyPillars,
+      pillars: emptyPillars(),
       composite: null,
       band: 'no_data',
       bandLabel: BAND_LABEL.no_data,

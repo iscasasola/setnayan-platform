@@ -306,7 +306,8 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       n: 7,
       title: 'Show your QR to the next couple',
       body: 'They scan, and they are on your list with their date. Free, and it works before you are approved.',
-      href: '/vendor-dashboard/invite',
+      // 📣 Shop › Promote (owner 2026-11-05): the Shortlist code moved there from Customers › QR codes.
+      href: '/vendor-dashboard/shop/promote',
       cta: 'Open QR',
       meter:
         customerCount > 0

@@ -29,7 +29,12 @@ export const SCAN_MODES: readonly { key: ScanMode; label: string; line: string }
 ];
 
 /** The modes that RUN today — the dropdown's options, and the database CHECK's list. */
-export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received'];
+export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received', 'unlimited', 'group_session', 'roaming'];
+
+/** The modes whose number belongs to a SHOT (one number, many guests): Group session, and Roaming (slice 4). */
+export function isSessionMode(mode: ScanMode): boolean {
+  return mode === 'group_session' || mode === 'roaming';
+}
 
 export function scanModeLabel(mode: string | null | undefined): string {
   return SCAN_MODES.find((m) => m.key === mode)?.label ?? 'Once';
@@ -88,6 +93,13 @@ export type ScanAnswer =
   | { outcome: 'ordered'; number: number; name?: string | null }
   | { outcome: 'not_ready'; number: number; name?: string | null }
   | { outcome: 'received'; number: number; claimed: number; total: number; name?: string | null }
+  // Unlimited (slice 3): every scan counts, a new number each time.
+  | { outcome: 'served'; number: number; served: number; unique: number; name?: string | null }
+  // Group session (slice 3): everyone in the shot shares one number; pickups read "k of n".
+  | { outcome: 'added'; number: number; guests: number; name?: string | null; mode?: ScanMode }
+  | { outcome: 'in_session'; number: number; guests: number; name?: string | null }
+  | { outcome: 'picked_up'; number: number; claimed: number; of: number; name?: string | null }
+  | { outcome: 'no_session' }
   | { outcome: 'already'; number: number | null; name?: string | null; mode?: ScanMode }
   | { outcome: 'not_guest' }
   | { outcome: 'unreadable' }
@@ -123,6 +135,23 @@ export function scanAnswerWords(a: ScanAnswer): ScanWords {
         title: `✓ Received · ${scanNumberLabel(a.number)}`,
         line: a.name ?? `Received ${claimedOfWords(a.claimed, a.total)}`,
       };
+    case 'served':
+      return {
+        tone: 'ok',
+        title: `✓ ${scanNumberLabel(a.number)} · Served ${formatCount(a.served)}`,
+        line: a.name ?? `${formatCount(a.unique)} ${a.unique === 1 ? 'guest' : 'guests'} so far`,
+      };
+    case 'added':
+      // Roaming (slice 4): no station — scan the guests in frame, then shoot (prototype C′ "#0231 · 2 guests · shoot").
+      return a.mode === 'roaming'
+        ? { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'} · shoot`, line: a.name ?? 'Scan everyone in frame, then take the photo.' }
+        : { tone: 'ok', title: `${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? 'Scan everyone in the shot, then Done.' };
+    case 'in_session':
+      return { tone: 'quiet', title: `Already in ${scanNumberLabel(a.number)} · ${formatCount(a.guests)} ${a.guests === 1 ? 'guest' : 'guests'}`, line: a.name ?? null };
+    case 'picked_up':
+      return { tone: 'ok', title: `✓ ${scanNumberLabel(a.number)} · ${formatCount(a.claimed)} of ${formatCount(a.of)} claimed`, line: a.name ?? null };
+    case 'no_session':
+      return { tone: 'quiet', title: 'No shot open', line: 'Tap New shot before the photo, or wait until their number is Ready.' };
     case 'already':
       return {
         tone: 'warn',
@@ -142,13 +171,22 @@ export function scanAnswerWords(a: ScanAnswer): ScanWords {
 
 /** The database's refusals, said as sentences (the scan action's only translation). */
 export function scanRefusalWords(code: string): string {
+  if (/session_open/.test(code)) return 'That shot is still open — tap Done first, then Ready.';
+  if (/bad_prints/.test(code)) return 'Prints must be between 1 and 99.';
   if (/scanner_off/.test(code)) return 'This service’s scanner is off. Switch it on under Shop › Services.';
   if (/not_your_booking/.test(code)) return 'You aren’t booked for this service at this event.';
   return 'Something stopped the scan. Try again.';
 }
 
 /** The count under the scanner: "Claimed 142 of 176", or "Ordered 12 · Ready 3 · Received 20 of 176" (slice 2). */
-export function tallyWords(mode: ScanMode, t: { claimed: number; total: number; ordered?: number; ready?: number }): string {
+export function tallyWords(
+  mode: ScanMode,
+  t: { claimed: number; total: number; ordered?: number; ready?: number; served?: number; unique?: number; sessions?: number },
+): string {
+  if (mode === 'unlimited') return `Served ${formatCount(t.served ?? 0)} · ${formatCount(t.unique ?? 0)} ${t.unique === 1 ? 'guest' : 'guests'}`;
+  if (isSessionMode(mode)) {
+    return `Shots ${formatCount(t.sessions ?? 0)} · Ready ${formatCount(t.ready ?? 0)} · Claimed ${formatCount(t.claimed)}`;
+  }
   if (mode === 'ordered_received') {
     return `Ordered ${formatCount(t.ordered ?? 0)} · Ready ${formatCount(t.ready ?? 0)} · Received ${claimedOfWords(t.claimed, t.total)}`;
   }
@@ -165,6 +203,10 @@ export type ScanNumberRow = {
   firstAt: string;
   readyAt: string | null;
   receivedAt: string | null;
+  /** A shot's prints (Group session) — null for a one-guest number. */
+  prints: number | null;
+  /** The shot is still open (being scanned into) — Ready waits for Done. */
+  open: boolean;
 };
 
 export type NumberState = 'ordered' | 'ready' | 'received' | 'part';
@@ -177,7 +219,8 @@ export function numberState(r: Pick<ScanNumberRow, 'guests' | 'ordered' | 'ready
   return 'part';
 }
 
-export function numberStateWords(r: Pick<ScanNumberRow, 'guests' | 'ordered' | 'ready' | 'received'>): string {
+export function numberStateWords(r: Pick<ScanNumberRow, 'guests' | 'ordered' | 'ready' | 'received'> & { open?: boolean }): string {
+  if (r.open) return 'Open · scanning the shot';
   switch (numberState(r)) {
     case 'received':
       return 'Received';
@@ -233,6 +276,8 @@ export type SupplierScanRequest =
   | { op: 'set_scanner'; coverageId: number; choice: string }
   | { op: 'ready'; eventId: string; coverageId: number; number: number }
   | { op: 'numbers'; eventId: string; coverageId: number }
+  | { op: 'session_open'; eventId: string; coverageId: number }
+  | { op: 'session_done'; eventId: string; coverageId: number; prints: number | null }
   | { op: 'claim'; eventId: string; coverageId: number; raw: string; via: 'qr' | 'nfc' }
   | { op: 'admin_remove'; eventId: string; kind: 'scan' | 'souvenir'; claimId: string };
 
@@ -240,5 +285,19 @@ export type SupplierScanReply =
   | { op: 'set_scanner'; result: ScannerSaveResult }
   | { op: 'ready'; result: { ok: true; told: number } | { ok: false; error: string } }
   | { op: 'numbers'; result: ScanNumberRow[] | null }
+  | { op: 'session_open'; result: { ok: true; number: number; guests: number } | { ok: false; error: string } }
+  | {
+      op: 'session_done';
+      result:
+        | { ok: true; outcome: 'done'; number: number; guests: number; prints: number }
+        | { ok: true; outcome: 'cancelled'; number: number }
+        | { ok: true; outcome: 'none_open' }
+        | { ok: false; error: string };
+    }
   | { op: 'claim'; result: ScanAnswer }
   | { op: 'admin_remove'; result: { ok: boolean; error?: string } };
+
+/** A shot's prints: one per guest by default, the operator's –/+ kept within 1–99. */
+export function clampPrints(n: number): number {
+  return Math.min(99, Math.max(1, Math.round(Number.isFinite(n) ? n : 1)));
+}

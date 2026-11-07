@@ -31,8 +31,8 @@ const words = (i: DetailsNumbersInput) => detailsNumbers(i).map((c) => `${c.labe
 const said = (i: DetailsNumbersInput) => words(i).join(' ');
 
 test('1 · a client with NO booking: Quote · Schedules "—" · Event day — never Paid, Balance or "all paid"', () => {
-  assert.deepEqual(words(base), ['Quote|—|not sent', 'Schedules|—|none yet', 'Event day|8 Nov|they asked']);
-  assert.deepEqual(words({ ...base, sentQuotePhp: 40000 }), ['Quote|₱40,000|sent', 'Schedules|—|none yet', 'Event day|8 Nov|they asked']);
+  assert.deepEqual(words(base), ['Quote|—|not sent', 'Schedules|—|none yet', 'Event day|Nov 8|they asked']);
+  assert.deepEqual(words({ ...base, sentQuotePhp: 40000 }), ['Quote|₱40,000|sent', 'Schedules|—|none yet', 'Event day|Nov 8|they asked']);
   assert.equal(words({ ...base, sentQuotePhp: null })[0], 'Quote|—|couldn’t load');
   // Whatever the ledger says, an unbooked client is never "all paid".
   for (const ledger of [null, { receivedPhp: 0, expectedPhp: 0 }, { receivedPhp: 5000, expectedPhp: 5000 }]) {
@@ -42,13 +42,13 @@ test('1 · a client with NO booking: Quote · Schedules "—" · Event day — n
 
 test('2 · a booked client: Paid · Balance · Event day', () => {
   const booked = { ...base, isBooked: true, ledger: { receivedPhp: 0, expectedPhp: 38000 } };
-  assert.deepEqual(words(booked), ['Paid|₱0|received', 'Balance|₱38,000|to collect', 'Event day|8 Nov|tomorrow']);
+  assert.deepEqual(words(booked), ['Paid|₱0|received', 'Balance|₱38,000|to collect', 'Event day|Nov 8|tomorrow']);
   assert.deepEqual(words({ ...booked, ledger: { receivedPhp: 38000, expectedPhp: 38000 } }).slice(0, 2), [
     'Paid|₱38,000|received',
     'Balance|₱0|all paid',
   ]);
-  assert.equal(words({ ...booked, todayIso: '2026-11-08' })[2], 'Event day|8 Nov|today');
-  assert.equal(words({ ...booked, todayIso: '2026-11-10' })[2], 'Event day|8 Nov|done');
+  assert.equal(words({ ...booked, todayIso: '2026-11-08' })[2], 'Event day|Nov 8|today');
+  assert.equal(words({ ...booked, todayIso: '2026-11-10' })[2], 'Event day|Nov 8|done');
 });
 
 test('3 · "all paid" only when an amount was set AND it is all received', () => {

@@ -12,6 +12,7 @@
  * Pure: every input is a fact the client page already read (no new request).
  */
 import type { PickedClientPage } from '@/lib/upcoming-schedule-door';
+import { monthDay } from '@/lib/format-date';
 
 export type DetailsNumber = {
   key: 'paid' | 'balance' | 'quote' | 'schedules' | 'event';
@@ -42,7 +43,8 @@ function eventCell(i: DetailsNumbersInput): DetailsNumber {
   const base = { key: 'event' as const, label: 'Event day', page: 'schedule' as const };
   if (!i.eventDate) return { ...base, value: '—', sub: 'no date yet' };
   const d = new Date(`${i.eventDate.slice(0, 10)}T00:00:00Z`);
-  const value = d.toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  // The app's own short date ("Nov 8", `monthDay`) — one way to say a date across the supplier app.
+  const value = monthDay(i.eventDate.slice(0, 10)) ?? '—';
   if (!i.isBooked) return { ...base, value, sub: 'they asked' };
   const days = Math.round((d.getTime() - new Date(`${i.todayIso}T00:00:00Z`).getTime()) / DAY_MS);
   const sub = days === 0 ? 'today' : days === 1 ? 'tomorrow' : days > 1 ? `in ${days} days` : 'done';

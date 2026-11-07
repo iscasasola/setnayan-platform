@@ -9,6 +9,10 @@
  *   { op: 'claim' }         the Event Hub's Scanner view — one QR or tag → "✓ #0042 · Claimed 142 of 176"
  *   { op: 'ready' }         Ordered → Received — the supplier taps Ready on #0042; its guests are told on their Event Hub
  *   { op: 'numbers' }       "Your numbers" — number · guests · state, counts only
+ *   { op: 'session_open' }  Group session — New shot: one number for everyone scanned into it
+ *   { op: 'session_done' }  Group session — Done: the shot closes with its prints (default one per guest)
+ *   { op: 'guest_review' }  the guest's optional "How was the Photo booth?" — a review through the ONE guest-review
+ *                           writer, or "Not now"; WHO is their pass, never the request
  *   { op: 'admin_remove' }  Admin › the event — Setnayan takes back a claim recorded in error (audited)
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route, and the repo budget
@@ -36,7 +40,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { parseGuestQrPayload } from '@/lib/checkin';
+import { readGuestSession } from '@/lib/guest-session';
 import { realNameParts, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
+import { GUEST_REVIEW_LINE_MAX, GUEST_REVIEW_REFUSAL_LINE, parseShownAs, submitGuestReview } from '@/lib/guest-reviews';
 import {
   scanRefusalWords,
   scannerChoiceToSetting,
@@ -48,6 +54,8 @@ import {
   type SupplierScanRequest,
 } from '@/lib/supplier-scan';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function supplierScan(req: SupplierScanRequest): Promise<SupplierScanReply> {
   switch (req.op) {
     case 'set_scanner':
@@ -58,6 +66,12 @@ export async function supplierScan(req: SupplierScanRequest): Promise<SupplierSc
       return { op: 'ready', result: await markReady(req.eventId, req.coverageId, req.number) };
     case 'numbers':
       return { op: 'numbers', result: await readNumbers(req.eventId, req.coverageId) };
+    case 'session_open':
+      return { op: 'session_open', result: await sessionOpen(req.eventId, req.coverageId) };
+    case 'session_done':
+      return { op: 'session_done', result: await sessionDone(req.eventId, req.coverageId, req.prints) };
+    case 'guest_review':
+      return { op: 'guest_review', result: await guestReview(req.eventId, req.vendorProfileId, req.stars, req.line, req.shownAs) };
     case 'admin_remove':
       return { op: 'admin_remove', result: await adminRemove(req.eventId, req.kind, req.claimId) };
   }
@@ -117,9 +131,19 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
     logQueryError('supplierScan.claim', error, { eventId, coverageId });
     return { outcome: 'refused', message: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
   }
-  const a = (data ?? {}) as { outcome?: string; number?: number | null; claimed?: number | null; total?: number | null };
+  const a = (data ?? {}) as {
+    outcome?: string;
+    number?: number | null;
+    claimed?: number | null;
+    total?: number | null;
+    served?: number;
+    unique?: number;
+    guests?: number;
+    of?: number;
+  };
   if (a.outcome === 'not_guest') return { outcome: 'not_guest' };
-  const known = ['claimed', 'already', 'ordered', 'not_ready', 'received'];
+  if (a.outcome === 'no_session') return { outcome: 'no_session' };
+  const known = ['claimed', 'already', 'ordered', 'not_ready', 'received', 'served', 'added', 'in_session', 'picked_up', 'no_session'];
   if (!a.outcome || !known.includes(a.outcome)) return { outcome: 'refused', message: scanRefusalWords('') };
 
   // Host read parity — the guest list's own RLS decides, never this code. The two name columns only: this line on the
@@ -141,6 +165,10 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
   if (a.outcome === 'already') return { outcome: 'already', number: a.number ?? null, name };
   if (a.outcome === 'ordered') return { outcome: 'ordered', number: Number(a.number), name };
   if (a.outcome === 'not_ready') return { outcome: 'not_ready', number: Number(a.number), name };
+  if (a.outcome === 'served') return { outcome: 'served', number: Number(a.number), served: Number(a.served ?? 0), unique: Number(a.unique ?? 0), name };
+  if (a.outcome === 'added') return { outcome: 'added', number: Number(a.number), guests: Number(a.guests ?? 0), name };
+  if (a.outcome === 'in_session') return { outcome: 'in_session', number: Number(a.number), guests: Number(a.guests ?? 0), name };
+  if (a.outcome === 'picked_up') return { outcome: 'picked_up', number: Number(a.number), claimed: Number(a.claimed ?? 0), of: Number(a.of ?? 0), name };
   if (a.outcome === 'received') {
     return { outcome: 'received', number: Number(a.number), claimed: Number(a.claimed ?? 0), total: Number(a.total ?? 0), name };
   }
@@ -180,6 +208,8 @@ async function readNumbers(eventId: string, coverageId: number): Promise<ScanNum
     first_at: string;
     ready_at: string | null;
     received_at: string | null;
+    prints?: number | null;
+    open?: boolean;
   };
   return ((data ?? []) as Row[]).map((r) => ({
     number: r.scan_number,
@@ -190,7 +220,40 @@ async function readNumbers(eventId: string, coverageId: number): Promise<ScanNum
     firstAt: r.first_at,
     readyAt: r.ready_at,
     receivedAt: r.received_at,
+    prints: r.prints ?? null,
+    open: r.open === true,
   }));
+}
+
+/** New shot: one number, allocated now (an already-open shot is joined, never doubled). */
+async function sessionOpen(eventId: string, coverageId: number): Promise<{ ok: true; number: number; guests: number } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('supplier_scan_session_open', { p_event_id: eventId, p_coverage_id: coverageId });
+  if (error) {
+    logQueryError('supplierScan.session_open', error, { eventId, coverageId });
+    return { ok: false, error: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
+  }
+  const d = (data ?? {}) as { number?: number; guests?: number };
+  return { ok: true, number: Number(d.number), guests: Number(d.guests ?? 0) };
+}
+
+/** Done: the shot closes with its prints (null = one per guest); an empty shot is cancelled. */
+async function sessionDone(
+  eventId: string,
+  coverageId: number,
+  prints: number | null,
+): Promise<Extract<SupplierScanReply, { op: 'session_done' }>['result']> {
+  if (prints !== null && (!Number.isInteger(prints) || prints < 1 || prints > 99)) return { ok: false, error: scanRefusalWords('bad_prints') };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('supplier_scan_session_done', { p_event_id: eventId, p_coverage_id: coverageId, p_prints: prints });
+  if (error) {
+    logQueryError('supplierScan.session_done', error, { eventId, coverageId });
+    return { ok: false, error: scanRefusalWords(`${error.message ?? ''} ${error.code ?? ''}`) };
+  }
+  const d = (data ?? {}) as { outcome?: string; number?: number; guests?: number; prints?: number };
+  if (d.outcome === 'done') return { ok: true, outcome: 'done', number: Number(d.number), guests: Number(d.guests), prints: Number(d.prints) };
+  if (d.outcome === 'cancelled') return { ok: true, outcome: 'cancelled', number: Number(d.number) };
+  return { ok: true, outcome: 'none_open' };
 }
 
 /** Setnayan takes back one claim recorded in error. The number is not reused — a gap here is a visible correction. */
@@ -227,4 +290,58 @@ async function adminRemove(eventId: string, kind: 'scan' | 'souvenir', claimId: 
 function realGuestName(first: string | null, last: string | null): string | null {
   const p = realNameParts(first, last);
   return `${p.first} ${p.last}`.trim() || null;
+}
+
+/**
+ * ⭐ The guest's answer. WHO is the pass this browser holds for THIS event (`readGuestSession` — the account outranks
+ * the pass), never an id from the request.
+ *
+ * A rating goes through the ONE guest-review writer (`submitGuestReview` → `vendor_guest_review_submit`, owner ruling
+ * 2026-11-06: one store, one writer, one "From guests" section) — it is public at once and Setnayan admin can hide it.
+ * The writer admits this guest because the shop's scanner marked their item RECEIVED. "Not now" (stars null) is not a
+ * review: it is a row in the scanner's own `supplier_scan_review_skips`, so the pop-up never asks about that shop again.
+ */
+async function guestReview(
+  eventId: string,
+  vendorProfileId: string,
+  stars: number | null,
+  line: string | null,
+  shownAs: string,
+): Promise<{ ok: true; saved: boolean } | { ok: false; error: string }> {
+  const session = await readGuestSession({ eventId });
+  if (!session || session.event_id !== eventId) return { ok: false, error: 'Open your invitation again to answer.' };
+  if (!UUID_RE.test(vendorProfileId)) return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE.supplier_not_on_event };
+  const admin = createAdminClient();
+  if (stars === null) {
+    const { error } = await admin
+      .from('supplier_scan_review_skips')
+      .upsert({ event_id: eventId, guest_id: session.guest_id, vendor_profile_id: vendorProfileId }, { onConflict: 'event_id,guest_id,vendor_profile_id', ignoreDuplicates: true });
+    if (error) {
+      logQueryError('supplierScan.guest_review.skip', error, { eventId, vendorProfileId });
+      return { ok: false, error: 'Couldn’t save that just now. Try again.' };
+    }
+    return { ok: true, saved: true };
+  }
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE.bad_stars };
+  const words = line?.trim() ? line.trim() : null;
+  if (words && words.length > GUEST_REVIEW_LINE_MAX) return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE.line_too_long };
+  const res = await submitGuestReview(admin, {
+    eventId,
+    guestId: session.guest_id,
+    vendorProfileId,
+    serviceId: null,
+    stars,
+    line: words,
+    captureId: null,
+    shownAs: parseShownAs(shownAs),
+  });
+  if (!res.ok) {
+    // Already reviewed (here or through the door's QR) is the answer the guest wanted — the card closes either way.
+    if (res.refusal === 'already_reviewed') return { ok: true, saved: false };
+    return { ok: false, error: GUEST_REVIEW_REFUSAL_LINE[res.refusal] };
+  }
+  // The shop page's "From guests" group and the shop's own replies list read the one store.
+  revalidatePath('/v/[slug]', 'page');
+  revalidatePath('/vendor-dashboard/website');
+  return { ok: true, saved: true };
 }

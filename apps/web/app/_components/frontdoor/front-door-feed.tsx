@@ -47,6 +47,7 @@ import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { InfoTip } from '@/app/_components/info-tip';
+import { SampleMarker } from '@/app/_components/sample-marker';
 import { EmptyShelf } from './empty-shelf';
 
 /**
@@ -289,6 +290,9 @@ function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
         </span>
         <div className="fd-itxt">
           <p className="fd-ttl">{s.name}</p>
+          {/* 🧪 A demo shop is on the shelf, marked (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). The bare
+              chip, not the ⓘ: this whole card is one link, and a button inside a link is not allowed. */}
+          {s.isDemo ? <SampleMarker /> : null}
           <p className="fd-by">
             {s.folderLabel}
             {s.verified ? ' · verified' : ''}
@@ -329,6 +333,7 @@ export function FrontDoorFeed({
     storyCount,
     shops,
     liveShopCount,
+    realShopCount,
     realWeddingCount,
   } = data;
 
@@ -356,7 +361,9 @@ export function FrontDoorFeed({
     chapters: stories.length,
     articles: articleTotal,
     stories: realWeddingCount,
-    liveShops: liveShopCount ?? 0,
+    // 🔢 The heading counts REAL shops only — 20 demo shops must never make the shelf "Trending" (owner 2026-11-06:
+    // "demo numbers never count in real totals"). Emptiness still reads `liveShopCount`, demo shops included.
+    liveShops: realShopCount ?? 0,
   });
 
   // `none` = no shops to show — a real zero OR a failed read (the composer
@@ -396,7 +403,9 @@ export function FrontDoorFeed({
             🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
             (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
             shelf … show[s] nothing until a real supplier joins"), so an empty
-            shelf is now the normal state. It says so in one plain line — and a
+            shelf was the normal state — until 2026-11-06, when demo shops came
+            back onto the shelf, each marked "(DEMO ONLY)" (DECISION_LOG
+            "DEMO SHOPS + DEMO EVENTS"). It says so in one plain line — and a
             failed read says THAT instead, never "none" (`liveShopCount` is null
             only when the count read failed). The invite card below is the door.
           */}

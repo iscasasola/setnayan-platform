@@ -104,6 +104,10 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
   const [rows, taxonomy, vocab] = await Promise.all([readAll(admin), getTaxonomy(), getEventTypeVocab()]);
 
   // Live shops only (the one predicate), and never a demo card or demo shop.
+  // 🧪 DELIBERATELY STILL EXCLUDING DEMO (2026-11-06), although demo shops are public now: these /suppliers pages are
+  // the INDEXED landing pages (`app/sitemap-suppliers.xml/route.ts` builds its list from this same read) and they
+  // print counts ("N suppliers in …"). A demo is never indexed and demo numbers never count in real totals (owner,
+  // DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). Demo shops show on Explore and the front page, marked.
   const live = rows.filter((r) => {
     const shop = (r.vendor_profiles ?? {}) as Record<string, unknown>;
     return isShopLive(shop) && shop.is_demo !== true && r.is_demo !== true;
@@ -189,6 +193,8 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
       businessSlug: (shop.business_slug as string | null) ?? null,
       locationCity: (shop.location_city as string | null) ?? null,
       businessLogoRef: (shop.logo_url as string | null) ?? null,
+      // Always false here: the filter above keeps demo shops off these indexed pages.
+      isDemo: false,
     });
   }
 

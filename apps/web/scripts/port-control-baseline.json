@@ -207,6 +207,7 @@
         "CompareShortlistBanner",
         "ContextualPillOption",
         "CtaLine",
+        "DemoOnlyMarker",
         "EmptyState",
         "EventTypeNotifyForm",
         "EventTypeSearchOption",
@@ -240,7 +241,7 @@
         "ReligionBanner",
         "ReviewCard",
         "ReviewCarousel",
-        "SampleShopMarker",
+        "SampleMarker",
         "SaveVendorButton",
         "SaveVendorResult",
         "ScopedFolderBanner",
@@ -272,6 +273,7 @@
       "actions": [],
       "blocks": [
         "CompareRowEl",
+        "DemoOnlyMarker",
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
@@ -1269,6 +1271,7 @@
         "DayOfAnnouncement",
         "DayOfBanner",
         "DayOfFaceEnroll",
+        "DemoOnlyMarker",
         "Detail",
         "DetailsBigDate",
         "DetailsCard",
@@ -12380,14 +12383,18 @@
       ],
       "destinations": [
         "/",
+        "/[seg]",
         "/v/sampaguita-table/dates"
       ],
       "actions": [],
       "blocks": [
         "CheckADateLink",
+        "DemoOnlyMarker",
+        "FrontDoorFeed",
         "LabCard",
+        "LabEvent",
+        "LabShelf",
         "Link",
-        "SampleShopMarker",
         "ShareButton",
         "ShopBadgePill",
         "ShopSinceLine",
@@ -13896,10 +13903,10 @@
       ],
       "actions": [],
       "blocks": [
+        "DemoOnlyMarker",
         "EditorialContent",
         "Link",
-        "SampleEditorial",
-        "SampleMarker"
+        "SampleEditorial"
       ]
     },
     "/receipts/[receiptId]": {
@@ -14324,6 +14331,7 @@
         "CardRecordSection",
         "CheckADateLink",
         "ComingSoonBanner",
+        "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
@@ -14355,7 +14363,6 @@
         "ReviewRow",
         "ReviewWithCouple",
         "ReviewsSection",
-        "SampleShopMarker",
         "SaveGateHint",
         "SaveToContinue",
         "ServiceCardView",
@@ -14434,6 +14441,7 @@
         "CalendarGrid",
         "CheckADateCalendar",
         "ChosenRow",
+        "DemoOnlyMarker",
         "FormRows",
         "Metadata",
         "Sheet",
@@ -16885,12 +16893,14 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
+        "vendor-dashboard/subscription/_components/ultra-addons-card.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx",
-        "vendor-dashboard/subscription/photo-challenge-actions.ts"
+        "vendor-dashboard/subscription/photo-challenge-actions.ts",
+        "vendor-dashboard/subscription/ultra-addon-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/collections",
@@ -16900,6 +16910,7 @@
       ],
       "actions": [
         "action",
+        "buyUltraAddOn",
         "cancelScheduledPlanChange",
         "formAction",
         "startSubscriptionPurchase"
@@ -16929,6 +16940,7 @@
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",
+        "UltraAddonsCard",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]
@@ -17033,6 +17045,7 @@
         "Badge",
         "ColourPickerSheet",
         "DatesRow",
+        "DemoOnlyMarker",
         "DomainActionResult",
         "DomainManager",
         "ExistingReplySection",

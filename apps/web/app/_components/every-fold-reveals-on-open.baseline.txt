@@ -59,7 +59,6 @@ app/onboarding/wedding/_components/wedding-cards.tsx  # menu-like
 app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx  # fold
 app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx  # menu-like
 app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx  # menu-like
-app/vendor-dashboard/performance/_components/funnel-preview-card.tsx  # fold
 app/vendor-dashboard/services/_components/coverage-panel.tsx  # menu-like
 app/vendor-dashboard/shop/_components/service-radius-fields.tsx  # fold
 components/thumb-row.tsx  # menu-like

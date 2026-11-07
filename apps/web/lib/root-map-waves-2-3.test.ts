@@ -155,7 +155,8 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', /\{POOL_METER_LOW_PCT\}%/],
     ['app/dashboard/[eventId]/story/_components/make-it-yours.tsx', /formatCount\(input\.poolCap\)/],
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', /\{MAX_PER_TYPE\} photos/],
-    ['app/vendor-dashboard/performance/_components/inquiry-handling-card.tsx', /\$\{REPLY_SPREAD_PCT\}% within/],
+    // (inquiry-handling-card.tsx quoted REPLY_SPREAD_PCT here; "Analytics, growing" — owner-approved 6 Nov 2026 —
+    // retired that card, and no screen now prints the 90% spread, so there is no quote left to pin.)
     ['app/onboarding/_shared/date-calendar.tsx', /\$\{MAXSPAN \+ 1\} days/],
     // The AI family's own discount card (and its "10% floor" sentence) was removed by the
     // one-sign-up-discount change (d18); the one card left quotes the floor by name.

@@ -6,6 +6,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { PinFigures } from '../../_components/pin-figures';
 import { ShopSettings } from './shop-settings';
+import { useGrowthWindow } from '../../_components/growth-window';
 import type { PinFigure } from '@/lib/pin-figure';
 import { SHOP_SEGMENT_HINT, SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER, type ShopSegment } from './shop-sections';
 
@@ -32,12 +33,18 @@ export { SHOP_SEGMENT_HINT, SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_
 export function ShopSegments({
   on,
   figures = null,
+  yearFigures = null,
   end = null,
   gearBody = null,
 }: {
   on: ShopSegment;
   /** The section's own figures on this row (honest: an unread one is "—", never 0). */
   figures?: readonly PinFigure[] | null;
+  /**
+   * Analytics only (owner-approved 6 Nov 2026): the same figures over the last 12 months. Drawn while the page's ONE
+   * window (`GrowthWindowScope`) is "Last 12 months", so the pinned row follows the window. Absent → `figures`, always.
+   */
+  yearFigures?: readonly PinFigure[] | null;
   /** The row's right end (a section's own round), when it has one. */
   end?: ReactNode;
   /**
@@ -47,6 +54,8 @@ export function ShopSegments({
   gearBody?: ReactNode | null;
 }) {
   const router = useRouter();
+  const growth = useGrowthWindow();
+  const shown = growth?.window === '12' && yearFigures ? yearFigures : figures;
   const pinRef = useRef<HTMLDivElement>(null);
   usePinFold(pinRef);
   return (
@@ -73,8 +82,8 @@ export function ShopSegments({
             }}
           />
         </span>
-        {figures && figures.length ? (
-          <PinFigures figures={figures} label={`Shop · ${SHOP_SEGMENT_LABEL[on]}`} name="shop" />
+        {shown && shown.length ? (
+          <PinFigures figures={shown} label={`Shop · ${SHOP_SEGMENT_LABEL[on]}`} name="shop" />
         ) : (
           <span className="flex-1" aria-hidden />
         )}

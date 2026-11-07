@@ -39,14 +39,22 @@ test('Promote — the gift stock, one figure; an unread stock is "—", never 0 
 
 test('Analytics — opened · asked · booked with the change against the 30 days before', () => {
   const f = analyticsFigures({ views: 86, inquiries: 9, booked: 3 }, { views: 77, inquiries: 9, booked: 4 });
-  assert.deepEqual(f.map((x) => [x.value, x.word]), [
-    ['86', 'opened · +9'],
-    ['9', 'asked · same'],
-    ['3', 'booked · −1'],
+  // 📈 The change is its own line under the word (`PinDoor change`, "Analytics, growing" 6 Nov 2026) — it was glued on
+  // as "opened · +9", which truncated the third figure at 390 px.
+  assert.deepEqual(f.map((x) => [x.value, x.word, x.change]), [
+    ['86', 'opened', '+9'],
+    ['9', 'asked', 'same'],
+    ['3', 'booked', '−1'],
   ]);
   // Before unread → the numbers stand alone (never a fake "+86"); now unread → "—" on all three.
-  assert.deepEqual(analyticsFigures({ views: 1, inquiries: 2, booked: 3 }, null).map((x) => x.word), ['opened', 'asked', 'booked']);
+  const alone = analyticsFigures({ views: 1, inquiries: 2, booked: 3 }, null);
+  assert.deepEqual(alone.map((x) => x.word), ['opened', 'asked', 'booked']);
+  assert.deepEqual(alone.map((x) => 'change' in x), [false, false, false]);
   assert.deepEqual(analyticsFigures(null, null).map((x) => x.value), [null, null, null]);
+  // 📈 The headline numbers COUNT in the pinned row (owner call, 6 Nov 2026) — a read carries its raw count; an unread
+  // figure carries none, so "—" is drawn as text and never counts up from a made-up 0.
+  assert.deepEqual(f.map((x) => x.count), [86, 9, 3]);
+  assert.deepEqual(analyticsFigures(null, null).map((x) => 'count' in x), [false, false, false]);
   assert.equal(changeWord(5, null), null);
 });
 

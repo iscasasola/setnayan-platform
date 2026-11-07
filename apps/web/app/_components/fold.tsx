@@ -134,6 +134,7 @@ export function Fold({
   summaryEnd = false,
   danger = false,
   tip,
+  between,
   open: openProp,
   onOpenChange,
 }: {
@@ -212,6 +213,12 @@ export function Fold({
    * the keyboard's door is the head button, named for the title). Absent → the head is exactly as it was.
    */
   tip?: ReactNode;
+  /**
+   * A PICTURE THAT IS ALWAYS THERE (Shop › Analytics, owner-approved 6 Nov 2026: "each section opens with a picture"):
+   * drawn between the head and the body, visible shut or open — the head still opens and shuts only the body under it.
+   * Outside the pinned head, so it scrolls away under a slim pinned line like any row. Absent → exactly as it was.
+   */
+  between?: ReactNode;
   className?: string;
   /**
    * CONTROLLED, when the caller decides which fold is open (Today's new-shop steps: a save ticks ✓ and the NEXT one
@@ -360,6 +367,7 @@ export function Fold({
         head
       )}
       </div>
+      {between !== undefined ? <div data-fold-between="">{between}</div> : null}
       <div
         id={id}
         data-fold-body=""

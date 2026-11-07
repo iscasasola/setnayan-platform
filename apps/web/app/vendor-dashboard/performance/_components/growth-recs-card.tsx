@@ -16,7 +16,7 @@ import type { GrowthRec, GrowthRecKey, GrowthImpact } from '@/lib/vendor-growth-
  * above it — no header of its own.
  */
 
-const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
+export const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
   reply_faster: <Zap className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   add_photos: <ImagePlus className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   ask_reviews: <Star className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
@@ -24,7 +24,7 @@ const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
   open_saturdays: <CalendarDays className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
 };
 
-function impactChipStyle(impact: GrowthImpact): React.CSSProperties {
+export function impactChipStyle(impact: GrowthImpact): React.CSSProperties {
   if (impact === 'high') {
     return { background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' };
   }

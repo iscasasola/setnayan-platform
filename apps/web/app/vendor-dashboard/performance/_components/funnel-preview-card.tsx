@@ -1,132 +1,73 @@
 'use client';
 
-import { useState } from 'react';
-import { Filter, ChevronDown } from 'lucide-react';
-import type { FunnelStep } from '@/lib/vendor-funnel';
-import { CountUp } from './count-up';
+import { formatCount } from '@/lib/format-number';
+import { EASE_OUT, HeldCount, HeldFill, useTween } from './growth-motion';
+import { GhostTrack } from './ghost-track';
 
 /**
- * Your booking funnel on My Performance — the four-stage
- * views → inquiries → quotes → booked bar cascade, each bar scaled to the top
- * stage (profile views) so the drop-off is visible at a glance. The sliced
- * "where they came from" breakdown now renders directly below on the same page
- * (the standalone /funnel page was folded in · owner 2026-07-02).
+ * Your booking funnel — views → inquiries → quotes → booked, each bar scaled to the top stage (profile views) so the
+ * drop-off is visible at a glance, with the step-to-step % beside each count. Data comes from the shared
+ * `fetchVendorFunnelTotalsResult()` so this card, the pinned row and the sentence never disagree on what "booked" means.
  *
- * Each row expands on tap to show a one-line explainer of what the stage
- * counts; tapping again collapses it. Data comes from the shared
- * fetchVendorFunnelTotals() + buildFunnelSteps() so this card and the by-source
- * tables never disagree on what "booked" means.
+ * 📈 EXTENDED, NOT REDRAWN — Shop › Analytics, owner-approved 6 Nov 2026 ("Analytics, growing" §3 picture): the bars
+ * now fill stage by stage (`Fill` + `Count`, 160 ms apart; the % pops 350 ms after its stage), and an EMPTY stage is a
+ * dashed `GhostTrack` that names what fills it ("Your first booking lands here") — never a zero bar. What each stage
+ * counts moved into the section's ⓘ (it was a tap-to-expand line per row). Unread → "Couldn’t load".
  */
-
-function conv(part: number, whole: number): string | null {
-  if (whole <= 0) return null;
-  return `${Math.round((part / whole) * 100)}%`;
-}
-
-const STAGE_HINT: Record<string, string> = {
-  'Profile views': 'How many times couples opened your profile.',
-  Inquiries: 'Couples who reached out to ask about your services.',
-  'Quotes sent': 'Inquiries you replied to with a price or package.',
-  Booked: 'Quotes couples confirmed and booked.',
+const GHOST_LINE: Record<string, string> = {
+  'Profile views': 'Your first profile view lands here',
+  Inquiries: 'Your first inquiry lands here',
+  'Quotes sent': 'Your first quote lands here',
+  Booked: 'Your first booking lands here',
 };
 
-export function FunnelPreviewCard({
-  steps,
-  windowLabel,
-}: {
-  steps: FunnelStep[];
-  windowLabel: string;
-}) {
-  const top = steps[0]?.count ?? 0;
-  const hasData = top > 0;
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  function toggle(label: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
-  }
-
+function Pct({ id, rate, delay }: { id: string; rate: number; delay: number }) {
+  const v = useTween(id, 1, { dur: 450, ease: EASE_OUT, delay });
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-          Your booking funnel
-          <span
-            className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]"
-            style={{ color: 'var(--m-slate-3)' }}
-          >
-            {windowLabel}
-          </span>
-        </h2>
-      </div>
+    <span className="ag-pct" style={{ opacity: v, transform: `scale(${0.6 + 0.4 * v})` }}>
+      {rate}%
+    </span>
+  );
+}
 
-      <div>
-        {!hasData ? (
-          <div className="flex items-center gap-3 py-2" style={{ color: 'var(--m-slate)' }}>
-            <Filter className="h-5 w-5" strokeWidth={1.5} aria-hidden style={{ color: 'var(--m-slate-4)' }} />
-            <p className="text-sm">No profile views {windowLabel} yet — your funnel fills in as couples find you.</p>
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {steps.map((s, i) => {
-              const widthPct = Math.max((s.count / top) * 100, s.count > 0 ? 4 : 0);
-              // Step-to-step conversion (this stage ÷ the stage above it).
-              const prev = i > 0 ? (steps[i - 1]?.count ?? null) : null;
-              const rate = prev != null ? conv(s.count, prev) : null;
-              const isOpen = expanded.has(s.label);
-              return (
-                <li key={s.label}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.label)}
-                    aria-expanded={isOpen}
-                    className="block w-full text-left"
-                  >
-                    <div className="mb-1 flex items-baseline justify-between gap-2">
-                      <span className="flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                        {s.label}
-                        <ChevronDown
-                          aria-hidden
-                          className={`h-3.5 w-3.5 text-[var(--m-slate-3)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                          strokeWidth={1.75}
-                        />
-                      </span>
-                      <span className="flex items-baseline gap-2">
-                        {rate && (
-                          <span className="font-mono text-[11px]" style={{ color: 'var(--m-orange-2)' }}>
-                            {rate}
-                          </span>
-                        )}
-                        <span className="font-mono text-sm tabular-nums" style={{ color: 'var(--m-ink)' }}>
-                          <CountUp value={s.count} />
-                        </span>
-                      </span>
-                    </div>
-                    <div
-                      className="h-2.5 w-full overflow-hidden rounded-full"
-                      style={{ background: 'color-mix(in srgb, var(--m-ink) 5%, transparent)' }}
-                    >
-                      <div
-                        className="perf-bar-grow h-full rounded-full"
-                        style={{ width: `${widthPct}%`, background: 'var(--m-orange)' }}
-                      />
-                    </div>
-                  </button>
-                  {isOpen ? (
-                    <p className="mt-1.5 text-xs leading-snug" style={{ color: 'var(--m-slate-3)' }}>
-                      {STAGE_HINT[s.label]}
-                    </p>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </section>
+export function FunnelPreviewCard({ steps }: { steps: { label: string; count: number }[] | null }) {
+  if (steps === null) return <p className="ag-one">Couldn’t load your funnel just now.</p>;
+  const top = steps[0]?.count || 1;
+  return (
+    <div className="ag-funnel" data-funnel="">
+      <ul>
+        {steps.map((s, i) => {
+          const prev = i > 0 ? steps[i - 1]!.count : null;
+          const rate = prev ? Math.round((s.count / prev) * 100) : null;
+          const w = Math.max((s.count / top) * 100, s.count > 0 ? 4 : 0);
+          const d = i * 160;
+          if (s.count === 0) {
+            return (
+              <li key={s.label} className="ag-ghostrow">
+                <div className="ag-fr">
+                  <span>{s.label}</span>
+                  <span className="ag-n">0</span>
+                </div>
+                <GhostTrack line={GHOST_LINE[s.label]} />
+              </li>
+            );
+          }
+          return (
+            <li key={s.label}>
+              <div className="ag-fr">
+                <span>{s.label}</span>
+                <span>
+                  {rate !== null ? <Pct id={`ag:fun:${s.label}:pct`} rate={rate} delay={d + 350} /> : null}
+                  <HeldCount value={s.count} id={`ag:fun:${s.label}`} delay={d} className="ag-n" format={(n) => formatCount(n)} />
+                </span>
+              </div>
+              <div className="ag-track">
+                <HeldFill value={w} id={`ag:funw:${s.label}`} delay={d} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

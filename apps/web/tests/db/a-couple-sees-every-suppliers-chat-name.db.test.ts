@@ -333,9 +333,13 @@ test('THE GRANTS — EXECUTE for authenticated only; SECURITY DEFINER with a pin
 });
 
 test('PARITY — the SQL reveal predicate equals isVendorNameRevealed for every tier × verification × venue × stamp', async () => {
-  const tiers = (await db.query<{ v: string }>(`SELECT unnest(enum_range(NULL::vendor_tier_state))::text AS v`)).rows.map((r) => r.v);
+  // Every enum label a shop can actually HOLD. 'custom' stays in the enum (Postgres cannot drop a label) but the
+  // Custom plan was retired 2026-11-06 and `vendor_profiles_tier_state_not_custom` refuses it, so no shop can be on it.
+  const tiers = (await db.query<{ v: string }>(`SELECT unnest(enum_range(NULL::vendor_tier_state))::text AS v`)).rows
+    .map((r) => r.v)
+    .filter((v) => v !== 'custom');
   const states = (await db.query<{ v: string }>(`SELECT unnest(enum_range(NULL::vendor_verification_state))::text AS v`)).rows.map((r) => r.v);
-  assert.ok(tiers.length >= 6 && states.length >= 5, `enums read: ${tiers} / ${states}`);
+  assert.ok(tiers.length >= 5 && states.length >= 5, `enums read: ${tiers} / ${states}`);
   const probe = F.shopId['free-unverified-coming-soon']!;
   let compared = 0;
   for (const tier of tiers) {

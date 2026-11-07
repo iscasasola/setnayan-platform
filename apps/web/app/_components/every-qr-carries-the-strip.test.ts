@@ -90,10 +90,16 @@ test('every link-QR mounts the strip, exactly as many times as it has QRs', () =
 
 test('the supplier’s codes are drawn by the QR card (kind 24), so each carries the strip', () => {
   const page = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
-  // Five codes (2026-10-28 · 2026-11-01): Shortlist · the issued Booked code · Check a date (`lib/check-a-date-qr.ts`) ·
-  // My page · Crew for an event (`lib/supplier-qr-codes.ts`).
-  assert.equal(count(page, '<QrCard'), 5, 'the Shortlist, the issued Booked code, Check a date, My page and the crew code are not all QR cards');
+  // Six codes (2026-10-28 · 2026-11-01 · Option B 2026-11-06 added Reviews): Shortlist · the issued Booked code · Check a
+  // date (`lib/check-a-date-qr.ts`) · My page · Reviews · Crew for an event (`lib/supplier-qr-codes.ts`).
+  assert.equal(count(page, '<QrCard'), 6, 'the Shortlist, the issued Booked code, Check a date, My page, Reviews and the crew code are not all QR cards');
   assert.match(page, /from '@\/app\/_components\/qr-card'/);
+  // Option B's row shows a SMALL code as a preview only — the row is one button that opens the sheet, where the QR card
+  // (and so the strip) is. The thumb is never itself a code you can save or share.
+  const list = read('app/vendor-dashboard/invite/_components/qr-code-list.tsx');
+  assert.equal(count(list, 'dangerouslySetInnerHTML'), 1, 'the list draws a code other than the row thumb');
+  assert.match(list, /data-qr-thumb/);
+  assert.equal(count(list, '<QrActions'), 0, 'the row thumb carries its own strip — the sheet’s QR card already does');
   for (const gone of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/locked-qr/page.tsx']) {
     assert.equal(count(read(gone), 'dangerouslySetInnerHTML'), 0, `${gone} draws a code outside the QR card`);
   }

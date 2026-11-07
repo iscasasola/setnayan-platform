@@ -52,15 +52,7 @@ const HOOKS = [
     extract: 'const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);',
     firstEffect: 'recomputeVendorExtraSeats(',
   },
-  {
-    name: 'custom plan',
-    // Re-anchored 2026-08-27: the hook now resolves the vendor AND the term
-    // together (28-day vs annual) from either service-key shape, so the old
-    // single-purpose extractor is gone. The gate is still this hook's first
-    // effect, which is what the assertion below actually checks.
-    extract: 'const target = customPlanTargetFromServiceKey(ctx.serviceKey);',
-    firstEffect: 'assertOrderOwnsVendorTarget(', // gate is this hook's first statement
-  },
+  // (The 'custom plan' hook was DELETED 2026-11-06 with the Custom supplier plan — owner: "from the app".)
   {
     // Added 2026-08-21 with the ONE payment page: a plan purchase now mints an
     // order, and approving that order's payment switches the plan on. Same
@@ -91,7 +83,7 @@ const HOOKS = [
   },
 ] as const;
 
-test('every vendor-surface hook calls the ownership gate — seven today', () => {
+test('every vendor-surface hook calls the ownership gate — six today', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,

@@ -54,11 +54,6 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
  * per-quarter `enforce_vendor_self_comp_quota` trigger on `comp_grants`. What
  * must not come back is a SECOND pricing rule.
  *
- * NOT AFFECTED — `app/admin/custom-plans/actions.ts` mints bespoke-amount
- * orders on purpose: it is `assertAdmin()`-gated and writes through
- * service-role. "An admin sets a negotiated price" is a different thing from
- * "the browser sets its own price"; only the second one is this bug.
- *
  * Enforced by `lib/order-price-authority.test.ts`.
  */
 

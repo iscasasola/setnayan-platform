@@ -27,13 +27,12 @@ test('tier factor: only pro/enterprise CAN brand', () => {
   // The gate has moved three times — a Pro/Ent perk (2026-07-04), then anybody
   // who bought the add-on (2026-07-25, behind a PRICE flag), now every PAID plan.
   //
-  // 🔴 AND `custom` USED TO BE FALSE — the most expensive plan there is could not
-  // brand its booth, because the old predicate listed two tier NAMES instead of
-  // reading the ladder. The owner names Custom explicitly.
+  // (The Custom plan the owner also named was retired from the app 2026-11-06 — a
+  // stray 'custom' now reads as Free and fails closed, like any unknown tier.)
   assert.equal(boothCanBrand('solo'), true);
   assert.equal(boothCanBrand('pro'), true);
   assert.equal(boothCanBrand('enterprise'), true);
-  assert.equal(boothCanBrand('custom'), true, 'the tier above Enterprise must not be excluded');
+  assert.equal(boothCanBrand('custom'), false, 'the retired Custom plan reads as Free — fails closed');
   assert.equal(boothCanBrand('free'), false);
   assert.equal(boothCanBrand('verified'), false, 'the legacy FREE tier — "not for free"');
   assert.equal(boothCanBrand(null), false);
@@ -92,7 +91,7 @@ test('the ACTIVE-add-on half still gates every PAID tier', () => {
   // never give anyone a free branded booth. No entitlement, no branding.
   assert.equal(boothIsBranded(vendor({ tier: 'solo', boothAddonActive: false })), false);
   assert.equal(boothIsBranded(vendor({ tier: 'pro', boothAddonActive: undefined })), false);
-  assert.equal(boothIsBranded(vendor({ tier: 'custom' })), false);
+  assert.equal(boothIsBranded(vendor({ tier: 'enterprise', boothAddonActive: false })), false);
   assert.equal(boothIsBranded(null), false);
   assert.equal(boothIsBranded(undefined), false);
 });
@@ -110,5 +109,5 @@ test('boothCanBrand takes NO all-tiers lever any more', () => {
 
 test('a paid plan WITHOUT the add-on still renders generic — both halves required', () => {
   assert.equal(boothIsBranded(vendor({ tier: 'solo', boothAddonActive: false })), false);
-  assert.equal(boothIsBranded(vendor({ tier: 'custom', boothAddonActive: false })), false);
+  assert.equal(boothIsBranded(vendor({ tier: 'enterprise', boothAddonActive: false })), false);
 });

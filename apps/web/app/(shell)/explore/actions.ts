@@ -312,7 +312,21 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   // which is the word for a supplier the couple typed in themselves; the
   // auto-cascade "added for you" badge keys on 'auto_cascade_from_finalize'
   // only, so this changes no badge.
-  const category = tileCategory ?? coerceCategory((vendor.services ?? []) as string[], coarseSource);
+  /*
+    4a. WHICH SERVICE, WHEN THERE IS NO CARD (owner 2026-11-07, "Yes, list all"). The shop page's Inquire pop-up lists
+    every service the shop provides (`vendor_profiles.services`), cards or not; a couple asking about one with no card
+    sends its key, and the shop is filed under THAT service — not under whichever service the shop listed first.
+    Honoured only when it IS one of this shop's own services, and only when it resolves to a real category (a key the
+    taxonomy cannot place keeps the shop-level answer below rather than filing under `misc`).
+  */
+  const serviceKey = String(formData.get('service_key') ?? '').trim();
+  const keyCategory: VendorCategory | null = (() => {
+    if (tileCategory || !serviceKey) return null;
+    if (!((vendor.services ?? []) as string[]).includes(serviceKey)) return null;
+    const c = coerceCategory([serviceKey], coarseSource);
+    return c === 'misc' ? null : c;
+  })();
+  const category = tileCategory ?? keyCategory ?? coerceCategory((vendor.services ?? []) as string[], coarseSource);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
     .insert({

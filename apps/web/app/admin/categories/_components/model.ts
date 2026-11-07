@@ -111,6 +111,12 @@ export type Service = {
   words: SearchWord[];
   /** How many supplier requests were mapped onto this service (the demand signal). */
   askedFor: number;
+  /**
+   * The one-line ⓘ definition (`canonical_service_schemas.hint_en`, plan D4, DECISION_LOG 2026-11-06). null = not
+   * written (no ⓘ anywhere); undefined = the line could not be READ, so the panel says so instead of offering an
+   * empty box that would overwrite what is there.
+   */
+  hint?: string | null;
 };
 
 export type RequestDraft = {

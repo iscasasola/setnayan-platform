@@ -32,6 +32,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   MUSIC_CANONICALS,
@@ -346,7 +347,6 @@ export async function fetchWizardVendorRecommendations(
     .select(
       'vendor_profile_id,business_name,business_slug,logo_url,tagline,location_city,hq_region,avg_rating_overall,review_count,ad_rank,public_visibility,compatible_ceremony_types,compatible_venue_settings,hq_latitude,hq_longitude',
     )
-    .in('public_visibility', ['verified', 'coming_soon'])
     .not('business_name', 'is', null)
     .neq('business_name', '')
     .overlaps('services', args.canonicalServices as readonly string[]);
@@ -360,9 +360,14 @@ export async function fetchWizardVendorRecommendations(
   // guided-tour demo (`includeDemoUnverified: true`), which runs against
   // is_demo sample vendors that may be unverified. Reads the verification_state
   // column that migration 20270331400000 appended to vendor_market_stats.
-  if (!args.includeDemoUnverified) {
-    query = query.eq('verification_state', 'verified');
-  }
+  //
+  // 🔎 SUPERSEDED 2026-11-07 (DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE UNTIL
+  // ITS FIRST INQUIRY"): the engine asks the ONE findable rule
+  // (lib/findable-shop.ts) — verified shops, plus shops not yet decided until
+  // their first inquiry. The guided-tour demo keeps its own existing rule.
+  query = args.includeDemoUnverified
+    ? query.in('public_visibility', ['verified', 'coming_soon'])
+    : query.match(FINDABLE_SHOP_GATE);
 
   // Ceremony-type compat · NULL means "compatible with all" so we use
   // an OR clause that admits both NULL-compat vendors and explicit

@@ -1,0 +1,19 @@
+200 r2-shop-message-unverified 390 light h-overflow=0
+200 r2-shop-message-unverified 390 dark (forced html.dark) h-overflow=0
+200 r2-shop-message-unverified 820 light h-overflow=0
+200 r2-shop-message-unverified 820 dark (forced html.dark) h-overflow=0
+200 r2-shop-message-unverified 1440 light h-overflow=0
+200 r2-shop-message-unverified 1440 dark (forced html.dark) h-overflow=0
+200 r2-thread-not-yet-verified 390 light h-overflow=0
+200 r2-thread-not-yet-verified 390 dark (forced html.dark) h-overflow=0
+200 r2-thread-not-yet-verified 820 light h-overflow=0
+200 r2-thread-not-yet-verified 820 dark (forced html.dark) h-overflow=0
+200 r2-thread-not-yet-verified 1440 light h-overflow=0
+200 r2-thread-not-yet-verified 1440 dark (forced html.dark) h-overflow=0
+shop doors · unverified, before its first inquiry: {"notice":true,"inquire":[[44,"rgb(194, 78, 37)"]],"share":1,"checkADate":0,"heading":"Inquire","prose":"Send Kusina ni Lola Catering a message below — they’ll reply in your Setnayan inbox. Booking opens once Setnayan verifies them."}
+shop doors · unverified, locked (own link/QR): {"notice":true,"inquire":[[44,"rgb(194, 78, 37)"]],"share":1,"checkADate":0,"heading":"Inquire","prose":"Send Bulaklak Floral Studio a message below — they’ll reply in your Setnayan inbox. Booking opens once Setnayan verifies them."}
+shop doors · verified (comparison): {"notice":false,"inquire":[[44,"rgb(194, 78, 37)"]],"share":1,"checkADate":1,"heading":"Inquire","prose":"Send Liwanag Photo & Film an inquiry below — they’ll reply in your Setnayan inbox, and the conversation stays with your event."}
+thread line · unverified shop: {"line":"This shop is not yet verified by SetnayaniSetnayan has not checked this shop’s d","insideHead":true,"name":"Lumière Photo"}
+thread ⓘ opened: "Setnayan has not checked this shop’s documents yet, so it has no Verified badge. You can message them, but booking opens once Setnayan verifies them. Verified shops show the badge beside their name."
+thread line · verified shop (no param): {"line":null,"insideHead":false,"name":"Lumière Photo"}
+thread line · supplier side (?side=vendor&unverified=1): {"line":null,"insideHead":false,"name":"Ana & Miguel"}

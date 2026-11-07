@@ -8,6 +8,7 @@ import {
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import type { VendorCount } from '@/lib/vendor-counts';
+import { formatCount } from '@/lib/format-number';
 
 export type CategoryTileData = {
   canonicalService: string;
@@ -69,7 +70,7 @@ function isLivePhase(phase: TaxonomyPhase): boolean {
 }
 
 type TileState =
-  | { kind: 'populated'; verified: number; comingSoon: number }
+  | { kind: 'populated'; verified: number; comingSoon: number; total: number }
   | { kind: 'recruiting' }
   | { kind: 'future' }
   | { kind: 'setnayan' };
@@ -82,6 +83,9 @@ function deriveState(data: CategoryTileData): TileState {
       kind: 'populated',
       verified: data.count?.verified ?? 0,
       comingSoon: data.count?.coming_soon ?? 0,
+      // 🔎 2026-11-07: every LISTED shop — verified, plus not-yet-decided shops
+      // still findable (lib/findable-shop.ts). "verified" stays the verified figure.
+      total,
     };
   }
   return isLivePhase(data.meta.phase) ? { kind: 'recruiting' } : { kind: 'future' };
@@ -215,10 +219,10 @@ export async function CategoryTile({
 function ariaLabelFor(data: CategoryTileData, state: TileState): string {
   const name = data.displayNameEn;
   switch (state.kind) {
-    // `comingSoon` is retired (owner 2026-07-27) and always 0 — a listed
-    // vendor is a verified one, so the label states just that.
+    // `comingSoon` is retired (owner 2026-07-27) and always 0. Since 2026-11-07
+    // a listed shop may not be verified yet, so the label states both.
     case 'populated':
-      return `${name}, ${state.verified} verified`;
+      return `${name}, ${formatCount(state.total)} listed, ${formatCount(state.verified)} verified`;
     case 'recruiting':
       return `${name}, recruiting suppliers now`;
     case 'future':
@@ -239,7 +243,7 @@ function StatePill({ state }: { state: TileState }) {
     case 'populated':
       return (
         <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
-          {state.verified} listed
+          {formatCount(state.total)} listed
         </span>
       );
     case 'recruiting':
@@ -260,11 +264,11 @@ function StatePill({ state }: { state: TileState }) {
 function CtaLine({ state }: { state: TileState }) {
   let copy: string;
   switch (state.kind) {
-    // `populated` now implies `verified > 0` — the tile count is verified-only
-    // since `coming_soon` was retired, so the old "Preview N coming-soon
-    // vendors" fallback is unreachable and would have read "Preview 0".
+    // `populated` implies `total > 0` — every listed shop (2026-11-07: verified,
+    // plus not-yet-decided shops still findable). The old "Preview N coming-soon
+    // vendors" fallback stays unreachable.
     case 'populated':
-      copy = `Browse ${state.verified} supplier${state.verified === 1 ? '' : 's'} →`;
+      copy = `Browse ${formatCount(state.total)} supplier${state.total === 1 ? '' : 's'} →`;
       break;
     case 'recruiting':
       copy = 'Be the first to list →';

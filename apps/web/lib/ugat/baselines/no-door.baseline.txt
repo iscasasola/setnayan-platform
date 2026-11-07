@@ -72,3 +72,4 @@
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/favorites-lab	# 2026-11-06 · internal (dev, prototypes) · the favorites proof lab — a page nobody can reach without typing its address
+/dev/find-lock-lab	# 2026-11-07 · internal (dev, prototypes) · the find-lock proof lab (DECISION_LOG 2026-11-07) — a page nobody can reach without typing its address

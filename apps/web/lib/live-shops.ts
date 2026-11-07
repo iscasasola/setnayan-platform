@@ -27,22 +27,26 @@
  * rule is still written once.
  */
 
+import { FINDABLE_SHOP_GATE } from './findable-shop';
+
 /**
- * Both halves, always together. Either one alone has meant a hidden shop on a
- * public shelf before.
+ * 🔎 WHO A COUPLE CAN FIND — the ONE rule (`lib/findable-shop.ts`), plus demo.
+ *
+ * DECISION_LOG 2026-11-07 "AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST
+ * INQUIRY" reversed 2026-07-27's verified-only shelf: a shop Setnayan has not
+ * decided yet is found until its first inquiry, then locked out until verified.
+ * That rule is ONE generated column, `vendor_profiles.is_findable`
+ * (20271320303985) — verified shops are exactly the old two-column pair inside
+ * it — so this gate asks that column instead of re-typing the pair.
  *
  * 🧪 AND NEVER A DEMO SHOP (2026-09-30). Owner, DECISION_LOG 2026-09-29 "LANE 2
- * §2C" (1): the two trial shops (SetnaProd, Saysay) become `is_demo = true` so
- * they "stop reading as real verified suppliers". Both are fully verified, so
- * without this third half the flag would have changed nothing on this shelf —
- * the front door and the /explore count would still have shown them. The
- * column is `NOT NULL DEFAULT false`, so an equality is exact (`.match()` only
- * does equalities). The accepted cost, in the owner's words: the shelf shows
- * nothing until a real supplier joins — the shelf then invites one.
+ * §2C" (1): the two trial shops (SetnaProd, Saysay) are `is_demo = true` so
+ * they "stop reading as real verified suppliers". Demo shops keep their own
+ * rule — this half is unchanged. The column is `NOT NULL DEFAULT false`, so an
+ * equality is exact (`.match()` only does equalities).
  */
 export const LIVE_SHOP_GATE = {
-  public_visibility: 'verified',
-  verification_state: 'verified',
+  ...FINDABLE_SHOP_GATE,
   is_demo: false,
 } as const;
 

@@ -89,3 +89,35 @@ test('every reason has the owner\'s first line, a "Couples will see it once" lin
     assert.doesNotMatch(`${copy.line} ${copy.action.label}`, /\b(vendor|website|site|celebration)\b/i, `house words: ${reason}`);
   }
 });
+
+// ── 🔗 DECISION_LOG 2026-11-07 ruling (3): a not-yet-decided shop's own link opens ──────────────────────────────────
+
+const NOT_FROZEN = { fraud_suspended_at: null, fraud_banned_at: null, fraud_tombstoned: false } as const;
+
+test('ruling (3): an undecided shop opens for a stranger — before its first inquiry AND after the lock', () => {
+  for (const verification_state of ['unverified', 'pending_review'] as const) {
+    for (const find_locked_at of [null, '2026-11-07T00:00:00Z']) {
+      const row = { public_visibility: 'hidden', verification_state, is_demo: false, find_locked_at, ...NOT_FROZEN };
+      assert.deepEqual(shopPageGate(row, { isTeam: false, adminDemoMode: false }), { open: 'public' }, JSON.stringify(row));
+    }
+  }
+});
+
+test('ruling (3) never opens a demo, archived, rejected, demoted or fraud-frozen shop', () => {
+  const stranger = { isTeam: false, adminDemoMode: false };
+  const base = { public_visibility: 'hidden', verification_state: 'unverified', is_demo: false, ...NOT_FROZEN };
+  assert.equal(shopPageGate({ ...base, is_demo: true }, stranger).open, 'nobody', 'demo keeps its own rule');
+  assert.equal(shopPageGate({ ...base, public_visibility: 'archived' }, stranger).open, 'nobody');
+  for (const verification_state of ['rejected', 'demoted']) {
+    assert.equal(shopPageGate({ ...base, verification_state }, stranger).open, 'nobody', verification_state);
+  }
+  assert.equal(shopPageGate({ ...base, fraud_suspended_at: '2026-11-01T00:00:00Z' }, stranger).open, 'nobody');
+  assert.equal(shopPageGate({ ...base, fraud_banned_at: '2026-11-01T00:00:00Z' }, stranger).open, 'nobody');
+  assert.equal(shopPageGate({ ...base, fraud_tombstoned: true }, stranger).open, 'nobody');
+});
+
+test('ruling (3) FAILS CLOSED on a short select — a row without the fraud columns never opens by it', () => {
+  // The same undecided shop, read without the fraud columns: "not read" must never mean "not frozen".
+  const short = { public_visibility: 'hidden', verification_state: 'unverified', is_demo: false };
+  assert.equal(shopPageGate(short, { isTeam: false, adminDemoMode: false }).open, 'nobody');
+});

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7187
+# facts: 7192
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     598
-#   col       5216
+#   col       5221
 #   policy    1048
 #   view      9
 #   func      312
@@ -5194,6 +5194,10 @@ col	public.vendor_profiles.event_types	anon=S authenticated=SIU
 col	public.vendor_profiles.experience_verified_at	anon=- authenticated=SIU
 col	public.vendor_profiles.experience_verified_by	anon=- authenticated=SIU
 col	public.vendor_profiles.extra_agent_seats	anon=- authenticated=SIU
+col	public.vendor_profiles.find_lock_lifted_at	anon=- authenticated=SIU
+col	public.vendor_profiles.find_lock_lifted_by	anon=- authenticated=IU
+col	public.vendor_profiles.find_lock_reason	anon=- authenticated=SIU
+col	public.vendor_profiles.find_locked_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_banned_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_suspended_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_tombstoned	anon=- authenticated=SIU
@@ -5207,6 +5211,7 @@ col	public.vendor_profiles.in_business_since_date	anon=- authenticated=SIU
 col	public.vendor_profiles.in_business_since_year	anon=- authenticated=SIU
 col	public.vendor_profiles.inner_radius_km	anon=- authenticated=SIU
 col	public.vendor_profiles.is_demo	anon=- authenticated=SIU
+col	public.vendor_profiles.is_findable	anon=S authenticated=SIU
 col	public.vendor_profiles.is_founder	anon=- authenticated=SIU
 col	public.vendor_profiles.is_published	anon=S authenticated=SIU
 col	public.vendor_profiles.is_supplier_vendor	anon=- authenticated=SIU

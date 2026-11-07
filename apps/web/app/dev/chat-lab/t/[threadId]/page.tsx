@@ -12,6 +12,8 @@
  *   ?send=fail      Send fails on the server → "Not sent · Try again"; default: it succeeds after 600 ms
  *   ?delay=<ms>     the server takes this long to answer (default 0) — what the instant open is measured against
  *   ?expiry=1       the event was 80 days ago → the files-rule line "These files go on <date>. Save any you need."
+ *   ?unverified=1   (couple side) the shop is not verified yet → the REAL `NotYetVerifiedThreadLine` in the head's
+ *                   `below` slot, as the couple's thread page draws it (DECISION_LOG 2026-11-07 ruling (4))
  *
  * The real thread routes' `loading.tsx` is `ThreadArrival`; this lab has NO loading.tsx (a dev route under a loading
  * boundary that 404s in production would stream a 200 first — `the-press-commits-now.test.ts`). It draws the same
@@ -24,6 +26,7 @@ import { LabShell } from '@/app/dev/_components/lab-shell';
 import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { BackButton } from '@/app/_components/back-button';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
@@ -113,6 +116,7 @@ async function LabThread({ params, searchParams }: LabProps) {
                     <span className="whitespace-nowrap">~230 guests</span>
                   </>
                 }
+                below={side === 'couple' && one('unverified') === '1' ? <NotYetVerifiedThreadLine /> : null}
                 actions={<ChatThreadMenu threadId={threadId} returnTo={`/dev/chat-lab/t/${threadId}`} blockedByMe={false} links={LAB_MENU_LINKS} />}
               />
             }

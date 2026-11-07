@@ -176,7 +176,11 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   ],
   [
     'lib/vendor-counts.ts',
-    { count: 1, why: 'A per-service STATS counter (how many verified vendors per category) — not a rendered badge.' },
+    { count: 2, why: 'A per-service STATS counter (how many verified vendors per category) — not a rendered badge. Since 2026-11-07 it splits each listed shop into the verified / not-yet-verified tally (both columns), still a count, never a badge.' },
+  ],
+  [
+    'lib/findable-shop.ts',
+    { count: 1, why: 'The TypeScript twin of the is_findable LISTING gate (DECISION_LOG 2026-11-07) and the lock state it derives — who a couple can find, never a rendered Verified badge.' },
   ],
   [
     'lib/vendor-first-steps.server.ts',

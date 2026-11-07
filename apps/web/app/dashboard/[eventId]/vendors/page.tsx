@@ -14,6 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -3087,10 +3088,9 @@ async function fetchActiveCategoryMarketPool(
     const { count, error } = await admin
       .from('vendor_market_stats')
       .select('vendor_profile_id', { count: 'exact', head: true })
-      .in('public_visibility', ['verified', 'coming_soon'])
-      // PR-B — the available-pool count must match the gated marketplace:
-      // count only VERIFIED vendors (unverified are private).
-      .eq('verification_state', 'verified')
+      // 🔎 The available-pool count must match the marketplace: the ONE findable
+      // rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07).
+      .match(FINDABLE_SHOP_GATE)
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .overlaps('services', [...canonical]);

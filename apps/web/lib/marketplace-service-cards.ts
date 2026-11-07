@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { VendorServiceRow } from '@/lib/vendor-services';
+import { findableShopGate } from '@/lib/findable-shop';
 
 /**
  * marketplace-service-cards.ts — the marketplace lists SERVICES, not shops.
@@ -118,11 +119,12 @@ export async function fetchMarketplaceServiceCards(
       `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,public_visibility)`,
     )
     .eq('is_active', true)
-    .eq('vendor_profiles.verification_state', 'verified')
-    .eq('vendor_profiles.public_visibility', 'verified')
+    // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07):
+    // verified shops, and shops not yet decided until their first inquiry.
+    .match(findableShopGate('vendor_profiles'))
     // 🧪 Never a demo card or a demo shop's card (2026-09-30). The two trial
     // shops became `is_demo = true` (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
-    // and are fully verified, so the two lines above wave them through. Both
+    // and are fully verified, so the findable gate waves them through. Both
     // columns are `NOT NULL DEFAULT false`.
     .eq('is_demo', false)
     .eq('vendor_profiles.is_demo', false);

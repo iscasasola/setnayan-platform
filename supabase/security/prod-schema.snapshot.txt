@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1760
-# tables: 455
-# columns: 5614
-# notnull: 3394
+# ledger: 1763
+# tables: 458
+# columns: 5641
+# notnull: 3413
 [ledger]
 20260512000000
 20260513000000
@@ -1772,6 +1772,9 @@
 20271316625547
 20271316933967
 20271319497337
+20271320245383
+20271320327933
+20271320900784
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2297,6 +2300,7 @@ coordinator_broadcasts.event_id
 coordinator_broadcasts.id
 coordinator_broadcasts.sender_role
 coordinator_broadcasts.sender_user_id
+coordinator_broadcasts.target_guest_id
 coordinator_feature_recommendations.addon_key
 coordinator_feature_recommendations.created_at
 coordinator_feature_recommendations.event_id
@@ -3998,9 +4002,12 @@ guest_saved_vendors.vendor_service_id
 guest_souvenir_claims.claim_id
 guest_souvenir_claims.claimed_at
 guest_souvenir_claims.claimed_by_user_id
+guest_souvenir_claims.coverage_id
 guest_souvenir_claims.event_id
 guest_souvenir_claims.guest_id
 guest_souvenir_claims.method
+guest_souvenir_claims.scan_number
+guest_souvenir_claims.vendor_profile_id
 guests.address
 guests.attire
 guests.avatar_config
@@ -5837,6 +5844,29 @@ supplier_page_photo_notices.published_at
 supplier_page_photo_notices.removed_at
 supplier_page_photo_notices.removed_by
 supplier_page_photo_notices.vendor_profile_id
+supplier_scan_claims.claim_id
+supplier_scan_claims.claimed_at
+supplier_scan_claims.coverage_id
+supplier_scan_claims.event_id
+supplier_scan_claims.guest_id
+supplier_scan_claims.method
+supplier_scan_claims.mode
+supplier_scan_claims.ready_at
+supplier_scan_claims.received_at
+supplier_scan_claims.scan_number
+supplier_scan_claims.scanned_by_user_id
+supplier_scan_claims.state
+supplier_scan_claims.vendor_profile_id
+supplier_scan_counters.coverage_id
+supplier_scan_counters.event_id
+supplier_scan_counters.last_number
+supplier_scan_settings.coverage_id
+supplier_scan_settings.created_at
+supplier_scan_settings.enabled
+supplier_scan_settings.mode
+supplier_scan_settings.updated_at
+supplier_scan_settings.updated_by_user_id
+supplier_scan_settings.vendor_profile_id
 taxonomy_category_request_drafts.closest_existing
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
@@ -9834,6 +9864,25 @@ supplier_page_photo_notices.page_ref
 supplier_page_photo_notices.photo_id
 supplier_page_photo_notices.public_from
 supplier_page_photo_notices.vendor_profile_id
+supplier_scan_claims.claim_id
+supplier_scan_claims.claimed_at
+supplier_scan_claims.coverage_id
+supplier_scan_claims.event_id
+supplier_scan_claims.guest_id
+supplier_scan_claims.method
+supplier_scan_claims.mode
+supplier_scan_claims.scan_number
+supplier_scan_claims.state
+supplier_scan_claims.vendor_profile_id
+supplier_scan_counters.coverage_id
+supplier_scan_counters.event_id
+supplier_scan_counters.last_number
+supplier_scan_settings.coverage_id
+supplier_scan_settings.created_at
+supplier_scan_settings.enabled
+supplier_scan_settings.mode
+supplier_scan_settings.updated_at
+supplier_scan_settings.vendor_profile_id
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
 taxonomy_category_request_drafts.near_matches

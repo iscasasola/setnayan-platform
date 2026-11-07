@@ -34,3 +34,9 @@ test('Check a date opens the live landing (#7007) — never a 404', () => {
   assert.ok(existsSync(join(HERE, 'dates', 'page.tsx')), '/v/[slug]/dates is gone — the door would 404');
   assert.match(PAGE, /<CheckADateLink\s+href=\{`\/v\/\$\{vendor\.business_slug \?\? slug\}\/dates`\}/, 'the door does not point at /v/<slug>/dates');
 });
+
+test('an unchecked year reads as the year alone — never "self-reported" (owner 2026-11-07: "drop it")', () => {
+  const LINE = stripComments(readFileSync(join(HERE, '_components', 'shop-since-line.tsx'), 'utf8'));
+  assert.doesNotMatch(LINE, /self[- ]reported/i, 'the since line labels an unchecked year again — the ✓ alone marks a checked one');
+  assert.match(LINE, /sinceVerified \? \(\s*<BadgeCheck/, 'the ✓ for a DTI-checked year is gone');
+});

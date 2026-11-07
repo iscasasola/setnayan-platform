@@ -10,7 +10,8 @@ import { EventsByKindButton } from './events-by-kind';
  *   In business since 2019 ✓ · 120+ events › · On Setnayan since Oct 2026
  *
  * 🗓 "SINCE" IS TWO FACTS (owner 2026-10-29, v13 note 1): their OWN start year (`in_business_since_year`, ✓ when an
- * admin checked it against the DTI registration, else "self-reported" — the shipped pill's two states) and the month
+ * admin checked it against the DTI registration, else the year alone — owner 2026-11-07: "drop it", the word
+ * "self-reported" read as doubt on the supplier's own page and the ✓ already marks the checked ones) and the month
  * the shop opened HERE (`created_at`). The words come from `lib/in-business-since.ts`, the one place both are phrased,
  * so this line and Your details cannot drift. It replaces the shipped "N yrs in business · N+ weddings" pill and the
  * separate "On the marketplace since …" line — nothing they said is lost: the years are the year, and the declared
@@ -45,9 +46,7 @@ export function ShopSinceLine({
             className="h-3.5 w-3.5 text-success-700"
             strokeWidth={2}
           />
-        ) : (
-          <span className="text-ink/45">self-reported</span>
-        )}
+        ) : null}
       </span>,
     );
   }

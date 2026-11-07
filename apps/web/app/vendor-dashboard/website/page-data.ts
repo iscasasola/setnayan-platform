@@ -9,6 +9,7 @@ import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { selfPublishedLive, shopPageGate } from '@/lib/own-shop-preview';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple, type ReviewWithCouple } from '@/lib/reviews';
+import { readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -43,6 +44,8 @@ export type PageData = {
   publicPath: string | null;
   /** Couples can see it (`isShopLive`, or shown before verification — `selfPublishedLive`) — the badge says so either way. */
   live: boolean;
+  /** 🧪 `vendor_profiles.is_demo` — the public page wears "(DEMO ONLY)". */
+  isDemo: boolean;
   /**
    * 🏪 Show my page before verification (owner 2026-11-02): `offer` = bookings are closed and the shop is not verified-
    * live, so the switch is drawn; `shown` = the shop has pressed it. `null` = the read failed (the switch is not drawn —
@@ -71,6 +74,8 @@ export type PageData = {
   replyRows: ReviewWithCouple[] | null;
   /** The reply list stops at REPLY_LIST_MAX — said under it, never silently. */
   replyCapped: boolean;
+  /** ⭐ From guests (owner, 6 Nov) — its own labelled group under the hosts'. Three states; refused is said. */
+  guestReviews: GuestReviewsRead;
   stories: { id: string; label: string }[] | null;
   domains: DomainRow[];
   domainsMeasured: boolean;
@@ -147,6 +152,14 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
       return null;
     }
   })();
+  // ⭐ FROM GUESTS — read on the service role, scoped to THIS shop (resolved above as the signed-in team's own): the
+  // guest's name comes from the seat, which a supplier's session cannot read. Hidden rows stay out (admin-only).
+  const guestReviewsRead: Promise<GuestReviewsRead> = readGuestReviewsForVendor(createAdminClient(), vendorId, {
+    limit: REPLY_LIST_MAX,
+  }).catch((err): GuestReviewsRead => {
+    logQueryError('VendorPage.guestReviews', err, { vendorId });
+    return { state: 'refused' };
+  });
   const storiesRead = (async () => {
     try {
       const bookings = await fetchVendorPoolBookings(supabase, vendorId);
@@ -231,7 +244,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     return null;
   });
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30] = await Promise.all([
+  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30, guestReviews] = await Promise.all([
     ownRead,
     statsRead,
     reviewsRead,
@@ -242,6 +255,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     shellRead,
     badgesRead,
     views30Read,
+    guestReviewsRead,
   ]);
 
   const microsite = micrositeFromRow(own);
@@ -287,6 +301,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     slug,
     publicPath: slug ? `/${slug}` : null,
     live,
+    // 🧪 The page is public and marked "(DEMO ONLY)" when the shop is a demo shop (owner 2026-11-06).
+    isDemo: show?.isDemo === true,
     showBeforeVerified,
     visible,
     isVerified: profile.public_visibility === 'verified',
@@ -307,6 +323,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     reviews: reviews?.options ?? null,
     replyRows: reviews?.rows ?? null,
     replyCapped: (reviews?.rows.length ?? 0) >= REPLY_LIST_MAX,
+    guestReviews,
     stories,
     domains: domains.rows,
     domainsMeasured: domains.measured,

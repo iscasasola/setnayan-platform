@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CalendarCheck, CalendarX, Check, LogIn, MessageCircle, Plus, Send, Store, Undo2 } from 'lucide-react';
 import { CalendarGrid } from '@/app/_components/calendar';
 import { Sheet } from '@/app/_components/sheet';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow } from '@/app/_components/form-row';
@@ -61,7 +62,7 @@ export function CheckADateCalendar({
   initialServices,
   initialStep,
 }: {
-  shop: { vendorProfileId: string; slug: string; name: string; initials: string; verified: boolean };
+  shop: { vendorProfileId: string; slug: string; name: string; initials: string; verified: boolean; isDemo?: boolean };
   services: Service[];
   today: string;
   to: string;
@@ -217,6 +218,8 @@ export function CheckADateCalendar({
             {shop.name}
           </p>
           {shop.verified ? <p className="text-[11px] font-bold text-[rgb(var(--color-ok))]">SETNAYAN Verified ✓</p> : null}
+          {/* 🧪 A demo shop's date page is public too, marked (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). */}
+          {shop.isDemo ? <DemoOnlyMarker /> : null}
         </div>
       </header>
 

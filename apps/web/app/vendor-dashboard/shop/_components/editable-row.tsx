@@ -17,6 +17,7 @@ import { Collapsible } from '../../_components/collapsible';
 // (browser only; leaflet touches `window` at module scope so it must never SSR).
 import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
 import { formatCount } from '@/lib/format-number';
+import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
 import { IN_BUSINESS_SINCE_HELP, IN_BUSINESS_SINCE_LABEL, inBusinessSinceLine } from '@/lib/in-business-since';
 
 type LeafletModule = typeof import('leaflet');
@@ -516,6 +517,7 @@ export function RequestOnlyRow({
               id={inputId}
               value={value}
               onChange={(e) => setValue(e.target.value)}
+              maxLength={field === 'business_name' ? SHOP_NAME_MAX : undefined}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -786,6 +788,38 @@ function FieldControl({
  * Keeping them identical is what keeps the server action's parse contract the
  * same regardless of which surface submitted.
  */
+/**
+ * 📏 The shop name box — 50 at most (owner 2026-11-06, `SHOP_NAME_MAX`), with the count shown only from 40
+ * ("42 / 50"). Uncontrolled like every other `PlainInput` (the form posts it as typed); the length is tracked only
+ * to draw the count.
+ */
+function ShopNameInput({ defaultValue, onDirty }: { defaultValue: string | null | undefined; onDirty: () => void }) {
+  const [length, setLength] = useState((defaultValue ?? '').length);
+  const counter = shopNameCounter(length);
+  return (
+    <>
+      <input
+        id="business_name"
+        name="business_name"
+        required
+        onInput={(e) => {
+          setLength(e.currentTarget.value.length);
+          onDirty();
+        }}
+        maxLength={SHOP_NAME_MAX}
+        defaultValue={defaultValue ?? undefined}
+        placeholder="Your studio / company name"
+        className="input-field"
+      />
+      {counter ? (
+        <span className="mt-1 block text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
+          {counter}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 function PlainInput({
   itemKey,
   data,
@@ -797,18 +831,7 @@ function PlainInput({
 }) {
   switch (itemKey) {
     case 'business_name':
-      return (
-        <input
-          id="business_name"
-          name="business_name"
-          required
-          onInput={onDirty}
-          maxLength={128}
-          defaultValue={data.business_name}
-          placeholder="Your studio / company name"
-          className="input-field"
-        />
-      );
+      return <ShopNameInput defaultValue={data.business_name} onDirty={onDirty} />;
     case 'business_owner_name':
       return (
         <input

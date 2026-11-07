@@ -1,4 +1,5 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
 import { chaptersForGuest } from '@/lib/invitation-chapters';
 import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
@@ -66,6 +67,9 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
+import { readWhoMadeTheDay } from '@/lib/who-made-the-day.server';
+import { isAfterTheDay } from '@/lib/who-made-the-day';
+import { WhoMadeTheDay } from './_components/who-made-the-day';
 import { PASS_ANCHOR, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
@@ -1382,7 +1386,26 @@ async function invitationBody({
   const guestDeskP = isEditorCanvas ? Promise.resolve(false) : viewerIsInternal().then((internal) => guestHubDesktopEnabled({ internal })).catch(() => guestHubDesktopEnabled({ internal: false }));
   /* …and only a guest page the flag lets in writes its `<style>` (`lib/guest-hub-desktop.ts`) — every other page is the
      same bytes as before. */
-  const wearDraft = async (node: React.ReactNode) => {
+  // 🧪 (DEMO ONLY) — a demo event (`events.is_sample`) shows publicly beside real ones, marked (owner, DECISION_LOG
+  // 2026-11-06 "DEMO SHOPS + DEMO EVENTS": *"these demo events, and demo suppliers will show on with the rest … but has
+  // a marking of (DEMO ONLY)"*). Drawn ONCE, here, above every render path of the page (anonymous, guest, host). Not on
+  // a theme-gallery tile (`triedTheme` — the Details gallery paints this sample in each theme; a chip on every tile is
+  // chrome, not the page), and not in the Maker's canvas.
+  const demoEventMarker =
+    liveEvent.is_sample === true && triedTheme === null && !asksForHostCanvas(search) ? (
+      <div className="flex justify-center px-4 pt-3" data-demo-event-marker="">
+        <DemoOnlyMarker kind="event" align="center" />
+      </div>
+    ) : null;
+  const wearDraft = async (page: React.ReactNode) => {
+    const node = demoEventMarker ? (
+      <>
+        {demoEventMarker}
+        {page}
+      </>
+    ) : (
+      page
+    );
     const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
     const guestDesk = await guestDeskP;
     return guestDesk ? (
@@ -2631,6 +2654,14 @@ async function invitationBody({
   const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
   const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
   const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
+  /* 🚪 "WHO MADE THE DAY?" (prototype 6 Nov § 8, door 2) — after the day only, and only for a guest the door checked in
+     with at least one delivered supplier on this event (`readWhoMadeTheDay`); otherwise absent. Read only after the
+     day, so every page before it pays nothing. Never in the Maker's canvas. */
+  const whoMadeTheDay =
+    !isEditorCanvas && isAfterTheDay(event.event_date, manilaToday())
+      ? await readWhoMadeTheDay(admin, event.event_id, guest.guest_id)
+      : null;
+  const afterDayNode = whoMadeTheDay ? <WhoMadeTheDay eventId={event.event_id} suppliers={whoMadeTheDay} /> : null;
   timer.flush();
   return wearDraft(
     <>
@@ -2692,7 +2723,7 @@ async function invitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab afterDay={afterDayNode} />
             )
           ) : null
         }
@@ -2728,6 +2759,7 @@ async function invitationBody({
         meSlot={guestPageTabbed ? null : meSlot}
         mePhotosHref={photosLeftThePage ? myPhotosHref : null}
         meInPage={guestPageTabbed}
+        meAfterDay={afterDayNode}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)

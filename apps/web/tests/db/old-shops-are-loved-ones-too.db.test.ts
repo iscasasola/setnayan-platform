@@ -96,7 +96,16 @@ before(async () => {
   await gate('inactive');
 
   await shop('missing', '  Saysay Host and Band  ');
+  // 📏 THIS BACKFILL RAN IN A WORLD WITHOUT THE 50 CAP. Shop names were capped at 50 later
+  // (`vendor_profiles_business_name_max_50`, migration 20271320245383, owner 2026-11-06); when this backfill ran a
+  // shop could hold a 184-character name, and it had to cap the record at ALAGA_NAME_MAX. The replay carries the
+  // cap, so it is lifted for THIS one row to model the shop the backfill met — then put back NOT VALID, so every
+  // later write in this file is held to it again.
+  await db.exec(`ALTER TABLE public.vendor_profiles DROP CONSTRAINT IF EXISTS vendor_profiles_business_name_max_50`);
   await shop('long', LONG);
+  await db.exec(
+    `ALTER TABLE public.vendor_profiles ADD CONSTRAINT vendor_profiles_business_name_max_50 CHECK (char_length(business_name) <= 50) NOT VALID`,
+  );
   await shop('hasOne', 'Kusina Reyes');
   await shop('emptyName', ''); // business_name is NOT NULL; a trigger-opened shop is ''
   await shop('blankName', '   \t ');

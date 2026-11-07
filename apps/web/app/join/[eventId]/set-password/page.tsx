@@ -18,6 +18,7 @@ import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-shell';
 import { setPasswordAction } from './actions';
+import { PasswordField } from '@/app/_components/password-field';
 
 export const metadata = { title: 'Set a password' };
 
@@ -75,10 +76,9 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
           <label htmlFor="password" className="block text-sm font-medium text-ink">
             New password
           </label>
-          <input
+          <PasswordField
             id="password"
             name="password"
-            type="password"
             required
             minLength={8}
             autoComplete="new-password"

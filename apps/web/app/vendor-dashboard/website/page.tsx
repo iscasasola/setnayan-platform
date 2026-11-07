@@ -69,6 +69,7 @@ export default async function YourPage({
           publicPath: d.publicPath,
           displayHost: DISPLAY_HOST,
           live: d.live,
+          isDemo: d.isDemo,
           showBeforeVerified: d.showBeforeVerified,
           visible: d.visible,
           isVerified: d.isVerified,
@@ -107,7 +108,7 @@ export default async function YourPage({
           </>
         }
         autoReplyBody={vendorAutoReplyEnabled() ? <AutoReplySection vendorProfileId={d.vendorId} /> : null}
-        reviewsBody={<ReviewReplies reviews={d.replyRows} vendorName={d.businessName || 'Your business'} capped={d.replyCapped} />}
+        reviewsBody={<ReviewReplies reviews={d.replyRows} vendorName={d.businessName || 'Your business'} capped={d.replyCapped} guestReviews={d.guestReviews} />}
       />
     </section>
   );

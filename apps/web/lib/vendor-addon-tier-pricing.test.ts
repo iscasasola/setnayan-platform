@@ -18,10 +18,9 @@ test('band: Free / Verified / Solo pay the entry row', () => {
   assert.equal(vendorAddonPriceBand('solo'), 'entry');
 });
 
-test('band: Pro / Ultra (enterprise) / Custom pay the growth row', () => {
+test('band: Pro / Ultra (enterprise) pay the growth row', () => {
   assert.equal(vendorAddonPriceBand('pro'), 'growth');
   assert.equal(vendorAddonPriceBand('enterprise'), 'growth');
-  assert.equal(vendorAddonPriceBand('custom'), 'growth');
 });
 
 test('band: unknown / missing tier fails to the entry row (never the cheaper one)', () => {

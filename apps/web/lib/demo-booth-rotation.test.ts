@@ -32,10 +32,9 @@ const ids = (r: RotatableVendor[]) => r.map((x) => x.vendorProfileId);
 
 // ── weight ───────────────────────────────────────────────────────────────────
 
-test('rotationWeight: Enterprise 3 · Pro/Custom 2 · Verified 1 · +1 for an ad boost', () => {
+test('rotationWeight: Enterprise 3 · Pro 2 · Verified 1 · +1 for an ad boost', () => {
   assert.equal(rotationWeight('enterprise', 0), 3);
   assert.equal(rotationWeight('pro', 0), 2);
-  assert.equal(rotationWeight('custom', 0), 2);
   assert.equal(rotationWeight('verified', 0), 1);
   assert.equal(rotationWeight('free', 0), 1);
   assert.equal(rotationWeight(null, 0), 1);

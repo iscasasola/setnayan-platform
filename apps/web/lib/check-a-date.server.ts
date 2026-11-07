@@ -42,6 +42,8 @@ export type CheckDateShop = {
   name: string;
   initials: string;
   verified: boolean;
+  /** 🧪 A demo shop (`vendor_profiles.is_demo`) — the page wears "(DEMO ONLY)" (`DemoOnlyMarker`, owner 2026-11-06). */
+  isDemo: boolean;
 };
 
 export type CheckDateServiceOption = {
@@ -108,8 +110,9 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
     return { kind: 'unreadable' };
   }
   const row = shopRead.data as ShopRow | null;
-  // The shop page's own door (`shopPageGate`): a stranger opens a live, listed, non-demo shop — anything else is
-  // the not-found page, which never says whether a shop exists.
+  // The shop page's own door (`shopPageGate`): a stranger opens a live, listed shop — anything else is the not-found
+  // page, which never says whether a shop exists. A demo shop opens too (owner 2026-11-06) and says so: `isDemo`.
+  // 🧪 No event here, so no demo scope: this is the PUBLIC page beside the shop page, not an event's supplier search.
   if (!row || shopPageGate(row, { isTeam: false, adminDemoMode: false }).open !== 'public') return { kind: 'missing' };
 
   const id = row.vendor_profile_id;
@@ -271,6 +274,7 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
       initials: initialsOf(name),
       // The badge is the ONE predicate (`hasVerifiedBadge`): verified AND inside its renewal deadline.
       verified: hasVerifiedBadge(row, now),
+      isDemo: row.is_demo === true,
     },
     services: serviceRows.map((s) => ({
       serviceId: s.vendor_service_id,

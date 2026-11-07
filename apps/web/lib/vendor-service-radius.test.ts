@@ -30,7 +30,7 @@ import {
 import { tierCaps } from './vendor-tier-caps';
 
 /* ── The tier ladder this whole feature is capped by ────────────────────────
- * free 0 · verified 20 · solo 30 · pro 100 · enterprise ∞ · custom ∞ (owner 2026-11-04, DECISION_LOG
+ * free 0 · verified 20 · solo 30 · pro 100 · enterprise ∞ (owner 2026-11-04, DECISION_LOG
  * "SUPPLIER PLAN ALLOWANCES": "pro reach 100, ultra nationwide"; was pro 50 · enterprise 100).
  * Asserted against the real cap table so a tier reprice can't silently rot the
  * expectations below. */
@@ -40,7 +40,6 @@ test('tierOuterRadiusCapKm mirrors the published Service reach ladder', () => {
   assert.equal(tierOuterRadiusCapKm('solo'), 30); // owner 2026-10-23 (was 20)
   assert.equal(tierOuterRadiusCapKm('pro'), 100); // owner 2026-11-04 (was 50)
   assert.equal(tierOuterRadiusCapKm('enterprise'), Infinity); // nationwide (was 100)
-  assert.equal(tierOuterRadiusCapKm('custom'), Infinity);
   // Unknown / null tier degrades to `free` via asVendorTier — never to a
   // generous default. A garbage tier_state must not hand out 100 km.
   assert.equal(tierOuterRadiusCapKm(null), tierCaps('free').serviceRadiusKm);
@@ -239,7 +238,7 @@ test('composed · the downgrade CHANGES the badge a couple sees', () => {
 });
 
 test('composed · an undeclared vendor gets null on EVERY tier', () => {
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom', null]) {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', null]) {
     assert.equal(
       travelFeeVerdictForVendor({
         distanceKm: 12,

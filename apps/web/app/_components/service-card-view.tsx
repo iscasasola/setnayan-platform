@@ -9,6 +9,7 @@ import {
   type CardRecordRating,
 } from '@/app/_components/card-record-section';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { CardReviewsBlock } from '@/app/_components/card-reviews-block';
 import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
 import type { ServiceCard } from '@/lib/service-card-view-model';
@@ -36,6 +37,11 @@ export type ServiceCardShop = {
   logoUrl: string | null;
   /** Optional city line under the name. */
   city?: string | null;
+  /**
+   * 🧪 `vendor_profiles.is_demo` — the shop row wears "(DEMO ONLY)" (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO
+   * EVENTS"). Beside the logo link, never inside it (the marker's ⓘ is a button).
+   */
+  isDemo?: boolean;
 };
 
 /**
@@ -121,6 +127,7 @@ export function ServiceCardView({
       {shop ? (
         <div className="relative z-10 mb-3 flex items-center gap-2">
           <ShopMark shop={shop} />
+          {shop.isDemo === true ? <DemoOnlyMarker /> : null}
         </div>
       ) : null}
 

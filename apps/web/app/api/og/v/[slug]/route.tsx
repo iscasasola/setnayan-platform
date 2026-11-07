@@ -7,6 +7,7 @@ import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { renderVendorOgPng } from '@/lib/social/vendor-card';
 import { composeVendorOgDescription } from '@/lib/vendor-og-description';
+import { DEMO_ONLY_LABEL } from '@/app/_components/demo-only-label';
 
 /**
  * GET /api/og/v/[slug] — the Open Graph share card for a public shop page
@@ -24,11 +25,12 @@ import { composeVendorOgDescription } from '@/lib/vendor-og-description';
  *
  * SAFETY GATE (mirrors `vendorMetadataBySlug` exactly — same `fetchVendor`,
  * same two checks, in the same order): the real, name-bearing card renders
- * ONLY for a shop that is BOTH publicly visible (`isPubliclyVisible`, the
- * exact check the page itself 404s on) AND not a demo vendor (`is_demo`).
- * A hidden/archived shop, a demo shop, a missing slug, or any render failure
- * ALL fall back to the static brand card — so this route can never be used to
- * probe whether a hidden shop exists, or to leak a demo shop's name.
+ * ONLY for a shop that is publicly visible (`isPubliclyVisible`, the exact
+ * check the page itself 404s on). A hidden/archived shop, a missing slug, or
+ * any render failure ALL fall back to the static brand card — so this route
+ * can never be used to probe whether a hidden shop exists.
+ * 🧪 A demo shop (`is_demo`) is public since 2026-11-06 and gets its own card,
+ * whose eyebrow prints `DEMO_ONLY_LABEL` — "A SETNAYAN SHOP · (DEMO ONLY)".
  * Hybrid-anonymity is honoured too: the card's name is
  * `resolveVendorDisplayName`'s output, the SAME function the page title and
  * the JSON-LD `name` already use — never the raw `business_name`.
@@ -73,9 +75,10 @@ export async function GET(
   try {
     const vendor = await fetchVendor(slug);
 
-    // The exact same gate as vendorMetadataBySlug: hidden/archived AND demo
-    // vendors fall back to the static brand card, never the personalized one.
-    if (!vendor || !isPubliclyVisible(vendor.public_visibility) || vendor.is_demo === true) {
+    // Hidden/archived shops fall back to the static brand card, never the personalized one.
+    // 🧪 A demo shop is public since 2026-11-06 (owner, DECISION_LOG "DEMO SHOPS + DEMO EVENTS") and gets its
+    // own card — which says "(DEMO ONLY)" above its name, so a shared link never passes a demo off as a supplier.
+    if (!vendor || !isPubliclyVisible(vendor.public_visibility)) {
       return Response.redirect(DEFAULT_OG, 302);
     }
 
@@ -101,6 +104,7 @@ export async function GET(
       displayName,
       description,
       logoUrl,
+      demoLabel: vendor.is_demo === true ? DEMO_ONLY_LABEL : null,
     });
     return pngResponse(png);
   } catch {

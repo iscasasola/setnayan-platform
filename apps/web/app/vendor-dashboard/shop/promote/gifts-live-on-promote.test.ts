@@ -21,14 +21,18 @@ const APP = join(HERE, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
 
 const PROMOTE = 'vendor-dashboard/shop/promote/page.tsx';
+/** THE ONE BUILD (C4, A3 W5): Promote's sections moved into ONE body the page AND Shop's Promote sheet mount. */
+const BODY = 'vendor-dashboard/shop/promote/_components/promote-body.tsx';
 const PLAN = 'vendor-dashboard/subscription/_components/plan-screen.tsx';
 
 test('1 · Promote draws the shipped gifts section with its own read', () => {
-  const src = read(PROMOTE);
-  assert.match(src, /import \{ ShopGiftsSection \} from '\.\/_components\/shop-gifts-section'/);
+  const src = read(BODY);
+  assert.match(src, /import \{ ShopGiftsSection \} from '\.\/shop-gifts-section'/);
   assert.match(src, /loadShopGiftsSection\(supabase, profile\.vendor_profile_id\)/, 'Promote does not read the gifts');
   assert.equal([...src.matchAll(/<ShopGiftsSection\b/g)].length, 1, 'Promote does not draw the gifts section exactly once');
   assert.match(src, /<ShopGiftsSection data=\{gifts\} \/>/);
+  assert.doesNotMatch(read(PROMOTE), /<ShopGiftsSection\b/, 'the page draws the gifts beside the body — twice');
+  assert.match(read(PROMOTE), /<PromoteBody search=\{search\} part="all" gifts=\{giftsPromise\} \/>/, 'the page reads the gifts twice');
   assert.ok(!existsSync(join(APP, 'vendor-dashboard/subscription/_components/shop-gifts-section.tsx')), 'a copy of the section is back on Plan');
 });
 
@@ -41,8 +45,11 @@ test('2 · the Plan page neither draws, reads nor links to the gifts', () => {
 
 test('3 · the row’s gift figure is the section’s own read', () => {
   const src = read(PROMOTE);
-  // 2026-11-06: awaited beside Share your work (row 4) — still ONE gifts read.
-  assert.match(src, /const \[gifts, share\] = await Promise\.all\(\[giftsPromise, sharePromise\]\);/);
+  // 2026-11-06: awaited beside Share your work (row 4) — still ONE gifts read. THE ONE BUILD: the page reads it once
+  // for its row's figure and hands the same promise to the body, which awaits it beside the share read.
+  assert.match(src, /const gifts = await giftsPromise;/);
+  assert.match(read(BODY), /const \[gifts, share, member\] = await Promise\.all\(\[giftsPromise, sharePromise, memberPromise\]\);/);
+  assert.match(read(BODY), /giftsRead \?\? loadShopGiftsSection\(/, 'the body reads the gifts again when the page already did');
   assert.match(src, /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock \? gifts\.stock\.papic\.balance : null\s*\}\)\}/, 'the figure is not the section’s stock (or an unread stock is not null)');
   assert.equal([...src.matchAll(/fetchShopGiftStock/g)].length, 0, 'a second stock read beside the section’s');
 });

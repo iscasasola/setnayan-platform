@@ -1,6 +1,7 @@
 import { Gauge, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import type { PricePositionResult } from '@/lib/price-position';
 import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
+import { CardFace } from './card-face';
 
 /**
  * Price-Position Meter card (Wave 6 vendor benefit).
@@ -32,9 +33,39 @@ export type PricePositionUnreadable = { status: 'unreadable' };
 
 export function PricePositionCard({
   result,
+  compact = false,
 }: {
   result: PricePositionResult | PricePositionUnreadable;
+  /**
+   * 🃏 Shop › Analytics' "price" face (THE ONE BUILD A3 W8): the same `BandRail` (low · median · high) with your
+   * marker. Thin market → "Not enough market data yet" — never a range estimated from a handful. A snapshot: its
+   * sheet draws no line (no price history is stored).
+   */
+  compact?: boolean;
 }) {
+  if (compact) {
+    const line =
+      result.status === 'unreadable'
+        ? 'Couldn’t load'
+        : result.status === 'no_data'
+          ? 'Not enough market data yet'
+          : result.status === 'no_own_price'
+            ? 'Add a starting price to see where you sit'
+            : `You ${result.key.ownPricePhp !== null ? `start at ${peso(result.key.ownPricePhp)}` : 'have no price'} · median ${peso(result.band.medianPhp)}`;
+    return (
+      <CardFace title="Where your price sits" window="Your region" line={line} data="price">
+        {result.status === 'positioned' || result.status === 'no_own_price' ? (
+          <BandRail
+            band={result.band}
+            ownPricePhp={result.status === 'positioned' ? result.key.ownPricePhp : null}
+            percentile={result.status === 'positioned' ? result.percentile : null}
+          />
+        ) : (
+          <div className="mt-6 h-2.5 rounded-full border-[1.5px] border-dashed border-ink/20" aria-hidden />
+        )}
+      </CardFace>
+    );
+  }
   if (result.status === 'unreadable') {
     return (
       <section className="sn-tile mt-8 p-6">

@@ -2,6 +2,7 @@ import { Info, TrendingUp } from 'lucide-react';
 
 import type { FunnelBenchmark, MetricBenchmark } from '@/lib/funnel-benchmark';
 import { ShopCard } from '../../_components/kit';
+import { CardFace } from './card-face';
 
 /**
  * FunnelBenchmarkCard — the doorway `lib/funnel-benchmark.ts` never had.
@@ -52,7 +53,14 @@ function formatBandMid(metric: MetricBenchmark): string {
 export function FunnelBenchmarkCard({
   benchmark,
   unreadable = false,
+  compact = false,
 }: {
+  /**
+   * 🃏 Shop › Analytics' "compare" face (THE ONE BUILD A3 W8): Reply rate · Reply time · Inquiry→booking, each with
+   * its tier word ("Top quarter" …) — only where both your value and a band exist; below the peer floor it says
+   * "Not enough shops like yours yet", and a refused read says "Couldn't load" (S41c), never a made-up rank.
+   */
+  compact?: boolean;
   benchmark: FunnelBenchmark;
   /** true = the benchmark read was REFUSED, not below the min-N floor — say
    *  we couldn't check, never "not enough shops like yours yet" (S41c). */
@@ -61,6 +69,34 @@ export function FunnelBenchmarkCard({
   /* Only metrics that have BOTH an own value and a band can be placed. Drawing a
      marker without one of them would be inventing a position. */
   const placed = benchmark.metrics.filter((m) => m.percentile !== null && m.band !== null);
+
+  if (compact) {
+    const line = unreadable
+      ? 'Couldn’t load shops like yours'
+      : !benchmark.hasBand || placed.length === 0
+        ? 'Not enough shops like yours yet'
+        : `${placed.length} of ${benchmark.metrics.length} placed among similar shops`;
+    return (
+      <CardFace title="Compared with similar suppliers" window="Your category" line={line} data="compare">
+        <ul className="space-y-2.5 pt-1">
+          {benchmark.metrics.map((m) => {
+            const on = !unreadable && m.percentile !== null && m.band !== null;
+            return (
+              <li key={m.key}>
+                <div className="mb-1 flex justify-between gap-2 text-[12px] text-ink/70">
+                  <span>{m.label}</span>
+                  <span>{on && m.tier ? TIER_COPY[m.tier] : '—'}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-ink/[0.06]">
+                  {on ? <div className="h-full rounded-full" style={{ width: `${Math.max(4, m.percentile!)}%`, background: 'var(--m-orange)' }} /> : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </CardFace>
+    );
+  }
 
   if (unreadable) {
     return (

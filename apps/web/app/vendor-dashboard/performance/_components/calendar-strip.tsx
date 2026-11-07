@@ -1,5 +1,7 @@
 'use client';
 
+import './analytics-growing.css';
+
 import { STRIP_DAYS } from '@/lib/analytics-growing';
 
 /**

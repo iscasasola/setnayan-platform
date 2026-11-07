@@ -2,6 +2,7 @@ import { Sparkles, Store, Info } from 'lucide-react';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import { formatPhp } from '@/lib/orders';
 import { CountUp } from './count-up';
+import { CardFace } from './card-face';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -82,7 +83,15 @@ export function RoiAttributionCard({
   windowLabel,
   scopeLabel = null,
   nullServiceExcluded = null,
+  compact = false,
+  unread = false,
 }: {
+  /**
+   * 🃏 Shop › Analytics' "worth" face (THE ONE BUILD A3 W8): the two bars, "From Setnayan" and "Your imported clients"
+   * (the app's words — never "Your own book"), over the page's window. `unread` = the read failed: "Couldn't load".
+   */
+  compact?: boolean;
+  unread?: boolean;
   attribution: SourceAttribution | null;
   /** The vendor's own annual plan cost (PHP), or 0/null when on a free tier. */
   annualPlanPhp: number | null;
@@ -95,6 +104,36 @@ export function RoiAttributionCard({
    *  window, for the reconciliation footnote. null = All services (no footnote). */
   nullServiceExcluded?: number | null;
 }) {
+  if (compact) {
+    const sn = attribution?.setnayan.bookingCount ?? 0;
+    const own = attribution?.offPlatform.bookingCount ?? 0;
+    const max = Math.max(sn, own, 1);
+    const line = unread
+      ? 'Couldn’t load'
+      : !attribution || attribution.totalBookings === 0
+        ? `No bookings ${windowLabel} yet`
+        : `${formatCount(sn)} of ${formatCount(attribution.totalBookings)} bookings came through Setnayan`;
+    return (
+      <CardFace title="What Setnayan added" window={windowLabel.charAt(0).toUpperCase() + windowLabel.slice(1)} line={line} data="worth">
+        <div className="space-y-3 pt-2">
+          {[
+            { label: 'From Setnayan', n: sn, color: 'var(--m-orange)' },
+            { label: 'Your imported clients', n: own, color: 'var(--m-slate-4)' },
+          ].map((b) => (
+            <div key={b.label}>
+              <div className="mb-1 flex justify-between text-[12px] text-ink/70">
+                <span>{b.label}</span>
+                <span className="tabular-nums">{unread ? '—' : formatCount(b.n)}</span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-ink/[0.06]">
+                <div className="h-full rounded-full" style={{ width: unread ? 0 : `${(b.n / max) * 100}%`, background: b.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardFace>
+    );
+  }
   const hasAnything = attribution && attribution.totalBookings > 0;
 
   const setnayan = attribution?.setnayan;

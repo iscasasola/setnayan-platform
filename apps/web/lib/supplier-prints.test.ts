@@ -173,14 +173,15 @@ test('the sheet: Design is ONE dropdown of the 15 (never a pill row), QR is one 
   assert.ok(!/PRINT_DESIGNS\.map\(\(\w+\) => \(\s*<button/.test(src), 'the looks are drawn as a row of buttons — a pill row');
   assert.match(src, /PRINT_PIECES\.map\(\(p\) =>[\s\S]*?<SaveButton piece=\{p\}/);
   assert.match(src, /<SaveFileLink/);
-  const page = stripComments(read('app/vendor-dashboard/shop/promote/page.tsx'));
+  // THE ONE BUILD (C4): Promote's rows are its ONE body (`promote-body.tsx`), mounted by the page and Shop's sheets.
+  const page = stripComments(read('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'));
   assert.match(page, /<ShopPrintsSection canShare=\{canShare\}/);
 });
 
 test('Promote’s rows, in the ruled order: QR codes · prints · gifts · share your work — and its ▾ hint says so', () => {
   // owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL": (1) QR codes (2) Calling card + tarps (3) gifts
-  // (4) Share your work; hint "QR codes · prints · gifts · share your work".
-  const page = stripComments(read('app/vendor-dashboard/shop/promote/page.tsx'));
+  // (4) Share your work; hint "QR codes · prints · gifts · share your work". THE ONE BUILD: the rows are the ONE body.
+  const page = stripComments(read('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'));
   const at = (re: RegExp) => page.search(re);
   const order = [at(/\{body\}/), at(/<ShopPrintsSection /), at(/<ShopGiftsSection /), at(/<ShareYourWork /)];
   assert.ok(order.every((i) => i > 0), `a Promote row is missing: ${order.join(',')}`);

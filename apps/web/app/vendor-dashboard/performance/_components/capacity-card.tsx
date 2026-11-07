@@ -1,5 +1,8 @@
 import { CalendarCheck, Layers, Hourglass } from 'lucide-react';
 import type { CapacityAnalytics } from '@/lib/vendor-capacity-analytics';
+import { aheadLine } from '@/lib/analytics-growing';
+import { CalendarStrip } from './calendar-strip';
+import { CardFace } from './card-face';
 
 /**
  * "Capacity" — My Performance · Phase B family 4 (Pro tier). Own-business,
@@ -50,7 +53,34 @@ function Tile({
   );
 }
 
-export function CapacityCard({ data }: { data: CapacityAnalytics }) {
+export function CapacityCard({
+  data,
+  compact = false,
+  strip,
+}: {
+  data: CapacityAnalytics | null;
+  /**
+   * 🃏 Shop › Analytics' "What's ahead" face (THE ONE BUILD A3 W8): the next 13 weeks as squares — gold = a booked day,
+   * ring = a date couples asked for that you were not free on — over the line "8 days booked ahead · 2 couples waiting
+   * on 2 dates" (`aheadLine`). `data === null` = the read failed: "Couldn't load", never "Nothing booked ahead".
+   */
+  compact?: boolean;
+  /** The strip's marks (`stripMarks` + `stripMonths`); null = the booked days could not be read. */
+  strip?: { months: readonly string[]; booked: readonly { at: number; many: boolean }[]; waiting: readonly number[] } | null;
+}) {
+  if (compact) {
+    const line = aheadLine(
+      data ? { bookedDays: data.load.upcomingBookedDays, waitingCouples: data.waitlistTotal, waitingDates: data.waitlist.length } : null,
+    );
+    return (
+      <CardFace title="What’s ahead" window="Next 13 weeks" line={line} data="ahead">
+        <div data-growth="">
+          <CalendarStrip months={strip?.months ?? []} booked={strip?.booked ?? []} waiting={strip?.waiting ?? []} unread={strip == null} />
+        </div>
+      </CardFace>
+    );
+  }
+  if (!data) return null;
   const { load, waitlist, waitlistTotal } = data;
   const topDates = waitlist.slice(0, 6);
 

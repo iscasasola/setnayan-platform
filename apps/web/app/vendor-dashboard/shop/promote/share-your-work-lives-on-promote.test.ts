@@ -24,16 +24,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
 
-const PROMOTE = read('vendor-dashboard/shop/promote/page.tsx');
+// THE ONE BUILD (C4, A3 W5): Promote's sections are ONE body, mounted by the page and by Shop's Promote sheet.
+const PROMOTE = read('vendor-dashboard/shop/promote/_components/promote-body.tsx');
 const VIEW = read('vendor-dashboard/shop/promote/_components/share-your-work.tsx');
 const DATA = read('vendor-dashboard/shop/promote/_components/share-your-work-data.ts');
 const OLD = ['/vendor-dashboard/real-stories', '/vendor-dashboard/recaps'];
 
 test('1 · Promote draws Share your work once, with its own read, beside the gifts', () => {
-  assert.match(PROMOTE, /import \{ ShareYourWork \} from '\.\/_components\/share-your-work'/);
+  assert.match(PROMOTE, /import \{ ShareYourWork \} from '\.\/share-your-work'/);
   assert.equal([...PROMOTE.matchAll(/<ShareYourWork\b/g)].length, 1);
-  assert.match(PROMOTE, /const sharePromise = loadShareYourWork\(supabase, profile\.vendor_profile_id\);/);
-  assert.match(PROMOTE, /await Promise\.all\(\[giftsPromise, sharePromise\]\)/, 'the share read adds a round trip after the gifts');
+  assert.match(PROMOTE, /const sharePromise = withPromote \? loadShareYourWork\(supabase, profile\.vendor_profile_id\) : Promise\.resolve\(null\);/);
+  assert.match(PROMOTE, /await Promise\.all\(\[giftsPromise, sharePromise, memberPromise\]\)/, 'the share read adds a round trip after the gifts');
   // Row order (the ruling): QR codes · prints · gifts · share your work — share comes after gifts.
   assert.ok(PROMOTE.indexOf('<ShareYourWork') > PROMOTE.indexOf('<ShopGiftsSection'), 'Share your work is not after Your gifts');
   assert.match(VIEW, /<section id="share"/, 'the #share anchor the old routes forward to is missing');

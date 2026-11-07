@@ -1534,9 +1534,7 @@ export async function renderVendorBySlug({
   // Enterprise "Flagship" cinematic layer (tier ladder 2026-07-03) — a full,
   // name-overlaid hero. Only when the vendor is Enterprise AND has chosen a hero
   // photo (else it falls back to the standard banner + identity block).
-  // Flagship cinematic layer: Enterprise-or-higher (Custom runs as Enterprise).
-  // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3) so the
-  // Custom tier inherits the flagship hero + films rack without a hard equality.
+  // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3).
   const isEnterprise = micrositeCan(effectiveTierState).isEnterprise;
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
   // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single

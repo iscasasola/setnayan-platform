@@ -465,7 +465,7 @@ export async function submitOrderAction(
   // and wave it through. This check does not care what the catalog says.
   //
   // Nothing legitimate is lost: each family is minted by its own
-  // vendor-dashboard action (branches / team / custom plan / the booking-fee
+  // vendor-dashboard action (branches / team / the booking-fee
   // lock), never by the couple drawer.
   if (isVendorSurfaceServiceKey(serviceKey)) {
     return {

@@ -99,7 +99,7 @@ const ENDPOINTS: Endpoint[] = [
     example: `curl https://setnayan-platform-web.vercel.app/api/v1/vendor/profile \\
   -H "Authorization: Bearer sk_live_…"`,
     notes: [
-      'Requires a Custom vendor plan with API access enabled.',
+      'Requires API access, which is not open to any plan right now.',
       'Returns your own list/quote prices — never other vendors’ data.',
     ],
   },
@@ -171,7 +171,7 @@ export default function ApiV1ReferencePage() {
           Bearer-authenticated; vendor browse is public. The{' '}
           <span className="font-medium text-ink">Ultra vendor SDK</span>{' '}
           (/api/v1/vendor/*) syncs your leads, bookings, availability, and reviews
-          into your own systems, and requires a Custom plan with API access.
+          into your own systems. API access is not open to any plan right now.
           Webhooks and write paths land in a later phase.
         </p>
         <p className="text-sm text-ink/55">
@@ -243,7 +243,7 @@ export default function ApiV1ReferencePage() {
             <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
               Ultra vendor SDK
             </span>{' '}
-            — the scopes below require a Custom vendor plan with API access enabled.
+            — the scopes below require API access, which is not open to any plan right now.
           </li>
           <li>
             <code className="font-mono text-xs">vendor.leads.read</code> — your inbound

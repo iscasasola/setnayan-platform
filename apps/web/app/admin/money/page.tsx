@@ -3,7 +3,7 @@
  *
  * HISTORY: born as a mobile-only overflow landing for the Monetization group
  * (nav tune 2026-06-15), with a hand-maintained card list. That list DRIFTED
- * from the sidebar's Money group (missing Custom plans · Vendor
+ * from the sidebar's Money group (missing Vendor
  * recommendations · Price bands · Compliance and the settings tail; still
  * listing Discount codes, which moved to Studio 2026-07-04) — exactly the
  * drift the /admin/more parity pass eliminated by deriving from

@@ -449,7 +449,7 @@ function bytesToHuman(bytes: number): string {
  * `currentValue` thumbnails on mount when we don't have a separate filename
  * stored. Falls back to "Existing file" if the suffix lookup fails.
  */
-function filenameFromRef(value: string): string {
+export function filenameFromRef(value: string): string {
   if (value.startsWith('r2://')) {
     const rest = value.slice('r2://'.length);
     const slash = rest.indexOf('/');
@@ -457,11 +457,12 @@ function filenameFromRef(value: string): string {
       const key = rest.slice(slash + 1);
       const baseName = key.split('/').pop() ?? '';
       // Object keys are `${prefix}/${uuid}-${origname}`. Strip the UUID
-      // prefix when present.
-      const dashIdx = baseName.indexOf('-');
+      // prefix when present. (7 Nov 2026: this used to test the FIRST dash's
+      // index for 36 — but a UUID's own first dash is at 8, so it never
+      // stripped, and every saved file was labelled "<uuid>-<name>".)
       if (
-        dashIdx === 36 &&
-        /^[0-9a-fA-F-]{36}$/.test(baseName.slice(0, 36))
+        baseName.charAt(36) === '-' &&
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(baseName.slice(0, 36))
       ) {
         return baseName.slice(37) || 'Existing file';
       }

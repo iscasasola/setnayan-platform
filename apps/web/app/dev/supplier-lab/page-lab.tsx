@@ -371,9 +371,15 @@ function detailsFixture(who: Who): DetailsData {
 export type LabDocs = 'none' | 'some' | 'checking' | 'fix' | 'unread';
 
 /** The lab's four papers — the first `n` on file, read by the SAME rule the page uses (`setupPapers`). */
+/** A lab paper's stored ref — the shape `/api/upload` writes (`<prefix>/<uuid>-<file name>`): the first is a photo, the rest PDFs. */
+const labPaperRef = (key: string, i: number) =>
+  `r2://vendor-verification/vendors/lab-invited/verification/${key}/0b7d2c4e-5f61-4a8b-9c3d-2e1f0a9b8c7d-${i === 0 ? 'dti-certificate.jpg' : `${key}.pdf`}`;
+const LAB_PAPER_KEYS = DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((s) => s.key);
+/** The lab's preview for the photo paper (a public image — the lab signs nothing). */
+export const LAB_PAPER_URLS: Record<string, string> = { [labPaperRef(LAB_PAPER_KEYS[0] ?? '', 0)]: '/placeholders/vendor.webp' };
+
 export function labPapers(status: string | null, n: number, measured = true): SetupPaper[] | null {
-  const keys = DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((s) => s.key);
-  const uploads = Object.fromEntries(keys.slice(0, n).map((k) => [k, { r2_key: `vendors/lab-invited/verification/${k}/lab.pdf` }]));
+  const uploads = Object.fromEntries(LAB_PAPER_KEYS.slice(0, n).map((k, i) => [k, { r2_key: labPaperRef(k, i) }]));
   return setupPapers({ measured, status, uploads });
 }
 

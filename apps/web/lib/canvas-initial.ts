@@ -41,6 +41,11 @@ export type CanvasInitial = {
    * prose stays with the card that made it.
    */
   includesSetnayanGift: boolean;
+  /**
+   * One of the shop's own gift packs on the card (`vendor_services.gift_pack_code`, 7 Nov 2026 — the card's Gift
+   * dropdown), or null/absent for none. Mutually exclusive with `includesSetnayanGift` (the database says so too).
+   */
+  giftPackCode?: string | null;
   coverageId: string;
   crewSize: string;
   recommendedLeadTimeMonths: string;

@@ -257,9 +257,10 @@ test('every requirement the gate holds is asked in the first questions', () => {
     join(WEB, 'app/vendor-dashboard/services/_components/canvas-maker.tsx'),
     'utf8',
   );
+  // 2026-11-07: the first questions are the one page of fields' `data-maker-row` sections (makers prototype § 3).
   const more = src.indexOf('data="more"');
   for (const fold of ['photos', 'price', 'included']) {
-    const at = src.indexOf(`data="${fold}"`);
+    const at = src.search(new RegExp(`(?<!\\[)data-maker-row="${fold}"`));
     assert.ok(at > 0 && at < more, `the "${fold}" question is missing or sits under More settings`);
   }
 });

@@ -81,13 +81,13 @@ export default async function EditServiceCardPage({
   const kindName = ctx.kindLabel(card.category);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6">
+    // No page title: the maker's surface carries the card's name (makers prototype 7 Nov 2026 § 3).
+    <div className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6">
       <div className="mb-2 flex min-h-11 items-center gap-2">
         <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
           Shop
         </Link>
-        <h1 className="truncate text-[17px] font-semibold tracking-tight text-ink">{card.initial.title || kindName}</h1>
       </div>
       <CanvasMaker
         categoryValue={card.category}
@@ -107,6 +107,8 @@ export default async function EditServiceCardPage({
         schedules={ctx.schedules}
         scheduleOfKind={ctx.scheduleOfKind}
         branches={ctx.branches}
+        giftPacks={ctx.giftPacks}
+        giftFree={ctx.giftFree}
         bookingsPerDate={ctx.bookingsPerDate}
         detailsKind={details ? card.category : null}
         detailsSlot={

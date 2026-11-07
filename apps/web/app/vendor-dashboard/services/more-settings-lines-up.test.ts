@@ -20,7 +20,9 @@ test('a nested row’s mark sits in the same box as the row above it', () => {
 });
 
 test('every top-level row puts its name on the fold head’s column (40 px mark + 8 px gap)', () => {
-  assert.match(src, /items-center gap-2 py-2" data-maker-row="name"/);
+  /* The Name row left this rule on 2026-11-07: the first page now follows the makers prototype's one rhythm (label ·
+     48 px box · hint — DECISION_LOG "THE FOUR MAKERS ARE APPROVED…", § 3), held by lib/the-card-gift-is-one-dropdown
+     .test.ts. MakerRow — still drawn inside More settings — keeps the column. */
   const row = src.slice(src.indexOf('function MakerRow('), src.indexOf('function SlotRows('));
   assert.equal((row.match(/items-center gap-2 py-2/g) ?? []).length, 2, 'a MakerRow form went back to a different gap');
 });

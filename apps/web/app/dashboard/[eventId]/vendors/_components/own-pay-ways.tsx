@@ -37,7 +37,7 @@ export function OwnPayWays({ vendorName, ways }: { vendorName: string; ways: Pay
     <section className="space-y-1.5" data-pay-section="ways">
       <p className={K2}>How to pay them</p>
       {ways === 'unreadable' ? (
-        <p role="alert" className="text-[13px] text-danger-800 dark:text-danger-200">
+        <p role="alert" className="text-[13px] text-danger-800">
           We couldn&apos;t load how to pay {vendorName} just now. Refresh to try again.
         </p>
       ) : ways.length === 0 ? (

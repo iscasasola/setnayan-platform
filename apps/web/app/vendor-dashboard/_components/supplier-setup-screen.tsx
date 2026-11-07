@@ -49,6 +49,7 @@ export function SupplierSetupScreen({
   lab = false,
   gear,
   tour = null,
+  paperUrls,
 }: {
   d: SetupDetails;
   rail: FirstStepsRail;
@@ -62,6 +63,8 @@ export function SupplierSetupScreen({
   /** The dev lab: the days-off row writes nothing and says so. */
   lab?: boolean;
   gear?: ReactNode;
+  /** The lab's paper previews (ref → URL). Today leaves it out: the papers are private and signed on demand. */
+  paperUrls?: Record<string, string>;
 }) {
   const view = assembleSetup({
     checklist: d.checklist,
@@ -113,7 +116,7 @@ export function SupplierSetupScreen({
     ),
     docs: (
       <div className="space-y-3">
-        <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} />
+        <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
         <Fold
           data="setup-papers-more"
           title="Get verified"

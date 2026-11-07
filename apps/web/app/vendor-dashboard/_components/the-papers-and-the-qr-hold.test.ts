@@ -130,12 +130,22 @@ test('B2 · each row’s state is read off the latest application — none · up
   // Drawn: "some" = one uploaded in a draft; "checking" = four under review; "fix" = the reason, said once.
   const some = between(await drawLab('some'), 'data-setup-body="docs"', 'data-setup-body="qr"');
   assert.match(some, /data-setup-paper="dti_certificate" data-paper-state="uploaded"/);
-  assert.match(some, /data-badge-for="setup-paper-dti_certificate"[^>]*>Uploaded</);
+  // The row with a file: its thumbnail, "✓ Saved · <the file's own name>" (the shipped `filenameFromRef`), opens in place.
+  assert.match(some, /data-setup-paper-thumb="image"/);
+  assert.match(text(some), /Saved · dti-certificate\.jpg/);
+  assert.equal((some.match(/data-setup-paper-open/g) ?? []).length, 1);
+  // No state pill: the line says it. The three without a file are one tap — Add, nothing to open first.
+  assert.doesNotMatch(text(some), /Not sent yet/);
+  assert.equal((some.match(/data-testid="setup-paper-add"/g) ?? []).length, 3);
+  assert.match(text(some), /Required · 2 of 4 · PDF \/ JPG \/ PNG up to 15 MB/);
   const checking = between(await drawLab('checking'), 'data-setup-body="docs"', 'data-setup-body="qr"');
   assert.equal((checking.match(/data-paper-state="review"/g) ?? []).length, 4);
-  assert.doesNotMatch(checking, /data-setup-paper-open/, 'a paper under review can still be replaced');
+  assert.doesNotMatch(checking, /data-setup-paper-open|setup-paper-add/, 'a paper under review can still be replaced');
+  assert.equal((text(checking).match(/Under review · Setnayan checks it/g) ?? []).length, 4);
   const fix = between(await drawLab('fix'), 'data-setup-body="docs"', 'data-setup-body="qr"');
   assert.equal((fix.match(/data-paper-state="new_copy"/g) ?? []).length, 4);
+  assert.equal((fix.match(/data-testid="setup-paper-add"/g) ?? []).length, 4);
+  assert.equal((text(fix).match(/Needs a new copy/g) ?? []).length, 4);
   assert.match(text(fix), /Setnayan sent them back: The BIR 2303 photo is cut off at the bottom/);
 });
 
@@ -151,8 +161,12 @@ test('B3 · a refused read is said — never four empty rows', async () => {
 
 test('B4 · the upload is the shipped one — the same bucket, folder and save as Your details; saves one at a time', () => {
   const c = code('app/vendor-dashboard/_components/setup-papers.tsx');
-  assert.match(c, /import \{ updateDocUploadInline \} from '\.\.\/shop\/inline-docs-actions';/);
+  assert.match(c, /import \{ loadInlineDocs, updateDocUploadInline \} from '\.\.\/shop\/inline-docs-actions';/);
   assert.match(c, /bucket="vendor-verification"/);
+  // ONE TAP: Add / Replace press the shipped upload's own picker (drawn only as the pill, `studio-prints-six.tsx` `pick`).
+  assert.match(c, /querySelector<HTMLInputElement>\('\[data-setup-paper-upload\] input\[type="file"\]'\)\?\.click\(\)/);
+  assert.match(c, /label="Add" onClick=\{pick\}|label="Add"\s+onClick=\{pick\}/);
+  assert.match(c, /tone="danger" icon=\{<Trash2 [^\n]*?\/>\} label="Remove"/);
   assert.match(c, /pathPrefix=\{`vendors\/\$\{vendorProfileId\}\/verification\/\$\{p\.key\}`\}/);
   assert.match(c, /const run = queue\.then\(\(\) => updateDocUploadInline\(null, fd\)\);/, 'two first saves can race to make two drafts');
   const shipped = code('app/vendor-dashboard/shop/_components/verify-pairs.tsx');

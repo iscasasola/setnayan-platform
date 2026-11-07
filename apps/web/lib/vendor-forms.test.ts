@@ -110,7 +110,7 @@ test('a template copies question lines only, with safe types', () => {
 test('answers are text, shaped by type', () => {
   assert.equal(answerText('number', '12.5'), '12.5');
   assert.equal(answerText('number', 'twelve'), null);
-  assert.equal(answerText('date', '2027-02-14'), '2027-02-14');
+  assert.equal(answerText('date', ' 14 Feb 2027 '), '14 Feb 2027', 'a date is the couple’s words (text answers only)');
   assert.equal(answerText('yes_no', 'Maybe'), null);
   assert.equal(answerText('checkboxes', ['A', 'Z', 'B'], ['A', 'B']), 'A · B');
   assert.equal(answerText('dropdown', 'C', ['A', 'B']), null);

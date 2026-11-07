@@ -197,7 +197,9 @@ async function saveDraft(
   if (exErr) return { error: NOT_SAVED };
   const keep = new Set<string>();
   for (const [i, it] of draft.items.entries()) {
-    const row = { ...itemRow(it, i), updated_at: now };
+    const base = itemRow(it, i);
+    // `is_required` named here on purpose: this save IS the Required switch's handle (gates-have-handles).
+    const row = { ...base, is_required: base.is_required, updated_at: now };
     if (it.id) {
       keep.add(it.id);
       const { data, error } = await supabase

@@ -299,7 +299,6 @@ export function answerText(type: FormAnswerType, raw: string | string[] | null |
   const t = raw.trim();
   if (!t) return null;
   if (type === 'number' && !/^-?\d+(?:[.,]\d+)?$/.test(t)) return null;
-  if (type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
   if (type === 'yes_no' && t !== 'Yes' && t !== 'No') return null;
   if ((type === 'multiple_choice' || type === 'dropdown') && options && options.length && !options.includes(t)) return null;
   return t.slice(0, ANSWER_MAX);

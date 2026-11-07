@@ -150,6 +150,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
       .from('vendor_profiles')
       .select('vendor_profile_id', { count: 'exact', head: true })
       .neq('business_name', '')
+      .eq('is_demo', false) // 🧪 a seeded demo shop is not a supplier who onboarded (owner 2026-11-06)
       .gte('created_at', sinceIso),
     // First chat thread = "first booking received" proxy. We're after the
     // count of distinct vendor_profile_ids that received at least one thread

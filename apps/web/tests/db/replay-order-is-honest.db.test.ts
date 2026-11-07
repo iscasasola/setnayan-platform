@@ -594,6 +594,8 @@ test('no deferred migration lands after the last migration that writes what it w
  *     exactly like the fallback constant it pairs with.
  *   · all eight on 2026-11-04 (the owner's FINAL price sheet + "ULTRA = ₱5,990…",
  *     migration 20271308555594_the_final_price_sheet.sql).
+ *   · vendor_additional_branch ₱1,990 → ₱990 on 2026-11-06 (owner, "ULTRA ADD-ON PRICES": *"seat, branch + 990"*,
+ *     migration 20271316466285_ultra_addons_and_bookings_per_date.sql).
  */
 const OWNER_PRICE_SHEET_2026_08_27: Array<[string, number]> = [
   ['solo_vendor_monthly', 990],
@@ -602,7 +604,7 @@ const OWNER_PRICE_SHEET_2026_08_27: Array<[string, number]> = [
   ['solo_vendor_annual', 9900],
   ['pro_vendor_annual', 24900],
   ['enterprise_vendor_annual', 59900],
-  ['vendor_additional_branch', 1990],
+  ['vendor_additional_branch', 990],
   ['vendor_3d_booth', 1490],
 ];
 

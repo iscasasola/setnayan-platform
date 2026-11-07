@@ -215,6 +215,8 @@ export type FrontDoorShop = {
    * passes a legacy https value straight through).
    */
   logoUrl: string | null;
+  /** 🧪 `vendor_profiles.is_demo` — the shelf card wears "(DEMO ONLY)" (owner, DECISION_LOG 2026-11-06). */
+  isDemo: boolean;
 };
 
 export type FrontDoorData = {
@@ -232,8 +234,10 @@ export type FrontDoorData = {
    */
   storyCount: number | null;
   shops: FrontDoorShop[];
-  /** null = the read failed. Never coerced to 0. */
+  /** null = the read failed. Never coerced to 0. Demo shops included — it decides whether the shelf is empty. */
   liveShopCount: number | null;
+  /** 🔢 Real shops only (`REAL_SHOP_GATE`) — decides the heading; demo numbers never count (owner 2026-11-06). */
+  realShopCount: number | null;
   /**
    * Real, consented, non-sample published weddings.
    * ⚠ Only ever feeds the SHAPE composer, never the screen — the shared
@@ -327,6 +331,7 @@ async function toFrontDoorShop(
     name,
     folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
     city: typeof row.location_city === 'string' ? row.location_city : null,
+    isDemo: row.is_demo === true,
     // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
     // deadline, not verification_state alone.
     verified: hasVerifiedBadge({
@@ -407,7 +412,7 @@ export async function searchLiveShops(
  */
 async function loadLiveShops(
   limit: number,
-): Promise<{ shops: FrontDoorShop[]; count: number | null }> {
+): Promise<{ shops: FrontDoorShop[]; count: number | null; realCount: number | null }> {
   /*
     ⚡ THE ROWS AND THE COUNT ARE THE SAME FOR EVERY VISITOR, so they are
     remembered (`rememberedLiveShopRows`, 60 s; cleared when a shop's listing
@@ -420,21 +425,23 @@ async function loadLiveShops(
   */
   let rows: Record<string, unknown>[];
   let count: number | null;
+  let realCount: number | null;
   try {
-    ({ rows, count } = await rememberedLiveShopRows(limit));
+    ({ rows, count, realCount } = await rememberedLiveShopRows(limit));
   } catch (caught) {
     const refusal = caught instanceof ReadRefused ? (caught.partial as LiveShopRefusal | undefined) : undefined;
     // No client, or the store itself failed ⇒ we did not look.
-    if (!refusal) return { shops: [], count: null };
+    if (!refusal) return { shops: [], count: null, realCount: null };
     if (refusal.countError) {
       logQueryError('app/_components/frontdoor/data.ts: loadLiveShops count', refusal.countError);
     }
     if (refusal.rowsError) {
       logQueryError('app/_components/frontdoor/data.ts: loadLiveShops vendor_profiles', refusal.rowsError);
-      return { shops: [], count: refusal.count };
+      return { shops: [], count: refusal.count, realCount: refusal.realCount ?? null };
     }
     rows = refusal.rows;
     count = refusal.count;
+    realCount = refusal.realCount ?? null;
   }
 
   const shops: FrontDoorShop[] = [];
@@ -444,7 +451,7 @@ async function loadLiveShops(
     const shop = await toFrontDoorShop(row);
     if (shop) shops.push(shop);
   }
-  return { shops, count };
+  return { shops, count, realCount };
 }
 
 async function folderOfService(key: string) {
@@ -504,7 +511,7 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
         (items) => ({ items, ok: true }),
         () => ({ items: [], ok: false }),
       ),
-      loadLiveShops(8).catch(() => ({ shops: [], count: null })),
+      loadLiveShops(8).catch(() => ({ shops: [], count: null, realCount: null })),
       /*
         ⛔ NOT REMEMBERED, deliberately. This read is consent-gated (RA 10173:
         `public_summary_consent_at`, withdrawn the moment a couple says so), it
@@ -640,6 +647,7 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     storyCount: storiesRaw.ok ? storiesRaw.items.length : null,
     shops: shopsRaw.shops,
     liveShopCount: shopsRaw.count,
+    realShopCount: shopsRaw.realCount,
     realWeddingCount,
     yourPeopleOk: yourPeople.ok,
     bookingFee,

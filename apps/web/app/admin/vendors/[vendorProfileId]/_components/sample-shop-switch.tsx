@@ -6,7 +6,8 @@ import { FormRows, SwitchRow } from '@/app/_components/form-row';
 import { moderateServiceCard } from '../card-actions';
 
 /**
- * The admin supplier page's "Sample shop" switch (owner, 6 Nov 2026). One switch, saves in place: it moves the moment
+ * The admin supplier page's "Demo shop" switch (owner, 6 Nov 2026; words per the later same-day ruling "DEMO SHOPS + DEMO
+ * EVENTS" — a demo shop shows publicly, marked "(DEMO ONLY)", and no real event can find, message or book it). One switch, saves in place: it moves the moment
  * it is tapped, posts `op=sample_shop` with an explicit on/off, and puts itself back with a line if the save fails.
  * It never redirects, so the page does not reset (owner rule: a save never resets the screen).
  *
@@ -20,12 +21,12 @@ export function SampleShopSwitch({ shopId, initial }: { shopId: string; initial:
   return (
     <FormRows width="wide" data="sample-shop">
       <SwitchRow
-        name="Sample shop"
+        name="Demo shop"
         about={{
           words:
-            'A sample shows how a shop looks on Setnayan. Its page and card say “Sample shop”, and it never reads as a real supplier: it leaves search, the marketplace and the sitemap, and its page opens only for its own team and for admins in demo mode. Nothing is deleted — switch it off to make it a real shop again.',
+            'A demo shop shows how a supplier looks on Setnayan. It stays in the marketplace with “(DEMO ONLY)” on its page and card, but no real event can find, message or book it, it never counts in real totals, and it stays out of the sitemap. Only demo events book it. Nothing is deleted — switch it off to make it a real shop again.',
         }}
-        line={on ? 'On — shown as a sample, not a real supplier' : 'Off — a real shop'}
+        line={on ? 'On — marked (DEMO ONLY); only demo events can book it' : 'Off — a real shop'}
         on={on}
         disabled={pending}
         problem={problem}

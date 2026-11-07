@@ -60,6 +60,11 @@ export const MAX_LIVE_FAILURES = 6;
  */
 const RETRY_BASE_MS = 5_000;
 const RETRY_CAP_MS = 5 * 60_000;
+/**
+ * A channel must stay live this long before its failure count is forgiven. A server that accepts a join and drops it
+ * seconds later (a flap) is still counted toward the give-up — otherwise every tab would rejoin every ~5 s forever.
+ */
+export const LIVE_STABLE_MS = 60_000;
 
 /** Exponential backoff with FULL jitter: a random point in [0.5, 1.5) × base·3^(n−1), capped. */
 export function retryDelayMs(failures: number, random: () => number = Math.random): number {
@@ -88,6 +93,7 @@ export function createUserLive({
   let closing: Promise<unknown> = Promise.resolve();
   let attempt = 0; // bumps on every open/close, so a late callback from an old channel is ignored
   let failures = 0;
+  let liveSince: number | null = null;
   let joinTimer: unknown = null;
   let hideTimer: unknown = null;
   let unvis: (() => void) | null = null;
@@ -143,7 +149,7 @@ export function createUserLive({
         onStatus: (s) => {
           if (mine !== attempt) return; // our own removeChannel answers CLOSED — not a failure
           if (s === 'SUBSCRIBED') {
-            failures = 0;
+            liveSince = env.now();
             set('live');
             return;
           }
@@ -168,6 +174,9 @@ export function createUserLive({
 
   const fail = () => {
     shut(); // ours, not realtime-js's forever-rejoin
+    // Live long enough → this is a fresh outage, not a flap: start counting again.
+    if (liveSince !== null && env.now() - liveSince >= LIVE_STABLE_MS) failures = 0;
+    liveSince = null;
     failures += 1;
     if (failures >= maxFailures) {
       clearJoin();

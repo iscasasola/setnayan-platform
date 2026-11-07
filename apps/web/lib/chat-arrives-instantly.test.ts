@@ -28,7 +28,7 @@ import ts from 'typescript';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { TabEnv } from './tab-return';
-import { createUserLive, retryDelayMs, MAX_LIVE_FAILURES, JOIN_JITTER_MS, type LiveListener, type LiveStatus, type Transport } from './user-live';
+import { createUserLive, retryDelayMs, MAX_LIVE_FAILURES, JOIN_JITTER_MS, LIVE_STABLE_MS, type LiveListener, type LiveStatus, type Transport } from './user-live';
 import { followEnvelopeLive, followInboxLive, INBOX_REFRESH_GAP_MS } from './unread-follow';
 import { isChatLiveEnabled } from './chat-live-flag';
 import { stampChatLive, worseOutcome } from './chat-live-stamp';
@@ -209,6 +209,39 @@ test(`A4 · a failing join backs off with full jitter (5 s × 3ⁿ) and gives up
     w.leave();
   }
   assert.equal(retryDelayMs(50, () => 0.999), Math.round(5 * 60_000 * 1.499), 'the step is capped at 5 min');
+});
+
+test('A4b · a server that accepts and drops at once (a flap) still runs out of retries; a long live stretch is forgiven', async () => {
+  const tab = fakeTab();
+  const channels: Array<(s: string) => void> = [];
+  const transport: Transport = (h) => {
+    channels.push(h.onStatus);
+    queueMicrotask(() => h.onStatus('SUBSCRIBED'));
+    tab.env.setTimeout(() => h.onStatus('CHANNEL_ERROR'), 1_000); // dropped a second after every join
+    return () => {};
+  };
+  const live = createUserLive({ transport, env: tab.env, random: () => 0.5 });
+  const w = watch(live);
+  await tab.advance(24 * 60 * 60_000);
+  assert.equal(channels.length, MAX_LIVE_FAILURES, 'a flapping server must not earn endless rejoins');
+  assert.equal(live.status(), 'off');
+  w.leave();
+
+  // …but a channel that held for LIVE_STABLE_MS starts its count again on the next drop.
+  const tab2 = fakeTab();
+  let n = 0;
+  const t2: Transport = (h) => {
+    n += 1;
+    queueMicrotask(() => h.onStatus('SUBSCRIBED'));
+    tab2.env.setTimeout(() => h.onStatus('CHANNEL_ERROR'), LIVE_STABLE_MS + 1_000);
+    return () => {};
+  };
+  const live2 = createUserLive({ transport: t2, env: tab2.env, random: () => 0.5 });
+  const w2 = watch(live2);
+  await tab2.advance(60 * 60_000);
+  assert.ok(n > MAX_LIVE_FAILURES, `a stable channel that drops now and then keeps rejoining (${n} joins in an hour)`);
+  assert.notEqual(live2.status(), 'off');
+  w2.leave();
 });
 
 test('A5 · its own close answering CLOSED is not a failure', async () => {

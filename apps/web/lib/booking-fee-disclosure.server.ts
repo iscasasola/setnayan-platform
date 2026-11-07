@@ -3,7 +3,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
-import { chargeIdFromBookingFeeLockServiceKey, isFreeBooking } from '@/lib/booking-fee-lock';
+import {
+  businessMayTakeFreeBooking,
+  chargeIdFromBookingFeeLockServiceKey,
+  isFreeBooking,
+  readBusinessFreeStanding,
+  readFreeHeldBack,
+  type FreeHeldBack,
+} from '@/lib/booking-fee-lock';
 import { agreedTotalNow, type ChangeLineRow } from '@/lib/agreed-total-and-its-changes';
 import {
   fetchVendorFeeOrders,
@@ -94,12 +101,14 @@ export async function resolveBookingFeeStanding(
   // the earlier five-booking rule stay waived. Re-asking `isFreeBooking(ordinal)`
   // of them under the new limit of one would call them billable.
   let frozenFree = false;
+  // 🛡 Why a booking inside the shop's own free place was billed (owner 2026-11-06).
+  let freeHeldBack: FreeHeldBack | undefined;
   let launchNumber: number | null = null;
   let isLaunchBooking = false;
   if (args.eventId) {
     const { data: row, error } = await admin
       .from('booking_fee_ledger')
-      .select('booking_ordinal, is_free_booking, launch_offer, launch_offer_number')
+      .select('booking_ordinal, is_free_booking, launch_offer, launch_offer_number, free_booking_withheld_reason')
       .eq('vendor_profile_id', args.vendorProfileId)
       .eq('event_id', args.eventId)
       .maybeSingle();
@@ -112,12 +121,14 @@ export async function resolveBookingFeeStanding(
       is_free_booking?: boolean | null;
       launch_offer?: boolean | null;
       launch_offer_number?: number | null;
+      free_booking_withheld_reason?: string | null;
     } | null;
     const n = led?.booking_ordinal;
     if (typeof n === 'number' && Number.isFinite(n)) {
       ordinal = n;
       ordinalIsFrozen = true;
       frozenFree = led?.is_free_booking === true;
+      freeHeldBack = readFreeHeldBack(led?.free_booking_withheld_reason) ?? undefined;
     }
     if (led?.launch_offer === true) {
       isLaunchBooking = true;
@@ -176,7 +187,23 @@ export async function resolveBookingFeeStanding(
   // must never quietly spend one of the five during a period when everything
   // was free anyway.
   if (ordinalIsFrozen ? frozenFree : isFreeBooking(ordinal)) {
-    return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
+    // 🛡 ONE FREE FIRST BOOKING PER BUSINESS (owner 2026-11-06). A projected
+    // free place is promised only if the BUSINESS has not spent it under another
+    // account — the same `booking_fee_business_free_standing` the charge asks.
+    // A frozen place already carries its answer and is never re-asked.
+    // 🔒 A refused read, or anything but the two known words, is `unreadable`:
+    // never promise a free booking we could not check.
+    if (ordinalIsFrozen) return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
+    const { data: biz, error: bizErr } = await admin.rpc('booking_fee_business_free_standing', {
+      p_vendor_profile_id: args.vendorProfileId,
+    });
+    if (bizErr) {
+      logQueryError('booking-fee-disclosure: business free standing', bizErr);
+      return { kind: 'unreadable' };
+    }
+    if (businessMayTakeFreeBooking(biz)) return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
+    if (readBusinessFreeStanding(biz) !== 'used_by_business') return { kind: 'unreadable' };
+    freeHeldBack = 'business_already_used';
   }
 
   /*
@@ -207,10 +234,10 @@ export async function resolveBookingFeeStanding(
     until: (win as { booking_fee_free_until?: string | null } | null)?.booking_fee_free_until ?? null,
   };
   if (isBookingFeeFreeWindowActive(window, new Date())) {
-    return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until };
+    return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until, freeHeldBack };
   }
 
-  return { kind: 'billable', ordinal, ordinalIsFrozen, schedule };
+  return { kind: 'billable', ordinal, ordinalIsFrozen, schedule, freeHeldBack };
 }
 
 /**

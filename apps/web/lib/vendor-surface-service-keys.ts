@@ -8,7 +8,6 @@
  *     vendor_booking_fee__<charge_id>         → settles a booking-fee charge
  *     vendor_additional_branch__<branch_id>   → flips a branch subscription live
  *     vendor_extra_seat__<vendor_profile_id>  → recomputes paid team seats
- *     vendor_custom_plan__<vendor_profile_id> → promotes a negotiated Custom plan
  *
  * `activateOrderSku`'s PREFIX_HOOKS provision straight off that string — e.g.
  * `settleBookingFeeCharge(chargeIdFromBookingFeeLockServiceKey(serviceKey))` —
@@ -58,7 +57,7 @@
 import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from './booking-fee-lock';
 import { BRANCH_SERVICE_KEY_PREFIX } from './vendor-branches';
 import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
-import { CUSTOM_PLAN_SERVICE_KEY_PREFIX } from './vendor-custom-catalog';
+import { COUNT_ADDON_SERVICE_KEY_PREFIXES } from './vendor-ultra-addons';
 
 /**
  * Every service-key prefix whose suffix names an object owned by a vendor.
@@ -70,7 +69,11 @@ export const VENDOR_SURFACE_SERVICE_KEY_PREFIXES: readonly string[] = Object.fre
   BOOKING_FEE_LOCK_SERVICE_PREFIX,
   BRANCH_SERVICE_KEY_PREFIX,
   SEAT_SERVICE_KEY_PREFIX,
-  CUSTOM_PLAN_SERVICE_KEY_PREFIX,
+  // vendor_extra_{category,service_card,waitlist,booking_per_date}__<vendor_profile_id> → recompute a paid Ultra
+  // add-on count (owner 2026-11-06).
+  ...COUNT_ADDON_SERVICE_KEY_PREFIXES,
+  // (`vendor_custom_plan__` left this list 2026-11-06: the Custom supplier plan was retired from the app and
+  // its activation hook deleted, so that key provisions nothing any more.)
 ]);
 
 /** Does this key target a vendor-owned object (and therefore need an owner)? */

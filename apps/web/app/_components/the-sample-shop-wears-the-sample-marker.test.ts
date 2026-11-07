@@ -1,13 +1,15 @@
 /**
- * A DEMO SHOP SAYS "SAMPLE SHOP" — IN THE SAMPLE EVENT'S OWN CHIP (owner, 6 Nov 2026: *"They are demo shops. The only
- * real shop is the wedding planner."*, then *"builds don't look like what was designed"*).
+ * A DEMO SHOP WEARS THE SAMPLE EVENT'S OWN CHIP (owner, 6 Nov 2026: *"They are demo shops. The only real shop is the
+ * wedding planner."*, then *"builds don't look like what was designed"*) — and, by the owner's LATER ruling the same day
+ * (DECISION_LOG "DEMO SHOPS + DEMO EVENTS"), the chip says **"(DEMO ONLY)"**, not "Sample shop". This guard is #7333's,
+ * retargeted to those words; `demo-shops-wear-the-marker.test.ts` holds every other public surface.
  *
  *   1. The marker is the sample event's chip, moved — not redrawn: its class is the exact string `realstories/[slug]`
  *      drew for "Sample showcase", and that page now draws it through the same component.
  *   2. The chip renders ONLY for a shop marked `is_demo` — on its page (`/v/[slug]`) and on its marketplace card
  *      (`VendorCard`) — and an unflagged shop's markup is unchanged.
  *   3. The ⓘ says the owner's words.
- *   4. The admin's "Sample shop" switch writes the EXISTING `is_demo` (no second column), saves in place (never
+ *   4. The admin's "Demo shop" switch writes the EXISTING `is_demo` (no second column), saves in place (never
  *      redirects), posts an explicit on/off, and rides the one card dispatcher (no new Vercel route).
  */
 import { test } from 'node:test';
@@ -19,7 +21,7 @@ import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { stripComments } from '@/lib/strip-comments';
-import { SAMPLE_MARKER_CLASS, SAMPLE_SHOP_ABOUT, SampleMarker, SampleShopMarker } from './sample-marker';
+import { DEMO_ONLY_LABEL, DEMO_SHOP_ABOUT, DemoOnlyMarker, SAMPLE_MARKER_CLASS, SampleMarker } from './sample-marker';
 
 // tsx compiles JSX to `React.createElement` (classic runtime) — the components need `React` in scope.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -34,30 +36,30 @@ const SAMPLE_EVENT_CHIP =
 test('the marker is the sample event chip, unchanged, and the sample event draws it through the same component', () => {
   assert.equal(SAMPLE_MARKER_CLASS, SAMPLE_EVENT_CHIP);
   const story = read('app/realstories/[slug]/page.tsx');
-  assert.match(story, /\{wedding\.isSample \? <SampleMarker>Sample showcase<\/SampleMarker> : null\}/);
+  assert.match(story, /\{wedding\.isSample \? <DemoOnlyMarker kind="event" align="end" \/> : null\}/);
   assert.ok(!story.includes(SAMPLE_EVENT_CHIP), 'realstories/[slug] draws its own copy of the chip again');
   assert.equal(
-    renderToStaticMarkup(createElement(SampleMarker, null, 'Sample showcase')),
-    `<span class="${SAMPLE_EVENT_CHIP}">Sample showcase</span>`,
+    renderToStaticMarkup(createElement(SampleMarker)),
+    `<span class="${SAMPLE_EVENT_CHIP}">(DEMO ONLY)</span>`,
   );
 });
 
-test('"Sample shop" is that chip, as the label of its ⓘ, with the owner\'s words', () => {
-  assert.equal(SAMPLE_SHOP_ABOUT, 'A sample to show how a shop looks on Setnayan. Its photos are illustrations.');
-  const html = renderToStaticMarkup(createElement(SampleShopMarker));
-  assert.ok(html.includes(`<span class="${SAMPLE_EVENT_CHIP}">Sample shop</span>`), html);
-  assert.ok(html.includes('aria-label="About Sample shop"'), 'the ⓘ is missing');
-  assert.ok(html.includes(SAMPLE_SHOP_ABOUT), 'the ⓘ does not carry the words');
+test('"(DEMO ONLY)" is that chip, as the label of its ⓘ, with the owner\'s words', () => {
+  assert.equal(DEMO_ONLY_LABEL, '(DEMO ONLY)');
+  const html = renderToStaticMarkup(createElement(DemoOnlyMarker));
+  assert.ok(html.includes(`<span class="${SAMPLE_EVENT_CHIP}">(DEMO ONLY)</span>`), html);
+  assert.ok(html.includes('aria-label="About this demo shop"'), 'the ⓘ is missing');
+  assert.ok(html.includes(DEMO_SHOP_ABOUT.replace(/'/g, '&#x27;')), 'the ⓘ does not carry the words');
 });
 
 test('the shop page shows it only for a shop marked is_demo, outside the flagship branch', () => {
   const page = read('app/v/[slug]/page.tsx');
   assert.match(page, /const isDemoVendor = vendor\.is_demo === true;/);
-  const uses = [...page.matchAll(/<SampleShopMarker\b[^>]*\/>/g)];
-  assert.equal(uses.length, 1, 'the shop page draws "Sample shop" exactly once');
-  assert.match(page, /\{isDemoVendor \? <SampleShopMarker \/> : null\}/);
+  const uses = [...page.matchAll(/<DemoOnlyMarker\b[^>]*\/>/g)];
+  assert.equal(uses.length, 1, 'the shop page draws "(DEMO ONLY)" exactly once');
+  assert.match(page, /\{isDemoVendor \? <DemoOnlyMarker \/> : null\}/);
   // After the name block's `cinematicHero ? null : (…)` closes, so the flagship's card says it too.
-  const at = page.indexOf('{isDemoVendor ? <SampleShopMarker /> : null}');
+  const at = page.indexOf('{isDemoVendor ? <DemoOnlyMarker /> : null}');
   const cinematic = page.lastIndexOf('{cinematicHero ? null : (', at);
   assert.ok(cinematic > 0 && page.slice(cinematic, at).includes(')}'), 'the marker moved inside the cinematic-only branch');
 });
@@ -65,12 +67,12 @@ test('the shop page shows it only for a shop marked is_demo, outside the flagshi
 test('the marketplace card shows it only for a demo shop, and its own amber Demo pill is gone', () => {
   const card = read('app/(shell)/explore/_components/vendor-card.tsx');
   assert.match(card, /const isDemoCard = vendor\.is_demo === true;/);
-  assert.match(card, /\{isDemoCard \? <SampleShopMarker \/> : null\}/);
+  assert.match(card, /\{isDemoCard \? <DemoOnlyMarker \/> : null\}/);
   assert.ok(!/>\s*Demo\s*</.test(card), 'the old "Demo" pill is back');
   assert.ok(!card.includes('ring-warn-200'), 'the old amber demo ring is back');
 });
 
-test('no other surface draws "Sample shop" (page and card only)', () => {
+test('the retired "Sample shop" marker is drawn nowhere (the owner\'s later words replaced it)', () => {
   const hits: string[] = [];
   const walk = (dir: string) => {
     for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {
@@ -78,15 +80,11 @@ test('no other surface draws "Sample shop" (page and card only)', () => {
       if (e.isDirectory()) {
         if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
         walk(rel);
-      } else if (/\.tsx$/.test(e.name) && read(rel).includes('<SampleShopMarker')) hits.push(rel);
+      } else if (/\.tsx$/.test(e.name) && /<SampleShopMarker\b|>\s*Sample shop\s*</.test(read(rel))) hits.push(rel);
     }
   };
   walk('app');
-  assert.deepEqual(hits.sort(), [
-    'app/(shell)/explore/_components/vendor-card.tsx',
-    'app/dev/shop-page-lab/page.tsx',
-    'app/v/[slug]/page.tsx',
-  ]);
+  assert.deepEqual(hits, [], 'a surface still says "Sample shop"');
 });
 
 test('the admin switch writes is_demo in place, on/off, through the one dispatcher', () => {
@@ -104,7 +102,7 @@ test('the admin switch writes is_demo in place, on/off, through the one dispatch
   assert.ok(!/\bback(?:WithError)?\(|redirect\(/.test(fn), 'the switch redirects — a save must not reset the screen');
 
   const sw = read('app/admin/vendors/[vendorProfileId]/_components/sample-shop-switch.tsx');
-  assert.match(sw, /<SwitchRow\b[\s\S]*?name="Sample shop"/);
+  assert.match(sw, /<SwitchRow\b[\s\S]*?name="Demo shop"/);
   assert.match(sw, /fd\.set\('op', 'sample_shop'\)/);
   assert.match(sw, /fd\.set\('sample', next \? 'on' : 'off'\)/);
   assert.match(sw, /catch \{\s*setOn\(was\);/, 'a failed save does not put the switch back');

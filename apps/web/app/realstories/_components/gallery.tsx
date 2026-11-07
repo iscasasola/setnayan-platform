@@ -21,6 +21,7 @@
 // gives a smooth back-and-forth. Viewport-gated, max 3 playing at once, muted.
 // ============================================================================
 
+import { DEMO_ONLY_LABEL } from '@/app/_components/demo-only-label';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, X, ArrowRight, Play, BookOpen } from 'lucide-react';
@@ -256,9 +257,11 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
               Live · 5s
             </span>
           ) : null}
+          {/* 🧪 The owner's words for a demo event (DECISION_LOG 2026-11-06): "(DEMO ONLY)". Printed from the one label;
+              the chip keeps its white-on-photo look because it sits on the cover image, where the ink chip vanishes. */}
           {item.isSample ? (
             <span className="rounded-full border border-white/40 bg-white/10 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white/80 backdrop-blur-sm">
-              Sample
+              {DEMO_ONLY_LABEL}
             </span>
           ) : null}
         </div>

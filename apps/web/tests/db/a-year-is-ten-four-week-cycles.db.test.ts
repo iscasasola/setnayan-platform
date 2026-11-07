@@ -5,12 +5,12 @@
  * Pairs are found by name in `vendor_billing_catalog`, on the replayed migrations (so a reprice in a migration moves
  * the data and this test together):
  *   · `<x>_monthly` ↔ `<x>_annual`   (the plans: solo · pro · enterprise)
- *   · `<x>`         ↔ `<x>_annual`   (storage · seat · branch · extra category · +2 service cards)
+ *   · `<x>`         ↔ `<x>_annual`   (storage · seat · branch · extra category · +2 service cards · and the Ultra
+ *                                      add-ons of 2026-11-06: extra service card · extra wait list · extra booking per date)
  * Active or dark, a pair must agree — a dark row is the price the owner already set for the day it goes on sale.
  *
  * ⚠ `all_tools_unlock_annual` is a LEGACY v1 bundle with no 4-week sibling; it is not a pair and is not matched.
- * The Custom plan prices its year in code (final28 × 10.4, lib/vendor-custom-pricing.ts) — not a catalogue pair, and
- * an open owner question in the 2026-11-04 price PR.
+ * (The Custom plan, which priced its year in code, was retired from the app 2026-11-06.)
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -41,6 +41,10 @@ const MUST_HAVE_A_YEAR = [
   'vendor_additional_branch',
   'vendor_extra_category',
   'vendor_service_cards_2',
+  // Ultra add-ons, owner 2026-11-06 ("ULTRA ADD-ON PRICES") — migration 20271316466285.
+  'vendor_extra_service_card',
+  'vendor_extra_waitlist',
+  'vendor_extra_booking_per_date',
 ];
 
 const yearOf = (sku: string) => (sku.endsWith('_monthly') ? sku.replace(/_monthly$/, '_annual') : `${sku}_annual`);

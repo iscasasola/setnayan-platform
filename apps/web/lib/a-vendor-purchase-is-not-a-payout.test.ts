@@ -114,8 +114,10 @@ test('a new supplier SKU cannot be added without classifying its direction', () 
       'comment there:\n  ' + missing.join('\n  '),
   );
   // A sweep that finds nothing passes forever.
+  // 10, not 12, since 2026-11-06: the two Custom-plan prefix constants were deleted with the Custom plan (their
+  // strings stay classified in lib/vendor-pays-setnayan.ts for orders that already carry them).
   assert.ok(
-    found.length >= 12,
+    found.length >= 10,
     `only ${found.length} supplier SKU/prefix constants found — this scan has ` +
       'gone blind (renamed constants, or the export shape changed). Fix the ' +
       'scan, do not delete it.',

@@ -230,6 +230,12 @@ before(async () => {
     );
     await db.exec('SET session_replication_role = origin');
     F.shopId[s.key] = id;
+    // 🧪 A demo shop's thread on a real event is a LEGACY row: since 2026-11-06 `refuse_demo_cross_booking`
+    // (20271316355263) refuses a NEW one ("a couple can never … message a demo shop"). Threads like this existed
+    // before the rule — the owner's test events with Saysay — and must still name their shop, so the row is
+    // written as it was then: with that one trigger off for this insert. Pinned by
+    // tests/db/a-real-event-never-books-a-demo-shop.db.test.ts.
+    if (s.is_demo) await db.exec('ALTER TABLE public.chat_threads DISABLE TRIGGER chat_threads_refuse_demo_cross_booking');
     F.thread[s.key] = (
       await db.query<{ thread_id: string }>(
         `INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_by_user_id, inquiry_status)
@@ -237,6 +243,7 @@ before(async () => {
         [F.eventId, id, F.couple],
       )
     ).rows[0]!.thread_id;
+    if (s.is_demo) await db.exec('ALTER TABLE public.chat_threads ENABLE TRIGGER chat_threads_refuse_demo_cross_booking');
   }
 });
 
@@ -333,9 +340,13 @@ test('THE GRANTS — EXECUTE for authenticated only; SECURITY DEFINER with a pin
 });
 
 test('PARITY — the SQL reveal predicate equals isVendorNameRevealed for every tier × verification × venue × stamp', async () => {
-  const tiers = (await db.query<{ v: string }>(`SELECT unnest(enum_range(NULL::vendor_tier_state))::text AS v`)).rows.map((r) => r.v);
+  // Every enum label a shop can actually HOLD. 'custom' stays in the enum (Postgres cannot drop a label) but the
+  // Custom plan was retired 2026-11-06 and `vendor_profiles_tier_state_not_custom` refuses it, so no shop can be on it.
+  const tiers = (await db.query<{ v: string }>(`SELECT unnest(enum_range(NULL::vendor_tier_state))::text AS v`)).rows
+    .map((r) => r.v)
+    .filter((v) => v !== 'custom');
   const states = (await db.query<{ v: string }>(`SELECT unnest(enum_range(NULL::vendor_verification_state))::text AS v`)).rows.map((r) => r.v);
-  assert.ok(tiers.length >= 6 && states.length >= 5, `enums read: ${tiers} / ${states}`);
+  assert.ok(tiers.length >= 5 && states.length >= 5, `enums read: ${tiers} / ${states}`);
   const probe = F.shopId['free-unverified-coming-soon']!;
   let compared = 0;
   for (const tier of tiers) {

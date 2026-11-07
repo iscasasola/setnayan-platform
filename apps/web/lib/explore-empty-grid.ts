@@ -7,7 +7,7 @@
  * **"No suppliers have published their Setnayan profile yet."**
  *
  * Measured in production the same day (read-only): exactly ONE shop passes
- * `LIVE_SHOP_GATE` (verified · verified · not demo) — SetnaProd — and it has
+ * `LIVE_SHOP_GATE` (verified · verified; "not demo" too until 2026-11-06) — SetnaProd — and it has
  * **0 active services**. Both pages read the data correctly; they answer
  * different questions:
  *   · the front door's shelf and `countLiveShops` ask "may the public see this

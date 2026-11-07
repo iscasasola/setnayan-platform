@@ -51,6 +51,8 @@ export type MarketplaceServiceCard = {
    * this codebase more than once. The name says `Ref`, not `Url`, on purpose.
    */
   businessLogoRef: string | null;
+  /** 🧪 `vendor_profiles.is_demo` — the card's shop row wears "(DEMO ONLY)" (owner 2026-11-06). */
+  isDemo: boolean;
 };
 
 export type MarketplaceQuery = {
@@ -89,9 +91,10 @@ function safeForOr(value: string): string {
  *
  * The visibility rule mirrors the `vendor_services_public_read` policy —
  * active card, and a shop whose `verification_state` AND `public_visibility` are
- * both `verified` — plus one line the policy does not carry: never a demo card
- * or demo shop (a demo row is readable, it is just never SHOWN). Stated here
- * rather than trusting RLS alone, because this runs with
+ * both `verified`. 🧪 A demo shop's cards ARE shown since 2026-11-06 (owner,
+ * DECISION_LOG "DEMO SHOPS + DEMO EVENTS": demo suppliers show with the rest,
+ * marked "(DEMO ONLY)") — each card carries `isDemo` so its shop row wears the
+ * marker. Stated here rather than trusting RLS alone, because this runs with
  * whatever client the caller passes and an admin client bypasses the policy
  * entirely. Stating the rule here means the answer does not change with the
  * caller.
@@ -115,17 +118,14 @@ export async function fetchMarketplaceServiceCards(
   let q = supabase
     .from('vendor_services')
     .select(
-      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,public_visibility)`,
+      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,public_visibility,is_demo)`,
     )
     .eq('is_active', true)
     .eq('vendor_profiles.verification_state', 'verified')
-    .eq('vendor_profiles.public_visibility', 'verified')
-    // 🧪 Never a demo card or a demo shop's card (2026-09-30). The two trial
-    // shops became `is_demo = true` (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
-    // and are fully verified, so the two lines above wave them through. Both
-    // columns are `NOT NULL DEFAULT false`.
-    .eq('is_demo', false)
-    .eq('vendor_profiles.is_demo', false);
+    .eq('vendor_profiles.public_visibility', 'verified');
+  // 🧪 No demo exclusion (2026-11-06) — supersedes the 2026-09-30 `.eq('is_demo', false)` pair. A demo shop's cards
+  // list like any other and wear "(DEMO ONLY)" (`isDemo` below). Selected through the service-role client the
+  // explore page passes: `is_demo` is not anon-readable (migration 20271014385411) and stays that way.
 
   if (query.category) q = q.eq('category', query.category);
 
@@ -159,6 +159,7 @@ export async function fetchMarketplaceServiceCards(
       businessSlug: (vp.business_slug as string | null) ?? null,
       locationCity: (vp.location_city as string | null) ?? null,
       businessLogoRef: (vp.logo_url as string | null) ?? null,
+      isDemo: vp.is_demo === true,
     };
   });
 }

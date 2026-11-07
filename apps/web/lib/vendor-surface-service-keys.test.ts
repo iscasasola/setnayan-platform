@@ -30,6 +30,7 @@ import {
 import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from './booking-fee-lock';
 import { BRANCH_SERVICE_KEY_PREFIX } from './vendor-branches';
 import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
+import { COUNT_ADDON_SERVICE_KEY_PREFIXES } from './vendor-ultra-addons';
 
 const CHECKOUT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -43,18 +44,20 @@ const CHECKOUT = join(
 
 /* ── the list itself ───────────────────────────────────────────────────────── */
 
-test('all three vendor-surface families are covered', () => {
+test('every vendor-surface family is covered — the three left after Custom retired, and the four Ultra add-ons (2026-11-06)', () => {
   for (const prefix of [
     BOOKING_FEE_LOCK_SERVICE_PREFIX,
     BRANCH_SERVICE_KEY_PREFIX,
     SEAT_SERVICE_KEY_PREFIX,
+    ...COUNT_ADDON_SERVICE_KEY_PREFIXES,
   ]) {
     assert.ok(
       VENDOR_SURFACE_SERVICE_KEY_PREFIXES.includes(prefix),
       `${prefix} dropped out of the guard list`,
     );
   }
-  assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 3);
+  assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 3 + COUNT_ADDON_SERVICE_KEY_PREFIXES.length);
+  assert.equal(COUNT_ADDON_SERVICE_KEY_PREFIXES.length, 4, 'an Ultra add-on family dropped out');
 });
 
 test('the list is frozen — a caller cannot widen the gate at runtime', () => {

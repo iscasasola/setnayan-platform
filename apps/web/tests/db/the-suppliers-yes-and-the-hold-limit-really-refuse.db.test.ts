@@ -54,7 +54,7 @@ const PLAN_DAY = '2028-02-14'; // the per-plan whitelist ceiling, Solo = 3
 
 const F = {
   couple: '',
-  // GAP 1 shop: a Solo shop with one card whose limit is 2
+  // GAP 1 shop: a Pro shop with one card whose limit is 2 (Pro takes up to 3 a date per card — 2026-11-06)
   supplier: '',
   shop: '',
   card: '',
@@ -106,8 +106,12 @@ async function mkUser(label: string, type: 'customer' | 'vendor'): Promise<strin
   ).rows[0]!.id;
 }
 
-/** A verified Solo shop owned by a real supplier account. */
-async function mkShop(label: string): Promise<{ uid: string; vpid: string }> {
+/**
+ * A verified shop owned by a real supplier account — Solo unless told otherwise. The GAP 1 shop is PRO: its card takes
+ * 2 a day, and since 2026-11-06 a Solo card takes at most 1 a date (owner, "BOOKINGS PER DATE PER SERVICE IS A PLAN
+ * ALLOWANCE"), so a Solo shop could not hold the limit this file tests. Pro's 3 leaves the card's own 2 in charge.
+ */
+async function mkShop(label: string, tier: 'solo' | 'pro' = 'solo'): Promise<{ uid: string; vpid: string }> {
   const uid = await mkUser(label, 'vendor');
   // account_type 'vendor' mints the profile (on_auth_user_created); user_id is UNIQUE.
   const vpid =
@@ -124,9 +128,9 @@ async function mkShop(label: string): Promise<{ uid: string; vpid: string }> {
         SET business_name = $2, location_city = 'Manila', services = ARRAY['photography']::text[],
             verification_state = 'verified'::public.vendor_verification_state, last_verified_at = NOW(),
             public_visibility = 'verified'::public.vendor_public_visibility,
-            tier_state = 'solo'
+            tier_state = $3::public.vendor_tier_state
       WHERE vendor_profile_id = $1`,
-    [vpid, label],
+    [vpid, label, tier],
   );
   return { uid, vpid };
 }
@@ -282,7 +286,7 @@ before(async () => {
   await reset();
   F.couple = await mkUser('couple', 'customer');
 
-  ({ uid: F.supplier, vpid: F.shop } = await mkShop('Daily Limit Studio'));
+  ({ uid: F.supplier, vpid: F.shop } = await mkShop('Daily Limit Studio', 'pro'));
   F.card = await mkCard(F.shop, LIMIT);
   // CARD_FULL: two other couples booked — the card is full. Plus two rows that are not bookings.
   await otherCouple({ shop: F.shop, card: F.card, day: CARD_FULL, status: 'deposit_paid' });

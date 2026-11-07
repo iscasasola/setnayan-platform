@@ -19,6 +19,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { formatCount } from '@/lib/format-number';
+import { SampleMarker } from '@/app/_components/sample-marker';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
@@ -80,10 +81,12 @@ export async function FolderVendorsSection({
    *  surfaced as a named card to the public). Admin demo mode passes TRUE
    *  to surface unverified is_demo sample vendors. */
   includeDemoUnverified = false,
+  /** 🧪 Demo shops (`vendor_profiles.is_demo`) are listed like any other shop and their card wears "(DEMO ONLY)"
+   *  (owner 2026-11-06). The preview row does not carry `is_demo`, so the page hands the demo ids in. */
+  demoVendorIds = [],
 }: {
   folder: WeddingFolder;
-  /** Demo-mode exclusion list, threaded through from the page-level
-   *  `fetchDemoVendorIds`. When demo mode is on (admin browse), pass []. */
+  /** Vendor ids to leave out. Demo shops are NOT excluded any more (owner 2026-11-06) — the page passes []. */
   excludeVendorIds: ReadonlyArray<string>;
   /** Host's reception anchor for the "X km from your venue" chip. */
   venueAnchor: { lat: number; lng: number } | null;
@@ -93,8 +96,10 @@ export async function FolderVendorsSection({
   featured?: boolean;
   focusedMode?: boolean;
   includeDemoUnverified?: boolean;
+  demoVendorIds?: ReadonlyArray<string>;
 }) {
   const admin = createAdminClient();
+  const demoIdSet = new Set(demoVendorIds);
   const vendors = await findTopVendorsByFolder(admin, {
     folder,
     limit: 9,
@@ -179,6 +184,7 @@ export async function FolderVendorsSection({
                 trustedRating={trusted?.trusted_avg_rating ?? null}
                 trustedReviewCount={trusted?.trusted_review_count ?? 0}
                 logoUrl={logoDisplayUrls.get(vendor.vendor_profile_id) ?? null}
+                isDemo={demoIdSet.has(vendor.vendor_profile_id)}
               />
             </li>
           );
@@ -203,8 +209,11 @@ function FolderVendorCard({
   trustedRating,
   trustedReviewCount,
   logoUrl,
+  isDemo,
 }: {
   vendor: VendorPreviewRow;
+  /** `vendor_profiles.is_demo` — the card wears "(DEMO ONLY)". */
+  isDemo: boolean;
   venueAnchor: { lat: number; lng: number } | null;
   /** ANTI-FRAUD (2026-07-05): trusted aggregate — public rating + count. */
   trustedRating: number | null;
@@ -290,6 +299,8 @@ function FolderVendorCard({
             <h3 className="min-w-0 truncate text-sm font-semibold text-ink group-hover:text-terracotta">
               {displayName}
             </h3>
+            {/* 🧪 The bare chip, not the ⓘ: this whole card is one link, and a button inside a link is not allowed. */}
+            {isDemo ? <SampleMarker /> : null}
           </div>
           {vendor.location_city ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">

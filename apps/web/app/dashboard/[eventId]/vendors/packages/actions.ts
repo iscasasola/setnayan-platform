@@ -36,6 +36,7 @@ import {
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 
 /**
  * Vendor package server actions (owner directive 2026-05-22) — cascade-
@@ -447,6 +448,12 @@ export async function lockPackage(
       status: 'vendor_not_verified',
       vendorName: vendor.business_name || pkg.package_name || 'this supplier',
     };
+  }
+  // 🧪 A real event never books a demo shop's package; a demo event books only demo shops (owner 2026-11-06,
+  // lib/demo-scope.ts). Before the booking row, so nothing is half-written. Trigger backstop on event_vendors.
+  {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), { eventId, vendorProfileId: pkg.vendor_profile_id });
+    if (demoRefusal) return { status: 'error', message: demoRefusal };
   }
 
   // ── IS THIS PRESS AN ASK, OR A BOOKING? ─────────────────────────────────

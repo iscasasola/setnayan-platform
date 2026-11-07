@@ -28,7 +28,7 @@
     "money-formatter:baseline": "tsx scripts/gen-money-formatter-baseline.ts",
     "bundle-size-check": "node scripts/check-bundle-size.mjs",
     "route-count-check": "node scripts/check-vercel-route-count.mjs",
-    "check:no-demo-in-prod": "node scripts/check-no-demo-in-prod.mjs",
+    "check:no-demo-cross-booking": "node scripts/check-no-demo-cross-booking.mjs",
     "brand:icons": "node scripts/regen-brand-rasters.mjs",
     "brand:favicon": "node scripts/gen-default-favicon.mjs",
     "seed:demo-vendors": "tsx scripts/seed-demo-vendors.ts",

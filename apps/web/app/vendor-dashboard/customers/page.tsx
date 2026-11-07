@@ -30,6 +30,7 @@ import { blockClosesDay, repeatWords } from '@/lib/not-available';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { DAILY_CAPACITY_MAX, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -1028,9 +1029,9 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   const settings = (settingsRead.data ?? null) as { waitlist_enabled?: boolean; max_waitlist_acceptances?: number; tier_state?: string | null } | null;
   const tier = settings?.tier_state ?? null;
   // 💳 THE SWITCH. A 0 here is the paywall, asked through the same flag-aware allowance updateWaitlistSettings
-  // enforces — off, the entry plan's places. The plan's cap.
+  // enforces — off, the entry plan's places. The plan's cap, plus any "+1 wait list" an Ultra shop bought.
   const waitlistTierCap = vendorAllowance(
-    tierCaps(tier).waitlistAcceptances,
+    (await fetchCapsWithAddOns(supabase, vendorProfileId, tier)).waitlistAcceptances,
     entryTierAllowance('waitlistAcceptances'),
   );
   const unlimited = !Number.isFinite(waitlistTierCap);

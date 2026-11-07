@@ -123,12 +123,6 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/discount-codes/new', tab: 'money' },
   { route: '/admin/discount-codes/[id]/edit', tab: 'money' },
   {
-    route: '/admin/custom-plans',
-    tab: 'money',
-    stubTo: '/admin/pricing?tab=custom-plans',
-    note: 'Custom plans suppliers request and pay for.',
-  },
-  {
     route: '/admin/referrals',
     tab: 'money',
     stubTo: '/admin/studio?tab=referrals',

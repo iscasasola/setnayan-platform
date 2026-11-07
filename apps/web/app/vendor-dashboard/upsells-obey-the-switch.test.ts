@@ -60,7 +60,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   'subscription/_components/booth-addon-card.tsx': '3D Booth — a separately sold add-on, on the Plans page',
   'subscription/_components/papic-challenge-card.tsx': 'the Plans page cards',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
-  'subscription/custom/_components/custom-configurator.tsx': 'the Custom plan builder — "reach upgrade" names an axis',
   'shop/_components/voice-match-card.tsx': 'Voice-match is Vendor AI — Advanced, a separately sold add-on',
   'shop/autoreply-actions.ts': 'Voice-match is Vendor AI — Advanced, a separately sold add-on',
   // The gate component: it only ever renders where a caller asked the switch

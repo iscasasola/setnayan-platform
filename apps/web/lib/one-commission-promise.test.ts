@@ -57,7 +57,6 @@ const SUPPLIER_SURFACES = [
   // 'app/waitlist/page.tsx' LEFT this list 2026-10-12 — owner #14: it is a
   // couples' page and couple-facing pages do not mention the supplier fee. It
   // is now held by the COUPLE-facing test below instead.
-  'app/admin/custom-plans/_components/custom-composer.tsx',
   'app/(shell)/pricing/page.tsx',
   'lib/help.ts',
   // Added 2026-09-26 (GEO audit). Both told every answer engine "0% commission"

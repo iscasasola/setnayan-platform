@@ -147,12 +147,12 @@ export function bookingFeeRow(
   }
 }
 
-/** Ultra (and Custom) may buy branches past the included ones — `canBuyExtraBranches`, kept rank-local so this file stays pure. */
+/** Ultra may buy branches past the included ones — `canBuyExtraBranches`, kept rank-local so this file stays pure. */
 function canBuyMoreBranches(tier: VendorTier): boolean {
   return RANK[tier] >= RANK.enterprise;
 }
 
-const RANK: Record<VendorTier, number> = { free: 1, verified: 2, solo: 3, pro: 4, enterprise: 5, custom: 6 };
+const RANK: Record<VendorTier, number> = { free: 1, verified: 2, solo: 3, pro: 4, enterprise: 5 };
 
 /**
  * What picking a plan DOES, in one line — the live ladder (migration `the_plan_change_ladder`): a higher plan is live

@@ -34,13 +34,14 @@ export async function createApiKey(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // The /api/v1 SDK requires an explicit API-access grant on an active Custom
-  // vendor plan (owner 2026-07-11) — only that vendor OWNER may mint API keys.
+  // The /api/v1 SDK requires an explicit API-access grant — only a granted vendor
+  // OWNER may mint API keys. No plan carries the grant since the Custom plan was
+  // retired (2026-11-06; see resolveApiVendor).
   // authenticateApiRequest re-checks this on every call (downgrade defense), but
   // gating minting keeps an ungranted user from ever holding a dead key.
   if (!(await userHasApiAccessGrant(createAdminClient(), user.id))) {
     return redirect(
-      `/dashboard/api-keys?error=${encodeURIComponent('API access requires a Custom supplier plan with API access enabled.')}`,
+      `/dashboard/api-keys?error=${encodeURIComponent('API access is not open to any plan right now.')}`,
     );
   }
 

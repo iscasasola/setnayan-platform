@@ -7,7 +7,7 @@
  *   · prices arrive from the catalogue — no peso is typed in the page or the picker;
  *   · the booking-fee line is the LIVE standing through `bookingFeeRow` (never `FEE_RATE`, never a flat ₱);
  *   · "What <plan> gives you" is `planGivesLines` (TIER_CAPS) — not typed copy;
- *   · every job keeps its door: receipts → /receipts, Custom plan, add-ons (the shipped cards stay, under #add-ons),
+ *   · every job keeps its door: receipts → /receipts, add-ons (the shipped cards stay, under #add-ons),
  *     Papic credits → the Event Hub, the scheduled-change notice (Keep my current plan).
  */
 import test from 'node:test';
@@ -55,7 +55,8 @@ test('what the plan gives is read from the plan table', () => {
 
 test('every job keeps its door', () => {
   assert.match(ROWS, /href=\{r\.receiptId \? `\/receipts\/\$\{r\.receiptId\}` : null\}/);
-  assert.match(ROWS, /href="\/vendor-dashboard\/subscription\/custom"/);
+  // The Custom plan door went 2026-11-06 with the plan itself (owner: "from the app") — it must not come back.
+  assert.doesNotMatch(ROWS, /subscription\/custom/);
   assert.match(ROWS, /href="#add-ons"/);
   assert.match(PAGE, /id="add-ons"/);
   assert.match(PAGE, /<PlanRows/);

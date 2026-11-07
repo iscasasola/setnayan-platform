@@ -3,7 +3,7 @@
  * gate. Covers 20271307996183_supplier_plan_allowances_2026_11_04.
  *
  * Owner 2026-11-04 (DECISION_LOG "SUPPLIER PLAN ALLOWANCES" + "BRANCHES PER PLAN"), verbatim: *"waitlist 0,0,1,5"* ·
- * *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra; Custom runs as Ultra.
+ * *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra. (The Custom plan was retired 2026-11-06.)
  * Ultra trimmed the same day ("WITH TRIMMED ALLOWANCES"): waitlist 3, branches 6. Expectations read TIER_CAPS.
  *
  * 🔑 PARITY DERIVES FROM THE TYPESCRIPT SIDE (`TIER_CAPS`), so editing one side alone turns CI red.

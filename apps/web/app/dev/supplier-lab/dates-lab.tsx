@@ -5,9 +5,6 @@
  * months from the fixtures alone (no month fetcher).
  */
 import { renderUrlQrSvg } from '@/lib/qr';
-import { DOOR_STICKER_CODES, DOOR_STICKER_SIZES, doorStickerKey } from '@/lib/door-sticker';
-import { doorStickerPdf, doorStickerSvg } from '@/lib/door-sticker-print';
-import { badgesForPrint } from '@/lib/shop-badges';
 import type { SchedulePool } from '@/lib/vendor-schedule';
 import { clockWords, dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
@@ -24,7 +21,10 @@ import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates
 import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_components/day-sheet';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
-import { PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL } from '@/lib/supplier-qr-codes';
+import { crewJoinPath } from '@/lib/crew-pass';
+import { PromoteBridge } from '@/app/vendor-dashboard/shop/promote/_components/promote-bridge';
+import { ShopPrintsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-prints-section';
+import { PROMOTE_QR_MODES, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -231,8 +231,8 @@ const LAB_TOASTS = {
 };
 
 /**
- * `place` — 📣 `&place=promote` draws the Shortlist code as Shop › Promote draws it (2026-11-05: the shop's marketing
- * codes moved there; `place="promote"`, Promote's own dropdown). Without it, the Customers › QR codes look.
+ * `place` — 📣 `&place=promote` draws Shop › Promote's QR list (Option B, 2026-11-06: the shop's four codes, one row
+ * each). Without it, Customers › QR codes' list (Booked · Crew, per event). `&open=<code>` opens that code's sheet.
  */
 export async function DatesLab({
   state,
@@ -251,104 +251,95 @@ export async function DatesLab({
   const t = toast && toast in LAB_TOASTS ? LAB_TOASTS[toast as keyof typeof LAB_TOASTS] : null;
 
   if (state.startsWith('qr')) {
-    // 📣 Shop › Promote's own dropdown (2026-11-05): Shortlist · Check a date · My page, each to its lab state.
-    const LAB_PROMOTE_HREF = { shortlist: '/dev/supplier-lab?s=qr&place=promote', dates: '/dev/supplier-lab?s=qr-dates', page: '/dev/supplier-lab?s=qr-page' } as const;
-    const promoteOptions = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: LAB_PROMOTE_HREF[key] }));
-    const modeOptions =
-      place === 'promote'
-        ? promoteOptions
-        : [
-            { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
-            { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
-          ];
-    if (state === 'qr-page' || state === 'qr-dates') {
-      // 🚪 The shop's two permanent codes + the door sticker under them, on fixtures: the sticker's real files (SVG +
-      // PDF, every code × size) as data: URIs, drawn by the shipped `lib/door-sticker-print.ts` with a lab shop's badges.
-      const pageUrl = 'https://www.setnayan.com/v/lumina';
-      const datesUrl = 'https://www.setnayan.com/v/lumina/dates';
-      const badges = badgesForPrint({ verified: true, completedEvents: 57, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2015, awards: [], nowYear: 2026 });
-      const files: Record<string, string> = {};
-      for (const code of DOOR_STICKER_CODES) {
-        for (const size of DOOR_STICKER_SIZES) {
-          const input = { shopName: 'Lumina Studio', url: code === 'dates' ? datesUrl : pageUrl, code, size, badges };
-          files[doorStickerKey(code, size, 'svg')] = `data:image/svg+xml;base64,${Buffer.from(doorStickerSvg(input)).toString('base64')}`;
-          files[doorStickerKey(code, size, 'pdf')] = `data:application/pdf;base64,${Buffer.from(await doorStickerPdf(input)).toString('base64')}`;
-        }
-      }
-      const url = state === 'qr-page' ? pageUrl : datesUrl;
-      const card = { url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' };
-      return (
-        <div className="min-h-screen bg-cream" data-supplier-lab={state}>
-          <QrCodes
-            mode={state === 'qr-page' ? 'page' : 'dates'}
-            place="promote"
-            backHref="/dev/supplier-lab?s=dates"
-            modeOptions={promoteOptions}
-            canShare
-            setupHref="/dev/supplier-lab?s=qr"
-            shortlist={null}
-            booked={null}
-            myPage={state === 'qr-page' ? card : null}
-            checkADate={state === 'qr-dates' ? card : null}
-            doorStickerFiles={files}
-          />
-        </div>
-      );
-    }
+    // QR codes Option B (owner 2026-11-06, "B"): ONE LIST, a row per code. Shop › Promote lists the shop's four codes
+    // (Check a date · Shortlist · My page · Reviews); Customers › QR codes lists Booked and Crew, per event. `qr-page` /
+    // `qr-dates` open that code's sheet on arrival (`open`), as a `?mode=page` / `?mode=dates` link does on the real page.
     const shortUrl = 'https://www.setnayan.com/vendor-invite/lumina?et=wedding';
     const lockUrl = 'https://www.setnayan.com/vendor/lock/lab-token';
-    const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(state === 'qr-issued' ? lockUrl : shortUrl, 220);
+    const shortlist = {
+      url: shortUrl,
+      svg: state === 'qr-fail' ? null : await renderUrlQrSvg(shortUrl, 220),
+      shopName: 'Lumina Studio',
+      eventPick: { value: 'wedding', options: [{ key: 'any', label: 'Any event', href: base }, { key: 'wedding', label: 'Wedding', href: base }, { key: 'debut', label: 'Debut', href: base }] },
+      servicePick: { value: 'all', options: [{ key: 'all', label: 'All my services', href: base }, { key: 'photo_video', label: 'Photo & video', href: base }] },
+      scope: ' on their wedding plan',
+    };
+    if (place === 'promote' || state === 'qr-page' || state === 'qr-dates') {
+      const code = async (url: string) => ({ url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' });
+      const [checkADate, myPage, reviews] = await Promise.all([
+        code('https://www.setnayan.com/v/lumina/dates'),
+        code('https://www.setnayan.com/v/lumina'),
+        code('https://www.setnayan.com/v/lumina#reviews'),
+      ]);
+      return (
+        <PromoteBridge>
+        <div className="min-h-screen bg-cream px-4 pb-24 pt-4" data-supplier-lab={state}>
+          <QrCodes
+            place="promote"
+            open={state === 'qr-page' ? 'page' : state === 'qr-dates' ? 'dates' : open && (PROMOTE_QR_MODES as readonly string[]).includes(open) ? (open as PromoteQrMode) : null}
+            backHref="/dev/supplier-lab?s=dates"
+            canShare
+            setupHref="/dev/supplier-lab?s=qr"
+            shortlist={shortlist}
+            booked={null}
+            checkADate={checkADate}
+            myPage={myPage}
+            reviews={reviews}
+          />
+          {/* Shop › Promote's own order: QR codes, then Prints — one bridge, so a code's "Put it on…" opens the Prints
+              sheet with that code (the lab's prints pictures: the plan lab's fixture twin of /api/vendor/prints). */}
+          <div className="mt-6">
+            <ShopPrintsSection
+              canShare
+              setupHref="/dev/supplier-lab?s=qr&place=promote"
+              artBase="/dev/supplier-plan-lab/prints-art/plain"
+              member={{ name: 'Juan dela Cruz', role: null }}
+              facts={{ name: 'Lumina Studio', line: 'Photo & video' }}
+            />
+          </div>
+        </div>
+        </PromoteBridge>
+      );
+    }
+    const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(lockUrl, 220);
+    const crewUrl = `https://www.setnayan.com${crewJoinPath('lab-crew')}`;
+    const booked = {
+      issued:
+        state === 'qr-issued'
+          ? { url: lockUrl, svg, title: `Photo & video · ${formatPhp(45_000)}`, line: `${formatPhp(15_000)} paid · one use — give it to that one customer`, used: false }
+          : null,
+      error: state === 'qr-fail' ? 'That code could not be made just now. Nothing was issued — please try again.' : null,
+      generator: (
+        <LockedQrGenerator
+          eventTypes={[{ value: 'wedding', label: 'Wedding' }, { value: 'debut', label: 'Debut' }]}
+          services={[{ value: 'svc-1', label: 'Photo & video' }]}
+          contracts={[]}
+        />
+      ),
+      ledger: [
+        { token: 'tk-1', title: 'Photo & video', line: `${formatPhp(45_000)} · ${formatPhp(15_000)} paid · claimed Oct 1`, status: 'claimed' as const, showHref: null },
+        { token: 'tk-2', title: 'Photo & video', line: `${formatPhp(60_000)} · ${formatPhp(20_000)} paid · issued Sep 28`, status: 'pending' as const, showHref: '/dev/supplier-lab?s=qr-issued' },
+        { token: 'tk-3', title: 'Styling', line: `${formatPhp(30_000)} · ${formatPhp(10_000)} paid · issued Sep 20`, status: 'void' as const, showHref: null },
+      ],
+      ledgerOpen: open === 'issued',
+      newHref: '/dev/supplier-lab?s=qr-booked',
+    };
     return (
       <div className="min-h-screen bg-cream" data-supplier-lab={state}>
-        {state === 'qr' || state === 'qr-fail' ? (
-          <QrCodes
-            mode="shortlist"
-            place={place}
-            backHref="/dev/supplier-lab?s=dates"
-            modeOptions={modeOptions}
-            canShare
-            setupHref="/dev/supplier-lab?s=qr"
-            shortlist={{
-              url: shortUrl,
-              svg,
-              shopName: 'Lumina Studio',
-              eventPick: { value: 'wedding', options: [{ key: 'any', label: 'Any event', href: base }, { key: 'wedding', label: 'Wedding', href: base }, { key: 'debut', label: 'Debut', href: base }] },
-              servicePick: { value: 'all', options: [{ key: 'all', label: 'All my services', href: base }, { key: 'photo_video', label: 'Photo & video', href: base }] },
-              scope: ' on their wedding plan',
-            }}
-            booked={null}
-          />
-        ) : (
-          <QrCodes
-            mode="locked"
-            backHref="/dev/supplier-lab?s=dates"
-            modeOptions={modeOptions}
-            canShare
-            setupHref="/dev/supplier-lab?s=qr"
-            shortlist={null}
-            booked={{
-              issued:
-                state === 'qr-issued'
-                  ? { url: lockUrl, svg, title: `Photo & video · ${formatPhp(45_000)}`, line: `${formatPhp(15_000)} paid · one use — give it to that one customer`, used: false }
-                  : null,
-              error: null,
-              generator: (
-                <LockedQrGenerator
-                  eventTypes={[{ value: 'wedding', label: 'Wedding' }, { value: 'debut', label: 'Debut' }]}
-                  services={[{ value: 'svc-1', label: 'Photo & video' }]}
-                  contracts={[]}
-                />
-              ),
-              ledger: [
-                { token: 'tk-1', title: 'Photo & video', line: `${formatPhp(45_000)} · ${formatPhp(15_000)} paid · claimed Oct 1`, status: 'claimed', showHref: null },
-                { token: 'tk-2', title: 'Photo & video', line: `${formatPhp(60_000)} · ${formatPhp(20_000)} paid · issued Sep 28`, status: 'pending', showHref: '/dev/supplier-lab?s=qr-issued' },
-                { token: 'tk-3', title: 'Styling', line: `${formatPhp(30_000)} · ${formatPhp(10_000)} paid · issued Sep 20`, status: 'void', showHref: null },
-              ],
-              ledgerOpen: open === 'issued',
-              newHref: '/dev/supplier-lab?s=qr-booked',
-            }}
-          />
-        )}
+        <QrCodes
+          open={state === 'qr-booked' || state === 'qr-issued' || state === 'qr-fail' || open === 'issued' ? 'locked' : open === 'crew' ? 'crew' : null}
+          backHref="/dev/supplier-lab?s=dates"
+          canShare
+          setupHref="/dev/supplier-lab?s=qr"
+          shortlist={null}
+          booked={booked}
+          crew={{
+            eventPick: { value: 'ev-1', options: [{ key: 'ev-1', label: 'Ana & Ben · Dec 12', href: base }, { key: 'ev-2', label: 'Mika’s debut · Jan 9', href: base }] },
+            eventName: 'Ana & Ben',
+            code: { state: 'ready', url: crewUrl, svg: await renderUrlQrSvg(crewUrl, 220), endsWords: 'Works until Dec 13', waiting: 0 },
+            hubHref: '/dev/supplier-lab?s=dates',
+          }}
+        />
       </div>
     );
   }

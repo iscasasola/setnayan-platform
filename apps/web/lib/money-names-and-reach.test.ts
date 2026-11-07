@@ -143,10 +143,8 @@ test('no customer or supplier surface hard-codes "BDO or GCash" any more', () =>
     'lib/vendor-booking-fees.ts',
     'app/admin/settings/_surfaces/settings-surface.tsx',
     'app/admin/_components/admin-nav-descriptions.ts',
-    // Batch-3 audit (2026-10-02): the supplier custom-plan composer and the
-    // admin Action Center now read the receiving-accounts list too.
-    'app/admin/custom-plans/_components/custom-composer.tsx',
-    'app/admin/pricing/_surfaces/custom-plans-surface.tsx',
+    // Batch-3 audit (2026-10-02): the admin Action Center now reads the receiving-accounts list too.
+    // (The Custom plan composer + surface that also did were deleted 2026-11-06 with the plan.)
     'app/admin/app-performance/_components/action-center.tsx',
   ];
   const hard = /(BDO or GCash|GCash or BDO|GCash ?\/ ?BDO|BDO ?\/ ?GCash)/;

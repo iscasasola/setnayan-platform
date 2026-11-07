@@ -1,15 +1,17 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronRight, Printer, Share } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Printer, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
+import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { badgesForPrint, type ShopBadge, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import {
   DEFAULT_PRINT_DESIGN,
   DEFAULT_PRINT_QR,
@@ -26,6 +28,8 @@ import {
   groundCss,
   matrix3d,
   printDesign,
+  printAllFilename,
+  printAllHref,
   printFilename,
   printHref,
   type PrintBlock,
@@ -38,14 +42,18 @@ import {
 } from '@/lib/supplier-prints';
 import type { PrintMember } from '@/lib/supplier-prints-svg';
 import { formatCount } from '@/lib/format-number';
+import { usePromoteBridge } from './promote-bridge';
 
 /**
  * 🖨 PRINTS — Shop › Promote part 3 (owner APPROVED the 15 looks, 5 Nov 2026: "perfect"; prototype
  * Setnayan-specs `prototypes/supplier_prints_2026-11-05/`). A row on Promote opens ONE sheet:
  *
- *   Prints · <look> · 7 pieces ⓘ
+ *   ‹ Prints · <look> · 7 pieces ⓘ · Save all        (the head — 2026-11-06 "what is the use of our prototype?": the
+ *                                                      build now IS the 5 Nov prototype: head, YOUR FACTS, HOW IT
+ *                                                      FITS, and the pickers in the thumb dock, not at the top)
+ *   YOUR FACTS      Shop name · Line · Verified seal · Rating · Badges · On your prints ▾
  *   Design ▾ (the 15 looks — one dropdown, never a pill row) · QR on your prints ▾ (the shop's own codes:
- *   Check a date · Shortlist · My page · Reviews)
+ *   Check a date · Shortlist · My page · Reviews) — both in the THUMB DOCK at the sheet's foot
  *   ALL 7 PIECES · <look>  [<code> QR]   each piece: name · size, its line, Save; tap the picture → it big
  *   Your badges            the badge print (`lib/shop-badge-print.ts` via `/api/vendor/badges`) — a piece INSIDE prints
  *                          (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL"); Analytics › Your badges no
@@ -78,12 +86,22 @@ const BADGE_PRINT_API = '/api/vendor/badges?badge=all';
 const HOW =
   'Every piece has ONE fixed layout — fixed size, safe zones and fixed spots for your name, line, Verified seal, rating, badges and QR. A design changes only the look: ground, type, colours, ornament. Your facts come from your shop. Nothing is moved, resized or uploaded — which is exactly what lets your prints drop into the photos below by themselves.';
 
+/** The YOUR FACTS ⓘ and HOW IT FITS ⓘ — the prototype's own words (supplier_prints_2026-11-05/index.html). */
+const FACTS_TIP =
+  'These come from your shop — change them there and every print follows. Nothing on a print is typed or moved here. The seal, rating and badges print only if you have them; the switches below take the rating and badges off every print. On the calling card the rating and badges sit on the back.';
+const FITS_TIP =
+  'Every piece has one fixed layout that all 15 designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.';
+
+/** YOUR FACTS' first two rows: the shop's name and the line every print carries — read on the server, never typed. */
+export type PrintFacts = { name: string; line: string };
+
 export function ShopPrintsSection({
   canShare,
   setupHref,
   artBase = PRINTS_API,
   badgeFactsUrl = BADGE_FACTS_API,
   member = null,
+  facts = null,
 }: {
   canShare: boolean;
   setupHref: string;
@@ -92,9 +110,24 @@ export function ShopPrintsSection({
   badgeFactsUrl?: string;
   /** The signed-in member's own card (their account name + Team label) — null = no name yet, so no card is offered. */
   member?: PrintMember | null;
+  /** YOUR FACTS — the shop's name and line (`printLine`, the renderer's own builder). */
+  facts?: PrintFacts | null;
 }) {
   const [open, setOpen] = useState(false);
+  // 🔗 The code on every piece — the QR codes list's "Put it on…" sets it (Option B), the dock's QR ▾ changes it.
+  const [qr, setQr] = useState<PrintQrMode>(DEFAULT_PRINT_QR);
+  const [big, setBig] = useState<Big>(null);
   const headingId = useId();
+  const bridge = usePromoteBridge();
+  const ask = bridge?.ask ?? null;
+  useEffect(() => {
+    if (!ask) return;
+    setQr(ask.qr);
+    setBig(ask.piece === 'door' ? { kind: 'piece', piece: PRINT_PIECES.find((p) => p.id === 'door')! } : null);
+    setOpen(true);
+    // one ask = one opening — `n` counts them
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask?.n]);
   return (
     <section id="prints" className="mt-8 scroll-mt-24" data-shop-prints="" aria-labelledby={headingId}>
       <InfoTip label="Prints" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
@@ -116,20 +149,62 @@ export function ShopPrintsSection({
       </div>
       {canShare ? (
         <ArtBase.Provider value={artBase}>
-          <PrintsSheet open={open} onClose={() => setOpen(false)} badgeFactsUrl={badgeFactsUrl} member={member} />
+          <PrintsSheet
+            open={open}
+            onClose={() => {
+              setBig(null);
+              setOpen(false);
+            }}
+            badgeFactsUrl={badgeFactsUrl}
+            member={member}
+            facts={facts}
+            qr={qr}
+            setQr={setQr}
+            big={big}
+            setBig={setBig}
+          />
         </ArtBase.Provider>
       ) : null}
     </section>
   );
 }
 
-function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; onClose: () => void; badgeFactsUrl: string; member: PrintMember | null }) {
+/**
+ * THE PRINTS SHEET — the 5 Nov prototype, one-for-one (`supplier_prints_2026-11-05/index.html`, owner "perfect"):
+ *
+ *   ‹  Prints / <look> · 7 pieces ⓘ                                  [Save all]      ← the head, pinned
+ *   YOUR FACTS ⓘ    Shop name · Line · Verified seal ◯ · Rating ◯ · Badges ◯ · On your prints ▾ (#7332, approved 6 Nov)
+ *   HOW IT FITS ⓘ   "One fixed layout per piece. A design changes only the look — your shop changes the facts."
+ *   ALL 7 PIECES · <look> [<code> QR] ⓘ   each: name · size / its purpose ⓘ / Save, the picture (tap → big)
+ *   Your badges     the badge print — a piece INSIDE prints (6 Nov)
+ *   SEE IT IN USE ⓘ the photos
+ *   [Design ▾] [QR on your prints ▾]                                                  ← the thumb dock, pinned
+ */
+function PrintsSheet({
+  open,
+  onClose,
+  badgeFactsUrl,
+  member,
+  facts,
+  qr,
+  setQr,
+  big,
+  setBig,
+}: {
+  open: boolean;
+  onClose: () => void;
+  badgeFactsUrl: string;
+  member: PrintMember | null;
+  facts: PrintFacts | null;
+  qr: PrintQrMode;
+  setQr: (q: PrintQrMode) => void;
+  big: Big;
+  setBig: (b: Big) => void;
+}) {
   const titleId = useId();
   const toast = useToast();
   const [designId, setDesignId] = useState<string>(DEFAULT_PRINT_DESIGN);
-  const [qr, setQr] = useState<PrintQrMode>(DEFAULT_PRINT_QR);
   const [hidden, setHidden] = useState<PrintBlock[]>([]);
-  const [big, setBig] = useState<Big>(null);
   const d = printDesign(designId) ?? PRINT_DESIGNS[0]!;
   const onKeys = PRINT_BLOCKS.filter((b) => !hidden.includes(b.key)).map((b) => b.key);
   const toggleBlock = (k: string) => {
@@ -137,6 +212,7 @@ function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; 
     setHidden((h) => (h.includes(key) ? h.filter((x) => x !== key) : [...h, key]));
   };
   const card = PRINT_PIECES.find((p) => p.id === 'card')!;
+  const badgeRead = useBadgeFacts(open, badgeFactsUrl);
 
   const pickDesign = (k: string) => {
     if (k === designId) return;
@@ -149,72 +225,122 @@ function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; 
     setQr(m);
     toast.info(`QR · ${PRINT_QR[m].t} · every piece now says “${PRINT_QR[m].cap}”`);
   };
-
-  const close = () => {
-    setBig(null);
-    onClose();
+  const flip = (k: PrintBlock, word: string) => {
+    const on = hidden.includes(k);
+    toggleBlock(k);
+    toast.info(`${word} · ${on ? 'shown' : 'hidden'} on every print`);
   };
 
+  const bigTitle = big?.kind === 'piece' ? (big.who === 'me' ? 'Your own card' : big.piece.name) : big?.kind === 'scene' ? big.scene.cap : 'Prints';
+  const bigSub =
+    big?.kind === 'piece' ? `${big.piece.size} · ${d.name} · seen ${big.piece.view}` : big?.kind === 'scene' ? `${big.scene.sub} · ${d.name}` : null;
+
+  const head = (
+    <div className="flex items-center gap-2.5 border-b border-ink/10 bg-cream px-4 pb-2 pt-[calc(10px+env(safe-area-inset-top))]" data-prints-head="">
+      <button
+        type="button"
+        onClick={big ? () => setBig(null) : onClose}
+        aria-label={big ? 'Back to Prints' : 'Back to Promote'}
+        className="sn-press grid h-9 w-9 flex-none place-items-center rounded-full bg-ink/[0.06] text-ink"
+        data-prints-back=""
+      >
+        <ChevronLeft aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+      </button>
+      <div className="min-w-0 flex-1">
+        <h2 id={titleId} className="truncate text-[18px] font-medium leading-tight text-ink">
+          {bigTitle}
+        </h2>
+        {bigSub ? (
+          <p className="truncate text-[12.5px] text-ink/60">{bigSub}</p>
+        ) : (
+          <span className="text-[12.5px] text-ink/60" data-prints-top="">
+            <InfoTip label={`${d.name} · 7 pieces`} labelClassName="text-[12.5px] text-ink/60" ariaLabel="How prints work" align="start">
+              {HOW}
+            </InfoTip>
+          </span>
+        )}
+      </div>
+      {big ? null : <SaveAllButton d={d} qr={qr} />}
+    </div>
+  );
+
+  const dock = big ? null : (
+    <div className="flex gap-2 border-t border-ink/10 bg-cream/85 px-4 py-2.5 backdrop-blur-md" data-prints-dock="">
+      <PickMenu
+        label="Design"
+        value={d.id}
+        dataAttr="data-prints-design"
+        className={DOCK_PICK}
+        onPick={pickDesign}
+        options={PRINT_DESIGNS.map((x) => ({
+          key: x.id,
+          label: x.name,
+          hint: `suits ${x.suits}`,
+          preview: <span aria-hidden className="block h-5 w-[30px] flex-none rounded ring-1 ring-black/10" style={{ background: groundCss(x) }} />,
+        }))}
+        trigger={<DockFace small="Design" value={d.name} />}
+      />
+      <PickMenu
+        label="QR on your prints"
+        value={qr}
+        dataAttr="data-prints-qr-pick"
+        className={DOCK_PICK}
+        onPick={pickQr}
+        options={PRINT_QR_ORDER.map((k) => ({ key: k, label: PRINT_QR[k].sub ? `${PRINT_QR[k].t} · ${PRINT_QR[k].sub}` : PRINT_QR[k].t, hint: `“${PRINT_QR[k].cap}”` }))}
+        trigger={<DockFace small="QR on your prints" value={PRINT_QR[qr].t} />}
+      />
+    </div>
+  );
+
   return (
-    <Sheet
-      open={open}
-      onClose={close}
-      labelledById={titleId}
-      wide
-      full
-      title={big ? undefined : 'Prints'}
-      back={big ? { label: 'Prints', onBack: () => setBig(null) } : undefined}
-    >
+    <Sheet open={open} onClose={onClose} labelledById={titleId} wide full head={head} foot={dock}>
       <Hidden.Provider value={hidden}>
       <div className="pb-8" data-prints-sheet={d.id} data-prints-qr={qr} data-prints-hide={hidden.join(',')}>
         {big?.kind === 'piece' ? (
-          <BigPiece piece={big.piece} d={d} qr={qr} titleId={titleId} member={big.who === 'me' ? member : null} />
+          <BigPiece piece={big.piece} d={d} qr={qr} member={big.who === 'me' ? member : null} />
         ) : big?.kind === 'scene' ? (
-          <BigScene scene={big.scene} d={d} qr={qr} titleId={titleId} />
+          <BigScene scene={big.scene} d={d} qr={qr} />
         ) : (
           <>
-            <div className="flex items-center gap-1 px-4 text-[13px] text-ink/60">
-              <h2 id={titleId} className="sr-only">
-                Prints
-              </h2>
-              <span data-prints-top="">
-                <InfoTip label={`${d.name} · 7 pieces`} ariaLabel="How prints work" align="start">
-                  {HOW}
-                </InfoTip>
-              </span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2 px-4">
-              <label className="block min-w-0">
-                <span className="block text-[11px] text-ink/60">Design</span>
-                <PickMenu
-                  label="Design"
-                  value={d.id}
-                  dataAttr="data-prints-design"
-                  className="!min-h-11 w-full"
-                  onPick={pickDesign}
-                  options={PRINT_DESIGNS.map((x) => ({
-                    key: x.id,
-                    label: x.name,
-                    hint: `suits ${x.suits}`,
-                    preview: <span aria-hidden className="block h-5 w-[30px] flex-none rounded ring-1 ring-black/10" style={{ background: groundCss(x) }} />,
-                  }))}
+            <SecHead label="Your facts" tip={FACTS_TIP} />
+            <div data-prints-facts="">
+              <FactRow k="Shop name" first>
+                <span className="min-w-0 text-right font-medium text-ink [overflow-wrap:anywhere]">{facts?.name ?? '—'}</span>
+              </FactRow>
+              <FactRow k="Line">
+                {facts?.line ? (
+                  <span className="min-w-0 text-right font-medium text-ink [overflow-wrap:anywhere]">{facts.line}</span>
+                ) : (
+                  <span className="text-ink/60">None yet</span>
+                )}
+              </FactRow>
+              <FactRow k="Verified seal" small="If you have it">
+                {/* No block switches the seal off (the 6 Nov block table has none): it prints when the shop is verified. */}
+                <FactSwitch label="Verified seal" on={badgeRead.k === 'ok' && badgeRead.verified} disabled data="seal" />
+              </FactRow>
+              {/* The prototype's rule: each prints only if you have it — so a shop with no rating (or no badge) sees the switch
+                  off and still, never "on" for a fact no print can carry. Where it has one, the switch hides it everywhere. */}
+              <FactRow k="Rating" small="If you have one">
+                <FactSwitch
+                  label="Rating"
+                  on={badgeRead.k === 'ok' && badgeRead.rated && !hidden.includes('stars')}
+                  disabled={!(badgeRead.k === 'ok' && badgeRead.rated)}
+                  onToggle={() => flip('stars', 'Rating')}
+                  data="stars"
                 />
-              </label>
-              <label className="block min-w-0">
-                <span className="block text-[11px] text-ink/60">QR on your prints</span>
-                <PickMenu
-                  label="QR on your prints"
-                  value={qr}
-                  dataAttr="data-prints-qr-pick"
-                  className="!min-h-11 w-full"
-                  onPick={pickQr}
-                  options={PRINT_QR_ORDER.map((k) => ({ key: k, label: PRINT_QR[k].sub ? `${PRINT_QR[k].t} · ${PRINT_QR[k].sub}` : PRINT_QR[k].t, hint: `“${PRINT_QR[k].cap}”` }))}
+              </FactRow>
+              <FactRow k="Badges" small="If you have them">
+                <FactSwitch
+                  label="Badges"
+                  on={badgeRead.k === 'ok' && badgeRead.badges.length > 0 && !hidden.includes('badges')}
+                  disabled={!(badgeRead.k === 'ok' && badgeRead.badges.length > 0)}
+                  onToggle={() => flip('badges', 'Badges')}
+                  data="badges"
                 />
-              </label>
-              <div className="col-span-2 block min-w-0" data-prints-blocks="">
-                <span className="block text-[11px] text-ink/60">
-                  <InfoTip label="On your prints" labelClassName="text-[11px] text-ink/60" ariaLabel="About On your prints" align="start">
+              </FactRow>
+              <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-4 py-2" data-prints-blocks="">
+                <span className="text-ink/60">
+                  <InfoTip label="On your prints" labelClassName="text-[14px] text-ink/60" ariaLabel="About On your prints" align="start">
                     {ON_YOUR_PRINTS}
                   </InfoTip>
                 </span>
@@ -224,7 +350,7 @@ function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; 
                   picked={onKeys}
                   buttonText={`${formatCount(onKeys.length)} of ${formatCount(PRINT_BLOCKS.length)} blocks`}
                   dataAttr="data-prints-blocks-pick"
-                  className="!min-h-11 w-full"
+                  className="!min-h-9"
                   onPick={toggleBlock}
                   doneNote="Always on: your name · the QR."
                   options={PRINT_BLOCKS.map((b) => ({ key: b.key, label: b.label, hint: b.from === 'earned' ? 'earned, never set' : b.from }))}
@@ -232,12 +358,14 @@ function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; 
               </div>
             </div>
 
-            <div className="mt-5 flex items-center gap-2 px-4">
-              <InfoTip label={`All 7 pieces · ${d.name}`} labelClassName="sn-sec" ariaLabel="About this design" align="start">
-                {`${d.name} — suits ${d.suits}. Tap any piece to see it big. Save gives a print-ready file with 3 mm bleed at this exact size.`}
-              </InfoTip>
-              <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[12px] font-medium text-ink/60">{PRINT_QR[qr].t} QR</span>
-            </div>
+            <SecHead label="How it fits" tip={FITS_TIP} />
+            <p className="px-4 pb-1.5 pt-1 text-[13px] text-ink/60">One fixed layout per piece. A design changes only the look — your shop changes the facts.</p>
+
+            <SecHead
+              label={`All 7 pieces · ${d.name}`}
+              tip={`${d.name} — suits ${d.suits}. Tap any piece to see it big. Save gives a print-ready file with 3 mm bleed at this exact size.`}
+              badge={`${PRINT_QR[qr].t} QR`}
+            />
             <ul className="mt-1" data-prints-list="">
               {PRINT_PIECES.map((p) => (
                 <li key={p.id} className="border-b border-ink/10 px-4 pb-4 pt-2" data-prints-piece={p.id}>
@@ -263,13 +391,12 @@ function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; 
             </ul>
             <BadgesPiece open={open} factsUrl={badgeFactsUrl} />
 
-            <div className="mt-5 px-4">
-              <InfoTip label="See it in use" labelAs="h3" labelClassName="sn-sec" align="start">
-                Real event photos. Your chosen design and QR are placed onto the printed surfaces by the app — change the design or the QR and these update with it. The people and furniture in front stay in front.
-              </InfoTip>
-              <p className="mt-1 text-[13px] text-ink/60">Your design and QR, placed on the prints in each photo. Swipe.</p>
-            </div>
-            <div className="mt-2 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-prints-scenes="">
+            <SecHead
+              label="See it in use"
+              tip="Real event photos. Your chosen design and QR are placed onto the printed surfaces by the app — change the design or the QR and these update with it. The people and furniture in front stay in front."
+            />
+            <p className="px-4 pb-1.5 pt-1 text-[13px] text-ink/60">Your design and QR, placed on the prints in each photo. Swipe.</p>
+            <div className="mt-1 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-prints-scenes="">
               {PRINT_SCENES.map((s) => (
                 <figure key={s.slug} className="m-0 flex-none snap-start" data-prints-scene={s.slug}>
                   <button type="button" onClick={() => setBig({ kind: 'scene', scene: s })} aria-label={`${s.cap} big`} className="sn-press block">
@@ -286,6 +413,72 @@ function PrintsSheet({ open, onClose, badgeFactsUrl, member }: { open: boolean; 
       </div>
       </Hidden.Provider>
     </Sheet>
+  );
+}
+
+/** The dock's pick: its name small over its value, the ▾ at the end (the prototype's `.thumb .pick`). */
+const DOCK_PICK = 'sn-press flex h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-full border border-ink/15 bg-surface pl-4 pr-3 text-left';
+function DockFace({ small, value }: { small: string; value: string }) {
+  return (
+    <>
+      <span className="flex min-w-0 flex-col leading-[1.15]">
+        <small className="truncate text-[11px] font-normal text-ink/60">{small}</small>
+        <span className="truncate text-[14px] font-medium text-ink">{value}</span>
+      </span>
+      <ChevronDown aria-hidden className="h-3.5 w-3.5 flex-none text-ink/60" strokeWidth={2} />
+    </>
+  );
+}
+
+/** A section head: small capitals, an optional pill, the ⓘ at the row's end (the prototype's `.sec-l`). */
+function SecHead({ label, tip, badge }: { label: string; tip: string; badge?: string }) {
+  return (
+    <div className="flex items-center gap-2 px-4 pb-1 pt-4 text-[11px] uppercase tracking-[0.08em] text-ink/60" data-prints-sec={label.split(' ·')[0]!.toLowerCase()}>
+      <span className="min-w-0 truncate">{label}</span>
+      {badge ? <span className="flex-none whitespace-nowrap rounded-full bg-ink/[0.06] px-[9px] py-1 text-[12px] font-medium text-ink/60">{badge}</span> : null}
+      <span className="ml-auto flex-none normal-case tracking-normal">
+        <InfoTip label="" ariaLabel={`About ${label}`} align="end">
+          {tip}
+        </InfoTip>
+      </span>
+    </div>
+  );
+}
+
+/** A YOUR FACTS row: its name (and a small line) left, the value or switch right (the prototype's `.kv`). */
+function FactRow({ k, small, first = false, children }: { k: string; small?: string; first?: boolean; children: ReactNode }) {
+  return (
+    <div className={`flex min-h-12 items-center justify-between gap-3 px-4 py-2.5 text-[14px] ${first ? '' : 'border-t border-ink/10'}`} data-prints-fact={k}>
+      <span className="min-w-0 text-ink/60">
+        {k}
+        {small ? <small className="block text-[11.5px]">{small}</small> : null}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function FactSwitch({ label, on, onToggle, disabled = false, data }: { label: string; on: boolean; onToggle?: () => void; disabled?: boolean; data: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={onToggle} className={SWITCH_BUTTON} data-prints-switch={data}>
+      <SwitchTrack on={on} />
+    </button>
+  );
+}
+
+/** SAVE ALL — every piece's print-ready file in one zip (the prototype's head button), drawn by the same route. */
+function SaveAllButton({ d, qr }: { d: PrintDesign; qr: PrintQrMode }) {
+  const base = useContext(ArtBase);
+  const hide = useContext(Hidden);
+  return (
+    <SaveFileLink
+      href={printAllHref({ design: d.id, qr, base, hide })}
+      filename={printAllFilename(d)}
+      className="sn-press inline-flex h-9 flex-none items-center justify-center rounded-full bg-sn-accent px-3.5 text-[14px] font-medium text-sn-on-accent"
+      data-prints-save="all"
+    >
+      {(s) => (s === 'saving' ? 'Saving…' : 'Save all')}
+    </SaveFileLink>
   );
 }
 
@@ -323,7 +516,7 @@ function SaveButton({ piece, d, qr, small = false, member = null }: { piece: Pri
       className={
         small
           ? 'sn-press inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink'
-          : 'sn-press inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-sn-accent px-4 text-[14px] font-medium text-white'
+          : 'sn-press inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-sn-accent px-4 text-[14px] font-medium text-sn-on-accent'
       }
       data-prints-save={piece.id}
     >
@@ -375,16 +568,11 @@ function PiecePicture({ piece, d, qr, member = null }: { piece: PrintPiece; d: P
   );
 }
 
-function BigPiece({ piece, d, qr, titleId, member = null }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; titleId: string; member?: PrintMember | null }) {
+/** A piece big — its name and "size · look · seen …" are the sheet's head (the prototype's nested sheet title). */
+function BigPiece({ piece, d, qr, member = null }: { piece: PrintPiece; d: PrintDesign; qr: PrintQrMode; member?: PrintMember | null }) {
   return (
-    <div className="px-4" data-prints-big={member ? 'card-me' : piece.id}>
-      <h2 id={titleId} className="text-[18px] font-medium text-ink">
-        {member ? 'Your own card' : piece.name}
-        <small className="block text-[12.5px] font-normal text-ink/60">
-          {piece.size} · {d.name} · seen {piece.view}
-        </small>
-      </h2>
-      <div className="mt-3 grid gap-3">
+    <div className="px-4 pt-3" data-prints-big={member ? 'card-me' : piece.id}>
+      <div className="grid gap-3">
         {piece.sides === 2 ? (
           <>
             <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-ink/60">Front</p>
@@ -408,17 +596,11 @@ function BigPiece({ piece, d, qr, titleId, member = null }: { piece: PrintPiece;
   );
 }
 
-function BigScene({ scene, d, qr, titleId }: { scene: PrintScene; d: PrintDesign; qr: PrintQrMode; titleId: string }) {
+function BigScene({ scene, d, qr }: { scene: PrintScene; d: PrintDesign; qr: PrintQrMode }) {
   const names = scene.surfaces.map((s) => PRINT_PIECES.find((p) => p.id === s.piece)?.name ?? '').join(' + ');
   return (
-    <div className="px-4" data-prints-big-scene={scene.slug}>
-      <h2 id={titleId} className="text-[18px] font-medium text-ink">
-        {scene.cap}
-        <small className="block text-[12.5px] font-normal text-ink/60">
-          {scene.sub} · {d.name}
-        </small>
-      </h2>
-      <div className="mt-3">
+    <div className="px-4 pt-3" data-prints-big-scene={scene.slug}>
+      <div>
         <Scene scene={scene} d={d} qr={qr} />
       </div>
       <p className="mt-2 text-[13px] text-ink/60">{names} placed by the app. The design and QR you picked; nothing drawn by hand.</p>
@@ -504,19 +686,41 @@ function Scene({ scene, d, qr, height }: { scene: PrintScene; d: PrintDesign; qr
  * the facts READ when it is saved. Its facts are read once, when the sheet first opens. A refused read says so; a shop
  * with none yet is told they show by themselves — the words Analytics › Your badges already uses.
  */
-type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: ShopBadge[] };
+type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: ShopBadge[]; verified: boolean; rated: boolean };
 
-function BadgesPiece({ open, factsUrl }: { open: boolean; factsUrl: string }) {
+/**
+ * The shop's badge facts, read ONCE per sheet visit and shared by the badges piece and YOUR FACTS' Verified seal — two
+ * readers, one request (a failed read is forgotten, so the next opening asks again).
+ */
+const factReads = new Map<string, Promise<ShopBadgeFacts | null>>();
+function readBadgeFacts(url: string): Promise<ShopBadgeFacts | null> {
+  let p = factReads.get(url);
+  if (!p) {
+    p = fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? (r.json() as Promise<{ facts: ShopBadgeFacts }>) : null))
+      .then((j) => j?.facts ?? null)
+      .catch(() => null);
+    factReads.set(url, p);
+    void p.then((f) => {
+      if (f === null) factReads.delete(url);
+    });
+  }
+  return p;
+}
+
+function useBadgeFacts(open: boolean, factsUrl: string): BadgeRead {
   const [read, setRead] = useState<BadgeRead>({ k: 'loading' });
   const started = useRef(false);
   useEffect(() => {
     if (!open || started.current) return;
     started.current = true;
-    fetch(factsUrl, { credentials: 'same-origin', headers: { accept: 'application/json' } })
-      .then((r) => (r.ok ? (r.json() as Promise<{ facts: ShopBadgeFacts }>) : null))
-      .then((j) => setRead(j ? { k: 'ok', badges: badgesForPrint(j.facts) } : { k: 'unread' }))
-      .catch(() => setRead({ k: 'unread' }));
+    void readBadgeFacts(factsUrl).then((f) => setRead(f ? { k: 'ok', badges: badgesForPrint(f), verified: f.verified, rated: cardRecordRatingFromTrusted(f.trusted) !== null } : { k: 'unread' }));
   }, [open, factsUrl]);
+  return read;
+}
+
+function BadgesPiece({ open, factsUrl }: { open: boolean; factsUrl: string }) {
+  const read = useBadgeFacts(open, factsUrl);
 
   const line =
     read.k === 'loading'

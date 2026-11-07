@@ -25,9 +25,9 @@ import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { hubDayWords, hubHref } from '@/lib/hub-events';
 import { crewJoinPath } from '@/lib/crew-pass';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
-import { CUSTOMERS_QR_MODES, PROMOTE_HREF, SUPPLIER_QR_MODE_LABEL, crewQrEvents, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf } from '@/lib/supplier-qr-codes';
+import { CUSTOMERS_QR_MODES, PROMOTE_HREF, crewQrEvents, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
-import { QrCodes, type CrewQr, type IssuedRow, type QrPick } from './_components/qr-codes';
+import { QrCodes, type CrewQr, type IssuedRow } from './_components/qr-codes';
 
 export const metadata = { title: 'QR codes · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -83,7 +83,7 @@ const QR_HREF = '/vendor-dashboard/invite';
 export default async function VendorQrCodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string; open?: string }>;
 }) {
   const search = await searchParams;
   const asked = supplierQrModeOf(search.mode);
@@ -141,18 +141,23 @@ export default async function VendorQrCodesPage({
   // 🔳 ONE "Which code ▾" (owner 2026-10-29 "THE QR DROPDOWN ALREADY EXISTS; EXTEND IT"): since 2026-11-05 this home
   // holds Booked · one-use and Crew for an event; the marketing codes are Shop › Promote's — the split and the words
   // live in `lib/supplier-qr-codes.ts`.
-  const modeOptions: QrPick[] = CUSTOMERS_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${QR_HREF}?mode=${key}` }));
+  // 🔳 OPTION B (owner 2026-11-06, *"B"*): Booked and Crew are two ROWS here, in the Promote list's design. This visit
+  // reads ONE of them (`mode`); the other row goes to its own address, where its sheet opens (`&open=1`). A link that
+  // names something to show — an issued code, a refusal, the ledger, a day, an outside booking, an event — opens the
+  // sheet on arrival; a plain visit lands on the list.
+  const hrefs = Object.fromEntries(CUSTOMERS_QR_MODES.map((key) => [key, `${QR_HREF}?mode=${key}&open=1`]));
+  const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event) ? mode : null;
 
   if (!canShare) {
-    return <QrCodes mode={mode} backHref={DATES_HREF} modeOptions={modeOptions} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
+    return <QrCodes backHref={DATES_HREF} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
   }
 
   if (mode === 'crew') {
     return (
       <QrCodes
-        mode="crew"
+        open={open}
+        hrefs={hrefs}
         backHref={DATES_HREF}
-        modeOptions={modeOptions}
         canShare
         setupHref="/vendor-dashboard/shop"
         shortlist={null}
@@ -264,10 +269,10 @@ export default async function VendorQrCodesPage({
 
   return (
     <QrCodes
-      mode="locked"
+      open={open}
+      hrefs={hrefs}
       // Came from an outside booking's "Send their code" → back to that customer's row, open (Customers › People).
       backHref={blockId ? `/vendor-dashboard/customers?block=${blockId}#outside` : DATES_HREF}
-      modeOptions={modeOptions}
       canShare
       setupHref="/vendor-dashboard/shop"
       shortlist={null}

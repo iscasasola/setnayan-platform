@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1765
-# tables: 459
-# columns: 5653
-# notnull: 3421
+# ledger: 1766
+# tables: 460
+# columns: 5657
+# notnull: 3425
 [ledger]
 20260512000000
 20260513000000
@@ -1777,6 +1777,7 @@
 20271320900784
 20271321530399
 20271322360315
+20271323347634
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -5863,6 +5864,10 @@ supplier_scan_claims.vendor_profile_id
 supplier_scan_counters.coverage_id
 supplier_scan_counters.event_id
 supplier_scan_counters.last_number
+supplier_scan_review_skips.event_id
+supplier_scan_review_skips.guest_id
+supplier_scan_review_skips.skipped_at
+supplier_scan_review_skips.vendor_profile_id
 supplier_scan_sessions.closed_at
 supplier_scan_sessions.coverage_id
 supplier_scan_sessions.event_id
@@ -9891,6 +9896,10 @@ supplier_scan_claims.vendor_profile_id
 supplier_scan_counters.coverage_id
 supplier_scan_counters.event_id
 supplier_scan_counters.last_number
+supplier_scan_review_skips.event_id
+supplier_scan_review_skips.guest_id
+supplier_scan_review_skips.skipped_at
+supplier_scan_review_skips.vendor_profile_id
 supplier_scan_sessions.coverage_id
 supplier_scan_sessions.event_id
 supplier_scan_sessions.mode

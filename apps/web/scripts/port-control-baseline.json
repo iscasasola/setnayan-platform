@@ -11886,6 +11886,19 @@
         "StudioBuyHero"
       ]
     },
+    "/dev/inquire-lab": {
+      "files": [
+        "dev/inquire-lab/lab-sheet.tsx",
+        "dev/inquire-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "InquireSheet",
+        "LabInquireSheet",
+        "Wordmark"
+      ]
+    },
     "/dev/maker-lab": {
       "files": [
         "dev/maker-lab/lab-draft.ts",
@@ -14283,6 +14296,7 @@
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
+        "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/review-groups.tsx",
@@ -14305,13 +14319,14 @@
         "/",
         "/[seg]",
         "/dashboard",
-        "/login",
-        "/signup"
+        "/dashboard/[seg]/messages/[seg]",
+        "/login"
       ],
       "actions": [
         "joinVendorWaitlist"
       ],
       "blocks": [
+        "ActionButton",
         "AddShopToEventState",
         "AddToEvent",
         "AnonInquiryComposer",
@@ -14319,11 +14334,13 @@
         "AxisStat",
         "CardRecordSection",
         "CheckADateLink",
+        "ChosenRow",
         "ComingSoonBanner",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
         "FilterChip",
+        "FormRows",
         "GuestAtEventPill",
         "GuestReviewItem",
         "GuestReviewsGroup",
@@ -14332,6 +14349,7 @@
         "HTMLDivElement",
         "Image",
         "InfoTip",
+        "InquireSheet",
         "InquiryComposer",
         "Link",
         "LockPackageModal",
@@ -14370,8 +14388,10 @@
         "SmallStars",
         "StarRow",
         "StartServiceInquiryResult",
+        "Step",
         "StorytellerTile",
         "SubmitButton",
+        "SwitchRow",
         "TeamPreviewBanner",
         "TilePhoto",
         "TrackRecord",

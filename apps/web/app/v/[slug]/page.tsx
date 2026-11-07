@@ -82,6 +82,8 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
 import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
+import { InquireSheet, type InquireEvent, type InquireService } from './_components/inquire-sheet';
+import { NO_SERVICES_LINE } from '@/lib/shop-inquire';
 import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import { ReportPageButton } from '@/app/_components/report-page-button';
@@ -1769,6 +1771,45 @@ export async function renderVendorBySlug({
      back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
   const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId };
   const shopBack = shopBackDoor(shopArrival);
+  /*
+    💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what
+    service/s are they interested to then connect them to which event the user has and it will add them to those
+    categories automatically and send inquire"). Every Inquire on this page opens it — services → which event (or a new
+    one) → the ONE send, `startServiceInquiry`. Its event list is the shipped picker's (`resolveAddShopToEvent`, cached,
+    so the read above is not repeated), and it is read for anyone signed in, not only when a composer renders.
+  */
+  const viewerSignedIn = user !== null && !(user.is_anonymous ?? false);
+  const inquireEventState = bookable && viewerSignedIn ? (shopEventPicker ?? (await resolveAddShopToEvent(slug))) : null;
+  const inquireEvents: InquireEvent[] =
+    inquireEventState?.signedIn === true
+      ? inquireEventState.options.map((o) => ({
+          eventId: o.eventId,
+          label: o.dateISO
+            ? `${o.title} · ${new Date(`${o.dateISO}T00:00:00+08:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`
+            : o.title,
+        }))
+      : [];
+  const inquireServices: InquireService[] = activeServices.map((s) => ({
+    serviceId: s.vendor_service_id,
+    label: serviceLabel(s),
+    // The price line, or nothing — `servicePriceLabel` says "Inquire" for a hidden price, a word with no place inside the pop-up.
+    price: !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0 ? servicePriceLabel(s) : '',
+    category: s.category ?? null,
+  }));
+  // Creator Economy PR-C/PR-D — provenance from the arrival URL, read ONCE for both the composer and the pop-up.
+  // startServiceInquiry re-validates both server-side, so an unknown ?src is inert.
+  const arrivalInquirySource =
+    search.src === 'editorial'
+      ? 'editorial'
+      : search.src === 'favorites'
+        ? 'favorites'
+        : search.src === 'explore'
+          ? 'explore'
+          : search.src === 'search'
+            ? 'search'
+            : null;
+  const arrivalChapter =
+    typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
   const shopEventOptions =
     shopEventPicker?.signedIn && shopEventPicker.options.length > 1
       ? // Choosing an event keeps where you came from — a picked row is this page again, not a new arrival.
@@ -2333,6 +2374,8 @@ export async function renderVendorBySlug({
           <Link href="/" className="flex items-center text-ink">
             <Wordmark size={22} />
           </Link>
+          {/* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). It sent a person who came to ask THIS
+              shop to /signup, away from the shop. Inquire is the one ask; signed out, it opens the sign-in sheet first. */}
           {user ? (
             <Link
               href="/dashboard"
@@ -2340,14 +2383,7 @@ export async function renderVendorBySlug({
             >
               Return to Dashboard
             </Link>
-          ) : (
-            <Link
-              href="/signup"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Plan with Setnayan
-            </Link>
-          )}
+          ) : null}
         </div>
       </header>
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
@@ -3278,11 +3314,8 @@ export async function renderVendorBySlug({
                   conversation stays with your event.
                 </>
               ) : (
-                <>
-                  <span className="font-medium text-ink">{displayLabel}</span>{' '}
-                  hasn&rsquo;t listed a service you can ask about yet. Check back soon —
-                  when they do, you&rsquo;ll message them right here on Setnayan.
-                </>
+                // No active service: still askable — the pop-up sends a general question (one plain line, no dead end).
+                <span data-inquire-general="">{NO_SERVICES_LINE(displayLabel)}</span>
               )
             ) : (
               <>
@@ -3372,22 +3405,8 @@ export async function renderVendorBySlug({
               // a saved-vendors "Contact" link → 'Favorites'). Absent both, the
               // inquiry stays the NULL/'website' default. startServiceInquiry
               // re-validates the source server-side, so an unknown ?src is inert.
-              referringChapterPublicId={
-                typeof search.ref_chapter === 'string' && search.ref_chapter
-                  ? search.ref_chapter
-                  : null
-              }
-              inquirySource={
-                search.src === 'editorial'
-                  ? 'editorial'
-                  : search.src === 'favorites'
-                    ? 'favorites'
-                    : search.src === 'explore'
-                      ? 'explore'
-                      : search.src === 'search'
-                        ? 'search'
-                        : null
-              }
+              referringChapterPublicId={arrivalChapter}
+              inquirySource={arrivalInquirySource}
             />
           ) : null}
 
@@ -3479,10 +3498,25 @@ export async function renderVendorBySlug({
             </div>
           ) : null}
 
+          {bookable ? (
+            <InquireSheet
+              shop={{ vendorProfileId: vendor.vendor_profile_id, slug: vendor.business_slug ?? slug, name: displayLabel }}
+              services={inquireServices}
+              signedIn={viewerSignedIn}
+              events={inquireEvents}
+              inquirySource={arrivalInquirySource}
+              referringChapterPublicId={arrivalChapter}
+            />
+          ) : null}
+
           <div className="flex flex-wrap gap-3">
-            <Link href="/signup" className="button-primary">
-              Plan with Setnayan
-            </Link>
+            {/* A shop with no service has no composer above — this is its way to ask (the pop-up catches the press). */}
+            {bookable && !showInquiryComposer && anonComposerServices.length === 0 ? (
+              <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2" data-inquire-general-ask="">
+                <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Ask a question
+              </a>
+            ) : null}
             {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This
                 was a fixed `/explore` for every arrival — Discover, an event's Suppliers, a saved supplier. The door
                 is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back". */}

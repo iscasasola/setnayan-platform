@@ -14,6 +14,7 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -1322,6 +1323,13 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 🧭 A SERVICE ON HOLD TAKES NO BOOKING (owner 2026-11-06, SERVICES LIFE CYCLE (5)): the supplier is told
+  // "Upgrade to accept", the couple's ask stays open ("waiting for ‹shop› to agree"). The database refuses the flip
+  // anyway (`a_held_service_takes_no_booking`); this only lets the answer say why instead of "did not go through".
+  if (await heldServiceOfAsk(supabase, eventVendorId)) {
+    redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=service_on_hold`);
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });
@@ -1498,7 +1506,7 @@ export async function vendorAgreeToLock(formData: FormData) {
   const back = lockAnswerReturnTo(formData.get('return_to'));
   revalidatePath('/vendor-dashboard');
   if (back !== '/vendor-dashboard') revalidatePath(back);
-  const flag = error ? 'error' : (env.status ?? 'ok');
+  const flag = error ? (/service_on_hold/.test(error.message ?? '') ? 'service_on_hold' : 'error') : (env.status ?? 'ok');
   // `competing` rides along because the refusal it belongs to — "answer the
   // other couples waiting on you for that date first" — is only actionable if
   // the supplier is told HOW MANY. The Overview reads both and says the

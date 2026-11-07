@@ -65,8 +65,13 @@ export type InlineResult = { ok: true } | { ok: false; error: string };
 
 const guestsPath = (eventId: string) => `/dashboard/${eventId}/guests`;
 
-/** Set one guest's side (bride / groom / both). Ported from `updateGuest`. */
-export async function setGuestSide(
+/**
+ * Set one guest's side (bride / groom / both). Ported from `updateGuest`.
+ * ⚠ NOT EXPORTED (2026-11-07): nothing imports it — the card saves the side through `syncExtraSeats` — and every
+ * exported server action is a Vercel route (`scripts/lint-server-action-budget.mjs`, at its ceiling). Un-exported per
+ * that script's rule 2 to make room for "Which services stay on"; kept, because the +1 side guard counts this write.
+ */
+async function setGuestSide(
   eventId: string,
   guestId: string,
   side: GuestSide,

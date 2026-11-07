@@ -11,8 +11,17 @@
  *   ?f=public&after=1      the same page after "Take down card" on the band: `is_active` false + the hold, filtered by
  *                          the SAME predicate `/v/[slug]` uses (`allServices.filter((s) => s.is_active)`)
  *
+ *   ?f=public&held=1       the same page while the band card is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE):
+ *                          the hold is `is_active` false too, so the SAME predicate hides it
+ *   ?f=stay-on             "Which services stay on" — a Free shop whose first booking is done, three services on:
+ *                          Today's line + the REAL `StayOnPicker` (its form posts to the real action, which refuses here)
+ *   ?f=stay-on&down=1      the same picker for a Pro shop with Solo scheduled (A DOWNGRADE PUTS EXTRA SERVICES ON HOLD)
+ *   ?f=held                the supplier's own Services row for a held card: the REAL `PlanHoldTag` in place of the
+ *                          switch, and the row line
+ *
  * The database half (the hold a supplier cannot lift; a couple can no longer read the row) is
- * `tests/db/a-taken-down-card-stays-down.db.test.ts` — this page is the picture, that test is the proof.
+ * `tests/db/a-taken-down-card-stays-down.db.test.ts` and, for the plan hold, `tests/db/a-held-service-stays-held.db.test.ts`
+ * — this page is the picture, those tests are the proof.
  */
 import { notFound } from 'next/navigation';
 
@@ -24,6 +33,12 @@ import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
 import { formatPhpRounded } from '@/lib/php';
 import { toServiceCard } from '@/lib/service-card-view-model';
 import type { VendorServiceRow } from '@/lib/vendor-services';
+import { StayOnPicker, type StayOnPlan } from '@/app/vendor-dashboard/services/_components/stay-on-picker';
+import { PlanHoldTag } from '@/app/vendor-dashboard/services/_components/plan-hold-tag';
+import { StayOnTodayLineView } from '@/app/vendor-dashboard/_components/stay-on-today-line';
+import { pickServicesThatStayOn } from '@/app/vendor-dashboard/services/stay-on-actions';
+import { HOLD_WORDS, ladderFor, pickModeFor, type PlanCard } from '@/lib/service-plan-hold';
+import type { VendorTier } from '@/lib/vendor-tier-caps';
 
 const SHOP_ID = '00000000-0000-4000-8000-00000000c0de';
 const NOW = new Date('2026-11-05T09:00:00+08:00');
@@ -115,16 +130,83 @@ function row(over: Partial<VendorServiceRow> & Pick<VendorServiceRow, 'vendor_se
   } as VendorServiceRow;
 }
 
+/** Three services on a shop: two band cards (one kind) and a lights card (another family). */
+const PLAN_CARDS = (hold: PlanCard['hold'] = null, startsOn: VendorTier | null = null): PlanCard[] => [
+  { id: '00000000-0000-4000-8000-00000000ca01', name: 'Garden Wedding Live Band', kind: 'live_band', families: ['music_entertainment'], live: hold !== 'held', hold, holdStartsOn: startsOn },
+  { id: '00000000-0000-4000-8000-00000000ca02', name: 'Acoustic Duo for the Ceremony', kind: 'live_band', families: ['music_entertainment'], live: true, hold: null, holdStartsOn: null },
+  { id: '00000000-0000-4000-8000-00000000ca04', name: 'Stage Lights & Sound', kind: 'lights_and_sound', families: ['production_technical'], live: true, hold: null, holdStartsOn: null },
+];
+
+/** A fourth service in a third family — more than Solo holds (2 categories), for the downgrade frame. */
+const PHOTO_BOOTH: PlanCard = { id: '00000000-0000-4000-8000-00000000ca05', name: 'Photo Booth Corner', kind: 'photo_booth', families: ['photo_video'], live: true, hold: null, holdStartsOn: null };
+
+function plansFor(current: VendorTier, pending: VendorTier | null): StayOnPlan[] {
+  return ladderFor(current, pending).flatMap((tier) => {
+    const mode = pickModeFor(tier, current, pending);
+    return mode ? [{ tier, mode }] : [];
+  });
+}
+
 export default async function CardModerationLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string; result?: string; after?: string }>;
+  searchParams: Promise<{ f?: string; result?: string; after?: string; held?: string; down?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
 
+  if (sp.f === 'stay-on') {
+    const down = sp.down === '1';
+    const current: VendorTier = down ? 'pro' : 'free';
+    const pending: VendorTier | null = down ? 'solo' : null;
+    return (
+      <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
+        <div className="space-y-1">
+          <p className="font-serif text-2xl text-ink">Saysay Live Band</p>
+          <p className="text-xs text-ink/55">Lab · {down ? 'Pro, Solo scheduled' : 'Free, first booking done'} — Today, then My Shop › Services</p>
+        </div>
+        <StayOnTodayLineView text={down ? HOLD_WORDS.todayDowngrade('solo', 'November 30, 2026') : HOLD_WORDS.todayFirstBooking} />
+        <div className="border-b border-ink/10 pb-4">
+          <StayOnPicker
+            cards={down ? [...PLAN_CARDS(), PHOTO_BOOTH] : PLAN_CARDS()}
+            plans={plansFor(current, pending)}
+            startPlan={pending ?? current}
+            founder={false}
+            owner
+            nowWaits={false}
+            action={pickServicesThatStayOn}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  if (sp.f === 'held') {
+    const cards = PLAN_CARDS('held');
+    return (
+      <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+        <div className="space-y-1">
+          <p className="font-serif text-2xl text-ink">Saysay Live Band</p>
+          <p className="text-xs text-ink/55">Lab · My Shop › Services — the band card is on plan hold</p>
+        </div>
+        <ul className="divide-y divide-ink/10 border-y border-ink/10">
+          {cards.map((c) => (
+            <li key={c.id} className="flex items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-medium text-ink">{c.name}</p>
+                <p className="mt-0.5 text-[12px] text-ink/60">{c.hold === 'held' ? HOLD_WORDS.rowLine : 'Live'}</p>
+              </div>
+              {c.hold === 'held' ? <PlanHoldTag /> : <span className="text-[12px] text-ink/55">On</span>}
+            </li>
+          ))}
+        </ul>
+      </main>
+    );
+  }
+
   if (sp.f === 'public') {
-    const after = sp.after === '1';
+    const held = sp.held === '1';
+    const after = sp.after === '1' || held;
     // The band card after "Take down card": the action's own write — is_active false + the hold.
     const rows = [
       row({
@@ -167,7 +249,7 @@ export default async function CardModerationLabPage({
         <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
           <p className="font-serif text-2xl text-ink">Saysay Live Band</p>
           <p className="text-xs text-ink/55">
-            Lab · the public shop page’s Services &amp; pricing — {after ? 'after the band card was taken down' : 'before any take-down'}
+            Lab · the public shop page’s Services &amp; pricing — {held ? 'while the band card is on plan hold' : after ? 'after the band card was taken down' : 'before any take-down'}
           </p>
           <h2 className="text-lg font-medium text-ink">Services &amp; pricing</h2>
           <ServicesGallery groups={[{ key: 'live_band', label: 'Live Band', cards }]} />

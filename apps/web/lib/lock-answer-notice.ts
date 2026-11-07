@@ -23,6 +23,7 @@
  */
 
 import { BOOKINGS_CLOSED_SUPPLIER_MESSAGE } from './bookings-open';
+import { HOLD_WORDS } from './service-plan-hold';
 
 /** Whether the notice is good news, a refusal, or a nothing-changed. */
 export type LockAnswerTone = 'ok' | 'refused' | 'noop';
@@ -53,6 +54,11 @@ export type LockAnswerContext = {
    * that day, and which of the shop's halls are free to offer instead (`vendor_card_halls_on`, read before the yes).
    */
   halls?: { taken: string[]; free: string[] } | null;
+  /**
+   * `service_on_hold` (owner 2026-11-06, SERVICES LIFE CYCLE) — the name of the asked-for service the PLAN holds, read
+   * live by the customer card (`heldServiceOfAsk`). Unknown → the sentence says "the service they asked for".
+   */
+  heldService?: string | null;
 };
 
 /** The redirect's hall names (`&taken=` · `&free=`), one spelling written by `vendorAgreeToLock` and read here. */
@@ -139,6 +145,15 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
   not_verified: () => ({
     tone: 'refused',
     text: 'Setnayan has not approved your shop yet, so a couple cannot book you. Finish your shop verification and this booking can go through.',
+  }),
+  // 🧭 The card this ask names is on a PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE (5)) — said by the app before
+  // the RPC, and by the trigger `a_held_service_takes_no_booking` if anything reaches it anyway.
+  // The door rides along for surfaces with no pill of their own (Today's status line); the customer card draws the
+  // "Pick which stay on" pill in place of Agree instead, and its red line carries no link.
+  service_on_hold: (ctx) => ({
+    tone: 'refused',
+    text: HOLD_WORDS.refusedYes(ctx.heldService),
+    door: { label: HOLD_WORDS.door, href: '/vendor-dashboard/shop#stay-on' },
   }),
   hall_taken: (ctx) => {
     const taken = ctx.halls?.taken ?? [];

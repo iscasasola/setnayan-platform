@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Sparkles, Star, Store, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Star, Store, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
@@ -17,7 +17,7 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
  *   Add-ons › (#add-ons — the shipped cards below) · Papic credits › (Event Hub) · Featured by Setnayan ·
- *   Custom plan › · Cancel the plan (nothing renews by itself)
+ *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
  * Presentational: every value arrives read; nothing here fetches or writes. The page and `/dev/supplier-plan-lab`
  * both mount it, so the lab shows what ships.
@@ -150,13 +150,6 @@ export function PlanRows({
           title="Featured by Setnayan"
           line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
           badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
-        />
-        <DatesRow
-          data="plan-custom"
-          lead={ic(Sparkles)}
-          title="Custom plan"
-          line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Ultra'}
-          href="/vendor-dashboard/subscription/custom"
         />
         <DatesRow
           data="plan-cancel"

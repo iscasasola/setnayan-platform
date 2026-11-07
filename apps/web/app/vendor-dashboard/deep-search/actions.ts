@@ -32,7 +32,7 @@ import {
  * Deep Search (vendor-facing) — run the web-research deep search on the vendor's
  * OWN business and return the "What We Learned" review to auto-fill their
  * profile. Owner-locked 2026-07-22: ₱500 / search, PAID tiers (Solo+) + verified;
- * Pro/Enterprise/Custom get 1 free per 28-day cycle, Solo always pays.
+ * Pro/Ultra get 1 free per 28-day cycle, Solo always pays.
  *
  * ── WHY the gate + price re-check is HERE, server-side ──────────────────────
  * Nothing else gates a vendor add-on on the orders spine. This action is the

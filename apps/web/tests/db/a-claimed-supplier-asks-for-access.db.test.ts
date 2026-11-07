@@ -21,11 +21,17 @@
  *   5. A shop that was ALREADY on the event (a save from Find) claims the
  *      couple's hand record → the record merges onto the shop's row, and the
  *      schedule item the couple gave the record now points at the survivor.
+ *   6. ✏️ (DECISION_LOG 2026-11-07) What the supplier corrected rides on the
+ *      answered ask, which ONLY the inviting couple reads — so their row shows
+ *      the shop's real name while another event's couple, a guest of this
+ *      event and anon read no ask and still see the screen name.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { claimReveals, correctionsDetail, invitedCoupleName, revealFor, supplierCorrections, type AnsweredClaimAsk } from '../../lib/supplier-corrections';
+import { resolveVendorDisplayName } from '../../lib/vendors';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -323,4 +329,117 @@ test('5 · a merge on approval carries the schedule item to the surviving row', 
   const ask = await db.query<{ ev: string }>(`SELECT event_vendor_id AS ev FROM public.event_access_requests WHERE request_id = $1`, [c.ask]);
   assert.equal(ask.rows[0]!.ev, survivor);
   await asOwner();
+});
+
+/** The Suppliers page's own read of the answered claim asks (`claimRevealByRow`), as this viewer. */
+async function answeredClaimAsksAs(uid: string | 'anon'): Promise<AnsweredClaimAsk[]> {
+  if (uid === 'anon') {
+    await asOwner();
+    await setAuthRole('anon');
+    await db.exec(`SET ROLE anon`);
+  } else {
+    await asUser(uid);
+  }
+  const r = await db
+    .query<AnsweredClaimAsk>(
+      `SELECT event_vendor_id, vendor_profile_id, decisions FROM public.event_access_requests
+        WHERE event_id = $1 AND kind = 'claim' AND status = 'answered'`,
+      [F.eventId],
+    )
+    .then(
+      (x) => x.rows,
+      () => [] as AnsweredClaimAsk[],
+    );
+  await asOwner();
+  return r;
+}
+
+test('6 · the corrections ride on the ask; only the inviting couple sees the real name and the new phone', async () => {
+  // The caterer (approved in 3) corrected their shop at the claim door; the shop is still anonymous (no reveal).
+  await asServer();
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET business_name = 'Kusina ni Lola Catering', contact_phone = '+639181112222',
+            name_revealed_at = NULL, screen_name = 'Manila Caterer #4101'
+      WHERE vendor_profile_id = $1`,
+    [F.catererShop],
+  );
+  const shop = (
+    await db.query<{ business_name: string; contact_phone: string; screen_name: string }>(
+      `SELECT business_name, contact_phone, screen_name FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+      [F.catererShop],
+    )
+  ).rows[0]!;
+  const card = (
+    await db.query<{ business_name: string; contact_number: string }>(
+      `SELECT m.business_name, m.contact_number FROM public.event_manual_vendors m
+         JOIN public.event_vendors v ON v.manual_vendor_id = m.manual_vendor_id WHERE v.vendor_id = $1`,
+      [F.rowId],
+    )
+  ).rows[0]!;
+  // What `takeSupplierCorrections` keeps on the ask (the same rule, the same write).
+  const corrections = supplierCorrections(
+    { name: card.business_name, phone: card.contact_number },
+    { name: shop.business_name, phone: shop.contact_phone },
+  );
+  assert.deepEqual(Object.keys(corrections).sort(), ['name', 'phone']);
+  await db.query(`UPDATE public.event_access_requests SET decisions = $2::jsonb WHERE request_id = $1`, [
+    F.ask,
+    JSON.stringify({ access: 'granted', updated: corrections }),
+  ]);
+  await asOwner();
+
+  const screenName = resolveVendorDisplayName({
+    business_name: shop.business_name,
+    name_revealed_at: null,
+    isPaidTier: false,
+    is_verified: false,
+    primary_canonical_service: 'catering',
+    location_city: null,
+    services: ['catering'],
+    screen_name: shop.screen_name,
+  });
+  assert.equal(screenName, 'Manila Caterer #4101', 'the shop is anonymous to the market');
+  const nameFor = async (viewer: string | 'anon') => {
+    const reveal = revealFor(claimReveals(await answeredClaimAsksAs(viewer)), F.rowId, F.catererShop);
+    return { reveal, name: invitedCoupleName(reveal, shop.business_name, screenName) };
+  };
+
+  const couple = await nameFor(F.host);
+  assert.equal(couple.name, 'Kusina ni Lola Catering', 'the couple who invited them sees the real name');
+  assert.equal(couple.reveal?.corrections.name?.from, 'Kusina ni Lola');
+  // 📞 Owner 2026-11-07: the inviting couple is shown the new phone IN FULL ("we are giving them more freedom to talk
+  // outside since we already tracked them from our website").
+  assert.deepEqual(couple.reveal?.corrections.phone, { from: card.contact_number, to: '+639181112222' });
+  assert.ok(
+    correctionsDetail(couple.reveal?.corrections).includes('Phone: +63 918 111 2222 (was +63 917 000 0000)'),
+    `the couple's ⓘ does not show the new number: ${correctionsDetail(couple.reveal?.corrections).join(' · ')}`,
+  );
+
+  // Another event's couple.
+  const otherHost = await signUp('other-host@ask-e2e.test', 'customer');
+  await asOwner();
+  const otherEvent = (
+    await db.query<{ e: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date)
+       VALUES ('Another Wedding', 'wedding', 'catholic', 'banquet_hall', DATE '2027-03-01') RETURNING event_id AS e`,
+    )
+  ).rows[0]!.e;
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [otherEvent, otherHost]);
+  // A guest of THIS event.
+  const guest = await signUp('guest@ask-e2e.test', 'customer');
+  await asOwner();
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'guest')`, [F.eventId, guest]);
+
+  for (const [who, viewer] of [
+    ['another event’s couple', otherHost],
+    ['a guest of this event', guest],
+    ['anon', 'anon'],
+  ] as const) {
+    const seen = await nameFor(viewer);
+    assert.equal(seen.reveal, null, `${who} read the couple’s answered ask`);
+    assert.equal(seen.name, 'Manila Caterer #4101', `${who} saw the real name`);
+    const raw = JSON.stringify(await answeredClaimAsksAs(viewer));
+    assert.ok(!raw.replace(/\D/g, '').includes('9181112222'), `${who} was handed the supplier's new number: ${raw}`);
+  }
 });

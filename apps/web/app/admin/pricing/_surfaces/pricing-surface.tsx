@@ -82,7 +82,7 @@ type VendorRow = {
   title: string;
   description: string | null;
   price_php: number;
-  offering_type: 'subscription_monthly' | 'subscription_annual' | 'token_pack';
+  offering_type: VendorOfferingType;
   is_active: boolean;
   retired_at: string | null;
   retirement_reason: string | null;
@@ -98,10 +98,40 @@ type Props = {
   }>;
 };
 
-const VENDOR_OFFERING_LABEL: Record<VendorRow['offering_type'], string> = {
+/**
+ * Every `vendor_billing_catalog.offering_type` the CHECK admits (latest: 20271316466285). The map used to know three,
+ * so a seat, a branch and every add-on row rendered with no type at all.
+ */
+type VendorOfferingType =
+  | 'subscription_monthly'
+  | 'subscription_annual'
+  | 'token_pack'
+  | 'branch'
+  | 'seat'
+  | 'custom_addon'
+  | 'vendor_addon_recurring'
+  | 'vendor_addon_per_event'
+  | 'vendor_addon_metered'
+  | 'category'
+  | 'service_card'
+  | 'waitlist'
+  | 'booking_per_date';
+
+const VENDOR_OFFERING_LABEL: Record<VendorOfferingType, string> = {
   subscription_monthly: 'Subscription · monthly',
   subscription_annual: 'Subscription · annual',
   token_pack: 'Token pack',
+  branch: 'Add-on · +1 branch (Ultra)',
+  seat: 'Add-on · +1 team seat (Ultra)',
+  custom_addon: 'Custom plan part',
+  vendor_addon_recurring: 'Add-on · every 4 weeks',
+  vendor_addon_per_event: 'Add-on · per celebration',
+  vendor_addon_metered: 'Add-on · per use',
+  // Ultra add-ons, owner 2026-11-06 ("ULTRA ADD-ON PRICES").
+  category: 'Add-on · +1 category (Ultra)',
+  service_card: 'Add-on · +1 service card (Ultra)',
+  waitlist: 'Add-on · +1 wait list (Ultra)',
+  booking_per_date: 'Add-on · +1 booking per date (Ultra)',
 };
 
 export async function PricingSurface(_props: Props) {
@@ -264,7 +294,7 @@ export async function PricingSurface(_props: Props) {
         title: r.title,
         description: r.description,
         price: Number(r.price_php),
-        offeringLabel: VENDOR_OFFERING_LABEL[r.offering_type],
+        offeringLabel: VENDOR_OFFERING_LABEL[r.offering_type] ?? r.offering_type,
         offeringType: r.offering_type,
         isActive: r.is_active,
         retiredAt: r.retired_at,

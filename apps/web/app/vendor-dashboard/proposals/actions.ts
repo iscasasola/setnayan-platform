@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { demoBookingRefusal, DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY } from '@/lib/demo-scope';
 import { emitNotification } from '@/lib/notification-emit';
 import { isQuoteAnswer, quoteAnswerNotice, type QuoteAnswer } from '@/lib/quote-answer-notice';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -110,6 +111,16 @@ export async function createProposal(formData: FormData) {
     p_event_id: eventId,
   });
   if (briefError || !briefData) redirect(`${BACK}?notice=not_booked`);
+
+  // 🧪 A demo shop never quotes a real event; a real shop never quotes a demo event (owner 2026-11-06,
+  // lib/demo-scope.ts). The trigger `refuse_demo_cross_booking` on vendor_proposals is the backstop.
+  const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+    eventId,
+    vendorProfileId: profile.vendor_profile_id,
+  });
+  if (demoRefusal) {
+    redirect(`${BACK}?notice=${demoRefusal === DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY ? 'demo_event' : 'demo_shop'}`);
+  }
   const brief = briefData as ProposalBrief;
 
   // 3 · Package line items (own org; optional) + manual-total fallback.

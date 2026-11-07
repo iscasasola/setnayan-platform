@@ -30,7 +30,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
 import type { EventVenueColumns } from '@/lib/event-venues';
-import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
+import { demoScopeFor } from '@/lib/demo-scope';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
@@ -686,12 +686,10 @@ export async function searchCategoryVendors(input: {
   // Ranked category query (boosted → review_count → rating) + live search.
   // (`admin` is created above for the last-minute config read.)
 
-  // Demo-vendor exclusion — mirror the public `/explore` browse: real couples
-  // never see `is_demo = TRUE` vendors; only an admin in demo mode (admin
-  // profile + the demo cookie) does. Cheap fast-path: skip the admin lookup
-  // unless the demo cookie is present.
-  // ONE rule with the bench's whole-marketplace search (`lib/demo-vendor-exclusion.ts`).
-  const excludeVendorIds: ReadonlyArray<string> = await demoVendorIdsHiddenFrom(supabase, admin, user.id);
+  // 🧪 Demo scope (owner 2026-11-06, `lib/demo-scope.ts`): inside a REAL event the search never lists a demo shop —
+  // for everybody, an admin with the demo cookie included; inside a DEMO event (`events.is_sample`) it lists ONLY demo
+  // shops. ONE rule with the bench's whole-marketplace search (`lib/demo-vendor-exclusion.ts`).
+  const demoScope = await demoScopeFor(admin, eventId);
 
   let recsRefused = false;
   const recs = await fetchWizardVendorRecommendations(admin, {
@@ -699,7 +697,7 @@ export async function searchCategoryVendors(input: {
       recsRefused = true;
     },
     canonicalServices: canonicals,
-    excludeVendorIds,
+    demoScope,
     ceremonyType: (ev.ceremony_type as string | null) ?? null,
     // Mixed/interfaith weddings: admit vendors fit for the secondary rite too
     // (additive — never excludes). CLAUDE.md 2026-06-01 + 2026-06-02.

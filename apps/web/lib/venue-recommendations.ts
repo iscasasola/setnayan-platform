@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { haversineKm } from './geo';
+import { demoScopeFor, type DemoScope } from './demo-scope';
 
 /**
  * Paired-venue recommendation engine.
@@ -467,8 +468,8 @@ export async function findReceptionVenuesByVenueSetting(
     eventId?: string | null;
     /** Cap per venue_type group. Default 6 — matches CeremonyVenuesSection. */
     perTypeLimit?: number;
-    /** When true, include rows with `is_demo=TRUE`. Default false: demo
-     *  venues stay hidden unless the viewer is an admin in demo mode. */
+    /** When true, include rows with `is_demo=TRUE`. Default false. IGNORED when `eventId` is set — the event's own
+     *  demo scope (`demoScopeFor`) decides then. */
     includeDemo?: boolean;
   },
 ): Promise<PairedVenueCandidate[]> {
@@ -502,15 +503,20 @@ export async function findReceptionVenuesByVenueSetting(
     + 'compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url';
 
   let rows: Row[] = [];
-  // Default: exclude demo venues unless caller opts in via args.includeDemo.
-  const includeDemo = args.includeDemo === true;
+  // 🧪 Demo scope (owner 2026-11-06, `lib/demo-scope.ts`). Inside an event the event's own side of the line wins:
+  // a REAL event never lists a demo venue (`includeDemo` cannot reach inside it), a DEMO event (`events.is_sample`)
+  // lists ONLY demo venues. With no event, the old default stands: demo venues only on `includeDemo`.
+  const demoScope: DemoScope | null = args.eventId ? await demoScopeFor(admin, args.eventId) : null;
+  const includeDemo = demoScope === null && args.includeDemo === true;
   {
     let q = admin
       .from('venue_directory')
       .select(wideColumns)
       .in('venue_type', venueTypes as readonly string[])
       .order('name', { ascending: true });
-    if (!includeDemo) {
+    if (demoScope?.is_demo === true) {
+      q = q.eq('is_demo', true);
+    } else if (!includeDemo) {
       // Exclude is_demo=TRUE; the .neq fallback covers NULL is_demo on pre-
       // migration rows by treating NULL as "not demo".
       q = q.or('is_demo.is.null,is_demo.eq.false');
@@ -520,6 +526,8 @@ export async function findReceptionVenuesByVenueSetting(
       if (/day_rate|capacity_|is_demo|venue_category|compatible_venue_settings/i.test(error.message)) {
         // Pre-migration retry — narrow column set, no demo filter (column
         // doesn't exist yet so every row is implicitly non-demo).
+        // A demo event has no demo venue to show on that path — never a real one in their place.
+        if (demoScope?.is_demo === true) return [];
         const { data: narrow, error: nerr } = await admin
           .from('venue_directory')
           .select(narrowColumns)

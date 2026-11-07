@@ -1346,7 +1346,7 @@ function AddServiceForm({
           className="input-field"
         />
       </Field>
-      {/* ⚖ No plan limit on bookings a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
+      {/* ⚖ The supplier's own number — the save keeps it inside the plan's bookings per date per card (owner 2026-11-06). */}
       <Field
         label="Bookings per day (optional)"
         htmlFor={`new-cap-${addCategory}`}

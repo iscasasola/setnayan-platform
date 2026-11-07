@@ -33,11 +33,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import {
-  DEMO_MODE_CLEANUP_DEADLINE,
-  DEMO_MODE_COOKIE_NAME,
-  isAdminProfile,
-} from '@/lib/demo-mode';
+import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SampleEventSwitch } from '../_components/sample-event-switch';
@@ -105,15 +101,6 @@ export async function DemoModeSurface({ searchParams }: Props) {
 
   const search = await searchParams;
   const justToggled = search.toggled === 'on' || search.toggled === 'off';
-  const cleanupLabel = new Date(DEMO_MODE_CLEANUP_DEADLINE).toLocaleDateString(
-    'en-PH',
-    {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'Asia/Manila',
-    },
-  );
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -128,12 +115,12 @@ export async function DemoModeSurface({ searchParams }: Props) {
       <PageMasthead title="Demo mode" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          When demo mode is on, the marketplace and individual supplier profile
-          pages additionally surface suppliers marked{' '}
+          Suppliers marked{' '}
           <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">
             is_demo = TRUE
           </code>{' '}
-          and display their pricing publicly. Real supplier visibility (the
+          now show to everyone, marked (DEMO ONLY). When demo mode is on, they also
+          display their pricing publicly. Real supplier visibility (the
           2026-05-16 hide-prices lock) is unchanged. Admins only — non-admin
           sessions silently ignore the flag.
         </p>
@@ -246,7 +233,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
               href="/admin/demo-vendors"
               className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
             >
-              Manage demo suppliers (cleanup before {cleanupLabel})
+              Manage demo suppliers
               <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             </Link>
           </li>
@@ -261,13 +248,13 @@ export async function DemoModeSurface({ searchParams }: Props) {
             aria-hidden
           />
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-700">
-            Cleanup deadline
+            Demo shops are public — and never bookable
           </h2>
         </div>
+        {/* The Dec-1 "cleanup deadline" is retired (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). */}
         <p>
-          Demo supplier records and the demo-mode override are pre-V1 dogfood
-          tooling — both must be cleaned out before <strong>{cleanupLabel}</strong>,
-          the V1 public launch cutover.
+          Demo shops and demo events show to everyone, marked (DEMO ONLY). A real event can never book,
+          pay or message a demo shop, and a demo event books only demo shops.
         </p>
       </section>
 

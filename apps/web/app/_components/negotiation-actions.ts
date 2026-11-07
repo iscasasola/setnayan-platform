@@ -41,6 +41,7 @@ import { dealLockReadiness, dealLockRefusal } from '@/lib/deal-lock-readiness';
 import { revalidationTarget } from '@/lib/return-path';
 import { formatCount } from '@/lib/format-number';
 import { isSafeNext } from '@/lib/safe-next';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -742,6 +743,16 @@ export async function lockDeal(formData: FormData): Promise<void> {
     am.vendor_profile_id !== ctx.thread.vendor_profile_id ||
     (am.thread_id != null && am.thread_id !== threadId)
   ) {
+    redirect(dest);
+  }
+  // 🧪 A REAL EVENT NEVER BOOKS A DEMO SHOP — a chat Deal is a booking (owner 2026-11-06, lib/demo-scope.ts).
+  // Refused before ANY write; the trigger `refuse_demo_cross_booking` is the backstop on the booking tables.
+  const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+    eventId: ctx.thread.event_id,
+    vendorProfileId: ctx.thread.vendor_profile_id,
+  });
+  if (demoRefusal) {
+    if (back) redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(demoRefusal)}`);
     redirect(dest);
   }
 

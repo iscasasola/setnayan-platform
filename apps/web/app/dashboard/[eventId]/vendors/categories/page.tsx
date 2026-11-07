@@ -257,7 +257,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   // saysay did not show?"). The box said "Search suppliers or a service" and
   // matched only category words — so shops are searched by name too, with the
   // bench's own whole-marketplace search (one rule for who may be listed).
-  const shopsRead = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(q) : { results: [], unreadable: false };
+  const shopsRead = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(eventId, q) : { results: [], unreadable: false };
   const shops = shopsRead.results;
 
   return (

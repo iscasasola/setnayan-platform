@@ -65,7 +65,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/(shell)/papic/', why: 'Papic credits — "never locked into what you pick"' },
   { prefix: 'lib/camera-bridge/', why: 'a locked Papic clip cap — a developer error string' },
   { prefix: 'app/(shell)/explore/compare/', text: /hide-prices lock/, why: 'a demo-data note about the hide-prices rule' },
-  { prefix: 'app/v/[slug]/page.tsx', text: /hide-prices lock/, why: 'an admin dogfooding note about the hide-prices rule' },
   { prefix: 'app/dashboard/[eventId]/alaala/', why: 'fixed editorial moments, not a booking' },
   { prefix: 'app/dashboard/[eventId]/clearance/', why: 'locking the photo wall so it becomes the recap' },
   { prefix: 'app/panood/control/', why: 'a venue screen locked with the Live Watch purchase' },

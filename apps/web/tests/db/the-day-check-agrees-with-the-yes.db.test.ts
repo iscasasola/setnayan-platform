@@ -86,7 +86,9 @@ async function mkShop(label: string): Promise<{ uid: string; vpid: string }> {
         SET business_name = $2, location_city = 'Manila', services = ARRAY['photography']::text[],
             verification_state = 'verified'::public.vendor_verification_state, last_verified_at = NOW(),
             public_visibility = 'verified'::public.vendor_public_visibility,
-            tier_state = 'solo'
+            -- PRO, not Solo: the full card takes 2 a day, and since 2026-11-06 a Solo card takes at most 1 a date
+            -- (owner, "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE"). Pro's 3 leaves the card's own 2 in charge.
+            tier_state = 'pro'
       WHERE vendor_profile_id = $1`,
     [vpid, label],
   );

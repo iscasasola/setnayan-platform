@@ -72,7 +72,7 @@ import type { VendorPublicVisibility } from '@/lib/vendor-visibility';
 import type { VendorBadge } from '@/lib/vendor-badges';
 import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { FollowGate } from '@/app/_components/follow-gate';
-import { SampleShopMarker } from '@/app/_components/sample-marker';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { SaveVendorButton } from './save-vendor-button';
 import { ReviewCarousel } from './review-carousel';
 import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
@@ -379,9 +379,9 @@ export async function VendorCard({
                   the taxonomy + city placeholder while hidden. */}
               {displayLabel}
             </h2>
-            {/* 🧪 A demo shop's card wears the sample event's chip, "Sample shop" + its ⓘ (owner, 6 Nov 2026) —
-                app/_components/sample-marker.tsx. Was an amber "Demo" pill and an amber ring of its own drawing. */}
-            {isDemoCard ? <SampleShopMarker /> : null}
+            {/* 🧪 A demo shop's card says "(DEMO ONLY)" + its ⓘ to EVERY viewer (owner, DECISION_LOG 2026-11-06 "DEMO
+                SHOPS + DEMO EVENTS") — app/_components/sample-marker.tsx. Was an amber "Demo" pill shown to admins only. */}
+            {isDemoCard ? <DemoOnlyMarker /> : null}
           </div>
           {/* Service-name-by-business-name composition per the owner
               directive. When no canonical service is on the vendor's
@@ -495,9 +495,7 @@ export async function VendorCard({
           any shop whose page would show it too; a shop that opted out
           of public prices reaches here with a null and renders nothing. */}
       {priceLine ? (
-        <p className={`font-mono text-xs ${
-          isDemoCard ? 'text-warn-800/90' : 'text-ink/70'
-        }`}>
+        <p className="font-mono text-xs text-ink/70">
           {priceLine}
         </p>
       ) : null}

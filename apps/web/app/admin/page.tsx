@@ -75,8 +75,9 @@ export default async function AdminOverview() {
       admin.from('users').select('*', head),
       admin.from('users').select('*', head).eq('account_type', 'customer'),
       admin.from('users').select('*', head).eq('account_type', 'vendor'),
-      admin.from('events').select('*', head),
-      admin.from('vendor_profiles').select('*', head),
+      // 🧪 Demo events and demo shops are not real totals (owner 2026-11-06, `lib/demo-never-counts.test.ts`).
+      admin.from('events').select('*', head).eq('is_sample', false),
+      admin.from('vendor_profiles').select('*', head).eq('is_demo', false),
       admin.from('chat_threads').select('*', head),
       admin.from('users').select('*', head).eq('is_internal', true),
       admin.from('users').select('*', head).eq('is_team_member', true),

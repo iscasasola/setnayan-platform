@@ -98,7 +98,7 @@ test('requirements-capture: a genuine hit does NOT spuriously log', async () => 
 
 test('same-day-vendors: a REFUSED read stays `[]`, and is now logged', async () => {
   const { result, calls } = await captureConsoleError(() =>
-    findSameDayVendors(stubClient(REFUSED), { lat: null, lng: null, region: null }),
+    findSameDayVendors(stubClient(REFUSED), { lat: null, lng: null, region: null }, { is_demo: false }),
   );
   assert.deepEqual(result, []);
   assert.equal(calls.length, 1);

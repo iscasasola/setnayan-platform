@@ -85,16 +85,25 @@ test('it states the public-visibility rule itself, not trusting the caller’s R
   }
 });
 
-// 2026-09-30 · the two trial shops became `is_demo = true` (DECISION_LOG
-// 2026-09-29 "LANE 2 §2C" (1)). They are fully verified, so without these two
-// clauses the flag changes nothing on the marketplace body.
-// SABOTAGE: drop either `.eq(…is_demo…)` → RED.
-test('🧪 it never lists a demo card or a demo shop\'s card', async () => {
-  const { calls } = await run({});
+// 2026-11-06 · demo shops are PUBLIC, marked "(DEMO ONLY)" (owner, DECISION_LOG "DEMO SHOPS + DEMO EVENTS"). This
+// supersedes the 2026-09-30 pin that the body never lists a demo card. A demo shop's cards list like any other, and
+// each card says whether its shop is a demo so the view draws the marker.
+// SABOTAGE: put back `.eq('vendor_profiles.is_demo', false)` → RED; drop `is_demo` from the embed → RED.
+test('🧪 it lists a demo shop\'s cards, and each card carries the shop\'s is_demo for the marker', async () => {
+  const { calls, rows } = await run(
+    {},
+    {
+      data: [
+        { vendor_service_id: 's1', vendor_profiles: { vendor_profile_id: 'v1', business_name: 'Demo Co', is_demo: true } },
+        { vendor_service_id: 's2', vendor_profiles: { vendor_profile_id: 'v2', business_name: 'Real Co', is_demo: false } },
+      ],
+    },
+  );
   const eqs = calls.filter((c) => c.fn === 'eq').map((c) => `${c.args[0]}=${c.args[1]}`);
-  for (const expected of ['is_demo=false', 'vendor_profiles.is_demo=false']) {
-    assert.ok(eqs.includes(expected), `missing demo clause: ${expected}\ngot: ${eqs.join(' · ')}`);
-  }
+  assert.ok(!eqs.some((e) => e.includes('is_demo')), `a demo exclusion is back: ${eqs.join(' · ')}`);
+  const select = String(calls.find((c) => c.fn === 'select')?.args[0] ?? '');
+  assert.match(select, /vendor_profiles!inner\([^)]*\bis_demo\b/, 'the embed must read the shop\'s is_demo');
+  assert.deepEqual(rows.map((r) => r.isDemo), [true, false]);
 });
 
 test('category is a FILTER, applied only when asked for', async () => {

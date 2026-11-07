@@ -130,7 +130,10 @@ async function fetchVerifiedVendorPool(
     .select(
       'vendor_profile_id, business_name, business_slug, logo_url, created_at, verification_state, fraud_suspended_at, fraud_banned_at',
     )
-    .eq('verification_state', 'verified');
+    .eq('verification_state', 'verified')
+    // 🧪 A demo shop never competes for a real award (owner 2026-11-06: "demo numbers never count in real totals").
+    // Its seeded reviews and bookings would otherwise out-rank every real shop for Top Pick / Most Booked / Rising.
+    .eq('is_demo', false);
 
   if (error) {
     throw new Error(`[spotlight-awards] verified pool fetch failed: ${error.message}`);

@@ -16,6 +16,7 @@ import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/co
 import { listShopOwnPhotos } from '@/lib/shop-own-photos.server';
 import { shopCardChoices } from '@/lib/inspiration-card-link.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { settledValue } from '@/lib/settled-read';
 
 export const metadata = { title: 'Moodboard Library · My Designs' };
 export const dynamic = 'force-dynamic';
@@ -64,12 +65,32 @@ export default async function StylistMoodboardLibraryPage() {
   }
 
   const assetIds = (rows ?? []).map((r) => r.asset_id);
+
+  // ⏱ ONE ROUND TRIP for every read below: each asks only of this shop (and the uploads above), none of another. They
+  // start after the uploads read on purpose — an unreadable shelf still throws first, as before. SETTLED, not
+  // Promise.all: the importable list, the shop's photos and the card choices can throw, and each failure is still met
+  // where it always was — the importable one caught into `importableFailed`, the other two at their old `await`.
+  const [rangesRead, tierRead, importableRead, shopRead] = await Promise.allSettled([
+    assetIds.length > 0
+      ? admin
+          .from('moodboard_asset_color_ranges')
+          .select('asset_id, slot_id, sampled_hex, tolerance_de, region_label')
+          .in('asset_id', assetIds)
+      : null,
+    admin.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
+    listImportableEditorialMedia(),
+    Promise.all([
+      listShopOwnPhotos(supabase, profile),
+      getInspirationParts().then((parts) =>
+        shopCardChoices(admin, profile.vendor_profile_id, slots.map((s) => s.key), parts),
+      ),
+    ]),
+  ]);
+
   const colorRangesByAsset = new Map<string, ColorRangeMap>();
-  if (assetIds.length > 0) {
-    const { data: ranges } = await admin
-      .from('moodboard_asset_color_ranges')
-      .select('asset_id, slot_id, sampled_hex, tolerance_de, region_label')
-      .in('asset_id', assetIds);
+  const rangesRes = settledValue(rangesRead);
+  if (rangesRes) {
+    const { data: ranges } = rangesRes;
     for (const r of ranges ?? []) {
       const existing = colorRangesByAsset.get(r.asset_id) ?? {};
       existing[r.slot_id] = {
@@ -109,11 +130,7 @@ export default async function StylistMoodboardLibraryPage() {
   // editor from `assets` below — it already carries asset_subtype,
   // source_event_id and retired_at, so a second account-wide query here would
   // only compute a number the per-category quota no longer uses.
-  const { data: tierRow } = await admin
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
+  const { data: tierRow } = settledValue(tierRead);
   const cap = tierCaps(
     (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
   ).galleryBackCatalogPhotosPerCategory;
@@ -125,23 +142,15 @@ export default async function StylistMoodboardLibraryPage() {
   // error is bound and the difference reaches the render.
   let importable: ImportableEditorialPhoto[] = [];
   let importableFailed = false;
-  try {
-    importable = await listImportableEditorialMedia();
-  } catch {
-    importableFailed = true;
-  }
+  if (importableRead.status === 'fulfilled') importable = importableRead.value;
+  else importableFailed = true;
 
   // 🌱🖼 THE SHOP'S OWN PHOTOS (owner 2026-10-19: "add from the shop's own gallery photos as well as upload") — its
   // page gallery and service cards, read under the supplier's own session. A failed read is said in the picker's
   // place (`shopPhotosFailed`), never drawn as "no photos".
   // 🔗 "Which of your services is this?" (owner 2026-10-30) — per part this shop may fill, its live cards whose Service
   // links that part. Read on the service role, scoped by the shop the access gate resolved; null = unreadable (said).
-  const [shopPhotos, cardsByPart] = await Promise.all([
-    listShopOwnPhotos(supabase, profile),
-    getInspirationParts().then((parts) =>
-      shopCardChoices(admin, profile.vendor_profile_id, slots.map((s) => s.key), parts),
-    ),
-  ]);
+  const [shopPhotos, cardsByPart] = settledValue(shopRead);
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">

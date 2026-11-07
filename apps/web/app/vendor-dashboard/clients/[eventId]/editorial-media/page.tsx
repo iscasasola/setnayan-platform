@@ -44,16 +44,16 @@ export default async function VendorEditorialMediaPage({
   }
 
   const admin = createAdminClient();
-  const eligibility = await getEditorialEligibility(admin, eventId, profile.vendor_profile_id);
+  // ⏱ ONE ROUND TRIP: the eligibility and the event's name ask nothing of each other. Only the eligibility can throw,
+  // and it was the first of the two, so the batch rejects exactly when, and with what, it did alone.
+  const [eligibility, { data: ev }] = await Promise.all([
+    getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
+    admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+  ]);
   // Hard gate (matches the submit action): only show the upload studio when the
   // booking is the couple's recommended pick AND confirmed complete.
   const eventVendorId = eligibility.eligible ? eligibility.eventVendorId : null;
 
-  const { data: ev } = await admin
-    .from('events')
-    .select('display_name')
-    .eq('event_id', eventId)
-    .maybeSingle();
   const eventName = (ev?.display_name as string | null) ?? 'this wedding';
 
   // Existing submissions by this vendor on this event (any moderation state —

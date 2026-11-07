@@ -33,6 +33,7 @@ import { listShopPhotosForSuggestion, suggestInspirationPhoto, withdrawInspirati
 import { buildSupplierBoard, firstOwnPart, ownLaneWords } from '@/lib/supplier-suggest-board';
 import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-suggestion-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { settledValue } from '@/lib/settled-read';
 import { supplierRoleLine, type SupplierSuggestion } from '@/lib/inspiration-suggestions';
 import { shownMainFive } from '@/lib/mood-board-studio';
 import { themeSeedPalette } from '@/lib/mood-board-palette-set';
@@ -98,6 +99,31 @@ export default async function VendorMoodBoardPage({ params }: Props) {
 
   const board = data as MoodBoardData;
 
+  // ⏱ ONE ROUND TRIP for every read below that asks only of this event and this shop — none needs the board above or
+  // another's answer: the sign-off rows (MB12), the decor catalog, the colour grants (MB16), the waiting suggestions +
+  // the brief. They start after the board read on purpose: a board this shop may not open redirects first, as before.
+  // SETTLED, not Promise.all — the decor catalog can throw, and `settledValue` meets that failure at the line that used
+  // to await it, after the sign-off log before it. (The live parts stay their own read below: a guard pins that line.)
+  const [signoffRead, decorRead, grantRead, suggestionsRead] = await Promise.allSettled([
+    supabase
+      .from('moodboard_part_finalizations')
+      .select('finalization_id, part_id, state, expires_at, reopen_state, reopen_expires_at')
+      .eq('event_id', eventId)
+      .in('state', ['pending', 'agreed'])
+      .order('created_at', { ascending: true }),
+    fetchDecorLayerCatalog(supabase),
+    supabase.from('event_colour_grants').select('domain, is_active').eq('event_id', eventId).eq('is_active', true),
+    Promise.all([
+      supabase
+        .from('event_inspiration_suggestions')
+        .select('suggestion_id, slot_key, image_url, state')
+        .eq('event_id', eventId)
+        .eq('state', 'waiting')
+        .order('created_at', { ascending: true }),
+      supabase.rpc('get_vendor_event_brief', { p_event_id: eventId }),
+    ]),
+  ]);
+
   // ── MB12: what this supplier has been asked to sign off on ───────────────
   // Read with the supplier's OWN client, through
   // `moodboard_part_finalizations_vendor_read`, which is scoped to the BOOKING
@@ -108,12 +134,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   // to a board with no open asks, and the supplier would simply never answer.
   // Logged, and the section is omitted only when the read genuinely returned
   // nothing.
-  const { data: signoffRows, error: signoffError } = await supabase
-    .from('moodboard_part_finalizations')
-    .select('finalization_id, part_id, state, expires_at, reopen_state, reopen_expires_at')
-    .eq('event_id', eventId)
-    .in('state', ['pending', 'agreed'])
-    .order('created_at', { ascending: true });
+  const { data: signoffRows, error: signoffError } = settledValue(signoffRead);
   if (signoffError) {
     console.error(
       `[vendorMoodBoard] sign-off rows unreadable for event_id=${eventId}:`,
@@ -198,7 +219,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   // requires approved, so `fetchDecorLayerCatalog` still returns EMPTY here
   // and every zone still falls back to the flat SVG — now for the one
   // remaining reason (no approved images) rather than two.
-  const decorCatalog = await fetchDecorLayerCatalog(supabase);
+  const decorCatalog = settledValue(decorRead);
   const styleFamily = isMoodboardStyleFamily(board.style_family) ? board.style_family : null;
   const decorLayerEntries = await Promise.all(
     PILOT_DECOR_ZONES.map(async (zone) => {
@@ -235,11 +256,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   // wrong is mild in this direction (the supplier sees the board they saw
   // yesterday and the RPC would have let them write) — but it is still a
   // silence, and a silence is what this whole session is about.
-  const { data: grantRows, error: grantError } = await supabase
-    .from('event_colour_grants')
-    .select('domain, is_active')
-    .eq('event_id', eventId)
-    .eq('is_active', true);
+  const { data: grantRows, error: grantError } = settledValue(grantRead);
   if (grantError) {
     console.error(
       `[vendorMoodBoard] colour grants unreadable for event_id=${eventId}:`,
@@ -262,15 +279,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   //
   // ⚠ A REFUSED READ OF ITS OWN WAITING PHOTOS IS SAID ON THE BOARD (`mine = null`) — drawn as "none sent", the
   // supplier would send the same photo twice and never know the first was waiting.
-  const [mineRes, briefRes] = await Promise.all([
-    supabase
-      .from('event_inspiration_suggestions')
-      .select('suggestion_id, slot_key, image_url, state')
-      .eq('event_id', eventId)
-      .eq('state', 'waiting')
-      .order('created_at', { ascending: true }),
-    supabase.rpc('get_vendor_event_brief', { p_event_id: eventId }),
-  ]);
+  const [mineRes, briefRes] = settledValue(suggestionsRead);
   if (mineRes.error) logQueryError('vendorMoodBoard.suggestions', mineRes.error, { eventId }, 'graceful_degrade');
   const mine: SupplierSuggestion[] | null = mineRes.error
     ? null

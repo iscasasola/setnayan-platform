@@ -36,9 +36,12 @@ const PAGE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard
 const PROMOTE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/promote/page.tsx'), 'utf8'));
 const VIEW = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8'));
 
-test('the one dropdown holds the five codes, the two live ones first', () => {
-  assert.deepEqual([...SUPPLIER_QR_MODES], ['shortlist', 'locked', 'dates', 'page', 'crew']);
+// Retargeted 2026-11-06 (QR codes Option B, owner "B"): the dropdown became ONE LIST, a row per code, and Reviews joined
+// it (the prototype's fourth Promote row) — the six codes, the two live ones still first.
+test('the one list holds the six codes, the two live ones first', () => {
+  assert.deepEqual([...SUPPLIER_QR_MODES], ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews']);
   assert.equal(SUPPLIER_QR_MODE_LABEL.page, 'My page');
+  assert.equal(SUPPLIER_QR_MODE_LABEL.reviews, 'Reviews');
   assert.equal(SUPPLIER_QR_MODE_LABEL.crew, 'Crew for an event');
   for (const m of SUPPLIER_QR_MODES) assert.equal(supplierQrModeOf(m), m);
   assert.equal(supplierQrModeOf('nope'), 'shortlist', 'an unknown ?mode= is the Shortlist code, as before');
@@ -48,13 +51,15 @@ test('the one dropdown holds the five codes, the two live ones first', () => {
 test('📣 every code has ONE home: Shop › Promote markets the shop, Customers › QR codes holds Booked and Crew', () => {
   // The two homes split the one list exactly — no code in both, none in neither.
   assert.deepEqual([...PROMOTE_QR_MODES, ...CUSTOMERS_QR_MODES].sort(), [...SUPPLIER_QR_MODES].sort());
-  assert.deepEqual([...PROMOTE_QR_MODES], ['shortlist', 'dates', 'page']);
+  // Option B's Promote rows, in the prototype's order: Check a date · Shortlist · My page · Reviews.
+  assert.deepEqual([...PROMOTE_QR_MODES], ['dates', 'shortlist', 'page', 'reviews']);
   assert.deepEqual([...CUSTOMERS_QR_MODES], ['locked', 'crew']);
   for (const m of SUPPLIER_QR_MODES) assert.equal(isPromoteQrMode(m), (PROMOTE_QR_MODES as readonly string[]).includes(m));
   // Promote is Shop's own section, and every link to a code is built for its home.
   assert.equal(PROMOTE_HREF, SHOP_SEGMENT_HREF.promote);
   assert.equal(supplierQrHref('shortlist'), '/vendor-dashboard/shop/promote?mode=shortlist');
   assert.equal(supplierQrHref('page'), '/vendor-dashboard/shop/promote?mode=page');
+  assert.equal(supplierQrHref('reviews'), '/vendor-dashboard/shop/promote?mode=reviews');
   assert.equal(supplierQrHref('locked'), '/vendor-dashboard/invite?mode=locked');
   assert.equal(supplierQrHref('crew'), '/vendor-dashboard/invite?mode=crew');
   assert.equal(promoteQrModeOf('locked'), 'shortlist', 'Promote must not draw the Booked code');
@@ -73,14 +78,16 @@ test('📣 Customers › QR codes forwards a moved code to Shop › Promote — 
   assert.match(PROMOTE, /<QrCodes[\s\S]{0,40}place: 'promote'|place: 'promote' as const/, 'Promote does not draw the shared view as its section');
 });
 
-test('each home builds its dropdown from its slice of the one list and draws each code', () => {
-  assert.match(PAGE, /CUSTOMERS_QR_MODES\.map\(/, 'the Customers dropdown is not built from CUSTOMERS_QR_MODES');
-  assert.match(PROMOTE, /PROMOTE_QR_MODES\.map\(/, 'the Promote dropdown is not built from PROMOTE_QR_MODES');
-  assert.match(PROMOTE, /mode === 'page'[\s\S]{0,600}myPage=\{/, 'My page is not drawn');
+// Retargeted 2026-11-06 (Option B): each home builds its ROWS from its slice — Promote draws all four codes on one visit
+// (every row shows its own small code), Customers draws Booked or Crew per visit and links the other row.
+test('each home builds its rows from its slice of the one list and draws each code', () => {
+  assert.match(PAGE, /CUSTOMERS_QR_MODES\.map\(/, 'the Customers rows are not built from CUSTOMERS_QR_MODES');
+  assert.match(PROMOTE, /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/, 'Promote opens a sheet for a code outside PROMOTE_QR_MODES');
+  for (const prop of ['checkADate=', 'shortlist=', 'myPage=', 'reviews=']) assert.ok(PROMOTE.includes(prop), `Promote does not draw ${prop.slice(0, -1)}`);
   assert.match(PAGE, /mode === 'crew'[\s\S]{0,600}crew=\{await readCrewQr\(/, 'Crew for an event is not drawn');
-  assert.match(VIEW, /mode === 'page' && myPage \?/);
-  assert.match(VIEW, /mode === 'crew' && crew \?/);
-  // One code under the dropdown: each new choice draws exactly one QrCard.
+  assert.match(VIEW, /row\(\s*'page',\s*myPage\?\.svg \?\? null,\s*myPage \?/);
+  assert.match(VIEW, /row\('crew',[^\n]*crew \? <CrewCode crew=\{crew\} \/> : null\)/);
+  // One code per sheet: each choice draws exactly one QrCard.
   assert.equal((VIEW.match(/data="my-page"/g) ?? []).length, 1);
   assert.equal((VIEW.match(/data="crew"/g) ?? []).length, 1);
 });

@@ -140,18 +140,10 @@ export default async function ApiKeysPage({ searchParams }: Props) {
       <section className="sn-tile mb-8 space-y-3">
         <h2 className="sn-sec">Create a key</h2>
         <p className="text-sm text-ink/70">
-          The Setnayan API is an{' '}
-          <span className="font-medium text-ink">Ultra supplier</span> feature —
-          integrate Setnayan with your own systems. It&rsquo;s enabled per
-          request on a <span className="font-medium text-ink">Custom</span> plan;
-          talk to us about a Custom plan with API access to mint keys.
+          The Setnayan API lets a supplier connect Setnayan to their own
+          systems. It is not open to any plan right now, so keys cannot be made
+          yet.
         </p>
-        <Link
-          href="/vendor-dashboard/subscription"
-          className="button-primary inline-flex w-fit items-center gap-2"
-        >
-          View supplier plans
-        </Link>
       </section>
       )}
 

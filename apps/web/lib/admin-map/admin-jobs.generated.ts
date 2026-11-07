@@ -2,27 +2,12 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 327 jobs, 209 of them form-driven, as of 56aadc24.
+// that performs it. 325 jobs, 207 of them form-driven, as of 76be497bfd.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
 
 export const ADMIN_JOBS: readonly AdminJob[] = [
-  {
-    "name": "activateCustomPlan",
-    "phrase": "activate custom plan",
-    "ownerPath": "/admin/custom-plans",
-    "resolvedPath": "/admin/custom-plans",
-    "fields": [
-      "vendor_profile_id",
-      "custom_plan_id"
-    ],
-    "refusedWhenEmpty": [
-      "vendor_profile_id",
-      "custom_plan_id"
-    ],
-    "destructive": false
-  },
   {
     "name": "addAwardManually",
     "phrase": "add award manually",
@@ -956,6 +941,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/reviews",
     "resolvedPath": "/admin/reviews",
     "fields": [
+      "kind",
       "flag_id",
       "admin_note"
     ],
@@ -2785,20 +2771,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "sendCustomQuote",
-    "phrase": "send custom quote",
-    "ownerPath": "/admin/custom-plans",
-    "resolvedPath": "/admin/custom-plans",
-    "fields": [
-      "vendor_profile_id",
-      "channel"
-    ],
-    "refusedWhenEmpty": [
-      "vendor_profile_id"
-    ],
     "destructive": false
   },
   {

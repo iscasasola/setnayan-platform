@@ -20,6 +20,7 @@ import { ChannelLink } from './front-door-feed';
 import { DiscoverEventCover } from './discover-event-cover';
 
 function relationText(card: Card): string | null {
+  if (card.relation === 'you') return 'Your event';
   if (card.relation === 'connected') return 'Connected';
   if (card.relation === 'follow') return 'You follow them';
   return null;

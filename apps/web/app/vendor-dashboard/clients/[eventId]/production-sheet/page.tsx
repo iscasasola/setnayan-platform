@@ -141,14 +141,19 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
   if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
   const metrics = data as Metrics;
 
-  const { data: ruleRows, error: ruleRowsError } = await supabase
-    .from('vendor_portion_rules')
-    .select(
-      'rule_id, label, unit, qty_per_guest, applies_to_meals, applies_to_block, headcount_basis, waste_factor_pct',
-    )
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+  // One round trip: the portion rules and the crew meals ask nothing of each other (neither throws — each hands back
+  // its own error, handled below in the order it always was).
+  const [{ data: ruleRows, error: ruleRowsError }, { data: crewRows, error: crewError }] = await Promise.all([
+    supabase
+      .from('vendor_portion_rules')
+      .select(
+        'rule_id, label, unit, qty_per_guest, applies_to_meals, applies_to_block, headcount_basis, waste_factor_pct',
+      )
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+    supabase.rpc('get_vendor_crew_meals', { p_event_id: eventId }),
+  ]);
   // ⚠ THE PORTION RULES EVERY NUMBER ON THIS SHEET IS COMPUTED FROM, on the
   // ⚠ page a caterer works from on the day. Refused, `?? []` empties them, the
   // ⚠ ingredient totals silently compute from nothing, and the page says "No
@@ -166,7 +171,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
 
   // 🍱 THE CREW MEALS THE HOST SET (owner 2026-11-02, 4 additions (4); migration 20271303132255): each booked supplier
   // whose crew the event feeds, with the host's number. Names and counts only. A refused read is said — never "none".
-  const { data: crewRows, error: crewError } = await supabase.rpc('get_vendor_crew_meals', { p_event_id: eventId });
+  // (Read in the batch above.)
   if (crewError) logQueryError('VendorProductionSheet.crewMeals', crewError, { eventId }, 'graceful_degrade');
   const crewMeals = crewError ? null : crewMealLines(crewRows as Record<string, unknown>[] | null);
   const crewTotal = crewMeals ? crewMealTotal(crewMeals) : 0;

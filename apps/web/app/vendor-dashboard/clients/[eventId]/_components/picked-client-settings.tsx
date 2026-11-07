@@ -9,7 +9,9 @@
  *     activity feed; the row opens that page in place.
  * ⛔ No "Handled by" here: the per-client handler is INVENTED (parts map C22) — only the Clients list filter exists.
  */
+import { NotebookPen } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import { usePickedNav } from './picked-client-nav';
 
 export function PickedClientSettings({ autoAgree }: { autoAgree: boolean | null }) {
@@ -35,13 +37,7 @@ export function PickedClientSettings({ autoAgree }: { autoAgree: boolean | null 
       <div className="flex items-center gap-3 py-3" data-client-setting="notes">
         <p className="min-w-0 flex-1 text-[15px] text-ink">Notes only your team sees</p>
         {nav ? (
-          <button
-            type="button"
-            onClick={() => nav.select('report')}
-            className="min-h-[44px] shrink-0 rounded-full border border-ink/15 bg-white px-4 text-[14px] font-semibold text-ink"
-          >
-            Open
-          </button>
+          <ActionButton tone="neutral" icon={NotebookPen} label="Open" onClick={() => nav.select('report')} />
         ) : null}
       </div>
     </div>

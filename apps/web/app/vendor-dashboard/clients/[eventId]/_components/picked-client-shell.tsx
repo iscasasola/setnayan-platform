@@ -253,7 +253,7 @@ export function PickedClientShell({
                 aria-controls="picked-page"
                 data-picked-page={m.id}
                 onClick={() => select(m.id)}
-                className={`flex min-h-[48px] min-w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[12px] px-2.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
+                className={`flex min-h-[48px] min-w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
                   on
                     ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] bg-white text-[rgb(var(--color-terracotta-700,154_98_52))]'
                     : 'border border-transparent text-ink/80'

@@ -146,7 +146,8 @@ import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move
 import { ClientDeskAnswersBlock, readClientDeskAnswers } from './_components/client-desk-answers';
 import { detailsNumbers } from './_components/details-numbers';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
-import { HostsList, type BriefHost } from './_components/hosts-list';
+import { HostsList } from './_components/hosts-list';
+import { hostRows, type BriefHost } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
 import { PickedClientSettings } from './_components/picked-client-settings';
@@ -2342,7 +2343,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <DetailsNumbersRow cells={numbersCells} />
       {nextMoveCard}
       {/* ⏳ `brief.hosts` arrives with C2's -data (spec §9 #1); until then the key is absent and nothing is drawn. */}
-      <HostsList hosts={(brief as { hosts?: BriefHost[] }).hosts} />
+      <HostsList hosts={hostRows((brief as { hosts?: BriefHost[] }).hosts)} />
       {feeLockPanel}
       {/* Item 2 of the ruling — "the request to access features". The panel
           above already says why, so this withholds rather than repeating it. */}

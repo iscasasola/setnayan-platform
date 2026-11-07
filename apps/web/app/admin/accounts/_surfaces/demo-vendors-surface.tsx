@@ -272,17 +272,14 @@ export async function DemoVendorsSurface() {
         }
       />
 
-      {/* The deadline warning stays OUT of the masthead: PageMasthead's lede is
-          desktop-only by council lock, and a hard cleanup deadline is not
-          orienting prose that a phone can afford to lose. */}
+      {/* 🧪 The 2026-12-01 "hard cleanup deadline" and its check-no-demo-in-prod guard are RETIRED (owner, DECISION_LOG
+          2026-11-06 "DEMO SHOPS + DEMO EVENTS": demo shops are permanent and public, marked "(DEMO ONLY)"). What is
+          guarded now is the pairing: lib/demo-scope.ts + the refuse_demo_cross_booking trigger. Kept OUT of the
+          masthead for the same reason the warning was: PageMasthead's lede is desktop-only by council lock. */}
       <p className="mb-6 rounded-md border-l-4 border-warn-500 bg-warn-50 px-3 py-2 text-sm text-warn-900">
         <AlertTriangle aria-hidden className="mb-0.5 mr-1 inline-block h-4 w-4" />
-        <strong>Hard cleanup deadline:</strong> 2026-12-01 (public launch). All demo
-        suppliers must be removed by this date. The{' '}
-        <code className="font-mono text-[12px]">check-no-demo-in-prod</code> CI guard
-        fails any merge that ships demo suppliers past this date unless the{' '}
-        <code className="font-mono text-[12px]">ALLOW_DEMO_VENDORS</code> env flag is
-        explicitly set.
+        <strong>Demo shops are public and never bookable.</strong> They show beside real shops, marked
+        (DEMO ONLY). A real event can never book, pay or message one, and a demo event books only demo shops.
       </p>
 
       {/* ───────────────────── Stats overview ───────────────────── */}

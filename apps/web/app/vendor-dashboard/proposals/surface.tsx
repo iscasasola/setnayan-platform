@@ -20,6 +20,7 @@ import { shopInputClass } from '../_components/kit';
 import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { pageWindowFor } from '@/lib/paginate';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY, DEMO_SHOP_CANNOT_BE_BOOKED } from '@/lib/demo-scope';
 
 export const metadata = { title: 'Quotes · Supplier' };
 
@@ -63,6 +64,9 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   pick_event_and_template: { tone: 'warn', text: 'Pick a booked client and a template first.' },
   not_booked: { tone: 'warn', text: 'Quotes work for booked clients only.' },
   save_failed: { tone: 'warn', text: 'That didn’t save — try again.' },
+  // 🧪 lib/demo-scope.ts — the words are imported, never retyped.
+  demo_shop: { tone: 'warn', text: DEMO_SHOP_CANNOT_BE_BOOKED },
+  demo_event: { tone: 'warn', text: DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY },
 };
 
 function fmtDate(iso: string | null): string {

@@ -94,6 +94,11 @@ export type VendorCardInput = {
    * never handed to satori).
    */
   logoUrl?: string | null;
+  /**
+   * 🧪 `DEMO_ONLY_LABEL` ("(DEMO ONLY)", app/_components/demo-only-label.ts) for a demo shop (`is_demo`), else null.
+   * Printed in the card's eyebrow so a shared link to a demo shop says what it is (owner, DECISION_LOG 2026-11-06).
+   */
+  demoLabel?: string | null;
 };
 
 type VNode = {
@@ -139,7 +144,7 @@ function wordmark(color: string = INK): VNode {
 }
 
 /** The eyebrow row — ALWAYS this text, whether or not the shop has a logo (the logo, when present, is a corner badge composited after render — see the module docblock). */
-function eyebrowRow(): VNode {
+function eyebrowRow(demoLabel?: string | null): VNode {
   return el(
     'div',
     { display: 'flex', alignItems: 'center', gap: '14px' },
@@ -154,7 +159,7 @@ function eyebrowRow(): VNode {
           letterSpacing: '4px',
           color: GOLD_DEEP,
         },
-        'A SETNAYAN SHOP',
+        demoLabel ? `A SETNAYAN SHOP · ${demoLabel}` : 'A SETNAYAN SHOP',
       ),
       el('div', { width: '26px', height: '1px', backgroundColor: GOLD }),
     ],
@@ -186,7 +191,7 @@ function cardTree(input: VendorCardInput): VNode {
           padding: '48px 60px',
         },
         [
-          eyebrowRow(),
+          eyebrowRow(input.demoLabel),
           el(
             'div',
             { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' },

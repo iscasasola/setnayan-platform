@@ -16,6 +16,7 @@ import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
 import { cardForTile, type ShopCard } from '@/lib/bench-save-card';
 import { getEventTypeVocab } from '@/lib/event-types-db';
+import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
 // Mirrors the 0043 `notifyWhenWeddingTypeLaunches` pattern but indexed by
@@ -281,6 +282,11 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return c === 'misc' ? null : c;
   })();
 
+  // 🧪 A DEMO SHOP SHOWS ON EXPLORE, MARKED "(DEMO ONLY)", BUT A REAL EVENT NEVER SAVES IT (owner 2026-11-06,
+  // lib/demo-scope.ts) — and a demo event saves only demo shops. The trigger `refuse_demo_cross_booking` is the backstop.
+  const demoRefusal = await demoBookingRefusal(admin, { eventId: primaryEvent.event_id, vendorProfileId });
+  if (demoRefusal) return { status: 'error', message: demoRefusal };
+
   // 3. Already saved? Return idempotently.
   const { data: existing } = await admin
     .from('event_vendors')
@@ -327,7 +333,7 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     .select('vendor_id')
     .single();
   if (iError || !inserted) {
-    return { status: 'error', message: iError?.message ?? 'Insert failed' };
+    return { status: 'error', message: demoRefusalFromDbError(iError) ?? iError?.message ?? 'Insert failed' };
   }
 
   // 5. Re-anchor "ground 0" — the reception venue every other vendor's

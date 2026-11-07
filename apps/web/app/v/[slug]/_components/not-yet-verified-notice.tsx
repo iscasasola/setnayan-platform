@@ -1,6 +1,6 @@
 import { ShieldAlert } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { NOT_YET_VERIFIED_LINE } from '@/lib/findable-shop';
+import { NOT_YET_VERIFIED_INFO, NOT_YET_VERIFIED_LINE } from '@/lib/findable-shop';
 
 /**
  * "This shop is not yet verified by Setnayan" — DECISION_LOG 2026-11-07 ruling (4), the page half.
@@ -16,8 +16,7 @@ export function NotYetVerifiedNotice() {
       <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <ShieldAlert aria-hidden className="h-5 w-5 shrink-0 text-warn-800" strokeWidth={1.75} />
         <InfoTip label={NOT_YET_VERIFIED_LINE} labelClassName="text-sm font-medium text-ink" align="start">
-          Setnayan has not checked this shop’s documents yet, so it has no Verified badge. Verified shops show the
-          badge beside their name.
+          {NOT_YET_VERIFIED_INFO}
         </InfoTip>
       </div>
     </section>

@@ -22,6 +22,12 @@ test('the find-lock lab calls notFound() in production, before anything else', (
 test('the lab mounts the real find line, the real notice and the real state function', () => {
   assert.match(LAB, /from '@\/app\/admin\/verify\/_components\/find-line';/);
   assert.match(LAB, /from '@\/app\/v\/\[slug\]\/_components\/not-yet-verified-notice';/);
-  assert.match(LAB, /import \{ findLockState \} from '@\/lib\/findable-shop';/);
+  assert.match(LAB, /import \{ findLockState, shopTakesMessages \} from '@\/lib\/findable-shop';/);
   assert.match(LAB, /state=\{findLockState\(s\.row\)\}/, 'a state was typed instead of computed');
+});
+
+test('the shop view decides its doors with the real isBookable and shopTakesMessages, never typed', () => {
+  assert.match(LAB, /const bookable = isBookable\(parseVisibility\(shopRow\.row\.public_visibility\)\);/);
+  assert.match(LAB, /const canMessage = shopTakesMessages\(shopRow\.row, bookable\);/);
+  assert.match(LAB, /\{bookable \? \(\s*<CheckADateLink/, 'Check a date is not on bookable in the lab');
 });

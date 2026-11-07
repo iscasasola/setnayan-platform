@@ -117,6 +117,28 @@ export function ownLinkOpensUnverified(row: FindableInput | null | undefined): b
   return isShopFindable({ ...row, find_locked_at: null });
 }
 
+/**
+ * 💬 RULING (1)+(4): a couple may MESSAGE a shop Setnayan has not decided yet — from its page, whether a list
+ * or its own link/QR brought them there — but may NOT book it. The first message IS the first inquiry, and the
+ * chat_messages trigger stamps `find_locked_at`. Booking stays `isBookable` (verified only), and the
+ * `event_vendors_require_verified_before_lock` trigger refuses a lock on an unverified shop whatever the UI does.
+ *
+ * `bookable` is passed in, not recomputed, so this can never widen booking. A demo shop keeps its own rule:
+ * only `bookable` opens it.
+ */
+export function shopTakesMessages(
+  row: (FindableInput & { is_demo?: unknown }) | null | undefined,
+  bookable: boolean,
+): boolean {
+  if (bookable) return true;
+  if (!row || row.is_demo === true) return false;
+  return ownLinkOpensUnverified(row);
+}
+
+/** The ⓘ under {@link NOT_YET_VERIFIED_LINE}, on the shop page and the chat thread alike. */
+export const NOT_YET_VERIFIED_INFO =
+  'Setnayan has not checked this shop’s documents yet, so it has no Verified badge. You can message them, but booking opens once Setnayan verifies them. Verified shops show the badge beside their name.';
+
 // ── The lock, as the shop and the admin desk see it ──────────────────────────
 
 export type FindLockReason = 'inquiry' | 'import';
@@ -180,6 +202,19 @@ export function findLockNotice(state: FindLockState): {
 
 /** What a couple is told on an unverified shop's chat and page (ruling (4)). In-app only, never email. */
 export const NOT_YET_VERIFIED_LINE = 'This shop is not yet verified by Setnayan';
+
+/**
+ * 💬 RULING (4), the chat half: does the couple's thread with this shop carry {@link NOT_YET_VERIFIED_LINE}?
+ * True only for a READ row that says the shop is not verified and is not a demo shop. A missing or unreadable row
+ * answers false — the line is a claim about the shop, so it is never drawn from an absence.
+ */
+export function threadShowsNotYetVerified(
+  row: { verification_state?: unknown; is_demo?: unknown } | null | undefined,
+): boolean {
+  if (!row || row.is_demo === true) return false;
+  const state = typeof row.verification_state === 'string' ? row.verification_state : null;
+  return state !== null && state !== 'verified';
+}
 
 /** The admin desk's one line per state. */
 export function findLockAdminLine(state: FindLockState): string {

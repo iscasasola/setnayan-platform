@@ -290,3 +290,108 @@ test('a shop’s own session cannot unlock itself — and can still edit its own
   assert.ok(after.find_locked_at, 'the lock survived every attempt');
   assert.equal(after.is_findable, false);
 });
+
+/**
+ * 💬 RULINGS (1)+(4), round 2 — A COUPLE MAY MESSAGE AN UNVERIFIED SHOP, AND MAY NOT BOOK IT. Proved as a REAL
+ * couple session (SET ROLE authenticated + JWT), the path `startServiceInquiry` takes: follow → open the thread →
+ * send. The message lands and IS the first inquiry (the lock is stamped). Then the booking door is refused by
+ * `event_vendors_require_verified_before_lock` — for the couple AND for the server's own (owner) session, so the
+ * refusal is the verification rule, not RLS. Controls: saving the shop ('considering') still lands, and the SAME
+ * booking on a verified shop lands — so "refused" means "not verified", nothing else.
+ */
+test('a couple can message an unverified shop (the first message locks it) and cannot book it', async () => {
+  const mk = async (email: string) =>
+    (
+      await db.query<{ id: string }>(
+        `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+        [email],
+      )
+    ).rows[0]!.id;
+  const couple = await mk('message-not-book-couple@example.test');
+  const eventId = (
+    await db.query<{ id: string }>(
+      `INSERT INTO public.events (display_name, event_type) VALUES ('Message not book wedding', 'birthday') RETURNING event_id AS id`,
+    )
+  ).rows[0]!.id;
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, couple]);
+  const unverified = await shop({ public_visibility: 'hidden', verification_state: 'unverified' });
+  const verified = await shop({ public_visibility: 'verified', verification_state: 'verified' });
+
+  const reset = async () => {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+    await setAuthUid(db, null);
+  };
+  const asCouple = async <T,>(fn: () => Promise<T>): Promise<{ value: T | null; err: string | null }> => {
+    await reset();
+    await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+    await setAuthUid(db, couple);
+    await db.exec(`SET ROLE authenticated`);
+    try {
+      return { value: await fn(), err: null };
+    } catch (e) {
+      return { value: null, err: (e as Error).message };
+    } finally {
+      await reset();
+    }
+  };
+  const asServer = async (sql: string, params: unknown[]): Promise<string | null> => {
+    try {
+      await db.query(sql, params);
+      return null;
+    } catch (e) {
+      return (e as Error).message;
+    }
+  };
+
+  // ── MESSAGING IS OPEN ──
+  const follow = await asCouple(() =>
+    db.query(`INSERT INTO public.vendor_follows (follower_user_id, vendor_profile_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [couple, unverified]),
+  );
+  assert.equal(follow.err, null, `the couple could not follow an unverified shop: ${follow.err}`);
+  const opened = await asCouple(async () =>
+    (
+      await db.query<{ id: string }>(
+        `INSERT INTO public.chat_threads (event_id, vendor_profile_id) VALUES ($1, $2) RETURNING thread_id AS id`,
+        [eventId, unverified],
+      )
+    ).rows[0]!.id,
+  );
+  assert.equal(opened.err, null, `the couple could not open a thread with an unverified shop: ${opened.err}`);
+  const threadId = opened.value!;
+  assert.equal((await row(unverified)).find_locked_at, null, 'precondition: opening a thread is not yet an inquiry');
+
+  const sent = await asCouple(() =>
+    db.query(
+      `INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, body) VALUES ($1, $2, $3, 'Are you free on our date?')`,
+      [threadId, eventId, unverified],
+    ),
+  );
+  assert.equal(sent.err, null, `the couple could not message an unverified shop: ${sent.err}`);
+  const derived = await db.query<{ sender_role: string }>(`SELECT sender_role::text FROM public.chat_messages WHERE thread_id = $1`, [threadId]);
+  assert.deepEqual(derived.rows.map((r) => r.sender_role), ['couple'], 'the message was not recorded as the couple’s');
+  const locked = await row(unverified);
+  assert.ok(locked.find_locked_at, 'the couple’s first message did not stamp the find lock');
+  assert.equal(locked.is_findable, false, 'the shop is still findable after its first inquiry');
+
+  // ── BOOKING IS SHUT ──
+  const BOOK = `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+                VALUES ($1, 'photographer', 'Message not book shop', $2::vendor_status, $3)`;
+  for (const status of ['contracted', 'deposit_paid'] as const) {
+    const byCouple = await asCouple(() => db.query(BOOK, [eventId, status, unverified]));
+    assert.match(byCouple.err ?? '', /vendor_not_verified/, `a couple booked an unverified shop as ${status}`);
+    const byServer = await asServer(BOOK, [eventId, status, unverified]);
+    assert.match(byServer ?? '', /vendor_not_verified/, `the server's own session booked an unverified shop as ${status}`);
+  }
+  const booked = await db.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM public.event_vendors WHERE marketplace_vendor_id = $1`,
+    [unverified],
+  );
+  assert.equal(booked.rows[0]!.n, '0', 'a booking row exists for the unverified shop');
+
+  // ── CONTROLS: what must still work ──
+  const saved = await asCouple(() => db.query(BOOK, [eventId, 'considering', unverified]));
+  assert.equal(saved.err, null, `saving an unverified shop to the event ('considering') was refused: ${saved.err}`);
+  const bookVerified = await asServer(BOOK, [eventId, 'contracted', verified]);
+  assert.equal(bookVerified, null, `the same booking on a VERIFIED shop was refused: ${bookVerified}`);
+});

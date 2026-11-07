@@ -10,8 +10,12 @@ DECISION_LOG 2026-11-07 "🔎 AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST INQ
 - **Admin.** Verify › Visibility gains a find line on every card, an "Out of Find" tab, and a green "Lift the lock" pill that is audited and saves in place. The next inquiry locks the shop again.
 - **Demo shops** keep their own `is_demo` rule, unchanged.
 - **Labs.** `/dev/find-lock-lab` and `/dev/supplier-lab?easy=findlock`.
+- **Message, never book (rulings (1)+(4), round 2).** On `/v/[slug]`, every message door (Inquire, the composer, "Replies in your Setnayan inbox", the get-in-touch section) now opens on `canMessage = shopTakesMessages(vendor, bookable)`. That covers an unverified shop found in a list, and a locked one opened by its own link or QR. Every booking door stays on `bookable`, which `isBookable` keeps verified-only: packages Lock, Check a date, the booth, the waitlist and package asks. This also closes a hole: an unverified shop's page is public now, so the package Lock button would have shown on it, and `isComingSoon={isComingSoon || !bookable}` keeps it off. The first message is the first inquiry, so the trigger stamps the lock.
+- **Chat notice.** The couple's thread with an unverified shop shows "This shop is not yet verified by Setnayan" as one quiet line in the shipped `ChatThreadHead`'s `below` slot, with the details in its ⓘ (`NotYetVerifiedThreadLine`). It is read by `readThreadShopNotYetVerified`, which reads the state and demo flag only, never the name. An unreadable row draws nothing. It is in-app only, with no email.
+- **Guards.** `lib/an-unverified-shop-takes-messages-not-bookings.test.ts` checks the message doors versus the booking doors, the thread line, and that nothing sends email. It was sabotaged twice, once for the package Lock and once for the thread line, and it fired both times. The db test adds a case where a real couple session follows, opens and messages an unverified shop: the lock is stamped, and `contracted` / `deposit_paid` are refused by `event_vendors_require_verified_before_lock`. Saving the shop and booking a verified shop still land. With the trigger disabled, that case fired.
+- **Labs.** `/dev/find-lock-lab?f=shop` (`&locked=1`, `&verified=1`) and `/dev/chat-lab/t/<id>?unverified=1`.
 
 SPEC IMPACT: None. This implements the existing DECISION_LOG 2026-11-07 row, and there is no corpus edit. For owner sign-off, flagged in the PR:
 - the import-lock title wording "first booking";
 - the Explore tile's "Sample: A · B · C" names and the "N verified" brag figure staying verified-only;
-- page Inquire and the chat notice not built yet.
+- the couple copy "Booking opens once Setnayan verifies them".

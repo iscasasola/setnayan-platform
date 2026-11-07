@@ -881,6 +881,7 @@ export async function buildPersonalDataExport(
     dateWaitlistsRes,
     tokenBalancesRes,
     teamMembershipsRes,
+    supplierScansRes,
   ] = await Promise.all([
     // What Setnayan told this person in the app. Recipient-scoped: every row is
     // addressed to them. A body can quote a chat message somebody sent them, so
@@ -1069,6 +1070,17 @@ export async function buildPersonalDataExport(
       .select('public_id, vendor_profile_id, role, team_label, created_at, updated_at, deactivated_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    // Supplier claim scans they made as a shop's crew (2026-11-06, scanner slice 1). A supplier has no direct read
+    // of this table — it sees counts, never a guest — so it is read privileged and bounded by
+    // scanned_by_user_id = the subject. The guest scanned and the event are OTHER people's data and are not
+    // selected: only what this person did, for which shop, when, and the number it drew.
+    admin
+      ? admin
+          .from('supplier_scan_claims')
+          .select('claim_id, vendor_profile_id, coverage_id, scan_number, mode, method, claimed_at')
+          .eq('scanned_by_user_id', user.id)
+          .order('claimed_at', { ascending: true })
+      : Promise.resolve(null),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -1155,6 +1167,7 @@ export async function buildPersonalDataExport(
   const dateWaitlists = listOutcome('date_waitlists_joined', dateWaitlistsRes);
   const tokenBalances = listOutcome('retired_token_balances', tokenBalancesRes);
   const teamMemberships = listOutcome('supplier_team_memberships', teamMembershipsRes);
+  const supplierScans = listOutcome('supplier_scans_made', supplierScansRes, adminUnavailable);
 
   // Receipt links for the ledger: presigned from the payment-proof folder of the
   // row's OWN event (the only folder its writer accepts), with the expiry the
@@ -1294,6 +1307,7 @@ export async function buildPersonalDataExport(
     dateWaitlists,
     tokenBalances,
     teamMemberships,
+    supplierScans,
   ]);
 
   const exported = {
@@ -1461,6 +1475,9 @@ export async function buildPersonalDataExport(
     // Your balance in the supplier token wallet, which is retired.
     retired_token_balances: tokenBalances.rows,
     supplier_team_memberships: teamMemberships.rows,
+    // Claim scans you made as a supplier's crew — what you scanned for which shop, when, and its number. The guest
+    // you scanned is theirs, not yours, and is not in your file.
+    supplier_scans_made: supplierScans.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

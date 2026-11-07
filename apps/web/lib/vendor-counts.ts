@@ -7,6 +7,7 @@ import { type WeddingFolder, type WeddingTile } from './taxonomy';
 import { getTaxonomy, type TaxonomySnapshot } from './taxonomy-db';
 import { fallbackSnapshot } from './taxonomy-snapshot';
 import type { VendorPublicVisibility } from './vendor-visibility';
+import { FINDABLE_SHOP_GATE } from './findable-shop';
 
 /**
  * Minimum verified-vendor count before a public marketing surface is allowed to
@@ -82,6 +83,12 @@ export const getVerifiedVendorMarketplaceCount = cache(
 export type VendorCount = {
   verified: number;
   coming_soon: number;
+  /**
+   * 🔎 2026-11-07 (DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST
+   * INQUIRY"): shops Setnayan has not decided yet that are still findable —
+   * listed, but never counted as `verified`, so "N verified" stays true.
+   */
+  unverified: number;
   total: number;
 };
 
@@ -109,19 +116,20 @@ export async function fetchVendorCountsByService(
 ): Promise<Map<string, VendorCount>> {
   let query = admin
     .from('vendor_profiles')
-    .select('services,public_visibility')
-    .in('public_visibility', ['verified'])
+    .select('services,public_visibility,verification_state')
     .not('business_name', 'is', null)
     .neq('business_name', '');
 
-  // PR-B verification gate (default ON). Unverified vendors are hidden from
-  // catalog-mode tile counts. The reconcile migration 20270331400000 marked
-  // the founder + every paid vendor 'verified', so no real vendor is dropped.
-  if (!includeDemoUnverified) {
+  // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07) —
+  // verified shops, plus shops not yet decided until their first inquiry — so a
+  // tile counts exactly the shops its grid lists. Demo mode keeps its own rule
+  // (listing only, demo shops included), unchanged.
+  if (includeDemoUnverified) {
+    query = query.in('public_visibility', ['verified']);
+  } else {
     // …and never a demo shop (2026-09-30): the two trial shops are verified AND
-    // `is_demo` (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)), so the gate above
-    // alone would keep counting them on every public tile.
-    query = query.eq('verification_state', 'verified').eq('is_demo', false);
+    // `is_demo` (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)).
+    query = query.match(FINDABLE_SHOP_GATE).eq('is_demo', false);
   }
 
   const { data, error } = await query;
@@ -137,13 +145,18 @@ export async function fetchVendorCountsByService(
   for (const row of (data ?? []) as Array<{
     services: string[] | null;
     public_visibility: VendorPublicVisibility;
+    verification_state?: string | null;
   }>) {
     const services = row.services ?? [];
+    // "verified" means BOTH halves — a shop listed by the findable rule but not
+    // yet approved counts as `unverified`, never inflating a "verified" figure.
+    const isVerified = row.public_visibility === 'verified' && row.verification_state === 'verified';
     for (const service of services) {
-      const existing = counts.get(service) ?? { verified: 0, coming_soon: 0, total: 0 };
-      if (row.public_visibility === 'verified') existing.verified += 1;
+      const existing = counts.get(service) ?? { verified: 0, coming_soon: 0, unverified: 0, total: 0 };
+      if (isVerified) existing.verified += 1;
       else if (row.public_visibility === 'coming_soon') existing.coming_soon += 1;
-      existing.total = existing.verified + existing.coming_soon;
+      else existing.unverified += 1;
+      existing.total = existing.verified + existing.coming_soon + existing.unverified;
       counts.set(service, existing);
     }
   }
@@ -341,13 +354,15 @@ export function rollUpCountsToTile(
   for (const [tile, canonicals] of buckets.byTile.entries()) {
     let verified = 0;
     let coming_soon = 0;
+    let unverified = 0;
     for (const c of canonicals) {
       const v = perCanonical.get(c);
       if (!v) continue;
       verified += v.verified;
       coming_soon += v.coming_soon;
+      unverified += v.unverified ?? 0;
     }
-    out.set(tile, { verified, coming_soon, total: verified + coming_soon });
+    out.set(tile, { verified, coming_soon, unverified, total: verified + coming_soon + unverified });
   }
   return out;
 }
@@ -378,17 +393,16 @@ async function topVendorsByServices(
     .select(
       'vendor_profile_id,business_name,business_slug,logo_url,tagline,services,location_city,hq_latitude,hq_longitude,public_visibility,avg_rating_overall,review_count,ad_rank',
     )
-    .in('public_visibility', opts.visibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '')
     .overlaps('services', services);
 
-  // PR-B verification gate (default ON). Reads the verification_state column
-  // appended to vendor_market_stats by migration 20270331400000. An
-  // unverified vendor never surfaces as a named preview card in catalog mode.
-  if (!opts.includeDemoUnverified) {
-    query = query.eq('verification_state', 'verified');
-  }
+  // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07),
+  // on the `is_findable` column vendor_market_stats carries since
+  // 20271320303985. Demo mode keeps its own rule (the listing only).
+  query = opts.includeDemoUnverified
+    ? query.in('public_visibility', opts.visibilities as readonly string[])
+    : query.match(FINDABLE_SHOP_GATE);
 
   if (opts.excludeVendorIds && opts.excludeVendorIds.length > 0) {
     // PostgREST NOT IN with parenthesised comma list — same shape the

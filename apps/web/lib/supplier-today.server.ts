@@ -24,6 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
+import { findLockState, type FindLockState } from '@/lib/findable-shop';
 
 export type TodayShopRow = {
   verified: boolean;
@@ -33,6 +34,11 @@ export type TodayShopRow = {
   /** The plan and who set it — a plan Setnayan gave (`admin_comp`) reads as a gift on Today (`lib/plan-gift.ts`). */
   tierState?: string | null;
   tierSource?: string | null;
+  /**
+   * 🔎 Whether couples can find the shop, and the lock its first inquiry set
+   * (DECISION_LOG 2026-11-07, `lib/findable-shop.ts`). Off this same row read.
+   */
+  findLock?: FindLockState;
 };
 
 /** ONE row read in place of three. Null when refused — each reader then degrades exactly as it did alone. */
@@ -40,7 +46,9 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
   try {
     const { data, error } = await supabase
       .from('vendor_profiles')
-      .select('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source')
+      // 🔎 + the find lock and the columns its rule reads (2026-11-07, `lib/findable-shop.ts`
+      // FINDABLE_INPUT_COLUMNS) — on the same one row read, so Today does not grow a read.
+      .select('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source, public_visibility, find_locked_at, find_lock_reason, fraud_suspended_at, fraud_banned_at, fraud_tombstoned')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error) {
@@ -55,6 +63,9 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
       tier_expires_at?: string | null;
       tier_state?: string | null;
       tier_source?: string | null;
+      public_visibility?: string | null;
+      find_locked_at?: string | null;
+      find_lock_reason?: string | null;
     };
     return {
       verified: row.verification_state === 'verified',
@@ -63,6 +74,7 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
       tierExpiresAt: row.tier_expires_at ?? null,
       tierState: row.tier_state ?? null,
       tierSource: row.tier_source ?? null,
+      findLock: findLockState(row),
     };
   } catch {
     return null;

@@ -47,7 +47,7 @@ import { stripComments } from '@/lib/strip-comments';
  * `maybeSingle()` resolves the same way a plain `await` on the chain would. */
 function stubClient(result: Record<string, unknown>): SupabaseClient {
   const builder: Record<string, unknown> = {};
-  for (const m of ['from', 'select', 'eq', 'neq', 'not', 'in', 'order', 'limit', 'gte', 'maybeSingle']) {
+  for (const m of ['from', 'select', 'eq', 'neq', 'not', 'in', 'match', 'order', 'limit', 'gte', 'maybeSingle']) {
     builder[m] = () => builder;
   }
   builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);

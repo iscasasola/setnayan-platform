@@ -10,9 +10,12 @@
  *
  * Correctness — reuses the SAME primitives the category-search overlay uses so
  * behaviour can't drift:
- *   • Published scope: the market read goes through the couple's RLS client, so
- *     `vendor_market_stats`'s public-read policy (is_published = TRUE) filters to
- *     published vendors automatically — no hand-rolled published filter.
+ *   • Findable scope (2026-11-07, DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE
+ *     UNTIL ITS FIRST INQUIRY"): the ONE findable rule (`lib/findable-shop.ts`).
+ *     This read USED to lean on the couple's RLS client, whose policy is
+ *     verified-only — so it could never show a not-yet-decided shop the ruling
+ *     says a couple must find. It now reads on the service-role client WITH the
+ *     gate, after the signed-in check below; the policy is not widened.
  *   • Demo exclusion: `demoVendorIdsHiddenFrom` — real couples never see is_demo rows; an admin in
  *     demo mode does, exactly as in the category search (one rule, `lib/demo-vendor-exclusion.ts`).
  *   • Hybrid anonymity: `resolveVendorDisplayName` / `isVendorNameRevealed` — a
@@ -22,6 +25,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
@@ -62,18 +66,21 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
     .slice(0, 4);
   if (tokens.length === 0) return { results: [], unreadable: false };
 
-  // Couple-only + RLS-scoped market read → published vendors only.
+  // Couple-only: signed in first, then the findable market read.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { results: [], unreadable: false };
+  const admin = createAdminClient();
 
-  let q = supabase
+  let q = admin
     .from('vendor_market_stats')
     .select(
       'vendor_profile_id, business_name, business_slug, logo_url, location_city, avg_rating_overall, review_count, services',
     )
+    // 🔎 The ONE findable rule (lib/findable-shop.ts).
+    .match(FINDABLE_SHOP_GATE)
     .order('review_count', { ascending: false, nullsFirst: false })
     .limit(24);
   // Each token must match name/tagline/city somewhere (AND across tokens, OR within).
@@ -84,7 +91,6 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
   // 🔌 A refused read is not "no shop by that name" (reads-are-honest, 2026-11-02 audit #22).
   if (error) return { results: [], unreadable: true };
 
-  const admin = createAdminClient();
   const demoIds = new Set(await demoVendorIdsHiddenFrom(supabase, admin, user.id));
   const stats = ((rows as StatsRow[] | null) ?? [])
     .filter((r) => !demoIds.has(r.vendor_profile_id))

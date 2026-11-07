@@ -5,6 +5,7 @@
  *
  *   sup     parish · caterer · studio · venue
  *   easy    normal · setup · ask · eventday · locked · hallask (venue) · agreed (the yes, the fee held)
+ *           · findlock (🔎 2026-11-07: an unverified shop's first inquiry took it out of Find — the Verify notice)
  *
  * No peso is typed here: fees are the bills' own amounts and the forecast is `bookingFeeForecast` on the default
  * schedule (`BOOKING_FEE`) — the same function the page's forecast runs.
@@ -28,8 +29,9 @@ import { offerProgress } from '@/lib/supplier-setup';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { labSetupDetails } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
+import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 
-export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed'] as const;
+export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
 export const EASY_SUPPLIERS = ['parish', 'caterer', 'studio', 'venue'] as const;
 export type EasySupplier = (typeof EASY_SUPPLIERS)[number];
@@ -347,7 +349,10 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
-  const desk = setup ? [] : withAsk && moment !== 'agreed' ? [sup.ask.card, ...sup.desk] : sup.desk;
+  // 🔎 `findlock`: a quiet desk (no asks, no bills) — a new shop whose news is its first inquiry, so the find-lock
+  // notice is the Next card. On a busy day the same notice sits under "Also waiting" (`supplierWaitingDoors`).
+  const quiet = setup || moment === 'findlock';
+  const desk = quiet ? [] : withAsk && moment !== 'agreed' ? [sup.ask.card, ...sup.desk] : sup.desk;
   const { answer: needsAnswer, news: closed } = splitDesk(desk);
 
   // 🌑 Event day: the first booking is TODAY (its date moved to the lab's today).
@@ -356,7 +361,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     : moment === 'eventday'
       ? [{ ...sup.upcoming[1]!, date: TODAY, inDays: 0 }, ...sup.upcoming.filter((_, i) => i !== 1)]
       : sup.upcoming;
-  const bills = setup ? [] : moment === 'locked' && sup.lockedBill ? [sup.lockedBill, ...sup.bills] : moment === 'agreed' ? [bill('rc', sup.ask.card.kind === 'lock_request' ? sup.ask.card.coupleName : 'Couple', feeOf(sup.ask.price), '2026-10-21'), ...sup.bills] : sup.bills;
+  const bills = quiet ? [] : moment === 'locked' && sup.lockedBill ? [sup.lockedBill, ...sup.bills] : moment === 'agreed' ? [bill('rc', sup.ask.card.kind === 'lock_request' ? sup.ask.card.coupleName : 'Couple', feeOf(sup.ask.price), '2026-10-21'), ...sup.bills] : sup.bills;
 
   const labCards = [
     { id: 'c1', service: 'catering', title: 'Classic buffet', pricePhp: 450 },
@@ -394,9 +399,10 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     upcoming,
     schedules: { pools: setup ? [] : sup.pools, outside: setup ? [] : sup.outside, complete: true },
     firstSteps,
-    verified: !setup,
-    findable: !setup,
-    findability: null,
+    verified: !setup && moment !== 'findlock',
+    findable: !setup && moment !== 'findlock',
+    // 🔎 The SAME two functions the Today page runs (shopFindability → findabilityNotice), on a locked lock state.
+    findability: moment === 'findlock' ? labFindLockNotice() : null,
     feeBills: bills,
     feeEnforced: true, // production measured 2026-10-14: the fee lock IS enforced
     earnings: {
@@ -493,4 +499,16 @@ function sinceOf(c: WhatsNewCard): string {
     case 'meeting':
       return c.proposedAt;
   }
+}
+
+/** 🔎 DECISION_LOG 2026-11-07 — the notice an unverified shop sees once its first inquiry locked it out of Find. */
+function labFindLockNotice() {
+  const n = findabilityNotice(
+    shopFindability({
+      publicVisibility: 'hidden',
+      railShowing: false,
+      findLock: { state: 'locked', reason: 'inquiry', since: ago(20) },
+    }),
+  );
+  return n ? { title: n.title, body: n.body, cta: n.cta ?? null } : null;
 }

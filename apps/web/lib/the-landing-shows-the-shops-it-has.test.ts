@@ -75,8 +75,10 @@ test('"Trending" is never said below the owner\'s threshold', () => {
 
 test('the live-shop gate is the real one, not the legacy is_published', () => {
   assert.deepEqual(LIVE_SHOP_GATE, {
-    public_visibility: 'verified',
-    verification_state: 'verified',
+    // 2026-11-07: the one findable rule (lib/findable-shop.ts, the generated
+    // vendor_profiles.is_findable column) — verified shops, and undecided shops
+    // until their first inquiry. Never the two columns re-typed.
+    is_findable: true,
     // 2026-09-30: a demo shop is never a live shop (DECISION_LOG 2026-09-29
     // "LANE 2 §2C" (1)). SABOTAGE: drop this line from the gate → RED.
     is_demo: false,

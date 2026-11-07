@@ -216,6 +216,7 @@ import { cardAnchorId, withInspirationLooks } from '@/lib/service-card-view-mode
 import { ShopInspirationSection, type InspirationTile } from './_components/shop-inspiration-section';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
+import { NotYetVerifiedNotice } from './_components/not-yet-verified-notice';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { shopBadges, verifiedBadge } from '@/lib/shop-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
@@ -355,6 +356,14 @@ export type PublicVendorRow = {
   user_id?: string | null;
   /** 🏪 Show my page before verification (migration 20271303245624). Absent on the legacy select. */
   self_published_at?: string | null;
+  /**
+   * 🔎 DECISION_LOG 2026-11-07 — the find lock and the freeze columns, read so a shop Setnayan has not decided yet
+   * opens by its own link (`ownLinkOpensUnverified`, lib/findable-shop.ts). Absent = not read = the page stays shut.
+   */
+  find_locked_at?: string | null;
+  fraud_suspended_at?: string | null;
+  fraud_banned_at?: string | null;
+  fraud_tombstoned?: boolean | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -464,7 +473,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -475,7 +484,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
       error.message,
     )
   ) {
@@ -523,6 +532,9 @@ export async function vendorMetadataBySlug(slug: string) {
     return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
+  // 🔎 A shop Setnayan has not verified yet opens by its own link (DECISION_LOG 2026-11-07, ruling 3) — but it is
+  // not put in front of a search engine: being found is what its first inquiry ends, and an index cannot be told.
+  const notYetVerified = vendor.verification_state !== 'verified';
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
@@ -579,6 +591,7 @@ export async function vendorMetadataBySlug(slug: string) {
   return {
     title: titleText,
     description: descText,
+    ...(notYetVerified ? { robots: { index: false, follow: false } } : {}),
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'profile',
@@ -2343,6 +2356,8 @@ export async function renderVendorBySlug({
         </div>
       </header>
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
+      {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app. */}
+      {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? <NotYetVerifiedNotice /> : null}
 
       <article
         className={`mx-auto w-full px-4 py-12 sm:px-6 sm:py-16 lg:px-8 ${

@@ -94,6 +94,14 @@ const DENIED_TO_AUTHENTICATED = [
 const DENIED_LATER_CONTACT = ['contact_email', 'contact_phone'] as const;
 
 /**
+ * Added by 20271320303985 (DECISION_LOG 2026-11-07, the find lock) and never
+ * granted to `authenticated`: WHICH admin lifted a shop's lock is the admin
+ * desk's, read on the service role. The shop reads the lock itself
+ * (find_locked_at / find_lock_reason / find_lock_lifted_at), which stay granted.
+ */
+const NEVER_GRANTED_FIND_LOCK = ['find_lock_lifted_by'] as const;
+
+/**
  * Columns a signed-in stranger MUST keep. Not decoration: this is the half
  * that keeps the marketplace working, and a missed GRANT does not blank one
  * field — PostgREST refuses the WHOLE query that names it.
@@ -333,7 +341,7 @@ test('EVERY non-denied column is still readable by `authenticated` — one at a 
       WHERE table_schema='public' AND table_name='vendor_profiles'
         AND NOT (column_name = ANY($1::text[]))
       ORDER BY column_name`,
-    [[...DENIED_TO_AUTHENTICATED, ...DENIED_LATER_CONTACT]],
+    [[...DENIED_TO_AUTHENTICATED, ...DENIED_LATER_CONTACT, ...NEVER_GRANTED_FIND_LOCK]],
   );
   await reset();
   assert.ok(cols.rows.length > 50, `only ${cols.rows.length} non-denied columns — this is not vendor_profiles`);
@@ -480,7 +488,7 @@ test('vendor_profiles_self is READ-ONLY — a definer view that is auto-updatabl
 
 /* ── 4. anon IS UNTOUCHED ───────────────────────────────────────────────── */
 
-test('anon’s column surface is 20 columns, none of the eleven (21 until 20271221366210 took contact_email)', async () => {
+test('anon’s column surface is 21 columns, none of the eleven (20 after 20271221366210 took contact_email; 21 since 20271320303985 added is_findable)', async () => {
   const n = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM information_schema.columns
       WHERE table_schema='public' AND table_name='vendor_profiles'
@@ -488,9 +496,14 @@ test('anon’s column surface is 20 columns, none of the eleven (21 until 202712
   );
   assert.equal(
     n.rows[0]!.n,
-    20,
-    'anon’s surface moved — 20271217955839 must not name anon; 20271221366210 takes exactly contact_email (21 → 20)',
+    21,
+    'anon’s surface moved — 20271217955839 must not name anon; 20271221366210 takes exactly contact_email (21 → 20); ' +
+      '20271320303985 adds exactly is_findable (20 → 21), the marketplace view names it and is security_invoker',
   );
+  const findable = await db.query<{ ok: boolean }>(
+    `SELECT has_column_privilege('anon','public.vendor_profiles','is_findable','SELECT') AS ok`,
+  );
+  assert.equal(findable.rows[0]!.ok, true, 'the 21st anon column must be is_findable and nothing else');
 
   await asAnon();
   const err = await tryQuery(`SELECT tin_number FROM public.vendor_profiles`);

@@ -478,7 +478,7 @@ export default async function ForCoordinatorsPage() {
   const deskParagraph: Gated<{ text: string }>[] = [
     { text: 'Prepare items in private and release them when they’re ready.', needs: 'prepRelease' },
     { text: 'Keep private notes for yourself, and notes the couple can read.', needs: 'privateNotes' },
-    { text: 'Track every booked supplier and deposit for the couple.' },
+    { text: 'Track every booked supplier and payment for the couple.' },
   ];
   const groups = foldGroups().map((g) => ({ ...g, items: shownWith(g.items, on) }));
 
@@ -749,7 +749,7 @@ export default async function ForCoordinatorsPage() {
                   <h3>
                     “Their wedding invites you to coordinate.” <Pill kind="free">Free</Pill>
                   </h3>
-                  <p>Made for you when they mark your downpayment. Accept, and you run their schedule and day-of requests.</p>
+                  <p>Made for you when they mark your first payment. Accept, and you run their schedule and day-of requests.</p>
                 </div>
               </div>
             </div>
@@ -860,7 +860,7 @@ export default async function ForCoordinatorsPage() {
                     Photos from couples. <Pill kind="free">Free</Pill>
                   </h3>
                   <p>A couple shares, you approve, it lands on your card with the Verified booking mark.</p>
-                  <div className="fc-sgal" aria-label="Sample gallery">
+                  <div className="fc-sgal" aria-label="Sample portfolio">
                     <span className="fc-stag">Sample</span>
                     <div className="fc-sgrid">
                       <figure>

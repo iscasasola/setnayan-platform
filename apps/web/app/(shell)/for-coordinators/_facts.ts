@@ -22,6 +22,7 @@
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { DELEGATE_GRACE_DAYS } from '@/lib/delegate-access-window';
 import { formatCount } from '@/lib/format-number';
+import { formatPhp } from '@/lib/php';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import {
@@ -111,7 +112,7 @@ export function pctWords(rate: number): string {
 }
 /** "₱100,000". */
 export function pesoWords(php: number): string {
-  return `₱${formatCount(Math.round(php))}`;
+  return formatPhp(php);
 }
 
 /* ── "Everything you get" — the fold ──────────────────────────────────────────────────────────── */

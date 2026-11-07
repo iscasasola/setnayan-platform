@@ -22,7 +22,9 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { bookingFeePhp } from '@/lib/booking-fee';
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -282,7 +284,7 @@ export function InfoToggle({ id, label, children }: { id: string; label: string;
       <button
         ref={head}
         type="button"
-        className="fc-info"
+        className="fc-info group"
         aria-expanded={open}
         aria-controls={id}
         onClick={() => {
@@ -290,7 +292,12 @@ export function InfoToggle({ id, label, children }: { id: string; label: string;
           setOpen((o) => !o);
         }}
       >
-        <span className="fc-i">i</span>
+        <span
+          aria-hidden="true"
+          className="fc-i sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover:border-terracotta group-hover:text-terracotta group-aria-expanded:border-terracotta group-aria-expanded:text-terracotta"
+        >
+          i
+        </span>
         {label}
       </button>
       <div className="fc-panel" id={id} hidden={!open} ref={panel}>
@@ -366,7 +373,7 @@ export function CheckADate({
       </div>
       <div className="fc-legend">
         <span>
-          <i style={{ background: 'var(--paper)', border: '1px solid var(--line)' }} />
+          <i style={{ background: 'var(--fc-paper)', border: '1px solid var(--fc-line)' }} />
           Available
         </span>
         <span>
@@ -454,23 +461,16 @@ function ChipIcon({ code }: { code: QrCode }) {
 /** The three moments, and the one sheet a code chip opens (a real, scannable code + "Open it"). */
 export function QrMoments({ moments, codes, shop }: { moments: readonly QrMoment[]; codes: readonly QrCode[]; shop: string }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const last = useRef<HTMLButtonElement | null>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
   const open = codes.find((c) => c.key === openKey) ?? null;
 
+  // Focus in, Tab trapped, Escape closes, focus back to the chip that opened it — the shared hook.
+  useModalA11y({ open: open != null, onClose: () => setOpenKey(null), containerRef: sheet, initialFocusRef: closeBtn, lockScroll: false });
   useEffect(() => {
     if (!open) return;
     document.documentElement.classList.add('fc-qlock');
-    closeBtn.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenKey(null);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.documentElement.classList.remove('fc-qlock');
-      document.removeEventListener('keydown', onKey);
-      last.current?.focus();
-    };
+    return () => document.documentElement.classList.remove('fc-qlock');
   }, [open]);
 
   return (
@@ -493,10 +493,7 @@ export function QrMoments({ moments, codes, shop }: { moments: readonly QrMoment
                     type="button"
                     className="fc-code"
                     aria-haspopup="dialog"
-                    onClick={(e) => {
-                      last.current = e.currentTarget;
-                      setOpenKey(k);
-                    }}
+                    onClick={() => setOpenKey(k)}
                   >
                     <ChipIcon code={c} />
                     <span>{c.chip}</span>
@@ -511,6 +508,7 @@ export function QrMoments({ moments, codes, shop }: { moments: readonly QrMoment
       </div>
       {open ? (
         <div
+          ref={sheet}
           className="fc-qsheet"
           role="dialog"
           aria-modal="true"
@@ -521,7 +519,7 @@ export function QrMoments({ moments, codes, shop }: { moments: readonly QrMoment
         >
           <div className="fc-qs-card">
             <button type="button" className="fc-qs-x" aria-label="Close" ref={closeBtn} onClick={() => setOpenKey(null)}>
-              ×
+              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>
             <p className="fc-qs-k">Sample · {shop}</p>
             <h3 id="fc-qT">{open.title}</h3>

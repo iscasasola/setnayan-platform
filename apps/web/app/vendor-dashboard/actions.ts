@@ -426,7 +426,13 @@ export async function updateVendorProfileField(
           .select('logo_url')
           .eq('vendor_profile_id', shopId)
           .maybeSingle();
-        storedLogo = storedError || !stored ? undefined : ((stored.logo_url as string | null) ?? null);
+        if (storedError) {
+          // The reason is recorded; `undefined` keeps failing toward a SCAN (never skips the QR guard on a blind read).
+          console.error('[supabase-error] app/vendor-dashboard/actions.ts · from:vendor_profiles.select (logo_url, QR re-scan)', storedError);
+          storedLogo = undefined;
+        } else {
+          storedLogo = stored ? ((stored.logo_url as string | null) ?? null) : undefined;
+        }
       }
       if (logoNeedsQrScan(logoRef, storedLogo) && (await vendorQrGuardRejects([logoRef]))) {
         return { ok: false, error: VENDOR_QR_MEDIA_ERROR };

@@ -233,8 +233,19 @@ export type SuggestionsRead =
  * The data lives in Admin › Categories (`category_form_suggestions` × `form_templates`) and SHIPS EMPTY (THE ONE
  * BUILD §9 #13) — the caller shows "No suggested forms for this service yet" rather than invented samples.
  */
-export async function readFormSuggestions(supabase: SupabaseClient, categoryIds: string[]): Promise<SuggestionsRead> {
-  const own = [...new Set(categoryIds.filter(Boolean))];
+export async function readFormSuggestions(supabase: SupabaseClient, serviceKeys: string[]): Promise<SuggestionsRead> {
+  // A card's `vendor_services.category` is a canonical service key; suggestions are kept per TILE (the leaf
+  // `service_categories` row Admin › Categories edits) — `canonical_service_taxonomy` maps one to the other.
+  const keys0 = [...new Set(serviceKeys.filter(Boolean))];
+  if (keys0.length === 0) return { status: 'ok', serviceLabel: null, groupLabel: null, own: [], alsoUseful: [] };
+  const mapRes = await supabase.from('canonical_service_taxonomy').select('canonical_service, tile_id').in('canonical_service', keys0);
+  if (mapRes.error) {
+    logQueryError('readFormSuggestions.taxonomy', mapRes.error, {}, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  const own = [
+    ...new Set(((mapRes.data ?? []) as { tile_id: string | null }[]).map((m) => m.tile_id).filter((t): t is string => !!t)),
+  ];
   if (own.length === 0) return { status: 'ok', serviceLabel: null, groupLabel: null, own: [], alsoUseful: [] };
   const catRes = await supabase.from('service_categories').select('id, parent_id, label_en').in('id', own);
   if (catRes.error) {

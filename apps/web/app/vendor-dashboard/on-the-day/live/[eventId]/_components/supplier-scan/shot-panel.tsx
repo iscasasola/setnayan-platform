@@ -19,12 +19,15 @@ import { supplierScan } from '@/app/_actions/supplier-scan-actions';
  * A save never resets the screen: the number stays on screen until the database says the shot is closed.
  */
 export function ShotPanel({
+  roaming = false,
   eventId,
   coverageId,
   open,
   onOpened,
   onClosed,
 }: {
+  /** 📷 Roaming (slice 4): the same shot, no station — "scan the guests in frame, then shoot". */
+  roaming?: boolean;
   eventId: string;
   coverageId: number;
   /** The open shot (from the count, and moved by each scan), or null. */
@@ -114,7 +117,9 @@ export function ShotPanel({
               </button>
             </div>
           ) : (
-            <p className="text-[13.5px] text-ink/60">Scan everyone in the photo — they share this number.</p>
+            <p className="text-[13.5px] text-ink/60">
+              {roaming ? 'Scan the guests in frame, then take the photo — they share this number.' : 'Scan everyone in the photo — they share this number.'}
+            </p>
           )}
           <ActionButton tone="brand" main icon={Check} label={guests > 0 ? 'Done' : 'Cancel this shot'} disabled={pending} onClick={done} />
         </>

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1763
-# tables: 458
-# columns: 5641
-# notnull: 3413
+# ledger: 1764
+# tables: 459
+# columns: 5653
+# notnull: 3421
 [ledger]
 20260512000000
 20260513000000
@@ -1775,6 +1775,7 @@
 20271320245383
 20271320327933
 20271320900784
+20271321530399
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -5855,11 +5856,23 @@ supplier_scan_claims.ready_at
 supplier_scan_claims.received_at
 supplier_scan_claims.scan_number
 supplier_scan_claims.scanned_by_user_id
+supplier_scan_claims.session_id
 supplier_scan_claims.state
 supplier_scan_claims.vendor_profile_id
 supplier_scan_counters.coverage_id
 supplier_scan_counters.event_id
 supplier_scan_counters.last_number
+supplier_scan_sessions.closed_at
+supplier_scan_sessions.coverage_id
+supplier_scan_sessions.event_id
+supplier_scan_sessions.mode
+supplier_scan_sessions.opened_at
+supplier_scan_sessions.opened_by_user_id
+supplier_scan_sessions.prints
+supplier_scan_sessions.scan_number
+supplier_scan_sessions.session_id
+supplier_scan_sessions.state
+supplier_scan_sessions.vendor_profile_id
 supplier_scan_settings.coverage_id
 supplier_scan_settings.created_at
 supplier_scan_settings.enabled
@@ -9877,6 +9890,14 @@ supplier_scan_claims.vendor_profile_id
 supplier_scan_counters.coverage_id
 supplier_scan_counters.event_id
 supplier_scan_counters.last_number
+supplier_scan_sessions.coverage_id
+supplier_scan_sessions.event_id
+supplier_scan_sessions.mode
+supplier_scan_sessions.opened_at
+supplier_scan_sessions.scan_number
+supplier_scan_sessions.session_id
+supplier_scan_sessions.state
+supplier_scan_sessions.vendor_profile_id
 supplier_scan_settings.coverage_id
 supplier_scan_settings.created_at
 supplier_scan_settings.enabled

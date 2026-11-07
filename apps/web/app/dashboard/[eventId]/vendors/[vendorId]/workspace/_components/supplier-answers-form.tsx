@@ -42,7 +42,7 @@ export function SupplierAnswersForm({
       <button
         type="submit"
         disabled={pending}
-        className="sn-press inline-flex min-h-[44px] items-center justify-center rounded-full bg-ink px-5 text-[15px] font-semibold text-cream disabled:opacity-60 dark:bg-cream dark:text-ink"
+        className="sn-press inline-flex min-h-[44px] items-center justify-center rounded-full bg-ink px-5 text-[15px] font-semibold text-cream disabled:opacity-60"
       >
         {pending ? 'Saving…' : 'Save answers'}
       </button>

@@ -22,6 +22,7 @@ import {
   chatAttachmentScope,
   eventSiteMediaScope,
   guestSelfieScope,
+  downloadAllZipScope,
   isPlannedDelete,
   paperworkScope,
   papicGuestCaptureScope,
@@ -176,6 +177,7 @@ test('the remaining scopes each admit their own writer’s shape and nothing nex
   const cases: Array<[CleanupScope, string, string]> = [
     [eventSiteMediaScope(EVT), `r2://setnayan-media/events/${EVT}/pakanta-song/s.mp3`, `r2://setnayan-media/events/${EVT_OTHER}/pakanta-song/s.mp3`],
     [guestSelfieScope(EVT, GUEST), `r2://setnayan-media/events/${EVT}/guest-selfies/${GUEST}/s.jpg`, `r2://setnayan-media/events/${EVT}/guest-selfies/other/s.jpg`],
+    [downloadAllZipScope(EVT), `r2://setnayan-media/papic-zips/${EVT}/abc/cer-1.zip`, `r2://setnayan-media/papic-zips/other-event/abc/cer-1.zip`],
     [samahanStoryScope(COMMUNITY), `r2://setnayan-media/samahan/${COMMUNITY}/story-1.mp4`, `r2://setnayan-media/samahan/other/story-1.mp4`],
     [stdSealedScope(EVT), `r2://setnayan-media/events/${EVT}/std-screened/v.mp4`, `r2://setnayan-media/events/${EVT}/std-video/v.mp4`],
     [paperworkScope(EVT), `r2://setnayan-vendor-contracts/paperwork/${EVT}/psa/scan.pdf`, `r2://setnayan-vendor-contracts/paperwork/${EVT_OTHER}/psa/scan.pdf`],

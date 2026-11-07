@@ -80,7 +80,7 @@ export async function PromoteBody({
   const printFacts = { name: shopName, line: printLine(profileServices, (profile as { tagline?: string | null }).tagline ?? null, kindLabel) };
 
   let body: ReactNode = null;
-  let myPageUrl: string | null = null;
+  let pageLink: string | null = null;
   if (!withQr) {
     body = null;
   } else if (!canShare) {
@@ -93,7 +93,7 @@ export async function PromoteBody({
     const selectedEt = search.et && eventTypes.some((t) => t.key === search.et) ? search.et : null;
     const shortUrl = buildVendorInviteUrl(slug!, { eventType: selectedEt, category: selectedCat });
     const pageUrl = myPageUrlOf(origin, slug!);
-    myPageUrl = pageUrl;
+    pageLink = pageUrl;
     const reviewsUrl = printQrUrl('reviews', origin, slug!);
     const [dates, shortSvg, pageSvg, reviewsSvg] = await Promise.all([
       checkADateQr(slug!),
@@ -142,10 +142,10 @@ export async function PromoteBody({
         <PromoteBridge>
           {body}
           {/* 📡 Scan or tap (v110): the NFC tap carries the same link as the shop code — this phone's Tap test. */}
-          {part === 'qr' && myPageUrl ? (
+          {part === 'qr' && pageLink ? (
             <div className="border-t border-ink/10 pt-2" data-shop-qr-nfc="">
               <p className="pb-1 text-[12.5px] text-ink/60">Scan or tap · the NFC tap carries the same link as your shop code</p>
-              <NfcTapTest url={myPageUrl} />
+              <NfcTapTest url={pageLink} />
             </div>
           ) : null}
           {withPromote ? <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} facts={printFacts} /> : null}

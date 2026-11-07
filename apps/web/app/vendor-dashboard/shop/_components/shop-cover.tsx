@@ -160,7 +160,7 @@ export function ShopCover({
         </div>
       </div>
 
-      <div ref={coverRef} className="relative overflow-hidden rounded-b-[28px] text-white" data-shop-cover="" style={{ background: '#3b3026' }}>
+      <div ref={coverRef} className="relative overflow-hidden rounded-b-3xl text-white" data-shop-cover="" style={{ background: '#3b3026' }}>
         {d.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL; next/image cannot optimise it
           <img src={d.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -175,7 +175,7 @@ export function ShopCover({
                 initials={d.initials}
                 className="flex h-[54px] w-[54px] items-center justify-center rounded-full text-lg font-semibold ring-2 ring-white/90"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-white text-ink shadow">
+              <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-raised text-ink shadow">
                 <Pencil aria-hidden className="h-3 w-3" strokeWidth={2} />
               </span>
             </button>

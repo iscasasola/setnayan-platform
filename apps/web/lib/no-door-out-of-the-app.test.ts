@@ -301,6 +301,16 @@ const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gat
 
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'app/dashboard/[eventId]/access-requests/actions.ts',
+    {
+      count: 1,
+      why:
+        'A server action: on the couple\'s Approve of a supplier who joined from their link, the shop\'s phone is ' +
+        'compared with the one the couple typed (DECISION_LOG 2026-11-07). Only WHETHER it changed is kept ' +
+        '(`lib/supplier-corrections.ts` WITHHELD_FIELDS) — the number never leaves the server.',
+    },
+  ],
+  [
     'app/dashboard/[eventId]/vendors/packages/actions.ts',
     {
       count: 1,

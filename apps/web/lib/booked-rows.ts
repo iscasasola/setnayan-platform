@@ -45,6 +45,7 @@ import type { TeamRow, TeamRowTone } from './your-team-rows';
 import { canInviteSupplier } from './supplier-invite-eligibility';
 import { dateChangeAnswerLine, dateChangeWhen, type DateChangeView } from './date-change';
 import { VENUE_GROUPS, needWhereCount, supplierWhere, type CoveredGroup, type SupplierWhere, type WhereChapter } from './supplier-where';
+import { correctionsDetail, correctionsMark, type SupplierCorrections } from './supplier-corrections';
 
 /** What the page knows about one supplier besides their team row. */
 export type BookedFacts = {
@@ -68,6 +69,11 @@ export type BookedFacts = {
   covered?: readonly CoveredGroup[];
   /** 📍 The in-house groups whose chapters the host changed (`event_vendors.covered_where`). */
   coveredWhere?: Readonly<Record<string, readonly string[]>> | null;
+  /**
+   * ✏️ What the supplier corrected at the claim door, taken when the couple approved them (`lib/supplier-corrections.ts`,
+   * DECISION_LOG 2026-11-07). Present only for the inviting couple; absent = nothing to mark.
+   */
+  corrections?: SupplierCorrections | null;
 };
 
 type VerbTone = ReturnType<typeof cardVerbWords>['tone'];
@@ -203,6 +209,11 @@ export type BookedRow = {
    * Decided by `offerHostFavorites` (lib/favorites.server.ts) in `BookedSlot`.
    */
   favorite?: { shopId: string; serviceId: string | null; on: boolean } | null;
+  /**
+   * ✏️ "Name updated by the supplier" — the mark and the ⓘ's lines (`correctionsMark` / `correctionsDetail`). Null =
+   * nothing the supplier corrected (or a viewer who is not the inviting couple).
+   */
+  updated: { mark: string; detail: string[] } | null;
 };
 
 /**
@@ -363,6 +374,7 @@ function bookedRowOf(
     priced,
     money: money ? { agreedPhp: money.agreedPhp, paidPhp: money.paidPhp, owedPhp: money.owedPhp } : null,
     feeds: feedsFor(f.groupId),
+    updated: updatedOf(f.corrections),
     room: roomLineFor(f, extra.rooms),
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
     callTime: callTimeFor(extra.callTimes, team.vendorId),
@@ -447,6 +459,12 @@ function bookedRowOf(
     return withVerbs({ kind: 'paid_in_full', paidPhp: money.paidPhp }, verb('payments', { main: true, quiet: true }));
   }
   return withVerbs(said(team.next, false), verb('payments', { main: true, quiet: true }));
+}
+
+/** The row's "updated by the supplier" mark, from the corrections the approval kept. */
+function updatedOf(c: SupplierCorrections | null | undefined): BookedRow['updated'] {
+  const mark = correctionsMark(c);
+  return mark ? { mark, detail: correctionsDetail(c) } : null;
 }
 
 /** `teamRowOf`'s own closing sentence — read, never re-typed in a component. */

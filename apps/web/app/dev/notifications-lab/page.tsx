@@ -4,6 +4,7 @@ import type { NotificationRow } from '@/lib/notifications';
 import { formatPhp } from '@/lib/php';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
+import { correctionsNotice, supplierCorrections } from '@/lib/supplier-corrections';
 
 /**
  * 🔔 THE NOTIFICATIONS LAB — the bell's pop-over and its "View all" page (owner 2026-10-25: "shouldn't it be a pop up
@@ -16,6 +17,8 @@ import { NotificationsHead, NotificationsList } from '@/app/_components/notifica
  *   ?view=all     "View all": the couple's notifications page body
  *   ?empty=1      nothing at all: "You're all caught up" in the pop-over, the page's own empty words on View all
  *   ?fail=1       the pop-over's read fails (a lab cannot read): it says so, never "all caught up"
+ *   ?corrected=1  ✏️ on top: the couple's notice that a supplier who joined from their link corrected their details
+ *                 (DECISION_LOG 2026-11-07) — the REAL words (`correctionsNotice`); the phone is said, never shown
  */
 export const dynamic = 'force-dynamic';
 
@@ -68,7 +71,23 @@ export default async function NotificationsLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
-  const all = sp.empty === '1' ? [] : notices(Date.now());
+  const now = Date.now();
+  const corrected = sp.corrected === '1' ? correctionsNotice({
+    eventId: 'lab',
+    eventVendorId: 'v-bituin',
+    shopName: 'Bituin Catering',
+    corrections: supplierCorrections(
+      { name: 'Bituin Caterers', phone: '0917 555 0101' },
+      { name: 'Bituin Catering', person: 'Mila Bituin', phone: '+639181112222' },
+    ),
+  }) : null;
+  const all: NotificationRow[] = sp.empty === '1' ? [] : [
+    ...(corrected
+      ? [{ notification_id: 'n0', user_id: ME, type: 'vendor_joined' as const, title: corrected.title, body: corrected.body,
+           related_url: '/dev/suppliers-lab?mode=booked&corrected=1', read_at: null, created_at: new Date(now - 600_000).toISOString() }]
+      : []),
+    ...notices(now),
+  ];
   const view = sp.view === 'all' ? 'all' : 'page';
   const unread = all.filter((x) => !x.read_at).length;
   const returnTo = view === 'all' ? '/dev/notifications-lab?view=all' : '/dev/notifications-lab';

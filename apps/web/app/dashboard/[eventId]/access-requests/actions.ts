@@ -38,6 +38,7 @@ import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { emitNotification } from '@/lib/notification-emit';
 import { foundYouLeadNotice, readFoundYou } from '@/lib/found-you';
 import { claimAnswerNotice } from '@/lib/claim-access-wait';
+import { correctionsNotice, supplierCorrections } from '@/lib/supplier-corrections';
 
 export type AnswerResult = { ok: boolean; error?: string };
 
@@ -214,12 +215,19 @@ async function answerClaimAccess(
 
   const { data: row, error: readErr } = await supabase
     .from('event_access_requests')
-    .select('request_id, status, kind, requester_user_id')
+    .select('request_id, status, kind, requester_user_id, event_vendor_id, vendor_profile_id')
     .eq('request_id', requestId)
     .eq('event_id', eventId)
     .maybeSingle();
   if (readErr || !row) return { ok: false, error: 'Could not find that request.' };
-  const ask = row as { status: string; kind: string | null; requester_user_id: string | null };
+  const ask = row as {
+    status: string;
+    kind: string | null;
+    requester_user_id: string | null;
+    /** The couple's own record the supplier joined through — read BEFORE the approval re-points the ask. */
+    event_vendor_id: string | null;
+    vendor_profile_id: string | null;
+  };
   if (ask.kind !== 'claim') return { ok: false, error: 'Could not find that request.' };
   if (ask.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
 
@@ -258,6 +266,23 @@ async function answerClaimAccess(
       await mintBookingFeeForBooking(admin, { eventVendorId: result.booking_vendor_id, door: 'claim_approved' });
     } catch (e) {
       console.error('[access-requests] claim approval fee mint failed:', e);
+    }
+  }
+
+  // ✏️ THE COUPLE'S LIST TAKES THE SUPPLIER'S CORRECTIONS (DECISION_LOG 2026-11-07). Contact details only — a price
+  // or a service on their purchase is never taken here (it reaches them as an amendment). Fail-soft: the approval is
+  // committed; a missed comparison only loses the mark and the notice.
+  if (approve && result.granted && ask.event_vendor_id && ask.vendor_profile_id) {
+    try {
+      await takeSupplierCorrections(admin, {
+        eventId,
+        requestId,
+        recordVendorId: ask.event_vendor_id,
+        shopId: ask.vendor_profile_id,
+        bookingVendorId: result.booking_vendor_id ?? ask.event_vendor_id,
+      });
+    } catch (e) {
+      console.error('[access-requests] claim corrections failed:', e);
     }
   }
 
@@ -301,4 +326,84 @@ async function answerClaimAccess(
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   return { ok: true };
+}
+
+/**
+ * ✏️ WHAT THE SUPPLIER CORRECTED, KEPT ON THE ANSWERED ASK, AND TOLD TO THE COUPLE (DECISION_LOG 2026-11-07 — owner:
+ * *"changing name or number, address, just gets notified"*).
+ *
+ * Compares the couple's own record — the row they added and their hand-typed card (`event_manual_vendors`), left exactly
+ * as typed — with the shop the supplier corrected at the claim door (`vendor_profiles`, whichever door wrote it). The
+ * difference lands on the ask (`decisions.updated`), which only this event's couple and the supplier can read: the
+ * Suppliers page draws the shop's real name for that row and marks what changed (`lib/supplier-corrections.ts`).
+ * NOTHING is written to `event_vendors` or `event_manual_vendors` — no price, no service, not even the name.
+ * Every couple member gets one in-app notice (`vendor_joined`, app-only; no email).
+ */
+async function takeSupplierCorrections(
+  admin: ReturnType<typeof createAdminClient>,
+  args: { eventId: string; requestId: string; recordVendorId: string; shopId: string; bookingVendorId: string },
+): Promise<void> {
+  const [recordRes, shopRes, coupleRes] = await Promise.all([
+    admin.from('event_vendors').select('vendor_name, contact_phone, manual_vendor_id').eq('vendor_id', args.recordVendorId).maybeSingle(),
+    admin
+      .from('vendor_profiles')
+      .select('business_name, business_owner_name, contact_phone, hq_address')
+      .eq('vendor_profile_id', args.shopId)
+      .maybeSingle(),
+    admin.from('event_members').select('user_id').eq('event_id', args.eventId).eq('member_type', 'couple'),
+  ]);
+  if (recordRes.error || shopRes.error || !recordRes.data || !shopRes.data) {
+    console.error('[access-requests] claim corrections read refused', recordRes.error?.message, shopRes.error?.message);
+    return;
+  }
+  const record = recordRes.data as { vendor_name: string | null; contact_phone: string | null; manual_vendor_id: string | null };
+  const shop = shopRes.data as {
+    business_name: string | null;
+    business_owner_name: string | null;
+    contact_phone: string | null;
+    hq_address: string | null;
+  };
+  type Card = { business_name: string | null; contact_person: string | null; contact_number: string | null; address: string | null };
+  let card: Card | null = null;
+  if (record.manual_vendor_id) {
+    const cardRes = await admin
+      .from('event_manual_vendors')
+      .select('business_name, contact_person, contact_number, address')
+      .eq('manual_vendor_id', record.manual_vendor_id)
+      .maybeSingle();
+    // A refused card read must not pass for "they typed nothing" — every shop detail would read as a correction.
+    if (cardRes.error) {
+      console.error('[access-requests] claim corrections card read refused', cardRes.error.message);
+      return;
+    }
+    card = (cardRes.data as Card | null) ?? null;
+  }
+
+  const corrections = supplierCorrections(
+    {
+      name: card?.business_name || record.vendor_name,
+      person: card?.contact_person ?? null,
+      phone: card?.contact_number || record.contact_phone,
+      address: card?.address ?? null,
+    },
+    { name: shop.business_name, person: shop.business_owner_name, phone: shop.contact_phone, address: shop.hq_address },
+  );
+  const notice = correctionsNotice({
+    eventId: args.eventId,
+    eventVendorId: args.bookingVendorId,
+    shopName: shop.business_name,
+    corrections,
+  });
+  if (!notice) return;
+
+  const { error: keepErr } = await admin
+    .from('event_access_requests')
+    .update({ decisions: { access: 'granted', updated: corrections } })
+    .eq('request_id', args.requestId);
+  if (keepErr) console.error('[access-requests] claim corrections not kept', keepErr.message);
+
+  const couple = ((coupleRes.data ?? []) as { user_id: string | null }[]).map((m) => m.user_id).filter((u): u is string => !!u);
+  await Promise.all(
+    couple.map((userId) => emitNotification({ userId, type: 'vendor_joined', eventId: args.eventId, ...notice })),
+  );
 }

@@ -66,6 +66,7 @@ import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
 import '@/app/_components/home/home-reskin.css';
+import { PasswordField } from '@/app/_components/password-field';
 
 export const metadata: Metadata = {
   title: 'Create account',
@@ -281,10 +282,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               <label htmlFor="hr-su-password" className="hr-si-label">
                 Create your password
               </label>
-              <input
+              <PasswordField
                 id="hr-su-password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
                 required

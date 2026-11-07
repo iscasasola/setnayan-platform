@@ -19,19 +19,21 @@
  *       sent with its own button through `requestSubmit` — the shipped action and fields, unchanged;
  *   5 · the toast is the shared `PeekToast` with its one "Undo" action.
  *
+ * 🔁 RE-AIMED 2026-11-08 (THE ONE BUILD A7/A8): Today's rows JUMP now (owner v112 *"Jump"*), so the answers that
+ * finished in Today's rows finish on the page they land on. The holder's own anchor moved with the two answers that
+ * lived only on Today — the client's Details (`client-day-answers.tsx`): the same rules (the undo window, never lost)
+ * hold there. Tests 2–4 (the holder itself) are unchanged.
+ *
  * Sabotage (2026-10-28, each run and reverted): the listener's `true` (capture) dropped · `row.hidden = true` removed ·
  * `PEEK_TOAST_ACTION_MS` → 3000 · Undo's `h.row.hidden = false` removed · the `pagehide` flush removed · the waiting
  * list drawn outside `<UndoableAnswers>` — each RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import type { WhatsNewCard } from '@/lib/vendor-overview';
 
-(globalThis as unknown as { React: unknown }).React = React;
 {
   const Mod = require('node:module');
   const load = Mod._load;
@@ -44,60 +46,21 @@ import type { WhatsNewCard } from '@/lib/vendor-overview';
 const WEB = join(import.meta.dirname, '..', '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const HOLD = code('app/vendor-dashboard/_components/undoable-answers.tsx');
-const NOW = Date.parse('2026-10-02T02:00:00Z');
-const ago = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
 
-const DATE_CHANGE = {
-  kind: 'date_change',
-  id: 'dc1',
-  eventId: 'e-cruz',
-  eventVendorId: 'ev-cruz',
-  coupleName: 'Cruz',
-  currentDate: '2026-10-18',
-  proposedDate: '2026-10-25',
-  proposedPrecision: 'day',
-  askedAt: ago(5),
-} as unknown as WhatsNewCard;
-const REVIEW = {
-  kind: 'review',
-  id: 'r1',
-  reviewId: 'rv1',
-  coupleName: 'Cruz',
-  rating: 5,
-  excerpt: 'Food was amazing!',
-  createdAt: ago(30),
-} as unknown as WhatsNewCard;
-const REPLY = { kind: 'message', id: 'm1', threadId: 't1', eventId: 'e-ana', coupleName: 'Ana & Miguel', excerpt: 'Are you free?', lastMessageAt: ago(2) } as WhatsNewCard;
-
-test('1 · every answer row on the waiting list sits inside the holder, marked for it to hide', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { SupplierTodayScreen } = await import('./supplier-today-screen');
-  const { assembleSupplierToday } = await import('@/lib/supplier-today-view');
-  const { splitDesk } = await import('@/lib/vendor-desk-disposition');
-  const cards = [REPLY, DATE_CHANGE, REVIEW];
-  const { answer, news } = splitDesk(cards);
-  const view = assembleSupplierToday({
-    needsAnswer: answer, closed: news, deskIncomplete: false, upcoming: [], schedules: { pools: [], outside: [], complete: true },
-    firstSteps: null, verified: true, findable: true, findability: null, feeBills: [], feeEnforced: true,
-    earnings: { confirmedPhp: 0, expectedPhp: 0, paydayMeasured: true, owed: [] }, credit: null, payoutReadiness: 'unreadable',
-    payoutHref: '/x', shop: { name: 'S', categoryWord: null, details: { done: 1, total: 1, complete: true }, awardWord: null, milestoneWord: null },
-    views: null, inquiries28: null, dayFacts: null, todayIso: '2026-10-02', now: NOW, since: () => new Date(NOW),
-  });
-  const noop = async () => {};
-  const actions = {
-    acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
-    agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
-  };
-  const html = renderToStaticMarkup(React.createElement(SupplierTodayScreen, { view, outcome: null, feeForecasts: {}, cards, askStatus: '', deskIncomplete: false, actions }));
-  const holder = html.indexOf('data-undoable-answers');
-  const list = html.slice(html.indexOf('data-today-list="waiting"'), html.indexOf('data-today-list="week"'));
-  assert.ok(holder > 0 && list.includes('data-undoable-answers'), 'the waiting list is not inside the Undo holder');
-  const rows = [...list.matchAll(/data-today-ask="(\w+)"/g)].map((m) => m[1]);
-  assert.ok(rows.length >= 2, `anti-vacuity: only ${rows.length} answer rows drawn`);
-  // Every form in the list is inside a marked row — a press always has a row to finish in.
-  const forms = [...list.matchAll(/<form\b/g)].map((m) => m.index!);
-  assert.ok(forms.length > 0, 'anti-vacuity: no answer form on the list');
-  for (const at of forms) assert.ok(list.lastIndexOf('data-today-ask=', at) > -1, 'an answer form sits outside any row the holder can hide');
+test('1 · every answer on the client’s Details sits inside the holder, in a row marked for it to hide', () => {
+  const body = code('app/vendor-dashboard/_components/client-day-answers.tsx');
+  const held = body.slice(body.indexOf('<UndoableAnswers>'), body.indexOf('</UndoableAnswers>'));
+  assert.ok(held.length > 100, 'the answers are not inside the Undo holder');
+  assert.match(held, /<div key=\{card\.id\}[^>]*data-today-row-item=""/, 'an answer sits in no row the holder can hide');
+  assert.match(held, /<DateChangeBody\b/, 'anti-vacuity: the date-change answer is not in the holder');
+  assert.match(held, /<DeleteRequestBody\b/, 'anti-vacuity: the delete-request answer is not in the holder');
+  // Every form those bodies draw posts a shipped action — the holder sends it through its own button.
+  const sections = code('app/vendor-dashboard/_components/overview-sections.tsx');
+  for (const fn of ['DateChangeBody', 'DeleteRequestBody']) {
+    const at = sections.indexOf(`export function ${fn}(`);
+    const src = sections.slice(at, sections.indexOf('\n}\n', at));
+    assert.ok((src.match(/<form action=\{/g) ?? []).length >= 2, `${fn}: its answers are not forms the holder can hold`);
+  }
 });
 
 test('2 · the holder takes the press before React, hides the row, and sends after the toast’s own window', () => {
@@ -126,6 +89,6 @@ test('4 · a held answer is never lost — leaving and a second press send it, t
 
 test('5 · the toast is the shared PeekToast with its one Undo', () => {
   assert.match(HOLD, /<PeekToast[^>]*action=\{\{ label: 'Undo', onPress: undo \}\}/);
-  const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
-  assert.match(first, /const waitingBlock = \(\s*<UndoableAnswers>/, 'Today’s waiting list is not held for Undo');
+  const details = code('app/vendor-dashboard/_components/client-day-answers.tsx');
+  assert.match(details, /<UndoableAnswers>/, 'the client’s answers are not held for Undo');
 });

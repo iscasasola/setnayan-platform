@@ -52,7 +52,7 @@ test('the chips: "Sat 7 Nov" · "9 tasks today" · pinned "9 tasks · 7 Nov"', (
 
 test('"N tasks" is the Needs-you list length, handed in from the one view', () => {
   const view = readFileSync(join(process.cwd(), 'lib/supplier-today-view.ts'), 'utf8');
-  assert.match(view, /const needsCount = input\.deskIncomplete && needs\.length === 0 \? null : needs\.length \+ allBills\.length;/);
+  assert.match(view, /const needsCount = input\.deskIncomplete \? null : needs\.length \+ allBills\.length;/);
   const page = readFileSync(join(process.cwd(), 'app/vendor-dashboard/_components/supplier-today-screen.tsx'), 'utf8');
   assert.match(page, /tasks=\{view\.needsCount\}/, 'the cover’s count is the view’s needsCount');
   assert.doesNotMatch(page, /tasks=\{view\.numbers\.waiting/, 'never the old "waiting on you" number');

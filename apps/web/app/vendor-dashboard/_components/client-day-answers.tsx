@@ -42,7 +42,8 @@ export async function ClientDayAnswers({
       ) : null}
       <UndoableAnswers>
         {read.cards.map((card) => (
-          <div key={card.id} data-client-day-answer={card.kind} className="py-2">
+          // `data-today-row-item`: the row the Undo holder hides at the press (`undoable-answers.tsx`), then shows again on Undo.
+          <div key={card.id} data-client-day-answer={card.kind} data-today-row-item="" className="py-2">
             {card.kind === 'date_change' ? (
               <DateChangeBody card={card} answerDateChange={vendorAnswerDateChange} />
             ) : (

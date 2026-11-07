@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pinFoldNext, PIN_FOLD_AFTER_PX, PIN_UNFOLD_WITHIN_PX } from './use-pin-fold';
 
@@ -26,11 +26,14 @@ test('1 · folds once stuck and 44 px under; unfolds within 6 px — never flick
   assert.equal(pinFoldNext(true, 100, 100 + PIN_UNFOLD_WITHIN_PX - 1), false, 'did not unfold back near the top');
 });
 
-test('2 · the hook writes attributes; Today and Customers each carry every hook', () => {
+test('2 · the hook writes attributes; Customers carries every hook', () => {
   const hook = read('app/_components/pinned-row/use-pin-fold.ts');
   assert.match(hook, /el\.toggleAttribute\('data-folded', next\)/);
   assert.doesNotMatch(hook, /useState/, 'the fold must be an attribute, never state — the list would re-render per scroll');
-  for (const rel of ['app/vendor-dashboard/_components/today-counts.tsx', 'app/vendor-dashboard/customers/_components/customers-pin.tsx']) {
+  // ⤴ Today's counts row (`today-counts.tsx`) is RETIRED by THE ONE BUILD (A5, v103/v104 "stats jump"): Today's top is
+  // the shared collapsing top (L1 F2), which ratchets `usePinFold` callers down — Customers is the one left here.
+  assert.ok(!existsSync(join(process.cwd(), 'app/vendor-dashboard/_components/today-counts.tsx')), 'the retired counts row is back');
+  for (const rel of ['app/vendor-dashboard/customers/_components/customers-pin.tsx']) {
     const src = read(rel);
     const n = (re: RegExp) => (src.match(re) ?? []).length;
     assert.equal(n(/usePinFold\(pinRef\)/g), 1, `${rel}: does not fold its row`);

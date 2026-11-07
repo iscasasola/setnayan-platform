@@ -184,7 +184,7 @@ export type SupplierTodayView = {
    * (`bills`), and counted.
    */
   needs: TodayNeed[];
-  /** The cover's "N tasks today" — `needs` + the bill rows: the SAME list the page draws. Null = unread and empty. */
+  /** The cover's "N tasks today" — `needs` + the bill rows: the SAME list the page draws. Null = the desk was not read in full. */
   needsCount: number | null;
   /** 📊 The five stats (A4) — each a link; a figure that could not be read is null (said "couldn't load"). */
   stats: TodayStats;
@@ -350,7 +350,16 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
   // 📋 NEEDS YOU TODAY — the Next card's order, as rows (the Next card itself is retired, v103).
   const firstOwed = nextAnswerOf(needsAnswer);
   const askOrder = firstOwed ? [firstOwed, ...needsAnswer.filter((c) => c.id !== firstOwed.id)] : [...needsAnswer];
-  const needs: TodayNeed[] = askOrder.map((card) => todayNeedOf(card, now));
+  const needs: TodayNeed[] = askOrder.map((card) => {
+    const row = todayNeedOf(card, now);
+    // ✅ The facts that were said on the (retired) Next card BEFORE Agree — a hall already booked that day, an
+    // unapproved shop — now ride the ask's own row, so they are still seen before the tap that opens the answer.
+    if (askOnCard && card.id === askOnCard.id && askNotes.length > 0) {
+      const first = askNotes[0]!;
+      return { ...row, line: [row.line, first.label].filter(Boolean).join(' · '), pill: first.pill, lineTone: 'warn' as const };
+    }
+    return row;
+  });
   if (input.deskIncomplete) {
     needs.push({
       key: 'unread',
@@ -382,7 +391,8 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
   if (permit) needs.push(permit);
   needs.push(...closed.map((card) => todayNeedOf(card, now)));
   const allBills = [...input.feeBills];
-  const needsCount = input.deskIncomplete && needs.length === 0 ? null : needs.length + allBills.length;
+  // An unread desk has no honest count (the "couldn't load" row is not a task, and asks may be missing) — no number.
+  const needsCount = input.deskIncomplete ? null : needs.length + allBills.length;
 
   return {
     next,

@@ -11,6 +11,10 @@
  * Asserted on REAL MARKUP: the shipped assembly (`assembleSupplierToday`) and the shipped screen
  * (`SupplierTodayScreen`) are rendered, so the words counted are the words drawn.
  *
+ * 🔁 RE-AIMED 2026-11-08 (THE ONE BUILD, v103): the Next card is retired, so the empty state is said by ONE thing —
+ * the Needs-you list's "Nothing waiting on you" row (the cover's chip reads "Nothing today", a count, not a second
+ * sentence). The same property: said once, never twice; an unread desk never says it.
+ *
  * 🪤 `globalThis.React` before the DYNAMIC import — tsconfig sets `"jsx": "preserve"`.
  */
 import test from 'node:test';
@@ -28,7 +32,6 @@ import React from 'react';
 }
 
 const NOW = Date.parse('2026-10-02T02:00:00Z');
-const noop = async () => {};
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&rsquo;/g, '’').replace(/\s+/g, ' ');
 
 async function render(o: { deskIncomplete: boolean; owedPhp: number | null }): Promise<string> {
@@ -59,40 +62,33 @@ async function render(o: { deskIncomplete: boolean; owedPhp: number | null }): P
     now: NOW,
     since: () => new Date(NOW),
   });
-  const actions = {
-    acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
-    agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
-  };
   return renderToStaticMarkup(
-    React.createElement(SupplierTodayScreen, { view, outcome: null, feeForecasts: {}, cards: [], askStatus: '', deskIncomplete: o.deskIncomplete, actions }),
+    React.createElement(SupplierTodayScreen, { view, outcome: null, shopName: 'Lumina Studio', todayIso: '2026-10-02', now: NOW }),
   );
 }
 
-const SAID = /Nothing waiting/g;
+const SAID = /Nothing waiting on you/g;
 
-test('nothing waiting, read in full: the Next card says it — and nothing under it says it again', async () => {
+test('nothing waiting, read in full: the list says it — once', async () => {
   const html = await render({ deskIncomplete: false, owedPhp: 0 });
   const t = text(html);
-  assert.match(html, /data-today-next="clear"/, 'anti-vacuity: this is the empty Today (the Next card is `clear`)');
-  assert.match(t, /Nothing waiting No bookings yet/, 'the Next card no longer says the empty state');
-  assert.match(t, /See the month/, 'the Next card lost its one action');
+  assert.match(html, /data-today-note="waiting-empty"/, 'anti-vacuity: the empty Needs-you row is drawn');
+  assert.match(t, /Nothing waiting on you New asks land here first/);
   assert.equal((t.match(SAID) ?? []).length, 1, `the empty state is said more than once: ${t.slice(0, 500)}`);
-  assert.doesNotMatch(html, /data-today-note="waiting-empty"/, 'the duplicate "Nothing waiting on you" row is drawn under the card that already said it');
-  // The waiting list still ends in its door — dropping the row did not drop the way to the whole list.
-  assert.match(html, /All customers/);
+  assert.match(t, /Nothing today/, 'the cover’s chip does not say the count');
 });
 
-test('control: under ANOTHER card, an empty waiting list still says so (nothing above has)', async () => {
+test('control: money still to come in does not hide the empty list (it is a stat now, not a card)', async () => {
   const html = await render({ deskIncomplete: false, owedPhp: 48_000 });
-  assert.match(html, /data-today-next="payday"/, 'anti-vacuity: the Next card is payday here, not the empty state');
-  assert.match(html, /data-today-note="waiting-empty"/, 'the empty-list row vanished from a Today whose card does not say "nothing waiting"');
+  assert.match(html, /data-today-note="waiting-empty"/, 'the empty-list row vanished');
   assert.equal((text(html).match(SAID) ?? []).length, 1);
+  assert.match(text(html), /₱48K Money to come in/);
 });
 
 test('control: an unread desk is never "nothing waiting" — it says it could not load', async () => {
   const html = await render({ deskIncomplete: true, owedPhp: null });
   const t = text(html);
-  assert.match(html, /data-today-next="unread"/);
   assert.doesNotMatch(t, SAID, 'an unread desk reads as "nothing waiting"');
   assert.match(t, /couldn’t load/);
+  assert.doesNotMatch(t, /\d+ tasks? today|Nothing today/, 'an unread desk is given a task count');
 });

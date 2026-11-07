@@ -8,6 +8,10 @@
  *   · a figure that could not be read says "couldn’t load" — never 0, never ₱0; the Portfolio count draws no figure
  *     until C4's `getPortfolioCount` lands (never a guessed count).
  *
+ * ⤴ SUCCEEDS `the-counts-filter-in-place.test.ts` (retired with the counts row it held, THE ONE BUILD A5): DL 2026-10-28
+ * "counts FILTER in place" is superseded on Today by v103/v104 "stats jump" (corpus SUPPLIER_DASHBOARD_BUILD_PLAN
+ * 2026-11-08). Its honesty claim — an unread payday says "couldn't load", never ₱0 — is test 3 here.
+ *
  * SABOTAGE (seen red once): a null Money drawn as ₱0 → 3 red; Booked pointed at `/vendor-dashboard` → 1 red.
  */
 import test from 'node:test';

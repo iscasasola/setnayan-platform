@@ -78,7 +78,7 @@ import {
   toPackageDraft,
 } from '@/lib/service-customization-draft';
 import { savePackage } from '../packages/actions';
-import { giftColumns } from '@/lib/gift-pick';
+import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
 import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 
@@ -1557,6 +1557,8 @@ export async function commitVendorService(formData: FormData) {
     const code = typeof raw === 'string' && raw.length > 0 ? raw : null;
     const cols = giftColumns(code);
     if (code && (!cols || !shopGiftKindOf(code))) return back('That gift can’t be offered on a card.');
+    // 🚧 Not offered yet (see `SHOP_PACK_GIFTS_DELIVER`): a pack would save and reach no quote or couple-facing card.
+    if (code && !SHOP_PACK_GIFTS_DELIVER) return back('Your own gifts can’t be put on a card yet — pick No gift or the Setnayan gift.');
     if (code && fields.includes_setnayan_gift === true) {
       return back('A card gives one gift — pick the Setnayan gift or one of your own, not both.');
     }

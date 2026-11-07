@@ -57,18 +57,23 @@ export function giftColumns(gift: GiftPick | null | undefined): GiftColumns | nu
   return shopGiftKindOf(gift) ? { includes_setnayan_gift: false, gift_pack_code: gift } : null;
 }
 
+/** 🚧 Off until the owner rules how a card's own pack reaches the quote and the couple (open, same as bundle PR #7367). */
+export const SHOP_PACK_GIFTS_DELIVER = false;
+
 /** The Setnayan gift's line under the dropdown — the card maker's shipped fold sentence, without the noun. */
 export const SETNAYAN_GIFT_HINT =
   'Free Papic photos for the couple, sized to the booking. Added to your booking fee bill — never more than 40% of that fee.';
 
 /** What the ⓘ beside "Gift" says — the card's shipped words and the shop-gift rulings (DECISION_LOG 2026-11-04 / 05). */
-export function giftTip(host: GiftHost): readonly string[] {
-  return [
+export function giftTip(host: GiftHost, deliver: boolean = SHOP_PACK_GIFTS_DELIVER): readonly string[] {
+  const all = [
     `Setnayan gift — couples who book this get free Papic photos, sized to the booking. It is added to your booking fee bill — never more than 40% of that fee. Your ${host} shows either way.`,
     'Your own gifts — Papic credits, Event Plus or Event Pro from your stock (Shop › Promote › Your gifts · buy first). They leave your stock when the couple’s first payment clears and land on their event.',
     'On one booking your gifts are capped at 40% of its fee; the smallest Papic pack is always allowed.',
     'A second Event Plus on an event that already holds Plus unlocks Event Pro instead.',
   ];
+  // Every line after the first is about the shop's own packs — not said while they are not offered.
+  return deliver ? all : all.slice(0, 1);
 }
 
 /** One choice in the Gift dropdown — the shape `PickMenu` takes (`disabledNote` = listed, not pickable, and why). */
@@ -84,12 +89,14 @@ export function giftMenu(
   packs: readonly ShopGiftPack[] | null,
   free: FreeByKind | null,
   current: GiftPick = GIFT_NONE,
+  deliver: boolean = SHOP_PACK_GIFTS_DELIVER,
 ): GiftOption[] {
   const out: GiftOption[] = [
     { key: GIFT_NONE, label: 'No gift' },
     { key: GIFT_SETNAYAN, label: 'Setnayan gift', hint: SETNAYAN_GIFT_HINT },
   ];
-  for (const p of packs ?? []) {
+  // 🚧 `SHOP_PACK_GIFTS_DELIVER`: no pack row while a picked pack would reach nobody.
+  for (const p of deliver ? (packs ?? []) : []) {
     const have = free ? free[p.kind] : null;
     const enough = have != null && have >= p.credits;
     const off =

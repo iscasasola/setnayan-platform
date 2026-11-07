@@ -15,10 +15,14 @@
  *   4 · the save reads the pack only when the row was drawn (`gift_pack_present`), so a screen without the row can
  *       never clear a card's pack;
  *   5 · the first page's order and that none of its fields sit inside More settings;
- *   6 · the couple's line for a pack carries no count (the card face's rule).
+ *   6 · the couple's line for a pack carries no count (the card face's rule);
+ *   7 · 🚧 `SHOP_PACK_GIFTS_DELIVER` (controller, 7 Nov): while a picked pack would reach no quote and no couple-facing
+ *       card, the dropdown lists NO pack, the ⓘ says nothing about own gifts and the save refuses a pack — and with
+ *       the switch on, the packs are listed again. Tests 1 and 6 ask for the delivering menu explicitly.
  *
  * Sabotage, 2026-11-07: (a) `giftMenu` put Setnayan gift first → test 1 red; (b) the maker's `gift_pack_present`
  * hidden input removed → test 3 red. Both restored green.
+ * Sabotage, 2026-11-07 (gate): the pack loop ignoring `deliver` (`for (const p of packs ?? [])`) → test 7 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,8 +35,10 @@ import {
   GIFT_SETNAYAN,
   coupleCardPackLine,
   giftColumns,
+  SHOP_PACK_GIFTS_DELIVER,
   giftMenu,
   giftPickOf,
+  giftTip,
 } from '@/lib/gift-pick';
 import type { ShopGiftPack } from '@/lib/shop-gifts';
 
@@ -47,16 +53,16 @@ const PACKS: ShopGiftPack[] = [
 ];
 
 test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short pack listed with "buy first"', () => {
-  const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0 });
+  const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0 }, GIFT_NONE, true);
   assert.deepEqual(menu.map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
   assert.equal(menu[0]!.label, 'No gift');
   assert.equal(menu[1]!.label, 'Setnayan gift');
   assert.equal(menu[2]!.disabledNote, undefined, 'a pack the stock covers must be pickable');
   assert.equal(menu[3]!.disabledNote, 'Not enough in your stock · buy first');
   // Unreadable stock is said as unreadable, never as empty.
-  for (const o of giftMenu(PACKS, null).slice(2)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
+  for (const o of giftMenu(PACKS, null, GIFT_NONE, true).slice(2)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
   // A saved card's own pack stays pickable whatever the stock says — opening it never strands its gift.
-  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0 }, 'EVENT_PLUS')[3]!.disabledNote, undefined);
+  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0 }, 'EVENT_PLUS', true)[3]!.disabledNote, undefined);
   // Unread catalogue: only the two answers that need no catalogue.
   assert.deepEqual(giftMenu(null, null).map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN]);
 });
@@ -112,4 +118,24 @@ test('6 · the couple’s line for a pack names the kind, never a count', () => 
   assert.equal(coupleCardPackLine('EVENT_PLUS', 'Saysay Studio'), 'Gift from Saysay Studio 🎁 · Event Plus');
   assert.ok(!/\d/.test(coupleCardPackLine('PAPIC_GUEST_500', 'Saysay') ?? ''), 'a count reached the card');
   assert.equal(coupleCardPackLine(null, 'Saysay'), null);
+});
+
+test('7 · 🚧 shop packs are not offered while they reach nobody — and are offered once the switch is on', () => {
+  const free = { papic: 1000, event_plus: 5, event_pro: 5 };
+  const keys = (deliver: boolean) => giftMenu(PACKS, free, GIFT_NONE, deliver).map((o) => o.key);
+  // The default follows the switch: hidden while false, listed while true.
+  const def = giftMenu(PACKS, free).map((o) => o.key);
+  if (SHOP_PACK_GIFTS_DELIVER) {
+    assert.deepEqual(def, [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
+  } else {
+    assert.deepEqual(def, [GIFT_NONE, GIFT_SETNAYAN], 'a pack is offered that would reach no quote and no couple');
+    assert.equal(giftTip('card').length, 1, 'the ⓘ promises own gifts that are not offered');
+  }
+  assert.deepEqual(keys(false), [GIFT_NONE, GIFT_SETNAYAN]);
+  assert.deepEqual(keys(true), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
+  assert.ok(giftTip('card', true).length > 1);
+  // The save refuses a pack while the switch is off (a crafted post cannot save a gift that reaches nobody).
+  assert.match(read(ACTIONS), /if \(code && !SHOP_PACK_GIFTS_DELIVER\) return back\(/);
+  // Today's value is the ruling-in-waiting: off.
+  assert.equal(SHOP_PACK_GIFTS_DELIVER, false, 'flip only with the delivery built and the owner ruling recorded');
 });

@@ -35,6 +35,7 @@ import { stripComments } from '@/lib/strip-comments';
 import {
   UPCOMING_CARD_SECTION,
   customerCardHref,
+  PICKED_CLIENT_PAGE_IDS,
   upcomingScheduleDoor,
 } from '@/lib/upcoming-schedule-door';
 
@@ -89,15 +90,17 @@ test('1 · a booked row with a live thread opens the CARD, not the thread', () =
   );
 });
 
-test('2 · the card link always names a section (a bare route IS the chat)', () => {
-  // The redirect this depends on must still be there, or the guard is theatre.
+test('2 · the card link always names a page (the chat now lives IN the client)', () => {
+  // 🗂 THE ONE BUILD (8 Nov 2026 · v111): the redirect that made a bare route a chat landing is GONE — a bare landing
+  // opens Details and `?tab=chat` opens the Chat page in place. The row still names the page it means, so it can
+  // never depend on what a bare landing happens to draw.
   assert.equal(
-    count(clientPage, /rawTab === 'chat'/g),
-    1,
-    'the client page no longer treats a bare landing as a chat landing — re-check this whole file',
+    count(clientPage, /redirect\(`\/vendor-dashboard\/messages\/\$\{threadId\}`\)/g),
+    0,
+    'the client page forwards a landing to the thread again — the chat is a page of the client now',
   );
-  for (const section of ['details', 'quote', 'schedule', 'files'] as const) {
-    assert.equal(customerCardHref(EVENT, section), `/vendor-dashboard/clients/${EVENT}?tab=${section}`);
+  for (const page of PICKED_CLIENT_PAGE_IDS) {
+    assert.equal(customerCardHref(EVENT, page), `/vendor-dashboard/clients/${EVENT}?tab=${page}`);
   }
   assert.equal(UPCOMING_CARD_SECTION, 'details');
 });

@@ -50,9 +50,10 @@ export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, 
       />,
     ),
     forms: only('forms', <FormsPage ctx={ctx} shipped={shipped.forms} />),
+    // Fee-gated as before: while the fee withholds the event, `shipped.files` is the one lock panel.
     files: only(
       'files',
-      <FilesPage
+      shipped.files !== undefined ? shipped.files : <FilesPage
         ctx={ctx}
         shipped={shipped.files}
         files={i.files.files}

@@ -162,14 +162,21 @@ test('the two tab vocabularies are the ones the shells really declare', () => {
     `customer-card-nav declares ${offKeys.join(' · ')}`,
   );
 
-  const page = stripComments(readFileSync(path.join(CLIENTS_DIR, '[eventId]', 'page.tsx'), 'utf8'));
-  const shellBlock = page.slice(page.indexOf('const tabs: RelationshipTab[] = ['));
-  const onIds = [...shellBlock.slice(0, 2000).matchAll(/^\s{6}id: '([a-z]+)',$/gm)].map((m) => m[1]);
-  assert.deepEqual(
-    [...onIds].sort(),
-    [...VENDOR_CLIENT_TABS].sort(),
-    `the relationship shell declares ${onIds.join(' · ')}`,
+  // 🗂 THE ONE BUILD (8 Nov 2026): the flag-ON shell is the picked client's nine-page menu. Its ids are read back
+  // from the menu file itself (not hand-copied here), plus the one legacy id that still lands — `script`, which
+  // the menu resolves to Schedule's Script fold. Every id must resolve to a page the menu can draw.
+  const menuSrc = stripComments(
+    readFileSync(path.join(CLIENTS_DIR, '[eventId]', '_components', 'picked-client-menu.ts'), 'utf8'),
   );
+  const menuBlock = menuSrc.slice(menuSrc.indexOf('export const PICKED_CLIENT_PAGES'), menuSrc.indexOf('] as const;'));
+  const onIds = [...menuBlock.matchAll(/\{\s*id:\s*'([a-z]+)'/g)].map((m) => m[1]);
+  assert.equal(onIds.length, 9, `the picked client's menu declares ${onIds.length} pages: ${onIds.join(' · ')}`);
+  assert.deepEqual(
+    [...onIds, 'script'].sort(),
+    [...VENDOR_CLIENT_TABS].sort(),
+    `the picked client's menu declares ${onIds.join(' · ')} (+ script → Schedule)`,
+  );
+  assert.match(menuSrc, /script:\s*'schedule'/, '`?tab=script` must land on Schedule');
   console.log(
     `[client-landing] OFF shell: ${offKeys.join(' · ')} | ON shell: ${onIds.join(' · ')}`,
   );

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { logoFrameStyle, readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { onSetnayanSinceLine } from '@/lib/in-business-since';
@@ -268,6 +269,9 @@ export type PublicVendorRow = {
   business_slug: string | null;
   tagline: string | null;
   logo_url: string | null;
+  /** The logo's align + zoom (owner 2026-11-06, A2) — absent on the legacy read, then drawn centred. */
+  logo_focal?: number | null;
+  logo_zoom?: number | null;
   portfolio_r2_keys: string[] | null;
   // Featured videos — external URLs the vendor pasted (migration 20270518165113).
   // Optional + `?? []` at read time so a pre-migration DB degrades to no section.
@@ -464,7 +468,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -2436,7 +2440,7 @@ export async function renderVendorBySlug({
             className={SHOP_CARD_COLUMN_CLASS}
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
-          <Logo logoUrl={logoDisplayUrl} name={displayLabel} />
+          <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
           <div className="min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
@@ -3592,7 +3596,7 @@ function DemoVendorBanner() {
   );
 }
 
-function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
+function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; frame?: LogoFrame }) {
   if (logoUrl) {
     return (
       <span className="inline-flex h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-ink/10 bg-cream">
@@ -3602,6 +3606,7 @@ function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
           width={96}
           height={96}
           className="h-full w-full object-cover"
+          style={logoFrameStyle(frame)}
         />
       </span>
     );

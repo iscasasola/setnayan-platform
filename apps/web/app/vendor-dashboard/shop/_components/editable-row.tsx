@@ -1,5 +1,7 @@
 'use client';
 
+import { LogoFrameControl } from '@/app/_components/logo-frame-control';
+import { DEFAULT_LOGO_FRAME, logoFrameStyle, type LogoFrame } from '@/lib/open-shop-logo';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, ChevronDown, Loader2, MapPin, Pencil, Plus } from 'lucide-react';
@@ -43,6 +45,8 @@ export type ProfileFieldData = {
   capacity_min: string;
   capacity_max: string;
   logo_url: string | null;
+  /** The logo's align + zoom (owner 2026-11-06, A2) — drawn through `logoFrameStyle` and edited with the logo. */
+  logoFrame?: LogoFrame;
   logoDisplayMap: Record<string, string>;
   services: string[];
   serviceLabels?: Record<string, string>;
@@ -576,7 +580,7 @@ function RowPreview({ itemKey, data }: { itemKey: string; data: ProfileFieldData
       return (
         <span className="mt-1 inline-flex h-6 w-6 overflow-hidden rounded border" style={{ borderColor: 'var(--m-line)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="Your logo" className="h-full w-full object-cover" />
+          <img src={url} alt="Your logo" className="h-full w-full object-cover" style={logoFrameStyle(data.logoFrame)} />
         </span>
       );
     }
@@ -619,6 +623,55 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
   }
 }
 
+/**
+ * My Shop's logo: the shipped upload, plus the SAME align + zoom control as "Add your logo" (owner 2026-11-06, A2 —
+ * the Event Hub Maker photo control, `LogoFrameControl`). The frame posts with the logo (`logo_focal` / `logo_zoom`),
+ * so it is moved without a re-upload.
+ */
+function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: () => void }) {
+  const [ref, setRef] = useState<string>(data.logo_url ?? '');
+  const [preview, setPreview] = useState<string | null>(
+    data.logo_url ? (data.logoDisplayMap[data.logo_url] ?? null) : null,
+  );
+  const [frame, setFrame] = useState<LogoFrame>(data.logoFrame ?? DEFAULT_LOGO_FRAME);
+  return (
+    <span className="block space-y-3">
+      <FileUpload
+        bucket="media"
+        pathPrefix={`vendors/${data.vendorProfileId}/logo`}
+        name="logo_url"
+        unsavedHint="it saves when you close this row"
+        currentValue={data.logo_url}
+        initialDisplayUrls={data.logoDisplayMap}
+        maxSizeMB={2}
+        acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+        variant="square"
+        onChange={(v) => {
+          const next = Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
+          setRef(next);
+          if (!next) setPreview(null);
+          onDirty();
+        }}
+        onFilePicked={(file) => {
+          try {
+            setPreview(URL.createObjectURL(file));
+          } catch {
+            setPreview(null);
+          }
+        }}
+      />
+      <LogoFrameControl
+        imageUrl={ref ? preview : null}
+        frame={frame}
+        onChange={(f) => {
+          setFrame(f);
+          onDirty();
+        }}
+      />
+    </span>
+  );
+}
+
 /** The field-specific editor control, wrapped in the shared `Field` label. */
 function FieldControl({
   item,
@@ -638,18 +691,7 @@ function FieldControl({
           required
           help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every supplier card."
         >
-          <FileUpload
-            bucket="media"
-            pathPrefix={`vendors/${data.vendorProfileId}/logo`}
-            name="logo_url"
-            unsavedHint="it saves when you close this row"
-            currentValue={data.logo_url}
-            initialDisplayUrls={data.logoDisplayMap}
-            maxSizeMB={2}
-            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-            variant="square"
-            onChange={onDirty}
-          />
+          <LogoRowControl data={data} onDirty={onDirty} />
         </Field>
       );
     case 'business_name':

@@ -69,9 +69,11 @@ test('the wide variant is untouched — this is a logo change, not a global one'
     'the rectangular dropzone is gone — every other upload surface uses it');
 });
 
-test('the shop wizard asks for the round treatment', () => {
+// 🖼 RETARGETED 2026-11-06 (A2): the shop logo is asked on "Add your logo" (/open-shop/logo), right after the shop
+// opens — no longer on the wizard's step 1.
+test('the shop logo screen asks for the round treatment', () => {
   const wizard = readFileSync(
-    join(process.cwd(), 'app/open-shop/_components/open-shop-wizard.tsx'),
+    join(process.cwd(), 'app/open-shop/logo/_components/add-your-logo.tsx'),
     'utf8',
   );
   const logo = wizard.slice(wizard.indexOf('name="logo_url"'), wizard.indexOf('name="logo_url"') + 700);

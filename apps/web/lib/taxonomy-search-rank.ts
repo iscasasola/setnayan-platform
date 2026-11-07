@@ -112,3 +112,117 @@ function textTierScore(textLc: string, trimmedQuery: string, squashedQuery: stri
     return 1;
   return 0;
 }
+
+// ── 🔤 CLOSE MATCHES — A TYPO STILL FINDS ITS TRADE (owner, the 2026-11-06 gate walk) ──
+//
+// Owner, on /open-shop's service search: *"search that finds the compatible and most likely compatible (to help
+// solve space, typo errors…)"*. Spaces were already forgiven (tier 1, "photobooth"); a typo was not — "catring"
+// matched nothing and the picker said "Nothing matches", with Catering one letter away.
+//
+// 🔒 A SEPARATE LIST, NEVER MIXED INTO THE RANKED ONE, AND NEVER AUTO-PICKED. A close match is a GUESS about what
+// somebody meant, so it is returned on its own (`close`) and the screen shows it under "Close matches" for the
+// person to tap. `matches` is byte-identical to `rankTaxonomyOptions` — every existing caller (Explore, the card
+// maker, the admin near-match draft, sign-up coverage) keeps exactly the answers it has today.
+//
+// THE RULE: every word typed (3+ letters) must sit within a small edit distance of some word of the label or of a
+// reviewed alias — 1 edit for a word of up to 5 letters, 2 for a longer one (an edit = a letter added, dropped,
+// changed, or two neighbours swapped). Or the whole query, spaces squashed, within that distance of the whole
+// label/alias squashed ("fotobooth" → Photo Booth).
+
+/** The edits a typed word of this length may carry and still be a close match. */
+export function closeMatchBudget(wordLength: number): number {
+  return wordLength <= 5 ? 1 : 2;
+}
+
+/** Words shorter than this carry no close match on their own ("dj", "of"): too many neighbours. */
+const CLOSE_MIN_WORD = 3;
+
+/** Optimal-string-alignment distance (Levenshtein + adjacent swap), stopping early past `max`. */
+export function editDistanceWithin(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  if (a === b) return 0;
+  const rows: number[][] = [];
+  for (let i = 0; i <= a.length; i++) {
+    rows.push(new Array<number>(b.length + 1).fill(0));
+    rows[i]![0] = i;
+  }
+  for (let j = 0; j <= b.length; j++) rows[0]![j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let rowMin = Infinity;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(rows[i - 1]![j]! + 1, rows[i]![j - 1]! + 1, rows[i - 1]![j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        v = Math.min(v, rows[i - 2]![j - 2]! + 1);
+      }
+      rows[i]![j] = v;
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin > max) return max + 1;
+  }
+  return rows[a.length]![b.length]!;
+}
+
+const wordsOf = (textLc: string) => textLc.split(/[^a-z0-9]+/).filter(Boolean);
+
+/** The smallest number of edits by which the query is a close match for this text, or null when it is not. */
+function closeEdits(textLc: string, queryWords: string[], squashedQuery: string): number | null {
+  const textWords = wordsOf(textLc);
+  if (textWords.length === 0) return null;
+  // Whole-phrase, spaces squashed: "fotobooth" ↔ "photobooth".
+  const squashedText = textWords.join('');
+  if (squashedQuery.length >= CLOSE_MIN_WORD) {
+    const d = editDistanceWithin(squashedQuery, squashedText, closeMatchBudget(squashedQuery.length));
+    if (d <= closeMatchBudget(squashedQuery.length)) return d;
+  }
+  // Word by word: every typed word must be near some word of the text.
+  const counted = queryWords.filter((w) => w.length >= CLOSE_MIN_WORD);
+  if (counted.length === 0 || counted.length !== queryWords.length) return null;
+  let total = 0;
+  for (const q of counted) {
+    const budget = closeMatchBudget(q.length);
+    let best = budget + 1;
+    for (const t of textWords) {
+      const d = editDistanceWithin(q, t, budget);
+      if (d < best) best = d;
+      if (best === 0) break;
+    }
+    if (best > budget) return null;
+    total += best;
+  }
+  return total;
+}
+
+/**
+ * The ranked matches AND, on their own, the close matches a typo would have missed.
+ *
+ * `matches` is exactly `rankTaxonomyOptions(options, query, limit)`. `close` holds options that are NOT in
+ * `matches` but whose label or a reviewed alias is a close match (see the rule above), fewest edits first, then
+ * by label. Shown under "Close matches"; never picked for the person.
+ */
+export function rankTaxonomyOptionsWithClose<T extends RankableOption>(
+  options: ReadonlyArray<T>,
+  query: string,
+  limit: number = MAX_SUGGESTIONS,
+): { matches: T[]; close: T[] } {
+  const matches = rankTaxonomyOptions(options, query, limit);
+  const trimmed = query.trim().toLowerCase();
+  if (trimmed.length < MIN_QUERY_LEN) return { matches, close: [] };
+  const queryWords = wordsOf(trimmed);
+  const squashedQuery = queryWords.join('');
+  const taken = new Set(matches.map((m) => m.key));
+  // An option that the ranked tiers matched but the limit cut off is not a "close" match — it is a real one.
+  const anyRanked = new Set(rankTaxonomyOptions(options, query, Number.MAX_SAFE_INTEGER).map((m) => m.key));
+  const close: Array<{ opt: T; edits: number }> = [];
+  for (const opt of options) {
+    if (taken.has(opt.key) || anyRanked.has(opt.key)) continue;
+    let best: number | null = closeEdits(opt.label.toLowerCase(), queryWords, squashedQuery);
+    for (const alias of opt.aliases ?? []) {
+      const d = closeEdits(alias.toLowerCase(), queryWords, squashedQuery);
+      if (d !== null && (best === null || d < best)) best = d;
+    }
+    if (best !== null) close.push({ opt, edits: best });
+  }
+  close.sort((a, b) => a.edits - b.edits || a.opt.label.localeCompare(b.opt.label));
+  return { matches, close: close.slice(0, limit).map((c) => c.opt) };
+}

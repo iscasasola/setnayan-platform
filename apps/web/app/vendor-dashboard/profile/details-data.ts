@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { readLogoFrame } from '@/lib/open-shop-logo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
@@ -360,6 +361,7 @@ export async function loadDetailsData(
     capacity_min: profile.capacity_min != null ? String(profile.capacity_min) : '',
     capacity_max: profile.capacity_max != null ? String(profile.capacity_max) : '',
     logo_url: profile.logo_url ?? null,
+    logoFrame: readLogoFrame(profile),
     logoDisplayMap: logo.map,
     services: (profile.services ?? []) as string[],
     serviceLabels: vocab.serviceLabels,

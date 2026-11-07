@@ -100,6 +100,8 @@ export function CityPin({
   const [address, setAddress] = useState(defaultAddress);
   const [city, setCity] = useState(defaultCity);
   const [locating, setLocating] = useState(false);
+  /** "Use my location" was refused or could not answer (A9) — one line under the map says what to do instead. */
+  const [locationRefused, setLocationRefused] = useState(false);
   const [noMatch, setNoMatch] = useState(false);
   /**
    * What the lookup PROPOSED, and whether the vendor has agreed to it.
@@ -389,15 +391,21 @@ export function CityPin({
   }, []);
 
   const useMyLocation = () => {
+    setLocationRefused(false);
     setDetecting(true);
     askLocationOnce(
       ({ lat, lon }) => {
         mapRef.current?.setView([lat, lon], 15);
         placePin(lat, lon);
       },
-      // Denied or unavailable: silently fall back to tapping the map. A refused
-      // permission is a choice, not an error to report back at the vendor.
-      () => setDetecting(false),
+      // Denied or unavailable: the person can still type the address or drag the pin — and is TOLD so.
+      // 🔇 This used to be silent (owner, the 2026-11-06 gate walk, A9): the button was pressed and nothing
+      // happened, which reads exactly like a broken button. A refused permission is a choice, so the line says
+      // what to do next, never "error".
+      () => {
+        setDetecting(false);
+        setLocationRefused(true);
+      },
       { enableHighAccuracy: true, timeout: 8000 },
     );
   };
@@ -468,6 +476,18 @@ export function CityPin({
           </span>
         ) : null}
       </div>
+
+      {locationRefused && !pin ? (
+        <span
+          className="flex items-start gap-1.5 text-xs"
+          style={{ color: 'var(--m-slate)' }}
+          aria-live="polite"
+          data-location-refused=""
+        >
+          <MapPin aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+          Couldn&rsquo;t get your location — type your address or drag the pin.
+        </span>
+      ) : null}
 
       {/* The city is what the marketplace actually filters on, so it stays a
           real, editable field — filled by the lookup, never locked by it. */}

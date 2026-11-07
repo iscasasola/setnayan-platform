@@ -12097,6 +12097,17 @@
         "SimpleSetupFlow"
       ]
     },
+    "/dev/open-shop-lab": {
+      "files": [
+        "dev/open-shop-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AddYourLogo",
+        "OpenShopWizard"
+      ]
+    },
     "/dev/papic-camera-lab": {
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",
@@ -13338,18 +13349,22 @@
         "open-shop/_components/address-preview.tsx",
         "open-shop/_components/city-pin.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
+        "open-shop/_components/phone-field.tsx",
         "open-shop/_components/service-picker.tsx",
+        "open-shop/_components/taken-sign-in.tsx",
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
         "open-shop/page.tsx"
       ],
       "destinations": [
+        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
       "actions": [
-        "becomeVendor"
+        "becomeVendor",
+        "submit"
       ],
       "blocks": [
         "AddressCheck",
@@ -13357,11 +13372,12 @@
         "CityPin",
         "DesktopOAuthButtons",
         "DetectedCity",
-        "FileUpload",
         "FirstRunBrand",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "Icon",
+        "InfoTip",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",
@@ -13369,12 +13385,36 @@
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "PhoneField",
         "PickMenu",
         "ServicePicker",
         "SignInHereLink",
         "Step",
         "SubmitButton",
+        "TakenSignIn",
         "TurnstileField"
+      ]
+    },
+    "/open-shop/logo": {
+      "files": [
+        "open-shop/logo/_components/add-your-logo.tsx",
+        "open-shop/logo/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": [
+        "save"
+      ],
+      "blocks": [
+        "AddYourLogo",
+        "FieldSaveResult",
+        "FileUpload",
+        "FirstRunBrand",
+        "Link",
+        "LogoFrame",
+        "LogoFrameControl",
+        "SubmitButton"
       ]
     },
     "/our-story": {
@@ -16683,6 +16723,9 @@
         "Link",
         "LockedIdentityFieldKey",
         "LockedLine",
+        "LogoFrame",
+        "LogoFrameControl",
+        "LogoRowControl",
         "ManpowerSurface",
         "MenuSettingsButton",
         "OneOpenScope",

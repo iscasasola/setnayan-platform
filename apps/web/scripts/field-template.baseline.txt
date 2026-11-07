@@ -76,7 +76,6 @@
 2 apps/web/app/admin/fraud/_components/wipe-ban-dialog.tsx
 1 apps/web/app/admin/fraud/page.tsx
 13 apps/web/app/admin/gifts/page.tsx
-1 apps/web/app/admin/help/page.tsx
 2 apps/web/app/admin/hub-music/hub-music-manager.tsx
 1 apps/web/app/admin/integrations/_components/maya-card.tsx
 2 apps/web/app/admin/integrations/_components/oauth-card.tsx

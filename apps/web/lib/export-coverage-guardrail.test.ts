@@ -348,6 +348,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   concierge_response_cache:
     'Setnayan-authored cached content; the *_by stamp is an internal editor, not a data subject.',
   setnayan_pay_methods: 'Platform payment configuration — Setnayan’s own rails, not subject data.',
+  hub_tools: 'Setnayan-authored Hub tool library; updated_by is an internal admin editor, not a data subject.',
+  category_hub_settings: 'Setnayan per-category configuration; updated_by is an internal admin editor, not a data subject.',
   platform_settings:
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',

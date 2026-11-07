@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 633 files · 1710 lines
+# 630 files · 1701 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -10,7 +10,7 @@
 2 apps/web/app/_components/app-store/choose-plan-sheet.tsx
 12 apps/web/app/_components/app-store/layout.tsx
 32 apps/web/app/_components/app-store/studio-card-demo.tsx
-10 apps/web/app/_components/appointments-section.tsx
+9 apps/web/app/_components/appointments-section.tsx
 3 apps/web/app/_components/booking-fee-notice.tsx
 1 apps/web/app/_components/chat-amendment-card.tsx
 8 apps/web/app/_components/chat-message-stream.tsx
@@ -95,7 +95,7 @@
 2 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
 1 apps/web/app/[slug]/_components/private-landing.tsx
 1 apps/web/app/[slug]/_components/public-event-day-bar.tsx
-5 apps/web/app/[slug]/_components/site-body.tsx
+2 apps/web/app/[slug]/_components/site-body.tsx
 1 apps/web/app/[slug]/_components/site-menu-bar.tsx
 4 apps/web/app/[slug]/_components/song-request-card.tsx
 1 apps/web/app/[slug]/_components/spotlight-card.tsx
@@ -157,7 +157,6 @@
 1 apps/web/app/admin/error.tsx
 4 apps/web/app/admin/event-deletions/page.tsx
 2 apps/web/app/admin/fraud/page.tsx
-1 apps/web/app/admin/help/page.tsx
 1 apps/web/app/admin/integrations/_components/build-time-status.tsx
 2 apps/web/app/admin/integrations/_components/known-hash-card.tsx
 1 apps/web/app/admin/integrations/_components/maya-card.tsx
@@ -250,7 +249,7 @@
 2 apps/web/app/dashboard/(account)/library/_components/editorials-tab.tsx
 5 apps/web/app/dashboard/(account)/library/_components/photos-tab.tsx
 1 apps/web/app/dashboard/(account)/library/_components/saved-vendor-card.tsx
-3 apps/web/app/dashboard/(account)/library/_components/vendors-tab.tsx
+2 apps/web/app/dashboard/(account)/library/_components/vendors-tab.tsx
 1 apps/web/app/dashboard/(account)/life-flash/_components/scroll-reel.tsx
 2 apps/web/app/dashboard/(account)/life-flash/_components/story-people.tsx
 1 apps/web/app/dashboard/(account)/notifications/loading.tsx
@@ -596,7 +595,6 @@
 1 apps/web/app/vendor-dashboard/performance/page.tsx
 1 apps/web/app/vendor-dashboard/proposals/_components/reuse-inbox.tsx
 2 apps/web/app/vendor-dashboard/proposals/surface.tsx
-1 apps/web/app/vendor-dashboard/real-stories/page.tsx
 2 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
 2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx

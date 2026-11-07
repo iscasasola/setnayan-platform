@@ -79,19 +79,13 @@ export async function authenticateApiRequest(
     return authError('expired');
   }
 
-  // The /api/v1 SDK requires an explicit API-access grant on an active Custom
-  // vendor plan (owner 2026-07-11: "available if custom plan of enterprise
-  // requests allowing api"). Enforce it at this shared auth choke point so every
-  // bearer route inherits the gate. REVOCATION: a PAID custom plan auto-lapses on
-  // non-renewal — pay-activation stamps vendor_profiles.tier_expires_at = now+28d
-  // (lib/sku-activation.ts), so once the window ends the tier check below excludes
-  // the vendor inline (before any sweep) and sweep_vendor_tier_expiry demotes the
-  // plan on their next dashboard load. Admin actions also cut access immediately:
-  // un-ticking api_access + re-activating, replacing the plan, or demoting the
-  // tier. Only COMP / off-platform custom deals (activateCustomPlan, tier_expires_at
-  // NULL) never auto-lapse — those stay admin-revocation-only by design.
+  // The /api/v1 SDK requires an explicit API-access grant. Enforced at this shared
+  // auth choke point so every bearer route inherits the gate. The grant used to
+  // live on an active Custom vendor plan (owner 2026-07-11); that plan was retired
+  // from the app 2026-11-06, so `resolveApiVendor` now answers null for everyone
+  // until the owner decides what carries API access (see its docblock).
   // The resolved vendorProfileId is carried on the auth result so vendor.* routes
-  // scope to exactly the blessed shop without re-querying.
+  // scope to exactly the granted shop without re-querying.
   const vendor = await resolveApiVendor(admin, data.user_id);
   if (!vendor) {
     return authError('no_api_access');

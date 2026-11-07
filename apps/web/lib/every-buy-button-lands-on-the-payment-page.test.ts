@@ -39,7 +39,6 @@ const PAID_PATHS = [
   'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth (28-day cycle)
   'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts', // 3D Booth at ONE event (₱500)
   'app/vendor-dashboard/deep-search/actions.ts', // one Deep Search
-  'app/vendor-dashboard/subscription/custom/actions.ts', // negotiated plan
   // ⬇ ADDED 2026-08-23. A vendor sponsoring Papic Challenges for a client's
   // event pays ₱400 (free only for their first 5 bookings). It was NOT in this
   // list, so it kept the exact panel every other button here shed: the amount
@@ -82,11 +81,6 @@ const DELIBERATELY_NOT_REDIRECTED: Record<string, string> = {
     'team through notifyAdminsOrderAwaitingReconciliation. Moving it means ' +
     'inverting pay-then-mint into mint-then-pay, which leaves an unpaid order ' +
     'in the admin queue on every abandoned checkout.',
-  'app/admin/custom-plans/actions.ts':
-    'an ADMIN mints a negotiated plan for a shop. The person pressing the ' +
-    'button is not the payer, so redirecting them to /pay would send the ' +
-    'Setnayan desk to a screen asking IT to send money. The shop reaches the ' +
-    'same payment page from its own subscription page, by reference.',
 };
 
 /**

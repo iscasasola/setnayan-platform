@@ -130,6 +130,8 @@ export function railMatchRows(who: {
     // 🧭 2026-10-23: "Find suppliers" is a SIGNED-OUT row now (owner 2026-10-01);
     // Features is a row for everyone. Both match only their own pages.
     ...(who.signedIn ? [] : [{ key: 'find', href: '/explore' }]),
+    // 2026-11-06 (PLAN B2): "For suppliers" is a signed-out row right under it.
+    ...(who.signedIn ? [] : [{ key: 'for-suppliers', href: '/for-suppliers' }]),
     { key: 'features', href: '/features' },
     ...(who.signedIn
       ? [

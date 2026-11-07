@@ -81,6 +81,7 @@ import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row';
 import { getIapGate } from '@/lib/request-platform';
 import { PasswordField } from '@/app/_components/password-field';
+import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
 
 export const metadata = { title: 'Profile' };
 
@@ -1171,6 +1172,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="New password" htmlFor="new_password">
                   <PasswordField
+                    mode="new"
+                    personal={[user.email, profile?.display_name, profile?.first_name, profile?.last_name]}
+                    leaked={search.error ? decodeURIComponent(search.error) === LEAKED_PASSWORD_MESSAGE : false}
                     id="new_password"
                     name="new_password"
                     required

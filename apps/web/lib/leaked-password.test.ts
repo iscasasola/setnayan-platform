@@ -110,6 +110,9 @@ test('EVERY path where a person chooses their own password runs the check', () =
     'app/signup/actions.ts',
     'app/join/[eventId]/set-password/actions.ts',
     'app/reset-password/actions.ts',
+    // The profile "Change password" box (2026-11-06, PLAN B1: its strength
+    // rules promise "not a known leaked password", so the server must check).
+    'lib/account-security-actions.ts',
   ];
   for (const p of paths) {
     const src = readFileSync(join(WEB, p), 'utf8');
@@ -128,11 +131,16 @@ test('the refusal is something a person can read, on all three doors', () => {
   assert.match(signup, /password_leaked:/, 'signup has no copy for the refusal');
   const setPw = readFileSync(join(WEB, 'app/join/[eventId]/set-password/page.tsx'), 'utf8');
   assert.match(setPw, /leaked:/, 'set-password has no copy for the refusal');
-  // Reset renders the param verbatim, so its ACTION must pass a sentence.
-  const reset = readFileSync(join(WEB, 'app/reset-password/actions.ts'), 'utf8');
-  assert.match(
-    reset,
-    /known data breach/,
-    'reset-password passes a code to a page that prints the param verbatim — a person would read "password_leaked"',
-  );
+  // Reset and profile render the param verbatim, so their ACTIONS must pass a
+  // sentence — the literal, or the ONE copy of it (lib/password-strength.ts).
+  const sentence = readFileSync(join(WEB, 'lib/password-strength.ts'), 'utf8');
+  assert.match(sentence, /LEAKED_PASSWORD_MESSAGE =\s*'[^']*known data breach/, 'the shared sentence lost its words');
+  for (const p of ['app/reset-password/actions.ts', 'lib/account-security-actions.ts']) {
+    const src = readFileSync(join(WEB, p), 'utf8');
+    assert.match(
+      src,
+      /known data breach|encodeURIComponent\(LEAKED_PASSWORD_MESSAGE\)/,
+      `${p} passes a code to a page that prints the param verbatim — a person would read "password_leaked"`,
+    );
+  }
 });

@@ -827,6 +827,8 @@ export function OpenShopWizard({
                   Password<span className="ml-1 text-terracotta">*</span>
                 </span>
                 <PasswordField
+                  mode="new"
+                  leaked={banner === OPEN_SHOP_ACCOUNT_ERRORS.passwordLeaked}
                   name="password"
                   autoComplete="new-password"
                   minLength={OPEN_SHOP_PASSWORD_MIN}

@@ -116,25 +116,90 @@ test('the component keeps its promises', () => {
   assert.match(code, /\{\.\.\.input\}/, 'every input prop passes through');
 });
 
-/** The user-facing doors, each with the password-manager hint it must keep. */
-const DOORS: Array<[string, string[]]> = [
-  ['app/login/_components/sign-in-card.tsx', ['current-password']],
-  ['app/signup/page.tsx', ['new-password']],
-  ['app/open-shop/_components/open-shop-wizard.tsx', ['new-password']],
-  ['app/reset-password/page.tsx', ['new-password', 'new-password']],
-  ['app/join/[eventId]/set-password/page.tsx', ['new-password']],
-  ['app/dashboard/(account)/profile/page.tsx', ['current-password', 'new-password', 'new-password']],
-  ['app/onboarding/wedding/_components/onboarding-shell.tsx', ['new-password']],
+/**
+ * The user-facing doors, each field with the password-manager hint it must keep
+ * and whether it is a box where the person CREATES a password (`new` → it must
+ * carry `mode="new"`: the strength bar + three rules, owner 2026-11-06). A
+ * "type it once more" confirm box is `same` (no second bar); sign-in is never new.
+ */
+type Kind = 'new' | 'same' | 'current';
+const DOORS: Array<[string, Array<[string, Kind]>]> = [
+  ['app/login/_components/sign-in-card.tsx', [['current-password', 'current']]],
+  ['app/signup/page.tsx', [['new-password', 'new']]],
+  ['app/open-shop/_components/open-shop-wizard.tsx', [['new-password', 'new']]],
+  ['app/reset-password/page.tsx', [['new-password', 'new'], ['new-password', 'same']]],
+  ['app/join/[eventId]/set-password/page.tsx', [['new-password', 'new']]],
+  [
+    'app/dashboard/(account)/profile/page.tsx',
+    [['current-password', 'current'], ['new-password', 'new'], ['new-password', 'same']],
+  ],
+  ['app/onboarding/wedding/_components/onboarding-shell.tsx', [['new-password', 'new']]],
 ];
 
+const tagsIn = (code: string) => [...code.matchAll(/<PasswordField\b[\s\S]*?\/>/g)].map((m) => m[0]);
+
 test('every password door uses PasswordField and keeps its autocomplete hint', () => {
-  for (const [rel, hints] of DOORS) {
+  for (const [rel, fields] of DOORS) {
     const code = read(rel);
     assert.match(code, /import \{ PasswordField \} from '@\/app\/_components\/password-field'/, `${rel}: import PasswordField`);
-    const tags = [...code.matchAll(/<PasswordField\b[\s\S]*?\/>/g)].map((m) => m[0]);
-    assert.equal(tags.length, hints.length, `${rel}: expected ${hints.length} password field(s), found ${tags.length}`);
+    const tags = tagsIn(code);
+    assert.equal(tags.length, fields.length, `${rel}: expected ${fields.length} password field(s), found ${tags.length}`);
     tags.forEach((tag, i) => {
-      assert.match(tag, new RegExp(`autoComplete="${hints[i]}"`), `${rel} field ${i + 1}: keep autoComplete="${hints[i]}"`);
+      const [hint] = fields[i]!;
+      assert.match(tag, new RegExp(`autoComplete="${hint}"`), `${rel} field ${i + 1}: keep autoComplete="${hint}"`);
     });
   }
+});
+
+test('every box where a person CREATES a password carries mode="new" — and no other box does', () => {
+  for (const [rel, fields] of DOORS) {
+    tagsIn(read(rel)).forEach((tag, i) => {
+      const [, kind] = fields[i]!;
+      if (kind === 'new') {
+        assert.match(tag, /\bmode="new"/, `${rel} field ${i + 1}: a create-password box shows the strength bar — add mode="new"`);
+      } else {
+        assert.doesNotMatch(
+          tag,
+          /\bmode=/,
+          `${rel} field ${i + 1}: ${kind === 'current' ? 'sign-in / current-password boxes never judge strength' : 'a confirm box repeats the first one — one bar per form'}`,
+        );
+      }
+    });
+  }
+});
+
+test('no create-password box anywhere in the app is missing from DOORS', () => {
+  // A NEW door (a new-password box in a file DOORS does not name) would ship
+  // without the bar and without anyone noticing. Name it above instead.
+  const named = new Set(DOORS.map(([rel]) => rel));
+  const strays: string[] = [];
+  for (const root of ['app', 'components']) {
+    for (const file of sourceFiles(join(WEB, root))) {
+      const rel = relative(WEB, file);
+      if (rel === HOME || named.has(rel)) continue;
+      for (const tag of tagsIn(stripComments(readFileSync(file, 'utf8')))) {
+        if (/autoComplete="new-password"|\bmode="new"/.test(tag)) strays.push(rel);
+      }
+    }
+  }
+  assert.deepEqual(strays, [], 'a create-password box outside DOORS — add it there with its kinds');
+});
+
+test('mode="new" keeps its promises: bar, three rules, server-answered leak rule, no forced composition', () => {
+  const code = read(HOME);
+  assert.match(code, /mode\?: 'new'/, 'the prop');
+  assert.match(code, /assessNewPassword\(/, 'the bar reads lib/password-strength.ts — one judgement');
+  assert.match(code, /8 or more characters/);
+  assert.match(code, /Not your name or email/);
+  assert.match(code, /Not a known leaked password/);
+  assert.match(code, /checked when you continue/, 'the leak rule says WHEN it is checked');
+  assert.match(code, /aria-live="polite"/, 'the level is announced');
+  assert.match(code, /'aria-describedby'/, 'the box points at its rules');
+  // The refusal outlives the URL: <ToastFromParams> strips `?error=` right after
+  // load, so the field must not forget the refusal when `leaked` drops.
+  assert.doesNotMatch(code, /setLeakedValue\(\s*leaked\s*\?|setLeakedValue\(null\)/, 'the leak refusal is cleared only by a new value');
+  // The field never phones the leak service itself — the server action does.
+  assert.doesNotMatch(code, /pwnedpasswords|leaked-password'|fetch\(/, 'the leak check stays on the server');
+  // No composition rule: no "uppercase", "symbol" or "number" requirement copy.
+  assert.doesNotMatch(code, /\b(uppercase|capital letter|a symbol|special character)\b/i, 'no forced symbols or capitals');
 });

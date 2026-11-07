@@ -15,6 +15,13 @@ import {
   vendorProfileIdFromSeatServiceKey,
   extraSeatsFromPaidCount,
 } from '@/lib/vendor-seats';
+import {
+  COUNT_ADDONS,
+  addOnCountFromPaid,
+  countAddOnServiceKey,
+  parseCountAddOnServiceKey,
+  type CountAddOnKind,
+} from '@/lib/vendor-ultra-addons';
 import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
@@ -1855,6 +1862,35 @@ async function recomputeVendorExtraSeats(
   return paidSeats;
 }
 
+/**
+ * ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES") — recompute ONE paid count on vendor_profiles
+ * (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date) from the
+ * shop's PAID `<prefix><vendor_profile_id>` orders, exactly as {@link recomputeVendorExtraSeats} does for seats: on
+ * activation the just-paid order is counted in, on reversal the refunded one has already left 'paid', so the same
+ * recompute lowers it. Idempotent and self-healing. Throws on the write so the caller reports it.
+ */
+async function recomputeVendorAddOnCount(
+  admin: SupabaseClient,
+  kind: CountAddOnKind,
+  vendorProfileId: string,
+): Promise<number> {
+  const { count } = await admin
+    .from('orders')
+    .select('order_id', { count: 'exact', head: true })
+    .eq('service_key', countAddOnServiceKey(kind, vendorProfileId))
+    .eq('status', 'paid');
+  const paid = addOnCountFromPaid(count);
+  const column = COUNT_ADDONS[kind].column;
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({ [column]: paid })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    throw new Error(`${COUNT_ADDONS[kind].sku} recompute write failed: ${error.message}`);
+  }
+  return paid;
+}
+
 // Prefix/predicate hooks for dynamic-suffix service_keys (e.g. branch ids).
 /**
  * SEC-4b · THE ORDER MUST OWN WHAT IT PROVISIONS.
@@ -2164,6 +2200,29 @@ const PREFIX_HOOKS: ReadonlyArray<{
           service_key: ctx.serviceKey,
           vendor_profile_id: vendorProfileId,
           extra_agent_seats: paidSeats,
+        },
+      });
+    },
+  },
+  {
+    // ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES": +1 category · +1 service card · +1 wait list · +1
+    // booking per date, ₱199 per 4 weeks each, Ultra only) — '<prefix><vendor_profile_id>' → RECOMPUTE that add-on's
+    // paid count, the seat's pattern above. The key names the shop directly, so the order must be theirs (SEC-4b).
+    match: (serviceKey) => parseCountAddOnServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const target = parseCountAddOnServiceKey(ctx.serviceKey);
+      if (!target) return;
+      await assertOrderOwnsVendorTarget(ctx, target.vendorProfileId);
+      const paid = await recomputeVendorAddOnCount(ctx.admin, target.kind, target.vendorProfileId);
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: target.vendorProfileId,
+          [COUNT_ADDONS[target.kind].column]: paid,
         },
       });
     },
@@ -2537,6 +2596,17 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       await recomputeVendorExtraSeats(ctx.admin, seatVendorId);
     } catch (e) {
       reportActivationFault('deactivate:vendor_extra_seat', ctx, e);
+    }
+  }
+
+  // Ultra add-ons (owner 2026-11-06) — a refunded/cancelled add-on order LOWERS its paid count, symmetric to the
+  // activation hook. Recompute, never decrement; non-fatal.
+  const addOnTarget = parseCountAddOnServiceKey(ctx.serviceKey);
+  if (addOnTarget) {
+    try {
+      await recomputeVendorAddOnCount(ctx.admin, addOnTarget.kind, addOnTarget.vendorProfileId);
+    } catch (e) {
+      reportActivationFault(`deactivate:${COUNT_ADDONS[addOnTarget.kind].sku}`, ctx, e);
     }
   }
 

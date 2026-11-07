@@ -25,6 +25,11 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { findLockState, type FindLockState } from '@/lib/findable-shop';
+import { earliestTaggedBlock } from '@/lib/coordinator-broadcasts';
+import type { RosMetaMap } from '@/lib/schedule-ros';
+import { readEventCover } from '@/lib/discover-events';
+import { homeCoverOf } from '@/lib/home-cover';
+import type { NextEventFacts } from '@/lib/supplier-today-next-events';
 
 export type TodayShopRow = {
   verified: boolean;
@@ -39,6 +44,8 @@ export type TodayShopRow = {
    * (DECISION_LOG 2026-11-07, `lib/findable-shop.ts`). Off this same row read.
    */
   findLock?: FindLockState;
+  /** 📄 The Verified badge's papers deadline (`next_renewal_due_at`, `lib/verified-badge.ts`) — Today's permit row (A9). */
+  renewalDueAt?: string | null;
 };
 
 /** ONE row read in place of three. Null when refused — each reader then degrades exactly as it did alone. */
@@ -48,7 +55,7 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
       .from('vendor_profiles')
       // 🔎 + the find lock and the columns its rule reads (2026-11-07, `lib/findable-shop.ts`
       // FINDABLE_INPUT_COLUMNS) — on the same one row read, so Today does not grow a read.
-      .select('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source, public_visibility, find_locked_at, find_lock_reason, fraud_suspended_at, fraud_banned_at, fraud_tombstoned')
+      .select('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source, public_visibility, find_locked_at, find_lock_reason, fraud_suspended_at, fraud_banned_at, fraud_tombstoned, next_renewal_due_at')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error) {
@@ -66,6 +73,7 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
       public_visibility?: string | null;
       find_locked_at?: string | null;
       find_lock_reason?: string | null;
+      next_renewal_due_at?: string | null;
     };
     return {
       verified: row.verification_state === 'verified',
@@ -75,6 +83,7 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
       tierState: row.tier_state ?? null,
       tierSource: row.tier_source ?? null,
       findLock: findLockState(row),
+      renewalDueAt: row.next_renewal_due_at ?? null,
     };
   } catch {
     return null;
@@ -258,4 +267,72 @@ export async function readEventDayFacts(admin: SupabaseClient, eventId: string, 
       : null,
     checkedIn: checkinsRes.error || checkinsRes.count == null ? null : checkinsRes.count,
   };
+}
+
+/**
+ * 📸 THE NEXT EVENT DAY'S FACTS (THE ONE BUILD A3) — for the bookings Today's "Next events" draws, read TOGETHER:
+ *
+ *   · ONE `event_schedule_blocks` read for every event (`.in('event_id', …)`): the supplier's call time is the ONE rule
+ *     every call-time reader uses (`earliestTaggedBlock` on the moments their `event_vendors` row is tagged on); the
+ *     programme time is the day's first timed chapter. Time-TBA chapters (and their moments) give no time.
+ *   · ONE `vendor_dayof_configs` read: a saved Hub setup for the booking = "Hub ready", none = "Hub not set up".
+ *   · the cover: `readEventCover` (Discover's own resolver — the LIVE hero), only a picture becomes the card's photo.
+ *
+ * Read with the admin client for events the page already proved are THIS shop's bookings (the room read), scoped by
+ * `vendor_profile_id` where the table has it. A refused read is said per fact (`scheduleUnread`, `hubReady: null`) —
+ * never an empty answer that reads as "nothing set".
+ */
+export async function readNextEventFacts(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  rows: ReadonlyArray<{ eventId: string; eventVendorId?: string | null }>,
+): Promise<Record<string, NextEventFacts>> {
+  const ids = [...new Set(rows.map((r) => r.eventId))];
+  if (ids.length === 0) return {};
+  const [blocksRes, configRes, covers] = await Promise.all([
+    admin
+      .from('event_schedule_blocks')
+      .select('block_id, event_id, parent_block_id, label, start_at, responsible_vendor_ids, time_tba')
+      .in('event_id', ids),
+    admin.from('vendor_dayof_configs').select('event_id').eq('vendor_profile_id', vendorProfileId).in('event_id', ids),
+    Promise.all(ids.map((id) => readEventCover(admin, id).catch(() => null))),
+  ]);
+  if (blocksRes.error) logQueryError('supplier-today: next-event schedule', blocksRes.error, { events: ids.length }, 'graceful_degrade');
+  if (configRes.error) logQueryError('supplier-today: next-event hub setup', configRes.error, { events: ids.length }, 'graceful_degrade');
+  type Block = {
+    block_id: string;
+    event_id: string;
+    parent_block_id: string | null;
+    label: string | null;
+    start_at: string | null;
+    responsible_vendor_ids: string[] | null;
+    time_tba: boolean | null;
+  };
+  const blocks = (blocksRes.data ?? []) as Block[];
+  const configured = new Set(((configRes.data ?? []) as Array<{ event_id: string }>).map((r) => r.event_id));
+  const out: Record<string, NextEventFacts> = {};
+  ids.forEach((eventId, i) => {
+    const mine = blocks.filter((b) => b.event_id === eventId);
+    const tbaChapters = new Set(mine.filter((b) => !b.parent_block_id && b.time_tba === true).map((b) => b.block_id));
+    const timed = mine.flatMap((b) =>
+      b.start_at
+        ? [{ block_id: b.block_id, label: (b.label ?? '').trim(), start_at: b.start_at, parent: b.parent_block_id, time_tba: b.time_tba === true || (b.parent_block_id !== null && tbaChapters.has(b.parent_block_id)) }]
+        : [],
+    );
+    const meta: RosMetaMap = new Map(mine.map((b) => [b.block_id, { responsible_party: null, responsible_vendor_ids: b.responsible_vendor_ids ?? [] }]));
+    const evId = rows.find((r) => r.eventId === eventId)?.eventVendorId ?? null;
+    const call = evId ? earliestTaggedBlock(timed, meta, evId) : null;
+    const firstChapter = timed
+      .filter((b) => b.parent === null && !b.time_tba)
+      .sort((a, b) => a.start_at.localeCompare(b.start_at))[0];
+    const cover = homeCoverOf(covers[i] ?? null);
+    out[eventId] = {
+      scheduleUnread: Boolean(blocksRes.error),
+      callTime: call ? formatWallClock(call.start_at) : null,
+      programme: firstChapter ? [firstChapter.label || null, formatWallClock(firstChapter.start_at)].filter(Boolean).join(' ') : null,
+      hubReady: configRes.error ? null : configured.has(eventId),
+      photo: cover?.kind === 'image' ? cover.src : null,
+    };
+  });
+  return out;
 }

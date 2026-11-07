@@ -22,6 +22,7 @@ import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
+import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
@@ -33,7 +34,9 @@ import { LAB_PAPER_URLS, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 
-export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock'] as const;
+// 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
+// could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
+export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock', 'two', 'empty', 'unread'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
 export const EASY_SUPPLIERS = ['parish', 'caterer', 'studio', 'venue'] as const;
 export type EasySupplier = (typeof EASY_SUPPLIERS)[number];
@@ -332,19 +335,10 @@ const SUPS: Record<EasySupplier, Sup> = {
   },
 };
 
-function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
-  return bookingFeeForecast(
-    freeUsed < FREE_BOOKING_LIMIT
-      ? { kind: 'free', ordinal: freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }
-      : { kind: 'billable', ordinal: freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
-    price,
-  );
-}
-
 /** 📥 The lab shop's own Setnayan page — what its step-6 code opens (`myPageUrl`, never the root slug). */
 export const LAB_SHOP_QR_URL = myPageUrl('https://www.setnayan.com', 'titanena');
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null }: { /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null }: { /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
   const giftRow = giftMode
     ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }
@@ -356,7 +350,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
   // 🔎 `findlock`: a quiet desk (no asks, no bills) — a new shop whose news is its first inquiry, so the find-lock
   // notice is the Next card. On a busy day the same notice sits under "Also waiting" (`supplierWaitingDoors`).
-  const quiet = setup || moment === 'findlock';
+  const quiet = setup || moment === 'findlock' || moment === 'empty' || moment === 'unread';
   const desk = quiet ? [] : withAsk && moment !== 'agreed' ? [sup.ask.card, ...sup.desk] : sup.desk;
   const { answer: needsAnswer, news: closed } = splitDesk(desk);
 
@@ -365,7 +359,14 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     ? []
     : moment === 'eventday'
       ? [{ ...sup.upcoming[1]!, date: TODAY, inDays: 0 }, ...sup.upcoming.filter((_, i) => i !== 1)]
-      : sup.upcoming;
+      : moment === 'two'
+        ? // Two bookings on the next event day (tomorrow) — the carousel of two.
+          [
+            { ...sup.upcoming[0]!, date: '2026-10-15', inDays: 1 },
+            { ...sup.upcoming[1]!, date: '2026-10-15', inDays: 1 },
+            ...sup.upcoming.slice(2),
+          ]
+        : sup.upcoming;
   const bills = quiet ? [] : moment === 'locked' && sup.lockedBill ? [sup.lockedBill, ...sup.bills] : moment === 'agreed' ? [bill('rc', sup.ask.card.kind === 'lock_request' ? sup.ask.card.coupleName : 'Couple', feeOf(sup.ask.price), '2026-10-21'), ...sup.bills] : sup.bills;
 
   const labCards = [
@@ -400,7 +401,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
   const view = assembleSupplierToday({
     needsAnswer,
     closed,
-    deskIncomplete: false,
+    deskIncomplete: moment === 'unread',
     upcoming,
     schedules: { pools: setup ? [] : sup.pools, outside: setup ? [] : sup.outside, complete: true },
     firstSteps,
@@ -438,13 +439,32 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
       moment === 'eventday'
         ? { startedAt: '12:00', next: { time: '3:30', label: 'Reception' }, line: '12:00 Ceremony · 3:30 Reception · 6:30 First dance', checkedIn: 118 }
         : null,
+    // 📄 A9 — the permit row: inside its 60 days on an ordinary day (the prototype's "expires in 21 days").
+    renewalDueAt: moment === 'normal' ? new Date(NOW + 21 * 86_400_000 - 3_600_000).toISOString() : null,
+    setupDrawn: setup,
+    bookedThisMonth: setup ? null : 6,
+    portfolio: undefined,
     todayIso: TODAY,
     now: NOW,
     since: (c) => new Date(sinceOf(c)),
   });
 
-  const forecasts: Record<string, FeeDisclosure | null> = {};
-  if (sup.ask.card.kind === 'lock_request') forecasts[sup.ask.card.eventVendorId] = forecastFor(sup.ask.price, sup.ask.freeUsed);
+  // 📸 Next events — the same picker and words as the page, on fixture facts (what the page reads in one round).
+  const day = nextEventDay(upcoming, TODAY);
+  const labFacts: Record<string, NextEventFacts> = Object.fromEntries(
+    day.map((r, i) => [
+      r.eventId,
+      {
+        callTime: i === 0 ? '1:00 PM' : '4:00 PM',
+        programme: i === 0 ? 'Ceremony 3:00 PM' : 'Program 7:00 PM',
+        hubReady: i === 0,
+        owedPhp: i === 0 ? 0 : 12000,
+        ...(moment === 'eventday' && i === 0 ? { dayNext: '3:30 Reception', checkedIn: 118 } : {}),
+      } satisfies NextEventFacts,
+    ]),
+  );
+  const nextEvents = setup ? null : assembleNextEvents(day, labFacts, TODAY);
+
 
   // The yes, said back: `vendorAgreeToLock` redirected with `lock_agree=ok&fee=held` — the shipped sentence + door.
   const agreed = moment === 'agreed' ? lockAgreeNotice('ok', { feeHeld: true }) : null;
@@ -455,13 +475,11 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
       <SupplierTodayScreen
         view={view}
         outcome={outcome}
-        feeForecasts={forecasts}
-        cards={desk}
-        askStatus=""
-        deskIncomplete={false}
-        actions={actions}
+        shopName={sup.name}
+        todayIso={TODAY}
+        now={NOW}
+        nextEvents={nextEvents}
         eventsYouRun={eventsYouRun}
-        eventLines={LAB_EVENT_LINES}
         library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={
           firstSteps ? (

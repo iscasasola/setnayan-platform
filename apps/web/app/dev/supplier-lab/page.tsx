@@ -317,11 +317,9 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
       <SupplierTodayScreen
         view={view}
         outcome={t ? { text: t.text, tone: t.tone } : null}
-        feeForecasts={{}}
-        cards={state.whatsNew}
-        askStatus=""
-        deskIncomplete={state.deskIncomplete}
-        actions={ACTIONS}
+        shopName="Lumina Studio"
+        todayIso={LAB_TODAY}
+        now={NOW}
       />
     </div>
   );

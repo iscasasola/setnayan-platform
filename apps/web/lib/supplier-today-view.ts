@@ -49,7 +49,12 @@ import {
   type TodayNextSecond,
   type TodayRowIcon,
   type TodayRowWords,
+  doorNeed,
+  permitNeed,
+  todayNeedOf,
+  type TodayNeed,
 } from '@/lib/supplier-today';
+import { badgeDeadline } from '@/lib/verified-badge';
 
 /** The page's `cardTimestamp` — handed in so this file stays free of the overview module's server reads. */
 export type CardSince = (card: WhatsNewCard) => Date;
@@ -97,6 +102,17 @@ export type SupplierTodayInput = {
   askDayHolds?: Record<string, string[]>;
   /** The event day's own facts (`readEventDayFacts`) — only when the first booking is today. */
   dayFacts: EventDayFacts | null;
+  /**
+   * 📄 The badge's papers deadline (`vendor_profiles.next_renewal_due_at`, off the one shop-row read) — undefined when
+   * the row was not read: no permit row then, never a guessed one.
+   */
+  renewalDueAt?: string | null;
+  /** 🧰 The six steps are drawn on top of Today — the "Finish setting up" door would say it twice. */
+  setupDrawn?: boolean;
+  /** 📊 Booked events dated this Manila month (`fetchVendorOverviewData().bookedThisMonth`) — null = could not count. */
+  bookedThisMonth?: number | null;
+  /** 🖼 The Portfolio stat — C4's `getPortfolioCount` (undefined until it lands: the stat then shows no figure). */
+  portfolio?: { used: number; free: number } | null;
   /** `YYYY-MM-DD` in Manila, and the render instant. */
   todayIso: string;
   now: number;
@@ -161,6 +177,26 @@ export type SupplierTodayView = {
   lockWord: string;
   shop: { name: string; line: string; pill: ShopPill };
   business: { line: string | null };
+  /**
+   * 📋 NEEDS YOU TODAY (THE ONE BUILD A6/A7) — every row, in `pickSupplierNext`'s order: the asks (the soonest
+   * date-change deadline first, then the desk's oldest-first), "couldn't load", the doors, the permit, then the closed
+   * lines. The unpaid booking fees are drawn by the shipped `<BookingFeeBills today>` right after the asks and doors
+   * (`bills`), and counted.
+   */
+  needs: TodayNeed[];
+  /** The cover's "N tasks today" — `needs` + the bill rows: the SAME list the page draws. Null = unread and empty. */
+  needsCount: number | null;
+  /** 📊 The five stats (A4) — each a link; a figure that could not be read is null (said "couldn't load"). */
+  stats: TodayStats;
+};
+
+export type TodayStats = {
+  views: number | null;
+  inquiries: number | null;
+  booked: number | null;
+  /** undefined = the Portfolio count is not wired yet (no figure); null = it could not be read. */
+  portfolio: { used: number; free: number } | null | undefined;
+  toComeInPhp: number | null;
 };
 
 export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayView {
@@ -310,7 +346,43 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
       askNotes.push({ id: 'verified', label: 'Not verified yet', line: 'Send your documents first — a yes is refused until then', pill: { word: 'Not yet', tone: 'wait' }, icon: 'check' });
     }
   }
-  const bills = next.kind === 'fee' ? input.feeBills.slice(1) : [...input.feeBills];
+
+  // 📋 NEEDS YOU TODAY — the Next card's order, as rows (the Next card itself is retired, v103).
+  const firstOwed = nextAnswerOf(needsAnswer);
+  const askOrder = firstOwed ? [firstOwed, ...needsAnswer.filter((c) => c.id !== firstOwed.id)] : [...needsAnswer];
+  const needs: TodayNeed[] = askOrder.map((card) => todayNeedOf(card, now));
+  if (input.deskIncomplete) {
+    needs.push({
+      key: 'unread',
+      kind: null,
+      label: 'Some answers couldn’t load',
+      line: 'This list may be missing a booking ask or a payment — tap to try again',
+      icon: 'help',
+      lineTone: 'danger',
+      target: { to: 'given', href: '/vendor-dashboard' },
+    });
+  }
+  const doorWords = supplierWaiting({
+    // A neutral "next" so every door that applies is a row (the Next card no longer takes one for itself).
+    next: { kind: 'clear', title: '', body: '', action: '', target: { to: 'dates' } },
+    needsAnswer: [],
+    since: input.since,
+    setupStep: input.setupDrawn ? null : setupStep,
+    findability: input.findability,
+    credit: input.credit ? { ...creditDoorWords(input.credit.creditPhp, input.credit.tierExpiresAt), href: input.credit.href } : null,
+    payout: payoutRule ? { title: PAYOUT_DOOR_WORDS.title, body: payoutRule.body, href: input.payoutHref, button: payoutRule.button } : null,
+    gift: input.gift ?? null,
+    now,
+  }).doors;
+  const permit =
+    input.renewalDueAt === undefined
+      ? null
+      : permitNeed(badgeDeadline({ verification_state: input.verified ? 'verified' : 'pending', next_renewal_due_at: input.renewalDueAt }, new Date(now)));
+  needs.push(...doorWords.map(doorNeed));
+  if (permit) needs.push(permit);
+  needs.push(...closed.map((card) => todayNeedOf(card, now)));
+  const allBills = [...input.feeBills];
+  const needsCount = input.deskIncomplete && needs.length === 0 ? null : needs.length + allBills.length;
 
   return {
     next,
@@ -370,13 +442,23 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     askRows,
     alsoWaitingHeaded: askRows.length > 0 || input.deskIncomplete,
     doors: waiting.doors,
-    bills,
+    // Every unpaid booking fee — the Next card that used to show the first one is retired (v103).
+    bills: allBills,
     billCopy: (b) => feeRowCopy(b, todayIso),
     lockLine,
     lockWord: input.feeEnforced ? 'Locked until the fee is paid' : 'Your booking is not affected',
     shop: { name: input.shop.name, line: shopLine, pill },
     business: {
       line: input.verified ? businessLine({ views: input.views, asked: input.inquiries28 }) : 'Couples see your shop once you are live',
+    },
+    needs,
+    needsCount,
+    stats: {
+      views: input.views,
+      inquiries: input.inquiries28,
+      booked: input.bookedThisMonth ?? null,
+      portfolio: input.portfolio,
+      toComeInPhp: owedPhp,
     },
   };
 }

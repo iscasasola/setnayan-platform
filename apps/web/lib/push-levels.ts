@@ -168,7 +168,8 @@ export const QUIET_END_HOUR = 7;
 /** When the one evening summary may go out: from 7 pm until quiet hours begin. */
 export const EVENING_SUMMARY_HOUR = 19;
 
-function manilaHour(nowMs: number): number {
+/** The hour of day (0–23) in Manila at `nowMs` — read by quiet hours and by the supplier Today greeting. */
+export function manilaHour(nowMs: number): number {
   return new Date(nowMs + MANILA_OFFSET_MS).getUTCHours();
 }
 

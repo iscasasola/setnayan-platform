@@ -71,7 +71,8 @@ export const SUPPLIER_NEXT_ORDER: readonly SupplierNextKind[] = [
 /** Where the one button goes — resolved to an `href` literal by the component. */
 export type SupplierNextTarget =
   | { to: 'thread'; threadId: string }
-  | { to: 'card'; eventId: string; tab: 'details' | 'quote' | 'schedule' }
+  /** A picked client's page (B1 §6 page ids: `?tab=details|quote|payments|schedule|hub`). */
+  | { to: 'card'; eventId: string; tab: 'details' | 'quote' | 'payments' | 'schedule' | 'hub' }
   | { to: 'review'; reviewId: string }
   | { to: 'proposals' }
   | { to: 'contracts' }
@@ -210,7 +211,8 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
         title: 'Date change request',
         body: `${card.coupleName} asks to move from ${card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their date'} to ${dateChangeWhen(card.proposedDate, card.proposedPrecision)}. Move, or unlock your service — ${dueLine(card.dueAt, now)}.`,
         action: 'Answer',
-        target: { to: 'today' },
+        // 🗓 THE ONE BUILD A8: Move · Unlock are answered on the client's Details (`ClientDayAnswers`), not on Today.
+        target: { to: 'card', eventId: card.eventId, tab: 'details' },
       };
     case 'delete_request':
       return {
@@ -222,7 +224,8 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
         // this answer (`vendorAgreeToDeletion` is mounted by Today alone), so
         // the button opened a card with nothing to press. The answer is given
         // on this page, in its own row; the button goes to it (2026-10-08).
-        target: { to: 'today' },
+        // 🗓 THE ONE BUILD A8 (8 Nov): the answer moved to the client's Details (`ClientDayAnswers`) — the row jumps there.
+        target: { to: 'card', eventId: card.eventId, tab: 'details' },
       };
     case 'mark_complete':
       return {
@@ -512,7 +515,12 @@ export function nextMeta(answer: WhatsNewCard | null, since: Date | null, now: n
  * Unlock · Chat); a delete request, when it is the Next card, also keeps its
  * row under "Also waiting", open, so the card's button has somewhere to land.
  */
-export const ANSWERED_ONLY_ON_TODAY: readonly WhatsNewCard['kind'][] = ['date_change', 'delete_request'];
+export const ANSWERED_ONLY_ON_TODAY: readonly WhatsNewCard['kind'][] = [];
+/*
+  ⤴ EMPTIED BY THE ONE BUILD (A8, 8 Nov 2026 — owner v112 "Jump": a Today row jumps to its page). The two answers above
+  now live on the client's Details (`app/vendor-dashboard/_components/client-day-answers.tsx`, mounted by the Clients
+  page), so no answer is given only on Today any more. 🔒 app/vendor-dashboard/_components/today-rows-jump.test.ts
+*/
 
 export type SupplierWaitingAsk = {
   card: WhatsNewCard;
@@ -864,4 +872,141 @@ export function feeLockLine(bills: readonly DueFeeBill[], todayPh: string, enfor
   if (bills.length === 0) return null;
   if (enforced) return feeEnforcementSentence({ enforced });
   return bills.some((b) => feeDueStage(b.dueOn, todayPh) === 'overdue') ? feeEnforcementSentence({ enforced }) : null;
+}
+
+/* ─── NEEDS YOU TODAY (THE ONE BUILD A6 · A7 · A10, v113) ───────────────────────────────────────────────────────────
+ *
+ * ONE list under "Needs you today · N · 12 MN – 12 MN": one row per thing waiting, in the app's own words
+ * (`todayRowWords`), and EVERY ROW JUMPS to the page where it is answered (owner v112 HOLD answer: *"Jump"* — overrides
+ * DL 2026-10-28 "EVERYTHING IN PLACE" for Today's rows). Nothing is answered on Today any more: the Next card's priority
+ * (`pickSupplierNext`, LIVE's nine rules) became the ROW ORDER, and its doors became rows.
+ */
+
+/** The Show dropdown's values (A10) — the kinds `todayRowWords` already names; no "Access requests" (owner Q7: no source). */
+export type TodayNeedKind = 'inquiries' | 'bookings' | 'payments' | 'meetings' | 'messages' | 'quotes' | 'reviews' | 'documents';
+
+export const TODAY_SHOW_OPTIONS: ReadonlyArray<{ key: 'all' | TodayNeedKind; label: string }> = [
+  { key: 'all', label: 'Everything' },
+  { key: 'inquiries', label: 'Inquiries' },
+  { key: 'bookings', label: 'Bookings' },
+  { key: 'payments', label: 'Payments' },
+  { key: 'meetings', label: 'Meetings' },
+  { key: 'messages', label: 'Messages' },
+  { key: 'quotes', label: 'Quotes & contracts' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'documents', label: 'Documents' },
+];
+
+/** Which Show value a desk card belongs to. */
+export function needKindOf(kind: WhatsNewCard['kind']): TodayNeedKind {
+  switch (kind) {
+    case 'inquiry':
+      return 'inquiries';
+    case 'message':
+      return 'messages';
+    case 'lock':
+      return 'payments';
+    case 'meeting':
+      return 'meetings';
+    case 'quote_draft':
+    case 'contract_draft':
+      return 'quotes';
+    case 'review':
+      return 'reviews';
+    case 'lock_request':
+    case 'date_change':
+    case 'delete_request':
+    case 'mark_complete':
+    case 'lock_request_lapsed':
+    case 'dispute':
+      return 'bookings';
+  }
+}
+
+/**
+ * Where a desk card's row JUMPS — the page its answer is given on. The row's own door when it has one (a quote or
+ * contract never sent, a dispute), else the place `answerNext` already sends that kind; a closed line (a lapsed ask)
+ * opens the client's Details. A logged payment opens the client's Payment page (Confirm received · Not received).
+ * Never `{ to: 'today' }`: a Today row that pointed back at Today would be a door onto itself.
+ */
+export function todayRowTarget(card: WhatsNewCard, now: number): SupplierNextTarget {
+  const words = todayRowWords(card, now);
+  if (words.door) return words.door;
+  if (card.kind === 'lock') return { to: 'card', eventId: card.eventId, tab: 'payments' };
+  if (card.kind === 'lock_request_lapsed') return { to: 'card', eventId: card.eventId, tab: 'details' };
+  return answerNext(card, null, now).target;
+}
+
+export type TodayNeed = {
+  key: string;
+  kind: TodayNeedKind | null;
+  label: string;
+  line: string;
+  icon: TodayRowIcon;
+  pill?: TodayRowWords['pill'];
+  lineTone?: 'warn' | 'danger' | null;
+  target: SupplierNextTarget;
+};
+
+/** A desk card → its Needs-you row. */
+export function todayNeedOf(card: WhatsNewCard, now: number): TodayNeed {
+  const w = todayRowWords(card, now);
+  return {
+    key: card.id,
+    kind: needKindOf(card.kind),
+    label: w.label,
+    line: w.line,
+    icon: w.icon,
+    pill: w.pill ?? null,
+    lineTone: w.lineTone ?? null,
+    target: todayRowTarget(card, now),
+  };
+}
+
+/**
+ * 📄 THE BUSINESS PERMIT ROW (A9 — DL 2026-09-11 Q5 "a Mayor's Permit that runs out: a reminder 60 days ahead"): from
+ * the badge's own deadline rule (`badgeDeadline`, `vendor_profiles.next_renewal_due_at`). Inside the 60 days → "Business
+ * permit expires in N days"; passed → the badge came off (the shop stays listed). It opens the shipped papers page — the
+ * same door the daily reminder email names (`verified-badge-sweep.ts` PAPERS_URL).
+ */
+export const PERMIT_PAPERS_HREF = '/vendor-dashboard/profile#docs';
+
+export function permitNeed(deadline: { kind: 'none' } | { kind: 'ahead'; daysLeft: number } | { kind: 'reminder'; daysLeft: number } | { kind: 'lapsed'; daysOver: number }): TodayNeed | null {
+  if (deadline.kind === 'reminder') {
+    return {
+      key: 'renewal',
+      kind: 'documents',
+      label: `Business permit expires in ${formatCount(deadline.daysLeft)} day${deadline.daysLeft === 1 ? '' : 's'}`,
+      line: 'Keep your Verified badge — upload the new one',
+      icon: 'file',
+      lineTone: deadline.daysLeft <= 7 ? 'warn' : null,
+      target: { to: 'given', href: PERMIT_PAPERS_HREF },
+    };
+  }
+  if (deadline.kind === 'lapsed') {
+    return {
+      key: 'renewal',
+      kind: 'documents',
+      label: 'Business permit expired',
+      line: 'Your Verified badge is off until the new one is checked — your shop is still listed',
+      icon: 'file',
+      lineTone: 'danger',
+      target: { to: 'given', href: PERMIT_PAPERS_HREF },
+    };
+  }
+  return null;
+}
+
+/** A door (`supplierWaiting().doors`) → its row. Credit, gift and where-couples-pay are payments; the rest stand alone. */
+export function doorNeed(d: SupplierWaitingDoor): TodayNeed {
+  const icon: Record<SupplierWaitingDoorId, TodayRowIcon> = { setup: 'check', findable: 'shop', credit: 'clock', gift: 'clock', payout: 'peso' };
+  return {
+    key: `door-${d.id}`,
+    kind: d.id === 'payout' || d.id === 'credit' ? 'payments' : null,
+    label: d.label,
+    line: d.line,
+    icon: icon[d.id],
+    lineTone: 'warn',
+    target: d.target,
+  };
 }

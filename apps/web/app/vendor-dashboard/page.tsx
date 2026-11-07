@@ -16,6 +16,7 @@ import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import {
   readEventDayFacts,
+  readNextEventFacts,
   readTodaySchedules,
   readTodayShopRow,
   readTodayViews,
@@ -32,28 +33,10 @@ import {
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
 import { readEventsYouRunWithNeeds } from '@/lib/events-you-run.server';
-import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
-import {
-  vendorAcknowledgeDeposit,
-  vendorMarkServiceComplete,
-  vendorRejectDeposit,
-  vendorAgreeToLock,
-  vendorDeclineLock,
-  vendorAgreeToDeletion,
-  vendorDeclineDeletion,
-  vendorAnswerDateChange,
-} from './clients/[eventId]/actions';
-// The desk TAKES these two answers rather than linking away to them. Both are
-// the shipped actions, unchanged in what they enforce: the reply action still
-// posts one final public reply through the vendor's own session, and
-// `respondAppointment` still refuses an answer from the side that proposed.
-import { postVendorReply } from './reviews/actions';
-import { respondAppointment } from '@/app/_components/appointments-actions';
-import {
-  splitDesk,
-  oldestAskWaitDays,
-  deskStatusLine,
-} from '@/lib/vendor-desk-disposition';
+// ⤴ THE ONE BUILD (8 Nov 2026, owner v112 "Jump"): Today answers nothing in place any more — every row jumps to the
+// page its answer is given on, so no answer action is mounted here (the date change and delete request moved to the
+// client's Details, `ClientDayAnswers`).
+import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
@@ -78,21 +61,18 @@ import {
 } from '@/lib/vendor-shop-findable';
 import {
   fetchDueFeeBills,
-  forecastsForBookings,
   FEE_BILLS_UNREADABLE,
 } from '@/lib/booking-fee-disclosure.server';
 import {
   billsForSurface,
   type DueFeeBill,
-  type FeeDisclosure,
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
-import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
-import type { EventLines } from '@/lib/supplier-event-lines';
 import { SupplierToast } from './_components/supplier-toast';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
+import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
+import { getPortfolioCountStub } from '@/lib/supplier-today-portfolio';
 import { displayServiceLabel } from '@/lib/vendors';
-import { MiniTour } from '@/app/_components/mini-tour';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
 import { TodaySettings } from './_components/today-settings';
@@ -395,26 +375,6 @@ export default async function VendorOverviewPage({
     rather than a "0 days" measured over an empty set.
   */
   const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(whatsNew);
-  const askStatus = deskStatusLine(
-    needsAnswer.length,
-    oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
-  );
-
-  /*
-    📋 EVERY INQUIRY ROW OPENS TO ITS EVENT (supplier dashboard v13, owner 2026-10-29: "for inquiries. we can say what
-    service they are requesting for…" · "where is the expand look of these rows?"): the fixed lines, read ONCE for every
-    inquiry on the desk (`readSupplierEventLines` — one parallel round + the names), started here so it rides beside
-    wave 2. Opening a row reads nothing. Refused → the rows open to the shipped answer alone.
-  */
-  const inquiryEvents = needsAnswer.flatMap((c) => (c.kind === 'inquiry' && c.eventId ? [{ eventId: c.eventId, stage: 'asking' as const }] : []));
-  const eventLinesP: Promise<Map<string, EventLines>> =
-    inquiryEvents.length > 0
-      ? readSupplierEventLines(createAdminClient(), {
-          vendorProfileId,
-          shopServices: (profile.services ?? null) as string[] | null,
-          events: inquiryEvents,
-        }).catch(() => new Map<string, EventLines>())
-      : Promise.resolve(new Map<string, EventLines>());
 
   // S19 · can a couple see anywhere to pay this shop? Asked only when a booking ask is on screen or the shop holds
   // an upcoming booking (2026-09-19) — a booked couple owes a deposit. `unreadable` renders nothing.
@@ -437,15 +397,18 @@ export default async function VendorOverviewPage({
         two reads take its place (the screen does not grow);
       · page views for "How is business" — only once couples can see the shop.
   */
-  const [firstSteps, payoutReadiness, feeBillsRead, feeEnforced, feeForecasts, earnings, views, dayFacts]: [
+  // 📸 THE NEXT EVENT DAY (THE ONE BUILD A3) — every booking on it, and its facts in ONE batched round (schedule ·
+  // Hub setup · cover), beside the rest of wave 2.
+  const nextDayRows = nextEventDay(data.nextDay ?? upcoming, todayIso);
+  const [firstSteps, payoutReadiness, feeBillsRead, feeEnforced, earnings, views, dayFacts, nextFacts]: [
     FirstStepsRail | null,
     PayoutReadiness,
     Awaited<ReturnType<typeof fetchDueFeeBills>>,
     boolean,
-    Record<string, FeeDisclosure | null>,
     VendorEarningsSummary | null,
     number | null,
     EventDayFacts | null,
+    Record<string, NextEventFacts>,
   ] = await Promise.all([
     shopRow?.verified
       ? Promise.resolve(null)
@@ -462,15 +425,13 @@ export default async function VendorOverviewPage({
       : Promise.resolve<PayoutReadiness>('unreadable'),
     feeBillsP,
     feeEnforcedP,
-    forecastsForBookings(createAdminClient(), {
-      vendorProfileId,
-      eventVendorIds: needsAnswer
-        .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
-        .map((c) => c.eventVendorId),
-    }).catch(() => ({})),
-    eventToday ? Promise.resolve(null) : fetchVendorEarningsSummary(supabase, vendorProfileId).catch(() => null),
+    // 💰 Read on an event day too now: the Money stat is always on Today (THE ONE BUILD A4).
+    fetchVendorEarningsSummary(supabase, vendorProfileId).catch(() => null),
     shopRow?.verified ? readTodayViews(supabase, vendorProfileId, new Date(Date.now() - 28 * 86_400_000).toISOString()) : Promise.resolve(null),
     eventToday ? readEventDayFacts(createAdminClient(), eventToday.eventId, Date.now()).catch(() => null) : Promise.resolve(null),
+    readNextEventFacts(createAdminClient(), vendorProfileId, nextDayRows).catch(() =>
+      Object.fromEntries(nextDayRows.map((r) => [r.eventId, { scheduleUnread: true, hubReady: null } satisfies NextEventFacts])),
+    ),
   ]);
   const todayFeeBills: DueFeeBill[] =
     feeBillsRead === FEE_BILLS_UNREADABLE
@@ -557,9 +518,51 @@ export default async function VendorOverviewPage({
     profile.in_business_since_year,
     shopRow?.businessStartDate ?? null,
   );
+  /*
+    🧰 A NEW SHOP'S SIX STEPS, DONE IN PLACE (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
+    PLACE, A ⚙ PER PAGE"). Only while the rail is on screen (a shop not yet approved): Your details' own data (the
+    same loader the Your-details page reads), the maker for the "What you offer" sheet while cards are still to go, and
+    the shop's QR. A live shop reads none of it — Today does not grow for the shops that run.
+  */
+  let setup: ReactNode = null;
+  if (firstSteps) {
+    const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
+    const [details, makerParts, tourSeen] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null), setupTourSeenP]);
+    if (details) {
+      // 📥 Step 6 — the shop's OWN Setnayan page, `/v/<slug>` (owner 7 Nov 2026). Never the root `/<slug>`: that is a
+      // couple's Event Hub. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
+      const qrUrl = details.slug ? myPageUrl(siteOrigin(), details.slug) : null;
+      const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
+      setup = (
+        <SupplierSetupScreen
+          d={details}
+          rail={firstSteps}
+          maker={
+            makerParts ? (
+              <NewServiceMaker
+                vendorProfileId={vendorProfileId}
+                shopName={profile.business_name ?? ''}
+                ctx={makerParts.ctx}
+                details={makerParts.kind}
+                error={null}
+              />
+            ) : (
+              <p className="py-4 text-[13.5px] text-ink/70">The service maker couldn’t load. Refresh to try again.</p>
+            )
+          }
+          qr={qrUrl ? { svg: qrSvg, url: qrUrl } : null}
+          today={todayIso}
+          gear={<TodaySettings />}
+          tour={{ script: TOURS[SETUP_TOUR_KEY].spotlight!, seen: tourSeen }}
+        />
+      );
+    }
+  }
+
   // 🧩 ONE ASSEMBLY (`lib/supplier-today-view.ts`) — the page hands it the reads, the dev lab hands it fixtures,
   // and both draw the same Today. `verified` comes off the one shop-row read; when that read was refused, the
   // rail's own answer stands (no rail = approved), as it always did.
+  const renderNow = Date.now();
   const view = assembleSupplierToday({
     needsAnswer,
     closed: nothingToAnswer,
@@ -592,10 +595,35 @@ export default async function VendorOverviewPage({
     inquiries28: data.inquiries28 ?? null,
     askDayHolds: data.askDayHolds,
     dayFacts,
+    // 📄 The badge's papers deadline, off the one shop-row read (A9) — undefined when that read was refused.
+    renewalDueAt: shopRow ? (shopRow.renewalDueAt ?? null) : undefined,
+    setupDrawn: setup !== null,
+    bookedThisMonth: data.bookedThisMonth ?? null,
+    portfolio: await getPortfolioCountStub(vendorProfileId),
     todayIso,
-    now: Date.now(),
+    now: renderNow,
     since: cardTimestamp,
   });
+
+  // 📸 Next events — the facts read in wave 2, with each booking's money from the payday rows already read (no read
+  // of its own) and, on the day itself, the day's next moment and check-ins.
+  const owedBy = new Map((earnings?.paydayMeasured ? earnings.owed ?? [] : []).map((o) => [o.eventId, o.owedPhp] as const));
+  const nextEvents = assembleNextEvents(
+    nextDayRows,
+    Object.fromEntries(
+      nextDayRows.map((r) => [
+        r.eventId,
+        {
+          ...nextFacts[r.eventId],
+          owedPhp: earnings?.paydayMeasured && earnings.owed ? (owedBy.get(r.eventId) ?? 0) : null,
+          ...(eventToday && dayFacts && r.eventId === eventToday.eventId
+            ? { dayNext: dayFacts.next ? `${dayFacts.next.time} ${dayFacts.next.label}` : null, checkedIn: dayFacts.checkedIn }
+            : {}),
+        } satisfies NextEventFacts,
+      ]),
+    ),
+    todayIso,
+  );
 
   // The outcome of an answer given ON this page — the shared top toast (its
   // first sentence) and the whole sentence as the status line, now drawn UNDER
@@ -638,48 +666,6 @@ export default async function VendorOverviewPage({
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
   const { events: eventsYouRun } = await eventsYouRunP;
-  const eventLines = Object.fromEntries(await eventLinesP);
-
-  /*
-    🧰 A NEW SHOP'S SIX STEPS, DONE IN PLACE (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
-    PLACE, A ⚙ PER PAGE"). Only while the rail is on screen (a shop not yet approved): Your details' own data (the
-    same loader the Your-details page reads), the maker for the "What you offer" sheet while cards are still to go, and
-    the shop's QR. A live shop reads none of it — Today does not grow for the shops that run.
-  */
-  let setup: ReactNode = null;
-  if (firstSteps) {
-    const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
-    const [details, makerParts, tourSeen] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null), setupTourSeenP]);
-    if (details) {
-      // 📥 Step 6 — the shop's OWN Setnayan page, `/v/<slug>` (owner 7 Nov 2026). Never the root `/<slug>`: that is a
-      // couple's Event Hub. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
-      const qrUrl = details.slug ? myPageUrl(siteOrigin(), details.slug) : null;
-      const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
-      setup = (
-        <SupplierSetupScreen
-          d={details}
-          rail={firstSteps}
-          maker={
-            makerParts ? (
-              <NewServiceMaker
-                vendorProfileId={vendorProfileId}
-                shopName={profile.business_name ?? ''}
-                ctx={makerParts.ctx}
-                details={makerParts.kind}
-                error={null}
-              />
-            ) : (
-              <p className="py-4 text-[13.5px] text-ink/70">The service maker couldn’t load. Refresh to try again.</p>
-            )
-          }
-          qr={qrUrl ? { svg: qrSvg, url: qrUrl } : null}
-          today={todayIso}
-          gear={<TodaySettings />}
-          tour={{ script: TOURS[SETUP_TOUR_KEY].spotlight!, seen: tourSeen }}
-        />
-      );
-    }
-  }
 
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
@@ -694,39 +680,22 @@ export default async function VendorOverviewPage({
       <SupplierTodayScreen
         view={view}
         outcome={outcome}
-        feeForecasts={feeForecasts}
-        cards={[...needsAnswer, ...nothingToAnswer]}
+        shopName={profile.business_name ?? null}
+        todayIso={todayIso}
+        now={renderNow}
+        nextEvents={nextEvents}
         eventsYouRun={eventsYouRun}
-        eventLines={eventLines}
         setup={setup}
-        askStatus={askStatus}
-        deskIncomplete={deskIncomplete}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
         // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
         library={
           libraryOpen &&
           !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
         }
-        actions={{
-          acceptInquiry,
-          declineInquiry,
-          confirmLock: vendorAcknowledgeDeposit,
-          rejectLock: vendorRejectDeposit,
-          agreeLock: vendorAgreeToLock,
-          declineLock: vendorDeclineLock,
-          agreeDeletion: vendorAgreeToDeletion,
-          declineDeletion: vendorDeclineDeletion,
-          answerDateChange: vendorAnswerDateChange,
-          postReviewReply: postVendorReply,
-          respondMeeting: respondAppointment,
-          markServiceComplete: vendorMarkServiceComplete,
-        }}
       />
-
-      {/* First visit only — the shipped MiniTour (owner rule: every feature
-          gets a first-visit tour). Waits for the welcome tour so two never
-          stack on one first visit. */}
-      <MiniTour tourKey="vendor_today_v1" after="vendor_welcome_v1" />
+      {/* 🔦 First visit: the Today spotlight (`vendor_today_v3`, THE ONE BUILD A13) is mounted by the supplier frame
+          from `lib/supplier-page-tours.ts` — the old Next-card mini-tour (`vendor_today_v1`) no longer describes this
+          page and is not mounted. */}
     </div>
   );
 }

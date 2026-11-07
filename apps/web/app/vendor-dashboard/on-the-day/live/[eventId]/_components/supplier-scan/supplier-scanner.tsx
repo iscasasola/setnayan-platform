@@ -30,24 +30,31 @@ import { parseGuestQrPayload } from '@/lib/checkin';
 import { deviceOs } from '@/lib/apple-device';
 import {
   NFC_DEVICE_TABLE,
-  claimedOfWords,
   nfcLine,
   nfcPlace,
   scanAnswerWords,
   scanModeLabel,
   scanNumberLabel,
+  tallyWords,
+  isSessionMode,
   type ScanAnswer,
+  type ScanNumberRow,
 } from '@/lib/supplier-scan';
-import type { EventScanService } from '@/lib/supplier-scan.server';
+import { ShotPanel } from './shot-panel';
+import { YourNumbers } from './your-numbers';
+import type { EventScanService, ScanTally } from '@/lib/supplier-scan.server';
 import { supplierScan } from '@/app/_actions/supplier-scan-actions';
 
-type Tally = { claimed: number; total: number; lastNumber: number } | null;
+type Tally = ScanTally | null;
 
 export function SupplierClaimScanner({
   eventId,
   services,
   initialAnswer = null,
+  labNumbers = null,
 }: {
+  /** The dev lab's "Your numbers", drawn open (its frames only). */
+  labNumbers?: ScanNumberRow[] | null;
   eventId: string;
   services: EventScanService[];
   /** The result line to open on — the dev lab's frames only (`/dev/supplier-lab?s=event-hub&view=scanner&scan=…`). */
@@ -57,7 +64,12 @@ export function SupplierClaimScanner({
   const service = services.find((s) => s.coverageId === coverageId) ?? services[0]!;
   // Each service keeps its own count on this screen; a scan moves it at once (a save never resets the screen).
   const [tallies, setTallies] = useState<Record<number, Tally>>(() =>
-    Object.fromEntries(services.map((s) => [s.coverageId, s.tally ? { claimed: s.tally.claimed, total: s.tally.total, lastNumber: s.tally.lastNumber } : null])),
+    Object.fromEntries(
+      services.map((s) => [
+        s.coverageId,
+        s.tally ?? null,
+      ]),
+    ),
   );
   const tally = tallies[service.coverageId] ?? null;
   const [answer, setAnswer] = useState<ScanAnswer | null>(initialAnswer);
@@ -80,10 +92,27 @@ export function SupplierClaimScanner({
       try {
         const reply = await supplierScan({ op: 'claim', eventId, coverageId: service.coverageId, raw, via });
         const a: ScanAnswer = reply.op === 'claim' ? reply.result : { outcome: 'refused', message: 'Something stopped the scan. Try again.' };
-        setAnswer(a);
-        if (a.outcome === 'claimed') {
-          setTallies((t) => ({ ...t, [service.coverageId]: { claimed: a.claimed, total: a.total, lastNumber: a.number } }));
-        }
+        setAnswer(a.outcome === 'already' || a.outcome === 'added' ? { ...a, mode: service.mode } : a);
+        // The count moves with the answer — a save never resets the screen.
+        setTallies((all) => {
+          const t = all[service.coverageId];
+          if (!t) return all;
+          const next =
+            a.outcome === 'claimed'
+              ? { ...t, claimed: a.claimed, total: a.total, lastNumber: Math.max(t.lastNumber, a.number) }
+              : a.outcome === 'ordered'
+                ? { ...t, ordered: t.ordered + 1, lastNumber: Math.max(t.lastNumber, a.number) }
+                : a.outcome === 'received'
+                  ? { ...t, claimed: a.claimed, total: a.total, ready: Math.max(0, t.ready - 1) }
+                  : a.outcome === 'served'
+                    ? { ...t, served: a.served, unique: a.unique, claimed: a.unique, lastNumber: Math.max(t.lastNumber, a.number) }
+                    : a.outcome === 'added'
+                      ? { ...t, ordered: t.ordered + 1, open: { number: a.number, guests: a.guests } }
+                      : a.outcome === 'picked_up'
+                        ? { ...t, claimed: t.claimed + 1, ready: Math.max(0, t.ready - 1) }
+                        : t;
+          return { ...all, [service.coverageId]: next };
+        });
       } catch {
         // The request did not get through — whatever the browser says about its connection.
         setAnswer({ outcome: 'no_signal' });
@@ -137,8 +166,12 @@ export function SupplierClaimScanner({
         </p>
         <Explain title="Scanner" label="About the scanner">
           Each guest you scan gets the next number — the same number shows on their Event Hub. In Once, a guest is
-          counted one time; a second scan says “Already claimed”. You see the number and the guest’s first name. The mode is
-          set once per service, under Shop › Services.
+          counted one time; a second scan says “Already claimed”. In Ordered → Received, the first scan orders, Ready
+          on the number tells the guest it is waiting, and the second scan hands it over. In Unlimited, every scan
+          counts with a new number. In Group session, tap New shot, scan everyone in the photo — they share one
+          number — then Done with the prints; Ready tells each of them, and each pickup scan counts “3 of 5 claimed”.
+          Roaming is the same with no station: New shot, scan the guests in frame, then take the photo.
+          You see the number and the guest’s first name. The mode is set once per service, under Shop › Services.
         </Explain>
       </div>
 
@@ -152,7 +185,7 @@ export function SupplierClaimScanner({
             <span className="block text-[12.5px] text-ink/60">{tally ? (tally.lastNumber > 0 ? 'last' : 'no scans yet') : 'couldn’t load'}</span>
           </p>
           <p className="text-right text-[14px] text-ink/70">
-            {tally ? `Claimed ${claimedOfWords(tally.claimed, tally.total)}` : 'Count couldn’t load'}
+            {tally ? tallyWords(service.mode, tally) : 'Count couldn’t load'}
           </p>
         </div>
       ) : null}
@@ -172,7 +205,7 @@ export function SupplierClaimScanner({
           </div>
           {tally ? (
             <p className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-right text-[13px] text-white">
-              Claimed {claimedOfWords(tally.claimed, tally.total)}
+              {tallyWords(service.mode, tally)}
             </p>
           ) : null}
         </div>
@@ -209,6 +242,33 @@ export function SupplierClaimScanner({
         </p>
       ) : null}
 
+      {/* 📸 GROUP SESSION — New shot · scan everyone in it · prints –/+ · Done (frames C · C′). */}
+      {isSessionMode(service.mode) && tally ? (
+        <ShotPanel
+          roaming={service.mode === 'roaming'}
+          eventId={eventId}
+          coverageId={service.coverageId}
+          open={tally.open}
+          onOpened={(number, guests) =>
+            setTallies((all) => {
+              const t = all[service.coverageId];
+              return t ? { ...all, [service.coverageId]: { ...t, open: { number, guests }, sessions: t.open ? t.sessions : t.sessions + 1, lastNumber: Math.max(t.lastNumber, number) } } : all;
+            })
+          }
+          onClosed={(outcome) => {
+            setAnswer(null);
+            setTallies((all) => {
+              const t = all[service.coverageId];
+              if (!t) return all;
+              if (outcome === 'cancelled') {
+                return { ...all, [service.coverageId]: { ...t, open: null, sessions: Math.max(0, t.sessions - 1), lastNumber: t.open ? t.open.number - 1 : t.lastNumber } };
+              }
+              return { ...all, [service.coverageId]: { ...t, open: null } };
+            });
+          }}
+        />
+      ) : null}
+
       <div className="flex flex-wrap gap-2" data-supplier-scan-actions="">
         {scanning ? (
           <ActionButton tone="neutral" icon={CameraOff} label="Done" onClick={done} />
@@ -241,6 +301,20 @@ export function SupplierClaimScanner({
           )
         ) : null}
       </div>
+
+      {/* "Your numbers" — tap one to open it; an ordered number offers Ready (frames D · F). */}
+      <YourNumbers
+        key={service.coverageId}
+        labRows={labNumbers}
+        eventId={eventId}
+        coverageId={service.coverageId}
+        onReady={(told) =>
+          setTallies((all) => {
+            const t = all[service.coverageId];
+            return t ? { ...all, [service.coverageId]: { ...t, ordered: Math.max(0, t.ordered - told), ready: t.ready + told } } : all;
+          })
+        }
+      />
 
       {/* QR vs NFC, said by the screen itself — only what works on THIS phone, the device table behind the ⓘ. */}
       <div className="flex items-start gap-2" data-supplier-scan-nfc-line={place}>

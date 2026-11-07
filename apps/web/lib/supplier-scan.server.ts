@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
-import type { ScanMode } from '@/lib/supplier-scan';
+import { guestShownName } from '@/lib/guest-reviews';
+import { openReviewAsks, type ReviewAskProof, type ScanMode } from '@/lib/supplier-scan';
 
 /**
  * 🎟 THE SUPPLIER CLAIM SCANNER — the reads (the pure half is `lib/supplier-scan.ts`; every permission check is in the
@@ -46,6 +47,15 @@ export type ScanTally = {
   total: number;
   lastNumber: number;
   souvenir: boolean;
+  /** Ordered → Received and shots (0 otherwise). */
+  ordered: number;
+  ready: number;
+  /** Unlimited: every scan, and the guests among them. */
+  served: number;
+  unique: number;
+  /** Group session: shots so far, and the one open now (null = none). */
+  sessions: number;
+  open: { number: number; guests: number } | null;
 };
 
 export type EventScanService = {
@@ -65,7 +75,19 @@ export function tallyOf(raw: unknown): ScanTally | null {
   const total = n(t.total);
   const lastNumber = n(t.last_number);
   if (claimed === null || total === null || lastNumber === null) return null;
-  return { claimed, total, lastNumber, souvenir: t.souvenir === true };
+  const openNumber = n(t.open_number);
+  return {
+    claimed,
+    total,
+    lastNumber,
+    souvenir: t.souvenir === true,
+    ordered: n(t.ordered) ?? 0,
+    ready: n(t.ready) ?? 0,
+    served: n(t.served) ?? 0,
+    unique: n(t.unique) ?? 0,
+    sessions: n(t.sessions) ?? 0,
+    open: openNumber !== null ? { number: openNumber, guests: n(t.open_guests) ?? 0 } : null,
+  };
 }
 
 /**
@@ -99,7 +121,14 @@ export async function readEventScanServices(
   );
 }
 
-export type GuestScanNumber = { number: number; service: string; shop: string | null; at: string };
+export type GuestScanNumber = {
+  number: number;
+  service: string;
+  shop: string | null;
+  at: string;
+  /** Ordered → Received: 'ordered' (being prepared) · 'ready' (claim it now) · 'received'. Souvenirs are received. */
+  state: 'ordered' | 'ready' | 'received';
+};
 
 /**
  * One guest's own numbers at one event (newest first) — for THEIR Event Hub only. The caller has already resolved the
@@ -112,7 +141,7 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
     const [claims, souvenirs] = await Promise.all([
       admin
         .from('supplier_scan_claims')
-        .select('scan_number, claimed_at, coverage_id, vendor_profile_id')
+        .select('scan_number, claimed_at, coverage_id, vendor_profile_id, state')
         .eq('event_id', eventId)
         .eq('guest_id', guestId),
       admin
@@ -126,7 +155,13 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
       logQueryError('readGuestScanNumbers', claims.error ?? souvenirs.error, { eventId });
       return null;
     }
-    type Row = { scan_number: number; claimed_at: string; coverage_id: number | string | null; vendor_profile_id: string | null };
+    type Row = {
+      scan_number: number;
+      claimed_at: string;
+      coverage_id: number | string | null;
+      vendor_profile_id: string | null;
+      state?: 'ordered' | 'ready' | 'received';
+    };
     const rows = [...((claims.data ?? []) as Row[]), ...((souvenirs.data ?? []) as Row[])];
     if (rows.length === 0) return [];
     const covIds = [...new Set(rows.map((r) => r.coverage_id).filter((c): c is number | string => c != null))];
@@ -150,6 +185,7 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
         service: (r.coverage_id != null ? covLabel.get(String(r.coverage_id)) : null) ?? 'A supplier',
         shop: r.vendor_profile_id ? (shopName.get(r.vendor_profile_id) ?? null) : null,
         at: r.claimed_at,
+        state: r.state ?? ('received' as const),
       }))
       .sort((a, b) => b.at.localeCompare(a.at));
   } catch (err) {
@@ -159,6 +195,8 @@ export async function readGuestScanNumbers(eventId: string, guestId: string): Pr
 }
 
 export type CoupleScanClaim = {
+  /** 'ordered' · 'ready' while an Ordered → Received item is on its way; 'received' once handed over. */
+  state: 'ordered' | 'ready' | 'received';
   number: number;
   guestName: string;
   service: string;
@@ -176,7 +214,7 @@ export type CoupleScanClaim = {
 export async function readCoupleScanClaims(supabase: SupabaseClient, eventId: string): Promise<CoupleScanClaim[] | null> {
   const embed = 'scan_number, claimed_at, method, coverage_id, vendor_profile_id, guests(first_name, last_name, display_name)';
   const [scans, souvenirs] = await Promise.all([
-    supabase.from('supplier_scan_claims').select(embed).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
+    supabase.from('supplier_scan_claims').select(`${embed}, state`).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
     // A souvenir handed out at a supplier's scanner is the desk's own row — listed here too, so this is the whole night.
     supabase
       .from('guest_souvenir_claims')
@@ -196,6 +234,7 @@ export async function readCoupleScanClaims(supabase: SupabaseClient, eventId: st
     method: 'supplier_qr' | 'supplier_nfc';
     coverage_id: number | string | null;
     vendor_profile_id: string | null;
+    state?: 'ordered' | 'ready' | 'received';
     guests: { first_name: string | null; last_name: string | null; display_name: string | null } | null;
   };
   const rows = [...((scans.data ?? []) as unknown as Row[]), ...((souvenirs.data ?? []) as unknown as Row[])];
@@ -222,6 +261,7 @@ export async function readCoupleScanClaims(supabase: SupabaseClient, eventId: st
       const g = r.guests;
       const name = g?.display_name?.trim() || `${g?.first_name ?? ''} ${g?.last_name ?? ''}`.trim() || 'A guest';
       return {
+        state: r.state ?? ('received' as const),
         number: r.scan_number,
         guestName: name,
         service: (r.coverage_id != null ? covLabel.get(String(r.coverage_id)) : null) ?? 'A service',
@@ -244,7 +284,7 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
     const admin = createAdminClient();
     const embed = 'claim_id, scan_number, claimed_at, method, coverage_id, vendor_profile_id, guests(first_name, last_name, display_name)';
     const [scans, souvenirs, labels] = await Promise.all([
-      admin.from('supplier_scan_claims').select(embed).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
+      admin.from('supplier_scan_claims').select(`${embed}, state`).eq('event_id', eventId).order('claimed_at', { ascending: false }).limit(500),
       admin
         .from('guest_souvenir_claims')
         .select(embed)
@@ -265,6 +305,7 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
       method: 'supplier_qr' | 'supplier_nfc';
       coverage_id: number | string | null;
       vendor_profile_id: string | null;
+      state?: 'ordered' | 'ready' | 'received';
       guests: { first_name: string | null; last_name: string | null; display_name: string | null } | null;
     };
     const tagged = [
@@ -292,6 +333,7 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
         return {
           claimId: r.claim_id,
           kind,
+          state: r.state ?? ('received' as const),
           number: r.scan_number,
           guestName: g?.display_name?.trim() || `${g?.first_name ?? ''} ${g?.last_name ?? ''}`.trim() || 'A guest',
           service: (r.coverage_id != null ? covLabel.get(String(r.coverage_id)) : null) ?? 'A service',
@@ -303,6 +345,80 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
       .sort((a, b) => b.at.localeCompare(a.at));
   } catch (err) {
     logQueryError('readAdminEventScans', err, { eventId });
+    return null;
+  }
+}
+
+export type GuestReviewAsk = {
+  /** The shop being asked about — one ask per shop per event (the one store keeps one guest review per shop per event). */
+  vendorProfileId: string;
+  /** The service the scanner marked received ("Photo booth"); the first one when a shop has several. */
+  service: string;
+  shop: string | null;
+  /** How the guest's name would show publicly, for the "Shown as" dropdown: "Gabriel D." or "G. D.". */
+  names: { name: string; initials: string };
+};
+
+/**
+ * ⭐ The shops this guest RECEIVED from — a `supplier_scan_claims` row in state received, or a souvenir that shop's
+ * scanner handed over (`guest_souvenir_claims.vendor_profile_id`; the couple's own desk names no shop). Those are the two
+ * scanner doors the one writer `vendor_guest_review_submit` admits. Minus the shops the guest has already reviewed
+ * (`vendor_guest_reviews`, by any door) or answered "Not now" to (`supplier_scan_review_skips`) — their Event Hub's
+ * optional "How was the Photo booth?" card (slice 5).
+ * Service role, scoped to the one guest the page resolved from their pass.
+ * null = the read failed (no card is drawn — never a question asked on a guess).
+ */
+export async function readGuestReviewAsks(eventId: string, guestId: string): Promise<GuestReviewAsk[] | null> {
+  try {
+    const admin = createAdminClient();
+    const [claims, souvenirs, reviewed, skipped, guest] = await Promise.all([
+      admin
+        .from('supplier_scan_claims')
+        .select('coverage_id, vendor_profile_id, claimed_at')
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .eq('state', 'received'),
+      // A souvenir handed over at a shop's scanner (Once) is the desk's own row, not a scanner claim.
+      admin
+        .from('guest_souvenir_claims')
+        .select('coverage_id, vendor_profile_id, claimed_at')
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .not('vendor_profile_id', 'is', null),
+      admin.from('vendor_guest_reviews').select('vendor_profile_id').eq('event_id', eventId).eq('guest_id', guestId),
+      admin.from('supplier_scan_review_skips').select('vendor_profile_id').eq('event_id', eventId).eq('guest_id', guestId),
+      admin.from('guests').select('first_name, last_name').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
+    ]);
+    const failed = claims.error ?? souvenirs.error ?? reviewed.error ?? skipped.error ?? guest.error;
+    if (failed) {
+      logQueryError('readGuestReviewAsks', failed, { eventId });
+      return null;
+    }
+    const done = new Set(
+      [...((reviewed.data ?? []) as { vendor_profile_id: string }[]), ...((skipped.data ?? []) as { vendor_profile_id: string }[])].map((r) => r.vendor_profile_id),
+    );
+    // One ask per shop: the earliest thing that shop's scanner handed over names the question.
+    const open = openReviewAsks([...((claims.data ?? []) as ReviewAskProof[]), ...((souvenirs.data ?? []) as ReviewAskProof[])], done);
+    if (open.size === 0) return [];
+    const covIds = [...new Set([...open.values()].filter((c): c is string => c != null))];
+    const [covs, shops, labels] = await Promise.all([
+      covIds.length > 0 ? admin.from('vendor_coverages').select('id, canonical_service').in('id', covIds) : Promise.resolve({ data: [] }),
+      admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', [...open.keys()]),
+      resolveCoverageLabels(),
+    ]);
+    const label = new Map(((covs.data ?? []) as { id: number | string; canonical_service: string }[]).map((c) => [String(c.id), labels.leafLabel(c.canonical_service)]));
+    const shop = new Map(((shops.data ?? []) as { vendor_profile_id: string; business_name: string | null }[]).map((x) => [x.vendor_profile_id, x.business_name]));
+    const g = (guest.data ?? null) as { first_name: string | null; last_name: string | null } | null;
+    // The same words the "From guests" row will print (the guest-review page builds them the same way).
+    const names = { name: guestShownName(g?.first_name ?? null, g?.last_name ?? null, 'name'), initials: guestShownName(g?.first_name ?? null, g?.last_name ?? null, 'initials') };
+    return [...open.entries()].map(([vp, cov]) => ({
+      vendorProfileId: vp,
+      service: cov == null ? 'souvenir' : (label.get(cov) ?? 'supplier'),
+      shop: shop.get(vp) ?? null,
+      names,
+    }));
+  } catch (err) {
+    logQueryError('readGuestReviewAsks', err, { eventId });
     return null;
   }
 }

@@ -12,21 +12,33 @@ import type { CoupleScanClaim, GuestScanNumber } from '@/lib/supplier-scan.serve
  *   (side = guest for s=scan-guest, couple for s=scan-couple)
  *   ?side=guest            the guest's Live: Now, then "Your number #0042 · Photo booth · Lumina Studio"
  *   ?side=guest&two=1      two numbers (a booth and the souvenir table)
+ *   ?side=guest&state=ordered|ready   Ordered → Received: "Being prepared" · "Ready — claim it now" + the guest's notice
+ *   ?s=scan-guest&review=1 ⭐ slice 5 — "How was the Photo booth?" under the number (nothing is sent from the lab).
+ *                          Where the review lands — the shop page's one "From guests" group — is /dev/review-lab?s=shop.
  *   ?side=couple           the couple's souvenir table › Suppliers' scans, with names
  *   ?side=couple&state=empty|unread
  */
 const NUMBERS: GuestScanNumber[] = [
-  { number: 42, service: 'Photo booth', shop: 'Lumina Studio', at: '2026-12-18T11:41:00Z' },
-  { number: 88, service: 'Souvenir / Giveaways', shop: 'Pabaon PH', at: '2026-12-18T10:05:00Z' },
+  { number: 42, service: 'Photo booth', shop: 'Lumina Studio', at: '2026-12-18T11:41:00Z', state: 'received' },
+  { number: 88, service: 'Souvenir / Giveaways', shop: 'Pabaon PH', at: '2026-12-18T10:05:00Z', state: 'received' },
 ];
+/** `?side=guest&state=ordered|ready` — the Ordered → Received card (slice 2). */
+const PRINT = (state: 'ordered' | 'ready'): GuestScanNumber => ({
+  number: 42,
+  service: 'Photo booth prints',
+  shop: 'Lumina Studio',
+  at: '2026-12-18T11:41:00Z',
+  state,
+});
 const CLAIMS: CoupleScanClaim[] = [
-  { number: 43, guestName: 'Paolo Reyes', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T12:05:00Z' },
-  { number: 42, guestName: 'Ana Reyes', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_nfc', at: '2026-12-18T11:41:00Z' },
-  { number: 88, guestName: 'Ana Reyes', service: 'Souvenir / Giveaways', shop: 'Pabaon PH', method: 'supplier_qr', at: '2026-12-18T10:05:00Z' },
-  { number: 41, guestName: 'Lito Santos', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T11:36:00Z' },
+  { state: 'ready', number: 44, guestName: 'Bea Cruz', service: 'Photo booth prints', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T12:10:00Z' },
+  { state: 'received', number: 43, guestName: 'Paolo Reyes', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T12:05:00Z' },
+  { state: 'received', number: 42, guestName: 'Ana Reyes', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_nfc', at: '2026-12-18T11:41:00Z' },
+  { state: 'received', number: 88, guestName: 'Ana Reyes', service: 'Souvenir / Giveaways', shop: 'Pabaon PH', method: 'supplier_qr', at: '2026-12-18T10:05:00Z' },
+  { state: 'received', number: 41, guestName: 'Lito Santos', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T11:36:00Z' },
 ];
 
-export function ScanLab(q: { side?: string; two?: string; state?: string }) {
+export function ScanLab(q: { side?: string; two?: string; state?: string; review?: string }) {
   if (q.side === 'couple') {
     const claims = q.state === 'unread' ? null : q.state === 'empty' ? [] : CLAIMS;
     return (
@@ -45,7 +57,29 @@ export function ScanLab(q: { side?: string; two?: string; state?: string }) {
         <span className="block font-pahina text-2xl text-ink">First dance</span>
         <span className="block text-[13.5px] text-ink/60">The garden · 8:00 PM</span>
       </section>
-      <YourNumberCardView numbers={q.two === '1' ? NUMBERS : NUMBERS.slice(0, 1)} className="mt-8" />
+      <YourNumberCardView
+        numbers={q.state === 'ordered' || q.state === 'ready' ? [PRINT(q.state)] : q.two === '1' ? NUMBERS : NUMBERS.slice(0, 1)}
+        asks={
+          q.review === '1'
+            ? [
+                {
+                  vendorProfileId: '00000000-0000-4000-8000-000000000001',
+                  service: 'Photo booth',
+                  shop: 'Lumina Studio',
+                  names: { name: 'Ana R.', initials: 'A. R.' },
+                },
+              ]
+            : []
+        }
+        eventId="lab"
+        className="mt-8"
+      />
+      {q.state === 'ready' ? (
+        <p className="mt-6 border-y border-ink/15 px-4 py-3 text-center text-[14px] text-ink" data-lab-stand-in="announcement">
+          #0042 is ready — claim it at Photo booth prints (Lumina Studio).
+          <span className="block text-[12px] text-ink/55">(the Event Hub&rsquo;s announcement card, as this guest sees it)</span>
+        </p>
+      ) : null}
     </main>
   );
 }

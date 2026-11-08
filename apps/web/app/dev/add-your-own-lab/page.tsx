@@ -13,6 +13,8 @@
  *   ?s=nodate    …the same door when the couple has only decided the month
  *   ?s=card      the first card, seeded from the couple's record — the price
  *                box waits for the photo and what's included (`CanvasMaker`)
+ *   ?s=add       the couple's ADD sheet (`NewManualVendorModal`, add mode — makers-match § 1), opened from the
+ *                Catering row; its save answers with what the real add would log
  *   ?s=record    the couple's record sheet (`NewManualVendorModal`, edit mode)
  *                `&price=395000` starts it priced · `&booked=1` re-opens the
  *                plan the lock seeds (Setnayan's 50/50 estimate) the way the
@@ -24,10 +26,10 @@ import { notFound } from 'next/navigation';
 import { CoupleLinkDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
 import { claimDatePhrase, inviterFirstNames } from '@/lib/claim-invite-words';
 import { coupleCardToCanvasInitial } from '@/lib/couple-card-to-canvas';
-import { buildShortlistFolders, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
+import { buildShortlistFolders, coverCatalogFromFolders, tileForCategory } from '@/lib/shortlist-taxonomy';
 import { planInstancesToRows } from '@/lib/self-added-payment-plan';
 import { computePlanInstances, defaultPaymentScheduleRows } from '@/lib/vendor-service-payment-schedules';
-import { LabCard, LabRecord } from './lab-client';
+import { LabAdd, LabCard, LabRecord } from './lab-client';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { labSupplierShare } from '../lab-supplier-share';
 
@@ -64,6 +66,21 @@ export default async function AddYourOwnLabPage({
     return (
       <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-4" data-lab-add-own="card">
         <LabCard initial={initial} />
+      </main>
+    );
+  }
+
+  if (s === 'add') {
+    return (
+      <main className="min-h-screen" data-lab-add-own="add">
+        <LabAdd
+          eventId={LAB_EVENT}
+          tile={tileForCategory('catering') ?? 'catering'}
+          link={{ url: 'https://setnayan.com/vendor/claim/lab-sample-token', qrSvg: await renderUrlQrSvg('https://setnayan.com/vendor/claim/lab-sample-token') }}
+          coverCatalog={coverCatalogFromFolders(
+            buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
+          )}
+        />
       </main>
     );
   }

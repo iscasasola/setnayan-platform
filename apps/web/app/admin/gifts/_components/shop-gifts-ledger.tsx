@@ -65,7 +65,9 @@ export function ShopGiftsLedger({
                         ? ' · their second Plus, so Event Pro'
                         : ''
                     }${r.landed ? '' : r.giftKind === 'papic' ? ' · not in the pool' : ' · not unlocked'}`
-                  : `Reversed${r.orderReference ? ` · ${r.orderReference}` : ''}`,
+                  : r.kind === 'badge_reward'
+                    ? r.note?.trim() || 'Badge reward'
+                    : `Reversed${r.orderReference ? ` · ${r.orderReference}` : ''}`,
           },
           {
             header: 'Gift',

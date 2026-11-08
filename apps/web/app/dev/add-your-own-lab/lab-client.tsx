@@ -8,9 +8,19 @@
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { CanvasMaker } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
-import type { SelfAddedSupplierPrefill, UpdateSelfAddedSupplierResult } from '@/app/dashboard/[eventId]/vendors/actions';
-import { PLAN_PRESENT_FIELD, buildCouplePaymentPlan, partialSaveSentence, planSaveStep, type CouplePlanRowInput } from '@/lib/self-added-payment-plan';
+import type { AddManualSupplierResult, SelfAddedSupplierPrefill, UpdateSelfAddedSupplierResult } from '@/app/dashboard/[eventId]/vendors/actions';
+import {
+  PLAN_PAID_FIELD,
+  PLAN_PRESENT_FIELD,
+  buildCouplePaymentPlan,
+  paidAtAddPayments,
+  partialSaveSentence,
+  planProofField,
+  planSaveStep,
+  type CouplePlanRowInput,
+} from '@/lib/self-added-payment-plan';
 import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
+import { ShellBoundaryProvider } from '@/app/_components/shell-boundary';
 import { SupplierShareStandInCtx } from '@/app/dashboard/[eventId]/_components/supplier-share-button';
 import type { SupplierSharePayload } from '@/lib/supplier-share';
 
@@ -66,6 +76,78 @@ export function LabRecord({
     />
     </SupplierShareStandInCtx.Provider>
   );
+}
+
+/**
+ * The couple's ADD sheet (makers-match § 1) — opened from a Suppliers row, with no session. Its save runs the plan half
+ * of `addManualSupplier` through the same pure functions (`buildCouplePaymentPlan` → `paidAtAddPayments`) and answers
+ * with the payments the real add would log, so the saved step shows them. Nothing is written anywhere.
+ */
+export function LabAdd({
+  eventId,
+  tile,
+  coverCatalog,
+  link,
+}: {
+  eventId: string;
+  tile: string;
+  coverCatalog: readonly CoverCatalogFolder[];
+  link?: { url: string; qrSvg: string };
+}) {
+  /* The couple's event tree answers "is this a phone?" at 701 (`tab`, owner 2026-10-19) — the lab draws the sheet under
+     the same answer, so 820 and 1440 here are what the Suppliers page shows. */
+  return (
+    <ShellBoundaryProvider value="tab">
+    <NewManualVendorModal
+      eventId={eventId}
+      category="catering"
+      tile={tile}
+      categoryLabel="Catering"
+      coverCatalog={coverCatalog}
+      eventDateIso="2026-12-18"
+      addSupplier={async (fd) => labAdd(fd, link)}
+      makeLink={async () => (link ? { ok: true as const, ...link } : { ok: false as const, error: 'We could not make their link just now.' })}
+      onClose={() => {}}
+      onCreated={() => {}}
+    />
+    </ShellBoundaryProvider>
+  );
+}
+
+async function labAdd(fd: FormData, link?: { url: string; qrSvg: string }): Promise<AddManualSupplierResult> {
+  await new Promise((r) => setTimeout(r, 300));
+  const labels = fd.getAll('plan_label');
+  const rows: CouplePlanRowInput[] = labels.map((l, i) => ({
+    label: String(l ?? ''),
+    amount_kind: String(fd.getAll('plan_kind')[i] ?? '') === 'fixed' ? 'fixed' : 'percent',
+    value: String(fd.getAll('plan_value')[i] ?? ''),
+    due_anchor: ((a) => (a === 'on_lock' || a === 'before_event' ? a : ''))(String(fd.getAll('plan_anchor')[i] ?? '')),
+    due_offset_days: String(fd.getAll('plan_days')[i] ?? '0'),
+  }));
+  const counts = rows.some((r) => r.label.trim() && (r.value.trim() || r.due_anchor));
+  const price = Number(String(fd.get('total_cost_php') ?? '').replace(/,/g, ''));
+  const base = { status: 'ok' as const, eventVendorId: 'lab-event-vendor', manualVendorId: 'lab-manual', ...(link ? { invite: link } : {}) };
+  if (!counts) return base;
+  const built = buildCouplePaymentPlan({
+    rows,
+    totalPhp: Number.isFinite(price) && price > 0 ? price : null,
+    lockDateIso: new Date().toISOString().slice(0, 10),
+    eventDateIso: '2026-12-18',
+  });
+  if (!built.ok) {
+    return { ...base, warning: `Added — but we could not save the payment plan: ${built.message}` };
+  }
+  const paid = paidAtAddPayments({
+    labels,
+    values: fd.getAll('plan_value'),
+    seqs: fd.getAll('plan_seq'),
+    paid: fd.getAll(PLAN_PAID_FIELD),
+    instances: built.instances,
+  }).map((p) => {
+    const f = fd.get(planProofField(p.index));
+    return { ...p, withProof: Boolean(f && typeof f !== 'string' && f.size > 0) };
+  });
+  return paid.length > 0 ? { ...base, paid } : base;
 }
 
 /**

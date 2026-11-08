@@ -4191,6 +4191,7 @@ export function OnboardingShell({
                 withTerms
               />
               <PasswordField
+                mode="new"
                 wrapperProps={{ 'data-password-only': '' }}
                 className="field"
                 name="password"

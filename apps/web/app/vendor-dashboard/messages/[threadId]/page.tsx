@@ -87,6 +87,7 @@ import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
 import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '../../clients/[eventId]/actions';
 import { readDayCheck } from '@/lib/day-check.server';
+import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import {
   forecastForBooking,
   resolveBookingFeeStanding,
@@ -756,6 +757,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       ? await readDayCheck(supabase, lockHandshake.eventVendorId)
       : null;
   })();
+  // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then the panel
+  // offers "Pick which stay on" in place of Agree. Started beside the day read; awaited after the batch.
+  const heldServiceRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.state === 'requested' && lockHandshake.eventVendorId
+      ? await heldServiceOfAsk(supabase, lockHandshake.eventVendorId)
+      : null;
+  })();
 
   // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
   // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
@@ -1012,6 +1021,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     receiptsRead,
     eventFileDayRead,
   ]);
+  const heldAskService = await heldServiceRead;
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
   const shopGifts = await shopGiftsRead;
@@ -1318,6 +1328,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           declineLock={vendorDeclineLock}
           dayCheck={dayCheck}
           waitlistAsk={vendorWaitlistTheAsk}
+          heldService={heldAskService}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,

@@ -20,7 +20,7 @@ type Call = { fn: string; args: unknown[] };
 function fakeClient(result: { data?: unknown[]; error?: { message: string } }) {
   const calls: Call[] = [];
   const chain: Record<string, unknown> = {};
-  for (const fn of ['select', 'eq', 'or', 'order']) {
+  for (const fn of ['select', 'eq', 'match', 'or', 'order']) {
     chain[fn] = (...args: unknown[]) => {
       calls.push({ fn, args });
       return chain;
@@ -70,19 +70,23 @@ test('⛔ it never gates on the DEAD is_published column', async () => {
   );
 });
 
-test('it states the public-visibility rule itself, not trusting the caller’s RLS', async () => {
+test('it states the findable rule itself, not trusting the caller’s RLS', async () => {
   // It runs with whatever client the caller passes, and an admin client bypasses
   // `vendor_services_public_read` entirely. Stating the rule keeps the answer
-  // the same for every caller.
+  // the same for every caller. Since 2026-11-07 the rule is the ONE findable
+  // column (lib/findable-shop.ts) — never the visibility pair re-typed.
   const { calls } = await run({});
   const eqs = calls.filter((c) => c.fn === 'eq').map((c) => `${c.args[0]}=${c.args[1]}`);
-  for (const expected of [
-    'is_active=true',
-    'vendor_profiles.verification_state=verified',
-    'vendor_profiles.public_visibility=verified',
-  ]) {
-    assert.ok(eqs.includes(expected), `missing visibility clause: ${expected}\ngot: ${eqs.join(' · ')}`);
-  }
+  assert.ok(eqs.includes('is_active=true'), `missing is_active clause\ngot: ${eqs.join(' · ')}`);
+  const matches = calls.filter((c) => c.fn === 'match').map((c) => JSON.stringify(c.args[0]));
+  assert.ok(
+    matches.includes(JSON.stringify({ 'vendor_profiles.is_findable': true })),
+    `missing the findable gate on the embedded shop\ngot: ${matches.join(' · ')}`,
+  );
+  assert.ok(
+    !eqs.some((e) => e.startsWith('vendor_profiles.verification_state') || e.startsWith('vendor_profiles.public_visibility')),
+    'the visibility pair is re-typed here instead of asking the findable gate',
+  );
 });
 
 // 2026-11-06 · demo shops are PUBLIC, marked "(DEMO ONLY)" (owner, DECISION_LOG "DEMO SHOPS + DEMO EVENTS"). This

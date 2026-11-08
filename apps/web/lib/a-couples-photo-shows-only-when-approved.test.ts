@@ -96,8 +96,14 @@ test('✓ Verified booking — derived at read from the booking, drawn only from
     assert.match(fn(reader), /public\.couple_photo_share_is_verified_booking\(s\.event_id, s\.vendor_profile_id\)/, `${reader} no longer derives the mark`);
   }
   const card = read('app/_components/service-card-view.tsx');
-  assert.match(card, /look\.verifiedBooking === true \? \(/, 'the card draws the mark from something other than the read’s TRUE');
+  // Retargeted 2026-11-06 (the "From couples" grid, For Suppliers design): the mark is ONE component, `VerifiedBookingMark`,
+  // drawn on the photo — still only from the read's TRUE, and still the card's only "Verified booking".
+  assert.match(card, /look\.verifiedBooking === true \? <VerifiedBookingMark \/> : null/, 'the card draws the mark from something other than the read’s TRUE');
+  assert.equal((card.match(/<VerifiedBookingMark\b/g) ?? []).length, 1, 'the card draws the mark somewhere the read did not decide');
   assert.equal((card.match(/Verified booking/g) ?? []).length, 1, 'the card says "Verified booking" somewhere the read did not decide');
+  // The shop's own Approve grid reads `vendor_couple_photo_shares()`, which does NOT return the mark — so it never says it.
+  const shopGrid = read('app/vendor-dashboard/shop/_components/couple-photos-list.tsx');
+  assert.doesNotMatch(shopGrid, /Verified booking|VerifiedBookingMark/, 'the shop’s grid claims a booking its read never checked');
   const server = read('lib/couple-photo-share.server.ts');
   assert.equal((server.match(/coupleLookOf\(r, url\)/g) ?? []).length, 2, 'a card read builds its photo without the one mark rule');
 });

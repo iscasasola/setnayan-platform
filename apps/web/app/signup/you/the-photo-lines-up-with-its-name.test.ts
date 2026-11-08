@@ -117,8 +117,12 @@ test('4 · a person’s photo never says "logo"; the shop logo still does', () =
   let seen = 0;
   for (const f of files) {
     const src = stripComments(readFileSync(f, 'utf8'));
-    for (const m of src.matchAll(/<FileUpload\b[\s\S]*?\/>/g)) {
-      if (!/pathPrefix=\{`profile-photo\//.test(m[0])) continue;
+    // 🖼 Since 2026-11-06 the profile photo's upload lives in `ProfilePhotoField` (the photo + the logo's align + zoom
+    // control, owner: "yes, use the same control"), which threads the caller's words through — so the words are
+    // read at each `<ProfilePhotoField` mount, and the field's own threaded `<FileUpload` is not a mount.
+    if (f === join('app', '_components', 'profile-photo-field.tsx')) continue;
+    for (const m of src.matchAll(/<(?:FileUpload|ProfilePhotoField)\b[\s\S]*?\/>/g)) {
+      if (!/pathPrefix=\{`profile-photo\//.test(m[0]) && !m[0].startsWith('<ProfilePhotoField')) continue;
       seen += 1;
       // Either the photo row ("Your photo") or the full slot with its own words — never the logo default.
       const says = /slotSays="([^"]*)"/.exec(m[0])?.[1];
@@ -131,7 +135,8 @@ test('4 · a person’s photo never says "logo"; the shop logo still does', () =
 });
 
 test('5 · the You card: the photo row, then the Display name at full width', () => {
-  const fu = /<FileUpload\b[\s\S]*?\n\s{12}\/>/.exec(CARD)?.[0] ?? '';
+  // The photo row is the `ProfilePhotoField` mount (its upload + the one align/zoom control, owner 2026-11-06).
+  const fu = /<ProfilePhotoField\b[\s\S]*?\n\s{12}\/>/.exec(CARD)?.[0] ?? '';
   assert.ok(fu, 'the You card has no photo upload');
   assert.match(fu, /row=\{\{/, 'the You card photo is not the row');
   const after = CARD.slice(CARD.indexOf(fu) + fu.length, CARD.indexOf(fu) + fu.length + 300);

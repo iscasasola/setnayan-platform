@@ -1,4 +1,4 @@
-import { MessageCircle, Users } from 'lucide-react';
+import { Gift, MessageCircle, Users } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
@@ -21,6 +21,13 @@ import type { BadgeShelf, ShopBadge, TrackerRow, TrackerState } from '@/lib/shop
  * go · Live · Not yet · Couldn't load). Every word is composed by `lib/shop-badges.ts` (`badgeTracker`).
  * ⚠ The rating row has no bar and no goal — no ruling sets one (owner: "don't guess").
  *
+ * 🎁 REWARDS (owner 2026-11-05: *"make sure the page for the badges also show what their next badge and reward is"*;
+ * table approved 2026-11-06): under each row that pays one, short lines from the ONE reward table
+ * (`badgeRowsWithRewards`, `lib/badge-rewards.ts`) — what it already gave ("Gave you: Event Plus · in your gifts"),
+ * what the next step gives ("Next: 100 events · Gold · 4 to go → 2 × Event Plus"), and the badge's 4-week upgrade
+ * ("Also → 4 weeks of Papic Challenges · ready to start in Plan", `lib/badge-upgrades.ts`). A badge that pays nothing
+ * shows none. Moved here with the tracker from Shop › Page (#7298 was drawn on the old fold before 2026-11-06).
+ *
  * Today's "You earned …" line (`badge-earned-line.tsx`) STAYS: it announces a NEW badge once; this is where they live.
  *
  * 🖨 The badge PRINT is not here: it is a piece inside Shop › Promote › Prints (owner 2026-11-06, "the door print and
@@ -33,6 +40,7 @@ const STATE_TONE: Record<TrackerState, BadgeTone> = {
   live: 'quiet',
   not_yet: 'quiet',
   unread: 'no',
+  not_counted: 'quiet',
 };
 
 /** The tracker row's circle — the pill's own circle, alone: the mark, or the number / ★, in gold on a gold-foil ring. */
@@ -63,7 +71,10 @@ export function YourBadges({
           Couples see these on your page. Verified comes with your approved documents; the event badges climb at 10 ·
           50 · 100 · 500 · 1,000 · 5,000 · 10,000 finished events; the stars come from trusted reviews; the years from
           the year you started. Worked out live from your real bookings, reviews and years — nothing to type; a voided
-          booking takes its medal back.
+          booking takes its medal back. Each badge step pays its reward once, into your gifts, and it never expires —
+          give it to a couple on a card or a quote. Badge rewards sit outside a booking&rsquo;s gift limit. A free booking
+          fee is used by itself on your next booking that would carry a fee. A 4-week upgrade waits on your Plan page
+          until you tap Start.
         </InfoTip>
       </h2>
       <p className="mt-0.5 text-[14px] text-ink/70" data-your-badges-next="">
@@ -110,6 +121,22 @@ export function YourBadges({
                       </>
                     ) : null}
                   </div>
+                ) : null}
+                {r.reward?.gave ? (
+                  <p className="mt-1.5 flex items-start gap-1.5 text-[12.5px] font-medium text-success-700" data-badge-reward-gave="">
+                    <Gift aria-hidden className="mt-[2px] h-3.5 w-3.5 flex-none" strokeWidth={1.9} />
+                    <span className="min-w-0">{r.reward.gave}</span>
+                  </p>
+                ) : null}
+                {r.reward?.next ? (
+                  <p className="mt-1 text-[12.5px] text-ink/70" data-badge-reward-next="">
+                    {r.reward.next}
+                  </p>
+                ) : null}
+                {r.reward?.upgrade ? (
+                  <p className="mt-1 text-[12.5px] text-ink/70" data-badge-reward-upgrade="">
+                    {r.reward.upgrade}
+                  </p>
                 ) : null}
                 {r.door ? (
                   <div className="mt-2">

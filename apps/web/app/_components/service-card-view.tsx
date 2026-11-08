@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BadgeCheck, BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
+import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
 
 import {
   CardRecordSection,
@@ -178,25 +178,20 @@ export function ServiceCardView({
           a photo from a supplier the couple only added to a list shows its credit line and no mark. */}
       {c.coupleLooks && c.coupleLooks.length > 0 ? (
         <div className="mt-3" data-card-couple-looks="">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">From couples</p>
-          <ul className="mt-1.5 flex gap-2 overflow-x-auto">
+          <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-ink/55">From couples</p>
+          {/* ▦ THE APPROVED DESIGN'S `.sgrid` (For Suppliers prototype, 2026-11-06): three columns of large square photos,
+              4 px apart, the house 8 px corner (the design’s 10 px; an arbitrary radius is lint-forbidden) — not a sideways strip of 96 px thumbnails. The mark sits ON the photo (`.vbm`). */}
+          <ul className="mt-1.5 grid grid-cols-3 gap-1" data-card-couple-grid="">
             {c.coupleLooks.map((look) => (
-              <li key={look.id} className="w-24 shrink-0">
-                <div className="relative h-24 w-24 overflow-hidden rounded-lg bg-ink/5">
+              <li key={look.id} className="min-w-0">
+                <div className="relative aspect-square overflow-hidden rounded-md bg-ink/5">
                   {/* eslint-disable-next-line @next/next/no-img-element -- a couple's own photo, already a public URL */}
-                  <img src={look.url} alt={`${c.label} — shared by ${look.credit}`} className="h-full w-full object-cover" loading="lazy" />
-                  {look.verifiedBooking === true ? (
-                    <span
-                      data-card-verified-booking=""
-                      className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-0.5 rounded-full bg-cream/95 px-1 py-0.5 text-[9px] font-medium leading-none text-terracotta-700"
-                      title="This couple booked this supplier for their event — checked by Setnayan."
-                    >
-                      <BadgeCheck aria-hidden className="h-2.5 w-2.5 shrink-0" strokeWidth={2} />
-                      Verified booking
-                    </span>
-                  ) : null}
+                  <img src={look.url} alt={`${c.label} — shared by ${look.credit}`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+                  {look.verifiedBooking === true ? <VerifiedBookingMark /> : null}
                 </div>
-                <p className="mt-1 line-clamp-2 text-[11px] leading-tight text-ink/60">{look.credit}</p>
+                <p className="mt-1 truncate text-[12px] leading-tight text-ink/60" title={look.credit}>
+                  {look.credit}
+                </p>
               </li>
             ))}
           </ul>
@@ -328,6 +323,25 @@ export function ServiceCardView({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * ✓ VERIFIED BOOKING — the green pill ON the photo (the approved design's `.vbm`, For Suppliers 2026-11-06): a white
+ * plate with the house ok-green word (`--color-ok`, the design's `--ok`), bottom-left. The design draws it at 9.3 px; a public page's floor is 12 px (Guest
+ * Legibility Floor), so it is drawn at 12 px and may wrap to two lines on a narrow tile rather than shrink.
+ * Shared with the shop's own Approve grid (`couple-photos-list.tsx`) so the two can never draw two different marks.
+ * Draw it ONLY where the database said the shop is booked on the photo's event — never as decoration.
+ */
+export function VerifiedBookingMark() {
+  return (
+    <span
+      data-card-verified-booking=""
+      className="absolute bottom-1 left-1 right-1 z-[1] w-fit max-w-full rounded-lg bg-cream/95 px-1.5 py-0.5 font-sans text-[12px] font-semibold leading-[1.2] text-[rgb(var(--color-ok))] shadow-sm"
+      title="This couple booked this supplier for their event — checked by Setnayan."
+    >
+      ✓ Verified booking
+    </span>
   );
 }
 

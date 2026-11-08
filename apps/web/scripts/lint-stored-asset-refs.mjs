@@ -109,11 +109,10 @@ const FALSE_POSITIVES = new Map([
   [
     'app/open-shop/page.tsx',
     'The `logoUrl: row?.logo_url` here is the WIZARD FORM DEFAULT — the stored ' +
-      'reference the vendor saves back, seeded into useState and used for the ' +
-      'required-field check. The picture comes from `logoDisplayMap`, built ' +
-      'right above it with displayUrlForStoredAsset and passed to FileUpload as ' +
-      '`initialDisplayUrls`. Verified 2026-08-08 by reading both sides. Nothing ' +
-      'is broken on this screen.',
+      'reference a re-run posts back as a hidden `logo_url` input and the ' +
+      'required-field check reads. Since 2026-11-06 (A2) the wizard draws no logo ' +
+      'at all — it is asked on /open-shop/logo, which resolves its picture with ' +
+      'displayUrlForStoredAsset. Re-read 2026-11-06. Nothing is broken on this screen.',
   ],
 ]);
 

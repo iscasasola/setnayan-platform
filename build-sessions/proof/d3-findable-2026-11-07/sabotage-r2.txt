@@ -1,0 +1,59 @@
+== unit guard lib/an-unverified-shop-takes-messages-not-bookings.test.ts ==
+=== SABOTAGE 1: the packages Lock button back on an unverified shop (isComingSoon={isComingSoon}) ===
+1
+ok 1 - shopTakesMessages: an undecided shop takes messages — locked or not — and a closed one never does
+  ---
+ok 2 - isBookable is still verified-only — messaging never widened booking
+  ---
+ok 3 - threadShowsNotYetVerified: only a read, non-demo, not-verified row draws the line
+  ---
+not ok 4 - the shop page: message doors ask canMessage, booking doors keep bookable
+  ---
+ok 5 - the couple’s thread: the one quiet line rides the shipped head’s `below` slot, from a read row, in-app only
+  ---
+ok 6 - the server booking doors still refuse an unverified shop
+  ---
+# pass 5
+# fail 1
+# cancelled 0
+=== SABOTAGE 2: the thread line dropped from the head ===
+1
+ok 1 - shopTakesMessages: an undecided shop takes messages — locked or not — and a closed one never does
+  ---
+ok 2 - isBookable is still verified-only — messaging never widened booking
+  ---
+ok 3 - threadShowsNotYetVerified: only a read, non-demo, not-verified row draws the line
+  ---
+ok 4 - the shop page: message doors ask canMessage, booking doors keep bookable
+  ---
+not ok 5 - the couple’s thread: the one quiet line rides the shipped head’s `below` slot, from a read row, in-app only
+  ---
+  error: |-
+    the thread head does not carry the not-yet-verified line in its below slot
+ok 6 - the server booking doors still refuse an unverified shop
+  ---
+# pass 5
+# fail 1
+# cancelled 0
+=== RESTORED ===
+both files byte-identical to backup
+# pass 6
+# fail 0
+
+== db test case 10, with trigger event_vendors_require_verified_before_lock DISABLED ==
+ok 1 - the one rule: verified always, undecided until locked, never rejected/demoted/archived/frozen
+ok 2 - the verified half is exactly the old live rule (public_visibility AND verification_state verified)
+ok 3 - a couple’s first message locks an unverified shop, once; a vendor’s message does not
+ok 4 - deleting the inquiry does not unlock the shop
+ok 5 - an imported customer locks it; a couple saving the shop does not
+ok 6 - an admin lift makes it findable; the next inquiry locks it again
+ok 7 - verifying a locked shop brings it back; nothing writes is_findable by hand
+ok 8 - the marketplace view and the shop’s own view carry the rule
+ok 9 - a shop’s own session cannot unlock itself — and can still edit its own row
+not ok 10 - a couple can message an unverified shop (the first message locks it) and cannot book it
+  name: 'AssertionError'
+  expected:
+  actual: ''
+# tests 10
+# pass 9
+# fail 1

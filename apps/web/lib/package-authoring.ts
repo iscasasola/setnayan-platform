@@ -97,6 +97,11 @@ export type DraftItem = {
    * this schema has no generic quantity concept. Absent = uncapped.
    */
   maxExtraHours?: number | null;
+  /**
+   * 🔒 A SERVICE CARD LINE (the bundle maker, owner 2026-11-07): the card this line IS — a locked line, drawn from
+   * the card, never typed here. Maps to `vendor_package_items.vendor_service_id`. Absent / null = a typed line.
+   */
+  vendorServiceId?: string | null;
 };
 
 export type DraftPackage = {
@@ -105,6 +110,11 @@ export type DraftPackage = {
   consumable_budget_centavos: number;
   is_consumable_flexible: boolean;
   items: DraftItem[];
+  /**
+   * 🎁 The bundle's Gift row (lib/package-gift.ts): '' no gift · 'setnayan' · a shop gift pack's code. Absent = no
+   * gift — every caller that predates the row (the card maker's ★ Customization step) stays exactly as it was.
+   */
+  gift?: string;
 };
 
 export type DraftProblem = {
@@ -548,7 +558,9 @@ export type StructuralChange =
   | 'total_price_centavos'
   | 'consumable_budget_centavos'
   | 'is_consumable_flexible'
-  | 'items';
+  | 'items'
+  // A booked couple was promised the gift that was on the bundle when they booked — changing it is structure.
+  | 'gift';
 
 /**
  * Which structural fields a draft would change against what is stored.
@@ -572,6 +584,7 @@ export function structuralChanges(
     changed.push('consumable_budget_centavos');
   if (stored.is_consumable_flexible !== draft.is_consumable_flexible)
     changed.push('is_consumable_flexible');
+  if ((stored.gift ?? '') !== (draft.gift ?? '')) changed.push('gift');
 
   const fingerprint = (p: DraftPackage) =>
     JSON.stringify(
@@ -595,6 +608,8 @@ export function structuralChanges(
           i.pickMin ?? null,
           i.pickMax ?? null,
           i.maxExtraHours ?? null,
+          // Which card a line IS is structure too: a card line turned typed line (or another card) is a different promise.
+          i.vendorServiceId ?? null,
           [...i.options]
             .sort((a, b) => a.ref.localeCompare(b.ref))
             .map((o) => [

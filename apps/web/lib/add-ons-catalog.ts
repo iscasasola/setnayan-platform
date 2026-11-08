@@ -38,6 +38,7 @@ import {
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import type { ProfileSurface } from '@/lib/event-type-profile';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { thankYouVideoHref } from '@/lib/memories-keepsakes';
 
 /**
  * The cinema-poster look each add-on carries (motion + colours + badge tint).
@@ -240,6 +241,8 @@ export function addOnHref(key: string, eventId: string): string {
   // Papic door there that App Review must not find.
   if (key === 'papic-guest') return papicHomeHref(eventId);
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
+  // 🎬 The Thank-You Video maker lives in Memories (owner 2026-10-27, reorg R3) — `/studio/thank-you` forwards there.
+  if (key === 'thank-you') return thankYouVideoHref(eventId);
   // Features that don't own a Studio surface of their own open their real home
   // rather than a "coming soon" stub — so every Studio button lands somewhere
   // usable. `music-creator` is RETIRED (2026-07-22 · folded into Pakanta) — its

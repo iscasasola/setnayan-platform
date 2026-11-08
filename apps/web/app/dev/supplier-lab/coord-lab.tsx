@@ -38,6 +38,8 @@ import { TodayEasyLab } from './today-easy-lab';
 import { BasicSetupHold } from '@/app/vendor-dashboard/_components/basic-setup-hold';
 import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
 import { badgeShelf, badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
+import { badgeRowsWithRewards, rewardsOwed, type BadgeRewardFacts, type TrackerRewardInput } from '@/lib/badge-rewards';
+import { startableChoices, upgradesOwed } from '@/lib/badge-upgrades';
 import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 
@@ -106,6 +108,53 @@ const LAB_HOLD_CHECKLIST: BusinessProfileItem[] = [
   { key: 'services', label: 'Services covered', surface: 'profile', ok: true },
 ];
 
+/**
+ * 🎁 The lab shop's badge rewards + 4-week upgrades (owner 2026-11-05 · table approved 2026-11-06) — the lab facts run
+ * through the SAME `rewardsOwed` / `upgradesOwed` the grant sweep runs, read back as granted (upgrades still READY), so
+ * the tracker's "Gave you" / "Next" / "Also →" lines are the real composition. Tier Pro (the Plan lab shows Free).
+ */
+function coordLabRewards(f: TrackerFacts): TrackerRewardInput {
+  const tier = 'pro';
+  const facts: BadgeRewardFacts = {
+    verified: f.verified,
+    completedEvents: f.completedEvents ?? 0,
+    trustedReviews: f.trusted?.trusted_review_count ?? 0,
+    firstSourcedBooking: (f.completedEvents ?? 0) > 0,
+    branchIds: [],
+    serviceCards: (f.completedEvents ?? 0) > 0 ? 4 : 1,
+    inspirationPhotos: (f.completedEvents ?? 0) > 0 ? 12 : 0,
+    awards: [],
+  };
+  const at = (i: number) => `2026-11-0${1 + (i % 5)}T02:00:00Z`;
+  return {
+    facts,
+    granted: rewardsOwed(facts).map((o, i) => ({
+      rewardId: `lab-r${i}`,
+      key: o.key,
+      badge: o.badge,
+      kind: o.reward.kind,
+      units: o.reward.units,
+      grantedAt: at(i),
+      revokedAt: null,
+      usedAt: null,
+      usedOn: null,
+    })),
+    names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
+    awardTypeByTitle: { "Setnayan's Top Pick": 'top_pick', 'Most Booked': 'most_booked', 'Rising Star': 'rising' },
+    periodMonth: '2026-11-01',
+    tier,
+    upgrades: upgradesOwed(facts).map((o, i) => ({
+      upgradeId: `lab-u${i}`,
+      key: o.key,
+      grantedAt: at(i),
+      startable: startableChoices(o.choices, tier),
+      startedChoice: null,
+      startedAt: null,
+      endsAt: null,
+    })),
+  };
+}
+
 export function CoordLab({ state, none, unread = false, cohost = false, at, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; at?: string; actions: TodayActions }) {
   const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY, LAB_SHOP_EVENTS), labNeeds(unread));
   const bar = (
@@ -119,7 +168,7 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
       : { verified: true, completedEvents: 46, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2019, awards: [], nowYear: 2026, unreviewed: 3 };
     const shelf = badgeShelf(facts);
     // 📣🗺 The one tracker lives here since 2026-11-06 — the lab draws its rows.
-    const rows = facts ? badgeTracker(facts) : null;
+    const rows = facts ? badgeRowsWithRewards(badgeTracker(facts), coordLabRewards(facts)) : null;
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="badges">
         <h1 className="sn-h1">How is my business doing</h1>

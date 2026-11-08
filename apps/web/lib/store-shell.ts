@@ -267,7 +267,10 @@ const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;
  * shipping a store shell at all.
  */
 const WEB_ONLY_FEATURE_ROUTE =
-  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/(?:live|alaala)|panood\/(?:control|program))(?:\/|$)/;
+  /^\/(?:vendor-dashboard\/subscription|dashboard\/[^/]+\/(?:live|alaala|memories\/thank-you)|panood\/(?:control|program))(?:\/|$)/;
+// ↑ `/dashboard/<eventId>/memories/thank-you` (reorg R3, 2026-11-06) — the Thank-You Video maker moved here from
+//   `/studio/thank-you`, where `STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS` ('thank-you') refused it in the app without
+//   Apple's shop. The same answer at its new address: refused unless `IAP_OPENED_ROUTE` opens it (iap true).
 // ↑ `/dashboard/<eventId>/alaala` (2026-10-21) — the "Memories" story page: every stage on it is a
 //   chip for a paid add-on (Live Watch · Papic · Music Maker…), "free with Papic", and an "Add to
 //   your Memories" link to the More menu. Nothing links to it; a deep link in the app lands on
@@ -304,7 +307,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  *   · 🍎 (owner 2026-10-23, "five more Apple products") the homes of Setnayan AI
  *     (`studio/setnayan-ai`), Music Maker (`studio/pakanta`), Patiktok
  *     (`studio/patiktok` + its booth and templates) and the Thank-You Video
- *     (`studio/thank-you` — FREE for every event since 2026-10-26, so it opens
+ *     (`memories/thank-you` since reorg R3, was `studio/thank-you` — FREE for every event since 2026-10-26, so it opens
  *     here with no pay step at all; its Apple product is retired). Each page's ONE pay step becomes Apple's sheet
  *     (`IapUnlockSheet`) and draws no web price, no GCash / BDO and no web link
  *     when `getIapGate().iap` is true. (Mood Board is a free planning page that
@@ -317,7 +320,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  * every build while the switch is off) nothing here opens.
  */
 const IAP_OPENED_ROUTE =
-  /^\/(?:dashboard\/[^/]+\/studio\/(?:papic|panood\/cameras|setnayan-ai|pakanta|patiktok|thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
+  /^\/(?:dashboard\/[^/]+\/(?:studio\/(?:papic|panood\/cameras|setnayan-ai|pakanta|patiktok)|memories\/thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
 
 /**
  * 🍎 IS THIS ADD-ON'S DOOR HIDDEN IN THE STORE SHELL? — the ONE rule every door site asks (owner 2026-10-23: App
@@ -333,7 +336,8 @@ const IAP_OPENED_ROUTE =
  */
 export function isStoreShellHiddenAddon(key: string, iap = false): boolean {
   if (!STORE_SHELL_HIDDEN_ADDON_KEYS.has(key)) return false;
-  return !(iap && IAP_OPENED_ROUTE.test(`/dashboard/_/studio/${key}`));
+  // A key's home is `/studio/<key>` — or, since reorg R3 (2026-11-06), a Memories page (`/memories/thank-you`).
+  return !(iap && (IAP_OPENED_ROUTE.test(`/dashboard/_/studio/${key}`) || IAP_OPENED_ROUTE.test(`/dashboard/_/memories/${key}`)));
 }
 
 /**

@@ -9,6 +9,7 @@
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
 import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import {
@@ -129,8 +130,12 @@ import type { SupplierSharePayload } from '@/lib/supplier-share';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
+  PLAN_PAID_FIELD,
   PLAN_PRESENT_FIELD,
   onLockAnchorIso,
+  paidAtAddPayments,
+  planProofField,
+  type PaidAtAdd,
   partialSaveSentence,
   planInstanceSeqs,
   planInstancesToRows,
@@ -139,6 +144,7 @@ import {
 } from '@/lib/self-added-payment-plan';
 import { lastPlanReplot } from '@/lib/plan-replot';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { budgetPaymentProofPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
 import type { PayWayView } from '@/lib/self-added-pay-ways';
 import { geocodeAddressWithCity } from '@/lib/geo';
@@ -3887,9 +3893,11 @@ export async function searchMarketplaceVendorsByName(
     // nothing in the approval flow, so this search returned NOTHING for every
     // couple who typed a real shop's name; and 'coming_soon' was retired on
     // 2026-07-27 (migration 20271013500000) because under the old rules it
-    // exposed unapproved shops. Now one definition, matching the RLS.
-    .eq('public_visibility', 'verified')
-    .eq('verification_state', 'verified')
+    // exposed unapproved shops. Now one definition: since 2026-11-07 the ONE
+    // findable rule (lib/findable-shop.ts) — verified, plus shops not yet
+    // decided until their first inquiry. Demo shops keep their existing rule
+    // here (not excluded), unchanged.
+    .match(FINDABLE_SHOP_GATE)
     .order('business_name', { ascending: true })
     .limit(16); // Over-fetch — filter event-vendors below, then slice to 8.
 
@@ -5473,6 +5481,8 @@ export type AddManualSupplierResult =
       warning?: string;
       /** Their claim link, when the call asked for it (`with_link=1`). `null` = it could not be made. */
       invite?: SupplierInviteView;
+      /** The lines ticked "Already paid", as logged on `event_vendor_payments` (makers-match § 1). */
+      paid?: Array<PaidAtAdd & { withProof: boolean }>;
     }
   | { status: 'not_signed_in' }
   | { status: 'error'; message: string };
@@ -5556,8 +5566,18 @@ export async function addManualSupplier(
   // 5 · The payment plan. Skipped entirely when the sheet sent no rows — a
   //     couple who has not agreed terms yet must not be blocked from adding
   //     the supplier, and `buildCouplePaymentPlan` would refuse an empty set.
+  //     ⚖ A row counts when it carries an amount or a day (2026-11-07). The add sheet starts with two NAMED lines
+  //     ("Reservation", "Balance") and nothing else — left as they are, the couple agreed no terms here, and refusing
+  //     them would greet a plain add with "every payment needs an amount".
   const planLabels = formData.getAll('plan_label');
-  const hasPlanRows = planLabels.some((l) => typeof l === 'string' && l.trim().length > 0);
+  const filledAt = (k: string, i: number) => {
+    const v = formData.getAll(k)[i];
+    return typeof v === 'string' && v.trim().length > 0;
+  };
+  const hasPlanRows = planLabels.some(
+    (l, i) => typeof l === 'string' && l.trim().length > 0 && (filledAt('plan_value', i) || filledAt('plan_anchor', i)),
+  );
+  let planSaved = false;
   if (hasPlanRows) {
     try {
       const planFd = new FormData();
@@ -5567,6 +5587,7 @@ export async function addManualSupplier(
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
+      planSaved = true;
     } catch (e) {
       // 🔑 THIS ONE CARRIES ITS REASON. A plan is refused for a reason the
       // couple can act on — "your payments add up to ₱60,000 of ₱80,000" —
@@ -5574,6 +5595,69 @@ export async function addManualSupplier(
       // only sentence that tells them what to fix.
       const msg = e instanceof Error ? e.message : '';
       warnings.push(msg && !msg.startsWith('An error occurred') ? msg : 'the payment plan');
+    }
+  }
+
+  // 5b · "ALREADY PAID" (makers-match § 1, owner 2026-11-07). Each ticked line is logged as the SAME
+  //      `event_vendor_payments` row the workspace's `logPayment` writes — amount · paid_at · proof_r2_key ·
+  //      schedule_instance_seq — on the instalment the plan just saved it as (`paidAtAddPayments`; the amount is the
+  //      saved instalment's, read back by seq). No new column. A self-added supplier is off-platform, so `logPayment`'s
+  //      first-payment door and handshake gate (both about Setnayan suppliers) do not apply. Under the couple's own RLS.
+  //      The receipt is optional evidence: one that cannot be stored costs the receipt, never the payment.
+  let paid: Array<PaidAtAdd & { withProof: boolean }> | undefined;
+  const ticked = formData.getAll(PLAN_PAID_FIELD).some((v) => v === '1');
+  if (ticked && !planSaved) {
+    warnings.push('the payments you marked paid (the plan did not save, so there was no payment to mark)');
+  } else if (ticked) {
+    try {
+      const supabase = await createClient();
+      const { data: planRow, error: planErr } = await supabase
+        .from('event_vendor_payment_plan')
+        .select('instances_json')
+        .eq('event_id', eventId)
+        .eq('event_vendor_id', eventVendorId)
+        .maybeSingle();
+      if (planErr) throw new Error(planErr.message);
+      const lines = paidAtAddPayments({
+        labels: planLabels,
+        values: formData.getAll('plan_value'),
+        seqs: formData.getAll('plan_seq'),
+        paid: formData.getAll(PLAN_PAID_FIELD),
+        instances: (planRow as { instances_json?: unknown } | null)?.instances_json,
+      });
+      const today = manilaTodayIso();
+      const logged: Array<PaidAtAdd & { withProof: boolean }> = [];
+      let proofLost = false;
+      for (const line of lines) {
+        let proofR2Key: string | null = null;
+        const file = formData.get(planProofField(line.index));
+        if (file && typeof file !== 'string' && file.size > 0) {
+          const up = await uploadDepositProof(eventId, file);
+          if (up.ok && parseClientRef(up.ref, budgetPaymentProofPolicy(eventId))) proofR2Key = up.ref;
+          else proofLost = true;
+        }
+        const { error: payErr } = await supabase.from('event_vendor_payments').insert({
+          event_id: eventId,
+          vendor_id: eventVendorId,
+          line_item_id: null,
+          amount_php: line.amountPhp,
+          paid_at: today,
+          method: null,
+          reference: null,
+          notes: null,
+          proof_r2_key: proofR2Key,
+          schedule_instance_seq: line.seq,
+        });
+        if (payErr) throw new Error(payErr.message);
+        logged.push({ ...line, withProof: proofR2Key != null });
+      }
+      paid = logged;
+      if (proofLost) warnings.push('a payment proof (the payment itself is logged)');
+      if (lines.length < formData.getAll(PLAN_PAID_FIELD).filter((v) => v === '1').length) {
+        warnings.push('a payment you marked paid that has no amount in the plan');
+      }
+    } catch {
+      warnings.push('the payments you marked paid');
     }
   }
 
@@ -5617,7 +5701,9 @@ export async function addManualSupplier(
   }
 
   const withLink = (r: AddManualSupplierResult): AddManualSupplierResult =>
-    r.status === 'ok' && invite !== undefined ? { ...r, invite } : r;
+    r.status === 'ok'
+      ? { ...r, ...(invite !== undefined ? { invite } : {}), ...(paid && paid.length > 0 ? { paid } : {}) }
+      : r;
   if (warnings.length === 0) return withLink(ok());
   return withLink(
     ok(`Added — but we could not save ${warnings.join(' and ')}. Open their page to finish.`),

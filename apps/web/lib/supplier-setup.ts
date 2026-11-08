@@ -122,6 +122,10 @@ export type SetupInput = {
   offer: OfferProgress | null;
   docs: SetupDocs;
   shopName: string | null;
+  /** The shop's web address, for "Name your shop"'s line ("Banawe Florals · setnayan.com/banaweflorals"). */
+  slug?: string | null;
+  /** The main service's display name, for "What you offer"'s line ("Photography · no card yet"). */
+  serviceLabel?: string | null;
 };
 
 export type SetupView = {
@@ -132,8 +136,14 @@ export type SetupView = {
   firstOpen: SetupFoldKey | null;
 };
 
-const NAME_KEYS = DETAILS_CHECKLIST_KEYS.name.filter((k) => k !== 'logo');
-const DETAIL_KEYS = [...DETAILS_CHECKLIST_KEYS.what, ...DETAILS_CHECKLIST_KEYS.where, ...DETAILS_CHECKLIST_KEYS.contact];
+/**
+ * 📅 "In business since" moved from step 1 to step 2 on 2026-11-06 (owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS
+ * ANSWERED": the year LEAVES the sign-up door; Your details asks it). Left under "Name your shop", a shop that had
+ * just named itself could never see that step ✓ — the one box the door no longer asks would hold it open forever.
+ */
+const SINCE_KEY = 'in_business_since_year';
+const NAME_KEYS = DETAILS_CHECKLIST_KEYS.name.filter((k) => k !== 'logo' && k !== SINCE_KEY);
+const DETAIL_KEYS = [SINCE_KEY, ...DETAILS_CHECKLIST_KEYS.what, ...DETAILS_CHECKLIST_KEYS.where, ...DETAILS_CHECKLIST_KEYS.contact];
 
 /** The checklist rows a fold edits — the Your-details groups, cut the prototype's way (the name apart). */
 export function setupChecklistKeys(key: 'name' | 'details' | 'logo'): readonly string[] {
@@ -141,8 +151,14 @@ export function setupChecklistKeys(key: 'name' | 'details' | 'logo'): readonly s
 }
 
 function allIn(checklist: readonly BusinessProfileItem[], keys: readonly string[]): boolean {
+  const m = meterOf(checklist, keys);
+  return m.total > 0 && m.done >= m.total;
+}
+
+/** How many of a step's own rows are in — the SAME count its ✓ is decided from, so the two can never disagree. */
+function meterOf(checklist: readonly BusinessProfileItem[], keys: readonly string[]): { done: number; total: number } {
   const mine = checklist.filter((i) => keys.includes(i.key));
-  return mine.length > 0 && mine.every((i) => i.ok);
+  return { done: mine.filter((i) => i.ok).length, total: mine.length };
 }
 
 export function assembleSetup(input: SetupInput): SetupView {
@@ -156,14 +172,25 @@ export function assembleSetup(input: SetupInput): SetupView {
         ? { word: 'Checking', tone: 'wait' }
         : status === 'rejected'
           ? { word: 'Needs a fix', tone: 'no' }
-          : { word: `${formatCount(input.docs.docsIn)} of ${formatCount(input.docs.docsTotal)} in`, tone: 'quiet' };
+          : input.docs.docsIn === 0
+            ? { word: 'none sent yet', tone: 'quiet' }
+            : { word: `${formatCount(input.docs.docsIn)} of ${formatCount(input.docs.docsTotal)} in`, tone: 'quiet' };
   const offer = input.offer;
+  // ✓ ONLY WHEN ITS OWN METER IS FULL (owner 2026-11-06, the redesign's Today): "Your details" shows "7 of 8 in" —
+  // the count of ITS rows — and is ticked from that same count, never from a different one.
+  const details = meterOf(input.checklist, DETAIL_KEYS);
+  const detailsDone = details.total > 0 && details.done >= details.total;
+  const cardCount = offer ? offer.services.reduce((n, s) => n + s.cards.length, 0) : 0;
+  const cardWord = cardCount === 0 ? 'no card yet' : `${formatCount(cardCount)} card${cardCount === 1 ? '' : 's'}`;
   const folds: SetupFold[] = [
     {
       key: 'name',
       n: 1,
       title: 'Name your shop',
-      line: input.shopName?.trim() || 'What couples call you',
+      // The prototype's line: the name and the page address it became.
+      line:
+        [input.shopName?.trim() || null, input.slug ? `setnayan.com/${input.slug}` : null].filter(Boolean).join(' · ') ||
+        'What couples call you',
       done: allIn(input.checklist, NAME_KEYS),
       badge: null,
     },
@@ -171,23 +198,26 @@ export function assembleSetup(input: SetupInput): SetupView {
       key: 'details',
       n: 2,
       title: 'Your details',
-      line: 'What you do · where · how couples reach you',
-      done: allIn(input.checklist, DETAIL_KEYS),
-      badge: null,
+      line: 'Address, contact, the year you started',
+      done: detailsDone,
+      badge: detailsDone || details.total === 0
+        ? null
+        : { word: `${formatCount(details.done)} of ${formatCount(details.total)} in`, tone: 'quiet' },
     },
     {
       key: 'logo',
       n: 3,
       title: 'Add your logo',
-      line: 'Shows on your page and cards',
+      line: 'Shows on your page and your QR',
       done: step('logo')?.state === 'done',
-      badge: null,
+      badge: step('logo')?.state === 'done' ? null : { word: 'Needed to go live', tone: 'quiet' },
     },
     {
       key: 'offer',
       n: 4,
       title: 'What you offer',
-      line: 'At least 3 cards per service — Good · Better · Best',
+      // "Photography · no card yet" (the prototype) — the Good · Better · Best rule is the badge's "N to go".
+      line: input.serviceLabel ? `${input.serviceLabel} · ${cardWord}` : 'At least 3 cards per service — Good · Better · Best',
       done: step('service_card')?.state === 'done',
       badge: offer === null ? { word: 'Couldn’t load', tone: 'no' } : offer.toGo > 0 ? { word: toGoWord(offer.toGo), tone: 'wait' } : null,
     },
@@ -195,7 +225,7 @@ export function assembleSetup(input: SetupInput): SetupView {
       key: 'docs',
       n: 5,
       title: 'Send your documents',
-      line: 'DTI or SEC · BIR · permit · bank proof',
+      line: 'Setnayan checks them before you go live',
       // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing").
       done: step('documents')?.state === 'done' || checking,
       badge: docsBadge,
@@ -204,7 +234,7 @@ export function assembleSetup(input: SetupInput): SetupView {
       key: 'qr',
       n: 6,
       title: 'Your QR + days off',
-      line: 'Share it · mark days you can’t take',
+      line: 'Show your QR to the next couple · mark days you are not available',
       done: step('not_available')?.state === 'done',
       badge: null,
     },

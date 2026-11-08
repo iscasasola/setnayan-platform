@@ -19,7 +19,8 @@ import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
-import { FileUpload } from '@/app/_components/file-upload';
+import { ProfileIdentityTile } from './_components/profile-identity-tile';
+import { readProfilePhotoFrame } from '@/lib/picture-frame';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
 import { DASHBOARD_TAGALOG_READY } from '@/lib/i18n/tagalog-ready';
@@ -81,6 +82,7 @@ import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row';
 import { getIapGate } from '@/lib/request-platform';
 import { PasswordField } from '@/app/_components/password-field';
+import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
 
 export const metadata = { title: 'Profile' };
 
@@ -135,7 +137,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -464,40 +466,17 @@ export default async function ProfilePage({ searchParams }: Props) {
             no value at all) is told apart from a form without the photo. */}
         <input type="hidden" name={PRESENCE_MARKERS.profile_photo_url} value="1" />
 
-        {/* Identity card. Profile photo upload (owner directive 2026-06-12:
-            the account avatar is the account's OWN photo, never the event
-            logo). Same R2 presigned-PUT pipeline as the vendor logo. No
-            watermark: the 2026-05-21 directive covers marketplace photos, not
-            account identity. Clearing the photo nulls the column → the avatar
-            falls back to the account initial. */}
-        <div className="sn-tile grid items-center gap-5 sm:grid-cols-[11rem_minmax(0,1fr)]">
-          <FileUpload
-            bucket="media"
-            pathPrefix={`profile-photo/${user.id}`}
-            name="profile_photo_url"
-            unsavedHint="press Save below"
-            currentValue={storedPhoto}
-            initialDisplayUrls={photoDisplayMap}
-            maxSizeMB={2}
-            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-            variant="square"
-            roundPreview
-            slotSays="Add a photo"
-            help="Your avatar across the app · PNG / JPG / WebP, up to 2 MB"
-          />
-          <div className="min-w-0 text-center sm:text-left">
-            <p className="font-display text-3xl font-semibold leading-tight text-ink">
-              {displayName ?? 'Add your name'}
-            </p>
-            {tag || composedFormalName ? (
-              <p className="mt-1.5 text-sm text-ink/70">
-                {tag ? <span className="font-semibold text-terracotta-700">{tag}</span> : null}
-                {tag && composedFormalName ? ' · ' : null}
-                {composedFormalName}
-              </p>
-            ) : null}
-          </div>
-        </div>
+        {/* Identity card — the photo (with its align + zoom, the shop logo's ONE control; owner 2026-11-06:
+            "yes, use the same control") beside the name. It posts with this form's Save, like the photo. */}
+        <ProfileIdentityTile
+          userId={user.id}
+          storedPhoto={storedPhoto}
+          photoDisplayMap={photoDisplayMap}
+          frame={readProfilePhotoFrame(profile)}
+          displayName={displayName}
+          tag={tag}
+          composedFormalName={composedFormalName}
+        />
 
         <div className="sn-tile space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
@@ -1171,6 +1150,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="New password" htmlFor="new_password">
                   <PasswordField
+                    mode="new"
+                    personal={[user.email, profile?.display_name, profile?.first_name, profile?.last_name]}
+                    leaked={search.error ? decodeURIComponent(search.error) === LEAKED_PASSWORD_MESSAGE : false}
                     id="new_password"
                     name="new_password"
                     required

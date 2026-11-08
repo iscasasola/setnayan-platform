@@ -30,6 +30,8 @@ import { planningTodoHref } from '@/lib/checklist-anchor';
 import { dateFinderHref } from '@/lib/home-date-finder';
 import { budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { releaseOpen, type HomeScheduleFacts } from '@/lib/home-schedule';
+import { guestsViewHref } from '@/lib/guests-views';
+import { findBoardHref } from '@/lib/find-inspiration';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
@@ -153,6 +155,11 @@ export type HomeGuestsCounts = {
   declined: number;
   /** `rosterStats().total` — guests who count toward the event. */
   total: number;
+  /**
+   * 🪑 Guests › Seats' own "Unseated" (`unseatedCount`: no seat and not declined) — the seat plan moved to Guests (R4).
+   * null/absent = no seat plan yet (no tables), so no line; 'unread' = the plan's read failed (said, never 0).
+   */
+  unseated?: number | 'unread' | null;
 };
 
 export type HomeHubFacts = {
@@ -176,6 +183,11 @@ export type HomeSuppliersFacts = {
   toDecide: Array<{ name: string; vendorId: string }>;
   /** Suppliers who answered and wait on the couple — `standingRollUp` ("2 suppliers replied"). */
   replied: number;
+  /**
+   * 💡 The inspiration board in Suppliers › Find (R5, `readFindInspiration`): its photos and parts. Absent = not read for
+   * this viewer; 'unread' = the read failed (said, never 0).
+   */
+  inspiration?: { photos: number; parts: number } | 'unread' | null;
 };
 
 export type HomeChecklistFacts = {
@@ -581,6 +593,20 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
         action: { icon: 'mail', label: 'Send the invitations', href: `/dashboard/${e}/guests/send`, main: input.next.kind === 'invite' },
       });
     }
+    /* 🪑 SEATS (R4 moved the seat plan into Guests › Seats): who is coming or still to answer and has no seat yet — the
+       plan's own "Unseated" — opens Guests › Seats. No plan yet = no line; a refused read is said. */
+    if (g.unseated === 'unread') {
+      faces.push({ id: 'guests-seats-unread', big: '—', unit: 'seats', sm: 'Couldn’t load', href: guestsViewHref(e, 'seats') });
+    } else if (typeof g.unseated === 'number' && g.unseated > 0) {
+      faces.push({
+        id: 'guests-unseated',
+        big: n(g.unseated),
+        count: { value: g.unseated, format: 'int' },
+        unit: 'without a seat',
+        sm: 'Seat them in Seats',
+        href: guestsViewHref(e, 'seats'),
+      });
+    }
     if (g.declined > 0) {
       faces.push({ id: 'guests-declined', big: n(g.declined), count: { value: g.declined, format: 'int' }, unit: 'can’t come', sm: 'sent their regrets', href: `/dashboard/${e}/guests?q=declined` });
     }
@@ -702,6 +728,24 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
   }
   if (s.replied > 0) {
     faces.push({ id: 'sup-replied', big: n(s.replied), count: { value: s.replied, format: 'int' }, unit: 'replied', sm: 'waiting on you', href: `/dashboard/${e}/vendors?tab=shortlist` });
+  }
+  /* 💡 INSPIRATION (R5 moved the board into Suppliers › Find): the looks on the board, opening it there. */
+  const ins = s.inspiration;
+  if (ins === 'unread') {
+    faces.push({ id: 'sup-inspiration-unread', big: '—', unit: 'inspiration', sm: 'Couldn’t load your board', href: findBoardHref(e) });
+  } else if (ins) {
+    faces.push(
+      ins.photos > 0
+        ? {
+            id: 'sup-inspiration',
+            big: n(ins.photos),
+            count: { value: ins.photos, format: 'int' },
+            unit: plural(ins.photos, 'look on your board', 'looks on your board'),
+            sm: plural(ins.parts, `${n(ins.parts)} part`, `${n(ins.parts)} parts`),
+            href: findBoardHref(e),
+          }
+        : { id: 'sup-inspiration', big: '0', count: { value: 0, format: 'int' }, unit: 'looks on your board', sm: 'Save the looks you love', href: findBoardHref(e) },
+    );
   }
   return { key: 'sup', label: 'Suppliers', door: `/dashboard/${e}/vendors`, failed: false, span: false, today: isToday, faces };
 }
@@ -921,6 +965,10 @@ export function composeHomeControl(i: {
   countdownDoor?: string;
   /** 🔑 Access asks waiting (`accessAsksWaiting`); absent = not read for this viewer. */
   asks?: number | 'unread' | null;
+  /** 🪑 Guests › Seats' unseated count (`homeUnseated`); absent = not read. */
+  unseated?: number | 'unread' | null;
+  /** 💡 The inspiration board's counts (`readHomeInspiration`); absent = not read. */
+  inspiration?: { photos: number; parts: number } | 'unread' | null;
 }): HomeControlInput {
   const hasDate = i.days.value !== '—';
   return {
@@ -931,10 +979,10 @@ export function composeHomeControl(i: {
       i.needs.guestList === false
         ? null
         : i.roster
-          ? { coming: i.roster.yes, noReply: i.roster.none, toInvite: i.roster.toInvite, declined: i.roster.no, total: i.roster.total }
+          ? { coming: i.roster.yes, noReply: i.roster.none, toInvite: i.roster.toInvite, declined: i.roster.no, total: i.roster.total, unseated: i.unseated ?? null }
           : 'unread',
     hub: i.hub,
-    suppliers: i.suppliers,
+    suppliers: i.suppliers && i.suppliers !== 'unread' ? { ...i.suppliers, inspiration: i.inspiration ?? null } : i.suppliers,
     // 'hidden' = the budget is not shared with this viewer: ABSENT, never "—". null = the read failed: SAID.
     budget:
       i.needs.suppliers === false || i.money === 'hidden'

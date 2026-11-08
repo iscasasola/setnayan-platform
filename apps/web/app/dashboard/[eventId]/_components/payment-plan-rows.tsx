@@ -41,7 +41,15 @@ import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2, X } from 'lucide-react
 // inspects functions NAMED like converters; the rule is the intent, not the
 // scan's reach.
 import { formatPhp } from '@/lib/php';
-import { PLAN_PRESENT_FIELD, planAmountNumber, planPreviewTotal, type EditablePlanRow } from '@/lib/self-added-payment-plan';
+import { formatCount } from '@/lib/format-number';
+import {
+  PLAN_PAID_FIELD,
+  PLAN_PRESENT_FIELD,
+  planAmountNumber,
+  planPreviewTotal,
+  planProofField,
+  type EditablePlanRow,
+} from '@/lib/self-added-payment-plan';
 import {
   addsUpLine,
   amountWords,
@@ -56,6 +64,10 @@ import { replotAmounts } from '@/lib/plan-replot';
 import { formatPesoTyping } from '@/lib/peso-as-you-type';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ChosenProofField } from '@/app/_components/chosen-proof-field';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { LINES_BOX_CLASS, LINE_INPUT_CLASS, LineGrip } from './sheet-lines';
 
 /** The amount type's two choices — the one dropdown (`PickMenu`), as values are (2026-10-12 look sweep). */
 const KIND_OPTIONS = [
@@ -117,6 +129,13 @@ export type DatedPlanSetup = {
   lastReplot?: { fromPhp: number; toPhp: number } | null;
   /** The closed fold's one line ("2 payments · adds up") follows the rows. */
   onLine?: (line: string, warn: boolean) => void;
+  /**
+   * THE ADD SHEET'S "ALREADY PAID" (owner 2026-11-07, makers-match § 1). Each line gets an Already paid tick; ticked,
+   * the shipped proof field opens under it. It posts `plan_paid` per row and the proof as `plan_proof_<i>`, and
+   * `addManualSupplier` logs the line as the same `event_vendor_payments` row a later "log a payment" writes
+   * (`paidAtAddPayments`). The record card does not pass it: there a payment is logged on the Payments tab.
+   */
+  paidAtAdd?: boolean;
 };
 
 export function PaymentPlanRows({
@@ -138,6 +157,9 @@ export function PaymentPlanRows({
 /** The record card's fields — the prototype's size (14 px, 40 px tall), not the dense percent rows' 12 px. */
 const DCELL =
   'min-h-10 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60'; // no-card-ok: worn only by <input> fields
+
+/** A peso figure, or "₱ —" when there is none yet (the drawing never prints a typed ₱0). */
+const pesoOrDash = (n: number) => (n > 0 ? formatPhp(n) : '₱ —');
 
 const STARTER: ReadonlyArray<Omit<Row, 'key'>> = [
   { label: 'First payment', kind: 'percent', value: '50', anchor: 'on_lock', days: '0' },
@@ -165,6 +187,9 @@ function DatedPlanRows({
     }),
   );
   const [nextKey, setNextKey] = useState(rows.length);
+  /** The lines ticked "Already paid" (the add sheet only), by row key. */
+  const [paidKeys, setPaidKeys] = useState<ReadonlySet<number>>(() => new Set());
+  const paidAtAdd = setup.paidAtAdd === true;
   /** "Price changed ₱A → ₱B · plan updated" — the newest kept plan, or the re-plot this card just made. */
   const [replot, setReplot] = useState<{ fromPhp: number; toPhp: number } | null>(setup.lastReplot ?? null);
 
@@ -214,7 +239,26 @@ function DatedPlanRows({
     ]);
     setNextKey((k) => k + 1);
   }
+  /** The add sheet's swipe-away (makers-match § 1): a payment line leaves with Undo, never through a row button. */
+  const [removed, setRemoved] = useState<{ n: number; text: string; undo: () => void } | null>(null);
+  function swipeAway(key: number, place: number) {
+    const at = rows.findIndex((x) => x.key === key);
+    const gone = rows[at];
+    if (!gone) return;
+    const wasPaid = paidKeys.has(key);
+    setRows((cur) => cur.filter((x) => x.key !== key));
+    setRemoved({
+      n: Date.now(),
+      text: `Payment ${place + 1} removed`,
+      undo: () => {
+        setRemoved(null);
+        setRows((cur) => (cur.some((x) => x.key === key) ? cur : [...cur.slice(0, at), gone, ...cur.slice(at)]));
+        if (wasPaid) setPaidKeys((cur) => new Set(cur).add(key));
+      },
+    });
+  }
   const line = addsUpLine(rows, totalPhp, formatPhp);
+  const paidCount = rows.filter((x) => paidKeys.has(x.key)).length;
   const onLine = setup.onLine;
   const foldLine =
     rows.length === 0
@@ -237,6 +281,148 @@ function DatedPlanRows({
           No payments yet · add the ones you agreed.
         </p>
       ) : null}
+      {paidAtAdd ? (
+        <>
+          {/* THE ADD SHEET'S PAYMENT LINES (makers-match § 1, `.line.pay2`): one box of lines — name, then due date ·
+              amount, then "Already paid" with its optional proof. A line swipes left to remove, with Undo. The posted
+              fields are exactly the record card's (`plan_*` per row, in shown order). */}
+          {shown.length > 0 ? (
+            <ul className={LINES_BOX_CLASS} data-plan-add-lines="">
+              {shown.map((r, i) => {
+                const rule = postedRule(r, dates, totalPhp);
+                const unreachable = r.dueIso !== '' && !dateToAnchor(r.dueIso, dates);
+                const paid = paidKeys.has(r.key);
+                return (
+                  <SwipeToDelete
+                    key={r.key}
+                    as="li"
+                    label={`Remove payment ${i + 1}`}
+                    word="Remove"
+                    disabled={disabled}
+                    radiusClass="rounded-none"
+                    onDelete={() => swipeAway(r.key, i)}
+                  >
+                    <div className="flex" data-plan-row="" data-plan-paid-at-add={paid ? 'paid' : ''}>
+                      <input type="hidden" name="plan_kind" value={rule.kind} />
+                      <input type="hidden" name="plan_value" value={rule.value} />
+                      <input type="hidden" name="plan_anchor" value={rule.anchor} />
+                      <input type="hidden" name="plan_days" value={rule.days} />
+                      <input type="hidden" name="plan_seq" value={r.seq == null ? '' : String(r.seq)} />
+                      <input type="hidden" name={PLAN_PAID_FIELD} value={paid ? '1' : ''} />
+                      <LineGrip />
+                      <div className="min-w-0 flex-1">
+                        <input // field-ok: one cell of a payment LINE (makers-match § 1) — the line swipes away (SwipeToDelete), which a Form row cannot
+                          type="text"
+                          name="plan_label"
+                          value={r.label}
+                          disabled={disabled}
+                          maxLength={60}
+                          placeholder="First payment"
+                          aria-label={`Payment ${i + 1} name`}
+                          onChange={(e) => patch(r.key, { label: e.target.value })}
+                          className={`${LINE_INPUT_CLASS} border-b border-ink/10 pr-3`}
+                        />
+                        <div className="grid grid-cols-[minmax(0,1fr)_112px] border-b border-ink/10">
+                          <input
+                            type="date"
+                            value={r.dueIso}
+                            disabled={disabled}
+                            aria-label={`Payment ${i + 1} due date`}
+                            onChange={(e) => patch(r.key, { dueIso: e.target.value })}
+                            className={`${LINE_INPUT_CLASS} pr-2 ${r.dueIso ? '' : 'text-ink/45'}`}
+                          />
+                          <span className="relative border-l border-ink/10">
+                            <span aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-ink/45">₱</span>
+                            <input // field-ok: the amount cell of a payment LINE — same line, same swipe
+                              type="text"
+                              inputMode="decimal"
+                              value={r.amount}
+                              disabled={disabled}
+                              placeholder="—"
+                              aria-label={`Payment ${i + 1} amount`}
+                              onChange={(e) => {
+                                // 💱 Commas as it is typed — the record card's own handler (owner 2026-10-30).
+                                const el = e.target;
+                                const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length);
+                                patch(r.key, { amount: f.text });
+                                requestAnimationFrame(() => {
+                                  try {
+                                    el.setSelectionRange(f.caret, f.caret);
+                                  } catch {
+                                    /* the row was removed */
+                                  }
+                                });
+                              }}
+                              className={`${LINE_INPUT_CLASS} pl-6 pr-3 text-right font-mono text-[13px] tabular-nums`}
+                            />
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 py-1.5 pr-3">
+                          <label className="inline-flex min-h-10 cursor-pointer items-center gap-2.5 text-[14px] text-ink">
+                            <input
+                              type="checkbox"
+                              checked={paid}
+                              disabled={disabled}
+                              onChange={(e) => {
+                                const on = e.target.checked;
+                                setPaidKeys((cur) => {
+                                  const next = new Set(cur);
+                                  if (on) next.add(r.key);
+                                  else next.delete(r.key);
+                                  return next;
+                                });
+                              }}
+                              className="h-5 w-5 shrink-0 rounded-md accent-[rgb(var(--color-ink))]"
+                              aria-label={`Payment ${i + 1} already paid`}
+                            />
+                            Already paid
+                          </label>
+                          {paid ? (
+                            /* The shipped receipt field — the file rides this form to `addManualSupplier`, which files
+                               it in the event's private payment-proof folder (`uploadDepositProof`). Optional: a tick
+                               alone logs the payment. */
+                            <ChosenProofField
+                              name={planProofField(i)}
+                              id={`plan-proof-${r.key}`}
+                              label="Proof of payment (optional — screenshot/receipt)"
+                              look="button"
+                            />
+                          ) : null}
+                          {r.dueIso === '' && r.amount.trim() !== '' ? (
+                            <p className="text-[11.5px] text-warn-800">Pick the day it is due.</p>
+                          ) : unreachable ? (
+                            <p className="text-[11.5px] text-warn-800">
+                              Pick a day from {dates.lockIso} on — or set your event date first.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </SwipeToDelete>
+                );
+              })}
+            </ul>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {rows.length < MAX_ROWS ? (
+              <ActionButton tone="neutral" icon={Plus} label="Add a payment" onClick={add} disabled={disabled} />
+            ) : null}
+            {rows.length > 0 ? <span className="text-[12.5px] text-ink/55">Swipe a payment left to remove it.</span> : null}
+          </div>
+          {removed ? (
+            <PeekToast
+              key={removed.n}
+              tone="ok"
+              data="payment-removed"
+              onGone={() => setRemoved((t) => (t?.n === removed.n ? null : t))}
+              action={{ label: 'Undo', onPress: removed.undo }}
+            >
+              {removed.text}
+            </PeekToast>
+          ) : null}
+        </>
+      ) : (
+      <>
       <ul className="space-y-1.5">
         {shown.map((r, i) => {
           const rule = postedRule(r, dates, totalPhp);
@@ -313,9 +499,9 @@ function DatedPlanRows({
                 </span>
               </div>
               {r.dueIso === '' && !r.settled ? (
-                <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">Pick the day it is due.</p>
+                <p className="mt-1 text-[11.5px] text-warn-800">Pick the day it is due.</p>
               ) : unreachable ? (
-                <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">
+                <p className="mt-1 text-[11.5px] text-warn-800">
                   Pick a day from {dates.lockIso} on — or set your event date first.
                 </p>
               ) : null}
@@ -327,13 +513,28 @@ function DatedPlanRows({
       {rows.length < MAX_ROWS ? (
         <ActionButton tone="neutral" icon={Plus} label="Add a payment" onClick={add} disabled={disabled} />
       ) : null}
+      </>
+      )}
 
-      <p
-        data-plan-adds-up=""
-        className={`border-t border-ink/10 pt-2 text-[12.5px] font-medium ${line.off ? 'text-[rgb(var(--color-warn))]' : 'text-ink/65'}`}
-      >
-        {line.text}
-      </p>
+      {paidAtAdd ? (
+        /* The drawing's `.sum` (makers-match § 1): "2 payments · 1 already paid" · "₱— of ₱—" — a blank reads ₱ —. */
+        <p data-plan-adds-up="" className={`flex justify-between gap-2.5 pt-1 text-[13.5px] ${line.off && totalPhp ? 'text-[rgb(var(--color-warn))]' : 'text-ink/70'}`}>
+          <span>
+            {rows.length} {rows.length === 1 ? 'payment' : 'payments'}
+            {paidCount > 0 ? ` · ${formatCount(paidCount)} already paid` : ''}
+          </span>
+          <b className="font-semibold text-ink">
+            {pesoOrDash(rows.reduce((a, x) => a + (Number.isFinite(planAmountNumber(x.amount)) ? planAmountNumber(x.amount) : 0), 0))} of {pesoOrDash(totalPhp ?? 0)}
+          </b>
+        </p>
+      ) : (
+        <p
+          data-plan-adds-up=""
+          className={`border-t border-ink/10 pt-2 text-[12.5px] font-medium ${line.off ? 'text-[rgb(var(--color-warn))]' : 'text-ink/65'}`}
+        >
+          {line.text}
+        </p>
+      )}
     </div>
   );
 }

@@ -14,16 +14,23 @@ import { formatPhp } from '@/lib/orders';
 import { ThankYouMaker, type ThankYouSaveCheckout } from './_components/thank-you-maker';
 import { getIapGate } from '@/lib/request-platform';
 import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
+import { thankYouVideoHref } from '@/lib/memories-keepsakes';
 
 const SKU_CODE = 'PAPIC_ADDON_THANK_YOU';
 /** Name + promise from the one catalogue record every Studio row reads. */
 const HERO = addOnHeroCopy('thank-you');
 
-export const metadata = { title: 'Thank-You Video · Studio' };
+export const metadata = { title: 'Thank-You Video · Memories' };
 export const dynamic = 'force-dynamic';
 
 /**
- * /dashboard/[eventId]/studio/thank-you — the Thank-You Video maker.
+ * /dashboard/[eventId]/memories/thank-you — the Thank-You Video maker.
+ *
+ * 🎬 ITS HOME IS MEMORIES (owner 2026-10-27, DECISION_LOG "THE THANK-YOU VIDEO MOVES TO MEMORIES", R3 of
+ * `EVENT_MENU_REORG_BUILD_PLAN_2026-10-27.md`): the page moved whole from `/studio/thank-you`, next to the event's
+ * gallery — Memories' keepsake row (Thank You) is its door. The old address forwards here in the middleware
+ * (`lib/legacy-redirects.ts`, owner 2026-10-28 *"all mapping will be kept"*), held by
+ * `lib/r3-thank-you-forwards.test.ts`.
  *
  * ─── WHY THIS PAGE EXISTS ──────────────────────────────────────────────────
  * `PAPIC_ADDON_THANK_YOU` has been on sale at ₱2,499 since 2026-07-10 with **no
@@ -68,7 +75,7 @@ export default async function ThankYouVideoPage({
 }) {
   const { eventId } = await params;
   const user = await getCurrentUser();
-  if (!user) redirect(`/login?next=/dashboard/${eventId}/studio/thank-you`);
+  if (!user) redirect(`/login?next=${thankYouVideoHref(eventId)}`);
 
   const supabase = await createClient();
 

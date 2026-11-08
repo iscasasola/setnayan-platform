@@ -42,7 +42,8 @@ const MIGRATION = join(
   REPO,
   'supabase',
   'migrations',
-  '20270920602517_guest_capture_restore_ugc_gates.sql',
+  // The LATEST definition of the function (the Unlock pass came out here).
+  '20271309535584_papic_unlock_and_seats_pack_come_off.sql',
 );
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -69,7 +70,6 @@ test('every write to v_unlimited in the RPC has an entry in the TS rule', () => 
   );
 
   const tsDisjuncts = papicGuestCapLifts({
-    hasUnlock: false,
     poolApplies: false,
     poolUnknown: false,
   }).length;
@@ -86,11 +86,10 @@ test('every write to v_unlimited in the RPC has an entry in the TS rule', () => 
 
 test('the pool disjunct is really wired — the half that was missing', () => {
   // Each input alone must lift the cap, or the OR has lost a term.
-  assert.equal(papicGuestCapApplies({ hasUnlock: true, poolApplies: false, poolUnknown: false }), false);
-  assert.equal(papicGuestCapApplies({ hasUnlock: false, poolApplies: true, poolUnknown: false }), false);
+  assert.equal(papicGuestCapApplies({ poolApplies: true, poolUnknown: false }), false);
   // Nothing true → the ceiling binds. This is the ONLY shape that still caps,
   // and a celebration in it must behave exactly as it did before.
-  assert.equal(papicGuestCapApplies({ hasUnlock: false, poolApplies: false, poolUnknown: false }), true);
+  assert.equal(papicGuestCapApplies({ poolApplies: false, poolUnknown: false }), true);
 });
 
 test('an unreadable pool fails OPEN — an outage is not a decision', () => {
@@ -99,28 +98,27 @@ test('an unreadable pool fails OPEN — an outage is not a decision', () => {
   // its refusal carries its own copy, so the cost of failing open is one
   // refused shot at the very end.
   assert.equal(
-    papicGuestCapApplies({ hasUnlock: false, poolApplies: false, poolUnknown: true }),
+    papicGuestCapApplies({ poolApplies: false, poolUnknown: true }),
     false,
   );
 });
 
 test('capApplies is the inverse of the mirrored rule, computed once', () => {
-  for (const hasUnlock of [false, true])
-    for (const poolApplies of [false, true])
-      for (const poolUnknown of [false, true]) {
-        const i = { hasUnlock, poolApplies, poolUnknown };
-        assert.equal(
-          papicGuestCapApplies(i),
-          !papicGuestCapLifts(i).some(Boolean),
-          `capApplies drifted from the lift list at ${JSON.stringify(i)}`,
-        );
-      }
+  for (const poolApplies of [false, true])
+    for (const poolUnknown of [false, true]) {
+      const i = { poolApplies, poolUnknown };
+      assert.equal(
+        papicGuestCapApplies(i),
+        !papicGuestCapLifts(i).some(Boolean),
+        `capApplies drifted from the lift list at ${JSON.stringify(i)}`,
+      );
+    }
 });
 
 test('fetchGuestQuota asks BOTH sources and publishes capApplies', () => {
   const src = code(web('lib', 'papic-guest.ts'));
   assert.match(src, /papicGuestCapLifts\(/, 'the quota read no longer uses the shared rule');
-  assert.match(src, /eventHasPapicUnlock\(/, 'the Unlock disjunct is gone');
+  assert.doesNotMatch(src, /eventHasPapicUnlock\(/, 'the retired Unlock pass is back in the quota read');
   assert.match(src, /readEventPoolStatus\(/, 'the pool disjunct is gone from the quota read');
   assert.match(src, /capApplies/, 'GuestQuota stopped publishing capApplies');
   assert.match(src, /poolLow/, 'GuestQuota stopped publishing poolLow');

@@ -18,6 +18,7 @@ import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-co
 import { readHomeSchedule } from '@/lib/home-schedule.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
+import { homeUnseated, readHomeInspiration, readHomeSeatRows } from '@/lib/home-moved-lines.server';
 import { readHubViewers } from '@/lib/whos-here.server';
 import { hubViewsEnabled } from '@/lib/whos-here';
 import { HomeWhosHereCard } from './_components/home-cards/home-whos-here-card';
@@ -58,6 +59,7 @@ import {
 } from '@/lib/home-first-screen';
 import { homePaidFacts } from '@/lib/home-paid-services';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { thankYouVideoHref } from '@/lib/memories-keepsakes';
 import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
 import { isStoreShellHiddenAddon, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
@@ -783,6 +785,12 @@ export default async function EventHomePage({
       )
       .catch((): 'unread' => 'unread'),
   );
+  /* 🏠 THE LINES FOR WHAT MOVED (event-menu reorganisation): the seat plan's rows (R4 → Guests › Seats) and the board's
+     counts (R5 → Suppliers › Find), for the couple and their coordinator — the viewers the planning widgets are for.
+     Each read's refusal is 'unread' and its face says so. */
+  const homeMovedRead = startAhead(
+    homePlansRead.then((plans) => (plans ? Promise.all([readHomeSeatRows(supabase, eventId), readHomeInspiration(supabase, eventId)]) : null)),
+  );
   const homeChecklistRead = startAhead(
     Promise.all([homePlansRead, homeTypeProfileRead])
       .then(([plans, profile]) =>
@@ -1145,6 +1153,7 @@ export default async function EventHomePage({
   */
   // 🔑 What access asks wait — ONE read, shared by the Today line (`asks`) and its doorway below (audit 2026-11-02 #2).
   const accessAsks = await accessAsksRead;
+  const homeMoved = await homeMovedRead.catch((): ['unread', 'unread'] => ['unread', 'unread']);
   const homeControl = composeHomeControl({
     eventId,
     asks: accessAsksWaiting(accessAsks),
@@ -1167,6 +1176,10 @@ export default async function EventHomePage({
         : homeSchedule,
     // 📅 The couple's Countdown opens the Date Finder (owner 2026-10-30); a helper keeps Event Details for now.
     countdownDoor: viewerMemberType === 'couple' ? undefined : `/dashboard/${eventId}/details`,
+    // 🪑 Guests › Seats' unseated · 💡 the board in Find — absent for a viewer the planning widgets are not for.
+    ...(homeMoved
+      ? { unseated: homeUnseated(homeMoved[0], guestsMeasured ? guests : null), inspiration: homeMoved[1] }
+      : {}),
   });
   const appleThankYouEntry = ADD_ONS.find((a) => a.key === 'thank-you');
   const appleThankYouOffered = Boolean(
@@ -1255,7 +1268,7 @@ export default async function EventHomePage({
                 ? {
                     status: appleFacts.thankYouOn === null ? '—' : appleFacts.thankYouOn ? 'On' : 'Not added',
                     owned: appleFacts.thankYouOn !== false,
-                    open: `/dashboard/${eventId}/studio/thank-you`,
+                    open: thankYouVideoHref(eventId), // 🎬 R3: the maker is a Memories page
                   }
                 : null,
               // A read that failed is "—" and offers nothing — never "Not on yet" over a refusal.

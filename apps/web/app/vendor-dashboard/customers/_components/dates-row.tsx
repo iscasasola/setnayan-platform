@@ -23,6 +23,7 @@ export function DatesRow({
   strong,
   download = false,
   tour,
+  onOpen,
 }: {
   title: ReactNode;
   line?: ReactNode;
@@ -39,6 +40,9 @@ export function DatesRow({
   download?: boolean | string;
   /** 🔦 A spotlight tour's anchor token (`data-tour`). */
   tour?: string;
+  /** The row opens something in place (a sheet) instead of going somewhere — the whole row is one button. Ignored
+   *  with `href` or `end`, so a press still means one thing. */
+  onOpen?: () => void;
 }) {
   const inner = (
     <>
@@ -54,7 +58,7 @@ export function DatesRow({
         </Badge>
       ) : null}
       {end ?? null}
-      {href && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : null}
+      {href && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : onOpen && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : null}
     </>
   );
   const rowClass = 'flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';
@@ -69,6 +73,13 @@ export function DatesRow({
       >
         {inner}
       </SaveFileLink>
+    );
+  }
+  if (onOpen && !href && !end) {
+    return (
+      <button type="button" onClick={onOpen} className={`sn-press w-full text-left ${rowClass}`} data-dates-row={data ?? ''} data-tour={tour}>
+        {inner}
+      </button>
     );
   }
   return href && !end ? (

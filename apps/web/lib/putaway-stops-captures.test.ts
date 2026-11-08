@@ -8,7 +8,7 @@
  * 🪤 BOTH capture paths converge on the credit reservation
  * `papic_reserve_capture_split`, which reads like the obvious single chokepoint.
  * It is not: `recordSeatCapture` SKIPS that call entirely for an event holding
- * the "Unlock all of Papic" pass (`if (!unlocked)`), so a gate placed there
+ * the "Unlock all of Papic" pass (`if (!unlocked)`, retired 2026-11-05), so a gate placed there
  * would be **silently absent on exactly the events that paid the most**. The
  * rule therefore sits beside the capture-WINDOW gate, which every seat capture
  * passes, and again in the guest route, which shares no code path with it.
@@ -102,18 +102,19 @@ test('the seat gate is NOT hidden inside the credit reservation', () => {
   const src = code(SEAT_CAPTURE);
   /*
     🪤 THE REGRESSION THIS CATCHES is a tidy-looking refactor: moving the check
-    next to `papic_reserve_capture_split` because both paths "go through" it.
-    They do not — the Unlock pass skips that call — so the gate must appear
-    BEFORE the `if (!unlocked)` branch, not inside it.
+    next to the spend because every capture "goes through" it. A rule about the
+    EVENT belongs before the price is worked out and before the record call.
+    (This used to anchor on the Unlock pass's `if (!unlocked)` branch; that
+    branch is gone with the pass, owner 2026-11-05.)
   */
   const gateAt = src.indexOf('eventAcceptsNewCaptures(');
-  const unlockedBranchAt = src.indexOf('if (!unlocked)');
-  assert.ok(gateAt > 0 && unlockedBranchAt > 0, 'Expected both markers to be present.');
+  const priceAt = src.indexOf('meterCost = papicCaptureCost(');
+  const spendAt = src.indexOf("'papic_record_seat_capture'");
+  assert.ok(gateAt > 0 && priceAt > 0 && spendAt > 0, 'Expected all three markers to be present.');
   assert.ok(
-    gateAt < unlockedBranchAt,
-    'The put-away gate moved inside or after the `if (!unlocked)` branch. That ' +
-      'branch is skipped for an event holding the Papic Unlock pass, so the ' +
-      'rule would be silently absent on the events that paid the most.',
+    gateAt < priceAt && gateAt < spendAt,
+    'The put-away gate moved after the price or the spend — a rule about the ' +
+      'event must be asked before either.',
   );
 });
 

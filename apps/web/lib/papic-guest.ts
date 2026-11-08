@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError, isMissingRelationError } from '@/lib/supabase/error-detect';
-import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
 import { papicIsOn } from '@/lib/event-answers';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
@@ -298,7 +298,7 @@ const UNLIMITED_REMAINING = Number.MAX_SAFE_INTEGER;
  * ceiling(guest_id)` (migration 20271184624871, S2), `service_role`-only, so
  * `supabase` here MUST be the admin client. Returns null on ANY failure,
  * including 42883 function-not-found on a database that predates S2 — the
- * display side degrades exactly like eventHasPapicUnlock/readEventPoolStatus
+ * display side degrades exactly like readEventPoolStatus
  * above; the RPC's own gate (not this read) is the real enforcement.
  */
 async function readGuestSpendCeiling(
@@ -415,15 +415,14 @@ export async function fetchGuestQuota(
   eventId: string,
   guestId: string,
 ): Promise<GuestQuota> {
-  // ── BOTH DISJUNCTS, because the RPC has two ────────────────────────────
+  // ── THE POT'S YIELD, the one disjunct the RPC has ──────────────────────
   //
-  // `papic_record_guest_capture` lifts the per-guest ceiling for an active
-  // PAPIC_UNLOCK *and* for any celebration whose shared pot applies. This read
-  // used to mirror only the first, so the browser enforced a 150 the database
-  // was not applying anywhere. The rule itself lives in ONE place now —
-  // lib/papic-guest-cap.ts — with one entry per write to `v_unlimited`.
-  const [hasUnlock, poolRead, guestCeiling, ceilingSpend, shareWeight] = await Promise.all([
-    eventHasPapicUnlock(supabase, eventId).catch(() => false),
+  // `papic_record_guest_capture` lifts the per-guest number for a celebration
+  // whose shared pot applies. (An active PAPIC_UNLOCK used to lift it too; the
+  // pass is retired, owner 2026-11-05, and 20271309535584 took it out of the
+  // RPC.) The rule lives in ONE place — lib/papic-guest-cap.ts — with one entry
+  // per write to `v_unlimited`.
+  const [poolRead, guestCeiling, ceilingSpend, shareWeight] = await Promise.all([
     readEventPoolStatus(supabase, eventId).catch(() => ({
       ok: false,
       status: EVENT_POOL_ABSENT,
@@ -434,7 +433,6 @@ export async function fetchGuestQuota(
   ]);
   const poolApplies = poolRead.status.applies === true;
   const unlimitedBase = papicGuestCapLifts({
-    hasUnlock,
     poolApplies,
     // A read failure is an outage, not a decision — and it fails OPEN. See the
     // reasoning on GuestCapInputs.poolUnknown.
@@ -443,8 +441,8 @@ export async function fetchGuestQuota(
   // ── THE COUPLE'S CEILING OVERRIDES THE YIELD ────────────────────────────
   // Mirrors `v_unlimited := v_unlimited OR (pool_applies AND v_ceiling IS
   // NULL)` and the response's own `'unlimited', (v_unlimited AND v_ceiling IS
-  // NULL)` in papic_record_guest_capture: an Unlock pass or a shared pot only
-  // reports unlimited while nobody has put a number on THIS guest.
+  // NULL)` in papic_record_guest_capture: a shared pot only reports unlimited
+  // while nobody has put a number on THIS guest.
   const unlimited = unlimitedBase && guestCeiling === null;
   const capApplies = !unlimited;
   // 🔒 `poolLow` ONLY — see GuestQuota.poolLow. `poolRead.status.remainingPoints`

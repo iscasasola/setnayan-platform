@@ -986,24 +986,6 @@ export async function eventSkuActive(
 export const PAPIC_UNLOCK_SKU = 'PAPIC_UNLOCK';
 
 /**
- * Does this event own an ACTIVE (admin-approved) "Unlock all of Papic" pass? The
- * Papic ALLOWANCE-bypass reader: the per-camera day-quota gates (lib/papic-cameras
- * call sites) and the guest disposable 150-credit cap read this to switch a
- * camera/guest to "unlimited" — the deferred half of PR9 (#2269), which unlocked
- * the add-on FEATURES via BUNDLE_CHILD_SKUS.PAPIC_UNLOCK but left the metered
- * allowances in place. Active-only (paid/fulfilled) — a pending pass never lifts
- * a limit. Same graceful-degrade contract as checkOrderActive (42P01/42703 →
- * false, throws on unknown). Pass an ADMIN client on public/claimer surfaces
- * (orders RLS is purchaser-scoped).
- */
-export async function eventHasPapicUnlock(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  return checkOrderActive(supabase, eventId, PAPIC_UNLOCK_SKU);
-}
-
-/**
  * BATCH bundle-aware entitlement for a whole event — the same logic as
  * eventSkuActive (active) + eventOwnsSku's pending notion, but resolved in ONE
  * query instead of N per-SKU round-trips. Built for the Studio hub grid, which

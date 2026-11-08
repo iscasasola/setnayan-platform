@@ -5,6 +5,8 @@ import { Check } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { SidePanel } from '@/app/_components/side-panel';
+import { useMediaQuery } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
 import { nextOpenAfter, setupHeadline, type SetupFoldKey, type SetupView } from '@/lib/supplier-setup';
 
@@ -19,6 +21,13 @@ import { nextOpenAfter, setupHeadline, type SetupFoldKey, type SetupView } from 
  *     When a save makes the OPEN fold done, it ticks, the bar grows, "Saved ✓" is said and the NEXT step opens
  *     (`nextOpenAfter`) — in place, nothing reloads the screen ("no jumping").
  *
+ * 🪟 FROM 768px THE OPEN STEP IS A THIRD PANE ON THE RIGHT (owner 2026-11-06, the sign-up redesign's Today: "on
+ * tablet and desktop a pop-up is a third pane on the right, never floating; on the phone it is the bottom sheet").
+ * The pane is the shipped `SidePanel` in `CreateEventPanel`'s shape (`size="wide"`, `phone="sheet"`); the checklist
+ * stays the full width beside it and each body is the SAME shipped editor, mounted ONCE — in the pane at ≥768, in
+ * its fold below that (a fold keeps a closed body mounted, so drawing it in both would mount every form twice).
+ * Nothing opens by itself at ≥768: a modal pane on arrival would trap focus before the supplier asked for anything.
+ *
  * 🔒 app/vendor-dashboard/_components/setup-is-done-in-place.test.ts
  */
 export function SupplierSetupFolds({
@@ -32,6 +41,9 @@ export function SupplierSetupFolds({
   gear?: ReactNode;
 }) {
   const [open, setOpen] = useState<SetupFoldKey | null>(view.firstOpen);
+  const wide = useMediaQuery('(min-width: 768px)');
+  /** The step open in the right-hand pane (≥768 only). */
+  const [pane, setPane] = useState<SetupFoldKey | null>(null);
   const [saved, setSaved] = useState<number | null>(null);
   const doneBefore = useRef<Set<SetupFoldKey>>(new Set(view.folds.filter((f) => f.done).map((f) => f.key)));
   const doneKey = view.folds.map((f) => (f.done ? '1' : '0')).join('');
@@ -43,6 +55,7 @@ export function SupplierSetupFolds({
     const turned = view.folds.filter((f) => f.done && !was.has(f.key));
     if (turned.length > 0) {
       setOpen((o) => nextOpenAfter(view.folds, o, was));
+      setPane((o) => nextOpenAfter(view.folds, o, was));
       setSaved((n) => (n ?? 0) + 1);
     }
     doneBefore.current = new Set(view.folds.filter((f) => f.done).map((f) => f.key));
@@ -83,9 +96,11 @@ export function SupplierSetupFolds({
             anchor={`setup-${f.key}`}
             title={f.title}
             line={f.line}
-            open={open === f.key}
-            onOpenChange={(o) => setOpen(o ? f.key : open === f.key ? null : open)}
-            lead={<StepChip n={f.n} done={f.done} open={open === f.key} />}
+            open={wide ? false : open === f.key}
+            onOpenChange={(o) =>
+              wide ? setPane(o ? f.key : null) : setOpen(o ? f.key : open === f.key ? null : open)
+            }
+            lead={<StepChip n={f.n} done={f.done} open={wide ? pane === f.key : open === f.key} />}
             aside={
               f.badge ? (
                 <Badge tone={f.badge.tone} data={`setup-${f.key}`}>
@@ -97,11 +112,31 @@ export function SupplierSetupFolds({
             }
           >
             <div className="pb-4" data-setup-body={f.key}>
-              {bodies[f.key]}
+              {wide ? null : bodies[f.key]}
             </div>
           </Fold>
         ))}
       </div>
+
+      {(() => {
+        const f = pane ? view.folds.find((x) => x.key === pane) : null;
+        return (
+          <SidePanel
+            open={wide && f != null}
+            onClose={() => setPane(null)}
+            title={f?.title ?? ''}
+            info={f?.line}
+            size="wide"
+            phone="sheet"
+          >
+            {wide && f ? (
+              <div data-setup-body={f.key} data-setup-pane="">
+                {bodies[f.key]}
+              </div>
+            ) : null}
+          </SidePanel>
+        );
+      })()}
 
       {saved !== null ? (
         <PeekToast key={saved} tone="ok" data="setup-saved" onGone={() => setSaved(null)}>

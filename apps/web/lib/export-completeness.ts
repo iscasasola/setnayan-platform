@@ -271,6 +271,23 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       '(lib/erasure/coverage.ts).',
   },
   {
+    table: 'shop_badge_upgrades',
+    decision: 'excluded',
+    why:
+      'The 4-week add-on upgrades a badge gave a SHOP (owner 2026-11-06) — keyed to the shop (vendor_profile_id), not to a ' +
+      'person, with no person column at all. The shop owner reads every one on Shop › Promote › Your upgrades; the add-on ' +
+      'window it started lives on vendor_profiles, which the export already carries.',
+  },
+  {
+    table: 'shop_badge_rewards',
+    decision: 'excluded',
+    why:
+      'What each badge GAVE a SHOP (badge rewards, 2026-11-05) — keyed to the shop (vendor_profile_id), not to a ' +
+      'person. `revoked_by` is an admin actor stamp on who took back a free booking fee; the row says nothing about ' +
+      'that person, the shop owner reads every reward on Plan › Your gifts and the badge page, and erasure clears the ' +
+      'stamp (lib/erasure/coverage.ts).',
+  },
+  {
     table: 'hub_music_tracks',
     decision: 'excluded',
     why:

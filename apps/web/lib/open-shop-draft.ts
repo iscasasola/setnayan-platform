@@ -43,7 +43,7 @@ export type OpenShopDraft = {
   v: 1;
   /** Epoch ms when it was written. */
   at: number;
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
   shopName: string;
   logoUrl: string;
   service: string;
@@ -56,13 +56,69 @@ export type OpenShopDraft = {
   atSubmit?: boolean;
   /** The web address that was submitted (parked at submit only) — the one the refusal is about. */
   slug?: string;
+  /** "Your name" (step 4) and the typed address (step 3) — added 2026-11-06 so "Tap Reload to keep going" after a
+   *  deploy, and Google / Apple, bring back the two boxes the old draft dropped. Optional: an older draft has none. */
+  name?: string;
+  address?: string;
+  /** 🧺 The services added under the main (owner 2026-11-06, prototype v7/v8) — `events: null` = "Same events as the
+   *  main". Optional: an older draft has none. Keys only; the server re-resolves every one on submit. */
+  added?: { key: string; label: string; events: string[] | null }[];
+  /** ④ The services unticked under each event (prototype v16) — `{ event: [service keys] }`. Optional. */
+  evOff?: Record<string, string[]>;
+  /** ③ The specialties picked — `{ service: { field: [values] } }`. Optional; the server re-validates every one. */
+  specialties?: Record<string, Record<string, string[]>>;
+  /** ② The plan explainer's box was ticked. Optional. */
+  planAgreed?: boolean;
 };
 
 export type OpenShopDraftInput = Omit<OpenShopDraft, 'v' | 'at'>;
 
-const MAX = { shopName: 128, logoUrl: 512, service: 64, serviceLabel: 128, position: 64, phone: 32, email: 254, event: 64, slug: 32 } as const;
+const MAX = { name: 128, address: 200, shopName: 128, logoUrl: 512, service: 64, serviceLabel: 128, position: 64, phone: 32, email: 254, event: 64, slug: 32 } as const;
 
 const str = (v: unknown, max: number): string => (typeof v === 'string' ? v.slice(0, max) : '');
+
+/** A `{ key: [strings] }` map, shape-checked both ways (the per-event offs, one service's specialties). */
+function listMap(v: unknown, maxKeys = 64): Record<string, string[]> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const out: Record<string, string[]> = {};
+  for (const [k, vals] of Object.entries(v as Record<string, unknown>).slice(0, maxKeys)) {
+    if (!Array.isArray(vals)) continue;
+    const list = vals.filter((x): x is string => typeof x === 'string').map((x) => x.slice(0, 128)).slice(0, 64);
+    if (list.length) out[k.slice(0, 64)] = list;
+  }
+  return out;
+}
+
+/** The specialties, shape-checked both ways. */
+function specialtyMap(v: unknown): Record<string, Record<string, string[]>> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const out: Record<string, Record<string, string[]>> = {};
+  for (const [svc, fields] of Object.entries(v as Record<string, unknown>).slice(0, 64)) {
+    const m = listMap(fields, 32);
+    if (Object.keys(m).length) out[svc.slice(0, 64)] = m;
+  }
+  return out;
+}
+
+/** The added services, shape-checked both ways (write and read). */
+function addedList(v: unknown): NonNullable<OpenShopDraft['added']> {
+  if (!Array.isArray(v)) return [];
+  const out: NonNullable<OpenShopDraft['added']> = [];
+  for (const x of v) {
+    if (!x || typeof x !== 'object') continue;
+    const r = x as Record<string, unknown>;
+    const key = str(r.key, MAX.service);
+    if (!key) continue;
+    out.push({
+      key,
+      label: str(r.label, MAX.serviceLabel) || key,
+      events: Array.isArray(r.events)
+        ? r.events.filter((e): e is string => typeof e === 'string').map((e) => e.slice(0, MAX.event)).slice(0, 32)
+        : null,
+    });
+  }
+  return out;
+}
 
 export function serializeOpenShopDraft(d: OpenShopDraftInput, now: number = Date.now()): string {
   const draft: OpenShopDraft = {
@@ -79,6 +135,12 @@ export function serializeOpenShopDraft(d: OpenShopDraftInput, now: number = Date
     email: str(d.email, MAX.email),
     ...(d.atSubmit ? { atSubmit: true } : {}),
     ...(d.slug ? { slug: str(d.slug, MAX.slug) } : {}),
+    ...(d.name ? { name: str(d.name, MAX.name) } : {}),
+    ...(d.address ? { address: str(d.address, MAX.address) } : {}),
+    ...(d.added && d.added.length ? { added: addedList(d.added) } : {}),
+    ...(d.evOff && Object.keys(d.evOff).length ? { evOff: listMap(d.evOff) } : {}),
+    ...(d.specialties && Object.keys(d.specialties).length ? { specialties: specialtyMap(d.specialties) } : {}),
+    ...(d.planAgreed ? { planAgreed: true } : {}),
   };
   return JSON.stringify(draft);
 }
@@ -89,7 +151,7 @@ export function serializeOpenShopDraft(d: OpenShopDraftInput, now: number = Date
  * that smuggles a password (dropped on the floor — never read, never restored).
  */
 export function parseOpenShopDraft(raw: string | null | undefined, now: number = Date.now()): OpenShopDraft | null {
-  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 8192) return null;
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 65536) return null; // room for the added services' own events
   let o: unknown;
   try {
     o = JSON.parse(raw);
@@ -101,7 +163,7 @@ export function parseOpenShopDraft(raw: string | null | undefined, now: number =
   if (d.v !== 1) return null;
   if (typeof d.at !== 'number' || !Number.isFinite(d.at)) return null;
   if (d.at > now || now - d.at > OPEN_SHOP_DRAFT_TTL_MS) return null;
-  const step = d.step === 1 || d.step === 2 || d.step === 3 || d.step === 4 ? d.step : 1;
+  const step = d.step === 1 || d.step === 2 || d.step === 3 || d.step === 4 || d.step === 5 ? d.step : 1;
   return {
     v: 1,
     at: d.at,
@@ -118,6 +180,12 @@ export function parseOpenShopDraft(raw: string | null | undefined, now: number =
     email: str(d.email, MAX.email),
     ...(d.atSubmit === true ? { atSubmit: true } : {}),
     ...(typeof d.slug === 'string' && d.slug ? { slug: d.slug.slice(0, MAX.slug) } : {}),
+    ...(typeof d.name === 'string' && d.name ? { name: d.name.slice(0, MAX.name) } : {}),
+    ...(typeof d.address === 'string' && d.address ? { address: d.address.slice(0, MAX.address) } : {}),
+    ...(Array.isArray(d.added) && d.added.length ? { added: addedList(d.added) } : {}),
+    ...(d.evOff && typeof d.evOff === 'object' ? { evOff: listMap(d.evOff) } : {}),
+    ...(d.specialties && typeof d.specialties === 'object' ? { specialties: specialtyMap(d.specialties) } : {}),
+    ...(d.planAgreed === true ? { planAgreed: true } : {}),
   };
 }
 

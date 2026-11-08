@@ -201,7 +201,7 @@ export function SupplierShareButton({
               />
             </span>
           ) : (
-            <span role="alert" className="text-danger-800 dark:text-danger-200">
+            <span role="alert" className="text-danger-800">
               {said.text}
             </span>
           )}

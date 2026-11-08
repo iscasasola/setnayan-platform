@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 633 files · 1710 lines
+# 631 files · 1702 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -10,7 +10,7 @@
 2 apps/web/app/_components/app-store/choose-plan-sheet.tsx
 12 apps/web/app/_components/app-store/layout.tsx
 32 apps/web/app/_components/app-store/studio-card-demo.tsx
-10 apps/web/app/_components/appointments-section.tsx
+9 apps/web/app/_components/appointments-section.tsx
 3 apps/web/app/_components/booking-fee-notice.tsx
 1 apps/web/app/_components/chat-amendment-card.tsx
 8 apps/web/app/_components/chat-message-stream.tsx
@@ -95,7 +95,7 @@
 2 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
 1 apps/web/app/[slug]/_components/private-landing.tsx
 1 apps/web/app/[slug]/_components/public-event-day-bar.tsx
-5 apps/web/app/[slug]/_components/site-body.tsx
+2 apps/web/app/[slug]/_components/site-body.tsx
 1 apps/web/app/[slug]/_components/site-menu-bar.tsx
 4 apps/web/app/[slug]/_components/song-request-card.tsx
 1 apps/web/app/[slug]/_components/spotlight-card.tsx
@@ -250,7 +250,7 @@
 2 apps/web/app/dashboard/(account)/library/_components/editorials-tab.tsx
 5 apps/web/app/dashboard/(account)/library/_components/photos-tab.tsx
 1 apps/web/app/dashboard/(account)/library/_components/saved-vendor-card.tsx
-3 apps/web/app/dashboard/(account)/library/_components/vendors-tab.tsx
+2 apps/web/app/dashboard/(account)/library/_components/vendors-tab.tsx
 1 apps/web/app/dashboard/(account)/life-flash/_components/scroll-reel.tsx
 2 apps/web/app/dashboard/(account)/life-flash/_components/story-people.tsx
 1 apps/web/app/dashboard/(account)/notifications/loading.tsx
@@ -322,6 +322,7 @@
 2 apps/web/app/dashboard/[eventId]/launch/page.tsx
 3 apps/web/app/dashboard/[eventId]/live/page.tsx
 1 apps/web/app/dashboard/[eventId]/manpower/_components/post-gig-drawer.tsx
+3 apps/web/app/dashboard/[eventId]/memories/thank-you/_components/thank-you-maker.tsx
 2 apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx
 1 apps/web/app/dashboard/[eventId]/monogram/animate-rows.tsx
 7 apps/web/app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx
@@ -427,7 +428,6 @@
 1 apps/web/app/dashboard/[eventId]/studio/save-the-date/stamp/wax-stamp-maker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
-3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx
@@ -584,7 +584,7 @@
 1 apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-import-form.tsx
 4 apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx
 1 apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-note-compose.tsx
-6 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
+5 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
 2 apps/web/app/vendor-dashboard/packages/page.tsx
 2 apps/web/app/vendor-dashboard/partnerships/page.tsx
 1 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx
@@ -596,7 +596,6 @@
 1 apps/web/app/vendor-dashboard/performance/page.tsx
 1 apps/web/app/vendor-dashboard/proposals/_components/reuse-inbox.tsx
 2 apps/web/app/vendor-dashboard/proposals/surface.tsx
-1 apps/web/app/vendor-dashboard/real-stories/page.tsx
 2 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
 2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx

@@ -10,9 +10,12 @@
  *
  * Correctness — reuses the SAME primitives the category-search overlay uses so
  * behaviour can't drift:
- *   • Published scope: the market read goes through the couple's RLS client, so
- *     `vendor_market_stats`'s public-read policy (is_published = TRUE) filters to
- *     published vendors automatically — no hand-rolled published filter.
+ *   • Findable scope (2026-11-07, DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE
+ *     UNTIL ITS FIRST INQUIRY"): the ONE findable rule (`lib/findable-shop.ts`).
+ *     This read USED to lean on the couple's RLS client, whose policy is
+ *     verified-only — so it could never show a not-yet-decided shop the ruling
+ *     says a couple must find. It now reads on the service-role client WITH the
+ *     gate, after the signed-in check below; the policy is not widened.
  *   • Demo scope (owner 2026-11-06): the EVENT's own — a real event never lists a demo shop (for anybody,
  *     the demo cookie included); a demo event (`events.is_sample`) lists ONLY demo shops. `demoScopeFor` +
  *     `eventSearchScopeFor`, exactly as the category search (one rule, `lib/demo-vendor-exclusion.ts`).
@@ -25,6 +28,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { demoScopeFor } from '@/lib/demo-scope';
 import { eventSearchScopeOf, eventScopeUnreadable, shopInEventScope } from '@/lib/demo-vendor-exclusion';
 import { readDemoVendorIds } from '@/lib/demo-vendors';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
@@ -65,18 +69,21 @@ export async function searchMarketplaceForBench(eventId: string, rawQuery: strin
     .slice(0, 4);
   if (tokens.length === 0) return { results: [], unreadable: false };
 
-  // Couple-only + RLS-scoped market read → published vendors only.
+  // Couple-only: signed in first, then the findable market read.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { results: [], unreadable: false };
+  const admin = createAdminClient();
 
-  let q = supabase
+  let q = admin
     .from('vendor_market_stats')
     .select(
       'vendor_profile_id, business_name, business_slug, logo_url, location_city, avg_rating_overall, review_count, services',
     )
+    // 🔎 The ONE findable rule (lib/findable-shop.ts).
+    .match(FINDABLE_SHOP_GATE)
     .order('review_count', { ascending: false, nullsFirst: false })
     .limit(24);
   // Each token must match name/tagline/city somewhere (AND across tokens, OR within).
@@ -87,7 +94,6 @@ export async function searchMarketplaceForBench(eventId: string, rawQuery: strin
   // 🔌 A refused read is not "no shop by that name" (reads-are-honest, 2026-11-02 audit #22).
   if (error) return { results: [], unreadable: true };
 
-  const admin = createAdminClient();
   // 🧪 The event's own demo scope (`lib/demo-scope.ts`). A refused demo-id read is "could not look", never a list
   // that might hand a real couple a demo shop.
   const [demoScope, demoIds] = await Promise.all([demoScopeFor(admin, eventId), readDemoVendorIds(admin)]);

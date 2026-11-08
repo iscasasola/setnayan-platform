@@ -51,7 +51,9 @@ test('3 · Today reads the two columns and draws the notice — as a row, in the
     server,
     // 🎁 + tier_state, tier_source (2026-10-23): a plan Setnayan gave reads as a gift on the same row — both columns
     // in the production snapshot, so the one read stays one read.
-    /\.select\('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source'\)/,
+    // 🔎 + the find lock and the columns its rule reads (2026-11-07, DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE
+    // UNTIL ITS FIRST INQUIRY") — appended to the SAME read, so it stays one read.
+    /\.select\('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source, public_visibility, find_locked_at, find_lock_reason, fraud_suspended_at, fraud_banned_at, fraud_tombstoned'\)/,
     'the credit columns left the one shop-row read',
   );
   assert.match(server, /logQueryError\('supplier-today: shop row'/, 'a failed read is silent');

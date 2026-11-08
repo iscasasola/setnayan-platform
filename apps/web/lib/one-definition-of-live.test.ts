@@ -193,12 +193,13 @@ test('the doors that were dead now ask the one definition', () => {
   const search = stripComments(
     readFileSync(resolve(WEB, 'app/dashboard/[eventId]/vendors/actions.ts'), 'utf8'),
   );
+  // 🔎 DECISION_LOG 2026-11-07: add-by-name is a Find list, so it asks the ONE findable column
+  // (`vendor_profiles.is_findable`, lib/findable-shop.ts) — which holds BOTH verified columns for a verified shop,
+  // plus the until-first-inquiry half. A single hand-typed column is still never the definition.
   assert.ok(
-    /['"`]public_visibility['"`]\s*,\s*['"`]verified['"`]/.test(search) &&
-      /['"`]verification_state['"`]\s*,\s*['"`]verified['"`]/.test(search),
-    'The couple\'s add-a-vendor-by-name search must filter on BOTH verified ' +
-      'columns. One alone is not the definition — that is exactly why the RLS ' +
-      'policy requires both.',
+    /\.match\(\s*FINDABLE_SHOP_GATE\s*\)/.test(search),
+    'The couple\'s add-a-vendor-by-name search must filter on the findable gate ' +
+      '(`.match(FINDABLE_SHOP_GATE)`). One hand-typed column alone is not the definition.',
   );
   assert.ok(
     !/['"`]coming_soon['"`]/.test(search),

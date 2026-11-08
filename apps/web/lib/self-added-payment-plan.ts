@@ -575,3 +575,69 @@ export function redateOnLockInstalments(instances: unknown, lockDateIso: string)
     return due ? { ...i, due_date: due } : raw;
   });
 }
+
+/**
+ * "ALREADY PAID" ON THE ADD SHEET — which payment lines the couple ticked, as the payments to log. (owner 2026-11-07,
+ * DECISION_LOG "THE FOUR MAKERS ARE APPROVED")
+ *
+ * Owner, verbatim: *"they will list their inclusions and price and payment plan and a check box if something is
+ * already paid prior with a screen shot of their payment proof. (optional)."*
+ *
+ * 🔑 NOTHING NEW IS STORED. A ticked line is the SAME payment the workspace logs later (`logPayment`): one
+ * `event_vendor_payments` row — `amount_php · paid_at · proof_r2_key · schedule_instance_seq` — attached to its
+ * instalment by `seq`. This only answers "which instalment, for how much", so the add and a later log cannot disagree.
+ *
+ * Each posted row says `plan_paid` = '1' (ticked) or '' — one per row, in row order, like every other `plan_*` field —
+ * and its proof rides `plan_proof_<i>`, `<i>` being the row's posted position. The rows are numbered EXACTLY as
+ * `buildCouplePaymentPlan` numbers them (blank rows dropped, then `assignPlanSeqs`), and the amount is the SAVED
+ * instalment's, read back by `seq` — never the typed figure, which the plan may have resolved from a percent.
+ * A ticked line whose instalment is not in the saved plan logs nothing: there is no instalment to attach it to.
+ */
+export const PLAN_PAID_FIELD = 'plan_paid';
+
+/** The form field one paid line's proof posts under — `<i>` is the row's posted position. */
+export function planProofField(i: number): string {
+  return `plan_proof_${i}`;
+}
+
+export type PaidAtAdd = {
+  /** The row's posted position — its proof is `planProofField(index)`. */
+  index: number;
+  seq: number;
+  label: string;
+  amountPhp: number;
+};
+
+export function paidAtAddPayments(args: {
+  labels: readonly unknown[];
+  values: readonly unknown[];
+  seqs: readonly unknown[];
+  paid: readonly unknown[];
+  /** The plan as SAVED (`instances_json`) — the amount comes from here. */
+  instances: unknown;
+}): PaidAtAdd[] {
+  const text = (v: unknown) => (typeof v === 'string' ? v : '');
+  const posted = args.labels.map((l, i) => {
+    const raw = text(args.seqs[i]).trim();
+    const n = /^\d+$/.test(raw) ? Number(raw) : NaN;
+    return { index: i, label: text(l), value: text(args.values[i]), seq: Number.isInteger(n) ? n : null };
+  });
+  const numbered = assignPlanSeqs(posted.filter((r) => r.label.trim().length > 0 || r.value.trim().length > 0));
+  const saved = new Map<number, { label: string; amount: number }>();
+  for (const raw of Array.isArray(args.instances) ? args.instances : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const inst = raw as { seq?: unknown; label?: unknown; amount_php?: unknown };
+    const amount = Number(inst.amount_php);
+    if (typeof inst.seq === 'number' && Number.isFinite(amount) && amount > 0) {
+      saved.set(inst.seq, { label: typeof inst.label === 'string' ? inst.label : '', amount });
+    }
+  }
+  const out: PaidAtAdd[] = [];
+  for (const r of numbered) {
+    if (text(args.paid[r.index]) !== '1') continue;
+    const s = saved.get(r.seq);
+    if (!s) continue;
+    out.push({ index: r.index, seq: r.seq, label: s.label || r.label.trim(), amountPhp: s.amount });
+  }
+  return out;
+}

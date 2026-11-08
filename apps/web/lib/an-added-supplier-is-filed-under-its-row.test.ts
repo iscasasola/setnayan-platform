@@ -215,7 +215,10 @@ test('6 · every add path posts the row, and both add actions write the checked 
   // The one-screen sheet (pre-replan bench) posts it too, on both of its branches.
   const modal = strip(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx'), 'utf8'));
   assert.match(modal, /linkFd\.set\('category_key', tile\)/, 'the sheet’s shop pick drops the row');
-  assert.match(modal, /<input type="hidden" name="category_key" value=\{tile\} \/>/, 'the sheet’s own add drops the row');
+  // Since makers-match § 1 (2026-11-07) the add's services are lines and the FIRST line is the row: untouched it is
+  // `tile`, exactly as before; swiped away, the next line is posted (`storageForRow`). Either way a row is posted.
+  assert.match(modal, /<input type="hidden" name="category_key" value=\{filedUnder\.tile\} \/>/, 'the sheet’s own add drops the row');
+  assert.match(modal, /homeTile === openedFrom\s*\?\s*\{ category, tile: tile \?\? null \}/, 'an untouched sheet no longer posts the row it was opened from');
 
   // The bench hands every add its row, and builds the dropdown one entry per row.
   const bench = strip(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'), 'utf8'));

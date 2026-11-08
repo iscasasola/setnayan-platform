@@ -5,7 +5,9 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftRewardStock, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { freeByKind, rewardFreeByKind } from '@/lib/shop-gifts';
+import { readGrantedRewards, readRewardNames } from '@/lib/badge-rewards.server';
 import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
 import type { ShopGiftsSectionData } from './shop-gifts-section';
 
@@ -21,15 +23,21 @@ import type { ShopGiftsSectionData } from './shop-gifts-section';
  */
 export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfileId: string): Promise<ShopGiftsSectionData> {
   const giftsAdmin = createAdminClient();
-  const [stock, bought, packs, paysGiftPrice, papicOn, storeShell, settings] = await Promise.all([
-    fetchShopGiftStock(supabase, vendorProfileId, null),
-    fetchShopGiftBought(supabase, vendorProfileId),
-    fetchShopGiftPacks(giftsAdmin),
-    fetchVendorPaysGiftPrice(giftsAdmin, vendorProfileId),
-    isVendorPapicCaptureEnabled(),
-    isStoreShellRequest(),
-    fetchPlatformSettings(supabase),
-  ]);
+  // 🏅 …and the badge rewards kept in it (owner 2026-11-05): what is left of the reward stock, every reward given and
+  // the free booking fee's history — read with the service role, keyed on the shop's own id.
+  const [stock, bought, packs, paysGiftPrice, papicOn, storeShell, settings, rewardStock, rewardsGranted, rewardNames] =
+    await Promise.all([
+      fetchShopGiftStock(supabase, vendorProfileId, null),
+      fetchShopGiftBought(supabase, vendorProfileId),
+      fetchShopGiftPacks(giftsAdmin),
+      fetchVendorPaysGiftPrice(giftsAdmin, vendorProfileId),
+      isVendorPapicCaptureEnabled(),
+      isStoreShellRequest(),
+      fetchPlatformSettings(supabase),
+      fetchShopGiftRewardStock(supabase, vendorProfileId, null),
+      readGrantedRewards(giftsAdmin, vendorProfileId),
+      readRewardNames(giftsAdmin),
+    ]);
   return {
     stock,
     // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (#7297, slice 2).
@@ -38,5 +46,6 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
     bought,
     openRails: openRailOptions(settings),
     canBuy: !storeShell,
+    rewards: { left: rewardFreeByKind(rewardStock, freeByKind(stock)), granted: rewardsGranted, names: rewardNames },
   };
 }

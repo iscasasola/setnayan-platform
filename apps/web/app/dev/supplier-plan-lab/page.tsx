@@ -55,10 +55,14 @@ import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
 import type { NotificationRow } from '@/lib/notifications';
+import type { GrantedReward } from '@/lib/badge-rewards';
 import { ShopGiftsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { ShopPrintsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-prints-section';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
+import { BadgeUpgradesSection } from '@/app/vendor-dashboard/subscription/_components/badge-upgrades-section';
+import { BadgeUpgradesLedger } from '@/app/admin/gifts/_components/badge-upgrades-ledger';
+import { startableChoices, type BadgeUpgradeChoice, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
 import { formatCentavos } from '@/lib/vendor-proposals';
 
@@ -373,6 +377,17 @@ export default async function SupplierPlanLabPage({
         />
       </section>
     );
+  // ⏱ Badge upgrades (owner, 6 Nov): &tier=free shows the booth swapped for Papic Challenges; &fail=1 the unread state;
+  // &empty=1 none yet; s=upgrades-admin the Admin › Gifts table.
+  else if (s === 'upgrades')
+    body = <BadgeUpgradesSection data={{ rows: sp.fail === '1' ? null : sp.empty === '1' ? [] : labUpgrades(sp.tier ?? 'pro'), nowMs: LAB_NOW }} />;
+  else if (s === 'upgrades-admin')
+    body = (
+      <BadgeUpgradesLedger
+        rows={labUpgrades('pro').map((r, i) => ({ ...r, vendorProfileId: `v${i}`, shopName: i % 2 ? 'Lente Studio' : 'Saysay Catering' }))}
+        readError={null}
+      />
+    );
   else if (s === 'gifts-admin')
     body =
       sp.fail === '1' ? (
@@ -384,6 +399,28 @@ export default async function SupplierPlanLabPage({
   return <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">{body}</main>;
 }
 
+/** Lab clock for the upgrades view — fixed, so "on until" reads the same on every run. */
+const LAB_NOW = Date.parse('2026-11-06T04:00:00Z');
+
+/** Lab badge upgrades — fixture only: three ready (one a choice), one started and running. */
+function labUpgrades(tier: string): BadgeUpgradeRow[] {
+  const row = (key: string, choices: BadgeUpgradeChoice[], grantedAt: string, started?: { c: BadgeUpgradeChoice; at: string; ends: string }): BadgeUpgradeRow => ({
+    upgradeId: `lab-${key}`,
+    key,
+    grantedAt,
+    startable: started ? [] : startableChoices(choices, tier),
+    startedChoice: started?.c ?? null,
+    startedAt: started?.at ?? null,
+    endsAt: started?.ends ?? null,
+  });
+  return [
+    row('upgrade:award:top_pick:2026-11-01', ['photo_challenge', '3d_booth', 'ai_chatbot'], '2026-11-03T02:00:00Z'),
+    row('upgrade:first_booking', ['3d_booth'], '2026-10-21T02:00:00Z'),
+    row('upgrade:verified', ['photo_challenge'], '2026-10-02T02:00:00Z'),
+    row('upgrade:reviews:5', ['ai_chatbot'], '2026-10-15T02:00:00Z', { c: 'ai_chatbot', at: '2026-10-20T02:00:00Z', ends: '2026-11-17T02:00:00Z' }),
+  ];
+}
+
 /** Lab-only stand-in packs — the page reads `platform_retail_catalog_v2`; these never reach a supplier. */
 const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
@@ -392,6 +429,17 @@ const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
   { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
 ]);
+
+/** A lab badge reward row (`GrantedReward`) — fixture only. */
+function labReward(
+  key: string,
+  kind: GrantedReward['kind'],
+  units: number,
+  grantedAt: string,
+  extra: Partial<GrantedReward> = {},
+): GrantedReward {
+  return { rewardId: `lab-${key}`, key, badge: key.split(':')[0]!, kind, units, grantedAt, revokedAt: null, usedAt: null, usedOn: null, ...extra };
+}
 
 /** `inApp` — `&app=1`: the section as the iPhone app (store shell) draws it — the stock and Bought show, Buy does not
  * (`canBuy` is false there; `shop-gifts-data.ts`). */
@@ -421,6 +469,22 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
           { id: 'bank', label: 'Bank transfer' },
         ],
         canBuy: !inApp,
+        // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
+        rewards: {
+          left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0 },
+          granted: fail
+            ? null
+            : [
+                labReward('events:5000', 'fee_waiver', 1, '2026-11-05T02:00:00Z'),
+                labReward('events:1000', 'fee_waiver', 1, '2026-10-12T02:00:00Z', {
+                  usedAt: '2026-10-20T02:00:00Z',
+                  usedOn: { coupleName: 'Maria & Juan', wouldHaveBeenPhp: 2500 },
+                }),
+                labReward('events:50', 'event_plus', 1, '2026-10-02T02:00:00Z'),
+                labReward('events:10', 'event_plus', 1, '2026-09-14T02:00:00Z'),
+              ],
+          names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
+        },
       }}
     />
   );

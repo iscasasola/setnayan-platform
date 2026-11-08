@@ -64,6 +64,10 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   // IS SET IN THE MOOD BOARD"; replace means remove, 2026-10-04). The Mood
   // Board carries the same form; a couple lands on it in the Maker.
   ['website/dress-code', 'studio/mood-board'],
+  // 🎬 R3 · THE THANK-YOU VIDEO MOVED TO MEMORIES (owner 2026-10-27, DECISION_LOG "THE THANK-YOU VIDEO MOVES TO
+  // MEMORIES"; 2026-10-28 *"all mapping will be kept"*). The maker page moved whole; its old address forwards.
+  // Held by `lib/r3-thank-you-forwards.test.ts`.
+  ['studio/thank-you', 'memories/thank-you'],
   // (`details/change` is a real page again, 2026-10-02 — Event settings save
   // live, so they cannot sit in the Maker. Its redirect from #6280 is gone.)
 ];

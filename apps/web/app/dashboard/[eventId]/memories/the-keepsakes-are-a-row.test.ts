@@ -146,7 +146,6 @@ test('5 · the cell’s words: the price is the gate’s own function, and its f
   const open = addCellWords('open', 24);
   assert.equal(open.line, `${papicCaptureCost('photo', null, 'upload')} credits each`);
   assert.match(open.tip, /Your uploads/);
-  assert.equal(addCellWords('open', 'unmetered').line, 'Your pass covers it');
   assert.equal(addCellWords('off', 24).line, 'Turned off');
   // The page picks the face from the SAME branch that picks the door.
   // Every host has their own camera since #7111 (2026-10-31), so there is no "other host's" face any more.

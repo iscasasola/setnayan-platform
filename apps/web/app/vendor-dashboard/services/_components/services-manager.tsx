@@ -20,6 +20,10 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSayToTheShop } from '@/lib/service-card-record';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
+import { readPlanHolds } from '@/lib/service-plan-hold.server';
+import { HOLD_WORDS } from '@/lib/service-plan-hold';
+import { StayOnSection } from './stay-on-section';
+import { PlanHoldTag } from './plan-hold-tag';
 import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
@@ -172,7 +176,12 @@ export async function VendorServicesManager({
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
+  // 🧭 Which cards the PLAN holds (owner 2026-11-06, SERVICES LIFE CYCLE) — its own read, so a database without the
+  // columns degrades to "every card as it always was" (null), never to a claim that nothing is held.
+  const [services, planHolds] = await Promise.all([
+    fetchVendorServices(supabase, profile.vendor_profile_id),
+    readPlanHolds(supabase, profile.vendor_profile_id),
+  ]);
 
   // Only the canvas maker can open pre-filled, so "start a new card from this
   // one" is gated on the same flag that decides which maker the route renders.
@@ -801,6 +810,9 @@ export async function VendorServicesManager({
           );
         })()}
 
+        {/* 🧭 "Which services stay on" — only when the plan holds fewer than the shop has (owner 2026-11-06). */}
+        <StayOnSection supabase={supabase} vendorProfileId={profile.vendor_profile_id} userId={user.id} />
+
         {services.length === 0 ? (
           <div
             className="rounded-2xl border border-dashed p-8 text-center"
@@ -864,6 +876,7 @@ export async function VendorServicesManager({
               const svcDiscount = svcDiscountList[0] ?? null;
               const svcInclusions =
                 inclusionsByService.get(svc.vendor_service_id) ?? [];
+              const planHold = planHolds?.get(svc.vendor_service_id) ?? null;
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
@@ -942,8 +955,17 @@ export async function VendorServicesManager({
                         {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
                           ? ` · ${coverageLabelById.get(svc.coverage_id)}`
                           : ''}
-                        {svc.is_active ? '' : ' · hidden'}
+                        {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
                       </p>
+                      {planHold?.hold === 'held' ? (
+                        <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} data-plan-hold="held">
+                          {HOLD_WORDS.rowLine}
+                        </p>
+                      ) : planHold?.hold === 'scheduled' && planHold.startsOn ? (
+                        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }} data-plan-hold="scheduled">
+                          {HOLD_WORDS.scheduledLine(planHold.startsOn)}
+                        </p>
+                      ) : null}
                       {/* The reach this card's price is earning — on the card
                           itself, every time the shop looks at the list, not in
                           a report they would have to go and find.
@@ -1002,7 +1024,12 @@ export async function VendorServicesManager({
                         <Copy className="h-4 w-4" strokeWidth={1.75} />
                       </Link>
                     ) : null}
-                    {/* on/off (is_active) — the app's one switch (owner 2026-10-08); it was an eye icon that filled ink when live. */}
+                    {/* on/off (is_active) — the app's one switch (owner 2026-10-08); it was an eye icon that filled ink when live.
+                        🧭 A card the PLAN holds has no switch: the database refuses it live (a_plan_held_card_stays_held);
+                        its tag + ⓘ say why, and "Which services stay on" above is where it comes back. */}
+                    {planHold?.hold === 'held' ? (
+                      <PlanHoldTag />
+                    ) : (
                     <form action={toggleVendorServiceActive}>
                       <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
                       <input type="hidden" name="is_active" value={svc.is_active ? 'false' : 'true'} />
@@ -1017,6 +1044,7 @@ export async function VendorServicesManager({
                         <SwitchTrack on={svc.is_active} />
                       </button>
                     </form>
+                    )}
                   </div>
 
                   {/* THE CARD OPENS IN THE MAKER (supplier-easy step 3, 2026-10-14). The inline "Edit details"

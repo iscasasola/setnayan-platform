@@ -45,7 +45,7 @@ export const EXPLORE_INFO_TITLE = 'How Suppliers works';
 
 /** §11.1 — what this page does. */
 export const EXPLORE_INFO_WHAT =
-  'Browse every service your event needs: open a folder, open a category, and its suppliers appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
+  'Browse every service your event needs: open a folder, open a category, and its suppliers appear as a carousel. Your inspiration board sits on top, and each category shows its looks above its suppliers. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
 
 /**
  * §11.1 — what the Coverage Strip means. Names the strip "your event", the

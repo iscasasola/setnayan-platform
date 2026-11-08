@@ -167,6 +167,10 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // spot as the wallet; the stamp is nulled (AUTHOR_UUID_NULLS).
   'shop_gift_purchases',
   'shop_gift_stock_entries',
+  // Badge rewards (2026-11-05) — what each badge gave a shop, keyed by vendor_profile_id; its one user column is
+  // `revoked_by` (no FK), the admin who took back a free booking fee. Same blind spot; the stamp is nulled
+  // (AUTHOR_UUID_NULLS).
+  'shop_badge_rewards',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

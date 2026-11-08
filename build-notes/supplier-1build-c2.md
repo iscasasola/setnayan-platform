@@ -181,10 +181,15 @@ gift limit (SQL + TS + Admin › Gifts audited save; the "40%" strings sent to C
 proved at 375 px), Chat (`SupplierThreadBody`, hosts strip, sender names, hearts), Hub page. Notes, changelog
 fragment, guards (each new one sabotaged once), side-by-side shots.
 
+**Foundation (2026-11-08 ~04:00 UTC): DONE.** `-foundation` merged (tip `0d9c7c42`); the quote's pinned bar now sits on
+`z-sn-sticky` (page layer, under thumb row and nav — spec §10 #23), pinned in `the-quote-is-one-screen.test.ts` and
+sabotaged once; the bottom offset keeps `--sn-bottomdock-h` / `--sn-thumb-room` (foundation did not replace them). Full
+`tsc` clean except the pre-existing base error. **L1's, not this lane's:**
+`app/dashboard/[eventId]/vendors/find-walk-fixes.test.ts` #2 ("the pinned block … travel WITH the top bar") fails
+identically on `-foundation` alone.
+
 **Exact next steps:**
-1. When `origin/claude/supplier-1build-foundation` appears: `git merge origin/claude/supplier-1build-foundation`, then
-   swap the quote bar's raw `z-10` for the page-layer z token (spec §10 #23) and its bottom offset for the foundation's
-   token if it supersedes `--sn-bottomdock-h` / `--sn-thumb-room`; re-run the quote guards + shots.
+1. Merge `-foundation` / `-forms-data` again whenever they move; re-run the quote guards.
 2. Re-shoot Quotation/Chat inside L2's real `PickedClientShell` once the shell exists (controller, after integration).
 3. If the owner rules a loader file after all (D1), extract `lib/proposal-maker-props.server.ts` behind
    `SupplierThreadBody` — the client pages do not change.

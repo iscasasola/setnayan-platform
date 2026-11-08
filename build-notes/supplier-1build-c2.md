@@ -9,7 +9,13 @@ The four migrations + their db tests + the additive TS (`setnayanGiftForFee` `op
 `readShopBookedLoopCount`). Replayed on PGlite with every schema-wide db guard (Ugat claims/coverage/both-ends,
 policies-ask-once, rls-checks-once, anon grants, realtime predicates, user-FK, exposure) — green except the two
 generated maps (exposure baseline, user-FK map: controller regenerates) and two ITEMS PRE-EXISTING ON THE BASE (below).
-The full 528-file db run on that commit was still running at push time; its result is recorded under "Where I stopped".
+**Full db run (all 528 files, on the data commit 0e11b3df): 4,366 / 4,372 pass.** The six: (1) `a-held-shop-name-holds-its-core`
+#15 — pre-existing on the base; (2) exposure-freeze and (3) user-FK map — generated baselines, controller; (4) ugat-both-ends —
+fixed by `readShopBookedLoopCount` (now in `-data`), leaving only `shop_name_is_held`, pre-existing on the base; (5)
+every-person-keyed-table-is-decided — fixed: hearts are exported + erased (pushed to `-data` @ 19e22b15); (6)
+gates-have-handles `chat_message_hearts.hearted` — its writer is the chat stream's upsert, which lives on the lane branch
+(passes there); on `-data` alone it stays red until the controller integrates `-c2`. (On the lane, the same guard flags
+C3's `vendor_questions.is_required` — C3's to answer.)
 Merged on the lane branch with `-forms-data` (C3): prefixes unique, all lanes' new db tests green together (34/34).
 
 ## Status board

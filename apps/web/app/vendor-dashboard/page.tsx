@@ -57,10 +57,11 @@ import {
 import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
-import { businessMilestone } from '@/lib/vendor-milestone';
+import { businessMilestone, todayMilestoneWord } from '@/lib/vendor-milestone';
 import { BadgeEarnedLine } from './_components/badge-earned-line';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
+import { StayOnTodayLine } from './_components/stay-on-today-line';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -496,6 +497,8 @@ export default async function VendorOverviewPage({
   const findability = shopFindability({
     publicVisibility: (profile as { public_visibility?: unknown }).public_visibility,
     railShowing: firstSteps != null,
+    // 🔎 First inquiry → out of Find until verified (DECISION_LOG 2026-11-07), off the one shop-row read.
+    findLock: shopRow?.findLock ?? null,
   });
   const findabilityBanner = findabilityNotice(findability);
 
@@ -541,17 +544,12 @@ export default async function VendorOverviewPage({
       · the Spotlight Award + milestone  → on the Shop row's line
   */
   const firstCategory = (profile.services ?? [])[0] as string | undefined;
-  const milestoneWord = milestone
-    ? `your ${milestone.label}${
-        milestone.daysUntil > 92
-          ? ''
-          : milestone.daysUntil <= 0
-            ? ' today'
-            : milestone.daysUntil === 1
-              ? ' tomorrow'
-              : ` in ${milestone.daysUntil} days`
-      }`
-    : null;
+  // "Since 2021" — the ordinal only on the anniversary itself (owner 2026-11-06, `todayMilestoneWord`).
+  const milestoneWord = todayMilestoneWord(
+    milestone,
+    profile.in_business_since_year,
+    shopRow?.businessStartDate ?? null,
+  );
   // 🧩 ONE ASSEMBLY (`lib/supplier-today-view.ts`) — the page hands it the reads, the dev lab hands it fixtures,
   // and both draw the same Today. `verified` comes off the one shop-row read; when that read was refused, the
   // rail's own answer stands (no rail = approved), as it always did.
@@ -682,6 +680,7 @@ export default async function VendorOverviewPage({
 
       <BadgeEarnedLine />
       <ClaimWaitLines read={await claimWaitsP} />
+      <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <SupplierTodayScreen
         view={view}
         outcome={outcome}

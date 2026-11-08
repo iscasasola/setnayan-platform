@@ -126,11 +126,25 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
       'app/dev/supplier-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
   },
   {
+    prefix: 'app/dev/open-shop-lab/',
+    why:
+      "The \"Open your shop\" dev lab — it draws the shop's OWN setup wizard (a shop typing its own contact " +
+      'details, like `app/open-shop/` above) from fixtures and refuses to render in production (`notFound()`, pinned ' +
+      'by app/dev/open-shop-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
+  },
+  {
     prefix: 'app/dev/spotlight-lab/',
     why:
       "The spotlight tours' dev lab — it draws the supplier's OWN Today and Customers through " +
       '`/dev/supplier-lab` (above) and refuses to render in production (`notFound()`, pinned by ' +
       'app/dev/spotlight-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
+  },
+  {
+    prefix: 'app/dev/find-lock-lab/',
+    why:
+      "The find-lock dev lab (DECISION_LOG 2026-11-07) — it mounts the admin desk's OWN find line, whose form " +
+      "posts to app/admin/verify/actions.ts (staff, above), and refuses to render in production (`notFound()`, " +
+      "pinned by app/dev/find-lock-lab/the-lab-never-ships.test.ts). Never a couple's or the public's page.",
   },
   {
     prefix: 'app/vendor/claim/',

@@ -25,6 +25,7 @@
  * when date_status != 'locked'). No new orphan routes.
  */
 
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { blockClosesDay, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { notFound, redirect } from 'next/navigation';
@@ -451,7 +452,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       admin
         .from('vendor_profiles')
         .select(VENDOR_POOL_SELECT)
-        .eq('public_visibility', 'verified')
+        // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07).
+        .match(FINDABLE_SHOP_GATE)
         .eq('is_demo', demoScope.is_demo)
         .not('services', 'is', null),
       // Changes agreed after a lock — one read for the page, so the budget range

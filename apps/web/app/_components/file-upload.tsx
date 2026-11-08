@@ -8,10 +8,14 @@ import {
   CheckCircle2,
   FileText,
   Camera,
+  ImagePlus,
   Loader2,
+  Trash2,
+  Upload,
   UploadCloud,
   X,
 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import type { UploadOutcome, UploadSend } from '@/lib/upload-send';
 import { formatCount } from '@/lib/format-number';
@@ -310,6 +314,27 @@ type FileUploadBaseProps = {
    * 12 px words, pressed at 44+ (`.sn-hit`).
    */
   refusalLink?: { when: string; href: string; label: string } | null;
+  /**
+   * 🖼 THE PICTURE IS DRAWN ABOVE (owner 7 Nov, prototype v21, the logo step): a round single-file field whose
+   * picture a framing circle (`PictureFrameControl`) already shows. Once a picture is in, this widget draws NO
+   * second picture and no "Saved" line (the framer says "✓ Saved") — only ONE row of pills:
+   *   `[🖼 <replace>]` opens the picker; the new file REPLACES the old one when it lands (the old stays until then)
+   *   `[🗑 Remove]`    red words (`tone="danger"`), beside Replace, never alone on a list row
+   * Empty, it is the round slot as before; uploading, the in-flight row as before. Needs `roundPreview` +
+   * `variant="square"` + single; ignored otherwise. Held by app/open-shop/the-logo-is-framed-by-hand.test.ts.
+   */
+  pills?: { replace: string };
+  /**
+   * 🖼 THUMB + PILL (owner 7 Nov, makers prototype § 3 — the service card's cover): a square, single image field
+   * drawn as ONE row — a 64 px rounded thumb (dashed while empty, the picture once in) beside one shipped
+   * `ActionButton` pill: `[⬆ <add>]` while empty, `[🖼 <replace>]` once a file is in. The next file REPLACES the
+   * one there when it lands (the old stays until then). No big drop box, no filename row, no second picture.
+   * Uploading: the thumb dims under a spinner and the words say "Uploading · N%" with Cancel. A refusal is the
+   * widget's own alert line, as before. Needs `variant="square"`, single, not `roundPreview`; ignored otherwise.
+   * ⚠ Sibling of `pills` on open PR #7351 (round logo + framer above) — fold the two together once both merge.
+   * Held by app/vendor-dashboard/services/the-cover-is-a-thumb-and-a-pill.test.ts.
+   */
+  thumb?: { add: string; replace: string };
 };
 
 /**
@@ -518,6 +543,8 @@ export function FileUpload({
   send,
   tileNote,
   refusalLink,
+  pills,
+  thumb,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -672,6 +699,10 @@ export function FileUpload({
   const acceptAttr = useMemo(() => acceptedTypes.join(','), [acceptedTypes]);
   const maxBytes = maxSizeMB * 1024 * 1024;
   const effectiveMaxFiles = multiple ? (maxFiles ?? 10) : 1;
+  /** `pills`: the picture is drawn by a framing circle above; this widget is the Replace · Remove row (see the prop). */
+  const pillMode = pills != null && roundPreview && variant === 'square' && !multiple;
+  /** `thumb`: a square single image drawn as thumb + one pill (see the prop). */
+  const thumbMode = thumb != null && variant === 'square' && !multiple && !roundPreview;
 
   // Memoize the emit so we don't blast the parent with onChange calls on
   // every progress tick — we only emit when `items` (the persisted set)
@@ -717,7 +748,8 @@ export function FileUpload({
       if (files.length === 0) return;
       setError(null);
 
-      const currentCount = items.length + inFlight.length;
+      // 🖼 `pills` / `thumb`: a single picture is REPLACED by the next one (it lands as `[completed]`), so it takes no slot.
+      const currentCount = (pillMode || thumbMode ? 0 : items.length) + inFlight.length;
       const slotsLeft = Math.max(0, effectiveMaxFiles - currentCount);
       if (slotsLeft === 0) {
         setError(
@@ -832,6 +864,8 @@ export function FileUpload({
       compressVideo,
       disabled,
       effectiveMaxFiles,
+      pillMode,
+      thumbMode,
       limitMessage,
       inFlight.length,
       items,
@@ -1314,9 +1348,91 @@ export function FileUpload({
         </p>
       ) : null}
 
-      {rowMode ? photoRow : null}
+      {/* With `pills`, the row is the EMPTY slot only: once a picture is in, the framer above draws it (one picture). */}
+      {rowMode && !(pillMode && items.length > 0) ? photoRow : null}
 
-      {!atCapacity && !rowMode ? (
+      {/* 🖼 THE PICTURE IS DRAWN ABOVE (`pills`): Replace · Remove, and nothing else — no second picture, no "Saved". */}
+      {pillMode && items.length > 0 ? (
+        <div data-upload-pills="" className="flex flex-wrap items-center justify-center gap-2">
+          {fileInput}
+          <ActionButton
+            tone="neutral"
+            icon={ImagePlus}
+            label={pills!.replace}
+            disabled={disabled || inFlight.length > 0 || preparing}
+            onClick={() => fileInputRef.current?.click()}
+          />
+          <ActionButton
+            tone="danger"
+            icon={Trash2}
+            label="Remove"
+            disabled={disabled || inFlight.length > 0 || preparing}
+            onClick={() => items[0] && removeItem(items[0].id)}
+          />
+          {/* A host that saves later still says so (the shop editor's row); one that saves itself passes `null`. */}
+          {name && !items[0]!.id.startsWith('seed-') && unsavedHint !== null ? (
+            <span className="inline-flex w-full items-center justify-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry-600">
+              <AlertCircle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+              <span className="min-w-0">Not saved yet — {unsavedTail(unsavedHint)}</span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* 🖼 THUMB + PILL (`thumb`): the 64 px thumb and ONE pill are the whole widget — no drop box, no filename row. */}
+      {thumbMode ? (
+        <div data-upload-thumb={flying ? 'uploading' : first ? 'has' : error ? 'refused' : 'empty'} className="flex min-h-16 items-center gap-3">
+          <label
+            htmlFor={inputId}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            aria-label={first ? thumb!.replace : thumb!.add}
+            className={`relative flex h-16 w-16 flex-none cursor-pointer items-center justify-center overflow-hidden rounded-xl ${
+              first && !flying ? 'border border-ink/15' : 'border-2 border-dashed'
+            } ${
+              disabled
+                ? 'cursor-not-allowed opacity-60'
+                : isDragging
+                  ? 'border-terracotta bg-terracotta/5 text-terracotta'
+                  : 'border-ink/30 bg-cream text-ink/50 hover:border-terracotta/60'
+            }`}
+          >
+            {first && first.displayUrl && isImage(first.contentType) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={first.displayUrl} alt={first.filename} className={`h-full w-full object-cover ${flying ? 'opacity-35' : ''}`} />
+            ) : flying ? null : (
+              <ImagePlus aria-hidden className="h-6 w-6" strokeWidth={1.6} />
+            )}
+            {flying ? <Loader2 aria-hidden className="absolute h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} /> : null}
+            {fileInput}
+          </label>
+          <div className="grid min-w-0 justify-items-start gap-1">
+            <ActionButton
+              tone="neutral"
+              icon={first ? ImagePlus : Upload}
+              label={first ? thumb!.replace : thumb!.add}
+              disabled={disabled || flying != null || preparing}
+              onClick={() => fileInputRef.current?.click()}
+            />
+            {flying ? (
+              <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55" aria-live="polite">
+                Uploading · {flying.progress}% · {bytesToHuman(flying.size)}
+                <button type="button" onClick={() => cancelInFlight(flying.id)} className="sn-hit font-sans text-[12px] normal-case tracking-normal text-terracotta-700">
+                  Cancel
+                </button>
+              </span>
+            ) : first && name && !first.id.startsWith('seed-') && unsavedHint !== null ? (
+              <span className="inline-flex items-start gap-1 font-mono text-[10px] uppercase leading-snug tracking-[0.15em] text-mulberry-600">
+                <AlertCircle aria-hidden className="mt-px h-3 w-3 shrink-0" strokeWidth={2} />
+                <span className="min-w-0">Not saved yet — {unsavedTail(unsavedHint)}</span>
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {!atCapacity && !rowMode && !thumbMode ? (
         <label
           htmlFor={inputId}
           onDrop={onDrop}
@@ -1446,7 +1562,7 @@ export function FileUpload({
           evidence lists and multi-file galleries keep the compact rows, where a
           filename is what you scan and a big preview per item would bury the
           list. */}
-      {items.length > 0 && isSingleImagePreview && !rowMode ? (
+      {items.length > 0 && isSingleImagePreview && !rowMode && !pillMode && !thumbMode ? (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="space-y-2">
@@ -1654,7 +1770,7 @@ export function FileUpload({
       ) : null}
 
       {/* (Not in the photo row — `row` draws its own progress, in the circle.) */}
-      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && !rowMode && (
+      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && !rowMode && !thumbMode && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {/* Skipped when the big preview owns the completed item — otherwise a
               replacement upload would show the picture AND its own filename row
@@ -1723,7 +1839,7 @@ export function FileUpload({
         </ul>
       )}
 
-      {help && !rowMode ? <p className="block text-xs text-ink/55">{help}</p> : null}
+      {help && !rowMode && !(pillMode && items.length > 0) && !thumbMode ? <p className="block text-xs text-ink/55">{help}</p> : null}
     </div>
   );
 }

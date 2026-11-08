@@ -26,3 +26,12 @@ test('the lab mounts the real admin section, the real gallery and the real card 
   // The public frame filters by the same switch the shop page reads.
   assert.match(LAB, /const activeServices = rows\.filter\(\(s\) => s\.is_active\);/);
 });
+
+test('the plan-hold frames mount the real picker, the real tag and the real Today line — never copies', () => {
+  assert.match(LAB, /import \{ StayOnPicker, type StayOnPlan \} from '@\/app\/vendor-dashboard\/services\/_components\/stay-on-picker';/);
+  assert.match(LAB, /import \{ PlanHoldTag \} from '@\/app\/vendor-dashboard\/services\/_components\/plan-hold-tag';/);
+  assert.match(LAB, /import \{ StayOnTodayLineView \} from '@\/app\/vendor-dashboard\/_components\/stay-on-today-line';/);
+  // The ladder and each plan's mode come from the same helpers My Shop's section uses.
+  assert.match(LAB, /ladderFor\(current, pending\)/);
+  assert.match(LAB, /pickModeFor\(tier, current, pending\)/);
+});

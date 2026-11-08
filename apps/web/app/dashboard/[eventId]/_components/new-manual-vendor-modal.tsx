@@ -4,13 +4,14 @@ import Image from 'next/image';
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useTransition,
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, RotateCw } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, RotateCw, Plus } from 'lucide-react';
 import {
   addManualSupplier,
   createManualVendorInvite,
@@ -23,7 +24,13 @@ import {
   type MarketplaceVendorSuggestion,
   type UpdateSelfAddedSupplierResult,
 } from '../vendors/actions';
-import { priceDigitsForSheet } from '@/lib/self-added-payment-plan';
+import { priceDigitsForSheet, type PaidAtAdd } from '@/lib/self-added-payment-plan';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { storageForRow, tileForCategory } from '@/lib/shortlist-taxonomy';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { LINES_BOX_CLASS, LINE_INPUT_CLASS, LineGrip } from './sheet-lines';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { formatPhp } from '@/lib/php';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import {
   MANUAL_VENUE_ADDRESS_HINT,
@@ -127,7 +134,17 @@ type Props = {
   saveRecord?: (fd: FormData) => Promise<UpdateSelfAddedSupplierResult>;
   /** The link maker — `createManualVendorInvite` unless a dev lab hands in a stand-in (no session there). */
   makeLink?: typeof createManualVendorInvite;
+  /** The add — `addManualSupplier` unless a dev lab hands in a stand-in (no session there). */
+  addSupplier?: typeof addManualSupplier;
+  /**
+   * The event's date, when the caller has it — so a payment line can be dated "before the event". Absent → a line is
+   * dated from today on ("after you book"), which is what the plan counts from until the couple locks.
+   */
+  eventDateIso?: string | null;
 };
+
+/** What one press may carry — the server action's own limit (`serverActions.bodySizeLimit`, next.config). */
+const SEND_LIMIT_BYTES = 6 * 1024 * 1024;
 
 // State machine for the modal's primary action.
 // 'manual'  = host is typing or has typed a brand-new contact name —
@@ -148,6 +165,8 @@ export function NewManualVendorModal({
   coverCatalog,
   saveRecord,
   makeLink,
+  addSupplier,
+  eventDateIso,
   onClose,
   onCreated,
 }: Props) {
@@ -157,7 +176,18 @@ export function NewManualVendorModal({
   /* The two categories that ARE a place owe an exact address (owner
      2026-09-20). The same predicate `createManualVendor` re-asks server-side —
      this only decides the label, the hint and the `required` attribute. */
-  const addressRequired = manualVendorNeedsAddress(category);
+  // ── THE SUPPLIER'S OWN ROW (makers-match § 1, owner 2026-11-07) ──
+  // The add sheet's Services are lines; the first line is the row the supplier is filed under. Untouched, it is the
+  // row the sheet was opened from and the add posts exactly what it always did (`category` + `tile`); if the couple
+  // swipes that one away, the next line becomes the row (`storageForRow`, the same writer a move uses).
+  const openedFrom = tile ?? tileForCategory(category as VendorCategory) ?? null;
+  const [homeTile, setHomeTile] = useState<string | null>(openedFrom);
+  const onHome = useCallback((t: string | null) => setHomeTile(t), []);
+  const filedUnder =
+    edit || !homeTile || homeTile === openedFrom
+      ? { category, tile: tile ?? null }
+      : { category: storageForRow(homeTile).category as string, tile: homeTile };
+  const addressRequired = manualVendorNeedsAddress(filedUnder.category);
   /* The price drives the payment plan's running total, so it is controlled
      here rather than left uncontrolled like the other text fields. */
   const isEdit = Boolean(edit);
@@ -186,7 +216,12 @@ export function NewManualVendorModal({
   // two-step submit succeeds; the form swaps for the quick-options panel.
   // Marketplace-link mode skips it (already on Setnayan, price comes from
   // their listing).
-  const [created, setCreated] = useState<{ eventVendorId: string; name: string; invite?: SupplierInviteView } | null>(null);
+  const [created, setCreated] = useState<{
+    eventVendorId: string;
+    name: string;
+    invite?: SupplierInviteView;
+    paid?: ReadonlyArray<PaidAtAdd & { withProof: boolean }>;
+  } | null>(null);
   /** Set when the supplier saved but one of the later fields did not. */
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
@@ -384,6 +419,17 @@ export function NewManualVendorModal({
       if (formRef.current) nudgeFormRows(formRef.current);
       return;
     }
+    if (!isEdit && !homeTile) {
+      setErrorMsg('Pick at least one service they cover.');
+      return;
+    }
+    // A receipt per paid line rides the same press as the photo — say so here rather than let the send fail.
+    let sending = 0;
+    for (const v of fd.values()) if (typeof v !== 'string') sending += v.size;
+    if (sending > SEND_LIMIT_BYTES) {
+      setErrorMsg('The photo and receipts are too big to send together (6 MB in all). Use smaller screenshots.');
+      return;
+    }
     const nameEntry = fd.get('business_name');
     const savedName =
       typeof nameEntry === 'string' && nameEntry.trim().length > 0
@@ -415,7 +461,7 @@ export function NewManualVendorModal({
       return;
     }
     startTransition(async () => {
-      const result = await addManualSupplier(fd);
+      const result = addSupplier ? await addSupplier(fd) : await addManualSupplier(fd);
       if (result.status === 'not_signed_in') {
         const next = encodeURIComponent(
           window.location.pathname + window.location.search,
@@ -431,7 +477,7 @@ export function NewManualVendorModal({
       // A warning is shown ON the success step, not instead of it — the
       // supplier is real and the sentence says exactly what to finish.
       setSaveWarning(result.warning ?? null);
-      setCreated({ eventVendorId: result.eventVendorId, name: savedName, invite: result.invite });
+      setCreated({ eventVendorId: result.eventVendorId, name: savedName, invite: result.invite, paid: result.paid });
     });
   }
 
@@ -449,7 +495,9 @@ export function NewManualVendorModal({
   // never reaches for a `document` it does not have.
   if (!portalHost) return null;
   return createPortal(
-    <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise>
+    /* 📄 Add manually is a FORM PAGE on a tablet and a computer (makers-match § 1, 2026-11-07): centred and wide, not
+       the 440 drawer — `page`. The record card (edit) keeps the drawer. */
+    <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise page={!edit}>
       <div className="px-5 pt-5" data-add-manual-sheet="">
         {edit && !created ? (
           /* ── THE RECORD CARD'S HEAD (Booked prototype v4, owner-approved 2026-10-29) — like the guest card's top:
@@ -477,16 +525,16 @@ export function NewManualVendorModal({
           </div>
         ) : (
         <header className="pr-10">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{categoryLabel}</p>
+          {/* Add manually (makers-match § 1): no category over the title — the services the couple picks say it. */}
           <h2 id="new-manual-vendor-heading" className="text-[20px] font-semibold tracking-[-0.01em] text-ink">
-            {edit ? `Edit ${edit.name || 'supplier'}` : 'Add a contact'}
+            {edit ? `Edit ${edit.name || 'supplier'}` : 'Add a supplier'}
           </h2>
           <p className="mt-1 text-[13px] text-ink/65">
             {created
               ? 'Saved! Two quick options — both optional.'
               : edit
                 ? 'Complete or improve what you agreed with them.'
-                : 'Save once · reuse anywhere on your plan.'}
+                : 'What you agreed with them — they confirm it when they join.'}
           </p>
           {/* What the couple typed is THEIR RECORD until the supplier joins
               (the approved prototype's words, 2026-10-10) — said, not boxed. */}
@@ -505,6 +553,7 @@ export function NewManualVendorModal({
             eventVendorId={created.eventVendorId}
             vendorName={created.name}
             invite={created.invite}
+            paid={created.paid}
             categoryLabel={categoryLabel}
             onDone={onCreated}
           />
@@ -514,9 +563,10 @@ export function NewManualVendorModal({
           {/* The category rides along so `createManualVendor` can re-ask the
               address rule server-side. The modal is always opened FROM a
               category card, so this is never a guess. */}
-          <input type="hidden" name="category" value={category} />
-          {/* The row the add came from — `addManualSupplier` keeps it only when it refines `category`. */}
-          {tile && !edit ? <input type="hidden" name="category_key" value={tile} /> : null}
+          <input type="hidden" name="category" value={filedUnder.category} />
+          {/* The row the add came from (or the first service line, when that one was removed) —
+              `addManualSupplier` keeps it only when it refines `category`. */}
+          {filedUnder.tile && !edit ? <input type="hidden" name="category_key" value={filedUnder.tile} /> : null}
           {/* Their claim link is made with the add (owner 2026-10-30: "create an automatic link") — `with_link` only
               asks for it back, so the saved step shows it ready instead of a button. */}
           {!edit ? <input type="hidden" name="with_link" value="1" /> : null}
@@ -677,6 +727,7 @@ export function NewManualVendorModal({
                   disabled={pending}
                   initialAddress={undefined}
                   initialPin={null}
+                  mapFolded
                 />
               </div>
 
@@ -685,41 +736,31 @@ export function NewManualVendorModal({
                   carrying Vendor Name · Contact Person · Contact Number ·
                   Address Pin · Services Covered · Inclusions · Price ·
                   Payment Plan. */}
-              <div className="space-y-1 border-t border-ink/10 py-3">
-                <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-                  What services does this cover
+              <div className="space-y-1.5 border-t border-ink/10 py-3">
+                <p className={SECTION_LABEL_CLASS}>
+                  Services <span className={SECTION_NOTE_CLASS}>what the price covers · tick several</span>
                 </p>
-                {/* The Suppliers page's own rows (owner 2026-10-20) — handed
-                    in by a caller that already holds them, else read for
-                    this event. The booking's own row is locked, never offered. */}
+                {/* ONE multi-select of service names — no categories (owner 2026-11-07). The Suppliers page's own rows,
+                    handed in by a caller that already holds them, else read for this event; the row the sheet was
+                    opened from arrives ticked, and each picked service is a line that swipes away with Undo. */}
                 <ServicesCoveredPicker
                   eventId={eventId}
                   category={category}
-                  homeTile={undefined}
+                  homeTile={tile ?? undefined}
                   ownLabel={categoryLabel}
                   catalog={coverCatalog}
                   initialSelected={[]}
                   disabled={pending}
-                  // Only a supplier already on the event can be moved — an add
-                  // files them under the row the sheet was opened from.
-                  move={undefined}
-                  onMoved={() => setMoved(true)}
+                  lines={{ onHome }}
                 />
               </div>
 
+              {/* Inclusions as LINES (makers-match § 1) — one input per line, swipe to remove with Undo; they post as the
+                  one newline-joined `inclusions` field the save has always read. */}
+              <InclusionLines disabled={pending} />
+
               <div className="border-t border-ink/10">
                 <FormRows width="wide" data="add-manual-terms">
-                  <TypedRow
-                    name="Inclusions"
-                    fieldName="inclusions"
-                    value=""
-                    long
-                    maxLength={2000}
-                    placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
-                    note="One per line — what the price covers."
-                    attrs={{ 'data-manual-field': 'inclusions' }}
-                    onKeep={KEEP}
-                  />
                   <TypedRow
                     name="Price"
                     fieldName="total_cost_php"
@@ -739,30 +780,36 @@ export function NewManualVendorModal({
               </div>
 
               <div className="space-y-1 border-t border-ink/10 py-3">
-                <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
-                  Payment plan
+                <p className={SECTION_LABEL_CLASS}>
+                  Payment plan <span className={SECTION_NOTE_CLASS}>optional · adds up to the price</span>
                 </p>
-                {/* The running total reads the price field live, so the couple
-                    sees "₱80,000 of ₱80,000" as they type rather than only
-                    when the server refuses the save. */}
+                {/* The payment lines — name · due date · amount, the record card's own rows — each with an "Already
+                    paid" tick and, ticked, the optional proof (makers-match § 1). The running total reads the price
+                    field live. Two named lines start it; a line left with no amount is no payment, so an untouched plan
+                    asks nothing of the save. */}
                 <PaymentPlanRows
                   totalPhp={priceNumber}
                   disabled={pending}
-                  // A SAVED plan re-opens exactly as saved — even one saved with
-                  // no payments; only a supplier with no plan yet gets the starter.
-                  initial={undefined}
+                  initial={ADD_STARTER}
+                  dated={{
+                    dates: { lockIso: manilaTodayIso(), eventIso: eventDateIso ?? null },
+                    keptTotalPhp: (() => {
+                      const n = Number(priceKept.replace(/,/g, ''));
+                      return Number.isFinite(n) && n > 0 ? n : null;
+                    })(),
+                    paidAtAdd: true,
+                  }}
                 />
               </div>
 
-              {/* Owner 2026-07-01: note to couples that a self-added vendor is
-                  NOT Setnayan-verified. Friendly framing — said on the page. */}
-              <p className="flex items-start gap-1.5 border-t border-ink/10 py-3 text-[12px] leading-snug text-ink/65">
-                <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} />
-                <span>
-                  Heads up — suppliers you add yourself aren&apos;t verified by
-                  Setnayan. We add them free so you can manage your whole plan in
-                  one place 💛 — just vet them yourself before booking.
-                </span>
+              {/* Owner 2026-07-01: note to couples that a self-added vendor is NOT Setnayan-verified — inside the ⓘ
+                  since the makers-match prototype (owner 2026-11-07: details inside the ⓘ). */}
+              <p className="border-t border-ink/10 py-3 text-[12.5px] text-ink/65" data-add-manual-heads-up="">
+                <InfoTip label="Suppliers you add yourself" align="start" ariaLabel="About suppliers you add yourself">
+                  Heads up — suppliers you add yourself aren&apos;t verified by Setnayan. We add them free so you can
+                  manage your whole plan in one place 💛 — just vet them yourself before booking. Their claim link is
+                  made as soon as you save; show them the QR and they join with these details pre-filled.
+                </InfoTip>
               </p>
             </>
           )}
@@ -783,14 +830,24 @@ export function NewManualVendorModal({
               sentence naming why their plan was refused sat a screen below
               (owner: "did not save properly"). Pinned with the button, it is in
               view wherever the sheet is scrolled. */}
-          <div data-record-sheet-footer="" className="sticky bottom-0 z-10 -mx-5 border-t border-ink/10 bg-cream px-5 py-3">
+          {/* 🧊 FROSTED, FULL WIDTH (makers-match § 1 `.bbar`): the sheet's paper at 84% over a 16px blur, a hairline on
+              top — the fields scroll visibly under it, the way every thumb row in the house reads. */}
+          <div
+            data-record-sheet-footer=""
+            className="sticky bottom-0 z-10 -mx-5 border-t border-ink/10 bg-cream/[0.84] px-4 pb-6 pt-2.5 sm:px-5 sm:pb-4"
+            style={{ WebkitBackdropFilter: 'blur(16px) saturate(1.3)', backdropFilter: 'blur(16px) saturate(1.3)' }}
+          >
           {errorMsg ? (
             <p role="alert" data-record-sheet-said="" className="flex items-start gap-1.5 pb-2.5 text-[12.5px] font-medium leading-snug text-danger-800 dark:text-danger-200">
               <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               <span className="min-w-0">{errorMsg}</span>
             </p>
           ) : null}
-          <div className="flex items-center justify-end gap-2">
+          {/* The thumb row (makers-match § 1, `.bbar`): the shipped ActionButton AS DRAWN — 44px pills at their own word
+              width (`.ab` is `flex: 0 0 auto`, never stretched), side by side from the start of the row: Cancel neutral
+              grey, then the save, brand terracotta and filled (`main`). Green is only the Done that closes the
+              Services dropdown. */}
+          <div className="flex items-center gap-2.5" data-add-manual-thumb-row="">
             <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} />
             <ActionButton
               tone="brand"
@@ -809,7 +866,6 @@ export function NewManualVendorModal({
                       : 'Save & add'
               }
               disabled={pending}
-              className="flex-1 sm:flex-none"
             />
           </div>
           </div>
@@ -818,6 +874,106 @@ export function NewManualVendorModal({
       </div>
     </Sheet>,
     portalHost,
+  );
+}
+
+/** A section's label on the add sheet — the prototype's `.f .lab` (14px · 500, sentence case) and its muted note. */
+const SECTION_LABEL_CLASS = 'block text-[14px] font-medium text-ink';
+const SECTION_NOTE_CLASS = 'ml-1.5 text-[12px] font-normal text-ink/50';
+
+/** The add's two starting payment lines (makers-match § 1) — named, undated, no amount: a line with no amount is
+ *  no payment, so leaving them as they are asks nothing of the save (`addManualSupplier`). */
+const ADD_STARTER = [
+  { label: 'Reservation', kind: 'fixed' as const, value: '', anchor: '' as const, days: '0' },
+  { label: 'Balance', kind: 'fixed' as const, value: '', anchor: '' as const, days: '0' },
+];
+
+/**
+ * INCLUSIONS AS LINES (makers-match § 1, owner 2026-11-07: *"they will list their inclusions"*). One input per line;
+ * a line swipes left to remove (the shared `SwipeToDelete`), with Undo. They post as the ONE `inclusions` field —
+ * newline-joined, exactly what the textarea posted — so the save and `host_inclusions` are unchanged.
+ */
+function InclusionLines({ disabled }: { disabled?: boolean }) {
+  const [lines, setLines] = useState<Array<{ key: number; text: string }>>([]);
+  const nextKey = useRef(0);
+  const [toast, setToast] = useState<{ n: number; undo: () => void } | null>(null);
+  /** The line just added — focused once it is drawn (a frame-later focus lost the first letter typed to the line above). */
+  const [focusKey, setFocusKey] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (focusKey == null) return;
+    document.querySelector<HTMLInputElement>(`[data-inclusion-line="${focusKey}"]`)?.focus();
+    setFocusKey(null);
+  }, [focusKey]);
+  const filled = lines.map((l) => l.text.trim()).filter(Boolean);
+  function add() {
+    if (lines.length >= 40) return;
+    const key = nextKey.current++;
+    setLines((cur) => [...cur, { key, text: '' }]);
+    setFocusKey(key);
+  }
+  function remove(key: number) {
+    const at = lines.findIndex((l) => l.key === key);
+    const gone = lines[at];
+    if (!gone) return;
+    setLines((cur) => cur.filter((l) => l.key !== key));
+    setToast({
+      n: Date.now(),
+      undo: () => {
+        setToast(null);
+        setLines((cur) => (cur.some((l) => l.key === key) ? cur : [...cur.slice(0, at), gone, ...cur.slice(at)]));
+      },
+    });
+  }
+  return (
+    <div className="space-y-1.5 border-t border-ink/10 py-3" data-add-manual-inclusions="">
+      <input type="hidden" name="inclusions" value={filled.join('\n')} />
+      <p className={SECTION_LABEL_CLASS}>
+        Inclusions{' '}
+        <span className={SECTION_NOTE_CLASS}>
+          {lines.length ? `${lines.length} ${lines.length === 1 ? 'line' : 'lines'}` : 'what the price covers'}
+        </span>
+      </p>
+      {lines.length > 0 ? (
+        <ul className={LINES_BOX_CLASS}>
+          {lines.map((l, i) => (
+            <SwipeToDelete key={l.key} as="li" label={`Remove inclusion ${i + 1}`} word="Remove" disabled={disabled} radiusClass="rounded-none" onDelete={() => remove(l.key)}>
+              <div className="flex items-center pr-3">
+                <LineGrip />
+                <input // field-ok: one line of a lines editor — the line itself swipes away (SwipeToDelete), which a Form row cannot
+                  type="text"
+                  value={l.text}
+                  disabled={disabled}
+                  maxLength={120}
+                  placeholder="e.g. Buffet dinner for 150 guests"
+                  aria-label={`Inclusion ${i + 1}`}
+                  data-inclusion-line={l.key}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setLines((cur) => cur.map((x) => (x.key === l.key ? { ...x, text } : x)));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      add();
+                    }
+                  }}
+                  className={LINE_INPUT_CLASS}
+                />
+              </div>
+            </SwipeToDelete>
+          ))}
+        </ul>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={add} disabled={disabled} />
+        <span className="text-[12.5px] text-ink/55">One per line.</span>
+      </div>
+      {toast ? (
+        <PeekToast key={toast.n} tone="ok" data="inclusion-removed" onGone={() => setToast((t) => (t?.n === toast.n ? null : t))} action={{ label: 'Undo', onPress: toast.undo }}>
+          Line removed
+        </PeekToast>
+      ) : null}
+    </div>
   );
 }
 
@@ -899,6 +1055,7 @@ function PostSaveStep({
   categoryLabel,
   warning,
   invite,
+  paid,
   onDone,
 }: {
   eventId: string;
@@ -909,6 +1066,8 @@ function PostSaveStep({
   invite?: SupplierInviteView;
   /** Set when the supplier saved but a later field did not — see addManualSupplier. */
   warning: string | null;
+  /** The lines ticked "Already paid", as logged (`event_vendor_payments`). */
+  paid?: ReadonlyArray<PaidAtAdd & { withProof: boolean }>;
   onDone: () => void;
 }) {
 
@@ -924,6 +1083,18 @@ function PostSaveStep({
           above now carries Price and Payment Plan, so a second input here
           would be a second writer of `total_cost_php`. What remains is the one
           thing that only makes sense AFTER the supplier exists: their invite. */}
+      {paid && paid.length > 0 ? (
+        <p data-add-manual-paid-logged="" className="text-[13px] text-ink/75">
+          Logged as already paid:{' '}
+          {paid.map((p, i) => (
+            <span key={p.seq}>
+              {i > 0 ? ' · ' : ''}
+              <span className="font-medium text-ink">{p.label}</span> {formatPhp(p.amountPhp)}
+              {p.withProof ? ' (with proof)' : ''}
+            </span>
+          ))}
+        </p>
+      ) : null}
       {warning ? (
         <p role="alert" className="flex items-start gap-2 text-[12.5px] leading-snug text-warn-800 dark:text-warn-200">
           <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />

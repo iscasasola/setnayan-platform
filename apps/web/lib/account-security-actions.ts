@@ -42,6 +42,8 @@ import {
   validateNewPassword,
 } from '@/lib/account-security';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { isPasswordLeaked } from '@/lib/leaked-password';
+import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
 
 export async function changePassword(formData: FormData) {
   const returnTo = safeSecurityReturnPath(formData.get('return_to'));
@@ -60,6 +62,12 @@ export async function changePassword(formData: FormData) {
   const validationError = validateNewPassword(newPassword, confirmPassword);
   if (validationError) {
     return redirect(`${returnTo}?error=${encodeURIComponent(validationError)}`);
+  }
+  // The same breach refusal every other create-password door makes (signup,
+  // reset, join, open-shop). Only the first five characters of the password's
+  // hash leave this process; it fails OPEN — see lib/leaked-password.ts.
+  if ((await isPasswordLeaked(newPassword)).leaked) {
+    return redirect(`${returnTo}?error=${encodeURIComponent(LEAKED_PASSWORD_MESSAGE)}`);
   }
 
   const supabase = await createClient();

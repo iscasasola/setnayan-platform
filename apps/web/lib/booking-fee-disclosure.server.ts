@@ -237,7 +237,50 @@ export async function resolveBookingFeeStanding(
     return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until, freeHeldBack };
   }
 
-  return { kind: 'billable', ordinal, ordinalIsFrozen, schedule, freeHeldBack };
+  // 🏅 A FREE BOOKING FEE (badge reward, owner 2026-11-05) — it sits BELOW the free first booking and the promotion,
+  // exactly as `booking_fee_open_lock_charge` takes it, so it is only ever said of a booking that would be billed.
+  // 'this' = this booking's charge was paid by one; 'next' = the shop holds one waiting, so if this booking is agreed
+  // before any other it reads ₱0. A refused read says nothing extra — the booking is still billable, and saying so
+  // can only over-warn, never under-bill.
+  const badgeReward = await readBadgeFeeStanding(admin, args.vendorProfileId, args.eventId ?? null);
+  return badgeReward
+    ? { kind: 'billable', ordinal, ordinalIsFrozen, schedule, freeHeldBack, badgeReward }
+    : { kind: 'billable', ordinal, ordinalIsFrozen, schedule, freeHeldBack };
+}
+
+/** Whether a free booking fee paid this booking ('this') or one is waiting for the shop's next booking ('next'). */
+async function readBadgeFeeStanding(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string | null,
+): Promise<'this' | 'next' | null> {
+  if (eventId) {
+    const { data, error } = await admin
+      .from('booking_fee_charges')
+      .select('charge_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', eventId)
+      .eq('kind', 'primary')
+      .not('badge_reward_id', 'is', null)
+      .limit(1);
+    if (error) {
+      logQueryError('booking-fee-disclosure: badge-paid charge', error);
+      return null;
+    }
+    if ((data ?? []).length > 0) return 'this';
+  }
+  const { count, error } = await admin
+    .from('shop_badge_rewards')
+    .select('reward_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('reward_kind', 'fee_waiver')
+    .is('used_on_charge_id', null)
+    .is('revoked_at', null);
+  if (error) {
+    logQueryError('booking-fee-disclosure: free booking fees', error);
+    return null;
+  }
+  return (count ?? 0) > 0 ? 'next' : null;
 }
 
 /**

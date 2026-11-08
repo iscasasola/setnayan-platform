@@ -283,6 +283,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 Create your password
               </label>
               <PasswordField
+                mode="new"
+                leaked={rawError === 'password_leaked'}
                 id="hr-su-password"
                 name="password"
                 autoComplete="new-password"

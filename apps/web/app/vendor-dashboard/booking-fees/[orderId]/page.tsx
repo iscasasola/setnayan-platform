@@ -73,9 +73,20 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
     notFound();
   }
 
-  const [payments, settings] = await Promise.all([
+  // One round trip: the payments, the platform settings and the bill's dispute (🕵️ below) ask nothing of each other —
+  // only of `order`, proven above. The dispute read never throws (it hands back its error), so the batch rejects
+  // exactly when, and with what, the two-read batch did.
+  const chargeId = chargeIdFromBookingFeeLockServiceKey(order.service_key);
+  const [payments, settings, disputeRead] = await Promise.all([
     fetchPaymentsForOrder(supabase, orderId),
     fetchPlatformSettings(supabase),
+    chargeId
+      ? supabase
+          .from('booking_fee_disputes')
+          .select('status, decision_note')
+          .eq('charge_id', chargeId)
+          .maybeSingle()
+      : { data: null, error: null },
   ]);
   // Fee orders are `vendor_`-prefixed → VAT-INCLUSIVE: the stored total IS the
   // gross the vendor pays. Pass vatRatePct=0 so no VAT line is added on top.
@@ -115,16 +126,8 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
     charge, its dispute if any (the supplier's own read, RLS), and — only to quote it back — how often the couple
     opened this shop on Setnayan. That count lives in the couple-only found-record, so it is read with the service
     role, scoped to THIS bill's own (event, shop), which the checks above already proved is the caller's.
-    A failed read shows no dispute control rather than a wrong one.
+    A failed read shows no dispute control rather than a wrong one. (The dispute row is read in the batch above.)
   */
-  const chargeId = chargeIdFromBookingFeeLockServiceKey(order.service_key);
-  const disputeRead = chargeId
-    ? await supabase
-        .from('booking_fee_disputes')
-        .select('status, decision_note')
-        .eq('charge_id', chargeId)
-        .maybeSingle()
-    : { data: null, error: null };
   const dispute = disputeRead.error
     ? undefined
     : ((disputeRead.data as { status: string; decision_note: string | null } | null) ?? null);

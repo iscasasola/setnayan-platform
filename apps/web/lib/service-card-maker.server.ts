@@ -32,6 +32,8 @@ import {
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
+import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { freeByKind, type FreeByKind, type ShopGiftPack } from '@/lib/shop-gifts';
 import type { CategoryGroup, MakerEditing, MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -85,6 +87,13 @@ export type MakerContext = {
    */
   bookingsPerDate: { cap: number | null; help: string | null };
   kindLabel: (kind: string) => string;
+  /**
+   * 🎁 THE CARD'S GIFT ROW (makers prototype 7 Nov 2026 § 3) — the giftable packs on the live catalogue and what this
+   * shop can still offer of each kind. `null` = could not be read (the row then offers No gift · Setnayan gift and
+   * lists the packs as unreadable — never as empty stock).
+   */
+  giftPacks: ShopGiftPack[] | null;
+  giftFree: FreeByKind | null;
 };
 
 export async function loadMakerContext(
@@ -94,7 +103,7 @@ export async function loadMakerContext(
 ): Promise<MakerContext> {
   const withKindList = opts.withKindList ?? true;
 
-  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes] = await Promise.all([
+  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock] = await Promise.all([
     supabase.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     getCoverageTaxonomy().catch(() => [] as CoverageParent[]),
@@ -109,6 +118,9 @@ export async function loadMakerContext(
       .from('vendor_schedule_pool_categories')
       .select('category_key, pool_id')
       .eq('vendor_profile_id', vendorProfileId),
+    // 🎁 the Gift row — in the same batch, never one read after another. Each fails soft to null (logged inside).
+    fetchShopGiftPacks(supabase).catch(() => null),
+    fetchShopGiftStock(supabase, vendorProfileId).catch(() => null),
   ]);
   const coverageLabels = await resolveCoverageLabels().catch(() => null);
 
@@ -304,6 +316,8 @@ export async function loadMakerContext(
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,
     bookingsPerDate,
     kindLabel,
+    giftPacks,
+    giftFree: freeByKind(giftStock),
   };
 }
 
@@ -362,7 +376,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -450,6 +464,7 @@ export async function loadCardForEdit(
     sourceWasOtherCategory: false,
     title: c.title?.trim() || '',
     includesSetnayanGift: c.includes_setnayan_gift === true,
+    giftPackCode: typeof c.gift_pack_code === 'string' && c.gift_pack_code.length > 0 ? c.gift_pack_code : null,
     coverageId: str(c.coverage_id),
     crewSize: str(c.crew_size),
     recommendedLeadTimeMonths: str(c.recommended_lead_time_months),

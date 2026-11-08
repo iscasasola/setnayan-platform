@@ -7,9 +7,9 @@
  * guided pass and moved every field from portalled sheets into in-page folds, so there is no "question open" state to
  * pin around any more. The RULE survives in a plainer shape, and this file now holds it:
  *
- *   1 · at lg+ the maker is two columns — the card left, the rows right — and the card STAYS in view (sticky);
- *   2 · below lg the card scrolls with the page (the prototype's phone: a sticky card would cover a third of a 667 px
- *       screen while the rows are filled — measured in the lab walk);
+ *   1 · from 820 up (md+) the maker splits evenly — the fields left, "As couples see it" right — and the preview STAYS
+ *       in view (sticky) (makers prototype 7 Nov 2026 § 3, superseding the 340 px card-left column of 2026-10-14);
+ *   2 · on a phone the preview is the pinned row's Eye sheet, so nothing sticky covers the fields;
  *   3 · every sheet that is left (kind · who it's for · the 🏷 ask · preview · delete) docks right on a laptop, as
  *       before, and keeps its phone veil.
  */
@@ -31,23 +31,29 @@ test('the maker reads back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
 });
 
-test('at lg+ the maker is two columns: the card, then the rows', () => {
+test('from 820 up the maker splits evenly: the surface, then "As couples see it"', () => {
+  /* SUPERSEDED 2026-11-07 — DECISION_LOG "THE FOUR MAKERS ARE APPROVED — BUILD THEM AS FIXES TO THE SHIPPED SCREENS,
+     NEVER NEW ONES" + makers prototype § 3: "At 820 and 1440 the surface and 'As couples see it' split evenly". The
+     card was a 340 px column LEFT of the rows at lg+; it is now an equal column RIGHT of the fields at md+. */
   const src = read(MAKER);
-  assert.match(src, /className="lg:grid lg:grid-cols-\[minmax\(0,340px\)_minmax\(0,1fr\)\] lg:items-start lg:gap-8"/);
-  const grid = src.indexOf('lg:grid lg:grid-cols-');
-  const card = src.indexOf('data-maker-card=""', grid);
+  assert.match(src, /className="md:grid md:grid-cols-2 md:items-start md:gap-8" data-maker-split=""/);
+  const grid = src.indexOf('data-maker-split=""');
   const form = src.indexOf('data-card-form=""', grid);
-  assert.ok(grid > 0 && card > grid && form > card, 'the card must come before the rows inside the two-column grid');
+  const card = src.indexOf('data-maker-card=""', grid);
+  assert.ok(grid > 0 && form > grid && card > form, 'the fields must come before the preview inside the split');
 });
 
-test('the card stays in view on a laptop and scrolls on a phone — sticky at lg only', () => {
+test("the preview stays in view from 820 up and is the Eye's sheet on a phone", () => {
   const src = read(MAKER);
   const at = src.indexOf('data-maker-card=""');
-  const tag = src.slice(src.lastIndexOf('<div', at), at);
-  assert.match(tag, /lg:sticky/, 'the card no longer stays in view on a laptop');
-  for (const cls of (tag.match(/className="([^"]*)"/)?.[1] ?? '').split(/\s+/).filter(Boolean)) {
-    assert.ok(cls.startsWith('lg:'), `"${cls}" applies on a phone — the card must scroll with the page there`);
+  const tag = src.slice(src.lastIndexOf('<aside', at), at);
+  assert.match(tag, /md:sticky/, 'the preview no longer stays in view beside the fields');
+  const classes = (tag.match(/className="([^"]*)"/)?.[1] ?? '').split(/\s+/).filter(Boolean);
+  assert.ok(classes.includes('hidden') && classes.includes('md:block'), 'the side preview must hide on a phone (it is the sheet there)');
+  for (const cls of classes.filter((c) => c !== 'hidden')) {
+    assert.ok(cls.startsWith('md:'), `"${cls}" applies on a phone — there the preview is the Eye's sheet`);
   }
+  assert.match(src, /icon=\{Eye\} label="As couples see it" onClick=\{\(\) => setSheet\('preview'\)\}/, 'the phone lost its way to the preview');
 });
 
 test('every sheet docks right on a laptop, and keeps its veil on a phone', () => {

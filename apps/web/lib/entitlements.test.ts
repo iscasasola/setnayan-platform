@@ -20,7 +20,6 @@ import {
   eventOwnsSku,
   eventSkuActive,
   FREE_FOR_ALL_SKUS,
-  eventHasPapicUnlock,
   eventActiveSkus,
   BUNDLE_CHILD_SKUS,
   PAPIC_UNLOCK_SKU,
@@ -591,26 +590,6 @@ test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli gue
   }
   // Deprecated crew pack stays OUT (superseded by the per-camera model).
   assert.ok(!BUNDLE_CHILD_SKUS.PAPIC_UNLOCK.includes('PAPIC_SEATS'));
-});
-
-test('eventHasPapicUnlock: true only for a paid/fulfilled PAPIC_UNLOCK pass', async () => {
-  assert.equal(
-    await eventHasPapicUnlock(makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'paid'), 'evt_1'),
-    true,
-  );
-  assert.equal(
-    await eventHasPapicUnlock(makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'fulfilled'), 'evt_1'),
-    true,
-  );
-  // Pending pass does NOT lift allowances (the handshake).
-  assert.equal(
-    await eventHasPapicUnlock(makeOwnedSupabase(new Set([PAPIC_UNLOCK_SKU]), 'submitted'), 'evt_1'),
-    false,
-  );
-  assert.equal(
-    await eventHasPapicUnlock(makeOwnedSupabase(new Set(), 'paid'), 'evt_1'),
-    false,
-  );
 });
 
 // ──────────────────────────────────────────────────────────────────────────

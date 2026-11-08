@@ -17,7 +17,7 @@ export type SetupDetails = Pick<
   'vendorId' | 'businessName' | 'isVerified' | 'checklist' | 'profileComplete' | 'fieldsLeft' | 'profileFields' | 'verify' | 'verifyMeasured' | 'docsIn' | 'docsTotal' | 'logoUnavailable'
 > &
   // 🏷 Name/address by request (owner 2026-10-29) — optional so a fixture without them draws every row as it was.
-  Partial<Pick<DetailsData, 'requestOnly' | 'openCorrections'>>;
+  Partial<Pick<DetailsData, 'requestOnly' | 'openCorrections' | 'slug'>>;
 
 /**
  * 🧰 A NEW SHOP'S TODAY — the six steps, each body a SHIPPED editor mounted in place (owner 2026-10-28, DECISION_LOG
@@ -60,6 +60,9 @@ export function SupplierSetupScreen({
     offer: rail.offer,
     docs: { status: d.verify.status, docsIn: d.docsIn, docsTotal: d.docsTotal },
     shopName: d.businessName,
+    slug: d.slug ?? null,
+    // "Photography · no card yet" — the shop's first service, by the name couples read.
+    serviceLabel: rail.offer?.services[0] ? displayServiceLabel(rail.offer.services[0].service) : null,
   });
   const rows = (k: 'name' | 'details' | 'logo') => {
     const keys = setupChecklistKeys(k);

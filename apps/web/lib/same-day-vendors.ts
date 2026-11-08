@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { haversineKm } from './geo';
 import type { DemoScope } from './demo-scope';
 
@@ -67,13 +68,10 @@ export async function findSameDayVendors(
     .select(
       'vendor_profile_id, business_name, business_slug, hq_region, location_city, services, hq_latitude, hq_longitude',
     )
-    .eq('public_visibility', 'verified')
-    // PR-B robustness: also gate on the verification_state enum, not just the
-    // public_visibility + non-free tier signals. A no-op today (the reconcile
-    // migration 20270331400000 marked every paid vendor 'verified'), but if a
-    // paid vendor is later demoted/rejected this keeps them out of the
-    // couple-facing day-of "Get help" shortlist.
-    .eq('verification_state', 'verified')
+    // 🔎 The ONE findable rule (lib/live-shops.ts · lib/findable-shop.ts,
+    // DECISION_LOG 2026-11-07). A demoted/rejected shop stays out of the
+    // couple-facing day-of "Get help" shortlist, as before.
+    .match(LIVE_SHOP_GATE)
     // 🧪 A real event never gets a demo shop; a demo event (`events.is_sample`) gets only demo shops (owner 2026-11-06).
     .eq('is_demo', demoScope.is_demo)
     .eq('same_day_available', true)

@@ -24,7 +24,7 @@ export function MerkadoGuardBanner({
         // A tint of the tone, not a fixed light fill — it reads in dark too (walked 2026-10-12).
         hasIssues
           ? 'border-warn-300/60 bg-[color-mix(in_srgb,rgb(var(--color-warn))_9%,transparent)]'
-          : 'border-success-200 bg-[color-mix(in_srgb,rgb(var(--color-ok))_9%,transparent)] dark:border-success-200/30'
+          : 'border-success-200 bg-[color-mix(in_srgb,rgb(var(--color-ok))_9%,transparent)]'
       }`}
     >
       <div className="flex items-start gap-2.5">
@@ -34,7 +34,7 @@ export function MerkadoGuardBanner({
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-600" strokeWidth={2} aria-hidden />
         )}
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-medium ${hasIssues ? 'text-warn-900 dark:text-warn-100' : 'text-success-800 dark:text-success-200'}`}>
+          <p className={`text-sm font-medium ${hasIssues ? 'text-warn-900' : 'text-success-800'}`}>
             {hasIssues
               ? `${guard.issues.length} thing${guard.issues.length > 1 ? 's' : ''} to review`
               : 'Sai’s watching — your suppliers fit'}

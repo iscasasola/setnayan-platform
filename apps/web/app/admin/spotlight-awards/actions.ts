@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { grantOwedBadgeRewards } from '@/lib/badge-rewards.server';
 import {
   runSpotlightRecompute,
   currentPeriodMonth,
@@ -160,6 +161,21 @@ export async function addAwardManually(formData: FormData): Promise<void> {
     { onConflict: 'vendor_profile_id,award_type,period_month' },
   );
   if (error) back('error', error.message);
+
+  // 🎁 The award's badge reward, paid now and once (owner 2026-11-05, table approved 6 Nov: Most Booked / Top Pick /
+  // Rising → Event Plus, once per award per month; Top Pick / Most Booked also a 4-week upgrade, lib/badge-upgrades.ts). Only the award is handed in, so nothing else is granted here; the
+  // database's (shop, award, month) key makes a re-add pay nothing. A failure is logged — the supplier's next badge
+  // read pays it — and never blocks the award.
+  await grantOwedBadgeRewards(admin, vendorId, {
+    verified: null,
+    completedEvents: null,
+    trustedReviews: null,
+    firstSourcedBooking: null,
+    branchIds: null,
+    serviceCards: null,
+    inspirationPhotos: null,
+    awards: [{ type: awardType, periodMonth: period }],
+  });
 
   revalidateSurfaces();
   back('ok', `Award added for ${vendor.business_name ?? 'vendor'}.`);

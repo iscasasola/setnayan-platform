@@ -31,6 +31,8 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
+import { readThreadShopNotYetVerified } from '@/lib/not-yet-verified.server';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
@@ -498,6 +500,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     bookedCounterpartyPhone({ booked, viewer: 'couple', eventId: thread.event_id, vendorProfileId: thread.vendor_profile_id }),
   );
 
+  // 💬 "This shop is not yet verified by Setnayan" — DECISION_LOG 2026-11-07 ruling (4), the chat half. In-app only,
+  // never an email. The state and demo flag only (never the name), on the admin client; an unreadable row draws
+  // nothing (lib/not-yet-verified.server.ts).
+  const shopNotYetVerifiedRead = readThreadShopNotYetVerified(decisionAdmin, thread.vendor_profile_id);
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
@@ -517,6 +524,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventDay,
     shopBooked,
     shopPhone,
+    shopNotYetVerified,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -535,6 +543,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventDayRead,
     shopBookedRead,
     shopPhoneRead,
+    shopNotYetVerifiedRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -709,6 +718,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   ) : null}
                 </>
               }
+              // 💬 DECISION_LOG 2026-11-07 (4): one quiet line, the details in its ⓘ — an unverified shop only.
+              below={shopNotYetVerified ? <NotYetVerifiedThreadLine /> : null}
               actions={
                 <>
                 <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />

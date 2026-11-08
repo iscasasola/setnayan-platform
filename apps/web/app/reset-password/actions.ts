@@ -25,6 +25,7 @@ import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { accountHomePath, validateNewPassword } from '@/lib/account-security';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPasswordLeaked } from '@/lib/leaked-password';
+import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
 
 export async function completePasswordReset(formData: FormData) {
   const newPassword = formData.get('new_password');
@@ -56,9 +57,7 @@ export async function completePasswordReset(formData: FormData) {
   // shown a person the literal string "password_leaked". Pass the sentence.
   if ((await isPasswordLeaked(newPassword)).leaked) {
     redirect(
-      `/reset-password?error=${encodeURIComponent(
-        'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
-      )}`,
+      `/reset-password?error=${encodeURIComponent(LEAKED_PASSWORD_MESSAGE)}`,
     );
   }
 

@@ -60,6 +60,7 @@ test('all three writers refuse with wording that names the format', () => {
   // "Invalid" alone leaves someone retyping the same number wondering what is
   // wrong with it.
   const msg = read('lib/open-shop-validation.ts');
-  assert.match(msg, /09XX XXX XXXX/);
+  // The sign-up's phone box shows a fixed +63, so its words start at the 9 (owner 2026-11-07, PR #7351).
+  assert.match(msg, /9XX XXX YYYY, or a landline like 2 8XXX YYYY/);
   assert.match(read('app/admin/vendors/actions.ts'), /09XX XXX XXXX/);
 });

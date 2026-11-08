@@ -112,7 +112,10 @@ export function SendProposalCard({
   const quoteTotalCentavos = resolveQuoteTotalCentavos(packageTotalCentavos, totalPhp);
 
   const gift = previewGiftForTotal(quoteTotalCentavos, giftBasis);
-  const giftCopy = giftQuoteCopy(gift, 'supplier');
+  const giftCopy = giftQuoteCopy(gift, 'supplier', {
+    // 🏅 A free booking fee (badge reward) covers the gift — nothing is billed (owner 2026-11-05).
+    freeWithBadge: papicStanding?.kind === 'included' && papicStanding.freeWithBadge === true,
+  });
   // Same reasoning as the gift line above: a shop that quotes from THIS card
   // must read the same fee a shop that quotes from the builder reads.
   const feeCopy = feeStanding

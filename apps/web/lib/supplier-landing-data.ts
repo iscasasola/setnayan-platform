@@ -6,8 +6,9 @@ import 'server-only';
  *
  * WHAT COUNTS, each rule derived from the one place it is already defined:
  *   · the card is active and not a demo row (`vendor_services.is_demo`);
- *   · its shop is LIVE by `isShopLive` — never a re-typed visibility check —
- *     and is not a demo shop;
+ *   · its shop is FINDABLE by the one rule (`lib/findable-shop.ts`, 2026-11-07:
+ *     verified, or not yet decided until its first inquiry) — never a re-typed
+ *     visibility check — and is not a demo shop;
  *   · its category files under a tile the marketplace shows (`marketplaceHidden`,
  *     `hiddenCategories`, `ADMIN_ONLY_TILES` all exclude);
  *   · its EVENT TYPES are its own coverage's, else its shop's, else wedding —
@@ -34,7 +35,7 @@ import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import { ADMIN_ONLY_TILES, type WeddingTile } from '@/lib/taxonomy';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
-import { isShopLive, PUBLIC_SURFACE_VISIBILITIES, SHOP_LIVE_COLUMNS } from '@/lib/vendor-visibility';
+import { FINDABLE_INPUT_COLUMNS, findableShopGate, isShopFindable } from '@/lib/findable-shop';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { MarketplaceServiceCard } from '@/lib/marketplace-service-cards';
@@ -51,7 +52,7 @@ const SERVICE_COLS =
   'last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,' +
   'base_pax,coverage_id,includes_setnayan_gift,is_demo';
 
-const SHOP_COLS = `vendor_profile_id,business_name,business_slug,location_city,logo_url,event_types,is_demo,${SHOP_LIVE_COLUMNS}`;
+const SHOP_COLS = `vendor_profile_id,business_name,business_slug,location_city,logo_url,event_types,is_demo,is_findable,${FINDABLE_INPUT_COLUMNS.replace(/\s+/g, '')}`;
 
 const PAGE = 1000;
 
@@ -90,7 +91,8 @@ async function readAll(admin: SupabaseClient): Promise<Array<Record<string, unkn
       .from('vendor_services')
       .select(`${SERVICE_COLS},vendor_profiles!inner(${SHOP_COLS})`)
       .eq('is_active', true)
-      .in('vendor_profiles.public_visibility', PUBLIC_SURFACE_VISIBILITIES as string[])
+      // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07).
+      .match(findableShopGate('vendor_profiles'))
       .order('created_at', { ascending: false })
       .range(from, from + PAGE - 1);
     if (error) throw new Error(`supplier landing: service cards read failed: ${error.message}`);
@@ -103,14 +105,15 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
   const admin = createAdminClient();
   const [rows, taxonomy, vocab] = await Promise.all([readAll(admin), getTaxonomy(), getEventTypeVocab()]);
 
-  // Live shops only (the one predicate), and never a demo card or demo shop.
+  // Findable shops only (the one rule, and its twin on the row in hand), and
+  // never a demo card or demo shop.
   // 🧪 DELIBERATELY STILL EXCLUDING DEMO (2026-11-06), although demo shops are public now: these /suppliers pages are
   // the INDEXED landing pages (`app/sitemap-suppliers.xml/route.ts` builds its list from this same read) and they
   // print counts ("N suppliers in …"). A demo is never indexed and demo numbers never count in real totals (owner,
   // DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). Demo shops show on Explore and the front page, marked.
   const live = rows.filter((r) => {
     const shop = (r.vendor_profiles ?? {}) as Record<string, unknown>;
-    return isShopLive(shop) && shop.is_demo !== true && r.is_demo !== true;
+    return shop.is_findable === true && isShopFindable(shop) && shop.is_demo !== true && r.is_demo !== true;
   });
 
   const coverageIds = [

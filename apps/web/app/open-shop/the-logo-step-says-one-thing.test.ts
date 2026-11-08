@@ -16,7 +16,7 @@
  *      whole, so a narrow phone can only break between the two.
  * Comments stripped before matching.
  *
- * SABOTAGE: put the literal "optional" back as the label → RED.
+ * SABOTAGE: put the literal "optional" back beside the logo (now on /open-shop/logo, A2 2026-11-06) → RED.
  * SABOTAGE: set LOGO_LATER.hint to "Needed before your shop is approved…" → RED.
  * SABOTAGE: put `· up to {formatCount(maxSizeMB)} MB` back inline after the formats → RED.
  */
@@ -38,10 +38,12 @@ test('the logo step says one true thing: not needed to open, needed to get verif
   assert.match(LOGO_LATER.hint, /\bverif/i, 'the hint must name the step that needs the logo: verification');
   assert.doesNotMatch(LOGO_LATER.hint, /\bapprov|\bpublish/i, 'approval / publishing do not read the logo — verification does');
 
+  // 🖼 RETARGETED 2026-11-06 (A2): the logo left step 1 of the wizard (signed out it could not upload) and is asked on
+  // its own screen right after the shop opens — the same one true sentence must be said THERE.
   const wizard = read('app/open-shop/_components/open-shop-wizard.tsx');
-  const step = wizard.slice(wizard.indexOf('Shop logo'), wizard.indexOf('<label', wizard.indexOf('Shop logo')));
-  assert.ok(step.length > 0, 'the logo step moved — this guard is pointed at nothing');
-  assert.match(step, /\{LOGO_LATER\.label\}/, 'the label must be the shared LOGO_LATER.label');
+  assert.doesNotMatch(wizard, /<FileUpload\b/, 'a logo upload is back on the signed-out wizard, where it cannot upload');
+  const step = read('app/open-shop/logo/_components/add-your-logo.tsx');
+  assert.ok(step.includes('Add your logo'), 'the logo screen moved — this guard is pointed at nothing');
   assert.match(step, /\{LOGO_LATER\.hint\}/, 'the hint must be the shared LOGO_LATER.hint');
   assert.doesNotMatch(step, />\s*optional\s*</i, 'a typed "optional" is back beside the logo');
   assert.doesNotMatch(step, /approved/i, 'a typed "approved" sentence is back under the logo');

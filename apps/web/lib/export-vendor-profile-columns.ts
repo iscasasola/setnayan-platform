@@ -90,12 +90,16 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'created_at, created_by_admin_user_id, demo_batch_id, demotion_count, event_types, ' +
   'experience_verified_at, experience_verified_by, extra_agent_seats, ' +
   'extra_bookings_per_date, extra_parent_categories, extra_services_per_leaf, extra_waitlist_acceptances, ' +
+  // find_lock_* · is_findable (migration 20271320303985, #7373) — whether the shop can be found, and the lock its first
+  // unverified inquiry put on that (when, why, when lifted). The shop's own state, exported like fraud_* below.
+  // find_lock_lifted_by is a staff uid — the SAME open DPO question as created_by_admin_user_id above, not decided here.
+  'find_lock_lifted_at, find_lock_lifted_by, find_lock_reason, find_locked_at, ' +
   'fraud_banned_at, ' +
   'fraud_suspended_at, fraud_tombstoned, gallery_video_links, hq_address, hq_country, hq_latitude, ' +
   'hq_longitude, hq_region, in_business_since_date, in_business_since_year, ' +
   'venue_width_m, venue_length_m, ' +
-  'inner_radius_km, is_demo, is_founder, is_published, is_supplier_vendor, ' +
-  'last_demoted_at, last_verified_at, location_city, logo_url, max_soft_holds_per_date, ' +
+  'inner_radius_km, is_demo, is_findable, is_founder, is_published, is_supplier_vendor, ' +
+  'last_demoted_at, last_verified_at, location_city, logo_focal_x, logo_focal_y, logo_url, logo_zoom, max_soft_holds_per_date, ' +
   'max_waitlist_acceptances, microsite_about, microsite_accent, ' +
   'microsite_featured_editorial_ids, microsite_featured_service_ids, ' +
   'microsite_hero_photo_key, microsite_pinned_review_id, microsite_sections, ' +

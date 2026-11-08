@@ -561,10 +561,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have paid them, they show as Booked.',
       },
       {
-        // A manual venue's pin is set in Studio › Info; a shop's venue follows the shop's pin (owner 2026-10-22, #6787).
+        // A manual venue's pin is set where the venue is (Suppliers' date-and-place line, `fact-sheets.tsx`); a shop's
+        // venue follows the shop's pin (owner 2026-10-22, #6787). Was "Studio › Info", which left Studio (reorg sweep,
+        // 2026-11-06: "INFO SPLITS BY WHAT IT IS ABOUT").
         slug: 'venue-pin',
         title: 'How do I put my venue on the map?',
-        body: 'In Studio › Info › Venues, a venue you added yourself gets a pin you can move to the door. A venue booked from a shop on Setnayan follows the shop’s own pin — if the shop has not pinned its place yet, the map says so.',
+        body: 'On Suppliers, tap your place in the date and place line at the top. A venue you added yourself gets a pin you can move to the door. A venue booked from a shop on Setnayan follows the shop’s own pin — if the shop has not pinned its place yet, the map says so.',
       },
       {
         slug: 'budget-line-items',
@@ -807,7 +809,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // Rewritten again 2026-10-25: setting credits aside for one camera was
         // retired (owner 2026-09-16 "no dedicated shots individually", built in
         // #5905). The worry stays real, so the answer is what ships now.
-        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from Studio › Papic; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
+        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from the Papic card on Home; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
       },
       {
         slug: 'how-papic-shots-work',

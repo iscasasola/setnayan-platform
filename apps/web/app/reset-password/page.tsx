@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/server';
 import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-shell';
 import { completePasswordReset } from './actions';
 import { PasswordField } from '@/app/_components/password-field';
+import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
 
 export const metadata: Metadata = {
   title: 'Choose a new password',
@@ -84,6 +85,9 @@ export default async function ResetPasswordPage({
             New password
           </label>
           <PasswordField
+            mode="new"
+            personal={[user.email]}
+            leaked={errorMessage === LEAKED_PASSWORD_MESSAGE}
             id="new_password"
             name="new_password"
             autoComplete="new-password"

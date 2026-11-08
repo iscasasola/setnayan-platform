@@ -14,6 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -113,6 +114,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import { InspirationBoardSheet } from './_components/find-inspiration';
+import { InspirationBoardBody } from '../studio/mood-board/_components/mood-board-editor';
+import { readFindInspiration } from '@/lib/find-inspiration.server';
+import type { FindInspiration } from '@/lib/find-inspiration';
+import { Suspense } from 'react';
 import { readInviteStatusByVendorId } from '@/lib/supplier-invite-status.server';
 import {
   PendingLockProposals,
@@ -217,6 +223,8 @@ type Props = {
     announce?: string;
     /** 🔗 Booked › Team opens on this supplier's row (`event_vendors.vendor_id`) — "Not on Setnayan yet — invite them". */
     team?: string;
+    /** 💡 `1` = Find with "Your inspiration board" open (`findBoardHref`, reorg R5). */
+    board?: string;
   }>;
 };
 
@@ -611,6 +619,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .filter((id): id is string => !!id),
     ),
   ];
+
+  /* 💡 THE INSPIRATION BOX (owner 2026-10-28, "INSPIRATION LIVES IN SUPPLIERS › FIND"): the couple's board, read once
+     beside the rest — "On your list" = a photo from a shop already in these picks. A refused read is `unread`, said. */
+  const findInspirationRead = readFindInspiration(supabase, eventId, new Set(marketplaceIds)).catch(
+    (): FindInspiration => ({ read: 'unread' }),
+  );
 
   const marketplaceCardByVendorId = new Map<
     string,
@@ -2298,6 +2312,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   );
   const benchUnread = benchUnreadFrom(unreadRead);
 
+  const findInspiration = await findInspirationRead;
   const shortlistMaster = (
     <>
       {aiOfferBanner}
@@ -2321,6 +2336,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         eventId={eventId}
         nearOptions={nearRows(await nearAnchorsRead)}
         onePerEventGroups={[...onePerEventGroups]}
+        inspiration={findInspiration}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".
@@ -3058,6 +3074,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           }
         />
       </LastSeenCapture>
+      {/* 💡 C · "Your inspiration board", whole — the shipped board in the house sheet, over Find (reorg R5). */}
+      {sp.board === '1' ? (
+        <InspirationBoardSheet>
+          <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your board…</p>}>
+            <InspirationBoardBody eventId={eventId} />
+          </Suspense>
+        </InspirationBoardSheet>
+      ) : null}
       {/* 🔦 First visit only — the page's own spotlight, after the host journey (owner 2026-10-25). */}
       <Spotlight tourKey={HOST_PAGE_TOURS.suppliers} after={HOST_PAGE_TOURS_AFTER} replay="page" />
       </>
@@ -3108,10 +3132,9 @@ async function fetchActiveCategoryMarketPool(
     const { count, error } = await admin
       .from('vendor_market_stats')
       .select('vendor_profile_id', { count: 'exact', head: true })
-      .in('public_visibility', ['verified', 'coming_soon'])
-      // PR-B — the available-pool count must match the gated marketplace:
-      // count only VERIFIED vendors (unverified are private).
-      .eq('verification_state', 'verified')
+      // 🔎 The available-pool count must match the marketplace: the ONE findable
+      // rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07).
+      .match(FINDABLE_SHOP_GATE)
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .overlaps('services', [...canonical]);

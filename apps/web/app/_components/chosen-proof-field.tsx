@@ -28,7 +28,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, ImageOff, X } from 'lucide-react';
+import { FileText, ImageOff, ImagePlus, RefreshCw, Upload, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { formatFileSize } from '@/lib/chat-shared-files';
 
 /**
@@ -48,15 +49,28 @@ export type ChosenProofFieldProps = {
   id: string;
   /** Which types the picker offers. */
   accept?: string;
-  /** Label text above the field. */
+  /** Label text above the field. With `look="button"` it names the file input (screen readers) instead. */
   label: React.ReactNode;
+  /**
+   * 🖼 `"button"` — the makers-match § 1 drawing (owner-approved 2026-11-07, the add sheet's "Already paid" line):
+   * before a file is picked, a dashed 64px thumb, the shipped ActionButton "Add payment proof" and the hint
+   * "optional — screenshot/receipt"; once picked, the SAME legible preview below (name · size · Remove · opens full
+   * size — owner 2026-09-20, "too small") with the button reading "Replace". The file input is the same one, only
+   * visually hidden, so the upload path does not change. Omitted = the bare picker as it always was.
+   */
+  look?: 'field' | 'button';
 };
+
+/** The empty receipt's slot in the button look — the drawing's dashed thumb (makers-match § 1). */
+const PROOF_THUMB_CLASS =
+  'inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/30 bg-ink/[0.04] text-ink/45'; // no-card-ok: a picture slot (the receipt goes here), not a box around content
 
 export function ChosenProofField({
   name,
   id,
   accept = 'image/*,application/pdf',
   label,
+  look = 'field',
 }: ChosenProofFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [chosen, setChosen] = useState<Chosen | null>(null);
@@ -115,6 +129,43 @@ export function ChosenProofField({
 
   const sizeLabel = chosen ? formatFileSize(chosen.size) : null;
 
+  if (look === 'button') {
+    return (
+      <div className="space-y-1.5" data-proof-look="button">
+        {/* The same file input, visually hidden — the button below opens it; it still posts with the parent form. */}
+        <input
+          id={id}
+          name={name}
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          onChange={onPick}
+          aria-label={typeof label === 'string' ? label : 'Proof of payment'}
+          className="sr-only"
+          tabIndex={-1}
+        />
+        <div className="flex flex-wrap items-center gap-2.5">
+          {chosen ? null : (
+            <span
+              aria-hidden
+              className={PROOF_THUMB_CLASS}
+            >
+              <ImagePlus className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </span>
+          )}
+          <ActionButton
+            tone="neutral"
+            icon={chosen ? RefreshCw : Upload}
+            label={chosen ? 'Replace' : 'Add payment proof'}
+            onClick={() => inputRef.current?.click()}
+          />
+          <span className="text-[12.5px] text-ink/55">optional — screenshot/receipt</span>
+        </div>
+        {chosen ? preview(chosen) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-[11px] font-medium text-ink/70">
@@ -130,7 +181,13 @@ export function ChosenProofField({
         className="block w-full text-xs text-ink/70 file:mr-3 file:rounded-md file:border-0 file:bg-cream file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-cream/80"
       />
 
-      {chosen ? (
+      {chosen ? preview(chosen) : null}
+    </div>
+  );
+
+  /** The picked receipt, legible — one drawing for both looks. */
+  function preview(chosen: Chosen) {
+    return (
         <div className="space-y-1.5 rounded-lg border border-ink/10 bg-cream/60 p-2">
           {chosen.isImage && chosen.objectUrl ? (
             // Tap the picture to open it full size in a new tab — the same
@@ -171,7 +228,6 @@ export function ChosenProofField({
             </button>
           </div>
         </div>
-      ) : null}
-    </div>
-  );
+    );
+  }
 }

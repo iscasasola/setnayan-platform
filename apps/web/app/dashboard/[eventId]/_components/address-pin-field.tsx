@@ -50,6 +50,7 @@ export function AddressPinField({
   initialPin,
   hideHints = false,
   pinLocked = null,
+  mapFolded = false,
   onChange,
 }: {
   id?: string;
@@ -71,6 +72,13 @@ export function AddressPinField({
    * this line says whose pin the guests' map uses (or that the shop has not pinned yet). Default: the full field.
    */
   pinLocked?: string | null;
+  /**
+   * 📍 THE MAP WAITS BEHIND THE PIN (makers-match § 1, 2026-11-07 — the Add manually sheet draws one address field
+   * with a pin and "The pin follows the address.", no map on the page). Folded: the address row and a Pin press; the
+   * press opens Find and the map, and looks the typed address up at once. A pin already set opens it. Default: the
+   * map is drawn open, as every other caller ships.
+   */
+  mapFolded?: boolean;
   /** The address and the pin, every time either changes — for a caller with no form (the Maker's draft). */
   onChange?: (next: { address: string; pin: LatLng | null }) => void;
 }) {
@@ -89,6 +97,7 @@ export function AddressPinField({
   };
   const [locating, startLocating] = useTransition();
   const [note, setNote] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(!mapFolded || initialPin != null);
 
   function locate() {
     if (liveAddress.trim().length < 3) {
@@ -138,7 +147,7 @@ export function AddressPinField({
             />
           </FormRows>
         </div>
-        {pinLocked == null ? (
+        {pinLocked != null ? null : mapOpen ? (
           <ActionButton
             tone="neutral"
             icon={locating ? Loader2 : Search}
@@ -147,7 +156,20 @@ export function AddressPinField({
             onClick={locate}
             disabled={disabled || locating}
           />
-        ) : null}
+        ) : (
+          <ActionButton
+            tone="neutral"
+            icon={MapPin}
+            label="Pin on map"
+            name="Pin on map — open the map for this address"
+            onClick={() => {
+              setMapOpen(true);
+              if (liveAddress.trim().length >= 3) locate();
+            }}
+            disabled={disabled}
+            data-testid="address-pin-open"
+          />
+        )}
       </div>
 
       {pinLocked != null ? (
@@ -160,9 +182,12 @@ export function AddressPinField({
 
       {hideHints ? null : (
         <p className="text-[10px] text-ink/45">
-          {required ? MANUAL_VENUE_ADDRESS_HINT : 'Optional — handy for a commissary or studio.'}
+          {required ? MANUAL_VENUE_ADDRESS_HINT : mapOpen ? 'Optional — handy for a commissary or studio.' : 'The pin follows the address.'}
         </p>
       )}
+
+      {mapOpen ? (
+        <>
 
       {/* The map is pressable (drag it) — its frame is the control's own. */}
       <div className="overflow-hidden rounded-md border border-ink/15">
@@ -192,6 +217,9 @@ export function AddressPinField({
             ? `Pinned at ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)} — drag the map to adjust.`
             : 'Drag the map so the crosshair sits on the entrance. Optional.'}
         </p>
+      ) : null}
+
+        </>
       ) : null}
 
       {note ? <p className="text-[11px] text-warn-800">{note}</p> : null}

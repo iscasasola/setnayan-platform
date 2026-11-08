@@ -80,6 +80,9 @@ test('every way becomeVendor sends the form back to /open-shop carries error= (s
   const body = a.slice(a.indexOf('export async function becomeVendor'));
   const backs = [...body.matchAll(/redirect\(\s*(['`])\/open-shop([^'`]*)\1/g)].map((m) => m[2]!);
   assert.ok(backs.length >= 4, `only ${backs.length} redirects back to /open-shop found — the scan is looking at nothing`);
-  const bare = backs.filter((q) => !/error=/.test(q));
+  // `?check_inbox=` is not a refusal: the shop was opened and the account waits for its email link (A1, 2026-11-06) —
+  // there is nothing left to restore.
+  const bare = backs.filter((q) => !/error=/.test(q) && !/^\?check_inbox=/.test(q));
+  assert.ok(backs.some((q) => /^\?check_inbox=/.test(q)), 'the check-your-email landing moved — re-read this exemption');
   assert.deepEqual(bare, [], 'a refusal returns to /open-shop without error= — its parked draft would be thrown away');
 });

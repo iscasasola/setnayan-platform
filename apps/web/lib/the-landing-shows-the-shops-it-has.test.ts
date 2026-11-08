@@ -77,8 +77,10 @@ test('the live-shop gate is the real one, not the legacy is_published', () => {
   // 2026-11-06: a listed, verified demo shop IS a live shop — public, marked "(DEMO ONLY)" (owner, DECISION_LOG
   // "DEMO SHOPS + DEMO EVENTS"); supersedes the 2026-09-30 `is_demo: false` half. SABOTAGE: put it back → RED.
   assert.deepEqual(LIVE_SHOP_GATE, {
-    public_visibility: 'verified',
-    verification_state: 'verified',
+    // 2026-11-07: the one findable rule (lib/findable-shop.ts, the generated
+    // vendor_profiles.is_findable column) — verified shops, and undecided shops
+    // until their first inquiry. Never the two columns re-typed.
+    is_findable: true,
   });
   // …and every TOTAL keeps the demo half: "demo numbers never count in real totals".
   // SABOTAGE: drop `is_demo: false` from REAL_SHOP_GATE → RED.

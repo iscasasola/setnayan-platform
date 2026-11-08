@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { VendorServiceRow } from '@/lib/vendor-services';
+import { findableShopGate } from '@/lib/findable-shop';
 
 /**
  * marketplace-service-cards.ts — the marketplace lists SERVICES, not shops.
@@ -121,8 +122,9 @@ export async function fetchMarketplaceServiceCards(
       `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,public_visibility,is_demo)`,
     )
     .eq('is_active', true)
-    .eq('vendor_profiles.verification_state', 'verified')
-    .eq('vendor_profiles.public_visibility', 'verified');
+    // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07):
+    // verified shops, and shops not yet decided until their first inquiry.
+    .match(findableShopGate('vendor_profiles'));
   // 🧪 No demo exclusion (2026-11-06) — supersedes the 2026-09-30 `.eq('is_demo', false)` pair. A demo shop's cards
   // list like any other and wear "(DEMO ONLY)" (`isDemo` below). Selected through the service-role client the
   // explore page passes: `is_demo` is not anon-readable (migration 20271014385411) and stays that way.

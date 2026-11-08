@@ -75,10 +75,14 @@ test('3 · read once, inside the page’s own batch, and shown on the upsell too
   assert.match(batch, /\n\s*badgeFactsRead,\s*$/, 'Batch A does not await the badges');
   assert.match(page, /const shelf = badgeShelf\(badgeFacts\);/);
   assert.match(page, /<YourBadges shelf=\{shelf\} rows=\{badgeRows\} \/>/);
-  assert.match(page, /const badgeRows = badgeFacts \? badgeTracker\(badgeFacts\) : null;/);
+  // 🎁 Since the badge rewards (2026-11-06) the rows are `badgeTracker` + each badge's reward lines, composed by ONE
+  // helper on the SAME facts read; the reward read is chained on that read (never a second facts read).
+  assert.match(page, /const badgeRows = trackerRows\(badgeFacts, await badgeRewardsRead\);/);
+  assert.match(page, /facts \? \(rewards \? badgeRowsWithRewards\(badgeTracker\(facts\), rewards\) : badgeTracker\(facts\)\) : null/);
+  assert.match(page, /const badgeRewardsRead[^=]*= badgeFactsRead\.then\(/);
   // The upsell (free / verified tiers when the gate is on) shows them too.
   const gated = page.slice(page.indexOf('if (gateOn && !canSeePerformanceTrends(tier))'), batchStart);
-  assert.match(gated, /<YourBadges shelf=\{gatedShelf\} rows=\{gatedFacts \? badgeTracker\(gatedFacts\) : null\} \/>/);
+  assert.match(gated, /<YourBadges shelf=\{gatedShelf\} rows=\{trackerRows\(gatedFacts, gatedRewards\)\} \/>/);
 });
 
 test('4 · Today’s earned line stays', () => {

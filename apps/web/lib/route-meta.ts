@@ -239,7 +239,7 @@ export const routeMeta = {
     schedule: { icon: CalendarClock, label: 'Schedule' },
     seating: { icon: LayoutGrid, label: 'Seating' },
     sponsors: { icon: Star, label: 'Sponsors' },
-    vendors: { icon: Compass, label: 'Explore' },
+    vendors: { icon: Compass, label: 'Suppliers' },
     website: {
       dressCode: { icon: Shirt, label: 'Edit dress code' },
       photoMoments: { icon: Camera, label: 'Edit photo moments' },

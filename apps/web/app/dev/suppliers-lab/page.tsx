@@ -27,6 +27,8 @@
  *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
  *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report),
  *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
+ *   &insp=1|empty|unread 💡 the inspiration box (reorg R5): row A on top of Find and each opened category's strip B
+ *                       (`inspiration-fixtures.ts`) — a full board · none yet · the read refused
  *   ?tab=build          open on Build — the REAL Build body on fixtures
  *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
  *                       · &build=unread (the saved builds could not be read)
@@ -70,6 +72,7 @@
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
+import { labInspiration } from './inspiration-fixtures';
 import { nearRows } from '@/lib/find-sort-choices';
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
@@ -298,6 +301,7 @@ export default async function SuppliersLabPage({
       supplierShare={supplierShare}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
       findPanel={findPanel}
+      inspiration={labInspiration(one('insp'))}
       convergence={
         one('date') === 'set'
           ? { tone: 'anchored', headline: 'Your date is set: Sat, Dec 12, 2026', detail: 'Every card below shows whether that supplier is free that day.' }

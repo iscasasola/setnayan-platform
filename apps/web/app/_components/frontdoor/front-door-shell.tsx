@@ -13,7 +13,7 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL, IN ORDER (owner 2026-10-01, built 2026-10-23) ──────────────
- *   Signed out  Discover · Find suppliers · Features · How it works · Sign in
+ *   Signed out  Discover · Find suppliers · For suppliers · Features · How it works · Sign in
  *   Signed in   Discover · My Home (Events · Memories · People · shop · HQ) ·
  *               Features
  *   then the small print. No Planner · Builder · Together · Studio lists —
@@ -107,6 +107,7 @@ import {
   LayoutGrid,
   Search,
   Sparkles,
+  Store,
   Telescope,
   Users,
 } from 'lucide-react';
@@ -1385,7 +1386,7 @@ export function FrontDoorShell({
             heading link goes.
           */}
           {/*
-            🧭 SIGNED OUT: Discover · Find suppliers · Features · How it works, then the
+            🧭 SIGNED OUT: Discover · Find suppliers · For suppliers · Features · How it works, then the
             sign-in prompt — five things, no feature list (owner 2026-10-01, DECISION_LOG
             "THE SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR", drawn in
             `prototypes/sidebar_collapse_and_features_2026-10-01_fable.html` frame A).
@@ -1400,6 +1401,16 @@ export function FrontDoorShell({
                 <RailIcon as={Compass} />
                 <span className="fd-label-text">Find suppliers</span>
                 <span className="fd-icon-caption">Suppliers</span>
+              </Link>
+              {/* "For suppliers" sits RIGHT UNDER "Find suppliers" (owner 2026-11-06,
+                  PLAN B2: a supplier walking up signed-out could not find the door — it
+                  sat at the bottom among the legal links). Moved, not copied: the small
+                  print no longer carries it. `data-web-only` travels with it — the
+                  iPhone app refuses /for-suppliers (the-app-footer-names-no-paid-door). */}
+              <Link href="/for-suppliers" data-web-only="" {...rowProps('for-suppliers')}>
+                <RailIcon as={Store} />
+                <span className="fd-label-text">For suppliers</span>
+                <span className="fd-icon-caption">For suppliers</span>
               </Link>
               <Link href="/features" {...rowProps('features')}>
                 <RailIcon as={Blocks} />
@@ -1720,7 +1731,7 @@ export function FrontDoorShell({
             <Link href="/download" data-web-only="">Download</Link>
             <Link href="/blog">Articles</Link>
             <Link href="/creators">For storytellers</Link>
-            <Link href="/for-suppliers" data-web-only="">For suppliers</Link>
+            {/* "For suppliers" moved up to the rail, right under "Find suppliers" (owner 2026-11-06, PLAN B2) — not here. */}
             {/* `data-web-only`: since 6 Nov /for-coordinators shows the supplier plan prices too. */}
             <Link href="/for-coordinators" data-web-only="">For coordinators</Link>
             <div className="fd-copy">© 2026 Setnayan</div>

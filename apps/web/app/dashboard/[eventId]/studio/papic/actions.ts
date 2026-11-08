@@ -1006,8 +1006,8 @@ export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string)
 // paparazzi_seats table + RLS + the provision/claim RPCs ship in migrations
 // 20260520015000 + 20260718000000. These actions are the couple's hands on
 // that backend, from the /crew management surface:
-//   • provisionPapicSeats — materialize the 5 seats (idempotent RPC) once the
-//     event owns a paid PAPIC_SEATS order.
+//   • (provisionPapicSeats, which minted the 5 pack seats, is gone with the
+//     pack — owner 2026-11-05. Its RPC is dropped in 20271309535584.)
 //   (`reissuePapicSeat` was removed 2026-11-04: nothing called it once the
 //   per-seat cards left /crew — see lib/papic-sells-only-credits.test.ts.)
 //
@@ -1016,37 +1016,6 @@ export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string)
 // SECURITY DEFINER fn re-checks auth.uid() is a couple + the event owns
 // PAPIC_SEATS, so a forged call can't provision someone else's seats).
 // ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Materialize the 5 paparazzi seats for an event that owns PAPIC_SEATS.
- * Idempotent — re-running only tops up missing seat indexes, never disturbs
- * already-claimed seats. Calls papic_provision_seats() under the couple's
- * session so the fn's auth.uid() couple + ownership checks pass.
- */
-export async function provisionPapicSeats(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'photos');
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc('papic_provision_seats', {
-    p_event_id: eventId,
-  });
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic/crew?seat_error=${encodeURIComponent(
-        error.message.slice(0, 80),
-      )}`,
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic/crew`);
-  redirect(`/dashboard/${eventId}/studio/papic/crew?seat_set=provisioned`);
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Alaala showcase orb — couple-approval toggle (producer half of the feed).

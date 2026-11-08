@@ -14,9 +14,10 @@
  *
  * v4.11 (owner 2026-10-29, *"Maybe we can combine the services and inspiration to 1 popup?"*): the sheet is titled by
  * the CATEGORY, sub-line "What to show", a search on top ("Search services and looks"), and each service is a PARENT
- * row with a slot under it for its looks. The looks belong to the inspiration work still waiting on the owner's concept
- * approval, and no per-card inspiration data exists live — so the slot is left empty (no placeholder) and the count
- * says cards only. When looks arrive they nest in `data-find-looks` under their service, greyed while it is unticked.
+ * row with a slot under it for its looks. 💡 Since 2026-11-06 (reorg R5, "INSPIRATION LIVES IN SUPPLIERS › FIND") the
+ * slot holds them: the parts the service supplies (`inspiration_part_services`) that hold the couple's photos, each with
+ * its count (`looksForService`, `lib/find-inspiration.ts`), nested in `data-find-looks` and greyed while the service is
+ * unticked. A look is shown, not ticked — the ticks stay the services' (the count still says cards only).
  *
  * Built from the house pieces only: the shared `Sheet` (frame, backdrop, Back, focus) and the house `TickBox`.
  */
@@ -26,6 +27,7 @@ import { TickBox } from '@/app/[slug]/_components/tick-box';
 import { ActionButton } from '@/components/action-button';
 import { Check, CheckCheck, Search } from 'lucide-react';
 import { cardsWord, type FindService } from '@/lib/find-service-cards';
+import { looksForService, partCountLine, type FindInspiration } from '@/lib/find-inspiration';
 
 export function FindServicesSheet({
   open,
@@ -34,6 +36,7 @@ export function FindServicesSheet({
   hidden,
   onDone,
   onClose,
+  inspiration = null,
 }: {
   open: boolean;
   /** The category's name — the sheet's second line. */
@@ -46,6 +49,8 @@ export function FindServicesSheet({
   onDone: (hidden: string[]) => void;
   /** Any other way out — nothing changes. */
   onClose: () => void;
+  /** 💡 The couple's inspiration board — each service's looks nest under it (`data-find-looks`). */
+  inspiration?: FindInspiration | null;
 }) {
   const titleId = useId();
   const [draft, setDraft] = useState<ReadonlySet<string>>(() => new Set(hidden));
@@ -94,9 +99,15 @@ export function FindServicesSheet({
         ) : null}
         <ul className="mt-3">
           {listed
-            .filter(({ service }) => !find.trim() || service.label.toLowerCase().includes(find.trim().toLowerCase()))
+            .filter(({ service }) => {
+              const q = find.trim().toLowerCase();
+              if (!q) return true;
+              // "Search services and looks" — a service is found by its own name or by one of its looks'.
+              return service.label.toLowerCase().includes(q) || looksForService(inspiration, service.key).some((l) => l.label.toLowerCase().includes(q));
+            })
             .map(({ service, count }) => {
             const id = `${titleId}-${service.key}`;
+            const looks = looksForService(inspiration, service.key);
             return (
               <li key={service.key} className="flex min-h-[52px] flex-wrap items-center gap-1 border-t border-ink/10 first:border-t-0" data-find-service-row="">
                 <TickBox
@@ -110,7 +121,20 @@ export function FindServicesSheet({
                   <span className="text-[15px] font-medium text-ink">{service.label}</span>
                   <span className="shrink-0 text-[13px] text-ink/55">{cardsWord(count)}</span>
                 </label>
-                {/* Its looks nest here once the inspiration work lands (`data-find-looks`) — empty today, no placeholder. */}
+                {/* 💡 Its looks — the parts this service supplies that hold the couple's photos, greyed while the service
+                    is unticked (v4.11, owner 2026-10-29: *"combine the services and inspiration to 1 popup"*). */}
+                {looks.length > 0 ? (
+                  <ul
+                    className={`mb-2 ml-9 flex w-full flex-wrap gap-1.5 ${draft.has(service.key) ? 'opacity-40' : ''}`}
+                    data-find-looks={service.key}
+                  >
+                    {looks.map((l) => (
+                      <li key={l.slotKey} className="rounded-full bg-ink/[0.05] px-2.5 py-1 text-[12.5px] text-ink/75" data-find-look={l.slotKey}>
+                        {l.label} · {partCountLine(l.count)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             );
           })}

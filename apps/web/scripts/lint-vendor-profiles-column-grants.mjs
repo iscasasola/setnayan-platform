@@ -70,6 +70,9 @@ const DENIED_IDENTITY_COLUMNS = new Set([
   'registration_number_submitted_at',
   'registration_number_needs_review',
   'business_owner_name',
+  // 20271320303985 (DECISION_LOG 2026-11-07 "FINDABLE UNTIL ITS FIRST INQUIRY"): WHICH ADMIN lifted a shop's find
+  // lock is an internal audit fact (also in admin_audit_log), read by the service role only — never by the shop.
+  'find_lock_lifted_by',
 ]);
 
 /**

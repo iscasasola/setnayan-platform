@@ -59,6 +59,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // 📱 A crew member's own passes onto a shop's Event Hub (2026-10-29) — the name they typed, their role, whether
   // they were let in. Read on `crew_user_id`.
   { table: 'vendor_crew_passes', decision: 'exported', as: 'crew_passes' },
+  // ♥ The hearts this subject put on chat messages (THE ONE BUILD, 2026-11-08) — read on `user_id`.
+  { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',

@@ -23,6 +23,13 @@ import { uploadTypeOf } from '@/lib/upload-type-names';
 import { ownerFormOf } from '@/lib/portaled-fields-join-their-form';
 
 /**
+ * 🔒 FAIL-CLOSED (controller audit 2026-11-04; the approved mark page's last
+ * line: "If marking fails, the upload stops and asks to try again. Nothing goes
+ * up unmarked."). Said on the failed tile, which carries Try again.
+ */
+export const MARK_REFUSED_SAYS = 'We could not add the Setnayan mark, so nothing was uploaded. Try again.';
+
+/**
  * Reusable file-upload widget that targets Cloudflare R2 via the
  * `/api/upload` presigned-URL endpoint.
  *
@@ -246,6 +253,19 @@ type FileUploadBaseProps = {
    * untouched even when this is true.
    */
   watermark?: boolean;
+  /**
+   * THE SEAL AND PLATE (owner-approved 2026-11-04 · supplier_photo_mark, A).
+   *   'supplier' — a supplier photo or clip: the shop's mark (Setnayan only, or
+   *                Setnayan Verified + shop + address + logo coin), read on the
+   *                SERVER for the shop `pathPrefix` names (`vendors/<id>/…`) —
+   *                never from props. Photos also leave a PRIVATE clean copy,
+   *                paired in supplier_photo_originals for re-marking. A clip is
+   *                burned during the 720p encode.
+   *   'setnayan' — Setnayan only (the admin's catalogue samples).
+   * Takes precedence over `watermark`. FAIL-CLOSED: any failure refuses the
+   * upload with Try again; nothing goes up unmarked.
+   */
+  mark?: 'supplier' | 'setnayan';
   /**
    * Auto-compress uploaded VIDEOS to a streaming-friendly size in the browser
    * (ffmpeg.wasm) before they go to R2. Phone exports are often ~25 Mbps / >100 MB
@@ -528,6 +548,7 @@ export function FileUpload({
   slotSays = 'Add your logo',
   row,
   watermark = false,
+  mark,
   compressVideo = false,
   compressImage = false,
   maxVideoDurationS,
@@ -898,23 +919,50 @@ export function FileUpload({
     // Done client-side before presign so the signed `content-length` matches
     // the actual PUT body. Non-image files (PDFs etc.) skip this step.
     let file = rawFile;
-    if (watermark && isImage(initialContentType)) {
+    // 🔒 FAIL-CLOSED. A mark that cannot be made REFUSES the upload: the file
+    // stays as a failed tile with Try again, and nothing reaches R2. (Until
+    // 2026-11-04 this fell back to the ORIGINAL — an unmarked supplier photo on
+    // a public card, with every artefact of success around it.)
+    const refuseUnmarked = (err: unknown) => {
+      // A refusal the server worded (`MarkRefused` in ./upload-mark) is said in its own words.
+      const says = err instanceof Error && err.name === 'MarkRefused' ? err.message : MARK_REFUSED_SAYS;
+      void trackFailure({
+        eventType: 'BUTTON_FAIL',
+        elementName: 'File mark (upload refused)',
+        filePath: 'app/_components/file-upload.tsx',
+        error: err,
+        payload: { bucket, contentType: initialContentType, mark: mark ?? 'watermark' },
+      });
+      if (!isMountedRef.current) return;
+      setFailed((prev) => [...prev, { id, file: rawFile }]);
+      setError(says);
+    };
+    // THE SEAL AND PLATE (supplier photos and clips; the admin's Setnayan-only samples): the whole pipeline is
+    // behind ONE lazy door, `./upload-mark`, loaded only after a pick — never with the page (the Maker imports
+    // FileUpload eagerly; its first load must not carry the mark). What to stamp is asked of the SERVER.
+    const markIt = Boolean(mark) && (isImage(initialContentType) || isVideo(initialContentType));
+    const keepsOriginal = mark === 'supplier' && isImage(initialContentType);
+    if (mark && markIt) {
+      try {
+        const door = await import('./upload-mark');
+        file = await door.markFile(rawFile, {
+          kind: mark,
+          pathPrefix,
+          contentType: initialContentType,
+          maxVideoDurationS,
+          onOptimizing: (o) => {
+            if (isMountedRef.current) setOptimizing(o);
+          },
+        });
+      } catch (err) {
+        return refuseUnmarked(err);
+      }
+    } else if (!mark && watermark && isImage(initialContentType)) {
       try {
         const { watermarkFile } = await import('@/lib/watermark');
         file = await watermarkFile(rawFile, { position: 'bottom-right', opacity: 0.55 });
       } catch (err) {
-        // Best-effort: if watermarking fails, fall back to the original file.
-        // We don't block uploads on a watermark failure — it's a deterrent,
-        // not a security guarantee, and the user shouldn't be stuck.
-        console.warn('watermark failed; uploading original', err);
-        void trackFailure({
-          eventType: 'BLANK_FALLBACK',
-          elementName: 'File watermark (fell back to original)',
-          filePath: 'app/_components/file-upload.tsx',
-          error: err,
-          payload: { bucket, contentType: initialContentType },
-        });
-        file = rawFile;
+        return refuseUnmarked(err);
       }
     }
 
@@ -940,7 +988,7 @@ export function FileUpload({
     // Done client-side before presign so the signed content-length matches the
     // PUT body. Best-effort: compressVideoForWeb NEVER throws — it returns the
     // original file on unsupported/failure, so the upload always proceeds.
-    if (compressVideo && isVideo(initialContentType)) {
+    if (!markIt && compressVideo && isVideo(initialContentType)) {
       try {
         const { compressVideoForWeb } = await import('@/lib/video-compress');
         setOptimizing({ label: 'Preparing video…', pct: 0 });
@@ -987,6 +1035,33 @@ export function FileUpload({
       return;
     }
 
+    // ── THE PRIVATE CLEAN COPY (supplier photos) — PUT first, so a public copy never exists without its original.
+    let originalRef: string | null = null;
+    if (keepsOriginal) {
+      try {
+        const door = await import('./upload-mark');
+        originalRef = await door.keepCleanCopy(rawFile, {
+          pathPrefix,
+          contentType,
+          compressImage,
+          stallMs: stallMs ?? UPLOAD_STALL_MS,
+          responseMs: UPLOAD_RESPONSE_MS,
+          // The clean copy stalling is the same silent failure as the public one: recorded the same way.
+          onStall: () => {
+            void trackFailure({
+              eventType: 'UPLOAD_STALLED',
+              elementName: 'File upload (private clean copy)',
+              filePath: 'app/_components/file-upload.tsx',
+              error: `no bytes moved for ${(stallMs ?? UPLOAD_STALL_MS) / 1000}s`,
+              payload: { bucket: 'vendor-verification', action: 'upload stalled', page: window.location.pathname },
+            });
+          },
+        });
+      } catch (err) {
+        return refuseUnmarked(err);
+      }
+    }
+
     if (row && isImage(contentType) && typeof URL.createObjectURL === 'function') setRowLocal(URL.createObjectURL(file));
     setInFlight((prev) => [
       ...prev,
@@ -1020,11 +1095,25 @@ export function FileUpload({
           filename: file.name,
           contentType,
         };
-        setItems((prev) => {
-          const next = multiple ? [...prev, completed] : [completed];
-          toSay.current = next;
-          return next;
-        });
+        const keep = () =>
+          setItems((prev) => {
+            const next = multiple ? [...prev, completed] : [completed];
+            toSay.current = next;
+            return next;
+          });
+        if (!originalRef) {
+          keep();
+          return;
+        }
+        // Pair the marked copy with its clean copy BEFORE it joins the value:
+        // a public photo the shop could never re-mark is refused like an unmarked one.
+        const pairing = import('./upload-mark').then((door) => door.pairWithOriginal(out.r2Ref, originalRef));
+        void pairing.then(
+          () => {
+            if (isMountedRef.current) keep();
+          },
+          (err: unknown) => refuseUnmarked(err),
+        );
         return;
       }
       // The person stopped it: the tile goes, and there is nothing to say.

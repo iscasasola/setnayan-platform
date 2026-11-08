@@ -584,7 +584,10 @@ const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.
-  ['setnayan-vendor-verification', new Set(['vendors'])],
+  // `vendor-originals` added 2026-11-04 — the PRIVATE clean copy of every marked
+  // supplier photo (supplier_photo_originals), so a shop can be re-marked when it
+  // gains or loses Verified. Never shown; vendor-scoped like the verification docs.
+  ['setnayan-vendor-verification', new Set(['vendors', 'vendor-originals'])],
   // Admin-authored catalogue art.
   ['setnayan-samples', new Set(['refinements', 'taxonomy'])],
 ]);

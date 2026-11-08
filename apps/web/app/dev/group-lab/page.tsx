@@ -25,18 +25,21 @@ import type { SamahanStory } from '@/lib/samahan-stories';
 
 const H = 3_600_000;
 
-/** A poster stand-in — a warm gradient, like the prototype's thumbs. */
-const poster = (a: string, b: string) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 40"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="30" height="40" fill="url(#g)"/></svg>`)}`;
+/**
+ * A poster stand-in — a warm gradient, like the prototype's thumbs: the person's tint, shaded toward black
+ * (one raw colour per person, so the lab stays inside its hex ratchet — lib/every-back-goes-home.test.ts).
+ */
+const poster = (a: string) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 40"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="black" stop-opacity="0"/><stop offset="1" stop-color="black" stop-opacity="0.68"/></linearGradient></defs><rect width="30" height="40" fill="${a}"/><rect width="30" height="40" fill="url(#g)"/></svg>`)}`;
 
 const CLIPS = ['/realstories/jack-jill-vclip.mp4', '/realstories/maria-juan-vclip.mp4', '/realstories/john-jane-vclip.mp4'];
 const PEOPLE = [
-  ['Mika', '#c89f7a', '#4b2f22'],
-  ['Paolo', '#9fb3c8', '#2b3b4e'],
-  ['Tita Ces', '#b8c79a', '#344326'],
-  ['Jun', '#d4a3a8', '#4d2a30'],
-  ['Lea', '#c6b48a', '#3e3420'],
-  ['Ice', '#a7a0c9', '#2e2a4b'],
+  ['Mika', '#c89f7a'],
+  ['Paolo', '#9fb3c8'],
+  ['Tita Ces', '#b8c79a'],
+  ['Jun', '#d4a3a8'],
+  ['Lea', '#c6b48a'],
+  ['Ice', '#a7a0c9'],
 ] as const;
 
 /** The fixture day, laid out from the render's own clock. */
@@ -45,7 +48,7 @@ function fixtures(now: number) {
   const h3 = hourStart - 3 * H; // an ended hour — six clips → "· 6 stories"
   const h1 = hourStart - 1 * H; // an ended hour — two clips
   const story = (i: number, at: number, self = false, clip?: string): SamahanStory => {
-    const [name, a, b] = PEOPLE[i % PEOPLE.length]!;
+    const [name, tint] = PEOPLE[i % PEOPLE.length]!;
     return {
       story_id: `lab-st-${i}-${at}`,
       user_id: `lab-u-${i}`,
@@ -55,7 +58,7 @@ function fixtures(now: number) {
       created_at: new Date(at).toISOString(),
       expires_at: new Date(at + 24 * H).toISOString(),
       clip_url: clip ?? null,
-      poster_url: poster(a, b),
+      poster_url: poster(tint),
     };
   };
   const stories: SamahanStory[] = [

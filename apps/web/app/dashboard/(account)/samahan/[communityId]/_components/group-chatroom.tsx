@@ -27,6 +27,7 @@ import { followColumn } from '@/app/dashboard/[eventId]/guests/_components/dock-
 import { eventTypeBadge } from '@/lib/event-vocabulary';
 import { formatCount } from '@/lib/format-number';
 import { ReturnInPlace } from '@/app/_components/chat/chat-back';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import {
   chatTimeline,
   hourlyCollages,
@@ -131,6 +132,10 @@ function MessageBubble({
   armed: boolean;
   onArm: (id: string | null) => void;
 }) {
+  // "Take it down" opening under your own bubble glides into view through the shared reveal
+  // (owner 2026-11-04, app-wide reveal-on-open) — held by every-fold-reveals-on-open.test.ts.
+  const own = useRef<HTMLLIElement>(null);
+  const intend = useRevealOnOpen(armed, () => ({ head: own.current }));
   if (!m.is_self) {
     return (
       <li className="flex max-w-[78%] flex-col items-start self-start" data-chat-message="">
@@ -143,11 +148,14 @@ function MessageBubble({
     );
   }
   return (
-    <li className="flex max-w-[78%] flex-col items-end self-end" data-chat-message="self">
+    <li ref={own} className="flex max-w-[78%] flex-col items-end self-end" data-chat-message="self">
       {/* Your own message: a tap shows "Take it down" under it (a soft delete — the shipped action). */}
       <button
         type="button"
-        onClick={() => onArm(armed ? null : m.message_id)}
+        onClick={() => {
+          if (!armed) intend();
+          onArm(armed ? null : m.message_id);
+        }}
         aria-expanded={armed}
         className="rounded-2xl bg-terracotta-700 px-3 py-2 text-left text-[14.5px] text-white dark:text-cream"
       >

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronRight, Clapperboard, Play, X } from 'lucide-react';
 import { leftLabel, storiesWord, type HourCollage } from '@/lib/samahan-chatroom';
 import type { SamahanStory } from '@/lib/samahan-stories';
@@ -8,6 +9,7 @@ import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
+import { usePortalHost } from '@/lib/use-portal-host';
 
 /**
  * group-collage.tsx — 🎞 THE HOURLY COLLAGE (owner 2026-10-28: *"all stories will run in a collage every hour"*;
@@ -153,6 +155,9 @@ export function CollagePlayer({
   onOpenStory: (storyId: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Drawn into <body>, like the shared Sheet — the dashboard's page wrapper traps `position: fixed`, so a
+  // full-screen player left in place would sit under the page's bars (an-open-panel-clears-the-top-bar.test.ts).
+  const host = usePortalHost();
   const at = openKey ? collages.findIndex((c) => c.key === openKey) : -1;
   const collage = at >= 0 ? collages[at]! : null;
   const next = at >= 0 ? collages[at + 1] : undefined;
@@ -169,7 +174,7 @@ export function CollagePlayer({
   if (!collage) return null;
   const title = `${collage.label} · ${storiesWord(collage.stories.length)}`;
   const n = collage.stories.length;
-  return (
+  const player = (
     <div
       ref={ref}
       role="dialog"
@@ -221,4 +226,5 @@ export function CollagePlayer({
       </div>
     </div>
   );
+  return host ? createPortal(player, host) : player;
 }

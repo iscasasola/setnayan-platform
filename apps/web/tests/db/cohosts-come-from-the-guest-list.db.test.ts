@@ -313,8 +313,14 @@ test('every coordinator-writable table without an area check refuses a limited h
     )
     SELECT w.tablename AS t,
       EXISTS (SELECT 1 FROM pg_policies x WHERE x.tablename = w.tablename AND x.permissive = 'RESTRICTIVE' AND x.cmd = 'INSERT' AND x.with_check ILIKE '%is_limited_helper%') AS ins,
-      EXISTS (SELECT 1 FROM pg_policies x WHERE x.tablename = w.tablename AND x.permissive = 'RESTRICTIVE' AND x.cmd = 'UPDATE' AND x.qual ILIKE '%is_limited_helper%') AS upd,
-      EXISTS (SELECT 1 FROM pg_policies x WHERE x.tablename = w.tablename AND x.permissive = 'RESTRICTIVE' AND x.cmd = 'DELETE' AND x.qual ILIKE '%is_limited_helper%') AS del
+      -- A verb \`authenticated\` was never GRANTED is refused before any policy runs, so it
+      -- needs no lh_ro_* policy — and a policy for it would be one that can never fire
+      -- (held by a-samahan-lives-while-one-stays.db.test.ts). Insert-only tables
+      -- (live_watch_venue_checks) carry the INSERT refusal alone.
+      (NOT has_any_column_privilege('authenticated', format('public.%I', w.tablename), 'UPDATE')
+        OR EXISTS (SELECT 1 FROM pg_policies x WHERE x.tablename = w.tablename AND x.permissive = 'RESTRICTIVE' AND x.cmd = 'UPDATE' AND x.qual ILIKE '%is_limited_helper%')) AS upd,
+      (NOT has_table_privilege('authenticated', format('public.%I', w.tablename), 'DELETE')
+        OR EXISTS (SELECT 1 FROM pg_policies x WHERE x.tablename = w.tablename AND x.permissive = 'RESTRICTIVE' AND x.cmd = 'DELETE' AND x.qual ILIKE '%is_limited_helper%')) AS del
     FROM w`);
   assert.ok(r.rows.length >= 10, `scan floor: only ${r.rows.length} coordinator-writable tables found`);
   const open = r.rows.filter((x) => !(x.ins && x.upd && x.del)).map((x) => x.t);

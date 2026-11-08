@@ -93,12 +93,15 @@ async function newShop(a: ShopArgs = {}): Promise<string> {
   return vpid;
 }
 
-async function newBooking(vpid: string, status = 'contracted') {
+async function newBooking(vpid: string, status = 'contracted', sample = false) {
   const e = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, event_date)
      VALUES ('An event','birthday','2030-08-01') RETURNING event_id`,
   );
   const eventId = e.rows[0]!.event_id;
+  // A demo shop can only be paired with a demo (sample) event — the demo_cross_booking trigger
+  // (20271316355263_a_real_event_never_books_a_demo_shop) refuses a demo shop on a real event.
+  if (sample) await db.query(`UPDATE public.events SET is_sample = TRUE WHERE event_id = $1`, [eventId]);
   const ev = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
        (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php)
@@ -204,7 +207,7 @@ test('2 · a genuinely new business still gets its free first booking', async ()
 test('3 · a demo shop never matches — it neither spends nor blocks a real business\u2019s free booking', async () => {
   // A demo shop holding the same papers took a "free" place and blocks nothing.
   const demo = await newShop({ reg: 'MP-5555-6666', phone: '09175550505', demo: true });
-  await openCharge((await newBooking(demo)).eventVendorId);
+  await openCharge((await newBooking(demo, 'contracted', true)).eventVendorId);
   const real = await newShop({ reg: 'MP-5555-6666', phone: '09175550505' });
   const r = await openCharge((await newBooking(real)).eventVendorId);
   assert.equal(r.status, 'waived_free5', `a demo shop spent a real business's free booking: ${r.status}`);

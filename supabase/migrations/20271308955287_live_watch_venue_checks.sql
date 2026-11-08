@@ -79,18 +79,14 @@ CREATE POLICY live_watch_venue_checks_team_insert ON public.live_watch_venue_che
 -- ── LIMITED HELPER — read-only, like every coordinator-writable table ─────
 -- A coordinator-seat helper set to 'limited' may READ checks but not start one:
 -- the same RESTRICTIVE lh_ro_* trio as migration 20271251336140 §7 (held by
--- tests/db/cohosts-come-from-the-guest-list.db.test.ts). UPDATE / DELETE have no
--- grant for `authenticated`, so those two refuse anyway; they are written so the
--- refusal stays true if a grant is ever added.
+-- tests/db/cohosts-come-from-the-guest-list.db.test.ts) — INSERT only. UPDATE /
+-- DELETE are never granted to `authenticated` (see GRANTS), so Postgres refuses
+-- them before any policy runs; an lh_ro_upd/del policy here could never fire,
+-- which a-samahan-lives-while-one-stays.db.test.ts rejects. If either verb is ever
+-- granted, the cohosts guard turns red until its lh_ro_* policy is added.
 DROP POLICY IF EXISTS lh_ro_ins_live_watch_venue_checks ON public.live_watch_venue_checks;
-DROP POLICY IF EXISTS lh_ro_upd_live_watch_venue_checks ON public.live_watch_venue_checks;
-DROP POLICY IF EXISTS lh_ro_del_live_watch_venue_checks ON public.live_watch_venue_checks;
 CREATE POLICY lh_ro_ins_live_watch_venue_checks ON public.live_watch_venue_checks
   AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (NOT public.is_limited_helper(event_id));
-CREATE POLICY lh_ro_upd_live_watch_venue_checks ON public.live_watch_venue_checks
-  AS RESTRICTIVE FOR UPDATE TO authenticated USING (NOT public.is_limited_helper(event_id));
-CREATE POLICY lh_ro_del_live_watch_venue_checks ON public.live_watch_venue_checks
-  AS RESTRICTIVE FOR DELETE TO authenticated USING (NOT public.is_limited_helper(event_id));
 
 -- ── GRANTS — the verdict is the SERVER's to write ─────────────────────────
 -- A signed-in team member may READ checks and START one (insert its event_id,

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7260
+# facts: 7258
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     602
 #   col       5265
-#   policy    1058
+#   policy    1056
 #   view      9
 #   func      322
 #
@@ -6399,9 +6399,7 @@ policy	public.live_studio_roam_zones|lh_ro_del_live_studio_roam_zones	mode=RESTR
 policy	public.live_studio_roam_zones|lh_ro_ins_live_studio_roam_zones	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT is_limited_helper(event_id))
 policy	public.live_studio_roam_zones|lh_ro_upd_live_studio_roam_zones	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
 policy	public.live_studio_roam_zones|live_studio_roam_zones_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = live_studio_roam_zones.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR (EXISTS ( SELECT 1 FROM event_moderators mo WHERE ((mo.event_id = live_studio_roam_zones.event_id) AND (mo.user_id = ( SELECT auth.uid() AS uid)) AND (mo.accepted_at IS NOT NULL) AND (mo.removed_at IS NULL))))) check=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = live_studio_roam_zones.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))) OR (EXISTS ( SELECT 1 FROM event_moderators mo WHERE ((mo.event_id = live_studio_roam_zones.event_id) AND (mo.user_id = ( SELECT auth.uid() AS uid)) AND (mo.accepted_at IS NOT NULL) AND (mo.removed_at IS NULL)))))
-policy	public.live_watch_venue_checks|lh_ro_del_live_watch_venue_checks	mode=RESTRICTIVE cmd=DELETE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
 policy	public.live_watch_venue_checks|lh_ro_ins_live_watch_venue_checks	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT is_limited_helper(event_id))
-policy	public.live_watch_venue_checks|lh_ro_upd_live_watch_venue_checks	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
 policy	public.live_watch_venue_checks|live_watch_venue_checks_team_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)))
 policy	public.live_watch_venue_checks|live_watch_venue_checks_team_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.manpower_gigs|manpower_gigs_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

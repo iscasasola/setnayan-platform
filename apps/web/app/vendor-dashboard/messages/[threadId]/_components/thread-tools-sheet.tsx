@@ -6,19 +6,12 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
-  CalendarClock,
   CalendarPlus,
   ChevronRight,
-  ListChecks,
-  Flag,
   Handshake,
-  Paperclip,
   PlusCircle,
-  ReceiptText,
   Star,
   Store,
-  Users,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
@@ -31,6 +24,7 @@ import {
   type VendorThreadToolsState,
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
+import { coupleThreadTools } from '@/lib/chat-box-tools';
 import { hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
@@ -58,19 +52,20 @@ import { PLUS_CARD_TOPIC } from '@/lib/chat-plus';
  * for a `position: fixed` sheet drawn inside it.
  */
 
+// 🔣 One icon per topic (Build 3 · lane B): a row about a topic wears that topic's glyph from `TOPIC_ICON`.
 const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
-  quote: ReceiptText,
+  quote: TOPIC_ICON.quote,
   answer: Handshake,
-  payment: Wallet,
+  payment: TOPIC_ICON.payment,
   confirm: BadgeCheck,
-  schedule: CalendarClock,
-  file: Paperclip,
+  schedule: TOPIC_ICON.schedule,
+  file: TOPIC_ICON.files,
   offer: Store,
   deal: CalendarPlus,
-  guests: Users,
+  guests: TOPIC_ICON.details,
   outcome: Star,
-  problem: Flag,
-  questions: ListChecks,
+  problem: TOPIC_ICON.report,
+  questions: TOPIC_ICON.forms,
 };
 
 /** Each off-screen destination, written out where `lint-port-no-lost-controls` reads this route's doors. */
@@ -333,6 +328,7 @@ export function ThreadToolsSheet({
  * supplier drops Log a payment (`canLogPayment` false).
  */
 export function CoupleThreadToolsSheet({
+  dealReveal = null,
   eventId,
   threadId,
   canLogPayment = true,
@@ -342,7 +338,12 @@ export function CoupleThreadToolsSheet({
   threadId?: string;
   canLogPayment?: boolean;
 }) {
-  const rows = plusSheetRows(hostPlusRows({ canLogPayment }), 'couple', eventId, true);
+  // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple
+  // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
+  const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment }), 'couple', eventId, true).map((r) =>
+    r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
+  );
   return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;
 }
 

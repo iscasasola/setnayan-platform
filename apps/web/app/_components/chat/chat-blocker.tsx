@@ -17,7 +17,7 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare } from 'lucide-react';
+
 import { ActionButton } from '@/components/action-button';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
 import { actionHeld, blockerHoldSeconds, holdLeft, holdLine } from '@/lib/blocker-hold';
@@ -153,7 +153,7 @@ export function ChatBlocker({
               <ActionButton
                 tone="neutral"
                 quiet
-                icon={MessageSquare}
+                icon={TOPIC_ICON.chat}
                 label="Return to chat"
                 onClick={onReturn}
                 className="w-full justify-center"

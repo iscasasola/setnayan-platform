@@ -141,8 +141,9 @@ test('🔑 5 · the sheet opens panels through revealThreadTool, never a hash �
   );
   assert.equal(
     (sheet.match(/revealThreadTool\(/g) ?? []).length,
-    2,
-    'the sheet must open its targets through revealThreadTool (a row, and the answer line\'s "They asked to book")',
+    3,
+    // Build 3 · lane B: a (+) card's "Use the full page" opens its shipped panel through `openPlusDoor` — the third.
+    'the sheet must open its targets through revealThreadTool (a row, a (+) card\'s full-page door, and the answer line\'s "They asked to book")',
   );
   assert.equal(
     (rail.match(/revealThreadTool\(|VENDOR_THREAD_TOOLS/g) ?? []).length,

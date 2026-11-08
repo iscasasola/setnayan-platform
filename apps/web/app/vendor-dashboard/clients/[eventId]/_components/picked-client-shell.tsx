@@ -31,18 +31,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import {
-  CalendarDays,
-  ClipboardList,
-  Flag,
-  FolderOpen,
-  Info,
-  LayoutDashboard,
-  MessageSquare,
-  ReceiptText,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { X, type LucideIcon } from 'lucide-react';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
@@ -77,16 +67,17 @@ import { centreInStrip, pageSwipeStep } from '@/app/_components/centre-in-strip'
 /** Where a body swipe may NOT start (it belongs to something that moves sideways itself, or to a field). */
 const PAGE_SWIPE_SKIP = '[data-picked-menu],[data-calendar],[data-dates-week-strip],input,textarea,select,[contenteditable="true"],[data-no-page-swipe]';
 
-const PAGE_ICON: Record<PickedClientPage, typeof Info> = {
-  details: Info,
-  chat: MessageSquare,
-  schedule: CalendarDays,
-  quote: ReceiptText,
-  payments: Wallet,
-  forms: ClipboardList,
-  files: FolderOpen,
-  hub: LayoutDashboard,
-  report: Flag,
+// 🔣 One icon per topic (Build 3 · lane B): the tab wears the same glyph as its pins, cards and Details rows.
+const PAGE_ICON: Record<PickedClientPage, LucideIcon> = {
+  details: TOPIC_ICON.details,
+  chat: TOPIC_ICON.chat,
+  schedule: TOPIC_ICON.schedule,
+  quote: TOPIC_ICON.quote,
+  payments: TOPIC_ICON.payment,
+  forms: TOPIC_ICON.forms,
+  files: TOPIC_ICON.files,
+  hub: TOPIC_ICON.hub,
+  report: TOPIC_ICON.report,
 };
 
 export const CLIENTS_LIST_HREF = '/vendor-dashboard/customers';

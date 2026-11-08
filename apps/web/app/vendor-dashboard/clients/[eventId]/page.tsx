@@ -14,7 +14,7 @@ import {
   Clock3,
   FilePlus2,
   FileText,
-  FolderOpen,
+  Paperclip,
   History,
   Info,
   LayoutGrid,
@@ -1882,7 +1882,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         href={`/vendor-dashboard/clients/${eventId}?tab=files`}
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
-        <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
+        <Paperclip aria-hidden className="h-3.5 w-3.5" /> Files
       </Link>
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
@@ -2657,7 +2657,7 @@ function ReturningMarkerAndActions({
           href={`/vendor-dashboard/clients/${eventId}?tab=files`}
           className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
         >
-          <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
+          <Paperclip aria-hidden className="h-3.5 w-3.5" /> Files
         </Link>
         <span
           aria-current="page"

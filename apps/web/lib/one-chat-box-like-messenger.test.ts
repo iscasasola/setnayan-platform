@@ -124,8 +124,9 @@ test('the stream is flush inside the frame — no card inside the card', () => {
     assert.equal(count(s, /<ChatMessageStream\s+flush\b/g), 1, `${name}: the stream lost \`flush\``);
   }
   const stream = read(STREAM);
-  // One chrome string, applied to all three scrollers.
-  assert.equal(count(stream, /\$\{scrollerChrome\}/g), 3, 'a scroller stopped using the shared chrome');
+  // One chrome string, applied to both scrollers (chat · files). Build 3 · lane B retired the Decisions view: open
+  // decisions are the PINS now, closed ones live on Details › Decisions — so there are two scrollers, not three.
+  assert.equal(count(stream, /\$\{scrollerChrome\}/g), 2, 'a scroller stopped using the shared chrome');
   assert.match(stream, /flush \? '[^']+' : '[^']*rounded-xl border[^']*'/);
 });
 

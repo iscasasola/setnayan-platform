@@ -85,7 +85,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
   const hosts = hostsFail ? null : solo ? (side === 'vendor' ? [MARIA] : [SHOP, MARIA]) : side === 'vendor' ? [MARIA, JOSE, PIA] : [SHOP, MARIA, JOSE, PIA];
   return (
-    <div data-picked-lab-chat={side} className="flex min-h-[70dvh] flex-col">
+    <div data-picked-lab-chat={side} className="flex min-h-0 flex-1 flex-col">
       <ChatBox
         header={null}
         notice={<ChatSafetyBanner inBox />}

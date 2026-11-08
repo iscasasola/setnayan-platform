@@ -33,7 +33,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
 import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
@@ -442,13 +442,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </div>
         ) : null}
 
-        {/* 📏 While private the ＋ and attach are gone, so the box widens into their room — its outline stands 16 px in
-            from the screen edge (ChatBox's 6 px + 10), matching Send's icon on the right (6 px + its 11 px inset). */}
+        {/* 📏 Once the tools have slid away (typing, or private) the box meets ChatBox's 16 px gutter itself (v8.3: the
+            row is 16 px from each edge in both end states); beside the tools it keeps its 4 px breathing room. */}
         {/* 🔒 PRIVATE MODE LIVES INSIDE THE BOX (owner, 9 Nov) — the same box, never a second row: an info outline, a 🔒 at its
             left, "Private message to Jose" while empty, and an × inside at its right that returns it to "Message"
             (everyone). The wrapper is always drawn, so the field is never re-mounted and a draft survives the switch. */}
         <div
-          className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${privateTo ? `ml-2.5 mr-1 ${PRIVATE_BOX_OUTLINE}` : 'mx-1'}`}
+          className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${toolsOut ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
           data-chat-message-box=""
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
         >
@@ -462,7 +462,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           maxLength={4000}
           placeholder={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
           aria-label={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
-          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] ${privateTo ? 'pl-9 pr-11' : 'px-3.5'} py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
+          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : 'bg-ink/[0.06] px-3.5 placeholder:text-ink/45'} py-[9px] text-[15px] leading-5 text-ink outline-none ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
           data-rides=""
           onPaste={(e) => {
             // 🔒 Words only while private (owner, 9 Nov): a pasted picture or file is refused, said in the row's own words.

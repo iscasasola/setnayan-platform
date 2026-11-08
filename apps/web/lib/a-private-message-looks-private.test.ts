@@ -37,7 +37,8 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { setChatPeople, setPrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { MessageHoldMenu } from '@/app/_components/chat/message-hold-menu';
-import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, privateOtherId, privateToFromForm } from './chat-private';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_BOX_FILL,
+  PRIVATE_MARK, privateOtherId, privateToFromForm } from './chat-private';
 import { ChatHostStrip } from '@/app/_components/chat/chat-host-strip';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -232,6 +233,10 @@ test('7 · the ＋ is not rendered while a private recipient is set; the row is 
   // Send: sky blue while private, the brand again after ×.
   const sendBtn = (m: string) => m.slice(m.lastIndexOf('<button', m.indexOf('aria-label="Send"')), m.indexOf('>', m.indexOf('aria-label="Send"')));
   assert.ok(sendBtn(priv).includes(PRIVATE_MARK), 'Send is not sky blue while private');
+  // The box itself is the sky tint while private (v8.3), the house grey again after ×.
+  const field = (m: string) => m.slice(m.lastIndexOf('<textarea', m.indexOf('name="body"')), m.indexOf('>', m.indexOf('name="body"')));
+  assert.ok(field(priv).includes(PRIVATE_BOX_FILL), 'the private box is not the sky tint');
+  assert.ok(!field(back).includes(PRIVATE_BOX_FILL) && field(back).includes('bg-ink/[0.06]'), 'the tint outlived ×');
   assert.doesNotMatch(sendBtn(priv), /sn-accent|mulberry|terracotta/, 'Send keeps the brand colour while private');
   assert.match(sendBtn(back), /text-sn-accent/, 'Send did not go back to the brand');
   // The private composer row draws no brand class anywhere.

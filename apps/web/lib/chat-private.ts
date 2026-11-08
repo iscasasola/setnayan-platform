@@ -40,6 +40,8 @@ export const PRIVATE_STRIP_TEXT = 'text-[rgb(var(--color-private-text))]';
 /** The private marks that are not words — the box's 🔒, its ×, Send, the time row's lock (UI contrast ≥ 3). */
 export const PRIVATE_MARK = 'text-[rgb(var(--color-private))]';
 /** The message box in private mode — the private OUTLINE (owner, 9 Nov: inside the box, no extra row). */
+/** The private box's fill (v8.3): the sky tint, its placeholder in the sky label ink (5.17:1 on the tint, light). */
+export const PRIVATE_BOX_FILL = 'bg-[rgb(var(--color-private-tint))] placeholder:text-[rgb(var(--color-private-text))]';
 export const PRIVATE_BOX_OUTLINE = 'ring-2 ring-inset ring-[rgb(var(--color-private))]';
 /** …and its focus ring — sky blue, never the brand's (owner, 9 Nov: the brand ring showed inside the private box). */
 export const PRIVATE_FOCUS_RING = 'focus:ring-2 focus:ring-[rgb(var(--color-private)/0.35)]';

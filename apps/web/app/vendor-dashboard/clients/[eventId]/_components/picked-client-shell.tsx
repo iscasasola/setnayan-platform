@@ -85,6 +85,8 @@ export function PickedClientShell({
 }) {
   return (
     <PickedShell<PickedClientPage>
+      // 📌 Chat fills the body and scrolls inside itself — the shell's pinned row and menu stay put above it.
+      fillPages={['chat']}
       pickedId={eventId}
       title={eventName}
       menu={menu}

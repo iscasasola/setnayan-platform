@@ -1217,7 +1217,10 @@ export function ChatMessageStream({
   // ---------------------------------------------------------------------------
   // See the `flush` prop. One string, three scrollers, so the card chrome can
   // never be dropped from one view and kept on another.
-  const scrollerChrome = flush ? 'px-0.5 py-3' : 'rounded-xl border border-ink/10 bg-cream p-4';
+  // `relative`: each scroller is the containing block of its own `sr-only` (absolute) labels, so a label scrolled out of
+  // sight stays inside the scroller instead of stretching the box around it into a second scroller (measured 9 Nov in
+  // the picked chat: the hearts' sr-only labels made the in-flow chat box scroll the pinned strip away).
+  const scrollerChrome = `relative ${flush ? 'px-0.5 py-3' : 'rounded-xl border border-ink/10 bg-cream p-4'}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

@@ -48,8 +48,8 @@ test('2 · the house speed and spring, one motion, and none at all under reduced
   const from = css.indexOf('.sn-composer-tools {');
   const block = css.slice(from, css.indexOf('.sn-composer-box { transition: none; }', from) + 40);
   assert.match(block, /transition: grid-template-columns var\(--sn-pill-dur\) var\(--sn-pill-spring\);/, 'the room does not close at the house speed');
-  assert.match(block, /\.sn-composer-tools > \* \{\s*min-width: 0;\s*transition: transform var\(--sn-pill-dur\) var\(--sn-pill-spring\), opacity var\(--sn-pill-dur\) var\(--sn-pill-spring\);/, 'the tools do not slide and fade at the house speed (v8.3)');
-  assert.match(block, /\[data-chat-composer-tools='out'\] \{ grid-template-columns: 0fr; \}/);
+  assert.match(block, /\.sn-composer-tools > \* \{\s*min-width: 0;\s*width: max-content;\s*transition: transform var\(--sn-pill-dur\) var\(--sn-pill-spring\), opacity var\(--sn-pill-dur\) var\(--sn-pill-spring\);/, 'the tools do not slide (their own width, off the left edge) and fade at the house speed (v8.3)');
+  assert.match(block, /\[data-chat-composer-tools='out'\] \{ grid-template-columns: minmax\(0, 0fr\); \}/);
   assert.match(block, /\[data-chat-composer-tools='out'\] > \* \{ transform: translateX\(-100%\); opacity: 0; \}/, 'the tools do not slide LEFT and fade out (v8.3)');
   assert.match(block, /\.sn-composer-box \{ transition: margin var\(--sn-pill-dur\) var\(--sn-pill-spring\); \}/);
   assert.doesNotMatch(block.slice(0, block.indexOf('@media')), /\d+m?s\b(?![^;]*var)/, 'a hand-typed duration in the composer slide');

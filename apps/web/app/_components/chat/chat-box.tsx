@@ -86,13 +86,17 @@ export function ChatBox({
   */
   return (
     <div data-chat-box data-chat-takeover="" className="flex min-w-0 flex-1 flex-col [&>*:not([data-chat-stream-area])]:shrink-0">
-      <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 py-1 pl-1 pr-2 sm:gap-2.5">
-        {header}
-      </div>
+      {/* Inside a picked page the shell's pinned row IS the head (`header={null}`): no empty 52 px band, no stray line. */}
+      {header ? (
+        <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 py-1 pl-1 pr-2 sm:gap-2.5">
+          {header}
+        </div>
+      ) : null}
       {notice}
       {pinned}
       <div className="flex flex-1 flex-col px-2.5 pt-1" data-chat-stream-area="">{children}</div>
-      <div className="border-t border-ink/10 px-1.5 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">{composer}</div>
+      {/* 📐 16 px each side (v8.3: the tools start at x 16 and Send ends 16 from the edge; equal gutters ≥ 16). */}
+      <div className="relative border-t border-ink/10 px-4 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)]" data-chat-composer-gutter="">{composer}</div>
       {tray}
     </div>
   );

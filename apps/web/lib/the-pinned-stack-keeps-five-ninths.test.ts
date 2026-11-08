@@ -12,6 +12,12 @@
  *      stack's FIXED part, which never scrolls; only the region below (Lane B's pins, the expiry line) scrolls when over
  *      the cap. Measured in the labs too: the strip's top y is unchanged after the messages and the pin region scroll.
  *
+ *   4. INSIDE A PICKED PAGE THE CHAT IS IN FLOW: both picked shells fill the body with Chat (`fillPages={['chat']}`), the
+ *      body does not scroll then, the thread's phone takeover becomes an in-flow box (`position: relative`) under the
+ *      shell's own pinned row and menu, the embedded wrappers fill (no `min-h-[70dvh]`), and a picked chat draws no
+ *      empty 52 px head row. Measured 9 Nov: the takeover had covered the shell's ✕ and page menu and scrolled the strip
+ *      away with it.
+ *
  * Sabotage (9 Nov 2026): the switch moved out of the stack → 2 RED; `isolate` dropped → 1 RED; the strip moved into the
  * scrolling region → 3 RED; the stack itself made to scroll again (`overflow-y-auto`) → 1 RED.
  */
@@ -46,6 +52,8 @@ test('1 · one cap, 4/9 of the screen; the stack scrolls inside itself and never
   // Under a 64 px head: 4/9 minus the head, with a floor so a pin is never cut to nothing.
   assert.equal(pinnedStackMaxHeight(64), 'max(4.5rem, calc(calc(100dvh * 4 / 9) - 64px))');
   assert.equal(pinnedStackMaxHeight(0), PINNED_STACK_CAP);
+  // The fixed part (strip + switch) is never clipped: on a short screen the cap gives way to it.
+  assert.equal(pinnedStackMaxHeight(161, 155), 'max(155px, 4.5rem, calc(calc(100dvh * 4 / 9) - 161px))');
 });
 
 test('2 · the stream pins the strip, Lane B\'s pins, the switch and the expiry line INSIDE the one stack', () => {
@@ -96,4 +104,42 @@ test('3 · pinned stays pinned: the strip and the switch are FIXED; only the pin
   assert.doesNotMatch(scrolling, /<ChatHostStrip\b|<ThreadViewSwitch\b/, 'a fixed row is inside the scrolling region');
   assert.match(scrolling, /\{pins\}/);
   assert.match(scrolling, /data-chat-files-expiry/);
+});
+
+test('4 · inside a picked page the chat is in flow under the shell’s head and menu, and the body never scrolls it away', () => {
+  for (const f of [
+    'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-shell.tsx',
+    'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
+  ]) assert.match(read(f), /fillPages=\{\['chat'\]\}/, `${f}: Chat does not fill the picked body`);
+  const shell = read('app/_components/picked/picked-shell.tsx');
+  assert.match(shell, /const fills = fillPages\.includes\(page\);/);
+  assert.match(shell, /fills \? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'/, 'a filled page can still scroll the body (and the pinned stack with it)');
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  const at = css.indexOf('[data-picked-fill] [data-chat-takeover] {');
+  assert.ok(at > 0, 'no in-flow rule for a chat inside a picked page');
+  const rule = css.slice(at, css.indexOf('}', at));
+  assert.match(rule, /position: relative;/, 'the takeover still fixes itself over the picked shell');
+  assert.match(rule, /min-height: 0;/);
+  for (const f of [
+    'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
+    'app/vendor-dashboard/messages/[threadId]/page.tsx',
+    'app/dev/_components/lab-picked-chat.tsx',
+  ]) {
+    const src = read(f);
+    assert.doesNotMatch(src, /data-picked-[a-z]+-(page|chat)=[^>]*min-h-\[70dvh\]/, `${f}: the embedded chat is a fixed minimum again, so the body overflows`);
+  }
+  assert.match(read('app/_components/chat/chat-box.tsx'), /\{header \? \(/, 'a picked chat draws an empty head row');
+  // Each message scroller holds its own sr-only labels (a containing block), or they stretch the box into a 2nd scroller.
+  assert.match(read('app/_components/chat-message-stream.tsx'), /const scrollerChrome = `relative /, 'the scrollers are not containing blocks — their sr-only labels make the chat box scroll');
+});
+
+test('5 · a picked page opens OVER a full-screen Chats list — the list steps down while it is open', () => {
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  const at = css.indexOf('body:has([data-picked-client]) .sn-vt-page:has([data-chat-takeover]),');
+  assert.ok(at > 0, 'nothing lowers a full-screen Chats list under the picked page (z 45 over z 40)');
+  const rule = css.slice(at, css.indexOf('}', at));
+  assert.match(rule, /\[data-chat-takeover\]:not\(\[data-picked-client\] \[data-chat-takeover\]\)/, 'the picked page’s own chat would step down too');
+  assert.match(rule, /z-index: var\(--sn-z-raised\);/);
+  // …and the supplier's Chats list IS a takeover, so this rule is what lets the picked client show at all.
+  assert.match(read('app/vendor-dashboard/messages/_components/supplier-chats.tsx'), /data-chat-takeover/);
 });

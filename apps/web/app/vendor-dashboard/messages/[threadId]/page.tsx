@@ -2162,7 +2162,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       conversation list, no full-screen head; the stream draws the hosts strip and labels each host's run.
     */
     const chat = (
-      <div data-picked-client-page="chat" className="flex min-h-[70dvh] flex-col">
+      <div data-picked-client-page="chat" className="flex min-h-0 flex-1 flex-col">
         {/* The ONE place the picked client marks the conversation read — mounted only while Chat is shown. */}
         <MarkReadWhenShown threadId={threadId} />
         {chatBox}

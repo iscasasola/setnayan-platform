@@ -907,7 +907,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   if (embedded) {
     return (
-      <div data-picked-supplier-page="chat" className="flex min-h-[70dvh] flex-col">
+      <div data-picked-supplier-page="chat" className="flex min-h-0 flex-1 flex-col">
         {/* The ONE place the picked supplier marks the conversation read — mounted only while Chat is shown. */}
         <MarkReadWhenShown threadId={threadId} />
         {chatBox}

@@ -10187,15 +10187,18 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
 .sn-composer-tools {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
   transition: grid-template-columns var(--sn-pill-dur) var(--sn-pill-spring);
 }
+/* min-width 0 lets the track close to 0fr; max-content keeps the group its own width, so translateX(-100%) carries
+   it off the LEFT edge (clipped by the overflow) instead of squeezing it from the right. */
 .sn-composer-tools > * {
   min-width: 0;
+  width: max-content;
   transition: transform var(--sn-pill-dur) var(--sn-pill-spring), opacity var(--sn-pill-dur) var(--sn-pill-spring);
 }
-.sn-composer-tools[data-chat-composer-tools='out'] { grid-template-columns: 0fr; }
+.sn-composer-tools[data-chat-composer-tools='out'] { grid-template-columns: minmax(0, 0fr); }
 .sn-composer-tools[data-chat-composer-tools='out'] > * { transform: translateX(-100%); opacity: 0; }
 .sn-composer-box { transition: margin var(--sn-pill-dur) var(--sn-pill-spring); }
 @media (prefers-reduced-motion: reduce) {
@@ -10609,6 +10612,14 @@ html.dark .sn-acc-head[data-open] {
     background-color: rgb(var(--color-cream));
     padding-top: env(safe-area-inset-top, 0px);
   }
+  /* 🪞 A picked page (`--sn-z-pop`, portalled to <body>) opens OVER a full-screen Chats list — the supplier's ✉ Chats is
+     itself a takeover (z 45), which painted over the picked client (measured 9 Nov, the lab and the routed list alike).
+     While a picked page is open, the list underneath steps down to the raised layer; the picked page's own chat is
+     untouched. Held by `lib/the-pinned-stack-keeps-five-ninths.test.ts` (5). */
+  body:has([data-picked-client]) .sn-vt-page:has([data-chat-takeover]),
+  body:has([data-picked-client]) [data-chat-takeover]:not([data-picked-client] [data-chat-takeover]) {
+    z-index: var(--sn-z-raised);
+  }
 }
 @media (min-width: 1024px) {
   [data-chat-takeover] {
@@ -10616,6 +10627,24 @@ html.dark .sn-acc-head[data-open] {
     border-radius: 1rem;
     background-color: rgb(var(--color-cream));
   }
+}
+
+/* 📌 A CHAT INSIDE A PICKED PAGE IS IN FLOW (owner, 9 Nov: "the pinned on top should stay pinned"). The thread's phone
+   takeover above fixes it over the whole screen; inside the picked shell that covered the shell's own pinned row and
+   page menu, and the takeover then scrolled as one — strip, switch and pins with it. Here it fills the shell's body
+   (`PickedShell` `fillPages`) under the head and menu; only when a tool panel outgrows the room does the box itself
+   scroll, as on the thread page. Held by `lib/the-pinned-stack-keeps-five-ninths.test.ts`. */
+[data-picked-fill] [data-chat-takeover] {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 /* ✕ IN EVERY TYPE BOX (owner 2026-10-31, "We want every type box too have the clear button";

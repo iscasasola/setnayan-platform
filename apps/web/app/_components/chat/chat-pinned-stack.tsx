@@ -25,14 +25,20 @@ export const PINNED_STACK_CAP = 'calc(100dvh * 4 / 9)';
 /** Room the stack keeps even under a tall head, so a pin is never cut to nothing (it scrolls instead). */
 const PINNED_STACK_FLOOR = '4.5rem';
 
-export function pinnedStackMaxHeight(aboveTopPx: number): string {
+export function pinnedStackMaxHeight(aboveTopPx: number, fixedPx = 0): string {
   const above = Math.max(0, Math.round(aboveTopPx));
-  return above > 0 ? `max(${PINNED_STACK_FLOOR}, calc(${PINNED_STACK_CAP} - ${above}px))` : PINNED_STACK_CAP;
+  const fixed = Math.max(0, Math.round(fixedPx));
+  // 📌 The FIXED part (strip + switch) is never clipped: on a short screen the cap gives way to it, and only the
+  // scrolling region below it (the pins) shrinks — to nothing if it must (v8.3 pinned audit, 320×568).
+  const floor = fixed > 0 ? `${fixed}px, ${PINNED_STACK_FLOOR}` : PINNED_STACK_FLOOR;
+  return above > 0 || fixed > 0 ? `max(${floor}, calc(${PINNED_STACK_CAP} - ${above}px))` : PINNED_STACK_CAP;
 }
 
 export function ChatPinnedStack({ fixed, children }: { fixed: ReactNode; children?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [above, setAbove] = useState(0);
+  const fixedRef = useRef<HTMLDivElement>(null);
+  const [fixedH, setFixedH] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -41,12 +47,15 @@ export function ChatPinnedStack({ fixed, children }: { fixed: ReactNode; childre
       // and on a resize — never on scroll, so scrolling never changes the cap.
       const top = el.getBoundingClientRect().top;
       setAbove((was) => (Math.abs(was - top) > 1 ? top : was));
+      const h = fixedRef.current?.getBoundingClientRect().height ?? 0;
+      setFixedH((was) => (Math.abs(was - h) > 1 ? h : was));
     };
     measure();
     window.addEventListener('resize', measure);
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     const head = el.parentElement;
     if (ro && head) ro.observe(head);
+    if (ro && fixedRef.current) ro.observe(fixedRef.current);
     return () => {
       window.removeEventListener('resize', measure);
       ro?.disconnect();
@@ -56,10 +65,10 @@ export function ChatPinnedStack({ fixed, children }: { fixed: ReactNode; childre
     <div
       ref={ref}
       className="isolate flex shrink-0 flex-col overflow-hidden"
-      style={{ maxHeight: pinnedStackMaxHeight(above) }}
+      style={{ maxHeight: pinnedStackMaxHeight(above, fixedH) }}
       data-chat-pinned-stack=""
     >
-      <div className="shrink-0" data-chat-pinned-fixed="">
+      <div ref={fixedRef} className="shrink-0" data-chat-pinned-fixed="">
         {fixed}
       </div>
       {children ? (

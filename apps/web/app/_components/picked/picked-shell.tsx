@@ -79,6 +79,13 @@ export type PickedShellProps<P extends string> = {
   // Only the supplier's picked client has a ⚙ today, so the key is the literal `client`: the one-mount guard
   // (`every-menu-has-one-settings-button.test.ts`) counts literal `menu="…"` mounts, never a variable.
   gear?: { menu: 'client'; line: { line: string; tip: string }; node: ReactNode } | null;
+  /**
+   * 📌 Pages that FILL the body (Chat): no padding, no body scroll — the page scrolls inside itself, so its pinned stack
+   * stays under this shell's pinned row and menu (owner, 9 Nov: "the pinned on top should stay pinned"). A chat's
+   * full-screen takeover becomes an in-flow box here (globals.css, `[data-picked-fill] [data-chat-takeover]`) — it
+   * never covers the shell's own head and menu.
+   */
+  fillPages?: readonly P[];
 };
 
 export function PickedShell<P extends string>({
@@ -94,6 +101,7 @@ export function PickedShell<P extends string>({
   warm,
   scrollTo = null,
   gear = null,
+  fillPages = [],
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
@@ -170,6 +178,7 @@ export function PickedShell<P extends string>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fills = fillPages.includes(page);
   const select = useCallback(
     (id: P) => {
       if (id === page) return;
@@ -289,7 +298,7 @@ export function PickedShell<P extends string>({
       aria-modal="true"
       aria-labelledby={headingId}
       data-picked-client={pickedId}
-      className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink"
+      className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink outline-none"
       style={{ zIndex: 'var(--sn-z-pop)' }}
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
@@ -343,13 +352,22 @@ export function PickedShell<P extends string>({
           })}
         </div>
       </div>
-      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-white" data-picked-body="">
+      <div
+        ref={bodyRef}
+        className={`min-h-0 flex-1 overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-white ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
+        data-picked-body=""
+      >
         <div
           id="picked-page"
           role="tabpanel"
           aria-labelledby={`picked-tab-${page}`}
-          className="mx-auto w-full max-w-3xl px-4 pb-[max(calc(env(safe-area-inset-bottom)+24px),var(--sn-thumb-room,0px))] pt-3"
+          className={
+            fills
+              ? 'mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col'
+              : 'mx-auto w-full max-w-3xl px-4 pb-[max(calc(env(safe-area-inset-bottom)+24px),var(--sn-thumb-room,0px))] pt-3'
+          }
           data-picked-page-body={page}
+          {...(fills ? { 'data-picked-fill': '' } : {})}
         >
           <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
         </div>

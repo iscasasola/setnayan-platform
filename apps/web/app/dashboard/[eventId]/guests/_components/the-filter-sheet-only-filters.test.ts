@@ -24,14 +24,18 @@ import { PLUS_ONE_FILTERS, ROSTER_VIEWS } from '@/lib/guest-roster-view';
 const read = (f: string) => stripComments(readFileSync(join(__dirname, f), 'utf8'));
 const ROUND = read('guests-filter-sheet.tsx');
 const PANEL = read('guests-filter-panel.tsx');
-const SHEET = ROUND + PANEL;
+// The sheet's frame (handle · title · Clear all | Show N) was extracted 2026-11-08 so the supplier's Clients list draws
+// the SAME sheet (B1 step 4) — the Guests sheet re-mounts on it, byte-identical; its frame is still this sheet's.
+const FRAME = stripComments(readFileSync(join(__dirname, '../../../../_components/show-sort-sheet.tsx'), 'utf8'));
+const SHEET = ROUND + PANEL + FRAME;
 const SCREEN = read('guests-screen.tsx');
 const ROWS = stripComments(readFileSync(join(__dirname, '../../_components/guest-setup/guest-setup-rows.tsx'), 'utf8'));
 
 test('1 · the sheet: a GuestPopup mounted only while open, two topics, four dropdowns, the count, Clear all, Show N (its panel loaded on first tap)', () => {
   assert.match(ROUND, /\{open \? <GuestsFilterPanel /, 'the sheet is not mounted only while open');
   assert.match(ROUND, /dynamic\(\(\) => import\('\.\/guests-filter-panel'\)/, 'the open sheet ships with the List again (the Maker draws the List — first-load budget)');
-  assert.match(PANEL, /return \(\s*<GuestPopup/, 'the sheet is not the shared pop-up');
+  assert.match(PANEL, /return \(\s*<ShowSortSheet\b/, 'the sheet is not the shared Show & sort frame');
+  assert.match(FRAME, /return \(\s*<GuestPopup/, 'the sheet is not the shared pop-up');
   assert.match(SHEET, /absolute inset-x-0 bottom-0/, 'the sheet does not rise from the bottom (thumb reach)');
   assert.match(SHEET, /export const FILTER_SHEET_TOPICS = \['Who you see', 'How it is laid out'\] as const;/);
   for (const name of ['Show', '+1s', 'Group by', 'Sort']) {
@@ -41,7 +45,8 @@ test('1 · the sheet: a GuestPopup mounted only while open, two topics, four dro
   assert.match(SHEET, /Show &amp; sort/);
   assert.match(SHEET, /· \{applied\} applied/, 'the title does not say how many choices are applied');
   assert.match(SHEET, /label="Clear all" disabled=\{applied === 0\} onClick=\{onClearAll\}/, 'Clear all is missing (or live with nothing applied)');
-  assert.match(SHEET, /label=\{`Show \$\{formatCount\(shown\)\} \$\{shown === 1 \? 'guest' : 'guests'\}`\}/, '"Show N guests" is missing');
+  assert.match(PANEL, /showLabel=\{`Show \$\{formatCount\(shown\)\} \$\{shown === 1 \? 'guest' : 'guests'\}`\}/, '"Show N guests" is missing');
+  assert.match(FRAME, /label=\{showLabel\} onClick=\{onClose\}/, 'the frame does not draw the "Show N" it is given');
   assert.match(SCREEN, /right=\{\[\{ node: filterSheet \}\]\}/, 'the List’s thumb row does not seat the sheet');
 });
 

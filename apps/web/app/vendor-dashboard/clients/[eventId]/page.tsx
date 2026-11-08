@@ -2358,8 +2358,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       {nextMoveCard}
       {/* ⏳ `brief.hosts` arrives with C2's -data (spec §9 #1); until then the key is absent and nothing is drawn. */}
       <HostsList hosts={hostRows((brief as { hosts?: BriefHost[] }).hosts)} />
-      {/* The brief, from the REDACTED payload at every locked stage. */}
+      {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
       {overviewNode}
+      {coupleAnswersNode}
       {feeLockPanel}
       {/* Item 2 of the ruling — "the request to access features". The panel
           above already says why, so this withholds rather than repeating it. */}
@@ -2375,7 +2376,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           notice={completedNotice}
         />
       ) : null}
-      {coupleAnswersNode}
       <DetailsFormsDoor />
     </div>
   );

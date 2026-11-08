@@ -2,7 +2,8 @@
  * the-details-and-schedule-are-v113-order.test.ts — 🔒 DETAILS AND SCHEDULE IN v113's ORDER (owner 2026-11-08; v113
  * `strip+three+hosts+det+acc+sups+dec+forms`; B1 step 6).
  *
- *   1 · Details: strip · numbers · Hosts · the brief (overview) · access request · Suppliers on this event · Forms sent;
+ *   1 · Details: strip · numbers · Hosts · the brief + what the couple told you · access request · Suppliers on this
+ *       event · Forms sent;
  *   2 · Suppliers come from the brief's `vendor_roster` only — absent (not booked yet) draws nothing, never "none";
  *   3 · Schedule: Appointments sit right after the supplier's part, before the handover (v113: Appointments before the
  *       paperwork), drawn once.
@@ -22,7 +23,7 @@ const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 
 test('1 · Details in v113 order', () => {
   const d = PAGE.slice(PAGE.indexOf('const detailsShipped = ('), PAGE.indexOf('const bodies = pickedPageBodies({'));
-  const order = ['{pipelineBlock}', '<DetailsNumbersRow', '<HostsList', '{overviewNode}', 'askBlock', '<SuppliersList', '{coupleAnswersNode}', '<DetailsFormsDoor'];
+  const order = ['{pipelineBlock}', '<DetailsNumbersRow', '<HostsList', '{overviewNode}', '{coupleAnswersNode}', 'askBlock', '<SuppliersList', '<DetailsFormsDoor'];
   const at = order.map((m) => d.indexOf(m));
   at.forEach((i, k) => assert.ok(i >= 0, `Details lost ${order[k]}`));
   for (let k = 1; k < at.length; k++) assert.ok(at[k - 1]! < at[k]!, `${order[k - 1]} is not before ${order[k]}`);

@@ -1,4 +1,4 @@
-import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
 
 /**
  * 🏪 SUPPLIERS ON THIS EVENT — the brief's `vendor_roster` (`get_vendor_event_brief`), worded for Details (v113
@@ -15,6 +15,6 @@ export function supplierRows(roster: unknown): SupplierRow[] | undefined {
     .map((r, i) => ({
       key: `${r.category}:${r.vendor_name}:${i}`,
       name: r.vendor_name,
-      service: (VENDOR_CATEGORY_LABEL as Record<string, string>)[r.category] ?? r.category.replace(/_/g, ' '),
+      service: displayServiceLabel(r.category),
     }));
 }

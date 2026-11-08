@@ -10,6 +10,8 @@
  *   2. Supplier Settings › Email promised mail "when a couple writes … and when a fee is due". A couple's first
  *      message is app + phone only, and no supplier "fee is due" notification exists at all. It also truncated.
  *   3. The welcome email sent a new shop to Shop; the app lands them on Today, where the next step is.
+ *      (Re-aimed 2026-11-07, DECISION_LOG "ONE EMAIL AT SIGN-UP": that app email is GONE — Supabase's own
+ *      "Confirm signup" is the welcome now, per door — so the property became "it cannot come back".)
  *   4. The create-event picker still labelled a gated life type's sub-field in Tagalog beside an English sibling.
  *
  * ── THE PROPERTIES (none of them is a phrase) ───────────────────────────────
@@ -18,7 +20,8 @@
  *   2. Every " · " part of the Email line (Shop ⚙ › Notifications) maps to notification types that ARE on the email allowlist
  *      (`EMAIL_ENABLED_TYPES`, read from source) — a part that maps to nothing fails, so a new promise must say
  *      which email it means. The line fits a 375 px row (it renders in a `truncate` span).
- *   3. The welcome email's "What's next" link is the route `becomeVendor` actually lands a new shop on.
+ *   3. Neither sign-up door (`/signup`, the shop wizard's step 3) mails a "Welcome to Setnayan" of its own, and
+ *      each tells the Supabase template which door it is (`signup_door`) with a value the template reads.
  *   4. No label the picker draws asks in Tagalog (the 2026-10-07 English ruling for interface words).
  *
  * Comments stripped before matching (`lib/strip-comments.ts`).
@@ -107,19 +110,46 @@ test('the Shop ⚙ › Notifications Email line fits one 375 px row (it renders 
   assert.ok(line.length <= 48, `the line is ${line.length} characters and ends in "…" on a phone: "${line}"`);
 });
 
-// ── 3 · the welcome email's link ──────────────────────────────────────────
-test("the welcome email's next-step link is where a new shop lands", () => {
-  const actions = read('app/open-shop/actions.ts');
-  const body = actions.slice(actions.indexOf('export async function becomeVendor'));
-  const landings = [...body.matchAll(/redirect\('(\/vendor-dashboard[^'?]*)'\)/g)].map((m) => m[1]!);
-  assert.ok(landings.length >= 1, 'becomeVendor no longer redirects into the supplier dashboard — re-point this guard');
-  const landing = landings[landings.length - 1]!;
+// ── 3 · one email at sign-up: no app welcome, and the template knows the door ──
+const SIGNUP_DOORS = ['app/signup/actions.ts', 'lib/open-shop-account.server.ts'];
 
-  const email = read('lib/open-shop-account.server.ts');
-  const next = email.slice(email.indexOf("What's next"));
-  const link = next.match(/\$\{appUrl\}(\/[^\s`'"]*)/);
-  assert.ok(link, "no ${appUrl} link after \"What's next\" in the welcome email");
-  assert.equal(link[1], landing, `the welcome email opens ${link[1]}; a new shop lands on ${landing}`);
+test('neither sign-up door mails a "Welcome to Setnayan" of its own', () => {
+  for (const file of SIGNUP_DOORS) {
+    const src = read(file);
+    const calls = (src.match(/\bsendEmail\(/g) ?? []).length;
+    const subjects = [...src.matchAll(/\bsendEmail\(\{[\s\S]*?\bsubject:\s*(['"`])(.*?)\1/g)].map((m) => m[2]!);
+    assert.equal(subjects.length, calls, `${file}: a sendEmail call whose subject is not a literal this guard can read`);
+    for (const subject of subjects) {
+      assert.doesNotMatch(
+        subject,
+        /welcome to setnayan/i,
+        `${file} mails "${subject}" again — Supabase's "Confirm signup" is the one welcome (DECISION_LOG 2026-11-07)`,
+      );
+    }
+    assert.doesNotMatch(src, /Welcome to Setnayan/, `${file} writes a "Welcome to Setnayan" again`);
+  }
+});
+
+test('each sign-up door names itself to the confirm-signup template with a door the template reads', () => {
+  const template = readFileSync(join(process.cwd(), '../../supabase/templates/confirm-signup.html'), 'utf8');
+  assert.match(template, /printf "%v" \.Data\.signup_door/, 'the template no longer reads .Data.signup_door');
+  const readable = new Set([...template.matchAll(/eq \$door "([a-z]+)"/g)].map((m) => m[1]!));
+  for (const file of SIGNUP_DOORS) {
+    const src = read(file);
+    // The values a door can pass: every quoted word in the `signup_door:` expression except a comparison's
+    // operand (`accountType === 'vendor' ? 'supplier' : 'couple'` passes supplier or couple, never vendor).
+    const doors = [...src.matchAll(/\bsignup_door:[^,}\n]*/g)].flatMap((m) =>
+      [...m[0].replace(/[!=]==?\s*'[a-z]+'/g, '').matchAll(/'([a-z]+)'/g)].map((d) => d[1]!),
+    );
+    assert.ok(doors.length >= 1, `${file}: auth.signUp passes no signup_door — the template cannot tell who signed up`);
+    for (const door of doors) {
+      // 'couple' and 'supplier' are the template's default branches (it tests only for "coordinator").
+      assert.ok(
+        readable.has(door) || door === 'couple' || door === 'supplier',
+        `${file} passes signup_door '${door}', which the template does not know`,
+      );
+    }
+  }
 });
 
 // ── 4 · the picker asks in English ────────────────────────────────────────

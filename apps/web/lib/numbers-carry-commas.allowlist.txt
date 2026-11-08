@@ -13,6 +13,9 @@
 # A row that no longer matches a finding FAILS the test — delete it.
 
 # ── TEXT: a string property whose digits were grouped where it was built ──
+app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — a string built by formatCount(PORTFOLIO_FREE_BASE) in supplier-front-data.ts
+app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — the second render of the same grouped string
+app/for-suppliers/_components/supplier-front-page.tsx :: BADGE_FIRST :: TEXT — a string built by formatCount(MILESTONE_THRESHOLDS[0]) in supplier-front-data.ts
 app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx :: photosHead :: TEXT — RowSheet's "Photos · N" heading, a string whose count was grouped by formatCount where the sheet builds it
 app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React element (the Guests screen), not a number; the scanner reads its name
 app/dashboard/[eventId]/vendors/_components/services-takeover.tsx :: faceCount :: TEXT — a React element (the row's count: <Count> rolls each number, "2/5" · "3 booked"), not a number; the scanner reads its name

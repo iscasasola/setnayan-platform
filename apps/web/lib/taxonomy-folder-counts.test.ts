@@ -47,8 +47,12 @@ const BASELINE: Record<string, number> = {
   design: 29,
   program: 20,
   documentary: 12,
-  look: 54,
-  booths: 42,
+  // 54 → 62 on 2026-11-07: the eight Ceremony essentials services (owner "add that to the
+  // taxonomy") — new services, nothing moved.
+  look: 62,
+  // 42 → 43 on 2026-11-07: the photoman (instant prints), a new Photo booth service. Hiding
+  // `pabati` the same day changes nothing here: it was already excluded as a Setnayan row.
+  booths: 43,
   prints: 15,
   transport: 11,
   experience: 2,
@@ -83,14 +87,15 @@ test('every folder count matches the measured baseline', () => {
   );
 });
 
-test('the countable total is 256 of the 291 taxonomy entries', () => {
+test('the countable total is 265 of the 300 taxonomy entries', () => {
   const total = Object.values(FOLDER_SERVICE_COUNT).reduce((a, b) => a + b, 0);
   assert.equal(
     total,
     // 236 + the 5 put on sale 2026-08-27 + the 12 farewell services added the
-    // same day = 253, + the 3 Chairs & tents rentals 2026-10-01 = 256.
+    // same day = 253, + the 3 Chairs & tents rentals 2026-10-01 = 256, + the 8 Ceremony
+    // essentials and the photoman 2026-11-07 = 265.
     // Re-derived from the deltas, not bumped to match.
-    256,
+    265,
     'the two exclusions (marketplaceHidden, setnayan) must both still apply',
   );
 });

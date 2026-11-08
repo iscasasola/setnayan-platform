@@ -156,3 +156,9 @@ apps/web/lib/ugat/fields.generated.json
 
 # S17 thermal/memory sustained-load evidence logs — same reasoning (build-sessions/encoder/S17-FINDING.md).
 !/build-sessions/encoder/S17-logs/*.log
+
+# 🎬 Demo-shop screenshots (apps/web/scripts/demo-shop/README.md). The keys of the LOCAL Supabase stand-in, the app's
+# served copy of the demo pictures, and the raw shots — only the contact sheets under docs/ are committed.
+apps/web/scripts/demo-shop/.local-env
+apps/web/public/demo-shop-local/
+apps/web/demo-shop-shots/

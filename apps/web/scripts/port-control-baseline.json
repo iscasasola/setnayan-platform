@@ -302,6 +302,59 @@
         "FeaturePageView"
       ]
     },
+    "/(shell)/for-coordinators": {
+      "files": [
+        "(shell)/for-coordinators/_badges.generated.ts",
+        "(shell)/for-coordinators/_claims.server.ts",
+        "(shell)/for-coordinators/_claims.ts",
+        "(shell)/for-coordinators/_facts.ts",
+        "(shell)/for-coordinators/_fc-client.tsx",
+        "(shell)/for-coordinators/_prices.server.ts",
+        "(shell)/for-coordinators/loading.tsx",
+        "(shell)/for-coordinators/page.tsx"
+      ],
+      "destinations": [
+        "/open-shop",
+        "/v/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "AccessCard",
+        "CheckADate",
+        "ChipIcon",
+        "ClaimSwitches",
+        "CoordinatorPrices",
+        "FcEffects",
+        "FeeSlider",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HeroStage",
+        "Image",
+        "InfoToggle",
+        "Link",
+        "Pill",
+        "PlanTiers",
+        "QrMoments",
+        "RunTheDay",
+        "T"
+      ]
+    },
+    "/(shell)/for-suppliers": {
+      "files": [
+        "(shell)/for-suppliers/loading.tsx",
+        "(shell)/for-suppliers/page.tsx"
+      ],
+      "destinations": [
+        "/pricing"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SupplierFrontCodes",
+        "SupplierFrontPage"
+      ]
+    },
     "/(shell)/guest-list": {
       "files": [
         "(shell)/guest-list/loading.tsx",
@@ -5845,6 +5898,7 @@
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/cohost-welcome.tsx",
+        "dashboard/[eventId]/_components/confirm-swipe.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
         "dashboard/[eventId]/_components/coordinating-line.tsx",
         "dashboard/[eventId]/_components/coordinator-colour-domains.tsx",
@@ -6056,7 +6110,7 @@
         "ColorRow",
         "ColourAccessResult",
         "ColourChangeRowView",
-        "ConfirmForm",
+        "ConfirmSwipe",
         "ConnectTop",
         "ContactCard",
         "ContactShortlistVendorButton",
@@ -6358,6 +6412,7 @@
         "TodayFold.Provider",
         "TodaySheetItem",
         "TypedRow",
+        "UndoToastHost",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
@@ -6540,9 +6595,11 @@
         "SupplierGroup",
         "SupplierRow",
         "SupplierSheet",
+        "SwipeToDelete",
         "SwitchTrack",
         "ThumbRow",
-        "TraditionNotes"
+        "TraditionNotes",
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/checklist": {
@@ -9199,6 +9256,8 @@
         "dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx",
         "dashboard/[eventId]/sponsors/_components/pair-target-picker.tsx",
+        "dashboard/[eventId]/sponsors/_components/sponsor-card.tsx",
+        "dashboard/[eventId]/sponsors/_components/sponsor-swipe.tsx",
         "dashboard/[eventId]/sponsors/actions.ts",
         "dashboard/[eventId]/sponsors/loading.tsx",
         "dashboard/[eventId]/sponsors/page.tsx"
@@ -9212,7 +9271,6 @@
         "addSponsor",
         "formAction",
         "markResponse",
-        "removeSponsor",
         "sendInvitation",
         "updateSponsor"
       ],
@@ -9230,7 +9288,10 @@
         "PairTargetPicker",
         "PrincipalPairRow",
         "SponsorCard",
-        "SubmitButton"
+        "SponsorSwipe",
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/story": {
@@ -10516,6 +10577,7 @@
         "UnreadCtx.Provider",
         "UnreadRollupBadge",
         "UpdateSelfAddedSupplierResult",
+        "UpdatedLine",
         "VendorCard",
         "VendorCardAtom",
         "VendorCategory",
@@ -10554,8 +10616,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/vendors",
-        "/v/[seg]"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "coupleConfirmReceived",
@@ -11806,6 +11867,16 @@
         "ShareButton"
       ]
     },
+    "/dev/for-suppliers-lab": {
+      "files": [
+        "dev/for-suppliers-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SupplierFrontPage"
+      ]
+    },
     "/dev/group-lab": {
       "files": [
         "dev/group-lab/page.tsx"
@@ -11905,6 +11976,7 @@
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
         "dev/home-lab/lab-event-settings.tsx",
+        "dev/home-lab/lab-guests-see.tsx",
         "dev/home-lab/lab-spotlight.tsx",
         "dev/home-lab/offline-lab.tsx",
         "dev/home-lab/offline-schedule-lab.tsx",
@@ -11932,9 +12004,11 @@
         "HomeFirstScreen",
         "HomeWhosHereCard",
         "HubDraftToolbar",
+        "HubPartsSwitches",
         "HubProOffer",
         "LabBoard",
         "LabFactSheets",
+        "LabGuestsSee",
         "LabScheduleMark",
         "LabShell",
         "LabSpotlight",
@@ -11971,6 +12045,19 @@
         "PapicAddedPreview",
         "PapicCreditsAdded",
         "StudioBuyHero"
+      ]
+    },
+    "/dev/inquire-lab": {
+      "files": [
+        "dev/inquire-lab/lab-sheet.tsx",
+        "dev/inquire-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "InquireSheet",
+        "LabInquireSheet",
+        "Wordmark"
       ]
     },
     "/dev/maker-lab": {
@@ -12455,6 +12542,23 @@
         "Suspense"
       ]
     },
+    "/dev/shop-back-lab": {
+      "files": [
+        "dev/shop-back-lab/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/dev/shop-back-lab?from=[seg]&plan=[seg]",
+        "/dev/shop-back-lab?plan=[seg]",
+        "/signup"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "Link",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-layout-lab": {
       "files": [
         "dev/shop-layout-lab/page.tsx"
@@ -12787,6 +12891,16 @@
         "ShopPrintsSection"
       ]
     },
+    "/dev/supplier-print-lab": {
+      "files": [
+        "dev/supplier-print-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Wordmark"
+      ]
+    },
     "/dev/suppliers-lab": {
       "files": [
         "dev/suppliers-lab/booked-fixtures.ts",
@@ -12904,6 +13018,17 @@
         "UndoToastHost"
       ]
     },
+    "/dev/swipe-rows-lab/sponsors": {
+      "files": [
+        "dev/swipe-rows-lab/sponsors/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SponsorCard",
+        "Suspense"
+      ]
+    },
     "/dev/swipe-rows-lab/suppliers": {
       "files": [
         "dev/swipe-rows-lab/suppliers/fixtures.ts",
@@ -12982,57 +13107,6 @@
         "StatCard",
         "Step",
         "Value"
-      ]
-    },
-    "/for-suppliers": {
-      "files": [
-        "for-suppliers/_components/for-vendors-motion.tsx",
-        "for-suppliers/_components/vendor-grow-hero.tsx",
-        "for-suppliers/_components/vendor-grow-sections.tsx",
-        "for-suppliers/_components/vendor-hero-gate.tsx",
-        "for-suppliers/_components/vendor-tier-deltas.tsx",
-        "for-suppliers/_components/vendor-tier-matrix.tsx",
-        "for-suppliers/page.tsx"
-      ],
-      "destinations": [
-        "/for-suppliers",
-        "/open-shop",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "CardGrid",
-        "CellView",
-        "Col",
-        "Eyebrow",
-        "FeatureLI",
-        "Fragment",
-        "GridCard",
-        "H2",
-        "HTMLAnchorElement",
-        "HTMLDivElement",
-        "Image",
-        "Lede",
-        "Link",
-        "RevealOnView",
-        "SoonPill",
-        "VendorGrowAI",
-        "VendorGrowAnalytics",
-        "VendorGrowCTA",
-        "VendorGrowFairPay",
-        "VendorGrowGetPaid",
-        "VendorGrowHero",
-        "VendorGrowHub",
-        "VendorGrowNoFakes",
-        "VendorGrowReach",
-        "VendorGrowStyles",
-        "VendorGrowThesis",
-        "VendorGrowTools",
-        "VendorGrowTrust",
-        "VendorGrowWebsite",
-        "VendorHeroGate",
-        "VendorTierDeltas",
-        "VendorTierMatrix"
       ]
     },
     "/forgot-password": {
@@ -14452,6 +14526,7 @@
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
+        "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/not-yet-verified-notice.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
@@ -14474,18 +14549,15 @@
       "destinations": [
         "/",
         "/[seg]",
-        "/[seg]?reviewsPage=[seg]",
         "/dashboard",
-        "/explore",
-        "/login",
-        "/signup",
-        "/v/[seg]/booth",
-        "/v/[seg]/dates"
+        "/dashboard/[seg]/messages/[seg]",
+        "/login"
       ],
       "actions": [
         "joinVendorWaitlist"
       ],
       "blocks": [
+        "ActionButton",
         "AddShopToEventState",
         "AddToEvent",
         "AnonInquiryComposer",
@@ -14493,12 +14565,14 @@
         "AxisStat",
         "CardRecordSection",
         "CheckADateLink",
+        "ChosenRow",
         "ComingSoonBanner",
         "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
         "EventsByKindButton",
         "FilterChip",
+        "FormRows",
         "GuestAtEventPill",
         "GuestReviewItem",
         "GuestReviewsGroup",
@@ -14507,6 +14581,7 @@
         "HTMLDivElement",
         "Image",
         "InfoTip",
+        "InquireSheet",
         "InquiryComposer",
         "Link",
         "LockPackageModal",
@@ -14546,13 +14621,16 @@
         "SmallStars",
         "StarRow",
         "StartServiceInquiryResult",
+        "Step",
         "StorytellerTile",
         "SubmitButton",
+        "SwitchRow",
         "TeamPreviewBanner",
         "TilePhoto",
         "TrackRecord",
         "TrustedBySection",
         "TrustedByVendor",
+        "TypedRow",
         "VendorCompletedEventRow",
         "VendorLocationMap",
         "VendorPackageRow",
@@ -14572,9 +14650,7 @@
         "v/[slug]/booth/booth-showcase-loader.tsx",
         "v/[slug]/booth/page.tsx"
       ],
-      "destinations": [
-        "/v/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "BoothMesh",
@@ -14596,9 +14672,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages/[seg]",
-        "/login",
-        "/v/[seg]",
-        "/v/[seg]/dates"
+        "/login"
       ],
       "actions": [],
       "blocks": [
@@ -14969,6 +15043,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BookingFeeLine",
         "FeeGroup",
         "Link",
         "ListPageSkeleton",

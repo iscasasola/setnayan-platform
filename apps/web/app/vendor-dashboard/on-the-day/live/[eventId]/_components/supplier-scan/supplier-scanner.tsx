@@ -165,7 +165,7 @@ export function SupplierClaimScanner({
           {service.label} <span className="text-ink/60">· {scanModeLabel(service.mode)}</span>
         </p>
         <Explain title="Scanner" label="About the scanner">
-          Each guest you scan gets the next number — the same number shows on their Event Hub. In Once, a guest is
+          Each guest you scan gets the next number — the same number shows on the guests’ page. In Once, a guest is
           counted one time; a second scan says “Already claimed”. In Ordered → Received, the first scan orders, Ready
           on the number tells the guest it is waiting, and the second scan hands it over. In Unlimited, every scan
           counts with a new number. In Group session, tap New shot, scan everyone in the photo — they share one

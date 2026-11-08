@@ -56,4 +56,7 @@
  * To make another route full-bleed: add its path here and the guard will
  * confirm a real page exists at it. To stop one, remove it. Nothing else.
  */
-export const DOORWAY_BLEED_PATHS = ['/explore'] as const;
+// '/for-suppliers' joined 2026-11-04 when it moved into the shell: its photo hero
+// and dark bands are edge-to-edge by design, and every section caps its own width.
+// '/for-coordinators' joined the same day, new: its photo hero and problem scenes run edge to edge.
+export const DOORWAY_BLEED_PATHS = ['/explore', '/for-suppliers', '/for-coordinators'] as const;

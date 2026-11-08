@@ -144,6 +144,13 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // `for-vendors` above stay: both still resolve, as 308s to it.
   'for-suppliers',
 
+  // --- ⬇ ADDED 2026-11-04 -------------------------------------------------
+  // The For Coordinators page (/for-coordinators). A route folder, so the
+  // GENERATED half below carries it too; it is here as well because the
+  // database mirrors THIS half (migration 20271308786674), the same reason
+  // `for-suppliers` is.
+  'for-coordinators',
+
 
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
@@ -183,6 +190,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'download',
   'explore',
   'features',
+  'for-coordinators',
   'for-suppliers',
   'forgot-password',
   'guest-list',

@@ -1731,6 +1731,9 @@ export function FrontDoorShell({
             <Link href="/download" data-web-only="">Download</Link>
             <Link href="/blog">Articles</Link>
             <Link href="/creators">For storytellers</Link>
+            {/* "For suppliers" moved up to the rail, right under "Find suppliers" (owner 2026-11-06, PLAN B2) — not here. */}
+            {/* `data-web-only`: since 6 Nov /for-coordinators shows the supplier plan prices too. */}
+            <Link href="/for-coordinators" data-web-only="">For coordinators</Link>
             <div className="fd-copy">© 2026 Setnayan</div>
             <div className="fd-tag2">Set na &rsquo;yan — that&rsquo;s all set.</div>
           </div>

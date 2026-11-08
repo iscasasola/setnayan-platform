@@ -45,7 +45,13 @@ test('1 · the sheet has one importer — a lazy piece — and the builder has n
   const builders = importers(/from ['"][^'"]*\/guests-see-build['"]/);
   // Home's Event Hub card builds the same table on the server (owner 2026-10-23, the service widgets) — a second
   // SERVER builder, never a client one (the next line holds that for both).
-  assert.deepEqual(builders, ['app/dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts', 'lib/home-hub-card.server.ts']);
+  // 🗓 …and the Home lab's "Parts of the page" view (2026-11-06, "The day's program") — a dev-only SERVER page (no
+  // 'use client'; production 404s it), the next line holds that too.
+  assert.deepEqual(builders, [
+    'app/dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts',
+    'app/dev/home-lab/lab-guests-see.tsx',
+    'lib/home-hub-card.server.ts',
+  ]);
   for (const f of builders) assert.doesNotMatch(read(f), /^'use client'/, `${f} is a client file`);
   // What the sheet's chunk carries of the table is rule-free.
   assert.doesNotMatch(stripComments(read('lib/guests-see-table.ts')), /from '\.\/(what-guests-see|site-body-plan|maker-scene-list|invitation-welcome|stage-scenes)'/);

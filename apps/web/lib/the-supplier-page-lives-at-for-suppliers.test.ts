@@ -41,13 +41,14 @@ test('/vendors and /for-vendors are PERMANENT redirects straight to /for-supplie
   );
 });
 
-test('the page is at app/for-suppliers, and nothing shadows the old address', () => {
-  assert.ok(existsSync(join(WEB, 'app/for-suppliers/page.tsx')), 'the supplier page is missing');
+// Moved into the shared shell 2026-11-04: the URL is unchanged, the file sits under the route group.
+test('the page is at app/(shell)/for-suppliers, and nothing shadows the old address', () => {
+  assert.ok(existsSync(join(WEB, 'app/(shell)/for-suppliers/page.tsx')), 'the supplier page is missing');
   assert.ok(
     !existsSync(join(WEB, 'app/vendors/page.tsx')),
     'app/vendors/page.tsx exists again — Next serves it and the permanent redirect never fires',
   );
-  const page = read('app/for-suppliers/page.tsx');
+  const page = read('app/(shell)/for-suppliers/page.tsx');
   assert.match(page, /canonical: '\/for-suppliers'/, 'the canonical must name the new address');
   assert.doesNotMatch(page, /\$\{SITE_URL\}\/vendors/, 'the structured data still names /vendors');
 });

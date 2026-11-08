@@ -57,7 +57,7 @@ export function AccessGrants({
         <span className="flex items-center gap-1.5">
           {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-ink/55" strokeWidth={1.75} /> : null}
           <Explain title="Your team on this event">
-            You always have access. Switch a teammate on to let them open just this event’s Event Hub — nothing else
+            You always have access. Switch a teammate on to let them open just this event’s Hub — nothing else
             of your shop changes.
           </Explain>
         </span>

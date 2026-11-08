@@ -55,7 +55,7 @@ import { copyStrings } from '@/lib/public-copy-strings';
  *     shop's address "Your website".
  *
  * MUTATION: write "Browse vendors" into explore-search-hero.tsx, or "your
- * website" into vendor-grow-sections.tsx → this fails.
+ * website" into supplier-front-page.tsx → this fails.
  * MUTATION: write "the vendors" into app/tour/page.tsx, "the celebration" into
  * lib/studio-apps.ts, or "Animated Monogram" into palogo/page.tsx → this fails.
  */
@@ -172,7 +172,7 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
   const files = publicFiles().map(rel);
   assert.ok(files.length >= 100, `only ${files.length} public copy files — has a root moved?`);
   for (const must of [
-    'app/for-suppliers/_components/vendor-grow-sections.tsx',
+    'app/for-suppliers/_components/supplier-front-page.tsx',
     'app/(shell)/explore/_components/explore-search-hero.tsx',
     'app/waitlist/page.tsx',
     'app/creators/_components/creator-story-sections.tsx',

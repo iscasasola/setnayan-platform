@@ -110,12 +110,13 @@ export function OverlayShell({
  * data so the Vendors-popup line-link ("See all N supplier benefits →") never goes
  * stale. Sums the full /vendors matrix the link points at:
  *   • named benefits across every tier (VENDOR_TIER_SECTIONS)
- *   • plan-capability rows (buildLimitsGroup in vendor-tier-matrix) — 9 fixed
+ *   • plan-capability rows — 9 fixed (they were `buildLimitsGroup()` in vendor-tier-matrix.tsx, deleted 2026-11-06
+ *     with the old /for-suppliers page; the count is kept as the Plans page's capability rows)
  * (No total is written here on purpose — it went stale: this said "84 … = 102" while the real sum was 99, and
  * seven retired "soon" rows took it to 92 on 2026-11-05.) Rendered as "100+" once the total crosses 100 so the headline
  * never regresses on a copy tweak. The number tracks the arrays, not a literal.
  */
-const PLAN_CAPABILITY_ROW_COUNT = 9; // buildLimitsGroup() in vendor-tier-matrix.tsx
+const PLAN_CAPABILITY_ROW_COUNT = 9; // was buildLimitsGroup() in the deleted vendor-tier-matrix.tsx
 const TOTAL_VENDOR_BENEFIT_COUNT = (() => {
   const named = VENDOR_TIER_SECTIONS.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0),

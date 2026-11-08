@@ -9,6 +9,7 @@ const ALLOWED_PATHS = [
   '/v/',
   '/explore',
   '/for-suppliers',
+  '/for-coordinators',
   '/creators',
   '/help',
   '/realstories',

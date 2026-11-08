@@ -68,6 +68,7 @@ import {
   type WaitingRow,
 } from '@/lib/booked-rows';
 import type { TeamRowTone } from '@/lib/your-team-rows';
+import { CORRECTIONS_SHORT } from '@/lib/supplier-corrections';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
@@ -467,6 +468,25 @@ function ClaimDoor({ eventId, vendorId, vendorName }: { eventId: string; vendorI
   );
 }
 
+/**
+ * ✏️ WHAT THE SUPPLIER CORRECTED WHEN THEY JOINED FROM YOUR LINK (DECISION_LOG 2026-11-07) — "Name updated by the
+ * supplier", what they changed in the ⓘ. Taken on Approve; contact details only (a price change reaches you as an
+ * amendment). Only the couple who invited them sees this.
+ */
+function UpdatedLine({ updated }: { updated: NonNullable<BookedRow['updated']> }) {
+  return (
+    <p className="text-[13.5px] leading-snug" data-booked-updated="">
+      <InfoTip label={updated.mark} labelClassName="text-ink" align="start">
+        {updated.detail.map((line) => (
+          <span key={line} className="block">
+            {line}
+          </span>
+        ))}
+      </InfoTip>
+    </p>
+  );
+}
+
 /** The payment plan's rows — the same rows the Pay sheet opens on. */
 function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }) {
   if (plan.kind === 'unread') {
@@ -571,7 +591,7 @@ export function BookedRowItem({
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-medium text-ink">{row.name}</span>
           <span className="block truncate text-[13px] text-ink/55">
-            {[row.service, row.own ? 'added by you' : null].filter(Boolean).join(' · ')}
+            {[row.service, row.own ? 'added by you' : null, row.updated ? CORRECTIONS_SHORT : null].filter(Boolean).join(' · ')}
           </span>
           {/* 📍 The chapters they work — or "Needs at least 1 chapter" (the prototype's `supRow`). */}
           <BookedWhereLine where={row.where} />
@@ -654,6 +674,7 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
       {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
       {row.timesMark ? <TimesMarkLine mark={row.timesMark} /> : null}
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
+      {row.updated ? <UpdatedLine updated={row.updated} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
       {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}

@@ -10,7 +10,6 @@ app_store_purchases.revocation_reason	# first run 2026-10-02 · shared code · a
 chat_threads.compat_reasons	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 discount_code_redemptions.discount_centavos_applied	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_editorial.edited_by_couple	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-event_moderators.removal_reason	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_question_answers.answered_by	# first run 2026-10-02 · host app · a column the app writes and nothing reads
 event_vendors.completion_resolution_note	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
 events.auspicious_reasons	# first run 2026-10-02 · host app · a column the app writes and nothing reads

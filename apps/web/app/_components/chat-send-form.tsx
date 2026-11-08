@@ -33,7 +33,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_STRIP_TEXT, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
 import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
@@ -410,7 +410,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
         >
           {privateTo ? (
-            <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_STRIP_TEXT}`} strokeWidth={2.2} />
+            <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_MARK}`} strokeWidth={2.2} />
           ) : null}
         <textarea
           ref={textareaRef}
@@ -419,8 +419,17 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           maxLength={4000}
           placeholder={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
           aria-label={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
-          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] ${privateTo ? 'pl-9 pr-11' : 'px-3.5'} py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 ${privateTo ? '' : 'focus:ring-2 focus:ring-sn-accent/30'}`}
+          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] ${privateTo ? 'pl-9 pr-11' : 'px-3.5'} py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
           data-rides=""
+          onPaste={(e) => {
+            // 🔒 Words only while private (owner, 9 Nov): a pasted picture or file is refused, said in the row's own words.
+            if (!privateTo) return;
+            const dt = e.clipboardData;
+            const hasFile = dt.files.length > 0 || Array.from(dt.items).some((it) => it.kind === 'file');
+            if (!hasFile) return;
+            e.preventDefault();
+            setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+          }}
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}
           onInput={(e) => {
@@ -479,7 +488,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         <SubmitButton
           aria-label="Send"
           pendingLabel=""
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05] disabled:opacity-60"
+          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${privateTo ? PRIVATE_MARK : 'text-sn-accent'} hover:bg-ink/[0.05] disabled:opacity-60`}
+          {...(privateTo ? { 'data-chat-private-send': '' } : {})}
         >
           <SendHorizontal className="h-[22px] w-[22px]" strokeWidth={1.9} />
         </SubmitButton>

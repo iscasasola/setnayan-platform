@@ -17,8 +17,12 @@
  *      as the recipient. The supplier cannot read a host ↔ host message: the thread is read ONLY through the caller's
  *      RLS-scoped client (Lane B's SELECT rule hides it), never the admin client.
  *
+ *   7. THE ＋ IS NOT RENDERED WHILE A PRIVATE RECIPIENT IS SET (owner, 9 Nov, corpus 701b38a3), and the whole row is
+ *      ONE sky blue: Send, the quiet 🔒 and the × wear the private colour, every focus ring in the row is sky blue, a
+ *      pasted picture is refused; × back to everyone restores the ＋ and Send's brand colour.
+ *
  * Sabotage (9 Nov 2026): `PrivateMark` drawing its strip for `null` → 1 RED; the composer drawing `lead` while private →
- * 3 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED; "Reply privately" gated on the side
+ * 3 + 7 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED; "Reply privately" gated on the side
  * (`!mine`) again → 6 RED.
  */
 import test from 'node:test';
@@ -33,7 +37,7 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { setChatPeople, setPrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { MessageHoldMenu } from '@/app/_components/chat/message-hold-menu';
-import { CHAT_PRIVATE_FIELD, privateOtherId, privateToFromForm } from './chat-private';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, privateOtherId, privateToFromForm } from './chat-private';
 import { ChatHostStrip } from '@/app/_components/chat/chat-host-strip';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -51,10 +55,22 @@ test('1 · the strip draws for a private message and never for a normal one; the
   assert.match(time, /data-chat-private-time=""/);
   assert.match(time, /<svg/, 'the time row lost its lock');
   assert.match(time, /10:05 AM/);
-  // 🔵 Private is BLUE (owner, 9 Nov): the fill, its ring and the strip's words are the --color-info token.
-  assert.match(PRIVATE_BUBBLE_FILL, /bg-\[rgb\(var\(--color-info\)\/0\.14\)\]/, 'the private fill is not the info token');
-  assert.match(PRIVATE_STRIP_TEXT, /--color-info/);
-  assert.ok(priv.includes(PRIVATE_STRIP_TEXT), 'the strip is not written in the info token');
+  // 🔒 Private is SKY BLUE (owner, 9 Nov: "why red? use sky blue"): its own token family, never --color-info's slate.
+  assert.match(PRIVATE_BUBBLE_FILL, /bg-\[rgb\(var\(--color-private-tint\)\)\]/, 'the private fill is not the private tint');
+  assert.match(PRIVATE_BUBBLE_FILL, /ring-\[rgb\(var\(--color-private\)\/0\.45\)\]/);
+  assert.match(PRIVATE_STRIP_TEXT, /--color-private-text/);
+  assert.ok(priv.includes(PRIVATE_STRIP_TEXT), 'the strip is not written in the private token');
+  assert.ok(time.includes(PRIVATE_MARK), 'the time row\'s lock is not sky blue');
+  for (const k of [PRIVATE_BUBBLE_FILL, PRIVATE_STRIP_TEXT, PRIVATE_MARK, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING]) {
+    assert.doesNotMatch(k, /--color-info|--color-link|mulberry|sn-accent|terracotta/, `${k} is not the private blue`);
+  }
+  // The token family is defined in BOTH themes, with the owner's light values.
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  assert.match(css, /--color-private: 2 132 199;/, 'light --color-private is not #0284C7');
+  assert.match(css, /--color-private-text: 3 105 161;/, 'light --color-private-text is not #0369A1');
+  assert.match(css, /--color-private-tint: 224 242 254;/, 'light --color-private-tint is not #E0F2FE');
+  assert.match(css, /--color-private: 56 189 248;/, 'dark --color-private is not #38BDF8');
+  assert.equal((css.match(/--color-private-tint:/g) ?? []).length, 2, 'the tint is not defined for both themes');
 });
 
 test('2 · the stream draws the private look exactly when the message is private — stored and pending', () => {
@@ -93,7 +109,10 @@ test('3 · private mode lives inside the message box, and the composer is WORDS 
   assert.doesNotMatch(priv, /data-chat-private-chip|Messaging Jose privately/, 'the retired chip row came back');
   // The box: the info outline, a 🔒 at its left, the × inside it (all within data-chat-message-box).
   const box = priv.slice(priv.lastIndexOf('<div', priv.indexOf('data-chat-message-box')), priv.indexOf('</div>', priv.indexOf('data-testid="chat-private-clear"')));
-  assert.match(box, /ring-\[rgb\(var\(--color-info\)\)\]/, 'the private box has no info outline');
+  assert.ok(box.includes(PRIVATE_BOX_OUTLINE), 'the private box has no sky-blue outline');
+  assert.ok(box.includes(PRIVATE_FOCUS_RING), 'the private box focuses in another colour');
+  assert.doesNotMatch(box, /focus:ring-sn-accent/, 'the brand focus ring shows inside the private box');
+  assert.ok(box.slice(0, box.indexOf('<textarea')).includes(PRIVATE_MARK), 'the box\'s 🔒 is not sky blue');
   assert.ok(box.indexOf('<svg') < box.indexOf('<textarea'), 'the 🔒 is not at the box\'s left');
   assert.ok(box.indexOf('<textarea') < box.indexOf('data-testid="chat-private-clear"'), 'the × is not inside the box, after the words');
   assert.match(box, /aria-label="Stop the private message to Jose/);
@@ -198,4 +217,32 @@ test('6 · three doors to the one chip: a face, the composer\'s 🔒, and Reply 
   assert.match(stream, /const replyTo = !m\.is_bot && m\.sender_user_id && m\.sender_user_id !== currentUserId \? m\.sender_user_id : null;/, 'Reply privately is gated on the wrong thing');
   assert.match(stream, /setPrivateTo\(threadId, \{ userId: replyTo, name: personName\(replyTo\) \}\)/);
   assert.match(stream, /if \(hold\.consumeTap\(\)\) return;/, 'the hold also toggles the heart');
+});
+
+test('7 · the ＋ is not rendered while a private recipient is set; the row is one sky blue; a pasted picture is refused', () => {
+  const lead = h('button', { type: 'button', 'data-lab-plus': '' }, '+');
+  const send = async () => {};
+  const T = 'thread-no-plus';
+  setPrivateTo(T, { userId: '00000000-0000-4000-8000-0000000000ef', name: 'Maria' });
+  const priv = renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead }));
+  setPrivateTo(T, null);
+  const back = renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead }));
+  assert.equal((priv.match(/data-lab-plus/g) ?? []).length, 0, 'the ＋ is rendered while a private recipient is set');
+  assert.equal((back.match(/data-lab-plus/g) ?? []).length, 1, 'the × back to everyone did not restore the ＋');
+  // Send: sky blue while private, the brand again after ×.
+  const sendBtn = (m: string) => m.slice(m.lastIndexOf('<button', m.indexOf('aria-label="Send"')), m.indexOf('>', m.indexOf('aria-label="Send"')));
+  assert.ok(sendBtn(priv).includes(PRIVATE_MARK), 'Send is not sky blue while private');
+  assert.doesNotMatch(sendBtn(priv), /sn-accent|mulberry|terracotta/, 'Send keeps the brand colour while private');
+  assert.match(sendBtn(back), /text-sn-accent/, 'Send did not go back to the brand');
+  // The private composer row draws no brand class anywhere.
+  const row = priv.slice(priv.indexOf('data-chat-composer-row'), priv.lastIndexOf('</div>'));
+  assert.doesNotMatch(row, /sn-accent|mulberry|terracotta|ab-brand/, 'a brand colour shows in the private composer row');
+  // …and its focus rings and quiet buttons are sky blue (the house .ab focus is mulberry — overridden here).
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  assert.match(css, /\[data-chat-words-only\] :focus-visible,\s*\[data-chat-words-only\] \.ab:focus-visible \{ outline-color: rgb\(var\(--color-private\)\); \}/, 'a focus ring in the private row is the brand');
+  assert.match(css, /\[data-chat-composer-row\] :is\(button, a\)\.ab\.ab-info\.quiet:not\(\.ab-main\) \{ color: rgb\(var\(--color-private\)\); \}/, 'the × / 🔒 are not sky blue');
+  assert.ok(css.indexOf('[data-chat-words-only] :focus-visible') > css.indexOf('.ab:focus-visible {'), 'the private focus rule loses to the house .ab focus');
+  // A pasted picture is refused while private, in the row's own words.
+  const form = read('app/_components/chat-send-form.tsx');
+  assert.match(form, /onPaste=\{\(e\) => \{\s*if \(!privateTo\) return;[\s\S]{0,260}kind === 'file'[\s\S]{0,120}e\.preventDefault\(\);\s*setFileError\(PRIVATE_WORDS_ONLY_MESSAGE\);/, 'a pasted picture is not refused while private');
 });

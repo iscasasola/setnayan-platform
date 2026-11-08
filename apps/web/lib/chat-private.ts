@@ -26,17 +26,23 @@ export const CHAT_PRIVATE_FIELD = 'private_to' as const;
 export const PRIVATE_WORDS_ONLY_MESSAGE = 'A private message is words only — send the file to everyone instead.';
 
 /**
- * 🔵 PRIVATE IS BLUE (owner ruling, 9 Nov): the `--color-info` token (= `--color-link`, slate indigo #3B4E67 light,
- * #9DB2CE dark) — a 14 % wash with an info ring for the bubble and the composer chip, the token itself for the words.
- * No normal bubble uses it. MEASURED (WCAG relative luminance):
- *   light · ink #2C2A29 on the wash 11.43 · info #3B4E67 on the wash 6.80 — AA
- *   dark  · ink #FBFAF7 on the wash 13.52 · info #9DB2CE on the wash 6.51 — AA
+ * 🔒 PRIVATE IS SKY BLUE (owner, 9 Nov: "why red? use sky blue" — corpus 48503b43, 701b38a3). Its own token family in
+ * globals.css, `--color-private` (#0284C7 · dark #38BDF8), `--color-private-text` (#0369A1 · dark #38BDF8) and
+ * `--color-private-tint` (#E0F2FE · dark #263638) — never `--color-info`'s slate, never the brand. ONE colour for the
+ * whole private composer (box, its focus ring, 🔒, ×, Send), the private bubble and its strip. No normal bubble uses it.
+ * MEASURED (WCAG relative luminance):
+ *   light · ink #2C2A29 on the tint 12.45 · label #0369A1 on the tint 5.17, on white 5.93 · #0284C7 on white 4.10 (UI)
+ *   dark  · ink #FBFAF7 on the tint 12.07 · #38BDF8 on the tint 5.88, on the page 8.46, on the card 7.59
  */
-export const PRIVATE_BUBBLE_FILL = 'bg-[rgb(var(--color-info)/0.14)] text-ink ring-1 ring-inset ring-[rgb(var(--color-info)/0.45)]';
-/** The private strip's (and the chip's) words — the info token itself. */
-export const PRIVATE_STRIP_TEXT = 'text-[rgb(var(--color-info))]';
-/** The message box in private mode — the info OUTLINE (owner, 9 Nov: inside the box, no extra row). */
-export const PRIVATE_BOX_OUTLINE = 'ring-2 ring-inset ring-[rgb(var(--color-info))]';
+export const PRIVATE_BUBBLE_FILL = 'bg-[rgb(var(--color-private-tint))] text-ink ring-1 ring-inset ring-[rgb(var(--color-private)/0.45)]';
+/** The private strip's words ("🔒 Private · only you and Jose") — the private TEXT token (≥ 4.5 on the tint). */
+export const PRIVATE_STRIP_TEXT = 'text-[rgb(var(--color-private-text))]';
+/** The private marks that are not words — the box's 🔒, its ×, Send, the time row's lock (UI contrast ≥ 3). */
+export const PRIVATE_MARK = 'text-[rgb(var(--color-private))]';
+/** The message box in private mode — the private OUTLINE (owner, 9 Nov: inside the box, no extra row). */
+export const PRIVATE_BOX_OUTLINE = 'ring-2 ring-inset ring-[rgb(var(--color-private))]';
+/** …and its focus ring — sky blue, never the brand's (owner, 9 Nov: the brand ring showed inside the private box). */
+export const PRIVATE_FOCUS_RING = 'focus:ring-2 focus:ring-[rgb(var(--color-private)/0.35)]';
 
 /** The person a private chip is addressed to. */
 export type PrivateTo = { userId: string; name: string };

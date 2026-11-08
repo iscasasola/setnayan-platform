@@ -139,7 +139,9 @@ test('6 · both picked Chats draw the SHIPPED host strip — no second presence 
   // The host embed hands the stream its hosts (the stream draws `ChatHostStrip` when `hosts` is given), read from the
   // one source the supplier side reads, `event_chat_hosts`; only when embedded.
   const t = read(HOST_THREAD);
-  assert.match(t, /rpc\('event_chat_hosts', \{ p_event_id: thread\.event_id \}\)/, 'the host embed no longer reads its hosts');
+  // Build 3 (Lane A): the read moved into ONE helper the host thread calls — the same `event_chat_hosts` rpc.
+  assert.match(t, /readCoupleChatStripPeople\([^)]*eventId: thread\.event_id/, 'the host embed no longer reads its hosts');
+  assert.match(read('../lib/chat-strip-people.server.ts'), /rpc\('event_chat_hosts', \{ p_event_id: opts\.eventId \}\)/, 'the host strip no longer reads event_chat_hosts');
   assert.match(t, /\{\.\.\.\(hosts !== undefined \? \{ hosts \} : \{\}\)\}/, 'the host embed no longer hands the stream its hosts');
   assert.match(read(SUPPLIER_THREAD), /\{\.\.\.\(embedded \? \{ hosts: customerPlan\.hosts \} : \{\}\)\}/, 'the supplier embed lost its hosts');
   // No invented presence: nobody in Lane A's files says "online" or "last seen" or draws a strip of their own.

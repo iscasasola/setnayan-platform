@@ -115,6 +115,7 @@ import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import { MessageHoldMenu, useMessageHold } from './chat/message-hold-menu';
+import { ChatPinnedStack } from './chat/chat-pinned-stack';
 import { setPrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
@@ -187,6 +188,11 @@ type Props = {
   memberLeave?: ((note: string | null) => Promise<void>) | null;
   /** 📞 The page's `BookedCallButtons`, drawn at the end of the host strip (the picked page's head). */
   headCalls?: React.ReactNode;
+  /**
+   * 📐 Lane B's pins and Waiting line — drawn INSIDE the one pinned stack (`ChatPinnedStack`, capped at 4/9 of the
+   * screen, scrolling inside itself). Nothing pinned above the messages is drawn outside it.
+   */
+  pins?: React.ReactNode;
   /**
    * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
    * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
@@ -388,6 +394,7 @@ export function ChatMessageStream({
   memberAdd = null,
   memberLeave = null,
   headCalls = null,
+  pins = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -1214,7 +1221,11 @@ export function ChatMessageStream({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* 📐 ONE PINNED STACK (owner, 9 Nov): the strip, Lane B's pins, the switch and the expiry line — capped at 4/9 of
+          the screen with the head, scrolling inside itself; the messages + composer keep ≥ 5/9. */}
+      <ChatPinnedStack>
       {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={headCalls} /> : null}
+      {pins}
       {/*
         THE SWITCH — above the conversation, at every width. On a phone this
         row may be the most useful thing on the screen: the whole standing of a
@@ -1239,6 +1250,7 @@ export function ChatMessageStream({
           </p>
         ) : null;
       })()}
+      </ChatPinnedStack>
 
       {view === 'decisions' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>

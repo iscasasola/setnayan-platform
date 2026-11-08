@@ -883,8 +883,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             currentUserId={user.id}
             viewerRole="couple"
             {...(hosts !== undefined ? { hosts } : {})}
-            // 📞 Inside the picked supplier the routed head is not drawn — its Call · Video call stand at the strip's end.
-            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} /> } : {})}
             counterpartyLabel={vendorLabel}
             eventDate={eventDate}
             standing={threadStanding}
@@ -900,6 +898,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
               endDate: eventDay?.event_end_date ?? null,
               precision: eventDay?.event_date_precision ?? null,
             }}
+            // 📞 Inside the picked supplier the routed head is not drawn — its Call · Video call stand at the strip's end.
+            // (Kept LAST: its JSX value closes with `/>`, and the guards that read this tag walk to the first `>`.)
+            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} /> } : {})}
           />
         </ChatBox>
   );

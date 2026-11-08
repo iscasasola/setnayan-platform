@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7258
+# facts: 7314
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     602
-#   col       5265
-#   policy    1056
+#   tpriv     604
+#   col       5317
+#   policy    1058
 #   view      9
 #   func      322
 #
@@ -418,6 +418,8 @@ tpriv	public.setnayan_pay_methods|anon	SIUD
 tpriv	public.setnayan_pay_methods|authenticated	SIUD
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
+tpriv	public.shop_badge_rewards|authenticated	S
+tpriv	public.shop_badge_upgrades|authenticated	S
 tpriv	public.shop_gift_purchases|authenticated	S
 tpriv	public.shop_gift_stock_entries|authenticated	S
 tpriv	public.shop_papic_wallet_entries|authenticated	S
@@ -717,6 +719,7 @@ col	public.blocked_users.created_at	anon=SIU authenticated=SIU
 col	public.blocked_users.id	anon=SIU authenticated=SIU
 col	public.blocked_users.reason	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.amount_charged_centavos	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.badge_reward_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.charge_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.computed_fee_centavos	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.created_at	anon=SIU authenticated=SIU
@@ -4188,6 +4191,35 @@ col	public.shared_attribute_groups.display_name_en	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.display_name_tl	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.group_name	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.updated_at	anon=SIU authenticated=SIU
+col	public.shop_badge_rewards.badge	anon=- authenticated=S
+col	public.shop_badge_rewards.granted_at	anon=- authenticated=S
+col	public.shop_badge_rewards.note	anon=- authenticated=S
+col	public.shop_badge_rewards.returned_at	anon=- authenticated=S
+col	public.shop_badge_rewards.returned_from_charge_id	anon=- authenticated=S
+col	public.shop_badge_rewards.revoke_note	anon=- authenticated=S
+col	public.shop_badge_rewards.revoked_at	anon=- authenticated=S
+col	public.shop_badge_rewards.revoked_by	anon=- authenticated=S
+col	public.shop_badge_rewards.reward_id	anon=- authenticated=S
+col	public.shop_badge_rewards.reward_key	anon=- authenticated=S
+col	public.shop_badge_rewards.reward_kind	anon=- authenticated=S
+col	public.shop_badge_rewards.setnayan_gift_credits	anon=- authenticated=S
+col	public.shop_badge_rewards.setnayan_gift_grant_id	anon=- authenticated=S
+col	public.shop_badge_rewards.stock_delta	anon=- authenticated=S
+col	public.shop_badge_rewards.units	anon=- authenticated=S
+col	public.shop_badge_rewards.used_at	anon=- authenticated=S
+col	public.shop_badge_rewards.used_on_charge_id	anon=- authenticated=S
+col	public.shop_badge_rewards.vendor_profile_id	anon=- authenticated=S
+col	public.shop_badge_upgrades.badge	anon=- authenticated=S
+col	public.shop_badge_upgrades.choices	anon=- authenticated=S
+col	public.shop_badge_upgrades.ends_at	anon=- authenticated=S
+col	public.shop_badge_upgrades.granted_at	anon=- authenticated=S
+col	public.shop_badge_upgrades.note	anon=- authenticated=S
+col	public.shop_badge_upgrades.reward_key	anon=- authenticated=S
+col	public.shop_badge_upgrades.started_at	anon=- authenticated=S
+col	public.shop_badge_upgrades.started_choice	anon=- authenticated=S
+col	public.shop_badge_upgrades.started_period_days	anon=- authenticated=S
+col	public.shop_badge_upgrades.upgrade_id	anon=- authenticated=S
+col	public.shop_badge_upgrades.vendor_profile_id	anon=- authenticated=S
 col	public.shop_gift_purchases.created_at	anon=- authenticated=S
 col	public.shop_gift_purchases.created_by	anon=- authenticated=S
 col	public.shop_gift_purchases.credits_each	anon=- authenticated=S
@@ -4198,6 +4230,7 @@ col	public.shop_gift_purchases.quantity	anon=- authenticated=S
 col	public.shop_gift_purchases.service_code	anon=- authenticated=S
 col	public.shop_gift_purchases.unit_price_php	anon=- authenticated=S
 col	public.shop_gift_purchases.vendor_profile_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.badge_reward_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.created_at	anon=- authenticated=S
 col	public.shop_gift_stock_entries.created_by	anon=- authenticated=S
 col	public.shop_gift_stock_entries.delta	anon=- authenticated=S
@@ -4497,8 +4530,11 @@ col	public.users.name_search	anon=S authenticated=SU
 col	public.users.name_suffix	anon=S authenticated=SU
 col	public.users.phone	anon=S authenticated=SU
 col	public.users.planner_mode	anon=S authenticated=SU
+col	public.users.profile_focal_x	anon=S authenticated=SU
+col	public.users.profile_focal_y	anon=S authenticated=SU
 col	public.users.profile_photo_url	anon=S authenticated=SU
 col	public.users.profile_view_count	anon=S authenticated=SU
+col	public.users.profile_zoom	anon=S authenticated=SU
 col	public.users.public_greeting_opt_in	anon=S authenticated=SU
 col	public.users.public_id	anon=S authenticated=SU
 col	public.users.public_profile_enabled	anon=S authenticated=SU
@@ -5062,9 +5098,12 @@ col	public.vendor_package_items.replacement_value_centavos	anon=SIU authenticate
 col	public.vendor_package_items.service_description	anon=SIU authenticated=SIU
 col	public.vendor_package_items.transport_flat_centavos	anon=SIU authenticated=SIU
 col	public.vendor_package_items.transport_mode	anon=SIU authenticated=SIU
+col	public.vendor_package_items.vendor_service_id	anon=SIU authenticated=SIU
 col	public.vendor_packages.consumable_budget_centavos	anon=SIU authenticated=SIU
 col	public.vendor_packages.created_at	anon=SIU authenticated=SIU
 col	public.vendor_packages.description	anon=SIU authenticated=SIU
+col	public.vendor_packages.gift_pack_code	anon=SIU authenticated=SIU
+col	public.vendor_packages.includes_setnayan_gift	anon=SIU authenticated=SIU
 col	public.vendor_packages.is_active	anon=SIU authenticated=SIU
 col	public.vendor_packages.is_consumable_flexible	anon=SIU authenticated=SIU
 col	public.vendor_packages.package_id	anon=SIU authenticated=SIU
@@ -5247,6 +5286,10 @@ col	public.vendor_profiles.extra_bookings_per_date	anon=- authenticated=SIU
 col	public.vendor_profiles.extra_parent_categories	anon=- authenticated=SIU
 col	public.vendor_profiles.extra_services_per_leaf	anon=- authenticated=SIU
 col	public.vendor_profiles.extra_waitlist_acceptances	anon=- authenticated=SIU
+col	public.vendor_profiles.find_lock_lifted_at	anon=- authenticated=SIU
+col	public.vendor_profiles.find_lock_lifted_by	anon=- authenticated=IU
+col	public.vendor_profiles.find_lock_reason	anon=- authenticated=SIU
+col	public.vendor_profiles.find_locked_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_banned_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_suspended_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_tombstoned	anon=- authenticated=SIU
@@ -5260,13 +5303,17 @@ col	public.vendor_profiles.in_business_since_date	anon=- authenticated=SIU
 col	public.vendor_profiles.in_business_since_year	anon=- authenticated=SIU
 col	public.vendor_profiles.inner_radius_km	anon=- authenticated=SIU
 col	public.vendor_profiles.is_demo	anon=- authenticated=SIU
+col	public.vendor_profiles.is_findable	anon=S authenticated=SIU
 col	public.vendor_profiles.is_founder	anon=- authenticated=SIU
 col	public.vendor_profiles.is_published	anon=S authenticated=SIU
 col	public.vendor_profiles.is_supplier_vendor	anon=- authenticated=SIU
 col	public.vendor_profiles.last_demoted_at	anon=- authenticated=SIU
 col	public.vendor_profiles.last_verified_at	anon=- authenticated=SIU
 col	public.vendor_profiles.location_city	anon=S authenticated=SIU
+col	public.vendor_profiles.logo_focal_x	anon=- authenticated=SIU
+col	public.vendor_profiles.logo_focal_y	anon=- authenticated=SIU
 col	public.vendor_profiles.logo_url	anon=S authenticated=SIU
+col	public.vendor_profiles.logo_zoom	anon=- authenticated=SIU
 col	public.vendor_profiles.max_soft_holds_per_date	anon=- authenticated=SIU
 col	public.vendor_profiles.max_waitlist_acceptances	anon=- authenticated=SIU
 col	public.vendor_profiles.microsite_about	anon=- authenticated=SIU
@@ -5332,6 +5379,7 @@ col	public.vendor_profiles.website	anon=- authenticated=SIU
 col	public.vendor_profiles.weddings_done_approx	anon=- authenticated=SIU
 col	public.vendor_proposal_shop_gifts.created_at	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.credits	anon=- authenticated=S
+col	public.vendor_proposal_shop_gifts.from_badge_reward	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.gift_kind	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.gift_line_id	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.proposal_id	anon=- authenticated=S
@@ -5645,6 +5693,7 @@ col	public.vendor_services.daily_capacity	anon=S authenticated=SIU
 col	public.vendor_services.demo_batch_id	anon=S authenticated=SIU
 col	public.vendor_services.exclusive_perk_text	anon=S authenticated=SIU
 col	public.vendor_services.extra_hour_php	anon=S authenticated=SIU
+col	public.vendor_services.gift_pack_code	anon=S authenticated=SIU
 col	public.vendor_services.hour_base_php	anon=S authenticated=SIU
 col	public.vendor_services.includes_setnayan_gift	anon=S authenticated=SIU
 col	public.vendor_services.is_active	anon=S authenticated=SIU
@@ -5656,6 +5705,11 @@ col	public.vendor_services.min_hours	anon=S authenticated=SIU
 col	public.vendor_services.min_pax	anon=S authenticated=SIU
 col	public.vendor_services.package_inclusions	anon=S authenticated=SIU
 col	public.vendor_services.per_pax_price_php	anon=S authenticated=SIU
+col	public.vendor_services.plan_held_at	anon=S authenticated=SIU
+col	public.vendor_services.plan_hold	anon=S authenticated=SIU
+col	public.vendor_services.plan_hold_returns_on	anon=S authenticated=SIU
+col	public.vendor_services.plan_hold_starts_on	anon=S authenticated=SIU
+col	public.vendor_services.plan_hold_was_live	anon=S authenticated=SIU
 col	public.vendor_services.pricing_basis	anon=S authenticated=SIU
 col	public.vendor_services.primary_photo_r2_key	anon=S authenticated=SIU
 col	public.vendor_services.public_id	anon=S authenticated=SIU
@@ -6616,6 +6670,8 @@ policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERM
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.shop_badge_rewards|shop_badge_rewards_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -7128,7 +7184,6 @@ func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authentic
 func	public.papic_memories_chapters(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.papic_memories_photo_chapters(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.papic_memories_set_chapter(p_event_id uuid, p_block_id uuid, p_guest_capture_id uuid, p_seat_photo_id uuid, p_in boolean)	secdef=yes exec=authenticated search_path=public, pg_temp
-func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text, p_points_cost integer, p_captured_at timestamp with time zone, p_client_capture_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_review_vendor_challenge(p_mission_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_set_completion_consent(p_guest_id uuid, p_mission_id uuid, p_consent boolean)	secdef=yes exec=anon,authenticated search_path=public
@@ -7187,6 +7242,7 @@ func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authen
 func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
+func	public.shop_gift_reward_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_papic_wallet_balance(p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_portfolio_commit(p_vendor_profile_id uuid, p_refs text[], p_spend_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp

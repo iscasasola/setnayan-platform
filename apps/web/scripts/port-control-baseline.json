@@ -3517,7 +3517,11 @@
     },
     "/admin/gifts": {
       "files": [
+        "admin/gifts/_components/badge-rewards-ledger.tsx",
+        "admin/gifts/_components/badge-upgrades-ledger.tsx",
         "admin/gifts/_components/shop-gifts-ledger.tsx",
+        "admin/gifts/_components/take-back-reason-field.tsx",
+        "admin/gifts/badge-reward-actions.ts",
         "admin/gifts/page.tsx"
       ],
       "destinations": [
@@ -3530,11 +3534,16 @@
         "createFreeWindow",
         "issueCompGrant",
         "issueVendorSkuComp",
+        "revokeBadgeFeeWaiver",
         "revokeCompGrant",
         "setFreeWindowActive",
         "setVendorTier"
       ],
       "blocks": [
+        "BadgeRewardLedgerRow",
+        "BadgeRewardsLedger",
+        "BadgeUpgradeLedgerRow",
+        "BadgeUpgradesLedger",
         "CompGrantRow",
         "CoupleFreeWindowRow",
         "Link",
@@ -3543,6 +3552,8 @@
         "ShopGiftLedgerRow",
         "ShopGiftsLedger",
         "SubmitButton",
+        "TakeBackReasonField",
+        "TypedRow",
         "VendorGiftRow"
       ]
     },
@@ -4948,7 +4959,9 @@
     "/admin/verify": {
       "files": [
         "admin/verify/_components/deep-search-chat.tsx",
+        "admin/verify/_components/find-line.tsx",
         "admin/verify/_components/free-booking-match-note.tsx",
+        "admin/verify/_components/shared-phone-note.tsx",
         "admin/verify/actions.ts",
         "admin/verify/loading.tsx",
         "admin/verify/page.tsx"
@@ -4965,6 +4978,7 @@
         "archiveVendor",
         "demoteVendor",
         "grantVerificationBypass",
+        "liftFindLock",
         "markVendorContactConfirmed",
         "openApplicationDocument",
         "rejectApplication",
@@ -4993,14 +5007,17 @@
         "DeepSearchChat",
         "DeepSearchInputs",
         "DemotedVendorCard",
+        "FindLine",
         "FlashBanner",
         "FormFlash",
         "FreeBookingMatchNote",
         "Image",
+        "InfoTip",
         "Link",
         "PageMasthead",
         "PillLink",
         "PillTrack",
+        "SharedPhoneNote",
         "SlaBadge",
         "SlotDetail",
         "SlotDocuments",
@@ -5595,6 +5612,7 @@
     "/dashboard/(account)/profile": {
       "files": [
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
+        "dashboard/(account)/profile/_components/profile-identity-tile.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
         "dashboard/(account)/profile/face-profile-actions.ts",
@@ -5633,7 +5651,6 @@
       "blocks": [
         "ConfirmForm",
         "Field",
-        "FileUpload",
         "FormFlash",
         "FormPageSkeleton",
         "GroupHeader",
@@ -5645,6 +5662,8 @@
         "PillButton",
         "PillTrack",
         "PrefixSelect",
+        "ProfileIdentityTile",
+        "ProfilePhotoField",
         "ProfileShareButton",
         "PushToggle",
         "RestorePurchasesRow",
@@ -5737,6 +5756,7 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLLIElement",
         "HTMLVideoElement",
         "InfoTip",
         "Link",
@@ -5993,6 +6013,7 @@
         "dashboard/[eventId]/_components/services-covered-picker.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
         "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
+        "dashboard/[eventId]/_components/sheet-lines.tsx",
         "dashboard/[eventId]/_components/std-media-picker.tsx",
         "dashboard/[eventId]/_components/supplier-connect-panel.tsx",
         "dashboard/[eventId]/_components/supplier-share-button.tsx",
@@ -6084,6 +6105,7 @@
         "AddOwnStep",
         "AddressPinField",
         "AfterSummary",
+        "AlsoCoversPicker",
         "AppPreload",
         "AppRailShell",
         "AppStoreTransactions",
@@ -6103,6 +6125,7 @@
         "BroadcastCardData",
         "Card",
         "ChannelToggle",
+        "ChosenProofField",
         "ChosenRow",
         "ClusterHead",
         "CohostWelcome",
@@ -6243,6 +6266,7 @@
         "Icon",
         "Image",
         "ImpactResult",
+        "InclusionLines",
         "InfoTip",
         "InlineCheckoutDrawer",
         "InspectorColumn",
@@ -6256,6 +6280,7 @@
         "LevelAsk",
         "LevelSeat",
         "LifecyclePhase",
+        "LineGrip",
         "LineItemSection",
         "Link",
         "LinkBody",
@@ -6294,6 +6319,7 @@
         "OverviewDecisionInspector",
         "OverviewWatchInspector",
         "PageMasthead",
+        "PaidAtAdd",
         "PaidMark",
         "PaidServiceRow",
         "PapicBuySheet",
@@ -6372,6 +6398,7 @@
         "SearchHead",
         "SendBroadcastResult",
         "ServiceGlanceRow",
+        "ServiceLines",
         "ServiceRow",
         "ServiceTileFace",
         "ServicesCard",
@@ -8389,6 +8416,25 @@
         "PageMasthead"
       ]
     },
+    "/dashboard/[eventId]/memories/thank-you": {
+      "files": [
+        "dashboard/[eventId]/memories/thank-you/_components/thank-you-maker.tsx",
+        "dashboard/[eventId]/memories/thank-you/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "File",
+        "IapUnlockSheet",
+        "InlineCheckoutDrawer",
+        "PageMasthead",
+        "PaidMark",
+        "Phase",
+        "SavePanel",
+        "StudioBuyHero",
+        "ThankYouMaker"
+      ]
+    },
     "/dashboard/[eventId]/messages": {
       "files": [
         "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
@@ -8450,6 +8496,7 @@
         "CoupleThreadToolsSheet",
         "Link",
         "NegotiationComposerMenu",
+        "NotYetVerifiedThreadLine",
         "SubmitButton",
         "ThreadInterestChips",
         "ThreadToolPanel"
@@ -10191,25 +10238,6 @@
         "StudioBuyHero"
       ]
     },
-    "/dashboard/[eventId]/studio/thank-you": {
-      "files": [
-        "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
-        "dashboard/[eventId]/studio/thank-you/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "File",
-        "IapUnlockSheet",
-        "InlineCheckoutDrawer",
-        "PageMasthead",
-        "PaidMark",
-        "Phase",
-        "SavePanel",
-        "StudioBuyHero",
-        "ThankYouMaker"
-      ]
-    },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
         "dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx",
@@ -10264,6 +10292,7 @@
         "dashboard/[eventId]/vendors/_components/fact-line.tsx",
         "dashboard/[eventId]/vendors/_components/fact-sheets.tsx",
         "dashboard/[eventId]/vendors/_components/find-category-list.tsx",
+        "dashboard/[eventId]/vendors/_components/find-inspiration.tsx",
         "dashboard/[eventId]/vendors/_components/find-services-sheet.tsx",
         "dashboard/[eventId]/vendors/_components/find-sort-menu.tsx",
         "dashboard/[eventId]/vendors/_components/find-thumb-row.tsx",
@@ -10438,6 +10467,8 @@
         "FilterFace",
         "FinalizeVendorResult",
         "FindCategoryList",
+        "FindInspirationRow",
+        "FindInspirationStrip",
         "FindServicesSheet",
         "FindThumbRow",
         "FitBadges",
@@ -10466,6 +10497,8 @@
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
+        "InspirationBoardBody",
+        "InspirationBoardSheet",
         "InviteStatusByVendorId",
         "InviteStatusCtx.Provider",
         "KeepAnswer",
@@ -10504,6 +10537,7 @@
         "OverlayBackdrop",
         "OwnPayWays",
         "PageMasthead",
+        "PaidAtAdd",
         "PayDueCtx.Provider",
         "PaySheet",
         "PayWayView",
@@ -10576,6 +10610,7 @@
         "SuppliersModeContext.Provider",
         "SuppliersModeState",
         "SuppliersSettingsRows",
+        "Suspense",
         "SwipeToDelete",
         "SwitchRow",
         "SwitchTrack",
@@ -10914,6 +10949,7 @@
         "dashboard/[eventId]/website/editor/_components/our-music.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
+        "dashboard/[eventId]/website/editor/_components/pick-done-row.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-off-row.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
         "dashboard/[eventId]/website/editor/_components/pick-menu-types.ts",
@@ -11109,6 +11145,7 @@
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PhotoTile",
+        "PickDoneRow",
         "PickListPlacement",
         "PickMenu",
         "PickOffRow",
@@ -11491,11 +11528,14 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AddManualSupplierResult",
         "CanvasMaker",
         "CoupleLinkDoor",
+        "LabAdd",
         "LabCard",
         "LabRecord",
         "NewManualVendorModal",
+        "ShellBoundaryProvider",
         "SupplierShareStandInCtx.Provider",
         "UpdateSelfAddedSupplierResult"
       ]
@@ -11625,6 +11665,16 @@
         "TraditionNotes"
       ]
     },
+    "/dev/bundle-maker-lab": {
+      "files": [
+        "dev/bundle-maker-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "PackageEditor"
+      ]
+    },
     "/dev/card-maker-lab": {
       "files": [
         "dev/card-maker-lab/page.tsx"
@@ -11643,10 +11693,15 @@
         "dev/card-moderation-lab/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "pickServicesThatStayOn"
+      ],
       "blocks": [
+        "PlanHoldTag",
         "ServiceCardsSection",
         "ServicesGallery",
+        "StayOnPicker",
+        "StayOnTodayLineView",
         "VendorServiceRow"
       ]
     },
@@ -11726,6 +11781,7 @@
         "CoupleThreadToolsSheet",
         "LabShell",
         "LabThread",
+        "NotYetVerifiedThreadLine",
         "SupplierLabShell",
         "Suspense",
         "ThreadArrival",
@@ -11848,6 +11904,21 @@
         "FavoriteRows",
         "HubSuppliersMadeThisDay",
         "SaveVendorButton"
+      ]
+    },
+    "/dev/find-lock-lab": {
+      "files": [
+        "dev/find-lock-lab/page.tsx"
+      ],
+      "destinations": [
+        "/v/lab/dates"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "FindLine",
+        "NotYetVerifiedNotice",
+        "ShareButton"
       ]
     },
     "/dev/for-suppliers-lab": {
@@ -12271,6 +12342,18 @@
         "SimpleSetupFlow"
       ]
     },
+    "/dev/open-shop-lab": {
+      "files": [
+        "dev/open-shop-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AddYourLogo",
+        "ClaimDoor",
+        "OpenShopWizard"
+      ]
+    },
     "/dev/papic-camera-lab": {
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",
@@ -12364,6 +12447,16 @@
         "MakerContext.Provider",
         "ProPartsBody",
         "ProQuietLine"
+      ]
+    },
+    "/dev/profile-photo-lab": {
+      "files": [
+        "dev/profile-photo-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ProfileIdentityTile"
       ]
     },
     "/dev/questions-lab": {
@@ -12832,9 +12925,12 @@
         "startSubscriptionPurchase"
       ],
       "blocks": [
+        "BadgeUpgradesLedger",
+        "BadgeUpgradesSection",
         "BusinessDoing",
         "ConsolePlate",
         "DatesRow",
+        "GrantedReward",
         "HelpersView",
         "MarchRead",
         "NotificationsView",
@@ -12865,6 +12961,7 @@
         "dev/suppliers-lab/find-fixtures.ts",
         "dev/suppliers-lab/fixtures.ts",
         "dev/suppliers-lab/info-fixtures.ts",
+        "dev/suppliers-lab/inspiration-fixtures.ts",
         "dev/suppliers-lab/lab-bench.tsx",
         "dev/suppliers-lab/lab-booked.tsx",
         "dev/suppliers-lab/lab-build.tsx",
@@ -13536,45 +13633,110 @@
       "files": [
         "open-shop/_components/address-preview.tsx",
         "open-shop/_components/city-pin.tsx",
+        "open-shop/_components/claim-door.tsx",
+        "open-shop/_components/event-tiles.tsx",
+        "open-shop/_components/name-hold.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
+        "open-shop/_components/phone-field.tsx",
+        "open-shop/_components/plan-sheet.tsx",
+        "open-shop/_components/service-cards.tsx",
         "open-shop/_components/service-picker.tsx",
+        "open-shop/_components/services-at-events.tsx",
+        "open-shop/_components/taken-sign-in.tsx",
+        "open-shop/_components/use-stale-build.ts",
         "open-shop/actions.ts",
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
+        "open-shop/claim-actions.ts",
         "open-shop/page.tsx"
       ],
       "destinations": [
+        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
       "actions": [
-        "becomeVendor"
+        "becomeVendor",
+        "declineAction",
+        "finishClaimDoor",
+        "submit"
       ],
       "blocks": [
+        "ActionButton",
         "AddressCheck",
         "AddressPreview",
+        "Box",
+        "Card",
+        "CategoryTiles",
         "CityPin",
+        "ClaimDoor",
+        "Count",
         "DesktopOAuthButtons",
         "DetectedCity",
-        "FileUpload",
+        "Draft",
+        "EventTile",
+        "EventTiles",
+        "Fill",
         "FirstRunBrand",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
+        "HeldShopNameCard",
+        "Icon",
+        "Image",
+        "InfoTip",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",
         "LocatedAddress",
+        "NameHold",
         "NativeOAuthButtons",
         "OAuthButtonRow",
         "OpenShopWizard",
+        "Page2",
         "PasswordField",
+        "PhoneField",
         "PickMenu",
+        "PlanBody",
+        "PlanInline",
+        "PlanPane",
+        "PlanSheet",
+        "ServiceCards",
         "ServicePicker",
+        "ServicesAtEvents",
+        "Sheet",
         "SignInHereLink",
+        "Specialties",
+        "SpecialtiesBar",
+        "SpecialtyPicks",
         "Step",
         "SubmitButton",
-        "TurnstileField"
+        "SwipeToDelete",
+        "T",
+        "TakenSignIn",
+        "TurnstileField",
+        "UndoToastHost"
+      ]
+    },
+    "/open-shop/logo": {
+      "files": [
+        "open-shop/logo/_components/add-your-logo.tsx",
+        "open-shop/logo/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "AddYourLogo",
+        "FieldSaveResult",
+        "FileUpload",
+        "FirstRunBrand",
+        "LogoFrame",
+        "PictureFrameControl"
       ]
     },
     "/our-story": {
@@ -14218,11 +14380,11 @@
         "AccountNameCheck",
         "AccountNameField",
         "DisplayNameField",
-        "FileUpload",
         "FirstRunBrand",
         "FormRows",
         "Link",
         "PrefixSelect",
+        "ProfilePhotoField",
         "RequiredRowsHold",
         "SubmitButton",
         "TypedRow",
@@ -14445,6 +14607,7 @@
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/not-yet-verified-notice.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/review-groups.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
@@ -14504,6 +14667,7 @@
         "Logo",
         "MessageDelivery",
         "ModalState",
+        "NotYetVerifiedNotice",
         "OverlayBackdrop",
         "PackageCard",
         "PinnedReviewCard",
@@ -14528,6 +14692,7 @@
         "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
+        "ShopPagePackage",
         "ShopReachLine",
         "ShopReachMap",
         "ShopSinceLine",
@@ -14547,7 +14712,7 @@
         "TypedRow",
         "VendorCompletedEventRow",
         "VendorLocationMap",
-        "VendorPackageWithItems",
+        "VendorPackageRow",
         "VendorPackagesSection",
         "VendorReplyBlock",
         "VendorServiceRow",
@@ -14661,6 +14826,7 @@
         "vendor-dashboard/_components/setup-days-off-row.tsx",
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
+        "vendor-dashboard/_components/stay-on-today-line.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
         "vendor-dashboard/_components/supplier-columns.tsx",
         "vendor-dashboard/_components/supplier-open-row.tsx",
@@ -14844,11 +15010,14 @@
         "SetupOfferFold",
         "Sheet",
         "ShopBadgePill",
+        "SidePanel",
         "Sk",
         "Spotlight",
         "SpotlightMount",
         "StageBadge",
         "State",
+        "StayOnTodayLine",
+        "StayOnTodayLineView",
         "StepChip",
         "SubmitButton",
         "SupplierColumns",
@@ -15104,6 +15273,7 @@
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -16228,18 +16398,28 @@
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/packages",
         "/vendor-dashboard/packages/[seg]",
         "/vendor-dashboard/packages/new"
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "DraftItem",
         "DraftOption",
         "DraftPackage",
+        "Fold",
+        "InfoTip",
         "Link",
         "OptionList",
+        "PackageCard",
+        "PickMenu",
         "ProblemLine",
-        "SavePackageResult"
+        "SavePackageResult",
+        "Sheet",
+        "SupplierThumbRow",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/packages/[packageId]": {
@@ -16401,6 +16581,7 @@
         "T",
         "Tile",
         "TrackerFacts",
+        "TrackerRewardInput",
         "VendorTierGate",
         "VendorTierTeaser",
         "VerifiedMedianCard",
@@ -16566,6 +16747,7 @@
         "vendor-dashboard/services/_components/halls-uses-pick.tsx",
         "vendor-dashboard/services/_components/manager-tabs.tsx",
         "vendor-dashboard/services/_components/payment-schedule-editor.tsx",
+        "vendor-dashboard/services/_components/plan-hold-tag.tsx",
         "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
         "vendor-dashboard/services/_components/refinements-editor.tsx",
         "vendor-dashboard/services/_components/service-card-face.tsx",
@@ -16574,12 +16756,15 @@
         "vendor-dashboard/services/_components/service-wizard.tsx",
         "vendor-dashboard/services/_components/services-manager.tsx",
         "vendor-dashboard/services/_components/showcase-media-fields.tsx",
+        "vendor-dashboard/services/_components/stay-on-picker.tsx",
+        "vendor-dashboard/services/_components/stay-on-section.tsx",
         "vendor-dashboard/services/actions.ts",
         "vendor-dashboard/services/addon-actions.ts",
         "vendor-dashboard/services/coverage-actions.ts",
         "vendor-dashboard/services/loading.tsx",
         "vendor-dashboard/services/page.tsx",
-        "vendor-dashboard/services/refinement-actions.ts"
+        "vendor-dashboard/services/refinement-actions.ts",
+        "vendor-dashboard/services/stay-on-actions.ts"
       ],
       "destinations": [
         "/vendor-dashboard/attributes",
@@ -16594,6 +16779,7 @@
         "createVendorService",
         "deleteCoverage",
         "deleteVendorService",
+        "pickServicesThatStayOn",
         "proposeCategory",
         "saveAudience",
         "saveServiceRefinements",
@@ -16606,10 +16792,10 @@
         "AddCoverageForCardResult",
         "AddRowButton",
         "AddServiceForm",
+        "AddonDraft",
         "AddonsEditor",
         "AmountInput",
         "AttributeFieldRenderer",
-        "Badge",
         "Basis",
         "BranchAssignment",
         "BranchSelect",
@@ -16636,6 +16822,8 @@
         "Fold",
         "FormRows",
         "Fragment",
+        "GiftPick",
+        "GiftPickRow",
         "GridCard",
         "HTMLDivElement",
         "HTMLElement",
@@ -16663,6 +16851,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "PlanHoldTag",
         "PriceBracketsEditor",
         "PricingBasisEditor",
         "Recap",
@@ -16684,13 +16873,18 @@
         "ShowcaseMediaFields",
         "SlotRows",
         "Snapshot",
+        "StayOnPicker",
+        "StayOnSection",
         "SubIcon",
         "SubLabel",
         "SubmitButton",
         "SupplierSubmit",
         "SupplierThumbRow",
+        "SwipeToDelete",
         "SwitchTrack",
         "TypedRow",
+        "UndoToastHost",
+        "VendorTier",
         "YourCoverage"
       ]
     },
@@ -16784,6 +16978,7 @@
         "vendor-dashboard/shop/_components/docs-body.tsx",
         "vendor-dashboard/shop/_components/editable-row.tsx",
         "vendor-dashboard/shop/_components/gallery-media.tsx",
+        "vendor-dashboard/shop/_components/held-name-claim.tsx",
         "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
         "vendor-dashboard/shop/_components/public-line-card.tsx",
         "vendor-dashboard/shop/_components/reach-map.tsx",
@@ -16883,6 +17078,8 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLLIElement",
+        "HeldNameClaim",
+        "HeldShopNameCard",
         "HeroCard",
         "HqAddressControl",
         "Icon",
@@ -16898,6 +17095,8 @@
         "Link",
         "LockedIdentityFieldKey",
         "LockedLine",
+        "LogoFrame",
+        "LogoRowControl",
         "ManpowerSurface",
         "MenuSettingsButton",
         "OneOpenScope",
@@ -16905,6 +17104,7 @@
         "PairCard",
         "PaperSide",
         "PickMenu",
+        "PictureFrameControl",
         "Pill",
         "Pin",
         "PinFigures",
@@ -17042,6 +17242,8 @@
     "/vendor-dashboard/subscription": {
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
+        "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
+        "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
@@ -17051,6 +17253,7 @@
         "vendor-dashboard/subscription/_components/ultra-addons-card.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
+        "vendor-dashboard/subscription/badge-upgrade-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
         "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx",
@@ -17073,6 +17276,10 @@
       "blocks": [
         "ActionButton",
         "AiAddonCard",
+        "BadgeUpgradeChoice",
+        "BadgeUpgradeRow",
+        "BadgeUpgradesSection",
+        "BadgeUpgradesSectionData",
         "BookingFeeStanding",
         "BoothAddonCard",
         "Column",
@@ -17081,6 +17288,7 @@
         "Fold",
         "GridPageSkeleton",
         "Icon",
+        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -17092,7 +17300,10 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "Sheet",
         "ShopNotice",
+        "StartBadgeUpgradeState",
+        "StartUpgradeSheet",
         "SubmitButton",
         "SupplierSubmit",
         "UltraAddonsCard",

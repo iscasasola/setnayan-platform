@@ -138,7 +138,7 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
             { vendor_name: 'Kusina ni Lola', category: 'caterer' },
           ])}
         />
-        <DetailsDecisionsDoor line={decisionsLine({ status: 'accepted', totalPhp: 40000 }, false, peso)} />
+        <DetailsDecisionsDoor line={decisionsLine({ status: 'accepted', totalPhp: 38000 }, false, peso)} />
         <DetailsFormsDoor />
       </div>
     ),

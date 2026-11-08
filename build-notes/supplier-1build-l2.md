@@ -57,6 +57,16 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 - `lint:no-card` baseline: the 3 bordered lines of the shipped FilesTab MOVED verbatim from `clients/[eventId]/page.tsx`
   into `_pages/files.tsx` (net 0; page.tsx count drops by 3). C1 rebuilds that body as the Finder view anyway.
 
+## Preflight (b34fa5db90 + fixes), honest reading
+- RED, baseline-only (controller regenerates; I may not): `port:baseline` (deliberate removals above) · `lint:no-card`
+  (moved FilesTab lines) · `ugat:screens` stale (new intercept route + `_pages`).
+- RED, inherited from the base (no L2 file involved): `lib/export-coverage-guardrail.test.ts` T12 (vendor_profiles
+  find_lock_* / is_findable not exported) · `lib/shop-name-hold.test.ts` · `tests/db/ugat-both-ends` orphan
+  `shop_name_is_held` · tsc `tests/db/one-source-buckets.db.test.ts(189)`.
+- FIXED here: `every-menu-has-one-settings-button` (picked client now has its own gear; Clients ⚙ mounted once) ·
+  `port-guard-reach` (`_pages` added to PRIVATE_SUBDIRS in `scripts/port-controls.mjs` — one line, not an L2 file).
+- ~65 test files "timed out" under machine load 15; the supplier/chat/thread ones re-run alone: 68/68 pass.
+
 ## Questions
 - "Your next move" card (shipped desktop-only context rail, `lib/supplier-next-move.ts` + its guard) is NOT in v113.
   Kept, still `hidden lg:block`, on Details under the stage strip (reposition-only rule) — its two quick links

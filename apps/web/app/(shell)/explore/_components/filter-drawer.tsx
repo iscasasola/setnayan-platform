@@ -243,6 +243,7 @@ export function FilterDrawer({
                 City
               </label>
               <input
+                autoComplete="off"
                 id={cityId}
                 type="text"
                 name="city"

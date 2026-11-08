@@ -1,4 +1,5 @@
 import 'server-only';
+import { CLIENT_REFUND_SELECT } from '@/lib/client-refunds';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -126,7 +127,7 @@ export async function fetchSupplierBillingMeasured(
     readRewardNames(admin).catch(() => FALLBACK_REWARD_NAMES),
     supabase
       .from('event_vendor_refunds')
-      .select('refund_id, event_id, amount_php, refunded_on, reason')
+      .select(CLIENT_REFUND_SELECT)
       .eq('vendor_profile_id', vendorProfileId)
       .is('removed_at', null)
       .order('refunded_on', { ascending: false })

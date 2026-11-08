@@ -65,6 +65,7 @@ export function AddAlagaFields() {
           Name <span className="text-terracotta">*</span>
         </label>
         <input
+          autoComplete="off"
           id="dep_name"
           name="name"
           className="input-field"

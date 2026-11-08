@@ -105,6 +105,47 @@ CREATE UNIQUE INDEX IF NOT EXISTS vendor_proposals_locked_qr_token_uniq
 COMMENT ON COLUMN public.vendor_proposals.locked_qr_token_id IS
   'The Booked QR (vendor_locked_qr_tokens.id) this accepted quote was copied from at the couple''s scan — vendor_claim_locked_qr step (c2). UNIQUE: one code writes one quote, however often the claim runs. NULL for every quote written in the conversation.';
 
+-- ── 2a' · Only the claim writes it ──────────────────────────────────────────
+-- The column inherits the table's browser grants (RLS is row-level; a column
+-- cannot be revoked out of a table-level grant), and a shop may write its own
+-- draft quotes. Unguarded, a shop could stamp ANOTHER shop's token id (the FK
+-- checks only that it exists) onto its own draft — and the UNIQUE index would
+-- then make that shop's real claim write NO quote (`ON CONFLICT DO NOTHING`).
+-- So a browser role may never set or change it; the SECURITY DEFINER claim
+-- (current_user = its owner) is the one writer. Same shape as
+-- `a_taken_down_card_stays_down` (20271309211124).
+CREATE OR REPLACE FUNCTION public.a_quote_names_its_booked_qr_only_by_the_claim()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.locked_qr_token_id IS NOT NULL THEN
+        RAISE EXCEPTION 'Only a Booked QR claim can mark a quote as copied from it.'
+          USING ERRCODE = 'insufficient_privilege';
+      END IF;
+    ELSIF NEW.locked_qr_token_id IS DISTINCT FROM OLD.locked_qr_token_id THEN
+      RAISE EXCEPTION 'Only a Booked QR claim can mark a quote as copied from it.'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.a_quote_names_its_booked_qr_only_by_the_claim() IS
+  'vendor_proposals.locked_qr_token_id is written only by vendor_claim_locked_qr (SECURITY DEFINER); a browser role may not set or change it. 20271328327292.';
+
+DROP TRIGGER IF EXISTS a_quote_names_its_booked_qr_only_by_the_claim ON public.vendor_proposals;
+CREATE TRIGGER a_quote_names_its_booked_qr_only_by_the_claim
+  BEFORE INSERT OR UPDATE ON public.vendor_proposals
+  FOR EACH ROW
+  EXECUTE FUNCTION public.a_quote_names_its_booked_qr_only_by_the_claim();
+
+REVOKE ALL ON FUNCTION public.a_quote_names_its_booked_qr_only_by_the_claim() FROM PUBLIC, anon, authenticated;
+
 -- ── 2b · The claim, whole, with step (c2) ───────────────────────────────────
 CREATE OR REPLACE FUNCTION public.vendor_claim_locked_qr(p_token text, p_event_id uuid)
 RETURNS jsonb
@@ -388,7 +429,8 @@ DROP POLICY IF EXISTS event_vendor_refunds_admin_read ON public.event_vendor_ref
 CREATE POLICY event_vendor_refunds_admin_read
   ON public.event_vendor_refunds FOR SELECT
   TO authenticated
-  USING (public.is_console_admin());
+  -- Wrapped as `(select …)`: asked once per statement, not once per row (policies-ask-once-per-query).
+  USING ((SELECT public.is_console_admin()));
 
 COMMENT ON TABLE public.event_vendor_refunds IS
   'A refund a supplier gave one of its clients, recorded by the supplier (Supplier Build 2 lane E). A RECORD — no money moves, like a logged payment. Kept apart from event_vendor_payments on purpose: that table is summed as money RECEIVED by many readers and refuses amounts <= 0. Writes only through vendor_record_client_refund / vendor_remove_client_refund; read by the shop, the couple and console admins.';

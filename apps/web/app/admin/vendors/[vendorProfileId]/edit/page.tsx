@@ -151,6 +151,7 @@ export default async function AdminEditUnclaimedVendorPage({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Location (city)" htmlFor="location_city">
             <input
+              autoComplete="off"
               id="location_city"
               name="location_city"
               type="text"
@@ -162,6 +163,7 @@ export default async function AdminEditUnclaimedVendorPage({
           </Field>
           <Field label="HQ address (auto-geocoded)" htmlFor="hq_address">
             <input
+              autoComplete="off"
               id="hq_address"
               name="hq_address"
               type="text"
@@ -173,6 +175,7 @@ export default async function AdminEditUnclaimedVendorPage({
           </Field>
           <Field label="Contact email" htmlFor="contact_email">
             <input
+              autoComplete="off"
               id="contact_email"
               name="contact_email"
               type="email"
@@ -182,6 +185,7 @@ export default async function AdminEditUnclaimedVendorPage({
           </Field>
           <Field label="Contact phone" htmlFor="contact_phone">
             <input
+              autoComplete="off"
               id="contact_phone"
               name="contact_phone"
               type="tel"
@@ -193,6 +197,7 @@ export default async function AdminEditUnclaimedVendorPage({
 
         <Field label="Services (comma-separated)" htmlFor="services">
           <input
+            autoComplete="off"
             id="services"
             name="services"
             type="text"

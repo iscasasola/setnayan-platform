@@ -317,6 +317,7 @@ export default async function PapicGuestOrderPage({
                 Name for your receipt — optional
               </span>
               <input
+                autoComplete="name"
                 type="text"
                 name="payer_name"
                 defaultValue={(row as { payer_name?: string | null }).payer_name ?? ''}

@@ -194,6 +194,7 @@ export default async function AdminApprovalsPage() {
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Target account email</span>
             <input
+              autoComplete="off"
               type="email"
               name="target_email"
               required

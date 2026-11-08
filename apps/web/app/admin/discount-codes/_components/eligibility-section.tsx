@@ -139,6 +139,7 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
               Add account by email
             </label>
             <input
+              autoComplete="off"
               type="email"
               id={`add_email_${discountCodeId}`}
               name="email"

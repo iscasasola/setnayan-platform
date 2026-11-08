@@ -35,6 +35,24 @@ dropping the chat-thread clause turned 4 tests red; not forcing `user_id` turned
 - Report: `lib/supplier-report.ts`, `clients/[eventId]/report-actions.ts` (`submitSupplierReport`),
   `_pages/report.tsx` + `_pages/report-form.tsx`, `lib/help-message-notify.server.ts` (the /help admin loop, extracted;
   `/help` keeps `chat_message`), `/admin/help` shows "Report from <shop> · <event> · <page>".
+- Couple side: `dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-forms-card.tsx` (server) +
+  `supplier-form-answers.tsx` (client) — each sent form is its own section in the supplier's room, under "{SHOP} asks";
+  answers by type with the house Field template only (`TypedRow` words · `ChosenRow` pick / checkmarks), posted to the
+  shipped `saveSupplierAnswers` (`answer:<id>` + `base:<id>`, two hosts never overwrite). Video links: YouTube/Vimeo
+  play INSIDE (no-tracking iframe, as the supplier page draws), others open outside. Media files: shown via
+  `displayUrlForStoredAsset` (public bucket only). Mounted beside `SupplierQuestionsCard` in the workspace page.
+- Media files (Pro · Ultra): the Maker's media item uses the shipped `FileUpload` (compress-first) into
+  `vendors/<shop>/forms` in the PUBLIC media bucket — the same home and tenancy as a card's showcase photos; the save
+  re-checks every ref with `parseClientRef` pinned to that folder. Kept while the form exists (§4).
+- `lib/form-media-sweep-core.ts` + `lib/form-media-sweep.server.ts` — job `form-media-sweep` (registry row in
+  `lib/periodic-job-registry.ts`, daily, retention): deletes ONLY uploads no item references (live or retired) that are
+  over a day old; fired with `after()` from the Forms page.
+- Admin › Categories › a tile › "Suggested forms" (`_components/form-suggestions-pane.tsx` + `form-suggestions-editor.tsx`,
+  dispatcher `app/admin/categories/form-suggestion-actions.ts` `formSuggestionsAction`: template_new · suggest_add ·
+  suggest_remove; service role; every write in `admin_audit_log`). Ships EMPTY and says "No suggested forms for <tile> yet".
+  Suggestions key on TILES (`service_categories`); the supplier's read maps a card's canonical service key to its tile
+  through `canonical_service_taxonomy`.
+- `/dev/forms-lab` (+ its `the-lab-never-ships.test.ts`) — the real bodies on fixtures: `?m=forms|load|maker|new|report|couple`.
 
 ## Files I touched OUTSIDE my §3.2 rows (one-line edits the brief assigns to C3)
 
@@ -47,7 +65,9 @@ dropping the chat-thread clause turned 4 tests red; not forcing `user_id` turned
   line (the brief's "the nine readers filter form_id is null"); at integration keep both sides.
 - `lib/deposit-acknowledged-effects.server.ts` (one call + its record function), `lib/vendor-tier-caps.ts` (two keys),
   `lib/notifications.ts` + `lib/push-levels.ts` (the new type's rows), `app/help/actions.ts` (loop → shared helper),
-  `app/admin/help/page.tsx` (origin line), `lib/erasure/coverage.ts` + `lib/export-coverage-guardrail.test.ts`.
+  `app/admin/help/page.tsx` (origin line), `lib/erasure/coverage.ts` + `lib/export-coverage-guardrail.test.ts`,
+  `lib/periodic-job-registry.ts` (one row), `app/admin/categories/_components/category-panels.tsx` (one PanelFold in
+  `CategoryPanel`), `dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx` (mounts `SupplierFormsCard`).
 - `clients/[eventId]/_pages/context.ts` — a BYTE-IDENTICAL copy of L2's (from `origin/claude/supplier-1build-l2`
   @ 1fd157a8fd) so my bodies typecheck on my branch; identical add/add merges cleanly. `_pages/forms.tsx` and
   `_pages/report.tsx` are add/add against L2's stubs — **take C3's version**. `_pages/report-form.tsx` is new.
@@ -59,6 +79,9 @@ dropping the chat-thread clause turned 4 tests red; not forcing `user_id` turned
   also shows the answers — L2/controller decide whether Forms hides `CoupleAnswers` for a host (needs a `showScript` /
   `isHost` flag in `PickedPageContext`). (3) `ReportPage` renders `shipped` below the form (L2 aliases the old Activity
   tab to `report`) — moved, not lost; drop it if L2 gives the activity feed another home.
+- **L2** (Details "Forms · sent to this couple", item 19): read it with `readEventForms(supabase, { eventId,
+  vendorProfileId, library, cards, bookedCardIds })` from `lib/vendor-forms.server.ts` (→ `sent[]` with title ·
+  answered · total); "＋ Send a form" can open `/vendor-dashboard/clients/<id>?tab=forms`.
 - **L1** (registries): `lib/page-home.ts` — the Form Maker sheet + the Forms/Report bodies (back target = Clients list).
 - **C2**: none (`chat-*` untouched; `messages/[threadId]` got only the one filter line in two files).
 - **C4**: the Shop "Makers → Forms door" should open `/vendor-dashboard/clients/...?tab=forms` or the library; there is
@@ -81,10 +104,14 @@ Measured failing on my branch ONLY because these are controller-owned:
    `form_templates`, `category_form_suggestions` + FK to `service_categories`), and "Shop → report → admin inbox"
    (`fk help_messages.origin_vendor_profile_id → vendor_profiles`, `fk help_messages.origin_event_id → events`).
 4. `supabase/migrations.manifest.txt` — three new files.
-5. `scripts/lint-server-action-budget.mjs` CEILING — the base sits at exactly 1232/1232. C3 adds **+2**:
-   `formsAction` (one dispatcher for four ops) and `submitSupplierReport`. Needs a fresh `vercel build` count per the
-   script's own rule — controller call. (Admin suggestions pane will add +1 more if built — see Where I stopped.)
-6. Port / screens baselines as the controller regenerates on the merged tree.
+5. `scripts/lint-server-action-budget.mjs` CEILING — the base sits at exactly 1232/1232. C3 adds **+3** (measured
+   1235): `formsAction` (one dispatcher, four ops), `submitSupplierReport`, `formSuggestionsAction` (one admin
+   dispatcher, three ops). Needs a fresh `vercel build` count per the script's own rule — controller call. If the
+   budget is the binding limit, `submitSupplierReport` can fold into `formsAction` as an op (−1).
+6. `lib/ugat/screens.generated.json` (`check-ugat-screens`: stale — new `/dev/forms-lab` route + the new pages' doors),
+   the port baseline, `lib/admin-map/*.generated.ts` (Categories "Suggested forms" fold, Help inbox origin line).
+7. `scripts/lint-no-card.mjs --update-baseline` — 3 files went BELOW baseline (lower only; optional).
+8. Ugat: also a joint for the `form-media-sweep` job if the map lists jobs.
 
 ## Recorded choices (spec silent; each follows a written ruling)
 
@@ -120,7 +147,31 @@ Measured failing on my branch ONLY because these are controller-owned:
   / `is_findable` not in the export projection) — not C3's.
 - `a-held-shop-name-holds-its-core.db.test.ts` "a held name BLANK" fails on the BASE too (measured with my migrations
   moved out) — not C3's.
-- Full DB suite: first run reached ~290/526 before the background limit killed it; the rest is re-running (see below).
+- Full DB suite, all 526 files (two runs: 1–~290, then 280–526 + re-runs): every failure is one of —
+  (a) the three controller-owned generated files above (`exposure-freeze`, `ugat-concept-coverage`, `user-fk-behaviour`);
+  (b) BASE failures not caused by C3: `a-held-shop-name-holds-its-core` ("held name BLANK") and `ugat-both-ends`
+  (`shop_name_is_held` rpc-no-caller) — both fail with my migrations removed / in base-owned code;
+  (c) `gates-have-handles` (`vendor_questions.is_required`) — FIXED in `-c3` (the save names it), green on re-run.
+  ⚠ `-forms-data` ALONE still trips (c), because the writer lives in `-c3`; it clears when `-c3` merges.
+- Guards added, each sabotaged once and watched red: `lib/the-shipped-question-set-stays-the-set.test.ts`,
+  `lib/forms-send-on-booking-from-every-door.test.ts`, `lib/form-media-obeys-the-plan.test.ts`, `lib/vendor-forms.test.ts`
+  (types ↔ CHECK), `tests/db/a-form-reaches-only-its-event.db.test.ts`, `tests/db/a-report-names-only-your-shop.db.test.ts`.
+- Gestures proved in Chromium at 375 px with touch emulation (`/dev/forms-lab?m=maker`): ⠿ pointer drag moved row 1
+  below row 3; a real touch swipe-left revealed Remove; Remove took the row out; Undo put it back
+  (`build-notes/c3-form-maker-swipe.png`, `c3-form-maker-undo.png`). Not on a real iPhone (cloud lane — controller).
+
+## Proof (375 px, v113 left · built right)
+
+`build-notes/c3-forms-page.png` · `c3-form-maker-new.png` · `c3-forms-load-sheet.png` · `c3-report-page.png`; built only:
+`c3-form-maker-edit.png` · `c3-couple-answers.png`. Differences from v113, each deliberate:
+- The fields are the house Field template (`TypedRow`: name left, pill right) — `lint-field-template` forbids raw boxes;
+  v113 drew bare inputs.
+- Rows are a soft fill, no border — `lint-no-card` forbids bordered rounded boxes.
+- The thumb row's main verb is the house round (＋ / ⚑) with its word as the accessible name; v113 drew a worded pill.
+- "Suggested for Photo & Video" shows the honest empty line (§9 #13 — the suggestion data ships empty).
+- The shipped "Questions for the couple" is MOVED unchanged above (its old look); v113 restyled it (icon tiles,
+  Answered/Open pills). Restyling it is allowed (SHIPPED = move/restyle) but was not done — next step if wanted.
+- No "Past reports" list on Report (INVENTED in the parts map).
 
 ## Where I stopped
 

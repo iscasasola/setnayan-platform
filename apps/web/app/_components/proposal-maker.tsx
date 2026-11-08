@@ -2393,8 +2393,9 @@ export function ProposalMaker({
         data-quote-pinned-bar=""
         // Pinned to the page's scroll (the form is `overflow-clip`, not a scroll box), standing ON whatever the shell
         // puts at the bottom — the dock (`--sn-bottomdock-h`) or the floating thumb row (`--sn-thumb-room`) — never
-        // under it. Page layer: no z above the thumb row / nav (spec §10, layers).
-        className="sticky z-10 border-t border-ink/10 bg-cream/95 px-4 py-2.5 backdrop-blur"
+        // under it. Page layer through the foundation's z scale (`z-sn-sticky`, under the thumb row and the nav — spec §10
+        // #23 "page < thumb row < bottom nav < pop-ups"), never a raw z.
+        className="sticky z-sn-sticky border-t border-ink/10 bg-cream/95 px-4 py-2.5 backdrop-blur"
         style={{ bottom: 'max(var(--sn-bottomdock-h, 0px), var(--sn-thumb-room, 0px))' }}
       >
         <div className="flex items-center gap-2">

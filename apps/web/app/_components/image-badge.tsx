@@ -10,33 +10,7 @@
  * Drawn by Shop's one badge row and its sheet (`shop/_components/shop-badge-row.tsx`, `badge-sheet.tsx`).
  */
 import type { BadgeFace, BadgeShape } from '@/lib/shop-badge-row';
-
-type Paint = { face: [string, string]; ink: string; hl: string; rim: string; foilInk?: boolean };
-
-const RIM: Readonly<Record<string, readonly string[]>> = {
-  gold: ['#7A5C22', '#FBEFC4', '#B88D3B', '#EBD08A', '#7A5C22'],
-  bronze: ['#4E2A10', '#E8B088', '#8C4F22', '#D08C5A', '#4E2A10'],
-  silver: ['#4F555C', '#F7F9FB', '#8E959C', '#DCE0E4', '#4F555C'],
-  plat: ['#35404A', '#F4F8FA', '#8A98A4', '#D8E0E6', '#35404A'],
-  // Diamond has no corpus face — its rim is the shipped tier's own edge (`lib/badge-tiers.ts`, tier5).
-  diamond: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'],
-  ruby: ['#4E0A16', '#F7B9C3', '#A0203A', '#DC607A', '#4E0A16'],
-  black: ['#8E949A', '#FFFFFF', '#5C6269', '#F0F2F4', '#8E949A'],
-};
-
-const PAINT: Readonly<Record<BadgeFace, Paint>> = {
-  navy: { face: ['#335282', '#101C36'], ink: '#FBEFC4', hl: '#000000', rim: 'gold', foilInk: true },
-  ivory: { face: ['#FFFEFA', '#ECE1CB'], ink: '#7F5F20', hl: '#FFFFFF', rim: 'gold' },
-  gold: { face: ['#FFF9E4', '#E3BF68'], ink: '#5A400E', hl: '#FFFBEA', rim: 'gold' },
-  first: { face: ['#FFFCF0', '#EDD08A'], ink: '#6B4D14', hl: '#FFFFFF', rim: 'gold' },
-  month: { face: ['#AA2539', '#520A18'], ink: '#FBEFC4', hl: '#000000', rim: 'gold', foilInk: true },
-  bronze: { face: ['#F9E8D8', '#D09A70'], ink: '#4A2810', hl: '#FFF3E6', rim: 'bronze' },
-  silver: { face: ['#FBFCFD', '#C0C6CC'], ink: '#363C43', hl: '#FFFFFF', rim: 'silver' },
-  plat: { face: ['#F5F8FB', '#B2C0CB'], ink: '#1F2A33', hl: '#FFFFFF', rim: 'plat' },
-  diamond: { face: ['#F3F8FC', '#A8D4EE'], ink: '#1F4E6B', hl: '#FFFFFF', rim: 'diamond' },
-  ruby: { face: ['#CF3552', '#560817'], ink: '#FFE6EA', hl: '#2A0309', rim: 'ruby' },
-  black: { face: ['#3E4047', '#08080A'], ink: '#F4F6F8', hl: '#000000', rim: 'black' },
-};
+import { FOIL, GLOSS, PAINT, RIM, SHADE, TAIL } from '@/lib/badge-art';
 
 const SEAL =
   'M50,4 A6.4,6.4 0 0 1 61.9,5.6 A6.4,6.4 0 0 1 73,10.2 A6.4,6.4 0 0 1 82.5,17.5 A6.4,6.4 0 0 1 89.8,27 A6.4,6.4 0 0 1 94.4,38.1 A6.4,6.4 0 0 1 96,50 A6.4,6.4 0 0 1 94.4,61.9 A6.4,6.4 0 0 1 89.8,73 A6.4,6.4 0 0 1 82.5,82.5 A6.4,6.4 0 0 1 73,89.8 A6.4,6.4 0 0 1 61.9,94.4 A6.4,6.4 0 0 1 50,96 A6.4,6.4 0 0 1 38.1,94.4 A6.4,6.4 0 0 1 27,89.8 A6.4,6.4 0 0 1 17.5,82.5 A6.4,6.4 0 0 1 10.2,73 A6.4,6.4 0 0 1 5.6,61.9 A6.4,6.4 0 0 1 4,50 A6.4,6.4 0 0 1 5.6,38.1 A6.4,6.4 0 0 1 10.2,27 A6.4,6.4 0 0 1 17.5,17.5 A6.4,6.4 0 0 1 27,10.2 A6.4,6.4 0 0 1 38.1,5.6 A6.4,6.4 0 0 1 50,4Z';
@@ -111,26 +85,26 @@ export function ImageBadge({
           ))}
         </linearGradient>
         <linearGradient id={id('gloss')} x1="0" y1="0" x2=".8" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity=".62" />
-          <stop offset=".42" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0" stopColor={GLOSS} stopOpacity=".62" />
+          <stop offset=".42" stopColor={GLOSS} stopOpacity="0" />
         </linearGradient>
         <linearGradient id={id('faceGloss')} x1="0" y1="0" x2=".3" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity=".5" />
-          <stop offset=".5" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0" stopColor={GLOSS} stopOpacity=".5" />
+          <stop offset=".5" stopColor={GLOSS} stopOpacity="0" />
         </linearGradient>
         <linearGradient id={id('shade')} x1="0" y1="0" x2=".8" y2="1">
-          <stop offset=".55" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity=".34" />
+          <stop offset=".55" stopColor={SHADE} stopOpacity="0" />
+          <stop offset="1" stopColor={SHADE} stopOpacity=".34" />
         </linearGradient>
         <linearGradient id={id('foil')} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FBEFC4" />
-          <stop offset=".45" stopColor="#D9B463" />
-          <stop offset=".6" stopColor="#F6E4A6" />
-          <stop offset="1" stopColor="#B88D3B" />
+          <stop offset="0" stopColor={FOIL[0]} />
+          <stop offset=".45" stopColor={FOIL[1]} />
+          <stop offset=".6" stopColor={FOIL[2]} />
+          <stop offset="1" stopColor={FOIL[3]} />
         </linearGradient>
         <linearGradient id={id('tail')} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#B8324A" />
-          <stop offset="1" stopColor="#7A1426" />
+          <stop offset="0" stopColor={TAIL[0]} />
+          <stop offset="1" stopColor={TAIL[1]} />
         </linearGradient>
       </defs>
 
@@ -139,21 +113,21 @@ export function ImageBadge({
           <path d={SEAL} fill={url('rim')} />
           <path d={SEAL} fill={url('gloss')} />
           <path d={SEAL} fill={url('shade')} />
-          <circle cx="50" cy="50" r="42" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth=".9" />
-          <circle cx="50" cy="50" r="40.6" fill="none" stroke="#000" strokeOpacity=".28" strokeWidth=".9" />
+          <circle cx="50" cy="50" r="42" fill="none" stroke={GLOSS} strokeOpacity=".55" strokeWidth=".9" />
+          <circle cx="50" cy="50" r="40.6" fill="none" stroke={SHADE} strokeOpacity=".28" strokeWidth=".9" />
         </>
       ) : shape === 'hex' ? (
         <>
           <polygon points={HEX_RIM} fill={url('rim')} />
           <polygon points={HEX_RIM} fill={url('shade')} />
-          <polygon points="91,50 70.5,85.5 29.5,85.5 9,50 29.5,14.5 70.5,14.5" fill="none" stroke="#000" strokeOpacity=".3" strokeWidth=".9" />
+          <polygon points="91,50 70.5,85.5 29.5,85.5 9,50 29.5,14.5 70.5,14.5" fill="none" stroke={SHADE} strokeOpacity=".3" strokeWidth=".9" />
         </>
       ) : shape === 'star' ? (
         <>
           <polygon points={STAR} fill={url('rim')} />
           <polygon points={STAR} fill={url('shade')} />
-          <circle cx="50" cy="50" r="36.5" fill="none" stroke="#fff" strokeOpacity=".6" strokeWidth=".9" />
-          <circle cx="50" cy="50" r="35.2" fill="none" stroke="#000" strokeOpacity=".3" strokeWidth=".9" />
+          <circle cx="50" cy="50" r="36.5" fill="none" stroke={GLOSS} strokeOpacity=".6" strokeWidth=".9" />
+          <circle cx="50" cy="50" r="35.2" fill="none" stroke={SHADE} strokeOpacity=".3" strokeWidth=".9" />
         </>
       ) : (
         <>
@@ -162,7 +136,7 @@ export function ImageBadge({
           <polygon points={ROSETTE} fill={url('rim')} />
           <polygon points={ROSETTE} fill={url('gloss')} />
           <polygon points={ROSETTE} fill={url('shade')} />
-          <circle cx="50" cy="50" r="38.6" fill="none" stroke="#fff" strokeOpacity=".6" strokeWidth=".9" />
+          <circle cx="50" cy="50" r="38.6" fill="none" stroke={GLOSS} strokeOpacity=".6" strokeWidth=".9" />
         </>
       )}
 

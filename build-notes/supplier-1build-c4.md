@@ -66,6 +66,11 @@ Branch `claude/supplier-1build-c4`, cut from `origin/claude/supplier-1build-base
   its own bar tab with its own pinned row + ⚙).
 - **L1 (`lib/menu-settings.ts`)**: C4 added the `portfolio` ENTRY (its file, spec §9 #12) and, so it compiles before
   `-foundation`, the one word `| 'portfolio'` on `SettingsMenu` — if foundation adds the same word, keep one.
+- **Reds from the merged `-data` / `-forms-data` (C2 / C3 — not C4's files; seen in C4's full preflight after the merge):**
+  `lib/export-coverage-guardrail.test.ts` T1 (`chat_message_hearts` unclassified), `lib/erasure/coverage-guardrail.test.ts`,
+  `tests/db/exposure-freeze.db.test.ts`, `tests/db/ugat-concept-coverage.db.test.ts`, `tests/db/user-fk-behaviour.db.test.ts`,
+  `tests/db/gates-have-handles.db.test.ts` (`chat_message_hearts.hearted`, `vendor_questions.is_required`),
+  `lib/numbers-carry-commas.test.ts` (`lib/vendor-forms.ts:221`). Their lanes / the controller's regeneration own them.
 - **Base reds (not C4's — red on untouched `origin/claude/supplier-1build-base`):** `lib/export-coverage-guardrail.test.ts`
   (T12 vendor_profiles export projection) · `lib/shop-name-hold.test.ts` (claim_ready_the_shop).
 

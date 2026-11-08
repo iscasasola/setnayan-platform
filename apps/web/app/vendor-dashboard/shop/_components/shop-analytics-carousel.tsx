@@ -6,6 +6,7 @@ import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
+import { formatCount } from '@/lib/format-number';
 import { ANALYTICS_PERIODS, SERIES_LABEL, periodLine, type AnalyticsPeriod, type SeriesCard } from '@/lib/shop-analytics-series';
 
 /**
@@ -179,11 +180,11 @@ function PeriodChart({ card, line }: { card: SeriesCard; line: ReturnType<typeof
         ) : (
           <>
             <b className="text-[22px] font-semibold">{line.change === 'new' ? 'New' : line.change === 'same' ? 'Same' : line.change}</b>{' '}
-            <span className="text-ink/60">vs {line.vs} · {line.total} so far</span>
+            <span className="text-ink/60">vs {line.vs} · {formatCount(line.total)} so far</span>
           </>
         )}
       </p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 block h-[120px] w-full" role="img" aria-label={`${SERIES_LABEL[card]}: ${line.total} this period, ${line.prevSameSpan} by the same point ${line.vs}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 block h-[120px] w-full" role="img" aria-label={`${SERIES_LABEL[card]}: ${formatCount(line.total)} this period, ${formatCount(line.prevSameSpan)} by the same point ${line.vs}`}>
         <polyline points={pts(line.ghost)} fill="none" stroke="color-mix(in srgb, var(--m-ink) 35%, transparent)" strokeWidth="1.5" strokeDasharray="4 4" />
         <polyline points={pts(line.now)} fill="none" stroke="var(--m-orange-2)" strokeWidth="2.2" strokeLinejoin="round" />
       </svg>

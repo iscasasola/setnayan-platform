@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * ▶ SHOW — the picked album, full screen, to swipe through in front of a couple (owner v110; BARS LOCKED "Show";
@@ -18,13 +20,13 @@ export function PortfolioShow({ title, urls, onClose }: { title: string; urls: r
   const [host, setHost] = useState<HTMLElement | null>(null);
   const track = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // The house modal contract: focus in, Tab trapped, the page behind inert, focus restored on close.
+  useModalA11y({ open: host !== null, onClose: () => window.history.back(), containerRef: dialogRef });
 
   useEffect(() => {
     setHost(document.body);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') window.history.back();
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         const t = track.current;
         if (!t) return;
@@ -37,19 +39,16 @@ export function PortfolioShow({ title, urls, onClose }: { title: string; urls: r
     window.addEventListener('keydown', onKey);
     window.addEventListener('popstate', onPop);
     return () => {
-      document.body.style.overflow = prev;
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('popstate', onPop);
     };
   }, [onClose]);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-  }, [host]);
 
   if (!host) return null;
   return createPortal(
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`${title} — Show`}
@@ -58,7 +57,7 @@ export function PortfolioShow({ title, urls, onClose }: { title: string; urls: r
     >
       <div className="flex items-center justify-between px-4 pb-2 pt-[max(env(safe-area-inset-top),12px)]">
         <span className="text-[13px] tabular-nums text-white/75" aria-live="polite">
-          {urls.length ? `${at + 1} of ${urls.length}` : ''}
+          {urls.length ? `${formatCount(at + 1)} of ${formatCount(urls.length)}` : ''}
         </span>
         <button
           ref={closeRef}
@@ -81,7 +80,7 @@ export function PortfolioShow({ title, urls, onClose }: { title: string; urls: r
         {urls.map((u, i) => (
           <div key={u} className="flex h-full w-full shrink-0 snap-center snap-always items-center justify-center px-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- presigned display URLs */}
-            <img src={u} alt={`${title} — ${i + 1} of ${urls.length}`} className="max-h-full max-w-full object-contain" loading={i < 2 ? 'eager' : 'lazy'} />
+            <img src={u} alt={`${title} — ${formatCount(i + 1)} of ${formatCount(urls.length)}`} className="max-h-full max-w-full object-contain" loading={i < 2 ? 'eager' : 'lazy'} />
           </div>
         ))}
       </div>

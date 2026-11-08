@@ -3,6 +3,7 @@ import { Info, TrendingUp } from 'lucide-react';
 import type { FunnelBenchmark, MetricBenchmark } from '@/lib/funnel-benchmark';
 import { ShopCard } from '../../_components/kit';
 import { CardFace } from './card-face';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * FunnelBenchmarkCard — the doorway `lib/funnel-benchmark.ts` never had.
@@ -75,7 +76,7 @@ export function FunnelBenchmarkCard({
       ? 'Couldn’t load shops like yours'
       : !benchmark.hasBand || placed.length === 0
         ? 'Not enough shops like yours yet'
-        : `${placed.length} of ${benchmark.metrics.length} placed among similar shops`;
+        : `${formatCount(placed.length)} of ${formatCount(benchmark.metrics.length)} placed among similar shops`;
     return (
       <CardFace title="Compared with similar suppliers" window="Your category" line={line} data="compare">
         <ul className="space-y-2.5 pt-1">

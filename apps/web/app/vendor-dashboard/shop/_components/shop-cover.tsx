@@ -161,7 +161,7 @@ export function ShopCover({
         </div>
       </div>
 
-      <div ref={coverRef} className="relative overflow-hidden rounded-b-3xl text-white" data-shop-cover="" style={{ background: '#3b3026' }}>
+      <div ref={coverRef} className="relative overflow-hidden rounded-b-3xl text-white" data-shop-cover="" style={{ background: 'var(--m-ink)' }}>
         {d.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL; next/image cannot optimise it
           <img src={d.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />

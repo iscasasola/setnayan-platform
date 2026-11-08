@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronRight, ClipboardList, ScanLine } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { RowIcon } from '../../_components/row-icon';
+import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
 import { ServiceScannerPick } from './service-scanner-pick';
 
@@ -65,7 +66,7 @@ export function ShopMakers({
                   ? 'Couldn’t load your scanners'
                   : scanners.length === 0
                     ? 'Add a service first — each service has its own scanner'
-                    : `One scanner set up per service · ${on} of ${scanners.length} on`}
+                    : `One scanner set up per service · ${formatCount(on ?? 0)} of ${formatCount(scanners.length)} on`}
               </span>
             </span>
             <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={2} />

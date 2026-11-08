@@ -150,7 +150,7 @@ import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { DetailsFormsDoor } from './_components/details-forms-door';
-import { hostRows, type BriefHost } from './_components/hosts-rows';
+import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
 import { PickedClientSettings } from './_components/picked-client-settings';
@@ -266,6 +266,8 @@ type Brief = {
    * dietary counts; the label decides what the supplier can DO, not see.
    */
   stage: 'booked' | 'inquiry' | 'requested';
+  /** C2 (`-data`): the event's hosts — `event_chat_hosts()` rows; parsed by `chatHostsFrom` (`hostRows`). */
+  hosts?: unknown;
   /** Present ONLY at stage 'requested'. Every field is a fact about this
    *  supplier's own row, never about the wedding. */
   lock_request?: {
@@ -2356,8 +2358,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </div>
       ) : null}
       {nextMoveCard}
-      {/* ⏳ `brief.hosts` arrives with C2's -data (spec §9 #1); until then the key is absent and nothing is drawn. */}
-      <HostsList hosts={hostRows((brief as { hosts?: BriefHost[] }).hosts)} />
+      {/* 👥 `brief.hosts` — C2's `event_chat_hosts()` on every rung (spec §9 #1); an unread list draws nothing. */}
+      <HostsList hosts={hostRows(brief.hosts)} />
       {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
       {overviewNode}
       {coupleAnswersNode}
@@ -2402,7 +2404,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       files: feeUnlocked ? undefined : feeLockPanel,
     },
     files: { files: sharedFiles, chatFilesMeasured },
-    payment: { reservationAcknowledgedAt },
+    // C1's Payment page draws the money itself from what this page already read (C1 NEEDS #2, wired at integration):
+    // the money fold's own inputs and the shipped asks panel. Payment is a booked-only page.
+    payment: {
+      reservationAcknowledgedAt,
+      money: isBooked
+        ? {
+            steps: planStepRows?.steps ?? null,
+            clearedAt: planStepRows?.clearedAt ?? null,
+            pending: awaitingPayments,
+            ledgerMoney,
+            ledgerUnreadable,
+            unreadableNote: <LedgerUnreadableNote />,
+          }
+        : undefined,
+      asks: askPanel,
+    },
   });
 
   return (

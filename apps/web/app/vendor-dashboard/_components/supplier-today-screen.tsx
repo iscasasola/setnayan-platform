@@ -5,8 +5,9 @@ import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { SupplierTodayFirstScreen, type TodayOutcome } from './supplier-today-first-screen';
-import { TodayCover } from './today-cover';
-import { TodayStats } from './today-stats';
+import { TodayCover, TodayPinnedRow } from './today-cover';
+import { TodayStats, TodayStatsPinned } from './today-stats';
+import { CollapsingTop, CollapsingTopStack } from '@/app/_components/collapsing-top/collapsing-top';
 
 type Act = (formData: FormData) => void | Promise<void>;
 
@@ -70,39 +71,71 @@ export function SupplierTodayScreen({
   /** 🧰 A new shop's six steps, done in place (`SupplierSetupScreen`) — drawn by the page while the shop is not live. */
   setup?: ReactNode;
 }) {
-  return (
-    <SupplierTodayFirstScreen
-      cover={<TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} gear={<TodaySettings cover />} />}
-      nextEvents={nextEvents}
-      stats={<TodayStats stats={view.stats} />}
-      needs={view.needs}
-      needsCount={view.needsCount}
-      outcome={outcome}
-      alsoToday={view.alsoToday}
-      comingUp={view.comingUp}
-      eventsYouRun={eventsYouRun}
-      shop={view.shop}
-      business={view.business}
-      library={library}
-      setup={setup}
-      thumb={thumb}
-      // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
-      // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing
-      // when there is no unpaid fee, and nothing when the read failed — an unread bill list is not "you owe nothing".
-      hasBills={view.bills.length > 0}
-      bills={
-        <>
-          <BookingFeeBills today bills={view.bills} copyFor={view.billCopy} />
-          {view.lockLine ? (
-            /* Said once, for every bill — one short line visible, the whole sentence in its ⓘ. */
-            <p data-fee-lock-line="" className="pb-2 pl-[46px] text-[12.5px] leading-snug text-ink/60">
-              <InfoTip label={view.lockWord} align="start">
-                {view.lockLine}
-              </InfoTip>
-            </p>
-          ) : null}
-        </>
+  /*
+    📌 THE TOP SCROLLS UP AND LOCKS (L1's `CollapsingTop`, wired at integration — C1 NEEDS L1 #1): the cover locks to
+    its pinned row (greeting · counts), then the stats strip locks under it to its one-line row. One stack, no element
+    of its own, so both stick inside the Today column. The ⚙ stays ON THE COVER only: Today draws exactly one ⚙
+    (`the-today-page-speaks-to-every-supplier.test.ts`), so the locked row carries none — scrolling back up shows it.
+  */
+  const top = (
+    <CollapsingTop
+      data={{ 'today-top': '' }}
+      row={
+        <div className="flex w-full items-center gap-2 px-4 sm:px-6">
+          <TodayPinnedRow shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} />
+        </div>
       }
-    />
+    >
+      <TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} gear={<TodaySettings cover />} />
+    </CollapsingTop>
+  );
+  const statsTop = (
+    <CollapsingTop
+      data={{ 'today-stats-top': '' }}
+      row={
+        <div className="w-full px-2 sm:px-4">
+          <TodayStatsPinned stats={view.stats} />
+        </div>
+      }
+    >
+      <TodayStats stats={view.stats} />
+    </CollapsingTop>
+  );
+  return (
+    <CollapsingTopStack>
+      <SupplierTodayFirstScreen
+        cover={top}
+        nextEvents={nextEvents}
+        stats={statsTop}
+        needs={view.needs}
+        needsCount={view.needsCount}
+        outcome={outcome}
+        alsoToday={view.alsoToday}
+        comingUp={view.comingUp}
+        eventsYouRun={eventsYouRun}
+        shop={view.shop}
+        business={view.business}
+        library={library}
+        setup={setup}
+        thumb={thumb}
+        // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
+        // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing
+        // when there is no unpaid fee, and nothing when the read failed — an unread bill list is not "you owe nothing".
+        hasBills={view.bills.length > 0}
+        bills={
+          <>
+            <BookingFeeBills today bills={view.bills} copyFor={view.billCopy} />
+            {view.lockLine ? (
+              /* Said once, for every bill — one short line visible, the whole sentence in its ⓘ. */
+              <p data-fee-lock-line="" className="pb-2 pl-[46px] text-[12.5px] leading-snug text-ink/60">
+                <InfoTip label={view.lockWord} align="start">
+                  {view.lockLine}
+                </InfoTip>
+              </p>
+            ) : null}
+          </>
+        }
+      />
+    </CollapsingTopStack>
   );
 }

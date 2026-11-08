@@ -7,8 +7,7 @@ import { usePickedNav } from './picked-client-nav';
 /**
  * 👥 HOSTS · in your shared chat — on Details (THE ONE BUILD, 8 Nov 2026 · v113 · B1 step 6.3).
  *
- * ⏳ TYPED STUB until C2's `-data` lands `brief.hosts` (`event_chat_hosts()` — spec §9 #1). The shape below is that
- * RPC's JSON row (`hosts-rows.ts`, worded on the server). While the brief carries no `hosts` key the section is not drawn at all — absent data is never
+ * From C2's `brief.hosts` (`event_chat_hosts()` — spec §9 #1), worded on the server (`hosts-rows.ts`). While the brief carries no `hosts` key the section is not drawn at all — absent data is never
  * drawn as "no hosts". Each row: initials · first name · role label (`ROLE_SUBTYPE_LABEL`, else "Host") · In chat ›.
  */
 export function HostsList({ hosts }: { hosts: HostRow[] | undefined }) {

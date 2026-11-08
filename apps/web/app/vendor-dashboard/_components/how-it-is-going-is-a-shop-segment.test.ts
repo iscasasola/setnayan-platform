@@ -80,8 +80,17 @@ const SCREEN_FOR: Partial<Record<ShopSegment, string>> = {
   details: join(VD, 'profile', '_components', 'details-screen.tsx'),
 };
 
+/*
+  THE ONE BUILD (C4, v113 — integration 8 Nov): two segment addresses are no longer Shop SUB-screens, so they carry no
+  switcher back to Shop: `services` IS the Shop tab (`/vendor-dashboard/shop` — one scroll, cover + rows + ⚙, its ▾ row
+  dropped; `shop/the-shop-sections-are-v13.test.ts` pins that), and `gallery` is the Portfolio TAB (its own bar tab and
+  pinned row — the test above holds it lighting Portfolio). Every other segment is still a sub-screen and keeps it.
+*/
+const TABS_NOT_SUBSCREENS: readonly ShopSegment[] = ['services', 'gallery'];
+
 test('every page a Shop segment opens draws the Shop switcher with that segment on', () => {
   for (const [seg, href] of Object.entries(SHOP_SEGMENT_HREF) as [ShopSegment, string][]) {
+    if (TABS_NOT_SUBSCREENS.includes(seg)) continue;
     const src = stripComments(readFileSync(SCREEN_FOR[seg] ?? pageFor(pathOf(href)), 'utf8'));
     const on = (src.match(new RegExp(`<ShopSegments\\s+on="${seg}"`, 'g')) ?? []).length;
     assert.ok(on >= 1, `${href} draws no <ShopSegments on="${seg}"> — the supplier lands with no way back to Shop`);

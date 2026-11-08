@@ -27,6 +27,9 @@ export function TodayNextEvents({ next }: { next: NextEvents | null }) {
         <div className="-mx-4 sm:mx-0">
           <SnapCarousel
             label="Next events"
+            // No dot pager (v110) and no auto-advance — L1's carousel props (spec §9 #4); the loop stays.
+            dots={false}
+            advanceMs={0}
             attrs={{ 'data-today-next-carousel': '' }}
             cards={next.cards.map((c) => ({ key: c.key, label: c.title, node: <EventCard card={c} /> }))}
           />

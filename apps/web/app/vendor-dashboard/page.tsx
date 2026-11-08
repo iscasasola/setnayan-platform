@@ -74,7 +74,7 @@ import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
-import { getPortfolioCountStub } from '@/lib/supplier-today-portfolio';
+import { readTodayPortfolioCount } from '@/lib/supplier-today-portfolio';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
@@ -303,6 +303,8 @@ export default async function VendorOverviewPage({
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
   // 📄 The permit row's date — its own read off the shop's self view, beside the shop row (A9).
   const renewalP = readTodayRenewal(supabase, vendorProfileId);
+  // 🖼 The Portfolio stat's count — C4's one read, started beside the renewal read (not after the page's other reads).
+  const portfolioP = readTodayPortfolioCount(vendorProfileId, supabase);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
@@ -604,7 +606,7 @@ export default async function VendorOverviewPage({
     renewalDueAt: await renewalP,
     setupDrawn: setup !== null,
     bookedThisMonth: data.bookedThisMonth ?? null,
-    portfolio: await getPortfolioCountStub(vendorProfileId),
+    portfolio: await portfolioP,
     todayIso,
     now: renderNow,
     since: cardTimestamp,

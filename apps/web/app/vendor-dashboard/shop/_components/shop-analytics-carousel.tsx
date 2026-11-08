@@ -53,12 +53,6 @@ const TIP_KEYS: Readonly<Record<AnalyticsCard, readonly GrowthRec['key'][]>> = {
   compare: ['reply_faster', 'ask_reviews'],
 };
 
-/**
- * The shared carousel's "no auto-advance, no dots" (L1 adds `dots`, and makes `advanceMs={0}` mean no auto-advance,
- * in `-foundation` — spec §9 #4). The loop stays.
- */
-const CAROUSEL_STILL = { advanceMs: 0, dots: false } as const;
-
 export type AnalyticsCardData = {
   key: AnalyticsCard;
   face: ReactNode;
@@ -93,7 +87,8 @@ export function ShopAnalyticsCarousel({ cards, recs, nowMs }: { cards: Analytics
         </h2>
         <span className="text-[11.5px] text-ink/50">swipe</span>
       </div>
-      <SnapCarousel cards={slides} label="Analytics" {...CAROUSEL_STILL} />
+      {/* No auto-advance, no dots — L1's carousel props (spec §9 #4); the loop stays. */}
+      <SnapCarousel cards={slides} label="Analytics" advanceMs={0} dots={false} />
       {open ? <AnalyticsSheet card={open} recs={recs} nowMs={nowMs} onClose={() => setOpen(null)} /> : null}
     </section>
   );

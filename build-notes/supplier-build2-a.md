@@ -193,6 +193,21 @@ add the class by hand so the dark rules can be judged before the area is listed.
   — the token has no column for one (more schema: a controller call). The Booked QRs list lives in the page's fold, not
   a row at the form's top. "Clients ⚙ → Booked QRs" is NOT added yet (the gear's sheet is another lane's).
   The quote lines are stored but the CLAIM does not copy them onto the couple's quotation yet — a claim-function change.
+- **#42 NOT DONE — measured, not skipped.** "Assemble Decisions on Details from the SAME batched read C2's in-place
+  thread loads" has no honest home yet:
+  · The decisions are not a read result. `ChatMessageStream` builds them CLIENT-side (`useMemo` → `buildThreadDecisions`)
+    from the messages + the proposal / appointment / amendment card maps + `decisionPayments` / `decisionGuestCounts`,
+    all produced inside the ONE async `VendorThreadPage` (messages/[threadId]/page.tsx, a single function, reads
+    inline). Nothing is exported that Details could call; none of its fetchers is in React `cache()`.
+  · The picked shell mounts ONLY `bodies[page]` on the client, so Chat's stream (and its decisions) does not exist
+    while Details shows. A client context cannot hand them over.
+  · ⚠ FOUND WHILE MEASURING (Build 1, not this lane's to change): `pickedPageBodies` builds EVERY page each request,
+    and BOTH `ChatPage` and `QuotationPage` render `<SupplierThreadBody>` — so every open of a client already runs the
+    whole thread page TWICE (two batched reads, two `markThreadRead` calls), whichever page is visible.
+  · The honest build (one PR, its own lane): lift the thread page's batched read into one `cache()`d loader keyed by
+    threadId (returns the stream's props); both embeds call it (2 reads → 1); export the stream's merge as a pure
+    `threadDecisionFacts(...)` beside `buildThreadDecisions`; Details renders `DecisionsPanel` from the SAME cached
+    loader in its own `<Suspense>` (0 new requests). Until then Build 1's door stays (unchanged).
 - Forced dark: the shipped generator's `bg-white/60` panels are not dark-swept (pre-existing, `sbs-34-*-dark`).
 - Forced dark: the opened-event pane (Schedule / Details) keeps a white ground — not dark-swept yet (not live).
 
@@ -203,6 +218,9 @@ add the class by hand so the dark rules can be judged before the area is listed.
   `vercel build` route count and a CEILING raise — a controller call.
 - tsc: the #43 run was green (rc 0, 0 errors). The #37 run was killed by a signal (exit 144) while QUEUED for the
   heavy lock — it never compiled. Not re-run; CI's typecheck is the gate on the controller's PR.
+- tsc after #34 (full `pnpm typecheck`, ~25 min under memory pressure, no OOM): **1 error** — `app/dev/supplier-lab/dates-lab.tsx`
+  built `IssuedRow`s without #34's new `openHref`; fixed (the lab's rows now carry it). Not re-run after the fix (the
+  only other builder, `invite/page.tsx`, compiled). Ugat db tests (schema claims + concept coverage) green with the migration.
 
 ## Generated files (not edited — the controller regenerates)
 - `port:baseline` (`lint:port-controls` lists exactly these, all deliberate):
@@ -212,4 +230,5 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43, #38, #37, #28, #36, #27, #29, #34 committed + pushed. Next: #42 (Decisions in place, from C2's batched read).
+- #43, #38, #37, #28, #36, #27, #29, #34 committed + pushed. #42 not done (see above): needs the thread page's read
+  lifted into a shared cached loader first — a refactor of the 2,121-line thread page, its own lane.

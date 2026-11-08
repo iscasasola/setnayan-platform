@@ -25,5 +25,8 @@
   with Undo, tap a used one to open that client. Migration `20271327929301_booked_qr_quote_lines_and_void` (quote
   lines, the shop's void, a status that only moves forward) — not applied. Guards: `invite/the-booked-qr-is-completed.test.ts`,
   `tests/db/booked-qr-quote-lines-and-void.db.test.ts`.
+- **#42 not done** — Details keeps Build 1's Decisions door. Assembling the list in place needs the thread page's
+  batched read lifted into one shared cached loader first (every client open already renders the thread page twice,
+  Chat + Quotation); recorded in `build-notes/supplier-build2-a.md`.
 
 SPEC IMPACT: None — builds the approved v113/v118 prototype (corpus prototypes/supplier_clients_2026-11-07).

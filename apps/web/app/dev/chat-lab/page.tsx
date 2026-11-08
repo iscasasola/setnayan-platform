@@ -34,7 +34,7 @@ function labPickedSupplierBodies(threadId: string, name: string, mode: LabChatMo
       <p className="home-k2">(lab stand-in) Details</p>
       <h2 className="font-display text-2xl font-semibold text-ink">{name}</h2>
       <p className="text-sm text-ink/70">Photo &amp; video · December 18, 2026 · ~230 guests</p>
-      <p className="text-sm text-ink">Quote sent · ₱85,000 · prep + reception + same-day edit</p>
+      <p className="text-sm text-ink">Quote sent · prep + reception + same-day edit</p>
     </section>
   );
   bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} actions={{ send: labSend, add: labAdd, leave: labLeave }} {...mode} />;

@@ -11,3 +11,19 @@ import { createContext } from 'react';
 export type PickedShellNav = { select: (page: string) => void; page: string };
 
 export const PickedNavContext = createContext<PickedShellNav | null>(null);
+
+/**
+ * ⌨ The page menu's arrow keys (WAI-ARIA tabs): → / ← step ONE page by its own id, wrapping round; Home / End jump to
+ * the first / last. Carried over from the retired two-sided workspace strip (controller, 2026-10-08: the handler was
+ * once handed the tab's PLACE and skipped a page) — the rule is given an id, never an index. Any other key: null, left
+ * alone. Guard: `lib/workspace-tabs-step-one-at-a-time.test.ts`.
+ */
+export function nextPanelTabId(panelIds: readonly string[], currentId: string, key: string): string | null {
+  if (key !== 'ArrowRight' && key !== 'ArrowLeft' && key !== 'Home' && key !== 'End') return null;
+  if (panelIds.length === 0) return null;
+  const at = panelIds.indexOf(currentId);
+  if (key === 'Home' || at < 0) return panelIds[0] ?? null;
+  if (key === 'End') return panelIds[panelIds.length - 1] ?? null;
+  const step = key === 'ArrowRight' ? 1 : -1;
+  return panelIds[(at + step + panelIds.length) % panelIds.length] ?? null;
+}

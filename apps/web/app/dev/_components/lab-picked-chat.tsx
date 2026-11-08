@@ -93,6 +93,8 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
       >
         <ChatMessageStream
           flush
+          // A lab has no booked deal. Kept FIRST: the handshake guard reads the tag only up to the first "/>".
+          lockHandshake={null}
           dealEntry={dealEntryFor({ side, hasQuote: true })}
           threadId={threadId}
           initialMessages={noMessages ? [] : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)]}
@@ -107,7 +109,6 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           counterpartyLabel={counterpartyLabel}
           {...(tallPins ? { pins: <LabPins /> } : {})}
           senderNames={side === 'couple' ? { [LAB_STAFF]: 'Paolo' } : {}}
-          lockHandshake={null}
           fileExpiry={{ eventDate: '2026-12-18', precision: 'day' }}
         />
       </ChatBox>

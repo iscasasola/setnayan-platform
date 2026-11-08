@@ -30,6 +30,17 @@ Owner, 8 Nov (DECISION_LOG ✉️ 🪞): the supplier's envelope lists *"all the
 - **👁 Schedule, "theirs first"** (owner, 9 Nov). Both picked Schedule tabs already show only that supplier's part, as shipped, and are unchanged. `ScheduleDay` gains `initialLens` (default Master everywhere) and the event Schedule reads `?lens=vendor:<id>`, so a door from a supplier lands on their View as. A supplier with no tagged moment keeps its lens, with "No moments for [name] yet", never a silent Master. Guard: `app/dashboard/[eventId]/schedule/a-picked-schedule-opens-on-its-supplier.test.ts`.
 - **Empty modes.** The host's empty Chats is one shared part (`messages/_components/couple-chats-empty.tsx`), used by the page and the lab. Labs gain `?state=empty`, `&msgs=0` (a chat with no messages) and `&solo=1` (a single member).
 - **🚦 Needs-you dot** on a Chats row's avatar corner. Blocker is stronger than due-now. It is prop-driven until Lane B's `needsYouLevel()`.
+- **📌 Pinned stays pinned** (owner, 9 Nov). The stack has a fixed top (strip + the Chat · Decisions · Files switch) and a scroll region below it (Lane B's pins + the expiry line). Only the scroll region moves when the stack is over its cap; the strip's top never does.
+- **↔ The composer slides its tools** (owner, 9 Nov: "0.7 second animation is our default"). When typing starts or private mode opens, the (+), 🔒 and attach tools slide out LEFT and fade while the box grows into their room. It reverses on an empty box or ×. The timing is `--sn-pill-dur` (700 ms) on the house spring `--sn-pill-spring`, with no hand-typed duration. Under reduced motion it jumps to the end states. Send never moves. Guard: `lib/the-composer-slides-its-tools-away.test.ts`.
+- **One picked shell, both sides — the old two-sided strip is deleted.** `app/_components/relationship-tab-shell.tsx` had no mount left once the host workspace opened the picked shell (Ugat both-ends: component-no-mount). Its one rule — an arrow key steps ONE page by id — moved into `picked/picked-nav.ts` (`nextPanelTabId`). The picked menu now has WAI-ARIA arrow/Home/End keys and roving focus. `workspace-tabs-step-one-at-a-time` reads the picked shell. `one-chat-box-everywhere` 5 now holds the deletion, and `pills-are-everywhere` drops the retired "Workspace sections" row (floor 23 → 22, noted).
+- **CI fixes**:
+  - the leave note is the house `TypedRow`;
+  - the lab's server actions moved into the two lab pages, so the server-action budget stays at 1239 and is not raised;
+  - the shell's ⚙ is mounted with a literal `menu="client"` (the one-mount guard counts literals);
+  - the lab stream mounts pass `lockHandshake={null}`;
+  - the lab Details stand-in drops a ₱ figure (a public-price guard);
+  - type fixes in `private-to.ts`, `picked-shell.tsx`, the send route's refusal map and the lab.
+- Labs: `&pins=tall` draws a tall pin region to measure pinned-stays-pinned.
 - No chat-head thread picker (owner: one shared chat per supplier per event; switching chats is the Chats list only).
 - Guards (each sabotage-checked):
   - `lib/a-private-message-looks-private.test.ts`;

@@ -20,14 +20,15 @@
  *   3. the couple workspace redirects a chat landing to its thread page; the supplier's client draws Chat IN PLACE
  *      (THE ONE BUILD, 8 Nov 2026 · v111) with no second stream
  *   4. Chat is a page of the picked client / a LINK tab on the couple strip, with no Call tab anywhere
- *   5. the shell renders a link tab as an anchor and never selects it
+ *   5. RETIRED 2026-11-09 — the two-sided strip (`relationship-tab-shell.tsx`) is gone; both sides open the ONE
+ *      picked shell, which has no link tabs (Chat is a page)
  *   6. each thread frame's ⋮ carries the embedding page's sections
  *   7. the supplier's notice is addressed to the supplier; the couple's
  *      canonical string is untouched
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -38,7 +39,6 @@ const SUPPLIER_THREAD = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const COUPLE_THREAD = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const CLIENT_PAGE = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 const WORKSPACE = 'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx';
-const SHELL = 'app/_components/relationship-tab-shell.tsx';
 const PICKED_CHAT_PAGE = 'app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx';
 const PICKED_MENU = 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu.ts';
 const NOTICE = 'app/_components/chat-privacy-notice.tsx';
@@ -47,7 +47,6 @@ const supplierThread = read(SUPPLIER_THREAD);
 const coupleThread = read(COUPLE_THREAD);
 const client = read(CLIENT_PAGE);
 const workspace = read(WORKSPACE);
-const shell = read(SHELL);
 const notice = read(NOTICE);
 
 const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
@@ -67,7 +66,6 @@ test('the scan reads every file (an empty read is a green lie)', () => {
     [COUPLE_THREAD, coupleThread],
     [CLIENT_PAGE, client],
     [WORKSPACE, workspace],
-    [SHELL, shell],
     [NOTICE, notice],
   ] as const) {
     assert.ok(src.length > 800, `${rel} read as ${src.length} chars`);
@@ -165,11 +163,8 @@ test('4 · "Chat" is a page of the picked client and a door on the couple strip;
   assert.equal(count(workspace, /id: 'call'/g), 0, `${WORKSPACE} still has a Call tab — the call lives on the composer row`);
 });
 
-test('5 · the shell draws a link tab as an anchor and never selects it', () => {
-  assert.equal(count(shell, /href\?: string;/g), 1, 'RelationshipTab lost its href');
-  assert.equal(count(shell, /data-tab-link=\{t\.id\}/g), 1, 'a link tab is not rendered as an anchor');
-  assert.match(shell, /visible\.filter\(\(t\) => !t\.href\)\.map\(\(t\) => t\.id\)/, 'link tabs must be excluded from the selectable ids');
-  assert.match(shell, /t\.id === active && !t\.href/, 'a link tab must never be the active panel');
+test('5 · the retired two-sided strip stays retired — one picked shell draws both sides', () => {
+  assert.ok(!existsSync(join(WEB, 'app/_components/relationship-tab-shell.tsx')), 'the two-sided strip is back beside the one picked shell');
 });
 
 test("6 · each frame's ⋮ carries the embedding page's sections", () => {

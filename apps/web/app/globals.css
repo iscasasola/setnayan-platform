@@ -10193,10 +10193,10 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
 }
 .sn-composer-tools > * {
   min-width: 0;
-  transition: transform var(--sn-pill-dur) var(--sn-pill-spring);
+  transition: transform var(--sn-pill-dur) var(--sn-pill-spring), opacity var(--sn-pill-dur) var(--sn-pill-spring);
 }
 .sn-composer-tools[data-chat-composer-tools='out'] { grid-template-columns: 0fr; }
-.sn-composer-tools[data-chat-composer-tools='out'] > * { transform: translateX(-100%); }
+.sn-composer-tools[data-chat-composer-tools='out'] > * { transform: translateX(-100%); opacity: 0; }
 .sn-composer-box { transition: margin var(--sn-pill-dur) var(--sn-pill-spring); }
 @media (prefers-reduced-motion: reduce) {
   .sn-composer-tools,

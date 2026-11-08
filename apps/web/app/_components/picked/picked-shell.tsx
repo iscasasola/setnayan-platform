@@ -28,16 +28,15 @@
  *
  * 🔒 vendor-dashboard/customers/the-picked-client-opens-over-the-list.test.ts · app/_components/picked/one-picked-shell.test.ts
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { X, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
-import type { SettingsMenu } from '@/lib/menu-settings';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
   PICKED_OPEN_MS,
@@ -77,7 +76,9 @@ export type PickedShellProps<P extends string> = {
   /** Land on `page` scrolled to the element `id` (the supplier's `?tab=script`). */
   scrollTo?: { page: P; id: string } | null;
   /** ⚙ this screen's own settings — the house door (`MenuSettingsButton`); absent = no ⚙ (never a dead one). */
-  gear?: { menu: SettingsMenu; line: { line: string; tip: string }; node: ReactNode } | null;
+  // Only the supplier's picked client has a ⚙ today, so the key is the literal `client`: the one-mount guard
+  // (`every-menu-has-one-settings-button.test.ts`) counts literal `menu="…"` mounts, never a variable.
+  gear?: { menu: 'client'; line: { line: string; tip: string }; node: ReactNode } | null;
 };
 
 export function PickedShell<P extends string>({
@@ -199,6 +200,16 @@ export function PickedShell<P extends string>({
     [page],
   );
 
+  // ⌨ Arrow keys step the menu one page by its id (the rule lives in `picked-nav.ts`); focus follows the pick.
+  const ids = useMemo(() => menu.map((m) => m.id), [menu]);
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, id: P) => {
+    const nextId = nextPanelTabId(ids, id, e.key);
+    if (nextId === null) return;
+    e.preventDefault();
+    select(nextId as P);
+    menuRef.current?.querySelector<HTMLElement>(`[data-picked-page="${nextId}"]`)?.focus();
+  };
+
   // 👆 #36: a swipe across the BODY turns the page (v116: ≥ 60 px, 1.5× more sideways than down) in the menu's order,
   // and the menu centres the new one. Never from the menu, a calendar, a field or anything that scrolls sideways.
   useEffect(() => {
@@ -290,7 +301,7 @@ export function PickedShell<P extends string>({
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
           {gear ? (
-            <MenuSettingsButton menu={gear.menu} open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
+            <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
           ) : null}
@@ -316,7 +327,9 @@ export function PickedShell<P extends string>({
                 aria-selected={on}
                 aria-controls="picked-page"
                 data-picked-page={m.id}
+                tabIndex={on ? 0 : -1}
                 onClick={() => select(m.id)}
+                onKeyDown={(e) => onKeyDown(e, m.id)}
                 className={`flex min-h-[48px] min-w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
                   on
                     ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] bg-white text-[rgb(var(--color-terracotta-700,154_98_52))]'

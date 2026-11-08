@@ -370,6 +370,8 @@ export default async function SupplierChatLabPage({
         >
           <ChatMessageStream
             flush
+            // A lab has no booked deal. Kept FIRST: the handshake guard reads the tag only up to the first "/>".
+            lockHandshake={null}
             {...(sp.hosts === '1'
               ? {
                   hosts: [
@@ -386,7 +388,6 @@ export default async function SupplierChatLabPage({
             currentUserId={LAB_STAFF}
             viewerRole="vendor"
             counterpartyLabel="Ana & Miguel"
-            lockHandshake={null}
             fileExpiry={{ eventDate: DAY, precision: 'day' }}
           />
         </ChatBox>

@@ -124,6 +124,8 @@ test('6 · the tab row is v8.3’s size, so the sixth tab peeks at 390', () => {
   assert.match(tab, /min-w-\[66px\]/, 'the tab is not v8.3’s 66 px minimum');
   assert.match(tab, /text-\[13px\] font-medium/, 'the tab’s word is not v8.3’s 13 px');
   assert.match(tab, /className="h-5 w-5"/, 'the tab’s icon is not v8.3’s 20 px');
+  // v8.3: the picked tab is a gold border and ink words, no fill — a white fill under ink words vanishes in dark mode.
+  assert.doesNotMatch(tab, /\bbg-white\b/, 'the picked tab has a white fill (its ink words disappear in dark mode)');
   assert.match(SHELL, /data-picked-menu=""/);
   assert.match(SHELL, /gap-0\.5 overflow-x-auto px-4/, 'the tab row lost v8.3’s 2 px gap / 16 px gutter');
 });

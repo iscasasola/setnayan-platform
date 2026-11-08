@@ -356,7 +356,7 @@ export function PickedShell<P extends string>({
                 onKeyDown={(e) => onKeyDown(e, m.id)}
                 className={`relative grid min-h-[48px] min-w-[66px] shrink-0 justify-items-center gap-[3px] rounded-[14px] px-1.5 pb-1.5 pt-[7px] text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
                   on
-                    ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] bg-white text-ink'
+                    ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] text-ink'
                     : 'border border-transparent text-ink/70'
                 }`}
               >

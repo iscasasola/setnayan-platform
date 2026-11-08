@@ -59,7 +59,7 @@ Owner, 8 Nov (DECISION_LOG ✉️ 🪞): the supplier's envelope lists *"all the
   - No notice row in a picked chat: the privacy words sit behind an ⓘ on the strip's "Shared chat" line (`ChatPrivacyTip`). The supplier's copy is the locked 0019 copy and is still never dismissible.
   - Composer (+) · 🔒 · box · Send: with a (+), 📷 and 🖼 move inside it (the sheet's Camera · Photo rows click `CHAT_CAMERA_INPUT_ID` / `CHAT_PHOTO_INPUT_ID`). The labs mount a (+); `ComposerPlusSheet` `more` is Lane B's slot for the supplier's (+) rows.
   - Unread badge on the Chat tab: `readThreadUnreadCount` (`lib/couple-inbox.ts`, the ✉ dot's rule for one thread) on both picked pages; it leaves once Chat is opened.
-  - Tabs at v8.3 size (66 px, 13 px, 20 px icons), so Forms peeks at 390.
+  - Tabs at v8.3 size (66 px, 13 px, 20 px icons), so Forms peeks at 390. The picked tab is a gold border with no fill (a white fill made its words vanish in dark mode).
   - Guard: `lib/the-picked-head-carries-the-chat-actions.test.ts` (6 tests, each sabotage-checked).
 - No chat-head thread picker (owner: one shared chat per supplier per event; switching chats is the Chats list only).
 - Guards (each sabotage-checked):

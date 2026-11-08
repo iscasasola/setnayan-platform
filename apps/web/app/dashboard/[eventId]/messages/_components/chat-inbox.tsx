@@ -13,6 +13,8 @@ import { searchInboxRows } from '@/lib/chat-inbox-search';
 import { markChatViewer } from '@/lib/chat-last-known';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { formatCount } from '@/lib/format-number';
+import { messengerOrder, NEEDS_YOU_DOT_LABEL, type ChatsRowNeedsYou } from '@/lib/chats-by-event';
+import { rememberPickedOrigin } from '@/app/_components/picked/picked-motion';
 
 /**
  * THE CHATS INBOX, MESSENGER-SHAPED (owner 2026-10-27, *"look and feel like Messenger"*; chat prototype 2026-10-28,
@@ -36,6 +38,13 @@ import { formatCount } from '@/lib/format-number';
  *   · `peerFilter` names the third chip ("Suppliers" for the couple) — `null` draws All · Unread only;
  *   · `dock="foot"` — on a FULL-SCREEN page (`data-chat-takeover`, which covers the shell and its bottom dock) the thumb
  *     row stands at the page's own foot instead of being portalled onto a dock the takeover covers.
+ *
+ * ✉️ 🪞 MESSENGER ORDER, BOTH SIDES (Supplier Build 3 · Lane A, 9 Nov 2026 — owner 8 Nov: *"the most recent conversation
+ * will be the one on top. above it will be pinned messages if unread"*; the host's list keeps *"the same ordering
+ * rule"*): unread rows are pinned on top under "Unread · pinned", then "Recent" (`messengerOrder`, lib/chats-by-event.ts).
+ * A row that opens a PICKED page (`opensPicked` — the supplier's picked client on Chat, the host's picked supplier on
+ * Chat) records where it was tapped, so that page rises from the row and ✕ is the exact reverse back into it.
+ * 🚦 A row may carry a "needs you" level (DECISION_LOG 2026-11-09): a dot, the blocker's stronger than due-now.
  */
 
 export type InboxRow = {
@@ -51,9 +60,16 @@ export type InboxRow = {
   archived: boolean;
   /** Archive / unarchive — the shipped per-row form, drawn by the page. */
   archive: ReactNode;
+  /** The row opens a picked page (`PickedShell`) over this list — its tap is recorded for the rise and the reverse. */
+  opensPicked?: boolean;
+  /** 🚦 Lane B's `needsYouLevel()` for this row's client — absent/null draws no dot (never a guessed one). */
+  needsYou?: ChatsRowNeedsYou | null;
 };
 
 type Filter = 'all' | 'unread' | 'suppliers';
+
+/** The two group heads (✉️): small caps, quiet — words, not frames. */
+const GROUP_HEAD = 'pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50';
 
 export function ChatInbox({
   rows,
@@ -96,6 +112,8 @@ export function ChatInbox({
   }, [rows, filter, query]);
   const active = shown.filter((r) => !r.archived);
   const archived = shown.filter((r) => r.archived);
+  // ✉️ Unread pinned on top, then the most recent (rows arrive newest first) — `lib/chats-by-event.ts`.
+  const { pinned, recent } = messengerOrder(active);
 
   // 🫧 The thumb row eases to ~70 % while the page scrolls, and back ~300 ms after it stops (owner 2026-10-27, "every
   // thumb row is frosted glass — a little more see-through while scrolling").
@@ -128,8 +146,18 @@ export function ChatInbox({
   );
 
   const renderRow = (r: InboxRow) => (
-    <li key={r.threadId} className="flex items-center" data-inbox-row={r.unread ? 'unread' : 'read'}>
-      <Link href={r.href} prefetch className="sn-press flex min-h-[72px] min-w-0 flex-1 items-center gap-3 py-2">
+    <li
+      key={r.threadId}
+      className="flex items-center"
+      data-inbox-row={r.unread ? 'unread' : 'read'}
+      {...(r.needsYou ? { 'data-inbox-needs-you': r.needsYou } : {})}
+    >
+      <Link
+        href={r.href}
+        prefetch
+        className="sn-press flex min-h-[72px] min-w-0 flex-1 items-center gap-3 py-2"
+        onClickCapture={r.opensPicked ? (e) => rememberPickedOrigin(e.currentTarget.closest('li'), r.href.split('?')[0]!) : undefined}
+      >
         <ThreadListAvatar logoUrl={r.logoUrl} name={r.name} size="lg" />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-1.5">
@@ -147,6 +175,12 @@ export function ChatInbox({
             {r.preview} · {r.timeLabel}
           </span>
         </span>
+        {/* 🚦 Needs you — the blocker's dot is the stronger (a ring round it); due-now is the amber one. */}
+        {r.needsYou === 'blocker' ? (
+          <span role="img" aria-label={NEEDS_YOU_DOT_LABEL.blocker} title={NEEDS_YOU_DOT_LABEL.blocker} className="h-3 w-3 shrink-0 rounded-full bg-danger-600 ring-[3px] ring-danger-600/25" data-needs-you-dot="blocker" />
+        ) : r.needsYou === 'due-now' ? (
+          <span role="img" aria-label={NEEDS_YOU_DOT_LABEL['due-now']} title={NEEDS_YOU_DOT_LABEL['due-now']} className="h-2.5 w-2.5 shrink-0 rounded-full bg-warn-500" data-needs-you-dot="due-now" />
+        ) : null}
         {r.unread ? <span aria-label="Unread" className="h-3 w-3 shrink-0 rounded-full bg-sn-accent" /> : null}
       </Link>
       {r.archive}
@@ -206,7 +240,20 @@ export function ChatInbox({
       {rows.length === 0 ? (
         empty
       ) : active.length > 0 ? (
-        <ul>{active.map(renderRow)}</ul>
+        pinned.length > 0 && filter !== 'unread' ? (
+          <>
+            <p className={GROUP_HEAD} data-inbox-group="unread">Unread · pinned</p>
+            <ul data-inbox-pinned="">{pinned.map(renderRow)}</ul>
+            {recent.length > 0 ? (
+              <>
+                <p className={`${GROUP_HEAD} mt-2`} data-inbox-group="recent">Recent</p>
+                <ul>{recent.map(renderRow)}</ul>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <ul>{active.map(renderRow)}</ul>
+        )
       ) : (
         <p className="py-6 text-center text-sm text-ink/60">
           {query.trim()

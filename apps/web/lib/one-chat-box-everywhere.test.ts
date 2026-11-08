@@ -121,16 +121,19 @@ test('3 · the couple workspace sends a chat landing to its thread page; the sup
   );
   const chatPage = read(PICKED_CHAT_PAGE);
   assert.equal(count(chatPage, /<ChatMessageStream\b/g), 0, 'the Chat page mounts a second chat box');
-  assert.equal(
-    count(workspace, /relationshipShellEnabled && chatThread/g),
-    1,
-    'the workspace no longer redirects a chat landing',
-  );
+  // 🪞 SUPPLIER BUILD 3 · LANE A (9 Nov 2026; DECISION_LOG 🪞): the couple's workspace is the host's picked supplier now,
+  // and it no longer forwards a chat landing either — its Chat page draws the ONE conversation in place
+  // (`CoupleThreadBody` → the thread page itself, `__embed: 'chat'`; it mounts no stream of its own: test 1 still counts
+  // every mount). Honest update of the half that described the old redirect.
+  assert.equal(count(workspace, /relationshipShellEnabled && chatThread/g), 0, 'the workspace forwards a chat landing again');
   assert.equal(
     count(workspace, /redirect\(`\/dashboard\/\$\{eventId\}\/messages\/\$\{chatThread\.thread_id\}`\)/g),
-    1,
+    0,
+    'the workspace forwards to the thread again — Chat is a page of the picked supplier',
   );
-  assert.equal(count(workspace, /rawLanding === 'chat' \|\| rawLanding === 'call'/g), 1);
+  assert.equal(count(workspace, /<CoupleThreadBody eventId=\{eventId\} threadId=\{chatThread\.thread_id\} \/>/g), 1);
+  const coupleBody = read('app/dashboard/[eventId]/messages/[threadId]/_components/couple-thread-body.tsx');
+  assert.equal(count(coupleBody, /<ChatMessageStream\b/g), 0, 'the couple Chat page mounts a second chat box');
 });
 
 test('4 · "Chat" is a page of the picked client and a door on the couple strip; there is no Call tab', () => {
@@ -142,11 +145,13 @@ test('4 · "Chat" is a page of the picked client and a door on the couple strip;
   assert.equal(count(pages, /id: 'call'/g), 0, 'the picked client has a Call page — the call lives on the composer row');
   assert.match(menu, /call: 'chat'/, '`?tab=call` must land on Chat');
   assert.equal(count(client, /id: 'call'/g), 0, `${CLIENT_PAGE} still has a Call tab`);
-  // Couple: unchanged — Chat stays a link tab in the workspace strip.
-  const chatTab = workspace.match(/id: 'chat',[\s\S]{0,400}?\},/);
-  assert.ok(chatTab, `${WORKSPACE} lost its Chat tab`);
-  assert.match(chatTab![0], /href:/, `${WORKSPACE}: the Chat tab must be a link, not a panel`);
-  assert.doesNotMatch(chatTab![0], /node: [^n]/, `${WORKSPACE}: a link tab renders no panel`);
+  // Couple (🪞 Build 3 · Lane A, 9 Nov 2026): Chat is a page of the host's picked supplier too, and `call` only resolves
+  // TO Chat — never a page of its own.
+  const supplierMenu = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-menu.ts');
+  const supplierPages = supplierMenu.slice(supplierMenu.indexOf('export const PICKED_SUPPLIER_PAGES'), supplierMenu.indexOf('] as const;', supplierMenu.indexOf('export const PICKED_SUPPLIER_PAGES')));
+  assert.match(supplierPages, /\{ id: 'chat', label: 'Chat' \}/, 'the picked supplier lost its Chat page');
+  assert.equal(count(supplierPages, /id: 'call'/g), 0, 'the picked supplier has a Call page — the call lives on the composer row');
+  assert.match(supplierMenu, /call: 'chat'/, '`?tab=call` must land on Chat');
   assert.equal(count(workspace, /id: 'call'/g), 0, `${WORKSPACE} still has a Call tab — the call lives on the composer row`);
 });
 

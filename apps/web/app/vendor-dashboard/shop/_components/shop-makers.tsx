@@ -211,6 +211,8 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
           <ul className="divide-y divide-ink/10">
             {scanners.map((s) => (
               <li key={s.coverageId} className="py-1" data-scanner-line={s.coverageId}>
+                {/* The service this scanner belongs to — the shipped pick sat under its service row; here it says so. */}
+                <p className="pt-2 text-[15px] font-medium text-ink">{s.label}</p>
                 <ServiceScannerPick coverageId={s.coverageId} serviceLabel={s.label} initial={s.choice} />
               </li>
             ))}

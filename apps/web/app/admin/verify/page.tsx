@@ -77,6 +77,12 @@ import {
   type VendorDossier,
 } from '@/lib/vendor-deep-search';
 import { DeepSearchChat } from './_components/deep-search-chat';
+import { FreeBookingMatchNote } from './_components/free-booking-match-note';
+import {
+  buildFreeBookingMatches,
+  type BusinessMatchRow,
+  type FreeBookingMatch,
+} from '@/lib/business-free-booking-match';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   buildVerificationChecks,
@@ -681,6 +687,15 @@ async function ApplicationsSurface({
   );
   for (const { id, report } of checkReports) checksMap[id] = report;
 
+  // ── ONE FREE FIRST BOOKING PER BUSINESS (owner 2026-11-06) ──────────────
+  // DECISION_LOG "…THE NEW-ACCOUNT LOOPHOLE IS CLOSED AT THE VERIFICATION
+  // DESK": the registration number, phone and payout account are matched
+  // against other shops, and the match shows here with links (read-only). The
+  // match is `booking_fee_business_matches` — the SAME function the charge
+  // asks, so the desk and the bill agree on who is one business.
+  // 🔑 A REFUSED READ IS NOT "NO MATCH": the card says it could not check.
+  const freeBookingMatchMap = await readFreeBookingMatches(admin, fullRows.map((r) => r.vendor_profile_id));
+
   // Post-demotion re-verification fee, resolved from service_catalog (retired
   // inactive by the 20260702 migration → ₱0 / "Free"). Never hardcoded so the
   // demoted-vendor card can't advertise a fee that no longer exists.
@@ -725,6 +740,7 @@ async function ApplicationsSurface({
                   validateContacts={validateContacts}
                   dossierRow={dossierMap[r.vendor_profile_id] ?? null}
                   checks={checksMap[r.application_id] ?? null}
+                  freeBookingMatch={freeBookingMatchMap[r.vendor_profile_id] ?? null}
                 />
               </li>
             ))}
@@ -751,6 +767,56 @@ async function ApplicationsSurface({
       )}
     </>
   );
+}
+
+/**
+ * The same-business match for every shop on screen, in three reads however many
+ * shops there are: the match (one RPC), the matched shops' names, and this
+ * shop's own bookings billed inside its free place. A failed match read leaves
+ * every card "could not check"; a failed names read leaves names unreadable,
+ * never the match empty.
+ */
+async function readFreeBookingMatches(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileIds: string[],
+): Promise<Record<string, FreeBookingMatch>> {
+  const ids = Array.from(new Set(vendorProfileIds.filter(Boolean)));
+  if (ids.length === 0) return {};
+  const [matchRes, withheldRes] = await Promise.all([
+    admin.rpc('booking_fee_business_matches', { p_vendor_profile_ids: ids }),
+    admin
+      .from('booking_fee_ledger')
+      .select('vendor_profile_id, free_booking_withheld_reason, is_free_booking')
+      .in('vendor_profile_id', ids)
+      .or('free_booking_withheld_reason.not.is.null,is_free_booking.eq.true'),
+  ]);
+  if (matchRes.error) logQueryError('AdminVerifyPage (booking_fee_business_matches)', matchRes.error);
+  if (withheldRes.error) logQueryError('AdminVerifyPage (booking_fee_ledger withheld)', withheldRes.error);
+  const rows = matchRes.error ? null : ((matchRes.data ?? []) as BusinessMatchRow[]);
+  const otherIds = Array.from(new Set((rows ?? []).map((r) => r.other_vendor_profile_id)));
+  const names: Record<string, string> = {};
+  if (otherIds.length > 0) {
+    const { data: nameRows, error: nameErr } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .in('vendor_profile_id', otherIds);
+    if (nameErr) logQueryError('AdminVerifyPage (matched shop names)', nameErr);
+    for (const n of (nameRows ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>) {
+      names[n.vendor_profile_id] = n.business_name ?? '';
+    }
+  }
+  return buildFreeBookingMatches({
+    reviewedIds: ids,
+    rows,
+    names,
+    withheldRows: withheldRes.error
+      ? null
+      : ((withheldRes.data ?? []) as Array<{
+          vendor_profile_id: string;
+          free_booking_withheld_reason: string | null;
+          is_free_booking: boolean | null;
+        }>),
+  });
 }
 
 function parseApplicationsTab(raw: string | undefined): {
@@ -837,6 +903,7 @@ function ApplicationCard({
   validateContacts,
   dossierRow,
   checks,
+  freeBookingMatch,
 }: {
   application: ApplicationRow;
   confirmation: ContactConfirmation;
@@ -844,6 +911,8 @@ function ApplicationCard({
   dossierRow: DossierRow | null;
   /** null when the checks could not be built at all — the card says so. */
   checks: VerificationChecksReport | null;
+  /** Same-business shops + the free first booking. null = could not check (said on the card). */
+  freeBookingMatch: FreeBookingMatch | null;
 }) {
   const completeCount = countCompleteSlots(application.doc_uploads);
   const slaTone = computeSlaTone(
@@ -899,6 +968,8 @@ function ApplicationCard({
           <StatusBadge status={application.status} />
         </div>
       </header>
+
+      <FreeBookingMatchNote match={freeBookingMatch} />
 
       <div className="grid gap-3 text-xs text-ink/65 sm:grid-cols-2">
         <div className="space-y-0.5">

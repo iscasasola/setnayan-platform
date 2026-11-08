@@ -111,12 +111,17 @@ export function shopPageGate(
 }
 
 /** The banner's words and its one next step, per reason. Owner's own first line, 23 Oct 2026. */
+/** Today's step 5 "Send your documents" — the fold `supplier-setup-folds.tsx` anchors as `setup-docs`. */
+export const TODAY_DOCUMENTS_STEP_HREF = '/vendor-dashboard#setup-docs';
+
 export const TEAM_PREVIEW_HEAD = 'Only you and your team can see this.';
 
 export const TEAM_PREVIEW_COPY: Record<ShopPreviewReason, { line: string; action: { label: string; href: string } }> = {
   documents: {
     line: 'Couples will see it once your documents are approved.',
-    action: { label: 'Send your documents', href: '/vendor-dashboard/profile#docs' },
+    // Today's own documents step (`supplier-setup-folds.tsx` → anchor `setup-${key}`, key 'docs'; the six steps show
+    // while a shop is not yet approved — exactly this reason), not Shop ⚙ › Verification. Owner 2026-11-07.
+    action: { label: 'Send your documents', href: TODAY_DOCUMENTS_STEP_HREF },
   },
   in_review: {
     line: 'Couples will see it once Setnayan finishes checking your documents.',

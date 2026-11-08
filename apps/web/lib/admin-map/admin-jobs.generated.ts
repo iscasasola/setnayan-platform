@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 327 jobs, 208 of them form-driven, as of db50d7ecbe.
+// that performs it. 325 jobs, 207 of them form-driven, as of 6732cd9bf7.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1219,15 +1219,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "liftFindLock",
-    "phrase": "lift find lock",
-    "ownerPath": "/admin/verify",
-    "resolvedPath": "/admin/verify",
-    "fields": [],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "makeSmallCopiesOfOldPhotosAction",
     "phrase": "make small copies of old photos",
     "ownerPath": "/admin/papic-storage",
@@ -1275,8 +1266,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/categories",
     "resolvedPath": "/admin/categories",
     "fields": [
-      "id",
+      "canonical_service",
       "hint_en",
+      "id",
       "slot_key",
       "label",
       "category_id",
@@ -1551,6 +1543,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/payments",
     "resolvedPath": "/admin/payments",
     "fields": [
+      "intent",
       "order_id",
       "reason",
       "proof_url",
@@ -2313,20 +2306,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [
       "invite_id"
-    ],
-    "destructive": true
-  },
-  {
-    "name": "revokeBadgeFeeWaiver",
-    "phrase": "revoke badge fee waiver",
-    "ownerPath": "/admin/gifts",
-    "resolvedPath": "/admin/gifts",
-    "fields": [
-      "reward_id",
-      "reason"
-    ],
-    "refusedWhenEmpty": [
-      "reason"
     ],
     "destructive": true
   },

@@ -37,7 +37,13 @@ import {
   bookingFeeScheduleSummary,
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE, FREE_BOOKING_LIMIT, isFreeBooking } from '@/lib/booking-fee-lock';
+import {
+  FIRST_BOOKING_ON_US_CLAUSE,
+  FREE_BOOKING_LIMIT,
+  freeHeldBackSentence,
+  isFreeBooking,
+  type FreeHeldBack,
+} from '@/lib/booking-fee-lock';
 import { monthDay } from '@/lib/format-date';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
 import { freeWindowEndsLabel } from './booking-fee-free-window';
@@ -89,16 +95,25 @@ export type BookingFeeStanding =
       schedule: BookingFeeSchedule;
       /** ISO end of the window, or null when it is open-ended. */
       endsAt: string | null;
+      /** Set when the shop's own free place was withheld (see `billable`). */
+      freeHeldBack?: FreeHeldBack;
     }
-  /**
-   * Booking 2+ with a fee. `badgeReward` (owner 2026-11-05): a free booking fee — a badge reward from 1,000 events —
-   * PAID this booking ('this', the charge reads ₱0) or is WAITING for the shop's next booking with a fee ('next').
-   */
   | {
       kind: 'billable';
       ordinal: number;
       ordinalIsFrozen: boolean;
       schedule: BookingFeeSchedule;
+      /**
+       * 🛡 ONE FREE FIRST BOOKING PER BUSINESS (owner 2026-11-06). Set when this
+       * booking sits inside the shop's OWN free place but is billed because the
+       * business already spent it under another account — or, frozen only, because
+       * the match could not run and the charge failed closed.
+       */
+      freeHeldBack?: FreeHeldBack;
+      /**
+       * 🏅 A FREE BOOKING FEE (badge reward, owner 2026-11-05) — a badge reward from 1,000 events PAID this booking
+       * ('this', the charge reads ₱0) or is WAITING for the shop's next booking with a fee ('next').
+       */
       badgeReward?: 'this' | 'next';
     }
   /**
@@ -199,11 +214,21 @@ function effectiveRateText(feePhp: number, totalPhp: number): string | null {
  * agreed in between moves it. The two are worded differently rather than the
  * projection being presented as a fact.
  */
-function feePositionSentence(ordinal: number, frozen: boolean, free: boolean): string {
+function feePositionSentence(
+  ordinal: number,
+  frozen: boolean,
+  free: boolean,
+  heldBack?: FreeHeldBack,
+  promo = false,
+): string {
   // ⚠ ONE SENTENCE, SHARED WITH THE RECEIPT. `freeBookingSentence` is what
   // `waivedFeeCopy` also reads, so what is promised before the booking is what
   // is confirmed after it — this used to be typed out twice.
   if (free) return freeBookingSentence(ordinal, frozen ? 'is' : 'would');
+  // 🛡 The shop's own first booking, billed because its BUSINESS already used the
+  // free one (owner 2026-11-06). "Your first booking was on us; this is number 1"
+  // would contradict itself, so it says what actually happened.
+  if (heldBack) return freeHeldBackSentence(heldBack, promo ? 'promo' : frozen ? 'is' : 'would');
   return frozen
     ? `Your first booking from Setnayan was on us; this is number ${ordinal}.`
     : `Your first booking from Setnayan was on us; this would be number ${ordinal}.`;
@@ -279,6 +304,8 @@ export function bookingFeeForecast(
         standing.ordinal,
         standing.ordinalIsFrozen,
         standing.kind === 'free',
+        standing.kind === 'free' ? undefined : standing.freeHeldBack,
+        promo,
       );
       const total = Number(totalPhp);
       // ⚠ NO AMOUNT ⇒ SAY SO, NEVER A BARE "Free". The position and the schedule

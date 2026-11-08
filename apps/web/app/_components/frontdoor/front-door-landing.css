@@ -1,0 +1,1508 @@
+/**
+ * front-door-landing.css — the signed-out front page: the hero and the sections below it.
+ *
+ * PORTED, NOT REDRAWN, from `prototypes/front_page_2026-11-04.html` (owner-approved 4 Nov 2026). A delta
+ * between this and the prototype is a defect in the PORT, not a fresh design decision.
+ *
+ * ─── WHAT CHANGED IN THE TRANSLATION, AND ONLY THIS ──────────────────────────────────────────────────────
+ *   • The prototype sizes itself with `@container vp` and `cqi`/`cqw` so it can preview a phone and a desktop
+ *     side by side. Here the viewport IS the frame, so those became the app's own width breakpoints —
+ *     701 (tablet band) · 1024 (the rail) · 1280 · 1440 — and `vw`. The problems list's own container
+ *     (600 / 980 px of list) became 701 and 1280 of viewport, which is where the list reaches those widths
+ *     once the rail and the gutters are taken off.
+ *   • Tokens are the app's own (`globals.css`: `--color-*`, `--ink-soft`, `--m-*`, `--surface`,
+ *     `--accent-soft`, `--m-r-*`); the prototype copied the same values into a `:root` of its own, which this
+ *     file does not repeat. Dark follows `html.dark`, exactly as every token does.
+ *   • Every class is `fl-` (front landing) and sits under `.fd`, so nothing here reaches another page.
+ *
+ * ─── THE HERO RULE (owner, "images are too cut", 4 Nov — for all three marketing pages) ─────────────────
+ *   phone:  the photo covers, at `object-position: var(--px, 50%) 28%`;
+ *   ≥1024:  the hero is `min(100svh − bar, max(600px, 58vw))` tall, and a photo carrying `--dr` shows its
+ *           FULL HEIGHT (`height: 100%; width: auto`), anchored right and pushed right by `--dr`. The slow
+ *           zoom is 2.5 %.
+ */
+
+/* ── shared pieces ─────────────────────────────────────────────────────────────────────────────── */
+
+.fd .fl-hero,
+.fd .fl-landing .fl-sec:not(.fl-shelves),
+.fd .fl-close,
+.fd .fl-foot {
+  font-family: var(--font-hanken), var(--fd-sys);
+}
+.fd .fl-gutter {
+  padding: 0 16px;
+}
+.fd .fl-nw {
+  white-space: nowrap;
+}
+.fd .fl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--m-r-full);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease, border-color 0.18s ease;
+}
+.fd .fl-btn:active {
+  transform: scale(0.97);
+}
+.fd .fl-btn-line {
+  background: transparent;
+  color: rgb(var(--color-ink));
+  border: 1px solid rgb(var(--color-ink) / 0.28);
+}
+.fd .fl-btn-line:hover {
+  border-color: rgb(var(--color-ink) / 0.6);
+}
+.fd .fl-more {
+  color: rgb(var(--color-link));
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+}
+.fd .fl-more:hover {
+  color: rgb(var(--color-link-600));
+  text-decoration: underline;
+}
+.fd .fl-fine {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-free {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--color-ok));
+}
+.fd .fl-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+
+/* ── 1 · HERO ──────────────────────────────────────────────────────────────────────────────────── */
+
+.fd .fl-hero {
+  position: relative;
+  display: grid;
+  align-content: end;
+  /* Phone: the first screen, less the top bar and a peek of what follows. */
+  min-height: calc(100svh - var(--fd-bar) - 64px);
+  overflow: hidden;
+  isolation: isolate;
+  color: rgb(var(--color-ink));
+}
+.fd .fl-hero-photo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+.fd .fl-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+.fd .fl-slide-on {
+  opacity: 1;
+}
+.fd .fl-slide img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--px, 50%) 28%;
+  display: block;
+}
+.fd .fl-slide-on img {
+  animation: fl-kb 6s ease-out forwards;
+}
+@keyframes fl-kb {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.025);
+  }
+}
+.fd .fl-hero-photo::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80%;
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--color-cream) / 0) 0%,
+    rgb(var(--color-cream) / 0.62) 28%,
+    rgb(var(--color-cream) / 0.93) 50%,
+    rgb(var(--color-cream)) 100%
+  );
+}
+.fd .fl-picker {
+  /* The shared PickMenu pill, placed on the photo; it keeps its own look (white glass, terracotta ▾). */
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 3;
+}
+.fd .fl-hero-copy {
+  position: relative;
+  z-index: 1;
+  padding: 140px 20px 28px;
+  display: grid;
+  gap: 12px;
+  align-content: end;
+}
+.fd .fl-eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--m-mulberry-deep);
+}
+.fd .fl-h1 {
+  margin: 0;
+  font-size: clamp(34px, 9.2vw, 42px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+.fd .fl-word {
+  font-style: normal;
+  color: var(--m-mulberry-deep);
+  display: inline-block;
+  transition: opacity 0.26s ease, transform 0.26s ease;
+}
+.fd .fl-word-out {
+  opacity: 0;
+  transform: translateY(0.18em);
+}
+.fd .fl-h1-on {
+  display: block;
+  font-size: 0.5em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgb(var(--ink-soft));
+  margin-top: 0.45em;
+}
+.fd .fl-hero-lede {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-hero-lede b {
+  font-weight: 500;
+  color: rgb(var(--color-ink));
+}
+.fd .fl-hero .fl-ctas {
+  gap: 10px;
+  margin-top: 4px;
+}
+.fd .fl-hero .fl-ctas .fl-btn {
+  flex: 1 1 100%;
+}
+.fd .fl-hero .fl-ctas .fd-opening-alt {
+  flex: 1 1 100%;
+  text-align: center;
+  padding: 10px 0;
+}
+.fd .fl-truths {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  font-size: 13px;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-sep {
+  opacity: 0.5;
+}
+/* The Papic line takes its own row, as drawn on a phone — which also anchors its closed ⓘ popover at the
+   copy's left edge, so the popover never hangs past a 320px screen (measured: it widened the page to 332px). */
+.fd .fl-truths-papic {
+  flex-basis: 100%;
+}
+
+/* ── shared section frame ──────────────────────────────────────────────────────────────────────── */
+
+.fd .fl-sec {
+  padding: 40px 16px;
+}
+.fd .fl-sec + .fl-sec {
+  border-top: 1px solid var(--m-line-soft);
+}
+.fd .fl-head {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.fd .fl-kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--ink-soft));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fd .fl-kicker::before {
+  content: '';
+  width: 22px;
+  height: 2px;
+  background: rgb(var(--color-terracotta));
+}
+.fd .fl-head h2,
+.fd .fl-co-copy h2,
+.fd .fl-sup-copy h2,
+.fd .fl-close h2 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  text-wrap: balance;
+  color: rgb(var(--color-ink));
+}
+.fd .fl-lede {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-dots {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.fd .fl-dots li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.fd .fl-dots li::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-terracotta));
+  margin-top: 8px;
+}
+
+/* ── 1b · EVERY KIND OF EVENT — two rows that drift past ──────────────────────────────────────── */
+
+.fd .fl-evtypes {
+  min-width: 0;
+}
+.fd .fl-etrow {
+  overflow: hidden;
+  contain: inline-size;
+  min-width: 0;
+  margin: 0 -16px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.fd .fl-etrow + .fl-etrow {
+  margin-top: 12px;
+}
+.fd .fl-ettrack {
+  display: flex;
+  gap: 12px;
+  width: max-content;
+  animation: fl-et-scroll 60s linear infinite;
+}
+.fd .fl-etrow-b .fl-ettrack {
+  animation-direction: reverse;
+  animation-duration: 54s;
+}
+.fd .fl-etrow:hover .fl-ettrack {
+  animation-play-state: paused;
+}
+.fd .fl-et {
+  position: relative;
+  margin: 0;
+  width: 150px;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--m-r-md);
+  /* Rounded by clip-path, NOT overflow: a tile in a sliding row is half off-screen by design, and an overflow
+     clip makes the tile itself the clipping box (the-page-never-scrolls-sideways.spec.ts reads it that way). */
+  clip-path: inset(0 round var(--m-r-md));
+  background: #1d1a15;
+}
+.fd .fl-et img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fd .fl-et::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(14 12 9 / 0.78), rgb(14 12 9 / 0) 48%);
+}
+.fd .fl-et figcaption {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fbfaf7;
+}
+@keyframes fl-et-scroll {
+  to {
+    transform: translateX(calc(-50% - 6px));
+  }
+}
+
+/* ── 2 · THE SAMPLE — one Event Hub, personal for every guest ─────────────────────────────────── */
+
+.fd .fl-viewer {
+  display: grid;
+  grid-template-areas: 'ctl' 'frame' 'copy';
+  gap: 20px;
+  margin-top: 4px;
+}
+.fd .fl-viewer-ctl {
+  grid-area: ctl;
+}
+.fd .fl-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  font-weight: 500;
+  font-size: 15px;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-pick > button {
+  border: 1px solid rgb(var(--color-ink) / 0.3);
+}
+.fd .fl-phone {
+  grid-area: frame;
+  position: relative;
+  width: min(296px, 82%);
+  aspect-ratio: 9 / 18.5;
+  margin: 0 auto;
+  border-radius: var(--m-r-xl);
+  background: #1b1917;
+  padding: 9px;
+  box-shadow: 0 2px 6px rgba(44, 42, 41, 0.06), 0 24px 48px -20px rgba(44, 42, 41, 0.28);
+}
+.fd .fl-glass {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--m-r-lg);
+  overflow: hidden;
+  /* The sample's own ivory (its fixtures' palette), behind its own pages. */
+  background: #fbf7f1;
+}
+.fd .fl-tag,
+.fd .fl-scrollhint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 9px;
+  border-radius: var(--m-r-full);
+  background: rgb(23 22 15 / 0.72);
+  color: #fbfaf7;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.fd .fl-tag {
+  top: 10px;
+}
+.fd .fl-scrollhint {
+  bottom: 12px;
+  transition: opacity 0.4s;
+}
+.fd .fl-scrolled .fl-scrollhint {
+  opacity: 0;
+}
+.fd .fl-screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  background: #fbf7f1;
+}
+.fd .fl-screen::-webkit-scrollbar {
+  display: none;
+}
+.fd .fl-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.fd .fl-viewer-copy {
+  grid-area: copy;
+}
+.fd .fl-who-copy {
+  display: none;
+}
+.fd .fl-viewer[data-who='guest'] .fl-screen[data-who='guest'],
+.fd .fl-viewer[data-who='guest-with-role'] .fl-screen[data-who='guest-with-role'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.fd .fl-viewer[data-who='guest'] .fl-who-copy[data-who='guest'],
+.fd .fl-viewer[data-who='guest-with-role'] .fl-who-copy[data-who='guest-with-role'] {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.fd .fl-who {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-who-copy h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: rgb(var(--color-ink));
+}
+.fd .fl-line {
+  margin: 0;
+  font-size: 15px;
+  color: rgb(var(--ink-soft));
+  line-height: 1.5;
+}
+.fd .fl-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-custom {
+  margin: 24px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--m-line-soft);
+}
+
+/* ── 2b · THE SHELVES — the shipped feed, inside the section's gutter ─────────────────────────── */
+
+.fd .fl-shelves > .fl-kicker {
+  margin-bottom: 4px;
+}
+
+/* ── 3 · WHAT IT SOLVES — feel the problem, then the turn ─────────────────────────────────────── */
+
+.fd .fl-solves-list {
+  display: grid;
+  gap: 52px;
+}
+.fd .fl-solves:not(.fl-open) .fl-solve-more {
+  display: none;
+}
+.fd .fl-solve {
+  display: block;
+  min-width: 0;
+}
+.fd .fl-scene {
+  position: relative;
+  display: grid;
+  margin: 0 -16px;
+  overflow: hidden;
+  background: #15130f;
+}
+.fd .fl-ph {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  display: block;
+  filter: saturate(0.72) contrast(1.06) brightness(0.92);
+  transition: transform 7s cubic-bezier(0.2, 0.6, 0.2, 1), filter 1.6s ease;
+}
+.fd .fl-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgb(14 12 9 / 0.96) 0%,
+    rgb(14 12 9 / 0.88) 34%,
+    rgb(14 12 9 / 0.45) 56%,
+    rgb(14 12 9 / 0) 74%
+  );
+}
+.fd .fl-scene figcaption {
+  grid-area: 1 / 1;
+  align-self: end;
+  position: relative;
+  z-index: 2;
+  padding: 22px 20px 26px;
+  color: #fbfaf7;
+}
+.fd .fl-n {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(251 250 247 / 0.8);
+}
+.fd .fl-t {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fbfaf7;
+}
+.fd .fl-pain {
+  display: block;
+  margin-top: 8px;
+  max-width: 24ch;
+  font-size: clamp(21px, 5.6vw, 30px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 14px rgb(0 0 0 / 0.55);
+  text-wrap: balance;
+  transition: opacity 0.9s ease 0.25s, transform 0.9s ease 0.25s;
+}
+.fd .fl-answer {
+  padding: 20px 0 0;
+  min-width: 0;
+}
+.fd .fl-with {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--color-mulberry));
+}
+.fd .fl-with::before {
+  content: '';
+  width: 28px;
+  height: 2px;
+  background: currentColor;
+}
+.fd .fl-ans {
+  margin: 8px 0 0;
+  font-size: 19px;
+  line-height: 1.42;
+  color: rgb(var(--color-ink));
+  text-wrap: pretty;
+}
+.fd .fl-act {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 4px;
+  margin-top: 10px;
+}
+.fd .fl-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  max-width: 100%;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgb(var(--color-mulberry));
+  text-decoration: none;
+}
+.fd .fl-go i {
+  display: inline-block;
+  font-style: normal;
+  transition: transform 0.25s ease;
+}
+.fd .fl-go:hover i {
+  transform: translateX(4px);
+}
+.fd .fl-act .fl-fine {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+.fd .fl-solves-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+/* ── 3b · FOR COORDINATORS — a light band before the suppliers' ───────────────────────────────── */
+
+.fd .fl-co {
+  display: grid;
+  gap: 22px;
+}
+.fd .fl-co-photo {
+  margin: 0;
+  border-radius: var(--m-r-md);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: var(--m-paper-2);
+}
+.fd .fl-co-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fd .fl-co-copy {
+  display: grid;
+  gap: 14px;
+}
+.fd .fl-co-copy h2 {
+  font-size: clamp(28px, 7vw, 46px);
+}
+.fd .fl-co-copy h2 em,
+.fd .fl-sup-copy h2 em {
+  font-style: normal;
+  color: rgb(var(--color-mulberry));
+}
+.fd .fl-co-tools {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  border-top: 1px solid var(--m-line);
+}
+.fd .fl-co-tools li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--m-line);
+}
+.fd .fl-co-tools .fl-free {
+  grid-row: 1 / 3;
+  align-self: start;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--color-mulberry));
+}
+.fd .fl-co-tools b {
+  font-size: 15px;
+  color: rgb(var(--color-ink));
+}
+.fd .fl-d {
+  font-size: 14.5px;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-co .fl-ctas {
+  gap: 12px 20px;
+  margin-top: 6px;
+}
+
+/* ── 4 · FOR SUPPLIERS — a dark band: the people behind every event ───────────────────────────── */
+
+.fd .fl-sup {
+  display: grid;
+  /* One column held to the band's width: the crew strip inside is max-content wide, and an auto column would
+     grow to fit it, putting the strip's clipping box past the screen edge. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  background: #15130f;
+  color: #fbfaf7;
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+}
+.fd .fl-sec + .fl-sup,
+.fd .fl-sup + .fl-sec {
+  border-top: 0;
+}
+.fd .fl-crew {
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+}
+.fd .fl-track {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  animation: fl-crew 42s linear infinite;
+}
+.fd .fl-dup {
+  display: flex;
+  gap: 10px;
+}
+@keyframes fl-crew {
+  to {
+    transform: translateX(calc(-50% - 5px));
+  }
+}
+.fd .fl-tile {
+  position: relative;
+  margin: 0;
+  width: 46vw;
+  max-width: 220px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--m-r-md);
+  /* clip-path, not overflow — see .fl-et. */
+  clip-path: inset(0 round var(--m-r-md));
+  background: #24211b;
+}
+.fd .fl-tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fd .fl-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(14 12 9 / 0.78), rgb(14 12 9 / 0) 46%);
+}
+.fd .fl-tile figcaption {
+  position: absolute;
+  left: 12px;
+  bottom: 11px;
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fbfaf7;
+}
+.fd .fl-sup-copy {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px;
+}
+.fd .fl-sup .fl-kicker {
+  color: rgb(251 250 247 / 0.7);
+}
+.fd .fl-sup-copy h2 {
+  font-size: clamp(30px, 7.6vw, 52px);
+  line-height: 1.06;
+  color: #fbfaf7;
+}
+.fd .fl-sup-copy h2 em {
+  color: rgb(251 250 247 / 0.62);
+}
+.fd .fl-sup .fl-lede {
+  color: rgb(251 250 247 / 0.76);
+}
+.fd .fl-three {
+  margin: 6px 0 0;
+  display: grid;
+  border-top: 1px solid rgb(251 250 247 / 0.14);
+}
+.fd .fl-three div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgb(251 250 247 / 0.14);
+}
+.fd .fl-three dt {
+  font-weight: 700;
+  font-size: 15px;
+  color: #fbfaf7;
+}
+.fd .fl-three dd {
+  margin: 0;
+  font-size: 15px;
+  color: rgb(251 250 247 / 0.72);
+}
+.fd .fl-sup .fl-ctas {
+  gap: 12px 20px;
+  margin-top: 8px;
+}
+.fd .fl-sup .fl-more {
+  color: #fbfaf7;
+}
+
+/* ── 5 · WHAT YOU GET ─────────────────────────────────────────────────────────────────────────── */
+
+.fd .fl-plans {
+  display: grid;
+  gap: 12px;
+}
+.fd .fl-plan {
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-r-lg);
+  padding: 20px 18px;
+  display: grid;
+  gap: 12px;
+  background: var(--surface);
+  align-content: start;
+  color: rgb(var(--color-ink));
+}
+.fd .fl-plan-free {
+  border-color: rgb(var(--color-ink) / 0.55);
+  box-shadow: 0 1px 2px rgba(44, 42, 41, 0.05), 0 10px 30px -14px rgba(44, 42, 41, 0.18);
+}
+.fd .fl-plan-pro {
+  border-color: rgb(var(--color-terracotta));
+  box-shadow: 0 1px 2px rgba(44, 42, 41, 0.05), 0 10px 30px -14px rgba(44, 42, 41, 0.18);
+}
+.fd .fl-plan-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fd .fl-plan-name h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.fd .fl-price {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.fd .fl-price small {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(var(--ink-soft));
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+.fd .fl-price-none {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-plan-one {
+  margin: 0;
+  font-size: 14px;
+  color: rgb(var(--ink-soft));
+  line-height: 1.45;
+}
+.fd .fl-plan-one b {
+  font-weight: 600;
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+}
+.fd .fl-plan .fl-dots {
+  gap: 7px;
+  font-size: 14px;
+}
+.fd .fl-plan .fl-dots li::before {
+  margin-top: 7px;
+}
+.fd .fl-plan .fl-btn {
+  justify-self: start;
+  /* Three cards share 701px in the tablet band; a label that cannot wrap pushed the page sideways. */
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  padding-block: 10px;
+}
+.fd .fl-plan-note {
+  margin: 0;
+  font-size: 13px;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-pmore {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.fd .fl-pmore > div {
+  overflow: hidden;
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+}
+.fd .fl-plan.fl-open .fl-pmore {
+  grid-template-rows: 1fr;
+}
+.fd .fl-pmore > div > *:first-child {
+  margin-top: 4px;
+}
+.fd .fl-pmore ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.fd .fl-pg {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--m-line-soft);
+}
+.fd .fl-fg {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--color-terracotta));
+}
+.fd .fl-plan .fl-fine,
+.fd .fl-addons .fl-fine {
+  font-size: 12.5px;
+}
+.fd .fl-ptoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(var(--color-mulberry));
+  cursor: pointer;
+}
+.fd .fl-ptoggle i {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.35s ease;
+}
+.fd .fl-plan.fl-open .fl-ptoggle i {
+  transform: translateY(2px) rotate(-135deg);
+}
+.fd .fl-addons {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.fd .fl-addons > .fl-fg {
+  margin-bottom: 6px;
+}
+.fd .fl-atiles {
+  contain: inline-size;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 72%;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  margin: 0 -16px;
+  padding: 4px 16px 8px;
+  scrollbar-width: none;
+}
+.fd .fl-atiles::-webkit-scrollbar {
+  display: none;
+}
+.fd .fl-atile {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--m-r-lg);
+  /* clip-path, not overflow — see .fl-et. */
+  clip-path: inset(0 round var(--m-r-lg));
+  scroll-snap-align: start;
+  color: #fbfaf7;
+  text-decoration: none;
+  background: #1d1a15;
+  isolation: isolate;
+}
+.fd .fl-atile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.fd .fl-atile:hover img {
+  transform: scale(1.06);
+}
+.fd .fl-atile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgb(14 12 9 / 0.96),
+    rgb(14 12 9 / 0.82) 38%,
+    rgb(14 12 9 / 0.35) 60%,
+    rgb(14 12 9 / 0) 78%
+  );
+}
+.fd .fl-at {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+}
+.fd .fl-at b {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.5);
+}
+.fd .fl-at > span {
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgb(251 250 247 / 0.86);
+}
+.fd .fl-at em {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f2c9a8;
+}
+.fd .fl-addons > .fl-fine {
+  margin-top: 10px;
+}
+
+/* ── 6 · CLOSE + FOOTER ───────────────────────────────────────────────────────────────────────── */
+
+.fd .fl-close {
+  text-align: center;
+  padding: 56px 16px 48px;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  border-top: 1px solid var(--m-line-soft);
+  background: linear-gradient(to bottom, rgb(var(--color-cream)), var(--m-paper-2));
+}
+.fd .fl-close h2 {
+  font-size: 38px;
+}
+.fd .fl-close h2 em {
+  display: block;
+  font-style: italic;
+  font-weight: 400;
+  color: rgb(var(--ink-soft));
+  font-size: 0.72em;
+  margin-top: 0.2em;
+}
+.fd .fl-close .fl-ctas {
+  justify-content: center;
+  gap: 10px;
+}
+.fd .fl-foot {
+  padding: 22px 16px 28px;
+  border-top: 1px solid var(--m-line-soft);
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+  color: rgb(var(--ink-soft));
+}
+.fd .fl-foot nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.fd .fl-foot a {
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+}
+/* A 44px press on a 13px line, without moving the line (the top bar's expander). */
+.fd .fl-foot a::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
+}
+.fd .fl-foot a:hover {
+  color: rgb(var(--color-ink));
+  text-decoration: underline;
+}
+.fd .fl-foot p {
+  margin: 0;
+}
+
+/* ── MOTION — revealed as it scrolls in, only once the script says it can ─────────────────────── */
+
+.fd .fl-reveal {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fd .fl-landing[data-fl-motion] .fl-reveal:not(.fl-in) {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.fd .fl-landing[data-fl-motion] .fl-solve .fl-ph {
+  transform: scale(1.1);
+}
+.fd .fl-landing[data-fl-motion] .fl-solve.fl-in .fl-ph {
+  transform: scale(1);
+}
+.fd .fl-landing[data-fl-motion] .fl-solve:not(.fl-in) .fl-pain {
+  opacity: 0;
+  transform: translateY(12px);
+}
+@media (hover: hover) {
+  .fd .fl-btn:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* ── 11 · TABLET BAND (701–1023) and up ───────────────────────────────────────────────────────── */
+
+@media (min-width: 701px) {
+  .fd .fl-gutter {
+    padding: 0 24px;
+  }
+  .fd .fl-sec {
+    padding: 56px 32px;
+  }
+  .fd .fl-sup {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .fd .fl-hero {
+    min-height: calc(100svh - var(--fd-bar));
+    align-content: center;
+  }
+  .fd .fl-slide img {
+    object-position: 62% 30%;
+  }
+  .fd .fl-hero-photo::after {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    background: linear-gradient(
+      to right,
+      rgb(var(--color-cream)) 0%,
+      rgb(var(--color-cream) / 0.94) 26%,
+      rgb(var(--color-cream) / 0.6) 44%,
+      rgb(var(--color-cream) / 0) 64%
+    );
+  }
+  .fd .fl-hero-copy {
+    padding: 72px 24px 40px 32px;
+    max-width: 62%;
+    align-content: center;
+    gap: 18px;
+  }
+  .fd .fl-h1 {
+    font-size: clamp(40px, 4.6vw, 56px);
+  }
+  .fd .fl-hero .fl-ctas .fl-btn,
+  .fd .fl-hero .fl-ctas .fd-opening-alt {
+    flex: 0 0 auto;
+  }
+  .fd .fl-hero-lede {
+    font-size: 17px;
+    max-width: 52ch;
+  }
+  .fd .fl-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 14px 40px;
+  }
+  .fd .fl-head .fl-kicker,
+  .fd .fl-head h2,
+  .fd .fl-head .fl-lede {
+    grid-column: 1;
+  }
+  .fd .fl-head .fl-lede {
+    max-width: 70ch;
+  }
+  .fd .fl-head .fl-more {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: end;
+  }
+  .fd .fl-head h2 {
+    font-size: 36px;
+  }
+  .fd .fl-etrow {
+    margin: 0;
+  }
+  .fd .fl-et {
+    width: 200px;
+  }
+  .fd .fl-viewer {
+    grid-template-columns: minmax(280px, 330px) 1fr;
+    grid-template-areas: 'frame ctl' 'frame copy';
+    grid-template-rows: auto 1fr;
+    gap: 16px 40px;
+    align-items: start;
+  }
+  .fd .fl-viewer-ctl {
+    align-self: end;
+  }
+  .fd .fl-phone {
+    width: 100%;
+    margin: 0;
+  }
+  .fd .fl-solve {
+    max-width: 820px;
+    margin-inline: auto;
+    width: 100%;
+  }
+  .fd .fl-scene {
+    margin: 0;
+    border-radius: var(--m-r-lg);
+  }
+  .fd .fl-ph {
+    aspect-ratio: 16 / 10;
+  }
+  .fd .fl-scene figcaption {
+    padding: 32px 36px 34px;
+  }
+  .fd .fl-pain {
+    max-width: 26ch;
+    font-size: clamp(24px, 3.4vw, 32px);
+  }
+  .fd .fl-plans {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .fd .fl-atiles {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, 1fr);
+    margin: 0;
+    padding: 4px 0 8px;
+    overflow: visible;
+  }
+  .fd .fl-close h2 {
+    font-size: 52px;
+  }
+}
+
+@media (min-width: 768px) {
+  .fd .fl-sup-copy {
+    padding: 0 32px;
+  }
+  .fd .fl-tile {
+    width: 240px;
+    max-width: none;
+  }
+}
+
+/* ── 12 · DESKTOP WITH THE RAIL (≥1024) ───────────────────────────────────────────────────────── */
+
+@media (min-width: 1024px) {
+  .fd .fl-sec {
+    padding: 72px 48px;
+  }
+  .fd .fl-hero {
+    min-height: min(calc(100svh - var(--fd-bar)), max(600px, 58vw));
+  }
+  /* The hero rule: the whole photo, never cut — full height, anchored right, pushed right by --dr. */
+  .fd .fl-slide img[data-dr] {
+    left: auto;
+    right: calc(var(--dr, 0%) * -1);
+    width: auto;
+    max-width: none;
+    height: 100%;
+    object-fit: cover;
+    transform-origin: 100% 50%;
+  }
+  .fd .fl-hero-copy {
+    padding: 80px 40px 64px 48px;
+    max-width: 60%;
+  }
+  .fd .fl-h1 {
+    font-size: clamp(44px, 4.2vw, 60px);
+  }
+  .fd .fl-viewer {
+    grid-template-columns: minmax(300px, 360px) 1fr;
+    gap: 16px 64px;
+    align-items: center;
+  }
+  .fd .fl-who-copy h3 {
+    font-size: 28px;
+  }
+  .fd .fl-co {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 56px;
+    align-items: center;
+  }
+  .fd .fl-co-photo {
+    aspect-ratio: 4 / 5;
+  }
+  .fd .fl-co-tools {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 28px;
+  }
+  .fd .fl-sup {
+    padding: 88px 48px;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 56px;
+    align-items: center;
+  }
+  .fd .fl-crew {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .fd .fl-track {
+    animation: none;
+    width: auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .fd .fl-dup {
+    display: none;
+  }
+  .fd .fl-tile {
+    width: auto;
+  }
+  .fd .fl-tile:nth-child(2),
+  .fd .fl-tile:nth-child(5) {
+    transform: translateY(28px);
+  }
+  .fd .fl-sup-copy {
+    padding: 0;
+  }
+  .fd .fl-three {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    border: 0;
+  }
+  .fd .fl-three div {
+    border: 0;
+    border-top: 2px solid rgb(var(--color-mulberry));
+    padding: 12px 0 0;
+  }
+}
+
+/* The problems sit side by side once the list is wide enough to hold a photo and its answer. */
+@media (min-width: 1280px) {
+  .fd .fl-solves-list {
+    gap: 96px;
+  }
+  .fd .fl-solve {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 56px;
+    align-items: center;
+  }
+  .fd .fl-solve:nth-child(even) {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+  .fd .fl-solve:nth-child(even) .fl-scene {
+    order: 2;
+  }
+  .fd .fl-ph {
+    aspect-ratio: 4 / 3;
+  }
+  .fd .fl-pain {
+    font-size: clamp(26px, 2.4vw, 34px);
+  }
+  .fd .fl-answer {
+    padding: 0;
+  }
+  .fd .fl-ans {
+    font-size: 22px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .fd .fl-hero-copy {
+    padding: 88px 56px 80px 64px;
+    max-width: 54%;
+  }
+  .fd .fl-h1 {
+    font-size: clamp(52px, 4.1vw, 68px);
+  }
+  .fd .fl-hero-lede {
+    font-size: 19px;
+  }
+  .fd .fl-sec {
+    padding: 88px 64px;
+  }
+  .fd .fl-head h2 {
+    font-size: 42px;
+  }
+  .fd .fl-viewer {
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    gap: 16px 88px;
+  }
+  .fd .fl-plans {
+    gap: 24px;
+  }
+  .fd .fl-close h2 {
+    font-size: 64px;
+  }
+}
+
+/* ── REDUCED MOTION — the still photo, nothing drifting, nothing waiting to appear ────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .fd .fl-slide,
+  .fd .fl-word,
+  .fd .fl-reveal,
+  .fd .fl-ph,
+  .fd .fl-pain,
+  .fd .fl-pmore,
+  .fd .fl-btn {
+    transition: none;
+  }
+  .fd .fl-slide img,
+  .fd .fl-ettrack,
+  .fd .fl-track {
+    animation: none;
+  }
+  .fd .fl-etrow,
+  .fd .fl-crew {
+    overflow-x: auto;
+  }
+  /* The second copy only exists to loop the drift; standing still, it is a repeat. */
+  .fd .fl-et-dup,
+  .fd .fl-dup {
+    display: none;
+  }
+}

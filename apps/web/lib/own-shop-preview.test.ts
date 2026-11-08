@@ -93,7 +93,8 @@ test('every reason has the owner\'s first line, a "Couples will see it once" lin
   assert.equal(TEAM_PREVIEW_HEAD, 'Only you and your team can see this.');
   for (const [reason, copy] of Object.entries(TEAM_PREVIEW_COPY)) {
     assert.match(copy.line, /^Couples will see it once /, reason);
-    assert.match(copy.action.href, /^\/vendor-dashboard\//, reason);
+    // A dashboard address — Today itself (`/vendor-dashboard#setup-docs`) or one of its pages.
+    assert.match(copy.action.href, /^\/vendor-dashboard(\/|#)/, reason);
     assert.ok(copy.action.label.length > 0, reason);
     assert.doesNotMatch(`${copy.line} ${copy.action.label}`, /\b(vendor|website|site|celebration)\b/i, `house words: ${reason}`);
   }

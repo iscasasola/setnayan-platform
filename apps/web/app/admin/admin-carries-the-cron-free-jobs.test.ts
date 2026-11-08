@@ -75,6 +75,7 @@ const JOBS = [
   { fn: 'maybeRunPapicFullResDrop', what: 'the Papic full-resolution compression sweep' },
   { fn: 'maybeRunPapicNsfwRescreen', what: 'the NSFW re-screen heal for dropped screens' },
   { fn: 'maybeRunPapicUploadSweep', what: 'the removal of Papic uploads that were never recorded (save first, send later)' },
+  { fn: 'maybeRunVenueProbeSweep', what: 'the removal of venue-check test uploads a check left behind' },
   { fn: 'maybeRunDriveCopyRetry', what: 'the Google Drive copy retry' },
   { fn: 'maybeRunAnonDraftSweep', what: 'the abandoned anonymous-draft cleanup' },
   { fn: 'maybeRunPhotoDeliveryDrain', what: 'the stalled "Release to Drive" drainer' },

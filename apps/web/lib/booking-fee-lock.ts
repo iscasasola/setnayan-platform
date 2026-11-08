@@ -93,6 +93,60 @@ export function isFreeBooking(bookingOrdinal: number): boolean {
   return Number.isFinite(bookingOrdinal) && bookingOrdinal >= 1 && bookingOrdinal <= FREE_BOOKING_LIMIT;
 }
 
+/**
+ * 🛡 ONE FREE FIRST BOOKING PER BUSINESS, NOT PER ACCOUNT (owner 2026-11-06,
+ * DECISION_LOG "…THE NEW-ACCOUNT LOOPHOLE IS CLOSED AT THE VERIFICATION DESK").
+ *
+ * The answer of `public.booking_fee_business_free_standing(shop)` (migration
+ * 20271319712279): may this shop still take its business's free booking?
+ *   · `available`        — no other shop of the business (same registration
+ *                          number, phone or payout account) holds a free place;
+ *   · `used_by_business` — one does, so this shop is billed;
+ *   · `unreadable`       — the match could not run.
+ *
+ * 🔒 FAIL CLOSED: ONLY `available` permits a free booking. Anything this
+ * reader does not recognise — an error, a null, a new word — is `unreadable`.
+ */
+export type BusinessFreeStanding = 'available' | 'used_by_business' | 'unreadable';
+
+export function readBusinessFreeStanding(raw: unknown): BusinessFreeStanding {
+  if (raw === 'available' || raw === 'used_by_business') return raw;
+  return 'unreadable';
+}
+
+/** True only for `available` — the strict predicate every caller must use. */
+export function businessMayTakeFreeBooking(raw: unknown): boolean {
+  return raw === 'available';
+}
+
+/**
+ * Why a booking inside the shop's own free place was billed anyway —
+ * `booking_fee_ledger.free_booking_withheld_reason`, frozen with the ordinal.
+ */
+export type FreeHeldBack = 'business_already_used' | 'business_check_unreadable';
+
+export function readFreeHeldBack(raw: unknown): FreeHeldBack | null {
+  return raw === 'business_already_used' || raw === 'business_check_unreadable' ? raw : null;
+}
+
+/**
+ * The supplier's sentence for a held-back free booking. Names no other shop:
+ * the match may be a number somebody else typed, and the reviewer — not this
+ * line — is where the other shop is shown.
+ *
+ * `'promo'` = a free-fee promotion waives this booking anyway, so the sentence
+ * must not say it "carries the fee".
+ */
+export function freeHeldBackSentence(reason: FreeHeldBack, when: 'is' | 'would' | 'promo'): string {
+  if (reason === 'business_already_used') {
+    const used = 'Your business already used its free first booking from Setnayan under another account';
+    if (when === 'promo') return `${used}.`;
+    return when === 'is' ? `${used}, so this one carries the fee.` : `${used}, so this one would carry the fee.`;
+  }
+  if (when === 'promo') return 'We could not confirm this is your business’s first booking from Setnayan.';
+  return 'We could not confirm this is your business’s first booking from Setnayan, so the fee applies. If it is, message Setnayan and we will check.';
+}
+
 export type LockFeeDecision = {
   /** Whether a charge row should exist at all (false = flag off / off-platform). */
   charge: boolean;
@@ -110,7 +164,9 @@ export type LockFeeDecision = {
  * (flag gate, verified gate, free-booking boundary, fee base) is caught by tests.
  *
  *   • flag OFF or NOT verified  → no charge, no order (byte-identical to today)
- *   • the first (ordinal ≤ 1)   → a waived charge, NO money, NO order
+ *   • the first (ordinal ≤ 1)   → a waived charge, NO money, NO order —
+ *     ONLY when the business has not spent it on another shop (`businessFree`
+ *     is `available`); otherwise it is billed like a 2nd (fail closed)
  *   • 2nd+ with fee > 0         → a pending charge + a vendor QR order
  *   • 2nd+ but ₱0/barter total  → a cleared charge, NO order
  */
@@ -119,11 +175,13 @@ export function decideLockFee(args: {
   verified: boolean;
   bookingOrdinal: number;
   agreedTotalPhp: number | null | undefined;
+  /** `booking_fee_business_free_standing` for this shop. REQUIRED — no default, so no caller can forget it. */
+  businessFree: BusinessFreeStanding;
 }): LockFeeDecision {
   if (!args.flagEnabled || !args.verified) {
     return { charge: false, free: false, feePhp: 0, createOrder: false };
   }
-  if (isFreeBooking(args.bookingOrdinal)) {
+  if (isFreeBooking(args.bookingOrdinal) && businessMayTakeFreeBooking(args.businessFree)) {
     return { charge: true, free: true, feePhp: 0, createOrder: false };
   }
   const feePhp = bookingFeePhp(Number(args.agreedTotalPhp ?? 0));

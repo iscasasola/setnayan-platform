@@ -2601,6 +2601,17 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // left the planner unlocked FOREVER. That is precisely the "refund the money,
   // keep the feature" hole this whole reversal path exists to close; it simply
   // could not see a bill shaped like this. Read the basket's real contents.
+  if (!(await orderGrantsSetnayanAi(ctx))) return;
+  try {
+    await deactivateSetnayanAiIfUnowned(ctx);
+  } catch (e) {
+    console.error(`[sku-activation] deactivation for ${ctx.serviceKey} threw (non-fatal):`, e);
+    reportActivationFault('deactivate:SETNAYAN_AI', ctx, e);
+  }
+}
+
+/** Does this order carry Setnayan AI — directly, in an onboarding basket, or as a bundle child? */
+async function orderGrantsSetnayanAi(ctx: ActivationContext): Promise<boolean> {
   const basketItems =
     ctx.serviceKey === ONBOARDING_SERVICES_SKU
       ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
@@ -2613,11 +2624,28 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       'SETNAYAN_AI',
     ) ??
       false);
-  if (!grantsAi) return;
+  return grantsAi;
+}
+
+/**
+ * An order LEFT `ctx.eventId` without being refunded — Admin › Payments
+ * (lib/admin/service-remedies.server.ts): it MOVED to the couple's next event, or
+ * it was converted to Papic credits and switched off ('lapsed'). Clear the stored
+ * per-event flags it set there, if nothing else on that event still owns them.
+ *
+ * 🔑 NOT `deactivateOrderSku`. That is the REVERSAL path: it deletes the order's
+ * Papic grants by order_id (which a move has just re-pointed to the new event)
+ * and writes `order_refunded` ledger rows. Neither action refunds anything.
+ * Today the only stored per-event flag is Setnayan AI; every orders-backed gate
+ * already follows `orders.event_id` and `orders.status`. Call AFTER the change is
+ * committed so the re-derive sees it. NEVER throws.
+ */
+export async function rederiveStoredEventFlags(ctx: ActivationContext): Promise<void> {
   try {
+    if (!(await orderGrantsSetnayanAi(ctx))) return;
     await deactivateSetnayanAiIfUnowned(ctx);
   } catch (e) {
-    console.error(`[sku-activation] deactivation for ${ctx.serviceKey} threw (non-fatal):`, e);
-    reportActivationFault('deactivate:SETNAYAN_AI', ctx, e);
+    console.error(`[sku-activation] remedy re-derive for ${ctx.serviceKey} threw (non-fatal):`, e);
+    reportActivationFault('remedy:SETNAYAN_AI', ctx, e);
   }
 }

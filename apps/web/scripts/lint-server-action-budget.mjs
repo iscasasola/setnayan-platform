@@ -71,7 +71,16 @@ import { fileURLToPath } from 'node:url';
 // `export const dynamic` in app/dev/open-shop-lab/page.tsx, because that lab holds an inline 'use server' stand-in.
 // No unimported action was found to un-export. The production build measured 1835 routes on 2026-11-07,
 // 165 under check-vercel-route-count's ceiling of 2000, so there is room for these two.
-export const CEILING = 1232;
+// 1228 → 1228 (2026-11-05, Live Watch venue connection check, merged after the card-moderation +1; the measured total
+// after both is 1228, so the ceiling stays tight): ONE dispatcher (`studio/panood/setup/venue-check/actions.ts`,
+// `venueCheck` — start · finish · discard) instead of the three exports it would have been; no unimported export was
+// left to drop (the two kept on purpose above). No fresh `vercel build` count for this +1 — the SUM is gated by
+// check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+// TRAIN 2B (2026-11-08): the venue check's +1 landed on a tree at 1230 (main); CEILING = the count measured on the merged
+// train tree (never the sum of the arrows).
+// TRAIN 1 (2026-11-08, #7394 merging main after 2B): train 1's two (+2 on 1230) and 2B's venue check (+1) meet;
+// CEILING = the count measured on the merged tree (never the sum of the arrows).
+export const CEILING = 1233;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

@@ -304,7 +304,12 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (/^[0-9a-f]{16,64}$/i.test(replaces)) {
     const { data: gone, error: voidError } = await supabase.rpc('vendor_void_locked_qr', { p_token: replaces });
     if (voidError || (gone !== 'void' && gone !== 'already_void')) {
-      await supabase.rpc('vendor_void_locked_qr', { p_token: inserted.token });
+      // Withdraw the NEW code. If THAT refuses too, two live codes now stand for one deal — never say "nothing new
+      // was made": send the shop to its list with words that tell it to delete the one it does not want.
+      const { data: rolledBack, error: rollbackError } = await supabase.rpc('vendor_void_locked_qr', {
+        p_token: inserted.token,
+      });
+      if (rollbackError || rolledBack !== 'void') fail('replace_both_live');
       fail(gone === 'claimed' ? 'replaced_claimed' : 'issue');
     }
   }

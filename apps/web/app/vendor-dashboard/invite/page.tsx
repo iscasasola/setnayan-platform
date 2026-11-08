@@ -65,6 +65,8 @@ const BOOKED_ERRORS: Record<string, string> = {
   not_verified: LOCKED_QR_NEEDS_VERIFIED,
   replaced_claimed:
     'The code you were changing was scanned a moment ago — it is a booking now, so it stays as it was. Nothing new was made.',
+  replace_both_live:
+    'The change didn’t go through, and the new code couldn’t be withdrawn — both codes are in Booked QRs now. Delete the one you don’t want.',
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',
 };

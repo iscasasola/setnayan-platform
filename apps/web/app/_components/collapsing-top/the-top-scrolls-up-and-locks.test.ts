@@ -96,7 +96,12 @@ test('server render: the full content, then the row — the row inert until pinn
     React.createElement(
       CollapsingTopStack,
       null,
-      React.createElement(CollapsingTop, { row: React.createElement('b', null, 'row'), data: { 'today-cover': '' } }, React.createElement('h1', null, 'Cover')),
+      React.createElement(
+        CollapsingTop,
+        // `children` arrives as the third argument (react/no-children-prop); the cast only tells tsc it will.
+        { row: React.createElement('b', null, 'row'), data: { 'today-cover': '' } } as unknown as Parameters<typeof CollapsingTop>[0],
+        React.createElement('h1', null, 'Cover'),
+      ),
     ),
   );
   assert.match(html, /^<div class="sn-ct "[^>]*data-collapsing-top=""[^>]*data-today-cover=""><div class="sn-ct-full" data-ct-full=""><h1>Cover<\/h1><\/div><div class="sn-ct-row" data-ct-row="" inert=""><b>row<\/b><\/div><\/div>$/);

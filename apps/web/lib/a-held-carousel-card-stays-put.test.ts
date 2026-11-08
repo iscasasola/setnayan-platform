@@ -50,7 +50,11 @@ test('1 · while a card is held the carousel never advances — it stays, or com
 test('2 · the tick moves only as `carouselMove` says, with the held card from `holdKey`', () => {
   assert.match(SRC, /const heldIndex = holdKey === null \? -1 : cards\.findIndex\(\(c\) => c\.key === holdKey\);/);
   assert.match(SRC, /heldRef\.current = heldIndex >= 0 \? heldIndex : null;/);
-  const tick = SRC.slice(SRC.indexOf('const tick = window.setInterval('), SRC.indexOf('}, advanceMs);'));
+  // `advanceMs={0}` = no tick at all (THE ONE BUILD, 8 Nov 2026) — the interval is armed only for a positive advance.
+  assert.match(SRC, /const tick = advanceMs > 0 \? window\.setInterval\(/, 'the tick is armed with advanceMs 0');
+  assert.match(SRC, /if \(tick !== undefined\) window\.clearInterval\(tick\);/);
+  const tick = SRC.slice(SRC.indexOf('const tick = advanceMs > 0 ? window.setInterval('), SRC.indexOf('}, advanceMs) : undefined;'));
+  assert.ok(tick.length > 100, 'the tick is no longer readable here');
   assert.match(tick, /const held = heldRef\.current;/);
   assert.match(tick, /const move = carouselMove\(\{ held, at: realOf\(slot\), paused: Date\.now\(\) < pausedUntil \}\);\s*if \(move === 'stay'\) return;/);
   assert.match(tick, /move === 'return' \? track\.children\[held! \+ CAROUSEL_COPIES\] : track\.children\[slot \+ 1\]/);

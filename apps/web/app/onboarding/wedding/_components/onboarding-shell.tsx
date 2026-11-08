@@ -2002,18 +2002,15 @@ export function OnboardingShell({
     setState((s) => {
       // A carried couple wins; otherwise the person's OWN slot starts from their account name
       // (owner 2026-11-08 — own data starts filled, stays editable; the partner's slot never is).
-      const seated = coupleCarry.current ? seatCouple(r, coupleCarry.current, s) : seatSelf(r, selfName, s);
+      const seated: { brideFirstName?: string; groomFirstName?: string; brideLastName?: string; groomLastName?: string } =
+        coupleCarry.current ? seatCouple(r, coupleCarry.current, s) : seatSelf(r, selfName, s);
       return {
         ...s,
         role: r,
         ...(seated.brideFirstName !== undefined ? { brideFirstName: sanitizeName(seated.brideFirstName) } : {}),
         ...(seated.groomFirstName !== undefined ? { groomFirstName: sanitizeName(seated.groomFirstName) } : {}),
-        ...('brideLastName' in seated && seated.brideLastName !== undefined
-          ? { brideLastName: sanitizeName(seated.brideLastName) }
-          : {}),
-        ...('groomLastName' in seated && seated.groomLastName !== undefined
-          ? { groomLastName: sanitizeName(seated.groomLastName) }
-          : {}),
+        ...(seated.brideLastName !== undefined ? { brideLastName: sanitizeName(seated.brideLastName) } : {}),
+        ...(seated.groomLastName !== undefined ? { groomLastName: sanitizeName(seated.groomLastName) } : {}),
       };
     });
 

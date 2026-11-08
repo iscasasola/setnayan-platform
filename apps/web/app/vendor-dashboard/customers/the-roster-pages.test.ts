@@ -174,7 +174,7 @@ test('the render draws 20 rows, each one door, and "41–60 of 1,000"', async ()
   assert.ok(html.includes('href="?page=2#customers"'), 'Prev does not go to page 2');
   // S-PR2: the row IS the one tap (no button inside it, prototype frame 03) — and it still names its next step.
   assert.equal((html.match(/data-customer-row=/g) ?? []).length, 20, 'a row is missing');
-  assert.equal((html.match(/aria-label="[^"]+ — (Reply|Agree|Follow up|Send a quote|See the quote|See the day|Open)"/g) ?? []).length, 20, 'a row lost the words of its next step');
+  assert.equal((html.match(/aria-label="[^"]+ — (Reply|Agree|Follow up|Send a quote|See the quote|See details|Open)"/g) ?? []).length, 20, 'a row lost the words of its next step');
 });
 
 test('a search says how many it found OF EVERYONE (kind 30: "3 of 5 guests")', async () => {

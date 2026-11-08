@@ -38,19 +38,49 @@ add the class by hand so the dark rules can be judged before the area is listed.
   Schedule month: still **1 request** (the `whole` action), with 2 more DB reads inside it.
 - Shots: `sbs-43-clients`, `sbs-43-day-picked`, `sbs-43-list`, `sbs-43-details`, `sbs-43-schedule` (light + dark).
 
+### #38 — one open path
+- `lib/upcoming-schedule-door.ts`: `clientLandingPage(facts)` + `openClientHref` beside `customerCardHref` — the
+  prototype's `startPage` order: explicit page → money due (Payment; Quotation before booking) → unread → Chat →
+  asking → Chat → quoted → Quotation → event today → Hub → Details. Chat only when a thread exists.
+- Clients rows (`customers-roster.tsx` `hrefFor`): Asking (inquiry, hold) → Chat · booking ask → Details (v116
+  "Booking" falls to Details, where Today's Agree already lands) · Talking/Quoted → Quotation · Booked/Done → Details
+  (Hub on the event day) · no chat → Details. The row's door is worded by its landing (Open the chat · Open the
+  quotation · Open their details · Open their Hub); the step label "See the day" → "See details".
+- Tile rows (`clientPageHref`) go through the same path. Today's Reply cards (inquiry with an event, unread message)
+  open the client's Chat page instead of the bare thread.
+- `visiblePickedPage`: an unbooked client asked for Payment draws the Quotation (was Details) — covers every old door
+  and every `?tab=payments` notification.
+- Guard: `customers/one-open-path.test.ts`. Sabotaged: unbooked Payment → Details, `hasChat: true`, quoted before
+  unread — each caught. Old pins re-anchored with reasons (one-event-one-chat-title, the-picked-client-has-nine-pages,
+  the-customers-counts-filter-in-place, the-upcoming-row-opens-the-customer-card, people-is-rows, the-roster-pages,
+  supplier-today). Wide guard set **337 pass · 0 fail**.
+- **Requests:** 0 added — the landing is decided from what each row already carries.
+- Shots: `sbs-38-asking-opens-chat`, `sbs-38-booked-opens-details` (lab's picked client is always its stand-in).
+
 ## Not done / differs from v118 (for the controller)
 - v118's picked day swaps the tiles for that day's figures and shows "Accept bookings" + "Book a client"; the build
   keeps the month's tiles. The picked fill is still the accent — that is row #37.
 - DatesFolds (closures, caps, waitlist tools) now sit at the FOOT of the one screen — a placement call to confirm.
 - The "Events ⓘ" heading over the list is still drawn; the scope dropdown stays for shops with several schedules.
+- #38 not done — controller calls:
+  · **Messages + Notifications sheets.** The envelope opens the full-screen inbox (`SUPPLIER_CHATS_HREF`), whose rows
+    and every `relatedUrl: /vendor-dashboard/messages/<thread>` notification open the full-screen chat — kept by the
+    6 Nov ruling ("the full-screen route stays for the envelope doors"). #38 asks for them through the one path too;
+    the two rulings disagree, so I left them. If #38 wins: map a thread → its event at read time (one batched read).
+  · "Schedule/appointment → Schedule with that day picked" needs a day param on the client's Schedule page.
+  · "While a client is open the list ignores the view filter" — on a phone the list is off screen while a client is
+    open (a route); it matters for the return motion, so it rides with #27.
 - Forced dark: the opened-event pane (Schedule / Details) keeps a white ground — not dark-swept yet (not live).
 
 ## Needs
 - tsc: queued under the heavy lock behind `integrate-unit-suite` (see "Where I stopped").
 
 ## Generated files (not edited — the controller regenerates)
-- `port:baseline`, `ugat:screens` — page.tsx lost `CustomersDates` and moved `readOpenAsks` to `open-asks.ts`.
+- `port:baseline` (`lint:port-controls` lists exactly these, all deliberate):
+  /vendor-dashboard/customers — `<CheckADate>`, `<CustomersDates>` (#43), `/vendor-dashboard/clients/[seg]?tab=details`
+  (#38: the row's link now comes from `openClientHref`); /dev/clients-lab — `?v=pick&page=details`, runs `null`.
+- `ugat:screens` — page.tsx lost `CustomersDates` and moved `readOpenAsks` to `open-asks.ts`.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43 committed + pushed. Next: #38 (one open path — `customers-roster.tsx` `hrefFor` → `customerCardHref`).
+- #43 and #38 committed + pushed. Next: #37 (one picked mark on all three calendars + swipe between months).

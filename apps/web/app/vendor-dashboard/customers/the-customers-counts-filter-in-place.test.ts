@@ -198,8 +198,9 @@ test('5 · one row per EVENT — one thread per event, every row keyed by its ev
   );
   const links = html.match(/<div [^>]*data-customer-row="booked"[^>]*>/g) ?? [];
   assert.equal(links.length, 2, 'one couple with two events is not two rows');
-  assert.match(html, /href="\/vendor-dashboard\/messages\/t1"/);
-  assert.match(html, /href="\/vendor-dashboard\/messages\/t2"/, 'each event row does not open its own chat');
+  // Build 2 row #38: a row opens ITS event's client through the one open path (booked → Details), not the bare chat.
+  assert.match(html, /href="\/vendor-dashboard\/clients\/e1\?tab=details"/);
+  assert.match(html, /href="\/vendor-dashboard\/clients\/e2\?tab=details"/, 'each event row does not open its own client');
   // 2026-10-30: the row wears the EVENT's title — its whole name · kind · day (`eventRowTitle`, owner 2026-10-29 "Customers
   // are events, not people"); the chat it opens keeps its own words.
   assert.match(html, /Indalecio Casasola · Wedding · Dec 18/, 'the row does not wear the event’s title');

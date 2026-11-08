@@ -21,6 +21,7 @@ import { ListPager } from '../../_components/list-pager';
 import type { Paged } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
 import { dayHeadWords } from '@/lib/vendor-dates';
+import { clientLandingPage, openClientHref, type ClientDoorFacts, type PickedClientPage } from '@/lib/upcoming-schedule-door';
 
 /**
  * CUSTOMERS › EVENTS (People until 2026-10-30 — owner: *"Customers still show people and not events"*) — one row per
@@ -83,8 +84,8 @@ export function rosterBadge(r: RosterRow): { word: string; tone: BadgeTone } {
 
 /**
  * The words of a row's next step — what pressing it is FOR. It goes where the
- * row goes (`hrefFor`); it opens the place the step is taken, it never takes
- * it: a booking ask is answered on the customer card, with the fee shown
+ * row goes (`hrefFor`); it opens the page the step is taken on, it never takes
+ * it: a booking ask is answered on the client's Details, with the fee shown
  * before Agree.
  */
 export function nextStepLabel(r: RosterRow): string {
@@ -92,7 +93,8 @@ export function nextStepLabel(r: RosterRow): string {
   if (r.waitingKind === 'booking_ask') return 'Agree';
   if (r.lane === 'holding') return 'Follow up';
   if (r.lane === 'talking') return r.quoted ? 'See the quote' : 'Send a quote';
-  if (r.lane === 'booked') return 'See the day';
+  // Booked and Done open the client's Details (#38) — the words say so ("See the day" opened the day before).
+  if (r.lane === 'booked') return 'See details';
   return 'Open';
 }
 
@@ -115,28 +117,42 @@ function initialsOf(name: string): string {
 }
 
 /**
- * Where pressing the row actually takes the shop — its NEXT ACTION, per lane.
+ * 🚪 Where pressing the row takes the shop — that client's dashboard, through THE ONE OPEN PATH (Build 2 row #38,
+ * prototype v116 `openClient`): `clientLandingPage` picks the page by the row's kind, `customerCardHref` builds it.
+ *   Asking (an inquiry, a hold) → Chat · a booking ask → Details · Talking / Quoted → Quotation · Booked / Done → Details
+ *   (Hub on the event day) · no chat (booked by hand) → Details.
+ * It used to open the full-screen chat (2026-10-28); since v111 the chat lives IN the client (`?tab=chat`), so a row
+ * opens the client and its Chat page in one move — the full-screen route stays for the envelope's inbox (6 Nov).
  *
- * ⚠ BOTH DESTINATIONS ARE BOUND TO A LOCAL LITERALLY NAMED `href`, AND THAT IS
- * LOAD-BEARING, NOT STYLE. `lint-port-no-lost-controls` finds a route's
- * destinations with a regex that requires the token `href` immediately before
- * the string; a template literal returned straight out of a ternary is
- * invisible to it. *A guard that cannot see a control reads its absence as a
- * deletion.*
+ * ⚠ The destination is still bound to a local named `href` (`lint-port-no-lost-controls` looks for that token).
  */
-export function hrefFor(r: RosterRow): string | null {
-  // 💬 EVERY ROW WITH A CHAT OPENS THAT EVENT'S CHAT, FULL SCREEN (owner 2026-10-28, verbatim: *"What you do here is to
-  // list down the different events which will jump to chat full screen"*). The list IS the messages: one row per
-  // event, one chat per event. The customer card stays one tap away — the chat's head title opens it — and a booking
-  // ask is answered in the chat (its "They asked to book" → the booking-ask panel, fee shown before Agree).
-  if (r.threadId) {
-    const href = `/vendor-dashboard/messages/${r.threadId}`;
-    return href;
-  }
-  // No chat (booked outside Setnayan, added by hand): the customer card.
-  // 🔒 `?tab=details` IS NOT DECORATION. A bare client route is a CHAT landing since #5614.
-  const href = `/vendor-dashboard/clients/${r.eventId}?tab=details`;
+export function rosterLandingFacts(r: RosterRow, today?: string): ClientDoorFacts {
+  const booked = r.lane === 'booked' || r.lane === 'finished';
+  return {
+    booked,
+    hasChat: r.threadId !== null,
+    // A booking ask is answered on Details, where Today's "Agree" lands too (v116: "Booking" falls to Details).
+    asking: r.waitingKind !== 'booking_ask' && (r.lane === 'waiting' || r.lane === 'holding' || r.waitingKind === 'inquiry'),
+    quoted: r.lane === 'talking',
+    eventToday: today !== undefined && r.eventDate === today,
+  };
+}
+
+export function hrefFor(r: RosterRow, today?: string): string | null {
+  const href = openClientHref(r.eventId, rosterLandingFacts(r, today));
   return href;
+}
+
+/** The door's words, by the page it lands on — the button never says "chat" over a Details landing. */
+const DOOR_WORDS: Partial<Record<PickedClientPage, string>> = {
+  chat: 'Open the chat',
+  quote: 'Open the quotation',
+  hub: 'Open their Hub',
+  payments: 'Open the payment',
+};
+export function doorWordsFor(r: RosterRow, today?: string): { page: PickedClientPage; label: string } {
+  const page = clientLandingPage(rosterLandingFacts(r, today));
+  return { page, label: DOOR_WORDS[page] ?? 'Open their details' };
 }
 
 /**
@@ -231,8 +247,8 @@ export type RosterAnswers = {
  *
  * 🔁 IT OPENS NOW, it no longer jumps (the 2026-10-28 "jump to chat full screen" row, superseded by the approved v13):
  * the row is the shared `SupplierOpenRow` — in place on a phone, in the right column from 701 — and opened it shows the
- * event's fixed lines (`EventLinesBody`) and its door: Open the chat (where a booking ask is answered, the fee read
- * before Agree), or, for an inquiry, Decline · Ask a question · Accept in place.
+ * event's fixed lines (`EventLinesBody`) and its door into the client, worded by the page it lands on (#38: Open the
+ * chat · Open the quotation · Open their details · Open their Hub), or, for an inquiry, Decline · Ask · Accept in place.
  */
 export function RosterRowView({
   r,
@@ -255,7 +271,9 @@ export function RosterRowView({
   lines?: EventLines | null;
   answers?: RosterAnswers | null;
 }) {
-  const href = hrefFor(r);
+  const today = new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10);
+  const href = hrefFor(r, today);
+  const door = doorWordsFor(r, today);
   const badge = rosterBadge(r);
   // 🗂 THE ROW IS THE EVENT (owner 2026-10-29, "Customers are events, not people"): its title is the event's whole name ·
   // kind · day ("Indalecio & Claire · Wedding · Dec 18") — a couple with two events is two rows — and its line is what
@@ -309,8 +327,8 @@ export function RosterRowView({
                 <ActionButton
                   tone="brand"
                   main
-                  icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
-                  label={r.threadId ? 'Open the chat' : 'Open their card'}
+                  icon={door.page === 'chat' ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
+                  label={door.label}
                   name={`${title} — ${nextStepLabel(r)}`}
                   href={href}
                   className="min-h-11"

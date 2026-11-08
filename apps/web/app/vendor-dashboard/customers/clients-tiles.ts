@@ -1,3 +1,4 @@
+import { openClientHref, type ClientDoorFacts } from '@/lib/upcoming-schedule-door';
 /**
  * 🧮 THE CLIENTS LIST'S TILES — Booked · Schedules · Asked · To collect, then Overdue (n) › and Unread (n) › (v113
  * `listAll()` `.tot.t4` + `.qrow`; spec §9 #7, owner 2026-11-08). PURE: the page reads, this words.
@@ -75,7 +76,14 @@ export function meetingWhen(at: string | null): string {
   return `${day} · ${time}`;
 }
 
-/** Where a tile's row opens: the picked client, on the page that holds the fact. */
-export function clientPageHref(eventId: string, page: 'schedule' | 'payments' | 'chat'): string {
-  return `/vendor-dashboard/clients/${eventId}?tab=${page}`;
+/**
+ * Where a tile's row opens: the picked client, on the page that holds the fact — through THE ONE OPEN PATH (#38), so an
+ * unbooked client's money row lands on the Quotation (no Payment page before booking) and never builds its own link.
+ */
+export function clientPageHref(
+  eventId: string,
+  page: 'schedule' | 'payments' | 'chat',
+  facts: Omit<ClientDoorFacts, 'page'> = { booked: true, hasChat: true },
+): string {
+  return openClientHref(eventId, { ...facts, page });
 }

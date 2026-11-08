@@ -128,7 +128,7 @@ test('1c · the row opens; its door says its next step and goes where the step i
   // first name (owner: "Customers still show people and not events"); the people are inside, under Hosted by.
   assert.match(html, /aria-label="Ana &amp; Miguel · Wedding · [A-Z][a-z]{2} \d+(, \d{4})? — Reply"/);
   assert.match(html, /aria-label="Katrina Ocampo · Wedding · [A-Z][a-z]{2} \d+(, \d{4})? — See the quote"/);
-  assert.match(html, /aria-label="Jun &amp; Liza Cruz · Wedding · Oct 4 — See the day"/);
+  assert.match(html, /aria-label="Jun &amp; Liza Cruz · Wedding · Oct 4 — See details"/);
   assert.doesNotMatch(html, /(&#x27;|')s Wedding \(/, 'a row is named after one person again ("Jun’s Wedding (Oct 4)")');
   // No button nested in a head: the head is one button, the door lives in the opened body.
   for (const head of html.match(/<button[^>]*data-fold-head=""[\s\S]*?<\/button>/g) ?? []) {

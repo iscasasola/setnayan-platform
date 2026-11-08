@@ -60,9 +60,12 @@ test('the supplier inbox row and the supplier thread head read the one chat form
   }
 });
 
-test('a Customers row with a chat opens THAT event\'s chat (full screen); a row without one keeps the customer card', () => {
+test('a Customers row opens THAT event\'s client through the one open path; a row with a chat lands on its Chat', () => {
+  // 2026-10-28 a row with a chat opened the full-screen chat. Since v111 the chat lives IN the client (`?tab=chat`), and
+  // Build 2 row #38 (owner's 8 Nov plan) makes every client row open the client by ONE path, on the page its kind means:
+  // an ask → Chat (only when a thread exists), talking → Quotation, booked → Details. Still one event, one chat.
   const s = read('app/vendor-dashboard/customers/_components/customers-roster.tsx');
   const fn = s.slice(s.indexOf('export function hrefFor('), s.indexOf('\n}\n', s.indexOf('export function hrefFor(')));
-  assert.match(fn, /if \(r\.threadId\) \{\s*const href = `\/vendor-dashboard\/messages\/\$\{r\.threadId\}`;\s*return href;/, 'a row with a chat does not open the chat');
-  assert.match(fn, /const href = `\/vendor-dashboard\/clients\/\$\{r\.eventId\}\?tab=details`;/, 'a row with no chat lost its customer card');
+  assert.match(fn, /const href = openClientHref\(r\.eventId, rosterLandingFacts\(r, today\)\);\s*return href;/, 'a row builds its own link again');
+  assert.match(s, /hasChat: r\.threadId !== null/, 'Chat is chosen without a thread to open');
 });

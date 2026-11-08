@@ -64,8 +64,9 @@ test('2 · every ?tab= a door has ever written lands on a page', () => {
   assert.equal(pickedPageOf('quotation'), 'quote');
   assert.equal(pickedPageOf(null), 'details');
   assert.equal(pickedPageOf('nonsense'), 'details');
-  // A booked-only page asked of an unbooked client lands on Details, never an empty page.
-  assert.equal(visiblePickedPage('payments', false), 'details');
+  // A booked-only page asked of an unbooked client never draws an empty page: Payment → the Quotation (#38, no Payment
+  // page before booking — the money is the quote), Hub → Details.
+  assert.equal(visiblePickedPage('payments', false), 'quote');
   assert.equal(visiblePickedPage('hub', false), 'details');
   assert.equal(visiblePickedPage('hub', true), 'hub');
   assert.equal(wantsScriptFold('script'), true);

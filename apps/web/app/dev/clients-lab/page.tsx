@@ -35,6 +35,7 @@ import { SearchBox } from '@/app/_components/search-box';
 import { dayHeadWords } from '@/lib/vendor-dates';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
 import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { clientLandingPage } from '@/lib/upcoming-schedule-door';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
 import { detailsNumbers } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers';
 import { HostsList } from '@/app/vendor-dashboard/clients/[eventId]/_components/hosts-list';
@@ -91,7 +92,13 @@ const ROSTER = (lane: string) =>
           {dayHeadWords(DAYS[i]!, LAB_TODAY)}
         </p>
       ) : null}
-      <DatesRow data="booking" title={c.label} line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]} href="/dev/clients-lab?v=pick&page=details" />
+      {/* #38: each row lands where the one open path sends that kind — Booked → Details, Asking → Chat. */}
+      <DatesRow
+        data="booking"
+        title={c.label}
+        line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]}
+        href={`/dev/clients-lab?v=pick&page=${clientLandingPage(i === 3 ? { asking: true, hasChat: true } : { booked: true, hasChat: true })}`}
+      />
     </div>
   ));
 

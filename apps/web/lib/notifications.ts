@@ -587,7 +587,12 @@ export type NotificationType =
      question set into the event from the chat ＋; each host is told, linking to that supplier's room where they answer.
      Sent by `app/vendor-dashboard/messages/[threadId]/questions-actions.ts`. ⚠ IN-APP ONLY (no new emails): NOT on
      EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271315529466. */
-  | 'supplier_questions_sent';
+  | 'supplier_questions_sent'
+  /* 🚩 A SUPPLIER'S REPORT (owner 2026-11-08 "REPORT = SUBJECT · NOTE · ORIGIN"; THE ONE BUILD §5.4): a supplier filed a
+     Report from a picked client — subject, note and where it came from — into /admin/help; every admin is told. Sent by
+     `app/vendor-dashboard/clients/[eventId]/report-actions.ts`. ⚠ IN-APP ONLY ("admin in-app notice only, no email"):
+     NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271325510297. */
+  | 'supplier_report';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -725,6 +730,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   supplier_where_asked: 'A supplier picked their chapters',
   papic_originals_reminder: 'Keep your original photos',
   supplier_questions_sent: 'A supplier sent you questions',
+  supplier_report: 'A supplier sent a report',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -969,6 +975,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   papic_originals_reminder: 'bg-warn-100 text-warn-900',
   // A supplier waits on the couple's answers → the action-needed amber, like every other ask.
   supplier_questions_sent: 'bg-warn-100 text-warn-900',
+  // A report waits on an admin → the action-needed amber, like every other ask.
+  supplier_report: 'bg-warn-100 text-warn-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1268,6 +1276,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   supplier_where_asked: 'calendar',
   papic_originals_reminder: 'image',
   supplier_questions_sent: 'message',
+  supplier_report: 'message',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

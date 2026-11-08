@@ -29,8 +29,7 @@ import { CouplePhotosToAnswer } from './_components/couple-photos';
 import { ShopServiceRows } from './_components/shop-service-rows';
 import { readShopScanSettings, type ScanSetting } from '@/lib/supplier-scan.server';
 import { scannerChoiceOf } from '@/lib/supplier-scan';
-import { SupplierThumbRow } from '../_components/supplier-thumb-row';
-import { ActionButton } from '@/components/action-button';
+import { ShopServicesThumb } from './_components/shop-services-thumb';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
 import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
@@ -573,6 +572,9 @@ async function ShopHome({
         {/* The shipped rows carry their own "Services ⓘ" heading. */}
         <section className="px-4 pt-3" id="services">
           <ShopServiceRows rows={data.serviceRows} scan={null} />
+          <p hidden className="py-3 text-[14px] text-ink/65" data-shop-cards-none="">
+            No services match that search.
+          </p>
           <ServicesDisclosure defaultOpen>
             <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
           </ServicesDisclosure>
@@ -599,10 +601,8 @@ async function ShopHome({
           </Link>
         </section>
       </div>
-      {/* 👍 Tools in the lower third — the same one door every "Add a service" link opens. */}
-      <SupplierThumbRow name="services" label="Service actions">
-        <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add a service" href={SERVICE_MAKER_HREF} />
-      </SupplierThumbRow>
+      {/* 👍 Tools in the lower third — Search services · Show & sort · ＋ Add a service (v95). */}
+      <ShopServicesThumb />
     </>
   );
 }

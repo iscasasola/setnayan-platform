@@ -838,7 +838,7 @@ export async function VendorServicesManager({
             </Link>
           </div>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="space-y-2.5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
               const prevCov = i > 0 ? listedServices[i - 1]?.coverage_id ?? null : null;
               const showCovHeader = i === 0 || prevCov !== (svc.coverage_id ?? null);
@@ -880,7 +880,7 @@ export async function VendorServicesManager({
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
-                    <li className="px-1 pb-1 pt-3 first:pt-1">
+                    <li className="px-1 pb-1 pt-3 first:pt-1" data-shop-card-group="">
                       <p
                         className="font-mono text-[11px] font-medium uppercase tracking-[0.15em]"
                         style={{ color: 'var(--m-slate-3)' }}
@@ -891,6 +891,11 @@ export async function VendorServicesManager({
                   ) : null}
                 <li
                   id={`svc-${svc.vendor_service_id}`}
+                  // 🔎 Shop's thumb row narrows these in place (THE ONE BUILD, `shop-services-thumb.tsx`): its words,
+                  // whether it is live, and its name for "Sort · Name".
+                  data-shop-card=""
+                  data-shop-card-live={svc.is_active ? '1' : '0'}
+                  data-shop-card-name={(svc.title?.trim() || displayServiceLabel(svc.category)).toLowerCase()}
                   className="scroll-mt-24 overflow-hidden rounded-2xl border"
                   style={{
                     borderColor:

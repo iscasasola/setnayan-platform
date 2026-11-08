@@ -38,9 +38,10 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
   (`CustomersCalendar place="schedule"` via `_components/schedule-calendar.tsx`) — one part, not a second grid. The
   event's day is picked on arrival; month · week strip on scroll · legend (no "asking" mark in schedule place); it writes
   no URL (the picked client owns it), feeds no Clients figures, draws no day bar, lists no shop day rows (v113 draws the
-  schedule straight under it). Data = ONE server action on first view, `fetchScheduleCalendar(month)` in
-  `customers/actions.ts` (pools · bookings · blocks · day states · waitlist, the same trims as Dates via
-  `customers/dates-wire.ts`); the page switch itself stays 0 requests; a refused read is SAID ("Your calendar couldn't
+  schedule straight under it). Data = ONE request on first view through the EXISTING Clients month action,
+  `fetchCustomerCalendarMonth(month, { whole: true })` in `customers/actions.ts` (pools · bookings · blocks · day
+  states · waitlist, the same trims as Dates via `customers/dates-wire.ts`) — an option, not a new export, so
+  `lint-server-action-budget` stays at 1232/1232 (guarded: customers/actions.ts keeps ONE export); the page switch itself stays 0 requests; a refused read is SAID ("Your calendar couldn't
   load just now — the schedule below is unaffected"), never an empty month.
   Then `SupplierSchedule` in v113 order: how changes go · Where · the chapters (hours, crew clash) · Lock my times ·
   Asked of you · the rest. **I am `SupplierSchedule`'s only editor in this build (controller-authorized 8 Nov)** — a
@@ -114,7 +115,7 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
   (each `.catch → null`) + one users read for seat names. Show & sort / tiles / Overdue / Unread: 0 requests
   (in place). A Show & sort choice = one navigation (URL params, scroll kept).
 - Details adds 0 reads (Suppliers come from the brief already read; the Decisions line from the quote rows already read).
-- Schedule page: +1 request on first view (the `fetchScheduleCalendar` server action = 5 reads in one Promise.all; no
+- Schedule page: +1 request on first view (`fetchCustomerCalendarMonth(month, { whole: true })` = 5 reads in one Promise.all; no
   asks, no threads); switching pages after that = 0.
 
 ## Owner rulings §10 (v115) — status
@@ -127,7 +128,9 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 Dev server via the `walk:` lock, `env -i` with `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:1`-style placeholders, its
 process group killed after. Every shot: scrollWidth 375, no page errors. Labs: L1's `/dev/supplier-lab?s=dates`
 (Clients › Dates, imported, not edited) and a NEW L2 lab `app/dev/clients-lab/page.tsx` (+ `lab-calendar.ts`;
-`notFound()` first in production, never calls the server action — guard `the-lab-never-ships.test.ts`, sabotaged):
+`notFound()` first in production, never calls the server action — guard `the-lab-never-ships.test.ts`, sabotaged;
+it pins the shared `ThumbRow` itself, because `SupplierThumbRow` is a supplier-route foundation that must not load
+with a /dev route):
 `?v=events` (tiles, quick buttons, Show & sort; `&agent=1`), `?v=pick&page=details|schedule` (`&cal=fail`).
 Shots in `build-notes/shots/` (force-added; the folder is gitignored):
 - Clients list: `build-clients-month` · `build-clients-no-day` · `build-clients-week-strip-sticky-headings` ·

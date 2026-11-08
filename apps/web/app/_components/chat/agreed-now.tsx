@@ -16,7 +16,7 @@ import { readBookingChanges } from '@/lib/booking-changes.server';
 import { hostFirstName } from '@/lib/host-first-name.server';
 import { QUOTE_VERSION_SELECT, orderQuoteVersions, type QuoteVersionRow } from '@/lib/quote-versions';
 import { resolveAppointmentLabel } from '@/lib/appointments';
-import { agreedOutcome, agreedRows } from '@/lib/agreed-now';
+import { agreedOutcome, agreedRows, type AgreedOutcome, type AgreedRow } from '@/lib/agreed-now';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { ChangedRow } from './changed-row';
 
@@ -93,8 +93,22 @@ export async function AgreedNow({
     booking: { isBooked, declined: false },
     quoteBy,
   });
-  const WonIcon = TOPIC_ICON.details;
+  return <AgreedNowView outcome={outcome} rows={rows} historyLoaded={changes !== null} />;
+}
 
+/** The section itself — the reads' result drawn; labs draw it from fixtures (`/dev/chat-cards-lab`). */
+export function AgreedNowView({
+  outcome,
+  rows,
+  historyLoaded,
+  openKey = null,
+}: {
+  outcome: AgreedOutcome;
+  rows: readonly AgreedRow[];
+  historyLoaded: boolean;
+  openKey?: string | null;
+}) {
+  const Icon = TOPIC_ICON.details;
   return (
     <section data-agreed-now="" data-outcome={outcome.kind}>
       <p
@@ -103,13 +117,13 @@ export async function AgreedNow({
         }`}
         data-agreed-outcome={outcome.kind}
       >
-        <WonIcon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+        <Icon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
         {outcome.line}
       </p>
       <h2 className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/55">Agreed now</h2>
       <ul className="mt-1">
         {rows.map((r) => (
-          <ChangedRow key={r.key} row={r} loaded={r.key === 'quote' || changes !== null} />
+          <ChangedRow key={r.key} row={r} loaded={r.key === 'quote' || historyLoaded} initialOpen={r.key === openKey} />
         ))}
       </ul>
     </section>

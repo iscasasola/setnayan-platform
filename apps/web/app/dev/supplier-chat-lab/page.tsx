@@ -20,6 +20,11 @@
  *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
  *                (sample hosts; the first is the fixture couple sender)
  *
+ *   — Supplier Build 3 · lane B —
+ *   &pins=1      two automatic pins (a payment due tomorrow, a guest-count change) + one waiting on the couple
+ *   &run=meeting a (+) Meeting card open at the foot: the Running-topic pin, the (+) shut   &shut=1 the tap's toast
+ *   &blocker=1   (with m=ask) the booking ask's full-screen blocker   &shown=1|2|3 (5/30/60 s)   &left=N a fixed second
+ *
  * The forms post the REAL actions; pressing them here needs a supplier's session (the lab draws, it does not book).
  * Names are samples: nobody real.
  */
@@ -57,6 +62,8 @@ import { startersForTiles } from '@/lib/emcee-questions';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { SupplierChats, type SupplierChatsRead } from '@/app/vendor-dashboard/messages/_components/supplier-chats';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
+import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
+import type { PinFact } from '@/lib/chat-pins';
 
 /** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
 function labChatsRead(state: string): SupplierChatsRead {
@@ -197,6 +204,36 @@ export default async function SupplierChatLabPage({
     ),
   };
 
+  // 📌 Supplier Build 3 · lane B — the pins and the blocker, on fixture facts (a clock-free sample: due "tomorrow").
+  const DAY_MS = 86_400_000;
+  const labPins: PinFact[] =
+    sp.pins === '1'
+      ? [
+          { key: 'payment_due:lab-2', kind: 'payment_due', title: '₱33,750 · 2nd payment', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS, dueMs: Date.now() + DAY_MS },
+          { key: 'guest_count:lab', kind: 'guest_count', title: 'Guest count 150 → 170', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - 2 * DAY_MS },
+          { key: 'confirm_payment:lab', kind: 'confirm_payment', title: 'Your receipt for ₱11,250', answerer: 'them', themName: 'Ana & Miguel', sinceMs: Date.now() - 3 * DAY_MS },
+        ]
+      : [];
+  if (sp.blocker === '1' && askOpen) {
+    labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
+  }
+  const shown = typeof sp.shown === 'string' ? Number(sp.shown) : 1;
+  const left = typeof sp.left === 'string' ? Number(sp.left) : undefined;
+  const labBlocker =
+    sp.blocker === '1' && askOpen
+      ? {
+          pinKey: 'booking_ask:lab',
+          kind: 'booking_ask' as const,
+          subjectKey: 'booking_ask:lab',
+          topic: 'quote' as const,
+          title: 'They asked to book you',
+          why: 'Nothing is booked, and their date is not held for you, until you answer.',
+          action: toolNodes['booking-ask'],
+          labShownCount: shown,
+          labLeft: left,
+        }
+      : null;
+
   // THE ONE BUILD (8 Nov 2026) · `&embed=quotation` — the picked client's Quotation page as the thread page's own
   // `__embed=quotation` view draws it: the quote tool alone, full width, no chat frame (the client's pinned row is above).
   if (sp.embed === 'quotation') {
@@ -324,8 +361,12 @@ export default async function SupplierChatLabPage({
             )
           }
         >
+          {sp.run === 'meeting' ? <LabPlusSeed threadId={LAB_THREAD} draft="meeting" toast={sp.shut === '1' ? 'Finish or close: Meeting' : null} /> : null}
           <ChatMessageStream
             flush
+            extraPins={labPins}
+            blocker={labBlocker}
+            plus={{ eventId: LAB_EVENT, returnPath: '/dev/supplier-chat-lab' }}
             {...(sp.hosts === '1'
               ? {
                   hosts: [

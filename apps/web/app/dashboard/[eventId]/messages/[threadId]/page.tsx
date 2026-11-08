@@ -526,16 +526,30 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // 👥 WHO IS IN THIS CHAT — the picked supplier's Chat (Build 3 · Lane A) draws the SAME shipped `ChatHostStrip` the
   // supplier's picked client does, under the pinned row: one source (`event_chat_hosts`, service_role only, so the admin
   // client), the ring from the stream's existing presence channel. Only when embedded (the full thread keeps its head).
-  // The viewer is dropped — the strip adds "You" itself. NULL = the read was refused: the strip says "Couldn't load".
+  // The viewer is dropped — the strip adds "You" itself. The SHOP is added at the end, under the label this page already
+  // shows for it, so a host can tap it for 🔒 Message privately (DECISION_LOG 2026-11-09 🔒: supplier ↔ host ↔
+  // coordinator). NULL = the read was refused: the strip says "Couldn't load".
+  // TODO(Build 3 · Lane B): the strip shows the THREAD's members (👥) — swap `event_chat_hosts` for Lane B's
+  // thread-scoped hosts read, and pass `memberAdd` / `memberLeave` (its writes) to the stream; `lib/chat-members.ts`
+  // holds who may add, leave and be added.
   const hostsRead: Promise<ChatHost[] | null | undefined> = embedded
     ? (async () => {
-        const res = await decisionAdmin.rpc('event_chat_hosts', { p_event_id: thread.event_id });
+        const [res, shop, label] = await Promise.all([
+          decisionAdmin.rpc('event_chat_hosts', { p_event_id: thread.event_id }),
+          decisionAdmin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', thread.vendor_profile_id).maybeSingle(),
+          vendorLabelRead,
+        ]);
         if (res.error) {
           logQueryError('coupleThread.chatHosts', res.error, { eventId: thread.event_id }, 'graceful_degrade');
           return null;
         }
         const hosts = chatHostsFrom(res.data);
-        return hosts === null ? null : hosts.filter((h) => h.userId !== user.id);
+        if (hosts === null) return null;
+        const others = hosts.filter((h) => h.userId !== user.id);
+        const shopUser = (shop.data as { user_id?: string | null } | null)?.user_id ?? null;
+        return shopUser && shopUser !== user.id
+          ? [...others, { userId: shopUser, firstName: label, name: label, role: 'supplier', label: null }]
+          : others;
       })().catch(() => null)
     : Promise.resolve(undefined);
 

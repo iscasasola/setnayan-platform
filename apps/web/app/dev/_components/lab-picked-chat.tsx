@@ -19,6 +19,24 @@ import type { ChatHost } from '@/lib/chat-hosts';
 const MARIA: ChatHost = { userId: LAB_USER, firstName: 'Maria', name: 'Maria Reyes', role: 'bride', label: null };
 const JOSE: ChatHost = { userId: '00000000-0000-4000-8000-0000000000ee', firstName: 'Jose', name: 'Jose Santos', role: 'groom', label: null };
 
+/** 👥 The event's hosts NOT in this chat (lab): one who left, one never added — the ＋ list's two kinds. */
+const LAB_ADDABLE = [
+  { userId: '00000000-0000-4000-8000-0000000000f1', firstName: 'Lea', name: 'Lea Reyes', role: 'parent_of_bride', label: null, left: true },
+  { userId: '00000000-0000-4000-8000-0000000000f2', firstName: 'Tita Lu', name: 'Lourdes Santos', role: 'ninang', label: null, left: false },
+];
+
+/** Stand-ins: they write nothing (the real writes are Lane B's). */
+async function labAdd(userIds: string[], how: 'all' | 'picked'): Promise<void> {
+  'use server';
+  void userIds;
+  void how;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+async function labLeave(): Promise<void> {
+  'use server';
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+
 async function labSend(formData: FormData): Promise<void> {
   'use server';
   void formData;
@@ -44,6 +62,8 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = f
           currentUserId={side === 'couple' ? LAB_USER : LAB_STAFF}
           viewerRole={side}
           hosts={hosts}
+          // 👥 The ＋ and Leave are the event side's only — the supplier's chat passes neither.
+          {...(side === 'couple' ? { memberAdd: { candidates: LAB_ADDABLE, add: labAdd }, memberLeave: labLeave } : {})}
           counterpartyLabel={counterpartyLabel}
           senderNames={side === 'couple' ? { [LAB_STAFF]: 'Paolo' } : {}}
           lockHandshake={null}

@@ -30,8 +30,11 @@
 //      stream before the server answers (`lib/chat-optimistic.ts`), and a send
 //      that fails says "Not sent · Try again" in words — never a silent loss.
 
-import { useRef, useState, type ReactNode } from 'react';
-import { Camera, ImageIcon, Paperclip, SendHorizontal, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { CHAT_PRIVATE_FIELD, PRIVATE_WORDS_ONLY_MESSAGE, privateChipLabel } from '@/lib/chat-private';
+import { setPrivateTo, usePrivateTo } from '@/app/_components/chat/private-to';
 import { SubmitButton } from './submit-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
@@ -83,6 +86,10 @@ type Props = {
 // that simply will not send as the only symptom.
 
 export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId }: Props) {
+  // 🔒 PRIVATE TO ONE PERSON (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
+  // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
+  // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
+  const privateTo = usePrivateTo(threadId);
   const [hasDraft, setHasDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -112,6 +119,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     setFileName(null);
     setFileError(null);
   };
+  // 🔒 Going private lets go of a picked file (the attach controls are not drawn while it is on — words only).
+  const goingPrivate = privateTo !== null;
+  useEffect(() => {
+    if (!goingPrivate) return;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setFileName(null);
+  }, [goingPrivate]);
 
   /** Judge a picked file against its ceiling and show its chip — shared by the ＋ sheet's picker and the shortcuts. */
   const acceptFile = (file: File | null): boolean => {
@@ -223,6 +237,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         const fileVal = formData.get('attachment');
         const hasFile = fileVal instanceof File && fileVal.size > 0;
         if (!bodyVal && !hasFile) return;
+        // 🔒 Words only, said in words — never a private file sent anyway (the server refuses it too).
+        if (privateTo && hasFile) {
+          setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+          return;
+        }
 
         // From here until the send settles, a second Enter is a double send —
         // the photo compression below is awaited too, not only sendAction.
@@ -248,6 +267,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           fileName: hasFile ? (formData.get('attachment') as File).name : null,
           at: Date.now(),
           state: 'sending',
+          privateTo: privateTo?.name ?? null,
         };
         window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: pending }));
         if (textareaRef.current) {
@@ -268,6 +288,27 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       className="flex flex-col gap-1.5"
     >
       <input type="hidden" name="thread_id" value={threadId} />
+      {privateTo ? <input type="hidden" name={CHAT_PRIVATE_FIELD} value={privateTo.userId} /> : null}
+
+      {/* 🔒 The private chip — "Private to Jose 🔒 ×". × sends the next message to everyone again. */}
+      {privateTo ? (
+        <div
+          className="flex items-center gap-1.5 self-start rounded-full bg-info-100 py-0.5 pl-3 pr-0.5 text-[13px] font-semibold text-info-800 ring-1 ring-inset ring-info-300"
+          data-chat-private-chip=""
+        >
+          <span>{privateChipLabel(privateTo.name)}</span>
+          <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
+          <ActionButton
+            tone="neutral"
+            quiet
+            iconOnly
+            icon={X}
+            label="To everyone"
+            name={`Stop writing privately to ${privateTo.name} — the next message goes to everyone`}
+            onClick={() => setPrivateTo(threadId, null)}
+          />
+        </div>
+      ) : null}
 
       {/* Chosen-file chip — shown once a file is picked, before send. */}
       {fileName ? (
@@ -298,7 +339,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </p>
       ) : null}
 
-      <div className="flex items-end gap-0.5" data-chat-composer-row="">
+      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo ? { 'data-chat-words-only': '' } : {})}>
+        {privateTo ? null : <>
         {lead ?? null}
         {/* Paperclip attach button — opens the OS file picker. With `attachInputId` the button is gone (the ＋ sheet's
             "Share a file" opens the picker) but the input stays, clipped, so the picked file still rides this form. */}
@@ -340,14 +382,15 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             </label>
           </>
         ) : null}
+        </>}
 
         <textarea
           ref={textareaRef}
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder="Message"
-          aria-label="Message"
+          placeholder={privateTo ? `Private to ${privateTo.name}` : 'Message'}
+          aria-label={privateTo ? `Private message to ${privateTo.name}` : 'Message'}
           className="mx-1 my-[3px] max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] px-3.5 py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
           data-rides=""
           onFocus={() => setTyping(true)}

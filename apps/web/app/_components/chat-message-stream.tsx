@@ -110,7 +110,9 @@ import {
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
 import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
-import { ChatHostStrip } from './chat/chat-host-strip';
+import { privateOtherId } from '@/lib/chat-private';
+import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
+import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import {
   CHAT_FILE_EXPIRED_LABEL,
@@ -173,6 +175,13 @@ type Props = {
    * initials + first name. Absent → exactly as before. NULL → the strip says it could not load.
    */
   hosts?: readonly ChatHost[] | null;
+  /**
+   * 👥 The strip's ＋ (DECISION_LOG 2026-11-09 👥) — hosts and the coordinator only; the supplier's page never passes it.
+   * `add` is a server action. Absent → no ＋.
+   */
+  memberAdd?: ChatHostAdd | null;
+  /** 👥 "Leave chat" on your own face — a host only (never the supplier, coordinator or planner). Absent → no Leave. */
+  memberLeave?: (() => Promise<void>) | null;
   /**
    * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
    * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
@@ -371,6 +380,8 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  memberAdd = null,
+  memberLeave = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -385,6 +396,13 @@ export function ChatMessageStream({
    */
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
   const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
+  // 🔒 The name a private message's strip says — a host by first name, else the staff name the receipts read, else the
+  // other side's label.
+  const personName = (userId: string): string => {
+    const h = hostById.get(userId);
+    if (h) return hostFirstName(h);
+    return senderNames[userId] ?? counterpartyLabel;
+  };
   /** ⚡ Sent but not yet stored — painted at once, faded (`lib/chat-optimistic.ts`). */
   const [pendings, setPendings] = useState<PendingSend[]>([]);
   /* Remember the last messages, so the next open of this thread paints them before the server answers
@@ -1188,7 +1206,7 @@ export function ChatMessageStream({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} /> : null}
+      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} /> : null}
       {/*
         THE SWITCH — above the conversation, at every width. On a phone this
         row may be the most useful thing on the screen: the whole standing of a
@@ -1742,6 +1760,10 @@ export function ChatMessageStream({
                   ? hostFirstName(host)
                   : null
               : null;
+          // 🔒 A private message (DECISION_LOG 2026-11-09 🔒): the one other person's name, as THIS viewer sees it — the
+          // recipient when you sent it, the sender when it came to you. `null` = everyone's message, the usual bubble.
+          const privateWithId = privateOtherId(m, currentUserId);
+          const privateWith = privateWithId === null ? null : personName(privateWithId);
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
           const corner = mine
@@ -1778,11 +1800,15 @@ export function ChatMessageStream({
                 }}
                 data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
-                  mine
-                    ? 'bg-sn-accent text-white'
-                    : 'bg-ink/[0.06] text-ink'
+                  privateWith !== null
+                    ? PRIVATE_BUBBLE_FILL
+                    : mine
+                      ? 'bg-sn-accent text-white'
+                      : 'bg-ink/[0.06] text-ink'
                 }`}
+                {...(privateWith !== null ? { 'data-chat-private': '' } : {})}
               >
+                <PrivateMark privateWith={privateWith} />
                 {m.body ? (
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 ) : null}
@@ -1824,6 +1850,7 @@ export function ChatMessageStream({
                 </span>
               </div>
               </div>
+              {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
               <MessageHeart
                 count={heartCount}
                 mine={heartSet?.has(currentUserId) ?? false}
@@ -1887,7 +1914,8 @@ export function ChatMessageStream({
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
-          <div className={`max-w-[75%] rounded-2xl bg-sn-accent px-3 py-2 text-[15px] leading-snug text-white ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+          <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.privateTo ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+            <PrivateMark privateWith={p.privateTo ?? null} />
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>

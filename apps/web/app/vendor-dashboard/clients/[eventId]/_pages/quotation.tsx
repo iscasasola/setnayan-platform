@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { SupplierThreadBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body';
 import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
+import type { PickedPageProps } from './context';
 
 /**
  * QUOTATION — the picked client's page (THE ONE BUILD, v113; owner item 17 "Quotation in eleven steps"; spec
@@ -15,13 +16,8 @@ import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
  * No conversation with this client (an outside client added by hand, or nobody has written yet) → there is nothing to
  * send a quote INTO: say so and point at the chats, never an empty builder that cannot send.
  */
-export function QuotationPage({
-  threadId,
-}: {
-  eventId: string;
-  vendorProfileId: string;
-  threadId: string | null;
-}) {
+export function QuotationPage({ ctx }: PickedPageProps) {
+  const { threadId } = ctx;
   if (!threadId) {
     return (
       <div className="px-4 py-6 text-sm text-ink/70" data-picked-client-page="quotation" data-empty="no-thread">

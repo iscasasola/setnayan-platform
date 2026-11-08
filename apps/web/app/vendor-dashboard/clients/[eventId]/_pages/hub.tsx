@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import VendorOnTheDayPage from '@/app/vendor-dashboard/on-the-day/page';
+import type { PickedPageProps } from './context';
 
 /**
  * HUB — the picked client's page (THE ONE BUILD, v111 "Hub leaves the bar, stays reachable per client"; v113 "leading
@@ -13,13 +14,8 @@ import VendorOnTheDayPage from '@/app/vendor-dashboard/on-the-day/page';
  * event not in the Hub says so — never another couple's Hub). Not built (spec): the "Session" scan mode (INVENTED), the
  * per-part "Included / Not included" sheet (RULED-NOT-BUILT — Hub setup stays on Hub), the Tool maker (later).
  */
-export function HubPage({
-  eventId,
-}: {
-  eventId: string;
-  vendorProfileId: string;
-  threadId: string | null;
-}) {
+export function HubPage({ ctx }: PickedPageProps) {
+  const { eventId } = ctx;
   return (
     <Suspense
       fallback={

@@ -206,7 +206,10 @@ test('anti-vacuity: the stripped sources still hold their code', () => {
 test('the page hands the roster the SLICE and the WHOLE-LIST counts', () => {
   // 2026-10-28: one roster per DOOR, each through rosterView over its own lanes — the doors count EVERY listed customer;
   // each panel renders only its page. 2026-10-30: every event + Asking · Booked · Done; no door named = every event.
-  assert.match(pageSrc, /const lanes = groupByLane\(listed\)/, 'lanes are not grouped from every listed customer');
+  // 2026-11-08 (v113 Show & sort): the lanes are every listed customer, narrowed ONLY by the choices the address names
+  // (none named = every listed customer) — before counting and paging, never after.
+  assert.match(pageSrc, /const lanes = groupByLane\(narrowed\)/, 'lanes are not grouped from every listed customer');
+  assert.match(pageSrc, /narrowClients\(listed, choice, clientsCtx\)/, 'the narrowing does not start from every listed customer');
   assert.match(pageSrc, /rosterView\(subset, \{/, 'the page no longer composes each door through rosterView');
   assert.match(pageSrc, /const laneCounts = Object\.fromEntries\(CUSTOMER_LANES\.map\(\(l\) => \[l, lanes\[l\]\.length\]\)\)/, 'the door counts do not come from the whole lanes');
   assert.match(pageSrc, /rows=\{v\.paged\.items\}/, 'a door is not rendered from its page slice');

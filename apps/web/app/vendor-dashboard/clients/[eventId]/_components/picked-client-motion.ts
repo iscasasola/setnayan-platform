@@ -1,0 +1,105 @@
+/**
+ * 🎬 THE PICKED CLIENT'S MOTION — open rises from the tapped row, close is the exact reverse (B1 step 5, spec §0.6:
+ * open/close 520 ms, close = exact reverse, no jump > 40 px, no pause > 90 ms; reduced motion = a 120 ms fade).
+ *
+ * The list row records WHERE it was tapped (its rect) and WHICH list it was (the URL) just before the soft
+ * navigation; the shell reads it once on mount. A hard load (Today, a notification, a typed URL) finds nothing and
+ * simply appears — and its ✕ goes to the Clients list instead of `history.back()`, which could leave the app.
+ *
+ * ⏳ L1's foundation ships the shared 520 ms primitive and `--sn-pin-h`; when it lands the numbers below are read
+ * from it (one motion, app-wide) and this file keeps only the origin bookkeeping.
+ */
+export const PICKED_OPEN_MS = 520;
+export const PICKED_EASE = 'cubic-bezier(.2,.8,.2,1)';
+export const PICKED_FADE_MS = 120;
+/** §10 #26 (owner 8 Nov: "make the animation run 0.7 seconds"): 700 ms, 44 px, this ease, opacity full at 45 %. */
+export const PICKED_PAGE_SLIDE_MS = 700;
+export const PICKED_PAGE_SLIDE_EASE = 'cubic-bezier(.33,1,.68,1)';
+
+const KEY = 'sn:picked-client-origin';
+
+export type PickedOrigin = {
+  /** The list URL the client was opened from (path + query). */
+  from: string;
+  /** The client opened (`/vendor-dashboard/clients/<id>`), so a stale origin for another client is ignored. */
+  to: string;
+  rect: { top: number; left: number; width: number; height: number } | null;
+  at: number;
+};
+
+/** Called by a list row on tap, before the soft navigation. Never throws (private mode, blocked storage). */
+export function rememberPickedOrigin(row: Element | null, to: string): void {
+  try {
+    const r = row?.getBoundingClientRect();
+    const o: PickedOrigin = {
+      from: `${window.location.pathname}${window.location.search}`,
+      to,
+      rect: r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null,
+      at: Date.now(),
+    };
+    window.sessionStorage.setItem(KEY, JSON.stringify(o));
+  } catch {
+    /* storage unavailable — the client simply appears, and ✕ goes to the list */
+  }
+}
+
+/** The origin for THIS client, if it was opened from the list in the last minute. */
+export function readPickedOrigin(eventPath: string): PickedOrigin | null {
+  try {
+    const raw = window.sessionStorage.getItem(KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as PickedOrigin;
+    if (!o || typeof o.from !== 'string' || typeof o.to !== 'string') return null;
+    if (!o.to.startsWith(eventPath) || Date.now() - o.at > 60_000 * 30) return null;
+    if (!o.from.startsWith('/vendor-dashboard/customers')) return null;
+    return o;
+  } catch {
+    return null;
+  }
+}
+
+export function forgetPickedOrigin(): void {
+  try {
+    window.sessionStorage.removeItem(KEY);
+  } catch {
+    /* nothing to forget */
+  }
+}
+
+/** `clip-path` that frames the row's rect inside the viewport — the open's first frame and the close's last. */
+export function rectClip(rect: PickedOrigin['rect']): string {
+  if (!rect || typeof window === 'undefined') return 'inset(0 0 0 0 round 0px)';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const top = Math.max(0, rect.top);
+  const left = Math.max(0, rect.left);
+  const right = Math.max(0, vw - (rect.left + rect.width));
+  const bottom = Math.max(0, vh - (rect.top + rect.height));
+  return `inset(${top}px ${right}px ${bottom}px ${left}px round 14px)`;
+}
+
+export function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The ONE open motion, as frames + timing: the close plays these same frames with `direction: 'reverse'`, so it is
+ * the exact reverse by construction (spec §0.6). Reduced motion → a 120 ms fade. A hard load (no tapped row) → no
+ * motion at all: the client simply appears, and ✕ simply leaves.
+ */
+export function pickedMotion(
+  origin: PickedOrigin | null,
+): { frames: Keyframe[]; timing: KeyframeAnimationOptions } | null {
+  if (prefersReducedMotion()) {
+    return { frames: [{ opacity: 0 }, { opacity: 1 }], timing: { duration: PICKED_FADE_MS, easing: 'linear' } };
+  }
+  if (!origin?.rect) return null;
+  return {
+    frames: [{ clipPath: rectClip(origin.rect) }, { clipPath: 'inset(0 0 0 0 round 0px)' }],
+    timing: { duration: PICKED_OPEN_MS, easing: PICKED_EASE },
+  };
+}

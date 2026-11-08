@@ -10,6 +10,8 @@ import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import PaymentOptionsSurface from '../../payment-options/surface';
 import { createCalendar, editCalendar, reassignCategoryPool, updatePoolCapacity } from '../../calendar/actions';
 import { DaysSettings } from './dates-folds';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { AutoReplySection } from '../../shop/_components/autoreply-section';
 import type { CustomersSegment } from '../segments';
 
 /**
@@ -23,6 +25,9 @@ import type { CustomersSegment } from '../segments';
  *                    clients pay you mounts), its saves coming back here (`return_to=customers`).
  *   TEAMS AND DAYS   Your halls · How many a day (each schedule's counter, its name and services, a new schedule) ·
  *                    Exact time slots · Phone calendar — the rows Dates used to fold (`DaysSettings`), moved.
+ *   AUTO-REPLY       the shipped `AutoReplySection`, mounted UNCHANGED (THE ONE BUILD, 8 Nov 2026 · spec §9 #6): it
+ *                    answers a client's first message, so it lives with Clients. Still behind its own switch
+ *                    (`vendorAutoReplyEnabled`, zero reads when off). C4 removes the Your-page mount once this lands.
  *
  * ⏳ BOOKING TERMS (owner 2026-10-28: shop defaults — a downpayment as a % OR an exact ₱, the refund window, the
  * wording — that pre-fill every new service card and quote) has NO column to save to: today each card carries its own
@@ -125,6 +130,17 @@ export async function CustomersSettingsBody({
         venue={venue}
         actions={{ updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool }}
       />
+
+      {vendorAutoReplyEnabled() ? (
+        <>
+          <p className="home-k2 pt-4" data-customers-settings-section="auto-reply">
+            Auto-reply
+          </p>
+          <div id="auto-reply" className="scroll-mt-24">
+            <AutoReplySection vendorProfileId={vendorProfileId} />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

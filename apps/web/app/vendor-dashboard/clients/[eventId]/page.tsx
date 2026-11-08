@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { customerLandingHref, SUPPLIER_CHATS_HREF } from '../../customers/anchors';
+import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -126,7 +126,7 @@ import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
 import { BookingMoneySummary } from './_components/booking-money-summary';
-import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
+import { bookingMoney, manilaTodayIso, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { AppointmentsSection } from '@/app/_components/appointments-section';
 import {
@@ -143,10 +143,27 @@ import {
 // Workspace. Otherwise the current tabbed page renders byte-for-byte unchanged.
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
+import { ClientDeskAnswersBlock, readClientDeskAnswers } from './_components/client-desk-answers';
+import { detailsNumbers } from './_components/details-numbers';
+import { DetailsNumbersRow } from './_components/details-numbers-row';
+import { HostsList } from './_components/hosts-list';
+import { SuppliersList } from './_components/suppliers-list';
+import { supplierRows } from './_components/suppliers-rows';
+import { DetailsFormsDoor } from './_components/details-forms-door';
+import { hostRows, type BriefHost } from './_components/hosts-rows';
+// 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
+import { PickedClientShell } from './_components/picked-client-shell';
+import { PickedClientSettings } from './_components/picked-client-settings';
 import {
-  RelationshipTabShell,
-  type RelationshipTab,
-} from '@/app/_components/relationship-tab-shell';
+  SCRIPT_FOLD_ID,
+  pickedMenuFor,
+  visiblePickedPage,
+  wantsScriptFold,
+} from './_components/picked-client-menu';
+import { pickedPageBodies } from './_pages/switch';
+import type { PickedPageContext } from './_pages/context';
+import { FilesPage } from './_pages/files';
+import { ReservationLine } from './_pages/payment';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
 // Payments tab — reuse the vendor thread's LIVE payment-confirm surface
@@ -678,7 +695,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   //     rows, this org's suggestion history — all as before.
   const [
     { data: evRow },
-    { data: proposalRows },
+    { data: proposalRows, error: proposalRowsError },
     { data: contractRows },
     threads,
     editorialEligibility,
@@ -1009,17 +1026,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     after the new one shipped. Flag-off keeps its "Open chat" button, which
     already went to the thread page; the two shells now agree where chat lives.
   */
+  /*
+    🗂 THE CHAT MOVED INTO THE CLIENT (THE ONE BUILD, 8 Nov 2026 · v111/v113). The redirect that forwarded a bare or
+    `?tab=chat` landing to the thread page is GONE: the picked client's Chat page draws THE conversation in place
+    (`_pages/chat.tsx` — still ONE chat box: the body is shared with the thread page, never a second mount), and a
+    bare landing opens Details. The full-screen thread route stays for the envelope doors (6 Nov ruling).
+  */
   const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
   const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
-  if (relationshipShellEnabled && threadId && (!rawTab || rawTab === 'chat' || rawTab === 'call')) {
-    redirect(`/vendor-dashboard/messages/${threadId}`);
-  }
 
   /*
     ⚖ WHERE A MONEY ANSWER COMES BACK TO (owner, live, 2026-09-20: "clicked
-    confirmed and it just bounced to the chat page"). Past this line the tab is
-    known and is never `chat` — the redirect above has already taken that case
-    away — so this is the honest "the page they pressed it on". The deposit
+    confirmed and it just bounced to the chat page"). A tab the strip knows is
+    the honest "the page they pressed it on"; anything else lands on Payments. The deposit
     forms post it; the actions re-validate it (lib/vendor-client-return.ts) and
     never trust it as given. Without it those actions redirect here WITHOUT a
     tab, which this very gate then forwards to the thread.
@@ -1043,7 +1062,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     the header's [Open chat] button opens, same RLS. No admin client, no new
     SECURITY DEFINER, no widening: if the supplier may open the thread they may
     see what is in it, and if they may not, this read returns nothing — which is
-    exactly what the FilesTab is told below.
+    exactly what the Files page is told below.
 
     ⚠ `chatFilesMeasured` EXISTS BECAUSE A REFUSAL LOOKS LIKE AN EMPTY ROOM.
     In this app a denied query comes back as zero rows, so "nothing was ever
@@ -1700,6 +1719,86 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </Link>
   );
 
+  /* The booking ask, its outcome, and this couple's fee bills — one node, drawn in the flag-off header and at the top of
+     the picked client's Details page (THE ONE BUILD), so the answer is where the supplier is looking on both. */
+  const askAnswerBlock = (
+    <>
+      {/* PR-H · THE ANSWER BELONGS WHERE THE SUPPLIER IS LOOKING.
+          The Overview feed already carries this card, but a supplier who
+          follows the notification's link, or who opens the client from their
+          list, lands HERE — and before this they landed on a page that showed
+          them a request they could read and not answer. A decision with a
+          seven-day fuse may not be reachable from exactly one screen. Same two
+          server actions, no second state machine. */}
+      {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
+      {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
+      {lockRequest ? (
+        <LockRequestAnswer
+          eventVendorId={lockRequest.event_vendor_id}
+          expiresAt={lockRequest.expires_at}
+          payoutReadiness={payoutReadiness}
+          feeForecast={feeForecast}
+          returnTo={`/vendor-dashboard/clients/${eventId}`}
+          agreeLock={vendorAgreeToLock}
+          declineLock={vendorDeclineLock}
+          dayCheck={dayCheck}
+          waitlistAsk={vendorWaitlistTheAsk}
+          heldService={heldService}
+        />
+      ) : askOutcome ? (
+        <BookingAskOutcomeLine outcome={askOutcome} />
+      ) : isBooked && !depositAcked ? (
+        <PayoutMethodNudge readiness={payoutReadiness} context="client" />
+      ) : null}
+      {/* The bill for THIS couple, where the supplier already is. Not inside
+          the ask panel: by the time a fee exists the ask has been answered. */}
+      <BookingFeeBills
+        bills={clientFeeBills}
+        copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
+      />
+      <WaivedFeeRows charges={clientWaived} />
+    </>
+  );
+
+  const badgesRow = (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {runsThisEvent ? (
+        <Badge tone="quiet" data="coordinator">{runThisEvent?.seatWord ?? 'Coordinator'}</Badge>
+      ) : null}
+      <span
+        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
+      >
+        {stagePill.label}
+      </span>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+          isImported
+            ? 'bg-ink/5 text-ink/60'
+            : 'bg-terracotta/10 text-terracotta-700'
+        }`}
+      >
+        {isImported ? (
+          <>
+            <UserRound aria-hidden className="h-3 w-3" /> Imported
+          </>
+        ) : (
+          <>
+            <Sparkles aria-hidden className="h-3 w-3" /> In-house
+          </>
+        )}
+      </span>
+      {brief.booked_categories.map((c) => (
+        <span
+          key={c}
+          className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+        >
+          {isBooked ? 'Booked · ' : ''}
+          {displayServiceLabel(c)}
+        </span>
+      ))}
+    </div>
+  );
+
   const identityBlock = (
     <div className="flex items-start gap-4">
       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
@@ -1712,76 +1811,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         {metaBits.length > 0 ? (
           <p className="mt-0.5 truncate text-sm text-ink/55">{metaBits.join(' · ')}</p>
         ) : null}
-        {/* PR-H · THE ANSWER BELONGS WHERE THE SUPPLIER IS LOOKING.
-            The Overview feed already carries this card, but a supplier who
-            follows the notification's link, or who opens the client from their
-            list, lands HERE — and before this they landed on a page that showed
-            them a request they could read and not answer. A decision with a
-            seven-day fuse may not be reachable from exactly one screen. Same two
-            server actions, no second state machine. */}
-        {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
-        {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
-        {lockRequest ? (
-          <LockRequestAnswer
-            eventVendorId={lockRequest.event_vendor_id}
-            expiresAt={lockRequest.expires_at}
-            payoutReadiness={payoutReadiness}
-            feeForecast={feeForecast}
-            returnTo={`/vendor-dashboard/clients/${eventId}`}
-            agreeLock={vendorAgreeToLock}
-            declineLock={vendorDeclineLock}
-            dayCheck={dayCheck}
-            waitlistAsk={vendorWaitlistTheAsk}
-            heldService={heldService}
-          />
-        ) : askOutcome ? (
-          <BookingAskOutcomeLine outcome={askOutcome} />
-        ) : isBooked && !depositAcked ? (
-          <PayoutMethodNudge readiness={payoutReadiness} context="client" />
-        ) : null}
-        {/* The bill for THIS couple, where the supplier already is. Not inside
-            the ask panel: by the time a fee exists the ask has been answered. */}
-        <BookingFeeBills
-          bills={clientFeeBills}
-          copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
-        />
-        <WaivedFeeRows charges={clientWaived} />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {runsThisEvent ? (
-            <Badge tone="quiet" data="coordinator">{runThisEvent?.seatWord ?? 'Coordinator'}</Badge>
-          ) : null}
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
-          >
-            {stagePill.label}
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-              isImported
-                ? 'bg-ink/5 text-ink/60'
-                : 'bg-terracotta/10 text-terracotta-700'
-            }`}
-          >
-            {isImported ? (
-              <>
-                <UserRound aria-hidden className="h-3 w-3" /> Imported
-              </>
-            ) : (
-              <>
-                <Sparkles aria-hidden className="h-3 w-3" /> In-house
-              </>
-            )}
-          </span>
-          {brief.booked_categories.map((c) => (
-            <span
-              key={c}
-              className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
-            >
-              {isBooked ? 'Booked · ' : ''}
-              {displayServiceLabel(c)}
-            </span>
-          ))}
-        </div>
+        {askAnswerBlock}
+        {badgesRow}
       </div>
     </div>
   );
@@ -1957,7 +1988,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
-  const quoteNode = (
+  const quoteTab = (afterMoney?: React.ReactNode) => (
     <QuoteTab
       eventId={eventId}
       proposals={proposals}
@@ -1969,17 +2000,40 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ledgerUnreadable={ledgerUnreadable}
       threadId={threadId}
       askPanel={askPanel}
+      afterMoney={afterMoney}
     />
   );
+  const reservationAcknowledgedAt = planStepRows?.reservationAcknowledgedAt ?? null;
+  // Flag ON: the Quotation page carries no reservation line — it is on the Payment page. Flag OFF has no Payment
+  // page, so its Quote & Payments tab mounts the same line under the money fold, as before.
+  const quoteNode = quoteTab();
+  const quoteNodeFlagOff = quoteTab(<ReservationLine acknowledgedAt={reservationAcknowledgedAt} />);
 
+  /* 🗂 What every picked-client page is handed (`_pages/context.ts`) — facts this page already resolved, no new read. */
+  const pickedCtx: PickedPageContext = {
+    eventId,
+    vendorProfileId: profile.vendor_profile_id,
+    viewerUserId: user.id,
+    threadId,
+    eventName,
+    stage: brief.stage,
+    isBooked,
+    feeUnlocked,
+    eventVendorId,
+    eventDate: brief.event.event_date,
+  };
+
+  // Files: the ONE shared builder, read once; the page body (`_pages/files.tsx`, C1) draws the rows.
+  const sharedFiles = buildSharedFiles({
+    contracts,
+    handovers,
+    chatFiles,
+    coupleLabel: eventName,
+  });
   const filesNode = (
-    <FilesTab
-      files={buildSharedFiles({
-        contracts,
-        handovers,
-        chatFiles,
-        coupleLabel: eventName,
-      })}
+    <FilesPage
+      ctx={pickedCtx}
+      files={sharedFiles}
       chatFilesMeasured={chatFilesMeasured}
       threadId={threadId}
       isBooked={isBooked}
@@ -2012,22 +2066,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         changeOrders={changeOrders}
         changeOrdersMeasured={changeOrdersMeasured}
         search={search}
+        // 🗓 v113's Schedule order (owner 2026-11-08): your part (Where · Hours · Asked of you · the chapters) and then
+        // Appointments, BEFORE the handover and change requests — so the meetings sit with the day, not under the paperwork.
+        appointments={
+          isBooked ? (
+            <div className="mt-5 border-t border-ink/10 pt-4" data-schedule-appointments="">
+              <AppointmentsSection
+                role="vendor"
+                eventId={eventId}
+                vendorProfileId={profile.vendor_profile_id}
+                returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+                threadId={threadId}
+                currentUserId={user.id}
+                counterpartyName={eventName}
+                presets={appointmentPresets}
+                appointments={appointmentViews}
+              />
+            </div>
+          ) : null
+        }
       />
-      {isBooked ? (
-        <div className="mt-4">
-          <AppointmentsSection
-            role="vendor"
-            eventId={eventId}
-            vendorProfileId={profile.vendor_profile_id}
-            returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-            threadId={threadId}
-            currentUserId={user.id}
-            counterpartyName={eventName}
-            presets={appointmentPresets}
-            appointments={appointmentViews}
-          />
-        </div>
-      ) : null}
     </>
   );
 
@@ -2131,7 +2189,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
                 REDACTED payload: a quoting supplier still prices the job. */}
             {tab === 'overview' ? overviewNode : null}
             {tab === 'overview' ? coupleAnswersNode : null}
-            {tab === 'quote' ? quoteNode : null}
+            {tab === 'quote' ? quoteNodeFlagOff : null}
             {tab === 'files' ? gated(filesNode) : null}
             {tab === 'schedule' ? gated(scheduleNode) : null}
             {tab === 'script' ? gated(scriptNode) : null}
@@ -2143,16 +2201,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   }
 
   // ------------------------------------------------------------------------
-  // Flag ON — the unified RelationshipTabShell (a true two-sided mirror of the
-  // couple's Vendor Workspace). Everything below runs ONLY on this branch, so
-  // the flag-OFF path adds zero queries and stays untouched.
-  //
-  // There is NO chat tab node and NO call tab node any more: the conversation
-  // — and the call button on its composer row — is the thread page's frame,
-  // and a chat landing already redirected there above. What this page still
-  // needs from the thread is one fact for the next-move tile.
+  // Flag ON (production) — THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026 · v113):
+  // the pinned row + the nine-page menu + one page body at a time
+  // (`PickedClientShell`), drawn over the still-mounted Clients list when it was
+  // opened from it (`customers/@client`). Everything below runs ONLY on this
+  // branch, so the flag-OFF path adds zero queries and stays untouched.
   // ------------------------------------------------------------------------
-  const inquiryStatus: string | null = thread?.inquiry_status ?? null;
 
   // Payments tab — the vendor's LIVE payment-confirm surface (couple-logged
   // payments awaiting confirmation + per-booking plan progress / "mark cleared").
@@ -2207,94 +2261,45 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </div>
     );
 
-  const tabIconClass = 'h-3.5 w-3.5';
-  const tabs: RelationshipTab[] = [
-    {
-      // A DOOR, not a room. The one chat box is the thread page (#5586); this
-      // entry keeps its place in the strip so a supplier on the Files tab can
-      // still get to the conversation in one tap.
-      id: 'chat',
-      label: 'Chat',
-      icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF,
-      node: null,
-    },
-    {
-      id: 'quote',
-      label: 'Quote',
-      icon: <FileText aria-hidden className={tabIconClass} />,
-      node: quoteNode,
-    },
-    {
-      id: 'payments',
-      label: 'Payments',
-      icon: <Wallet aria-hidden className={tabIconClass} />,
-      node: paymentsTabNode,
-    },
-    {
-      id: 'files',
-      label: 'Files',
-      icon: <FolderOpen aria-hidden className={tabIconClass} />,
-      node: gated(filesNode),
-    },
-    {
-      id: 'schedule',
-      label: 'Schedule',
-      icon: <CalendarDays aria-hidden className={tabIconClass} />,
-      node: gated(scheduleNode),
-    },
-    {
-      // The emcee / host's prep surface, on THIS shell too. It only ever
-      // mounted on the flag-OFF card, so with the relationship workspace ON —
-      // production — the one trade it exists for had no way to reach it.
-      // Same entitlement gate as the flag-OFF tab (`showScript`), same node.
-      id: 'script',
-      label: 'Script',
-      icon: <ScrollText aria-hidden className={tabIconClass} />,
-      node: gated(scriptNode),
-      hidden: !showScript,
-    },
-    {
-      id: 'details',
-      label: 'Details',
-      icon: <Info aria-hidden className={tabIconClass} />,
-      // The this-event profile hub — the completion handshake (surfaced here as
-      // a first-class node, mirroring the couple's Details tab), then the full
-      // brief (with the returning-client marker + action bar, both already inside
-      // OverviewTab) plus the activity log & private CRM notes.
-      node: (
-        <div className="space-y-6">
-          {feeLockPanel}
-          {isBooked && feeUnlocked ? (
-            <VendorCompletionCard
-              eventId={eventId}
-              isCompleteConfirmed={isCompleteConfirmed}
-              isDisputed={isDisputed}
-              isVendorMarked={isVendorMarked}
-              notice={completedNotice}
-            />
-          ) : null}
-          {/* The brief, from the REDACTED payload at every locked stage. */}
-          {overviewNode}
-          {coupleAnswersNode}
-          {feeUnlocked ? activityNode : null}
-        </div>
-      ),
-    },
-  ];
+  /*
+    🗂 THE NINE PAGES. Each body is its own `_pages/<page>.tsx` (owned by the lane named in it); until a lane fills
+    its page, the body draws the section this page drew before (`shipped`), relocated — never redrawn.
+      • Details  — the booking ask + its answer, the stage strip, the fee panel, the access ask, the completion
+                   handshake, the brief and what the couple told you (B1 step 6 re-orders it to v113).
+      • Chat     — the conversation, in place (C2 lands the shared thread body).
+      • Schedule — the supplier's part of the day + appointments, then the Script fold (`?tab=script`).
+      • Quotation · Payment · Files — the shipped money and files sections.
+      • Report   — the activity feed + private notes until C3's Report lands.
+  */
+  // 🔢 The three numbers (v113): every input already read above — no new request. A refused read says so.
+  const sentQuote = [...proposals]
+    .filter((p) => p.status !== 'draft')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  const numbersCells = detailsNumbers({
+    isBooked,
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date,
+    ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
+    onPlan: planRowsAll.length > 0,
+    sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
+    peso: (php) => fmtPeso(php),
+  });
+
+  // 🗓 The two answers Today used to own (date change · removal request), on THIS client — read only for a booked
+  // client (both ask a booked/paid shop), with Today's own reads narrowed to this event (A2 A8).
+  const deskAnswers = isBooked
+    ? await readClientDeskAnswers(admin, profile.vendor_profile_id, eventId, {
+        coupleName: eventName,
+        eventDate: brief.event.event_date,
+      })
+    : null;
 
   // ------------------------------------------------------------------------
-  // Desktop context rail (3-pane · lg+ only). A compact, always-visible summary
-  // of the client's stage + the VENDOR's next action (respond to inquiry / send
-  // quote / confirm payment / deliver), plus quick links to the Chat / Payments
-  // tabs. Reuses the pipeline + payment signals already computed above (no new
-  // queries). The shell hides this under lg, and the mobile header already
-  // carries the pipeline strip, so this is purely additive on desktop.
+  // "Your next move" — decided in lib/supplier-next-move.ts and EXECUTED by its test. It was the desktop context
+  // rail of the old tab shell (lg+ only); THE ONE BUILD keeps it, still desktop-only, on Details beside the stage
+  // strip it explains. Its two quick links (Chat · Payments) are gone — both are pages of the menu now.
   // ------------------------------------------------------------------------
-  // Decided in lib/supplier-next-move.ts and EXECUTED by its test — the
-  // inline chain that lived here never knew a quote could be accepted or that
-  // a couple could ask to book, and told the owner "follow up while you wait"
-  // about a request with a fuse on it.
+  const inquiryStatus: string | null = thread?.inquiry_status ?? null;
   const nextMove = supplierNextMove(
     {
       inquiryStatus,
@@ -2308,16 +2313,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     },
     eventName,
   );
-
-  const vQuickLinkClass =
-    'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
-
-  const contextRail = (
-    <div className="space-y-3">
+  const nextMoveCard = (
+    <div className="hidden lg:block" data-next-move="">
       <ShopCard pad="tight">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
-          Your next move
-        </p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">Your next move</p>
         <div className="mt-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
@@ -2333,50 +2332,95 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           </p>
         ) : null}
       </ShopCard>
-      <div className="grid grid-cols-2 gap-2">
-        <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : SUPPLIER_CHATS_HREF}
-          className={vQuickLinkClass}
-        >
-          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
-        </a>
-        <a href={`/vendor-dashboard/clients/${eventId}?tab=payments`} className={vQuickLinkClass}>
-          <Wallet aria-hidden className="h-3.5 w-3.5" /> Payments
-        </a>
-      </div>
     </div>
   );
 
-  return (
-    <RelationshipTabShell
-      tabs={tabs}
-      // The tab the URL names, painted on the SERVER. "chat" is a link tab and
-      // can never be active, so it fell through to the first panel (Quote) and
-      // the shell only switched to `?tab=details` after hydration — a door
-      // from the thread's ⋮ landed on the wrong section for one paint.
-      initialTabId={rawTab}
-      contextRail={contextRail}
-      header={
-        <div>
-          {backLink}
-          {identityBlock}
-          {/* 🗂 The coordinator's door (owner 2026-10-28) — this shell has no action row, so it stands alone here. */}
-          {runsThisEvent ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <OpenTheirEvent eventId={eventId} />
-            </div>
-          ) : null}
-          {/* No action row. Its six buttons were the FIRST of the two nav rows
-              the owner saw above the conversation; every one of them now has a
-              home in the thread's frame (New quote · Log payment · Call are
-              tools on it; Contract, Files and Schedule are in its ⋮ and in the
-              strip below). Flag-off keeps the row: there it is the only door. */}
-          {pipelineBlock}
-          {feeLockPanel}
-          {/* Item 2 of the ruling — "the request to access features". The panel
-              above already says why, so this withholds rather than repeating it. */}
-          {feeUnlocked ? askBlock : null}
+  /*
+    📋 DETAILS, IN v113's ORDER (owner 2026-11-08; v113 `strip+three+hosts+det+acc+sups+dec+forms`; B1 step 6):
+    the stage strip · the three numbers · Hosts · the brief's details · the access request · Suppliers on this event ·
+    Decisions · Forms sent. The answers waiting on the shop (an inquiry, a date change, a removal) sit right under the
+    numbers — they are the next thing to do. ⏳ Decisions is not drawn yet: it needs the chat's facts built once on the
+    server (B1 step 6.7) — see build-notes.
+  */
+  const detailsShipped = (
+    <div className="space-y-4" data-details-shipped="">
+      {pipelineBlock}
+      <DetailsNumbersRow cells={numbersCells} />
+      {askAnswerBlock}
+      {deskAnswers ? <ClientDeskAnswersBlock answers={deskAnswers} /> : null}
+      {badgesRow}
+      {/* 🗂 The coordinator's door (owner 2026-10-28). */}
+      {runsThisEvent ? (
+        <div className="flex flex-wrap gap-2">
+          <OpenTheirEvent eventId={eventId} />
         </div>
+      ) : null}
+      {nextMoveCard}
+      {/* ⏳ `brief.hosts` arrives with C2's -data (spec §9 #1); until then the key is absent and nothing is drawn. */}
+      <HostsList hosts={hostRows((brief as { hosts?: BriefHost[] }).hosts)} />
+      {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
+      {overviewNode}
+      {coupleAnswersNode}
+      {feeLockPanel}
+      {/* Item 2 of the ruling — "the request to access features". The panel
+          above already says why, so this withholds rather than repeating it. */}
+      {feeUnlocked ? askBlock : null}
+      {/* The other booked suppliers — the brief carries them from booking on; absent before. */}
+      {isBooked ? <SuppliersList rows={supplierRows((brief as { vendor_roster?: unknown }).vendor_roster)} /> : null}
+      {isBooked && feeUnlocked ? (
+        <VendorCompletionCard
+          eventId={eventId}
+          isCompleteConfirmed={isCompleteConfirmed}
+          isDisputed={isDisputed}
+          isVendorMarked={isVendorMarked}
+          notice={completedNotice}
+        />
+      ) : null}
+      <DetailsFormsDoor />
+    </div>
+  );
+
+  const bodies = pickedPageBodies({
+    ctx: pickedCtx,
+    shipped: {
+      details: detailsShipped,
+      schedule: (
+        <>
+          {gated(scheduleNode)}
+          {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
+          {showScript ? (
+            <section id={SCRIPT_FOLD_ID} className="mt-6 scroll-mt-4" data-script-fold="">
+              {gated(scriptNode)}
+            </section>
+          ) : null}
+        </>
+      ),
+      quote: quoteNode,
+      payments: paymentsTabNode,
+      report: feeUnlocked ? activityNode : feeLockPanel,
+      // Files are fee-gated as before: while the fee withholds the event, the page draws the one lock panel.
+      files: feeUnlocked ? undefined : feeLockPanel,
+    },
+    files: { files: sharedFiles, chatFilesMeasured },
+    payment: { reservationAcknowledgedAt },
+  });
+
+  return (
+    <PickedClientShell
+      eventId={eventId}
+      eventName={eventName}
+      menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
+      initialPage={visiblePickedPage(rawTab, isBooked)}
+      bodies={bodies}
+      scrollToScript={wantsScriptFold(rawTab) && showScript}
+      settingsLine={{
+        line: 'Who looks after this client, and what reaches you.',
+        tip: 'Settings for this client only. Your shop-wide settings stay in Clients ⚙.',
+      }}
+      settings={
+        <PickedClientSettings
+          autoAgree={factsEvent.error ? null : factsRow?.supplier_requests_auto_agree === true}
+        />
       }
     />
   );
@@ -3271,6 +3315,8 @@ function QuoteTab(props: {
    * the shop is not booked, which is also when the insert policy would refuse.
    */
   askPanel: React.ReactNode;
+  /** Drawn under the money fold — the flag-off card's reservation-policy line. */
+  afterMoney?: React.ReactNode;
 }) {
   const {
     eventId,
@@ -3282,6 +3328,7 @@ function QuoteTab(props: {
     ledgerUnreadable,
     threadId,
     askPanel,
+    afterMoney,
   } = props;
   const steps = planStepRows?.steps ?? null;
 
@@ -3365,129 +3412,15 @@ function QuoteTab(props: {
               threadId={threadId}
               unreadableNote={<LedgerUnreadableNote />}
             />
-            {planStepRows?.reservationAcknowledgedAt ? (
-              <p className="mt-2 text-xs text-ink/45">
-                Protected by your reservation policy · acknowledged{' '}
-                {fmtShortDate(planStepRows.reservationAcknowledgedAt)}.
-              </p>
-            ) : null}
+            {/* The reservation-policy line lives on the Payment page now (`_pages/payment.tsx`, spec §9 #2); the
+                flag-off card, which has no Payment page, passes the same component in here. */}
+            {afterMoney}
           </>
         )}
       </div>
 
       {/* Ask for a payment — directly under the balance it is about. */}
       {askPanel}
-    </div>
-  );
-}
-
-// ===========================================================================
-// FILES TAB
-// ===========================================================================
-function FilesTab(props: {
-  /**
-   * Contracts, handover deliverables AND the files shared in the couple's
-   * conversation, already merged and sorted newest-first by
-   * `buildSharedFiles`. THREE sources, one list: the supplier is looking for
-   * the thing that happened recently and does not know which door it came
-   * through.
-   */
-  files: SharedFileEntry[];
-  /**
-   * FALSE when the read of the conversation's files was REFUSED rather than
-   * empty. Both return zero rows in this app, and only one of them means "there
-   * is nothing here" — so the tab is told which, and says so.
-   */
-  chatFilesMeasured: boolean;
-  threadId: string | null;
-  isBooked: boolean;
-}) {
-  const { files, chatFilesMeasured, threadId, isBooked } = props;
-  const hasAny = files.length > 0;
-
-  return (
-    <div className="space-y-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Shared files</p>
-
-      {!chatFilesMeasured ? (
-        <p className="rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/60">
-          Files shared in your conversation could not be loaded just now, so this list may be
-          incomplete. Everything is still in the chat itself.
-        </p>
-      ) : null}
-
-      {!hasAny ? (
-        <ShopEmpty>
-          <FolderOpen aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="mt-2 text-sm text-ink/55">
-            No files shared yet. Contracts you upload for this couple appear here, and so does
-            anything either of you attaches in the conversation.
-          </p>
-          {threadId ? (
-            <Link
-              href={`/vendor-dashboard/messages/${threadId}`}
-              className="mt-2 inline-block text-sm font-medium text-mulberry hover:underline"
-            >
-              Share files in chat →
-            </Link>
-          ) : null}
-        </ShopEmpty>
-      ) : (
-        <ul className="space-y-2">
-          {files.map((f) => (
-            <li
-              key={f.key}
-              className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
-                {f.kind === 'chat' ? (
-                  <MessageSquare aria-hidden className="h-4 w-4" />
-                ) : f.kind === 'gallery_link' ? (
-                  <Link2 aria-hidden className="h-4 w-4" />
-                ) : f.kind === 'handover' ? (
-                  <PackageCheck aria-hidden className="h-4 w-4" />
-                ) : (
-                  <FileText aria-hidden className="h-4 w-4" />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{f.name}</p>
-                <p className="text-xs text-ink/55">
-                  {[f.origin, f.typeLabel, f.sizeLabel, fmtShortDate(f.at)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-              </div>
-              {f.href ? (
-                <a
-                  href={f.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-medium text-mulberry hover:underline"
-                >
-                  Open →
-                </a>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {hasAny && threadId ? (
-        <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
-          className="inline-block text-sm font-medium text-mulberry hover:underline"
-        >
-          Share more files in chat →
-        </Link>
-      ) : null}
-
-      {isBooked ? (
-        <p className="text-xs text-ink/45">
-          Deliver albums and proofs from the Schedule tab&rsquo;s handover panel — the couple
-          confirms receipt there.
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -3527,6 +3460,8 @@ function ScheduleTab(props: {
   /** false = the change-order read was refused, so "none raised" is not a fact. */
   changeOrdersMeasured: boolean;
   search: { suggest?: string; handover?: string; change_order?: string; change_order_resp?: string };
+  /** Appointments, drawn right after the supplier's part (v113 Schedule order); null before booking. */
+  appointments?: React.ReactNode;
 }) {
   const {
     eventId,
@@ -3674,6 +3609,8 @@ function ScheduleTab(props: {
         <div className="mt-4">
           <SupplierSchedule eventId={eventId} {...supplierPart} />
         </div>
+
+        {props.appointments ?? null}
 
         {/* Delivery handover (Wave 4). */}
         <div className="mt-5 border-t border-ink/10 pt-4">

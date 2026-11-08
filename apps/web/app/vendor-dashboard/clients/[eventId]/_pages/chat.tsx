@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { SupplierThreadBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body';
 import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
+import type { PickedPageProps } from './context';
 
 /**
  * CHAT — the picked client's page (THE ONE BUILD, v111 "Chat lives in the client"; spec plans/supplier_one_build_2026-11-08
@@ -16,13 +17,8 @@ import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
  * The full-screen route `/vendor-dashboard/messages/[threadId]` stays for the envelope doors (6 Nov ruling).
  * No thread with this client → the chats list (`SUPPLIER_CHATS_HREF`), never an empty box that cannot send.
  */
-export function ChatPage({
-  threadId,
-}: {
-  eventId: string;
-  vendorProfileId: string;
-  threadId: string | null;
-}) {
+export function ChatPage({ ctx }: PickedPageProps) {
+  const { threadId } = ctx;
   if (!threadId) {
     return (
       <div className="px-4 py-6 text-sm text-ink/70" data-picked-client-page="chat" data-empty="no-thread">

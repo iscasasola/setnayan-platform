@@ -9,10 +9,10 @@ import { CALENDAR_HATCH, CALENDAR_PART_STYLE, monthTitle, stepMonth, type Calend
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
-import { dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking } from '@/lib/vendor-dates';
+import { dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking, type DayRow } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
-import { DayOpenSwitch } from './day-open-switch';
+import { DayBar } from './day-bar';
 import { DATES_FIGURES_EVENT, DATES_JUMP_EVENT } from './customers-figures';
 import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figures';
 
@@ -107,7 +107,13 @@ export function CustomersCalendar({
   fetchMonth?: ((month: string) => Promise<MonthInputs | null>) | null;
 }) {
   const [month, setMonth] = useState(initialMonth);
-  const [picked, setPicked] = useState<CalendarDay>(initialDay);
+  /*
+    🔘 A PICKED DAY CAN BE LET GO (v113, B1 step 1): tapping the picked day again — on the month or the week strip —
+    clears it, and the rows under the month become EVERY day still to come in it, each under its own pinned heading.
+    Null = no day picked.
+  */
+  const [picked, setPicked] = useState<CalendarDay | null>(initialDay);
+  const toggleDay = (d: CalendarDay) => setPicked((was) => (was === d ? null : d));
   const [scope, setScope] = useState('all');
   const [pending, startTransition] = useTransition();
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
@@ -159,7 +165,8 @@ export function CustomersCalendar({
       setMonth(next);
       // The picked day moves with the month (today when it is on show, else the 1st) — its rows are always this month's.
       // A step of the week strip names the day itself (the 31st's next day is the 1st of the next month).
-      setPicked(day ?? (todayIso.startsWith(next) ? todayIso : `${next}-01`));
+      // With no day picked, the month changes and still no day is picked (every day of the new month is listed).
+      setPicked((was) => day ?? (was === null ? null : todayIso.startsWith(next) ? todayIso : `${next}-01`));
       syncUrl();
       if (monthInputs.has(next) || !fetchMonth) return;
       startTransition(async () => {
@@ -190,6 +197,8 @@ export function CustomersCalendar({
   const monthRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const [folded, setFolded] = useState(false);
+  /** The pinned row's height — the week strip pins under it, and the day headings under both. */
+  const [pinH, setPinH] = useState(0);
   useEffect(() => {
     let raf = 0;
     const read = () => {
@@ -200,6 +209,7 @@ export function CustomersCalendar({
       const pin = document.querySelector<HTMLElement>('[data-customers-pin]');
       const under = pin ? pin.getBoundingClientRect().bottom : 0;
       strip.style.top = `${pin ? pin.offsetHeight : 0}px`;
+      setPinH(pin ? pin.offsetHeight : 0);
       // Hysteresis: fold once the month's last week is under the row, unfold as soon as a week of it shows again.
       const bottom = grid.getBoundingClientRect().bottom;
       setFolded((was) => (was ? bottom < under + 48 : bottom < under));
@@ -216,15 +226,17 @@ export function CustomersCalendar({
       window.removeEventListener('resize', soon);
     };
   }, []);
+  // The week the strip draws: the picked day's, or — none picked — today's when it is in this month, else the 1st's.
+  const anchor: CalendarDay = picked ?? (todayIso.startsWith(month) ? todayIso : `${month}-01`);
   const stepDay = (by: number) => {
-    const at = new Date(`${picked}T00:00:00Z`);
+    const at = new Date(`${anchor}T00:00:00Z`);
     at.setUTCDate(at.getUTCDate() + by);
     const next = at.toISOString().slice(0, 10);
     if (next.slice(0, 7) === month) setPicked(next);
     else goToMonth({ y: Number(next.slice(0, 4)), m: Number(next.slice(5, 7)) }, next);
   };
   const week = useMemo(() => {
-    const at = new Date(`${picked}T00:00:00Z`);
+    const at = new Date(`${anchor}T00:00:00Z`);
     const sunday = new Date(at);
     sunday.setUTCDate(at.getUTCDate() - at.getUTCDay());
     return Array.from({ length: 7 }, (_, i) => {
@@ -232,25 +244,51 @@ export function CustomersCalendar({
       d.setUTCDate(sunday.getUTCDate() + i);
       return d.toISOString().slice(0, 10);
     });
-  }, [picked]);
+  }, [anchor]);
 
-  const pickedDay = data.days.find((d) => d.date === picked) ?? null;
-  const holds = (monthInputs.get(picked.slice(0, 7))?.dayStates ?? []).map((s) => ({
+  const holds = (monthInputs.get(month)?.dayStates ?? []).map((s) => ({
     poolId: s.poolId,
     stateDate: s.stateDate,
     dayState: s.dayState,
   }));
-  const rows = dayRowsOf(picked, {
-    today: todayIso,
-    poolIds: shownIds,
-    poolLabel,
-    namePools: pools.length > 1,
-    bookings,
-    blocks,
-    holds,
-    asking: pickedDay?.inquiryCount ?? 0,
-    waiting: pickedDay?.waitlistCount ?? 0,
-  });
+  const rowsOf = (day: CalendarDay) => {
+    const at = data.days.find((d) => d.date === day) ?? null;
+    return dayRowsOf(day, {
+      today: todayIso,
+      poolIds: shownIds,
+      poolLabel,
+      namePools: pools.length > 1,
+      bookings,
+      blocks,
+      holds,
+      asking: at?.inquiryCount ?? 0,
+      waiting: at?.waitlistCount ?? 0,
+    });
+  };
+  /* No day picked: every day of the month still to come that has something on it, in order (v113 `listAll`). */
+  const allDays = picked
+    ? []
+    : data.days
+        .filter((d) => d.date >= todayIso)
+        .map((d) => ({ day: d.date, rows: rowsOf(d.date).filter((r) => r.kind !== 'nothing') }))
+        .filter((g) => g.rows.length > 0);
+  const drawRow = (r: DayRow, day: CalendarDay) => (
+    <DatesRow
+      key={r.key}
+      data={r.kind}
+      title={r.title}
+      line={r.line || undefined}
+      badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
+      href={daySheetHref(day)}
+      lead={
+        r.kind === 'blocked' || r.kind === 'held' ? (
+          <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={r.hours ? CALENDAR_PART_STYLE : { backgroundImage: CALENDAR_HATCH }} />
+        ) : undefined
+      }
+    />
+  );
+  // 📌 A day heading pins under the pinned row, and under the week strip once it shows.
+  const headTop = pinH + (folded ? 54 : 0);
 
   const options = [
     { key: 'all', label: halls ? 'All halls' : 'All schedules' },
@@ -260,7 +298,7 @@ export function CustomersCalendar({
   // The month dropdown: last month to a year ahead (prototype: the month as a dropdown with ‹ ›).
   const base = { y: Number(todayIso.slice(0, 4)), m: Number(todayIso.slice(5, 7)) };
   const monthsOffered = Array.from({ length: 14 }, (_, i) => stepMonth(base, i - 1));
-  const near = nearWord(todayIso, picked);
+  const near = picked ? nearWord(todayIso, picked) : '';
 
   return (
     <div data-dates-month="" aria-busy={pending}>
@@ -281,7 +319,7 @@ export function CustomersCalendar({
           today={todayIso}
           startAt={`${initialMonth}-01`}
           states={states}
-          onPick={(d) => setPicked(d)}
+          onPick={toggleDay}
           onMonth={goToMonth}
           monthPicker={(view, go) => (
             <PickMenu
@@ -329,7 +367,7 @@ export function CustomersCalendar({
               style={!on && st?.blocked ? { backgroundImage: CALENDAR_HATCH } : undefined}
               aria-pressed={on}
               aria-label={dayLongWords(d)}
-              onClick={() => (inMonth ? setPicked(d) : goToMonth({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) }, d))}
+              onClick={() => (inMonth ? toggleDay(d) : goToMonth({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) }, d))}
               data-dates-week-day={d}
             >
               <small className={`text-[9.5px] leading-none ${on ? '' : 'text-ink/55'}`}>{'SMTWTFS'[new Date(`${d}T00:00:00Z`).getUTCDay()]}</small>
@@ -343,35 +381,49 @@ export function CustomersCalendar({
         </button>
       </div>
 
-      {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
-      <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
-        <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
-          {dayLongWords(picked).replace(/, \d{4}$/, '')}
-          {near === 'Today' ? ' · today' : ''}
-        </span>
-        <Link href={daySheetHref(picked)} scroll className="sn-press inline-flex min-h-11 flex-none items-center gap-1 text-[14px] font-semibold text-sn-accent" data-dates-open-day="">
-          Open the day
-          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
-      </div>
-      <div data-dates-rows="">
-        {rows.map((r) => (
-          <DatesRow
-            key={r.key}
-            data={r.kind}
-            title={r.title}
-            line={r.line || undefined}
-            badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
-            href={daySheetHref(picked)}
-            lead={
-              r.kind === 'blocked' || r.kind === 'held' ? (
-                <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={r.hours ? CALENDAR_PART_STYLE : { backgroundImage: CALENDAR_HATCH }} />
-              ) : undefined
-            }
-          />
-        ))}
-      </div>
-      {dayActions ? <DayOpenSwitch day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
+      {picked ? (
+        <>
+          {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
+          <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
+            <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
+              {dayLongWords(picked).replace(/, \d{4}$/, '')}
+              {near === 'Today' ? ' · today' : ''}
+            </span>
+            <Link href={daySheetHref(picked)} scroll className="sn-press inline-flex min-h-11 flex-none items-center gap-1 text-[14px] font-semibold text-sn-accent" data-dates-open-day="">
+              Open the day
+              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          </div>
+          {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
+          {dayActions ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
+          <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
+        </>
+      ) : (
+        <div className="mt-4" data-dates-all-days="">
+          {allDays.length === 0 ? (
+            <p className="py-3 text-[14px] text-ink/70" data-dates-all-empty="">
+              Nothing booked, asked or closed for the rest of {monthTitle({ y: Number(month.slice(0, 4)), m: Number(month.slice(5, 7)) })}.
+            </p>
+          ) : (
+            allDays.map((g) => (
+              <section key={g.day} data-dates-day-group={g.day}>
+                {/* 📌 STICKY DAY HEADING (v113): the day's name stays at the top while its rows scroll under it. */}
+                <h3
+                  className="home-k2 sticky z-[3] -mx-4 flex min-h-10 items-center px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+                  style={{ top: headTop, background: 'var(--sn-canvas)' }}
+                  data-dates-day-heading={g.day}
+                >
+                  <button type="button" className="sn-press min-h-10 text-left" onClick={() => setPicked(g.day)} data-dates-heading-pick={g.day}>
+                    {dayLongWords(g.day).replace(/, \d{4}$/, '')}
+                    {nearWord(todayIso, g.day) === 'Today' ? ' · today' : ''}
+                  </button>
+                </h3>
+                {g.rows.map((r) => drawRow(r, g.day))}
+              </section>
+            ))
+          )}
+        </div>
+      )}
       {after}
     </div>
   );

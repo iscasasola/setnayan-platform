@@ -3,6 +3,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import type { ReactNode } from 'react';
 import { FileText, MessageSquare } from 'lucide-react';
+import { RememberPickedOrigin } from './remember-picked-origin';
 import { ActionButton } from '@/components/action-button';
 import { SupplierOpenRow } from '../../_components/supplier-open-row';
 import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
@@ -303,15 +304,17 @@ export function RosterRowView({
             />
           ) : href ? (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
-              <ActionButton
-                tone="brand"
-                main
-                icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
-                label={r.threadId ? 'Open the chat' : 'Open their card'}
-                name={`${title} — ${nextStepLabel(r)}`}
-                href={href}
-                className="min-h-11"
-              />
+              <RememberPickedOrigin to={href}>
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
+                  label={r.threadId ? 'Open the chat' : 'Open their card'}
+                  name={`${title} — ${nextStepLabel(r)}`}
+                  href={href}
+                  className="min-h-11"
+                />
+              </RememberPickedOrigin>
             </div>
           ) : null}
         </div>
@@ -346,7 +349,13 @@ export function CustomersRoster({
   lines = {},
   answers = null,
   list = null,
+  groupOf = null,
 }: {
+  /**
+   * ⇅ Show & sort's Group by (Day · Handled by) — each row's heading; a new heading is drawn where it changes, and it
+   * PINS under the row while its rows scroll (v113 sticky day headings). Null = the shipped list, no headings.
+   */
+  groupOf?: ((r: RosterRow) => string) | null;
   /** Which list this is (a count's key), null for every event — the rows' handles carry it (`RosterRowView`). */
   list?: string | null;
   /** 📋 Each event's fixed lines, keyed by event id — an opened row shows them (supplier dashboard v13). */
@@ -458,11 +467,24 @@ export function CustomersRoster({
         )
       ) : (
         <ul data-customers-list="" data-tour="customers-list">
-          {rows.map((r) => (
-            <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
-              <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
-            </li>
-          ))}
+          {rows.map((r, i) => {
+            const head = groupOf ? groupOf(r) : null;
+            const newHead = head !== null && (i === 0 || groupOf!(rows[i - 1]!) !== head);
+            return (
+              <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
+                {newHead ? (
+                  <p
+                    className="home-k2 sticky z-[3] -mx-4 flex min-h-10 items-center px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+                    style={{ top: 'var(--sn-pin-h, 57px)', background: 'var(--sn-canvas)' }}
+                    data-customers-group-heading={head}
+                  >
+                    {/^\d{4}-\d{2}-\d{2}$/.test(head) ? fmtDate(head, nowMs) : head}
+                  </p>
+                ) : null}
+                <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
+              </li>
+            );
+          })}
         </ul>
       )}
 

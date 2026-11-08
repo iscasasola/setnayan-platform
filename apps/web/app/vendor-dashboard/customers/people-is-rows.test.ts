@@ -211,7 +211,9 @@ test('3 · three segments, one address each; every old landing opens the segment
 test('3b · each segment reads only what it draws (owner: "the fewest requests")', () => {
   const people = body(PAGE, 'CustomersPipeline');
   const dates = body(PAGE, 'CustomersDates');
-  for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist', 'fetchVendorServices', 'fetchVendorTeam', 'VendorQrSection']) {
+  // 2026-11-08 (v113 Show & sort, spec §9 #7): Events now reads the shop's services (Service ▾) and team (Handled by) —
+  // what its own sheet draws. The month's data stays Dates'.
+  for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist', 'VendorQrSection']) {
     assert.ok(!people.includes(`${r}(`) && !people.includes(`<${r}`), `Events reads ${r} — the month's data, drawn by Dates`);
   }
   for (const r of ['customerLaneOf', 'readVendorPaydayInstallments', "from('vendor_client_notes')"]) {
@@ -225,7 +227,7 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
 // v13 (2026-10-29): Dates and Money carry their OWN figures on the row (booked · asking · days off · Received · To come
 // in · Overdue), so each view draws the row over what it read — the hub draws none (S4,
 // `the-customers-figures-are-the-pinned-row.test.ts` holds the figures themselves).
-test('3c · one pinned row on every view: Events with the three counts; Dates and Money with their own figures', () => {
+test('3c · one pinned row on every view: Events with its tiles (v113); Dates and Money with their own figures', () => {
   const people = body(PAGE, 'CustomersPipeline');
   assert.match(people, /<CustomersPin\s+seg="events"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'Events does not draw the counts row');
   assert.match(body(PAGE, 'CustomersDates'), /<CustomersPin\s+seg="dates"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Dates lost its pinned row');

@@ -32,17 +32,24 @@
  * (#5722), which accepts only `/vendor-dashboard/messages/<id>`.
  */
 
-/** The client page's tab strip, as the page itself declares it. */
+/**
+ * The client page's `?tab=` ids (flag ON): the picked client's nine pages (THE ONE BUILD, 8 Nov 2026 —
+ * `PICKED_CLIENT_PAGE_IDS` in `lib/upcoming-schedule-door.ts`, the menu in
+ * `clients/[eventId]/_components/picked-client-menu.ts`) plus `script`, which is no longer a page of its own but
+ * still lands — on Schedule, scrolled to the Script fold (7 Nov ruling).
+ */
 export const VENDOR_CLIENT_TABS = [
   'chat',
   'quote',
   'payments',
   'files',
   'schedule',
-  // Shown only to a supplier holding the stage-script entitlement (the
-  // emcee / host); `hidden` for everyone else, exactly like the OFF card.
+  // The Script fold at the end of Schedule — shown only to a supplier holding the stage-script entitlement.
   'script',
   'details',
+  'forms',
+  'hub',
+  'report',
 ] as const;
 export type VendorClientTab = (typeof VENDOR_CLIENT_TABS)[number];
 

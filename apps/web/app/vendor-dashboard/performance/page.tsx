@@ -11,7 +11,12 @@ import {
   unmeasuredVendorHealthComposite,
   type VendorHealthInputs,
 } from '@/lib/vendor-health-composite';
-import { buildGrowthRecs, type GrowthRecStats } from '@/lib/vendor-growth-recs';
+import {
+  buildGrowthRecs,
+  withoutPartnershipRecWhenNobodyToLink,
+  type GrowthRecStats,
+} from '@/lib/vendor-growth-recs';
+import { proposableShops, readPartnersYouServedWith } from '@/lib/partners-you-served-with.server';
 import { fetchVendorSourceAttribution } from '@/lib/vendor-source-attribution';
 import {
   fetchVendorBookingSeries,
@@ -527,6 +532,15 @@ export default async function PerformanceHome({
         }
       : null,
   );
+  // 🤝 The "Link up" card lands on the served-with list (owner 2026-11-06) — with nobody on it, it does not fire.
+  // Read only when the card would show.
+  const servedWith = growthRecs.some((r) => r.key === 'build_partnerships')
+    ? await readPartnersYouServedWith(supabase, profile.vendor_profile_id)
+    : null;
+  const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink(
+    growthRecs,
+    servedWith === null ? null : servedWith.measured ? proposableShops(servedWith).length : null,
+  );
 
   // month-over-month composite delta — no historical snapshot table exists yet,
   // so there is no prior composite to diff against. Rather than invent a number,
@@ -876,7 +890,7 @@ export default async function PerformanceHome({
       {/* 1 · Snapshot — how am I doing (all tiers, point-in-time). */}
       <div className="space-y-6">
         <HealthCompositeCard health={health} monthDelta={monthDelta}>
-          <GrowthRecsCard recs={growthRecs} />
+          <GrowthRecsCard recs={shownGrowthRecs} />
         </HealthCompositeCard>
         {/* The one number on this page a COUPLE also reads. Free on every tier:
             it is not analytics about somebody else's market, it is a claim

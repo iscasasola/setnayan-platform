@@ -173,7 +173,9 @@ test('supplier · both forms post only the row id and the way home — the same 
 
 test('supplier · the answer lands back in the thread, and the thread says what happened', () => {
   // Agree, Turn it down, and (2026-11-04) the full day's "Waiting list" — all three land back where they were tapped.
-  assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 3);
+  // + THE ONE BUILD (8 Nov 2026): `dayAnswerBack` — a date change or a removal request answered on the client's
+  // Details lands back on Details, through the same allow-list (`the-two-answers-reach-the-client.test.ts`).
+  assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 4);
   // Batch 5 (audit F9): the redirect also carries `&fee=held` when the couple's news waits on the fee.
   assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}\$\{feeHeld\}`\);/g), 1);
   assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_decline=\$\{flag\}`\);/g), 1);

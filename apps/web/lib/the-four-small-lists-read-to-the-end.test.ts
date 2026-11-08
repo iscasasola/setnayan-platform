@@ -330,7 +330,9 @@ test('screens: an unfinished payday read is said, and its rows are never summed'
   assert.match(customers, /(?:\{|between=\{\s*)paydayIncomplete \? \(\s*<p role="status"[^>]*>\s*Some payments couldn&rsquo;t load/);
 
   const client = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
-  assert.equal((client.match(/<LedgerUnreadableNote \/>/g) ?? []).length, 2, 'Quote + Payments tabs');
+  // + THE ONE BUILD (8 Nov 2026): the Payment page draws the money from what the page read (`payment.money`), and its
+  // unreadable note is the same component — the Payments node, the flag-off card's money fold, and the Payment page.
+  assert.equal((client.match(/<LedgerUnreadableNote \/>/g) ?? []).length, 3, 'Payments node + flag-off money fold + Payment page');
 });
 
 test('screens: blocks, unread and booked each say so when their read comes up short', () => {

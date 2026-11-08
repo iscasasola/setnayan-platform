@@ -103,10 +103,12 @@ const MOVED_MOUNTS: ReadonlyArray<readonly [string, string, number]> = [
   ['RequestCorrectionCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
   ['BranchPanel', '../app/vendor-dashboard/profile/page.tsx', 1],
   ['PaymentOptionsSurface', '../app/vendor-dashboard/profile/page.tsx', 1],
-  // Your page — the website editor's controls are its parts; the domain manager and the auto-reply card are mounted.
+  // Your page — the website editor's controls are its parts; the domain manager is mounted.
   ['PageParts', '../app/vendor-dashboard/website/page.tsx', 1],
   ['DomainManager', '../app/vendor-dashboard/website/page.tsx', 1],
-  ['AutoReplySection', '../app/vendor-dashboard/website/page.tsx', 1],
+  // The auto-reply card's ONE home is Clients settings since THE ONE BUILD (8 Nov 2026, spec §9 #6 —
+  // `customers/the-auto-reply-lives-in-clients-settings.test.ts`); Your page and Shop no longer mount it.
+  ['AutoReplySection', '../app/vendor-dashboard/customers/_components/customers-settings-body.tsx', 1],
   // Your collections — the gallery editors (portfolio photos · featured videos · Instagram).
   ['GalleryMedia', '../app/vendor-dashboard/collections/page.tsx', 1],
 ];
@@ -209,7 +211,10 @@ test('the rooms the retired rail pointed at still carry their anchors', () => {
   const surface = [PAGE(), ...readdirSync(resolve(SHOP, '_components'))
     .filter((f) => f.endsWith('.tsx'))
     .map((f) => read(`_components/${f}`))].join('\n');
-  for (const id of ['d1', 'manage-shop', 'packages', 'auto-reply', 'getting-paid', 'shop-folds']) {
+  for (const id of ['d1', 'manage-shop', 'packages', 'getting-paid', 'shop-folds']) {
     assert.ok(count(surface, `id="${id}"`) > 0, `#${id} no longer resolves on My Shop — a sent link lands nowhere`);
   }
+  // #auto-reply moved with its card to Clients settings (THE ONE BUILD, 8 Nov 2026); no link in the tree names it on Shop.
+  const clientsSettings = readFileSync(resolve(SHOP, '..', 'customers', '_components', 'customers-settings-body.tsx'), 'utf8');
+  assert.ok(count(clientsSettings, 'id="auto-reply"') > 0, '#auto-reply resolves nowhere — the card lost its anchor in Clients settings');
 });

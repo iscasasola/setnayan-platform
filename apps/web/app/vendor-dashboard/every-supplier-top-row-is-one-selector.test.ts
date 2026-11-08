@@ -154,8 +154,9 @@ test('3 · ONE door in the whole app writes the fold-door mark — PinDoor; the 
   }
 });
 
-test('1 · Customers and Shop say `Page · View ▾` — the page word on the phone too', () => {
-  assert.match(src(join(SUPPLIER, 'customers/_components/customers-pin.tsx')), /buttonText=\{`Customers · \$\{CUSTOMER_SEGMENT_LABEL\[seg\]\}`\}/);
+test('1 · Clients and Shop say `Page · View ▾` — the page word on the phone too', () => {
+  // The tab is called Clients since THE ONE BUILD (owner 7 Nov; `the-tab-is-called-clients.test.ts`).
+  assert.match(src(join(SUPPLIER, 'customers/_components/customers-pin.tsx')), /buttonText=\{`Clients · \$\{CUSTOMER_SEGMENT_LABEL\[seg\]\}`\}/);
   assert.match(src(join(SUPPLIER, 'shop/_components/shop-segments.tsx')), /buttonText=\{`Shop · \$\{SHOP_SEGMENT_LABEL\[on\]\}`\}/);
 });
 

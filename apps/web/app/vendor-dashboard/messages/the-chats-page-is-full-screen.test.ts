@@ -80,7 +80,8 @@ test('a · the envelope opens Chats — /vendor-dashboard/messages — never Cus
   assert.doesNotMatch(card, /customerLandingHref\('messages'\)/, 'a Messages door still lands on Customers');
   assert.equal((card.match(/: SUPPLIER_CHATS_HREF\b/g) ?? []).length, 0, 'a chat door came back onto the card body');
   const chatPage = read('app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx');
-  assert.equal((chatPage.match(/: SUPPLIER_CHATS_HREF\b/g) ?? []).length, 1, 'the Chat page’s fallback does not open Chats');
+  // Integration (8 Nov): C2's Chat page draws the thread in place; with no thread its one fallback link opens Chats.
+  assert.equal((chatPage.match(/href=\{SUPPLIER_CHATS_HREF\}/g) ?? []).length, 1, 'the Chat page’s fallback does not open Chats');
 });
 
 test('b · the page is the couple’s ChatInbox, fed the supplier’s rows — not a stub', () => {

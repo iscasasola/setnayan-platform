@@ -23,7 +23,7 @@ supplier that is not a coordinator still has to request a host or coordinator to
   from their client page and sees "Waiting for the host or the coordinator", then the answer (`change_requested` /
   `change_answered`, in-app only). Hosts and the coordinator answer beside the schedule requests. The limited-helper gate
   tells a capped supplier to propose instead of handing back an empty success.
-- Guardrails: Ugat joint J66, exposure baseline, RA 10173 export (author-scoped, no guest details) and erasure entries.
+- Guardrails: Ugat joint J67, exposure baseline, RA 10173 export (author-scoped, no guest details) and erasure entries.
   The two access reads moved to `lib/my-area-grants.server.ts` (server-action budget at its ceiling).
 
 SPEC IMPACT: Access model for suppliers changes (owner rule 8 Nov 2026). The spec corpus (`~/Documents/Claude/Projects/

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readCrewSkipAsks } from '@/lib/change-the-schedule.server';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import {
   FLOOR_REQUESTABLE_AREAS,
@@ -81,6 +82,9 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
     requestsActive,
   });
 
+  // 🗓 The crew's open skip asks (owner 2026-11-05) — only when the running order is open to this coordinator.
+  const crewAsks = model.schedule.state === 'ready' ? await readCrewSkipAsks(supabase, eventId) : [];
+
   // Only offer what the host has not already shared.
   const askable = FLOOR_REQUESTABLE_AREAS.filter((a) => !grants[a]) as DelegateArea[];
 
@@ -111,6 +115,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
             remaining={model.schedule.remaining}
             driftMinutes={model.schedule.driftMinutes}
             parts={blocksRaw ?? []}
+            crewAsks={crewAsks}
           />
         </>
       ) : (

@@ -18,11 +18,11 @@ import {
 } from '@/app/admin/payment-options/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { safeNext } from '@/lib/safe-next';
+import { pickedReason, redirectRefusal, workBackHref } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
 import { overridePublishReview } from '@/app/admin/reviews/actions';
 import { markPayoutPaidAction } from '@/app/admin/payouts/actions';
-import { applyApplicationDecision } from '@/app/admin/verify/actions';
 import { approveRequest } from '@/app/admin/approvals/actions';
 
 /**
@@ -109,52 +109,9 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
 }
 
 
-/**
- * VERIFY — stamp a vendor as verified, from the list.
- *
- * ⚠ THIS IS THE BADGE COUPLES TRUST, so it reuses the SAME decision engine the
- * verify page uses (`applyApplicationDecision`) rather than writing a status.
- * That engine is what also sets `verified`, `last_verified_at` and moves the
- * documents — a hand-written UPDATE here would set the flag and skip the rest.
- *
- * `approveApplication` (the page's action) redirects on success; this calls the
- * engine directly and revalidates, so the admin stays on the list. One engine,
- * two entry points.
- *
- * No `reason` from the list: an approval needs none, and the page is where a
- * rejection with its reason belongs.
- */
-export async function approveVerificationFromWorkList(formData: FormData): Promise<void> {
-  // The verify module carries its OWN `AdminUser = { user_id }`, while the
-  // shared requireAdmin() returns `{ userId }`. Two names for one thing; the
-  // typechecker caught the mismatch rather than a `user_id: undefined` reaching
-  // an audit column.
-  const { userId } = await requireAdmin();
-  const applicationId = formData.get('application_id');
-  const back = safeNext(formData.get('back'), '/admin/work');
-  if (typeof applicationId !== 'string' || applicationId.length === 0) {
-    redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
-  }
-
-  const result = await applyApplicationDecision({
-    actor: { user_id: userId },
-    applicationId,
-    decision: 'approved',
-    reason: null,
-  });
-
-  if (!result.ok) {
-    redirect(
-      `${back}${back.includes('?') ? '&' : '?'}settle=refused&why=${encodeURIComponent(result.error)}`,
-    );
-  }
-
-  revalidatePath('/admin/work');
-  revalidatePath('/admin');
-  revalidatePath('/admin/verify');
-  revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
-}
+/* VERIFY moved to `app/admin/verify/actions.ts` → `settleVerificationFromWorkList` (admin supplier slice,
+   2026-10-28): beside the decision engine it calls, so that engine could stop being an exported route (it had no
+   admin gate of its own). It also gained "Needs a fix" with a reason from the list. */
 
 /**
  * APPROVALS — co-sign a colleague's request, from the list.
@@ -280,9 +237,15 @@ async function settleViaRedirectingAction(
   } catch (e) {
     const digest = (e as { digest?: unknown })?.digest;
     if (typeof digest !== 'string' || !digest.startsWith('NEXT_REDIRECT')) throw e;
+    // 🚨 A PAGE ACTION ALSO REFUSES BY REDIRECTING — `fail()` in corrections sends `?error=<why>` (that address is
+    // taken; that shop no longer exists). Swallowing EVERY redirect announced those refusals as "Approved" while
+    // nothing changed (found 2026-10-28, admin supplier slice). A redirect that carries `error=` is a refusal: it
+    // goes back to the SAME list with the page's own words.
+    const refusal = redirectRefusal(digest);
+    if (refusal !== null) redirect(workBackHref(back, 'refused', refusal));
   }
   for (const p of paths) revalidatePath(p);
-  redirect(`${back}${back.includes('?') ? '&' : '?'}settle=${outcome}`);
+  redirect(workBackHref(back, outcome));
 }
 
 const backOf = (fd: FormData) =>
@@ -297,6 +260,11 @@ export async function settleCorrectionFromWorkList(formData: FormData): Promise<
   if (decision !== 'apply' && decision !== 'decline') {
     throw new Error('Choose apply or decline.');
   }
+  // 🔑 A DECLINE WITHOUT A REASON FROM THE LIST IS REFUSED (admin supplier slice, owner 2026-10-28: "Decline with a
+  // reason"). The shop is told why; a bare "declined" tells them nothing they can act on. The admin stays on Work.
+  if (decision === 'decline' && !pickedReason('names', formData.get('reason'))) {
+    redirect(workBackHref(backOf(formData), 'refused', 'Pick the reason the shop will see.'));
+  }
   await settleViaRedirectingAction(
     () =>
       decision === 'apply'
@@ -304,7 +272,7 @@ export async function settleCorrectionFromWorkList(formData: FormData): Promise<
         : declineCorrectionRequest(formData),
     ['/admin/work', '/admin/corrections'],
     backOf(formData),
-    'saved',
+    decision === 'apply' ? 'approved' : 'declined',
   );
 }
 

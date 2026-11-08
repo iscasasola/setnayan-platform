@@ -100,6 +100,12 @@ export interface UgatScreen {
   nodes: string[];
   /** The tables that put it on those nodes — the evidence, never a guess. */
   tables: string[];
+  /**
+   * Set ONLY when `nodes` came from `DECLARED_SCREEN_NODES` instead of a table
+   * read — the declaration's reason, so the map says which kind of evidence it
+   * is. Absent on every scanned screen.
+   */
+  declared?: string;
   /** Every way in found statically, self-links excluded. Sorted, deduped by (from, kind). */
   doors: ScreenDoor[];
   /** Slice 2. */
@@ -118,6 +124,44 @@ export interface LegacyRedirect {
   source: string;
   destination: string;
 }
+
+/**
+ * A screen that reads NO table of its own, and the node(s) it belongs to.
+ *
+ * 🔑 THE ONE EXCEPTION TO "NO TABLE, NO NODE" — AND IT IS FENCED.
+ * A few supplier screens are doorways: they draw only links to other pages
+ * (Help), or forward to another page's section (the old one-day calendar). A
+ * table scan can never place them, so without this they sit "unmapped"
+ * forever, which is a true count of nothing useful. A declaration is a
+ * reviewed fact, not a guess, because `declared-screen-nodes.test.ts` holds
+ * each one to four things:
+ *   · the route is a real screen in the committed map;
+ *   · the scan still finds NO mapped table for it — the moment the page reads
+ *     one, the scan wins and the declaration must be deleted (it fails red);
+ *   · every node is a real `UGAT_TYPES` id;
+ *   · `anchor` still appears in the page's code (comments stripped) — the
+ *     thing the `why` is about. Rewrite the page and the declaration fails.
+ * The scanner applies a declaration only when it mapped nothing itself.
+ */
+export interface DeclaredScreenNodes {
+  nodes: string[];
+  /** A string in the page's own code that the `why` rests on. */
+  anchor: string;
+  why: string;
+}
+
+export const DECLARED_SCREEN_NODES: Readonly<Record<string, DeclaredScreenNodes>> = {
+  '/vendor-dashboard/help': {
+    nodes: ['TYPE-VENDORS'],
+    anchor: 'SUPPLIER_HELP_ROWS',
+    why: 'Settings › Help for a supplier: it draws SUPPLIER_HELP_ROWS (settings-rows.ts), five doors to supplier pages (the fee article, the help centre, Shop › How clients pay you, Disputes, contact) and reads nothing beyond sign-in.',
+  },
+  '/vendor-dashboard/calendar/[date]': {
+    nodes: ['TYPE-AVAILABILITY'],
+    anchor: 'daySheetHref(',
+    why: 'The old one-day calendar address: it forwards to daySheetHref(date), the day sheet on Customers › Dates, where the day is blocked, a hold reopened and the waiting list told (vendor_calendar_blocks · vendor_calendar_day_states).',
+  },
+};
 
 export interface UgatScreensMap {
   version: 1;

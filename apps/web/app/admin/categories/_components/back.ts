@@ -8,11 +8,12 @@
  * actions cannot disagree about the address.
  *
  * Address shape — `/admin/categories?list=…&open=…&q=…&show=…`:
- *   list  categories (default) · event-types · religions
+ *   list  categories (default) · event-types · religions · hub-tools (admin supplier slice, 2026-10-28)
  *   open  g:<group id> · c:<category id> · s:<service key>   (categories list)
  *         p:<part key> · k:<service card id>                 (categories — the four-level map, ③b)
  *         <event_type>                                       (event types)
  *         <faith_key> · mixed                                (religions)
+ *         c:<category id>                                     (hub tools — the category shown)
  *   show  requests · unfiled · religion · scoped · hidden · words (categories)
  *         needs · parts · nosvc-cat · nosvc-part             (the map's Show ▾, ③b)
  *   in    g:<group> · c:<category> — where the map stands (③b)
@@ -26,7 +27,7 @@
 
 export const CATEGORIES_PATH = '/admin/categories';
 
-export const LISTS = ['categories', 'event-types', 'religions'] as const;
+export const LISTS = ['categories', 'event-types', 'religions', 'hub-tools'] as const;
 export type CategoriesList = (typeof LISTS)[number];
 
 export const SHOWS = ['requests', 'unfiled', 'religion', 'scoped', 'hidden', 'words', 'needs', 'parts', 'nosvc-cat', 'nosvc-part'] as const;

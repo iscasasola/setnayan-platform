@@ -474,6 +474,10 @@ export type NotificationType =
      booking is made by the couple's ask and the supplier's yes. */
   | 'quote_accepted'
   | 'quote_declined'
+  /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28). → the SHOP owner, in the app only (NOT on the email allowlist — owner
+     2026-10-11): Setnayan answered a name / web-address request (approved · declined + reason) or sent a flagged
+     service-card photo back with a reason. Emitted by lib/supplier-request-notify.ts. Enum value: 20271329965074. */
+  | 'supplier_request_answered'
   /* ➕ "CAN'T FIND YOURS? ASK US TO ADD IT" (owner 2026-10-28, DECISION_LOG
      "EVENT TYPES MUST BE SPECIFIC"). → the HOST who asked, in the app only (NOT
      on the email allowlist — owner 2026-10-11). Emitted when the event type they
@@ -720,6 +724,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   schedule_change_requested: 'Schedule request',
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
+  supplier_request_answered: 'Setnayan answered your request',
   event_type_added: 'Your event type was added',
   service_became_credits: 'Papic credits added',
   service_moved_to_event: 'Service moved',
@@ -957,6 +962,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_accepted: 'bg-success-100 text-success-900',
   // A no the supplier can answer with another quote → amber, like every other no.
   quote_declined: 'bg-warn-100 text-warn-900',
+  // An answer that can be yes or no (a decline carries its reason) → the neutral info tone, never a verdict colour.
+  supplier_request_answered: 'bg-sky-100 text-sky-800',
   // What they asked for is ready — a settled good thing, like an agreement.
   event_type_added: 'bg-success-100 text-success-800',
   // What we promised on /refunds, done — settled, like an agreement.
@@ -1241,6 +1248,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   guest_claim_rejected: 'user-plus',
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
+  supplier_request_answered: 'message',
   event_type_added: 'sparkle',
   service_became_credits: 'image',
   service_moved_to_event: 'receipt',

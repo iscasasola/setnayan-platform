@@ -4040,13 +4040,48 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * 🔔 A NOTICE IS ADDRESSED TO A PERSON, AND MAY KNOW ITS EVENT (iteration 0028; event_id from migration
+     * 20271238868040 "notifications know their event"). Before this joint `notifications` was on no node, so both
+     * notification screens — the couple's /dashboard/notifications and the supplier's /vendor-dashboard/notifications —
+     * sat unmapped on the Root map.
+     *
+     * 🔑 CLAIMED AS AN ABSENCE TOO: there is no vendor_id. A supplier's notices are their own as a PERSON (read by
+     * user_id = auth.uid()), never the shop's — a team member does not see another member's bell.
+     */
+    id: 'J66',
+    claims: [
+      { kind: 'table', table: 'notifications' },
+      { kind: 'fk', table: 'notifications', column: 'user_id', references: 'users' },
+      { kind: 'fk', table: 'notifications', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'notifications', column: 'type' },
+      { kind: 'column', table: 'notifications', column: 'related_url' },
+      { kind: 'column', table: 'notifications', column: 'read_at' },
+      { kind: 'no_column', table: 'notifications', column: 'vendor_id' },
+      { kind: 'no_column', table: 'notifications', column: 'thread_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-USERS', 'TYPE-EVENTS'],
+    title: 'User ↔ Event (a notice to one person, about one event or none)',
+    joint: 'notifications',
+    cardinality: 'Many notices per person; each names at most one event (event_id is NULL for a notice about no event)',
+    implementedBy:
+      'notifications (user_id → users ON DELETE CASCADE · event_id → events ON DELETE SET NULL · type · title · body · related_url · read_at). Read by fetchOwnNotifications (lib/notifications.ts) on both notification screens',
+    writtenBy:
+      'ONLY emitNotification (lib/notification-emit.ts), on the service role — there is no INSERT policy. The recipient flips read_at (notification-actions.ts: mark one / mark all read)',
+    guardedBy:
+      'RLS: notifications_recipient_read (SELECT) and notifications_recipient_update (UPDATE), both user_id = auth.uid(); no INSERT or DELETE policy for any browser role',
+    traps:
+      'event_id is SET NULL, not CASCADE, on purpose — deleting an event keeps its order and payment notices (sever_event_connections avoided exactly that sweep). Rows from before 20271238868040 got event_id only where related_url carried a real event uuid, so a NULL event_id does not prove a notice is about no event.',
+  },
+  {
+    /**
      * ✋ A SUPPLIER PROPOSES; A HOST OR THE COORDINATOR DECIDES (owner 8 Nov 2026: *"only coordinator and hosts has the
      * final say. so any supplier that is not a coordinator still has to request a host or coordinator to accept the
      * change"*; migrations 20271329284628 · 20271329978605 · 20271330396757 · 20271331202840). A booked supplier asks
      * for parts (`event_access_requests`, now answerable by the booked coordinator when the asker is not one), and a
      * granted non-coordinator's edit to the guest list, the seat plan or the suppliers is a row here until accepted.
      */
-    id: 'J66',
+    id: 'J67',
     claims: [
       { kind: 'table', table: 'event_change_requests' },
       { kind: 'fk', table: 'event_change_requests', column: 'event_id', references: 'events' },

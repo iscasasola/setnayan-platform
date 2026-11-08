@@ -452,7 +452,7 @@ export function MomentInspector({
 
       {request && canEdit ? (
         <p className="mt-3.5 rounded-xl bg-mulberry-50 px-3.5 py-3 text-[12.5px] text-mulberry-700">
-          {request.by} {request.kind === 'remove' ? 'asked to remove this moment' : 'asked for a change to this moment'} ·{' '}
+          {request.by} {request.kind === 'remove' ? 'asked to remove this moment' : request.kind === 'skip' ? 'asked to skip this moment today' : 'asked for a change to this moment'} ·{' '}
           <button type="button" onClick={onOpenRequests} className="font-bold underline">
             review
           </button>

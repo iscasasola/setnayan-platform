@@ -24,6 +24,13 @@
  *       re-reads through `onTabReturn` (lib/tab-return.ts, whose own test holds "a failed read changes nothing").
  *
  * Sabotage (2026-10-21, each on the real file, restored by `git checkout`): see the PR body's table.
+ *
+ * ⚡ AMENDED 2026-10-29 (owner, "chat arrives instantly" — PR #7035): "the chrome is not live" now has ONE named
+ * exception — the person's own private broadcast channel `user:<uid>` (lib/user-live-channel.ts), which the Messages
+ * envelope may follow. It is in `LIVE` and in `LAYOUT_MAY_REACH` with its gate: `followEnvelope` returns the plain
+ * poll on its first line unless NEXT_PUBLIC_CHAT_LIVE_ENABLED is on, and even on it joins only while the tab is in
+ * view (lib/user-live.ts), broadcasts only (no postgres_changes), one channel per tab shared by every caller.
+ * lib/chat-arrives-instantly.test.ts holds the rest (private, guests never reach it, the machine's timings).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -57,6 +64,8 @@ const LIVE: Record<string, string> = {
   'app/admin/connection-logs/connection-logs-client.tsx': 'admin only — the live connection log',
   'app/dashboard/[eventId]/_components/event-team-presence-join.ts':
     "Home › Who's here (owner 2026-10-29) — the event team on the dashboard now: presence only (no postgres_changes), private, lets go after 30 s hidden",
+  'lib/user-live-channel.ts':
+    "chat arrives instantly (owner 2026-10-29) — the person's OWN private broadcast topic user:<uid>, one per tab, only while in view, behind NEXT_PUBLIC_CHAT_LIVE_ENABLED (default off)",
 };
 
 /**
@@ -74,6 +83,15 @@ const LAYOUT_MAY_REACH: Record<string, { why: string; gateFile: string; gate: Re
     why: "the event team's presence — every dashboard page of the event, only while the tab is visible, off with TEAM_PRESENCE_DISABLED",
     gateFile: 'app/dashboard/[eventId]/layout.tsx',
     gate: /<EventTeamPresence\s+enabled=\{teamPresenceEnabled\(\)\}/,
+  },
+  // ⚡ Chat arrives instantly (owner 2026-10-29). The envelope is in every signed-in layout, so its live half is
+  // reachable from them — by `import()` only, and only past the kill switch: with NEXT_PUBLIC_CHAT_LIVE_ENABLED off
+  // (the default) `followEnvelope` returns the plain poll before anything is fetched. On: one private broadcast
+  // channel per person per VISIBLE tab, let go 30 s after hidden, jittered join after paint, backoff + give-up.
+  'lib/user-live-channel.ts': {
+    why: "the person's own private user:<uid> broadcast channel — only with NEXT_PUBLIC_CHAT_LIVE_ENABLED on, only while the tab is in view",
+    gateFile: 'lib/unread-polls.ts',
+    gate: /if \(!live\) return pollEnvelope\(\{ supabase, onValue \}\);/,
   },
   'app/_components/demo-session/use-demo-channel.ts': {
     why: "the home page's Papic demo overlay — a channel only while the overlay is open with a paired session",
@@ -97,6 +115,8 @@ const NEVER_LIVE = [
   'app/_components/unread-messages-badge.tsx',
   'app/dashboard/[eventId]/budget/_components/budget-summary.tsx',
   'lib/unread-polls.ts',
+  'lib/unread-follow.ts',
+  'app/_components/live-inbox-refresh.tsx',
 ];
 
 const CHANNEL = /\.channel\(|postgres_changes/;
@@ -155,9 +175,15 @@ test('the chrome on every page, and the budget, hold no socket', () => {
   const budget = code(path.join(WEB_ROOT, 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx'));
   const polls = code(path.join(WEB_ROOT, 'lib/unread-polls.ts'));
   assert.match(bell, /import\('@\/lib\/unread-polls'\)\.then\(\(\{ pollBell \}\)/, 'the bell re-asks through pollBell (loaded off the first load)');
-  assert.match(envelope, /import\('@\/lib\/unread-polls'\)\.then\(\(\{ pollEnvelope \}\)/, 'the envelope re-asks through pollEnvelope (loaded off the first load)');
+  assert.match(envelope, /import\('@\/lib\/unread-polls'\)\.then\(\(\{ followEnvelope \}\)/, 'the envelope re-asks through followEnvelope (loaded off the first load)');
+  const follow = polls.slice(polls.indexOf('export function followEnvelope('));
+  assert.match(
+    follow,
+    /^export function followEnvelope\([\s\S]*?\): \(\) => void \{\s*if \(!live\) return pollEnvelope\(\{ supabase, onValue \}\);/,
+    'with the kill switch off, the FIRST thing followEnvelope does is hand back the plain poll — nothing live is fetched',
+  );
   const bellPoll = polls.slice(polls.indexOf('export function pollBell('), polls.indexOf('export function pollEnvelope('));
-  const envPoll = polls.slice(polls.indexOf('export function pollEnvelope('));
+  const envPoll = polls.slice(polls.indexOf('export function pollEnvelope('), polls.indexOf('export function followEnvelope('));
   assert.match(bellPoll, /startCountPoll\(\{[\s\S]*?readUnreadNotificationCount\(/, 'pollBell re-asks through the poll, with the read that can say "unknown"');
   assert.match(envPoll, /startCountPoll\(\{[\s\S]*?readUnreadMessageThreads\(/, 'pollEnvelope re-asks through the poll, with the read that can say "unknown"');
   for (const [name, src] of [['bell', bell], ['envelope', envelope], ['unread-polls', polls]] as const) {

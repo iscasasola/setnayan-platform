@@ -129,6 +129,11 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   booking_fee_waived: 'low',
   guest_takedown_honored: 'low',
   service_card_moderated: 'low',
+  // Admin supplier slice — Setnayan answered the shop's name / web-address request, or sent a flagged service-card
+  // photo back. Owner, 8 Nov 2026, verbatim: *"Buzz (Normal)"* (reverses the controller's 'low'; same as his 5 Nov
+  // "Let us make it buzz") — the supplier is waiting on this answer, so it pushes now (Normal: buzzes, waits for
+  // 7 am during quiet hours). Still in the app only, no email (it is not on the email allowlist).
+  supplier_request_answered: 'normal',
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',

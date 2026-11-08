@@ -102,12 +102,12 @@ function labChatsRead(state: string): SupplierChatsRead {
 
 /** The picked client's pages in the lab: Chat is the embedded thread on fixture messages; the rest are lab lines (the
  * real bodies are proven in /dev/clients-lab). */
-function labPickedClientBodies(threadId: string, name: string): Record<PickedClientPage, React.ReactNode> {
+function labPickedClientBodies(threadId: string, name: string, hostsFail: boolean): Record<PickedClientPage, React.ReactNode> {
   const later = (label: string) => (
     <p className="px-1 py-6 text-sm text-ink/60">(lab) {label} for {name} — drawn in /dev/clients-lab.</p>
   );
   const bodies = Object.fromEntries(PICKED_CLIENT_PAGES.map((p) => [p.id, later(p.label)])) as Record<PickedClientPage, React.ReactNode>;
-  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} />;
+  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} hostsFail={hostsFail} />;
   return bodies;
 }
 
@@ -147,7 +147,7 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name)}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, sp.hosts === 'fail')}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
           />

@@ -25,7 +25,7 @@ import { LabPickedChat } from '@/app/dev/_components/lab-picked-chat';
 
 /** The picked supplier's pages in the lab. Details stands in for the workspace's own sections (hero · included · notes),
  * which are drawn inline by the server page and need a real event_vendors row. */
-function labPickedSupplierBodies(threadId: string, name: string): Record<PickedSupplierPage, React.ReactNode> {
+function labPickedSupplierBodies(threadId: string, name: string, hostsFail: boolean): Record<PickedSupplierPage, React.ReactNode> {
   const later = (label: string) => <p className="px-1 py-6 text-sm text-ink/60">(lab) {label} with {name}.</p>;
   const bodies = Object.fromEntries(PICKED_SUPPLIER_PAGE_IDS.map((id) => [id, later(id)])) as Record<PickedSupplierPage, React.ReactNode>;
   bodies.details = (
@@ -36,7 +36,7 @@ function labPickedSupplierBodies(threadId: string, name: string): Record<PickedS
       <p className="text-sm text-ink">Quote sent · ₱85,000 · prep + reception + same-day edit</p>
     </section>
   );
-  bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} />;
+  bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} hostsFail={hostsFail} />;
   return bodies;
 }
 
@@ -96,7 +96,7 @@ export default async function ChatLabInboxPage({
           supplierName={picked.name}
           menu={pickedSupplierMenuFor({ quote: true, chat: true })}
           initialPage={page}
-          bodies={labPickedSupplierBodies(picked.id, picked.name)}
+          bodies={labPickedSupplierBodies(picked.id, picked.name, sp.hosts === 'fail')}
         />
       ) : null}
     </LabShell>

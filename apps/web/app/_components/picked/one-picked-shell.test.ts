@@ -15,7 +15,7 @@
  *
  * SABOTAGE (done once, 9 Nov): an `el.animate(` in `picked-supplier-shell.tsx` → 1 RED; the intercept given its own
  * body → 2 RED; the host row's href back to `/messages/${r.threadId}` only → 3 RED; `<ul>{active.map(renderRow)}</ul>`
- * alone in the inbox → 4 RED; a needs-you level computed inside the inbox → 4 RED; `markThreadRead(threadId)` without the `embedded` return → 5 RED.
+ * alone in the inbox → 4 RED; a needs-you level computed inside the inbox → 4 RED; `markThreadRead(threadId)` without the `embedded` return → 5 RED; the host embed's `hosts` spread removed → 6 RED.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +43,7 @@ const HOST_CHATS = 'dashboard/[eventId]/messages';
 const SUPPLIER_CHATS = 'vendor-dashboard/messages/page.tsx';
 const INBOX = 'dashboard/[eventId]/messages/_components/chat-inbox.tsx';
 const HOST_THREAD = 'dashboard/[eventId]/messages/[threadId]/page.tsx';
+const SUPPLIER_THREAD = 'vendor-dashboard/messages/[threadId]/page.tsx';
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -132,4 +133,18 @@ test('5 · the host Chat page is the shipped thread, marked read only while show
   assert.match(t, /if \(embedded\) return;\s*await markThreadRead\(threadId\);/, 'the embedded draw marks the chat read on the server');
   assert.match(t, /<MarkReadWhenShown threadId=\{threadId\} \/>/);
   assert.equal((t.match(/<ChatMessageStream\b/g) ?? []).length, 1, 'the host thread page mounts a second chat stream');
+});
+
+test('6 · both picked Chats draw the SHIPPED host strip — no second presence row', () => {
+  // The host embed hands the stream its hosts (the stream draws `ChatHostStrip` when `hosts` is given), read from the
+  // one source the supplier side reads, `event_chat_hosts`; only when embedded.
+  const t = read(HOST_THREAD);
+  assert.match(t, /rpc\('event_chat_hosts', \{ p_event_id: thread\.event_id \}\)/, 'the host embed no longer reads its hosts');
+  assert.match(t, /\{\.\.\.\(hosts !== undefined \? \{ hosts \} : \{\}\)\}/, 'the host embed no longer hands the stream its hosts');
+  assert.match(read(SUPPLIER_THREAD), /\{\.\.\.\(embedded \? \{ hosts: customerPlan\.hosts \} : \{\}\)\}/, 'the supplier embed lost its hosts');
+  // No invented presence: nobody in Lane A's files says "online" or "last seen" or draws a strip of their own.
+  for (const rel of [SHELL, HOST_THREAD, INBOX, 'dashboard/[eventId]/messages/[threadId]/_components/couple-thread-body.tsx']) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /\bonline\b|last seen|<ChatHostStrip\b/i, `${rel} draws a second presence row`);
+  }
 });

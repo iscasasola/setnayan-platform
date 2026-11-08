@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -522,6 +523,22 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // nothing (lib/not-yet-verified.server.ts).
   const shopNotYetVerifiedRead = readThreadShopNotYetVerified(decisionAdmin, thread.vendor_profile_id);
 
+  // 👥 WHO IS IN THIS CHAT — the picked supplier's Chat (Build 3 · Lane A) draws the SAME shipped `ChatHostStrip` the
+  // supplier's picked client does, under the pinned row: one source (`event_chat_hosts`, service_role only, so the admin
+  // client), the ring from the stream's existing presence channel. Only when embedded (the full thread keeps its head).
+  // The viewer is dropped — the strip adds "You" itself. NULL = the read was refused: the strip says "Couldn't load".
+  const hostsRead: Promise<ChatHost[] | null | undefined> = embedded
+    ? (async () => {
+        const res = await decisionAdmin.rpc('event_chat_hosts', { p_event_id: thread.event_id });
+        if (res.error) {
+          logQueryError('coupleThread.chatHosts', res.error, { eventId: thread.event_id }, 'graceful_degrade');
+          return null;
+        }
+        const hosts = chatHostsFrom(res.data);
+        return hosts === null ? null : hosts.filter((h) => h.userId !== user.id);
+      })().catch(() => null)
+    : Promise.resolve(undefined);
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
@@ -542,6 +559,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBooked,
     shopPhone,
     shopNotYetVerified,
+    hosts,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -561,6 +579,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBookedRead,
     shopPhoneRead,
     shopNotYetVerifiedRead,
+    hostsRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -859,6 +878,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             initialMessages={initialMessages}
             currentUserId={user.id}
             viewerRole="couple"
+            {...(hosts !== undefined ? { hosts } : {})}
             counterpartyLabel={vendorLabel}
             eventDate={eventDate}
             standing={threadStanding}

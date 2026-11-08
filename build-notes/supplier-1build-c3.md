@@ -82,6 +82,9 @@ dropping the chat-thread clause turned 4 tests red; not forcing `user_id` turned
 - **L2** (Details "Forms · sent to this couple", item 19): read it with `readEventForms(supabase, { eventId,
   vendorProfileId, library, cards, bookedCardIds })` from `lib/vendor-forms.server.ts` (→ `sent[]` with title ·
   answered · total); "＋ Send a form" can open `/vendor-dashboard/clients/<id>?tab=forms`.
+- **L2** (port guard): `app/admin/_components/port-guard-reach.test.ts` fails on the new `_pages` folder convention
+  ("Unaccounted: _pages") — L2 owns `_pages/`; add it to `PRIVATE_SUBDIRS` (it holds actions/links) in L2's change.
+- **C2**: `gates-have-handles` flags `chat_message_hearts.hearted` (no writer yet) on the merged `-data` — C2's chat work.
 - **L1** (registries): `lib/page-home.ts` — the Form Maker sheet + the Forms/Report bodies (back target = Clients list).
 - **C2**: none (`chat-*` untouched; `messages/[threadId]` got only the one filter line in two files).
 - **C4**: the Shop "Makers → Forms door" should open `/vendor-dashboard/clients/...?tab=forms` or the library; there is
@@ -173,6 +176,27 @@ Measured failing on my branch ONLY because these are controller-owned:
   Answered/Open pills). Restyling it is allowed (SHIPPED = move/restyle) but was not done — next step if wanted.
 - No "Past reports" list on Report (INVENTED in the parts map).
 
+## Full preflight (2026-11-08, `node scripts/preflight.mjs --base origin/claude/supplier-1build-base`, 26m 54s)
+
+20 rows failed on the first full run. Fixed in C3 (`a5e3be990a`), each re-run green: shared reveal-on-open in the Maker
+and the sent-form rows · the sweep deletes through `cleanupDelete` + a new `vendorFormMediaScope` · no `router.refresh()`
+after an action that revalidated · `formatCount` on every count · "first payment", never "deposit" · every Supabase
+`error` read in the admin action · the uploader no longer takes the reserved `gallery` layout · the shipped-set guard
+accepts `.not('form_id', …)` (the sweep reads the library explicitly).
+Left, NOT C3's to fix (owner in brackets): server-action budget 1235/1232 (controller) · `ugat/screens.generated.json`,
+`admin-jobs` generated checklist, exposure baseline, FK-behaviour map, Ugat concept map (controller, generated) ·
+`export-coverage` T12 and `shop-name-hold` / `ugat-both-ends` `shop_name_is_held` (BASE) · `port-guard-reach` `_pages`
+(L2) · `gates-have-handles` `chat_message_hearts.hearted` (C2, after merging `-data`).
+
 ## Where I stopped
 
-(updated at each push — see the bottom of this file)
+**2026-11-08 ~03:00 UTC · `claude/supplier-1build-c3` @ `d56116a5cb` (pushed; `-data` merged; `-foundation` not out yet).**
+Every item of the C3 lane block is built, proved at 375 px against v113 (screenshots above) and pushed.
+Exact next steps, in order:
+1. When `origin/claude/supplier-1build-foundation` appears: merge it; if the thumb row / sheet z tokens changed, nothing in
+   C3 sets a raw z-index (Sheet + SupplierThumbRow only) — re-render `/dev/forms-lab` at 375 px to confirm.
+2. Optional polish (allowed, not required): restyle the MOVED shipped "Questions for the couple" (`questions-section.tsx`)
+   to v113's look (icon tiles · Answered/Open pills). It is shared with `/vendor-dashboard/activities#questions`.
+3. If the controller wants the action budget back by one: fold `submitSupplierReport` into `formsAction` as `op=report`.
+Waits on: controller (generated files, budget), L2 (`_pages` in the port guard; drop `CoupleAnswers` from Details),
+L1 (`page-home` rows), C2 (hearts writer).

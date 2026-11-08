@@ -7,9 +7,12 @@
  *      first (Stay · Leave, one row, equal widths); no `leave` (supplier · coordinator · planner) → nothing.
  *   3. The ＋ list: "Add all" on top only when more than one host is missing; ticks; a host who left says so.
  *   4. The rules: only hosts leave; coordinators and planners are always in (never listed, never leave); the lines.
+ *   5. The strip's order — Supplier · coordinator(s) · You · the other hosts; "You" in your own slot, never twice — and
+ *      the ＋ last, only while an event host is missing.
  *
  * Sabotage (9 Nov 2026): the ＋ drawn without `addable` → 1 RED; "Leave chat" offered with no `leave` → 2 RED;
- * "Add all" shown for one missing host → 3 RED; a planner allowed to leave → 4 RED.
+ * "Add all" shown for one missing host → 3 RED; a planner allowed to leave → 4 RED; the ＋ drawn with
+ * no host missing → 5 RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,6 +29,7 @@ import {
   everyoneAddedLine,
   memberAddedLine,
   memberLeftLine,
+  stripOrder,
 } from './chat-members';
 import type { ChatHost } from './chat-hosts';
 
@@ -43,7 +47,7 @@ test('1 · the supplier never sees the ＋', () => {
   const supplier = renderToStaticMarkup(h(ChatHostStrip, base));
   assert.doesNotMatch(supplier, /data-chat-host-add-open/, 'the ＋ is drawn with no `addable`');
   const hostSide = renderToStaticMarkup(
-    h(ChatHostStrip, { ...base, youId: 'u-maria', hosts: [JOSE], addable: { candidates: [], add: noop } }),
+    h(ChatHostStrip, { ...base, youId: 'u-maria', hosts: [JOSE], addable: { candidates: [{ ...host('u-lea', 'Lea'), left: false }], add: noop } }),
   );
   assert.match(hostSide, /data-chat-host-add-open=""/);
   // The supplier's thread page hands neither the ＋ nor Leave to its stream.
@@ -109,4 +113,31 @@ test('4 · only hosts leave; coordinators and planners are always in; the system
   assert.equal(memberAddedLine('Lea', 'Marco', true), 'Lea added Marco back');
   assert.equal(everyoneAddedLine('Lea'), 'Lea added everyone');
   assert.equal(memberLeftLine('Marco'), 'Marco left');
+});
+
+test('5 · the strip\'s order, "You" never twice, and the ＋ last only while a host is missing', () => {
+  const shop = host('u-shop', 'Lumière', 'supplier');
+  const pia = host('u-pia', 'Pia', 'wedding_planner_external');
+  const ids = (xs: { userId: string; isYou: boolean }[]) => xs.map((x) => (x.isYou ? `you:${x.userId}` : x.userId));
+  // A host's view: Supplier · coordinator · You · the other hosts.
+  assert.deepEqual(ids(stripOrder([MARIA, JOSE, pia, shop], 'u-maria', 'couple')), ['u-shop', 'u-pia', 'you:u-maria', 'u-jose']);
+  // The supplier's view (not in the list): You first, then the coordinator, then the hosts.
+  assert.deepEqual(ids(stripOrder([MARIA, pia, JOSE], 'u-shop', 'vendor')), ['you:u-shop', 'u-pia', 'u-maria', 'u-jose']);
+  // The coordinator's view: You in the coordinator's slot — once.
+  const coord = ids(stripOrder([shop, MARIA, pia], 'u-pia', 'couple'));
+  assert.deepEqual(coord, ['u-shop', 'you:u-pia', 'u-maria']);
+  assert.equal(coord.filter((x) => x.startsWith('you:')).length, 1, '"You" drawn twice');
+
+  // Drawn: the ＋ last, and only while a host is missing.
+  const base = { hosts: [shop, MARIA, JOSE], presentIds: new Set<string>(), youId: 'u-maria', threadId: 't1', viewerSide: 'couple' as const };
+  const missing = renderToStaticMarkup(
+    h(ChatHostStrip, { ...base, addable: { candidates: [{ ...host('u-lea', 'Lea', 'parent_of_bride'), left: true }], add: noop } }),
+  );
+  assert.match(missing, /data-chat-host-add-open=""/);
+  assert.ok(missing.lastIndexOf('data-chat-host-face') < missing.indexOf('data-chat-host-add-open'), 'the ＋ is not last');
+  const you = missing.indexOf('>You<span class="sr-only">');
+  assert.ok(missing.indexOf('Lumière') < you && you < missing.indexOf('Jose'), 'the drawn order is wrong');
+  const full = renderToStaticMarkup(h(ChatHostStrip, { ...base, addable: { candidates: [], add: noop } }));
+  assert.doesNotMatch(full, /data-chat-host-add-open/, 'the ＋ is drawn with every host already in');
+  assert.equal((full.match(/>You<span class="sr-only">/g) ?? []).length, 1, '"You" drawn twice');
 });

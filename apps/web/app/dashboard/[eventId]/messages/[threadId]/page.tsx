@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
+import { SUPPLIER_STRIP_ROLE } from '@/lib/chat-members';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -526,9 +527,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // 👥 WHO IS IN THIS CHAT — the picked supplier's Chat (Build 3 · Lane A) draws the SAME shipped `ChatHostStrip` the
   // supplier's picked client does, under the pinned row: one source (`event_chat_hosts`, service_role only, so the admin
   // client), the ring from the stream's existing presence channel. Only when embedded (the full thread keeps its head).
-  // The viewer is dropped — the strip adds "You" itself. The SHOP is added at the end, under the label this page already
-  // shows for it, so a host can tap it for 🔒 Message privately (DECISION_LOG 2026-11-09 🔒: supplier ↔ host ↔
-  // coordinator). NULL = the read was refused: the strip says "Couldn't load".
+  // The SHOP joins the list under the label this page already shows for it (role `supplier`), so the strip can stand it
+  // first (owner, 9 Nov: Supplier · coordinator(s) · You · the other hosts — `stripOrder`) and a host can tap it for
+  // 🔒 Message privately. The viewer stays in the list: the strip reads their own slot as "You", never twice.
+  // NULL = the read was refused: the strip says "Couldn't load".
   // TODO(Build 3 · Lane B): the strip shows the THREAD's members (👥) — swap `event_chat_hosts` for Lane B's
   // thread-scoped hosts read, and pass `memberAdd` / `memberLeave` (its writes) to the stream; `lib/chat-members.ts`
   // holds who may add, leave and be added.
@@ -545,11 +547,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         }
         const hosts = chatHostsFrom(res.data);
         if (hosts === null) return null;
-        const others = hosts.filter((h) => h.userId !== user.id);
         const shopUser = (shop.data as { user_id?: string | null } | null)?.user_id ?? null;
         return shopUser && shopUser !== user.id
-          ? [...others, { userId: shopUser, firstName: label, name: label, role: 'supplier', label: null }]
-          : others;
+          ? [{ userId: shopUser, firstName: label, name: label, role: SUPPLIER_STRIP_ROLE, label: null }, ...hosts]
+          : hosts;
       })().catch(() => null)
     : Promise.resolve(undefined);
 

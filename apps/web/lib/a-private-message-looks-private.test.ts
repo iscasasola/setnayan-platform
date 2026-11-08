@@ -9,6 +9,9 @@
  *      photo). Off: everything back.
  *   4. The server is the net: a private message with a file is refused; it never wakes the auto-reply; only the one
  *      person is notified.
+ *   5. ANY pair (owner, 9 Nov): host → host included — every face but your own is a button, and the server takes a host
+ *      as the recipient. The supplier cannot read a host ↔ host message: the thread is read ONLY through the caller's
+ *      RLS-scoped client (Lane B's SELECT rule hides it), never the admin client.
  *
  * Sabotage (9 Nov 2026): `PrivateMark` drawing its strip for `null` → 1 RED; the composer drawing `lead` while private →
  * 3 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED.
@@ -24,6 +27,7 @@ import { PrivateMark, PrivateTime, PRIVATE_BUBBLE_FILL } from '@/app/_components
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { setPrivateTo } from '@/app/_components/chat/private-to';
 import { CHAT_PRIVATE_FIELD, privateOtherId, privateToFromForm } from './chat-private';
+import { ChatHostStrip } from '@/app/_components/chat/chat-host-strip';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const WEB = join(__dirname, '..');
@@ -95,4 +99,44 @@ test('4 · the server is the net: words only, no auto-reply, only the one person
   assert.equal(privateToFromForm('00000000-0000-4000-8000-0000000000ee', '00000000-0000-4000-8000-0000000000ee'), null);
   assert.equal(privateToFromForm('not-a-user', null), null);
   assert.equal(privateToFromForm(null, null), null);
+});
+
+test('5 · any pair, host → host included; the thread is read only through the caller\'s RLS client', () => {
+  // A host's strip: the other host and the supplier are both buttons; your own face is not (no Leave given here).
+  const strip = renderToStaticMarkup(
+    h(ChatHostStrip, {
+      hosts: [
+        { userId: 'u-shop', firstName: 'Lumière', name: 'Lumière', role: 'supplier', label: null },
+        { userId: 'u-maria', firstName: 'Maria', name: 'Maria', role: 'bride', label: null },
+        { userId: 'u-jose', firstName: 'Jose', name: 'Jose', role: 'groom', label: null },
+      ],
+      presentIds: new Set<string>(),
+      youId: 'u-maria',
+      threadId: 't1',
+      viewerSide: 'couple',
+    }),
+  );
+  assert.match(strip, /data-chat-host-face="u-jose"/, 'a host cannot message another host privately');
+  assert.match(strip, /data-chat-host-face="u-shop"/, 'a host cannot message the supplier privately');
+  assert.doesNotMatch(strip, /data-chat-host-face="u-maria"|data-chat-host-face="you"/);
+  // A supplier's strip: every host is a button.
+  const sup = renderToStaticMarkup(
+    h(ChatHostStrip, {
+      hosts: [{ userId: 'u-maria', firstName: 'Maria', name: 'Maria', role: 'bride', label: null }],
+      presentIds: new Set<string>(),
+      youId: 'u-shop',
+      threadId: 't1',
+    }),
+  );
+  assert.match(sup, /data-chat-host-face="u-maria"/);
+  // The server takes a HOST as the recipient (and the shop) — host → host is a valid pair.
+  const core = read('lib/chat-send.ts');
+  assert.match(core, /\.eq\('user_id', privateTo\)\s*\.eq\('member_type', 'couple'\)/);
+  // Who READS it: both thread pages and the live stream read through the caller's own session, never the admin client —
+  // so a third member (the supplier, for a host ↔ host message) gets what RLS gives them, and RLS gives them nothing.
+  assert.match(read('app/dashboard/[eventId]/messages/[threadId]/page.tsx'), /const messagesRead = fetchMessages\(supabase, threadId\);/);
+  assert.match(read('app/vendor-dashboard/messages/[threadId]/page.tsx'), /fetchMessages\(supabase, threadId\)/);
+  for (const rel of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx', 'app/_components/chat-message-stream.tsx']) {
+    assert.doesNotMatch(read(rel), /fetchMessages\((?:admin|createAdminClient\(\)|decisionAdmin|paxAdmin)/, `${rel} reads the thread with the admin client`);
+  }
 });

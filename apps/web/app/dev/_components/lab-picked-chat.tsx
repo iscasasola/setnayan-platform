@@ -18,6 +18,9 @@ import type { ChatHost } from '@/lib/chat-hosts';
  * the shipped strip's "Couldn't load" line. */
 const MARIA: ChatHost = { userId: LAB_USER, firstName: 'Maria', name: 'Maria Reyes', role: 'bride', label: null };
 const JOSE: ChatHost = { userId: '00000000-0000-4000-8000-0000000000ee', firstName: 'Jose', name: 'Jose Santos', role: 'groom', label: null };
+const PIA: ChatHost = { userId: '00000000-0000-4000-8000-0000000000e2', firstName: 'Pia', name: 'Pia Cruz', role: 'wedding_planner_external', label: 'Coordinator' };
+/** The host side's strip carries the shop (the real page adds it the same way, role `supplier`). */
+const SHOP: ChatHost = { userId: LAB_STAFF, firstName: 'Lumière Photo', name: 'Lumière Photo', role: 'supplier', label: null };
 
 /** 👥 The event's hosts NOT in this chat (lab): one who left, one never added — the ＋ list's two kinds. */
 const LAB_ADDABLE = [
@@ -45,8 +48,9 @@ async function labSend(formData: FormData): Promise<void> {
 
 export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = false }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; hostsFail?: boolean }) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
-  // supplier sees every host; a host sees the OTHER hosts — the strip adds "You" itself (as the real host embed does).
-  const hosts = hostsFail ? null : side === 'vendor' ? [MARIA, JOSE] : [JOSE];
+  // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
+  // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
+  const hosts = hostsFail ? null : side === 'vendor' ? [MARIA, JOSE, PIA] : [SHOP, MARIA, JOSE, PIA];
   return (
     <div data-picked-lab-chat={side} className="flex min-h-[70dvh] flex-col">
       <ChatBox

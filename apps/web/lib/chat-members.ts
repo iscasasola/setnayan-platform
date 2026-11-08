@@ -62,3 +62,26 @@ export function everyoneAddedLine(by: string): string {
 export function memberLeftLine(who: string): string {
   return `${who} left`;
 }
+
+/** The supplier's own entry in a strip (the host side adds the shop under the label the page shows for it). */
+export const SUPPLIER_STRIP_ROLE = 'supplier';
+
+export type StripPerson = { userId: string; host: ChatHost | null; isYou: boolean };
+
+/**
+ * 👥 THE STRIP'S ORDER (owner, 9 Nov): the Supplier first, then the coordinator / planner(s), then You, then the other
+ * hosts in the chat. A viewer who IS the supplier or a coordinator reads "You" in THAT slot — never twice. The supplier
+ * viewer is not in the hosts list (the list is the event's side), so their "You" goes first. Stable within each group.
+ */
+export function stripOrder(hosts: readonly ChatHost[], youId: string, viewerSide: 'vendor' | 'couple'): StripPerson[] {
+  const rank = (h: ChatHost): number => (h.role === SUPPLIER_STRIP_ROLE ? 0 : isAlwaysInChat(h.role) ? 1 : 3);
+  const rows: { p: StripPerson; r: number; i: number }[] = hosts.map((h, i) => {
+    const isYou = h.userId === youId;
+    const r = rank(h);
+    return { p: { userId: h.userId, host: h, isYou }, r: isYou && r === 3 ? 2 : r, i };
+  });
+  if (!hosts.some((h) => h.userId === youId)) {
+    rows.push({ p: { userId: youId, host: null, isYou: true }, r: viewerSide === 'vendor' ? 0 : 2, i: -1 });
+  }
+  return rows.sort((a, b) => a.r - b.r || (a.r === 0 && a.p.isYou ? -1 : b.r === 0 && b.p.isYou ? 1 : a.i - b.i)).map((x) => x.p);
+}

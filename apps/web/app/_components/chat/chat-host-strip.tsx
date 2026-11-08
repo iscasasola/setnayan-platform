@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Check, Lock, LogOut, Plus, UserPlus, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
-import { showsAddAll } from '@/lib/chat-members';
+import { showsAddAll, stripOrder } from '@/lib/chat-members';
 import { setPrivateTo } from './private-to';
 
 /**
@@ -47,6 +47,7 @@ export function ChatHostStrip({
   threadId,
   addable = null,
   leave = null,
+  viewerSide = 'vendor',
 }: {
   /** NULL = the hosts read was refused: said as such, never as an empty chat. */
   hosts: readonly ChatHost[] | null;
@@ -58,6 +59,8 @@ export function ChatHostStrip({
   addable?: ChatHostAdd | null;
   /** 👥 A host only — your own face offers "Leave chat". */
   leave?: (() => void | Promise<void>) | null;
+  /** Whose strip this is — the supplier's "You" stands first; a host's after the coordinator(s). */
+  viewerSide?: 'vendor' | 'couple';
 }) {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -68,7 +71,14 @@ export function ChatHostStrip({
       </p>
     );
   }
-  const people = [...hosts.map((h) => ({ id: h.userId, initials: hostInitials(h), name: hostFirstName(h) })), { id: youId, initials: 'You', name: 'You' }];
+  // 👥 Supplier · coordinator/planner(s) · You · the other hosts — "You" in your own slot, never twice (`stripOrder`).
+  const people = stripOrder(hosts, youId, viewerSide).map((p) =>
+    p.isYou || !p.host
+      ? { id: p.userId, initials: 'You', name: 'You' }
+      : { id: p.userId, initials: hostInitials(p.host), name: hostFirstName(p.host) },
+  );
+  // The ＋ comes last, and only while at least one event host is not in this chat.
+  const canAdd = Boolean(addable && addable.candidates.length > 0);
   const inNow = people.filter((p) => presentIds.has(p.id)).length;
   const open = menuFor ? people.find((p) => p.id === menuFor) ?? null : null;
   return (
@@ -121,7 +131,7 @@ export function ChatHostStrip({
             </li>
           );
         })}
-        {addable ? (
+        {addable && canAdd ? (
           <li className="flex shrink-0 snap-start flex-col items-center gap-0.5">
             <button
               type="button"
@@ -159,7 +169,7 @@ export function ChatHostStrip({
           onDone={() => setMenuFor(null)}
         />
       ) : null}
-      {addable && adding ? <AddHostsList addable={addable} onDone={() => setAdding(false)} /> : null}
+      {addable && canAdd && adding ? <AddHostsList addable={addable} onDone={() => setAdding(false)} /> : null}
     </div>
   );
 }

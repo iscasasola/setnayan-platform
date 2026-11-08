@@ -154,6 +154,44 @@ Side-by-side, v113 (left) vs build (right), 375 px light, in `build-notes/c2-sho
   Hub on the simulator after integration.**
 - Motion: these pages do not animate on their own (the 520 ms open/close is L2's shell).
 
+## Preflight (full run, `--base origin/claude/supplier-1build-base`, 2026-11-08) + full `tsc`
+
+Full `tsc`: clean except the pre-existing base error (`tests/db/one-source-buckets.db.test.ts:189`).
+Full preflight: 34 min. Every red that was this lane's is FIXED (audited save reads its error · hearts count via
+`formatCount` · `_pages` walked by the port guard (`scripts/port-controls.mjs` PRIVATE_SUBDIRS) · the quote bar's
+"fields are in the page" exemption in `every-bottom-input-rides-the-keyboard`). What stays red, and whose:
+
+| Check | Why | Owner |
+|---|---|---|
+| Root map current / `ugat/screens-are-generated` | `screens.generated.json` stale (new `_pages`, moved doors); `check-ugat-screens` reports **no new enforced finding** | Controller (regenerate) |
+| `admin-map/admin-jobs-are-generated` | Admin › Gifts gained the Gift limit save | Controller (`pnpm admin:jobs`) |
+| `exposure-freeze` · `user-fk-behaviour` | new table/functions; `chat_message_hearts.user_id` CASCADE | Controller (`exposure:baseline` · `UPDATE_FK_BEHAVIOUR=1`) |
+| `ugat-both-ends` | `supplier-thread-body` unmounted until L2's shell mounts `_pages/*`; `shop_name_is_held` pre-existing | Integration / base |
+| `ugat-concept-coverage` | `vendor_forms` [hub] | C3 |
+| `gates-have-handles` | `vendor_questions.is_required` | C3 |
+| `numbers-carry-commas` | `lib/vendor-forms.ts` `items.length` | C3 |
+| `export-coverage-guardrail` T12 · `shop-name-hold` | fail identically on the untouched base | pre-existing |
+| port-control baseline | `_pages` is now walked (+ moved quote controls) | Controller (regenerate) |
+| no-card baseline | 3 files now BELOW baseline (fewer cards) | Controller (`lint-no-card --update-baseline`, lowers only) |
+
 ## Where I stopped
 
-(updated at each push)
+**Done (pushed to `origin/claude/supplier-1build-c2`):** every item of the C2 lane block — `-data` (pushed, merged back),
+gift limit (SQL + TS + Admin › Gifts audited save; the "40%" strings sent to C4 above), Quotation (11 steps, pinned bar,
+proved at 375 px), Chat (`SupplierThreadBody`, hosts strip, sender names, hearts), Hub page. Notes, changelog
+fragment, guards (each new one sabotaged once), side-by-side shots.
+
+**Exact next steps:**
+1. When `origin/claude/supplier-1build-foundation` appears: `git merge origin/claude/supplier-1build-foundation`, then
+   swap the quote bar's raw `z-10` for the page-layer z token (spec §10 #23) and its bottom offset for the foundation's
+   token if it supersedes `--sn-bottomdock-h` / `--sn-thumb-room`; re-run the quote guards + shots.
+2. Re-shoot Quotation/Chat inside L2's real `PickedClientShell` once the shell exists (controller, after integration).
+3. If the owner rules a loader file after all (D1), extract `lib/proposal-maker-props.server.ts` behind
+   `SupplierThreadBody` — the client pages do not change.
+
+**Waits on whom:** L2 (shell mounts `_pages/{quotation,chat,hub}.tsx`; chat redirect + `one-chat-box-everywhere`
+tests 3–4) · C4 (the typed "40%" in its service files; Booked Loop reads `readShopBookedLoopCount`) · L1/C1 (`brief.hosts`
+for Today's "N hosts in chat") · Controller (generated files above; the block-guard finding; `.gitignore` `build-notes/`).
+
+**Owner questions left open (not built, honest state):** the card gift pre-filling the quote (spec §4 — unruled money);
+host names before the fee (B1 Q9 — built visible, as the thread already shows one name).

@@ -11,6 +11,8 @@
  * 🚫 A heart is a heart. Nothing here turns a message into a decision (owner removed "bubble → decision", 8 Nov).
  */
 
+import { formatCount } from './format-number';
+
 /** messageId → the set of user ids whose heart is ON. */
 export type HeartsByMessage = ReadonlyMap<string, ReadonlySet<string>>;
 
@@ -46,7 +48,7 @@ export function applyHeart(map: HeartsByMessage, row: HeartRow): Map<string, Set
 /** What the chip under a bubble says: nothing at 0, "♥" at 1, "♥ N" from 2 (v111: count shown from two). */
 export function heartChip(count: number): string | null {
   if (!Number.isFinite(count) || count <= 0) return null;
-  return count >= 2 ? `♥ ${count}` : '♥';
+  return count >= 2 ? `♥ ${formatCount(count)}` : '♥';
 }
 
 /**

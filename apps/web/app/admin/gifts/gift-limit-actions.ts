@@ -48,12 +48,18 @@ export async function saveGiftLimitPct(_prev: RowActionState, formData: FormData
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
-  await admin.from('admin_audit_log').insert({
+  const audit = await admin.from('admin_audit_log').insert({
     action: 'gift_limit_pct_edit',
     target_id: 'gift_limit_pct',
     actor_user_id: adminUserId,
     metadata: { table: 'platform_settings', before, after: pct },
   });
+  // The setting moved; an unwritten audit row is said, never swallowed (Supabase resolves with { error }).
+  if (audit.error) {
+    console.error('[admin gifts] gift_limit_pct_edit audit row refused', audit.error);
+    revalidatePath('/admin/gifts');
+    return { ok: true, message: `Saved at ${pct}% — but the audit row did not write. Tell the team.` };
+  }
 
   revalidatePath('/admin/gifts');
   return { ok: true, message: `Saved — new quotes size gifts at ${pct}% of the booking fee.` };

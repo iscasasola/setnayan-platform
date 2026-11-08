@@ -266,6 +266,8 @@ const PRIVATE_SUBDIRS = new Set([
   '_sections', // 10 files, 4 carrying a literal destination (+3 after the fix)
   '_actions', //  15 files · see the correction below — contributes ZERO
   '_shared', //   2 files · same, contributes zero
+  '_pages', //    THE ONE BUILD (2026-11-08): the picked client's page bodies, clients/[eventId]/_pages/*.tsx —
+  //              mounted by the client shell; each carries doors (Your chats ›), so it is walked from the day it exists.
   //
   // 🛑 A CORRECTION TO MY OWN REASONING, LEFT HERE BECAUSE THE MISTAKE IS THE
   // USEFUL PART. I added `_actions` believing 15 files of `'use server'` were

@@ -407,6 +407,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // for it (that column reads the `chat_thread_reads` row this writes).
   const markedRead = (async () => {
     await writesWaitFor;
+    // THE ONE BUILD: the client's Quotation page draws the quote tool, not the conversation — opening it must not
+    // mark the couple's messages as read. Full screen and the client's Chat page do, as before.
+    if (embed === 'quotation') return;
     await markThreadRead(threadId).catch(() => undefined);
   })();
   const batchRead = msgTimer.track('thread', () => Promise.all([

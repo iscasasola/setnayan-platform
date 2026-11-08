@@ -7,7 +7,7 @@
  *   2 · Suppliers come from the brief's `vendor_roster` only — absent (not booked yet) draws nothing, never "none";
  *   3 · Schedule: Appointments sit right after the supplier's part, before the handover (v113: Appointments before the
  *       paperwork), drawn once.
- *   4 · Decisions is a door to Chat with one honest line (Build 1, no read of its own).
+ *   4 · Decisions is the list in place, drawn from the thread's one draw (Build 2 #42; was Build 1's door to Chat).
  *   5 · Schedule's month is the CLIENTS calendar (`CustomersCalendar place="schedule"`), never a second grid: first on
  *       the page, the event's day picked, one request on first view, a refused read SAID; in schedule place it writes
  *       no URL, feeds no Clients figures, draws no day bar.
@@ -31,7 +31,7 @@ const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 
 test('1 · Details in v113 order', () => {
   const d = PAGE.slice(PAGE.indexOf('const detailsShipped = ('), PAGE.indexOf('const bodies = pickedPageBodies({'));
-  const order = ['{pipelineBlock}', '<DetailsNumbersRow', '<HostsList', '{overviewNode}', '{coupleAnswersNode}', 'askBlock', '<SuppliersList', '<DetailsDecisionsDoor', '<DetailsFormsDoor'];
+  const order = ['{pipelineBlock}', '<DetailsNumbersRow', '<HostsList', '{overviewNode}', '{coupleAnswersNode}', 'askBlock', '<SuppliersList', '<DetailsDecisions ', '<DetailsFormsDoor'];
   const at = order.map((m) => d.indexOf(m));
   at.forEach((i, k) => assert.ok(i >= 0, `Details lost ${order[k]}`));
   for (let k = 1; k < at.length; k++) assert.ok(at[k - 1]! < at[k]!, `${order[k - 1]} is not before ${order[k]}`);
@@ -48,16 +48,14 @@ test('2 · Suppliers come from the brief’s roster; absent draws nothing', asyn
   assert.match(PAGE, /isBooked \? <SuppliersList rows=\{supplierRows\(\(brief as \{ vendor_roster\?: unknown \}\)\.vendor_roster\)\} \/> : null/);
 });
 
-test('4 · Decisions is a door to Chat with one honest line — no read of its own (Build 1)', async () => {
-  const { decisionsLine } = await import('./_components/details-decisions');
-  const peso = (n: number) => `₱${n}`;
-  assert.equal(decisionsLine(null, true, peso), 'Couldn’t load your quote', 'a refused read is worded as no quote');
-  assert.equal(decisionsLine(undefined, false, peso), 'No quote sent yet');
-  assert.equal(decisionsLine({ status: 'accepted', totalPhp: 40000 }, false, peso), 'Quote · ₱40000 · Accepted');
-  const door = stripComments(readFileSync(join(HERE, '_components/details-decisions-door.tsx'), 'utf8'));
-  assert.match(door, /nav\.select\('chat'\)/, 'Decisions does not open Chat');
-  assert.doesNotMatch(door, /\.from\(|fetch\(|supabase/, 'the Decisions door reads on its own');
-  assert.match(PAGE, /Boolean\(proposalRowsError\)/, 'the door is not told the quote read failed');
+// Build 2 #42 (8 Nov 2026): Build 1's door ("Decisions is a door to Chat with one honest line") became the LIST in place,
+// drawn from the thread's one draw. The no-own-read half of this test moved to `a-client-open-draws-the-thread-once`
+// (which measures it: Details adds 0 requests); here, only that Details mounts it with the thread it already holds.
+test('4 · Decisions is the list in place, mounted with the thread Details already holds (Build 2 #42)', () => {
+  assert.match(PAGE, /<DetailsDecisions threadId=\{threadId\} eventId=\{eventId\} \/>/);
+  const comp = stripComments(readFileSync(join(HERE, '_components/details-decisions.tsx'), 'utf8'));
+  assert.match(comp, /<SupplierThreadBody threadId=\{threadId\} view="decisions" \/>/, 'the list is not the thread page\u2019s draw');
+  assert.doesNotMatch(comp, /\.from\(|fetch\(|supabase/, 'the Decisions body reads on its own');
 });
 
 test('3 · Schedule: Appointments right after the supplier’s part, once', () => {

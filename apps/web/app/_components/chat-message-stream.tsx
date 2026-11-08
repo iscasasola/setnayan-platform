@@ -85,6 +85,7 @@ import { withThreadView, type ThreadView } from '@/lib/thread-view';
 import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
+  threadDecisionFacts,
   decisionsNeedingYou,
   type GuestCountFact,
   type PaymentFact,
@@ -714,88 +715,36 @@ export function ChatMessageStream({
    * is relative to the reader's present; baking a server timestamp into it
    * would leave a tab open overnight saying yesterday's number.
    */
-  const decisions = useMemo(() => {
-    const ms = (iso: string | null | undefined) => {
-      const t = iso ? Date.parse(iso) : NaN;
-      return Number.isFinite(t) ? t : null;
-    };
-
-    const quotes = messages
-      .filter((m) => m.proposal_id)
-      .map((m) => {
-        const card = proposalCards[m.proposal_id as string];
-        if (!card) return null;
-        return {
-          proposalId: m.proposal_id as string,
-          publicId: card.publicId,
-          announcedAtMs: ms(m.created_at) ?? 0,
-          title: card.title,
-          // Centavo-exact. `buildThreadDecisions` prints this through
-          // `formatPhp`, which keeps centavos only if they survive TO it — so a
-          // quote totalling ₱187,500.50 titled its own decision card
-          // "₱187,501": the figure the couple is being asked to accept, 50
-          // centavos off, in the chat thread where they accept it.
-          totalPhp: Math.round(card.totalCentavos) / 100,
-          status: card.status,
-          decidedAtMs: ms(card.resolvedAt),
-        };
-      })
-      .filter((x): x is NonNullable<typeof x> => x != null);
-
-    const meetings = messages
-      .filter((m) => m.appointment_id)
-      .map((m) => {
-        const card = appointmentCards[m.appointment_id as string];
-        if (!card) return null;
-        return {
-          appointmentId: m.appointment_id as string,
-          announcedAtMs: ms(m.created_at) ?? 0,
-          title: card.label,
-          scheduledAtMs: ms(card.scheduled_at),
-          previousScheduledAtMs: ms(apptPreviousAt[m.appointment_id as string]),
-          status: card.status as string,
-          initiatedBy: card.initiated_by,
-        };
-      })
-      .filter((x): x is NonNullable<typeof x> => x != null);
-
-    const adjustments = messages
-      .filter((m) => m.amendment_id)
-      .map((m) => {
-        const card = amendmentCards[m.amendment_id as string];
-        if (!card) return null;
-        const delta = card.items.reduce((sum, it) => sum + (it.amount_php ?? 0), 0);
-        return {
-          amendmentId: m.amendment_id as string,
-          announcedAtMs: ms(m.created_at) ?? 0,
-          title: card.data.note?.trim() || 'Adjustment',
-          deltaPhp: card.items.length > 0 ? delta : null,
-          status: card.data.status as string,
-          decidedAtMs: ms(card.data.lockedAt),
-          raisedBy: card.data.raised_by,
-        };
-      })
-      .filter((x): x is NonNullable<typeof x> => x != null);
-
-    return buildThreadDecisions({
-      viewer: viewerRole,
-      nowMs: Date.now(),
-      quotes,
-      meetings,
-      adjustments,
-      payments: decisionPayments,
-      guestCounts: decisionGuestCounts,
-    });
-  }, [
-    messages,
-    proposalCards,
-    appointmentCards,
-    apptPreviousAt,
-    amendmentCards,
-    viewerRole,
-    decisionPayments,
-    decisionGuestCounts,
-  ]);
+  const decisions = useMemo(
+    () =>
+      // 🔑 The merge is `threadDecisionFacts` (lib/thread-decisions.ts) — the SAME function the picked client's Details
+      // page runs on the thread page's one load (Build 2 #42), so the two lists cannot disagree.
+      buildThreadDecisions({
+        ...threadDecisionFacts({
+          viewer: viewerRole,
+          messages,
+          cards: {
+            quotes: proposalCards,
+            meetings: appointmentCards,
+            meetingPreviousAt: apptPreviousAt,
+            adjustments: amendmentCards,
+          },
+          payments: decisionPayments,
+          guestCounts: decisionGuestCounts,
+        }),
+        nowMs: Date.now(),
+      }),
+    [
+      messages,
+      proposalCards,
+      appointmentCards,
+      apptPreviousAt,
+      amendmentCards,
+      viewerRole,
+      decisionPayments,
+      decisionGuestCounts,
+    ],
+  );
 
   const needsYouCount = useMemo(() => decisionsNeedingYou(decisions), [decisions]);
 
